@@ -4,11 +4,13 @@ INTEL CORPORATION PROPRIETARY INFORMATION
 This software is supplied under the terms of a license agreement or nondisclosure
 agreement with Intel Corporation and may not be copied or disclosed except in
 accordance with the terms of that agreement
-Copyright(c) 2011 - 2012 Intel Corporation. All Rights Reserved.
+Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 
 \* ****************************************************************************** */
 
 #pragma once
+
+#if defined( _WIN32 ) || defined ( _WIN64 )
 
 #include "hw_device.h"
 
@@ -52,7 +54,7 @@ public:
 protected:
     mfxStatus CreateVideoProcessors();
     bool CheckOverlaySupport();
-    virtual mfxStatus FillD3DPP(mfxHDL hWindow, mfxU16 nViews, D3DPRESENT_PARAMETERS &D3DPP, mfxU32 nAdapterNum);
+    virtual mfxStatus FillD3DPP(mfxHDL hWindow, mfxU16 nViews, D3DPRESENT_PARAMETERS &D3DPP);
 private:
     IDirect3D9Ex*               m_pD3D9;
     IDirect3DDevice9Ex*         m_pD3DD9;
@@ -84,3 +86,4 @@ private:
     DXVA2_VideoSample               m_Sample;
 };
 
+#endif // #if defined( _WIN32 ) || defined ( _WIN64 )

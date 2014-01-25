@@ -31,7 +31,7 @@ File Name: mfxplugin.h
 #define __MFXPLUGIN_H__
 #include "mfxvideo.h"
 
-#pragma warning(disable: 4201)
+//#pragma warning(disable: 4201)
 
 #ifdef __cplusplus
 extern "C"
@@ -39,12 +39,29 @@ extern "C"
 #endif /* __cplusplus */
 
 typedef enum {
+    MFX_PLUGINTYPE_VIDEO_GENERAL   = 0,
+    MFX_PLUGINTYPE_VIDEO_DECODE    = 1,
+    MFX_PLUGINTYPE_VIDEO_ENCODE    = 2,
+    MFX_PLUGINTYPE_VIDEO_VPP       = 3
+} mfxPluginType;
+
+typedef enum {
     MFX_THREADPOLICY_SERIAL    = 0,
     MFX_THREADPOLICY_PARALLEL    = 1
 } mfxThreadPolicy;
 
+typedef struct {
+    mfxU8  Data[16];
+} mfxPluginUID;
+
 typedef struct mfxPluginParam {
-    mfxU32  reserved[14];
+    mfxU32  reserved[6];
+    mfxU16  reserved1;
+    mfxU16  PluginVersion;
+    mfxVersion   APIVersion;
+    mfxPluginUID PluginUID;
+    mfxU32  Type;
+    mfxU32  CodecId;
     mfxThreadPolicy ThreadPolicy;
     mfxU32  MaxThreadNum;
 } mfxPluginParam;
@@ -79,6 +96,27 @@ typedef struct mfxCoreInterface {
     mfxHDL reserved4[4];
 } mfxCoreInterface;
 
+/* video codec plugin extension*/
+typedef struct mfxVideoCodecPlugin{
+    mfxStatus (MFX_CDECL *Query)(mfxHDL pthis, mfxVideoParam *in, mfxVideoParam *out);
+    mfxStatus (MFX_CDECL *QueryIOSurf)(mfxHDL pthis, mfxVideoParam *par, mfxFrameAllocRequest *in, mfxFrameAllocRequest *out); 
+    mfxStatus (MFX_CDECL *Init)(mfxHDL pthis, mfxVideoParam *par);
+    mfxStatus (MFX_CDECL *Reset)(mfxHDL pthis, mfxVideoParam *par);
+    mfxStatus (MFX_CDECL *Close)(mfxHDL pthis);
+    mfxStatus (MFX_CDECL *GetVideoParam)(mfxHDL pthis, mfxVideoParam *par);
+
+    mfxStatus (MFX_CDECL *EncodeFrameSubmit)(mfxHDL pthis, mfxEncodeCtrl *ctrl, mfxFrameSurface1 *surface, mfxBitstream *bs, mfxThreadTask *task);
+    
+    mfxStatus (MFX_CDECL *DecodeHeader)(mfxHDL pthis, mfxBitstream *bs, mfxVideoParam *par);
+    mfxStatus (MFX_CDECL *GetPayload)(mfxHDL pthis, mfxU64 *ts, mfxPayload *payload);
+    mfxStatus (MFX_CDECL *DecodeFrameSubmit)(mfxHDL pthis, mfxBitstream *bs, mfxFrameSurface1 *surface_work, mfxFrameSurface1 **surface_out,  mfxThreadTask *task);
+
+    mfxStatus (MFX_CDECL *VPPFrameSubmit)(mfxHDL pthis,  mfxFrameSurface1 *in, mfxFrameSurface1 *out, mfxExtVppAuxData *aux, mfxThreadTask *task);
+
+    mfxHDL reserved1[5];
+    mfxU32 reserved2[8];
+} mfxVideoCodecPlugin;
+
 typedef struct mfxPlugin{
     mfxHDL pthis;
 
@@ -91,15 +129,19 @@ typedef struct mfxPlugin{
     mfxStatus (MFX_CDECL *Execute)(mfxHDL pthis, mfxThreadTask task, mfxU32 uid_p, mfxU32 uid_a);
     mfxStatus (MFX_CDECL *FreeResources)(mfxHDL pthis, mfxThreadTask task, mfxStatus sts);
 
-    mfxHDL reserved[9];
+    mfxVideoCodecPlugin  *Video;
+
+    mfxHDL reserved[8];
 } mfxPlugin;
 
 
 
 mfxStatus MFX_CDECL MFXVideoUSER_Register(mfxSession session, mfxU32 type, const mfxPlugin *par);
 mfxStatus MFX_CDECL MFXVideoUSER_Unregister(mfxSession session, mfxU32 type);
-
 mfxStatus MFX_CDECL MFXVideoUSER_ProcessFrameAsync(mfxSession session, const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfxU32 out_num, mfxSyncPoint *syncp);
+
+mfxStatus MFX_CDECL MFXVideoUSER_Load(mfxSession session, const mfxPluginUID *uid, mfxU32 version);
+mfxStatus MFX_CDECL MFXVideoUSER_UnLoad(mfxSession session, const mfxPluginUID *uid);
 
 #ifdef __cplusplus
 } // extern "C"

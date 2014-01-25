@@ -11,11 +11,12 @@ Copyright(c) 2011-2013 Intel Corporation. All Rights Reserved.
 #ifndef __D3D11_ALLOCATOR_H__
 #define __D3D11_ALLOCATOR_H__
 
-// defines MFX_D3D11_SUPPORT
-#include "sample_defs.h"
-
 #include "base_allocator.h"
 #include <limits>
+
+#ifdef __gnu_linux__
+#include <stdint.h> // for uintptr_t on Linux
+#endif
 
 //application can provide either generic mid from surface or this wrapper
 //wrapper distinguishes from generic mid by highest 1 bit
@@ -102,7 +103,7 @@ private:
     mfxMemId   m_mid_to_report;
 };
 
-#if MFX_D3D11_SUPPORT
+#if (defined(_WIN32) || defined(_WIN64))
 
 #include <d3d11.h>
 #include <vector>
@@ -248,6 +249,5 @@ protected:
     std::vector<referenceType> m_memIdMap;
 };
 
-#endif // #if MFX_D3D11_SUPPORT
-
+#endif // #if defined(_WIN32) || defined(_WIN64)
 #endif // __D3D11_ALLOCATOR_H__

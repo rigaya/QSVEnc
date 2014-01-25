@@ -26,13 +26,13 @@
 
 //defined(_M_IX86)は32bitであることのチェック
 #if (defined(_M_IX86) && !defined(QSVENC_AUO))
-#define ENABLE_VAPOURSYNTH_READER 1
+#define ENABLE_VAPOURSYNTH_READER 0
 #else
 #define ENABLE_VAPOURSYNTH_READER 0
 #endif
 
 #ifndef QSVENC_AUO
-#define ENABLE_AVISYNTH_READER 1
+#define ENABLE_AVISYNTH_READER 0
 #define ENABLE_AVI_READER 1
 #else
 #define ENABLE_AVISYNTH_READER 0

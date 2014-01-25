@@ -4,7 +4,7 @@ INTEL CORPORATION PROPRIETARY INFORMATION
 This software is supplied under the terms of a license agreement or nondisclosure
 agreement with Intel Corporation and may not be copied or disclosed except in
 accordance with the terms of that agreement
-Copyright(c) 2008-2012 Intel Corporation. All Rights Reserved.
+Copyright(c) 2008-2013 Intel Corporation. All Rights Reserved.
 
 \* ****************************************************************************** */
 
@@ -86,10 +86,10 @@ protected:
         // compare responses by actual frame size, alignment (w and h) is up to application
         UniqueResponse(const mfxFrameAllocResponse & response, mfxU16 cropw, mfxU16 croph, mfxU16 type)
             : mfxFrameAllocResponse(response)
-            , m_type(type)
-            , m_refCount(1)
             , m_cropw(cropw)
             , m_croph(croph)
+            , m_refCount(1)
+            , m_type(type)
         { 
         } 
         //compare by resolution

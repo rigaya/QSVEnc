@@ -20,6 +20,7 @@
 #include "qsv_prm.h"
 
 #include "sample_defs.h"
+#include "hw_device.h"
 
 #ifdef D3D_SURFACES_SUPPORT
 #pragma warning(disable : 4201)
@@ -27,7 +28,6 @@
 #include <dxva2api.h>
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "dxva2.lib")
-#include "hw_device.h"
 #endif
 
 #include "sample_utils.h"
@@ -36,6 +36,7 @@
 #include "mfxmvc.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
+#include "mfxplugin.h"
 #include "mfxplugin++.h"
 
 #include "scene_change_detection.h"
@@ -45,7 +46,6 @@
 #include <iostream>
 
 #pragma comment(lib, "libmfx.lib")
-#pragma comment(lib, "libmfxmd.lib")
 
 
 typedef std::basic_string<TCHAR> tstring;
@@ -154,6 +154,10 @@ protected:
 
 	mfxVideoParam m_mfxEncParams;
 	mfxVideoParam m_mfxVppParams;
+    
+    mfxPluginUID m_UID_HEVC; 
+    std::auto_ptr<MFXPlugin> m_pHEVC_plugin;  
+    std::auto_ptr<MFXVideoUSER>  m_pUserModule;
 
 
 	std::vector<mfxExtBuffer*> m_EncExtParams;
@@ -192,9 +196,8 @@ protected:
 	// for disabling VPP algorithms
 	//mfxExtVPPDoNotUse m_VppDoNotUse;
 
-#if D3D_SURFACES_SUPPORT
 	CHWDevice *m_hwdev;
-#endif
+
 	virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
 	virtual mfxStatus InitInOut(sInputParams *pParams);

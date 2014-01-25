@@ -4,7 +4,7 @@ INTEL CORPORATION PROPRIETARY INFORMATION
 This software is supplied under the terms of a license agreement or nondisclosure
 agreement with Intel Corporation and may not be copied or disclosed except in
 accordance with the terms of that agreement
-Copyright(c) 2008-2012 Intel Corporation. All Rights Reserved.
+Copyright(c) 2008-2013 Intel Corporation. All Rights Reserved.
 
 \* ****************************************************************************** */
 
@@ -55,13 +55,14 @@ mfxStatus SysMemFrameAllocator::Init(mfxAllocatorParams *pParams)
 
 mfxStatus SysMemFrameAllocator::Close()
 {
+    mfxStatus sts = BaseFrameAllocator::Close();
+
     if (m_bOwnBufferAllocator)
     {
         delete m_pBufferAllocator;
         m_pBufferAllocator = 0;
     }
-
-    return BaseFrameAllocator::Close();
+    return sts;
 }
 
 mfxStatus SysMemFrameAllocator::LockFrame(mfxMemId mid, mfxFrameData *ptr)
@@ -275,7 +276,7 @@ mfxStatus SysMemBufferAllocator::AllocBuffer(mfxU32 nbytes, mfxU16 type, mfxMemI
         return MFX_ERR_UNSUPPORTED;
 
     mfxU32 header_size = MSDK_ALIGN32(sizeof(sBuffer));
-    mfxU8 *buffer_ptr = (mfxU8 *)calloc(header_size + nbytes, 1);
+    mfxU8 *buffer_ptr = (mfxU8 *)calloc(header_size + nbytes + 32, 1);
 
     if (!buffer_ptr) 
         return MFX_ERR_MEMORY_ALLOC;
@@ -300,7 +301,7 @@ mfxStatus SysMemBufferAllocator::LockBuffer(mfxMemId mid, mfxU8 **ptr)
     if (ID_BUFFER != bs->id) 
         return MFX_ERR_INVALID_HANDLE;    
 
-    *ptr = (mfxU8 *)bs + MSDK_ALIGN32(sizeof(sBuffer));
+    *ptr = (mfxU8*)((size_t)((mfxU8 *)bs+MSDK_ALIGN32(sizeof(sBuffer))+31)&(~((size_t)31)));
     return MFX_ERR_NONE;
 }
 

@@ -4,12 +4,14 @@ INTEL CORPORATION PROPRIETARY INFORMATION
 This software is supplied under the terms of a license agreement or nondisclosure
 agreement with Intel Corporation and may not be copied or disclosed except in
 accordance with the terms of that agreement
-Copyright(c) 2008-2012 Intel Corporation. All Rights Reserved.
+Copyright(c) 2008-2013 Intel Corporation. All Rights Reserved.
 
 \* ****************************************************************************** */
 
 #ifndef __D3D_ALLOCATOR_H__
 #define __D3D_ALLOCATOR_H__
+
+#if defined( _WIN32 ) || defined ( _WIN64 )
 
 #include <atlbase.h>
 #include <d3d9.h>
@@ -66,4 +68,5 @@ protected:
     DWORD m_surfaceUsage;
 };
 
+#endif // #if defined( _WIN32 ) || defined ( _WIN64 )
 #endif // __D3D_ALLOCATOR_H__

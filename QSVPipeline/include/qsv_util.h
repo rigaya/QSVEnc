@@ -4,12 +4,23 @@
 #include <Windows.h>
 #include <tchar.h>
 #include <shlwapi.h>
+#include <emmintrin.h>
 #pragma comment(lib, "shlwapi.lib")
 #include "mfxstructures.h"
+
+#ifndef MIN3
+#define MIN3(a,b,c) (min((a), min((b), (c))))
+#endif
+#ifndef MAX3
+#define MAX3(a,b,c) (max((a), max((b), (c))))
+#endif
 
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
+
+mfxU32 GCD(mfxU32 a, mfxU32 b);
+mfxI64 GCDI64(mfxI64 a, mfxI64 b);
 
 static const mfxVersion LIB_VER_LIST[] = {
 	{ 0, 0 },
@@ -45,12 +56,44 @@ static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 	return (_tcsicmp(PathFindExtension(filename), ext) == NULL) ? TRUE : FALSE;
 }
 
+BOOL check_OS_Win8orLater();
+bool isHaswellOrLater();
 
-static BOOL check_OS_Win8orLater() {
-	OSVERSIONINFO osvi = { 0 };
-	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	GetVersionEx(&osvi);
-	return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
+mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
+
+const TCHAR *get_err_mes(int sts);
+
+static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
+	BYTE *dst_fin = dst + size;
+	BYTE *dst_aligned_fin = (BYTE *)(((size_t)dst_fin & ~15) - 64);
+	__m128 x0, x1, x2, x3;
+	const int start_align_diff = (int)((size_t)dst & 15);
+	if (start_align_diff) {
+		x0 = _mm_loadu_ps((float*)src);
+		_mm_storeu_ps((float*)dst, x0);
+		dst += start_align_diff;
+		src += start_align_diff;
+	}
+	for ( ; dst < dst_aligned_fin; dst += 64, src += 64) {
+		x0 = _mm_loadu_ps((float*)(src +  0));
+		x1 = _mm_loadu_ps((float*)(src + 16));
+		x2 = _mm_loadu_ps((float*)(src + 32));
+		x3 = _mm_loadu_ps((float*)(src + 48));
+		_mm_store_ps((float*)(dst +  0), x0);
+		_mm_store_ps((float*)(dst + 16), x1);
+		_mm_store_ps((float*)(dst + 32), x2);
+		_mm_store_ps((float*)(dst + 48), x3);
+	}
+	BYTE *dst_tmp = dst_fin - 64;
+	src -= (dst - dst_tmp);
+	x0 = _mm_loadu_ps((float*)(src +  0));
+	x1 = _mm_loadu_ps((float*)(src + 16));
+	x2 = _mm_loadu_ps((float*)(src + 32));
+	x3 = _mm_loadu_ps((float*)(src + 48));
+	_mm_storeu_ps((float*)(dst_tmp +  0), x0);
+	_mm_storeu_ps((float*)(dst_tmp + 16), x1);
+	_mm_storeu_ps((float*)(dst_tmp + 32), x2);
+	_mm_storeu_ps((float*)(dst_tmp + 48), x3);
 }
 
 const int MAX_FILENAME_LEN = 1024;

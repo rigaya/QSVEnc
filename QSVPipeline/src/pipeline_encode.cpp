@@ -29,6 +29,16 @@
 #include "d3d11_device.h"
 #endif
 
+#ifdef LIBVA_SUPPORT
+#include "vaapi_allocator.h"
+#include "vaapi_device.h"
+#endif
+
+//#include "../../sample_user_modules/plugin_api/plugin_loader.h"
+
+//Library plugin UIDs
+const mfxU8 HEVC_ENCODER_UID[] = {0x2f,0xca,0x99,0x74,0x9f,0xdb,0x49,0xae,0xb1,0x21,0xa5,0xb6,0x3e,0xf5,0x68,0xf7};
+
 CEncTaskPool::CEncTaskPool()
 {
 	m_pTasks  = NULL;
@@ -820,9 +830,8 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 
 mfxStatus CEncodingPipeline::CreateHWDevice()
 {
-#if D3D_SURFACES_SUPPORT
 	mfxStatus sts = MFX_ERR_NONE;
-
+#if D3D_SURFACES_SUPPORT
 	POINT point = {0, 0};
 	HWND window = WindowFromPoint(point);
 	m_hwdev = NULL;
@@ -836,7 +845,7 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
 			sts = m_hwdev->Init(
 				window,
 				0,
-				GetMSDKAdapterNumber(m_mfxSession));
+				MSDKAdapter::GetNumber(m_mfxSession));
 			if (sts != MFX_ERR_NONE) {
 				m_hwdev->Close();
 				delete m_hwdev;
@@ -855,30 +864,31 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
 			sts = m_hwdev->Init(
 				window,
 				0,
-				GetMSDKAdapterNumber(m_mfxSession));
+				MSDKAdapter::GetNumber(m_mfxSession));
 		}
 	}
 	
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-	return MFX_ERR_NONE;
-#else
-	return MFX_ERR_MEMORY_ALLOC;
-#endif // #if D3D_SURFACES_SUPPORT
+	
+#elif LIBVA_SUPPORT
+    m_hwdev = CreateVAAPIDevice();
+    if (NULL == m_hwdev)
+    {
+        return MFX_ERR_MEMORY_ALLOC;
+    }
+    sts = m_hwdev->Init(NULL, 0, MSDKAdapter::GetNumber(m_mfxSession));
+    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+#endif
+    return MFX_ERR_NONE;
 }
 
 mfxStatus CEncodingPipeline::ResetDevice()
 {
 	if (m_memType & (D3D9_MEMORY | D3D11_MEMORY))
 	{
-#if D3D_SURFACES_SUPPORT
 		return m_hwdev->Reset();
-#endif
 	}
-	else
-	{
-		return MFX_ERR_NONE;
-	}
+	return MFX_ERR_NONE;
 }
 
 mfxStatus CEncodingPipeline::AllocFrames()
@@ -1053,9 +1063,57 @@ mfxStatus CEncodingPipeline::CreateAllocator()
 
         m_bExternalAlloc = true;
 #endif
+#ifdef LIBVA_SUPPORT
+        sts = CreateHWDevice();
+        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        /* It's possible to skip failed result here and switch to SW implementation,
+        but we don't process this way */
+
+        mfxHDL hdl = NULL;
+        sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
+        // provide device manager to MediaSDK
+        sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
+        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+
+        // create VAAPI allocator
+        m_pMFXAllocator = new vaapiFrameAllocator;
+        MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
+
+        vaapiAllocatorParams *p_vaapiAllocParams = new vaapiAllocatorParams;
+        MSDK_CHECK_POINTER(p_vaapiAllocParams, MFX_ERR_MEMORY_ALLOC);
+
+        p_vaapiAllocParams->m_dpy = (VADisplay)hdl;
+        m_pmfxAllocatorParams = p_vaapiAllocParams;
+
+        /* In case of video memory we must provide MediaSDK with external allocator 
+        thus we demonstrate "external allocator" usage model.
+        Call SetAllocator to pass allocator to mediasdk */
+        sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator);
+        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+
+        m_bExternalAlloc = true;
+#endif
     }
     else
     {
+#ifdef LIBVA_SUPPORT
+        //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
+        mfxIMPL impl;
+        m_mfxSession.QueryIMPL(&impl);
+
+        if(MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl))
+        {
+            sts = CreateHWDevice();
+            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+
+            mfxHDL hdl = NULL;
+            sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
+            // provide device manager to MediaSDK
+            sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
+            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        }
+#endif
+
         // create system memory allocator
         m_pMFXAllocator = new SysMemFrameAllocator;
         MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
@@ -1528,6 +1586,14 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	sts = InitSession(pParams->bUseHWLib, pParams->memType);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
+    //Load library plug-in
+    //if (pParams->IsUseHEVCEncoderPlugin)
+    //{
+    //    MSDK_MEMCPY(m_UID_HEVC.Data, HEVC_ENCODER_UID, 16);
+    //    sts = MFXVideoUSER_Load(m_mfxSession, &m_UID_HEVC, pParams->HEVCPluginVersion);
+    //}
+   //MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+
 	// create and init frame allocator
 	sts = CreateAllocator();
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -1608,6 +1674,9 @@ void CEncodingPipeline::Close()
 
 	MSDK_SAFE_DELETE(m_pmfxENC);
 	MSDK_SAFE_DELETE(m_pmfxVPP);
+
+    MFXVideoUSER_UnLoad(m_mfxSession, &m_UID_HEVC);
+    m_pHEVC_plugin.reset();
 
 #if ENABLE_MVC_ENCODING
 	FreeMVCSeqDesc();
@@ -2411,7 +2480,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	}
 	//if (SrcPicInfo.CropW != DstPicInfo.CropW || SrcPicInfo.CropH != DstPicInfo.CropH)
 	//	PRINT_INFO(_T("Resolution              %dx%d -> %dx%d\n"), SrcPicInfo.CropW, SrcPicInfo.CropH, DstPicInfo.CropW, DstPicInfo.CropH);
-	PRINT_INFO(    _T("Output Video            %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId),
+	PRINT_INFO(    _T("Output Video            %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
 		                                             get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
 		                                             get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
 	PRINT_INFO(    _T("                        %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
@@ -2496,7 +2565,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 
 	if (Check_HWUsed(impl)) {
 		static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
-		mfxU32 iGPUID = GetMSDKAdapterNumber(m_mfxSession);
+		mfxU32 iGPUID = MSDKAdapter::GetNumber(m_mfxSession);
 		PRINT_INFO(_T("Intel iGPU ID           %d%s GPU\n"), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)]);
 	}
 	PRINT_INFO(    _T("Media SDK impl          %s, API v%d.%d\n"), (Check_HWUsed(impl)) ? _T("QuickSyncVideo (hardware encoder)") : _T("software encoder"), m_mfxVer.Major, m_mfxVer.Minor);

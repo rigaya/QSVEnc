@@ -251,6 +251,7 @@
     <ClCompile Include="src\d3d_allocator.cpp" />
     <ClCompile Include="src\d3d_device.cpp" />
     <ClCompile Include="src\pipeline_encode.cpp" />
+    <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
     <ClCompile Include="src\qsv_util.cpp" />
     <ClCompile Include="src\sample_utils.cpp" />
@@ -276,6 +277,7 @@
     <ClInclude Include="include\d3d_device.h" />
     <ClInclude Include="include\hw_device.h" />
     <ClInclude Include="include\pipeline_encode.h" />
+    <ClInclude Include="include\qsv_control.h" />
     <ClInclude Include="include\qsv_prm.h" />
     <ClInclude Include="include\qsv_util.h" />
     <ClInclude Include="include\qsv_version.h" />
@@ -283,6 +285,8 @@
     <ClInclude Include="include\sample_utils.h" />
     <ClInclude Include="include\scene_change_detection.h" />
     <ClInclude Include="include\scene_change_detection_simd.h" />
+    <ClInclude Include="include\shared_ptr.h" />
+    <ClInclude Include="include\surface_auto_lock.h" />
     <ClInclude Include="include\sysmem_allocator.h" />
     <ClInclude Include="include\vpp_ex.h" />
     <ClInclude Include="include\vpy_reader.h" />
