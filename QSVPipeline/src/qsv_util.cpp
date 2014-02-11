@@ -100,6 +100,26 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 	buf.push_back((mfxExtBuffer *)&cop);
 	buf.push_back((mfxExtBuffer *)&cop2);
 
+#define SET_DEFAULT_QUALITY_PRM { \
+	if (   videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VBR \
+		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR \
+		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CBR \
+		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA \
+		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VCM) { \
+		videoPrm.mfx.TargetKbps = 3000; \
+		videoPrm.mfx.MaxKbps    = 15000; \
+	} else if ( \
+		   videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP \
+		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VQP) { \
+		videoPrm.mfx.QPI = 23; \
+		videoPrm.mfx.QPP = 23; \
+		videoPrm.mfx.QPB = 23; \
+	} else { \
+		videoPrm.mfx.ICQQuality = 23; \
+		videoPrm.mfx.MaxKbps    = 15000; \
+	} \
+	}
+
 	mfxVideoParam videoPrm;
 	MSDK_ZERO_MEMORY(videoPrm);
 	videoPrm.NumExtParam = (mfxU16)buf.size();
@@ -107,27 +127,11 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 	videoPrm.AsyncDepth                  = 3;
 	videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
 	videoPrm.mfx.CodecId                 = MFX_CODEC_AVC;
-	videoPrm.mfx.RateControlMethod       = ratecontrol;
+	videoPrm.mfx.RateControlMethod       = (ratecontrol == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : ratecontrol;
 	videoPrm.mfx.CodecLevel              = MFX_LEVEL_AVC_41;
 	videoPrm.mfx.CodecProfile            = MFX_PROFILE_AVC_HIGH;
 	videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BEST_QUALITY;
-	if (   ratecontrol == MFX_RATECONTROL_VBR
-		|| ratecontrol == MFX_RATECONTROL_AVBR
-		|| ratecontrol == MFX_RATECONTROL_CBR
-		|| ratecontrol == MFX_RATECONTROL_LA
-		|| ratecontrol == MFX_RATECONTROL_VCM) {
-		videoPrm.mfx.TargetKbps = 3000;
-		videoPrm.mfx.MaxKbps    = 15000;
-	} else if (
-		   ratecontrol == MFX_RATECONTROL_CQP
-		|| ratecontrol == MFX_RATECONTROL_VQP) {
-		videoPrm.mfx.QPI = 23;
-		videoPrm.mfx.QPP = 23;
-		videoPrm.mfx.QPB = 23;
-	} else {
-		videoPrm.mfx.ICQQuality          = 23;
-		videoPrm.mfx.MaxKbps             = 15000;
-	}
+	SET_DEFAULT_QUALITY_PRM;
 	videoPrm.mfx.EncodedOrder            = 0;
 	videoPrm.mfx.NumSlice                = 1;
 	videoPrm.mfx.NumRefFrame             = 2;
@@ -141,7 +145,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 	videoPrm.mfx.FrameInfo.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
 	videoPrm.mfx.FrameInfo.AspectRatioW  = 1;
 	videoPrm.mfx.FrameInfo.AspectRatioH  = 1;
-	videoPrm.mfx.FrameInfo.Width         = 1440;
+	videoPrm.mfx.FrameInfo.Width         = 1280;
 	videoPrm.mfx.FrameInfo.Height        = 720;
 	videoPrm.mfx.FrameInfo.CropX         = 0;
 	videoPrm.mfx.FrameInfo.CropY         = 0;
@@ -168,7 +172,29 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 
 	if (MFX_ERR_NONE == ret) {
 
-		//ひとつひとつパラメータを入れ替えて試していく
+		//まず、エンコードモードについてチェック
+#define CHECK_ENC_MODE(mode, flag) { \
+		mfxU16 original_method = videoPrm.mfx.RateControlMethod; \
+		videoPrm.mfx.RateControlMethod = mode; \
+		SET_DEFAULT_QUALITY_PRM; \
+		MSDK_MEMCPY(&copOut, &cop, sizeof(cop)); \
+		MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
+		MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
+		videoPrm.NumExtParam = (mfxU16)bufOut.size(); \
+		videoPrm.ExtParam = &bufOut[0]; \
+		if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
+			result |= (flag); \
+		videoPrm.mfx.RateControlMethod = original_method; \
+	}
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)) {
+			CHECK_ENC_MODE(MFX_RATECONTROL_LA, ENC_FEATURE_LA);
+		}
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+			CHECK_ENC_MODE(MFX_RATECONTROL_ICQ, ENC_FEATURE_ICQ);
+			CHECK_ENC_MODE(MFX_RATECONTROL_VCM, ENC_FEATURE_VCM);
+		}
+#undef CHECK_ENC_MODE
+	
 #define CHECK_FEATURE(members, flag, value) { \
 		(members) = value; \
 		MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop)); \
@@ -177,7 +203,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 			result |= (flag); \
 		(members) = 0; \
 	}\
-
+		//ひとつひとつパラメータを入れ替えて試していく
 		CHECK_FEATURE(cop.AUDelimiter,       ENC_FEATURE_AUD,        MFX_CODINGOPTION_ON);
 		CHECK_FEATURE(cop.PicTimingSEI,      ENC_FEATURE_PIC_STRUCT, MFX_CODINGOPTION_ON);
 		CHECK_FEATURE(cop.RateDistortionOpt, ENC_FEATURE_RDO,        MFX_CODINGOPTION_ON);
@@ -193,8 +219,24 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 			CHECK_FEATURE(cop2.AdaptiveI,    ENC_FEATURE_ADAPTIVE_I, MFX_CODINGOPTION_ON);
 			CHECK_FEATURE(cop2.AdaptiveB,    ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON);
 			CHECK_FEATURE(cop2.BRefType,     ENC_FEATURE_B_PYRAMID,  MFX_B_REF_PYRAMID);
+			if (result & ENC_FEATURE_LA) {
+				CHECK_FEATURE(cop2.LookAheadDS, ENC_FEATURE_LA_DS,   MFX_LOOKAHEAD_DS_2x);
+			}
+		}
+
+		//以下特殊な場合
+		if (   MFX_RATECONTROL_LA     == ratecontrol
+			|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {
+			result &= ~ENC_FEATURE_RDO;
+			result &= ~ENC_FEATURE_MBBRC;
+			result &= ~ENC_FEATURE_EXT_BRC;
+		} else if (MFX_RATECONTROL_CQP == ratecontrol) {
+			result &= ~ENC_FEATURE_MBBRC;
+			result &= ~ENC_FEATURE_EXT_BRC;
 		}
 	}
+#undef CHECK_FEATURE
+#undef SET_DEFAULT_QUALITY_PRM
 	return result;
 }
 
@@ -219,17 +261,21 @@ void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str) {
 	str += (features & feature_flag) ? _T("yes") : _T("no"); \
 	str += _T("\n"); \
 	}
-
-	ADD_FEATURE_STR(ENC_FEATURE_AUD,        _T("aud         "));
-	ADD_FEATURE_STR(ENC_FEATURE_PIC_STRUCT, _T("pic_struct  "));
-	ADD_FEATURE_STR(ENC_FEATURE_TRELLIS,    _T("trellis     "));
-	ADD_FEATURE_STR(ENC_FEATURE_RDO,        _T("rdo         "));
-	ADD_FEATURE_STR(ENC_FEATURE_CAVLC,      _T("cavlc       "));
-	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_I, _T("adaptive_i  "));
-	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_B, _T("adaptive_b  "));
-	ADD_FEATURE_STR(ENC_FEATURE_B_PYRAMID,  _T("b_pyramid   "));
-	ADD_FEATURE_STR(ENC_FEATURE_EXT_BRC,    _T("ext_brc     "));
-	ADD_FEATURE_STR(ENC_FEATURE_MBBRC,      _T("mbbrc       "));
+	
+	ADD_FEATURE_STR(ENC_FEATURE_LA,         _T(" Lookahead mode     "));
+	ADD_FEATURE_STR(ENC_FEATURE_LA_DS,      _T(" Lookahead Quality  "));
+	ADD_FEATURE_STR(ENC_FEATURE_ICQ,        _T(" ICQ mode           "));
+	ADD_FEATURE_STR(ENC_FEATURE_VCM,        _T(" VCM mode           "));
+	ADD_FEATURE_STR(ENC_FEATURE_AUD,        _T(" aud                "));
+	ADD_FEATURE_STR(ENC_FEATURE_PIC_STRUCT, _T(" pic_struct         "));
+	ADD_FEATURE_STR(ENC_FEATURE_TRELLIS,    _T(" trellis            "));
+	ADD_FEATURE_STR(ENC_FEATURE_RDO,        _T(" rdo                "));
+	ADD_FEATURE_STR(ENC_FEATURE_CAVLC,      _T(" cavlc              "));
+	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_I, _T(" adaptive_i         "));
+	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_B, _T(" adaptive_b         "));
+	ADD_FEATURE_STR(ENC_FEATURE_B_PYRAMID,  _T(" b_pyramid          "));
+	ADD_FEATURE_STR(ENC_FEATURE_EXT_BRC,    _T(" ext_brc            "));
+	ADD_FEATURE_STR(ENC_FEATURE_MBBRC,      _T(" mbbrc              "));
 
 #undef ADD_FEATURE_STR
 

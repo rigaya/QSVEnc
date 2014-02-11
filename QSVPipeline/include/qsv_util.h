@@ -63,6 +63,10 @@ enum {
 	ENC_FEATURE_TRELLIS    = 0x00000080,
 	ENC_FEATURE_EXT_BRC    = 0x00000100,
 	ENC_FEATURE_MBBRC      = 0x00000200,
+	ENC_FEATURE_LA         = 0x00000400,
+	ENC_FEATURE_LA_DS      = 0x00000800,
+	ENC_FEATURE_ICQ        = 0x00001000,
+	ENC_FEATURE_VCM        = 0x00002000,
 };
 mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver);
