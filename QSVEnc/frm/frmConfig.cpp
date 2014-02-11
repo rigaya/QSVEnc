@@ -710,23 +710,23 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 	fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
 
 	const bool b_mfxlib_1_6 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_6.Version) != 0;
-	fcgCBExtBRC->Visible = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_EXT_BRC);
-	fcgCBMBBRC->Visible  = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_MBBRC);
+	fcgCBExtBRC->Enabled = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_EXT_BRC);
+	fcgCBMBBRC->Enabled  = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_MBBRC);
 
 	const bool b_mfxlib_1_7 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_7.Version) != 0;
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA, MFX_RATECONTROL_VBR, mfxlib_current, MFX_LIB_VERSION_1_7);
-	fcgLBTrellis->Visible = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
-	fcgCXTrellis->Visible = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
+	fcgLBTrellis->Enabled = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
+	fcgCXTrellis->Enabled = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
 	
 	const bool b_mfxlib_1_8 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_8.Version) != 0;
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, mfxlib_current, MFX_LIB_VERSION_1_8);
-	fcgCBAdaptiveB->Visible   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
-	fcgCBAdaptiveI->Visible   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
-	fcgCBBPyramid->Visible    = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_B_PYRAMID);
-	fcgLBLookaheadDS->Visible = b_mfxlib_1_8;
-	fcgCXLookaheadDS->Visible = b_mfxlib_1_8;
+	fcgCBAdaptiveB->Enabled   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
+	fcgCBAdaptiveI->Enabled   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
+	fcgCBBPyramid->Enabled    = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_B_PYRAMID);
+	fcgLBLookaheadDS->Enabled = b_mfxlib_1_8;
+	fcgCXLookaheadDS->Enabled = b_mfxlib_1_8;
 
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
@@ -771,10 +771,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgPNLookahead->Visible = la_mode;
 	fcgLBLookaheadDepth->Enabled = la_mode;
 	fcgNULookaheadDepth->Enabled = la_mode;
-	if (fcgCXLookaheadDS->Visible) {
-		fcgLBLookaheadDS->Enabled = la_mode;
-		fcgCXLookaheadDS->Enabled = la_mode;
-	}
+	fcgLBLookaheadDS->Visible = la_mode;
+	fcgCXLookaheadDS->Visible = la_mode;
 
 	fcgNURef->Visible = !fcgCBHWEncode->Checked;
 	fcgLBRef->Visible = !fcgCBHWEncode->Checked;
