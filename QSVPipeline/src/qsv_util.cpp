@@ -169,27 +169,31 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 	if (MFX_ERR_NONE == ret) {
 
 		//ひとつひとつパラメータを入れ替えて試していく
-#define CHECK_FEATURE(members, flag) { \
-		(members) = MFX_CODINGOPTION_ON; \
+#define CHECK_FEATURE(members, flag, value) { \
+		(members) = value; \
 		MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop)); \
 		MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
+		MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
 		if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
 			result |= (flag); \
-		(members) = MFX_CODINGOPTION_UNKNOWN; \
+		(members) = 0; \
 	}\
 
-		CHECK_FEATURE(cop.AUDelimiter,       ENC_FEATURE_AUD);
-		CHECK_FEATURE(cop.PicTimingSEI,      ENC_FEATURE_PIC_STRUCT);
-		CHECK_FEATURE(cop.RateDistortionOpt, ENC_FEATURE_RDO);
-		CHECK_FEATURE(cop.CAVLC,             ENC_FEATURE_CAVLC);
+		CHECK_FEATURE(cop.AUDelimiter,       ENC_FEATURE_AUD,        MFX_CODINGOPTION_ON);
+		CHECK_FEATURE(cop.PicTimingSEI,      ENC_FEATURE_PIC_STRUCT, MFX_CODINGOPTION_ON);
+		CHECK_FEATURE(cop.RateDistortionOpt, ENC_FEATURE_RDO,        MFX_CODINGOPTION_ON);
+		CHECK_FEATURE(cop.CAVLC,             ENC_FEATURE_CAVLC,      MFX_CODINGOPTION_ON);
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
-			CHECK_FEATURE(cop2.ExtBRC,       ENC_FEATURE_EXT_BRC);
-			CHECK_FEATURE(cop2.MBBRC,        ENC_FEATURE_MBBRC);
+			CHECK_FEATURE(cop2.ExtBRC,       ENC_FEATURE_EXT_BRC,    MFX_CODINGOPTION_ON);
+			CHECK_FEATURE(cop2.MBBRC,        ENC_FEATURE_MBBRC,      MFX_CODINGOPTION_ON);
+		}
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)) {
+			CHECK_FEATURE(cop2.Trellis,      ENC_FEATURE_TRELLIS,    MFX_TRELLIS_I | MFX_TRELLIS_P | MFX_TRELLIS_B);
 		}
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
-			CHECK_FEATURE(cop2.AdaptiveI,    ENC_FEATURE_ADAPTIVE_I);
-			CHECK_FEATURE(cop2.AdaptiveB,    ENC_FEATURE_ADAPTIVE_B);
-			CHECK_FEATURE(cop2.BRefType,     ENC_FEATURE_B_PYRAMID);
+			CHECK_FEATURE(cop2.AdaptiveI,    ENC_FEATURE_ADAPTIVE_I, MFX_CODINGOPTION_ON);
+			CHECK_FEATURE(cop2.AdaptiveB,    ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON);
+			CHECK_FEATURE(cop2.BRefType,     ENC_FEATURE_B_PYRAMID,  MFX_B_REF_PYRAMID);
 		}
 	}
 	return result;
@@ -215,6 +219,7 @@ void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str) {
 
 	ADD_FEATURE_STR(ENC_FEATURE_AUD,        _T("aud         "));
 	ADD_FEATURE_STR(ENC_FEATURE_PIC_STRUCT, _T("pic_struct  "));
+	ADD_FEATURE_STR(ENC_FEATURE_TRELLIS,    _T("trellis     "));
 	ADD_FEATURE_STR(ENC_FEATURE_RDO,        _T("rdo         "));
 	ADD_FEATURE_STR(ENC_FEATURE_CAVLC,      _T("cavlc       "));
 	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_I, _T("adaptive_i  "));
