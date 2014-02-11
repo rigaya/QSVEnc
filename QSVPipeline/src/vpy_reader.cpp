@@ -11,6 +11,7 @@
 #if ENABLE_VAPOURSYNTH_READER
 #include <fstream>
 #include <string>
+#include <algorithm>
 
 CVSReader::CVSReader() {
 	m_sVSapi = NULL;
@@ -122,7 +123,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 
 	//ファイルデータ読み込み
 	std::ifstream inputFile(strFileName);
-	if (inputFile == NULL) {
+	if (inputFile.bad()) {
 		m_strInputInfo += _T("Failed to open vpy file.\n");
 		return MFX_ERR_INVALID_HANDLE;
 	}
