@@ -173,7 +173,6 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 		(members) = value; \
 		MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop)); \
 		MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
-		MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
 		if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
 			result |= (flag); \
 		(members) = 0; \
