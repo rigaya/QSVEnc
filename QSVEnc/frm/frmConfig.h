@@ -3759,7 +3759,7 @@ private: System::Windows::Forms::Label^  fcgLBICQQuality;
 		System::Void SetToolStripEvents(ToolStrip^ TS, System::Windows::Forms::MouseEventHandler^ _event);
 		System::Void SetInputBufRange();
 		System::Void fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 available_features);
-		System::Void fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, mfxU32 mfxlib_current, mfxVersion reauired_version);
+		System::Void fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported);
 		System::Void UpdateMfxLibDetection();
 	public:
 		System::Void InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *system_data);

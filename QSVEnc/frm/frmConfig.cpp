@@ -683,10 +683,9 @@ System::Void frmConfig::InitStgFileList() {
 	CheckTSSettingsDropDownItem(nullptr);
 }
 
-System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, mfxU32 mfxlib_current, mfxVersion required_version) {
+System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported) {
 	int encmode_idx = get_cx_index(list_encmode, rc_mode_target);
-	const bool bmfxLib = check_lib_version(mfxlib_current, required_version.Version) != 0;
-	if (bmfxLib) {
+	if (mode_supported) {
 		fcgCXEncMode->Items[encmode_idx] = String(list_encmode[encmode_idx].desc).ToString();
 	} else {
 		fcgCXEncMode->Items[encmode_idx] = L"-----------------";
@@ -701,32 +700,48 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-
-	const bool b_mfxlib_1_3 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_3.Version) != 0;
-	fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, mfxlib_current, MFX_LIB_VERSION_1_3);
-	fcgLBVideoFormat->Enabled = b_mfxlib_1_3;
-	fcgCXVideoFormat->Enabled = b_mfxlib_1_3;
-	fcggroupBoxColor->Enabled = b_mfxlib_1_3;
-	fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
-
-	const bool b_mfxlib_1_6 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_6.Version) != 0;
-	fcgCBExtBRC->Enabled = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_EXT_BRC);
-	fcgCBMBBRC->Enabled  = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_MBBRC);
-
-	const bool b_mfxlib_1_7 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_7.Version) != 0;
-	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA, MFX_RATECONTROL_VBR, mfxlib_current, MFX_LIB_VERSION_1_7);
-	fcgLBTrellis->Enabled = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
-	fcgCXTrellis->Enabled = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
 	
-	const bool b_mfxlib_1_8 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_8.Version) != 0;
-	fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
-	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
-	fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, mfxlib_current, MFX_LIB_VERSION_1_8);
-	fcgCBAdaptiveB->Enabled   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
-	fcgCBAdaptiveI->Enabled   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
-	fcgCBBPyramid->Enabled    = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_B_PYRAMID);
-	fcgLBLookaheadDS->Enabled = b_mfxlib_1_8;
-	fcgCXLookaheadDS->Enabled = b_mfxlib_1_8;
+	fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
+	
+	//API v1.3 features
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR));
+	fcgLBVideoFormat->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
+	fcgCXVideoFormat->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
+	fcgCBFullrange->Enabled   = 0 != (available_features & ENC_FEATURE_VUI_INFO);
+	fcggroupBoxColor->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
+	if (!fcgCXVideoFormat->Enabled) fcgCXVideoFormat->SelectedIndex = 0;
+	if (!fcgCBFullrange->Enabled)   fcgCBFullrange->Checked = false;
+	if (!fcggroupBoxColor->Enabled) {
+		fcgCXColorMatrix->SelectedIndex = 0;
+		fcgCXColorPrim->SelectedIndex = 0;
+		fcgCXTransfer->SelectedIndex = 0;
+	}
+
+	//API v1.6 features
+	fcgCBExtBRC->Enabled = 0 != (available_features & ENC_FEATURE_EXT_BRC);
+	fcgCBMBBRC->Enabled  = 0 != (available_features & ENC_FEATURE_MBBRC);
+	if (!fcgCBExtBRC->Enabled) fcgCBExtBRC->Checked = false;
+	if (!fcgCBMBBRC->Enabled)  fcgCBMBBRC->Checked = false;
+	
+	//API v1.7 features
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA));
+	fcgLBTrellis->Enabled = 0 != (available_features & ENC_FEATURE_TRELLIS);
+	fcgCXTrellis->Enabled = 0 != (available_features & ENC_FEATURE_TRELLIS);
+	if (!fcgCXTrellis->Enabled) fcgCXTrellis->SelectedIndex = 0;
+	
+	//API v1.8 features
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ));
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)));
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, 0 != (available_features & ENC_FEATURE_VCM));
+	fcgCBAdaptiveB->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
+	fcgCBAdaptiveI->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
+	fcgCBBPyramid->Enabled    = 0 != (available_features & ENC_FEATURE_B_PYRAMID);
+	fcgLBLookaheadDS->Enabled = 0 != (available_features & ENC_FEATURE_LA_DS);
+	fcgCXLookaheadDS->Enabled = 0 != (available_features & ENC_FEATURE_LA_DS);
+	if (!fcgCBAdaptiveB->Enabled)   fcgCBAdaptiveB->Checked = false;
+	if (!fcgCBAdaptiveI->Enabled)   fcgCBAdaptiveI->Checked = false;
+	if (!fcgCBBPyramid->Enabled)    fcgCBBPyramid->Checked  = false;
+	if (!fcgCXLookaheadDS->Enabled) fcgCXLookaheadDS->SelectedIndex = 0;
 
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
