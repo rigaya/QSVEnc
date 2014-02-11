@@ -18,21 +18,21 @@
 
 #define MSDK_SAMPLE_VERSION MSDK_STRING(MFX_PRODUCT_VERSION)
 
-#define VER_FILEVERSION             0,2,0,0
-#define VER_STR_FILEVERSION          "2.00"
-#define VER_STR_FILEVERSION_TCHAR _T("2.00")
+#define VER_FILEVERSION             0,1,12,0
+#define VER_STR_FILEVERSION          "1.12"
+#define VER_STR_FILEVERSION_TCHAR _T("1.12")
 
 #define ENABLE_MVC_ENCODING 0
 
 //defined(_M_IX86)は32bitであることのチェック
 #if (defined(_M_IX86) && !defined(QSVENC_AUO))
-#define ENABLE_VAPOURSYNTH_READER 0
+#define ENABLE_VAPOURSYNTH_READER 1
 #else
 #define ENABLE_VAPOURSYNTH_READER 0
 #endif
 
 #ifndef QSVENC_AUO
-#define ENABLE_AVISYNTH_READER 0
+#define ENABLE_AVISYNTH_READER 1
 #define ENABLE_AVI_READER 1
 #else
 #define ENABLE_AVISYNTH_READER 0
