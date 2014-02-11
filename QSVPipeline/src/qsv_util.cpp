@@ -108,6 +108,10 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VCM) { \
 		videoPrm.mfx.TargetKbps = 3000; \
 		videoPrm.mfx.MaxKbps    = 15000; \
+		if (videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) { \
+			videoPrm.mfx.Accuracy  = 500; \
+			videoPrm.mfx.Convergence  = 90; \
+		}\
 	} else if ( \
 		   videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP \
 		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VQP) { \
@@ -186,6 +190,9 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 			result |= (flag); \
 		videoPrm.mfx.RateControlMethod = original_method; \
 	}
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
+			CHECK_ENC_MODE(MFX_RATECONTROL_AVBR, ENC_FEATURE_AVBR);
+		}
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)) {
 			CHECK_ENC_MODE(MFX_RATECONTROL_LA, ENC_FEATURE_LA);
 		}
@@ -262,6 +269,7 @@ void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str) {
 	str += _T("\n"); \
 	}
 	
+	ADD_FEATURE_STR(ENC_FEATURE_AVBR,       _T(" AVBR mode          "));
 	ADD_FEATURE_STR(ENC_FEATURE_LA,         _T(" Lookahead mode     "));
 	ADD_FEATURE_STR(ENC_FEATURE_LA_DS,      _T(" Lookahead Quality  "));
 	ADD_FEATURE_STR(ENC_FEATURE_ICQ,        _T(" ICQ mode           "));
