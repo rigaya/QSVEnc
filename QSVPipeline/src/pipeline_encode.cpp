@@ -2539,8 +2539,12 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 		} else {
 			PRINT_INFO(_T("CQP Value               I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
 		}
-	} else if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA) {
+	} else if (MFX_RATECONTROL_LA     == m_mfxEncParams.mfx.RateControlMethod
+		    || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
 		PRINT_INFO(_T("Lookahead Depth         %d frames\n"), cop2.LookAheadDepth);
+		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+			PRINT_INFO(_T("Lookahead Quality         %d frames\n"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
+		}
 	} else {
 		PRINT_INFO(_T("Bitrate                 %d kbps\n"), videoPrm.mfx.TargetKbps);
 		if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
@@ -2555,12 +2559,12 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
 		PRINT_INFO(_T("Trellis                 %s\n"), list_avc_trellis[get_cx_index(list_avc_trellis_for_options, cop2.Trellis)].desc);
 	}
-	//if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
-	//	PRINT_INFO(_T("Ext. Bitrate Control    %s%s%s\n"),
-	//		(cop2.MBBRC  != MFX_CODINGOPTION_ON && cop2.ExtBRC != MFX_CODINGOPTION_ON) ? _T("disabled") : _T(""),
-	//		(cop2.MBBRC  == MFX_CODINGOPTION_ON) ? _T("PerMBRateControl ") : _T(""),
-	//		(cop2.ExtBRC == MFX_CODINGOPTION_ON) ? _T("ExtBRC ") : _T(""));
-	//}
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+		PRINT_INFO(_T("Ext. Bitrate Control    %s%s%s\n"),
+			(cop2.MBBRC  != MFX_CODINGOPTION_ON && cop2.ExtBRC != MFX_CODINGOPTION_ON) ? _T("disabled") : _T(""),
+			(cop2.MBBRC  == MFX_CODINGOPTION_ON) ? _T("PerMBRateControl ") : _T(""),
+			(cop2.ExtBRC == MFX_CODINGOPTION_ON) ? _T("ExtBRC ") : _T(""));
+	}
 
 	if (videoPrm.mfx.CodecId == MFX_CODEC_AVC && !Check_HWUsed(impl)) {
 		PRINT_INFO(    _T("CABAC                   %s\n"), (cop.CAVLC == MFX_CODINGOPTION_ON) ? _T("off") : _T("on"));
@@ -2586,10 +2590,28 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	PRINT_INFO(    _T("Max GOP Length          "));
 	PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
 	PRINT_INFO(    _T("Scene Change Detection  %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
-	//PRINT_INFO(    _T("Slices                %d\n"), videoPrm.mfx.NumSlice);
-	//PRINT_INFO(    _T("AUD                   %d\n"), cop.AUDelimiter);
-	//PRINT_INFO(    _T("PicTimingSEI          %d\n"), cop.PicTimingSEI);
-	//PRINT_INFO(    _T("SingleSeiNalUnit      %d\n"), cop.SingleSeiNalUnit);
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+		PRINT_INFO(    _T("GOP Structure           "));
+		bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
+		bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
+		if (!adaptiveIOn && !adaptiveBOn) {
+			PRINT_INFO("fixed\n")
+		} else {
+			PRINT_INFO("Adaptive %s%s insert\n",
+				(adaptiveIOn) ? _T("I") : _T(""),
+				(adaptiveIOn && adaptiveBOn) ? _T(",") : _T(""),
+				(adaptiveBOn) ? _T("B") : _T(""));
+		}
+	}
+	PRINT_INFO(    _T("Slices                  %d\n"), videoPrm.mfx.NumSlice);
+	if (   MFX_CODINGOPTION_ON == cop.AUDelimiter
+		|| MFX_CODINGOPTION_ON == cop.PicTimingSEI
+		|| MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) {
+		PRINT_INFO(    _T("Output Bitstream Info   %s%s%s\n"),
+			(MFX_CODINGOPTION_ON == cop.AUDelimiter) ? _T("aud ") : _T(""),
+			(MFX_CODINGOPTION_ON == cop.PicTimingSEI) ? _T("pic_struct ") : _T(""),
+			(MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) ? _T("SingleSEI ") : _T(""));
+	}
 
 	//PRINT_INFO(_T("Source picture:"));
 	//PRINT_INFO(_T("\tResolution\t%dx%d"), SrcPicInfo.Width, SrcPicInfo.Height);
