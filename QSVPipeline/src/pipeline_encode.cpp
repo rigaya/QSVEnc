@@ -383,7 +383,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	if (pInParams->bCAVLC)
 		pInParams->bRDO = false;
 
-	//Check for Lookahead
+	//Lookaheadをチェック
 	if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA) {
 		bool lookahead_error = false;
 		if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
@@ -406,13 +406,40 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 
+	//API v1.8のチェック (固定品質モード、ビデオ会議モード)
+	if (   MFX_RATECONTROL_ICQ    == m_mfxEncParams.mfx.RateControlMethod
+		|| MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod
+		|| MFX_RATECONTROL_VCM    == m_mfxEncParams.mfx.RateControlMethod) {
+		bool api1_8_check_error = false;
+		if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+			PrintMes(_T("%s mode is only supported by API v1.7 or later.\n"), EncmodeToStr(m_mfxEncParams.mfx.RateControlMethod));
+			api1_8_check_error = true;
+		}
+		if (!m_bHaswellOrLater) {
+			PrintMes(_T("%s mode is only supported by Haswell or later.\n"), EncmodeToStr(m_mfxEncParams.mfx.RateControlMethod));
+			api1_8_check_error = true;
+		}
+		if (   MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod
+			&& 0 != (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
+			&& pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE) {
+			PrintMes(_T("Lookahead mode does not support interlaced encoding.\n"));
+			api1_8_check_error = true;
+		}
+		if (api1_8_check_error)
+			return MFX_ERR_INVALID_VIDEO_PARAM;
+	}
+
 	m_mfxEncParams.mfx.CodecId                 = pInParams->CodecId;
 	m_mfxEncParams.mfx.RateControlMethod       =(pInParams->nEncMode == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : pInParams->nEncMode;
-	if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
+	if (MFX_RATECONTROL_CQP == m_mfxEncParams.mfx.RateControlMethod) {
 		//CQP
 		m_mfxEncParams.mfx.QPI             = pInParams->nQPI;
 		m_mfxEncParams.mfx.QPP             = pInParams->nQPP;
 		m_mfxEncParams.mfx.QPB             = pInParams->nQPB;
+	} else if (MFX_RATECONTROL_ICQ    == m_mfxEncParams.mfx.RateControlMethod
+		    || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+		m_mfxEncParams.mfx.ICQQuality      = pInParams->nICQQuality;
+		m_mfxEncParams.mfx.MaxKbps         = pInParams->nMaxBitrate;
 	} else {
 		m_mfxEncParams.mfx.TargetKbps      = pInParams->nBitRate; // in kbps
 		if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
@@ -509,15 +536,31 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		//IvyBridgeにおいて、このAPI v1.6の機能を使うと今のところうまく動かない
 		//そこでAVX2フラグを確認して、Haswell以降でなら使用するようにする
 		if (m_bHaswellOrLater) {
+			if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+				m_mfxCopt2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+				m_mfxCopt2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+				m_mfxCopt2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_UNKNOWN);
+				m_mfxCopt2.LookAheadDS = pInParams->nLookaheadDS;
+			}
 			if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
 				m_mfxCopt2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
 				m_mfxCopt2.Trellis = pInParams->nTrellis;
 			}
-			//m_mfxCopt2.MBBRC = (mfxU16)((pInParams->_bMBBRC) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-			//m_mfxCopt2.ExtBRC = (mfxU16)((pInParams->_bExtBRC && m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_CQP) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+			if (pInParams->bMBBRC) {
+				m_mfxCopt2.MBBRC = MFX_CODINGOPTION_ON;
+			}
+
+			if (pInParams->bExtBRC
+				&& (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR
+				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CBR
+				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_VBR
+				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_VCM
+				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA)) {
+				m_mfxCopt2.ExtBRC = MFX_CODINGOPTION_ON;
+			}
 			m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxCopt2);
-		} else if (pInParams->_bMBBRC || pInParams->_bExtBRC) {
-			//PrintMes(_T("API v1.6 feature is currently limited to Haswell CPUs.\n"));
+		} else if (pInParams->bMBBRC || pInParams->bExtBRC) {
+			PrintMes(_T("API v1.6 feature is currently limited to Haswell CPUs.\n"));
 		}
 	}
 
@@ -575,10 +618,10 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3) &&
 		(pInParams->VideoFormat != list_videoformat[0].value ||
-		pInParams->ColorPrim   != list_colorprim[0].value ||
-		pInParams->Transfer    != list_transfer[0].value ||
-		pInParams->ColorMatrix != list_colormatrix[0].value ||
-		pInParams->bFullrange
+		 pInParams->ColorPrim   != list_colorprim[0].value ||
+		 pInParams->Transfer    != list_transfer[0].value ||
+		 pInParams->ColorMatrix != list_colormatrix[0].value ||
+		 pInParams->bFullrange
 		) ) {
 #define GET_COLOR_PRM(v, list) (mfxU16)((v == MFX_COLOR_VALUE_AUTO) ? ((pInParams->nDstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
 			//色設定 (for API v1.3)
@@ -588,11 +631,11 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			m_mfxVSI.ColourDescriptionPresent = (mfxU16)MFX_CODINGOPTION_ON;
 			m_mfxVSI.VideoFormat              = pInParams->VideoFormat;
 			m_mfxVSI.VideoFullRange           = pInParams->bFullrange != 0;
-			if (!pInParams->bUseHWLib) {
+			//if (!pInParams->bUseHWLib) {
 				m_mfxVSI.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
 				m_mfxVSI.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
 				m_mfxVSI.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
-			}
+			//}
 #undef GET_COLOR_PRM
 			m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxVSI);
 	}

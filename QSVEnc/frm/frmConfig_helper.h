@@ -103,12 +103,15 @@ const CX_DESC list_deinterlace[] = {
 };
 
 const CX_DESC list_encmode[] = {
-	{ "ビットレート指定 - CBR",           MFX_RATECONTROL_CBR },
-	{ "ビットレート指定 - VBR",           MFX_RATECONTROL_VBR },
-	{ "ビットレート指定 - AVBR",          MFX_RATECONTROL_AVBR},
-	{ "固定量子化量 (CQP)",               MFX_RATECONTROL_CQP },
-	{ "可変QP (VQP, プログレッシブのみ)", MFX_RATECONTROL_VQP },
-	{ "先行探索レート制御",               MFX_RATECONTROL_LA  },
+	{ "ビットレート指定 - CBR",           MFX_RATECONTROL_CBR    },
+	{ "ビットレート指定 - VBR",           MFX_RATECONTROL_VBR    },
+	{ "ビットレート指定 - AVBR",          MFX_RATECONTROL_AVBR   },
+	{ "固定量子化量 (CQP)",               MFX_RATECONTROL_CQP    },
+	{ "可変QP (VQP, プログレッシブのみ)", MFX_RATECONTROL_VQP    },
+	{ "先行探索レート制御",               MFX_RATECONTROL_LA     },
+	{ "固定品質モード",                   MFX_RATECONTROL_ICQ    },
+	{ "先行探索付き固定品質モード",       MFX_RATECONTROL_LA_ICQ },
+	{ "ビデオ会議モード",                 MFX_RATECONTROL_VCM    },
 	{ NULL, NULL }
 };
 

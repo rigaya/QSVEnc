@@ -27,6 +27,7 @@ void init_qsvp_prm(sInputParams *prm) {
 	prm->nQPI              = QSV_DEFAULT_QPI;
 	prm->nQPP              = QSV_DEFAULT_QPP;
 	prm->nQPB              = QSV_DEFAULT_QPB;
+	prm->nICQQuality       = QSV_DEFAULT_ICQ;
 	prm->nAVBRAccuarcy     = QSV_DEFAULT_ACCURACY;
 	prm->nAVBRConvergence  = QSV_DEFAULT_CONVERGENCE;
 	prm->nIdrInterval      = 0;

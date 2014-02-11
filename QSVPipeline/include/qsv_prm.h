@@ -136,8 +136,8 @@ struct sInputParams
 
     mfxU16     nQuality; // quality parameter for JPEG encoder
 
-	bool       _bMBBRC; //not used
-	bool       _bExtBRC; //not used
+	mfxU8      bMBBRC;
+	mfxU8      bExtBRC;
 
 	mfxU16     nLookaheadDepth;
 	mfxU16     nTrellis;
@@ -147,7 +147,14 @@ struct sInputParams
 	mfxU32     reserved;
 #endif
 
-	mfxU8      Reserved[1212];
+	mfxU16     bBPyramid;
+	mfxU8      bAdaptiveI;
+	mfxU8      bAdaptiveB;
+	mfxU16     nLookaheadDS;
+
+	mfxU16     nICQQuality;
+
+	mfxU8      Reserved[1204];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -265,6 +272,14 @@ const CX_DESC list_avc_trellis_for_options[] = {
 	{ _T("p"),    MFX_TRELLIS_P },
 	{ _T("pb"),   MFX_TRELLIS_P | MFX_TRELLIS_B },
 	{ _T("b"),    MFX_TRELLIS_B },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_lookahead_ds[] = {
+	{ _T("auto"),   MFX_LOOKAHEAD_DS_UNKNOWN },
+	{ _T("slow"),   MFX_LOOKAHEAD_DS_OFF     },
+	{ _T("medium"), MFX_LOOKAHEAD_DS_2x      },
+	{ _T("fast"),   MFX_LOOKAHEAD_DS_4x      },
 	{ NULL, NULL }
 };
 
@@ -393,6 +408,7 @@ static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
 //define defaults
 const int QSV_DEFAULT_REF = 0;
 const int QSV_DEFAULT_GOP_LEN = 0;
+const int QSV_DEFAULT_ICQ = 23;
 const int QSV_DEFAULT_QPI = 24;
 const int QSV_DEFAULT_QPP = 26;
 const int QSV_DEFAULT_QPB = 27;

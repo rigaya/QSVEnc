@@ -138,12 +138,17 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --vqp <int> or                 encode in Variable QP, default %d:%d:%d\n")
 			_T("         <int>:<int>:<int>        set qp value for i:p:b frame\n")
 			_T("   --la <int>                     encoded bitrate in Lookahead mode (kbps)\n")
+			_T("   --icq <int>                    encode in Intelligent Const. Qualtiy mode\n")
+			_T("                                    default value: %d\n")
+			_T("   --la-icq <int>                 encode in ICQ mode with Lookahead\n")
+			_T("                                    default value: %d\n")
 			_T("   --cbr <int>                    encoded bitrate in CBR mode (kbps)\n")
 			_T("   --vbr <int>                    encoded bitrate in VBR mode (kbps)\n")
 			_T("   --avbr <int>                   encoded bitrate in AVBR mode (kbps)\n")
 			_T("                                   avbr mode is only supported with API v1.3\n")
 			_T("   --avbr-unitsize <int>          avbr calculation period in x100 frames\n")
 			_T("                                   default %d (= unit size %d00 frames)\n")
+			_T("   --vcm <int>                    encoded bitrate in VCM mode (kbps)\n")
 			//_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
 			//_T("                                   in percentage, defalut %.1f(%%)\n)"
 			_T("\n")
@@ -179,6 +184,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                   - bob     double framerate\n"),
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
+			QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
 			QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
 			QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
 			QSV_DEFAULT_REF,
@@ -197,12 +203,25 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T(" settings below are only supported with API v1.3\n")
 			_T("   --fullrange                    set stream as fullrange yuv.\n")
 			);
+		PrintListOptions(stdout, _T("--videoformat <string>"), list_videoformat, 0);
+		_ftprintf(stdout, _T("\n")
+			_T(" settings below are only supported with API v1.6\n")
+			_T("   --mbbrc                        enables per macro block rate control.\n")
+			_T("   --extbrc                       enables extended rate control.\n")
+			);
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.7\n")
 			_T("   --trellis <string>             set trellis mode used in encoding.\n")
 			_T("                                   - auto(default), none, i, ip, all.\n")
 			);
-		PrintListOptions(stdout, _T("--videoformat <string>"), list_videoformat, 0);
+		_ftprintf(stdout, _T("\n")
+			_T(" settings below are only supported with API v1.8\n")
+			_T("   --i-adapt                      enables adaptive I frame insert.\n")
+			_T("   --b-adapt                      enables adaptive B frame insert.\n")
+			_T("   --b-pyramid                    enables B-frame pyramid reference.\n")
+			_T("   --lookahead-ds <string>        set lookahead quality.\n")
+			_T("                                   - auto(default), fast, normal, slow\n")
+			);
 		_ftprintf(stdout,_T("\n"
 			_T(" Settings below are available only for software ecoding.\n")
 			_T("   --cavlc                        use cavlc instead of cabac.\n")
@@ -526,6 +545,33 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		{
 			pParams->bforceGOPSettings = false;
 		}
+		else if (0 == _tcscmp(option_name, _T("i-adapt")))
+		{
+			pParams->bAdaptiveI = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("b-adapt")))
+		{
+			pParams->bAdaptiveB = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("b-pyramid")))
+		{
+			pParams->bBPyramid = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("lookahead-ds")))
+		{
+			i++;
+			int value = MFX_LOOKAHEAD_DS_UNKNOWN;
+			if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_lookahead_ds, strInput[i]))) {
+				pParams->nTrellis = (mfxU16)value;
+			} else {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+		}
+		else if (0 == _tcscmp(option_name, _T("scenechange")))
+		{
+			pParams->bforceGOPSettings = false;
+		}
 		else if (0 == _tcscmp(option_name, _T("trellis")))
 		{
 			i++;
@@ -565,6 +611,33 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 			pParams->nEncMode = MFX_RATECONTROL_LA;
+		}
+		else if (0 == _tcscmp(option_name, _T("icq")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->nEncMode = MFX_RATECONTROL_ICQ;
+		}
+		else if (0 == _tcscmp(option_name, _T("la-icq")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->nEncMode = MFX_RATECONTROL_LA_ICQ;
+		}
+		else if (0 == _tcscmp(option_name, _T("vcm")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->nEncMode = MFX_RATECONTROL_VCM;
 		}
 		else if (0 == _tcscmp(option_name, _T("vbr")))
 		{
@@ -667,6 +740,18 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("rdo")))
 		{
 			pParams->bRDO = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("extbrc")))
+		{
+			pParams->bExtBRC = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("mbbrc")))
+		{
+			pParams->bMBBRC = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("fullrange")))
+		{
+			pParams->bFullrange = true;
 		}
 		else if (0 == _tcscmp(option_name, _T("inter-pred")))
 		{

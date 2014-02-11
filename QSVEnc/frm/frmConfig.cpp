@@ -622,6 +622,7 @@ System::Void frmConfig::InitComboBox() {
 	setComboBox(fcgCXInterlaced,    list_interlaced);
 	setComboBox(fcgCXAspectRatio,   list_aspect_ratio);
 	setComboBox(fcgCXTrellis,       list_avc_trellis);
+	setComboBox(fcgCXLookaheadDS,   list_lookahead_ds);
 	
 	setComboBox(fcgCXMVPred,        list_mv_presicion);
 	setComboBox(fcgCXInterPred,     list_pred_block_size);
@@ -682,34 +683,48 @@ System::Void frmConfig::InitStgFileList() {
 	CheckTSSettingsDropDownItem(nullptr);
 }
 
+System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, mfxU32 mfxlib_current, mfxVersion reauired_version) {
+	int encmode_idx = get_cx_index(list_encmode, rc_mode_target);
+	const bool bmfxLib = check_lib_version(mfxlib_current, reauired_version.Version) != 0;
+	if (bmfxLib) {
+		fcgCXEncMode->Items[encmode_idx] = String(list_encmode[encmode_idx].desc).ToString();
+	} else {
+		fcgCXEncMode->Items[encmode_idx] = L"-----------------";
+		if (fcgCXEncMode->SelectedIndex == encmode_idx)
+			fcgCXEncMode->SelectedIndex = get_cx_index(list_encmode, rc_mode_replace);
+	}
+}
+
 System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current) {
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-	int encmode_avbr_idx = get_cx_index(list_encmode, MFX_RATECONTROL_AVBR);
-	bool b_mfxlib_1_3 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_3.Version) != 0;
-	if (b_mfxlib_1_3) {
-		fcgCXEncMode->Items[encmode_avbr_idx] = String(list_encmode[encmode_avbr_idx].desc).ToString();
-	} else {
-		fcgCXEncMode->Items[encmode_avbr_idx] = L"-----------------";
-		if (fcgCXEncMode->SelectedIndex == encmode_avbr_idx)
-			fcgCXEncMode->SelectedIndex = get_cx_index(list_encmode, MFX_RATECONTROL_CQP);
-	}
+
+	const bool b_mfxlib_1_3 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_3.Version) != 0;
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, mfxlib_current, MFX_LIB_VERSION_1_3);
 	fcgLBVideoFormat->Enabled = b_mfxlib_1_3;
 	fcgCXVideoFormat->Enabled = b_mfxlib_1_3;
 	fcggroupBoxColor->Enabled = b_mfxlib_1_3;
 	fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
 	fcggroupBoxColor->Visible = !fcgCBHWEncode->Checked;
-	bool b_mfxlib_1_7 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_7.Version) != 0;
+
+	const bool b_mfxlib_1_6 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_6.Version) != 0;
+	fcgCBExtBRC->Visible = b_mfxlib_1_6;
+	fcgCBMBBRC->Visible  = b_mfxlib_1_6;
+
+	const bool b_mfxlib_1_7 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_7.Version) != 0;
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA, MFX_RATECONTROL_VBR, mfxlib_current, MFX_LIB_VERSION_1_7);
 	fcgLBTrellis->Visible = b_mfxlib_1_7;
 	fcgCXTrellis->Visible = b_mfxlib_1_7;
-	int encmode_la_idx = get_cx_index(list_encmode, MFX_RATECONTROL_LA);
-	if (b_mfxlib_1_7) {
-		fcgCXEncMode->Items[encmode_la_idx] = String(list_encmode[encmode_la_idx].desc).ToString();
-	} else {
-		fcgCXEncMode->Items[encmode_la_idx] = L"-----------------";
-		if (fcgCXEncMode->SelectedIndex == encmode_la_idx)
-			fcgCXEncMode->SelectedIndex = get_cx_index(list_encmode, MFX_RATECONTROL_VBR);
-	}
+	
+	const bool b_mfxlib_1_8 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_8.Version) != 0;
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
+	fcgCBAdaptiveB->Visible   = b_mfxlib_1_8;
+	fcgCBAdaptiveI->Visible   = b_mfxlib_1_8;
+	fcgCBBPyramid->Visible    = b_mfxlib_1_8;
+	fcgLBLookaheadDS->Visible = b_mfxlib_1_8;
+	fcgCXLookaheadDS->Visible = b_mfxlib_1_8;
 
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
@@ -721,7 +736,9 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	bool cqp_mode = (enc_mode == MFX_RATECONTROL_CQP || enc_mode == MFX_RATECONTROL_VQP);
 	bool avbr_mode = (enc_mode == MFX_RATECONTROL_AVBR);
 	bool cbr_vbr_mode = (enc_mode == MFX_RATECONTROL_VBR || enc_mode == MFX_RATECONTROL_CBR);
-	bool la_mode = (enc_mode == MFX_RATECONTROL_LA);
+	bool la_mode = (enc_mode == MFX_RATECONTROL_LA || enc_mode == MFX_RATECONTROL_LA_ICQ);
+	bool icq_mode = (enc_mode == MFX_RATECONTROL_LA_ICQ || enc_mode == MFX_RATECONTROL_ICQ);
+	bool vcm_mode = (enc_mode == MFX_RATECONTROL_VCM);
 
 	this->SuspendLayout();
 
@@ -736,9 +753,9 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgPNBitrate->Visible = !cqp_mode;
 	fcgNUBitrate->Enabled = !cqp_mode;
 	fcgLBBitrate->Enabled = !cqp_mode;
-	fcgNUMaxkbps->Enabled = cbr_vbr_mode || la_mode;
-	fcgLBMaxkbps->Enabled = cbr_vbr_mode || la_mode;
-	fcgLBMaxBitrate2->Enabled = cbr_vbr_mode || la_mode;
+	fcgNUMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode;
+	fcgLBMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode;
+	fcgLBMaxBitrate2->Enabled = cbr_vbr_mode || la_mode || vcm_mode;
 
 	fcgPNAVBR->Visible = avbr_mode;
 	fcgLBAVBRAccuarcy->Enabled = avbr_mode;
@@ -751,6 +768,10 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgPNLookahead->Visible = la_mode;
 	fcgLBLookaheadDepth->Enabled = la_mode;
 	fcgNULookaheadDepth->Enabled = la_mode;
+	if (fcgCXLookaheadDS->Visible) {
+		fcgLBLookaheadDS->Enabled = la_mode;
+		fcgCXLookaheadDS->Enabled = la_mode;
+	}
 
 	fcgNURef->Visible = !fcgCBHWEncode->Checked;
 	fcgLBRef->Visible = !fcgCBHWEncode->Checked;
@@ -758,7 +779,11 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgCBD3DMemAlloc->Enabled = fcgCBHWEncode->Checked;
 	fcgCBD3DMemAlloc->Checked = fcgCBD3DMemAlloc->Enabled;
 
+	fcgCBExtBRC->Enabled = (avbr_mode || cbr_vbr_mode || la_mode);
+
 	fcggroupBoxVpp->Enabled = fcgCBUseVpp->Checked;
+
+	fcgPNICQ->Visible = icq_mode;
 
 	fcggroupBoxVppResize->Enabled = fcgCBVppResize->Checked;
 	fcggroupBoxVppDenoise->Enabled = fcgCBVppDenoise->Checked;
@@ -917,6 +942,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetNUValue(fcgNUQPI,          cnf->qsv.nQPI);
 	SetNUValue(fcgNUQPP,          cnf->qsv.nQPP);
 	SetNUValue(fcgNUQPB,          cnf->qsv.nQPB);
+	SetNUValue(fcgNUICQQuality,   cnf->qsv.nICQQuality);
 	SetNUValue(fcgNUGopLength,    Convert::ToDecimal(cnf->qsv.nGOPLength));
 	SetNUValue(fcgNURef,          cnf->qsv.nRef);
 	SetNUValue(fcgNUBframes,      cnf->qsv.nBframes);
@@ -930,7 +956,13 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetNUValue(fcgNUAVBRAccuarcy, cnf->qsv.nAVBRAccuarcy / Convert::ToDecimal(10.0));
 	SetNUValue(fcgNUAVBRConvergence, cnf->qsv.nAVBRConvergence);
 	SetNUValue(fcgNULookaheadDepth, cnf->qsv.nLookaheadDepth);
-	SetCXIndex(fcgCXInterlaced,  get_cx_index(list_interlaced, cnf->qsv.nPicStruct));
+	fcgCBAdaptiveI->Checked     = cnf->qsv.bAdaptiveI != 0;
+	fcgCBAdaptiveB->Checked     = cnf->qsv.bAdaptiveB != 0;
+	fcgCBBPyramid->Checked      = cnf->qsv.bBPyramid != 0;
+	SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, cnf->qsv.nLookaheadDS));
+	fcgCBMBBRC->Checked         = cnf->qsv.bMBBRC != 0;
+	fcgCBExtBRC->Checked        = cnf->qsv.bExtBRC != 0;
+	SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, cnf->qsv.nPicStruct));
 	if (cnf->qsv.nPAR[0] * cnf->qsv.nPAR[1] <= 0)
 		cnf->qsv.nPAR[0] = cnf->qsv.nPAR[1] = 0;
 	SetCXIndex(fcgCXAspectRatio, (cnf->qsv.nPAR[0] < 0));
@@ -1029,9 +1061,16 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.nQPI                   = (mfxU16)fcgNUQPI->Value;
 	cnf->qsv.nQPP                   = (mfxU16)fcgNUQPP->Value;
 	cnf->qsv.nQPB                   = (mfxU16)fcgNUQPB->Value;
+	cnf->qsv.nICQQuality            = (mfxU16)fcgNUICQQuality->Value;
 	cnf->qsv.nBframes               = (mfxI16)fcgNUBframes->Value;
 	cnf->qsv.nTrellis               = (mfxU16)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
 	cnf->qsv.nPicStruct             = (mfxU16)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
+	cnf->qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
+	cnf->qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
+	cnf->qsv.bBPyramid              = fcgCBBPyramid->Checked;
+	cnf->qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
+	cnf->qsv.bMBBRC                 = fcgCBMBBRC->Checked;
+	cnf->qsv.bExtBRC                = fcgCBExtBRC->Checked;
 	cnf->qsv.bUseHWLib              = fcgCBHWEncode->Checked;
 	cnf->qsv.memType                = (mfxU8)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
 	cnf->qsv.nAVBRAccuarcy          = (mfxU16)(fcgNUAVBRAccuarcy->Value * 10);
