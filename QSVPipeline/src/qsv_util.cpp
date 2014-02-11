@@ -14,6 +14,7 @@
 #include "mfxvideo++.h"
 #include "sample_defs.h"
 #include "qsv_util.h"
+#include "qsv_prm.h"
 
 BOOL Check_HWUsed(mfxIMPL impl) {
 	static const int HW_list[] = {
@@ -264,33 +265,104 @@ mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
 	return CheckEncodeFeature(hardware, ratecontrol, ver);
 }
 
-void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str) {
-	str.clear();
+static const CX_DESC list_enc_feature[] = {
+	{ _T("Lookahead Quality "), ENC_FEATURE_LA_DS      },
+	{ _T("vui info output   "), ENC_FEATURE_VUI_INFO   },
+	{ _T("aud               "), ENC_FEATURE_AUD        },
+	{ _T("pic_struct        "), ENC_FEATURE_PIC_STRUCT },
+	{ _T("trellis           "), ENC_FEATURE_TRELLIS    },
+	{ _T("rdo               "), ENC_FEATURE_RDO        },
+	{ _T("cavlc             "), ENC_FEATURE_CAVLC      },
+	{ _T("adaptive_i        "), ENC_FEATURE_ADAPTIVE_I },
+	{ _T("adaptive_b        "), ENC_FEATURE_ADAPTIVE_B },
+	{ _T("b_pyramid         "), ENC_FEATURE_B_PYRAMID  },
+	{ _T("ext_brc           "), ENC_FEATURE_EXT_BRC    },
+	{ _T("mbbrc             "), ENC_FEATURE_MBBRC      },
+	{ NULL, 0 },
+};
 
-#define ADD_FEATURE_STR(feature_flag, feature_str) { \
-	str += feature_str; \
-	str += (features & feature_flag) ? _T("yes") : _T("no"); \
-	str += _T("\n"); \
+const msdk_char *EncFeatureStr(mfxU32 enc_feature) {
+	for (const CX_DESC *ptr = list_enc_feature; ptr->desc; ptr++)
+		if (enc_feature == (mfxU32)ptr->value)
+			return ptr->desc;
+	return NULL;
+}
+
+void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
+
+	std::vector<CX_DESC> rateControlList{
+		{ _T("CBR  "), MFX_RATECONTROL_CBR    },
+		{ _T("VBR  "), MFX_RATECONTROL_VBR    },
+		{ _T("AVBR "), MFX_RATECONTROL_AVBR   },
+		{ _T("CQP  "), MFX_RATECONTROL_CQP    },
+		{ _T("VQP  "), MFX_RATECONTROL_VQP    },
+		{ _T("LA   "), MFX_RATECONTROL_LA     },
+		{ _T("ICQ  "), MFX_RATECONTROL_ICQ    },
+		{ _T("LAICQ"), MFX_RATECONTROL_LA_ICQ },
+		{ _T("VCM  "), MFX_RATECONTROL_VCM    },
+	};
+
+	mfxU32 availableFeature = CheckEncodeFeature(hardware, MFX_RATECONTROL_VBR);
+
+	std::vector<std::pair<mfxU16, mfxU16>> featureMapList {
+		{ MFX_RATECONTROL_AVBR,   ENC_FEATURE_AVBR                 },
+		{ MFX_RATECONTROL_LA,     ENC_FEATURE_LA                   },
+		{ MFX_RATECONTROL_ICQ,    ENC_FEATURE_ICQ                  },
+		{ MFX_RATECONTROL_LA_ICQ, ENC_FEATURE_ICQ | ENC_FEATURE_LA },
+		{ MFX_RATECONTROL_VCM,    ENC_FEATURE_VCM                  },
+	};
+
+	for (auto featureMap : featureMapList) {
+		for (auto& rc : rateControlList) {
+			if (rc.value == featureMap.first) {
+				if (featureMap.second != (featureMap.second & availableFeature)) {
+					rc.value = 0;
+				}
+				break;
+			}
+		}
+	}
+
+	std::vector<mfxU32> availableFeatureForEachRC;
+	availableFeatureForEachRC.resize(rateControlList.size(), 0);
+
+	for (mfxU32 i = 0; i < rateControlList.size(); i++) {
+		if (rateControlList[i].value) {
+			availableFeatureForEachRC[i] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i].value);
+		}
 	}
 	
-	ADD_FEATURE_STR(ENC_FEATURE_AVBR,       _T(" AVBR mode          "));
-	ADD_FEATURE_STR(ENC_FEATURE_LA,         _T(" Lookahead mode     "));
-	ADD_FEATURE_STR(ENC_FEATURE_LA_DS,      _T(" Lookahead Quality  "));
-	ADD_FEATURE_STR(ENC_FEATURE_ICQ,        _T(" ICQ mode           "));
-	ADD_FEATURE_STR(ENC_FEATURE_VCM,        _T(" VCM mode           "));
-	ADD_FEATURE_STR(ENC_FEATURE_VUI_INFO,   _T(" vui info output    "));
-	ADD_FEATURE_STR(ENC_FEATURE_AUD,        _T(" aud                "));
-	ADD_FEATURE_STR(ENC_FEATURE_PIC_STRUCT, _T(" pic_struct         "));
-	ADD_FEATURE_STR(ENC_FEATURE_TRELLIS,    _T(" trellis            "));
-	ADD_FEATURE_STR(ENC_FEATURE_RDO,        _T(" rdo                "));
-	ADD_FEATURE_STR(ENC_FEATURE_CAVLC,      _T(" cavlc              "));
-	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_I, _T(" adaptive_i         "));
-	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_B, _T(" adaptive_b         "));
-	ADD_FEATURE_STR(ENC_FEATURE_B_PYRAMID,  _T(" b_pyramid          "));
-	ADD_FEATURE_STR(ENC_FEATURE_EXT_BRC,    _T(" ext_brc            "));
-	ADD_FEATURE_STR(ENC_FEATURE_MBBRC,      _T(" mbbrc              "));
+	str.clear();
+	
+	//ヘッダ部分
+	const mfxU32 row_header_length = _tcslen(list_enc_feature[0].desc);
+	for (mfxU32 i = 1; i < row_header_length; i++)
+		str += _T(" ");
 
-#undef ADD_FEATURE_STR
+	for (mfxU32 i = 0; i < rateControlList.size(); i++) {
+		str += _T(" ");
+		str += rateControlList[i].desc;
+	}
+	str += _T("\n");
+	
+	//モードがサポートされているか
+	TCHAR *MARK_YES_NO[] = {  _T(" x    "), _T(" o    ") };
+	str += _T("RC mode available");
+	for (mfxU32 i =_tcslen(_T("RC mode available")); i < row_header_length; i++)
+		str += _T(" ");
+	for (mfxU32 i = 0; i < rateControlList.size(); i++) {
+		str += MARK_YES_NO[!!rateControlList[i].value];
+	}
+	str += _T("\n");
+
+	//各種機能
+	for (const CX_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
+		str += ptr->desc;
+		for (mfxU32 i = 0; i < rateControlList.size(); i++) {
+			str += MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
+		}
+		str += _T("\n");
+	}
 
 	return;
 }

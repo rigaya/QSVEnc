@@ -927,7 +927,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				} else {
 					_ftprintf(stdout, _T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor);
 					std::basic_string<msdk_char> str;
-					MakeFeatureListStr(CheckEncodeFeature(0 == impl_type, MFX_RATECONTROL_VBR), str);
+					MakeFeatureListStr(0 == impl_type, str);
 					_ftprintf(stdout, _T("Supported features:\n%s\n\n"), str.c_str());
 				}
 			}
