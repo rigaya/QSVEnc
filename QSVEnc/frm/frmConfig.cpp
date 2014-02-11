@@ -696,6 +696,9 @@ System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode
 }
 
 System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current) {
+	if (0 == mfxlib_current)
+		return;
+
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 
