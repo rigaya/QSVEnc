@@ -423,7 +423,7 @@ enum {
     MFX_RATECONTROL_ICQ       =9,
     MFX_RATECONTROL_VCM       =10,
     MFX_RATECONTROL_LA_ICQ    =11,
-    MFX_RATECONTROL_VQP       =30,
+    MFX_RATECONTROL_VQP       =70,
 };
 
 /* Trellis control*/

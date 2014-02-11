@@ -718,7 +718,7 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current) {
 	const bool b_mfxlib_1_8 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_8.Version) != 0;
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
-	fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, mfxlib_current, MFX_LIB_VERSION_1_8);
 	fcgCBAdaptiveB->Visible   = b_mfxlib_1_8;
 	fcgCBAdaptiveI->Visible   = b_mfxlib_1_8;
 	fcgCBBPyramid->Visible    = b_mfxlib_1_8;
