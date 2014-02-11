@@ -756,9 +756,9 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgPNBitrate->Visible = !cqp_mode;
 	fcgNUBitrate->Enabled = !cqp_mode;
 	fcgLBBitrate->Enabled = !cqp_mode;
-	fcgNUMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode;
-	fcgLBMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode;
-	fcgLBMaxBitrate2->Enabled = cbr_vbr_mode || la_mode || vcm_mode;
+	fcgNUMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode || icq_mode;
+	fcgLBMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode || icq_mode;
+	fcgLBMaxBitrate2->Enabled = cbr_vbr_mode || la_mode || vcm_mode || icq_mode;
 
 	fcgPNAVBR->Visible = avbr_mode;
 	fcgLBAVBRAccuarcy->Enabled = avbr_mode;
