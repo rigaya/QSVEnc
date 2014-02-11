@@ -707,6 +707,7 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR));
 	fcgLBVideoFormat->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
 	fcgCXVideoFormat->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
+	fcgLBFullrange->Enabled   = 0 != (available_features & ENC_FEATURE_VUI_INFO);
 	fcgCBFullrange->Enabled   = 0 != (available_features & ENC_FEATURE_VUI_INFO);
 	fcggroupBoxColor->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
 	if (!fcgCXVideoFormat->Enabled) fcgCXVideoFormat->SelectedIndex = 0;
@@ -796,8 +797,6 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgLBRefAuto->Visible = !fcgCBHWEncode->Checked;
 	fcgCBD3DMemAlloc->Enabled = fcgCBHWEncode->Checked;
 	fcgCBD3DMemAlloc->Checked = fcgCBD3DMemAlloc->Enabled;
-
-	fcgCBExtBRC->Enabled = (avbr_mode || cbr_vbr_mode || la_mode);
 
 	fcggroupBoxVpp->Enabled = fcgCBUseVpp->Checked;
 

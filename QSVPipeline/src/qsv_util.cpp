@@ -100,6 +100,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 	buf.push_back((mfxExtBuffer *)&cop);
 	buf.push_back((mfxExtBuffer *)&cop2);
 
+	//videoPrm.mfx.MaxKbpsはvideoPrm.mfx.TargetKbpsと一致させないとCBRの時に失敗する
 #define SET_DEFAULT_QUALITY_PRM { \
 	if (   videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VBR \
 		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR \
@@ -107,11 +108,11 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA \
 		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VCM) { \
 		videoPrm.mfx.TargetKbps = 3000; \
-		videoPrm.mfx.MaxKbps    = 15000; \
+		videoPrm.mfx.MaxKbps    = 3000; \
 		if (videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) { \
 			videoPrm.mfx.Accuracy  = 500; \
 			videoPrm.mfx.Convergence  = 90; \
-		}\
+		} \
 	} else if ( \
 		   videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP \
 		|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VQP) { \
@@ -189,6 +190,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 		if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
 			result |= (flag); \
 		videoPrm.mfx.RateControlMethod = original_method; \
+		SET_DEFAULT_QUALITY_PRM; \
 	}
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
 			result |= ENC_FEATURE_VUI_INFO; //これはもう単純にAPIチェックでOK
@@ -238,7 +240,8 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 			result &= ~ENC_FEATURE_RDO;
 			result &= ~ENC_FEATURE_MBBRC;
 			result &= ~ENC_FEATURE_EXT_BRC;
-		} else if (MFX_RATECONTROL_CQP == ratecontrol) {
+		} else if (MFX_RATECONTROL_CQP == ratecontrol
+			    || MFX_RATECONTROL_VQP == ratecontrol) {
 			result &= ~ENC_FEATURE_MBBRC;
 			result &= ~ENC_FEATURE_EXT_BRC;
 		}
