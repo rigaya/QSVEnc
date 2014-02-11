@@ -191,6 +191,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 		videoPrm.mfx.RateControlMethod = original_method; \
 	}
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
+			result |= ENC_FEATURE_VUI_INFO; //これはもう単純にAPIチェックでOK
 			CHECK_ENC_MODE(MFX_RATECONTROL_AVBR, ENC_FEATURE_AVBR);
 		}
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)) {
@@ -274,6 +275,7 @@ void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str) {
 	ADD_FEATURE_STR(ENC_FEATURE_LA_DS,      _T(" Lookahead Quality  "));
 	ADD_FEATURE_STR(ENC_FEATURE_ICQ,        _T(" ICQ mode           "));
 	ADD_FEATURE_STR(ENC_FEATURE_VCM,        _T(" VCM mode           "));
+	ADD_FEATURE_STR(ENC_FEATURE_VUI_INFO,   _T(" vui info output    "));
 	ADD_FEATURE_STR(ENC_FEATURE_AUD,        _T(" aud                "));
 	ADD_FEATURE_STR(ENC_FEATURE_PIC_STRUCT, _T(" pic_struct         "));
 	ADD_FEATURE_STR(ENC_FEATURE_TRELLIS,    _T(" trellis            "));

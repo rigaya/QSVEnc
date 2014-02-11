@@ -68,6 +68,7 @@ enum {
 	ENC_FEATURE_ICQ        = 0x00001000,
 	ENC_FEATURE_VCM        = 0x00002000,
 	ENC_FEATURE_AVBR       = 0x00004000,
+	ENC_FEATURE_VUI_INFO   = 0x00008000,
 };
 mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver);
