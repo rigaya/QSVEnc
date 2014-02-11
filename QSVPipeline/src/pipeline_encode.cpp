@@ -2595,9 +2595,9 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 		bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
 		bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
 		if (!adaptiveIOn && !adaptiveBOn) {
-			PRINT_INFO("fixed\n")
+			PRINT_INFO(_T("fixed\n"))
 		} else {
-			PRINT_INFO("Adaptive %s%s insert\n",
+			PRINT_INFO(_T("Adaptive %s%s insert\n"),
 				(adaptiveIOn) ? _T("I") : _T(""),
 				(adaptiveIOn && adaptiveBOn) ? _T(",") : _T(""),
 				(adaptiveBOn) ? _T("B") : _T(""));
