@@ -6,6 +6,7 @@
 #include <shlwapi.h>
 #include <emmintrin.h>
 #pragma comment(lib, "shlwapi.lib")
+#include <vector>
 #include <string>
 #include "vm/strings_defs.h"
 #include "mfxstructures.h"
@@ -24,6 +25,11 @@
 
 mfxU32 GCD(mfxU32 a, mfxU32 b);
 mfxI64 GCDI64(mfxI64 a, mfxI64 b);
+
+typedef struct CX_DESC {
+	TCHAR *desc;
+	int value;
+} CX_DESC;
 
 static const mfxVersion LIB_VER_LIST[] = {
 	{ 0, 0 },
@@ -70,9 +76,23 @@ enum {
 	ENC_FEATURE_AVBR       = 0x00004000,
 	ENC_FEATURE_VUI_INFO   = 0x00008000,
 };
+
+static const CX_DESC list_rate_control_ry[] = {
+	{ _T("CBR  "), MFX_RATECONTROL_CBR    },
+	{ _T("VBR  "), MFX_RATECONTROL_VBR    },
+	{ _T("AVBR "), MFX_RATECONTROL_AVBR   },
+	{ _T("CQP  "), MFX_RATECONTROL_CQP    },
+	{ _T("VQP  "), MFX_RATECONTROL_VQP    },
+	{ _T("LA   "), MFX_RATECONTROL_LA     },
+	{ _T("ICQ  "), MFX_RATECONTROL_ICQ    },
+	{ _T("LAICQ"), MFX_RATECONTROL_LA_ICQ },
+	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
+};
+
 mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver);
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<bool>& rcAvailable, std::vector<mfxU32>& availableFeatureForEachRC);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();

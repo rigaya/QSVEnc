@@ -288,19 +288,7 @@ const msdk_char *EncFeatureStr(mfxU32 enc_feature) {
 	return NULL;
 }
 
-void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
-
-	std::vector<CX_DESC> rateControlList{
-		{ _T("CBR  "), MFX_RATECONTROL_CBR    },
-		{ _T("VBR  "), MFX_RATECONTROL_VBR    },
-		{ _T("AVBR "), MFX_RATECONTROL_AVBR   },
-		{ _T("CQP  "), MFX_RATECONTROL_CQP    },
-		{ _T("VQP  "), MFX_RATECONTROL_VQP    },
-		{ _T("LA   "), MFX_RATECONTROL_LA     },
-		{ _T("ICQ  "), MFX_RATECONTROL_ICQ    },
-		{ _T("LAICQ"), MFX_RATECONTROL_LA_ICQ },
-		{ _T("VCM  "), MFX_RATECONTROL_VCM    },
-	};
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<bool>& rcAvailable, std::vector<mfxU32>& availableFeatureForEachRC) {
 
 	mfxU32 availableFeature = CheckEncodeFeature(hardware, MFX_RATECONTROL_VBR);
 
@@ -312,25 +300,31 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 		{ MFX_RATECONTROL_VCM,    ENC_FEATURE_VCM                  },
 	};
 
-	for (auto featureMap : featureMapList) {
-		for (auto& rc : rateControlList) {
-			if (rc.value == featureMap.first) {
+	rcAvailable.resize(rateControlCount, true);
+	availableFeatureForEachRC.resize(rateControlCount, 0);
+
+	for (int i_rc = 0; i_rc < rateControlCount; i_rc++) {
+		for (auto featureMap : featureMapList) {
+			if (rateControlList[i_rc].value == featureMap.first) {
 				if (featureMap.second != (featureMap.second & availableFeature)) {
-					rc.value = 0;
+					rcAvailable[i_rc] = false;
 				}
 				break;
 			}
 		}
-	}
-
-	std::vector<mfxU32> availableFeatureForEachRC;
-	availableFeatureForEachRC.resize(rateControlList.size(), 0);
-
-	for (mfxU32 i = 0; i < rateControlList.size(); i++) {
-		if (rateControlList[i].value) {
-			availableFeatureForEachRC[i] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i].value);
+		if (rcAvailable[i_rc]) {
+			availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i_rc].value);
 		}
 	}
+
+	return;
+}
+
+void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
+
+	std::vector<bool> rcAvailable;
+	std::vector<mfxU32> availableFeatureForEachRC;
+	MakeFeatureList(hardware, list_rate_control_ry, _countof(list_rate_control_ry), rcAvailable, availableFeatureForEachRC);
 	
 	str.clear();
 	
@@ -339,9 +333,9 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 	for (mfxU32 i = 1; i < row_header_length; i++)
 		str += _T(" ");
 
-	for (mfxU32 i = 0; i < rateControlList.size(); i++) {
+	for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
 		str += _T(" ");
-		str += rateControlList[i].desc;
+		str += list_rate_control_ry[i].desc;
 	}
 	str += _T("\n");
 	
@@ -350,21 +344,19 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 	str += _T("RC mode available");
 	for (mfxU32 i =_tcslen(_T("RC mode available")); i < row_header_length; i++)
 		str += _T(" ");
-	for (mfxU32 i = 0; i < rateControlList.size(); i++) {
-		str += MARK_YES_NO[!!rateControlList[i].value];
+	for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
+		str += MARK_YES_NO[!!rcAvailable[i]];
 	}
 	str += _T("\n");
 
 	//各種機能
 	for (const CX_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
 		str += ptr->desc;
-		for (mfxU32 i = 0; i < rateControlList.size(); i++) {
+		for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
 			str += MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
 		}
 		str += _T("\n");
 	}
-
-	return;
 }
 
 mfxU32 GCD(mfxU32 a, mfxU32 b)

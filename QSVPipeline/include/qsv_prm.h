@@ -164,11 +164,6 @@ struct sInputParams
 	sVppParams vpp;
 };
 
-typedef struct {
-	TCHAR *desc;
-	int value;
-} CX_DESC;
-
 const int MFX_COLOR_VALUE_AUTO = 0x0000ffff; //max of 16bit-integer (unsigned)
 
 const CX_DESC list_codec[] = {
