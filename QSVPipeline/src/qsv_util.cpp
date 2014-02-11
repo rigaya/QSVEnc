@@ -198,13 +198,17 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 	return result;
 }
 
-mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
+mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver) {
 	mfxSession session;
 	
-	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
 	mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
 	return (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ratecontrol) : 0x00;
+}
+
+mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
+	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+	return CheckEncodeFeature(hardware, ratecontrol, ver);
 }
 
 void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str) {

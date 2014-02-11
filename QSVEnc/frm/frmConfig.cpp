@@ -733,8 +733,10 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
-	mfxU32 available_features = CheckEncodeFeature(fcgCBHWEncode->Checked, (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value);
-	fcgCheckLibVersion((fcgCBHWEncode->Checked) ? mfxlib_hw : mfxlib_sw, available_features);
+	mfxVersion mfxlib_target;
+	mfxlib_target.Version = (fcgCBHWEncode->Checked) ? mfxlib_hw : mfxlib_sw;
+	mfxU32 available_features = CheckEncodeFeature(fcgCBHWEncode->Checked, (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value, mfxlib_target);
+	fcgCheckLibVersion(mfxlib_target.Version, available_features);
 	int enc_mode = list_encmode[fcgCXEncMode->SelectedIndex].value;
 	bool cqp_mode = (enc_mode == MFX_RATECONTROL_CQP || enc_mode == MFX_RATECONTROL_VQP);
 	bool avbr_mode = (enc_mode == MFX_RATECONTROL_AVBR);

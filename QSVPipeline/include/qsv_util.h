@@ -65,6 +65,7 @@ enum {
 	ENC_FEATURE_MBBRC      = 0x00000200,
 };
 mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver);
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
 void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str);
 
