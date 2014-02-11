@@ -3758,7 +3758,7 @@ private: System::Windows::Forms::Label^  fcgLBICQQuality;
 		System::Boolean CheckVppResolution(CONF_GUIEX *conf);
 		System::Void SetToolStripEvents(ToolStrip^ TS, System::Windows::Forms::MouseEventHandler^ _event);
 		System::Void SetInputBufRange();
-		System::Void fcgCheckLibVersion(mfxU32 mfxlib_current);
+		System::Void fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 available_features);
 		System::Void fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, mfxU32 mfxlib_current, mfxVersion reauired_version);
 		System::Void UpdateMfxLibDetection();
 	public:

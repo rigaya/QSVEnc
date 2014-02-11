@@ -695,7 +695,7 @@ System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode
 	}
 }
 
-System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current) {
+System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 available_features) {
 	if (0 == mfxlib_current)
 		return;
 
@@ -710,21 +710,21 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current) {
 	fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
 
 	const bool b_mfxlib_1_6 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_6.Version) != 0;
-	fcgCBExtBRC->Visible = b_mfxlib_1_6;
-	fcgCBMBBRC->Visible  = b_mfxlib_1_6;
+	fcgCBExtBRC->Visible = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_EXT_BRC);
+	fcgCBMBBRC->Visible  = b_mfxlib_1_6 && 0 != (available_features & ENC_FEATURE_MBBRC);
 
 	const bool b_mfxlib_1_7 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_7.Version) != 0;
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA, MFX_RATECONTROL_VBR, mfxlib_current, MFX_LIB_VERSION_1_7);
-	fcgLBTrellis->Visible = b_mfxlib_1_7;
-	fcgCXTrellis->Visible = b_mfxlib_1_7;
+	fcgLBTrellis->Visible = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
+	fcgCXTrellis->Visible = b_mfxlib_1_7 && 0 != (available_features & ENC_FEATURE_TRELLIS);
 	
 	const bool b_mfxlib_1_8 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_8.Version) != 0;
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, mfxlib_current, MFX_LIB_VERSION_1_8);
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, mfxlib_current, MFX_LIB_VERSION_1_8);
-	fcgCBAdaptiveB->Visible   = b_mfxlib_1_8;
-	fcgCBAdaptiveI->Visible   = b_mfxlib_1_8;
-	fcgCBBPyramid->Visible    = b_mfxlib_1_8;
+	fcgCBAdaptiveB->Visible   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
+	fcgCBAdaptiveI->Visible   = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
+	fcgCBBPyramid->Visible    = b_mfxlib_1_8 && 0 != (available_features & ENC_FEATURE_B_PYRAMID);
 	fcgLBLookaheadDS->Visible = b_mfxlib_1_8;
 	fcgCXLookaheadDS->Visible = b_mfxlib_1_8;
 
@@ -733,7 +733,8 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current) {
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
-	fcgCheckLibVersion((fcgCBHWEncode->Checked) ? mfxlib_hw : mfxlib_sw);
+	mfxU32 available_features = CheckEncodeFeature(fcgCBHWEncode->Checked, (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value);
+	fcgCheckLibVersion((fcgCBHWEncode->Checked) ? mfxlib_hw : mfxlib_sw, available_features);
 	int enc_mode = list_encmode[fcgCXEncMode->SelectedIndex].value;
 	bool cqp_mode = (enc_mode == MFX_RATECONTROL_CQP || enc_mode == MFX_RATECONTROL_VQP);
 	bool avbr_mode = (enc_mode == MFX_RATECONTROL_AVBR);
