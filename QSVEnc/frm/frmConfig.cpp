@@ -705,7 +705,6 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current) {
 	fcgCXVideoFormat->Enabled = b_mfxlib_1_3;
 	fcggroupBoxColor->Enabled = b_mfxlib_1_3;
 	fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
-	fcggroupBoxColor->Visible = !fcgCBHWEncode->Checked;
 
 	const bool b_mfxlib_1_6 = check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_6.Version) != 0;
 	fcgCBExtBRC->Visible = b_mfxlib_1_6;

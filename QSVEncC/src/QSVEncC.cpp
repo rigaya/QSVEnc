@@ -204,6 +204,9 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --fullrange                    set stream as fullrange yuv.\n")
 			);
 		PrintListOptions(stdout, _T("--videoformat <string>"), list_videoformat, 0);
+		PrintListOptions(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
+		PrintListOptions(stdout, _T("--colorprim <string>"), list_colorprim, 0);
+		PrintListOptions(stdout, _T("--transfer <string>"), list_transfer, 0);
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.6\n")
 			_T("   --mbbrc                        enables per macro block rate control.\n")
@@ -236,9 +239,6 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                    0: auto(default)   1: full-pell\n")
 			_T("                                    2: half-pell       3: quater-pell\n")
 			));
-		PrintListOptions(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
-		PrintListOptions(stdout, _T("--colorprim <string>"), list_colorprim, 0);
-		PrintListOptions(stdout, _T("--transfer <string>"), list_transfer, 0);
 	}
 }
 

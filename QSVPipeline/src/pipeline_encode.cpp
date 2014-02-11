@@ -628,14 +628,12 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			MSDK_ZERO_MEMORY(m_mfxVSI);
 			m_mfxVSI.Header.BufferId = MFX_EXTBUFF_VIDEO_SIGNAL_INFO;
 			m_mfxVSI.Header.BufferSz = sizeof(mfxExtVideoSignalInfo);
-			m_mfxVSI.ColourDescriptionPresent = (mfxU16)MFX_CODINGOPTION_ON;
+			m_mfxVSI.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
 			m_mfxVSI.VideoFormat              = pInParams->VideoFormat;
 			m_mfxVSI.VideoFullRange           = pInParams->bFullrange != 0;
-			//if (!pInParams->bUseHWLib) {
-				m_mfxVSI.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
-				m_mfxVSI.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
-				m_mfxVSI.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
-			//}
+			m_mfxVSI.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
+			m_mfxVSI.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
+			m_mfxVSI.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
 #undef GET_COLOR_PRM
 			m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxVSI);
 	}
