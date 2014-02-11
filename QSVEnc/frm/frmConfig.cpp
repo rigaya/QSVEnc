@@ -683,9 +683,9 @@ System::Void frmConfig::InitStgFileList() {
 	CheckTSSettingsDropDownItem(nullptr);
 }
 
-System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, mfxU32 mfxlib_current, mfxVersion reauired_version) {
+System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, mfxU32 mfxlib_current, mfxVersion required_version) {
 	int encmode_idx = get_cx_index(list_encmode, rc_mode_target);
-	const bool bmfxLib = check_lib_version(mfxlib_current, reauired_version.Version) != 0;
+	const bool bmfxLib = check_lib_version(mfxlib_current, required_version.Version) != 0;
 	if (bmfxLib) {
 		fcgCXEncMode->Items[encmode_idx] = String(list_encmode[encmode_idx].desc).ToString();
 	} else {
