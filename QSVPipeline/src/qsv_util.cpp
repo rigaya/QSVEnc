@@ -8,9 +8,11 @@
 //  -----------------------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <vector>
 #include "mfxStructures.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
+#include "sample_defs.h"
 #include "qsv_util.h"
 
 BOOL Check_HWUsed(mfxIMPL impl) {
@@ -76,6 +78,154 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
 	if (value.Minor < required.Minor)
 		return FALSE;
 	return TRUE;
+}
+
+mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
+	MFXVideoENCODE encode(session);
+	mfxIMPL impl;
+	MFXQueryIMPL(session, &impl);
+	mfxVersion mfxVer = get_mfx_lib_version(impl);
+
+	mfxExtCodingOption cop;
+	MSDK_ZERO_MEMORY(cop);
+	cop.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
+	cop.Header.BufferSz = sizeof(mfxExtCodingOption);
+
+	mfxExtCodingOption2 cop2;
+	MSDK_ZERO_MEMORY(cop2);
+	cop2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
+	cop2.Header.BufferSz = sizeof(mfxExtCodingOption2);
+
+	std::vector<mfxExtBuffer *> buf;
+	buf.push_back((mfxExtBuffer *)&cop);
+	buf.push_back((mfxExtBuffer *)&cop2);
+
+	mfxVideoParam videoPrm;
+	MSDK_ZERO_MEMORY(videoPrm);
+	videoPrm.NumExtParam = (mfxU16)buf.size();
+	videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
+	videoPrm.AsyncDepth                  = 3;
+	videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
+	videoPrm.mfx.CodecId                 = MFX_CODEC_AVC;
+	videoPrm.mfx.RateControlMethod       = ratecontrol;
+	videoPrm.mfx.CodecLevel              = MFX_LEVEL_AVC_41;
+	videoPrm.mfx.CodecProfile            = MFX_PROFILE_AVC_HIGH;
+	videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BEST_QUALITY;
+	if (   ratecontrol == MFX_RATECONTROL_VBR
+		|| ratecontrol == MFX_RATECONTROL_AVBR
+		|| ratecontrol == MFX_RATECONTROL_CBR
+		|| ratecontrol == MFX_RATECONTROL_LA
+		|| ratecontrol == MFX_RATECONTROL_VCM) {
+		videoPrm.mfx.TargetKbps = 3000;
+		videoPrm.mfx.MaxKbps    = 15000;
+	} else if (
+		   ratecontrol == MFX_RATECONTROL_CQP
+		|| ratecontrol == MFX_RATECONTROL_VQP) {
+		videoPrm.mfx.QPI = 23;
+		videoPrm.mfx.QPP = 23;
+		videoPrm.mfx.QPB = 23;
+	} else {
+		videoPrm.mfx.ICQQuality          = 23;
+		videoPrm.mfx.MaxKbps             = 15000;
+	}
+	videoPrm.mfx.EncodedOrder            = 0;
+	videoPrm.mfx.NumSlice                = 1;
+	videoPrm.mfx.NumRefFrame             = 2;
+	videoPrm.mfx.GopPicSize              = USHRT_MAX;
+	videoPrm.mfx.GopOptFlag              = MFX_GOP_CLOSED;
+	videoPrm.mfx.GopRefDist              = 3;
+	videoPrm.mfx.FrameInfo.FrameRateExtN = 30000;
+	videoPrm.mfx.FrameInfo.FrameRateExtD = 1001;
+	videoPrm.mfx.FrameInfo.FourCC        = MFX_FOURCC_NV12;
+	videoPrm.mfx.FrameInfo.ChromaFormat  = MFX_CHROMAFORMAT_YUV420;
+	videoPrm.mfx.FrameInfo.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
+	videoPrm.mfx.FrameInfo.AspectRatioW  = 1;
+	videoPrm.mfx.FrameInfo.AspectRatioH  = 1;
+	videoPrm.mfx.FrameInfo.Width         = 1440;
+	videoPrm.mfx.FrameInfo.Height        = 720;
+	videoPrm.mfx.FrameInfo.CropX         = 0;
+	videoPrm.mfx.FrameInfo.CropY         = 0;
+	videoPrm.mfx.FrameInfo.CropW         = 1280;
+	videoPrm.mfx.FrameInfo.CropH         = 720;
+
+	mfxExtCodingOption copOut;
+	mfxExtCodingOption2 cop2Out;
+	std::vector<mfxExtBuffer *> bufOut;
+	bufOut.push_back((mfxExtBuffer *)&copOut);
+	bufOut.push_back((mfxExtBuffer *)&cop2Out);
+	mfxVideoParam videoPrmOut;
+	//In, Outのパラメータが同一となっているようにきちんとコピーする
+	//そうしないとQueryが失敗する
+	MSDK_MEMCPY(&copOut, &cop, sizeof(cop));
+	MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2));
+	MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
+	videoPrm.NumExtParam = (mfxU16)bufOut.size();
+	videoPrm.ExtParam = &bufOut[0];
+
+	mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
+	
+	mfxU32 result = 0x00;
+
+	if (MFX_ERR_NONE == ret) {
+
+		//ひとつひとつパラメータを入れ替えて試していく
+#define CHECK_FEATURE(members, flag) { \
+		(members) = MFX_CODINGOPTION_ON; \
+		MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop)); \
+		MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
+		if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
+			result |= (flag); \
+		(members) = MFX_CODINGOPTION_UNKNOWN; \
+	}\
+
+		CHECK_FEATURE(cop.AUDelimiter,       ENC_FEATURE_AUD);
+		CHECK_FEATURE(cop.PicTimingSEI,      ENC_FEATURE_PIC_STRUCT);
+		CHECK_FEATURE(cop.RateDistortionOpt, ENC_FEATURE_RDO);
+		CHECK_FEATURE(cop.CAVLC,             ENC_FEATURE_CAVLC);
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
+			CHECK_FEATURE(cop2.ExtBRC,       ENC_FEATURE_EXT_BRC);
+			CHECK_FEATURE(cop2.MBBRC,        ENC_FEATURE_MBBRC);
+		}
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+			CHECK_FEATURE(cop2.AdaptiveI,    ENC_FEATURE_ADAPTIVE_I);
+			CHECK_FEATURE(cop2.AdaptiveB,    ENC_FEATURE_ADAPTIVE_B);
+			CHECK_FEATURE(cop2.BRefType,     ENC_FEATURE_B_PYRAMID);
+		}
+	}
+	return result;
+}
+
+mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
+	mfxSession session;
+	
+	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+	mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
+
+	return (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ratecontrol) : 0x00;
+}
+
+void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str) {
+	str.clear();
+
+#define ADD_FEATURE_STR(feature_flag, feature_str) { \
+	str += feature_str; \
+	str += (features & feature_flag) ? _T("yes") : _T("no"); \
+	str += _T("\n"); \
+	}
+
+	ADD_FEATURE_STR(ENC_FEATURE_AUD,        _T("aud         "));
+	ADD_FEATURE_STR(ENC_FEATURE_PIC_STRUCT, _T("pic_struct  "));
+	ADD_FEATURE_STR(ENC_FEATURE_RDO,        _T("rdo         "));
+	ADD_FEATURE_STR(ENC_FEATURE_CAVLC,      _T("cavlc       "));
+	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_I, _T("adaptive_i  "));
+	ADD_FEATURE_STR(ENC_FEATURE_ADAPTIVE_B, _T("adaptive_b  "));
+	ADD_FEATURE_STR(ENC_FEATURE_B_PYRAMID,  _T("b_pyramid   "));
+	ADD_FEATURE_STR(ENC_FEATURE_EXT_BRC,    _T("ext_brc     "));
+	ADD_FEATURE_STR(ENC_FEATURE_MBBRC,      _T("mbbrc       "));
+
+#undef ADD_FEATURE_STR
+
+	return;
 }
 
 mfxU32 GCD(mfxU32 a, mfxU32 b)

@@ -114,7 +114,8 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("\n")
 			_T("   --sw                           use software encoding, instead of QSV (hw)\n")
 			_T("   --hw-check                     check if QuickSyncVideo is available\n")
-			_T("   --lib-check                    check lib API version installed\n"),
+			_T("   --lib-check                    check lib API version installed\n")
+			_T("   --check-feature                check encode feature\n"),
 			(ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
 			(ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
 			(ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
@@ -913,6 +914,24 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			int filename_len = (int)_tcslen(strInput[i]);
 			pParams->pStrLogFile = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pStrLogFile[0]));
 			memcpy(pParams->pStrLogFile, strInput[i], sizeof(pParams->pStrLogFile[0]) * filename_len);
+		}
+		else if (0 == _tcscmp(option_name, _T("check-feature")))
+		{
+			PrintVersion();
+			mfxVersion test = { 0, 1 };
+			for (int impl_type = 0; impl_type < 2; impl_type++) {
+				mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
+				const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
+				if (!check_lib_version(lib, test)) {
+					_ftprintf(stdout, _T("Media SDK %s unavailable.\n"), impl_str);
+				} else {
+					_ftprintf(stdout, _T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor);
+					std::basic_string<msdk_char> str;
+					MakeFeatureListStr(CheckEncodeFeature(0 == impl_type, MFX_RATECONTROL_VBR), str);
+					_ftprintf(stdout, _T("Supported features:\n%s\n\n"), str.c_str());
+				}
+			}
+			return MFX_PRINT_OPTION_DONE;
 		}
 		else if (0 == _tcscmp(option_name, _T("hw-check")))
 		{

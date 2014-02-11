@@ -6,7 +6,10 @@
 #include <shlwapi.h>
 #include <emmintrin.h>
 #pragma comment(lib, "shlwapi.lib")
+#include <string>
+#include "vm/strings_defs.h"
 #include "mfxstructures.h"
+#include "mfxSession.h"
 
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
@@ -48,6 +51,21 @@ mfxVersion get_mfx_libsw_version();
 mfxVersion get_mfx_lib_version(mfxIMPL impl);
 BOOL check_lib_version(mfxVersion value, mfxVersion required);
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required);
+
+enum {
+	ENC_FEATURE_AUD        = 0x00000001,
+	ENC_FEATURE_PIC_STRUCT = 0x00000002,
+	ENC_FEATURE_CAVLC      = 0x00000004,
+	ENC_FEATURE_RDO        = 0x00000008,
+	ENC_FEATURE_ADAPTIVE_I = 0x00000010,
+	ENC_FEATURE_ADAPTIVE_B = 0x00000020,
+	ENC_FEATURE_B_PYRAMID  = 0x00000040,
+	ENC_FEATURE_EXT_BRC    = 0x00000080,
+	ENC_FEATURE_MBBRC      = 0x00000100,
+};
+mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+void MakeFeatureListStr(mfxU32 features, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();
 
