@@ -113,9 +113,9 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --slices <int>                 number of slices, default 0 (auto)\n")
 			_T("\n")
 			_T("   --sw                           use software encoding, instead of QSV (hw)\n")
-			_T("   --hw-check                     check if QuickSyncVideo is available\n")
-			_T("   --lib-check                    check lib API version installed\n")
-			_T("   --check-feature                check encode feature\n"),
+			_T("   --check-hw                     check if QuickSyncVideo is available\n")
+			_T("   --check-lib                    check lib API version installed\n")
+			_T("   --check-feature                check encode features\n"),
 			(ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
 			(ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
 			(ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
@@ -933,7 +933,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			}
 			return MFX_PRINT_OPTION_DONE;
 		}
-		else if (0 == _tcscmp(option_name, _T("hw-check")))
+		else if (0 == _tcscmp(option_name, _T("check-hw"))
+			  || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
 		{
 			mfxVersion ver = { 0, 1 };
 			if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
@@ -944,7 +945,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
-		else if (0 == _tcscmp(option_name, _T("lib-check")))
+		else if (0 == _tcscmp(option_name, _T("lib-check"))
+			  || 0 == _tcscmp(option_name, _T("check-lib")))
 		{
 			mfxVersion test = { 0, 1 };
 			mfxVersion hwlib = get_mfx_libhw_version();
