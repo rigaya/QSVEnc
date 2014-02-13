@@ -152,6 +152,7 @@ void clear_auo_yuvreader_g_data() {
 AUO_YUVReader::AUO_YUVReader()
 {
 	m_ColorFormat = MFX_FOURCC_NV12; //AUO_YUVReaderはNV12専用
+	pause = FALSE;
 }
 
 //unsigned int __stdcall AUO_YUVReader::InputThreadLauncher(void *pParam) {
@@ -187,6 +188,8 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int 
 	m_inputFrameInfo.CropY = 0;
 	*(DWORD *)&m_inputFrameInfo.FrameId = oip->n;
 
+	enable_enc_control(&pause, pe->afs_init, FALSE, timeGetTime(), oip->n);
+
 	char mes[256];
 	sprintf_s(mes, _countof(mes), "auo: %s->%s, %dx%d, %d/%d fps", ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC),
 		m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
@@ -204,6 +207,8 @@ AUO_YUVReader::~AUO_YUVReader()
 
 void AUO_YUVReader::Close()
 {
+	disable_enc_control();
+	pause = FALSE;
 }
 
 mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface)
@@ -228,6 +233,13 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface)
 
 	if (oip->func_is_abort())
 		return MFX_ERR_ABORTED;
+
+	while (pause) {
+		Sleep(LOG_UPDATE_INTERVAL);
+		if (oip->func_is_abort())
+			return MFX_ERR_ABORTED;
+		log_process_events();
+	}
 
     mfxFrameInfo* pInfo = &pSurface->Info;
     mfxFrameData* pData = &pSurface->Data;

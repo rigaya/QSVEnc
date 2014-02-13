@@ -26,6 +26,7 @@ public :
 
 private:
 	mfxU32 current_frame;
+	BOOL pause;
 };
 
 class AUO_EncodeStatusInfo : public CEncodeStatusInfo
