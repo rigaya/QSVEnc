@@ -46,6 +46,9 @@ namespace QSVEnc {
 	public:
 		frmConfig(CONF_GUIEX *_conf, const SYSTEM_DATA *_sys_dat)
 		{
+			//ライブラリのチェック
+			featuresHW = gcnew QSVFeatures(true);
+			featuresSW = gcnew QSVFeatures(false);
 			InitData(_conf, _sys_dat);
 			cnf_stgSelected = (CONF_GUIEX *)calloc(1, sizeof(CONF_GUIEX));
 			InitializeComponent();

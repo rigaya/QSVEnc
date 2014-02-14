@@ -907,9 +907,6 @@ System::Void frmConfig::UpdateMfxLibDetection() {
 }
 
 System::Void frmConfig::InitForm() {
-	//ライブラリのチェック
-	featuresHW = gcnew QSVFeatures(true);
-	featuresSW = gcnew QSVFeatures(false);
 	//ローカル設定のロード
 	LoadLocalStg();
 	//ローカル設定の反映
