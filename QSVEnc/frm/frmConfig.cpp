@@ -750,7 +750,7 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
 	mfxVersion mfxlib_target;
-	mfxlib_target.Version = (fcgCBHWEncode->Checked) ? mfxlib_hw : mfxlib_sw;
+	mfxlib_target.Version = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
 	mfxU32 available_features = CheckEncodeFeature(fcgCBHWEncode->Checked, (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value, mfxlib_target);
 	fcgCheckLibVersion(mfxlib_target.Version, available_features);
 	int enc_mode = list_encmode[fcgCXEncMode->SelectedIndex].value;
@@ -898,6 +898,8 @@ System::Void frmConfig::SetInputBufRange() {
 }
 
 System::Void frmConfig::UpdateMfxLibDetection() {
+	UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
+	UInt32 mfxlib_sw = featuresSW->GetmfxLibVer();
 	fcgLBMFXLibDetectionHwValue->Text = (check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version)) ? 
 		L"v" + ((mfxlib_hw>>16).ToString() + L"." + (mfxlib_hw & 0x0000ffff).ToString()) : L"-----";
 	fcgLBMFXLibDetectionSwValue->Text = (check_lib_version(mfxlib_sw, MFX_LIB_VERSION_1_1.Version)) ? 
@@ -906,13 +908,8 @@ System::Void frmConfig::UpdateMfxLibDetection() {
 
 System::Void frmConfig::InitForm() {
 	//ライブラリのチェック
-	mfxlib_hw = get_mfx_libhw_version().Version;
-	mfxlib_sw = get_mfx_libsw_version().Version;
-	featuresHW = gcnew QSVFeatures(true, mfxlib_hw);
-	featuresSW = gcnew QSVFeatures(false, mfxlib_sw);
-	featuresHW->getFeaturesAsync();
-	featuresSW->getFeaturesAsync();
-	UpdateMfxLibDetection();
+	featuresHW = gcnew QSVFeatures(true);
+	featuresSW = gcnew QSVFeatures(false);
 	//ローカル設定のロード
 	LoadLocalStg();
 	//ローカル設定の反映
@@ -928,12 +925,14 @@ System::Void frmConfig::InitForm() {
 	//バージョン情報,コンパイル日時
 	fcgLBVersion->Text     = Path::GetFileNameWithoutExtension(String(AUO_NAME_W).ToString()) + L" " + String(AUO_VERSION_STR).ToString() + L"  based on Intel(R) Media SDK " + String(MSDK_SAMPLE_VERSION).ToString();
 	fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
+	//ツールチップ
+	SetHelpToolTips();
 	//HWエンコードの可否
+	UpdateMfxLibDetection();
+	UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
 	fcgCBHWEncode->Enabled = check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version) != 0;
 	if (!fcgCBHWEncode->Enabled)
 		fcgCBHWEncode->Checked = false;
-	//ツールチップ
-	SetHelpToolTips();
 	//パラメータセット
 	ConfToFrm(conf);
 	//イベントセット
@@ -1491,7 +1490,7 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 
 System::Void frmConfig::UpdateFeatures() {
 	//表示更新
-	mfxU32 currentLib = (fcgCBHWEncode->Checked) ? mfxlib_hw : mfxlib_sw;
+	mfxU32 currentLib = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
 	bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
 	String^ currentAPI = ((fcgCBHWEncode->Checked) ? L"hw" : L"sw");
 	currentAPI += L": API ";

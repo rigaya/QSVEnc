@@ -11,6 +11,7 @@
 
 using namespace System;
 using namespace System::Data;
+using namespace System::Threading;
 using namespace System::IO;
 using namespace System::Collections::Generic;
 
@@ -66,35 +67,35 @@ namespace QSVEnc {
 	ref class QSVFeatures
 	{
 	private:
-		delegate System::Void GetFeaturesDelegate();
-		GetFeaturesDelegate^ getFeaturesDelegate;
-		IAsyncResult^ getFeaturesDelegateResult;
+		Thread^ thGetLibVersion;
+		Thread^ thGetFeatures;
+
 		array<UInt32>^ availableFeatures;
 		bool hardware;
+		bool getLibVerFinished;
 		bool getFeaturesFinished;
 		mfxU32 mfxVer;
 		DataTable^ dataTableQsvFeatures;
 	public:
-		QSVFeatures(bool _hardware, mfxU32 libVer) {
+		QSVFeatures(bool _hardware) {
 			dataTableQsvFeatures = gcnew DataTable();
 			dataTableQsvFeatures->Columns->Add(L"機能");
 			for (int i = 0; i < _countof(list_rate_control_ry); i++)
 				dataTableQsvFeatures->Columns->Add(String(list_rate_control_ry[i].desc).ToString()->TrimEnd());
 
-			getFeaturesDelegate = nullptr;
-			getFeaturesDelegateResult = nullptr;
+			thGetLibVersion = nullptr;
+			thGetFeatures = nullptr;
 			hardware = _hardware;
-			mfxVer = libVer;
 			availableFeatures = nullptr;
+			getLibVerFinished = false;
 			getFeaturesFinished = false;
+
+			thGetLibVersion = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getLibVersion));
+			thGetLibVersion->Start();
 		}
 		~QSVFeatures() {
 			delete dataTableQsvFeatures;
 			delete availableFeatures;
-		}
-		System::Void getFeaturesAsync() {
-			getFeaturesDelegate = gcnew GetFeaturesDelegate(this, &QSVFeatures::getFeatures);
-			getFeaturesDelegateResult = getFeaturesDelegate->BeginInvoke(nullptr, nullptr);
 		}
 		UInt32 getFeatureOfRC(int rc_index) {
 			if (getFeaturesFinished) {
@@ -107,14 +108,21 @@ namespace QSVEnc {
 		DataTable^ getFeatureTable() {
 			return dataTableQsvFeatures;
 		}
+		UInt32 GetmfxLibVer() {
+			if (!getLibVerFinished) {
+				thGetLibVersion->Join();
+				getLibVerFinished = true;
+			}
+			return mfxVer;
+		}
 	private:
-		System::Void getFeaturesCompleted(IAsyncResult^ async) {
-			GetFeaturesDelegate^ usedDelegate = (GetFeaturesDelegate^)async->AsyncState;
-			getFeaturesFinished = true;
-			usedDelegate->EndInvoke(async);
+		System::Void getLibVersion() {
+			mfxVer = get_mfx_libhw_version().Version;
+			thGetFeatures = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getFeatures));
+			thGetFeatures->Start();
 		}
 		System::Void getFeatures() {
-			std::vector<mfxU32> availableFeatureForEachRC;
+			std::vector<mfxU32> availableFeatureForEachRC(_countof(list_rate_control_ry), 0);
 			//MakeFeatureListが少し時間かかるので非同期にする必要がある
 			mfxVersion version;
 			version.Version = mfxVer;
@@ -123,6 +131,7 @@ namespace QSVEnc {
 			for (int i = 0; i < _countof(list_rate_control_ry); i++) {
 				availableFeatures[i] = availableFeatureForEachRC[i];
 			}
+			getFeaturesFinished = true;
 			GenerateTable();
 		}
 		System::Void GenerateTable() {

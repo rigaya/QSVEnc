@@ -3778,8 +3778,6 @@ private: System::Windows::Forms::Label^  label2;
 		ToolStripMenuItem^ CheckedStgMenuItem;
 		CONF_GUIEX *cnf_stgSelected;
 		String^ lastQualityStr;
-		mfxU32 mfxlib_hw;
-		mfxU32 mfxlib_sw;
 		QSVFeatures^ featuresHW;
 		QSVFeatures^ featuresSW;
 #ifdef HIDE_MPEG2
