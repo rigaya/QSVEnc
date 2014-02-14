@@ -122,17 +122,19 @@ namespace QSVEnc {
 			thGetFeatures->Start();
 		}
 		System::Void getFeatures() {
-			std::vector<mfxU32> availableFeatureForEachRC(_countof(list_rate_control_ry), 0);
-			//MakeFeatureListが少し時間かかるので非同期にする必要がある
-			mfxVersion version;
-			version.Version = mfxVer;
-			MakeFeatureList(hardware, version, list_rate_control_ry, _countof(list_rate_control_ry), availableFeatureForEachRC);
-			availableFeatures = gcnew array<UInt32>(_countof(list_rate_control_ry));
-			for (int i = 0; i < _countof(list_rate_control_ry); i++) {
-				availableFeatures[i] = availableFeatureForEachRC[i];
+			if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_1.Version)) {
+				std::vector<mfxU32> availableFeatureForEachRC(_countof(list_rate_control_ry), 0);
+				//MakeFeatureListが少し時間かかるので非同期にする必要がある
+				mfxVersion version;
+				version.Version = mfxVer;
+				MakeFeatureList(hardware, version, list_rate_control_ry, _countof(list_rate_control_ry), availableFeatureForEachRC);
+				availableFeatures = gcnew array<UInt32>(_countof(list_rate_control_ry));
+				for (int i = 0; i < _countof(list_rate_control_ry); i++) {
+					availableFeatures[i] = availableFeatureForEachRC[i];
+				}
+				getFeaturesFinished = true;
+				GenerateTable();
 			}
-			getFeaturesFinished = true;
-			GenerateTable();
 		}
 		System::Void GenerateTable() {
 			//第2行以降を連続で追加していく
