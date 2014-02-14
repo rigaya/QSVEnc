@@ -115,7 +115,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --sw                           use software encoding, instead of QSV (hw)\n")
 			_T("   --check-hw                     check if QuickSyncVideo is available\n")
 			_T("   --check-lib                    check lib API version installed\n")
-			_T("   --check-feature                check encode features\n"),
+			_T("   --check-features               check encode features\n"),
 			(ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
 			(ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
 			(ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
@@ -915,7 +915,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			pParams->pStrLogFile = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pStrLogFile[0]));
 			memcpy(pParams->pStrLogFile, strInput[i], sizeof(pParams->pStrLogFile[0]) * filename_len);
 		}
-		else if (0 == _tcscmp(option_name, _T("check-feature")))
+		else if (0 == _tcscmp(option_name, _T("check-features")))
 		{
 			PrintVersion();
 			mfxVersion test = { 0, 1 };

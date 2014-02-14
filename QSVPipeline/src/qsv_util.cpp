@@ -174,37 +174,12 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 
 	mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
 	
-	mfxU32 result = 0x00;
+	mfxU32 result = (MFX_ERR_NONE == ret) ? ENC_FEATURE_RC_SUPPORT : 0x00;
 
 	if (MFX_ERR_NONE == ret) {
-
-		//まず、エンコードモードについてチェック
-#define CHECK_ENC_MODE(mode, flag) { \
-		mfxU16 original_method = videoPrm.mfx.RateControlMethod; \
-		videoPrm.mfx.RateControlMethod = mode; \
-		SET_DEFAULT_QUALITY_PRM; \
-		MSDK_MEMCPY(&copOut, &cop, sizeof(cop)); \
-		MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
-		MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
-		videoPrm.NumExtParam = (mfxU16)bufOut.size(); \
-		videoPrm.ExtParam = &bufOut[0]; \
-		if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
-			result |= (flag); \
-		videoPrm.mfx.RateControlMethod = original_method; \
-		SET_DEFAULT_QUALITY_PRM; \
-	}
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
 			result |= ENC_FEATURE_VUI_INFO; //これはもう単純にAPIチェックでOK
-			CHECK_ENC_MODE(MFX_RATECONTROL_AVBR, ENC_FEATURE_AVBR);
 		}
-		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)) {
-			CHECK_ENC_MODE(MFX_RATECONTROL_LA, ENC_FEATURE_LA);
-		}
-		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
-			CHECK_ENC_MODE(MFX_RATECONTROL_ICQ, ENC_FEATURE_ICQ);
-			CHECK_ENC_MODE(MFX_RATECONTROL_VCM, ENC_FEATURE_VCM);
-		}
-#undef CHECK_ENC_MODE
 	
 #define CHECK_FEATURE(members, flag, value) { \
 		(members) = value; \
@@ -230,8 +205,9 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 			CHECK_FEATURE(cop2.AdaptiveI,    ENC_FEATURE_ADAPTIVE_I, MFX_CODINGOPTION_ON);
 			CHECK_FEATURE(cop2.AdaptiveB,    ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON);
 			CHECK_FEATURE(cop2.BRefType,     ENC_FEATURE_B_PYRAMID,  MFX_B_REF_PYRAMID);
-			if (result & ENC_FEATURE_LA) {
-				CHECK_FEATURE(cop2.LookAheadDS, ENC_FEATURE_LA_DS,   MFX_LOOKAHEAD_DS_2x);
+			if (   MFX_RATECONTROL_LA     == ratecontrol
+				|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {
+				CHECK_FEATURE(cop2.LookAheadDS,  ENC_FEATURE_LA_DS,      MFX_LOOKAHEAD_DS_2x);
 			}
 		}
 
@@ -265,22 +241,6 @@ mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
 	return CheckEncodeFeature(hardware, ratecontrol, ver);
 }
 
-static const CX_DESC list_enc_feature[] = {
-	{ _T("Lookahead Quality "), ENC_FEATURE_LA_DS      },
-	{ _T("vui info output   "), ENC_FEATURE_VUI_INFO   },
-	{ _T("aud               "), ENC_FEATURE_AUD        },
-	{ _T("pic_struct        "), ENC_FEATURE_PIC_STRUCT },
-	{ _T("trellis           "), ENC_FEATURE_TRELLIS    },
-	{ _T("rdo               "), ENC_FEATURE_RDO        },
-	{ _T("cavlc             "), ENC_FEATURE_CAVLC      },
-	{ _T("adaptive_i        "), ENC_FEATURE_ADAPTIVE_I },
-	{ _T("adaptive_b        "), ENC_FEATURE_ADAPTIVE_B },
-	{ _T("b_pyramid         "), ENC_FEATURE_B_PYRAMID  },
-	{ _T("ext_brc           "), ENC_FEATURE_EXT_BRC    },
-	{ _T("mbbrc             "), ENC_FEATURE_MBBRC      },
-	{ NULL, 0 },
-};
-
 const msdk_char *EncFeatureStr(mfxU32 enc_feature) {
 	for (const CX_DESC *ptr = list_enc_feature; ptr->desc; ptr++)
 		if (enc_feature == (mfxU32)ptr->value)
@@ -288,33 +248,11 @@ const msdk_char *EncFeatureStr(mfxU32 enc_feature) {
 	return NULL;
 }
 
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<bool>& rcAvailable, std::vector<mfxU32>& availableFeatureForEachRC) {
-
-	mfxU32 availableFeature = CheckEncodeFeature(hardware, MFX_RATECONTROL_VBR);
-
-	std::vector<std::pair<mfxU16, mfxU16>> featureMapList {
-		{ MFX_RATECONTROL_AVBR,   ENC_FEATURE_AVBR                 },
-		{ MFX_RATECONTROL_LA,     ENC_FEATURE_LA                   },
-		{ MFX_RATECONTROL_ICQ,    ENC_FEATURE_ICQ                  },
-		{ MFX_RATECONTROL_LA_ICQ, ENC_FEATURE_ICQ | ENC_FEATURE_LA },
-		{ MFX_RATECONTROL_VCM,    ENC_FEATURE_VCM                  },
-	};
-
-	rcAvailable.resize(rateControlCount, true);
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC) {
 	availableFeatureForEachRC.resize(rateControlCount, 0);
 
 	for (int i_rc = 0; i_rc < rateControlCount; i_rc++) {
-		for (auto featureMap : featureMapList) {
-			if (rateControlList[i_rc].value == featureMap.first) {
-				if (featureMap.second != (featureMap.second & availableFeature)) {
-					rcAvailable[i_rc] = false;
-				}
-				break;
-			}
-		}
-		if (rcAvailable[i_rc]) {
-			availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i_rc].value);
-		}
+		availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i_rc].value);
 	}
 
 	return;
@@ -322,9 +260,8 @@ void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateCont
 
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 
-	std::vector<bool> rcAvailable;
 	std::vector<mfxU32> availableFeatureForEachRC;
-	MakeFeatureList(hardware, list_rate_control_ry, _countof(list_rate_control_ry), rcAvailable, availableFeatureForEachRC);
+	MakeFeatureList(hardware, list_rate_control_ry, _countof(list_rate_control_ry), availableFeatureForEachRC);
 	
 	str.clear();
 	
@@ -341,15 +278,6 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 	
 	//モードがサポートされているか
 	TCHAR *MARK_YES_NO[] = {  _T(" x    "), _T(" o    ") };
-	str += _T("RC mode available");
-	for (mfxU32 i =_tcslen(_T("RC mode available")); i < row_header_length; i++)
-		str += _T(" ");
-	for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
-		str += MARK_YES_NO[!!rcAvailable[i]];
-	}
-	str += _T("\n");
-
-	//各種機能
 	for (const CX_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
 		str += ptr->desc;
 		for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {

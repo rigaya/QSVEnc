@@ -59,22 +59,19 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required);
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required);
 
 enum {
-	ENC_FEATURE_AUD        = 0x00000001,
-	ENC_FEATURE_PIC_STRUCT = 0x00000002,
-	ENC_FEATURE_CAVLC      = 0x00000004,
-	ENC_FEATURE_RDO        = 0x00000008,
-	ENC_FEATURE_ADAPTIVE_I = 0x00000010,
-	ENC_FEATURE_ADAPTIVE_B = 0x00000020,
-	ENC_FEATURE_B_PYRAMID  = 0x00000040,
-	ENC_FEATURE_TRELLIS    = 0x00000080,
-	ENC_FEATURE_EXT_BRC    = 0x00000100,
-	ENC_FEATURE_MBBRC      = 0x00000200,
-	ENC_FEATURE_LA         = 0x00000400,
-	ENC_FEATURE_LA_DS      = 0x00000800,
-	ENC_FEATURE_ICQ        = 0x00001000,
-	ENC_FEATURE_VCM        = 0x00002000,
-	ENC_FEATURE_AVBR       = 0x00004000,
-	ENC_FEATURE_VUI_INFO   = 0x00008000,
+	ENC_FEATURE_RC_SUPPORT = 0x00000001,
+	ENC_FEATURE_AUD        = 0x00000002,
+	ENC_FEATURE_PIC_STRUCT = 0x00000004,
+	ENC_FEATURE_VUI_INFO   = 0x00000008,
+	ENC_FEATURE_CAVLC      = 0x00000010,
+	ENC_FEATURE_RDO        = 0x00000020,
+	ENC_FEATURE_ADAPTIVE_I = 0x00000040,
+	ENC_FEATURE_ADAPTIVE_B = 0x00000080,
+	ENC_FEATURE_B_PYRAMID  = 0x00000100,
+	ENC_FEATURE_TRELLIS    = 0x00000200,
+	ENC_FEATURE_EXT_BRC    = 0x00000400,
+	ENC_FEATURE_MBBRC      = 0x00000800,
+	ENC_FEATURE_LA_DS      = 0x00001000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -88,11 +85,27 @@ static const CX_DESC list_rate_control_ry[] = {
 	{ _T("LAICQ"), MFX_RATECONTROL_LA_ICQ },
 	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
 };
+static const CX_DESC list_enc_feature[] = {
+	{ _T("RC mode available "), ENC_FEATURE_RC_SUPPORT },
+	{ _T("VUI info output   "), ENC_FEATURE_VUI_INFO   },
+	{ _T("aud               "), ENC_FEATURE_AUD        },
+	{ _T("pic_struct        "), ENC_FEATURE_PIC_STRUCT },
+	{ _T("Trellis           "), ENC_FEATURE_TRELLIS    },
+	{ _T("rdo               "), ENC_FEATURE_RDO        },
+	{ _T("CAVLC             "), ENC_FEATURE_CAVLC      },
+	{ _T("Adaptive_I        "), ENC_FEATURE_ADAPTIVE_I },
+	{ _T("Adaptive_B        "), ENC_FEATURE_ADAPTIVE_B },
+	{ _T("B_Pyramid         "), ENC_FEATURE_B_PYRAMID  },
+	{ _T("Ext_BRC           "), ENC_FEATURE_EXT_BRC    },
+	{ _T("MBBRC             "), ENC_FEATURE_MBBRC      },
+	{ _T("Lookahead Quality "), ENC_FEATURE_LA_DS      },
+	{ NULL, 0 },
+};
 
 mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver);
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<bool>& rcAvailable, std::vector<mfxU32>& availableFeatureForEachRC);
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();
