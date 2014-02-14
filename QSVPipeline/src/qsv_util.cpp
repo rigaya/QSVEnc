@@ -34,12 +34,14 @@ BOOL Check_HWUsed(mfxIMPL impl) {
 mfxVersion get_mfx_lib_version(mfxIMPL impl) {
 	int i;
 	for (i = 1; LIB_VER_LIST[i].Major; i++) {
-		MFXVideoSession test;
+		MFXVideoSession *test = new MFXVideoSession();
 		mfxVersion ver;
 		memcpy(&ver, &LIB_VER_LIST[i], sizeof(mfxVersion));
-		mfxStatus sts = test.Init(impl, &ver);
+		mfxStatus sts = test->Init(impl, &ver);
 		if (sts != MFX_ERR_NONE)
 			break;
+		test->Close();
+		delete test;
 	}
 	return LIB_VER_LIST[i-1];
 }
@@ -257,7 +259,11 @@ mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver) {
 	
 	mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
-	return (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ratecontrol) : 0x00;
+	mfxU32 feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ratecontrol) : 0x00;
+
+	MFXClose(session);
+
+	return feature;
 }
 
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
