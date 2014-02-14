@@ -809,6 +809,11 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	this->ResumeLayout();
 	this->PerformLayout();
 }
+
+System::Void frmConfig::fcgCBHWLibChanged(System::Object^  sender, System::EventArgs^  e) {
+	UpdateFeatures();
+}
+
 System::Void frmConfig::fcgCXOutputType_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
 	this->SuspendLayout();
 
@@ -903,6 +908,10 @@ System::Void frmConfig::InitForm() {
 	//ライブラリのチェック
 	mfxlib_hw = get_mfx_libhw_version().Version;
 	mfxlib_sw = get_mfx_libsw_version().Version;
+	featuresHW = gcnew QSVFeatures(true, mfxlib_hw);
+	featuresSW = gcnew QSVFeatures(false, mfxlib_sw);
+	featuresHW->getFeaturesAsync();
+	featuresSW->getFeaturesAsync();
 	UpdateMfxLibDetection();
 	//ローカル設定のロード
 	LoadLocalStg();
@@ -934,6 +943,8 @@ System::Void frmConfig::InitForm() {
 	fcgChangeMuxerVisible(nullptr, nullptr);
 	fcgChangeEnabled(nullptr, nullptr);
 	EnableSettingsNoteChange(false);
+	UpdateFeatures();
+	fcgCBHWEncode->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBHWLibChanged);
 #ifdef HIDE_MPEG2
 	tabPageMpgMux = fcgtabControlMux->TabPages[2];
 	fcgtabControlMux->TabPages->RemoveAt(2);
@@ -1476,6 +1487,25 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 			MessageBox::Show(L"helpを開く際に不明なエラーが発生しました。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
 		}
 	}
+}
+
+System::Void frmConfig::UpdateFeatures() {
+	//表示更新
+	mfxU32 currentLib = (fcgCBHWEncode->Checked) ? mfxlib_hw : mfxlib_sw;
+	bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
+	String^ currentAPI = ((fcgCBHWEncode->Checked) ? L"hw" : L"sw");
+	currentAPI += L": API ";
+	currentAPI += (currentLibValid) ? L"v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-----";
+	fcgLBFeaturesCurrentAPIVer->Text = currentAPI;
+
+	fcgDGVFeatures->ReadOnly = true;
+	fcgDGVFeatures->AllowUserToAddRows = false;
+	fcgDGVFeatures->AllowUserToResizeRows = false;
+	fcgDGVFeatures->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
+
+	fcgDGVFeatures->DataSource = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureTable() : featuresSW->getFeatureTable(); //テーブルをバインド
+
+	fcgDGVFeatures->Columns[0]->FillWeight = 250;
 }
 
 #pragma warning( pop )

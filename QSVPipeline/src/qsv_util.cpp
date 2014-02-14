@@ -174,12 +174,36 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 
 	mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
 	
-	mfxU32 result = (MFX_ERR_NONE == ret) ? ENC_FEATURE_RC_SUPPORT : 0x00;
-
+	mfxU32 result = (MFX_ERR_NONE == ret) ? ENC_FEATURE_CURRENT_RC : 0x00;
 	if (MFX_ERR_NONE == ret) {
+
+		//まず、エンコードモードについてチェック
+#define CHECK_ENC_MODE(mode, flag) { \
+		mfxU16 original_method = videoPrm.mfx.RateControlMethod; \
+		videoPrm.mfx.RateControlMethod = mode; \
+		SET_DEFAULT_QUALITY_PRM; \
+		MSDK_MEMCPY(&copOut, &cop, sizeof(cop)); \
+		MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
+		MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
+		videoPrm.NumExtParam = (mfxU16)bufOut.size(); \
+		videoPrm.ExtParam = &bufOut[0]; \
+		if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
+			result |= (flag); \
+		videoPrm.mfx.RateControlMethod = original_method; \
+		SET_DEFAULT_QUALITY_PRM; \
+	}
 		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
 			result |= ENC_FEATURE_VUI_INFO; //これはもう単純にAPIチェックでOK
+			CHECK_ENC_MODE(MFX_RATECONTROL_AVBR, ENC_FEATURE_AVBR);
 		}
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)) {
+			CHECK_ENC_MODE(MFX_RATECONTROL_LA,   ENC_FEATURE_LA);
+		}
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+			CHECK_ENC_MODE(MFX_RATECONTROL_ICQ,  ENC_FEATURE_ICQ);
+			CHECK_ENC_MODE(MFX_RATECONTROL_VCM,  ENC_FEATURE_VCM);
+		}
+#undef CHECK_ENC_MODE
 	
 #define CHECK_FEATURE(members, flag, value) { \
 		(members) = value; \

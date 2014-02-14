@@ -10,10 +10,12 @@
 #pragma once
 
 using namespace System;
+using namespace System::Data;
 using namespace System::IO;
 using namespace System::Collections::Generic;
 
 #include "qsv_prm.h"
+#include "qsv_util.h"
 #include "mfxstructures.h"
 
 #define HIDE_MPEG2
@@ -59,6 +61,81 @@ namespace QSVEnc {
 		String^ Name;
 		String^ Path;
 		const char* args;
+	};
+
+	ref class QSVFeatures
+	{
+	private:
+		delegate System::Void GetFeaturesDelegate();
+		GetFeaturesDelegate^ getFeaturesDelegate;
+		IAsyncResult^ getFeaturesDelegateResult;
+		array<UInt32>^ availableFeatures;
+		bool hardware;
+		bool getFeaturesFinished;
+		mfxU32 mfxVer;
+		DataTable^ dataTableQsvFeatures;
+	public:
+		QSVFeatures(bool _hardware, mfxU32 libVer) {
+			dataTableQsvFeatures = gcnew DataTable();
+			dataTableQsvFeatures->Columns->Add(L"機能");
+			for (int i = 0; i < _countof(list_rate_control_ry); i++)
+				dataTableQsvFeatures->Columns->Add(String(list_rate_control_ry[i].desc).ToString()->TrimEnd());
+
+			getFeaturesDelegate = nullptr;
+			getFeaturesDelegateResult = nullptr;
+			hardware = _hardware;
+			mfxVer = libVer;
+			availableFeatures = nullptr;
+			getFeaturesFinished = false;
+		}
+		~QSVFeatures() {
+			delete dataTableQsvFeatures;
+			delete availableFeatures;
+		}
+		System::Void getFeaturesAsync() {
+			getFeaturesDelegate = gcnew GetFeaturesDelegate(this, &QSVFeatures::getFeatures);
+			getFeaturesDelegateResult = getFeaturesDelegate->BeginInvoke(nullptr, nullptr);
+		}
+		UInt32 getFeatureOfRC(int rc_index) {
+			if (getFeaturesFinished) {
+				return availableFeatures[rc_index];
+			}
+			mfxVersion version;
+			version.Version = mfxVer;
+			return CheckEncodeFeature(hardware, (mfxU16)list_rate_control_ry[rc_index].value, version);
+		}
+		DataTable^ getFeatureTable() {
+			return dataTableQsvFeatures;
+		}
+	private:
+		System::Void getFeaturesCompleted(IAsyncResult^ async) {
+			GetFeaturesDelegate^ usedDelegate = (GetFeaturesDelegate^)async->AsyncState;
+			getFeaturesFinished = true;
+			usedDelegate->EndInvoke(async);
+		}
+		System::Void getFeatures() {
+			std::vector<mfxU32> availableFeatureForEachRC;
+			//MakeFeatureListが少し時間かかるので非同期にする必要がある
+			mfxVersion version;
+			version.Version = mfxVer;
+			MakeFeatureList(hardware, version, list_rate_control_ry, _countof(list_rate_control_ry), availableFeatureForEachRC);
+			availableFeatures = gcnew array<UInt32>(_countof(list_rate_control_ry));
+			for (int i = 0; i < _countof(list_rate_control_ry); i++) {
+				availableFeatures[i] = availableFeatureForEachRC[i];
+			}
+			GenerateTable();
+		}
+		System::Void GenerateTable() {
+			//第2行以降を連続で追加していく
+			for (int i = 0; list_enc_feature[i].desc; i++) {
+				DataRow^ drb = dataTableQsvFeatures->NewRow();
+				drb[0] = String(list_enc_feature[i].desc).ToString();
+				for (int j = 1; j < dataTableQsvFeatures->Columns->Count; j++) {
+					drb[j] = String((availableFeatures[j-1] & list_enc_feature[i].value) ? L"○" : L"×").ToString();
+				}
+				dataTableQsvFeatures->Rows->Add(drb);
+			}
+		}
 	};
 };
 
