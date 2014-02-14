@@ -248,14 +248,16 @@ const msdk_char *EncFeatureStr(mfxU32 enc_feature) {
 	return NULL;
 }
 
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC) {
+void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC) {
 	availableFeatureForEachRC.resize(rateControlCount, 0);
 
 	for (int i_rc = 0; i_rc < rateControlCount; i_rc++) {
-		availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i_rc].value);
+		availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i_rc].value, ver);
 	}
+}
 
-	return;
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC) {
+	MakeFeatureList(hardware, (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version(), rateControlList, rateControlCount, availableFeatureForEachRC);
 }
 
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
