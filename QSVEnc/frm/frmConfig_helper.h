@@ -117,7 +117,7 @@ namespace QSVEnc {
 		}
 	private:
 		System::Void getLibVersion() {
-			mfxVer = get_mfx_libhw_version().Version;
+			mfxVer = (hardware) ? get_mfx_libhw_version().Version : get_mfx_libsw_version().Version;
 			thGetFeatures = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getFeatures));
 			thGetFeatures->Start();
 		}
