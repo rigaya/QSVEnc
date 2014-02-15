@@ -1519,6 +1519,7 @@ System::Void frmConfig::SaveQSVFeature() {
 		get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
 		saveFileQSVFeautures->InitialDirectory = String(aviutl_dir).ToString();
 	}
+	saveFileQSVFeautures->FileName = L"";
 
 	//ofd->Filter = L"pngファイル(*.png)|*.png|txtファイル(*.txt)|*.txt|csvファイル(*.csv)|*.csv";
 	saveFileQSVFeautures->Filter = L"pngファイル(*.png)|*.png";
@@ -1526,6 +1527,7 @@ System::Void frmConfig::SaveQSVFeature() {
 	saveFileQSVFeautures->Title = L"保存するファイル名を入力してください";
 	if (System::Windows::Forms::DialogResult::OK == saveFileQSVFeautures->ShowDialog()) {
 		String^ SavePath = saveFileQSVFeautures->FileName;
+		saveFileQSVFeautures->InitialDirectory = Path::GetDirectoryName(saveFileQSVFeautures->FileName);
 
 		bool isImage = 0 == String::Compare(".png", Path::GetExtension(SavePath), true);
 
