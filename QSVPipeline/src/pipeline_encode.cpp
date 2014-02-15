@@ -2604,14 +2604,14 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 		}
 	}
 	PRINT_INFO(    _T("Slices                  %d\n"), videoPrm.mfx.NumSlice);
-	if (   MFX_CODINGOPTION_ON == cop.AUDelimiter
-		|| MFX_CODINGOPTION_ON == cop.PicTimingSEI
-		|| MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) {
-		PRINT_INFO(    _T("Output Bitstream Info   %s%s%s\n"),
-			(MFX_CODINGOPTION_ON == cop.AUDelimiter) ? _T("aud ") : _T(""),
-			(MFX_CODINGOPTION_ON == cop.PicTimingSEI) ? _T("pic_struct ") : _T(""),
-			(MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) ? _T("SingleSEI ") : _T(""));
-	}
+	//if (   MFX_CODINGOPTION_ON == cop.AUDelimiter
+	//	|| MFX_CODINGOPTION_ON == cop.PicTimingSEI
+	//	|| MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) {
+	//	PRINT_INFO(    _T("Output Bitstream Info   %s%s%s\n"),
+	//		(MFX_CODINGOPTION_ON == cop.AUDelimiter) ? _T("aud ") : _T(""),
+	//		(MFX_CODINGOPTION_ON == cop.PicTimingSEI) ? _T("pic_struct ") : _T(""),
+	//		(MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) ? _T("SingleSEI ") : _T(""));
+	//}
 
 	//PRINT_INFO(_T("Source picture:"));
 	//PRINT_INFO(_T("\tResolution\t%dx%d"), SrcPicInfo.Width, SrcPicInfo.Height);
