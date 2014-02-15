@@ -137,12 +137,28 @@ namespace QSVEnc {
 			}
 		}
 		System::Void GenerateTable() {
+			static const CX_DESC list_enc_feature_jp[] = {
+				{ _T("モード有効          "), ENC_FEATURE_CURRENT_RC },
+				{ _T("色設定等出力        "), ENC_FEATURE_VUI_INFO   },
+				//{ _T("aud                 "), ENC_FEATURE_AUD        },
+				//{ _T("pic_struct          "), ENC_FEATURE_PIC_STRUCT },
+				{ _T("Trellis             "), ENC_FEATURE_TRELLIS    },
+				//{ _T("rdo                 "), ENC_FEATURE_RDO        },
+				//{ _T("CAVLC               "), ENC_FEATURE_CAVLC      },
+				{ _T("適応的Iフレーム挿入 "), ENC_FEATURE_ADAPTIVE_I },
+				{ _T("適応的Bフレーム挿入 "), ENC_FEATURE_ADAPTIVE_B },
+				{ _T("ピラミッド参照      "), ENC_FEATURE_B_PYRAMID  },
+				{ _T("MB単位レート制御    "), ENC_FEATURE_EXT_BRC    },
+				{ _T("MBBRC               "), ENC_FEATURE_MBBRC      },
+				{ _T("先行探索品質        "), ENC_FEATURE_LA_DS      },
+				{ NULL, 0 },
+			};
 			//第2行以降を連続で追加していく
-			for (int i = 0; list_enc_feature[i].desc; i++) {
+			for (int i = 0; list_enc_feature_jp[i].desc; i++) {
 				DataRow^ drb = dataTableQsvFeatures->NewRow();
-				drb[0] = String(list_enc_feature[i].desc).ToString();
+				drb[0] = String(list_enc_feature_jp[i].desc).ToString();
 				for (int j = 1; j < dataTableQsvFeatures->Columns->Count; j++) {
-					drb[j] = String((availableFeatures[j-1] & list_enc_feature[i].value) ? L"○" : L"×").ToString();
+					drb[j] = String((availableFeatures[j-1] & list_enc_feature_jp[i].value) ? L"○" : L"×").ToString();
 				}
 				dataTableQsvFeatures->Rows->Add(drb);
 			}
