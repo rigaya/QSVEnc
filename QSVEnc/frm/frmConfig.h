@@ -770,6 +770,8 @@ private: System::Windows::Forms::Label^  fcgLBFeaturesCurrentAPIVer;
 private: System::Windows::Forms::Label^  fcgLBFeaturesShowCurrentAPI;
 private: System::Windows::Forms::Label^  label2;
 private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
+private: System::Windows::Forms::Label^  fcgLBCPUInfoOnFeatureTab;
+private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 
 
 
@@ -1115,6 +1117,7 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			this->fcgTXCustomTempDir = (gcnew System::Windows::Forms::TextBox());
 			this->fcgCXTempDir = (gcnew System::Windows::Forms::ComboBox());
 			this->tabPageFeatures = (gcnew System::Windows::Forms::TabPage());
+			this->fcgBTSaveFeatureList = (gcnew System::Windows::Forms::Button());
 			this->label2 = (gcnew System::Windows::Forms::Label());
 			this->fcgLBFeaturesCurrentAPIVer = (gcnew System::Windows::Forms::Label());
 			this->fcgLBFeaturesShowCurrentAPI = (gcnew System::Windows::Forms::Label());
@@ -1122,7 +1125,8 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
-			this->fcgBTSaveFeatureList = (gcnew System::Windows::Forms::Button());
+			this->fcgLBCPUInfoOnFeatureTab = (gcnew System::Windows::Forms::Label());
+			this->fcgLBCPUInfoLabelOnFeatureTab = (gcnew System::Windows::Forms::Label());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -3583,6 +3587,8 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			// 
 			// tabPageFeatures
 			// 
+			this->tabPageFeatures->Controls->Add(this->fcgLBCPUInfoOnFeatureTab);
+			this->tabPageFeatures->Controls->Add(this->fcgLBCPUInfoLabelOnFeatureTab);
 			this->tabPageFeatures->Controls->Add(this->fcgBTSaveFeatureList);
 			this->tabPageFeatures->Controls->Add(this->label2);
 			this->tabPageFeatures->Controls->Add(this->fcgLBFeaturesCurrentAPIVer);
@@ -3594,6 +3600,17 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			this->tabPageFeatures->TabIndex = 3;
 			this->tabPageFeatures->Text = L"機能情報";
 			this->tabPageFeatures->UseVisualStyleBackColor = true;
+			// 
+			// fcgBTSaveFeatureList
+			// 
+			this->fcgBTSaveFeatureList->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
+			this->fcgBTSaveFeatureList->Location = System::Drawing::Point(477, 12);
+			this->fcgBTSaveFeatureList->Name = L"fcgBTSaveFeatureList";
+			this->fcgBTSaveFeatureList->Size = System::Drawing::Size(114, 30);
+			this->fcgBTSaveFeatureList->TabIndex = 112;
+			this->fcgBTSaveFeatureList->Text = L"ファイルに保存...";
+			this->fcgBTSaveFeatureList->UseVisualStyleBackColor = true;
+			this->fcgBTSaveFeatureList->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTSaveFeatureList_Click);
 			// 
 			// label2
 			// 
@@ -3613,7 +3630,7 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesCurrentAPIVer->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(187, 50);
+			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(185, 81);
 			this->fcgLBFeaturesCurrentAPIVer->Name = L"fcgLBFeaturesCurrentAPIVer";
 			this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(33, 17);
 			this->fcgLBFeaturesCurrentAPIVer->TabIndex = 110;
@@ -3625,7 +3642,7 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesShowCurrentAPI->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(39, 48);
+			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(37, 79);
 			this->fcgLBFeaturesShowCurrentAPI->Name = L"fcgLBFeaturesShowCurrentAPI";
 			this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(127, 19);
 			this->fcgLBFeaturesShowCurrentAPI->TabIndex = 107;
@@ -3636,11 +3653,11 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			this->fcgDGVFeatures->BackgroundColor = System::Drawing::SystemColors::Control;
 			this->fcgDGVFeatures->BorderStyle = System::Windows::Forms::BorderStyle::None;
 			this->fcgDGVFeatures->ColumnHeadersHeightSizeMode = System::Windows::Forms::DataGridViewColumnHeadersHeightSizeMode::AutoSize;
-			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 81);
+			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 112);
 			this->fcgDGVFeatures->Name = L"fcgDGVFeatures";
 			this->fcgDGVFeatures->ReadOnly = true;
 			this->fcgDGVFeatures->RowTemplate->Height = 21;
-			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 394);
+			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 363);
 			this->fcgDGVFeatures->TabIndex = 0;
 			this->fcgDGVFeatures->CellFormatting += gcnew System::Windows::Forms::DataGridViewCellFormattingEventHandler(this, &frmConfig::fcgDGVFeatures_CellFormatting);
 			// 
@@ -3673,16 +3690,29 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
 			// 
-			// fcgBTSaveFeatureList
+			// fcgLBCPUInfoOnFeatureTab
 			// 
-			this->fcgBTSaveFeatureList->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
-			this->fcgBTSaveFeatureList->Location = System::Drawing::Point(456, 17);
-			this->fcgBTSaveFeatureList->Name = L"fcgBTSaveFeatureList";
-			this->fcgBTSaveFeatureList->Size = System::Drawing::Size(114, 38);
-			this->fcgBTSaveFeatureList->TabIndex = 112;
-			this->fcgBTSaveFeatureList->Text = L"ファイルに保存...";
-			this->fcgBTSaveFeatureList->UseVisualStyleBackColor = true;
-			this->fcgBTSaveFeatureList->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTSaveFeatureList_Click);
+			this->fcgLBCPUInfoOnFeatureTab->AutoSize = true;
+			this->fcgLBCPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(128)));
+			this->fcgLBCPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
+			this->fcgLBCPUInfoOnFeatureTab->Location = System::Drawing::Point(185, 54);
+			this->fcgLBCPUInfoOnFeatureTab->Name = L"fcgLBCPUInfoOnFeatureTab";
+			this->fcgLBCPUInfoOnFeatureTab->Size = System::Drawing::Size(34, 17);
+			this->fcgLBCPUInfoOnFeatureTab->TabIndex = 114;
+			this->fcgLBCPUInfoOnFeatureTab->Text = L"CPU";
+			// 
+			// fcgLBCPUInfoLabelOnFeatureTab
+			// 
+			this->fcgLBCPUInfoLabelOnFeatureTab->AutoSize = true;
+			this->fcgLBCPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
+				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+			this->fcgLBCPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
+			this->fcgLBCPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(37, 52);
+			this->fcgLBCPUInfoLabelOnFeatureTab->Name = L"fcgLBCPUInfoLabelOnFeatureTab";
+			this->fcgLBCPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(39, 19);
+			this->fcgLBCPUInfoLabelOnFeatureTab->TabIndex = 113;
+			this->fcgLBCPUInfoLabelOnFeatureTab->Text = L"CPU";
 			// 
 			// frmConfig
 			// 

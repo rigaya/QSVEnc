@@ -2488,12 +2488,17 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	sts = m_pFileWriter->SetVideoParam(&videoPrm);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
+	TCHAR cpuInfo[256];
+	getCPUInfo(cpuInfo, _countof(cpuInfo));
+
 	TCHAR info[4096];
 	mfxU32 info_len = 0;
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
-	PRINT_INFO(    _T("based on Intel(R) Media SDK Encoding Sample Version %s\n"), MSDK_SAMPLE_VERSION);
+	PRINT_INFO(    _T("QSVEnc %s, based on Intel(R) Media SDK Encoding Sample Version %s\n"), VER_STR_FILEVERSION_TCHAR, MSDK_SAMPLE_VERSION);
+	PRINT_INFO(    _T("CPU Info                %s\n"), cpuInfo);
+	PRINT_INFO(    _T("Media SDK impl          %s, API v%d.%d\n"), (Check_HWUsed(impl)) ? _T("QuickSyncVideo (hardware encoder)") : _T("software encoder"), m_mfxVer.Major, m_mfxVer.Minor);
 	//PRINT_INFO(    _T("Input Frame Format      %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
 	//PRINT_INFO(    _T("Input Frame Type      %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
 	PRINT_INFO(    _T("Input Frame Info        %s\n"), m_pFileReader->GetInputMessage());
@@ -2631,7 +2636,6 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 		mfxU32 iGPUID = MSDKAdapter::GetNumber(m_mfxSession);
 		PRINT_INFO(_T("Intel iGPU ID           %d%s GPU\n"), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)]);
 	}
-	PRINT_INFO(    _T("Media SDK impl          %s, API v%d.%d\n"), (Check_HWUsed(impl)) ? _T("QuickSyncVideo (hardware encoder)") : _T("software encoder"), m_mfxVer.Major, m_mfxVer.Minor);
 	PRINT_INFO(_T("\n"));
 
 	PrintMes(info);

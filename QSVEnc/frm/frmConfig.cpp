@@ -924,6 +924,10 @@ System::Void frmConfig::InitForm() {
 	fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
 	//ツールチップ
 	SetHelpToolTips();
+	//CPU名
+	TCHAR cpu_info[256];
+	getCPUInfo(cpu_info, _countof(cpu_info));
+	fcgLBCPUInfoOnFeatureTab->Text = String(cpu_info).ToString();
 	//HWエンコードの可否
 	UpdateMfxLibDetection();
 	UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();

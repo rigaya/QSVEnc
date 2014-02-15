@@ -116,6 +116,8 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();
 
+int getCPUInfo(TCHAR *buffer, size_t nSize);
+
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 
 //拡張子が一致するか確認する
