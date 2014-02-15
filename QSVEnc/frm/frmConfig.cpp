@@ -1504,4 +1504,49 @@ System::Void frmConfig::UpdateFeatures() {
 	fcgDGVFeatures->Columns[0]->FillWeight = 250;
 }
 
+System::Void frmConfig::SaveQSVFeature() {
+	//WinXPにおいて、OpenFileDialogはCurrentDirctoryを勝手に変更しやがるので、
+	//一度保存し、あとから再適用する
+	String^ CurrentDir = Directory::GetCurrentDirectory();
+	SaveFileDialog^ sfd = gcnew SaveFileDialog();
+	
+	WCHAR aviutl_dir[MAX_PATH_LEN];
+	get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+	sfd->InitialDirectory = String(aviutl_dir).ToString();
+
+	//ofd->Filter = L"pngファイル(*.png)|*.png|txtファイル(*.txt)|*.txt|csvファイル(*.csv)|*.csv";
+	sfd->Filter = L"pngファイル(*.png)|*.png";
+
+	sfd->Title = L"保存するファイル名を入力してください";
+	if (System::Windows::Forms::DialogResult::OK == sfd->ShowDialog()) {
+		String^ SavePath = sfd->FileName;
+
+		bool isImage = 0 == String::Compare(".png", Path::GetExtension(SavePath), true);
+
+		if (isImage) {
+			SaveQSVFeatureAsImg(SavePath);
+		} else {
+			//SaveQSVFeatureAsTxt(SavePath);
+		}
+	}
+	delete sfd;
+	
+	Directory::SetCurrentDirectory(CurrentDir);
+}
+
+System::Void frmConfig::SaveQSVFeatureAsImg(String^ SavePath) {
+	bool SaveAsBmp = 0 == String::Compare(".bmp", Path::GetExtension(SavePath), true);
+	Bitmap^ bmp = gcnew Bitmap(tabPageFeatures->Width, tabPageFeatures->Height);
+	try {
+		tabPageFeatures->DrawToBitmap(bmp, System::Drawing::Rectangle(0, 0, tabPageFeatures->Width, tabPageFeatures->Height));
+		bmp->Save(SavePath, (SaveAsBmp) ? System::Drawing::Imaging::ImageFormat::Bmp : System::Drawing::Imaging::ImageFormat::Png);
+	} catch (...) {
+		MessageBox::Show(L"画像の保存中にエラーが発生しました。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+	} finally {
+		delete bmp;
+	}
+}
+System::Void frmConfig::SaveQSVFeatureAsTxt(String^ SavePath) {
+
+}
 #pragma warning( pop )

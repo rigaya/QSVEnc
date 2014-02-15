@@ -769,6 +769,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
 private: System::Windows::Forms::Label^  fcgLBFeaturesCurrentAPIVer;
 private: System::Windows::Forms::Label^  fcgLBFeaturesShowCurrentAPI;
 private: System::Windows::Forms::Label^  label2;
+private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 
 
 
@@ -1104,10 +1105,6 @@ private: System::Windows::Forms::Label^  label2;
 			this->fcgNUVppResizeW = (gcnew System::Windows::Forms::NumericUpDown());
 			this->fcgNUVppResizeH = (gcnew System::Windows::Forms::NumericUpDown());
 			this->fcgLBVppResize = (gcnew System::Windows::Forms::Label());
-			this->tabPageFeatures = (gcnew System::Windows::Forms::TabPage());
-			this->fcgLBFeaturesCurrentAPIVer = (gcnew System::Windows::Forms::Label());
-			this->fcgLBFeaturesShowCurrentAPI = (gcnew System::Windows::Forms::Label());
-			this->fcgDGVFeatures = (gcnew System::Windows::Forms::DataGridView());
 			this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
 			this->fcgCBAuoTcfileout = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBAFS = (gcnew System::Windows::Forms::CheckBox());
@@ -1117,10 +1114,15 @@ private: System::Windows::Forms::Label^  label2;
 			this->fcgBTCustomTempDir = (gcnew System::Windows::Forms::Button());
 			this->fcgTXCustomTempDir = (gcnew System::Windows::Forms::TextBox());
 			this->fcgCXTempDir = (gcnew System::Windows::Forms::ComboBox());
+			this->tabPageFeatures = (gcnew System::Windows::Forms::TabPage());
+			this->label2 = (gcnew System::Windows::Forms::Label());
+			this->fcgLBFeaturesCurrentAPIVer = (gcnew System::Windows::Forms::Label());
+			this->fcgLBFeaturesShowCurrentAPI = (gcnew System::Windows::Forms::Label());
+			this->fcgDGVFeatures = (gcnew System::Windows::Forms::DataGridView());
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
-			this->label2 = (gcnew System::Windows::Forms::Label());
+			this->fcgBTSaveFeatureList = (gcnew System::Windows::Forms::Button());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -1165,10 +1167,10 @@ private: System::Windows::Forms::Label^  label2;
 			this->fcggroupBoxVppResize->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeW))->BeginInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeH))->BeginInit();
-			this->tabPageFeatures->SuspendLayout();
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->BeginInit();
 			this->tabPageExOpt->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUInputBufSize))->BeginInit();
+			this->tabPageFeatures->SuspendLayout();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->BeginInit();
 			this->fcgCSExeFiles->SuspendLayout();
 			this->SuspendLayout();
 			// 
@@ -3482,56 +3484,6 @@ private: System::Windows::Forms::Label^  label2;
 			this->fcgLBVppResize->Tag = L"chValue";
 			this->fcgLBVppResize->Text = L"x";
 			// 
-			// tabPageFeatures
-			// 
-			this->tabPageFeatures->Controls->Add(this->label2);
-			this->tabPageFeatures->Controls->Add(this->fcgLBFeaturesCurrentAPIVer);
-			this->tabPageFeatures->Controls->Add(this->fcgLBFeaturesShowCurrentAPI);
-			this->tabPageFeatures->Controls->Add(this->fcgDGVFeatures);
-			this->tabPageFeatures->Location = System::Drawing::Point(4, 24);
-			this->tabPageFeatures->Name = L"tabPageFeatures";
-			this->tabPageFeatures->Size = System::Drawing::Size(608, 481);
-			this->tabPageFeatures->TabIndex = 3;
-			this->tabPageFeatures->Text = L"機能情報";
-			this->tabPageFeatures->UseVisualStyleBackColor = true;
-			// 
-			// fcgLBFeaturesCurrentAPIVer
-			// 
-			this->fcgLBFeaturesCurrentAPIVer->AutoSize = true;
-			this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
-				static_cast<System::Byte>(128)));
-			this->fcgLBFeaturesCurrentAPIVer->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(187, 50);
-			this->fcgLBFeaturesCurrentAPIVer->Name = L"fcgLBFeaturesCurrentAPIVer";
-			this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(33, 17);
-			this->fcgLBFeaturesCurrentAPIVer->TabIndex = 110;
-			this->fcgLBFeaturesCurrentAPIVer->Text = L"hw:";
-			// 
-			// fcgLBFeaturesShowCurrentAPI
-			// 
-			this->fcgLBFeaturesShowCurrentAPI->AutoSize = true;
-			this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
-				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
-			this->fcgLBFeaturesShowCurrentAPI->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(39, 48);
-			this->fcgLBFeaturesShowCurrentAPI->Name = L"fcgLBFeaturesShowCurrentAPI";
-			this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(127, 19);
-			this->fcgLBFeaturesShowCurrentAPI->TabIndex = 107;
-			this->fcgLBFeaturesShowCurrentAPI->Text = L"Intel Media SDK";
-			// 
-			// fcgDGVFeatures
-			// 
-			this->fcgDGVFeatures->BackgroundColor = System::Drawing::SystemColors::Control;
-			this->fcgDGVFeatures->BorderStyle = System::Windows::Forms::BorderStyle::None;
-			this->fcgDGVFeatures->ColumnHeadersHeightSizeMode = System::Windows::Forms::DataGridViewColumnHeadersHeightSizeMode::AutoSize;
-			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 81);
-			this->fcgDGVFeatures->Name = L"fcgDGVFeatures";
-			this->fcgDGVFeatures->ReadOnly = true;
-			this->fcgDGVFeatures->RowTemplate->Height = 21;
-			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 394);
-			this->fcgDGVFeatures->TabIndex = 0;
-			this->fcgDGVFeatures->CellFormatting += gcnew System::Windows::Forms::DataGridViewCellFormattingEventHandler(this, &frmConfig::fcgDGVFeatures_CellFormatting);
-			// 
 			// tabPageExOpt
 			// 
 			this->tabPageExOpt->Controls->Add(this->fcgCBAuoTcfileout);
@@ -3629,6 +3581,69 @@ private: System::Windows::Forms::Label^  label2;
 			this->fcgCXTempDir->TabIndex = 62;
 			this->fcgCXTempDir->Tag = L"chValue";
 			// 
+			// tabPageFeatures
+			// 
+			this->tabPageFeatures->Controls->Add(this->fcgBTSaveFeatureList);
+			this->tabPageFeatures->Controls->Add(this->label2);
+			this->tabPageFeatures->Controls->Add(this->fcgLBFeaturesCurrentAPIVer);
+			this->tabPageFeatures->Controls->Add(this->fcgLBFeaturesShowCurrentAPI);
+			this->tabPageFeatures->Controls->Add(this->fcgDGVFeatures);
+			this->tabPageFeatures->Location = System::Drawing::Point(4, 24);
+			this->tabPageFeatures->Name = L"tabPageFeatures";
+			this->tabPageFeatures->Size = System::Drawing::Size(608, 481);
+			this->tabPageFeatures->TabIndex = 3;
+			this->tabPageFeatures->Text = L"機能情報";
+			this->tabPageFeatures->UseVisualStyleBackColor = true;
+			// 
+			// label2
+			// 
+			this->label2->AutoSize = true;
+			this->label2->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(128)));
+			this->label2->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
+			this->label2->Location = System::Drawing::Point(14, 17);
+			this->label2->Name = L"label2";
+			this->label2->Size = System::Drawing::Size(314, 19);
+			this->label2->TabIndex = 111;
+			this->label2->Text = L"現在の環境でサポートされる機能を表示しています。";
+			// 
+			// fcgLBFeaturesCurrentAPIVer
+			// 
+			this->fcgLBFeaturesCurrentAPIVer->AutoSize = true;
+			this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(128)));
+			this->fcgLBFeaturesCurrentAPIVer->ForeColor = System::Drawing::Color::DarkViolet;
+			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(187, 50);
+			this->fcgLBFeaturesCurrentAPIVer->Name = L"fcgLBFeaturesCurrentAPIVer";
+			this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(33, 17);
+			this->fcgLBFeaturesCurrentAPIVer->TabIndex = 110;
+			this->fcgLBFeaturesCurrentAPIVer->Text = L"hw:";
+			// 
+			// fcgLBFeaturesShowCurrentAPI
+			// 
+			this->fcgLBFeaturesShowCurrentAPI->AutoSize = true;
+			this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
+				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+			this->fcgLBFeaturesShowCurrentAPI->ForeColor = System::Drawing::Color::Blue;
+			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(39, 48);
+			this->fcgLBFeaturesShowCurrentAPI->Name = L"fcgLBFeaturesShowCurrentAPI";
+			this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(127, 19);
+			this->fcgLBFeaturesShowCurrentAPI->TabIndex = 107;
+			this->fcgLBFeaturesShowCurrentAPI->Text = L"Intel Media SDK";
+			// 
+			// fcgDGVFeatures
+			// 
+			this->fcgDGVFeatures->BackgroundColor = System::Drawing::SystemColors::Control;
+			this->fcgDGVFeatures->BorderStyle = System::Windows::Forms::BorderStyle::None;
+			this->fcgDGVFeatures->ColumnHeadersHeightSizeMode = System::Windows::Forms::DataGridViewColumnHeadersHeightSizeMode::AutoSize;
+			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 81);
+			this->fcgDGVFeatures->Name = L"fcgDGVFeatures";
+			this->fcgDGVFeatures->ReadOnly = true;
+			this->fcgDGVFeatures->RowTemplate->Height = 21;
+			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 394);
+			this->fcgDGVFeatures->TabIndex = 0;
+			this->fcgDGVFeatures->CellFormatting += gcnew System::Windows::Forms::DataGridViewCellFormattingEventHandler(this, &frmConfig::fcgDGVFeatures_CellFormatting);
+			// 
 			// fcgCSExeFiles
 			// 
 			this->fcgCSExeFiles->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(1) { this->fcgTSExeFileshelp });
@@ -3658,17 +3673,16 @@ private: System::Windows::Forms::Label^  label2;
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
 			// 
-			// label2
+			// fcgBTSaveFeatureList
 			// 
-			this->label2->AutoSize = true;
-			this->label2->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
-				static_cast<System::Byte>(128)));
-			this->label2->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
-			this->label2->Location = System::Drawing::Point(14, 17);
-			this->label2->Name = L"label2";
-			this->label2->Size = System::Drawing::Size(314, 19);
-			this->label2->TabIndex = 111;
-			this->label2->Text = L"現在の環境でサポートされる機能を表示しています。";
+			this->fcgBTSaveFeatureList->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
+			this->fcgBTSaveFeatureList->Location = System::Drawing::Point(456, 17);
+			this->fcgBTSaveFeatureList->Name = L"fcgBTSaveFeatureList";
+			this->fcgBTSaveFeatureList->Size = System::Drawing::Size(114, 38);
+			this->fcgBTSaveFeatureList->TabIndex = 112;
+			this->fcgBTSaveFeatureList->Text = L"ファイルに保存...";
+			this->fcgBTSaveFeatureList->UseVisualStyleBackColor = true;
+			this->fcgBTSaveFeatureList->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTSaveFeatureList_Click);
 			// 
 			// frmConfig
 			// 
@@ -3759,12 +3773,12 @@ private: System::Windows::Forms::Label^  label2;
 			this->fcggroupBoxVppResize->PerformLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeW))->EndInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeH))->EndInit();
-			this->tabPageFeatures->ResumeLayout(false);
-			this->tabPageFeatures->PerformLayout();
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->EndInit();
 			this->tabPageExOpt->ResumeLayout(false);
 			this->tabPageExOpt->PerformLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUInputBufSize))->EndInit();
+			this->tabPageFeatures->ResumeLayout(false);
+			this->tabPageFeatures->PerformLayout();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->EndInit();
 			this->fcgCSExeFiles->ResumeLayout(false);
 			this->ResumeLayout(false);
 			this->PerformLayout();
@@ -3849,6 +3863,9 @@ private: System::Windows::Forms::Label^  label2;
 		System::Void UpdateMfxLibDetection();
 		System::Void UpdateFeatures();
 		System::Void fcgCBHWLibChanged(System::Object^  sender, System::EventArgs^  e);
+		System::Void SaveQSVFeatureAsImg(String^ SavePath);
+		System::Void SaveQSVFeatureAsTxt(String^ SavePath);
+		System::Void SaveQSVFeature();
 	public:
 		System::Void InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *system_data);
 		System::Void SetVideoBitrate(int bitrate);
@@ -4228,6 +4245,10 @@ private: System::Windows::Forms::Label^  label2;
 		System::Void fcgDGVFeatures_CellFormatting(System::Object^  sender, System::Windows::Forms::DataGridViewCellFormattingEventArgs^  e) {
 			if (e->ColumnIndex)
 				e->CellStyle->BackColor = (0 <= Convert::ToString(e->Value)->IndexOf(L"×")) ? Color::LightSalmon : Color::LightGreen;
+		}
+	private:
+		System::Void fcgBTSaveFeatureList_Click(System::Object^  sender, System::EventArgs^  e) {
+			SaveQSVFeature();
 		}
 };
 }
