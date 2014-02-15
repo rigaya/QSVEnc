@@ -1512,18 +1512,20 @@ System::Void frmConfig::SaveQSVFeature() {
 	//WinXPにおいて、OpenFileDialogはCurrentDirctoryを勝手に変更しやがるので、
 	//一度保存し、あとから再適用する
 	String^ CurrentDir = Directory::GetCurrentDirectory();
-	SaveFileDialog^ sfd = gcnew SaveFileDialog();
-	
-	WCHAR aviutl_dir[MAX_PATH_LEN];
-	get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
-	sfd->InitialDirectory = String(aviutl_dir).ToString();
+
+	if (nullptr == saveFileQSVFeautures) {
+		saveFileQSVFeautures = gcnew SaveFileDialog();
+		WCHAR aviutl_dir[MAX_PATH_LEN];
+		get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+		saveFileQSVFeautures->InitialDirectory = String(aviutl_dir).ToString();
+	}
 
 	//ofd->Filter = L"pngファイル(*.png)|*.png|txtファイル(*.txt)|*.txt|csvファイル(*.csv)|*.csv";
-	sfd->Filter = L"pngファイル(*.png)|*.png";
+	saveFileQSVFeautures->Filter = L"pngファイル(*.png)|*.png";
 
-	sfd->Title = L"保存するファイル名を入力してください";
-	if (System::Windows::Forms::DialogResult::OK == sfd->ShowDialog()) {
-		String^ SavePath = sfd->FileName;
+	saveFileQSVFeautures->Title = L"保存するファイル名を入力してください";
+	if (System::Windows::Forms::DialogResult::OK == saveFileQSVFeautures->ShowDialog()) {
+		String^ SavePath = saveFileQSVFeautures->FileName;
 
 		bool isImage = 0 == String::Compare(".png", Path::GetExtension(SavePath), true);
 
@@ -1533,7 +1535,6 @@ System::Void frmConfig::SaveQSVFeature() {
 			//SaveQSVFeatureAsTxt(SavePath);
 		}
 	}
-	delete sfd;
 	
 	Directory::SetCurrentDirectory(CurrentDir);
 }

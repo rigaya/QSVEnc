@@ -71,6 +71,8 @@ namespace QSVEnc {
 			if (cnf_stgSelected) free(cnf_stgSelected); cnf_stgSelected = NULL;
 			delete featuresHW;
 			delete featuresSW;
+			if (nullptr != saveFileQSVFeautures)
+				delete saveFileQSVFeautures;
 		}
 
 
@@ -3825,6 +3827,7 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 		ToolStripMenuItem^ CheckedStgMenuItem;
 		CONF_GUIEX *cnf_stgSelected;
 		String^ lastQualityStr;
+		SaveFileDialog^ saveFileQSVFeautures;
 		QSVFeatures^ featuresHW;
 		QSVFeatures^ featuresSW;
 #ifdef HIDE_MPEG2
