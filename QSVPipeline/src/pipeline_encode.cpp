@@ -346,6 +346,65 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 
 mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
+	//エンコードモードのチェック
+	mfxU32 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, pInParams->nEncMode, m_mfxVer);
+	if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
+		PrintMes(_T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
+		if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
+			if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
+				PrintMes(_T("Lookahead mode is only supported by API v1.7 or later.\n"));
+			}
+		}
+		if (   MFX_RATECONTROL_ICQ    == pInParams->nEncMode
+			|| MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode
+			|| MFX_RATECONTROL_VCM    == pInParams->nEncMode) {
+			if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+				PrintMes(_T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(pInParams->nEncMode));
+			}
+		}
+		return MFX_ERR_INVALID_VIDEO_PARAM;
+	}
+	//その他機能のチェック
+	if (pInParams->bAdaptiveI && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
+		PrintMes(_T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));
+		pInParams->bAdaptiveI = false;
+	}
+	if (pInParams->bAdaptiveB && !(availableFeaures & ENC_FEATURE_ADAPTIVE_B)) {
+		PrintMes(_T("Adaptve B-frame insert is not supported on current platform, disabled.\n"));
+		pInParams->bAdaptiveB = false;
+	}
+	if (pInParams->bBPyramid && !(availableFeaures & ENC_FEATURE_B_PYRAMID)) {
+		PrintMes(_T("B pyramid is not supported on current platform, disabled.\n"));
+		pInParams->bBPyramid = false;
+	}
+	if (pInParams->bCAVLC && !(availableFeaures & ENC_FEATURE_CAVLC)) {
+		PrintMes(_T("CAVLC is not supported on current platform, disabled.\n"));
+		pInParams->bCAVLC = false;
+	}
+	if (pInParams->bExtBRC && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
+		PrintMes(_T("ExtBRC is not supported on current platform, disabled.\n"));
+		pInParams->bExtBRC = false;
+	}
+	if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
+		PrintMes(_T("MBBRC is not supported on current platform, disabled.\n"));
+		pInParams->bMBBRC = false;
+	}
+	if (   MFX_RATECONTROL_LA == pInParams->nEncMode
+		&& pInParams->nLookaheadDepth != MFX_LOOKAHEAD_DS_UNKNOWN
+		&& !(availableFeaures & ENC_FEATURE_LA_DS)) {
+		PrintMes(_T("Lookahead qaulity setting is not supported on current platform, disabled.\n"));
+		pInParams->nLookaheadDepth = MFX_LOOKAHEAD_DS_UNKNOWN;
+	}
+	if (pInParams->nTrellis != MFX_TRELLIS_UNKNOWN && !(availableFeaures & ENC_FEATURE_TRELLIS)) {
+		PrintMes(_T("trellis is not supported on current platform, disabled.\n"));
+		pInParams->nTrellis = MFX_TRELLIS_UNKNOWN;
+	}
+	if (pInParams->bRDO && !(availableFeaures & ENC_FEATURE_RDO)) {
+		PrintMes(_T("RDO is not supported on current platform, disabled.\n"));
+		pInParams->bRDO = false;
+	}
+
+
 	//GOP長さが短いならVQPもシーンチェンジ検出も実行しない
 	if (pInParams->nGOPLength != 0 && pInParams->nGOPLength < 4) {
 		if (!pInParams->bforceGOPSettings) {
@@ -383,52 +442,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	if (pInParams->bCAVLC)
 		pInParams->bRDO = false;
 
-	//Lookaheadをチェック
-	if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA) {
-		bool lookahead_error = false;
-		if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-			PrintMes(_T("Lookahead mode is only supported by API v1.7 or later.\n"));
-			lookahead_error = true;
-		}
-		if (!pInParams->bUseHWLib) {
-			PrintMes(_T("Lookahead mode is only supported by Hardware encoder.\n"));
-			lookahead_error = true;
-		}
-		if (!m_bHaswellOrLater) {
-			PrintMes(_T("Lookahead mode is only supported by Haswell or later.\n"));
-			lookahead_error = true;
-		}
-		if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF) && (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE))) {
-			PrintMes(_T("Lookahead mode does not support interlaced encoding.\n"));
-			lookahead_error = true;
-		}
-		if (lookahead_error)
-			return MFX_ERR_INVALID_VIDEO_PARAM;
-	}
-
-	//API v1.8のチェック (固定品質モード、ビデオ会議モード)
-	if (   MFX_RATECONTROL_ICQ    == m_mfxEncParams.mfx.RateControlMethod
-		|| MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod
-		|| MFX_RATECONTROL_VCM    == m_mfxEncParams.mfx.RateControlMethod) {
-		bool api1_8_check_error = false;
-		if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-			PrintMes(_T("%s mode is only supported by API v1.7 or later.\n"), EncmodeToStr(m_mfxEncParams.mfx.RateControlMethod));
-			api1_8_check_error = true;
-		}
-		if (!m_bHaswellOrLater) {
-			PrintMes(_T("%s mode is only supported by Haswell or later.\n"), EncmodeToStr(m_mfxEncParams.mfx.RateControlMethod));
-			api1_8_check_error = true;
-		}
-		if (   MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod
-			&& 0 != (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
-			&& pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE) {
-			PrintMes(_T("Lookahead mode does not support interlaced encoding.\n"));
-			api1_8_check_error = true;
-		}
-		if (api1_8_check_error)
-			return MFX_ERR_INVALID_VIDEO_PARAM;
-	}
-
+	//設定開始
 	m_mfxEncParams.mfx.CodecId                 = pInParams->CodecId;
 	m_mfxEncParams.mfx.RateControlMethod       =(pInParams->nEncMode == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : pInParams->nEncMode;
 	if (MFX_RATECONTROL_CQP == m_mfxEncParams.mfx.RateControlMethod) {
