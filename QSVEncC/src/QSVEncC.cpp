@@ -166,6 +166,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("\n")
 			_T("   --gop-len <int>                (max) gop length, default %d (auto)\n")
 			_T("                                    when auto, fps x 10 will be set.\n")
+			_T("   --open-gop                     enable open gop structure, default off\n")
 			_T("   --strict-gop                   force gop structure\n")
 			_T("   --scenechange                  enable scene change detection\n")
 			_T("   --no-scenechange               disable scene change detection\n")
@@ -530,10 +531,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
-		//else if (0 == _tcscmp(option_name, _T("open-gop")))
-		//{
-		//    pParams->bopenGOP = true;
-		//}
+		else if (0 == _tcscmp(option_name, _T("open-gop")))
+		{
+		    pParams->bopenGOP = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-open-gop")))
+		{
+		    pParams->bopenGOP = false;
+		}
 		else if (0 == _tcscmp(option_name, _T("strict-gop")))
 		{
 			pParams->bforceGOPSettings = true;

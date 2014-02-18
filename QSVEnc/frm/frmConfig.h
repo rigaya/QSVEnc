@@ -2881,7 +2881,6 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 			this->fcgCBOpenGOP->Tag = L"chValue";
 			this->fcgCBOpenGOP->Text = L"open-GOP";
 			this->fcgCBOpenGOP->UseVisualStyleBackColor = true;
-			this->fcgCBOpenGOP->Visible = false;
 			// 
 			// fcgCBSceneChange
 			// 

@@ -484,7 +484,8 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	m_mfxEncParams.mfx.CodecLevel              = pInParams->CodecLevel;
 	m_mfxEncParams.mfx.CodecProfile            = pInParams->CodecProfile;
 	m_mfxEncParams.mfx.GopOptFlag              = 0;
-	m_mfxEncParams.mfx.GopOptFlag             |= (!pInParams->bopenGOP) ? MFX_GOP_CLOSED : NULL;
+	m_mfxEncParams.mfx.GopOptFlag             |= (!pInParams->bopenGOP) ? MFX_GOP_CLOSED : 0x00;
+	m_mfxEncParams.mfx.IdrInterval             = (!pInParams->bopenGOP) ? 0 : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 20 / pInParams->nGOPLength;
 	//MFX_GOP_STRICTにより、インタレ保持時にフレームが壊れる場合があるため、無効とする
 	//m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
