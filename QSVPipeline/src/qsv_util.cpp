@@ -547,13 +547,6 @@ BOOL check_OS_Win8orLater() {
 
 #include <intrin.h>
 
-bool isHaswellOrLater() {
-	//単純にAVX2フラグを見る
-	int CPUInfo[4];
-	__cpuid(CPUInfo, 7);
-	return ((CPUInfo[1] & 0x00000020) == 0x00000020);
-}
-
 static int getCPUName(TCHAR *buffer, size_t nSize) {
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x80000000);

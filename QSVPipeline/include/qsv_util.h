@@ -126,7 +126,6 @@ static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 }
 
 BOOL check_OS_Win8orLater();
-bool isHaswellOrLater();
 
 mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
 

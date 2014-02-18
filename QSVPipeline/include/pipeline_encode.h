@@ -178,8 +178,6 @@ protected:
 	bool m_bd3dAlloc; // use d3d surfaces
 	bool m_bExternalAlloc; // use memory allocator as external for Media SDK
 
-	bool m_bHaswellOrLater;
-
 	bool *m_pAbortByUser;
 
 	mfxFrameSurface1* m_pEncSurfaces; // frames array for encoder input (vpp output)

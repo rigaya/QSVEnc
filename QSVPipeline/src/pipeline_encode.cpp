@@ -549,35 +549,24 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		MSDK_ZERO_MEMORY(m_mfxCopt2);
 		m_mfxCopt2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
 		m_mfxCopt2.Header.BufferSz = sizeof(mfxExtCodingOption2);
-		//IvyBridgeにおいて、このAPI v1.6の機能を使うと今のところうまく動かない
-		//そこでAVX2フラグを確認して、Haswell以降でなら使用するようにする
-		if (m_bHaswellOrLater) {
-			if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-				m_mfxCopt2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-				m_mfxCopt2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-				m_mfxCopt2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_UNKNOWN);
-				m_mfxCopt2.LookAheadDS = pInParams->nLookaheadDS;
-			}
-			if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-				m_mfxCopt2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
-				m_mfxCopt2.Trellis = pInParams->nTrellis;
-			}
-			if (pInParams->bMBBRC) {
-				m_mfxCopt2.MBBRC = MFX_CODINGOPTION_ON;
-			}
-
-			if (pInParams->bExtBRC
-				&& (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR
-				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CBR
-				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_VBR
-				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_VCM
-				 || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA)) {
-				m_mfxCopt2.ExtBRC = MFX_CODINGOPTION_ON;
-			}
-			m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxCopt2);
-		} else if (pInParams->bMBBRC || pInParams->bExtBRC) {
-			PrintMes(_T("API v1.6 feature is currently limited to Haswell CPUs.\n"));
+		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+			m_mfxCopt2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+			m_mfxCopt2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+			m_mfxCopt2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_UNKNOWN);
+			m_mfxCopt2.LookAheadDS = pInParams->nLookaheadDS;
 		}
+		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
+			m_mfxCopt2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
+			m_mfxCopt2.Trellis = pInParams->nTrellis;
+		}
+		if (pInParams->bMBBRC) {
+			m_mfxCopt2.MBBRC = MFX_CODINGOPTION_ON;
+		}
+
+		if (pInParams->bExtBRC) {
+			m_mfxCopt2.ExtBRC = MFX_CODINGOPTION_ON;
+		}
+		m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxCopt2);
 	}
 
 	//Bluray互換出力
@@ -1230,7 +1219,6 @@ CEncodingPipeline::CEncodingPipeline()
 	m_nAsyncDepth = 0;
 	m_nExPrm = 0x00;
 
-	m_bHaswellOrLater = false;
 	m_pAbortByUser = NULL;
 
 	m_pEncSatusInfo = NULL;
@@ -1628,9 +1616,6 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 
 	mfxStatus sts = MFX_ERR_NONE;
 
-	//Haswell以降かをチェック
-	m_bHaswellOrLater = isHaswellOrLater();
-
 	sts = m_EncThread.Init(pParams->nInputBufSize);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
@@ -1777,7 +1762,6 @@ void CEncodingPipeline::Close()
 	}
 	
 	m_pAbortByUser = NULL;
-	m_bHaswellOrLater = false;
 	m_nExPrm = 0x00;
 }
 
@@ -2490,8 +2474,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	std::vector<mfxExtBuffer *> buf;
 	buf.push_back((mfxExtBuffer *)&cop);
 	buf.push_back((mfxExtBuffer *)&spspps);
-	if (m_bHaswellOrLater)
-		buf.push_back((mfxExtBuffer *)&cop2);
+	buf.push_back((mfxExtBuffer *)&cop2);
 
 	mfxVideoParam videoPrm;
 	MSDK_ZERO_MEMORY(videoPrm);
