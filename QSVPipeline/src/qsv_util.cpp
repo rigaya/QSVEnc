@@ -298,7 +298,7 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 	str.clear();
 	
 	//ヘッダ部分
-	const mfxU32 row_header_length = _tcslen(list_enc_feature[0].desc);
+	const mfxU32 row_header_length = (mfxU32)_tcslen(list_enc_feature[0].desc);
 	for (mfxU32 i = 1; i < row_header_length; i++)
 		str += _T(" ");
 
@@ -591,7 +591,7 @@ static int getCPUName(TCHAR *buffer, size_t nSize) {
 		}
 	}
 #if UNICODE
-	MultiByteToWideChar(CP_ACP, 0, buf, -1, buffer, nSize);
+	MultiByteToWideChar(CP_ACP, 0, buf, -1, buffer, (mfxU32)nSize);
 	free(buf);
 #endif
 	return 0;
