@@ -389,7 +389,8 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		PrintMes(_T("MBBRC is not supported on current platform, disabled.\n"));
 		pInParams->bMBBRC = false;
 	}
-	if (   MFX_RATECONTROL_LA == pInParams->nEncMode
+	if (   (MFX_RATECONTROL_LA     == pInParams->nEncMode
+		 || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode)
 		&& pInParams->nLookaheadDepth != MFX_LOOKAHEAD_DS_UNKNOWN
 		&& !(availableFeaures & ENC_FEATURE_LA_DS)) {
 		PrintMes(_T("Lookahead qaulity setting is not supported on current platform, disabled.\n"));
