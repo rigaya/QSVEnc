@@ -148,8 +148,8 @@ namespace QSVEnc {
 				{ _T("適応的Iフレーム挿入 "), ENC_FEATURE_ADAPTIVE_I },
 				{ _T("適応的Bフレーム挿入 "), ENC_FEATURE_ADAPTIVE_B },
 				{ _T("ピラミッド参照      "), ENC_FEATURE_B_PYRAMID  },
-				{ _T("MB単位レート制御    "), ENC_FEATURE_EXT_BRC    },
-				{ _T("MBBRC               "), ENC_FEATURE_MBBRC      },
+				{ _T("MB単位レート制御    "), ENC_FEATURE_MBBRC      },
+				{ _T("ExtBRC              "), ENC_FEATURE_EXT_BRC    },
 				{ _T("先行探索品質        "), ENC_FEATURE_LA_DS      },
 				{ NULL, 0 },
 			};
