@@ -1493,9 +1493,8 @@ System::Void frmConfig::UpdateFeatures() {
 	//表示更新
 	mfxU32 currentLib = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
 	bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
-	String^ currentAPI = ((fcgCBHWEncode->Checked) ? L"hw" : L"sw");
-	currentAPI += L": API ";
-	currentAPI += (currentLibValid) ? L"v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-----";
+	String^ currentAPI = ((fcgCBHWEncode->Checked) ? L"hw" : L"sw") + L": ";
+	currentAPI += (currentLibValid) ? L"API v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-------";
 	fcgLBFeaturesCurrentAPIVer->Text = currentAPI;
 
 	fcgDGVFeatures->ReadOnly = true;
