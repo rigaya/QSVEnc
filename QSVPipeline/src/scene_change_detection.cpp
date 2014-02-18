@@ -342,8 +342,8 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
 	*qp_offset = 0;
 
 	const mfxU32 KEY_FRAMETYPE[2] = {
-		MFX_FRAMETYPE_IDR  | MFX_FRAMETYPE_I  | MFX_FRAMETYPE_REF, //プログレッシブ と 第1フィールド用
-		MFX_FRAMETYPE_xIDR | MFX_FRAMETYPE_xI | MFX_FRAMETYPE_xREF //第2フィールド用
+		MFX_FRAMETYPE_I  | MFX_FRAMETYPE_REF, //プログレッシブ と 第1フィールド用
+		MFX_FRAMETYPE_xI | MFX_FRAMETYPE_xREF //第2フィールド用
 	};
 	mfxU16 result = 0;
 

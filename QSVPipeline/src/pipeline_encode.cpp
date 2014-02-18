@@ -1873,7 +1873,8 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
 	MSDK_ZERO_MEMORY(videoPrm);
 	m_pmfxENC->GetVideoParam(&videoPrm);
 
-	m_frameTypeSim.Init(videoPrm.mfx.GopPicSize, videoPrm.mfx.GopRefDist-1, videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
+	m_frameTypeSim.Init(videoPrm.mfx.GopPicSize, videoPrm.mfx.GopRefDist-1, videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB,
+		0 == (videoPrm.mfx.GopOptFlag & MFX_GOP_CLOSED), videoPrm.mfx.FrameInfo.FrameRateExtN / (double)videoPrm.mfx.FrameInfo.FrameRateExtD);
 	//bool bInterlaced = (0 != (videoPrm.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)));
 	mfxU32 lastFrameFlag = 0;
 
@@ -1888,13 +1889,15 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
 			//フレームタイプとQP値の決定
 			int qp_offset[2] = { 0, 0 };
 			mfxU32 frameFlag = m_SceneChange.Check(pInputBuf->pFrameSurface, qp_offset);
-			_InterlockedExchange((long *)&pInputBuf->frameFlag, frameFlag);
-			if (m_nExPrm & MFX_PRM_EX_VQP)
-				_InterlockedExchange((long *)&pInputBuf->AQP[0], m_frameTypeSim.CurrentQP(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_IDR), qp_offset[0]));
+			frameFlag = m_frameTypeSim.GetFrameType(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I));
+			_InterlockedExchange((long *)&pInputBuf->frameFlag, (frameFlag & MFX_FRAMETYPE_I) ? frameFlag : 0x00); //frameFlagにはIDR,I,Ref以外は渡してはならない
+			if (m_nExPrm & MFX_PRM_EX_VQP) {
+				_InterlockedExchange((long *)&pInputBuf->AQP[0], m_frameTypeSim.CurrentQP(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I), qp_offset[0]));
+			}
 			m_frameTypeSim.ToNextFrame();
 			if (m_nExPrm & MFX_PRM_EX_DEINT_BOB) {
 				if (m_nExPrm & MFX_PRM_EX_VQP)
-					_InterlockedExchange((long *)&pInputBuf->AQP[1], m_frameTypeSim.CurrentQP(!!(frameFlag & MFX_FRAMETYPE_xIDR), qp_offset[1]));
+					_InterlockedExchange((long *)&pInputBuf->AQP[1], m_frameTypeSim.CurrentQP(!!(frameFlag & MFX_FRAMETYPE_xI), qp_offset[1]));
 				m_frameTypeSim.ToNextFrame();
 			}
 			if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {

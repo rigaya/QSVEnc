@@ -53,37 +53,49 @@ public:
 		i_frame = 0;
 		BFrames = 0;
 		GOPSize = 1;
+		openGOP = false;
+		maxIdrInterval = 0;
 	}
-	void Init(int _GOPSize, int _BFrames, int _QPI, int _QPP, int _QPB) {
+	void Init(int _GOPSize, int _BFrames, int _QPI, int _QPP, int _QPB, bool _openGOP, double frameRate) {
 		GOPSize = max(_GOPSize, 1);
 		BFrames = max(_BFrames, 0);
 		QPI = _QPI;
 		QPP = _QPP;
 		QPB = _QPB;
 		i_frame = 0;
+		i_from_last_idr = 0;
+		openGOP = _openGOP;
+		maxIdrInterval = (int)(frameRate + 0.5) * 20;
 		MSDK_ZERO_MEMORY(m_info);
 	}
 	~CQSVFrameTypeSimulation() {
 	}
-	mfxU32 GetFrameType(bool IdrInsert) {
+	mfxU32 GetFrameType(bool I_Insert) {
 		mfxU32 ret;
-		if (IdrInsert || (GOPSize && i_frame % GOPSize == 0))
+		if (I_Insert || (GOPSize && i_frame % GOPSize == 0)) {
 			i_frame = 0;
-		if (i_frame == 0)
-			ret = MFX_FRAMETYPE_IDR | MFX_FRAMETYPE_I | MFX_FRAMETYPE_REF;
-		else if ((i_frame - 1) % (BFrames + 1) == BFrames)
+		}
+		if (i_frame == 0) {
+			ret = MFX_FRAMETYPE_I | MFX_FRAMETYPE_REF;
+			if (!openGOP || i_from_last_idr >= maxIdrInterval || 0 == i_from_last_idr) {
+				i_from_last_idr = 0;
+				ret |= MFX_FRAMETYPE_IDR;
+			}
+		} else if ((i_frame - 1) % (BFrames + 1) == BFrames) {
 			ret = MFX_FRAMETYPE_P | MFX_FRAMETYPE_REF;
-		else
+		} else {
 			ret = MFX_FRAMETYPE_B;
+		}
 		return ret;
 	}
 	void ToNextFrame() {
 		i_frame++;
+		i_from_last_idr++;
 	}
-	int CurrentQP(bool IdrInsert, int qp_offset) {
-		mfxU32 frameType = GetFrameType(IdrInsert);
+	int CurrentQP(bool I_Insert, int qp_offset) {
+		mfxU32 frameType = GetFrameType(I_Insert);
 		int qp;
-		if (frameType & (MFX_FRAMETYPE_IDR | MFX_FRAMETYPE_I)) {
+		if (frameType & MFX_FRAMETYPE_I) {
 			qp = QPI;
 			m_info.sumQPI += qp;
 			m_info.frameCountI++;
@@ -103,6 +115,7 @@ public:
 	}
 private:
 	int i_frame;
+	int i_from_last_idr;
 
 	int GOPSize;
 	int BFrames;
@@ -110,6 +123,9 @@ private:
 	int QPI;
 	int QPP;
 	int QPB;
+
+	bool openGOP;
+	int maxIdrInterval;
 
 	sFrameTypeInfo m_info;
 };
