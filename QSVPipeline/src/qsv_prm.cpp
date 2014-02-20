@@ -41,7 +41,7 @@ void init_qsvp_prm(sInputParams *prm) {
 	prm->Transfer          = (mfxU16)list_transfer[0].value;
 	prm->VideoFormat       = (mfxU16)list_videoformat[0].value;
 	prm->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
-	prm->bRDO              = true;
+	prm->bRDO              = false;
 
 	prm->nVQPStrength      = QSV_DEFAULT_VQP_STRENGTH;
 	prm->nVQPSensitivity   = QSV_DEFAULT_VQP_SENSITIVITY;
