@@ -2477,7 +2477,9 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	std::vector<mfxExtBuffer *> buf;
 	buf.push_back((mfxExtBuffer *)&cop);
 	buf.push_back((mfxExtBuffer *)&spspps);
-	buf.push_back((mfxExtBuffer *)&cop2);
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+		buf.push_back((mfxExtBuffer *)&cop2);
+	}
 
 	mfxVideoParam videoPrm;
 	MSDK_ZERO_MEMORY(videoPrm);
