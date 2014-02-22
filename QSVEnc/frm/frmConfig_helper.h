@@ -97,16 +97,22 @@ namespace QSVEnc {
 			delete dataTableQsvFeatures;
 			delete availableFeatures;
 		}
+		bool checkIfGetFeaturesFinished() {
+			return getFeaturesFinished;
+		}
 		UInt32 getFeatureOfRC(int rc_index) {
 			if (getFeaturesFinished) {
 				return availableFeatures[rc_index];
 			}
 			mfxVersion version;
 			version.Version = mfxVer;
-			return CheckEncodeFeature(hardware, (mfxU16)list_rate_control_ry[rc_index].value, version);
+			return CheckEncodeFeature(hardware, version, (mfxU16)list_rate_control_ry[rc_index].value);
 		}
 		DataTable^ getFeatureTable() {
 			return dataTableQsvFeatures;
+		}
+		bool checkIfGetLibVerAvailable() {
+			return getLibVerFinished;
 		}
 		UInt32 GetmfxLibVer() {
 			if (!getLibVerFinished) {

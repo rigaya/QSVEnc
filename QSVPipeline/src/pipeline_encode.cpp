@@ -347,7 +347,7 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
 	//エンコードモードのチェック
-	mfxU32 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, pInParams->nEncMode, m_mfxVer);
+	mfxU32 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode);
 	if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
 		PrintMes(_T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
 		if (MFX_RATECONTROL_LA == pInParams->nEncMode) {

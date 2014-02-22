@@ -749,17 +749,25 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
+	//両方ともnullptrの組み合わせ、つまりInitFormで呼ばれた場合以外では、
+	//もしfeatureListが作成できていなければ、チェックを行わない
+	if (sender != nullptr && e != nullptr) {
+		bool featureListAvialable = (fcgCBHWEncode->Checked) ? featuresHW->checkIfGetFeaturesFinished() : featuresSW->checkIfGetFeaturesFinished();
+		if (!featureListAvialable)
+			return;
+	}
+
 	mfxVersion mfxlib_target;
 	mfxlib_target.Version = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
-	mfxU32 available_features = CheckEncodeFeature(fcgCBHWEncode->Checked, (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value, mfxlib_target);
+	mfxU32 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
 	fcgCheckLibVersion(mfxlib_target.Version, available_features);
 	int enc_mode = list_encmode[fcgCXEncMode->SelectedIndex].value;
-	bool cqp_mode = (enc_mode == MFX_RATECONTROL_CQP || enc_mode == MFX_RATECONTROL_VQP);
-	bool avbr_mode = (enc_mode == MFX_RATECONTROL_AVBR);
-	bool cbr_vbr_mode = (enc_mode == MFX_RATECONTROL_VBR || enc_mode == MFX_RATECONTROL_CBR);
-	bool la_mode = (enc_mode == MFX_RATECONTROL_LA || enc_mode == MFX_RATECONTROL_LA_ICQ);
-	bool icq_mode = (enc_mode == MFX_RATECONTROL_LA_ICQ || enc_mode == MFX_RATECONTROL_ICQ);
-	bool vcm_mode = (enc_mode == MFX_RATECONTROL_VCM);
+	bool cqp_mode =     (enc_mode == MFX_RATECONTROL_CQP    || enc_mode == MFX_RATECONTROL_VQP);
+	bool avbr_mode =    (enc_mode == MFX_RATECONTROL_AVBR);
+	bool cbr_vbr_mode = (enc_mode == MFX_RATECONTROL_VBR    || enc_mode == MFX_RATECONTROL_CBR);
+	bool la_mode =      (enc_mode == MFX_RATECONTROL_LA     || enc_mode == MFX_RATECONTROL_LA_ICQ);
+	bool icq_mode =     (enc_mode == MFX_RATECONTROL_LA_ICQ || enc_mode == MFX_RATECONTROL_ICQ);
+	bool vcm_mode =     (enc_mode == MFX_RATECONTROL_VCM);
 
 	this->SuspendLayout();
 
@@ -939,12 +947,6 @@ System::Void frmConfig::InitForm() {
 	//イベントセット
 	SetTXMaxLenAll(); //テキストボックスの最大文字数
 	SetAllCheckChangedEvents(this); //変更の確認,ついでにNUのEnterEvent
-	//フォームの変更可不可を更新
-	fcgChangeMuxerVisible(nullptr, nullptr);
-	fcgChangeEnabled(nullptr, nullptr);
-	EnableSettingsNoteChange(false);
-	UpdateFeatures();
-	fcgCBHWEncode->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBHWLibChanged);
 #ifdef HIDE_MPEG2
 	tabPageMpgMux = fcgtabControlMux->TabPages[2];
 	fcgtabControlMux->TabPages->RemoveAt(2);
@@ -956,6 +958,12 @@ System::Void frmConfig::InitForm() {
 	//フォントの設定
 	if (str_has_char(sys_dat->exstg->s_local.conf_font.name))
 		SetFontFamilyToForm(this, gcnew FontFamily(String(sys_dat->exstg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
+	//フォームの変更可不可を更新
+	fcgChangeMuxerVisible(nullptr, nullptr);
+	EnableSettingsNoteChange(false);
+	UpdateFeatures();
+	fcgChangeEnabled(nullptr, nullptr); //ここでfeatureTableListの完成を待機
+	fcgCBHWEncode->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBHWLibChanged);
 }
 
 /////////////         データ <-> GUI     /////////////

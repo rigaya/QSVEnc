@@ -83,11 +83,27 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
 	return TRUE;
 }
 
-mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
+mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol) {
+	const std::vector<std::pair<mfxU16, mfxVersion>> rc_list = {
+		{ MFX_RATECONTROL_VBR,    MFX_LIB_VERSION_1_1 },
+		{ MFX_RATECONTROL_CBR,    MFX_LIB_VERSION_1_1 },
+		{ MFX_RATECONTROL_CQP,    MFX_LIB_VERSION_1_1 },
+		{ MFX_RATECONTROL_VQP,    MFX_LIB_VERSION_1_1 },
+		{ MFX_RATECONTROL_AVBR,   MFX_LIB_VERSION_1_3 },
+		{ MFX_RATECONTROL_LA,     MFX_LIB_VERSION_1_7 },
+		{ MFX_RATECONTROL_LA_ICQ, MFX_LIB_VERSION_1_8 },
+		{ MFX_RATECONTROL_VCM,    MFX_LIB_VERSION_1_8 },
+	};
+	for (auto rc : rc_list) {
+		if (ratecontrol == rc.first) {
+			if (!check_lib_version(mfxVer, rc.second)) {
+				return 0x00;
+			}
+			break;
+		}
+	}
+
 	MFXVideoENCODE encode(session);
-	mfxIMPL impl;
-	MFXQueryIMPL(session, &impl);
-	mfxVersion mfxVer = get_mfx_lib_version(impl);
 
 	mfxExtCodingOption cop;
 	MSDK_ZERO_MEMORY(cop);
@@ -251,12 +267,12 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxU16 ratecontrol) {
 	return result;
 }
 
-mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver) {
+mfxU32 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
 	mfxSession session;
 	
 	mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
-	mfxU32 feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ratecontrol) : 0x00;
+	mfxU32 feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol) : 0x00;
 
 	MFXClose(session);
 
@@ -265,7 +281,7 @@ mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxVersion ver) {
 
 mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
 	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-	return CheckEncodeFeature(hardware, ratecontrol, ver);
+	return CheckEncodeFeature(hardware, ver, ratecontrol);
 }
 
 const msdk_char *EncFeatureStr(mfxU32 enc_feature) {
@@ -279,7 +295,7 @@ void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlLi
 	availableFeatureForEachRC.resize(rateControlCount, 0);
 
 	for (int i_rc = 0; i_rc < rateControlCount; i_rc++) {
-		availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, (mfxU16)rateControlList[i_rc].value, ver);
+		availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, ver, (mfxU16)rateControlList[i_rc].value);
 	}
 }
 
