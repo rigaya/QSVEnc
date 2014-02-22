@@ -683,15 +683,34 @@ System::Void frmConfig::InitStgFileList() {
 	CheckTSSettingsDropDownItem(nullptr);
 }
 
-System::Void frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported) {
+System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported) {
+	System::Boolean selected_idx_changed = false;
 	int encmode_idx = get_cx_index(list_encmode, rc_mode_target);
 	if (mode_supported) {
 		fcgCXEncMode->Items[encmode_idx] = String(list_encmode[encmode_idx].desc).ToString();
 	} else {
 		fcgCXEncMode->Items[encmode_idx] = L"-----------------";
-		if (fcgCXEncMode->SelectedIndex == encmode_idx)
+		if (fcgCXEncMode->SelectedIndex == encmode_idx) {
 			fcgCXEncMode->SelectedIndex = get_cx_index(list_encmode, rc_mode_replace);
+			selected_idx_changed = true;
+		}
 	}
+	return selected_idx_changed;
+}
+
+System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU32 available_features) {
+	System::Boolean result = false;
+	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+	if (   fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR))
+		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA,     MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA))
+		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ))
+		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)))
+		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, 0 != (available_features & ENC_FEATURE_VCM)))
+		result = true;
+	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+	return result;
 }
 
 System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 available_features) {
@@ -757,9 +776,18 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 			return;
 	}
 
+	this->SuspendLayout();
+
 	mfxVersion mfxlib_target;
 	mfxlib_target.Version = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
+	
 	mfxU32 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
+	//まず、レート制御モードのみのチェックを行う
+	//もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
+	if (fcgCheckLibRateControl(mfxlib_target.Version, available_features))
+		available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
+
+	//つぎに全体のチェックを行う
 	fcgCheckLibVersion(mfxlib_target.Version, available_features);
 	int enc_mode = list_encmode[fcgCXEncMode->SelectedIndex].value;
 	bool cqp_mode =     (enc_mode == MFX_RATECONTROL_CQP    || enc_mode == MFX_RATECONTROL_VQP);
@@ -768,8 +796,6 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	bool la_mode =      (enc_mode == MFX_RATECONTROL_LA     || enc_mode == MFX_RATECONTROL_LA_ICQ);
 	bool icq_mode =     (enc_mode == MFX_RATECONTROL_LA_ICQ || enc_mode == MFX_RATECONTROL_ICQ);
 	bool vcm_mode =     (enc_mode == MFX_RATECONTROL_VCM);
-
-	this->SuspendLayout();
 
 	fcgPNQP->Visible = cqp_mode;
 	fcgNUQPI->Enabled = cqp_mode;
@@ -962,7 +988,7 @@ System::Void frmConfig::InitForm() {
 	fcgChangeMuxerVisible(nullptr, nullptr);
 	EnableSettingsNoteChange(false);
 	UpdateFeatures();
-	fcgChangeEnabled(nullptr, nullptr); //ここでfeatureTableListの完成を待機
+	fcgChangeEnabled(nullptr, nullptr);
 	fcgCBHWEncode->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBHWLibChanged);
 }
 
