@@ -1504,6 +1504,8 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 					sw = gcnew StreamWriter(String(file_path).ToString(), true, System::Text::Encoding::GetEncoding("shift_jis"));
 					sw->WriteLine();
 					sw->WriteLine();
+				} catch (...) {
+					//ファイルオープンに失敗…初回のget_exe_message_to_fileでエラーとなるため、おそらく起こらない
 				} finally {
 					if (sw != nullptr) { sw->Close(); }
 				}
