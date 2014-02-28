@@ -267,14 +267,86 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 	return result;
 }
 
+//サポートする機能のチェックをAPIバージョンのみで行う
+//API v1.6以降はCheckEncodeFeatureを使うべき
+//同一のAPIバージョンでも環境により異なることが多くなるため
+static mfxU32 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
+	mfxU32 feature = 0x00;
+	//まずレート制御モードをチェック
+	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)
+		&& (MFX_RATECONTROL_ICQ    == ratecontrol
+		 || MFX_RATECONTROL_LA_ICQ == ratecontrol
+		 || MFX_RATECONTROL_VCM    == ratecontrol)) {
+		return feature;
+	}
+	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)
+		&& MFX_RATECONTROL_LA == ratecontrol) {
+		return feature;
+	}
+	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)
+		&& MFX_RATECONTROL_AVBR == ratecontrol) {
+		return feature;
+	}
+
+	//各モードをチェック
+	feature |= ENC_FEATURE_CURRENT_RC;
+
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_1)) {
+		feature |= ENC_FEATURE_AUD;
+		feature |= ENC_FEATURE_PIC_STRUCT;
+		feature |= ENC_FEATURE_RDO;
+		feature |= ENC_FEATURE_CAVLC;
+	}
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
+		feature |= ENC_FEATURE_VUI_INFO;
+	}
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
+		feature |= ENC_FEATURE_EXT_BRC;
+		feature |= ENC_FEATURE_MBBRC;
+	}
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)) {
+		feature |= ENC_FEATURE_TRELLIS;
+	}
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+		feature |= ENC_FEATURE_ADAPTIVE_I;
+		feature |= ENC_FEATURE_ADAPTIVE_B;
+		feature |= ENC_FEATURE_B_PYRAMID;
+		feature |= ENC_FEATURE_VUI_INFO;
+		if (MFX_RATECONTROL_LA == ratecontrol || MFX_RATECONTROL_LA_ICQ == ratecontrol) {
+			feature |= ENC_FEATURE_LA_DS;
+		}
+	}
+
+	//以下特殊な場合の制限
+	if (   MFX_RATECONTROL_LA     == ratecontrol
+		|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {
+		feature &= ~ENC_FEATURE_RDO;
+		feature &= ~ENC_FEATURE_MBBRC;
+		feature &= ~ENC_FEATURE_EXT_BRC;
+	} else if (MFX_RATECONTROL_CQP == ratecontrol
+			|| MFX_RATECONTROL_VQP == ratecontrol) {
+		feature &= ~ENC_FEATURE_MBBRC;
+		feature &= ~ENC_FEATURE_EXT_BRC;
+	}
+
+	return feature;
+}
+
 mfxU32 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
-	mfxSession session;
-	
-	mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
+	mfxU32 feature = 0x00;
+	if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
+		//API v1.6未満で実際にチェックする必要は殆ど無いので、
+		//コードで決められた値を返すようにする
+		feature = CheckEncodeFeatureStatic(ver, ratecontrol);
+	} else {
+		mfxSession session;
 
-	mfxU32 feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol) : 0x00;
+		mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
-	MFXClose(session);
+		feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol) : 0x00;
+
+		MFXClose(session);
+	}
 
 	return feature;
 }
