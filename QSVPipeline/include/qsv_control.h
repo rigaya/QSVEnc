@@ -165,6 +165,8 @@ public:
 		} else
 #endif
 			_ftprintf(stderr, _T("%s\r"), mes);
+
+		fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
 	}
 #pragma warning(pop)
 	virtual void UpdateDisplay(mfxU32 tm, int drop_frames)
