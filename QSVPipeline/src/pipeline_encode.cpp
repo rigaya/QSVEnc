@@ -2600,6 +2600,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
 	PRINT_INFO(    _T("Scene Change Detection  %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+		PRINT_INFO(    _T("B pyramid               %s\n"), cop2.BRefType ? _T("on") : _T("off"));
 		PRINT_INFO(    _T("GOP Structure           "));
 		bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
 		bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
@@ -2612,7 +2613,12 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 				(adaptiveBOn) ? _T("B") : _T(""));
 		}
 	}
-	PRINT_INFO(    _T("Slices                  %d\n"), videoPrm.mfx.NumSlice);
+	PRINT_INFO(    _T("Slices                  "));
+	if (videoPrm.mfx.NumSlice) {
+		PRINT_INFO(_T("%d\n"), videoPrm.mfx.NumSlice);
+	} else {
+		PRINT_INFO(_T("Auto\n"));
+	}
 	//if (   MFX_CODINGOPTION_ON == cop.AUDelimiter
 	//	|| MFX_CODINGOPTION_ON == cop.PicTimingSEI
 	//	|| MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) {
