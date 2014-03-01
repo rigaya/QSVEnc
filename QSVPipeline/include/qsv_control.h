@@ -142,6 +142,8 @@ typedef struct sEncodeStatusData {
 	mfxU64 nBFrameSize;
 	mfxU32 tmStart;
 	mfxU32 nTotalOutFrames;
+	mfxF64 fEncodeFps;
+	mfxF64 fBitrateKbps;
 } sEncodeStatusData;
 
 class CEncodeStatusInfo
@@ -187,7 +189,8 @@ public:
 	{
 		if (m_sData.nProcessedFramesNum + drop_frames) {
 			TCHAR mes[256];
-			mfxF64 encode_fps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (double)(tm - m_sData.tmStart);
+			m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (double)(tm - m_sData.tmStart);
+			m_sData.fBitrateKbps = (mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames));
 			if (m_sData.nTotalOutFrames) {
 				mfxU32 remaining_time = (mfxU32)((m_sData.nTotalOutFrames - (m_sData.nProcessedFramesNum + drop_frames)) * 1000.0 / ((m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (mfxF64)(tm - m_sData.tmStart)));
 				int hh = remaining_time / (60*60*1000);
@@ -199,16 +202,16 @@ public:
 				int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
 					(m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_sData.nTotalOutFrames,
 					(m_sData.nProcessedFramesNum + drop_frames),
-					encode_fps,
-					(mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames)),
+					m_sData.fEncodeFps,
+					m_sData.fBitrateKbps,
 					hh, mm, ss );
 				if (drop_frames)
 					_stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
 			} else {
 				_stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "), 
 					(m_sData.nProcessedFramesNum + drop_frames),
-					encode_fps,
-					(mfxF64)(m_sData.nWrittenBytes * 8) * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / (1000.0 * (m_sData.nProcessedFramesNum + drop_frames))
+					m_sData.fEncodeFps,
+					m_sData.fBitrateKbps
 					);
 			}
 			UpdateDisplay(mes, drop_frames);
@@ -278,7 +281,8 @@ public:
 	{
 		mfxU32 tm_result = timeGetTime();
 		mfxU32 time_elapsed = tm_result - m_sData.tmStart;
-		mfxF64 encode_fps = m_sData.nProcessedFramesNum * 1000.0 / (double)time_elapsed;
+		m_sData.fEncodeFps = m_sData.nProcessedFramesNum * 1000.0 / (double)time_elapsed;
+		m_sData.fBitrateKbps = (mfxF64)(m_sData.nWrittenBytes * 8) *  (m_nOutputFPSRate / (double)m_nOutputFPSScale) / (1000.0 * m_sData.nProcessedFramesNum);
 
 		TCHAR mes[512] = { 0 };
 		for (int i = 0; i < 79; i++)
@@ -287,8 +291,8 @@ public:
 
 		_stprintf_s(mes, _countof(mes), _T("encoded %d frames, %.2f fps, %.2f kbps, %.2f MB"),
 			m_sData.nProcessedFramesNum,
-			encode_fps,
-			(mfxF64)(m_sData.nWrittenBytes * 8) *  (m_nOutputFPSRate / (double)m_nOutputFPSScale) / (1000.0 * m_sData.nProcessedFramesNum),
+			m_sData.fEncodeFps,
+			m_sData.fBitrateKbps,
 			(double)m_sData.nWrittenBytes / (double)(1024 * 1024)
 			);
 		WriteLine(mes);
