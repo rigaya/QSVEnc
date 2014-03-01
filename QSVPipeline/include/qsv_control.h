@@ -314,6 +314,7 @@ public:
 		WriteFrameTypeResult(_T("frame type B   "), m_sData.nBCount,   maxCount, m_sData.nBFrameSize, maxFrameSize, (info) ? info->sumQPB / (double)info->frameCountB : -1);
 	}
 	mfxU32 m_nInputFrames;
+	mfxU32 m_nTotalOutFrames;
 	mfxU32 m_nOutputFPSRate;
 	mfxU32 m_nOutputFPSScale;
 protected:

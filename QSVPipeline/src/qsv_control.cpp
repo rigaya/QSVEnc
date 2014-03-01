@@ -39,6 +39,7 @@ CEncodeStatusInfo::CEncodeStatusInfo()
 	m_sData.fEncodeFps = 0.0;
 	m_sData.fBitrateKbps = 0.0;
 	m_nInputFrames = 0;
+	m_nTotalOutFrames = 0;
 	m_nOutputFPSRate = 0;
 	m_nOutputFPSScale = 0;
 	m_pStrLog = NULL;
@@ -48,7 +49,7 @@ CEncodeStatusInfo::CEncodeStatusInfo()
 void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, TCHAR *pStrLog) {
 	m_nOutputFPSRate = outputFPSRate;
 	m_nOutputFPSScale = outputFPSScale;
-	m_sData.nTotalOutFrames = totalOutputFrames;
+	m_nTotalOutFrames = totalOutputFrames;
 	m_pStrLog = pStrLog;
 	DWORD mode = 0;
 	m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
