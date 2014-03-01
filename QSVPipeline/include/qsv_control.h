@@ -152,6 +152,11 @@ public:
 	CEncodeStatusInfo();
 	void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, TCHAR *pStrLog);
 	void SetStart();
+	void GetEncodeData(sEncodeStatusData *data) {
+		if (NULL != data) {
+			MSDK_MEMCPY(data, &m_sData, sizeof(sEncodeStatusData));
+		}
+	}
 	void SetOutputData(mfxU64 nBytesWritten, mfxU32 frameType)
 	{
 		m_sData.nProcessedFramesNum++;

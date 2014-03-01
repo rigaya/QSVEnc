@@ -2445,6 +2445,17 @@ void CEncodingPipeline::PrintMes(const TCHAR *format, ... ) {
 	}
 }
 
+mfxStatus CEncodingPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
+	if (NULL == data)
+		return MFX_ERR_NULL_PTR;
+
+	if (NULL == m_pEncSatusInfo)
+		return MFX_ERR_NOT_INITIALIZED;
+
+	m_pEncSatusInfo->GetEncodeData(data);
+	return MFX_ERR_NONE;
+}
+
 mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 {
 	mfxIMPL impl;

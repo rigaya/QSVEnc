@@ -124,6 +124,8 @@ public:
 
 	virtual void SetAbortFlagPointer(bool *abort);
 
+	virtual mfxStatus GetEncodeStatusData(sEncodeStatusData *data);
+
 protected:
 	virtual mfxStatus RunEncode();
 	mfxStatus CheckSceneChange();
