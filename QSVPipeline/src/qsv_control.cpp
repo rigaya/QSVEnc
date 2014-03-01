@@ -26,16 +26,16 @@
 #pragma warning( disable : 4748 )
 CEncodeStatusInfo::CEncodeStatusInfo()
 {
+	m_sData.nProcessedFramesNum = 0;
+	m_sData.nWrittenBytes = 0;
+	m_sData.nIDRCount = 0;
+	m_sData.nICount = 0;
+	m_sData.nPCount = 0;
+	m_sData.nBCount = 0;
+	m_sData.nIFrameSize = 0;
+	m_sData.nPFrameSize = 0;
+	m_sData.nBFrameSize = 0;
 	m_nInputFrames = 0;
-	m_nProcessedFramesNum = 0;
-	m_nWrittenBytes = 0;
-	m_nIDRCount = 0;
-	m_nICount = 0;
-	m_nPCount = 0;
-	m_nBCount = 0;
-	m_nIFrameSize = 0;
-	m_nPFrameSize = 0;
-	m_nBFrameSize = 0;
 	m_nOutputFPSRate = 0;
 	m_nOutputFPSScale = 0;
 	m_pStrLog = NULL;
@@ -45,14 +45,14 @@ CEncodeStatusInfo::CEncodeStatusInfo()
 void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, TCHAR *pStrLog) {
 	m_nOutputFPSRate = outputFPSRate;
 	m_nOutputFPSScale = outputFPSScale;
-	m_nTotalOutFrames = totalOutputFrames;
+	m_sData.nTotalOutFrames = totalOutputFrames;
 	m_pStrLog = pStrLog;
 	DWORD mode = 0;
 	m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
 }
 
 void CEncodeStatusInfo::SetStart() {
-	m_tmStart = timeGetTime();
+	m_sData.tmStart = timeGetTime();
 }
 
 CEncodingThread::CEncodingThread()

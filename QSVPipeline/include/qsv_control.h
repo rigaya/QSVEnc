@@ -130,6 +130,20 @@ private:
 	sFrameTypeInfo m_info;
 };
 
+typedef struct sEncodeStatusData {
+	mfxU32 nProcessedFramesNum;
+	mfxU64 nWrittenBytes;
+	mfxU32 nIDRCount;
+	mfxU32 nICount;
+	mfxU32 nPCount;
+	mfxU32 nBCount;
+	mfxU64 nIFrameSize;
+	mfxU64 nPFrameSize;
+	mfxU64 nBFrameSize;
+	mfxU32 tmStart;
+	mfxU32 nTotalOutFrames;
+} sEncodeStatusData;
+
 class CEncodeStatusInfo
 {
 public:
@@ -138,15 +152,15 @@ public:
 	void SetStart();
 	void SetOutputData(mfxU64 nBytesWritten, mfxU32 frameType)
 	{
-		m_nWrittenBytes += nBytesWritten;
-		m_nProcessedFramesNum++;
-		m_nIDRCount += ((frameType & MFX_FRAMETYPE_IDR) >> 7);
-		m_nICount   +=  (frameType & MFX_FRAMETYPE_I);
-		m_nPCount   += ((frameType & MFX_FRAMETYPE_P) >> 1);
-		m_nBCount   += ((frameType & MFX_FRAMETYPE_B) >> 2);
-		m_nIFrameSize += nBytesWritten *  (frameType & MFX_FRAMETYPE_I);
-		m_nPFrameSize += nBytesWritten * ((frameType & MFX_FRAMETYPE_P) >> 1);
-		m_nBFrameSize += nBytesWritten * ((frameType & MFX_FRAMETYPE_B) >> 2);
+		m_sData.nProcessedFramesNum++;
+		m_sData.nWrittenBytes += nBytesWritten;
+		m_sData.nIDRCount     += ((frameType & MFX_FRAMETYPE_IDR) >> 7);
+		m_sData.nICount       +=  (frameType & MFX_FRAMETYPE_I);
+		m_sData.nPCount       += ((frameType & MFX_FRAMETYPE_P) >> 1);
+		m_sData.nBCount       += ((frameType & MFX_FRAMETYPE_B) >> 2);
+		m_sData.nIFrameSize   += nBytesWritten *  (frameType & MFX_FRAMETYPE_I);
+		m_sData.nPFrameSize   += nBytesWritten * ((frameType & MFX_FRAMETYPE_P) >> 1);
+		m_sData.nBFrameSize   += nBytesWritten * ((frameType & MFX_FRAMETYPE_B) >> 2);
 	}
 #pragma warning(push)
 #pragma warning(disable:4100)
@@ -171,11 +185,11 @@ public:
 #pragma warning(pop)
 	virtual void UpdateDisplay(mfxU32 tm, int drop_frames)
 	{
-		if (m_nProcessedFramesNum + drop_frames) {
+		if (m_sData.nProcessedFramesNum + drop_frames) {
 			TCHAR mes[256];
-			mfxF64 encode_fps = (m_nProcessedFramesNum + drop_frames) * 1000.0 / (double)(tm - m_tmStart);
-			if (m_nTotalOutFrames) {
-				mfxU32 remaining_time = (mfxU32)((m_nTotalOutFrames - (m_nProcessedFramesNum + drop_frames)) * 1000.0 / ((m_nProcessedFramesNum + drop_frames) * 1000.0 / (mfxF64)(tm - m_tmStart)));
+			mfxF64 encode_fps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (double)(tm - m_sData.tmStart);
+			if (m_sData.nTotalOutFrames) {
+				mfxU32 remaining_time = (mfxU32)((m_sData.nTotalOutFrames - (m_sData.nProcessedFramesNum + drop_frames)) * 1000.0 / ((m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (mfxF64)(tm - m_sData.tmStart)));
 				int hh = remaining_time / (60*60*1000);
 				remaining_time -= hh * (60*60*1000);
 				int mm = remaining_time / (60*1000);
@@ -183,18 +197,18 @@ public:
 				int ss = (remaining_time + 500) / 1000;
 
 				int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
-					(m_nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_nTotalOutFrames,
-					(m_nProcessedFramesNum + drop_frames),
+					(m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_sData.nTotalOutFrames,
+					(m_sData.nProcessedFramesNum + drop_frames),
 					encode_fps,
-					(mfxF64)m_nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_nProcessedFramesNum + drop_frames)),
+					(mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames)),
 					hh, mm, ss );
 				if (drop_frames)
-					_stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), drop_frames, (m_nProcessedFramesNum + drop_frames));
+					_stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
 			} else {
 				_stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "), 
-					(m_nProcessedFramesNum + drop_frames),
+					(m_sData.nProcessedFramesNum + drop_frames),
 					encode_fps,
-					(mfxF64)(m_nWrittenBytes * 8) * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / (1000.0 * (m_nProcessedFramesNum + drop_frames))
+					(mfxF64)(m_sData.nWrittenBytes * 8) * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / (1000.0 * (m_sData.nProcessedFramesNum + drop_frames))
 					);
 			}
 			UpdateDisplay(mes, drop_frames);
@@ -263,8 +277,8 @@ public:
 	virtual void WriteResults(sFrameTypeInfo *info)
 	{
 		mfxU32 tm_result = timeGetTime();
-		mfxU32 time_elapsed = tm_result - m_tmStart;
-		mfxF64 encode_fps = m_nProcessedFramesNum * 1000.0 / (double)time_elapsed;
+		mfxU32 time_elapsed = tm_result - m_sData.tmStart;
+		mfxF64 encode_fps = m_sData.nProcessedFramesNum * 1000.0 / (double)time_elapsed;
 
 		TCHAR mes[512] = { 0 };
 		for (int i = 0; i < 79; i++)
@@ -272,10 +286,10 @@ public:
 		WriteLine(mes);
 
 		_stprintf_s(mes, _countof(mes), _T("encoded %d frames, %.2f fps, %.2f kbps, %.2f MB"),
-			m_nProcessedFramesNum,
+			m_sData.nProcessedFramesNum,
 			encode_fps,
-			(mfxF64)(m_nWrittenBytes * 8) *  (m_nOutputFPSRate / (double)m_nOutputFPSScale) / (1000.0 * m_nProcessedFramesNum),
-			(double)m_nWrittenBytes / (double)(1024 * 1024)
+			(mfxF64)(m_sData.nWrittenBytes * 8) *  (m_nOutputFPSRate / (double)m_nOutputFPSScale) / (1000.0 * m_sData.nProcessedFramesNum),
+			(double)m_sData.nWrittenBytes / (double)(1024 * 1024)
 			);
 		WriteLine(mes);
 
@@ -287,29 +301,19 @@ public:
 		_stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
 		WriteLine(mes);
 
-		mfxU32 maxCount = MAX3(m_nICount, m_nPCount, m_nBCount);
-		mfxU64 maxFrameSize = MAX3(m_nIFrameSize, m_nPFrameSize, m_nBFrameSize);
+		mfxU32 maxCount = MAX3(m_sData.nICount, m_sData.nPCount, m_sData.nBCount);
+		mfxU64 maxFrameSize = MAX3(m_sData.nIFrameSize, m_sData.nPFrameSize, m_sData.nBFrameSize);
 
-		WriteFrameTypeResult(_T("frame type IDR "), m_nIDRCount, maxCount,             0, maxFrameSize, -1.0);
-		WriteFrameTypeResult(_T("frame type I   "), m_nICount,   maxCount, m_nIFrameSize, maxFrameSize, (info) ? info->sumQPI / (double)info->frameCountI : -1);
-		WriteFrameTypeResult(_T("frame type P   "), m_nPCount,   maxCount, m_nPFrameSize, maxFrameSize, (info) ? info->sumQPP / (double)info->frameCountP : -1);
-		WriteFrameTypeResult(_T("frame type B   "), m_nBCount,   maxCount, m_nBFrameSize, maxFrameSize, (info) ? info->sumQPB / (double)info->frameCountB : -1);
+		WriteFrameTypeResult(_T("frame type IDR "), m_sData.nIDRCount, maxCount,                   0, maxFrameSize, -1.0);
+		WriteFrameTypeResult(_T("frame type I   "), m_sData.nICount,   maxCount, m_sData.nIFrameSize, maxFrameSize, (info) ? info->sumQPI / (double)info->frameCountI : -1);
+		WriteFrameTypeResult(_T("frame type P   "), m_sData.nPCount,   maxCount, m_sData.nPFrameSize, maxFrameSize, (info) ? info->sumQPP / (double)info->frameCountP : -1);
+		WriteFrameTypeResult(_T("frame type B   "), m_sData.nBCount,   maxCount, m_sData.nBFrameSize, maxFrameSize, (info) ? info->sumQPB / (double)info->frameCountB : -1);
 	}
 	mfxU32 m_nInputFrames;
 	mfxU32 m_nOutputFPSRate;
 	mfxU32 m_nOutputFPSScale;
 protected:
-	mfxU32 m_nProcessedFramesNum;
-	mfxU64 m_nWrittenBytes;
-	mfxU32 m_nIDRCount;
-	mfxU32 m_nICount;
-	mfxU32 m_nPCount;
-	mfxU32 m_nBCount;
-	mfxU64 m_nIFrameSize;
-	mfxU64 m_nPFrameSize;
-	mfxU64 m_nBFrameSize;
-	mfxU32 m_tmStart;
-	mfxU32 m_nTotalOutFrames;
+	sEncodeStatusData m_sData;
 	TCHAR *m_pStrLog;
 	bool m_bStdErrWriteToConsole;
 };
