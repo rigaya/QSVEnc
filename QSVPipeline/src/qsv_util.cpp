@@ -38,10 +38,10 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl) {
 		mfxVersion ver;
 		memcpy(&ver, &LIB_VER_LIST[i], sizeof(mfxVersion));
 		mfxStatus sts = test->Init(impl, &ver);
-		if (sts != MFX_ERR_NONE)
-			break;
 		test->Close();
 		delete test;
+		if (sts != MFX_ERR_NONE)
+			break;
 	}
 	return LIB_VER_LIST[i-1];
 }
