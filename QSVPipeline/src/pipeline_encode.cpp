@@ -2470,7 +2470,7 @@ const msdk_char *CEncodingPipeline::GetInputMessage() {
 	return m_pFileReader->GetInputMessage();
 }
 
-mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
+mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 {
 	mfxIMPL impl;
 	m_mfxSession.QueryIMPL(&impl);
@@ -2632,7 +2632,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 		if (!adaptiveIOn && !adaptiveBOn) {
 			PRINT_INFO(_T("fixed\n"))
 		} else {
-			PRINT_INFO(_T("Adaptive %s%s insert\n"),
+			PRINT_INFO(_T("Adaptive %s%s%s insert\n"),
 				(adaptiveIOn) ? _T("I") : _T(""),
 				(adaptiveIOn && adaptiveBOn) ? _T(",") : _T(""),
 				(adaptiveBOn) ? _T("B") : _T(""));
@@ -2674,6 +2674,9 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam()
 	PRINT_INFO(_T("\n"));
 
 	PrintMes(info);
+	if (str && bufSize > 0) {
+		msdk_strcopy(str, bufSize, info);
+	}
 
 	return MFX_ERR_NONE;
 #undef PRINT_INFO
