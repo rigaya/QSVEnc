@@ -248,8 +248,8 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                    2: half-pell       3: quater-pell\n")
 			);
 		_ftprintf(stdout, _T("\n")
-			_T("   --benchmark-cqp <string>       run in CQP benchmark mode\n")
-			_T("                                  and write result in csv file.\n")
+			_T("   --benchmark <string>           run in benchmark mode\n")
+			_T("                                   and write result in txt file.\n")
 			);
 	}
 }
@@ -1031,10 +1031,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
-		else if (0 == _tcscmp(option_name, _T("benchmark-cqp")))
+		else if (0 == _tcscmp(option_name, _T("benchmark")))
 		{
 			i++;
-			pParams->bBenchmark = MFX_RATECONTROL_CQP;
+			pParams->bBenchmark = TRUE;
 			_tcscpy_s(pParams->strDstFile, strInput[i]);
 		}
 		else
@@ -1212,28 +1212,15 @@ mfxStatus run_benchmark(sInputParams *params) {
 	mfxStatus sts = MFX_ERR_NONE;
 	basic_string<msdk_char> src_file = params->strSrcFile;
 	basic_string<msdk_char> benchmarkLogFile = params->strDstFile;
-
-	_ftprintf(stderr, _T("Starting Benchmark mode...\n"));
-
-	//一度初期化
-	init_qsvp_prm(params);
-
-	//復帰
-	msdk_strcopy(params->strSrcFile, _countof(params->strSrcFile), src_file.c_str());
-	params->bBenchmark = TRUE;
-	params->nQPI = 21;
-	params->nQPP = 24;
-	params->nQPB = 26;
+	
+	//テストする解像度
+	const vector<pair<mfxU16, mfxU16>> test_resolution = { { 1920, 1080 }, { 1280, 720 } };
 
 	//初回出力
 	{
-		//情報取得用
-		mfxVersion ver = MFX_LIB_VERSION_1_1;
-		bool hardware = true;
-
-		params->nDstWidth = 640;
-		params->nDstHeight = 360;
-		params->nTargetUsage = 7;
+		params->nDstWidth = test_resolution[0].first;
+		params->nDstHeight = test_resolution[0].second;
+		params->nTargetUsage = MFX_TARGETUSAGE_BEST_SPEED;
 
 		auto_ptr<CEncodingPipeline> pPipeline;
 		pPipeline.reset(new CEncodingPipeline);
@@ -1244,22 +1231,24 @@ mfxStatus run_benchmark(sInputParams *params) {
 
 		pPipeline->SetAbortFlagPointer(&g_signal_abort);
 		set_signal_handler();
-		pPipeline->CheckCurrentVideoParam();
 
-		pPipeline->GetEncodeLibInfo(&ver, &hardware);
+		SYSTEMTIME sysTime = { 0 };
+		GetLocalTime(&sysTime);
 
-		basic_stringstream<msdk_char> ss;
-		msdk_char CPUInfo[256];
-		if (0 == getCPUInfo(CPUInfo, _countof(CPUInfo)))
-			ss << CPUInfo << endl;
+		msdk_char encode_info[4096];
+		pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info));
 		
-#ifdef _M_IX86
-		ss << _T("QSVEnc ") << VER_STR_FILEVERSION_TCHAR << _T(" (x86) based on Intel(R) Media SDK Encoding Sample Version ") << MSDK_SAMPLE_VERSION << endl;
-#else
-		ss << _T("QSVEnc ") << VER_STR_FILEVERSION_TCHAR << _T(" (x64) based on Intel(R) Media SDK Encoding Sample Version ") << MSDK_SAMPLE_VERSION << endl;
-#endif
-		ss << _T("  using ") << ((hardware) ? _T("QuickSyncVideo (hardware encoder)") : _T("software encoder")) << _T("  API v") << ver.Major << _T(".") << ver.Minor << endl;
-		ss << _T("  input: ") << pPipeline->GetInputMessage() << endl;
+		basic_stringstream<msdk_char> ss;
+		ss << _T("Started benchmark on ") << sysTime.wYear;
+		ss << _T(".") << setw(2) << setfill(_T('0')) << sysTime.wMonth;
+		ss << _T(".") << setw(2) << setfill(_T('0')) << sysTime.wDay;
+		ss << _T(" ") << setw(2) << setfill(_T('0')) << sysTime.wHour;
+		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wMinute;
+		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wSecond;
+		ss << endl;
+		ss << endl;
+		ss << _T("Basic parameters of the benchmark") << endl;
+		ss << _T(" (Target Usage and output resolution will be changed)") << endl;
 		ss << endl;
 
 		basic_ofstream<msdk_char> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
@@ -1267,7 +1256,8 @@ mfxStatus run_benchmark(sInputParams *params) {
 			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
 			return MFX_ERR_INVALID_HANDLE;
 		}
-		benchmark_log_test_open << ss.str() << endl;
+		benchmark_log_test_open << ss.str();
+		benchmark_log_test_open << encode_info << endl;
 		benchmark_log_test_open.close();
 
 		for (;;) {
@@ -1299,9 +1289,6 @@ mfxStatus run_benchmark(sInputParams *params) {
 		double fps;
 		double bitrate;
 	} benchmark_t;
-
-	//テストする解像度
-	const vector<pair<mfxU16, mfxU16>> test_resolution = { { 1280, 720 }, { 1920, 1080 } };
 
 	//解像度ごとに、target usageを変化させて測定
 	vector<vector<benchmark_t>> benchmark_result;
