@@ -118,7 +118,7 @@ public:
 	void SetMultiView();
 	void SetNumView(mfxU32 numViews) { m_nNumView = numViews; }
 #endif
-	virtual mfxStatus CheckCurrentVideoParam();
+	virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
 	virtual void PrintMes(const TCHAR *format, ... );
 
