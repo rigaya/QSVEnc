@@ -318,5 +318,5 @@ void AUO_EncodeStatusInfo::WriteLine(const TCHAR *mes) {
 	}
 }
 void AUO_EncodeStatusInfo::UpdateDisplay(const char *mes, int drop_frames) {
-	set_log_title_and_progress(mes, (m_sData.nProcessedFramesNum + drop_frames) / (mfxF64)m_sData.nTotalOutFrames);
+	set_log_title_and_progress(mes, (m_sData.nProcessedFramesNum + drop_frames) / (mfxF64)m_nTotalOutFrames);
 }
