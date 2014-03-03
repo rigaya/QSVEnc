@@ -65,7 +65,7 @@ mfxVersion get_mfx_libhw_version() {
 }
 bool check_if_d3d11_necessary() {
 	bool check_d3d11 = (0 != check_lib_version(get_mfx_lib_version(MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11), MFX_LIB_VERSION_1_1));
-	bool check_d3d9  = (0 != check_lib_version(get_mfx_lib_version(MFX_IMPL_HARDWARE_ANY), MFX_LIB_VERSION_1_1));
+	bool check_d3d9  = (0 != check_lib_version(get_mfx_lib_version(MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D9), MFX_LIB_VERSION_1_1));
 
 	return (check_d3d11 == true && check_d3d9 == false);
 }
