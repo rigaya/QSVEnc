@@ -1595,7 +1595,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
 
 			// MSDK API version may not support multiple adapters - then try initialize on the default
 			if (MFX_ERR_NONE != sts)
-				sts = m_mfxSession.Init(impl & !MFX_IMPL_HARDWARE_ANY | MFX_IMPL_HARDWARE, &verRequired);
+				sts = m_mfxSession.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
 
 			if (MFX_ERR_NONE == sts)
 				break;
@@ -2445,6 +2445,16 @@ void CEncodingPipeline::PrintMes(const TCHAR *format, ... ) {
 	}
 }
 
+void CEncodingPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
+	if (NULL != ver && NULL != hardware) {
+		mfxIMPL impl;
+		m_mfxSession.QueryIMPL(&impl);
+		*hardware = !!Check_HWUsed(impl);
+		*ver = m_mfxVer;
+	}
+
+}
+
 mfxStatus CEncodingPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
 	if (NULL == data)
 		return MFX_ERR_NULL_PTR;
@@ -2454,6 +2464,10 @@ mfxStatus CEncodingPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
 
 	m_pEncSatusInfo->GetEncodeData(data);
 	return MFX_ERR_NONE;
+}
+
+const msdk_char *CEncodingPipeline::GetInputMessage() {
+	return m_pFileReader->GetInputMessage();
 }
 
 mfxStatus CEncodingPipeline::CheckCurrentVideoParam()

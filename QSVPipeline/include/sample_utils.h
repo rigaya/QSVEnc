@@ -184,6 +184,7 @@ protected:
 	CEncodeStatusInfo *m_pEncSatusInfo;
 	FILE*       m_fSource;
 	bool        m_bInited;
+	bool        m_bNoOutput;
 };
 
 class CSmplYUVWriter

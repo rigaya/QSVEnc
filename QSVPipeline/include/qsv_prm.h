@@ -153,8 +153,9 @@ struct sInputParams
 	mfxU16     nLookaheadDS;
 
 	mfxU16     nICQQuality;
-
-	mfxU8      Reserved[1204];
+	mfxU8      bBenchmark;
+	
+	mfxU8      Reserved[1203];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

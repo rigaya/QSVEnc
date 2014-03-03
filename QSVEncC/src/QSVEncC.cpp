@@ -15,8 +15,11 @@
 #include <fcntl.h>
 #include <Math.h>
 #include <signal.h>
+#include <fstream>
+#include <iomanip>
+#include <vector>
 #include "shlwapi.h"
-#pragma comment(lib, "shlwapi.lib") 
+#pragma comment(lib, "shlwapi.lib")
 
 #include "pipeline_encode.h"
 #include "qsv_prm.h"
@@ -81,6 +84,9 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("Example:\n")
 			_T("  QSVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
 			_T("  avs2pipemod -y4mp \"<avsfile>\" | QSVEncC --y4m -i - -o \"<outfilename>\"\n")
+			_T("\n")
+			_T("Example for Benchmark:\n")
+			_T("  QSVEncC -i \"<avsfilename>\" --benchmark-cqp \"<benchmark_result.csv>\"\n")
 			_T("\n")
 			_T("Options: \n")
 			_T("-h,-? --help                      show help\n")
@@ -227,7 +233,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --lookahead-ds <string>        set lookahead quality.\n")
 			_T("                                   - auto(default), fast, normal, slow\n")
 			);
-		_ftprintf(stdout,_T("\n"
+		_ftprintf(stdout, _T("\n")
 			_T(" Settings below are available only for software ecoding.\n")
 			_T("   --cavlc                        use cavlc instead of cabac.\n")
 			_T("   --rdo                          use rate distortion optmization.\n")
@@ -240,7 +246,11 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --mv-precision <int>           set precision of mv search\n")
 			_T("                                    0: auto(default)   1: full-pell\n")
 			_T("                                    2: half-pell       3: quater-pell\n")
-			));
+			);
+		_ftprintf(stdout, _T("\n")
+			_T("   --benchmark-cqp <string>       run in CQP benchmark mode\n")
+			_T("                                  and write result in csv file.\n")
+			);
 	}
 }
 
@@ -428,7 +438,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("output-file")))
 		{
 			i++;
-			_tcscpy_s(pParams->strDstFile, strInput[i]);
+			if (!pParams->bBenchmark)
+				_tcscpy_s(pParams->strDstFile, strInput[i]);
 		}
 		else if (0 == _tcscmp(option_name, _T("quality")))
 		{
@@ -1020,6 +1031,12 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
+		else if (0 == _tcscmp(option_name, _T("benchmark-cqp")))
+		{
+			i++;
+			pParams->bBenchmark = MFX_RATECONTROL_CQP;
+			_tcscpy_s(pParams->strDstFile, strInput[i]);
+		}
 		else
 		{
 			PrintHelp(strInput[0], _T("Unknown options"), NULL);
@@ -1141,11 +1158,259 @@ static int set_signal_handler() {
 	return ret;
 }
 
+int run_encode(sInputParams *params) {
+	mfxStatus sts = MFX_ERR_NONE; // return value check
+
+	std::auto_ptr<CEncodingPipeline>  pPipeline; 
+	//pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
+	pPipeline.reset(new CEncodingPipeline);
+	MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+
+	sts = pPipeline->Init(params);
+	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+
+	if (params->pStrLogFile) {
+		free(params->pStrLogFile);
+		params->pStrLogFile = NULL;
+	}
+
+	pPipeline->SetAbortFlagPointer(&g_signal_abort);
+	set_signal_handler();
+
+	pPipeline->CheckCurrentVideoParam();
+	_ftprintf(stderr, _T("Processing started\n"));
+
+	for (;;)
+	{
+		sts = pPipeline->Run();
+
+		if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts)
+		{
+			_ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+			sts = pPipeline->ResetDevice();
+			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+
+			sts = pPipeline->ResetMFXComponents(params);
+			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+			continue;
+		}
+		else
+		{
+			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+			break;
+		}
+	}
+
+	pPipeline->Close();  
+	_ftprintf(stderr, _T("\nProcessing finished\n"));
+
+	return sts;
+}
+
+mfxStatus run_benchmark(sInputParams *params) {
+	using namespace std;
+	mfxStatus sts = MFX_ERR_NONE;
+	basic_string<msdk_char> src_file = params->strSrcFile;
+	basic_string<msdk_char> benchmarkLogFile = params->strDstFile;
+
+	_ftprintf(stderr, _T("Starting Benchmark mode...\n"));
+
+	//一度初期化
+	init_qsvp_prm(params);
+
+	//復帰
+	msdk_strcopy(params->strSrcFile, _countof(params->strSrcFile), src_file.c_str());
+	params->bBenchmark = TRUE;
+	params->nQPI = 21;
+	params->nQPP = 24;
+	params->nQPB = 26;
+
+	//初回出力
+	{
+		//情報取得用
+		mfxVersion ver = MFX_LIB_VERSION_1_1;
+		bool hardware = true;
+
+		params->nDstWidth = 640;
+		params->nDstHeight = 360;
+		params->nTargetUsage = 7;
+
+		auto_ptr<CEncodingPipeline> pPipeline;
+		pPipeline.reset(new CEncodingPipeline);
+		MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+
+		sts = pPipeline->Init(params);
+		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+
+		pPipeline->SetAbortFlagPointer(&g_signal_abort);
+		set_signal_handler();
+		pPipeline->CheckCurrentVideoParam();
+
+		pPipeline->GetEncodeLibInfo(&ver, &hardware);
+
+		basic_stringstream<msdk_char> ss;
+		msdk_char CPUInfo[256];
+		if (0 == getCPUInfo(CPUInfo, _countof(CPUInfo)))
+			ss << CPUInfo << endl;
+		
+#ifdef _M_IX86
+		ss << _T("QSVEnc ") << VER_STR_FILEVERSION_TCHAR << _T(" (x86) based on Intel(R) Media SDK Encoding Sample Version ") << MSDK_SAMPLE_VERSION << endl;
+#else
+		ss << _T("QSVEnc ") << VER_STR_FILEVERSION_TCHAR << _T(" (x64) based on Intel(R) Media SDK Encoding Sample Version ") << MSDK_SAMPLE_VERSION << endl;
+#endif
+		ss << _T("  using ") << ((hardware) ? _T("QuickSyncVideo (hardware encoder)") : _T("software encoder")) << _T("  API v") << ver.Major << _T(".") << ver.Minor << endl;
+		ss << _T("  input: ") << pPipeline->GetInputMessage() << endl;
+		ss << endl;
+
+		basic_ofstream<msdk_char> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
+		if (!benchmark_log_test_open.good()) {
+			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
+			return MFX_ERR_INVALID_HANDLE;
+		}
+		benchmark_log_test_open << ss.str() << endl;
+		benchmark_log_test_open.close();
+
+		for (;;) {
+			sts = pPipeline->Run();
+
+			if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
+				_ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+				if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
+					|| MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
+					break;
+			} else {
+				if (MFX_ERR_NONE != sts)
+					MSDK_PRINT_RET_MSG(sts);
+				break;
+			}
+		}
+
+		sEncodeStatusData data = { 0 };
+		sts = pPipeline->GetEncodeStatusData(&data);
+
+		pPipeline->Close();
+	}
+
+
+	//ベンチマークの集計データ
+	typedef struct benchmark_t {
+		pair<mfxU16, mfxU16> resolution;
+		mfxU16 targetUsage;
+		double fps;
+		double bitrate;
+	} benchmark_t;
+
+	//テストする解像度
+	const vector<pair<mfxU16, mfxU16>> test_resolution = { { 1280, 720 }, { 1920, 1080 } };
+
+	//解像度ごとに、target usageを変化させて測定
+	vector<vector<benchmark_t>> benchmark_result;
+	benchmark_result.reserve(test_resolution.size() * (_countof(list_quality) - 1));
+	
+	for (int i = 0; MFX_ERR_NONE == sts && !g_signal_abort && list_quality[i].desc; i++) {
+		params->nTargetUsage = (mfxU16)list_quality[i].value;
+		vector<benchmark_t> benchmark_per_target_usage;
+		for (auto resolution : test_resolution) {
+			params->nDstWidth = resolution.first;
+			params->nDstHeight = resolution.second;
+
+			auto_ptr<CEncodingPipeline> pPipeline;
+			pPipeline.reset(new CEncodingPipeline);
+			MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+			
+			if (MFX_ERR_NONE != (sts = pPipeline->Init(params))) {
+				break;
+			}
+			
+			pPipeline->SetAbortFlagPointer(&g_signal_abort);
+			set_signal_handler();
+			pPipeline->CheckCurrentVideoParam();
+
+			for (;;) {
+				sts = pPipeline->Run();
+
+				if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
+					_ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+					if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
+						|| MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
+						break;
+				} else {
+					if (MFX_ERR_NONE != sts)
+						MSDK_PRINT_RET_MSG(sts);
+					break;
+				}
+			}
+
+			sEncodeStatusData data = { 0 };
+			sts = pPipeline->GetEncodeStatusData(&data);
+
+			pPipeline->Close();
+
+			benchmark_t result;
+			result.resolution  = resolution;
+			result.targetUsage = (mfxU16)list_quality[i].value;
+			result.fps         = data.fEncodeFps;
+			result.bitrate     = data.fBitrateKbps;
+			benchmark_per_target_usage.push_back(result);
+
+			if (MFX_ERR_NONE != sts || g_signal_abort)
+				break;
+		}
+
+		benchmark_result.push_back(benchmark_per_target_usage);
+	}
+
+	//結果を出力
+	if (MFX_ERR_NONE == sts && benchmark_result.size()) {
+		basic_stringstream<msdk_char> ss;
+		
+		ss << _T("Encode Speed (fps)") << endl;
+		for (auto resolution : test_resolution) {
+			ss << _T("\t") << resolution.first << _T("x") << resolution.second;
+		}
+		ss << endl;
+		
+		for (const auto &benchmark_per_target_usage : benchmark_result) {
+			auto targetUsage = benchmark_per_target_usage[0].targetUsage;
+			ss << targetUsage;
+			for (const auto &result : benchmark_per_target_usage) {
+				ss << _T("\t") << setw(7) << setiosflags(ios::fixed) << setprecision(2) << result.fps;
+			}
+			ss << endl;
+		}
+		ss << endl;
+		
+		ss << _T("Bitrate (kbps)") << endl;
+		for (auto resolution : test_resolution) {
+			ss << _T("\t") << resolution.first << _T("x") << resolution.second;
+		}
+		ss << endl;
+		for (const auto &benchmark_per_target_usage : benchmark_result) {
+			auto targetUsage = benchmark_per_target_usage[0].targetUsage;
+			ss << targetUsage;
+			for (const auto &result : benchmark_per_target_usage) {
+				ss << _T("\t") << setw(7) << (int)(result.bitrate + 0.5);
+			}
+			ss << endl;
+		}
+		ss << endl;
+
+		basic_ofstream<msdk_char> benchmark_log(benchmarkLogFile, ios::out | ios::app);
+		if (!benchmark_log.good()) {
+			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
+			sts = MFX_ERR_INVALID_HANDLE;
+		} else {
+			benchmark_log << ss.str() << endl;
+		}
+	}
+
+	return sts;
+}
+
 
 int _tmain(int argc, TCHAR *argv[])
 {
 	sInputParams        Params;   // input parameters from command line
-	std::auto_ptr<CEncodingPipeline>  pPipeline; 
 
 	mfxStatus sts = MFX_ERR_NONE; // return value check
 
@@ -1170,6 +1435,11 @@ int _tmain(int argc, TCHAR *argv[])
 		}
 	}
 
+	if (Params.bBenchmark) {
+		return run_benchmark(&Params);
+	}
+
+	std::auto_ptr<CEncodingPipeline>  pPipeline; 
 	//pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
 	pPipeline.reset(new CEncodingPipeline);
 	MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
@@ -1212,5 +1482,5 @@ int _tmain(int argc, TCHAR *argv[])
 	pPipeline->Close();  
 	_ftprintf(stderr, _T("\nProcessing finished\n"));
 
-	return 0;
+	return sts;
 }

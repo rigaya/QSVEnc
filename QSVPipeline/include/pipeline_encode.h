@@ -125,6 +125,8 @@ public:
 	virtual void SetAbortFlagPointer(bool *abort);
 
 	virtual mfxStatus GetEncodeStatusData(sEncodeStatusData *data);
+	virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
+	virtual const msdk_char *GetInputMessage();
 
 protected:
 	virtual mfxStatus RunEncode();
