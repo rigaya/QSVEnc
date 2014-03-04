@@ -1237,6 +1237,12 @@ mfxStatus run_benchmark(sInputParams *params) {
 
 		msdk_char encode_info[4096];
 		pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info));
+
+		msdk_char cpu_info[1024];
+		getCPUInfo(cpu_info, _countof(cpu_info));
+
+		UINT64 UsedRamSize = 0;
+		UINT64 totalRamsize = getPhysicalRamSize(&UsedRamSize);
 		
 		basic_stringstream<msdk_char> ss;
 		ss << _T("Started benchmark on ") << sysTime.wYear;
@@ -1246,6 +1252,11 @@ mfxStatus run_benchmark(sInputParams *params) {
 		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wMinute;
 		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wSecond;
 		ss << endl;
+		ss << _T("OS Version : ") << getOSVersion() << ((is_64bit_os()) ? _T(" (x64)") : _T(" (x86)")) << endl;
+		ss << _T("CPU Info   : ") << cpu_info << endl;
+		ss << _T("RAM Speed  : DDRx-xxxx, x channel") << endl;
+		ss << _T("RAM (Total): ") << setw(6) << totalRamsize / (1024 * 1024) << _T(" MB") << endl;
+		ss << _T("RAM (Used) : ") << setw(6) << UsedRamSize  / (1024 * 1024) << _T(" MB") << endl;
 		ss << endl;
 		ss << _T("Basic parameters of the benchmark") << endl;
 		ss << _T(" (Target Usage and output resolution will be changed)") << endl;

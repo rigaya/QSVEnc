@@ -774,3 +774,83 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 	}
 	return ret;
 }
+
+const TCHAR *getOSVersion() {
+	const TCHAR *ptr = _T("Unknown");
+	OSVERSIONINFO info = { 0 };
+	info.dwOSVersionInfoSize = sizeof(info);
+	GetVersionEx(&info);
+	switch (info.dwPlatformId) {
+	case VER_PLATFORM_WIN32_WINDOWS:
+		if (4 <= info.dwMajorVersion) {
+			switch (info.dwMinorVersion) {
+			case 0:  ptr = _T("Windows 95"); break;
+			case 10: ptr = _T("Windows 98"); break;
+			case 90: ptr = _T("Windows Me"); break;
+			default: break;
+			}
+		}
+		break;
+	case VER_PLATFORM_WIN32_NT:
+		switch (info.dwMajorVersion) {
+		case 3:
+			switch (info.dwMinorVersion) {
+			case 0:  ptr = _T("Windows NT 3"); break;
+			case 1:  ptr = _T("Windows NT 3.1"); break;
+			case 5:  ptr = _T("Windows NT 3.5"); break;
+			case 51: ptr = _T("Windows NT 3.51"); break;
+			default: break;
+			}
+			break;
+		case 4:
+			if (0 == info.dwMinorVersion)
+				ptr = _T("Windows NT 4.0");
+			break;
+		case 5:
+			switch (info.dwMinorVersion) {
+			case 0:  ptr = _T("Windows 2000"); break;
+			case 1:  ptr = _T("Windows XP"); break;
+			case 2:  ptr = _T("Windows Server 2003"); break;
+			default: break;
+			}
+			break;
+		case 6:
+			switch (info.dwMinorVersion) {
+			case 0:  ptr = _T("Windows Vista"); break;
+			case 1:  ptr = _T("Windows 7"); break;
+			case 2:  ptr = _T("Windows 8"); break;
+			case 3:  ptr = _T("Windows 8.1"); break;
+			default:
+				if (4 <= info.dwMinorVersion) {
+					ptr = _T("Later than Windows 8.1");
+				}
+				break;
+			}
+			break;
+		default:
+			if (7 <= info.dwPlatformId) {
+				ptr = _T("Later than Windows 8.1");
+			}
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+	return ptr;
+}
+
+BOOL is_64bit_os() {
+	SYSTEM_INFO sinfo = { 0 };
+	GetNativeSystemInfo(&sinfo);
+	return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+}
+
+UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
+	MEMORYSTATUSEX msex ={ 0 };
+	msex.dwLength = sizeof(msex);
+	GlobalMemoryStatusEx(&msex);
+	if (NULL != ramUsed)
+		*ramUsed = msex.ullAvailPhys;
+	return msex.ullTotalPhys;
+}

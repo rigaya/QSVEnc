@@ -117,6 +117,9 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 bool check_if_d3d11_necessary();
 
 int getCPUInfo(TCHAR *buffer, size_t nSize);
+const TCHAR *getOSVersion();
+BOOL is_64bit_os();
+UINT64 getPhysicalRamSize(UINT64 *ramUsed);
 
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 

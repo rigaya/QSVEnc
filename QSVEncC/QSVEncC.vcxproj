@@ -142,6 +142,9 @@
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN32</PreprocessorDefinitions>
     </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -176,6 +179,9 @@
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN64</PreprocessorDefinitions>
     </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -217,6 +223,9 @@
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN32</PreprocessorDefinitions>
     </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">
     <ClCompile>
@@ -258,6 +267,9 @@
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN32</PreprocessorDefinitions>
     </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -302,6 +314,9 @@
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN64</PreprocessorDefinitions>
     </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
     <Midl>
@@ -346,6 +361,9 @@
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN64</PreprocessorDefinitions>
     </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\QSVEncC.cpp" />
