@@ -86,7 +86,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("  avs2pipemod -y4mp \"<avsfile>\" | QSVEncC --y4m -i - -o \"<outfilename>\"\n")
 			_T("\n")
 			_T("Example for Benchmark:\n")
-			_T("  QSVEncC -i \"<avsfilename>\" --benchmark-cqp \"<benchmark_result.csv>\"\n")
+			_T("  QSVEncC -i \"<avsfilename>\" --benchmark \"<benchmark_result.txt>\"\n")
 			_T("\n")
 			_T("Options: \n")
 			_T("-h,-? --help                      show help\n")
@@ -1207,10 +1207,15 @@ int run_encode(sInputParams *params) {
 	return sts;
 }
 
+static BOOL is_64bit_os() {
+	SYSTEM_INFO sinfo = { 0 };
+	GetNativeSystemInfo(&sinfo);
+	return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+}
+
 mfxStatus run_benchmark(sInputParams *params) {
 	using namespace std;
 	mfxStatus sts = MFX_ERR_NONE;
-	basic_string<msdk_char> src_file = params->strSrcFile;
 	basic_string<msdk_char> benchmarkLogFile = params->strDstFile;
 	
 	//テストする解像度
@@ -1251,15 +1256,19 @@ mfxStatus run_benchmark(sInputParams *params) {
 		ss << _T(" ") << setw(2) << setfill(_T('0')) << sysTime.wHour;
 		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wMinute;
 		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wSecond;
-		ss << endl;
-		ss << _T("OS Version : ") << getOSVersion() << ((is_64bit_os()) ? _T(" (x64)") : _T(" (x86)")) << endl;
-		ss << _T("CPU Info   : ") << cpu_info << endl;
-		ss << _T("RAM Speed  : DDRx-xxxx, x channel") << endl;
-		ss << _T("RAM (Total): ") << setw(6) << totalRamsize / (1024 * 1024) << _T(" MB") << endl;
-		ss << _T("RAM (Used) : ") << setw(6) << UsedRamSize  / (1024 * 1024) << _T(" MB") << endl;
+		ss << setfill(_T(' '));
 		ss << endl;
 		ss << _T("Basic parameters of the benchmark") << endl;
 		ss << _T(" (Target Usage and output resolution will be changed)") << endl;
+		ss << endl;
+		ss << encode_info << endl;
+		ss << endl;
+		ss << _T("Environment Info") << endl;
+		ss << _T("OS Version : ") << getOSVersion() << ((is_64bit_os()) ? _T(" (x64)") : _T(" (x86)")) << endl;
+		ss << _T("CPU Info   : ") << cpu_info << endl;
+		ss << _T("RAM Speed  : DDRx-xxxx, x channel") << endl;
+		ss << _T("RAM Total  : ") << setw(6) << totalRamsize / (1024 * 1024) << _T(" MB") << endl;
+		ss << _T("RAM Used   : ") << setw(6) << UsedRamSize  / (1024 * 1024) << _T(" MB") << endl;
 		ss << endl;
 
 		basic_ofstream<msdk_char> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
@@ -1268,7 +1277,6 @@ mfxStatus run_benchmark(sInputParams *params) {
 			return MFX_ERR_INVALID_HANDLE;
 		}
 		benchmark_log_test_open << ss.str();
-		benchmark_log_test_open << encode_info << endl;
 		benchmark_log_test_open.close();
 
 		for (;;) {
@@ -1351,6 +1359,8 @@ mfxStatus run_benchmark(sInputParams *params) {
 			result.bitrate     = data.fBitrateKbps;
 			benchmark_per_target_usage.push_back(result);
 
+			_ftprintf(stderr, _T("\n"));
+
 			if (MFX_ERR_NONE != sts || g_signal_abort)
 				break;
 		}
@@ -1423,7 +1433,10 @@ mfxStatus run_benchmark(sInputParams *params) {
 			sts = MFX_ERR_INVALID_HANDLE;
 		} else {
 			benchmark_log << ss.str() << endl;
+			_ftprintf(stderr, _T("\nFinished benchmark.\n"));
 		}
+	} else {
+		_ftprintf(stderr, _T("\nError occurred during benchmark.\n"));
 	}
 
 	return sts;
