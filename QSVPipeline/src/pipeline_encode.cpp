@@ -2577,7 +2577,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		    || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
 		PRINT_INFO(_T("Lookahead Depth         %d frames\n"), cop2.LookAheadDepth);
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-			PRINT_INFO(_T("Lookahead Quality         %s\n"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
+			PRINT_INFO(_T("Lookahead Quality       %s\n"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
 		}
 	} else {
 		PRINT_INFO(_T("Bitrate                 %d kbps\n"), videoPrm.mfx.TargetKbps);
