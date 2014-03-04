@@ -26,7 +26,7 @@
 #define QSVENC_FILENAME "QSVEncC (x64) - QuickSyncVideo Encoder (CUI)"
 #endif
 
-#define VER_STR_COMMENTS         "based on Intel Media SDK Sample v3.0"
+#define VER_STR_COMMENTS         "based on Intel Media SDK Sample"
 #define VER_STR_COMPANYNAME      ""
 #define VER_STR_FILEDESCRIPTION  QSVENC_FILENAME
 #define VER_STR_INTERNALNAME     QSVENC_FILENAME
