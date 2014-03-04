@@ -140,7 +140,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
-      <PreprocessorDefinitions>WIN32</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_M_IX86</PreprocessorDefinitions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
@@ -177,7 +177,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
-      <PreprocessorDefinitions>WIN64</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN64;_M_IX64</PreprocessorDefinitions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
@@ -221,7 +221,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
-      <PreprocessorDefinitions>WIN32</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_M_IX86</PreprocessorDefinitions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
@@ -265,7 +265,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
-      <PreprocessorDefinitions>WIN32</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_M_IX86</PreprocessorDefinitions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
@@ -312,7 +312,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
-      <PreprocessorDefinitions>WIN64</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN64;_M_IX64</PreprocessorDefinitions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
@@ -359,7 +359,7 @@
     </ResourceCompile>
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
-      <PreprocessorDefinitions>WIN64</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN64;_M_IX64</PreprocessorDefinitions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
