@@ -1362,7 +1362,29 @@ mfxStatus run_benchmark(sInputParams *params) {
 	if (MFX_ERR_NONE == sts && benchmark_result.size()) {
 		basic_stringstream<msdk_char> ss;
 		
+		mfxU32 maxLengthOfTargetUsageDesc = 0;
+		for (int i = 0; list_quality[i].desc; i++) {
+			maxLengthOfTargetUsageDesc = max(maxLengthOfTargetUsageDesc, (mfxU32)_tcslen(list_quality[i].desc));
+		}
+
+		auto getTargetUsageStr = [maxLengthOfTargetUsageDesc](int targetUsage) {
+			int match_idx = -1;
+			for (int i = 0; list_quality[i].desc; i++) {
+				if (list_quality[i].value == targetUsage) {
+					match_idx = i;
+					break;
+				}
+			}
+			tstring targetUsageStr = list_quality[match_idx].desc;
+			for (mfxU32 i = (mfxU32)_tcslen(list_quality[match_idx].desc); i < maxLengthOfTargetUsageDesc; i++)
+				targetUsageStr += _T(" ");
+
+			return targetUsageStr;
+		};
+
 		ss << _T("Encode Speed (fps)") << endl;
+		for (mfxU32 i = 0; i < maxLengthOfTargetUsageDesc; i++)
+			ss << _T(" ");
 		for (auto resolution : test_resolution) {
 			ss << _T("\t") << resolution.first << _T("x") << resolution.second;
 		}
@@ -1370,24 +1392,26 @@ mfxStatus run_benchmark(sInputParams *params) {
 		
 		for (const auto &benchmark_per_target_usage : benchmark_result) {
 			auto targetUsage = benchmark_per_target_usage[0].targetUsage;
-			ss << targetUsage;
+			ss << getTargetUsageStr(targetUsage);
 			for (const auto &result : benchmark_per_target_usage) {
-				ss << _T("\t") << setw(7) << setiosflags(ios::fixed) << setprecision(2) << result.fps;
+				ss << _T("\t") << setw(8) << setiosflags(ios::fixed) << setprecision(2) << result.fps;
 			}
 			ss << endl;
 		}
 		ss << endl;
 		
 		ss << _T("Bitrate (kbps)") << endl;
+		for (mfxU32 i = 0; i < maxLengthOfTargetUsageDesc; i++)
+			ss << _T(" ");
 		for (auto resolution : test_resolution) {
 			ss << _T("\t") << resolution.first << _T("x") << resolution.second;
 		}
 		ss << endl;
 		for (const auto &benchmark_per_target_usage : benchmark_result) {
 			auto targetUsage = benchmark_per_target_usage[0].targetUsage;
-			ss << targetUsage;
+			ss << getTargetUsageStr(targetUsage);
 			for (const auto &result : benchmark_per_target_usage) {
-				ss << _T("\t") << setw(7) << (int)(result.bitrate + 0.5);
+				ss << _T("\t") << setw(8) << (int)(result.bitrate + 0.5);
 			}
 			ss << endl;
 		}
