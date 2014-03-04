@@ -22,6 +22,12 @@
 #define VER_STR_FILEVERSION          "1.15"
 #define VER_STR_FILEVERSION_TCHAR _T("1.15")
 
+#ifdef _M_IX86
+#define BUILD_ARCH_STR _T("x86")
+#else
+#define BUILD_ARCH_STR _T("x64")
+#endif
+
 #define ENABLE_MVC_ENCODING 0
 
 //defined(_M_IX86)は32bitであることのチェック

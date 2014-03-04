@@ -2525,7 +2525,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
-	PRINT_INFO(    _T("QSVEnc %s, based on Intel(R) Media SDK Encoding Sample Version %s\n"), VER_STR_FILEVERSION_TCHAR, MSDK_SAMPLE_VERSION);
+	PRINT_INFO(    _T("QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample Version %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, MSDK_SAMPLE_VERSION);
 	PRINT_INFO(    _T("CPU Info                %s\n"), cpuInfo);
 	PRINT_INFO(    _T("Media SDK impl          %s, API v%d.%d\n"), (Check_HWUsed(impl)) ? _T("QuickSyncVideo (hardware encoder)") : _T("software encoder"), m_mfxVer.Major, m_mfxVer.Minor);
 	//PRINT_INFO(    _T("Input Frame Format      %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
