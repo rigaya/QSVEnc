@@ -20,6 +20,12 @@
 const int ASYNC_BUFFER_2N = 7;
 const int ASYNC_BUFFER_SIZE = 1<<ASYNC_BUFFER_2N;
 
+#if _M_IX86
+#define VPY_X64 0
+#else
+#define VPY_X64 1
+#endif
+
 //インポートライブラリを使うとvsscript.dllがない場合に起動できない
 typedef int (__stdcall *func_vs_init)(void);
 typedef int (__stdcall *func_vs_finalize)(void);

@@ -9,6 +9,7 @@
 
 #include "vpy_reader.h"
 #if ENABLE_VAPOURSYNTH_READER
+#include <map>
 #include <fstream>
 #include <string>
 #include <algorithm>
@@ -107,18 +108,25 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 		m_strInputInfo += _T("Failed to load vsscript.dll.\n");
 		return MFX_ERR_INVALID_HANDLE;
 	}
-	if (   NULL == (vs_init           = (func_vs_init)GetProcAddress(hVSScriptDLL, "_vsscript_init@0"))
-		|| NULL == (vs_finalize       = (func_vs_finalize)GetProcAddress(hVSScriptDLL, "_vsscript_finalize@0"))
-		|| NULL == (vs_evaluateScript = (func_vs_evaluateScript)GetProcAddress(hVSScriptDLL, "_vsscript_evaluateScript@16"))
-		|| NULL == (vs_evaluateFile   = (func_vs_evaluateFile)GetProcAddress(hVSScriptDLL, "_vsscript_evaluateFile@12"))
-		|| NULL == (vs_freeScript     = (func_vs_freeScript)GetProcAddress(hVSScriptDLL, "_vsscript_freeScript@4"))
-		|| NULL == (vs_getError       = (func_vs_getError)GetProcAddress(hVSScriptDLL, "_vsscript_getError@4"))
-		|| NULL == (vs_getOutput      = (func_vs_getOutput)GetProcAddress(hVSScriptDLL, "_vsscript_getOutput@8"))
-		|| NULL == (vs_clearOutput    = (func_vs_clearOutput)GetProcAddress(hVSScriptDLL, "_vsscript_clearOutput@8"))
-		|| NULL == (vs_getCore        = (func_vs_getCore)GetProcAddress(hVSScriptDLL, "_vsscript_getCore@4"))
-		|| NULL == (vs_getVSApi       = (func_vs_getVSApi)GetProcAddress(hVSScriptDLL, "_vsscript_getVSApi@0"))) {
-		m_strInputInfo += _T("Failed to load vsscript functions.\n");
-		return MFX_ERR_INVALID_HANDLE;
+
+	std::map<void **, const char*> vs_func_list = {
+		{ (void **)&vs_init,           (VPY_X64) ? "vsscript_init"           : "_vsscript_init@0"            },
+		{ (void **)&vs_finalize,       (VPY_X64) ? "vsscript_finalize"       : "_vsscript_finalize@0",       },
+		{ (void **)&vs_evaluateScript, (VPY_X64) ? "vsscript_evaluateScript" : "_vsscript_evaluateScript@16" },
+		{ (void **)&vs_evaluateFile,   (VPY_X64) ? "vsscript_evaluateFile"   : "_vsscript_evaluateFile@12"   },
+		{ (void **)&vs_freeScript,     (VPY_X64) ? "vsscript_freeScript"     : "_vsscript_freeScript@4"      },
+		{ (void **)&vs_getError,       (VPY_X64) ? "vsscript_getError"       : "_vsscript_getError@4"        },
+		{ (void **)&vs_getOutput,      (VPY_X64) ? "vsscript_getOutput"      : "_vsscript_getOutput@8"       },
+		{ (void **)&vs_clearOutput,    (VPY_X64) ? "vsscript_clearOutput"    : "_vsscript_clearOutput@8"     },
+		{ (void **)&vs_getCore,        (VPY_X64) ? "vsscript_getCore"        : "_vsscript_getCore@4"         },
+		{ (void **)&vs_getVSApi,       (VPY_X64) ? "vsscript_getVSApi"       : "_vsscript_getVSApi@0"        },
+	};
+
+	for (auto vs_func : vs_func_list) {
+		if (NULL == (*(vs_func.first) = GetProcAddress(hVSScriptDLL, vs_func.second))) {
+			m_strInputInfo += _T("Failed to load vsscript functions.\n");
+			return MFX_ERR_INVALID_HANDLE;
+		}
 	}
 
 	//ファイルデータ読み込み
