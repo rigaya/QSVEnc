@@ -62,6 +62,9 @@ private:
 
 	int getRevInfo(const char *vs_version_string);
 
+	bool m_bAbortAsync;
+	mfxU32 m_nCopyOfInputFrames;
+
 	const VSAPI *m_sVSapi;
 	VSScript *m_sVSscript;
 	VSNodeRef *m_sVSnode;

@@ -21,6 +21,9 @@ CVSReader::CVSReader() {
 	m_nAsyncFrames = 0;
 	memset(m_pAsyncBuffer, 0, sizeof(m_pAsyncBuffer));
 	memset(m_hAsyncEvent, 0, sizeof(m_hAsyncEvent));
+	
+	m_bAbortAsync = false;
+	m_nCopyOfInputFrames = 0;
 
 	hVSScriptDLL = NULL;
 	vs_init = NULL;
@@ -47,10 +50,16 @@ int CVSReader::initAsyncEvents() {
 	return 0;
 }
 void CVSReader::closeAsyncEvents() {
+	m_bAbortAsync = true;
+	for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
+		if (m_hAsyncEvent[i_frame & (ASYNC_BUFFER_SIZE-1)])
+			WaitForSingleObject(m_hAsyncEvent[i_frame & (ASYNC_BUFFER_SIZE-1)], INFINITE);
+	}
 	for (int i = 0; i < _countof(m_hAsyncEvent); i++)
 		if (m_hAsyncEvent[i])
 			CloseHandle(m_hAsyncEvent[i]);
 	memset(m_hAsyncEvent, 0, sizeof(m_hAsyncEvent));
+	m_bAbortAsync = false;
 }
 
 #pragma warning(push)
@@ -64,7 +73,7 @@ void CVSReader::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
 	m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
 	SetEvent(m_hAsyncEvent[n & (ASYNC_BUFFER_SIZE-1)]);
 
-	if (m_nAsyncFrames < *(int*)&m_inputFrameInfo.FrameId) {
+	if (m_nAsyncFrames < *(int*)&m_inputFrameInfo.FrameId && !m_bAbortAsync) {
 		m_sVSapi->getFrameAsync(m_nAsyncFrames, m_sVSnode, frameDoneCallback, this);
 		m_nAsyncFrames++;
 	}
@@ -227,13 +236,13 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 }
 
 void CVSReader::Close() {
+	closeAsyncEvents();
 	if (m_sVSapi && m_sVSnode)
 		m_sVSapi->freeNode(m_sVSnode);
 	if (m_sVSscript)
 		vs_freeScript(m_sVSscript);
 	if (m_sVSapi)
 		vs_finalize();
-	closeAsyncEvents();
 	if (hVSScriptDLL)
 		FreeLibrary(hVSScriptDLL);
 
@@ -247,6 +256,9 @@ void CVSReader::Close() {
 	vs_clearOutput = NULL;
 	vs_getCore = NULL;
 	vs_getVSApi = NULL;
+
+	m_bAbortAsync = false;
+	m_nCopyOfInputFrames = 0;
 
 	m_sVSapi = NULL;
 	m_sVSscript = NULL;
@@ -390,6 +402,7 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	m_sVSapi->freeFrame(src_frame);
 
 	m_pEncSatusInfo->m_nInputFrames++;
+	m_nCopyOfInputFrames = m_pEncSatusInfo->m_nInputFrames;
 
 	// display update
 	mfxU32 tm = timeGetTime();
