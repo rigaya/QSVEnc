@@ -1411,7 +1411,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 			for (const auto &benchmark_per_target_usage : benchmark_result) {
 				fprintf(fp_bench, " 　　TU-%d", benchmark_per_target_usage[0].targetUsage);
 				for (const auto &result : benchmark_per_target_usage) {
-					fprintf(fp_bench, ",　　　%.2f", result.fps);
+					fprintf(fp_bench, ",　　　%6.2f", result.fps);
 				}
 				fprintf(fp_bench, "\n");
 			}

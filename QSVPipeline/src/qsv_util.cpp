@@ -852,7 +852,7 @@ UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
 	msex.dwLength = sizeof(msex);
 	GlobalMemoryStatusEx(&msex);
 	if (NULL != ramUsed)
-		*ramUsed = msex.ullAvailPhys;
+		*ramUsed = msex.ullTotalPhys - msex.ullAvailPhys;
 	return msex.ullTotalPhys;
 }
 
@@ -920,21 +920,19 @@ static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer
 					return str;
 				};
 
-				basic_stringstream<TCHAR> device_info_ss;
 				char device_buf[1024] = { 0 };
 				if (CL_SUCCESS != (ret = cl->getDeviceInfo(device, CL_DEVICE_NAME, _countof(device_buf), device_buf, NULL))) {
 					_ftprintf(stderr, _T("Error (clGetDeviceInfo [CL_DEVICE_NAME]): %d\n"), ret);
 					return ret;
 				} else {
-					device_info_ss << to_tchar(device_buf);
+					_tcscpy_s(buffer, buffer_size, to_tchar(device_buf).c_str());
 				}
 				if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(device_buf), device_buf, NULL)) {
-					device_info_ss << _T(" (") << *(cl_uint *)device_buf << _T(" EU)");
+					_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%d EU)"), *(cl_uint *)device_buf);
 				}
 				if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(device_buf), device_buf, NULL)) {
-					device_info_ss << _T(" @ ") << *(cl_uint *)device_buf << _T(" MHz");
+					_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" @ %d MHz"), *(cl_uint *)device_buf);
 				}
-				_tcscpy_s(buffer, buffer_size, device_info_ss.str().c_str());
 				break;
 			}
 			break;
