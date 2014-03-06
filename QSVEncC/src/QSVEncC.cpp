@@ -1223,6 +1223,17 @@ mfxStatus run_benchmark(sInputParams *params) {
 
 	//初回出力
 	{
+
+		auto tchar_to_char = [](const TCHAR *tstr) {
+	#if UNICODE
+			int length_required = 1 + WideCharToMultiByte(CP_ACP, 0, tstr, -1, NULL, 0, NULL, NULL);
+			string str(length_required, _T('\0'));
+			WideCharToMultiByte(CP_ACP, 0, tstr, -1, &str[0], str.size(), NULL, NULL);
+	#else
+			string str = tstr;
+	#endif
+			return str;
+		};
 		params->nDstWidth = test_resolution[0].first;
 		params->nDstHeight = test_resolution[0].second;
 		params->nTargetUsage = MFX_TARGETUSAGE_BEST_SPEED;
@@ -1240,37 +1251,43 @@ mfxStatus run_benchmark(sInputParams *params) {
 		SYSTEMTIME sysTime = { 0 };
 		GetLocalTime(&sysTime);
 
-		msdk_char encode_info[4096];
+		msdk_char encode_info[4096] = { 0 };
 		pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info));
 
-		msdk_char cpu_info[1024];
+		msdk_char cpu_info[1024] = { 0 };
 		getCPUInfo(cpu_info, _countof(cpu_info));
+
+		msdk_char gpu_info[1024] = { 0 };
+		getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+
+		bool hardware;
+		mfxVersion ver;
+		pPipeline->GetEncodeLibInfo(&ver, &hardware);
 
 		UINT64 UsedRamSize = 0;
 		UINT64 totalRamsize = getPhysicalRamSize(&UsedRamSize);
 		
 		basic_stringstream<msdk_char> ss;
-		ss << _T("Started benchmark on ") << sysTime.wYear;
-		ss << _T(".") << setw(2) << setfill(_T('0')) << sysTime.wMonth;
-		ss << _T(".") << setw(2) << setfill(_T('0')) << sysTime.wDay;
-		ss << _T(" ") << setw(2) << setfill(_T('0')) << sysTime.wHour;
-		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wMinute;
-		ss << _T(":") << setw(2) << setfill(_T('0')) << sysTime.wSecond;
-		ss << setfill(_T(' '));
-		ss << endl;
-		ss << _T("Basic parameters of the benchmark") << endl;
-		ss << _T(" (Target Usage and output resolution will be changed)") << endl;
-		ss << endl;
-		ss << encode_info << endl;
-		ss << endl;
-		ss << _T("Environment Info") << endl;
-		ss << _T("OS Version : ") << getOSVersion() << ((is_64bit_os()) ? _T(" (x64)") : _T(" (x86)")) << endl;
-		ss << _T("CPU Info   : ") << cpu_info << endl;
-		ss << _T("RAM Speed  : DDRx-xxxx, x channel") << endl;
-		ss << _T("RAM Total  : ") << setw(6) << totalRamsize / (1024 * 1024) << _T(" MB") << endl;
-		ss << _T("RAM Used   : ") << setw(6) << UsedRamSize  / (1024 * 1024) << _T(" MB") << endl;
-		ss << endl;
-
+		FILE *fp_bench = NULL;
+		if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
+			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
+			return MFX_ERR_INVALID_HANDLE;
+		} else {
+			fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
+				sysTime.wYear, sysTime.wMonth, sysTime.wDay, sysTime.wHour, sysTime.wMinute, sysTime.wSecond);
+			fprintf(fp_bench, "Basic parameters of the benchmark\n"
+				              " (Target Usage and output resolution will be changed)\n");
+			fprintf(fp_bench, "%s\n\n", tchar_to_char(encode_info).c_str());
+			fprintf(fp_bench, "Environment Info\n");
+			fprintf(fp_bench, "OS : %s (%s)\n", tchar_to_char(getOSVersion()).c_str(), ((is_64bit_os()) ? "x64" : "x86"));
+			fprintf(fp_bench, "CPU: %s\n", tchar_to_char(cpu_info).c_str());
+			fprintf(fp_bench, "GPU: %s\n", tchar_to_char(gpu_info).c_str());
+			fprintf(fp_bench, "RAM: DDRx-xxxx / x channel (Total %d MB / Used %d MB)\n", (UINT)(totalRamsize >> 20), (UINT)(UsedRamSize >> 20));
+			fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d\n", 
+				VER_STR_FILEVERSION, tchar_to_char(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor);
+			fprintf(fp_bench, "\n");
+			fclose(fp_bench);
+		}
 		basic_ofstream<msdk_char> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
 		if (!benchmark_log_test_open.good()) {
 			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
@@ -1376,63 +1393,45 @@ mfxStatus run_benchmark(sInputParams *params) {
 		for (int i = 0; list_quality[i].desc; i++) {
 			maxLengthOfTargetUsageDesc = max(maxLengthOfTargetUsageDesc, (mfxU32)_tcslen(list_quality[i].desc));
 		}
-
-		auto getTargetUsageStr = [maxLengthOfTargetUsageDesc](int targetUsage) {
-			int match_idx = -1;
-			for (int i = 0; list_quality[i].desc; i++) {
-				if (list_quality[i].value == targetUsage) {
-					match_idx = i;
-					break;
-				}
-			}
-			tstring targetUsageStr = list_quality[match_idx].desc;
-			for (mfxU32 i = (mfxU32)_tcslen(list_quality[match_idx].desc); i < maxLengthOfTargetUsageDesc; i++)
-				targetUsageStr += _T(" ");
-
-			return targetUsageStr;
-		};
-
-		ss << _T("Encode Speed (fps)") << endl;
-		for (mfxU32 i = 0; i < maxLengthOfTargetUsageDesc; i++)
-			ss << _T(" ");
-		for (auto resolution : test_resolution) {
-			ss << _T("\t") << resolution.first << _T("x") << resolution.second;
-		}
-		ss << endl;
 		
-		for (const auto &benchmark_per_target_usage : benchmark_result) {
-			auto targetUsage = benchmark_per_target_usage[0].targetUsage;
-			ss << getTargetUsageStr(targetUsage);
-			for (const auto &result : benchmark_per_target_usage) {
-				ss << _T("\t") << setw(8) << setiosflags(ios::fixed) << setprecision(2) << result.fps;
-			}
-			ss << endl;
-		}
-		ss << endl;
-		
-		ss << _T("Bitrate (kbps)") << endl;
-		for (mfxU32 i = 0; i < maxLengthOfTargetUsageDesc; i++)
-			ss << _T(" ");
-		for (auto resolution : test_resolution) {
-			ss << _T("\t") << resolution.first << _T("x") << resolution.second;
-		}
-		ss << endl;
-		for (const auto &benchmark_per_target_usage : benchmark_result) {
-			auto targetUsage = benchmark_per_target_usage[0].targetUsage;
-			ss << getTargetUsageStr(targetUsage);
-			for (const auto &result : benchmark_per_target_usage) {
-				ss << _T("\t") << setw(8) << (int)(result.bitrate + 0.5);
-			}
-			ss << endl;
-		}
-		ss << endl;
-
-		basic_ofstream<msdk_char> benchmark_log(benchmarkLogFile, ios::out | ios::app);
-		if (!benchmark_log.good()) {
+		FILE *fp_bench = NULL;
+		if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
 			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
-			sts = MFX_ERR_INVALID_HANDLE;
+			return MFX_ERR_INVALID_HANDLE;
 		} else {
-			benchmark_log << ss.str() << endl;
+			fprintf(fp_bench, "TargetUsage ([TU-1]:Best Quality) ～ ([TU-7]:Fastest Speed)\n\n");
+
+			fprintf(fp_bench, "Encode Speed (fps)\n");
+			fprintf(fp_bench, "TargetUsage");
+			for (auto resolution : test_resolution) {
+				fprintf(fp_bench, ",   %dx%d", resolution.first, resolution.second);
+			}
+			fprintf(fp_bench, "\n");
+
+			for (const auto &benchmark_per_target_usage : benchmark_result) {
+				fprintf(fp_bench, " 　　TU-%d", benchmark_per_target_usage[0].targetUsage);
+				for (const auto &result : benchmark_per_target_usage) {
+					fprintf(fp_bench, ",　　　%.2f", result.fps);
+				}
+				fprintf(fp_bench, "\n");
+			}
+			fprintf(fp_bench, "\n");
+
+			fprintf(fp_bench, "Bitrate (kbps)\n");
+			fprintf(fp_bench, "TargetUsage");
+			for (auto resolution : test_resolution) {
+				fprintf(fp_bench, ",   %dx%d", resolution.first, resolution.second);
+			}
+			fprintf(fp_bench, "\n");
+			for (const auto &benchmark_per_target_usage : benchmark_result) {
+				fprintf(fp_bench, " 　　TU-%d", benchmark_per_target_usage[0].targetUsage);
+				for (const auto &result : benchmark_per_target_usage) {
+					fprintf(fp_bench, ",　　　%6d", (int)(result.bitrate + 0.5));
+				}
+				fprintf(fp_bench, "\n");
+			}
+			fprintf(fp_bench, "\n");
+			fclose(fp_bench);
 			_ftprintf(stderr, _T("\nFinished benchmark.\n"));
 		}
 	} else {
