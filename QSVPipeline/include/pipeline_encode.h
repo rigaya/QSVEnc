@@ -173,6 +173,7 @@ protected:
 	mfxExtVPPDenoise m_ExtDenoise;
 	mfxExtVPPDetail m_ExtDetail;
 	mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
+	mfxExtVPPVideoSignalInfo m_ExtVppVSI;
 	std::vector<mfxU32> m_VppDoNotUseList;
 	std::vector<mfxU32> m_VppDoUseList;
 

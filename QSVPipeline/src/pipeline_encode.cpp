@@ -767,6 +767,26 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 	m_mfxVppParams.vpp.Out.Width = MSDK_ALIGN16(pInParams->nDstWidth);
 	m_mfxVppParams.vpp.Out.Height = (MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.Out.PicStruct)?
 		MSDK_ALIGN16(pInParams->nDstHeight) : MSDK_ALIGN32(pInParams->nDstHeight);
+	
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
+		&& (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
+			|| MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC)) {
+		
+		MSDK_ZERO_MEMORY(m_ExtVppVSI);
+		m_ExtVppVSI.Header.BufferId = MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO;
+		m_ExtVppVSI.Header.BufferSz = sizeof(mfxExtVPPVideoSignalInfo);
+		m_ExtVppVSI.In.NominalRange    = MFX_NOMINALRANGE_0_255;
+		m_ExtVppVSI.In.TransferMatrix  = MFX_TRANSFERMATRIX_UNKNOWN;
+		m_ExtVppVSI.Out.NominalRange   = (mfxU16)((pInParams->bFullrange) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
+		m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_UNKNOWN;
+		if (pInParams->ColorMatrix == get_cx_index(list_colormatrix, _T("bt709"))) {
+			m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT709;
+		} else if (pInParams->ColorMatrix == get_cx_index(list_colormatrix, _T("bt601"))) {
+			m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT601;
+		}
+		m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
+		m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
+	}
 
 	// configure and attach external parameters
 	//AllocAndInitVppDoNotUse();

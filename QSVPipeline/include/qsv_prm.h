@@ -392,11 +392,17 @@ static int get_cx_index(const CX_DESC * list, int v) {
 			return i;
 	return 0;
 }
+static int get_cx_index(const CX_DESC * list, const TCHAR *chr) {
+	for (int i = 0; list[i].desc; i++)
+		if (0 == _tcsicmp(list[i].desc, chr))
+			return i;
+	return -1;
+}
 
 static int PARSE_ERROR_FLAG = INT_MIN;
 static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
 	for (int i = 0; list[i].desc; i++)
-		if (_tcsicmp(list[i].desc, chr) == 0)
+		if (0 == _tcsicmp(list[i].desc, chr))
 			return list[i].value;
 	return PARSE_ERROR_FLAG;
 }
