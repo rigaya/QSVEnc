@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <sstream>
 #include "mfxStructures.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
@@ -854,3 +855,123 @@ UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
 		*ramUsed = msex.ullAvailPhys;
 	return msex.ullTotalPhys;
 }
+
+#if ENABLE_OPENCL_GPU_INFO
+
+#include <CL/cl.h>
+
+typedef cl_int (CL_API_CALL* funcClGetPlatformIDs)(cl_uint num_entries, cl_platform_id *platforms, cl_uint *num_platforms);
+typedef cl_int (CL_API_CALL* funcClGetPlatformInfo) (cl_platform_id platform, cl_platform_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+typedef cl_int (CL_API_CALL* funcClGetDeviceIDs) (cl_platform_id platform, cl_device_type device_type, cl_uint num_entries, cl_device_id *devices, cl_uint *num_devices);
+typedef cl_int (CL_API_CALL* funcClGetDeviceInfo) (cl_device_id device, cl_device_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+
+typedef struct cl_func_t {
+	HMODULE hdll;
+	funcClGetPlatformIDs getPlatformIDs;
+	funcClGetPlatformInfo getPlatformInfo;
+	funcClGetDeviceIDs getDeviceIDs;
+	funcClGetDeviceInfo getDeviceInfo;
+} cl_func_t;
+
+static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer, unsigned int buffer_size) {
+	using namespace std;
+
+	cl_uint size = 0;
+	cl_int ret = CL_SUCCESS;
+
+	if (CL_SUCCESS != (ret = cl->getPlatformIDs(0, NULL, &size))) {
+		_ftprintf(stderr, _T("Error (clGetPlatformIDs): %d\n"), ret);
+		return ret;
+	}
+
+	vector<cl_platform_id> platform_list(size);
+
+	if (CL_SUCCESS != (ret = cl->getPlatformIDs(size, &platform_list[0], &size))) {
+		_ftprintf(stderr, _T("Error (clGetPlatformIDs): %d\n"), ret);
+		return ret;
+	}
+
+	auto checkPlatformForVendor = [cl, VendorName](cl_platform_id platform_id) {
+		char buf[1024] = { 0 };
+		return (CL_SUCCESS == cl->getPlatformInfo(platform_id, CL_PLATFORM_VENDOR, _countof(buf), buf, NULL)
+			&& NULL != strstr(buf, VendorName));
+	};
+
+	for (auto platform : platform_list) {
+		if (checkPlatformForVendor(platform)) {
+			if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &size))) {
+				_ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
+				return ret;
+			}
+			vector<cl_device_id> device_list(size);
+			if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, CL_DEVICE_TYPE_GPU, size, &device_list[0], &size))) {
+				_ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
+				return ret;
+			}
+			for (auto device : device_list) {
+				auto to_tchar = [](const char *string) {
+#if UNICODE
+					int required_length = MultiByteToWideChar(CP_ACP, 0, string, -1, NULL, 0);
+					basic_string<TCHAR> str(1+required_length, _T('\0'));
+					MultiByteToWideChar(CP_ACP, 0, string, -1, &str[0], str.size());
+#else
+					basic_string<TCHAR> str = string;
+#endif
+					return str;
+				};
+
+				basic_stringstream<TCHAR> device_info_ss;
+				char device_buf[1024] = { 0 };
+				if (CL_SUCCESS != (ret = cl->getDeviceInfo(device, CL_DEVICE_NAME, _countof(device_buf), device_buf, NULL))) {
+					_ftprintf(stderr, _T("Error (clGetDeviceInfo [CL_DEVICE_NAME]): %d\n"), ret);
+					return ret;
+				} else {
+					device_info_ss << to_tchar(device_buf);
+				}
+				if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(device_buf), device_buf, NULL)) {
+					device_info_ss << _T(" (") << *(cl_uint *)device_buf << _T(" EU)");
+				}
+				if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(device_buf), device_buf, NULL)) {
+					device_info_ss << _T(" @ ") << *(cl_uint *)device_buf << _T(" MHz");
+				}
+				_tcscpy_s(buffer, buffer_size, device_info_ss.str().c_str());
+				break;
+			}
+			break;
+		}
+	}
+	return ret;
+}
+#endif //ENABLE_OPENCL_GPU_INFO
+
+#pragma warning (push)
+#pragma warning (disable: 4100)
+int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size) {
+	int ret = 0;
+#if !ENABLE_OPENCL_GPU_INFO
+	_stprintf_s(buffer, buffer_size, _T("Unknown (not compiled with OpenCL support)"));
+#else
+	_stprintf_s(buffer, buffer_size, _T("Unknown"));
+
+	cl_func_t cl = { 0 };
+
+	//OpenCL.dllは動的ロードするようにする
+	//静的ロードだとOpenCL.dllのない環境で動作しなくなるうえ、
+	//OpenCL.libをリンクして静的ロードするとQSVが何故か無効になることがある
+	//遅延ロードを使っても良いが、ここではまじめにLoadLibraryとGetProcAddressを使用する
+	if (   NULL == (cl.hdll = LoadLibrary(_T("OpenCL.dll")))
+		|| NULL == (cl.getPlatformIDs  = (funcClGetPlatformIDs) GetProcAddress(cl.hdll, "clGetPlatformIDs"))
+		|| NULL == (cl.getPlatformInfo = (funcClGetPlatformInfo)GetProcAddress(cl.hdll, "clGetPlatformInfo"))
+		|| NULL == (cl.getDeviceIDs    = (funcClGetDeviceIDs)   GetProcAddress(cl.hdll, "clGetDeviceIDs"))
+		|| NULL == (cl.getDeviceInfo   = (funcClGetDeviceInfo)  GetProcAddress(cl.hdll, "clGetDeviceInfo"))) {
+		_tcscat_s(buffer, buffer_size, _T(" (OpenCL.dll not found)"));
+		ret = 1;
+	} else {
+		ret = getGPUInfo(&cl, VendorName, buffer, buffer_size);
+	}
+	if (NULL != cl.hdll)
+		FreeLibrary(cl.hdll);
+#endif //ENABLE_OPENCL_GPU_INFO
+	return ret;
+}
+#pragma warning (pop)

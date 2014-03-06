@@ -18,9 +18,9 @@
 
 #define MSDK_SAMPLE_VERSION MSDK_STRING(MFX_PRODUCT_VERSION)
 
-#define VER_FILEVERSION             0,1,16,0
-#define VER_STR_FILEVERSION          "1.16"
-#define VER_STR_FILEVERSION_TCHAR _T("1.16")
+#define VER_FILEVERSION             0,1,17,0
+#define VER_STR_FILEVERSION          "1.17"
+#define VER_STR_FILEVERSION_TCHAR _T("1.17")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -29,6 +29,8 @@
 #endif
 
 #define ENABLE_MVC_ENCODING 0
+
+#define ENABLE_OPENCL_GPU_INFO 1
 
 //defined(_M_IX86)は32bitであることのチェック
 #if (defined(_M_IX86) && !defined(QSVENC_AUO))
