@@ -913,7 +913,7 @@ static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer
 #if UNICODE
 					int required_length = MultiByteToWideChar(CP_ACP, 0, string, -1, NULL, 0);
 					basic_string<TCHAR> str(1+required_length, _T('\0'));
-					MultiByteToWideChar(CP_ACP, 0, string, -1, &str[0], str.size());
+					MultiByteToWideChar(CP_ACP, 0, string, -1, &str[0], (int)str.size());
 #else
 					basic_string<TCHAR> str = string;
 #endif

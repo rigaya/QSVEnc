@@ -1228,7 +1228,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 	#if UNICODE
 			int length_required = 1 + WideCharToMultiByte(CP_ACP, 0, tstr, -1, NULL, 0, NULL, NULL);
 			string str(length_required, _T('\0'));
-			WideCharToMultiByte(CP_ACP, 0, tstr, -1, &str[0], str.size(), NULL, NULL);
+			WideCharToMultiByte(CP_ACP, 0, tstr, -1, &str[0], (int)str.size(), NULL, NULL);
 	#else
 			string str = tstr;
 	#endif
