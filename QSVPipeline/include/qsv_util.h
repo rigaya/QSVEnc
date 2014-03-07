@@ -120,6 +120,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize);
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size);
 const TCHAR *getOSVersion();
 UINT64 getPhysicalRamSize(UINT64 *ramUsed);
+void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size);
 
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 

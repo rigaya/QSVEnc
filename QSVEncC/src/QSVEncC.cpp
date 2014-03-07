@@ -121,7 +121,8 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --sw                           use software encoding, instead of QSV (hw)\n")
 			_T("   --check-hw                     check if QuickSyncVideo is available\n")
 			_T("   --check-lib                    check lib API version installed\n")
-			_T("   --check-features               check encode features\n"),
+			_T("   --check-features               check encode features\n")
+			_T("   --check-environment            check environment info\n"),
 			(ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
 			(ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
 			(ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
@@ -931,6 +932,15 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			pParams->pStrLogFile = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pStrLogFile[0]));
 			memcpy(pParams->pStrLogFile, strInput[i], sizeof(pParams->pStrLogFile[0]) * filename_len);
 		}
+		else if (0 == _tcscmp(option_name, _T("check-environment")))
+		{
+			PrintVersion();
+
+			TCHAR buffer[4096];
+			getEnviromentInfo(buffer, _countof(buffer));
+			_ftprintf(stdout, buffer);
+			return MFX_PRINT_OPTION_DONE;
+		}
 		else if (0 == _tcscmp(option_name, _T("check-features")))
 		{
 			PrintVersion();
@@ -1254,18 +1264,12 @@ mfxStatus run_benchmark(sInputParams *params) {
 		msdk_char encode_info[4096] = { 0 };
 		pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info));
 
-		msdk_char cpu_info[1024] = { 0 };
-		getCPUInfo(cpu_info, _countof(cpu_info));
-
-		msdk_char gpu_info[1024] = { 0 };
-		getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-
 		bool hardware;
 		mfxVersion ver;
 		pPipeline->GetEncodeLibInfo(&ver, &hardware);
 
-		UINT64 UsedRamSize = 0;
-		UINT64 totalRamsize = getPhysicalRamSize(&UsedRamSize);
+		msdk_char enviroment_info[4096] = { 0 };
+		getEnviromentInfo(enviroment_info, _countof(enviroment_info));
 		
 		basic_stringstream<msdk_char> ss;
 		FILE *fp_bench = NULL;
@@ -1278,11 +1282,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 			fprintf(fp_bench, "Basic parameters of the benchmark\n"
 				              " (Target Usage and output resolution will be changed)\n");
 			fprintf(fp_bench, "%s\n\n", tchar_to_char(encode_info).c_str());
-			fprintf(fp_bench, "Environment Info\n");
-			fprintf(fp_bench, "OS : %s (%s)\n", tchar_to_char(getOSVersion()).c_str(), ((is_64bit_os()) ? "x64" : "x86"));
-			fprintf(fp_bench, "CPU: %s\n", tchar_to_char(cpu_info).c_str());
-			fprintf(fp_bench, "GPU: %s\n", tchar_to_char(gpu_info).c_str());
-			fprintf(fp_bench, "RAM: DDRx-xxxx / x channel (Total %d MB / Used %d MB)\n", (UINT)(totalRamsize >> 20), (UINT)(UsedRamSize >> 20));
+			fprintf(fp_bench, tchar_to_char(enviroment_info).c_str());
 			fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d\n", 
 				VER_STR_FILEVERSION, tchar_to_char(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor);
 			fprintf(fp_bench, "\n");

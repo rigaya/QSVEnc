@@ -973,3 +973,30 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size) 
 	return ret;
 }
 #pragma warning (pop)
+
+void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size) {
+	ZeroMemory(buf, sizeof(buf[0]) * buffer_size);
+
+	TCHAR cpu_info[1024] = { 0 };
+	getCPUInfo(cpu_info, _countof(cpu_info));
+
+	TCHAR gpu_info[1024] = { 0 };
+	getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+
+	UINT64 UsedRamSize = 0;
+	UINT64 totalRamsize = getPhysicalRamSize(&UsedRamSize);
+
+	auto add_tchar_to_buf = [buf, buffer_size](const TCHAR *fmt, ...) {
+		unsigned int buf_length = (unsigned int)_tcslen(buf);
+		va_list args = { 0 };
+		va_start(args, fmt);
+		_vstprintf_s(buf + buf_length, buffer_size - buf_length, fmt, args);
+		va_end(args);
+	};
+
+	add_tchar_to_buf(_T("Environment Info\n"));
+	add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
+	add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
+	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
+	add_tchar_to_buf(_T("RAM: DDRx-xxxx / x channel (Total %d MB / Used %d MB)\n"), (UINT)(totalRamsize >> 20), (UINT)(UsedRamSize >> 20));
+}
