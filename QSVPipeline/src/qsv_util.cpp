@@ -873,7 +873,7 @@ typedef struct cl_func_t {
 	funcClGetDeviceInfo getDeviceInfo;
 } cl_func_t;
 
-static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer, unsigned int buffer_size) {
+static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
 	using namespace std;
 
 	cl_uint size = 0;
@@ -927,11 +927,20 @@ static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer
 				} else {
 					_tcscpy_s(buffer, buffer_size, to_tchar(device_buf).c_str());
 				}
-				if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(device_buf), device_buf, NULL)) {
-					_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%d EU)"), *(cl_uint *)device_buf);
-				}
-				if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(device_buf), device_buf, NULL)) {
-					_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" @ %d MHz"), *(cl_uint *)device_buf);
+				if (driver_version_only) {
+					if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DRIVER_VERSION, _countof(device_buf), device_buf, NULL)) {
+						_tcscpy_s(buffer, buffer_size, to_tchar(device_buf).c_str());
+					}
+				} else {
+					if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(device_buf), device_buf, NULL)) {
+						_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%d EU)"), *(cl_uint *)device_buf);
+					}
+					if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(device_buf), device_buf, NULL)) {
+						_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" @ %d MHz"), *(cl_uint *)device_buf);
+					}
+					if (CL_SUCCESS == cl->getDeviceInfo(device, CL_DRIVER_VERSION, _countof(device_buf), device_buf, NULL)) {
+						_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%s)"), to_tchar(device_buf).c_str());
+					}
 				}
 				break;
 			}
@@ -944,7 +953,7 @@ static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size) {
+int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
 	int ret = 0;
 #if !ENABLE_OPENCL_GPU_INFO
 	_stprintf_s(buffer, buffer_size, _T("Unknown (not compiled with OpenCL support)"));
@@ -965,7 +974,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size) 
 		_tcscat_s(buffer, buffer_size, _T(" (OpenCL.dll not found)"));
 		ret = 1;
 	} else {
-		ret = getGPUInfo(&cl, VendorName, buffer, buffer_size);
+		ret = getGPUInfo(&cl, VendorName, buffer, buffer_size, driver_version_only);
 	}
 	if (NULL != cl.hdll)
 		FreeLibrary(cl.hdll);
