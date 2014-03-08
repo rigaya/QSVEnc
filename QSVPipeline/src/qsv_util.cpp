@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <vector>
 #include <sstream>
+#include <algorithm>
 #include "mfxStructures.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
@@ -683,7 +684,19 @@ static int getCPUName(TCHAR *buffer, size_t nSize) {
 	return 0;
 }
 
+double getCPUDefaultClock() {
+	double defaultClock = 0.0;
+	TCHAR buffer[1024] = { 0 };
+	getCPUName(buffer, _countof(buffer));
+	TCHAR *ptr = _tcschr(buffer, _T('@'));
+	if (1 != _stscanf_s(ptr+1, _T("%lf"), &defaultClock)) {
+		return 0.0;
+	}
+	return defaultClock;
+}
+
 #include <Windows.h>
+#include <process.h>
 
 typedef BOOL (WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
 
@@ -771,6 +784,12 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 		|| FALSE == getProcessorCount(&processorCoreCount, &logicalProcessorCount)) {
 		ret = 1;
 	} else {
+		//2スレッド分実行すると、一番よい結果が得られると思う
+		double maxFrequency = getCPUMaxTurboClock(2);
+		//大きな違いがなければ、TurboBoostはないものとして表示しない
+		if (maxFrequency / getCPUDefaultClock() > 1.01) {
+			_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
+		}
 		_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), processorCoreCount, logicalProcessorCount);
 	}
 	return ret;
@@ -854,6 +873,121 @@ UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
 	if (NULL != ramUsed)
 		*ramUsed = msex.ullTotalPhys - msex.ullAvailPhys;
 	return msex.ullTotalPhys;
+}
+
+
+const int LOOP_COUNT = 1000;
+const int CLOCKS_FOR_4_PADDD = 2; //最近のIntel CPUでは、4つのpadddは2クロックで実行できる
+const int COUNT_OF_REPEAT = 8; //以下のようにCOUNT_OF_REPEAT分マクロ展開する
+#define REPEAT8(instruction) \
+	instruction \
+	instruction \
+	instruction \
+	instruction \
+	instruction \
+	instruction \
+	instruction \
+	instruction
+
+static UINT64 __fastcall repeatFunc(int *test) {
+	__m128i x0 = _mm_sub_epi32(_mm_setzero_si128(), _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
+	__m128i x1 = _mm_add_epi32(x0, x0);
+	//計算結果を強引に使うことで最適化による計算の削除を抑止する
+	__m128i x2 = _mm_add_epi32(x0, _mm_set1_epi32(*test));
+	__m128i x3 = _mm_add_epi32(x2, x1);
+	UINT64 start = __rdtsc();
+
+	for (int i = LOOP_COUNT; i; i--) {
+		//2重にマクロを使うことでCOUNT_OF_REPEATの2乗分ループ内で実行する
+		//これでループカウンタの影響はほぼ無視できるはず
+		REPEAT8(REPEAT8(
+		x0 = _mm_add_epi32(x0, x0);
+		x1 = _mm_add_epi32(x1, x1);
+		x2 = _mm_add_epi32(x2, x2);
+		x3 = _mm_add_epi32(x3, x3);))
+	}
+		
+	UINT64 fin = __rdtsc();
+	
+	//計算結果を強引に使うことで最適化による計算の削除を抑止する
+	x0 = _mm_add_epi32(x0, x2);
+	x1 = _mm_add_epi32(x1, x3);
+	x0 = _mm_add_epi32(x0, x1);
+	*test = x0.m128i_i32[0];
+
+	return fin - start;
+}
+
+static unsigned int __stdcall getCPUClockMaxSubFunc(void *arg) {
+	UINT64 *prm = (UINT64 *)arg;
+	//渡されたスレッドIDからスレッドAffinityを決定
+	//特定のコアにスレッドを縛り付ける
+	SetThreadAffinityMask(GetCurrentThread(), 1 << (int)*prm);
+	//高優先度で実行
+	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+
+	int test = 0;
+	UINT64 result = MAXUINT64;
+	
+	for (int j = 0; j < 4; j++) {
+		for (int i = 0; i < 500; i++) {
+			//連続で大量に行うことでTurboBoostを働かせる
+			//何回か行って最速値を使用する
+			result = min(result, repeatFunc(&test));
+		}
+		Sleep(1); //一度スレッドを休ませて、仕切りなおす
+	}
+
+	*prm = result;
+
+	return 0;
+}
+
+//__rdtscが定格クロックに基づいた値を返すのを利用して、実際の動作周波数を得る
+//やや時間がかかるので注意
+double getCPUMaxTurboClock(DWORD num_thread) {
+	double resultClock = 0;
+	double defaultClock = getCPUDefaultClock();
+	if (0.0 >= defaultClock) {
+		return 0.0;
+	}
+	
+	DWORD processorCoreCount = 0, logicalProcessorCount = 0;
+	getProcessorCount(&processorCoreCount, &logicalProcessorCount);
+	//上限は物理プロセッサ数、0なら自動的に物理プロセッサ数に設定
+	num_thread = (0 == num_thread) ? processorCoreCount : min(num_thread, processorCoreCount);
+	//ハーパースレッディングを考慮してスレッドIDを渡す
+	int thread_id_multi = (logicalProcessorCount > processorCoreCount) ? logicalProcessorCount / processorCoreCount : 1;
+
+	std::vector<HANDLE> list_of_threads(num_thread, NULL);
+	std::vector<UINT64> list_of_result(num_thread, 0);
+	DWORD thread_loaded = 0;
+	for ( ; thread_loaded < num_thread; thread_loaded++) {
+		list_of_result[thread_loaded] = thread_loaded * thread_id_multi; //スレッドIDを渡す
+		list_of_threads[thread_loaded] = (HANDLE)_beginthreadex(NULL, 0, getCPUClockMaxSubFunc, &list_of_result[thread_loaded], TRUE, NULL);
+		if (NULL == list_of_threads[thread_loaded]) {
+			break; //失敗したらBreak
+		}
+	}
+	
+	if (thread_loaded)
+		WaitForMultipleObjects(thread_loaded, &list_of_threads[0], TRUE, INFINITE);
+
+	if (thread_loaded < num_thread) {
+		resultClock = defaultClock;
+	} else {
+		UINT64 min_result = *std::min_element(list_of_result.begin(), list_of_result.end());
+		resultClock = (min_result) ? defaultClock * (double)(LOOP_COUNT * COUNT_OF_REPEAT * COUNT_OF_REPEAT * 2) / (double)min_result : defaultClock;
+		resultClock = max(resultClock, defaultClock);
+	}
+
+	for (auto thread : list_of_threads) {
+		if (NULL != thread) {
+			CloseHandle(thread);
+		}
+	}
+
+	return resultClock;
 }
 
 #if ENABLE_OPENCL_GPU_INFO

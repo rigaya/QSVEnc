@@ -116,7 +116,9 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();
 
-int getCPUInfo(TCHAR *buffer, size_t nSize);
+double getCPUMaxTurboClock(DWORD num_thread = 1); //やや時間がかかるので注意 (～1/4秒)
+int getCPUInfo(TCHAR *buffer, size_t nSize); //やや時間がかかるので注意 (～1/4秒)
+double getCPUDefaultClock();
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only = false);
 const TCHAR *getOSVersion();
 UINT64 getPhysicalRamSize(UINT64 *ramUsed);
