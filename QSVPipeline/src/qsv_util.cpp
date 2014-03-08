@@ -875,15 +875,10 @@ UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
 }
 
 
-const int LOOP_COUNT = 1000;
-//最近のIntel CPUでは、4つのpadddは2クロックで実行できる (Sandy/Ivy/Haswell/Silvermont)
-const int CLOCKS_FOR_4_PADDD = 2;
-const int COUNT_OF_REPEAT = 8; //以下のようにCOUNT_OF_REPEAT分マクロ展開する
-#define REPEAT8(instruction) \
-	instruction \
-	instruction \
-	instruction \
-	instruction \
+const int LOOP_COUNT = 2000;
+const int CLOCKS_FOR_2_INSTRUCTION = 2;
+const int COUNT_OF_REPEAT = 4; //以下のようにCOUNT_OF_REPEAT分マクロ展開する
+#define REPEAT4(instruction) \
 	instruction \
 	instruction \
 	instruction \
@@ -894,7 +889,6 @@ static UINT64 __fastcall repeatFunc(int *test) {
 	__m128i x1 = _mm_add_epi32(x0, x0);
 	//計算結果を強引に使うことで最適化による計算の削除を抑止する
 	__m128i x2 = _mm_add_epi32(x0, _mm_set1_epi32(*test));
-	__m128i x3 = _mm_add_epi32(x2, x1);
     int CPUInfo[4] = { 0 };
 	__cpuid(CPUInfo, 0x00);
 	UINT64 start = __rdtsc();
@@ -902,20 +896,17 @@ static UINT64 __fastcall repeatFunc(int *test) {
 	for (int i = LOOP_COUNT; i; i--) {
 		//2重にマクロを使うことでCOUNT_OF_REPEATの2乗分ループ内で実行する
 		//これでループカウンタの影響はほぼ無視できるはず
-		REPEAT8(REPEAT8(
-		x0 = _mm_add_epi32(x0, x0);
-		x1 = _mm_add_epi32(x1, x1);
-		x2 = _mm_add_epi32(x2, x2);
-		x3 = _mm_add_epi32(x3, x3);))
+		REPEAT4(REPEAT4(
+		x0 = _mm_xor_si128(x0, x1);
+		x0 = _mm_xor_si128(x0, x2);))
 	}
 	
 	UINT dummy;
 	UINT64 fin = __rdtscp(&dummy);
 	
 	//計算結果を強引に使うことで最適化による計算の削除を抑止する
-	x0 = _mm_add_epi32(x0, x2);
-	x1 = _mm_add_epi32(x1, x3);
 	x0 = _mm_add_epi32(x0, x1);
+	x0 = _mm_add_epi32(x0, x2);
 	*test = x0.m128i_i32[0];
 
 	return fin - start;
