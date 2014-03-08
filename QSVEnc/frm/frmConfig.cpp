@@ -941,6 +941,9 @@ System::Void frmConfig::UpdateMfxLibDetection() {
 }
 
 System::Void frmConfig::InitForm() {
+	//CPU情報の取得
+	getCPUInfoDelegate = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
+	getCPUInfoDelegate->BeginInvoke(nullptr, nullptr);
 	//ローカル設定のロード
 	LoadLocalStg();
 	//ローカル設定の反映
@@ -958,10 +961,6 @@ System::Void frmConfig::InitForm() {
 	fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
 	//ツールチップ
 	SetHelpToolTips();
-	//CPU名
-	TCHAR cpu_info[256];
-	getCPUInfo(cpu_info, _countof(cpu_info));
-	fcgLBCPUInfoOnFeatureTab->Text = String(cpu_info).ToString();
 	//HWエンコードの可否
 	UpdateMfxLibDetection();
 	UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
@@ -1591,4 +1590,19 @@ System::Void frmConfig::SaveQSVFeatureAsImg(String^ SavePath) {
 System::Void frmConfig::SaveQSVFeatureAsTxt(String^ SavePath) {
 
 }
+System::Void frmConfig::SetCPUInfo() {
+	//CPU名
+	if (nullptr == StrCPUInfo || StrCPUInfo->Length <= 0) {
+		TCHAR cpu_info[256];
+		getCPUInfo(cpu_info, _countof(cpu_info));
+		StrCPUInfo = String(cpu_info).ToString()->Replace(L" CPU ", L" ");
+	}
+	if (this->InvokeRequired) {
+		SetCPUInfoDelegate^ sl = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
+		this->Invoke(sl);
+	} else {
+		fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
+	}
+}
+
 #pragma warning( pop )

@@ -3602,6 +3602,30 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 			this->tabPageFeatures->Text = L"機能情報";
 			this->tabPageFeatures->UseVisualStyleBackColor = true;
 			// 
+			// fcgLBCPUInfoOnFeatureTab
+			// 
+			this->fcgLBCPUInfoOnFeatureTab->AutoSize = true;
+			this->fcgLBCPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(128)));
+			this->fcgLBCPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
+			this->fcgLBCPUInfoOnFeatureTab->Location = System::Drawing::Point(159, 54);
+			this->fcgLBCPUInfoOnFeatureTab->Name = L"fcgLBCPUInfoOnFeatureTab";
+			this->fcgLBCPUInfoOnFeatureTab->Size = System::Drawing::Size(34, 17);
+			this->fcgLBCPUInfoOnFeatureTab->TabIndex = 114;
+			this->fcgLBCPUInfoOnFeatureTab->Text = L"CPU";
+			// 
+			// fcgLBCPUInfoLabelOnFeatureTab
+			// 
+			this->fcgLBCPUInfoLabelOnFeatureTab->AutoSize = true;
+			this->fcgLBCPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
+				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+			this->fcgLBCPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
+			this->fcgLBCPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(21, 52);
+			this->fcgLBCPUInfoLabelOnFeatureTab->Name = L"fcgLBCPUInfoLabelOnFeatureTab";
+			this->fcgLBCPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(39, 19);
+			this->fcgLBCPUInfoLabelOnFeatureTab->TabIndex = 113;
+			this->fcgLBCPUInfoLabelOnFeatureTab->Text = L"CPU";
+			// 
 			// fcgBTSaveFeatureList
 			// 
 			this->fcgBTSaveFeatureList->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
@@ -3631,7 +3655,7 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 			this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesCurrentAPIVer->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(185, 81);
+			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(159, 81);
 			this->fcgLBFeaturesCurrentAPIVer->Name = L"fcgLBFeaturesCurrentAPIVer";
 			this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(33, 17);
 			this->fcgLBFeaturesCurrentAPIVer->TabIndex = 110;
@@ -3643,7 +3667,7 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 			this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesShowCurrentAPI->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(37, 79);
+			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(21, 79);
 			this->fcgLBFeaturesShowCurrentAPI->Name = L"fcgLBFeaturesShowCurrentAPI";
 			this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(127, 19);
 			this->fcgLBFeaturesShowCurrentAPI->TabIndex = 107;
@@ -3690,30 +3714,6 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 			this->fcgLBguiExBlog->Text = L"QSVEncについて";
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
-			// 
-			// fcgLBCPUInfoOnFeatureTab
-			// 
-			this->fcgLBCPUInfoOnFeatureTab->AutoSize = true;
-			this->fcgLBCPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
-				static_cast<System::Byte>(128)));
-			this->fcgLBCPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBCPUInfoOnFeatureTab->Location = System::Drawing::Point(185, 54);
-			this->fcgLBCPUInfoOnFeatureTab->Name = L"fcgLBCPUInfoOnFeatureTab";
-			this->fcgLBCPUInfoOnFeatureTab->Size = System::Drawing::Size(34, 17);
-			this->fcgLBCPUInfoOnFeatureTab->TabIndex = 114;
-			this->fcgLBCPUInfoOnFeatureTab->Text = L"CPU";
-			// 
-			// fcgLBCPUInfoLabelOnFeatureTab
-			// 
-			this->fcgLBCPUInfoLabelOnFeatureTab->AutoSize = true;
-			this->fcgLBCPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
-				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
-			this->fcgLBCPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBCPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(37, 52);
-			this->fcgLBCPUInfoLabelOnFeatureTab->Name = L"fcgLBCPUInfoLabelOnFeatureTab";
-			this->fcgLBCPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(39, 19);
-			this->fcgLBCPUInfoLabelOnFeatureTab->TabIndex = 113;
-			this->fcgLBCPUInfoLabelOnFeatureTab->Text = L"CPU";
 			// 
 			// frmConfig
 			// 
@@ -3817,6 +3817,9 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 		}
 #pragma endregion
 	private:
+		delegate void SetCPUInfoDelegate();
+		String^ StrCPUInfo;
+		SetCPUInfoDelegate ^getCPUInfoDelegate;
 		const SYSTEM_DATA *sys_dat;
 		CONF_GUIEX *conf;
 		LocalSettings LocalStg;
@@ -3899,6 +3902,7 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 		System::Void SaveQSVFeatureAsImg(String^ SavePath);
 		System::Void SaveQSVFeatureAsTxt(String^ SavePath);
 		System::Void SaveQSVFeature();
+		System::Void SetCPUInfo();
 	public:
 		System::Void InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *system_data);
 		System::Void SetVideoBitrate(int bitrate);
