@@ -1270,6 +1270,8 @@ mfxStatus run_benchmark(sInputParams *params) {
 
 		msdk_char enviroment_info[4096] = { 0 };
 		getEnviromentInfo(enviroment_info, _countof(enviroment_info));
+
+		MemType memtype = pPipeline->GetMemType();
 		
 		basic_stringstream<msdk_char> ss;
 		FILE *fp_bench = NULL;
@@ -1283,8 +1285,8 @@ mfxStatus run_benchmark(sInputParams *params) {
 				              " (Target Usage and output resolution will be changed)\n");
 			fprintf(fp_bench, "%s\n\n", tchar_to_char(encode_info).c_str());
 			fprintf(fp_bench, tchar_to_char(enviroment_info).c_str());
-			fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d\n", 
-				VER_STR_FILEVERSION, tchar_to_char(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor);
+			fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n", 
+				VER_STR_FILEVERSION, tchar_to_char(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor, tchar_to_char(MemTypeToStr(memtype)).c_str());
 			fprintf(fp_bench, "\n");
 			fclose(fp_bench);
 		}

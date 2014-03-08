@@ -2475,6 +2475,10 @@ void CEncodingPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
 
 }
 
+MemType CEncodingPipeline::GetMemType() {
+	return m_memType;
+}
+
 mfxStatus CEncodingPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
 	if (NULL == data)
 		return MFX_ERR_NULL_PTR;
