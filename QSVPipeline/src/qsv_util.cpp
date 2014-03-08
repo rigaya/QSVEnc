@@ -873,6 +873,21 @@ typedef struct cl_func_t {
 	funcClGetDeviceInfo getDeviceInfo;
 } cl_func_t;
 
+static inline const char *strichr(const char *str, int c) {
+	c = tolower(c);
+	for (; *str; str++)
+		if (c == tolower(*str))
+			return str;
+	return NULL;
+}
+static inline const char *stristr(const char *str, const char *substr) {
+	size_t len = 0;
+	if (substr && (len = strlen(substr)) != NULL)
+		for (; (str = strichr(str, substr[0])) != NULL; str++)
+			if (_strnicmp(str, substr, len) == NULL)
+				return str;
+	return NULL;
+}
 static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
 	using namespace std;
 
@@ -894,7 +909,7 @@ static int getGPUInfo(const cl_func_t *cl, const char *VendorName, TCHAR *buffer
 	auto checkPlatformForVendor = [cl, VendorName](cl_platform_id platform_id) {
 		char buf[1024] = { 0 };
 		return (CL_SUCCESS == cl->getPlatformInfo(platform_id, CL_PLATFORM_VENDOR, _countof(buf), buf, NULL)
-			&& NULL != strstr(buf, VendorName));
+			&& NULL != stristr(buf, VendorName));
 	};
 
 	for (auto platform : platform_list) {
