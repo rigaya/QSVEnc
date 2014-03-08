@@ -784,8 +784,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 		|| FALSE == getProcessorCount(&processorCoreCount, &logicalProcessorCount)) {
 		ret = 1;
 	} else {
-		//2スレッド分実行すると、一番よい結果が得られると思う
-		double maxFrequency = getCPUMaxTurboClock(2);
+		double maxFrequency = getCPUMaxTurboClock(0);
 		//大きな違いがなければ、TurboBoostはないものとして表示しない
 		if (maxFrequency / getCPUDefaultClock() > 1.01) {
 			_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
@@ -983,14 +982,18 @@ double getCPUMaxTurboClock(DWORD num_thread) {
 	DWORD thread_loaded = 0;
 	for ( ; thread_loaded < num_thread; thread_loaded++) {
 		list_of_result[thread_loaded] = thread_loaded * thread_id_multi; //スレッドIDを渡す
-		list_of_threads[thread_loaded] = (HANDLE)_beginthreadex(NULL, 0, getCPUClockMaxSubFunc, &list_of_result[thread_loaded], TRUE, NULL);
+		list_of_threads[thread_loaded] = (HANDLE)_beginthreadex(NULL, 0, getCPUClockMaxSubFunc, &list_of_result[thread_loaded], CREATE_SUSPENDED, NULL);
 		if (NULL == list_of_threads[thread_loaded]) {
 			break; //失敗したらBreak
 		}
 	}
 	
-	if (thread_loaded)
+	if (thread_loaded) {
+		for (DWORD i_thread = 0; i_thread < thread_loaded; i_thread++) {
+			ResumeThread(list_of_threads[i_thread]);
+		}
 		WaitForMultipleObjects(thread_loaded, &list_of_threads[0], TRUE, INFINITE);
+	}
 
 	if (thread_loaded < num_thread) {
 		resultClock = defaultClock;
