@@ -87,9 +87,12 @@ typedef struct cl_data_t {
 cl_int cl_get_func(cl_func_t *cl);
 void cl_release_func(cl_func_t *cl);
 
-cl_int cl_get_platform_and_device(const char *VendorName, cl_data_t *cl_data, const cl_func_t *cl);
+bool cl_check_vendor_name(const char *str, const char *VendorName);
+cl_int cl_get_platform_and_device(const char *VendorName, cl_int device_type, cl_data_t *cl_data, const cl_func_t *cl);
 
 void cl_release(cl_data_t *cl_data, cl_func_t *cl);
+
+int cl_get_device_max_clock_frequency_mhz(const cl_data_t *cl_data, const cl_func_t *cl);
 
 #endif //ENABLE_OPENCL
 

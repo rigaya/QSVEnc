@@ -103,21 +103,12 @@ static std::basic_string<TCHAR> to_tchar(const char *string) {
 	std::basic_string<TCHAR> str(1+required_length, _T('\0'));
 	MultiByteToWideChar(CP_ACP, 0, string, -1, &str[0], (int)str.size());
 #else
-	basic_string<TCHAR> str = string;
+	std::basic_string<char> str = string;
 #endif
 	return str;
 };
 
-static int cl_get_device_max_clock_frequency(const cl_data_t *cl_data, const cl_func_t *cl) {
-	int frequency = 0;
-	char cl_info_buffer[1024] = { 0 };
-	if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
-		frequency = *(cl_uint *)cl_info_buffer;
-	}
-	return frequency;
-}
-
-static cl_int cl_get_driver_version(const cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
+cl_int cl_get_driver_version(const cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
 	cl_int ret = CL_SUCCESS;
 	char cl_info_buffer[1024] = { 0 };
 	if (CL_SUCCESS == (ret = cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL))) {
@@ -142,7 +133,7 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCH
 			int max_frequency = 0;
 			while (false == abort_get_frequency_loop) {
 				Sleep(1);
-				max_frequency = (std::max)(max_frequency, cl_get_device_max_clock_frequency(cl_data, cl));
+				max_frequency = (std::max)(max_frequency, cl_get_device_max_clock_frequency_mhz(cl_data, cl));
 			}
 			return max_frequency;
 		});
@@ -185,7 +176,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
 
 	if (CL_SUCCESS != (ret = cl_get_func(&cl))) {
 		_tcscpy_s(buffer, buffer_size, _T("Unknown (Failed to load OpenCL.dll)"));
-	} else if (CL_SUCCESS != (ret = cl_get_platform_and_device(VendorName, &data, &cl))) {
+	} else if (CL_SUCCESS != (ret = cl_get_platform_and_device(VendorName, CL_DEVICE_TYPE_GPU, &data, &cl))) {
 		_stprintf_s(buffer, buffer_size, _T("Unknown (Failed to find %s GPU)"), VendorName);
 	} else {
 		if (driver_version_only)

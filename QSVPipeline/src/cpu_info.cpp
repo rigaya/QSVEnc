@@ -9,23 +9,21 @@
 
 #include <Windows.h>
 #include <vector>
+#include <string>
+#include <vector>
 #include <algorithm>
 #include <intrin.h>
 #include <tchar.h>
+#include "cpu_info.h"
 
-static int getCPUName(TCHAR *buffer, size_t nSize) {
+static int getCPUName(char *buffer, size_t nSize) {
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x80000000);
     unsigned int nExIds = CPUInfo[0];
 	if (nSize < 0x40)
 		return 1;
 
-#if UNICODE
-	char *buf = (char *)calloc(nSize, sizeof(char));
-#else
-	char *buf = buffer;
-#endif
-	memset(buf, 0, 0x40);
+	memset(buffer, 0, 0x40);
     for (unsigned int i = 0x80000000; i <= nExIds; i++) {
         __cpuid(CPUInfo, i);
 		int offset = 0;
@@ -36,42 +34,60 @@ static int getCPUName(TCHAR *buffer, size_t nSize) {
 			default:
 				continue;
 		}
-		memcpy(buf + offset, CPUInfo, sizeof(CPUInfo)); 
+		memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo)); 
 	}
 	//crop space beforce string
-	for (int i = 0; buf[i]; i++) {
-		if (buf[i] != ' ') {
+	for (int i = 0; buffer[i]; i++) {
+		if (buffer[i] != ' ') {
 			if (i)
-				memmove(buf, buf + i, strlen(buf + i) + 1);
+				memmove(buffer, buffer + i, strlen(buffer + i) + 1);
 			break;
 		}
 	}
-	//remove space witch continues.
-	for (int i = 0; buf[i]; i++) {
-		if (buf[i] == ' ') {
+	//remove space which continues.
+	for (int i = 0; buffer[i]; i++) {
+		if (buffer[i] == ' ') {
 			int space_idx = i;
-			while (buf[i+1] == ' ')
+			while (buffer[i+1] == ' ')
 				i++;
 			if (i != space_idx)
-				memmove(buf + space_idx + 1, buf + i + 1, strlen(buf + i + 1) + 1);
+				memmove(buffer + space_idx + 1, buffer + i + 1, strlen(buffer + i + 1) + 1);
 		}
 	}
-#if UNICODE
-	MultiByteToWideChar(CP_ACP, 0, buf, -1, buffer, (DWORD)nSize);
-	free(buf);
-#endif
+	//delete last blank
+	if (0 < strlen(buffer)) {
+		char *last_ptr = buffer + strlen(buffer) - 1;
+		if (' ' == *last_ptr)
+			last_ptr = '\0';
+	}
 	return 0;
 }
+static int getCPUName(wchar_t *buffer, size_t nSize) {
+	int ret = 0;
+	char *buf = (char *)calloc(nSize, sizeof(char));
+	if (NULL == buf) {
+		buffer[0] = L'\0';
+		ret = 1;
+	} else {
+		if (0 == (ret = getCPUName(buf, nSize)))
+			MultiByteToWideChar(CP_ACP, 0, buf, -1, buffer, (DWORD)nSize);
+		free(buf);
+	}
+	return ret;
+}
 
-double getCPUDefaultClock() {
+double getCPUDefaultClockFromCPUName() {
 	double defaultClock = 0.0;
 	TCHAR buffer[1024] = { 0 };
 	getCPUName(buffer, _countof(buffer));
+	TCHAR *ptr_mhz = _tcsstr(buffer, _T("MHz"));
+	TCHAR *ptr_ghz = _tcsstr(buffer, _T("GHz"));
 	TCHAR *ptr = _tcschr(buffer, _T('@'));
-	if (1 != _stscanf_s(ptr+1, _T("%lf"), &defaultClock)) {
-		return 0.0;
+	bool clockInfoAvailable = (NULL != ptr_mhz || ptr_ghz != NULL) && NULL != ptr;
+	if (clockInfoAvailable && 1 == _stscanf_s(ptr+1, _T("%lf"), &defaultClock)) {
+		return defaultClock * ((NULL == ptr_ghz) ? 1000.0 : 1.0);
 	}
-	return defaultClock;
+	return 0.0;
 }
 
 #include <Windows.h>
@@ -282,6 +298,46 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
 	return resultClock;
 }
 
+#include "cl_func.h"
+
+#pragma warning (push)
+#pragma warning (disable: 4100)
+double getCPUDefaultClockOpenCL() {
+#if !ENABLE_OPENCL
+	return 0.0;
+#else
+	int frequency = 0;
+	char buffer[1024] = { 0 };
+	getCPUName(buffer, _countof(buffer));
+	const std::vector<const char*> vendorNameList = { "Intel", "NVIDIA", "AMD" };
+	
+	const char *vendorName = NULL;
+	for (auto vendor : vendorNameList) {
+		if (cl_check_vendor_name(buffer, vendor)) {
+			vendorName = vendor;
+		}
+	}
+	if (NULL != vendorName) {
+		cl_func_t cl = { 0 };
+		cl_data_t data = { 0 };
+		if (CL_SUCCESS == cl_get_func(&cl)
+			&& CL_SUCCESS == cl_get_platform_and_device(vendorName, CL_DEVICE_TYPE_CPU, &data, &cl)) {
+			frequency = cl_get_device_max_clock_frequency_mhz(&data, &cl);
+		}
+		cl_release(&data, &cl);
+	}
+	return frequency / 1000.0;
+#endif // !ENABLE_OPENCL
+}
+#pragma warning (pop)
+
+double getCPUDefaultClock() {
+	double defautlClock = getCPUDefaultClockFromCPUName();
+	if (0 >= defautlClock)
+		defautlClock = getCPUDefaultClockOpenCL();
+	return defautlClock;
+}
+
 int getCPUInfo(TCHAR *buffer, size_t nSize) {
 	int ret = 0;
 	buffer[0] = _T('\0');
@@ -290,12 +346,21 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 		|| FALSE == getProcessorCount(&processorCoreCount, &logicalProcessorCount)) {
 		ret = 1;
 	} else {
-		double maxFrequency = getCPUMaxTurboClock(0);
-		//大きな違いがなければ、TurboBoostはないものとして表示しない
-		if (maxFrequency / getCPUDefaultClock() > 1.01) {
-			_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
+		double defaultClock = getCPUDefaultClockFromCPUName();
+		bool noDefaultClockInCPUName = (0.0 >= defaultClock);
+		if (noDefaultClockInCPUName)
+			defaultClock = getCPUDefaultClockOpenCL();
+		if (defaultClock > 0.0) {
+			if (noDefaultClockInCPUName) {
+				_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" @ %.2fGHz"), defaultClock);
+			}
+			double maxFrequency = getCPUMaxTurboClock(0);
+			//大きな違いがなければ、TurboBoostはないものとして表示しない
+			if (maxFrequency / defaultClock > 1.01) {
+				_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
+			}
+			_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), processorCoreCount, logicalProcessorCount);
 		}
-		_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), processorCoreCount, logicalProcessorCount);
 	}
 	return ret;
 }

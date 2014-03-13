@@ -29,6 +29,13 @@ static inline const char *stristr(const char *str, const char *substr) {
 	return NULL;
 }
 
+bool cl_check_vendor_name(const char *str, const char *VendorName) {
+	if (NULL != stristr(str, VendorName))
+		return true;
+	if (NULL != stristr(VendorName, "AMD"))
+		return NULL != stristr(VendorName, "Advanced Micro Devices");
+	return false;
+}
 cl_int cl_get_func(cl_func_t *cl) {
 	ZeroMemory(cl, sizeof(cl_func_t));
 	if (NULL == (cl->hdll = LoadLibrary(_T("OpenCL.dll")))) {
@@ -74,7 +81,7 @@ void cl_release_func(cl_func_t *cl) {
 	ZeroMemory(cl, sizeof(cl_func_t));
 }
 
-cl_int cl_get_platform_and_device(const char *VendorName, cl_data_t *cl_data, const cl_func_t *cl) {
+cl_int cl_get_platform_and_device(const char *VendorName, cl_int device_type, cl_data_t *cl_data, const cl_func_t *cl) {
 	using namespace std;
 	cl_uint size = 0;
 	cl_int ret = CL_SUCCESS;
@@ -94,17 +101,17 @@ cl_int cl_get_platform_and_device(const char *VendorName, cl_data_t *cl_data, co
 	auto checkPlatformForVendor = [cl, VendorName](cl_platform_id platform_id) {
 		char buf[1024] = { 0 };
 		return (CL_SUCCESS == cl->getPlatformInfo(platform_id, CL_PLATFORM_VENDOR, _countof(buf), buf, NULL)
-			&& NULL != stristr(buf, VendorName));
+			&& cl_check_vendor_name(buf, VendorName));
 	};
 
 	for (auto platform : platform_list) {
 		if (checkPlatformForVendor(platform)) {
-			if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &size))) {
+			if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, 0, NULL, &size))) {
 				_ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
 				return ret;
 			}
 			vector<cl_device_id> device_list(size);
-			if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, CL_DEVICE_TYPE_GPU, size, &device_list[0], &size))) {
+			if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, size, &device_list[0], &size))) {
 				_ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
 				return ret;
 			}
@@ -115,6 +122,15 @@ cl_int cl_get_platform_and_device(const char *VendorName, cl_data_t *cl_data, co
 	}
 
 	return ret;
+}
+
+int cl_get_device_max_clock_frequency_mhz(const cl_data_t *cl_data, const cl_func_t *cl) {
+	int frequency = 0;
+	char cl_info_buffer[1024] = { 0 };
+	if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_CLOCK_FREQUENCY, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
+		frequency = *(cl_uint *)cl_info_buffer;
+	}
+	return frequency;
 }
 
 void cl_release(cl_data_t *cl_data, cl_func_t *cl) {
