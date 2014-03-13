@@ -403,6 +403,40 @@ static void set_tmpdir(PRM_ENC *pe, int tmp_dir_index, const char *savefile) {
 	}
 }
 
+static int additional_vframe_for_aud_delay_cut(const OUTPUT_INFO *oip, int audio_delay) {
+	double delay_sec = audio_delay / (double)oip->audio_rate;
+	double fps = oip->rate / (double)oip->scale;
+	return (int)ceil(delay_sec * fps);
+}
+
+static int additional_silence_for_aud_delay_cut(const OUTPUT_INFO *oip, int audio_delay) {
+	int vframe_added = additional_vframe_for_aud_delay_cut(oip, audio_delay);
+	double fps = oip->rate / (double)oip->scale;
+	return (int)(vframe_added / (double)fps * oip->audio_rate + 0.5) - audio_delay;
+}
+
+static void set_aud_delay_cut(PRM_ENC *pe, const OUTPUT_INFO *oip) {
+	pe->delay_cut_additional_vframe = 0;
+	pe->delay_cut_additional_aframe = 0;
+	if (oip->flag & OUTPUT_INFO_FLAG_AUDIO) {
+		int audio_delay = sys_dat.exstg->s_aud[conf.aud.encoder].mode[conf.aud.enc_mode].delay;
+		if (audio_delay) {
+			switch (conf.aud.delay_cut) {
+			case 1:
+				pe->delay_cut_additional_aframe = -1 * audio_delay;
+				break;
+			case 2:
+				pe->delay_cut_additional_vframe = additional_vframe_for_aud_delay_cut(oip, audio_delay);
+				pe->delay_cut_additional_aframe = additional_silence_for_aud_delay_cut(oip, audio_delay);
+				break;
+			case 0:
+			default:
+				break;
+			}
+		}
+	}
+}
+
 static void set_enc_prm(PRM_ENC *pe, const OUTPUT_INFO *oip) {
 	//初期化
 	ZeroMemory(pe, sizeof(PRM_ENC));
@@ -413,6 +447,7 @@ static void set_enc_prm(PRM_ENC *pe, const OUTPUT_INFO *oip) {
 
 	pe->video_out_type = check_video_ouput(&conf, oip);
 	pe->muxer_to_be_used = check_muxer_to_be_used(&conf, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
+	set_aud_delay_cut(pe, oip);
 	memcpy(&pe->append, &sys_dat.exstg->s_append, sizeof(FILE_APPENDIX));
 
 	char filename_replace[MAX_PATH_LEN];

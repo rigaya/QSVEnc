@@ -232,6 +232,13 @@ const WCHAR * const audio_enc_timing_desc[] = {
 	NULL
 };
 
+const WCHAR * const audio_delay_cut_desc[] = {
+	L"補正なし",
+	L"音声カット",
+	NULL
+};
+
+
 const CX_DESC list_outtype[] = {
 	{ "H.264 / AVC", MFX_CODEC_AVC },
 #ifndef HIDE_MPEG2

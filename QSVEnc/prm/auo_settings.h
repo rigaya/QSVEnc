@@ -21,6 +21,7 @@ static const BOOL   DEFAULT_AUTO_AFS_DISABLE      = 0;
 static const int    DEFAULT_OUTPUT_EXT            = 0;
 static const BOOL   DEFAULT_AUTO_DEL_CHAP         = 1;
 static const BOOL   DEFAULT_KEEP_QP_FILE          = 0;
+static const BOOL   DEFAULT_AUD_DELAY_CUT_MODE    = 0;
 static const BOOL   DEFAULT_DISABLE_TOOLTIP_HELP  = 0;
 static const BOOL   DEFAULT_DISABLE_VISUAL_STYLES = 0;
 static const BOOL   DEFAULT_ENABLE_STG_ESC_KEY    = 0;
@@ -132,6 +133,7 @@ typedef struct {
 	int bitrate_min;     //ビットレートの最小値
 	int bitrate_max;     //ビットレートの最大値
 	int bitrate_default; //ビットレートのデフォルト値
+	int delay;           //エンコード遅延 (音声が映像に対し遅れるsample数)
 	int bitrate_step;    //クリックでの変化幅
 	int enc_2pass;       //2passエンコを行う
 	int use_8bit;        //8bitwavを入力する
