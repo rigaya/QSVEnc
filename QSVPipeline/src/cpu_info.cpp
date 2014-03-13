@@ -242,10 +242,10 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
 
 	DWORD processorCoreCount = 0, logicalProcessorCount = 0;
 	getProcessorCount(&processorCoreCount, &logicalProcessorCount);
-	//上限は物理プロセッサ数、0なら自動的に物理プロセッサ数に設定
-	num_thread = (0 == num_thread) ? processorCoreCount : min(num_thread, processorCoreCount);
 	//ハーパースレッディングを考慮してスレッドIDを渡す
 	int thread_id_multi = (logicalProcessorCount > processorCoreCount) ? logicalProcessorCount / processorCoreCount : 1;
+	//上限は物理プロセッサ数、0なら自動的に物理プロセッサ数に設定
+	num_thread = (0 == num_thread) ? max(1, processorCoreCount - (logicalProcessorCount == processorCoreCount)) : min(num_thread, processorCoreCount);
 
 	std::vector<HANDLE> list_of_threads(num_thread, NULL);
 	std::vector<UINT64> list_of_result(num_thread, 0);
