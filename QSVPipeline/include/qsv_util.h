@@ -12,6 +12,9 @@
 #include "mfxstructures.h"
 #include "mfxSession.h"
 
+#include "cpu_info.h"
+#include "gpu_info.h"
+
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
 #endif

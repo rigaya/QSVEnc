@@ -246,10 +246,13 @@
     <ClCompile Include="src\avi_reader.cpp" />
     <ClCompile Include="src\avs_reader.cpp" />
     <ClCompile Include="src\base_allocator.cpp" />
+    <ClCompile Include="src\cl_func.cpp" />
+    <ClCompile Include="src\cpu_info.cpp" />
     <ClCompile Include="src\d3d11_allocator.cpp" />
     <ClCompile Include="src\d3d11_device.cpp" />
     <ClCompile Include="src\d3d_allocator.cpp" />
     <ClCompile Include="src\d3d_device.cpp" />
+    <ClCompile Include="src\gpu_info.cpp" />
     <ClCompile Include="src\pipeline_encode.cpp" />
     <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
@@ -271,10 +274,13 @@
     <ClInclude Include="include\avi_reader.h" />
     <ClInclude Include="include\avs_reader.h" />
     <ClInclude Include="include\base_allocator.h" />
+    <ClInclude Include="include\cl_func.h" />
+    <ClInclude Include="include\cpu_info.h" />
     <ClInclude Include="include\d3d11_allocator.h" />
     <ClInclude Include="include\d3d11_device.h" />
     <ClInclude Include="include\d3d_allocator.h" />
     <ClInclude Include="include\d3d_device.h" />
+    <ClInclude Include="include\gpu_info.h" />
     <ClInclude Include="include\hw_device.h" />
     <ClInclude Include="include\pipeline_encode.h" />
     <ClInclude Include="include\qsv_control.h" />
@@ -290,6 +296,9 @@
     <ClInclude Include="include\sysmem_allocator.h" />
     <ClInclude Include="include\vpp_ex.h" />
     <ClInclude Include="include\vpy_reader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\gpu_info_dummy_calc.cl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
