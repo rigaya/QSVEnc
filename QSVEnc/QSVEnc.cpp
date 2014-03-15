@@ -447,7 +447,6 @@ static void set_enc_prm(PRM_ENC *pe, const OUTPUT_INFO *oip) {
 
 	pe->video_out_type = check_video_ouput(&conf, oip);
 	pe->muxer_to_be_used = check_muxer_to_be_used(&conf, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
-	set_aud_delay_cut(pe, oip);
 	memcpy(&pe->append, &sys_dat.exstg->s_append, sizeof(FILE_APPENDIX));
 
 	char filename_replace[MAX_PATH_LEN];
@@ -469,6 +468,11 @@ static void set_enc_prm(PRM_ENC *pe, const OUTPUT_INFO *oip) {
 	strcpy_s(filename_replace, _countof(filename_replace), PathFindFileName(oip->savefile));
 	sys_dat.exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
 	PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
+	
+	//FAWチェックとオーディオディレイの修正
+	if (conf.aud.faw_check)
+		auo_faw_check(&conf.aud, oip, pe, sys_dat.exstg);
+	set_aud_delay_cut(pe, oip);
 }
 
 static void auto_save_log(const OUTPUT_INFO *oip, const PRM_ENC *pe) {
