@@ -388,13 +388,12 @@ System::Int32 frmConfig::GetCurrentAudioDefaultBitrate() {
 }
 
 System::Void frmConfig::setAudioDisplay() {
-	int index = fcgCXAudioEncoder->SelectedIndex;
-	AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud[index];
+	AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud[fcgCXAudioEncoder->SelectedIndex];
 	//～の指定
 	if (str_has_char(astg->filename)) {
 		fcgLBAudioEncoderPath->Text = String(astg->filename).ToString() + L" の指定";
 		fcgTXAudioEncoderPath->Enabled = true;
-		fcgTXAudioEncoderPath->Text = LocalStg.audEncPath[index];
+		fcgTXAudioEncoderPath->Text = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
 		fcgBTAudioEncoderPath->Enabled = true;
 	} else {
 		//filename空文字列(wav出力時)
@@ -409,18 +408,12 @@ System::Void frmConfig::setAudioDisplay() {
 	for (int i = 0; i < astg->mode_count; i++)
 		fcgCXAudioEncMode->Items->Add(String(astg->mode[i].name).ToString());
 	fcgCXAudioEncMode->EndUpdate();
-	bool pipe_enabled = (astg->pipe_input && (!(fcgCBAudio2pass->Checked && astg->mode[index].enc_2pass != 0)));
+	bool pipe_enabled = (astg->pipe_input && (!(fcgCBAudio2pass->Checked && astg->mode[fcgCXAudioEncMode->SelectedIndex].enc_2pass != 0)));
 	CurrentPipeEnabled = pipe_enabled;
 	fcgCBAudioUsePipe->Enabled = pipe_enabled;
 	fcgCBAudioUsePipe->Checked = pipe_enabled;
 	if (fcgCXAudioEncMode->Items->Count > 0)
 		fcgCXAudioEncMode->SelectedIndex = 0;
-
-	bool delay_cut_available = astg->mode[index].delay > 0;
-	fcgLBAudioDelayCut->Visible = delay_cut_available;
-	fcgCXAudioDelayCut->Visible = delay_cut_available;
-	if (!delay_cut_available)
-		fcgCXAudioDelayCut->SelectedIndex = 0;
 }
 
 System::Void frmConfig::AudioEncodeModeChanged() {
@@ -444,6 +437,12 @@ System::Void frmConfig::AudioEncodeModeChanged() {
 	fcgCBAudio2pass->Enabled = astg->mode[index].enc_2pass != 0;
 	if (!fcgCBAudio2pass->Enabled) fcgCBAudio2pass->Checked = false;
 	SetfbcBTABEnable(fcgNUAudioBitrate->Visible, (int)fcgNUAudioBitrate->Maximum);
+
+	bool delay_cut_available = astg->mode[index].delay > 0;
+	fcgLBAudioDelayCut->Visible = delay_cut_available;
+	fcgCXAudioDelayCut->Visible = delay_cut_available;
+	if (!delay_cut_available)
+		fcgCXAudioDelayCut->SelectedIndex = 0;
 }
 
 ///////////////   設定ファイル関連   //////////////////////
