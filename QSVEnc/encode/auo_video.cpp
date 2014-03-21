@@ -54,9 +54,19 @@ DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *
 	} else {
 		fprintf(tcfile, "# timecode format v2\r\n");
 		if (afs) {
+			int time_additional_frame = 0;
+			//オーディオディレイカットのために映像フレームを追加したらその分を考慮したタイムコードを出力する
+			if (pe->delay_cut_additional_vframe) {
+				//24fpsと30fpsどちらに近いかを考慮する
+				const int multi_for_additional_vframe = 4 + !!fps_after_afs_is_24fps(frame_n, pe);
+				for (int i = 0; i < pe->delay_cut_additional_vframe; i++)
+					fprintf(tcfile, "%.6lf\r\n", i * multi_for_additional_vframe * tm_multi);
+
+				time_additional_frame = pe->delay_cut_additional_vframe * multi_for_additional_vframe;
+			}
 			for (int i = 0; i < frame_n; i++)
 				if (jitter[i] != DROP_FRAME_FLAG)
-					fprintf(tcfile, "%.6lf\r\n", (i * 4 + jitter[i]) * tm_multi);
+					fprintf(tcfile, "%.6lf\r\n", (i * 4 + jitter[i] + time_additional_frame) * tm_multi);
 		} else {
 			frame_n += pe->delay_cut_additional_vframe;
 			for (int i = 0; i < frame_n; i++)

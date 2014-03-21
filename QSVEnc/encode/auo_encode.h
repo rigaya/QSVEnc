@@ -27,6 +27,10 @@ static const char * const VID_FILE_APPENDIX = "_vid";
 
 typedef AUO_RESULT (*encode_task) (CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
 
+int additional_vframe_for_aud_delay_cut(double fps, int audio_rate, int audio_delay);
+int additional_silence_for_aud_delay_cut(double fps, int audio_rate, int audio_delay, int vframe_added = -1);
+BOOL fps_after_afs_is_24fps(const int frame_n, const PRM_ENC *pe);
+
 void get_aud_filename(char *audfile, size_t nSize, const PRM_ENC *pe, int i_aud); //音声一時ファイル名を作成
 void get_muxout_filename(char *filename, size_t nSize, const SYSTEM_DATA *sys_dat, const PRM_ENC *pe); //mux出力ファイル名を作成
 void set_chap_filename(char *chap_file, size_t cf_nSize, char *chap_apple, size_t ca_nSize, const char *chap_base, 
@@ -41,7 +45,7 @@ AUO_RESULT getLogFilePath(char *log_file_path, size_t nSize, const PRM_ENC *pe, 
 int check_video_ouput(const CONF_GUIEX *conf, const OUTPUT_INFO *oip);
 int check_muxer_to_be_used(const CONF_GUIEX *conf, int video_output_type, BOOL audio_output);
 
-double get_duration(const OUTPUT_INFO *oip);
+double get_duration(const OUTPUT_INFO *oip, const PRM_ENC *pe);
 
 int ReadLogExe(PIPE_SET *pipes, const char *exename, LOG_CACHE *log_line_cache);
 void write_cached_lines(int log_level, const char *exename, LOG_CACHE *log_line_cache);

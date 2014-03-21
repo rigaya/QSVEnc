@@ -25,6 +25,20 @@
 #include "auo_encode.h"
 #include "auo_error.h"
 
+int additional_vframe_for_aud_delay_cut(double fps, int audio_rate, int audio_delay) {
+	double delay_sec = audio_delay / (double)audio_rate;
+	return (int)ceil(delay_sec * fps);
+}
+
+int additional_silence_for_aud_delay_cut(double fps, int audio_rate, int audio_delay, int vframe_added) {
+	vframe_added = (vframe_added >= 0) ? vframe_added : additional_vframe_for_aud_delay_cut(fps, audio_rate, audio_delay);
+	return (int)(vframe_added / (double)fps * audio_rate + 0.5) - audio_delay;
+}
+
+BOOL fps_after_afs_is_24fps(const int frame_n, const PRM_ENC *pe) {
+	return (pe->drop_count > (frame_n * 0.10));
+}
+
 void get_aud_filename(char *audfile, size_t nSize, const PRM_ENC *pe, int i_aud) {
 	PathCombineLong(audfile, nSize, pe->aud_temp_dir, PathFindFileName(pe->temp_filename));
 	apply_appendix(audfile, nSize, audfile, pe->append.aud[i_aud]);
@@ -342,9 +356,9 @@ AUO_RESULT getLogFilePath(char *log_file_path, size_t nSize, const PRM_ENC *pe, 
 	return ret;
 }
 
-double get_duration(const OUTPUT_INFO *oip) {
+double get_duration(const OUTPUT_INFO *oip, const PRM_ENC *pe) {
 	//Aviutlから再生時間情報を取得
-	return ((double)oip->n * (double)oip->scale) / (double)oip->rate;
+	return ((double)(oip->n + pe->delay_cut_additional_vframe) * (double)oip->scale) / (double)oip->rate;
 }
 
 int ReadLogExe(PIPE_SET *pipes, const char *exename, LOG_CACHE *log_line_cache) {

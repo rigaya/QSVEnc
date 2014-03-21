@@ -261,21 +261,35 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 	replace(cmd, nSize, "%{ex_cmd}", exstr);
 	if (!enable_chap_mux) {
 		del_chap_cmd(cmd, FALSE); //チャプター用コマンドとパラメータを削除
-	} else {
+	} else if (strstr(cmd, "%{chapter}") || strstr(cmd, "%{chap_apple}")) {
 		//もし、チャプターファイル名への置換があるなら、チャプターファイルの存在をチェックする
-		if ((strstr(cmd, "%{chapter}") || strstr(cmd, "%{chap_apple}")) && !PathFileExists(chap_file)) {
+		if (!PathFileExists(chap_file)) {
 			//チャプターファイルが存在しない
 			warning_mux_no_chapter_file();
 			del_chap_cmd(cmd, FALSE);
 		} else {
 			replace(cmd, nSize, "%{chapter}", chap_file);
+			//オーディオディレイのカットを映像追加で行ったら、チャプター位置の修正も必要
+			if (0 < pe->delay_cut_additional_vframe) {
+				const double fps = oip->rate / (double)oip->scale * (fps_after_afs_is_24fps(oip->n, pe) ? 0.8 : 1.0);
+				const int vid_delay_ms = (int)(pe->delay_cut_additional_vframe * 1000.0 / fps + 0.5);
+				char chap_file_new[MAX_PATH_LEN];
+				apply_appendix(chap_file_new, _countof(chap_file_new), chap_file, ".new.txt");
+				int sts = create_chapter_file_delayed_by_add_vframe(chap_file_new, chap_file, vid_delay_ms);
+				if (AUO_CHAP_ERR_NONE != sts) {
+					warning_mux_chapter(sts);
+				} else {
+					remove(chap_file);
+					rename(chap_file_new, chap_file);
+				}
+			}
 			//mp4系ならapple形式チャプター追加も考慮する
 			if (pe->muxer_to_be_used == MUXER_MP4 || 
 				pe->muxer_to_be_used == MUXER_TC2MP4 || 
 				pe->muxer_to_be_used == MUXER_MP4_RAW) {
 				//apple形式チャプターファイルへの置換が行われたら、apple形式チャプターファイルを作成する
 				if (strstr(cmd, "%{chap_apple}")) {
-					int sts = convert_chapter(chap_apple, chap_file, CODE_PAGE_UNSET, get_duration(oip));
+					int sts = convert_chapter(chap_apple, chap_file, CODE_PAGE_UNSET, get_duration(oip, pe));
 					if (sts != AUO_CHAP_ERR_NONE) {
 						warning_mux_chapter(sts);
 						del_chap_cmd(cmd, TRUE);

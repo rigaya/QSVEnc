@@ -48,4 +48,6 @@ double get_chap_second(chapter_t *chap);
 //orig_fileがapple形式の場合、nero形式を出力してファイル名をスワップする
 int convert_chapter(const char *new_apple_filename, const char *orig_nero_filename, DWORD orig_code_page, double duration);
 
+int create_chapter_file_delayed_by_add_vframe(const char *new_filename, const char *orig_filename, int delay_ms);
+
 #endif //_AUO_CHAPTER_H_

@@ -215,6 +215,19 @@ static void show_audio_delay_cut_info(const PRM_ENC *pe) {
 	}
 }
 
+static void recalculate_audio_delay_cut_for_afs(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const AUDIO_SETTINGS *aud_stg) {
+	if (pe->delay_cut_additional_aframe > 0 || pe->delay_cut_additional_vframe > 0) { //ディレイカットの動画追加モード
+		if (   conf->vid.afs                      //自動フィールドシフト
+			&& 0 == conf->aud.audio_encode_timing //音声エンコ順が「後」
+			&& fps_after_afs_is_24fps(oip->n, pe)) { //推定fpsが24fpsで修正が必要
+			//追加した動画フレーム数を指定して再計算
+			const int audio_delay = aud_stg->mode[conf->aud.enc_mode].delay;
+			double fps_after_afs = oip->rate / (double)oip->scale * 0.8;
+			pe->delay_cut_additional_aframe = additional_silence_for_aud_delay_cut(fps_after_afs, oip->audio_rate, audio_delay, pe->delay_cut_additional_vframe);
+		}
+	}
+}
+
 static AUO_RESULT silent_wav_output(FILE *fp, int samples, int wav_8bit, int audio_ch) {
 	if (NULL == fp)
 		return AUO_RESULT_ERROR;
@@ -424,6 +437,9 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 	//使用するエンコーダの設定を選択
 	AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud[conf->aud.encoder];
 	pe->aud_count = (aud_stg->mode[conf->aud.enc_mode].use_8bit == 2) ? 2 : 1;
+	
+	//もし必要なら、オーディオディレイカット用の追加sample数を再計算する
+	recalculate_audio_delay_cut_for_afs(conf, oip, pe, aud_stg);
 
 	//可能ならfaw2aacを使用
 	if (conf->aud.encoder == sys_dat->exstg->s_aud_faw_index)

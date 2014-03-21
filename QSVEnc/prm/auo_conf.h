@@ -42,6 +42,12 @@ enum {
 	CONF_ERROR_INVALID_FILENAME,
 };
 
+enum {
+	AUDIO_DELAY_CUT_NONE         = 0, //音声エンコード遅延の削除を行わない
+	AUDIO_DELAY_CUT_DELETE_AUDIO = 1, //音声エンコード遅延の削除を音声の先頭を削除することで行う
+	AUDIO_DELAY_CUT_ADD_VIDEO    = 2, //音声エンコード遅延の削除を映像を先頭に追加することで行う
+};
+
 const int CMDEX_MAX_LEN = 2048;    //追加コマンドラインの最大長
 
 typedef struct {

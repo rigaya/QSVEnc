@@ -103,6 +103,13 @@ int write_apple_chap(const char *filename, IMultiLanguage2 *pImul, chapter_list_
 				chap_list->data[i].h, chap_list->data[i].m, chap_list->data[i].s, chap_list->data[i].ms, chap_list->data[i].name);
 			write_utf8(fp, pImul, &wchar_buffer[0], NULL);
 		}
+
+		if (duration <= 0.0 && 0 < chap_list->count) {
+			chapter_t *last_chap = &chap_list->data[chap_list->count-1];
+			duration = last_chap->h * 3600.0 + last_chap->m * 60.0 + last_chap->s * 1.0 + last_chap->ms * 0.001;
+			duration += 0.001;
+		}
+
 		write_chapter_apple_foot(fp, pImul, duration);
 		fclose(fp);
 	}
@@ -465,6 +472,49 @@ int convert_chapter(const char *new_filename, const char *orig_filename, DWORD o
 	if (chap_type == CHAP_TYPE_APPLE)
 		if (!swap_file(orig_filename, new_filename))
 			sts = AUO_CHAP_ERR_FILE_SWAP;
+
+	CoUninitialize();
+
+	return sts;
+}
+
+int create_chapter_file_delayed_by_add_vframe(const char *new_filename, const char *orig_filename, int delay_ms) {
+	chapter_list_t chap_list = { 0 };
+	int chapter_type = CHAP_TYPE_UNKNOWN;
+	IMultiLanguage2 *pImul = NULL;
+	//COM用初期化
+	CoInitialize(NULL);
+
+	int sts = AUO_CHAP_ERR_NONE;
+	if (S_OK != CoCreateInstance(CLSID_CMultiLanguage, NULL, CLSCTX_INPROC_SERVER, IID_IMultiLanguage2, (void**)&pImul) || pImul == NULL) {
+		sts = AUO_CHAP_ERR_INIT_IMUL2;
+	} else if (CHAP_TYPE_UNKNOWN == (chapter_type = check_chap_type_from_file(orig_filename, pImul, CODE_PAGE_UNSET))) {
+		sts = AUO_CHAP_ERR_INVALID_FMT;
+	} else if (AUO_CHAP_ERR_NONE == (sts = (chapter_type == CHAP_TYPE_NERO) ? read_nero_chap(orig_filename, pImul, CODE_PAGE_UNSET, &chap_list)
+										                                    : read_apple_chap(orig_filename, pImul, &chap_list))) {
+
+		for (int i = 0; i < chap_list.count; i++) {
+			chapter_t *data = &chap_list.data[i];
+			INT64 chap_time_ms = (((INT64)(data->h * 60 + data->m) * 60) + data->s) * 1000 + data->ms;
+			if (0 < chap_time_ms)
+				chap_time_ms += delay_ms;
+			data->h = (int)(chap_time_ms / (3600 * 1000));
+			chap_time_ms -= data->h * (3600 * 1000);
+			data->m = (int)(chap_time_ms / (60 * 1000));
+			chap_time_ms -= data->m * (60 * 1000);
+			data->s = (int)(chap_time_ms / 1000);
+			chap_time_ms -= data->s * 1000;
+			data->ms = (int)chap_time_ms;
+		}
+
+		sts = (chapter_type == CHAP_TYPE_NERO) ? write_nero_chap(new_filename, pImul, &chap_list)
+										       : write_apple_chap(new_filename, pImul, &chap_list, 0.0);
+
+		free_chapter_list(&chap_list);
+	}
+	//開放処理
+	if (pImul)
+		pImul->Release();
 
 	CoUninitialize();
 

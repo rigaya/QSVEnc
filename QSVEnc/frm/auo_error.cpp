@@ -37,6 +37,10 @@ void error_nothing_to_output() {
 	write_log_auo_line(LOG_ERROR, "出力すべきものがありません。");
 }
 
+void info_afs_audio_delay_confliction() {
+	write_log_auo_line(LOG_INFO, "自動フィールドシフト、音声ディレイカット[動画追加]が同時に指定されている場合には、音声エンコードは後で行います。");
+}
+
 void error_invalid_resolution(BOOL width, int mul, int w, int h) {
 	write_log_auo_line_fmt(LOG_ERROR, "%s入力解像度が %d で割りきれません。エンコードできません。入力解像度:%dx%d",
 		(width) ? "横" : "縦", mul, w, h);
