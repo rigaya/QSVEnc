@@ -57,8 +57,8 @@ static cl_int cl_create_kernel(cl_data_t *cl_data, const cl_func_t *cl) {
 
 static cl_int cl_calc(const cl_data_t *cl_data, const cl_func_t *cl) {
 	using namespace std;
-	const int LOOKAROUND = 12;
-	const int BUFFER_X = 3072;
+	const int LOOKAROUND = 10;
+	const int BUFFER_X = 1024 * 8;
 	const int BUFFER_Y = 1024;
 	const size_t BUFFER_BYTE_SIZE = BUFFER_X * BUFFER_Y * sizeof(float);
 	cl_int ret = CL_SUCCESS;
@@ -127,7 +127,7 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCH
 		return ret;
 	} else {
 		_tcscpy_s(buffer, buffer_size, to_tchar(cl_info_buffer).c_str());
-
+#if 0
 		bool abort_get_frequency_loop = false;
 		std::future<int> f_max_frequency = std::async([&]() {
 			int max_frequency = 0;
@@ -138,16 +138,15 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCH
 			return max_frequency;
 		});
 		Sleep(20);
-		std::thread th_boost_frequency([&cl_data, cl]() {
-			cl_int ret = CL_SUCCESS;
-			if (   CL_SUCCESS != (ret = cl_create_kernel(cl_data, cl))
-				|| CL_SUCCESS != (ret = cl_calc(cl_data, cl))) {
-				;
-			}
-		});
-		th_boost_frequency.join(); //スレッド終了待機
+		cl_int ret = CL_SUCCESS;
+		if (   CL_SUCCESS != (ret = cl_create_kernel(cl_data, cl))
+			|| CL_SUCCESS != (ret = cl_calc(cl_data, cl))) {
+			;
+		}
 		abort_get_frequency_loop = true;
 		const int max_device_frequency = f_max_frequency.get(); //f_max_frequencyにセットされる値を待つ (async終了同期)
+#endif
+		const int max_device_frequency = cl_get_device_max_clock_frequency_mhz(cl_data, cl);
 		if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
 			_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%d EU)"), *(cl_uint *)cl_info_buffer);
 		}
