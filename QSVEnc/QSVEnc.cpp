@@ -255,6 +255,7 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 #pragma warning( disable: 4100 )
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
 	ZeroMemory(conf, sizeof(CONF_GUIEX));
+	guiEx_config::write_conf_header(conf);
 	init_qsvp_prm(&conf->qsv);
 	conf->size_all = CONF_INITIALIZED;
 }
