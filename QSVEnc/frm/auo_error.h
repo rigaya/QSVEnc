@@ -61,6 +61,7 @@ void info_encoding_aborted();
 
 void warning_mux_no_chapter_file();
 void warning_mux_chapter(int sts);
+void warning_chapter_convert_to_utf8(int sts);
 
 void error_mfx_libsw();
 void error_mfx_libhw();

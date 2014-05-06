@@ -439,6 +439,7 @@ void guiEx_settings::load_local() {
 	s_local.disable_tooltip_help      = GetPrivateProfileInt(   ini_section_main, "disable_tooltip_help",     DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
 	s_local.disable_visual_styles     = GetPrivateProfileInt(   ini_section_main, "disable_visual_styles",    DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
 	s_local.enable_stg_esc_key        = GetPrivateProfileInt(   ini_section_main, "enable_stg_esc_key",       DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
+	s_local.chap_nero_convert_to_utf8 = GetPrivateProfileInt(   ini_section_main, "chap_nero_convert_to_utf8",DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
 	s_local.get_relative_path         = GetPrivateProfileInt(   ini_section_main, "get_relative_path",        DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
 	s_local.thread_tuning             = GetPrivateProfileInt(   ini_section_main, "thread_tuning",            DEFAULT_THREAD_TUNING,         conf_fileName);
 	s_local.timer_period_tuning       = GetPrivateProfileInt(   ini_section_main, "timer_period_tuning",      DEFAULT_TIMER_PERIOD_TUNING,   conf_fileName);
@@ -519,6 +520,7 @@ void guiEx_settings::save_local() {
 	WritePrivateProfileIntWithDefault(   ini_section_main, "disable_tooltip_help",      s_local.disable_tooltip_help,     DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "disable_visual_styles",     s_local.disable_visual_styles,    DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "enable_stg_esc_key",        s_local.enable_stg_esc_key,       DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
+	WritePrivateProfileIntWithDefault(   ini_section_main, "chap_nero_convert_to_utf8", s_local.chap_nero_convert_to_utf8,DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "get_relative_path",         s_local.get_relative_path,        DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "thread_tuning",             s_local.thread_tuning,            DEFAULT_THREAD_TUNING,         conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "timer_period_tuning",       s_local.timer_period_tuning,      DEFAULT_TIMER_PERIOD_TUNING,   conf_fileName);

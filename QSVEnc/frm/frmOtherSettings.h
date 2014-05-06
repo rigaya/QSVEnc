@@ -98,6 +98,7 @@ namespace QSVEnc {
 	private: System::Windows::Forms::Label^  fosLBDefaultOutExt;
 	private: System::Windows::Forms::CheckBox^  fosCBTimerPeriodTuning;
 	private: System::Windows::Forms::CheckBox^  fosCBRunBatMinimized;
+	private: System::Windows::Forms::CheckBox^  fosCBChapConvertToUTF8;
 
 
 
@@ -136,6 +137,7 @@ namespace QSVEnc {
 			this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
 			this->fosCBTimerPeriodTuning = (gcnew System::Windows::Forms::CheckBox());
 			this->fosCBRunBatMinimized = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBChapConvertToUTF8 = (gcnew System::Windows::Forms::CheckBox());
 			this->SuspendLayout();
 			// 
 			// fosCBCancel
@@ -210,7 +212,7 @@ namespace QSVEnc {
 			// fosLBDisableVisualStyles
 			// 
 			this->fosLBDisableVisualStyles->AutoSize = true;
-			this->fosLBDisableVisualStyles->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point, 
+			this->fosLBDisableVisualStyles->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fosLBDisableVisualStyles->ForeColor = System::Drawing::Color::OrangeRed;
 			this->fosLBDisableVisualStyles->Location = System::Drawing::Point(45, 282);
@@ -272,7 +274,7 @@ namespace QSVEnc {
 			// fosfontDialog
 			// 
 			this->fosfontDialog->AllowVerticalFonts = false;
-			this->fosfontDialog->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point, 
+			this->fosfontDialog->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
 			this->fosfontDialog->FontMustExist = true;
 			this->fosfontDialog->MaxSize = 9;
@@ -292,7 +294,8 @@ namespace QSVEnc {
 			// fosCBThreadTuning
 			// 
 			this->fosCBThreadTuning->AutoSize = true;
-			this->fosCBThreadTuning->Location = System::Drawing::Point(24, 425);
+			this->fosCBThreadTuning->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
+			this->fosCBThreadTuning->Location = System::Drawing::Point(261, 422);
 			this->fosCBThreadTuning->Name = L"fosCBThreadTuning";
 			this->fosCBThreadTuning->Size = System::Drawing::Size(113, 19);
 			this->fosCBThreadTuning->TabIndex = 18;
@@ -311,7 +314,7 @@ namespace QSVEnc {
 			// fosLBDefaultOutExt2
 			// 
 			this->fosLBDefaultOutExt2->AutoSize = true;
-			this->fosLBDefaultOutExt2->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point, 
+			this->fosLBDefaultOutExt2->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fosLBDefaultOutExt2->ForeColor = System::Drawing::Color::OrangeRed;
 			this->fosLBDefaultOutExt2->Location = System::Drawing::Point(213, 83);
@@ -341,7 +344,7 @@ namespace QSVEnc {
 			// fosCBTimerPeriodTuning
 			// 
 			this->fosCBTimerPeriodTuning->AutoSize = true;
-			this->fosCBTimerPeriodTuning->Location = System::Drawing::Point(24, 454);
+			this->fosCBTimerPeriodTuning->Location = System::Drawing::Point(24, 422);
 			this->fosCBTimerPeriodTuning->Name = L"fosCBTimerPeriodTuning";
 			this->fosCBTimerPeriodTuning->Size = System::Drawing::Size(192, 19);
 			this->fosCBTimerPeriodTuning->TabIndex = 23;
@@ -351,12 +354,22 @@ namespace QSVEnc {
 			// fosCBRunBatMinimized
 			// 
 			this->fosCBRunBatMinimized->AutoSize = true;
-			this->fosCBRunBatMinimized->Location = System::Drawing::Point(24, 482);
+			this->fosCBRunBatMinimized->Location = System::Drawing::Point(24, 450);
 			this->fosCBRunBatMinimized->Name = L"fosCBRunBatMinimized";
 			this->fosCBRunBatMinimized->Size = System::Drawing::Size(205, 19);
 			this->fosCBRunBatMinimized->TabIndex = 24;
 			this->fosCBRunBatMinimized->Text = L"エンコ前後バッチ処理を最小化で実行";
 			this->fosCBRunBatMinimized->UseVisualStyleBackColor = true;
+			// 
+			// fosCBChapConvertToUTF8
+			// 
+			this->fosCBChapConvertToUTF8->AutoSize = true;
+			this->fosCBChapConvertToUTF8->Location = System::Drawing::Point(24, 477);
+			this->fosCBChapConvertToUTF8->Name = L"fosCBChapConvertToUTF8";
+			this->fosCBChapConvertToUTF8->Size = System::Drawing::Size(204, 19);
+			this->fosCBChapConvertToUTF8->TabIndex = 25;
+			this->fosCBChapConvertToUTF8->Text = L"チャプターmux時、UTF-8に変換する";
+			this->fosCBChapConvertToUTF8->UseVisualStyleBackColor = true;
 			// 
 			// frmOtherSettings
 			// 
@@ -365,6 +378,7 @@ namespace QSVEnc {
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Dpi;
 			this->CancelButton = this->fosCBCancel;
 			this->ClientSize = System::Drawing::Size(392, 552);
+			this->Controls->Add(this->fosCBChapConvertToUTF8);
 			this->Controls->Add(this->fosCBRunBatMinimized);
 			this->Controls->Add(this->fosCBTimerPeriodTuning);
 			this->Controls->Add(this->fosLBDefaultOutExt2);
@@ -386,7 +400,7 @@ namespace QSVEnc {
 			this->Controls->Add(this->fosTXStgDir);
 			this->Controls->Add(this->fosCBOK);
 			this->Controls->Add(this->fosCBCancel);
-			this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point, 
+			this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(0)));
 			this->FormBorderStyle = System::Windows::Forms::FormBorderStyle::FixedDialog;
 			this->KeyPreview = true;
@@ -410,17 +424,18 @@ namespace QSVEnc {
 			stgDir = fosTXStgDir->Text;
 			fos_ex_stg->load_encode_stg();
 			fos_ex_stg->load_log_win();
-			fos_ex_stg->s_local.auto_afs_disable      = fosCBAutoAFSDisable->Checked;
-			fos_ex_stg->s_local.auto_del_chap         = fosCBAutoDelChap->Checked;
-			fos_ex_stg->s_local.disable_tooltip_help  = fosCBDisableToolTip->Checked;
-			fos_ex_stg->s_local.disable_visual_styles = fosCBDisableVisualStyles->Checked;
-			fos_ex_stg->s_local.enable_stg_esc_key    = fosCBStgEscKey->Checked;
-			fos_ex_stg->s_local.thread_tuning         = fosCBThreadTuning->Checked;
-			fos_ex_stg->s_local.timer_period_tuning   = fosCBTimerPeriodTuning->Checked;
-			fos_ex_stg->s_log.minimized               = fosCBLogStartMinimized->Checked;
-			fos_ex_stg->s_log.transparent             = !fosCBLogDisableTransparency->Checked;
-			fos_ex_stg->s_local.get_relative_path     = fosCBGetRelativePath->Checked;
-			fos_ex_stg->s_local.default_output_ext    = fosCXDefaultOutExt->SelectedIndex;
+			fos_ex_stg->s_local.auto_afs_disable          = fosCBAutoAFSDisable->Checked;
+			fos_ex_stg->s_local.auto_del_chap             = fosCBAutoDelChap->Checked;
+			fos_ex_stg->s_local.disable_tooltip_help      = fosCBDisableToolTip->Checked;
+			fos_ex_stg->s_local.disable_visual_styles     = fosCBDisableVisualStyles->Checked;
+			fos_ex_stg->s_local.enable_stg_esc_key        = fosCBStgEscKey->Checked;
+			fos_ex_stg->s_local.chap_nero_convert_to_utf8 = fosCBChapConvertToUTF8->Checked;
+			fos_ex_stg->s_local.thread_tuning             = fosCBThreadTuning->Checked;
+			fos_ex_stg->s_local.timer_period_tuning       = fosCBTimerPeriodTuning->Checked;
+			fos_ex_stg->s_log.minimized                   = fosCBLogStartMinimized->Checked;
+			fos_ex_stg->s_log.transparent                 = !fosCBLogDisableTransparency->Checked;
+			fos_ex_stg->s_local.get_relative_path         = fosCBGetRelativePath->Checked;
+			fos_ex_stg->s_local.default_output_ext        = fosCXDefaultOutExt->SelectedIndex;
 			fos_ex_stg->save_local();
 			fos_ex_stg->save_log_win();
 			this->Close();
@@ -446,6 +461,7 @@ namespace QSVEnc {
 			fosCBDisableToolTip->Checked         = fos_ex_stg->s_local.disable_tooltip_help != 0;
 			fosCBDisableVisualStyles->Checked    = fos_ex_stg->s_local.disable_visual_styles != 0;
 			fosCBStgEscKey->Checked              = fos_ex_stg->s_local.enable_stg_esc_key != 0;
+			fosCBChapConvertToUTF8->Checked      = fos_ex_stg->s_local.chap_nero_convert_to_utf8 != 0;
 			fosCBThreadTuning->Checked           = fos_ex_stg->s_local.thread_tuning != 0;
 			fosCBTimerPeriodTuning->Checked      = fos_ex_stg->s_local.timer_period_tuning != 0;
 			fosCBLogStartMinimized->Checked      = fos_ex_stg->s_log.minimized != 0;
