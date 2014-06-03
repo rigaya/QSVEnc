@@ -10,8 +10,6 @@
 #include "avi_reader.h"
 #if ENABLE_AVI_READER
 
-#define ENABLE_AVI_DIRECT_MEMCPY 0
-
 CAVIReader::CAVIReader() {
 	m_pAviFile = NULL;
 	m_pAviStream = NULL;
@@ -125,17 +123,6 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 		|| MFX_FOURCC_RGB3 == m_ColorFormat) {
 		m_inputFrameInfo.FourCC = MFX_FOURCC_RGB4;
 		m_inputFrameInfo.ChromaFormat = 0;
-#if ENABLE_AVI_DIRECT_MEMCPY
-	} else if (   MFX_FOURCC_YV12 == m_ColorFormat
-		       && (m_inputFrameInfo.Width + pInputCrop->left + pInputCrop->right) % 256 == 0
-			   && (m_inputFrameInfo.Height + pInputCrop->up + pInputCrop->bottom) %  32 == 0) {
-		m_inputFrameInfo.CropW = m_inputFrameInfo.Width;
-		m_inputFrameInfo.CropH = m_inputFrameInfo.Height;
-		m_inputFrameInfo.CropX = pInputCrop->left;
-		m_inputFrameInfo.CropY = pInputCrop->up;
-		m_inputFrameInfo.FourCC = MFX_FOURCC_YV12;
-		m_inputFrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-#endif //ENABLE_AVI_DIRECT_MEMCPY
 	} else {
 		m_inputFrameInfo.FourCC = MFX_FOURCC_NV12;
 		m_inputFrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
@@ -207,18 +194,6 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	pitch = pData->Pitch;
 	ptr_dst = pData->Y + pInfo->CropX + pInfo->CropY * pData->Pitch;
 
-#if ENABLE_AVI_DIRECT_MEMCPY
-	if (   m_ColorFormat  == MFX_FOURCC_YV12
-		&& FourCCRequired == MFX_FOURCC_YV12
-		&& pitch == w
-		&& pData->V - pData->Y == w * h
-		&& m_pGetFrame == NULL) {
-		//directly copy frame into buffer
-		LONG sizeRead = 0;
-		if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, pData->Y, w * h * 3 / 2, &sizeRead, NULL))
-			return MFX_ERR_MORE_DATA;
-	} else {
-#endif //#if ENABLE_AVI_DIRECT_MEMCPY
 		if (m_pGetFrame) {
 			if (NULL == (ptr_src = (mfxU8 *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_nInputFrames)))
 				return MFX_ERR_MORE_DATA;
@@ -531,9 +506,6 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 		default:
 			return MFX_ERR_UNSUPPORTED;
 		}
-#if ENABLE_AVI_DIRECT_MEMCPY
-	}
-#endif //#if ENABLE_AVI_DIRECT_MEMCPY
 
 	m_pEncSatusInfo->m_nInputFrames++;
 	// display update
