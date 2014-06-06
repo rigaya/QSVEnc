@@ -639,7 +639,7 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDetail;
 private: System::Windows::Forms::Label^  fcgLBDetail;
 
 
-private: System::Windows::Forms::CheckBox^  fcgCBUseVppColorFmtConvertion;
+
 
 
 
@@ -909,6 +909,8 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgTSLSettingsNotes = (gcnew System::Windows::Forms::ToolStripLabel());
 			this->fcgTSTSettingsNotes = (gcnew System::Windows::Forms::ToolStripTextBox());
 			this->fcggroupBoxAudio = (gcnew System::Windows::Forms::GroupBox());
+			this->fcgCXAudioDelayCut = (gcnew System::Windows::Forms::ComboBox());
+			this->fcgLBAudioDelayCut = (gcnew System::Windows::Forms::Label());
 			this->fcgLBAudioEncTiming = (gcnew System::Windows::Forms::Label());
 			this->fcgCXAudioEncTiming = (gcnew System::Windows::Forms::ComboBox());
 			this->fcgLBAudioTemp = (gcnew System::Windows::Forms::Label());
@@ -1101,7 +1103,6 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcggroupBoxVppDetail = (gcnew System::Windows::Forms::GroupBox());
 			this->fcgNUVppDetail = (gcnew System::Windows::Forms::NumericUpDown());
 			this->fcgLBDetail = (gcnew System::Windows::Forms::Label());
-			this->fcgCBUseVppColorFmtConvertion = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBVppDenoise = (gcnew System::Windows::Forms::CheckBox());
 			this->fcggroupBoxVppDenoise = (gcnew System::Windows::Forms::GroupBox());
 			this->fcgNUVppDenoise = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1131,8 +1132,6 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
-			this->fcgCXAudioDelayCut = (gcnew System::Windows::Forms::ComboBox());
-			this->fcgLBAudioDelayCut = (gcnew System::Windows::Forms::Label());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -1327,6 +1326,25 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcggroupBoxAudio->TabIndex = 2;
 			this->fcggroupBoxAudio->TabStop = false;
 			this->fcggroupBoxAudio->Text = L"音声";
+			// 
+			// fcgCXAudioDelayCut
+			// 
+			this->fcgCXAudioDelayCut->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fcgCXAudioDelayCut->FormattingEnabled = true;
+			this->fcgCXAudioDelayCut->Location = System::Drawing::Point(296, 141);
+			this->fcgCXAudioDelayCut->Name = L"fcgCXAudioDelayCut";
+			this->fcgCXAudioDelayCut->Size = System::Drawing::Size(70, 22);
+			this->fcgCXAudioDelayCut->TabIndex = 11;
+			this->fcgCXAudioDelayCut->Tag = L"chValue";
+			// 
+			// fcgLBAudioDelayCut
+			// 
+			this->fcgLBAudioDelayCut->AutoSize = true;
+			this->fcgLBAudioDelayCut->Location = System::Drawing::Point(229, 144);
+			this->fcgLBAudioDelayCut->Name = L"fcgLBAudioDelayCut";
+			this->fcgLBAudioDelayCut->Size = System::Drawing::Size(60, 14);
+			this->fcgLBAudioDelayCut->TabIndex = 31;
+			this->fcgLBAudioDelayCut->Text = L"ディレイカット";
 			// 
 			// fcgLBAudioEncTiming
 			// 
@@ -3308,7 +3326,6 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcggroupBoxVpp->Controls->Add(this->fcgLBDeinterlace);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgCBVppDetail);
 			this->fcggroupBoxVpp->Controls->Add(this->fcggroupBoxVppDetail);
-			this->fcggroupBoxVpp->Controls->Add(this->fcgCBUseVppColorFmtConvertion);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgCBVppDenoise);
 			this->fcggroupBoxVpp->Controls->Add(this->fcggroupBoxVppDenoise);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgCBVppResize);
@@ -3388,18 +3405,6 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgLBDetail->Size = System::Drawing::Size(26, 14);
 			this->fcgLBDetail->TabIndex = 5;
 			this->fcgLBDetail->Text = L"強さ";
-			// 
-			// fcgCBUseVppColorFmtConvertion
-			// 
-			this->fcgCBUseVppColorFmtConvertion->AutoSize = true;
-			this->fcgCBUseVppColorFmtConvertion->Location = System::Drawing::Point(293, 23);
-			this->fcgCBUseVppColorFmtConvertion->Name = L"fcgCBUseVppColorFmtConvertion";
-			this->fcgCBUseVppColorFmtConvertion->Size = System::Drawing::Size(276, 18);
-			this->fcgCBUseVppColorFmtConvertion->TabIndex = 14;
-			this->fcgCBUseVppColorFmtConvertion->Tag = L"chValue";
-			this->fcgCBUseVppColorFmtConvertion->Text = L"Intel Media SDK により YUY2 -> NV12 変換を行う";
-			this->fcgCBUseVppColorFmtConvertion->UseVisualStyleBackColor = true;
-			this->fcgCBUseVppColorFmtConvertion->Visible = false;
 			// 
 			// fcgCBVppDenoise
 			// 
@@ -3720,25 +3725,6 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgLBguiExBlog->Text = L"QSVEncについて";
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
-			// 
-			// fcgCXAudioDelayCut
-			// 
-			this->fcgCXAudioDelayCut->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-			this->fcgCXAudioDelayCut->FormattingEnabled = true;
-			this->fcgCXAudioDelayCut->Location = System::Drawing::Point(296, 141);
-			this->fcgCXAudioDelayCut->Name = L"fcgCXAudioDelayCut";
-			this->fcgCXAudioDelayCut->Size = System::Drawing::Size(70, 22);
-			this->fcgCXAudioDelayCut->TabIndex = 11;
-			this->fcgCXAudioDelayCut->Tag = L"chValue";
-			// 
-			// fcgLBAudioDelayCut
-			// 
-			this->fcgLBAudioDelayCut->AutoSize = true;
-			this->fcgLBAudioDelayCut->Location = System::Drawing::Point(229, 144);
-			this->fcgLBAudioDelayCut->Name = L"fcgLBAudioDelayCut";
-			this->fcgLBAudioDelayCut->Size = System::Drawing::Size(60, 14);
-			this->fcgLBAudioDelayCut->TabIndex = 31;
-			this->fcgLBAudioDelayCut->Text = L"ディレイカット";
 			// 
 			// frmConfig
 			// 

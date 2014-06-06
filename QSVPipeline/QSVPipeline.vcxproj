@@ -247,6 +247,15 @@
     <ClCompile Include="src\avs_reader.cpp" />
     <ClCompile Include="src\base_allocator.cpp" />
     <ClCompile Include="src\cl_func.cpp" />
+    <ClCompile Include="src\convert_csp.cpp" />
+    <ClCompile Include="src\convert_csp_avx.cpp">
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="src\convert_csp_avx2.cpp">
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="src\convert_csp_sse2.cpp" />
+    <ClCompile Include="src\convert_csp_ssse3.cpp" />
     <ClCompile Include="src\cpu_info.cpp" />
     <ClCompile Include="src\d3d11_allocator.cpp" />
     <ClCompile Include="src\d3d11_device.cpp" />
@@ -256,6 +265,7 @@
     <ClCompile Include="src\pipeline_encode.cpp" />
     <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
+    <ClCompile Include="src\qsv_simd.cpp" />
     <ClCompile Include="src\qsv_util.cpp" />
     <ClCompile Include="src\sample_utils.cpp" />
     <ClCompile Include="src\scene_change_detection.cpp" />
@@ -275,6 +285,8 @@
     <ClInclude Include="include\avs_reader.h" />
     <ClInclude Include="include\base_allocator.h" />
     <ClInclude Include="include\cl_func.h" />
+    <ClInclude Include="include\convert_csp.h" />
+    <ClInclude Include="include\convert_csp_simd.h" />
     <ClInclude Include="include\cpu_info.h" />
     <ClInclude Include="include\d3d11_allocator.h" />
     <ClInclude Include="include\d3d11_device.h" />
@@ -285,6 +297,7 @@
     <ClInclude Include="include\pipeline_encode.h" />
     <ClInclude Include="include\qsv_control.h" />
     <ClInclude Include="include\qsv_prm.h" />
+    <ClInclude Include="include\qsv_simd.h" />
     <ClInclude Include="include\qsv_util.h" />
     <ClInclude Include="include\qsv_version.h" />
     <ClInclude Include="include\sample_defs.h" />

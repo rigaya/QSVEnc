@@ -62,7 +62,7 @@ private:
     AVS_Clip *m_sAVSclip;
     const AVS_VideoInfo *m_sAVSinfo;
 
-	avs_dll_t m_sAvisynth; 
+	avs_dll_t m_sAvisynth;
 };
 
 #endif //ENABLE_AVISYNTH_READER

@@ -8,6 +8,7 @@
 //  ----------------------------------------------------------------------------------------
 
 #include <intrin.h>
+#include "qsv_simd.h"
 #include "scene_change_detection.h"
 #include "scene_change_detection_simd.h"
 
@@ -15,31 +16,6 @@
 static const func_make_hist_simd FUNC_MAKE_HIST_LIST[] = {
 	make_hist_sse2, make_hist_sse41_popcnt, make_hist_avx, make_hist_avx2
 };
-static DWORD get_availableSIMD() {
-	int CPUInfo[4];
-	__cpuid(CPUInfo, 1);
-	DWORD simd = NONE;
-	if (CPUInfo[3] & 0x04000000) simd |= SSE2;
-	if (CPUInfo[2] & 0x00000001) simd |= SSE3;
-	if (CPUInfo[2] & 0x00000200) simd |= SSSE3;
-	if (CPUInfo[2] & 0x00080000) simd |= SSE41;
-	if (CPUInfo[2] & 0x00100000) simd |= SSE42;
-	if (CPUInfo[2] & 0x00800000) simd |= POPCNT;
-#if (_MSC_VER >= 1600)
-	UINT64 xgetbv = 0;
-	if ((CPUInfo[2] & 0x18000000) == 0x18000000) {
-		xgetbv = _xgetbv(0);
-		if ((xgetbv & 0x06) == 0x06)
-			simd |= AVX;
-	}
-#endif
-#if (_MSC_VER >= 1700)
-	__cpuid(CPUInfo, 7);
-	if ((simd & AVX) && (CPUInfo[1] & 0x00000020))
-		simd |= AVX2;
-#endif
-	return simd;
-}
 func_make_hist_simd get_make_hist_func() {
 	const DWORD simd = get_availableSIMD();
 	int index = ((simd & (SSE41|POPCNT)) == (SSE41|POPCNT)) + ((simd & (AVX|POPCNT)) == (AVX|POPCNT)) + ((simd & (AVX2|AVX|POPCNT)) == (AVX2|AVX|POPCNT));

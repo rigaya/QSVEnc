@@ -31,6 +31,7 @@ public:
 	PAVISTREAM m_pAviStream;
 	PGETFRAME m_pGetFrame;
 	LPBITMAPINFOHEADER m_pBitmapInfoHeader;
+	int m_nYPitchMultiplizer;
 };
 
 #endif //ENABLE_AVI_READER

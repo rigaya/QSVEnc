@@ -55,7 +55,7 @@ typedef struct {
 
 	bool bUseResize;          //use vpp resizer
 
-	bool bColorFmtConvertion; //only used in QSVEnc.auo mode, slow
+	bool __unsed2;
 	bool __unsed;
 	mfxU16 reserved;      
 	bool bUseProAmp;          //not supported

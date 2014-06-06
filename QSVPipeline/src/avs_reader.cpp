@@ -127,13 +127,38 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 		return MFX_ERR_INVALID_HANDLE;
 	}
 
-	if (m_sAVSinfo->pixel_type != AVS_CS_YV12 && m_sAVSinfo->pixel_type != AVS_CS_I420) {
+	memset(&m_inputFrameInfo, 0, sizeof(m_inputFrameInfo));
+
+	typedef struct CSPMap {
+		int fmtID;
+		mfxU32 in, out;
+	} CSPMap;
+
+	static const std::vector<CSPMap> valid_csp_list = {
+		{ AVS_CS_YV12,  MFX_FOURCC_YV12, MFX_FOURCC_NV12},
+		{ AVS_CS_I420,  MFX_FOURCC_YV12, MFX_FOURCC_NV12},
+		{ AVS_CS_IYUV,  MFX_FOURCC_YV12, MFX_FOURCC_NV12},
+		{ AVS_CS_YUY2,  MFX_FOURCC_YUY2, MFX_FOURCC_NV12},
+		{ AVS_CS_BGR24, MFX_FOURCC_RGB3, MFX_FOURCC_RGB4},
+		{ AVS_CS_BGR32, MFX_FOURCC_RGB4, MFX_FOURCC_RGB4},
+	};
+
+	m_ColorFormat = 0x00;
+	for (auto csp : valid_csp_list) {
+		if (csp.fmtID == m_sAVSinfo->pixel_type) {
+			m_ColorFormat = csp.in;
+			m_inputFrameInfo.FourCC = csp.out;
+			m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
+			break;
+		}
+	}
+
+	if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
 		m_strInputInfo += _T("avisynth: invalid colorformat.\n");
 		return MFX_ERR_INVALID_COLOR_FORMAT;
 	}
 
 	int fps_gcd = GCD(m_sAVSinfo->fps_numerator, m_sAVSinfo->fps_denominator);
-	memset(&m_inputFrameInfo, 0, sizeof(m_inputFrameInfo));
 	m_inputFrameInfo.Width = (mfxU16)m_sAVSinfo->width;
 	m_inputFrameInfo.Height = (mfxU16)m_sAVSinfo->height;
 	m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);
@@ -141,8 +166,6 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 	m_inputFrameInfo.FrameRateExtN = m_sAVSinfo->fps_numerator / fps_gcd;
 	m_inputFrameInfo.FrameRateExtD = m_sAVSinfo->fps_denominator / fps_gcd;
 	*(DWORD*)&m_inputFrameInfo.FrameId = m_sAVSinfo->num_frames;
-	m_inputFrameInfo.FourCC = MFX_FOURCC_NV12;
-	m_ColorFormat = MFX_FOURCC_YV12;
 	
 	TCHAR avisynth_version[32] = { 0 };
 	AVS_Value val_version = m_sAvisynth.invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(NULL, 0), NULL);
@@ -152,7 +175,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 	m_sAvisynth.release_value(val_version);
 	
 	TCHAR mes[256];
-	_stprintf_s(mes, _countof(mes), _T("Avisynth %s (%s) -> %s, %dx%d, %d/%d fps"), avisynth_version, ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC),
+	_stprintf_s(mes, _countof(mes), _T("Avisynth %s (%s)->%s[%s], %dx%d, %d/%d fps"), avisynth_version, ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
 		m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 	m_strInputInfo += mes;
 	m_tmLastUpdate = timeGetTime();
@@ -180,9 +203,7 @@ mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 #ifdef _DEBUG
 	MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
 #endif
-	int w, h, pitch;
-	mfxU8 *ptr_dst, *ptr_dst2, *ptr_dst_fin;
-	const mfxU8 *ptr_src;
+	int w, h;
 	mfxFrameInfo* pInfo = &pSurface->Info;
 	mfxFrameData* pData = &pSurface->Data;
 
@@ -193,12 +214,6 @@ mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 
 	if (m_pEncSatusInfo->m_nInputFrames >= *(DWORD*)&m_inputFrameInfo.FrameId)
 		return MFX_ERR_MORE_DATA;
-
-	//this reader supports only NV12 mfx surfaces for code transparency,
-	//other formats may be added if application requires such functionality
-	mfxU32 FourCCRequired = pInfo->FourCC;
-	//if (MFX_FOURCC_NV12 != FourCCRequired && MFX_FOURCC_YV12 != FourCCRequired)
-	//	return MFX_ERR_UNSUPPORTED;
 
 	if (pInfo->CropH > 0 && pInfo->CropW > 0) {
 		w = pInfo->CropW;
@@ -214,75 +229,15 @@ mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	if (frame == NULL) {
 		return MFX_ERR_MORE_DATA;
 	}
-
-	pitch = pData->Pitch;
-	ptr_dst = pData->Y + pInfo->CropX + pInfo->CropY * pData->Pitch;
-	ptr_src = avs_get_read_ptr_p(frame, AVS_PLANAR_Y);
-
-	if (m_ColorFormat == MFX_FOURCC_YV12) {
-		//copy luma
-		const int src_y_pitch = avs_get_pitch_p(frame, AVS_PLANAR_Y);
-		for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-			sse_memcpy(ptr_dst + y * pitch, ptr_src + (y + CropUp) * src_y_pitch + CropLeft, w - CropLeft - CropRight);
-			
-		if (FourCCRequired == MFX_FOURCC_NV12) {
-			ptr_dst = pData->UV + pInfo->CropX + (pInfo->CropY>>1) * pitch;
-
-			const mfxU8 *bufV = avs_get_read_ptr_p(frame, AVS_PLANAR_V);
-			const mfxU8 *bufU = avs_get_read_ptr_p(frame, AVS_PLANAR_U);
-			const int src_uv_pitch = avs_get_pitch_p(frame, AVS_PLANAR_V);
-
-			h >>= 1;
-			w >>= 1;
-			CropBottom >>= 1;
-			CropUp >>= 1;
-			CropLeft >>= 1;
-			CropRight >>= 1;
-			__m128i x0, x1, x2;
-			for (int y = 0, y_fin = h - CropBottom - CropUp; y < y_fin; y++) {
-				const mfxU8 *U = bufU + (y + CropUp) * src_uv_pitch + CropLeft;
-				const mfxU8 *V = bufV + (y + CropUp) * src_uv_pitch + CropLeft;
-				ptr_dst2 = ptr_dst + y * pitch;
-				ptr_dst_fin = ptr_dst2 + ((w - CropRight - CropLeft)<<1);
-				for (; ptr_dst2 < ptr_dst_fin; ptr_dst2 += 32, U += 16, V += 16) {
-					x0 = _mm_loadu_si128((const __m128i*)U);
-					x1 = _mm_loadu_si128((const __m128i*)V);
-
-					x2 = _mm_unpackhi_epi8(x0, x1);
-					x0 = _mm_unpacklo_epi8(x0, x1);
-
-					_mm_storeu_si128((__m128i *)(ptr_dst2 +  0), x0);
-					_mm_storeu_si128((__m128i *)(ptr_dst2 + 16), x2);
-				}
-			}
-
-		} else if (FourCCRequired == MFX_FOURCC_YV12) {
-			const mfxU8 *bufV = avs_get_read_ptr_p(frame, AVS_PLANAR_V);
-			const int src_uv_pitch = avs_get_pitch_p(frame, AVS_PLANAR_V);
-		
-			ptr_src = bufV;
-			ptr_dst = pData->V + (pInfo->CropX / 2) + (pInfo->CropY / 2) * pitch;
-
-			h >>= 1;
-			w >>= 1;
-			CropUp >>= 1;
-			CropBottom >>= 1;
-			CropLeft >>= 1;
-			CropRight >>= 1;
-			for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-				sse_memcpy(ptr_dst + (y * pitch >> 1), ptr_src + (y + CropUp) * src_uv_pitch + CropLeft, w - CropLeft - CropRight);
-
-			const mfxU8 *bufU = avs_get_read_ptr_p(frame, AVS_PLANAR_U);
-			ptr_src = bufU;
-			ptr_dst = pData->U + (pInfo->CropX / 2) + (pInfo->CropY / 2) * pitch;
-			for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-				sse_memcpy(ptr_dst + (y * pitch >> 1), ptr_src + (y + CropUp) * src_uv_pitch + CropLeft, w - CropLeft - CropRight);
-		} else {
-			return MFX_ERR_UNSUPPORTED;
-		}
-	} else {
-		return MFX_ERR_UNSUPPORTED;
+	
+	BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
+	int crop[4] = { CropLeft, CropUp, CropRight, CropBottom };
+	const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
+	const void *src_ptr[3] = { avs_get_read_ptr_p(frame, AVS_PLANAR_Y), avs_get_read_ptr_p(frame, AVS_PLANAR_U), avs_get_read_ptr_p(frame, AVS_PLANAR_V) };
+	if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
+		dst_ptr[0] = min(min(pData->R, pData->G), pData->B);
 	}
+	m_sConvert->func[interlaced]((void **)dst_ptr, (void **)src_ptr, w, avs_get_pitch_p(frame, AVS_PLANAR_Y), avs_get_pitch_p(frame, AVS_PLANAR_U), pData->Pitch, h, crop);
 	
 	m_sAvisynth.release_video_frame(frame);
 

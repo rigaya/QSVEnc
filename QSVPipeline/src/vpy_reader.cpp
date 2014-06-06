@@ -195,6 +195,31 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 		m_strInputInfo += _T("Invalid colorformat.\n");
 		return MFX_ERR_INVALID_COLOR_FORMAT;
 	}
+	
+
+	typedef struct CSPMap {
+		int fmtID;
+		mfxU32 in, out;
+	} CSPMap;
+
+	static const std::vector<CSPMap> valid_csp_list = {
+		{ pfYUV420P8, MFX_FOURCC_YV12, MFX_FOURCC_NV12 },
+	};
+
+	m_ColorFormat = 0x00;
+	for (auto csp : valid_csp_list) {
+		if (csp.fmtID == vsvideoinfo->format->id) {
+			m_ColorFormat = csp.in;
+			m_inputFrameInfo.FourCC = csp.out;
+			m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
+			break;
+		}
+	}
+
+	if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
+		m_strInputInfo += _T("avisynth: invalid colorformat.\n");
+		return MFX_ERR_INVALID_COLOR_FORMAT;
+	}
 
 	if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
 		m_strInputInfo += _T("Invalid framerate.\n");
@@ -215,9 +240,6 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 	if (!use_mt_mode)
 		m_nAsyncFrames = (std::max)(m_nAsyncFrames, 1);
 
-	m_ColorFormat = MFX_FOURCC_YV12;
-	m_inputFrameInfo.FourCC = MFX_FOURCC_NV12;
-
 	for (int i = 0; i < m_nAsyncFrames; i++)
 		m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
 
@@ -226,7 +248,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 	int rev = getRevInfo(vscoreinfo->versionString);
 	if (0 != rev)
 		_stprintf_s(rev_info, _countof(rev_info), _T(" r%d"), rev);
-	_stprintf_s(mes, _countof(mes), _T("VapourSynth%s%s (%s) -> %s, %dx%d, %d/%d fps"), (use_mt_mode) ? _T("MT") : _T(""), rev_info, ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC),
+	_stprintf_s(mes, _countof(mes), _T("VapourSynth%s%s (%s)->%s[%s], %dx%d, %d/%d fps"), (use_mt_mode) ? _T("MT") : _T(""), rev_info, ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
 		m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 	m_strInputInfo += mes;
 	m_tmLastUpdate = timeGetTime();
@@ -274,8 +296,7 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 #ifdef _DEBUG
 	MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
 #endif
-	int w, h, pitch;
-	mfxU8 *ptr_dst, *ptr_dst2, *ptr_dst_fin;
+	int w, h;
 	mfxFrameInfo* pInfo = &pSurface->Info;
 	mfxFrameData* pData = &pSurface->Data;
 
@@ -287,12 +308,6 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	if (m_pEncSatusInfo->m_nInputFrames >= *(DWORD*)&m_inputFrameInfo.FrameId)
 		return MFX_ERR_MORE_DATA;
 
-	//this reader supports only NV12 mfx surfaces for code transparency,
-	//other formats may be added if application requires such functionality
-	mfxU32 FourCCRequired = pInfo->FourCC;
-	//if (MFX_FOURCC_NV12 != FourCCRequired && MFX_FOURCC_YV12 != FourCCRequired)
-	//	return MFX_ERR_UNSUPPORTED;
-
 	if (pInfo->CropH > 0 && pInfo->CropW > 0) {
 		w = pInfo->CropW;
 		h = pInfo->CropH;
@@ -303,101 +318,16 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	w += (CropLeft + CropRight);
 	h += (CropUp + CropBottom);
 
-	pitch = pData->Pitch;
-	ptr_dst = pData->Y + pInfo->CropX + pInfo->CropY * pData->Pitch;
-
-	//const VSFrameRef *src_frame = m_sVSapi->getFrame(m_pEncSatusInfo->m_nInputFrames, m_sVSnode, "failed to get frame", NULL);
 	const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_pEncSatusInfo->m_nInputFrames);
 	if (NULL == src_frame) {
 		return MFX_ERR_MORE_DATA;
 	}
 
-	// color format of data in the input file
-	if (m_ColorFormat == MFX_FOURCC_YV12) {
-		int src_pitch_y = m_sVSapi->getStride(src_frame, 0);
-		const mfxU8 *ptr_y = m_sVSapi->getReadPtr(src_frame, 0);
-		//copy luma
-		for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-			sse_memcpy(ptr_dst + y * pitch, ptr_y + (y + CropUp) * src_pitch_y + CropLeft, w - CropLeft - CropRight);
-
-		//copy chroma
-		int src_pitch_c = m_sVSapi->getStride(src_frame, 1);
-		const mfxU8 *ptr_u = m_sVSapi->getReadPtr(src_frame, 1);
-		const mfxU8 *ptr_v = m_sVSapi->getReadPtr(src_frame, 2);
-		if (FourCCRequired == MFX_FOURCC_NV12) {
-			ptr_dst = pData->UV + pInfo->CropX + (pInfo->CropY>>1) * pitch;
-
-			const mfxU8 *bufV = ptr_v;
-			const mfxU8 *bufU = ptr_u;
-
-			h >>= 1;
-			w >>= 1;
-			CropBottom >>= 1;
-			CropUp >>= 1;
-			CropLeft >>= 1;
-			CropRight >>= 1;
-
-			if (((mfxU32)ptr_dst & 0x0F) == 0x00) {
-				__m128i x0, x1, x2;
-				for (int y = 0, y_fin = h - CropBottom - CropUp; y < y_fin; y++) {
-					const mfxU8 *U = bufU + (y + CropUp) * src_pitch_c + CropLeft;
-					const mfxU8 *V = bufV + (y + CropUp) * src_pitch_c + CropLeft;
-					ptr_dst2 = ptr_dst + y * pitch;
-					ptr_dst_fin = ptr_dst2 + ((w - CropRight - CropLeft)<<1);
-					for (; ptr_dst2 < ptr_dst_fin; ptr_dst2 += 32, U += 16, V += 16) {
-						x0 = _mm_loadu_si128((const __m128i*)U);
-						x1 = _mm_loadu_si128((const __m128i*)V);
-
-						x2 = _mm_unpackhi_epi8(x0, x1);
-						x0 = _mm_unpacklo_epi8(x0, x1);
-
-						_mm_store_si128((__m128i *)(ptr_dst2 +  0), x0);
-						_mm_store_si128((__m128i *)(ptr_dst2 + 16), x2);
-					}
-				}
-
-			} else {
-
-				__m128i x0, x1, x2;
-				for (int y = 0, y_fin = h - CropBottom - CropUp; y < y_fin; y++) {
-					const mfxU8 *U = bufU + (y + CropUp) * src_pitch_c + CropLeft;
-					const mfxU8 *V = bufV + (y + CropUp) * src_pitch_c + CropLeft;
-					ptr_dst2 = ptr_dst + y * pitch;
-					ptr_dst_fin = ptr_dst2 + ((w - CropRight - CropLeft)<<1);
-					for (; ptr_dst2 < ptr_dst_fin; ptr_dst2 += 32, U += 16, V += 16) {
-						x0 = _mm_loadu_si128((const __m128i*)U);
-						x1 = _mm_loadu_si128((const __m128i*)V);
-
-						x2 = _mm_unpackhi_epi8(x0, x1);
-						x0 = _mm_unpacklo_epi8(x0, x1);
-
-						_mm_storeu_si128((__m128i *)(ptr_dst2 +  0), x0);
-						_mm_storeu_si128((__m128i *)(ptr_dst2 + 16), x2);
-					}
-				}
-
-			}
-		} else if (FourCCRequired == MFX_FOURCC_YV12) {
-			ptr_dst = pData->V + (pInfo->CropX / 2) + (pInfo->CropY / 2) * pitch;
-
-			h >>= 1;
-			w >>= 1;
-			CropUp >>= 1;
-			CropBottom >>= 1;
-			CropLeft >>= 1;
-			CropRight >>= 1;
-			for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-				sse_memcpy(ptr_dst + (y * pitch >> 1), ptr_v + (y + CropUp) * src_pitch_y + CropLeft, w - CropLeft - CropRight);
-
-			ptr_dst = pData->U + (pInfo->CropX / 2) + (pInfo->CropY / 2) * pitch;
-			for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-				sse_memcpy(ptr_dst + (y * pitch >> 1), ptr_u + (y + CropUp) * src_pitch_c + CropLeft, w - CropLeft - CropRight);
-		} else {
-			return MFX_ERR_UNSUPPORTED;
-		}
-	} else {
-		return MFX_ERR_UNSUPPORTED;
-	}
+	BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
+	int crop[4] = { CropLeft, CropUp, CropRight, CropBottom };
+	const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
+	const void *src_ptr[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
+	m_sConvert->func[interlaced]((void **)dst_ptr, (void **)src_ptr, w, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), pData->Pitch, h, crop);
 
 	m_sVSapi->freeFrame(src_frame);
 

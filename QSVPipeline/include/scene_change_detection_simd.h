@@ -13,19 +13,8 @@
 #include <emmintrin.h> //SSE2
 #include <smmintrin.h> //SSE4.1
 #include <nmmintrin.h> //SSE4.2
+#include "qsv_simd.h"
 #include "scene_change_detection.h"
-
-enum {
-    NONE   = 0x0000,
-    SSE2   = 0x0001,
-    SSE3   = 0x0002,
-    SSSE3  = 0x0004,
-    SSE41  = 0x0008,
-    SSE42  = 0x0010,
-	POPCNT = 0x0020,
-    AVX    = 0x0040,
-    AVX2   = 0x0080,
-};
 
 void make_hist_sse2(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch);
 void make_hist_sse41_popcnt(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch);

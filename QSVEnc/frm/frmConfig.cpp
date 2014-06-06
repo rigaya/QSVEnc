@@ -1058,7 +1058,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
 	//Vpp
 	fcgCBUseVpp->Checked                   = cnf->qsv.vpp.bEnable;
-	fcgCBUseVppColorFmtConvertion->Checked = cnf->qsv.vpp.bColorFmtConvertion;
 	fcgCBVppResize->Checked                = cnf->qsv.vpp.bUseResize;
 	SetNUValue(fcgNUVppResizeW,              cnf->qsv.nDstWidth);
 	SetNUValue(fcgNUVppResizeH,              cnf->qsv.nDstHeight);
@@ -1170,12 +1169,10 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	}
 
 	//vpp
-	cnf->qsv.vpp.bEnable                = fcgCBUseVpp->Checked;
-	//cnf->qsv.vpp.bColorFmtConvertion = fcgCBUseVppColorFmtConvertion->Checked;
-	cnf->qsv.vpp.bColorFmtConvertion = false;
+	cnf->qsv.vpp.bEnable             = fcgCBUseVpp->Checked;
 	cnf->qsv.vpp.bUseResize          = fcgCBVppResize->Checked;
-	cnf->qsv.nDstWidth              = (mfxU16)fcgNUVppResizeW->Value;
-	cnf->qsv.nDstHeight             = (mfxU16)fcgNUVppResizeH->Value;
+	cnf->qsv.nDstWidth               = (mfxU16)fcgNUVppResizeW->Value;
+	cnf->qsv.nDstHeight              = (mfxU16)fcgNUVppResizeH->Value;
 	cnf->qsv.vpp.bUseDenoise         = fcgCBVppDenoise->Checked;
 	cnf->qsv.vpp.nDenoise            = (mfxU16)fcgNUVppDenoise->Value;
 	cnf->qsv.vpp.bUseDetailEnhance   = fcgCBVppDetail->Checked;

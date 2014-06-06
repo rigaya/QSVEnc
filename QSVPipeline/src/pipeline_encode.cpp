@@ -713,8 +713,8 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 	m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
 	if (inputFrameInfo.FourCC == 0 || inputFrameInfo.FourCC == MFX_FOURCC_NV12) {
 		// input frame info
-		m_mfxVppParams.vpp.In.FourCC       = (pInParams->vpp.bColorFmtConvertion) ? MFX_FOURCC_YUY2 : MFX_FOURCC_NV12;
-		m_mfxVppParams.vpp.In.ChromaFormat = (mfxU16)((pInParams->vpp.bColorFmtConvertion) ? MFX_CHROMAFORMAT_YUV422 : MFX_CHROMAFORMAT_YUV420);
+		m_mfxVppParams.vpp.In.FourCC       = MFX_FOURCC_NV12;
+		m_mfxVppParams.vpp.In.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
 
 		// width must be a multiple of 16
 		// height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture

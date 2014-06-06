@@ -12,8 +12,6 @@
 #include <Math.h>
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib") 
-#include <mmintrin.h>  //イントリンシック命令 SSE
-#include <emmintrin.h> //イントリンシック命令 SSE2
 
 #include "sample_defs.h"
 #include "sample_utils.h"
@@ -26,8 +24,6 @@
 #include "afs_client.h"
 #pragma warning( pop )
 
-#include "convert.h"
-
 #include "auo_util.h"
 #include "auo_qsv_link.h"
 #include "auo_video.h"
@@ -38,7 +34,6 @@
 #include "convert.h"
 
 AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe);
-
 
 static int calc_input_frame_size(int width, int height, int color_format) {
 	width = (color_format == CF_RGB) ? (width+3) & ~3 : (width+1) & ~1;
@@ -77,57 +72,22 @@ void close_afsvideo(PRM_ENC *pe) {
 
 	pe->afs_init = FALSE;
 }
-
-static const func_convert_frame CONVERT_FUNC[][2] = {
-	{ copy_yuy2,                            copy_yuy2                    },
-	{ convert_yuy2_to_nv12_sse2_aligned,    convert_yuy2_to_nv12_sse2    },
-	{ convert_yuy2_to_nv12_i_sse2_aligned,  convert_yuy2_to_nv12_i_sse2  },
-	{ convert_yuy2_to_nv12_sse2_aligned,    convert_yuy2_to_nv12_sse2    },
-	{ convert_yuy2_to_nv12_i_ssse3_aligned, convert_yuy2_to_nv12_i_ssse3 },
-#if (_MSC_VER >= 1600)
-	{ convert_yuy2_to_nv12_avx_aligned,     convert_yuy2_to_nv12_avx     },
-	{ convert_yuy2_to_nv12_i_avx_aligned,   convert_yuy2_to_nv12_i_avx   },
-#endif
-#if (_MSC_VER >= 1700) //32byteでアライメントが取れているとは限らない
-	{ convert_yuy2_to_nv12_avx2,            convert_yuy2_to_nv12_avx2    },
-	{ convert_yuy2_to_nv12_i_avx2,          convert_yuy2_to_nv12_i_avx2  }
-#endif
-};
-static const func_convert_frame *convert_frame;
 //邪道っぽいが静的グローバル変数
 static const OUTPUT_INFO *oip = NULL;
 static PRM_ENC *pe = NULL;
 static int total_out_frames = NULL;
 static int *jitter = NULL;
+static BOOL g_interlaced = FALSE;
 
 //静的グローバル変数の初期化
 DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_ENC *_pe, int *_jitter) {
 	oip = _oip;
 	pe = _pe;
 	jitter = _jitter;
-	BOOL interlaced = (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? TRUE : FALSE;
-	if (conf->qsv.vpp.bColorFmtConvertion) {
-		convert_frame = CONVERT_FUNC[0];
-		//write_log_auo_line_fmt(LOG_INFO, "converting YUY2 -> NV12, by VPP");
-	} else {
-		BOOL ssse3_available = !!check_ssse3();
-		BOOL avx_available = FALSE, avx2_available = FALSE;
-#if (_MSC_VER >= 1600)
-		avx_available = !!check_avx();
-#endif
-#if (_MSC_VER >= 1700)
-		avx2_available = !!check_avx2();
-#endif
-		convert_frame = CONVERT_FUNC[1+interlaced+(ssse3_available+avx_available)*2];
-		write_log_auo_line_fmt(LOG_INFO, "converting YUY2 -> NV12%s, using %s%s%s",
-			((interlaced) ? "i" : "p"),
-			((avx2_available) ? "AVX2" : "SSE2"),
-			((interlaced && ssse3_available && !avx2_available) ? " SSSE3" : ""),
-			((avx_available) ? " AVX" : "")
-		); 
-	}
-	total_out_frames = oip->n;
-	switch (conf->qsv.vpp.nDeinterlace) {
+	g_interlaced = (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? TRUE : FALSE;
+	if (g_interlaced) {
+		total_out_frames = oip->n;
+		switch (conf->qsv.vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_IT:
 			total_out_frames *= 4 / 5;
 			break;
@@ -136,33 +96,28 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
 			break;
 		default:
 			break;
+		}
 	}
 	return AUO_RESULT_SUCCESS;
 }
 
 //静的グローバル変数使用終了
 void clear_auo_yuvreader_g_data() {
-	convert_frame = NULL;
 	total_out_frames = 0;
 	oip = NULL;
 	pe = NULL;
 	jitter = NULL;
+	g_interlaced = FALSE;
 }
 
-AUO_YUVReader::AUO_YUVReader()
-{
+AUO_YUVReader::AUO_YUVReader() {
 	m_ColorFormat = MFX_FOURCC_NV12; //AUO_YUVReaderはNV12専用
 	pause = FALSE;
 }
 
-//unsigned int __stdcall AUO_YUVReader::InputThreadLauncher(void *pParam) {
-//	return reinterpret_cast<AUO_YUVReader*>(pParam)->InputThreadFunc();
-//}
-
 #pragma warning( push )
 #pragma warning( disable: 4100 )
-mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop)
-{
+mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 	MSDK_CHECK_POINTER(oip, MFX_ERR_NULL_PTR);
 
 	Close();
@@ -188,10 +143,12 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int 
 	m_inputFrameInfo.CropY = 0;
 	*(DWORD *)&m_inputFrameInfo.FrameId = oip->n;
 
+	m_sConvert = get_convert_csp_func(m_ColorFormat, m_inputFrameInfo.FourCC, false);
+
 	enable_enc_control(&pause, pe->afs_init, FALSE, timeGetTime(), oip->n);
 
 	char mes[256];
-	sprintf_s(mes, _countof(mes), "auo: %s->%s, %dx%d, %d/%d fps", ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC),
+	sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
 		m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 	m_strInputInfo += mes;
 
@@ -200,24 +157,20 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int 
 }
 #pragma warning( pop )
 
-AUO_YUVReader::~AUO_YUVReader()
-{
+AUO_YUVReader::~AUO_YUVReader() {
     Close();
 }
 
-void AUO_YUVReader::Close()
-{
+void AUO_YUVReader::Close() {
 	disable_enc_control();
 	pause = FALSE;
 }
 
-mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface)
-{
+mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 #ifdef _DEBUG
 	MSDK_CHECK_POINTER(pSurface, MFX_ERR_NULL_PTR);
 	MSDK_CHECK_POINTER(m_pEncThread, MFX_ERR_NULL_PTR);
 #endif
-	void *frame;
 	int total_frames = oip->n;
 
     // check if reader is initialized
@@ -243,23 +196,20 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface)
 
     mfxFrameInfo* pInfo = &pSurface->Info;
     mfxFrameData* pData = &pSurface->Data;
-
-	mfxU8 *dst_Y = pData->Y;
-	mfxU8 *dst_C = pData->UV;
-
-	int bAligned = (((size_t)dst_Y | (size_t)dst_C) & 0x0F) != 0x00;
-
-	//if (pInfo->CropH > 0 && pInfo->CropW > 0) 
-    //{
-    //    w = pInfo->CropW;
-    //    h = pInfo->CropH;
-    //} 
-    //else 
-    //{
-    //    w = pInfo->Width;
-    //    h = pInfo->Height;
-    //}
 	
+	int w, h;
+	if (pInfo->CropH > 0 && pInfo->CropW > 0) 
+    {
+        w = pInfo->CropW;
+        h = pInfo->CropH;
+    } 
+    else 
+    {
+        w = pInfo->Width;
+        h = pInfo->Height;
+    }
+	
+	void *frame = nullptr;
 	if (pe->afs_init) {
 		BOOL drop = FALSE;
 		for ( ; ; ) {
@@ -284,8 +234,10 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface)
 			return MFX_ERR_MORE_DATA;
 		}
 	}
-
-	convert_frame[bAligned](frame, dst_Y, dst_C, pInfo->CropW, pInfo->CropH, pData->Pitch);
+	
+	int crop[4] = { 0 };
+	const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
+	m_sConvert->func[g_interlaced]((void **)dst_ptr, (void **)&frame, w, w * 2, w / 2, pData->Pitch, h, crop);
 
 	m_pEncSatusInfo->m_nInputFrames++;
 	if (!(m_pEncSatusInfo->m_nInputFrames & 7))

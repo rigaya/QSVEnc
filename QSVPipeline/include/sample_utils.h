@@ -30,6 +30,7 @@
 #include "sample_defs.h"
 #include "qsv_prm.h"
 #include "qsv_control.h"
+#include "convert_csp.h"
 
 // A macro to disallow the copy constructor and operator= functions
 // This should be used in the private: declarations for a class
@@ -159,6 +160,8 @@ protected:
 	sInputCrop m_sInputCrop;
 
 	mfxFrameInfo m_inputFrameInfo;
+
+	const ConvertCSP *m_sConvert;
 
 	mfxU32 bufSize;
 	mfxU8 *buffer;

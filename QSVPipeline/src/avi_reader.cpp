@@ -15,6 +15,7 @@ CAVIReader::CAVIReader() {
 	m_pAviStream = NULL;
 	m_pGetFrame = NULL;
 	m_pBitmapInfoHeader = NULL;
+	m_nYPitchMultiplizer = 1;
 }
 
 CAVIReader::~CAVIReader() {
@@ -119,6 +120,14 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 		}
 	}
 
+	switch (m_ColorFormat) {
+	case MFX_FOURCC_YUY2: m_nYPitchMultiplizer = 2; break;
+	case MFX_FOURCC_RGB3: m_nYPitchMultiplizer = 3; break;
+	case MFX_FOURCC_RGB4: m_nYPitchMultiplizer = 4; break;
+	case MFX_FOURCC_YV12:
+	default: m_nYPitchMultiplizer = 1; break;
+	}
+
 	if (   MFX_FOURCC_RGB4 == m_ColorFormat
 		|| MFX_FOURCC_RGB3 == m_ColorFormat) {
 		m_inputFrameInfo.FourCC = MFX_FOURCC_RGB4;
@@ -127,8 +136,9 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 		m_inputFrameInfo.FourCC = MFX_FOURCC_NV12;
 		m_inputFrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
 	}
+	m_sConvert = get_convert_csp_func(m_ColorFormat, m_inputFrameInfo.FourCC, false);
 	TCHAR mes[256];
-	_stprintf_s(mes, _countof(mes), _T("(%s) -> %s, %dx%d, %d/%d fps"), ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC),
+	_stprintf_s(mes, _countof(mes), _T("(%s)->%s[%s], %dx%d, %d/%d fps"), ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
 		m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 	m_strInputInfo += mes;
 	m_tmLastUpdate = timeGetTime();
@@ -154,6 +164,7 @@ void CAVIReader::Close() {
 	m_pGetFrame = NULL;
 	m_pBitmapInfoHeader = NULL;
 	m_bInited = false;
+	m_nYPitchMultiplizer = 1;
 	bufSize = 0;
 	buffer = NULL;
 }
@@ -162,8 +173,8 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 #ifdef _DEBUG
 	MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
 #endif
-	int w, h, pitch;
-	mfxU8 *ptr_dst, *ptr_dst2, *ptr_dst_fin, *ptr_src;
+	int w, h;
+	mfxU8 *ptr_src;
 	mfxFrameInfo* pInfo = &pSurface->Info;
 	mfxFrameData* pData = &pSurface->Data;
 
@@ -175,12 +186,6 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	if (m_pEncSatusInfo->m_nInputFrames >= *(DWORD*)&m_inputFrameInfo.FrameId)
 		return MFX_ERR_MORE_DATA;
 
-	//this reader supports only NV12 mfx surfaces for code transparency,
-	//other formats may be added if application requires such functionality
-	mfxU32 FourCCRequired = pInfo->FourCC;
-	//if (MFX_FOURCC_NV12 != FourCCRequired && MFX_FOURCC_YV12 != FourCCRequired)
-	//	return MFX_ERR_UNSUPPORTED;
-
 	if (pInfo->CropH > 0 && pInfo->CropW > 0) {
 		w = pInfo->CropW;
 		h = pInfo->CropH;
@@ -191,321 +196,33 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	w += (CropLeft + CropRight);
 	h += (CropUp + CropBottom);
 
-	pitch = pData->Pitch;
-	ptr_dst = pData->Y + pInfo->CropX + pInfo->CropY * pData->Pitch;
-
-		if (m_pGetFrame) {
-			if (NULL == (ptr_src = (mfxU8 *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_nInputFrames)))
-				return MFX_ERR_MORE_DATA;
-			ptr_src += sizeof(BITMAPINFOHEADER);
-		} else {
-			mfxU32 required_bufsize = w * h * 3;
-			if (bufSize < required_bufsize) {
-				if (buffer)
-					_aligned_free(buffer);
-				if (NULL == (buffer = (mfxU8 *)_aligned_malloc(sizeof(mfxU8) * required_bufsize, 16)))
-					return MFX_ERR_MEMORY_ALLOC;
-				bufSize = required_bufsize;
-			}
-			LONG sizeRead = 0;
-			if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, buffer, (LONG)bufSize, &sizeRead, NULL))
-				return MFX_ERR_MORE_DATA;
-			ptr_src = buffer;
+	if (m_pGetFrame) {
+		if (NULL == (ptr_src = (mfxU8 *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_nInputFrames)))
+			return MFX_ERR_MORE_DATA;
+		ptr_src += sizeof(BITMAPINFOHEADER);
+	} else {
+		mfxU32 required_bufsize = w * h * 3;
+		if (bufSize < required_bufsize) {
+			if (buffer)
+				_aligned_free(buffer);
+			if (NULL == (buffer = (mfxU8 *)_aligned_malloc(sizeof(mfxU8) * required_bufsize, 16)))
+				return MFX_ERR_MEMORY_ALLOC;
+			bufSize = required_bufsize;
 		}
+		LONG sizeRead = 0;
+		if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, buffer, (LONG)bufSize, &sizeRead, NULL))
+			return MFX_ERR_MORE_DATA;
+		ptr_src = buffer;
+	}
 
-		switch (m_ColorFormat) // color format of data in the input file
-		{
-		case MFX_FOURCC_YV12: // YUV420 is implied
-			//copy luma
-			for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-				sse_memcpy(ptr_dst + y * pitch, ptr_src + (y + CropUp) * w + CropLeft, w - CropLeft - CropRight);
-			//copy chroma
-			switch (FourCCRequired)
-			{
-			case MFX_FOURCC_NV12:
-				{
-				ptr_dst = pData->UV + pInfo->CropX + (pInfo->CropY>>1) * pitch;
-
-				mfxU8 *bufV = ptr_src + w * h;
-				mfxU8 *bufU = bufV + ((w * h) >> 2);
-
-				h >>= 1;
-				w >>= 1;
-				CropBottom >>= 1;
-				CropUp >>= 1;
-				CropLeft >>= 1;
-				CropRight >>= 1;
-
-				if (((mfxU32)ptr_dst & 0x0F) == 0x00) {
-					__m128i x0, x1, x2;
-					for (int y = 0, y_fin = h - CropBottom - CropUp; y < y_fin; y++) {
-						mfxU8 *U = bufU + (y + CropUp) * w + CropLeft;
-						mfxU8 *V = bufV + (y + CropUp) * w + CropLeft;
-						ptr_dst2 = ptr_dst + y * pitch;
-						ptr_dst_fin = ptr_dst2 + ((w - CropRight - CropLeft)<<1);
-						for (; ptr_dst2 < ptr_dst_fin; ptr_dst2 += 32, U += 16, V += 16) {
-							x0 = _mm_loadu_si128((const __m128i*)U);
-							x1 = _mm_loadu_si128((const __m128i*)V);
-
-							x2 = _mm_unpackhi_epi8(x0, x1);
-							x0 = _mm_unpacklo_epi8(x0, x1);
-
-							_mm_store_si128((__m128i *)(ptr_dst2 +  0), x0);
-							_mm_store_si128((__m128i *)(ptr_dst2 + 16), x2);
-						}
-					}
-
-				} else {
-
-					__m128i x0, x1, x2;
-					for (int y = 0, y_fin = h - CropBottom - CropUp; y < y_fin; y++) {
-						mfxU8 *U = bufU + (y + CropUp) * w + CropLeft;
-						mfxU8 *V = bufV + (y + CropUp) * w + CropLeft;
-						ptr_dst2 = ptr_dst + y * pitch;
-						ptr_dst_fin = ptr_dst2 + ((w - CropRight - CropLeft)<<1);
-						for (; ptr_dst2 < ptr_dst_fin; ptr_dst2 += 32, U += 16, V += 16) {
-							x0 = _mm_loadu_si128((const __m128i*)U);
-							x1 = _mm_loadu_si128((const __m128i*)V);
-
-							x2 = _mm_unpackhi_epi8(x0, x1);
-							x0 = _mm_unpacklo_epi8(x0, x1);
-
-							_mm_storeu_si128((__m128i *)(ptr_dst2 +  0), x0);
-							_mm_storeu_si128((__m128i *)(ptr_dst2 + 16), x2);
-						}
-					}
-
-				}
-				}
-				break;
-			case MFX_FOURCC_YV12:
-				ptr_src += w * h;
-				ptr_dst = pData->V + (pInfo->CropX / 2) + (pInfo->CropY / 2) * pitch;
-
-				h >>= 1;
-				w >>= 1;
-				CropUp >>= 1;
-				CropBottom >>= 1;
-				CropLeft >>= 1;
-				CropRight >>= 1;
-				for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-					sse_memcpy(ptr_dst + (y * pitch >> 1), ptr_src + (y + CropUp) * w + CropLeft, w - CropLeft - CropRight);
-
-				ptr_src += (w * h);
-				ptr_dst = pData->U + (pInfo->CropX / 2) + (pInfo->CropY / 2) * pitch;
-				for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y++)
-					sse_memcpy(ptr_dst + (y * pitch >> 1), ptr_src + (y + CropUp) * w + CropLeft, w - CropLeft - CropRight);
-				break;
-			default:
-				return MFX_ERR_UNSUPPORTED;
-			}
-			break;
-		case MFX_FOURCC_YUY2:
-			switch (FourCCRequired)
-			{
-			case MFX_FOURCC_NV12:
-				ptr_dst2 = pData->UV + pInfo->CropX + (pInfo->CropY>>1) * pitch;
-				if (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
-					mfxU8 *p, *pw, *Y, *C;
-					__m128i x0, x1, x2, x3;
-					static const _declspec(align(16)) BYTE  Array_INTERLACE_WEIGHT[2][16] = { 
-						{1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},
-						{3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1}
-					};
-					for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y += 4) {
-						for (int i = 0; i < 2; i++) {
-							p = ptr_src + (((y + i + CropUp) * w + CropLeft) << 1);
-							pw = p + (w << 2);
-							Y = ptr_dst + ((y + i) * pitch);
-							C = ptr_dst2 + (((y + i*2) * pitch) >> 1);
-							for (int x = 0, x_fin = w - CropLeft - CropRight; x < x_fin; x += 16, p += 32, pw += 32) {
-								//-----------    1行目   ---------------
-								x0 = _mm_loadu_si128((__m128i *)(p+ 0));    // VYUYVYUYVYUYVYUY
-								x1 = _mm_loadu_si128((__m128i *)(p+16));    // VYUYVYUYVYUYVYUY
-
-								_mm_prefetch((const char *)pw, _MM_HINT_T1);
-
-								x2 = _mm_unpacklo_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-								x1 = _mm_unpackhi_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-
-								x0 = _mm_unpacklo_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-								x1 = _mm_unpackhi_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-
-								x2 = _mm_unpacklo_epi8(x0, x1); //UUUUUUUUYYYYYYYY
-								x1 = _mm_unpackhi_epi8(x0, x1); //VVVVVVVVYYYYYYYY
-
-								x0 = _mm_unpacklo_epi8(x2, x1); //YYYYYYYYYYYYYYYY
-								x3 = _mm_unpackhi_epi8(x2, x1); //VUVUVUVUVUVUVUVU
-
-								_mm_storeu_si128((__m128i *)(Y + x), x0);
-								//-----------1行目終了---------------
-
-								//-----------3行目---------------
-								x0 = _mm_loadu_si128((__m128i *)(pw+ 0));    // VYUYVYUYVYUYVYUY
-								x1 = _mm_loadu_si128((__m128i *)(pw+16));    // VYUYVYUYVYUYVYUY
-
-								x2 = _mm_unpacklo_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-								x1 = _mm_unpackhi_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-
-								x0 = _mm_unpacklo_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-								x1 = _mm_unpackhi_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-
-								x2 = _mm_unpacklo_epi8(x0, x1); //UUUUUUUUYYYYYYYY
-								x1 = _mm_unpackhi_epi8(x0, x1); //VVVVVVVVYYYYYYYY
-
-								x0 = _mm_unpacklo_epi8(x2, x1); //YYYYYYYYYYYYYYYY
-								x1 = _mm_unpackhi_epi8(x2, x1); //VUVUVUVUVUVUVUVU
-
-								_mm_storeu_si128((__m128i *)(Y + (pitch<<1) + x), x0);
-								//-----------3行目終了---------------
-
-								x0 = _mm_unpacklo_epi8(x1, x3);
-								x1 = _mm_unpackhi_epi8(x1, x3);
-								x0 = _mm_maddubs_epi16(x0, _mm_load_si128((__m128i*)Array_INTERLACE_WEIGHT[i]));
-								x1 = _mm_maddubs_epi16(x1, _mm_load_si128((__m128i*)Array_INTERLACE_WEIGHT[i]));
-								x0 = _mm_add_epi16(x0, _mm_set1_epi16(2));
-								x1 = _mm_add_epi16(x1, _mm_set1_epi16(2));
-								x0 = _mm_srai_epi16(x0, 2);
-								x1 = _mm_srai_epi16(x1, 2);
-								x0 = _mm_packus_epi16(x0, x1); //VUVUVUVUVUVUVUVU
-								_mm_storeu_si128((__m128i *)(C + x), x0);
-							}
-						}
-					}
-
-				} else {
-
-					mfxU8 *p, *pw, *Y, *C;
-					__m128i x0, x1, x2, x3;
-					for (int y = 0, y_fin = h - CropUp - CropBottom; y < y_fin; y += 2) {
-						p = ptr_src + (((y + CropUp) * w + CropLeft) << 1);
-						pw = p + (w << 1);
-						Y = ptr_dst + (y * pitch);
-						C = ptr_dst2 + ((y * pitch) >> 1);
-						for (int x = 0, x_fin = w - CropLeft - CropRight; x < x_fin; x += 16, p += 32, pw += 32) {
-							//-----------1行目---------------
-							x0 = _mm_loadu_si128((const __m128i *)(p+ 0));    // VYUYVYUYVYUYVYUY
-							x1 = _mm_loadu_si128((const __m128i *)(p+16));    // VYUYVYUYVYUYVYUY
-
-							_mm_prefetch((const char *)pw, _MM_HINT_T1);
-
-							x2 = _mm_unpacklo_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-							x1 = _mm_unpackhi_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-
-							x0 = _mm_unpacklo_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-							x1 = _mm_unpackhi_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-
-							x2 = _mm_unpacklo_epi8(x0, x1); //UUUUUUUUYYYYYYYY
-							x1 = _mm_unpackhi_epi8(x0, x1); //VVVVVVVVYYYYYYYY
-
-							x0 = _mm_unpacklo_epi8(x2, x1); //YYYYYYYYYYYYYYYY
-							x3 = _mm_unpackhi_epi8(x2, x1); //VUVUVUVUVUVUVUVU
-
-							_mm_storeu_si128((__m128i *)(Y + x), x0);
-							//-----------1行目終了---------------
-
-							//-----------2行目---------------
-							x0 = _mm_loadu_si128((const __m128i *)(pw+ 0));    // VYUYVYUYVYUYVYUY
-							x1 = _mm_loadu_si128((const __m128i *)(pw+16));    // VYUYVYUYVYUYVYUY
-
-							x2 = _mm_unpacklo_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-							x1 = _mm_unpackhi_epi8(x0, x1); //VVYYUUYYVVYYUUYY
-
-							x0 = _mm_unpacklo_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-							x1 = _mm_unpackhi_epi8(x2, x1); //VVVVYYYYUUUUYYYY
-
-							x2 = _mm_unpacklo_epi8(x0, x1); //UUUUUUUUYYYYYYYY
-							x1 = _mm_unpackhi_epi8(x0, x1); //VVVVVVVVYYYYYYYY
-
-							x0 = _mm_unpacklo_epi8(x2, x1); //YYYYYYYYYYYYYYYY
-							x1 = _mm_unpackhi_epi8(x2, x1); //VUVUVUVUVUVUVUVU
-
-							_mm_storeu_si128((__m128i *)(Y + pitch + x), x0);
-							//-----------2行目終了---------------
-
-							x1 = _mm_avg_epu8(x1, x3);  //VUVUVUVUVUVUVUVU
-							_mm_storeu_si128((__m128i *)(C + x), x1);
-						}
-					}
-				}
-				break;
-			default:
-				return MFX_ERR_UNSUPPORTED;
-			}
-			break;
-		case MFX_FOURCC_RGB3:
-			switch (FourCCRequired)
-			{
-			case MFX_FOURCC_RGB4:
-				{
-					mfxU8 *dstR = min( min(pData->R, pData->G), pData->B ) + pInfo->CropX + pInfo->CropY * pData->Pitch;
-					mfxU8 *srcBGR = ptr_src;
-					int src_pitch = (w*3+3) & ~3;
-					const char __declspec(align(16)) MASK_RGB3_TO_RGB4[] = { 0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1 };
-					__m128i xMask = _mm_load_si128((__m128i*)MASK_RGB3_TO_RGB4);
-					for (int y = h - CropUp - 1; y >= CropBottom; y--, dstR += pitch) {
-						srcBGR = ptr_src + (src_pitch * y) + CropLeft * 3;
-						mfxU8 *dst = dstR;
-						int x = 0, x_fin = w - CropLeft - CropRight - 16;
-						for ( ; x < x_fin; x += 16, dst += 64, srcBGR += 48) {
-							__m128i x0 = _mm_loadu_si128((__m128i*)(srcBGR +  0));
-							__m128i x1 = _mm_loadu_si128((__m128i*)(srcBGR + 16));
-							__m128i x2 = _mm_loadu_si128((__m128i*)(srcBGR + 32));
-							__m128i x3 = _mm_srli_si128(x2, 4);
-							x3 = _mm_shuffle_epi8(x3, xMask);
-							x2 = _mm_alignr_epi8(x2, x1, 8);
-							x2 = _mm_shuffle_epi8(x2, xMask);
-							x1 = _mm_alignr_epi8(x1, x0, 12);
-							x1 = _mm_shuffle_epi8(x1, xMask);
-							x0 = _mm_shuffle_epi8(x0, xMask);
-							_mm_storeu_si128((__m128i*)(dst + 48), x3);
-							_mm_storeu_si128((__m128i*)(dst + 32), x2);
-							_mm_storeu_si128((__m128i*)(dst + 16), x1);
-							_mm_storeu_si128((__m128i*)(dst +  0), x0);
-						}
-						x_fin = w - CropLeft - CropRight;
-						for ( ; x < x_fin; x++, dst += 4, srcBGR += 3) {
-							dst[0] = srcBGR[0];
-							dst[1] = srcBGR[1];
-							dst[2] = srcBGR[2];
-							dst[3] = 0;
-						}
-					}
-				}
-				break;
-			default:
-				return MFX_ERR_UNSUPPORTED;
-			}
-			break;
-		case MFX_FOURCC_RGB4:
-			switch (FourCCRequired)
-			{
-			case MFX_FOURCC_RGB4:
-				{
-					mfxU8 *dstR = min( min(pData->R, pData->G), pData->B ) + pInfo->CropX + pInfo->CropY * pData->Pitch;
-					//mfxU8 *srcBGR = ptr_src;
-					int src_pitch = w * 4;
-					int copy_width = (w - CropLeft - CropRight) << 2;
-
-					for (int y = h - CropUp - 1; y >= CropBottom; y--, dstR += pitch) {
-						sse_memcpy(dstR, ptr_src + (src_pitch * y) + (CropLeft<<2), copy_width);
-						//srcBGR = ptr_src + (src_pitch * y);
-						//for (int x = 0, x_fin = w - CropLeft - CropRight; x < x_fin; x++) {
-						//	dstR[(x<<2)+0] = srcBGR[((x+CropLeft)<<2)+0];
-						//	dstR[(x<<2)+1] = srcBGR[((x+CropLeft)<<2)+1];
-						//	dstR[(x<<2)+2] = srcBGR[((x+CropLeft)<<2)+2];
-						//	dstR[(x<<2)+3] = srcBGR[((x+CropLeft)<<2)+3];
-						//}
-					}
-				}
-				break;
-			default:
-				return MFX_ERR_UNSUPPORTED;
-			}
-			break;
-		default:
-			return MFX_ERR_UNSUPPORTED;
-		}
+	BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
+	int crop[4] = { CropLeft, CropUp, CropRight, CropBottom };
+	const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
+	const void *src_ptr[3] = { ptr_src, ptr_src + w * h * 5 / 4, ptr_src + w * h };
+	if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
+		dst_ptr[0] = min(min(pData->R, pData->G), pData->B);
+	}
+	m_sConvert->func[interlaced]((void **)dst_ptr, (void **)src_ptr, w, w * m_nYPitchMultiplizer, w/2, pData->Pitch, h, crop);
 
 	m_pEncSatusInfo->m_nInputFrames++;
 	// display update
