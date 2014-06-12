@@ -784,6 +784,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  ToolStripMenuItemEncPause;
 				//	pause_start = NULL;
 				//}
 			}
+			Application::DoEvents();
 		}
 	private: 
 		System::Void toolStripMenuItemShowStatus_CheckedChanged(System::Object^  sender, System::EventArgs^  e) {
