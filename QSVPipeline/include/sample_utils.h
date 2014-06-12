@@ -188,6 +188,7 @@ protected:
 	FILE*       m_fSource;
 	bool        m_bInited;
 	bool        m_bNoOutput;
+	char*       m_pOutputBuffer;
 };
 
 class CSmplYUVWriter
