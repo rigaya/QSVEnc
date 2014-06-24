@@ -156,6 +156,14 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCH
 		if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
 			_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%s)"), to_tchar(cl_info_buffer).c_str());
 		}
+		auto remove_string =[](TCHAR *target_str, const TCHAR *remove_str) {
+			TCHAR *ptr = _tcsstr(target_str, remove_str);
+			if (nullptr != ptr) {
+				memmove(ptr, ptr + _tcslen(remove_str), (_tcslen(ptr) - _tcslen(remove_str) + 1) *  sizeof(target_str[0]));
+			}
+		};
+		remove_string(buffer, _T("(R)"));
+		remove_string(buffer, _T("(TM)"));
 	}
 	return ret;
 }
