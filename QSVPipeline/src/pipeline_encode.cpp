@@ -2655,17 +2655,17 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	PRINT_INFO(    _T("Scene Change Detection  %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
 		PRINT_INFO(    _T("B pyramid               %s\n"), cop2.BRefType ? _T("on") : _T("off"));
-		PRINT_INFO(    _T("GOP Structure           "));
-		bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
-		bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
-		if (!adaptiveIOn && !adaptiveBOn) {
-			PRINT_INFO(_T("fixed\n"))
-		} else {
-			PRINT_INFO(_T("Adaptive %s%s%s insert\n"),
-				(adaptiveIOn) ? _T("I") : _T(""),
-				(adaptiveIOn && adaptiveBOn) ? _T(",") : _T(""),
-				(adaptiveBOn) ? _T("B") : _T(""));
-		}
+		//PRINT_INFO(    _T("GOP Structure           "));
+		//bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
+		//bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
+		//if (!adaptiveIOn && !adaptiveBOn) {
+		//	PRINT_INFO(_T("fixed\n"))
+		//} else {
+		//	PRINT_INFO(_T("Adaptive %s%s%s insert\n"),
+		//		(adaptiveIOn) ? _T("I") : _T(""),
+		//		(adaptiveIOn && adaptiveBOn) ? _T(",") : _T(""),
+		//		(adaptiveBOn) ? _T("B") : _T(""));
+		//}
 	}
 	PRINT_INFO(    _T("Slices                  "));
 	if (videoPrm.mfx.NumSlice) {
