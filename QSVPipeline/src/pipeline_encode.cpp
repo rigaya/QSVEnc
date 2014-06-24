@@ -552,7 +552,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
 			m_mfxCopt2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
 			m_mfxCopt2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-			m_mfxCopt2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_UNKNOWN);
+			m_mfxCopt2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
 			m_mfxCopt2.LookAheadDS = pInParams->nLookaheadDS;
 		}
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
@@ -2654,7 +2654,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
 	PRINT_INFO(    _T("Scene Change Detection  %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-		PRINT_INFO(    _T("B pyramid               %s\n"), cop2.BRefType ? _T("on") : _T("off"));
+		PRINT_INFO(    _T("B pyramid               %s\n"), (MFX_B_REF_PYRAMID == cop2.BRefType) ? _T("on") : _T("off"));
 		//PRINT_INFO(    _T("GOP Structure           "));
 		//bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
 		//bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
