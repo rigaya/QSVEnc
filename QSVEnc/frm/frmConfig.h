@@ -776,6 +776,8 @@ private: System::Windows::Forms::Label^  fcgLBCPUInfoOnFeatureTab;
 private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
 private: System::Windows::Forms::ComboBox^  fcgCXAudioDelayCut;
 private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
+private: System::Windows::Forms::Label^  fcgLBGPUInfoOnFeatureTab;
+private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 
 
 
@@ -1132,6 +1134,8 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
+			this->fcgLBGPUInfoOnFeatureTab = (gcnew System::Windows::Forms::Label());
+			this->fcgLBGPUInfoLabelOnFeatureTab = (gcnew System::Windows::Forms::Label());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -3599,6 +3603,8 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			// 
 			// tabPageFeatures
 			// 
+			this->tabPageFeatures->Controls->Add(this->fcgLBGPUInfoOnFeatureTab);
+			this->tabPageFeatures->Controls->Add(this->fcgLBGPUInfoLabelOnFeatureTab);
 			this->tabPageFeatures->Controls->Add(this->fcgLBCPUInfoOnFeatureTab);
 			this->tabPageFeatures->Controls->Add(this->fcgLBCPUInfoLabelOnFeatureTab);
 			this->tabPageFeatures->Controls->Add(this->fcgBTSaveFeatureList);
@@ -3666,7 +3672,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesCurrentAPIVer->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(159, 81);
+			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(159, 113);
 			this->fcgLBFeaturesCurrentAPIVer->Name = L"fcgLBFeaturesCurrentAPIVer";
 			this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(33, 17);
 			this->fcgLBFeaturesCurrentAPIVer->TabIndex = 110;
@@ -3678,7 +3684,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesShowCurrentAPI->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(21, 79);
+			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(21, 111);
 			this->fcgLBFeaturesShowCurrentAPI->Name = L"fcgLBFeaturesShowCurrentAPI";
 			this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(127, 19);
 			this->fcgLBFeaturesShowCurrentAPI->TabIndex = 107;
@@ -3689,11 +3695,11 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgDGVFeatures->BackgroundColor = System::Drawing::SystemColors::Control;
 			this->fcgDGVFeatures->BorderStyle = System::Windows::Forms::BorderStyle::None;
 			this->fcgDGVFeatures->ColumnHeadersHeightSizeMode = System::Windows::Forms::DataGridViewColumnHeadersHeightSizeMode::AutoSize;
-			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 112);
+			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 149);
 			this->fcgDGVFeatures->Name = L"fcgDGVFeatures";
 			this->fcgDGVFeatures->ReadOnly = true;
 			this->fcgDGVFeatures->RowTemplate->Height = 21;
-			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 363);
+			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 326);
 			this->fcgDGVFeatures->TabIndex = 0;
 			this->fcgDGVFeatures->CellFormatting += gcnew System::Windows::Forms::DataGridViewCellFormattingEventHandler(this, &frmConfig::fcgDGVFeatures_CellFormatting);
 			// 
@@ -3725,6 +3731,30 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 			this->fcgLBguiExBlog->Text = L"QSVEncについて";
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
+			// 
+			// fcgLBGPUInfoOnFeatureTab
+			// 
+			this->fcgLBGPUInfoOnFeatureTab->AutoSize = true;
+			this->fcgLBGPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(128)));
+			this->fcgLBGPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
+			this->fcgLBGPUInfoOnFeatureTab->Location = System::Drawing::Point(159, 84);
+			this->fcgLBGPUInfoOnFeatureTab->Name = L"fcgLBGPUInfoOnFeatureTab";
+			this->fcgLBGPUInfoOnFeatureTab->Size = System::Drawing::Size(35, 17);
+			this->fcgLBGPUInfoOnFeatureTab->TabIndex = 116;
+			this->fcgLBGPUInfoOnFeatureTab->Text = L"GPU";
+			// 
+			// fcgLBGPUInfoLabelOnFeatureTab
+			// 
+			this->fcgLBGPUInfoLabelOnFeatureTab->AutoSize = true;
+			this->fcgLBGPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
+				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+			this->fcgLBGPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
+			this->fcgLBGPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(21, 82);
+			this->fcgLBGPUInfoLabelOnFeatureTab->Name = L"fcgLBGPUInfoLabelOnFeatureTab";
+			this->fcgLBGPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(40, 19);
+			this->fcgLBGPUInfoLabelOnFeatureTab->TabIndex = 115;
+			this->fcgLBGPUInfoLabelOnFeatureTab->Text = L"GPU";
 			// 
 			// frmConfig
 			// 
@@ -3831,6 +3861,9 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 		delegate void SetCPUInfoDelegate();
 		String^ StrCPUInfo;
 		SetCPUInfoDelegate ^getCPUInfoDelegate;
+		delegate void SetGPUInfoDelegate();
+		String^ StrGPUInfo;
+		SetGPUInfoDelegate ^getGPUInfoDelegate;
 		const SYSTEM_DATA *sys_dat;
 		CONF_GUIEX *conf;
 		LocalSettings LocalStg;
@@ -3914,6 +3947,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 		System::Void SaveQSVFeatureAsTxt(String^ SavePath);
 		System::Void SaveQSVFeature();
 		System::Void SetCPUInfo();
+		System::Void SetGPUInfo();
 	public:
 		System::Void InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *system_data);
 		System::Void SetVideoBitrate(int bitrate);

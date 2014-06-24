@@ -950,6 +950,8 @@ System::Void frmConfig::InitForm() {
 	//CPU情報の取得
 	getCPUInfoDelegate = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
 	getCPUInfoDelegate->BeginInvoke(nullptr, nullptr);
+	getGPUInfoDelegate = gcnew SetGPUInfoDelegate(this, &frmConfig::SetGPUInfo);
+	getGPUInfoDelegate->BeginInvoke(nullptr, nullptr);
 	//ローカル設定のロード
 	LoadLocalStg();
 	//ローカル設定の反映
@@ -1607,6 +1609,20 @@ System::Void frmConfig::SetCPUInfo() {
 		this->Invoke(sl);
 	} else {
 		fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
+	}
+}
+System::Void frmConfig::SetGPUInfo() {
+	//GPU名
+	if (nullptr == StrGPUInfo || StrGPUInfo->Length <= 0) {
+		TCHAR gpu_info[256];
+		getGPUInfo(_T("Intel"), gpu_info, _countof(gpu_info));
+		StrGPUInfo = String(gpu_info).ToString();
+	}
+	if (this->InvokeRequired) {
+		SetGPUInfoDelegate^ sl = gcnew SetGPUInfoDelegate(this, &frmConfig::SetGPUInfo);
+		this->Invoke(sl);
+	} else {
+		fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
 	}
 }
 
