@@ -39,11 +39,12 @@ static int getCPUName(char *buffer, size_t nSize) {
 	auto remove_string =[](char *target_str, const char *remove_str) {
 		char *ptr = strstr(target_str, remove_str);
 		if (nullptr != ptr) {
-			memmove(ptr, ptr + strlen(remove_str), strlen(ptr) - strlen(remove_str) + 1);
+			memmove(ptr, ptr + strlen(remove_str), (strlen(ptr) - strlen(remove_str) + 1) *  sizeof(target_str[0]));
 		}
 	};
 	remove_string(buffer, "(R)");
 	remove_string(buffer, "(TM)");
+	remove_string(buffer, "CPU");
 	//crop space beforce string
 	for (int i = 0; buffer[i]; i++) {
 		if (buffer[i] != ' ') {
