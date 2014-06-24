@@ -35,6 +35,7 @@ void init_qsvp_prm(sInputParams *prm) {
 	prm->nGOPLength        = QSV_DEFAULT_GOP_LEN;
 	prm->nRef              = QSV_DEFAULT_REF;
 	prm->bopenGOP          = false;
+	prm->bBPyramid         = true;
 	prm->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
 	prm->ColorPrim         = (mfxU16)list_colorprim[0].value;
 	prm->ColorMatrix       = (mfxU16)list_colormatrix[0].value;
