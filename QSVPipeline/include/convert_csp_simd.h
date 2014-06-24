@@ -20,15 +20,19 @@
 #endif
 
 static void __forceinline memcpy_sse(uint8_t *dst, const uint8_t *src, int size) {
+	if (size < 64) {
+		memcpy(dst, src, size);
+		return;
+	}
 	uint8_t *dst_fin = dst + size;
-	uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)dst_fin & ~15) - 64);
+	uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)(dst_fin + 15) & ~15) - 64);
 	__m128 x0, x1, x2, x3;
 	const int start_align_diff = (int)((size_t)dst & 15);
 	if (start_align_diff) {
 		x0 = _mm_loadu_ps((float*)src);
 		_mm_storeu_ps((float*)dst, x0);
-		dst += start_align_diff;
-		src += start_align_diff;
+		dst += 16 - start_align_diff;
+		src += 16 - start_align_diff;
 	}
 	for ( ; dst < dst_aligned_fin; dst += 64, src += 64) {
 		x0 = _mm_loadu_ps((float*)(src +  0));

@@ -14,19 +14,24 @@
 #define USE_AVX2  1
 
 #include <stdint.h>
+#include <string.h>
 #include <immintrin.h>
 
 template<bool use_stream>
 static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
+	if (size < 128) {
+		memcpy(dst, src, size);
+		return;
+	}
 	uint8_t *dst_fin = dst + size;
-	uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)dst_fin & ~31) - 128);
+	uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)(dst_fin + 31) & ~31) - 128);
 	__m256i y0, y1, y2, y3;
 	const int start_align_diff = (int)((size_t)dst & 31);
 	if (start_align_diff) {
 		y0 = _mm256_loadu_si256((__m256i*)src);
 		_mm256_storeu_si256((__m256i*)dst, y0);
-		dst += start_align_diff;
-		src += start_align_diff;
+		dst += 32 - start_align_diff;
+		src += 32 - start_align_diff;
 	}
 #define _mm256_stream_switch_si256(x, ymm) ((use_stream) ? _mm256_stream_si256((x), (ymm)) : _mm256_store_si256((x), (ymm)))
 	for ( ; dst < dst_aligned_fin; dst += 128, src += 128) {
