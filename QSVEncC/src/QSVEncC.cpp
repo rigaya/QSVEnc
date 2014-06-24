@@ -231,6 +231,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --i-adapt                      enables adaptive I frame insert.\n")
 			_T("   --b-adapt                      enables adaptive B frame insert.\n")
 			_T("   --b-pyramid                    enables B-frame pyramid reference.\n")
+			_T("   --no-b-pyramid                 disables B-frame pyramid reference.\n")
 			_T("   --lookahead-ds <string>        set lookahead quality.\n")
 			_T("                                   - auto(default), fast, normal, slow\n")
 			);
@@ -574,6 +575,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("b-pyramid")))
 		{
 			pParams->bBPyramid = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-b-pyramid")))
+		{
+			pParams->bBPyramid = false;
 		}
 		else if (0 == _tcscmp(option_name, _T("lookahead-ds")))
 		{
