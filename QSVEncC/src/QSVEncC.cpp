@@ -591,10 +591,6 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
-		else if (0 == _tcscmp(option_name, _T("scenechange")))
-		{
-			pParams->bforceGOPSettings = false;
-		}
 		else if (0 == _tcscmp(option_name, _T("trellis")))
 		{
 			i++;
