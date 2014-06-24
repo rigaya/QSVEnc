@@ -945,6 +945,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("check-features")))
 		{
 			PrintVersion();
+			TCHAR buffer[4096];
+			getEnviromentInfo(buffer, _countof(buffer), false);
+			_ftprintf(stdout, _T("%s\n"), buffer);
+
 			mfxVersion test = { 0, 1 };
 			for (int impl_type = 0; impl_type < 2; impl_type++) {
 				mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();

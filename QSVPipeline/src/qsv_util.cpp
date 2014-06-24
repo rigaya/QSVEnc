@@ -716,7 +716,7 @@ UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
 	return msex.ullTotalPhys;
 }
 
-void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size) {
+void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) {
 	ZeroMemory(buf, sizeof(buf[0]) * buffer_size);
 
 	TCHAR cpu_info[1024] = { 0 };
@@ -740,5 +740,6 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size) {
 	add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
 	add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
 	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
-	add_tchar_to_buf(_T("RAM: DDRx-xxxx / x channel (Total %d MB / Used %d MB)\n"), (UINT)(totalRamsize >> 20), (UINT)(UsedRamSize >> 20));
+	if (add_ram_info)
+		add_tchar_to_buf(_T("RAM: DDRx-xxxx / x channel (Total %d MB / Used %d MB)\n"), (UINT)(totalRamsize >> 20), (UINT)(UsedRamSize >> 20));
 }
