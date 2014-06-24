@@ -198,8 +198,8 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 
 	mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
 	
-	mfxU32 result = (MFX_ERR_NONE == ret) ? ENC_FEATURE_CURRENT_RC : 0x00;
-	if (MFX_ERR_NONE == ret) {
+	mfxU32 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
+	if (MFX_ERR_NONE <= ret) {
 
 		//まず、エンコードモードについてチェック
 		auto check_enc_mode = [&](mfxU16 mode, mfxU32 flag, mfxVersion required_ver) {
@@ -212,7 +212,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 				MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
 				videoPrm.NumExtParam = (mfxU16)bufOut.size();
 				videoPrm.ExtParam = &bufOut[0];
-				if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut))
+				if (MFX_ERR_NONE <= encode.Query(&videoPrm, &videoPrmOut) && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod)
 					result |= flag;
 				videoPrm.mfx.RateControlMethod = original_method;
 				set_default_quality_prm();
@@ -228,7 +228,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			(members) = (value); \
 			MSDK_MEMCPY(&copOut, &cop, sizeof(cop)); \
 			MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
-			if (MFX_ERR_NONE == encode.Query(&videoPrm, &videoPrmOut)) \
+			if (MFX_ERR_NONE <= encode.Query(&videoPrm, &videoPrmOut)) \
 				result |= (flag); \
 			(members) = 0; \
 		} \
