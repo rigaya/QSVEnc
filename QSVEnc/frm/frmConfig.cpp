@@ -801,7 +801,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	bool cbr_vbr_mode = (enc_mode == MFX_RATECONTROL_VBR    || enc_mode == MFX_RATECONTROL_CBR);
 	bool la_mode =      (enc_mode == MFX_RATECONTROL_LA     || enc_mode == MFX_RATECONTROL_LA_ICQ);
 	bool icq_mode =     (enc_mode == MFX_RATECONTROL_LA_ICQ || enc_mode == MFX_RATECONTROL_ICQ);
-	bool vcm_mode =     (enc_mode == MFX_RATECONTROL_VCM);
+	//bool vcm_mode =     (enc_mode == MFX_RATECONTROL_VCM);
 
 	fcgPNQP->Visible = cqp_mode;
 	fcgNUQPI->Enabled = cqp_mode;
@@ -814,9 +814,9 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgPNBitrate->Visible = !cqp_mode;
 	fcgNUBitrate->Enabled = !cqp_mode;
 	fcgLBBitrate->Enabled = !cqp_mode;
-	fcgNUMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode || icq_mode;
-	fcgLBMaxkbps->Enabled = cbr_vbr_mode || la_mode || vcm_mode || icq_mode;
-	fcgLBMaxBitrate2->Enabled = cbr_vbr_mode || la_mode || vcm_mode || icq_mode;
+	fcgNUMaxkbps->Enabled = cbr_vbr_mode;
+	fcgLBMaxkbps->Enabled = cbr_vbr_mode;
+	fcgLBMaxBitrate2->Enabled = cbr_vbr_mode;
 
 	fcgPNAVBR->Visible = avbr_mode;
 	fcgLBAVBRAccuarcy->Enabled = avbr_mode;

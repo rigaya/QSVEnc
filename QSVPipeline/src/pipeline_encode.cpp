@@ -459,7 +459,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	} else if (MFX_RATECONTROL_ICQ    == m_mfxEncParams.mfx.RateControlMethod
 		    || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
 		m_mfxEncParams.mfx.ICQQuality      = pInParams->nICQQuality;
-		m_mfxEncParams.mfx.MaxKbps         = pInParams->nMaxBitrate;
+		m_mfxEncParams.mfx.MaxKbps         = 0;
 	} else {
 		m_mfxEncParams.mfx.TargetKbps      = pInParams->nBitRate; // in kbps
 		if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
