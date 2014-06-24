@@ -198,7 +198,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 	mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
 	
 	mfxU32 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
-	if (MFX_ERR_NONE <= ret) {
+	if (result) {
 
 		//まず、エンコードモードについてチェック
 		auto check_enc_mode = [&](mfxU16 mode, mfxU32 flag, mfxVersion required_ver) {
