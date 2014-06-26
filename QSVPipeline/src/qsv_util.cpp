@@ -171,12 +171,12 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 	videoPrm.mfx.FrameInfo.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
 	videoPrm.mfx.FrameInfo.AspectRatioW  = 1;
 	videoPrm.mfx.FrameInfo.AspectRatioH  = 1;
-	videoPrm.mfx.FrameInfo.Width         = 1280;
-	videoPrm.mfx.FrameInfo.Height        = 720;
+	videoPrm.mfx.FrameInfo.Width         = 1920;
+	videoPrm.mfx.FrameInfo.Height        = 1088;
 	videoPrm.mfx.FrameInfo.CropX         = 0;
 	videoPrm.mfx.FrameInfo.CropY         = 0;
-	videoPrm.mfx.FrameInfo.CropW         = 1280;
-	videoPrm.mfx.FrameInfo.CropH         = 720;
+	videoPrm.mfx.FrameInfo.CropW         = 1920;
+	videoPrm.mfx.FrameInfo.CropH         = 1080;
 	set_default_quality_prm();
 
 	mfxExtCodingOption copOut;
@@ -221,9 +221,10 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 		check_enc_mode(MFX_RATECONTROL_LA,   ENC_FEATURE_LA,   MFX_LIB_VERSION_1_7);
 		check_enc_mode(MFX_RATECONTROL_ICQ,  ENC_FEATURE_ICQ,  MFX_LIB_VERSION_1_8);
 		check_enc_mode(MFX_RATECONTROL_VCM,  ENC_FEATURE_VCM,  MFX_LIB_VERSION_1_8);
-	
+
 #define CHECK_FEATURE(membersIn, membersOut, flag, value, required_ver) { \
 		if (check_lib_version(mfxVer, (required_ver))) { \
+			mfxU16 temp = (membersIn); \
 			(membersIn) = (value); \
 			MSDK_MEMCPY(&copOut, &cop, sizeof(cop)); \
 			MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
@@ -231,7 +232,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 				&& (membersIn) == (membersOut) \
 				&& videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) \
 				result |= (flag); \
-			(membersIn) = 0; \
+			(membersIn) = temp; \
 		} \
 	}\
 		//これはもう単純にAPIチェックでOK
@@ -239,21 +240,23 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			result |= ENC_FEATURE_VUI_INFO;
 		}
 		//ひとつひとつパラメータを入れ替えて試していく
+#define PICTYPE mfx.FrameInfo.PicStruct
 		const mfxU32 MFX_TRELLIS_ALL = MFX_TRELLIS_I | MFX_TRELLIS_P | MFX_TRELLIS_B;
-		CHECK_FEATURE(cop.AUDelimiter,       copOut.AUDelimiter,       ENC_FEATURE_AUD,        MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop.PicTimingSEI,      copOut.PicTimingSEI,      ENC_FEATURE_PIC_STRUCT, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop.RateDistortionOpt, copOut.RateDistortionOpt, ENC_FEATURE_RDO,        MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop.CAVLC,             copOut.CAVLC,             ENC_FEATURE_CAVLC,      MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop2.ExtBRC,           cop2Out.ExtBRC,           ENC_FEATURE_EXT_BRC,    MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_6);
-		CHECK_FEATURE(cop2.MBBRC,            cop2Out.MBBRC,            ENC_FEATURE_MBBRC,      MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_6);
-		CHECK_FEATURE(cop2.Trellis,          cop2Out.Trellis,          ENC_FEATURE_TRELLIS,    MFX_TRELLIS_ALL,     MFX_LIB_VERSION_1_7);
-		CHECK_FEATURE(cop2.AdaptiveI,        cop2Out.AdaptiveI,        ENC_FEATURE_ADAPTIVE_I, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_8);
-		CHECK_FEATURE(cop2.AdaptiveB,        cop2Out.AdaptiveB,        ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_8);
-		CHECK_FEATURE(cop2.BRefType,         cop2Out.BRefType,         ENC_FEATURE_B_PYRAMID,  MFX_B_REF_PYRAMID,   MFX_LIB_VERSION_1_8);
+		CHECK_FEATURE(cop.AUDelimiter,       copOut.AUDelimiter,       ENC_FEATURE_AUD,        MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(videoPrm.PICTYPE,      videoPrmOut.PICTYPE,      ENC_FEATURE_INTERLACE,  MFX_PICSTRUCT_FIELD_TFF, MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop.PicTimingSEI,      copOut.PicTimingSEI,      ENC_FEATURE_PIC_STRUCT, MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop.RateDistortionOpt, copOut.RateDistortionOpt, ENC_FEATURE_RDO,        MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop.CAVLC,             copOut.CAVLC,             ENC_FEATURE_CAVLC,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop2.ExtBRC,           cop2Out.ExtBRC,           ENC_FEATURE_EXT_BRC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
+		CHECK_FEATURE(cop2.MBBRC,            cop2Out.MBBRC,            ENC_FEATURE_MBBRC,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
+		CHECK_FEATURE(cop2.Trellis,          cop2Out.Trellis,          ENC_FEATURE_TRELLIS,    MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
+		CHECK_FEATURE(cop2.AdaptiveI,        cop2Out.AdaptiveI,        ENC_FEATURE_ADAPTIVE_I, MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+		CHECK_FEATURE(cop2.AdaptiveB,        cop2Out.AdaptiveB,        ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+		CHECK_FEATURE(cop2.BRefType,         cop2Out.BRefType,         ENC_FEATURE_B_PYRAMID,  MFX_B_REF_PYRAMID,       MFX_LIB_VERSION_1_8);
 		if (MFX_RATECONTROL_LA == ratecontrol || MFX_RATECONTROL_LA_ICQ == ratecontrol) {
-			CHECK_FEATURE(cop2.LookAheadDS,  cop2Out.LookAheadDS,      ENC_FEATURE_LA_DS,      MFX_LOOKAHEAD_DS_2x, MFX_LIB_VERSION_1_8);
+			CHECK_FEATURE(cop2.LookAheadDS,  cop2Out.LookAheadDS,      ENC_FEATURE_LA_DS,      MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
 		}
-
+#undef PICTYPE
 		//以下特殊な場合
 		if (   MFX_RATECONTROL_LA     == ratecontrol
 			|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {

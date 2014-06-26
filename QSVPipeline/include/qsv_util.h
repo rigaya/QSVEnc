@@ -80,6 +80,7 @@ enum {
 	ENC_FEATURE_EXT_BRC    = 0x00008000,
 	ENC_FEATURE_MBBRC      = 0x00010000,
 	ENC_FEATURE_LA_DS      = 0x00020000,
+	ENC_FEATURE_INTERLACE  = 0x00040000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -95,6 +96,7 @@ static const CX_DESC list_rate_control_ry[] = {
 };
 static const CX_DESC list_enc_feature[] = {
 	{ _T("RC mode available "), ENC_FEATURE_CURRENT_RC },
+	{ _T("Interlace         "), ENC_FEATURE_INTERLACE  },
 	{ _T("VUI info output   "), ENC_FEATURE_VUI_INFO   },
 	//{ _T("aud               "), ENC_FEATURE_AUD        },
 	//{ _T("pic_struct        "), ENC_FEATURE_PIC_STRUCT },

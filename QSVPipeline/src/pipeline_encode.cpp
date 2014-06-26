@@ -404,6 +404,12 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		PrintMes(_T("RDO is not supported on current platform, disabled.\n"));
 		pInParams->bRDO = false;
 	}
+	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
+		&& pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE
+		&& !(availableFeaures & ENC_FEATURE_INTERLACE)) {
+		PrintMes(_T("Interlaced encoding is not supported on current rate control mode.\n"));
+		return MFX_ERR_INVALID_VIDEO_PARAM;
+	}
 
 
 	//GOP長さが短いならVQPもシーンチェンジ検出も実行しない

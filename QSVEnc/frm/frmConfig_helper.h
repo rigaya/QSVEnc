@@ -145,6 +145,7 @@ namespace QSVEnc {
 		System::Void GenerateTable() {
 			static const CX_DESC list_enc_feature_jp[] = {
 				{ _T("モード有効          "), ENC_FEATURE_CURRENT_RC },
+				{ _T("インタレ保持        "), ENC_FEATURE_INTERLACE  },
 				{ _T("色設定等出力        "), ENC_FEATURE_VUI_INFO   },
 				//{ _T("aud                 "), ENC_FEATURE_AUD        },
 				//{ _T("pic_struct          "), ENC_FEATURE_PIC_STRUCT },
