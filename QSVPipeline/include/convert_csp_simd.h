@@ -21,7 +21,8 @@
 
 static void __forceinline memcpy_sse(uint8_t *dst, const uint8_t *src, int size) {
 	if (size < 64) {
-		memcpy(dst, src, size);
+		for (int i = 0; i < size; i++)
+			dst[i] = src[i];
 		return;
 	}
 	uint8_t *dst_fin = dst + size;

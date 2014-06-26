@@ -20,7 +20,8 @@
 template<bool use_stream>
 static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
 	if (size < 128) {
-		memcpy(dst, src, size);
+		for (int i = 0; i < size; i++)
+			dst[i] = src[i];
 		return;
 	}
 	uint8_t *dst_fin = dst + size;
