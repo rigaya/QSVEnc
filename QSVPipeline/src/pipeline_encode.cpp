@@ -428,11 +428,11 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	if (!pInParams->bforceGOPSettings) {
 		if (   (MFX_RATECONTROL_LA     == pInParams->nEncMode
 			 || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode)) {
-			PrintMes(_T("Scene change detection cannot be used Lookahead mode.\n"));
+			PrintMes(_T("Scene change detection cannot be used with Lookahead mode, disabled.\n"));
 			pInParams->bforceGOPSettings = true;
 		} else if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)
 			&& (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NORMAL && pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_BOB)) {
-			PrintMes(_T("Scene change detection cannot be used with interlaced output.\n"));
+			PrintMes(_T("Scene change detection cannot be used with interlaced output, disabled.\n"));
 			pInParams->bforceGOPSettings = true;
 		} else {
 			m_nExPrm |= MFX_PRM_EX_SCENE_CHANGE;
