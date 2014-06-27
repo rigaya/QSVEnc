@@ -302,6 +302,7 @@ static mfxU32 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
 		feature |= ENC_FEATURE_PIC_STRUCT;
 		feature |= ENC_FEATURE_RDO;
 		feature |= ENC_FEATURE_CAVLC;
+		feature |= ENC_FEATURE_INTERLACE;
 	}
 	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
 		feature |= ENC_FEATURE_VUI_INFO;
