@@ -257,12 +257,18 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			CHECK_FEATURE(cop2.LookAheadDS,  cop2Out.LookAheadDS,      ENC_FEATURE_LA_DS,      MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
 		}
 #undef PICTYPE
+		//付随オプション
+		result |= ENC_FEATURE_SCENECHANGE;
 		//以下特殊な場合
 		if (   MFX_RATECONTROL_LA     == ratecontrol
 			|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {
 			result &= ~ENC_FEATURE_RDO;
 			result &= ~ENC_FEATURE_MBBRC;
 			result &= ~ENC_FEATURE_EXT_BRC;
+			//API v1.8以降、LA + scenechangeは不安定(フリーズ)
+			if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+				result &= ~ENC_FEATURE_SCENECHANGE;
+			}
 		} else if (MFX_RATECONTROL_CQP == ratecontrol
 			    || MFX_RATECONTROL_VQP == ratecontrol) {
 			result &= ~ENC_FEATURE_MBBRC;
@@ -296,6 +302,7 @@ static mfxU32 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
 
 	//各モードをチェック
 	feature |= ENC_FEATURE_CURRENT_RC;
+	feature |= ENC_FEATURE_SCENECHANGE;
 
 	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_1)) {
 		feature |= ENC_FEATURE_AUD;

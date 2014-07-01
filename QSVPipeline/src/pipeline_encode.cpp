@@ -389,6 +389,10 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		PrintMes(_T("MBBRC is not supported on current platform, disabled.\n"));
 		pInParams->bMBBRC = false;
 	}
+	if (!pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_SCENECHANGE)) {
+		PrintMes(_T("Scene change detection is not supported on current platform, disabled.\n"));
+		pInParams->bforceGOPSettings = true;
+	}
 	if (   (MFX_RATECONTROL_LA     == pInParams->nEncMode
 		 || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode)
 		&& pInParams->nLookaheadDS != MFX_LOOKAHEAD_DS_UNKNOWN
@@ -426,11 +430,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	}
 	//拡張設定
 	if (!pInParams->bforceGOPSettings) {
-		if (   (MFX_RATECONTROL_LA     == pInParams->nEncMode
-			 || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode)) {
-			PrintMes(_T("Scene change detection cannot be used with Lookahead mode, disabled.\n"));
-			pInParams->bforceGOPSettings = true;
-		} else if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)
+		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)
 			&& (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NORMAL && pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_BOB)) {
 			PrintMes(_T("Scene change detection cannot be used with interlaced output, disabled.\n"));
 			pInParams->bforceGOPSettings = true;

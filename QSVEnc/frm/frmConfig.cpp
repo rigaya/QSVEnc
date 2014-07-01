@@ -727,6 +727,10 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	
 	fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
+
+	//Scene change detection
+	fcgCBSceneChange->Enabled = 0 != (available_features & ENC_FEATURE_SCENECHANGE);
+	if (!fcgCBSceneChange->Enabled) fcgCBSceneChange->Checked = false;
 	
 	//API v1.3 features
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR));
