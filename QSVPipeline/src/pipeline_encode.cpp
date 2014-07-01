@@ -414,6 +414,10 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		PrintMes(_T("Interlaced encoding is not supported on current rate control mode.\n"));
 		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
+	if (pInParams->bBPyramid && !pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_B_PYRAMID_AND_SC)) {
+		PrintMes(_T("B pyramid with scenechange is not supported on current platform, B pyramid disabled.\n"));
+		pInParams->bBPyramid = false;
+	}
 
 
 	//GOP長さが短いならVQPもシーンチェンジ検出も実行しない

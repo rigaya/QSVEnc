@@ -82,6 +82,7 @@ enum {
 	ENC_FEATURE_LA_DS           = 0x00020000,
 	ENC_FEATURE_INTERLACE       = 0x00040000,
 	ENC_FEATURE_SCENECHANGE     = 0x00080000,
+	ENC_FEATURE_B_PYRAMID_AND_SC= 0x00100000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -96,21 +97,22 @@ static const CX_DESC list_rate_control_ry[] = {
 	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
 };
 static const CX_DESC list_enc_feature[] = {
-	{ _T("RC mode available "), ENC_FEATURE_CURRENT_RC  },
-	{ _T("Interlace         "), ENC_FEATURE_INTERLACE   },
-	{ _T("Scene change      "), ENC_FEATURE_SCENECHANGE },
-	{ _T("VUI info output   "), ENC_FEATURE_VUI_INFO    },
-	//{ _T("aud               "), ENC_FEATURE_AUD         },
-	//{ _T("pic_struct        "), ENC_FEATURE_PIC_STRUCT  },
-	{ _T("Trellis           "), ENC_FEATURE_TRELLIS     },
-	//{ _T("rdo               "), ENC_FEATURE_RDO         },
-	//{ _T("CAVLC             "), ENC_FEATURE_CAVLC       },
-	{ _T("Adaptive_I        "), ENC_FEATURE_ADAPTIVE_I  },
-	{ _T("Adaptive_B        "), ENC_FEATURE_ADAPTIVE_B  },
-	{ _T("B_Pyramid         "), ENC_FEATURE_B_PYRAMID   },
-	{ _T("Ext_BRC           "), ENC_FEATURE_EXT_BRC     },
-	{ _T("MBBRC             "), ENC_FEATURE_MBBRC       },
-	{ _T("Lookahead Quality "), ENC_FEATURE_LA_DS       },
+	{ _T("RC mode available       "), ENC_FEATURE_CURRENT_RC       },
+	{ _T("Interlace Enconding     "), ENC_FEATURE_INTERLACE        },
+	{ _T("Scene change detection  "), ENC_FEATURE_SCENECHANGE      },
+	{ _T("VUI info output         "), ENC_FEATURE_VUI_INFO         },
+	//{ _T("aud                     "), ENC_FEATURE_AUD              },
+	//{ _T("pic_struct              "), ENC_FEATURE_PIC_STRUCT       },
+	{ _T("Trellis                 "), ENC_FEATURE_TRELLIS          },
+	//{ _T("rdo                     "), ENC_FEATURE_RDO              },
+	//{ _T("CAVLC                   "), ENC_FEATURE_CAVLC            },
+	{ _T("Adaptive_I Insert       "), ENC_FEATURE_ADAPTIVE_I       },
+	{ _T("Adaptive_B Insert       "), ENC_FEATURE_ADAPTIVE_B       },
+	{ _T("B_Pyramid               "), ENC_FEATURE_B_PYRAMID        },
+	{ _T("B_Pyramid + Scenechange "), ENC_FEATURE_B_PYRAMID_AND_SC },
+	{ _T("Ext_BRC                 "), ENC_FEATURE_EXT_BRC          },
+	{ _T("MBBRC                   "), ENC_FEATURE_MBBRC            },
+	{ _T("Lookahead Quality       "), ENC_FEATURE_LA_DS            },
 	{ NULL, 0 },
 };
 

@@ -259,6 +259,9 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 #undef PICTYPE
 		//付随オプション
 		result |= ENC_FEATURE_SCENECHANGE;
+		if ((ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID) == (result & (ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID))) {
+			result |= ENC_FEATURE_B_PYRAMID_AND_SC;
+		}
 		//以下特殊な場合
 		if (   MFX_RATECONTROL_LA     == ratecontrol
 			|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {
@@ -273,6 +276,10 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			    || MFX_RATECONTROL_VQP == ratecontrol) {
 			result &= ~ENC_FEATURE_MBBRC;
 			result &= ~ENC_FEATURE_EXT_BRC;
+		}
+		//API v1.8以降では今のところ不安定(フレーム順が入れ替わるなど)
+		if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+			result &= ~ENC_FEATURE_B_PYRAMID_AND_SC;
 		}
 	}
 #undef CHECK_FEATURE
