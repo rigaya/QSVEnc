@@ -418,6 +418,10 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		PrintMes(_T("B pyramid with scenechange is not supported on current platform, B pyramid disabled.\n"));
 		pInParams->bBPyramid = false;
 	}
+	if (pInParams->bBPyramid && pInParams->nBframes >= 10 && !(availableFeaures & ENC_FEATURE_B_PYRAMID_MANY_BFRAMES)) {
+		PrintMes(_T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
+		pInParams->bBPyramid = false;
+	}
 
 
 	//GOP長さが短いならVQPもシーンチェンジ検出も実行しない

@@ -1550,7 +1550,7 @@ System::Void frmConfig::UpdateFeatures() {
 
 	fcgDGVFeatures->DataSource = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureTable() : featuresSW->getFeatureTable(); //テーブルをバインド
 
-	fcgDGVFeatures->Columns[0]->FillWeight = 250;
+	fcgDGVFeatures->Columns[0]->FillWeight = 320;
 }
 
 System::Void frmConfig::SaveQSVFeature() {

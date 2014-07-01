@@ -263,6 +263,9 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 		if (MFX_RATECONTROL_VQP == ratecontrol && check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
 			result &= ~ENC_FEATURE_B_PYRAMID;
 		}
+		if (result & ENC_FEATURE_B_PYRAMID) {
+			result |= ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
+		}
 		if ((ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID) == (result & (ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID))) {
 			result |= ENC_FEATURE_B_PYRAMID_AND_SC;
 		}
@@ -272,9 +275,11 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			result &= ~ENC_FEATURE_RDO;
 			result &= ~ENC_FEATURE_MBBRC;
 			result &= ~ENC_FEATURE_EXT_BRC;
-			//API v1.8以降、LA + scenechangeは不安定(フリーズ)
 			if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+				//API v1.8以降、LA + scenechangeは不安定(フリーズ)
 				result &= ~ENC_FEATURE_SCENECHANGE;
+				//API v1.8以降、LA + 多すぎるBフレームは不安定(フリーズ)
+				result &= ~ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
 			}
 		} else if (MFX_RATECONTROL_CQP == ratecontrol
 			    || MFX_RATECONTROL_VQP == ratecontrol) {
@@ -336,9 +341,11 @@ static mfxU32 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
 		feature |= ENC_FEATURE_ADAPTIVE_I;
 		feature |= ENC_FEATURE_ADAPTIVE_B;
 		feature |= ENC_FEATURE_B_PYRAMID;
+		feature |= ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
 		feature |= ENC_FEATURE_VUI_INFO;
 		if (MFX_RATECONTROL_LA == ratecontrol || MFX_RATECONTROL_LA_ICQ == ratecontrol) {
 			feature |= ENC_FEATURE_LA_DS;
+			feature &= ~ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
 		}
 	}
 
