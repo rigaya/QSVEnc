@@ -259,6 +259,10 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 #undef PICTYPE
 		//付随オプション
 		result |= ENC_FEATURE_SCENECHANGE;
+		//encCtrlを渡すことにより実現するVQPでは、B-pyramidは不安定(フレーム順が入れ替わるなど)
+		if (MFX_RATECONTROL_VQP == ratecontrol && check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
+			result &= ~ENC_FEATURE_B_PYRAMID;
+		}
 		if ((ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID) == (result & (ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID))) {
 			result |= ENC_FEATURE_B_PYRAMID_AND_SC;
 		}
