@@ -3986,6 +3986,14 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			CX->EndUpdate();
 		}
 	private:
+		System::Void setComboBox(ComboBox^ CX, const char * const * list) {
+			CX->BeginUpdate();
+			CX->Items->Clear();
+			for (int i = 0; list[i]; i++)
+				CX->Items->Add(String(list[i]).ToString());
+			CX->EndUpdate();
+		}
+	private:
 		System::Void setComboBox(ComboBox^ CX, const WCHAR * const * list) {
 			CX->BeginUpdate();
 			CX->Items->Clear();

@@ -149,9 +149,11 @@ typedef struct {
 	char *filename;              //拡張子付き名前
 	char fullpath[MAX_PATH_LEN]; //エンコーダの場所(フルパス)
 	char *aud_appendix;          //作成する音声ファイル名に追加する文字列
+	char *raw_appendix;          //作成する音声ファイル名に追加する文字列 (raw出力時)
 	int pipe_input;              //パイプ入力が可能
 	char *cmd_base;              //1st pass用コマンドライン
 	char *cmd_2pass;             //2nd pass用コマンドライン
+	char *cmd_raw;               //raw出力用コマンドライン
 	char *cmd_help;              //ヘルプ表示用コマンドライン
 	int mode_count;              //エンコードモードの数
 	AUDIO_ENC_MODE *mode;        //エンコードモードの設定
@@ -175,6 +177,7 @@ typedef struct {
 	char *aud_cmd;                //音声mux用のコマンドライン
 	char *tc_cmd;                 //タイムコードmux用のコマンドライン
 	char *tmp_cmd;                //一時フォルダ指定用コマンドライン
+	char *delay_cmd;              //音声エンコーダディレイ指定用のコマンドライン
 	char *help_cmd;               //ヘルプ表示用コマンドライン
 	int ex_count;                 //拡張オプションの数
 	MUXER_CMD_EX *ex_cmd;         //拡張オプション
