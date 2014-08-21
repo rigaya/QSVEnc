@@ -107,6 +107,7 @@
     <None Include="QSVEnc.def">
       <Filter>ソース ファイル</Filter>
     </None>
+    <None Include="QSVEnc.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h">

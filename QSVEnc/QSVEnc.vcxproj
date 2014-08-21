@@ -712,6 +712,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="QSVEnc.def" />
+    <None Include="QSVEnc.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h" />
