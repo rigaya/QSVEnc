@@ -11,6 +11,9 @@
 #define _AUO_UTIL_H_
 
 #include <Windows.h>
+#if (_MSC_VER >= 1800)
+#include <VersionHelpers.h>
+#endif
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -295,7 +298,7 @@ static BOOL check_sse4_1() {
 	__cpuid(CPUInfo, 1);
 	return (CPUInfo[2] & 0x00080000) != 0;
 }
-#if (_MSC_VER >= 1600)
+
 static BOOL check_avx() {
 	int CPUInfo[4];
 	__cpuid(CPUInfo, 1);
@@ -306,8 +309,7 @@ static BOOL check_avx() {
 	}
 	return FALSE;
 }
-#endif
-#if (_MSC_VER >= 1700)
+
 static BOOL check_avx2() {
 	int CPUInfo[4];
 	__cpuid(CPUInfo, 1);
@@ -321,7 +323,6 @@ static BOOL check_avx2() {
 	}
 	return FALSE;
 }
-#endif
 
 static DWORD get_availableSIMD() {
 	int CPUInfo[4];
@@ -337,7 +338,6 @@ static DWORD get_availableSIMD() {
 		simd |= AUO_SIMD_SSE41;
 	if  (CPUInfo[2] & 0x00100000)
 		simd |= AUO_SIMD_SSE42;
-#if (_MSC_VER >= 1600)
 	UINT64 XGETBV = 0;
 	if ((CPUInfo[2] & 0x18000000) == 0x18000000) {
 		XGETBV = _xgetbv(0);
@@ -347,15 +347,18 @@ static DWORD get_availableSIMD() {
 	__cpuid(CPUInfo, 7);
 	if ((simd & AUO_SIMD_AVX) && (CPUInfo[1] & 0x00000020))
 		simd |= AUO_SIMD_AVX2;
-#endif
 	return simd;
 }
 
 static BOOL check_OS_Win7orLater() {
+#if (_MSC_VER >= 1800)
+	return IsWindowsVersionOrGreater(6, 1, 0);
+#else
 	OSVERSIONINFO osvi = { 0 };
 	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 	GetVersionEx(&osvi);
 	return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 1) || osvi.dwMajorVersion > 6));
+#endif
 }
 
 static inline const char *GetFullPath(const char *path, char *buffer, size_t nSize) {
