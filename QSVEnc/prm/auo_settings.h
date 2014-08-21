@@ -27,6 +27,7 @@ static const BOOL   DEFAULT_DISABLE_VISUAL_STYLES = 0;
 static const BOOL   DEFAULT_ENABLE_STG_ESC_KEY    = 0;
 static const BOOL   DEFAULT_SAVE_RELATIVE_PATH    = 0;
 static const BOOL   DEFAULT_CHAP_NERO_TO_UTF8     = 0;
+static const BOOL   DEFAULT_AUDIO_ENCODER         = 8;
 static const BOOL   DEFAULT_THREAD_TUNING         = 0;
 static const BOOL   DEFAULT_TIMER_PERIOD_TUNING   = 0;
 static const BOOL   DEFAULT_RUN_BAT_MINIMIZED     = 0;
@@ -224,6 +225,7 @@ typedef struct {
 	BOOL   enable_stg_esc_key;                  //設定画面でEscキーを有効化する
 	AUO_FONT_INFO conf_font;                    //設定画面のフォント
 	BOOL   chap_nero_convert_to_utf8;           //nero形式のチャプターをUTF-8に変換する
+	int    default_audio_encoder;               //デフォルトの音声エンコーダ
 	BOOL   get_relative_path;                   //相対パスで保存する
 	BOOL   thread_tuning;                       //スレッドチューニング
 	BOOL   timer_period_tuning;                 //timeBeginPeriodにより、エンコ中タイマ分解能を向上させる

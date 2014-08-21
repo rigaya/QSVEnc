@@ -320,6 +320,7 @@ System::Void frmConfig::fcgTSBOtherSettings_Click(System::Object^  sender, Syste
 	guiEx_settings stg;
 	stg.load_encode_stg();
 	log_reload_settings();
+	sys_dat->exstg->s_local.default_audio_encoder = stg.s_local.default_audio_encoder;
 	sys_dat->exstg->s_local.get_relative_path = stg.s_local.get_relative_path;
 	SetStgEscKey(stg.s_local.enable_stg_esc_key != 0);
 	ActivateToolTip(stg.s_local.disable_tooltip_help == FALSE);

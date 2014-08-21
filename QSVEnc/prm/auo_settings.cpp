@@ -445,6 +445,7 @@ void guiEx_settings::load_local() {
 	s_local.timer_period_tuning       = GetPrivateProfileInt(   ini_section_main, "timer_period_tuning",      DEFAULT_TIMER_PERIOD_TUNING,   conf_fileName);
 	s_local.run_bat_minimized         = GetPrivateProfileInt(   ini_section_main, "run_bat_minimized",        DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
 	s_local.force_bluray              = GetPrivateProfileInt(   ini_section_main, "force_bluray",             DEFAULT_FORCE_BLURAY,          conf_fileName);
+	s_local.default_audio_encoder     = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder",    DEFAULT_AUDIO_ENCODER,         conf_fileName);
 
 	
 	GetFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
@@ -526,6 +527,7 @@ void guiEx_settings::save_local() {
 	WritePrivateProfileIntWithDefault(   ini_section_main, "timer_period_tuning",       s_local.timer_period_tuning,      DEFAULT_TIMER_PERIOD_TUNING,   conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "run_bat_minimized",         s_local.run_bat_minimized,        DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
 	WritePrivateProfileIntWithDefault(   ini_section_main, "force_bluray",              s_local.force_bluray,             DEFAULT_FORCE_BLURAY,          conf_fileName);
+	WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder",     s_local.default_audio_encoder,    DEFAULT_AUDIO_ENCODER,         conf_fileName);
 
 
 	WriteFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
