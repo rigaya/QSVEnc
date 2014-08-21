@@ -87,9 +87,6 @@
     <ClCompile Include="frm\auo_frm.cpp">
       <Filter>ソース ファイル\frm</Filter>
     </ClCompile>
-    <ClCompile Include="frm\auo_win7_taskbar.cpp">
-      <Filter>ソース ファイル\frm</Filter>
-    </ClCompile>
     <ClCompile Include="frm\frmConfig.cpp">
       <Filter>フォーム</Filter>
     </ClCompile>
