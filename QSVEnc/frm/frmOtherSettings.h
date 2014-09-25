@@ -115,6 +115,7 @@ namespace QSVEnc {
 	private: System::Windows::Forms::Button^  fosBTStgDir;
 	private: System::Windows::Forms::Label^  fosLBStgDir;
 	private: System::Windows::Forms::TextBox^  fosTXStgDir;
+	private: System::Windows::Forms::CheckBox^  fosCBWineCompat;
 
 
 
@@ -145,10 +146,19 @@ namespace QSVEnc {
 			this->fosfontDialog = (gcnew System::Windows::Forms::FontDialog());
 			this->fosTabControl = (gcnew System::Windows::Forms::TabControl());
 			this->fostabPageGeneral = (gcnew System::Windows::Forms::TabPage());
+			this->fosCXDefaultAudioEncoder = (gcnew System::Windows::Forms::ComboBox());
+			this->fosLBDefaultAudioEncoder = (gcnew System::Windows::Forms::Label());
+			this->fosCBThreadTuning = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBChapConvertToUTF8 = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBRunBatMinimized = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBTimerPeriodTuning = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBAutoAFSDisable = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBAutoDelChap = (gcnew System::Windows::Forms::CheckBox());
+			this->fosLBDefaultOutExt2 = (gcnew System::Windows::Forms::Label());
+			this->fosCXDefaultOutExt = (gcnew System::Windows::Forms::ComboBox());
+			this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
 			this->fostabPageGUI = (gcnew System::Windows::Forms::TabPage());
-			this->fosBTStgDir = (gcnew System::Windows::Forms::Button());
-			this->fosLBStgDir = (gcnew System::Windows::Forms::Label());
-			this->fosTXStgDir = (gcnew System::Windows::Forms::TextBox());
+			this->fosBTSetFont = (gcnew System::Windows::Forms::Button());
 			this->fosCBGetRelativePath = (gcnew System::Windows::Forms::CheckBox());
 			this->fosCBStgEscKey = (gcnew System::Windows::Forms::CheckBox());
 			this->fosCBLogDisableTransparency = (gcnew System::Windows::Forms::CheckBox());
@@ -156,18 +166,10 @@ namespace QSVEnc {
 			this->fosLBDisableVisualStyles = (gcnew System::Windows::Forms::Label());
 			this->fosCBDisableVisualStyles = (gcnew System::Windows::Forms::CheckBox());
 			this->fosCBDisableToolTip = (gcnew System::Windows::Forms::CheckBox());
-			this->fosLBDefaultOutExt2 = (gcnew System::Windows::Forms::Label());
-			this->fosCXDefaultOutExt = (gcnew System::Windows::Forms::ComboBox());
-			this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
-			this->fosCBAutoAFSDisable = (gcnew System::Windows::Forms::CheckBox());
-			this->fosCBAutoDelChap = (gcnew System::Windows::Forms::CheckBox());
-			this->fosCBChapConvertToUTF8 = (gcnew System::Windows::Forms::CheckBox());
-			this->fosCBRunBatMinimized = (gcnew System::Windows::Forms::CheckBox());
-			this->fosCBTimerPeriodTuning = (gcnew System::Windows::Forms::CheckBox());
-			this->fosCBThreadTuning = (gcnew System::Windows::Forms::CheckBox());
-			this->fosBTSetFont = (gcnew System::Windows::Forms::Button());
-			this->fosCXDefaultAudioEncoder = (gcnew System::Windows::Forms::ComboBox());
-			this->fosLBDefaultAudioEncoder = (gcnew System::Windows::Forms::Label());
+			this->fosBTStgDir = (gcnew System::Windows::Forms::Button());
+			this->fosLBStgDir = (gcnew System::Windows::Forms::Label());
+			this->fosTXStgDir = (gcnew System::Windows::Forms::TextBox());
+			this->fosCBWineCompat = (gcnew System::Windows::Forms::CheckBox());
 			this->fosTabControl->SuspendLayout();
 			this->fostabPageGeneral->SuspendLayout();
 			this->fostabPageGUI->SuspendLayout();
@@ -237,8 +239,117 @@ namespace QSVEnc {
 			this->fostabPageGeneral->Text = L"エンコード設定";
 			this->fostabPageGeneral->UseVisualStyleBackColor = true;
 			// 
+			// fosCXDefaultAudioEncoder
+			// 
+			this->fosCXDefaultAudioEncoder->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fosCXDefaultAudioEncoder->FormattingEnabled = true;
+			this->fosCXDefaultAudioEncoder->Location = System::Drawing::Point(42, 106);
+			this->fosCXDefaultAudioEncoder->Name = L"fosCXDefaultAudioEncoder";
+			this->fosCXDefaultAudioEncoder->Size = System::Drawing::Size(190, 23);
+			this->fosCXDefaultAudioEncoder->TabIndex = 33;
+			// 
+			// fosLBDefaultAudioEncoder
+			// 
+			this->fosLBDefaultAudioEncoder->AutoSize = true;
+			this->fosLBDefaultAudioEncoder->Location = System::Drawing::Point(15, 84);
+			this->fosLBDefaultAudioEncoder->Name = L"fosLBDefaultAudioEncoder";
+			this->fosLBDefaultAudioEncoder->Size = System::Drawing::Size(130, 15);
+			this->fosLBDefaultAudioEncoder->TabIndex = 32;
+			this->fosLBDefaultAudioEncoder->Text = L"デフォルトの音声エンコーダ";
+			// 
+			// fosCBThreadTuning
+			// 
+			this->fosCBThreadTuning->AutoSize = true;
+			this->fosCBThreadTuning->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
+			this->fosCBThreadTuning->Location = System::Drawing::Point(18, 313);
+			this->fosCBThreadTuning->Name = L"fosCBThreadTuning";
+			this->fosCBThreadTuning->Size = System::Drawing::Size(113, 19);
+			this->fosCBThreadTuning->TabIndex = 31;
+			this->fosCBThreadTuning->Text = L"スレッドチューニング";
+			this->fosCBThreadTuning->UseVisualStyleBackColor = true;
+			// 
+			// fosCBChapConvertToUTF8
+			// 
+			this->fosCBChapConvertToUTF8->AutoSize = true;
+			this->fosCBChapConvertToUTF8->Location = System::Drawing::Point(18, 288);
+			this->fosCBChapConvertToUTF8->Name = L"fosCBChapConvertToUTF8";
+			this->fosCBChapConvertToUTF8->Size = System::Drawing::Size(204, 19);
+			this->fosCBChapConvertToUTF8->TabIndex = 30;
+			this->fosCBChapConvertToUTF8->Text = L"チャプターmux時、UTF-8に変換する";
+			this->fosCBChapConvertToUTF8->UseVisualStyleBackColor = true;
+			// 
+			// fosCBRunBatMinimized
+			// 
+			this->fosCBRunBatMinimized->AutoSize = true;
+			this->fosCBRunBatMinimized->Location = System::Drawing::Point(18, 261);
+			this->fosCBRunBatMinimized->Name = L"fosCBRunBatMinimized";
+			this->fosCBRunBatMinimized->Size = System::Drawing::Size(205, 19);
+			this->fosCBRunBatMinimized->TabIndex = 29;
+			this->fosCBRunBatMinimized->Text = L"エンコ前後バッチ処理を最小化で実行";
+			this->fosCBRunBatMinimized->UseVisualStyleBackColor = true;
+			// 
+			// fosCBTimerPeriodTuning
+			// 
+			this->fosCBTimerPeriodTuning->AutoSize = true;
+			this->fosCBTimerPeriodTuning->Location = System::Drawing::Point(18, 233);
+			this->fosCBTimerPeriodTuning->Name = L"fosCBTimerPeriodTuning";
+			this->fosCBTimerPeriodTuning->Size = System::Drawing::Size(192, 19);
+			this->fosCBTimerPeriodTuning->TabIndex = 28;
+			this->fosCBTimerPeriodTuning->Text = L"エンコ中、タイマー精度を向上させる";
+			this->fosCBTimerPeriodTuning->UseVisualStyleBackColor = true;
+			// 
+			// fosCBAutoAFSDisable
+			// 
+			this->fosCBAutoAFSDisable->Location = System::Drawing::Point(18, 139);
+			this->fosCBAutoAFSDisable->Name = L"fosCBAutoAFSDisable";
+			this->fosCBAutoAFSDisable->Size = System::Drawing::Size(308, 53);
+			this->fosCBAutoAFSDisable->TabIndex = 27;
+			this->fosCBAutoAFSDisable->Text = L"自動フィールドシフト(afs)オンで初期化に失敗した場合、afsをオフにしてエンコード続行を試みる";
+			this->fosCBAutoAFSDisable->UseVisualStyleBackColor = true;
+			// 
+			// fosCBAutoDelChap
+			// 
+			this->fosCBAutoDelChap->AutoSize = true;
+			this->fosCBAutoDelChap->Location = System::Drawing::Point(18, 198);
+			this->fosCBAutoDelChap->Name = L"fosCBAutoDelChap";
+			this->fosCBAutoDelChap->Size = System::Drawing::Size(295, 19);
+			this->fosCBAutoDelChap->TabIndex = 26;
+			this->fosCBAutoDelChap->Text = L"mux正常終了後、チャプターファイルを自動的に削除する";
+			this->fosCBAutoDelChap->UseVisualStyleBackColor = true;
+			// 
+			// fosLBDefaultOutExt2
+			// 
+			this->fosLBDefaultOutExt2->AutoSize = true;
+			this->fosLBDefaultOutExt2->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(128)));
+			this->fosLBDefaultOutExt2->ForeColor = System::Drawing::Color::OrangeRed;
+			this->fosLBDefaultOutExt2->Location = System::Drawing::Point(207, 22);
+			this->fosLBDefaultOutExt2->Name = L"fosLBDefaultOutExt2";
+			this->fosLBDefaultOutExt2->Size = System::Drawing::Size(161, 14);
+			this->fosLBDefaultOutExt2->TabIndex = 25;
+			this->fosLBDefaultOutExt2->Text = L"※反映にはAviutlの再起動が必要";
+			// 
+			// fosCXDefaultOutExt
+			// 
+			this->fosCXDefaultOutExt->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fosCXDefaultOutExt->FormattingEnabled = true;
+			this->fosCXDefaultOutExt->Location = System::Drawing::Point(42, 43);
+			this->fosCXDefaultOutExt->Name = L"fosCXDefaultOutExt";
+			this->fosCXDefaultOutExt->Size = System::Drawing::Size(190, 23);
+			this->fosCXDefaultOutExt->TabIndex = 24;
+			// 
+			// fosLBDefaultOutExt
+			// 
+			this->fosLBDefaultOutExt->AutoSize = true;
+			this->fosLBDefaultOutExt->Location = System::Drawing::Point(15, 20);
+			this->fosLBDefaultOutExt->Name = L"fosLBDefaultOutExt";
+			this->fosLBDefaultOutExt->Size = System::Drawing::Size(172, 15);
+			this->fosLBDefaultOutExt->TabIndex = 23;
+			this->fosLBDefaultOutExt->Text = L"出力するファイルの種類のデフォルト";
+			// 
 			// fostabPageGUI
 			// 
+			this->fostabPageGUI->Controls->Add(this->fosCBWineCompat);
 			this->fostabPageGUI->Controls->Add(this->fosBTSetFont);
 			this->fostabPageGUI->Controls->Add(this->fosCBGetRelativePath);
 			this->fostabPageGUI->Controls->Add(this->fosCBStgEscKey);
@@ -258,31 +369,15 @@ namespace QSVEnc {
 			this->fostabPageGUI->Text = L"ログ・設定画面";
 			this->fostabPageGUI->UseVisualStyleBackColor = true;
 			// 
-			// fosBTStgDir
+			// fosBTSetFont
 			// 
-			this->fosBTStgDir->Location = System::Drawing::Point(335, 41);
-			this->fosBTStgDir->Name = L"fosBTStgDir";
-			this->fosBTStgDir->Size = System::Drawing::Size(35, 23);
-			this->fosBTStgDir->TabIndex = 8;
-			this->fosBTStgDir->Text = L"...";
-			this->fosBTStgDir->UseVisualStyleBackColor = true;
-			this->fosBTStgDir->Click += gcnew System::EventHandler(this, &frmOtherSettings::fosBTStgDir_Click);
-			// 
-			// fosLBStgDir
-			// 
-			this->fosLBStgDir->AutoSize = true;
-			this->fosLBStgDir->Location = System::Drawing::Point(8, 21);
-			this->fosLBStgDir->Name = L"fosLBStgDir";
-			this->fosLBStgDir->Size = System::Drawing::Size(123, 15);
-			this->fosLBStgDir->TabIndex = 7;
-			this->fosLBStgDir->Text = L"設定ファイルの保存場所";
-			// 
-			// fosTXStgDir
-			// 
-			this->fosTXStgDir->Location = System::Drawing::Point(35, 41);
-			this->fosTXStgDir->Name = L"fosTXStgDir";
-			this->fosTXStgDir->Size = System::Drawing::Size(294, 23);
-			this->fosTXStgDir->TabIndex = 6;
+			this->fosBTSetFont->Location = System::Drawing::Point(251, 253);
+			this->fosBTSetFont->Name = L"fosBTSetFont";
+			this->fosBTSetFont->Size = System::Drawing::Size(124, 27);
+			this->fosBTSetFont->TabIndex = 25;
+			this->fosBTSetFont->Text = L"フォントの変更...";
+			this->fosBTSetFont->UseVisualStyleBackColor = true;
+			this->fosBTSetFont->Click += gcnew System::EventHandler(this, &frmOtherSettings::fosBTSetFont_Click);
 			// 
 			// fosCBGetRelativePath
 			// 
@@ -356,123 +451,41 @@ namespace QSVEnc {
 			this->fosCBDisableToolTip->Text = L"ポップアップヘルプを抑制する";
 			this->fosCBDisableToolTip->UseVisualStyleBackColor = true;
 			// 
-			// fosLBDefaultOutExt2
+			// fosBTStgDir
 			// 
-			this->fosLBDefaultOutExt2->AutoSize = true;
-			this->fosLBDefaultOutExt2->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
-				static_cast<System::Byte>(128)));
-			this->fosLBDefaultOutExt2->ForeColor = System::Drawing::Color::OrangeRed;
-			this->fosLBDefaultOutExt2->Location = System::Drawing::Point(207, 22);
-			this->fosLBDefaultOutExt2->Name = L"fosLBDefaultOutExt2";
-			this->fosLBDefaultOutExt2->Size = System::Drawing::Size(161, 14);
-			this->fosLBDefaultOutExt2->TabIndex = 25;
-			this->fosLBDefaultOutExt2->Text = L"※反映にはAviutlの再起動が必要";
+			this->fosBTStgDir->Location = System::Drawing::Point(335, 41);
+			this->fosBTStgDir->Name = L"fosBTStgDir";
+			this->fosBTStgDir->Size = System::Drawing::Size(35, 23);
+			this->fosBTStgDir->TabIndex = 8;
+			this->fosBTStgDir->Text = L"...";
+			this->fosBTStgDir->UseVisualStyleBackColor = true;
+			this->fosBTStgDir->Click += gcnew System::EventHandler(this, &frmOtherSettings::fosBTStgDir_Click);
 			// 
-			// fosCXDefaultOutExt
+			// fosLBStgDir
 			// 
-			this->fosCXDefaultOutExt->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-			this->fosCXDefaultOutExt->FormattingEnabled = true;
-			this->fosCXDefaultOutExt->Location = System::Drawing::Point(42, 43);
-			this->fosCXDefaultOutExt->Name = L"fosCXDefaultOutExt";
-			this->fosCXDefaultOutExt->Size = System::Drawing::Size(190, 23);
-			this->fosCXDefaultOutExt->TabIndex = 24;
+			this->fosLBStgDir->AutoSize = true;
+			this->fosLBStgDir->Location = System::Drawing::Point(8, 21);
+			this->fosLBStgDir->Name = L"fosLBStgDir";
+			this->fosLBStgDir->Size = System::Drawing::Size(123, 15);
+			this->fosLBStgDir->TabIndex = 7;
+			this->fosLBStgDir->Text = L"設定ファイルの保存場所";
 			// 
-			// fosLBDefaultOutExt
+			// fosTXStgDir
 			// 
-			this->fosLBDefaultOutExt->AutoSize = true;
-			this->fosLBDefaultOutExt->Location = System::Drawing::Point(15, 20);
-			this->fosLBDefaultOutExt->Name = L"fosLBDefaultOutExt";
-			this->fosLBDefaultOutExt->Size = System::Drawing::Size(172, 15);
-			this->fosLBDefaultOutExt->TabIndex = 23;
-			this->fosLBDefaultOutExt->Text = L"出力するファイルの種類のデフォルト";
+			this->fosTXStgDir->Location = System::Drawing::Point(35, 41);
+			this->fosTXStgDir->Name = L"fosTXStgDir";
+			this->fosTXStgDir->Size = System::Drawing::Size(294, 23);
+			this->fosTXStgDir->TabIndex = 6;
 			// 
-			// fosCBAutoAFSDisable
+			// fosCBWineCompat
 			// 
-			this->fosCBAutoAFSDisable->Location = System::Drawing::Point(18, 139);
-			this->fosCBAutoAFSDisable->Name = L"fosCBAutoAFSDisable";
-			this->fosCBAutoAFSDisable->Size = System::Drawing::Size(308, 53);
-			this->fosCBAutoAFSDisable->TabIndex = 27;
-			this->fosCBAutoAFSDisable->Text = L"自動フィールドシフト(afs)オンで初期化に失敗した場合、afsをオフにしてエンコード続行を試みる";
-			this->fosCBAutoAFSDisable->UseVisualStyleBackColor = true;
-			// 
-			// fosCBAutoDelChap
-			// 
-			this->fosCBAutoDelChap->AutoSize = true;
-			this->fosCBAutoDelChap->Location = System::Drawing::Point(18, 198);
-			this->fosCBAutoDelChap->Name = L"fosCBAutoDelChap";
-			this->fosCBAutoDelChap->Size = System::Drawing::Size(295, 19);
-			this->fosCBAutoDelChap->TabIndex = 26;
-			this->fosCBAutoDelChap->Text = L"mux正常終了後、チャプターファイルを自動的に削除する";
-			this->fosCBAutoDelChap->UseVisualStyleBackColor = true;
-			// 
-			// fosCBChapConvertToUTF8
-			// 
-			this->fosCBChapConvertToUTF8->AutoSize = true;
-			this->fosCBChapConvertToUTF8->Location = System::Drawing::Point(18, 288);
-			this->fosCBChapConvertToUTF8->Name = L"fosCBChapConvertToUTF8";
-			this->fosCBChapConvertToUTF8->Size = System::Drawing::Size(204, 19);
-			this->fosCBChapConvertToUTF8->TabIndex = 30;
-			this->fosCBChapConvertToUTF8->Text = L"チャプターmux時、UTF-8に変換する";
-			this->fosCBChapConvertToUTF8->UseVisualStyleBackColor = true;
-			// 
-			// fosCBRunBatMinimized
-			// 
-			this->fosCBRunBatMinimized->AutoSize = true;
-			this->fosCBRunBatMinimized->Location = System::Drawing::Point(18, 261);
-			this->fosCBRunBatMinimized->Name = L"fosCBRunBatMinimized";
-			this->fosCBRunBatMinimized->Size = System::Drawing::Size(205, 19);
-			this->fosCBRunBatMinimized->TabIndex = 29;
-			this->fosCBRunBatMinimized->Text = L"エンコ前後バッチ処理を最小化で実行";
-			this->fosCBRunBatMinimized->UseVisualStyleBackColor = true;
-			// 
-			// fosCBTimerPeriodTuning
-			// 
-			this->fosCBTimerPeriodTuning->AutoSize = true;
-			this->fosCBTimerPeriodTuning->Location = System::Drawing::Point(18, 233);
-			this->fosCBTimerPeriodTuning->Name = L"fosCBTimerPeriodTuning";
-			this->fosCBTimerPeriodTuning->Size = System::Drawing::Size(192, 19);
-			this->fosCBTimerPeriodTuning->TabIndex = 28;
-			this->fosCBTimerPeriodTuning->Text = L"エンコ中、タイマー精度を向上させる";
-			this->fosCBTimerPeriodTuning->UseVisualStyleBackColor = true;
-			// 
-			// fosCBThreadTuning
-			// 
-			this->fosCBThreadTuning->AutoSize = true;
-			this->fosCBThreadTuning->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
-			this->fosCBThreadTuning->Location = System::Drawing::Point(18, 313);
-			this->fosCBThreadTuning->Name = L"fosCBThreadTuning";
-			this->fosCBThreadTuning->Size = System::Drawing::Size(113, 19);
-			this->fosCBThreadTuning->TabIndex = 31;
-			this->fosCBThreadTuning->Text = L"スレッドチューニング";
-			this->fosCBThreadTuning->UseVisualStyleBackColor = true;
-			// 
-			// fosBTSetFont
-			// 
-			this->fosBTSetFont->Location = System::Drawing::Point(251, 253);
-			this->fosBTSetFont->Name = L"fosBTSetFont";
-			this->fosBTSetFont->Size = System::Drawing::Size(124, 27);
-			this->fosBTSetFont->TabIndex = 25;
-			this->fosBTSetFont->Text = L"フォントの変更...";
-			this->fosBTSetFont->UseVisualStyleBackColor = true;
-			this->fosBTSetFont->Click += gcnew System::EventHandler(this, &frmOtherSettings::fosBTSetFont_Click);
-			// 
-			// fosCXDefaultAudioEncoder
-			// 
-			this->fosCXDefaultAudioEncoder->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-			this->fosCXDefaultAudioEncoder->FormattingEnabled = true;
-			this->fosCXDefaultAudioEncoder->Location = System::Drawing::Point(42, 106);
-			this->fosCXDefaultAudioEncoder->Name = L"fosCXDefaultAudioEncoder";
-			this->fosCXDefaultAudioEncoder->Size = System::Drawing::Size(190, 23);
-			this->fosCXDefaultAudioEncoder->TabIndex = 33;
-			// 
-			// fosLBDefaultAudioEncoder
-			// 
-			this->fosLBDefaultAudioEncoder->AutoSize = true;
-			this->fosLBDefaultAudioEncoder->Location = System::Drawing::Point(15, 84);
-			this->fosLBDefaultAudioEncoder->Name = L"fosLBDefaultAudioEncoder";
-			this->fosLBDefaultAudioEncoder->Size = System::Drawing::Size(130, 15);
-			this->fosLBDefaultAudioEncoder->TabIndex = 32;
-			this->fosLBDefaultAudioEncoder->Text = L"デフォルトの音声エンコーダ";
+			this->fosCBWineCompat->AutoSize = true;
+			this->fosCBWineCompat->Location = System::Drawing::Point(16, 289);
+			this->fosCBWineCompat->Name = L"fosCBWineCompat";
+			this->fosCBWineCompat->Size = System::Drawing::Size(104, 19);
+			this->fosCBWineCompat->TabIndex = 26;
+			this->fosCBWineCompat->Text = L"wine互換モード";
+			this->fosCBWineCompat->UseVisualStyleBackColor = true;
 			// 
 			// frmOtherSettings
 			// 
@@ -522,6 +535,7 @@ namespace QSVEnc {
 			fos_ex_stg->s_local.timer_period_tuning       = fosCBTimerPeriodTuning->Checked;
 			fos_ex_stg->s_log.minimized                   = fosCBLogStartMinimized->Checked;
 			fos_ex_stg->s_log.transparent                 = !fosCBLogDisableTransparency->Checked;
+			fos_ex_stg->s_log.wine_compat                 = fosCBWineCompat->Checked;
 			fos_ex_stg->s_local.get_relative_path         = fosCBGetRelativePath->Checked;
 			fos_ex_stg->s_local.default_output_ext        = fosCXDefaultOutExt->SelectedIndex;
 			fos_ex_stg->s_local.default_audio_encoder     = fosCXDefaultAudioEncoder->SelectedIndex;
@@ -561,6 +575,7 @@ namespace QSVEnc {
 			fosCBTimerPeriodTuning->Checked         = fos_ex_stg->s_local.timer_period_tuning != 0;
 			fosCBLogStartMinimized->Checked         = fos_ex_stg->s_log.minimized != 0;
 			fosCBLogDisableTransparency->Checked    = fos_ex_stg->s_log.transparent == 0;
+			fosCBWineCompat->Checked                = fos_ex_stg->s_log.wine_compat != 0;
 			fosCBGetRelativePath->Checked           = fos_ex_stg->s_local.get_relative_path != 0;
 			fosCXDefaultOutExt->SelectedIndex       = fos_ex_stg->s_local.default_output_ext;
 			fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder, 0, fosCXDefaultAudioEncoder->Items->Count);
