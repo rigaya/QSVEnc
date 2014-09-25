@@ -211,14 +211,14 @@ static void show_audio_delay_cut_info(int delay_cut, const PRM_ENC *pe) {
 	}
 }
 
-static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO *cnf_aud, const PRM_ENC *pe) {
+static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO *cnf_aud, const PRM_ENC *pe, const aud_data_t *aud_dat) {
 	char bitrate[128] = { 0 };
 	if (aud_stg->mode[cnf_aud->enc_mode].bitrate)
 		sprintf_s(bitrate, _countof(bitrate), ", %dkbps", cnf_aud->bitrate);
 	char *use2pass = (cnf_aud->use_2pass) ? ", 2pass" : "";
 	write_log_auo_line_fmt(LOG_INFO, "%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
-
 	show_audio_delay_cut_info(cnf_aud->delay_cut, pe);
+	write_log_auo_line(LOG_MORE, aud_dat->args);
 }
 
 static void recalculate_audio_delay_cut_for_afs(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const AUDIO_SETTINGS *aud_stg) {
@@ -262,6 +262,8 @@ static AUO_RESULT wav_file_open(aud_data_t *aud_dat, const OUTPUT_INFO *oip, BOO
 		//パイプ準備
 		aud_dat->pipes.stdIn.mode = AUO_PIPE_ENABLE;
 		aud_dat->pipes.stdIn.bufferSize = bufsize * 2;
+		aud_dat->pipes.stdOut.mode = AUO_PIPE_ENABLE;
+		aud_dat->pipes.stdErr.mode = AUO_PIPE_MUXED;
 		//エンコーダ準備
 		int rp_ret;
 		if (RP_SUCCESS != (rp_ret = RunProcess(aud_dat->args, auddir, &aud_dat->pi_aud, &aud_dat->pipes, encoder_priority, TRUE, FALSE))) {
@@ -347,6 +349,8 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
 			samples_read += samples_get;
 			set_log_progress(samples_read / (double)oip->audio_n);
 
+			while (0 < ReadLogExe(&aud_dat->pipes, nullptr, &aud_dat->log_line_cache));
+
 			if (wav_8bit)
 				audio_16to8(buf8bit, (short*)audio_dat, samples_get * oip->audio_ch);
 
@@ -424,6 +428,7 @@ static AUO_RESULT audio_finish_enc(AUO_RESULT ret, aud_data_t *aud_dat, const AU
 		} else {
 			if (FileExistsAndHasSize(aud_dat->audfile))
 				remove(aud_dat->wavfile); //ゴミ掃除
+			write_cached_lines(LOG_MORE, aud_stg->dispname, &aud_dat->log_line_cache);
 		}
 	}
 
@@ -471,7 +476,7 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 		init_aud_dat(&aud_dat[i_aud], pe, use_pipe, conf, oip, sys_dat, aud_stg);
 
 	//情報表示
-	show_audio_enc_info(aud_stg, &conf->aud, pe);
+	show_audio_enc_info(aud_stg, &conf->aud, pe, aud_dat);
 
 	//auddir作成
 	PathGetDirectory(auddir, _countof(auddir), aud_stg->fullpath);

@@ -116,6 +116,7 @@ namespace QSVEnc {
 	private: System::Windows::Forms::Label^  fosLBStgDir;
 	private: System::Windows::Forms::TextBox^  fosTXStgDir;
 	private: System::Windows::Forms::CheckBox^  fosCBWineCompat;
+	private: System::Windows::Forms::CheckBox^  fosCBOutputMoreLog;
 
 
 
@@ -158,6 +159,7 @@ namespace QSVEnc {
 			this->fosCXDefaultOutExt = (gcnew System::Windows::Forms::ComboBox());
 			this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
 			this->fostabPageGUI = (gcnew System::Windows::Forms::TabPage());
+			this->fosCBWineCompat = (gcnew System::Windows::Forms::CheckBox());
 			this->fosBTSetFont = (gcnew System::Windows::Forms::Button());
 			this->fosCBGetRelativePath = (gcnew System::Windows::Forms::CheckBox());
 			this->fosCBStgEscKey = (gcnew System::Windows::Forms::CheckBox());
@@ -169,7 +171,7 @@ namespace QSVEnc {
 			this->fosBTStgDir = (gcnew System::Windows::Forms::Button());
 			this->fosLBStgDir = (gcnew System::Windows::Forms::Label());
 			this->fosTXStgDir = (gcnew System::Windows::Forms::TextBox());
-			this->fosCBWineCompat = (gcnew System::Windows::Forms::CheckBox());
+			this->fosCBOutputMoreLog = (gcnew System::Windows::Forms::CheckBox());
 			this->fosTabControl->SuspendLayout();
 			this->fostabPageGeneral->SuspendLayout();
 			this->fostabPageGUI->SuspendLayout();
@@ -349,6 +351,7 @@ namespace QSVEnc {
 			// 
 			// fostabPageGUI
 			// 
+			this->fostabPageGUI->Controls->Add(this->fosCBOutputMoreLog);
 			this->fostabPageGUI->Controls->Add(this->fosCBWineCompat);
 			this->fostabPageGUI->Controls->Add(this->fosBTSetFont);
 			this->fostabPageGUI->Controls->Add(this->fosCBGetRelativePath);
@@ -368,6 +371,16 @@ namespace QSVEnc {
 			this->fostabPageGUI->TabIndex = 1;
 			this->fostabPageGUI->Text = L"ログ・設定画面";
 			this->fostabPageGUI->UseVisualStyleBackColor = true;
+			// 
+			// fosCBWineCompat
+			// 
+			this->fosCBWineCompat->AutoSize = true;
+			this->fosCBWineCompat->Location = System::Drawing::Point(16, 289);
+			this->fosCBWineCompat->Name = L"fosCBWineCompat";
+			this->fosCBWineCompat->Size = System::Drawing::Size(104, 19);
+			this->fosCBWineCompat->TabIndex = 26;
+			this->fosCBWineCompat->Text = L"wine互換モード";
+			this->fosCBWineCompat->UseVisualStyleBackColor = true;
 			// 
 			// fosBTSetFont
 			// 
@@ -477,15 +490,15 @@ namespace QSVEnc {
 			this->fosTXStgDir->Size = System::Drawing::Size(294, 23);
 			this->fosTXStgDir->TabIndex = 6;
 			// 
-			// fosCBWineCompat
+			// fosCBOutputMoreLog
 			// 
-			this->fosCBWineCompat->AutoSize = true;
-			this->fosCBWineCompat->Location = System::Drawing::Point(16, 289);
-			this->fosCBWineCompat->Name = L"fosCBWineCompat";
-			this->fosCBWineCompat->Size = System::Drawing::Size(104, 19);
-			this->fosCBWineCompat->TabIndex = 26;
-			this->fosCBWineCompat->Text = L"wine互換モード";
-			this->fosCBWineCompat->UseVisualStyleBackColor = true;
+			this->fosCBOutputMoreLog->AutoSize = true;
+			this->fosCBOutputMoreLog->Location = System::Drawing::Point(16, 316);
+			this->fosCBOutputMoreLog->Name = L"fosCBOutputMoreLog";
+			this->fosCBOutputMoreLog->Size = System::Drawing::Size(143, 19);
+			this->fosCBOutputMoreLog->TabIndex = 27;
+			this->fosCBOutputMoreLog->Text = L"音声・muxのログも表示";
+			this->fosCBOutputMoreLog->UseVisualStyleBackColor = true;
 			// 
 			// frmOtherSettings
 			// 
@@ -536,6 +549,7 @@ namespace QSVEnc {
 			fos_ex_stg->s_log.minimized                   = fosCBLogStartMinimized->Checked;
 			fos_ex_stg->s_log.transparent                 = !fosCBLogDisableTransparency->Checked;
 			fos_ex_stg->s_log.wine_compat                 = fosCBWineCompat->Checked;
+			fos_ex_stg->s_log.log_level                   =(fosCBOutputMoreLog->Checked) ? LOG_MORE : LOG_INFO;
 			fos_ex_stg->s_local.get_relative_path         = fosCBGetRelativePath->Checked;
 			fos_ex_stg->s_local.default_output_ext        = fosCXDefaultOutExt->SelectedIndex;
 			fos_ex_stg->s_local.default_audio_encoder     = fosCXDefaultAudioEncoder->SelectedIndex;
@@ -576,6 +590,7 @@ namespace QSVEnc {
 			fosCBLogStartMinimized->Checked         = fos_ex_stg->s_log.minimized != 0;
 			fosCBLogDisableTransparency->Checked    = fos_ex_stg->s_log.transparent == 0;
 			fosCBWineCompat->Checked                = fos_ex_stg->s_log.wine_compat != 0;
+			fosCBOutputMoreLog->Checked             = fos_ex_stg->s_log.log_level != LOG_INFO;
 			fosCBGetRelativePath->Checked           = fos_ex_stg->s_local.get_relative_path != 0;
 			fosCXDefaultOutExt->SelectedIndex       = fos_ex_stg->s_local.default_output_ext;
 			fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder, 0, fosCXDefaultAudioEncoder->Items->Count);
