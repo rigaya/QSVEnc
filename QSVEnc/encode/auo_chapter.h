@@ -50,6 +50,9 @@ int get_chapter_list(chapter_list_t *chap_list, const char *filename, DWORD orig
 void free_chapter_list(chapter_list_t *chap_list);
 double get_chap_second(chapter_t *chap);
 
+int check_chap_type(const char *filename, DWORD orig_code_page);
+int add_chapter_zero_pos_dummy(const char *filename, DWORD orig_code_page);
+
 //チャプターファイルの変換を行う
 //基本的にはorig_nero_filename(nero形式) から new_apple_filename(apple形式) へ
 //orig_fileがapple形式の場合、nero形式を出力してファイル名をスワップする

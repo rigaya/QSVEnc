@@ -430,6 +430,45 @@ static double get_fake_duration(chapter_list_t *chap_list) {
 	return (double)(last_chap->h * 3600 + last_chap->m * 60 + last_chap->s) + (last_chap->ms + 1.1) * 0.001;
 }
 
+static void add_dummy_zero_chapter(chapter_list_t *chap_list) {
+	if (0 < chap_list->count
+		&& nullptr != chap_list->data
+		&& 0 != (chap_list->data[0].h | chap_list->data[0].m | chap_list->data[0].s | chap_list->data[0].ms)) {
+		//先頭にダミーチャプターを追加する
+		chap_list->count++;
+		//新しいリストを作成
+		chapter_t *new_list = (chapter_t *)malloc(sizeof(chap_list->data[0]) * chap_list->count);
+		//先頭を開けて、今までのデータをコピー
+		memcpy(&new_list[1], chap_list->data, sizeof(chap_list->data[0]) * (chap_list->count - 1));
+		//先頭を初期化
+		ZeroMemory(new_list, sizeof(new_list[0]));
+		new_list[0].name = (WCHAR *)calloc(1, sizeof(WCHAR));
+		//古いリストを開放
+		free(chap_list->data);
+		//新しいリストをセット
+		chap_list->data = new_list;
+	}
+}
+
+int check_chap_type(const char *filename, DWORD orig_code_page) {
+	int chap_type = CHAP_TYPE_UNKNOWN;
+	IMultiLanguage2 *pImul = NULL;
+	//COM用初期化
+	CoInitialize(NULL);
+	
+	if (S_OK == CoCreateInstance(CLSID_CMultiLanguage, NULL, CLSCTX_INPROC_SERVER, IID_IMultiLanguage2, (void**)&pImul) && pImul != NULL) {
+		chap_type = check_chap_type_from_file(filename, pImul, orig_code_page);
+	}
+
+	//開放処理
+	if (pImul)
+		pImul->Release();
+
+	CoUninitialize();
+
+	return chap_type;
+}
+
 int convert_chapter(const char *new_filename, const char *orig_filename, DWORD orig_code_page, double duration, int out_chap_type, bool nero_out_utf8) {
 	if (new_filename == NULL || orig_filename == NULL || new_filename == orig_filename)
 		return AUO_CHAP_ERR_NULL_PTR;
@@ -473,6 +512,47 @@ int convert_chapter(const char *new_filename, const char *orig_filename, DWORD o
 	if (chap_type == CHAP_TYPE_APPLE)
 		if (!swap_file(orig_filename, new_filename))
 			sts = AUO_CHAP_ERR_FILE_SWAP;
+
+	CoUninitialize();
+
+	return sts;
+}
+
+int add_chapter_zero_pos_dummy(const char *filename, DWORD orig_code_page) {
+	chapter_list_t chap_list = { 0 };
+	IMultiLanguage2 *pImul = NULL;
+	int chap_type = CHAP_TYPE_UNKNOWN;
+	//COM用初期化
+	CoInitialize(NULL);
+	
+	int sts = AUO_CHAP_ERR_NONE;
+	if (S_OK != CoCreateInstance(CLSID_CMultiLanguage, NULL, CLSCTX_INPROC_SERVER, IID_IMultiLanguage2, (void**)&pImul) || pImul == NULL) {
+		sts = AUO_CHAP_ERR_INIT_IMUL2;
+	} else if (CHAP_TYPE_UNKNOWN == (chap_type = check_chap_type_from_file(filename, pImul, CODE_PAGE_UNSET))) {
+		sts = AUO_CHAP_ERR_INVALID_FMT;
+	} else if (AUO_CHAP_ERR_NONE == (
+		sts = (CHAP_TYPE_NERO == chap_type) ? read_nero_chap(filename, pImul, orig_code_page, &chap_list)
+		                                    : read_apple_chap(filename, pImul, &chap_list))) {
+
+		static const char *NEW_APPENDIX = ".with_zero.txt";
+		std::vector<char> chap_file_new(strlen(filename) + strlen(NEW_APPENDIX) + 1, '\0');
+		apply_appendix(&chap_file_new[0], chap_file_new.size(), filename, NEW_APPENDIX);
+		
+		add_dummy_zero_chapter(&chap_list);
+
+		if (AUO_CHAP_ERR_NONE == (
+			sts = (CHAP_TYPE_NERO == chap_type) ? write_nero_chap(&chap_file_new[0], pImul, &chap_list, false)
+			                                    : write_apple_chap(&chap_file_new[0], pImul, &chap_list, get_fake_duration(&chap_list)))) {
+			remove(filename);
+			rename(&chap_file_new[0], filename);
+		}
+	}
+
+	free_chapter_list(&chap_list);
+
+	//開放処理
+	if (pImul)
+		pImul->Release();
 
 	CoUninitialize();
 

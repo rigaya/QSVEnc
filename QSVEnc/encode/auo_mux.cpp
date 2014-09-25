@@ -286,6 +286,7 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
 					rename(chap_file_new, chap_file);
 				}
 			}
+			add_chapter_zero_pos_dummy(chap_file, CODE_PAGE_UNSET);
 			//必要ならnero形式をUTF-8に変換
 			if (sys_dat->exstg->s_local.chap_nero_convert_to_utf8) {
 				char chap_utf8[MAX_PATH_LEN];
