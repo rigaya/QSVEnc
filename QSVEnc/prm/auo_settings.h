@@ -70,6 +70,12 @@ const int FAW_INDEX_ERROR = -1;
 const int AUTO_SAVE_LOG_OUTPUT_DIR = 0;
 const int AUTO_SAVE_LOG_CUSTOM = 1;
 
+enum {
+	DISABLE_LOG_PIPE_INPUT = 0x01,
+	DISABLE_LOG_NORMAL     = 0x02,
+	DISABLE_LOG_ALL        = DISABLE_LOG_PIPE_INPUT | DISABLE_LOG_NORMAL,
+};
+
 //メモリーを切り刻みます。
 class mem_cutter {
 private:
@@ -153,6 +159,7 @@ typedef struct {
 	char *aud_appendix;          //作成する音声ファイル名に追加する文字列
 	char *raw_appendix;          //作成する音声ファイル名に追加する文字列 (raw出力時)
 	int pipe_input;              //パイプ入力が可能
+	DWORD disable_log;           //ログ表示を禁止 (DISABLE_LOG_xxx)
 	char *cmd_base;              //1st pass用コマンドライン
 	char *cmd_2pass;             //2nd pass用コマンドライン
 	char *cmd_raw;               //raw出力用コマンドライン

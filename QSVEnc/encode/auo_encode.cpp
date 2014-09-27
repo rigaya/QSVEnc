@@ -570,13 +570,15 @@ double get_duration(const OUTPUT_INFO *oip, const PRM_ENC *pe) {
 
 int ReadLogExe(PIPE_SET *pipes, const char *exename, LOG_CACHE *log_line_cache) {
 	DWORD pipe_read = 0;
-	if (!PeekNamedPipe(pipes->stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
-		return -1;
-	if (pipe_read) {
-		ReadFile(pipes->stdOut.h_read, pipes->read_buf + pipes->buf_len, sizeof(pipes->read_buf) - pipes->buf_len - 1, &pipe_read, NULL);
-		pipes->buf_len += pipe_read;
-		pipes->read_buf[pipes->buf_len] = '\0';
-		write_log_exe_mes(pipes->read_buf, &pipes->buf_len, exename, log_line_cache);
+	if (pipes->stdOut.h_read) {
+		if (!PeekNamedPipe(pipes->stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
+			return -1;
+		if (pipe_read) {
+			ReadFile(pipes->stdOut.h_read, pipes->read_buf + pipes->buf_len, sizeof(pipes->read_buf) - pipes->buf_len - 1, &pipe_read, NULL);
+			pipes->buf_len += pipe_read;
+			pipes->read_buf[pipes->buf_len] = '\0';
+			write_log_exe_mes(pipes->read_buf, &pipes->buf_len, exename, log_line_cache);
+		}
 	}
 	return (int)pipe_read;
 }
@@ -586,8 +588,8 @@ void write_cached_lines(int log_level, const char *exename, LOG_CACHE *log_line_
 	static const char *MESSAGE_FORMAT = "%s [%s]: %s";
 	char *buffer = NULL;
 	int buffer_len = 0;
-	log_level = clamp(log_level, LOG_INFO, LOG_ERROR);
-	const int additional_length = strlen(exename) + strlen(LOG_LEVEL_STR[log_level]) + strlen(MESSAGE_FORMAT) - strlen("%s") * 3 + 1;
+	const int log_level_idx = clamp(log_level, LOG_INFO, LOG_ERROR);
+	const int additional_length = strlen(exename) + strlen(LOG_LEVEL_STR[log_level_idx]) + strlen(MESSAGE_FORMAT) - strlen("%s") * 3 + 1;
 	for (int i = 0; i < log_line_cache->idx; i++) {
 		const int required_buffer_len = strlen(log_line_cache->lines[i]) + additional_length;
 		if (buffer_len < required_buffer_len) {
@@ -596,7 +598,7 @@ void write_cached_lines(int log_level, const char *exename, LOG_CACHE *log_line_
 			buffer_len = required_buffer_len;
 		}
 		if (buffer) {
-			sprintf_s(buffer, buffer_len, MESSAGE_FORMAT, exename, LOG_LEVEL_STR[log_level], log_line_cache->lines[i]);
+			sprintf_s(buffer, buffer_len, MESSAGE_FORMAT, exename, LOG_LEVEL_STR[log_level_idx], log_line_cache->lines[i]);
 			write_log_line(log_level, buffer);
 		}
 	}

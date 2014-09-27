@@ -256,14 +256,16 @@ static AUO_RESULT silent_wav_output(FILE *fp, int samples, int wav_8bit, int aud
 }
 
 static AUO_RESULT wav_file_open(aud_data_t *aud_dat, const OUTPUT_INFO *oip, BOOL use_pipe, BOOL wav_8bit, int bufsize,
-								const char *auddispname, const char *auddir, DWORD encoder_priority) {
+								const char *auddispname, const char *auddir, DWORD encoder_priority, DWORD disable_log) {
 	AUO_RESULT ret = AUO_RESULT_SUCCESS;
 	if (use_pipe) {
 		//パイプ準備
 		aud_dat->pipes.stdIn.mode = AUO_PIPE_ENABLE;
 		aud_dat->pipes.stdIn.bufferSize = bufsize * 2;
-		aud_dat->pipes.stdOut.mode = AUO_PIPE_ENABLE;
-		aud_dat->pipes.stdErr.mode = AUO_PIPE_MUXED;
+		if (!(disable_log & DISABLE_LOG_PIPE_INPUT)) {
+			aud_dat->pipes.stdOut.mode = AUO_PIPE_ENABLE;
+			aud_dat->pipes.stdErr.mode = AUO_PIPE_MUXED;
+		}
 		//エンコーダ準備
 		int rp_ret;
 		if (RP_SUCCESS != (rp_ret = RunProcess(aud_dat->args, auddir, &aud_dat->pi_aud, &aud_dat->pipes, encoder_priority, TRUE, FALSE))) {
@@ -299,7 +301,7 @@ static AUO_RESULT wav_file_close(aud_data_t *aud_dat, const OUTPUT_INFO *oip, in
 }
 
 static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_ENC *pe, int wav_8bit, int bufsize,
-						const char *auddispname, const char *auddir, DWORD encoder_priority) 
+						const char *auddispname, const char *auddir, DWORD encoder_priority, DWORD disable_log) 
 {
 	AUO_RESULT ret = AUO_RESULT_SUCCESS;
 	BYTE *buf8bit = NULL;
@@ -324,7 +326,7 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
 	if_valid_wait_for_single_object(pe->aud_parallel.he_aud_start, INFINITE);
 	//パイプ or ファイルオープン
 	for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++)
-		ret |= wav_file_open(&aud_dat[i_aud], oip, use_pipe, wav_8bit, bufsize, auddispname, auddir, encoder_priority);
+		ret |= wav_file_open(&aud_dat[i_aud], oip, use_pipe, wav_8bit, bufsize, auddispname, auddir, encoder_priority, disable_log);
 
 	if (!ret) {
 		//メッセージ
@@ -400,8 +402,10 @@ static AUO_RESULT init_aud_dat(aud_data_t *aud_dat, PRM_ENC *pe, BOOL use_pipe, 
 static AUO_RESULT audio_run_enc_wavfile(aud_data_t *aud_dat, const AUDIO_SETTINGS *aud_stg, const CONF_GUIEX *conf, const char *auddir, DWORD encoder_priority) {
 	AUO_RESULT ret = AUO_RESULT_SUCCESS;
 	//パイプの設定
-	aud_dat->pipes.stdOut.mode = AUO_PIPE_ENABLE;
-	aud_dat->pipes.stdErr.mode = AUO_PIPE_MUXED;
+	if (!(aud_stg->disable_log & DISABLE_LOG_NORMAL)) {
+		aud_dat->pipes.stdOut.mode = AUO_PIPE_ENABLE;
+		aud_dat->pipes.stdErr.mode = AUO_PIPE_MUXED;
+	}
 	show_progressbar(TRUE, aud_stg->dispname, PROGRESSBAR_MARQUEE);
 	int rp_ret;
 	if (RP_SUCCESS != (rp_ret = RunProcess(aud_dat->args, auddir, &aud_dat->pi_aud, &aud_dat->pipes, encoder_priority, TRUE, conf->aud.minimized))) {
@@ -482,7 +486,7 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
 	PathGetDirectory(auddir, _countof(auddir), aud_stg->fullpath);
 
 	//wav出力
-	ret |= wav_output(aud_dat, oip, pe, aud_stg->mode[conf->aud.enc_mode].use_8bit, sys_dat->exstg->s_local.audio_buffer_size, aud_stg->dispname, auddir, encoder_priority);
+	ret |= wav_output(aud_dat, oip, pe, aud_stg->mode[conf->aud.enc_mode].use_8bit, sys_dat->exstg->s_local.audio_buffer_size, aud_stg->dispname, auddir, encoder_priority, aud_stg->disable_log);
 	
 	//音声エンコード(filenameが空文字列なら実行しない)
 	if (!use_pipe && str_has_char(aud_stg->filename))
