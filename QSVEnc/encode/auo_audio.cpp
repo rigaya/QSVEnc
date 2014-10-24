@@ -29,6 +29,7 @@
 
 #include "auo_audio_parallel.h"
 #include "auo_encode.h"
+#include "exe_version.h"
 
 const int WAVE_HEADER_SIZE = 44;
 const int RIFF_SIZE_POS    = 4;
@@ -212,11 +213,17 @@ static void show_audio_delay_cut_info(int delay_cut, const PRM_ENC *pe) {
 }
 
 static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO *cnf_aud, const PRM_ENC *pe, const aud_data_t *aud_dat) {
+	std::string ver_str = "";
+	int version[4] = { 0 };
+	if (str_has_char(aud_stg->cmd_ver) && 0 == get_exe_version_from_cmd(aud_stg->fullpath, aud_stg->cmd_ver, version)) {
+		ver_str = " (" + ver_string(version) + ")";
+	}
+
 	char bitrate[128] = { 0 };
 	if (aud_stg->mode[cnf_aud->enc_mode].bitrate)
 		sprintf_s(bitrate, _countof(bitrate), ", %dkbps", cnf_aud->bitrate);
 	char *use2pass = (cnf_aud->use_2pass) ? ", 2pass" : "";
-	write_log_auo_line_fmt(LOG_INFO, "%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
+	write_log_auo_line_fmt(LOG_INFO, "%s%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, ver_str.c_str(), aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
 	show_audio_delay_cut_info(cnf_aud->delay_cut, pe);
 	write_log_auo_line(LOG_MORE, aud_dat->args);
 }
