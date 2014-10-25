@@ -17,6 +17,7 @@
 #include "sample_defs.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
+#include "ram_speed.h"
 
 BOOL Check_HWUsed(mfxIMPL impl) {
 	static const int HW_list[] = {
@@ -769,6 +770,11 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
 	add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
 	add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
 	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
-	if (add_ram_info)
-		add_tchar_to_buf(_T("RAM: DDRx-xxxx / x channel (Total %d MB / Used %d MB)\n"), (UINT)(totalRamsize >> 20), (UINT)(UsedRamSize >> 20));
+	if (add_ram_info) {
+		auto ram_read_speed_list = ram_speed_mt_list(128 * 1024, RAM_SPEED_MODE_READ);
+		auto ram_write_speed_list = ram_speed_mt_list(128 * 1024, RAM_SPEED_MODE_WRITE);
+		double max_read  = *std::max_element(ram_read_speed_list.begin(),  ram_read_speed_list.end())  * (1.0 / 1024.0);
+		double max_write = *std::max_element(ram_write_speed_list.begin(), ram_write_speed_list.end()) * (1.0 / 1024.0);
+		add_tchar_to_buf(_T("RAM: Read: %.2fGB/s / Write: %.2fGB/s (Used %d MB / Total %d MB)\n"), max_read, max_write, (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
+	}
 }

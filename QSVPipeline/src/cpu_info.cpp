@@ -113,7 +113,7 @@ static DWORD CountSetBits(ULONG_PTR bitMask) {
 	return bitSetCount;
 }
 
-static BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
+BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
 	*physical_processor_core = 0;
 	*logical_processor_core = 0;
 

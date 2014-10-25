@@ -12,6 +12,8 @@
 
 #include <tchar.h>
 
+BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core);
+
 int getCPUInfo(TCHAR *buffer, size_t nSize);
 double getCPUDefaultClock();
 double getCPUMaxTurboClock(unsigned int num_thread);

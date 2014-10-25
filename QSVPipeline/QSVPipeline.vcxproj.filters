@@ -96,6 +96,9 @@
     <ClCompile Include="src\convert_csp_ssse3.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\ram_speed.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\base_allocator.h">
@@ -182,9 +185,18 @@
     <ClInclude Include="include\qsv_simd.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="include\ram_speed.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\gpu_info_dummy_calc.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="src\ram_speed.asm">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="src\ram_speed_64.asm">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

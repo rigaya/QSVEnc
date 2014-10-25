@@ -267,6 +267,7 @@
     <ClCompile Include="src\qsv_prm.cpp" />
     <ClCompile Include="src\qsv_simd.cpp" />
     <ClCompile Include="src\qsv_util.cpp" />
+    <ClCompile Include="src\ram_speed.cpp" />
     <ClCompile Include="src\sample_utils.cpp" />
     <ClCompile Include="src\scene_change_detection.cpp" />
     <ClCompile Include="src\scene_change_detection_avx.cpp">
@@ -300,6 +301,7 @@
     <ClInclude Include="include\qsv_simd.h" />
     <ClInclude Include="include\qsv_util.h" />
     <ClInclude Include="include\qsv_version.h" />
+    <ClInclude Include="include\ram_speed.h" />
     <ClInclude Include="include\sample_defs.h" />
     <ClInclude Include="include\sample_utils.h" />
     <ClInclude Include="include\scene_change_detection.h" />
@@ -312,6 +314,30 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\gpu_info_dummy_calc.cl" />
+    <CustomBuild Include="src\ram_speed.asm">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ml /c /coff /Zi /nologo /Fo"$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">ml /c /coff /Zi /nologo /Fo"$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">ml /c /coff /Zi /nologo /Fo"$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">$(OutDir)%(Filename).asm.obj</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="src\ram_speed_64.asm">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">ml64 /DWIN_X64 /Zi /c /Cp /Fl /nologo /Fo"$(OutDir)obj\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">ml64 /DWIN_X64 /Zi /c /Cp /Fl /nologo /Fo"$(OutDir)obj\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">ml64 /DWIN_X64 /Zi /c /Cp /Fl /nologo /Fo"$(OutDir)obj\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">Compiling asm...</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -314,7 +314,7 @@ BOOL SetThreadAffinityForModule(DWORD TargetProcessId, const char *TargetModule,
 	return ret;
 }
 
-
+#if 0
 typedef BOOL (WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
 
 static DWORD CountSetBits(ULONG_PTR bitMask) {
@@ -392,6 +392,7 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
 
     return TRUE;
 }
+#endif
 
 int getCPUName(char *buf, size_t nSize) {
     int CPUInfo[4] = {-1};
