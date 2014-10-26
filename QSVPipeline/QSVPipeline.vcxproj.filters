@@ -193,11 +193,13 @@
     <None Include="src\gpu_info_dummy_calc.cl">
       <Filter>ソース ファイル</Filter>
     </None>
-    <None Include="src\ram_speed.asm">
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="src\ram_speed.asm">
       <Filter>ソース ファイル</Filter>
-    </None>
-    <None Include="src\ram_speed_64.asm">
+    </CustomBuild>
+    <CustomBuild Include="src\ram_speed_64.asm">
       <Filter>ソース ファイル</Filter>
-    </None>
+    </CustomBuild>
   </ItemGroup>
 </Project>
