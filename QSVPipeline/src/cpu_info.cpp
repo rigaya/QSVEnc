@@ -228,7 +228,7 @@ static unsigned int __stdcall getCPUClockMaxSubFunc(void *arg) {
 	UINT64 result = MAXUINT64;
 	
 	for (int j = 0; j < 4; j++) {
-		for (int i = 0; i < 500; i++) {
+		for (int i = 0; i < 800; i++) {
 			//連続で大量に行うことでTurboBoostを働かせる
 			//何回か行って最速値を使用する
 			result = min(result, repeatFunc(&test));

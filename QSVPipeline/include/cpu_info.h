@@ -15,6 +15,12 @@
 BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core);
 
 int getCPUInfo(TCHAR *buffer, size_t nSize);
+
+template <size_t size>
+int inline getCPUInfo(TCHAR(&buffer)[size]) {
+	return getCPUInfo(buffer, size);
+}
+
 double getCPUDefaultClock();
 double getCPUMaxTurboClock(unsigned int num_thread);
 
