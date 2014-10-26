@@ -11,6 +11,9 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
+#if (_MSC_VER >= 1800)
+#include <VersionHelpers.h>
+#endif
 #include "mfxStructures.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
@@ -709,12 +712,26 @@ const TCHAR *getOSVersion() {
 			switch (info.dwMinorVersion) {
 			case 0:  ptr = _T("Windows Vista"); break;
 			case 1:  ptr = _T("Windows 7"); break;
+#if (_MSC_VER >= 1800)
+			default:
+				if (IsWindowsVersionOrGreater(6, 5, 0)) {
+					ptr = _T("Later than Windows 10");
+				} else if (IsWindowsVersionOrGreater(6, 4, 0)) {
+					ptr = _T("Windows 10");
+				} else if (IsWindowsVersionOrGreater(6, 3, 0)) {
+					ptr = _T("Windows 8.1");
+				} else {
+					ptr = _T("Windows 8");
+				}
+#else
 			case 2:  ptr = _T("Windows 8"); break;
 			case 3:  ptr = _T("Windows 8.1"); break;
+			case 4:  ptr = _T("Windows 10"); break;
 			default:
-				if (4 <= info.dwMinorVersion) {
-					ptr = _T("Later than Windows 8.1");
+				if (5 <= info.dwMinorVersion) {
+					ptr = _T("Later than Windows 10");
 				}
+#endif
 				break;
 			}
 			break;
