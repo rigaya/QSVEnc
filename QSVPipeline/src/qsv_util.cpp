@@ -12,6 +12,7 @@
 #include <sstream>
 #include <algorithm>
 #if (_MSC_VER >= 1800)
+#include <Windows.h>
 #include <VersionHelpers.h>
 #endif
 #include "mfxStructures.h"
