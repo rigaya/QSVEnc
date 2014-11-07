@@ -29,7 +29,7 @@ static const BOOL   DEFAULT_SAVE_RELATIVE_PATH    = 0;
 static const BOOL   DEFAULT_CHAP_NERO_TO_UTF8     = 0;
 static const BOOL   DEFAULT_AUDIO_ENCODER         = 8;
 static const BOOL   DEFAULT_THREAD_TUNING         = 0;
-static const BOOL   DEFAULT_TIMER_PERIOD_TUNING   = 0;
+static const BOOL   DEFAULT_TIMER_PERIOD_TUNING   = 1;
 static const BOOL   DEFAULT_RUN_BAT_MINIMIZED     = 0;
 static const BOOL   DEFAULT_FORCE_BLURAY          = 0;
 

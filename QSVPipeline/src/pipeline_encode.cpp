@@ -1257,6 +1257,7 @@ CEncodingPipeline::CEncodingPipeline()
 	m_pVppSurfaces = NULL;
 	m_nAsyncDepth = 0;
 	m_nExPrm = 0x00;
+	m_bTimerPeriodTuning = false;
 
 	m_pAbortByUser = NULL;
 
@@ -1737,6 +1738,11 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 		_stprintf_s(mes, _countof(mes), _T("Resizer, %dx%d -> %dx%d\n"), pParams->nWidth, pParams->nHeight, pParams->nDstWidth, pParams->nDstHeight);
 		VppExtMes += mes;
 	}
+	
+	if (!pParams->bDisableTimerPeriodTuning) {
+		m_bTimerPeriodTuning = true;
+		timeBeginPeriod(1);
+	}
 
 	m_nAsyncDepth = 3; // this number can be tuned for better performance
 
@@ -1798,6 +1804,10 @@ void CEncodingPipeline::Close()
 		m_pFileReader->Close();
 		delete m_pFileReader;
 		m_pFileReader = NULL;
+	}
+	if (m_bTimerPeriodTuning) {
+		timeEndPeriod(1);
+		m_bTimerPeriodTuning = false;
 	}
 	
 	m_pAbortByUser = NULL;
@@ -2023,6 +2033,7 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
 		PrintMes(_T("%s\n"), get_err_mes(sts));
 
 	m_EncThread.Close();
+	timeEndPeriod(1);
 
 	return sts;
 }

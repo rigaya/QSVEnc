@@ -154,8 +154,10 @@ struct sInputParams
 
 	mfxU16     nICQQuality;
 	mfxU8      bBenchmark;
+
+	mfxU8      bDisableTimerPeriodTuning;
 	
-	mfxU8      Reserved[1203];
+	mfxU8      Reserved[1202];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

@@ -252,6 +252,8 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 		_ftprintf(stdout, _T("\n")
 			_T("   --benchmark <string>           run in benchmark mode\n")
 			_T("                                   and write result in txt file.\n")
+			_T("   --timer-period-tuning          enables timer period tuning (default).\n")
+			_T("   --no-timer-period-tuning       disables timer period tuning.\n")
 			);
 	}
 }
@@ -1051,6 +1053,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			i++;
 			pParams->bBenchmark = TRUE;
 			_tcscpy_s(pParams->strDstFile, strInput[i]);
+		}
+		else if (0 == _tcscmp(option_name, _T("timer-period-tuning")))
+		{
+			pParams->bDisableTimerPeriodTuning = false;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-timer-period-tuning")))
+		{
+			pParams->bDisableTimerPeriodTuning = true;
 		}
 		else
 		{

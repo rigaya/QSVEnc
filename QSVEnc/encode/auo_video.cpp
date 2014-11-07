@@ -155,7 +155,7 @@ static AUO_RESULT exit_audio_parallel_control(const OUTPUT_INFO *oip, PRM_ENC *p
 	return vid_ret;
 }
 
-void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const PRM_ENC *pe, BOOL force_bluray) {
+void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const PRM_ENC *pe, BOOL force_bluray, BOOL timer_period_tuning) {
 	prm->nHeight = (mfxU16)oip->h;
 	prm->nWidth = (mfxU16)oip->w;
 	prm->nFPSRate = oip->rate;
@@ -175,6 +175,8 @@ void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const PRM_ENC 
 	prm->nInputBufSize = clamp(prm->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX);
 	
 	prm->nBluray += (prm->nBluray == 1 && force_bluray);
+
+	prm->bDisableTimerPeriodTuning = !timer_period_tuning;
 }
 
 static DWORD_PTR setThreadAffinityMaskforQSVEnc(DWORD_PTR *mainThreadAffinityMask, DWORD_PTR *subThreadAffinityMask) {
@@ -225,7 +227,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	change_ext(pe->temp_filename, _countof(pe->temp_filename), ".264");
 
 	sInputParams *Params = &conf->qsv;
-	set_conf_qsvp_prm(Params, oip, pe, sys_dat->exstg->s_local.force_bluray);
+	set_conf_qsvp_prm(Params, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning);
 
 	std::auto_ptr<CEncodingPipeline> pPipeline;
 
@@ -272,11 +274,8 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
 		DWORD_PTR subThreadAffinityMask = 0x00;
 		DWORD_PTR oldThreadAffinity = 0x00;
-		const BOOL timer_period_tuning = sys_dat->exstg->s_local.timer_period_tuning;
 		if (sys_dat->exstg->s_local.thread_tuning)
 			oldThreadAffinity = setThreadAffinityMaskforQSVEnc(NULL, &subThreadAffinityMask);
-		if (timer_period_tuning)
-			timeBeginPeriod(1);
 
 		for (;;) {
 			sts = pPipeline->Run(subThreadAffinityMask);
@@ -302,8 +301,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
 		pPipeline->Close();
 		resetThreadAffinityMaskforQSVEnc(oldThreadAffinity);
-		if (timer_period_tuning)
-			timeEndPeriod(1);
 		write_log_auo_enc_time(encode_name, timeGetTime() - tm_qsv);
 	}
 	clear_auo_yuvreader_g_data();

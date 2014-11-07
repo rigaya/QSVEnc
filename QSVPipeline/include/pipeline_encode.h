@@ -138,6 +138,8 @@ protected:
 	CEncodeStatusInfo *m_pEncSatusInfo;
 	CEncodingThread m_EncThread;
 
+	bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する
+
 	CSceneChangeDetect m_SceneChange;
 	mfxU32 m_nExPrm;
 	CQSVFrameTypeSimulation m_frameTypeSim;
