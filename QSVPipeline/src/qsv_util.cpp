@@ -787,12 +787,23 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
 	add_tchar_to_buf(_T("Environment Info\n"));
 	add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
 	add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
-	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
 	if (add_ram_info) {
-		auto ram_read_speed_list = ram_speed_mt_list(128 * 1024, RAM_SPEED_MODE_READ);
-		auto ram_write_speed_list = ram_speed_mt_list(128 * 1024, RAM_SPEED_MODE_WRITE);
-		double max_read  = *std::max_element(ram_read_speed_list.begin(),  ram_read_speed_list.end())  * (1.0 / 1024.0);
-		double max_write = *std::max_element(ram_write_speed_list.begin(), ram_write_speed_list.end()) * (1.0 / 1024.0);
-		add_tchar_to_buf(_T("RAM: Read: %.2fGB/s / Write: %.2fGB/s (Used %d MB / Total %d MB)\n"), max_read, max_write, (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
+		cpu_info_t cpu_info;
+		get_cpu_info(&cpu_info);
+		auto write_rw_speed = [&](TCHAR *type, int test_size) {
+			if (test_size) {
+				auto ram_read_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_READ);
+				auto ram_write_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_WRITE);
+				double max_read  = *std::max_element(ram_read_speed_list.begin(), ram_read_speed_list.end())  * (1.0 / 1024.0);
+				double max_write = *std::max_element(ram_write_speed_list.begin(), ram_write_speed_list.end()) * (1.0 / 1024.0);
+				add_tchar_to_buf(_T("%s: Read:%7.2fGB/s, Write:%7.2fGB/s\n"), type, max_read, max_write);
+			}
+		};
+		write_rw_speed(_T("L1 "), cpu_info.caches[0].size / 1024 / 8);
+		write_rw_speed(_T("L2 "), cpu_info.caches[1].size / 1024 / 2);
+		write_rw_speed(_T("L3 "), cpu_info.caches[2].size / 1024 / 2);
+		write_rw_speed(_T("RAM"), cpu_info.caches[cpu_info.max_cache_level-1].size / 1024 * 8);
 	}
+	add_tchar_to_buf(_T("     Used %d MB, Total %d MB\n"), (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
+	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
 }
