@@ -183,17 +183,16 @@ static DWORD_PTR setThreadAffinityMaskforQSVEnc(DWORD_PTR *mainThreadAffinityMas
 	if (subThreadAffinityMask)  *subThreadAffinityMask = 0;
 	if (FALSE == GetProcessAffinityMask(GetCurrentProcess(), &dwProcessAffinityMask, &dwSystemAffinityMask))
 		return NULL;
-
-	DWORD logical_cpu = 0, physical_cpu = 0;
-	getProcessorCount(&physical_cpu, &logical_cpu);
-	if (   FALSE == getProcessorCount(&physical_cpu, &logical_cpu)
-		|| sizeof(DWORD_PTR) * 8 < logical_cpu
-		|| physical_cpu <= 2
-		|| logical_cpu <= 4)
+	
+	cpu_info_t cpu_info;
+	if (!get_cpu_info(&cpu_info)
+		|| sizeof(DWORD_PTR) * 8 < cpu_info.logical_cores
+		|| cpu_info.physical_cores <= 2
+		|| cpu_info.logical_cores <= 4)
 		return NULL;
 
 	DWORD_PTR newMainThreadAffinityMask = 0x00, tmpMask = 0x01;
-	for (DWORD i = 0; i < logical_cpu / physical_cpu; i++, tmpMask <<= 1)
+	for (DWORD i = 0; i < cpu_info.logical_cores / cpu_info.physical_cores; i++, tmpMask <<= 1)
 		newMainThreadAffinityMask |= tmpMask;
 
 	DWORD_PTR otherThreadAffinityMask = dwProcessAffinityMask & (~newMainThreadAffinityMask);

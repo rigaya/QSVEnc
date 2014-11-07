@@ -78,12 +78,12 @@ unsigned int __stdcall ram_speed_func(void *prm) {
 double ram_speed_mt(int check_size_kilobytes, int mode, int thread_n) {
 	std::vector<HANDLE> threads(thread_n, NULL);
 	std::vector<RAM_SPEED_THREAD> thread_prm(thread_n);
-	DWORD physical_processor_core = 0, logical_processor_core = 0;
-	getProcessorCount(&physical_processor_core, &logical_processor_core);
+	cpu_info_t cpu_info;
+	get_cpu_info(&cpu_info);
 	for (uint32_t i = 0; i < threads.size(); i++) {
 		thread_prm[i].mode = (mode == RAM_SPEED_MODE_RW) ? (i & 1) : mode;
 		thread_prm[i].check_size_bytes = (check_size_kilobytes * 1024 / thread_n + 255) & ~255;
-		thread_prm[i].thread_id = (i % physical_processor_core) * (logical_processor_core / physical_processor_core) + (int)(i / physical_processor_core);
+		thread_prm[i].thread_id = (i % cpu_info.physical_cores) * (cpu_info.logical_cores / cpu_info.physical_cores) + (int)(i / cpu_info.physical_cores);
 		threads[i] = (HANDLE)_beginthreadex(NULL, 0, ram_speed_func, &thread_prm[i], CREATE_SUSPENDED, NULL);
 		//渡されたスレッドIDからスレッドAffinityを決定
 		//特定のコアにスレッドを縛り付ける
@@ -110,11 +110,11 @@ double ram_speed_mt(int check_size_kilobytes, int mode, int thread_n) {
 }
 
 std::vector<double> ram_speed_mt_list(int check_size_kilobytes, int mode) {
-	DWORD physical_processor_core = 0, logical_processor_core = 0;
-	getProcessorCount(&physical_processor_core, &logical_processor_core);
+	cpu_info_t cpu_info;
+	get_cpu_info(&cpu_info);
 
 	std::vector<double> results;
-	for (uint32_t ith = 1; ith <= physical_processor_core; ith++) {
+	for (uint32_t ith = 1; ith <= cpu_info.physical_cores; ith++) {
 		results.push_back(ram_speed_mt(check_size_kilobytes, mode, ith));
 	}
 	return results;

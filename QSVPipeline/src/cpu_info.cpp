@@ -113,16 +113,18 @@ static DWORD CountSetBits(ULONG_PTR bitMask) {
 	return bitSetCount;
 }
 
-BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
-	*physical_processor_core = 0;
-	*logical_processor_core = 0;
+bool get_cpu_info(cpu_info_t *cpu_info) {
+	if (nullptr == cpu_info)
+		return false;
+
+	memset(cpu_info, 0, sizeof(cpu_info[0]));
 
 	LPFN_GLPI glpi = (LPFN_GLPI)GetProcAddress(GetModuleHandle(_T("kernel32")), "GetLogicalProcessorInformation");
-	if (NULL == glpi)
-		return FALSE;
+	if (nullptr == glpi)
+		return false;
 
 	DWORD returnLength = 0;
-	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
 	while (FALSE == glpi(buffer, &returnLength)) {
 		if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 			if (buffer)
@@ -132,12 +134,6 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
 		}
 	}
 
-	DWORD logicalProcessorCount = 0;
-	DWORD numaNodeCount = 0;
-	DWORD processorCoreCount = 0;
-	DWORD processorL1CacheCount = 0;
-	DWORD processorL2CacheCount = 0;
-	DWORD processorL3CacheCount = 0;
 	DWORD processorPackageCount = 0;
 	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = buffer;
 	for (DWORD byteOffset = 0; byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength;
@@ -145,21 +141,27 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
 		switch (ptr->Relationship) {
 		case RelationNumaNode:
 			// Non-NUMA systems report a single record of this type.
-			numaNodeCount++;
+			cpu_info->nodes++;
 			break;
 		case RelationProcessorCore:
-			processorCoreCount++;
+			cpu_info->physical_cores++;
 			// A hyperthreaded core supplies more than one logical processor.
-			logicalProcessorCount += CountSetBits(ptr->ProcessorMask);
+			cpu_info->logical_cores += CountSetBits(ptr->ProcessorMask);
 			break;
 
 		case RelationCache:
 		{
 			// Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
 			PCACHE_DESCRIPTOR Cache = &ptr->Cache;
-			processorL1CacheCount += (Cache->Level == 1);
-			processorL2CacheCount += (Cache->Level == 2);
-			processorL3CacheCount += (Cache->Level == 3);
+			if (1 <= Cache->Level && Cache->Level <= _countof(cpu_info->caches)) {
+				cache_info_t *cache = &cpu_info->caches[Cache->Level-1];
+				cache->count++;
+				cache->level = Cache->Level;
+				cache->linesize = Cache->LineSize;
+				cache->size += Cache->Size;
+				cache->associativity = Cache->Associativity;
+				cpu_info->max_cache_level = max(cpu_info->max_cache_level, cache->level);
+			}
 			break;
 		}
 		case RelationProcessorPackage:
@@ -173,11 +175,10 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
 		}
 		ptr++;
 	}
+	if (buffer)
+		free(buffer);
 
-	*physical_processor_core = processorCoreCount;
-	*logical_processor_core = logicalProcessorCount;
-
-	return TRUE;
+	return true;
 }
 
 const int LOOP_COUNT = 5000;
@@ -265,12 +266,12 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
 		return defaultClock;
 	}
 
-	DWORD processorCoreCount = 0, logicalProcessorCount = 0;
-	getProcessorCount(&processorCoreCount, &logicalProcessorCount);
+	cpu_info_t cpu_info;
+	get_cpu_info(&cpu_info);
 	//ハーパースレッディングを考慮してスレッドIDを渡す
-	int thread_id_multi = (logicalProcessorCount > processorCoreCount) ? logicalProcessorCount / processorCoreCount : 1;
+	int thread_id_multi = (cpu_info.logical_cores > cpu_info.physical_cores) ? cpu_info.logical_cores / cpu_info.physical_cores : 1;
 	//上限は物理プロセッサ数、0なら自動的に物理プロセッサ数に設定
-	num_thread = (0 == num_thread) ? max(1, processorCoreCount - (logicalProcessorCount == processorCoreCount)) : min(num_thread, processorCoreCount);
+	num_thread = (0 == num_thread) ? max(1, cpu_info.physical_cores - (cpu_info.logical_cores == cpu_info.physical_cores)) : min(num_thread, cpu_info.physical_cores);
 
 	std::vector<HANDLE> list_of_threads(num_thread, NULL);
 	std::vector<UINT64> list_of_result(num_thread, 0);
@@ -352,9 +353,8 @@ double getCPUDefaultClock() {
 int getCPUInfo(TCHAR *buffer, size_t nSize) {
 	int ret = 0;
 	buffer[0] = _T('\0');
-	DWORD processorCoreCount = 0, logicalProcessorCount = 0;
-	if (   getCPUName(buffer, nSize)
-		|| FALSE == getProcessorCount(&processorCoreCount, &logicalProcessorCount)) {
+	cpu_info_t cpu_info;
+	if (getCPUName(buffer, nSize) || !get_cpu_info(&cpu_info)) {
 		ret = 1;
 	} else {
 		double defaultClock = getCPUDefaultClockFromCPUName();
@@ -370,7 +370,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 			if (maxFrequency / defaultClock > 1.01) {
 				_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
 			}
-			_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), processorCoreCount, logicalProcessorCount);
+			_stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
 		}
 	}
 	return ret;
@@ -386,14 +386,14 @@ BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time) {
 
 double GetProcessAvgCPUUsage(HANDLE hProcess, PROCESS_TIME *start) {
 	PROCESS_TIME current = { 0 };
-	DWORD physicalProcessors = 0, logicalProcessors = 0;
+	cpu_info_t cpu_info;
 	double result = 0;
 	if (NULL != hProcess
-		&& getProcessorCount(&physicalProcessors, &logicalProcessors)
+		&& get_cpu_info(&cpu_info)
 		&& GetProcessTime(hProcess, &current)) {
 		UINT64 current_total_time = current.kernel + current.user;
 		UINT64 start_total_time = (nullptr == start) ? 0 : start->kernel + start->user;
-		result = (current_total_time - start_total_time) * 100.0 / (double)(logicalProcessors * (current.exit - ((nullptr == start) ? current.creation : start->exit)));
+		result = (current_total_time - start_total_time) * 100.0 / (double)(cpu_info.logical_cores * (current.exit - ((nullptr == start) ? current.creation : start->exit)));
 	}
 	return result;
 }
