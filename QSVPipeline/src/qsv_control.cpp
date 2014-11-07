@@ -57,6 +57,7 @@ void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32
 
 void CEncodeStatusInfo::SetStart() {
 	m_sData.tmStart = timeGetTime();
+	GetProcessTime(GetCurrentProcess(), &m_sStartTime);
 }
 
 CEncodingThread::CEncodingThread()

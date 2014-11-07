@@ -24,4 +24,11 @@ int inline getCPUInfo(TCHAR(&buffer)[size]) {
 double getCPUDefaultClock();
 double getCPUMaxTurboClock(unsigned int num_thread);
 
+typedef struct PROCESS_TIME {
+	UINT64 creation, exit, kernel, user;
+} PROCESS_TIME;
+
+BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time);
+double GetProcessAvgCPUUsage(HANDLE hProcess, PROCESS_TIME *start = nullptr);
+
 #endif //_CPU_INFO_H_

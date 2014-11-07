@@ -307,7 +307,9 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
 	return resultClock;
 }
 
+#if ENABLE_OPENCL
 #include "cl_func.h"
+#endif
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -372,4 +374,26 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
 		}
 	}
 	return ret;
+}
+
+BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time) {
+	SYSTEMTIME systime;
+	GetSystemTime(&systime);
+	return (NULL != hProcess
+		&& GetProcessTimes(hProcess, (FILETIME *)&time->creation, (FILETIME *)&time->exit, (FILETIME *)&time->kernel, (FILETIME *)&time->user)
+		&& (WAIT_OBJECT_0 == WaitForSingleObject(hProcess, 0) || SystemTimeToFileTime(&systime, (FILETIME *)&time->exit)));
+}
+
+double GetProcessAvgCPUUsage(HANDLE hProcess, PROCESS_TIME *start) {
+	PROCESS_TIME current = { 0 };
+	DWORD physicalProcessors = 0, logicalProcessors = 0;
+	double result = 0;
+	if (NULL != hProcess
+		&& getProcessorCount(&physicalProcessors, &logicalProcessors)
+		&& GetProcessTime(hProcess, &current)) {
+		UINT64 current_total_time = current.kernel + current.user;
+		UINT64 start_total_time = (nullptr == start) ? 0 : start->kernel + start->user;
+		result = (current_total_time - start_total_time) * 100.0 / (double)(logicalProcessors * (current.exit - ((nullptr == start) ? current.creation : start->exit)));
+	}
+	return result;
 }

@@ -293,7 +293,7 @@ public:
 			mes[i] = ' ';
 		WriteLine(mes);
 
-		_stprintf_s(mes, _countof(mes), _T("encoded %d frames, %.2f fps, %.2f kbps, %.2f MB"),
+		_stprintf_s(mes, _T("encoded %d frames, %.2f fps, %.2f kbps, %.2f MB"),
 			m_sData.nProcessedFramesNum,
 			m_sData.fEncodeFps,
 			m_sData.fBitrateKbps,
@@ -301,12 +301,15 @@ public:
 			);
 		WriteLine(mes);
 
+		_stprintf_s(mes, _T("CPU Usage: %.2f%%"), GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
+		WriteLine(mes);
+
 		int hh = time_elapsed / (60*60*1000);
 		time_elapsed -= hh * (60*60*1000);
 		int mm = time_elapsed / (60*1000);
 		time_elapsed -= mm * (60*1000);
 		int ss = (time_elapsed + 500) / 1000;
-		_stprintf_s(mes, _countof(mes), _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
+		_stprintf_s(mes, _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
 		WriteLine(mes);
 
 		mfxU32 maxCount = MAX3(m_sData.nICount, m_sData.nPCount, m_sData.nBCount);
@@ -322,6 +325,7 @@ public:
 	mfxU32 m_nOutputFPSRate;
 	mfxU32 m_nOutputFPSScale;
 protected:
+	PROCESS_TIME m_sStartTime;
 	sEncodeStatusData m_sData;
 	TCHAR *m_pStrLog;
 	bool m_bStdErrWriteToConsole;
