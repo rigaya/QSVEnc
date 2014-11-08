@@ -34,6 +34,8 @@ typedef struct CX_DESC {
 	int value;
 } CX_DESC;
 
+#define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
+
 static const mfxVersion LIB_VER_LIST[] = {
 	{ 0, 0 },
 	{ 0, 1 },
