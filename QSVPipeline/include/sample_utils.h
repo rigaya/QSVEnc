@@ -5,7 +5,7 @@
 //  This software is supplied under the terms of a license  agreement or
 //  nondisclosure agreement with Intel Corporation and may not be copied
 //  or disclosed except in  accordance  with the terms of that agreement.
-//        Copyright (c) 2005-2013 Intel Corporation. All Rights Reserved.
+//        Copyright (c) 2005-2014 Intel Corporation. All Rights Reserved.
 //
 //
 */
@@ -43,6 +43,10 @@ class no_assign {
 	// Deny assignment
 	void operator=(const no_assign&);
 public:
+#if __GNUC__
+    //! Explicitly define default construction, because otherwise gcc issues gratuitous warning.
+    no_assign() {}
+#endif /* __GNUC__ */
 };
 
 //! Base class for types that should not be copied or assigned.
@@ -250,9 +254,8 @@ class CJPEGFrameReader : public CSmplBitstreamReader
 public:
 	virtual mfxStatus ReadNextFrame(mfxBitstream *pBS);
 protected:
-	//1 - means SOI marker present
-	//2 - means 2 SOI markers present
-	int FindSOImarkers(mfxBitstream *pBS);
+    bool SOImarkerIsFound(mfxBitstream *pBS);
+    bool EOImarkerIsFound(mfxBitstream *pBS);
 };
 
 //appends output bistream with exactly 1 frame, reports about error
@@ -330,8 +333,8 @@ public:
 	}
 	CTimeInterval(bool bEnable = true)
 		: m_start(m_own)
-		, m_bEnable(bEnable)
 		, m_own()
+		, m_bEnable(bEnable)
 	{
 		if (!m_bEnable)
 			return;
@@ -372,6 +375,138 @@ private:
 
 template <int tag>double CTimeInterval<tag>::g_Freq = 0.0f;
 
+/** Helper class to measure execution time of some code. Use this class
+ * if you need manual measurements.
+ *
+ * Usage example:
+ * {
+ *   CTimer timer;
+ *   msdk_tick summary_tick;
+ *
+ *   timer.Start()
+ *   function_to_measure();
+ *   summary_tick = timer.GetDelta();
+ *   printf("Elapsed time 1: %f\n", timer.GetTime());
+ *   ...
+ *   if (condition) timer.Start();
+     function_to_measure();
+ *   if (condition) {
+ *     summary_tick += timer.GetDelta();
+ *     printf("Elapsed time 2: %f\n", timer.GetTime();
+ *   }
+ *   printf("Overall time: %f\n", CTimer::ConvertToSeconds(summary_tick);
+ * }
+ */
+class CTimer
+{
+public:
+    CTimer():
+        start(0)
+    {
+    }
+    static msdk_tick GetFrequency()
+    {
+        if (!frequency) frequency = msdk_time_get_frequency();
+        return frequency;
+    }
+    static mfxF64 ConvertToSeconds(msdk_tick elapsed)
+    {
+        return MSDK_GET_TIME(elapsed, 0, GetFrequency());
+    }
+
+    inline void Start()
+    {
+        start = msdk_time_get_tick();
+    }
+    inline msdk_tick GetDelta()
+    {
+        return msdk_time_get_tick() - start;
+    }
+    inline mfxF64 GetTime()
+    {
+        return MSDK_GET_TIME(msdk_time_get_tick(), start, GetFrequency());
+    }
+
+protected:
+    static msdk_tick frequency;
+    msdk_tick start;
+private:
+    CTimer(const CTimer&);
+    void operator=(const CTimer&);
+};
+
+/** Helper class to measure overall execution time of some code. Use this
+ * class if you want to measure execution time of the repeatedly executed
+ * code.
+ *
+ * Usage example 1:
+ *
+ * msdk_tick summary_tick = 0;
+ *
+ * void function() {
+ *
+ * {
+ *   CAutoTimer timer(&summary_tick);
+ *   ...
+ * }
+ *     ...
+ * int main() {
+ *   for (;condition;) {
+ *     function();
+ *   }
+ *   printf("Elapsed time: %f\n", CTimer::ConvertToSeconds(summary_tick);
+ *   return 0;
+ * }
+ *
+ * Usage example 2:
+ * {
+ *   msdk_tick summary_tick = 0;
+ *
+ *   {
+ *     CAutoTimer timer(&summary_tick);
+ *
+ *     for (;condition;) {
+ *       ...
+ *       {
+ *         function_to_measure();
+ *         timer.Sync();
+ *         printf("Progress: %f\n", CTimer::ConvertToSeconds(summary_tick);
+ *       }
+ *       ...
+ *     }
+ *   }
+ *   printf("Elapsed time: %f\n", CTimer::ConvertToSeconds(summary_tick);
+ * }
+ *
+ */
+class CAutoTimer
+{
+public:
+    CAutoTimer(msdk_tick& _elapsed):
+        elapsed(_elapsed),
+        start(0)
+    {
+        elapsed = _elapsed;
+        start = msdk_time_get_tick();
+    }
+    ~CAutoTimer()
+    {
+        elapsed += msdk_time_get_tick() - start;
+    }
+    msdk_tick Sync()
+    {
+        msdk_tick cur = msdk_time_get_tick();
+        elapsed += cur - start;
+        start = cur;
+        return elapsed;
+    }
+protected:
+    msdk_tick& elapsed;
+    msdk_tick start;
+private:
+    CAutoTimer(const CAutoTimer&);
+    void operator=(const CAutoTimer&);
+};
 
 mfxStatus ConvertFrameRate(mfxF64 dFrameRate, mfxU32* pnFrameRateExtN, mfxU32* pnFrameRateExtD);
 mfxF64 CalculateFrameRate(mfxU32 nFrameRateExtN, mfxU32 nFrameRateExtD);
@@ -410,6 +545,7 @@ mfxStatus InitMfxBitstream(mfxBitstream* pBitstream, mfxU32 nSize);
 mfxStatus MoveMfxBitstream(mfxBitstream *pTarget, mfxBitstream *pSrc, mfxU32 nBytesToCopy);
 mfxStatus ExtendMfxBitstream(mfxBitstream* pBitstream, mfxU32 nSize);
 void WipeMfxBitstream(mfxBitstream* pBitstream);
+
 mfxU16 CalculateDefaultBitrate(mfxU32 nCodecId, mfxU32 nTargetUsage, mfxU32 nWidth, mfxU32 nHeight, mfxF64 dFrameRate);
 
 //serialization fnc set
@@ -503,13 +639,14 @@ struct MSDKAdapter {
 		if (session)
 		{
 			MFXQueryIMPL(session, &impl);
-		} else
+		}
+		else
 		{
 			// an auxiliary session, internal for this function
 			mfxSession auxSession;
 			memset(&auxSession, 0, sizeof(auxSession));
 
-			mfxVersion ver ={ 1, 1 }; // minimum API version which supports multiple devices
+            mfxVersion ver = { {1, 1 }}; // minimum API version which supports multiple devices
 			MFXInit(MFX_IMPL_HARDWARE_ANY, &ver, &auxSession);
 			MFXQueryIMPL(auxSession, &impl);
 			MFXClose(auxSession);
@@ -558,9 +695,25 @@ struct APIChangeFeatures {
 	bool ViewOutput;
 	bool LookAheadBRC;
 	bool AudioDecode;
+    bool SupportCodecPluginAPI;
 };
 
 mfxVersion getMinimalRequiredVersion(const APIChangeFeatures &features);
+
+enum msdkAPIFeature {
+    MSDK_FEATURE_NONE,
+    MSDK_FEATURE_MVC,
+    MSDK_FEATURE_JPEG_DECODE,
+    MSDK_FEATURE_LOW_LATENCY,
+    MSDK_FEATURE_MVC_VIEWOUTPUT,
+    MSDK_FEATURE_JPEG_ENCODE,
+    MSDK_FEATURE_LOOK_AHEAD,
+    MSDK_FEATURE_PLUGIN_API
+};
+
+/* Returns true if feature is supported in the given API version */
+bool CheckVersion(mfxVersion* version, msdkAPIFeature feature);
+
 void ConfigureAspectRatioConversion(mfxInfoVPP* pVppInfo);
 
 enum MsdkTraceLevel {

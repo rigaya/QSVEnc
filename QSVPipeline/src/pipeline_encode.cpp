@@ -1,10 +1,12 @@
-﻿//
-//               INTEL CORPORATION PROPRIETARY INFORMATION
-//  This software is supplied under the terms of a license agreement or
-//  nondisclosure agreement with Intel Corporation and may not be copied
-//  or disclosed except in accordance with the terms of that agreement.
-//        Copyright (c) 2005-2012 Intel Corporation. All Rights Reserved.
-//
+﻿/*********************************************************************************
+
+INTEL CORPORATION PROPRIETARY INFORMATION
+This software is supplied under the terms of a license agreement or nondisclosure
+agreement with Intel Corporation and may not be copied or disclosed except in
+accordance with the terms of that agreement
+Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
+
+**********************************************************************************/
 
 #include <tchar.h>
 #include <windows.h>
@@ -15,6 +17,7 @@
 #include <sstream>
 #include <algorithm>
 
+#include "mfx_samples_config.h"
 #include "pipeline_encode.h"
 #include "vpy_reader.h"
 #include "avs_reader.h"
@@ -36,8 +39,6 @@
 
 //#include "../../sample_user_modules/plugin_api/plugin_loader.h"
 
-//Library plugin UIDs
-const mfxU8 HEVC_ENCODER_UID[] = {0x2f,0xca,0x99,0x74,0x9f,0xdb,0x49,0xae,0xb1,0x21,0xa5,0xb6,0x3e,0xf5,0x68,0xf7};
 
 CEncTaskPool::CEncTaskPool()
 {
@@ -315,21 +316,19 @@ mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
 }
 #endif
 
-//mfxStatus CEncodingPipeline::AllocAndInitVppDoNotUse()
-//{
-//	m_VppDoNotUse.NumAlg = 4;
+mfxStatus CEncodingPipeline::AllocAndInitVppDoNotUse()
+{
+	MSDK_ZERO_MEMORY(m_VppDoNotUse);
+	m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
+	m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
+	m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
+	m_VppDoNotUse.AlgList = &m_VppDoNotUseList[0];
+    return MFX_ERR_NONE;
+} // CEncodingPipeline::AllocAndInitVppDoNotUse()
 
-//	m_VppDoNotUse.AlgList = new mfxU32 [m_VppDoNotUse.NumAlg];
-//	MSDK_CHECK_POINTER(m_VppDoNotUse.AlgList,  MFX_ERR_MEMORY_ALLOC);
-
-//	m_VppDoNotUse.AlgList[0] = MFX_EXTBUFF_VPP_DENOISE; // turn off denoising (on by default)
-//	m_VppDoNotUse.AlgList[1] = MFX_EXTBUFF_VPP_SCENE_ANALYSIS; // turn off scene analysis (on by default)
-//	m_VppDoNotUse.AlgList[2] = MFX_EXTBUFF_VPP_DETAIL; // turn off detail enhancement (on by default)
-//	m_VppDoNotUse.AlgList[3] = MFX_EXTBUFF_VPP_PROCAMP; // turn off processing amplified (on by default)
-
-//	return MFX_ERR_NONE;
-
-//} // CEncodingPipeline::AllocAndInitVppDoNotUse()
+void CEncodingPipeline::FreeVppDoNotUse()
+{
+}
 
 #if ENABLE_MVC_ENCODING
 void CEncodingPipeline::FreeMVCSeqDesc()
@@ -339,10 +338,6 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 	MSDK_SAFE_DELETE_ARRAY(m_MVCSeqDesc.OP);
 }
 #endif
-//void CEncodingPipeline::FreeVppDoNotUse()
-//{
-//    MSDK_SAFE_DELETE(m_VppDoNotUse.AlgList);
-//}
 
 mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
@@ -540,52 +535,52 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	m_mfxEncParams.mfx.FrameInfo.AspectRatioW = (mfxU16)m_iSAR[0];
 	m_mfxEncParams.mfx.FrameInfo.AspectRatioH = (mfxU16)m_iSAR[1];
 
-	MSDK_ZERO_MEMORY(m_mfxCopt);
-	m_mfxCopt.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
-	m_mfxCopt.Header.BufferSz = sizeof(mfxExtCodingOption);
+	MSDK_ZERO_MEMORY(m_CodingOption);
+	m_CodingOption.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
+	m_CodingOption.Header.BufferSz = sizeof(mfxExtCodingOption);
 	if (!pInParams->bUseHWLib) {
 		//swライブラリ使用時のみ
-		m_mfxCopt.InterPredBlockSize = pInParams->nInterPred;
-		m_mfxCopt.IntraPredBlockSize = pInParams->nIntraPred;
-		m_mfxCopt.MVSearchWindow     = pInParams->MVSearchWindow;
-		m_mfxCopt.MVPrecision        = pInParams->nMVPrecision;
+		m_CodingOption.InterPredBlockSize = pInParams->nInterPred;
+		m_CodingOption.IntraPredBlockSize = pInParams->nIntraPred;
+		m_CodingOption.MVSearchWindow     = pInParams->MVSearchWindow;
+		m_CodingOption.MVPrecision        = pInParams->nMVPrecision;
 	}
 	if (!pInParams->bUseHWLib || pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
 		//swライブラリ使用時かbaselineを指定した時
-		m_mfxCopt.RateDistortionOpt  = (mfxU16)((pInParams->bRDO) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-		m_mfxCopt.CAVLC              = (mfxU16)((pInParams->bCAVLC) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+		m_CodingOption.RateDistortionOpt  = (mfxU16)((pInParams->bRDO) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+		m_CodingOption.CAVLC              = (mfxU16)((pInParams->bCAVLC) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
 	}
-	//m_mfxCopt.FramePicture = MFX_CODINGOPTION_ON;
-	//m_mfxCopt.FieldOutput = MFX_CODINGOPTION_ON;
-	//m_mfxCopt.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
-	//m_mfxCopt.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
-	m_mfxCopt.AUDelimiter = MFX_CODINGOPTION_OFF;
-	m_mfxCopt.PicTimingSEI = MFX_CODINGOPTION_OFF;
-	//m_mfxCopt.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
+	//m_CodingOption.FramePicture = MFX_CODINGOPTION_ON;
+	//m_CodingOption.FieldOutput = MFX_CODINGOPTION_ON;
+	//m_CodingOption.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
+	//m_CodingOption.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
+	m_CodingOption.AUDelimiter = MFX_CODINGOPTION_OFF;
+	m_CodingOption.PicTimingSEI = MFX_CODINGOPTION_OFF;
+	//m_CodingOption.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
 
 	//API v1.6の機能
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
-		MSDK_ZERO_MEMORY(m_mfxCopt2);
-		m_mfxCopt2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
-		m_mfxCopt2.Header.BufferSz = sizeof(mfxExtCodingOption2);
+		MSDK_ZERO_MEMORY(m_CodingOption2);
+		m_CodingOption2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
+		m_CodingOption2.Header.BufferSz = sizeof(mfxExtCodingOption2);
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-			m_mfxCopt2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-			m_mfxCopt2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-			m_mfxCopt2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
-			m_mfxCopt2.LookAheadDS = pInParams->nLookaheadDS;
+			m_CodingOption2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+			m_CodingOption2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+			m_CodingOption2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
+			m_CodingOption2.LookAheadDS = pInParams->nLookaheadDS;
 		}
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-			m_mfxCopt2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
-			m_mfxCopt2.Trellis = pInParams->nTrellis;
+			m_CodingOption2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
+			m_CodingOption2.Trellis = pInParams->nTrellis;
 		}
 		if (pInParams->bMBBRC) {
-			m_mfxCopt2.MBBRC = MFX_CODINGOPTION_ON;
+			m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
 		}
 
 		if (pInParams->bExtBRC) {
-			m_mfxCopt2.ExtBRC = MFX_CODINGOPTION_ON;
+			m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
 		}
-		m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxCopt2);
+		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption2);
 	}
 
 	//Bluray互換出力
@@ -624,18 +619,18 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		m_mfxEncParams.mfx.GopRefDist = min(m_mfxEncParams.mfx.GopRefDist, 3+1);
 		m_mfxEncParams.mfx.GopPicSize = (int)(min(m_mfxEncParams.mfx.GopPicSize, 30) / m_mfxEncParams.mfx.GopRefDist) * m_mfxEncParams.mfx.GopRefDist;
 		m_mfxEncParams.mfx.NumRefFrame = min(m_mfxEncParams.mfx.NumRefFrame, 6);
-		m_mfxCopt.MaxDecFrameBuffering = m_mfxEncParams.mfx.NumRefFrame;
-		m_mfxCopt.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
-		m_mfxCopt.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
-		m_mfxCopt.AUDelimiter  = MFX_CODINGOPTION_ON;
-		m_mfxCopt.PicTimingSEI = MFX_CODINGOPTION_ON;
-		m_mfxCopt.ResetRefList = MFX_CODINGOPTION_ON;
+		m_CodingOption.MaxDecFrameBuffering = m_mfxEncParams.mfx.NumRefFrame;
+		m_CodingOption.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
+		m_CodingOption.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
+		m_CodingOption.AUDelimiter  = MFX_CODINGOPTION_ON;
+		m_CodingOption.PicTimingSEI = MFX_CODINGOPTION_ON;
+		m_CodingOption.ResetRefList = MFX_CODINGOPTION_ON;
 		m_nExPrm &= (~MFX_PRM_EX_SCENE_CHANGE);
-		//m_mfxCopt.EndOfSequence = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0a
-		//m_mfxCopt.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
+		//m_CodingOption.EndOfSequence = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0a
+		//m_CodingOption.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
 	}
 
-	m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxCopt);
+	m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
 
 	//m_mfxEncParams.mfx.TimeStampCalc = (mfxU16)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT) ? MFX_TIMESTAMPCALC_TELECINE : MFX_TIMESTAMPCALC_UNKNOWN);
 	//m_mfxEncParams.mfx.ExtendedPicStruct = pInParams->nPicStruct;
@@ -649,17 +644,17 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		) ) {
 #define GET_COLOR_PRM(v, list) (mfxU16)((v == MFX_COLOR_VALUE_AUTO) ? ((pInParams->nDstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
 			//色設定 (for API v1.3)
-			MSDK_ZERO_MEMORY(m_mfxVSI);
-			m_mfxVSI.Header.BufferId = MFX_EXTBUFF_VIDEO_SIGNAL_INFO;
-			m_mfxVSI.Header.BufferSz = sizeof(mfxExtVideoSignalInfo);
-			m_mfxVSI.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
-			m_mfxVSI.VideoFormat              = pInParams->VideoFormat;
-			m_mfxVSI.VideoFullRange           = pInParams->bFullrange != 0;
-			m_mfxVSI.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
-			m_mfxVSI.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
-			m_mfxVSI.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
+			MSDK_ZERO_MEMORY(m_VideoSignalInfo);
+			m_VideoSignalInfo.Header.BufferId = MFX_EXTBUFF_VIDEO_SIGNAL_INFO;
+			m_VideoSignalInfo.Header.BufferSz = sizeof(mfxExtVideoSignalInfo);
+			m_VideoSignalInfo.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
+			m_VideoSignalInfo.VideoFormat              = pInParams->VideoFormat;
+			m_VideoSignalInfo.VideoFullRange           = pInParams->bFullrange != 0;
+			m_VideoSignalInfo.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
+			m_VideoSignalInfo.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
+			m_VideoSignalInfo.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
 #undef GET_COLOR_PRM
-			m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxVSI);
+			m_EncExtParams.push_back((mfxExtBuffer *)&m_VideoSignalInfo);
 	}
 
 	//シーンチェンジ検出をこちらで行う場合は、GOP長を最大に設定する
@@ -871,24 +866,18 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 	}
 
 	if (m_VppDoUseList.size()) {
-		MSDK_ZERO_MEMORY(m_ExtDoUse);
-		m_ExtDoUse.Header.BufferId = MFX_EXTBUFF_VPP_DOUSE;
-		m_ExtDoUse.Header.BufferSz = sizeof(mfxExtVPPDoUse);
-		m_ExtDoUse.NumAlg = (mfxU32)m_VppDoUseList.size();
-		m_ExtDoUse.AlgList = &m_VppDoUseList[0];
+		MSDK_ZERO_MEMORY(m_VppDoUse);
+		m_VppDoUse.Header.BufferId = MFX_EXTBUFF_VPP_DOUSE;
+		m_VppDoUse.Header.BufferSz = sizeof(mfxExtVPPDoUse);
+		m_VppDoUse.NumAlg = (mfxU32)m_VppDoUseList.size();
+		m_VppDoUse.AlgList = &m_VppDoUseList[0];
 
-		m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDoUse);
+		m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoUse);
 	}
 
 	if (m_VppDoNotUseList.size()) {
-		// configure vpp DoNotUse hint
-		MSDK_ZERO_MEMORY(m_ExtDoNotUse);
-		m_ExtDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
-		m_ExtDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
-		m_ExtDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
-		m_ExtDoNotUse.AlgList = &m_VppDoNotUseList[0];
-
-		m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDoNotUse);
+		AllocAndInitVppDoNotUse();
+		m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoNotUse);
 	}
 
 	m_mfxVppParams.ExtParam = &m_VppExtParams[0]; // vector is stored linearly in memory
@@ -1017,7 +1006,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	// prepare allocation requests
 	EncRequest.NumFrameMin = nEncSurfNum;
 	EncRequest.NumFrameSuggested = nEncSurfNum;
-	memcpy(&(EncRequest.Info), &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+    MSDK_MEMCPY_VAR(EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 	if (m_pmfxVPP)
 	{
 		EncRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; // surfaces are shared between vpp output and encode input
@@ -1032,7 +1021,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	{
 		VppRequest[0].NumFrameMin = nVppSurfNum;
 		VppRequest[0].NumFrameSuggested = nVppSurfNum;
-		memcpy(&(VppRequest[0].Info), &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+        MSDK_MEMCPY_VAR(VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
 		sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &(VppRequest[0]), &m_VppResponse);
 		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -1045,7 +1034,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	for (int i = 0; i < m_EncResponse.NumFrameActual; i++)
 	{
 		memset(&(m_pEncSurfaces[i]), 0, sizeof(mfxFrameSurface1));
-		memcpy(&(m_pEncSurfaces[i].Info), &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+        MSDK_MEMCPY_VAR(m_pEncSurfaces[i].Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
 		if (m_bExternalAlloc)
 		{
@@ -1067,8 +1056,8 @@ mfxStatus CEncodingPipeline::AllocFrames()
 
 		for (int i = 0; i < m_VppResponse.NumFrameActual; i++)
 		{
-			memset(&(m_pVppSurfaces[i]), 0, sizeof(mfxFrameSurface1));
-			memcpy(&(m_pVppSurfaces[i].Info), &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+            MSDK_ZERO_MEMORY(m_pVppSurfaces[i]);
+            MSDK_MEMCPY_VAR(m_pVppSurfaces[i].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
 			if (m_bExternalAlloc)
 			{
@@ -1247,6 +1236,7 @@ void CEncodingPipeline::DeleteAllocator()
 
 CEncodingPipeline::CEncodingPipeline()
 {
+    m_pUID = NULL;
 	m_pmfxENC = NULL;
 	m_pmfxVPP = NULL;
 	m_pMFXAllocator = NULL;
@@ -1267,20 +1257,35 @@ CEncodingPipeline::CEncodingPipeline()
 
 	m_pStrLog = NULL;
 
-	//MSDK_ZERO_MEMORY(m_VppDoNotUse);
-
-	MSDK_ZERO_MEMORY(m_mfxVSI);
-	MSDK_ZERO_MEMORY(m_mfxCopt);
 #if ENABLE_MVC_ENCODING
 	m_bIsMVC = false;
 	m_MVCflags = MVC_DISABLED;
 	m_nNumView = 0;
 	MSDK_ZERO_MEMORY(m_MVCSeqDesc);
 	m_MVCSeqDesc.Header.BufferId = MFX_EXTBUFF_MVC_SEQ_DESC;
-	m_MVCSeqDesc.Header.BufferSz = sizeof(mfxExtMVCSeqDesc);
+    m_MVCSeqDesc.Header.BufferSz = sizeof(m_MVCSeqDesc);
 #endif
-	//m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
-	//m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
+
+    MSDK_ZERO_MEMORY(m_VppDoNotUse);
+    m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
+    m_VppDoNotUse.Header.BufferSz = sizeof(m_VppDoNotUse);
+
+    MSDK_ZERO_MEMORY(m_VideoSignalInfo);
+    m_VideoSignalInfo.Header.BufferId = MFX_EXTBUFF_VIDEO_SIGNAL_INFO;
+    m_VideoSignalInfo.Header.BufferSz = sizeof(m_VideoSignalInfo);
+
+    MSDK_ZERO_MEMORY(m_CodingOption);
+    m_CodingOption.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
+    m_CodingOption.Header.BufferSz = sizeof(m_CodingOption);
+
+    MSDK_ZERO_MEMORY(m_CodingOption2);
+    m_CodingOption2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
+    m_CodingOption2.Header.BufferSz = sizeof(m_CodingOption2);
+	
+
+    MSDK_ZERO_MEMORY(m_CodingOption3);
+    m_CodingOption3.Header.BufferId = MFX_EXTBUFF_CODING_OPTION3;
+    m_CodingOption3.Header.BufferSz = sizeof(m_CodingOption3);
 
 #if D3D_SURFACES_SUPPORT
 	m_hwdev = NULL;
@@ -1288,9 +1293,9 @@ CEncodingPipeline::CEncodingPipeline()
 
 	MSDK_ZERO_MEMORY(m_mfxEncParams);
 	MSDK_ZERO_MEMORY(m_mfxVppParams);
-
-	MSDK_ZERO_MEMORY(m_ExtDoUse);
-	MSDK_ZERO_MEMORY(m_ExtDoNotUse);
+	
+	MSDK_ZERO_MEMORY(m_VppDoNotUse);
+	MSDK_ZERO_MEMORY(m_VppDoUse);
 	MSDK_ZERO_MEMORY(m_ExtDenoise);
 	MSDK_ZERO_MEMORY(m_ExtDetail);
 
@@ -1668,14 +1673,6 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	sts = InitSession(pParams->bUseHWLib, pParams->memType);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    //Load library plug-in
-    //if (pParams->IsUseHEVCEncoderPlugin)
-    //{
-    //    MSDK_MEMCPY(m_UID_HEVC.Data, HEVC_ENCODER_UID, 16);
-    //    sts = MFXVideoUSER_Load(m_mfxSession, &m_UID_HEVC, pParams->HEVCPluginVersion);
-    //}
-   //MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
 	// create and init frame allocator
 	sts = CreateAllocator();
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -1762,13 +1759,14 @@ void CEncodingPipeline::Close()
 	MSDK_SAFE_DELETE(m_pmfxENC);
 	MSDK_SAFE_DELETE(m_pmfxVPP);
 
-    MFXVideoUSER_UnLoad(m_mfxSession, &m_UID_HEVC);
+    if (m_pUID) MFXVideoUSER_UnLoad(m_mfxSession, &(m_pUID->mfx));
+
     m_pHEVC_plugin.reset();
 
 #if ENABLE_MVC_ENCODING
 	FreeMVCSeqDesc();
 #endif
-	//FreeVppDoNotUse();
+	FreeVppDoNotUse();
 
 	m_EncExtParams.clear();
 	m_VppDoNotUseList.clear();
@@ -1846,6 +1844,7 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
 		msdk_printf(MSDK_STRING("WARNING: partial acceleration\n"));
 		MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
 	}
+
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
 	if (m_pmfxVPP)

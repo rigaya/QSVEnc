@@ -29,22 +29,22 @@ struct sFrame
 
 struct SysMemAllocatorParams : mfxAllocatorParams
 {
-    SysMemAllocatorParams() 
+    SysMemAllocatorParams()
         : mfxAllocatorParams() { }
     MFXBufferAllocator *pBufferAllocator;
-}; 
+};
 
 class SysMemFrameAllocator: public BaseFrameAllocator
 {
 public:
     SysMemFrameAllocator();
-    virtual ~SysMemFrameAllocator(); 
+    virtual ~SysMemFrameAllocator();
 
     virtual mfxStatus Init(mfxAllocatorParams *pParams);
     virtual mfxStatus Close();
     virtual mfxStatus LockFrame(mfxMemId mid, mfxFrameData *ptr);
     virtual mfxStatus UnlockFrame(mfxMemId mid, mfxFrameData *ptr);
-    virtual mfxStatus GetFrameHDL(mfxMemId mid, mfxHDL *handle);       
+    virtual mfxStatus GetFrameHDL(mfxMemId mid, mfxHDL *handle);
 
 protected:
     virtual mfxStatus CheckRequestType(mfxFrameAllocRequest *request);
@@ -59,11 +59,11 @@ class SysMemBufferAllocator : public MFXBufferAllocator
 {
 public:
     SysMemBufferAllocator();
-    virtual ~SysMemBufferAllocator();  
+    virtual ~SysMemBufferAllocator();
     virtual mfxStatus AllocBuffer(mfxU32 nbytes, mfxU16 type, mfxMemId *mid);
     virtual mfxStatus LockBuffer(mfxMemId mid, mfxU8 **ptr);
-    virtual mfxStatus UnlockBuffer(mfxMemId mid);    
-    virtual mfxStatus FreeBuffer(mfxMemId mid); 
+    virtual mfxStatus UnlockBuffer(mfxMemId mid);
+    virtual mfxStatus FreeBuffer(mfxMemId mid);
 };
 
 #endif // __SYSMEM_ALLOCATOR_H__

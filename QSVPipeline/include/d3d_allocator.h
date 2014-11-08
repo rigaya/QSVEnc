@@ -41,7 +41,7 @@ class D3DFrameAllocator: public BaseFrameAllocator
 {
 public:
     D3DFrameAllocator();
-    virtual ~D3DFrameAllocator();    
+    virtual ~D3DFrameAllocator();
 
     virtual mfxStatus Init(mfxAllocatorParams *pParams);
     virtual mfxStatus Close();
@@ -59,7 +59,7 @@ protected:
     virtual mfxStatus CheckRequestType(mfxFrameAllocRequest *request);
     virtual mfxStatus ReleaseResponse(mfxFrameAllocResponse *response);
     virtual mfxStatus AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllocResponse *response);
-   
+
     CComPtr<IDirect3DDeviceManager9> m_manager;
     CComPtr<IDirectXVideoDecoderService> m_decoderService;
     CComPtr<IDirectXVideoProcessorService> m_processorService;

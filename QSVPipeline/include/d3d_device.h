@@ -24,13 +24,12 @@ enum {
     MFX_HANDLE_GFXS3DCONTROL = 0x100 /* A handle to the IGFXS3DControl instance */
 }; //mfxHandleType
 
-#define OVERLAY_BACKBUFFER_FORMAT D3DFMT_X8R8G8B8
 #define VIDEO_MAIN_FORMAT D3DFMT_YUY2
 
 class IGFXS3DControl;
 
 /** Direct3D 9 device implementation.
-@note Can be initilized for only 1 or two 2 views. Handle to 
+@note Can be initilized for only 1 or two 2 views. Handle to
 MFX_HANDLE_GFXS3DCONTROL must be set prior if initializing for 2 views.
 
 @note Device always set D3DPRESENT_PARAMETERS::Windowed to TRUE.
@@ -49,8 +48,10 @@ public:
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl);
     virtual mfxStatus SetHandle(mfxHandleType type, mfxHDL hdl);
     virtual mfxStatus RenderFrame(mfxFrameSurface1 * pSurface, mfxFrameAllocator * pmfxAlloc);
-    virtual void Close() ;
-    
+    virtual void      UpdateTitle(double /*fps*/) { }
+    virtual void      Close() ;
+            void      DefineFormat(bool isA2rgb10) { m_bIsA2rgb10 = (isA2rgb10) ? TRUE : FALSE; }
+
 protected:
     mfxStatus CreateVideoProcessors();
     bool CheckOverlaySupport();
@@ -71,19 +72,21 @@ private:
     // service required to create video processors
     IDirectXVideoProcessorService*  m_pDXVAVPS;
     //left channel processor
-    IDirectXVideoProcessor*         m_pDXVAVP_Left; 
+    IDirectXVideoProcessor*         m_pDXVAVP_Left;
     // right channel processor
     IDirectXVideoProcessor*         m_pDXVAVP_Right;
     // the surface which is passed to render
-    IDirect3DSurface9*              m_pRenderSurface; 
-    
+    IDirect3DSurface9*              m_pRenderSurface;
+
     // target rectangle
     RECT                            m_targetRect;
 
     // various structures for DXVA2 calls
     DXVA2_VideoDesc                 m_VideoDesc;
-    DXVA2_VideoProcessBltParams     m_BltParams; 
+    DXVA2_VideoProcessBltParams     m_BltParams;
     DXVA2_VideoSample               m_Sample;
+
+    BOOL                            m_bIsA2rgb10;
 };
 
 #endif // #if defined( _WIN32 ) || defined ( _WIN64 )
