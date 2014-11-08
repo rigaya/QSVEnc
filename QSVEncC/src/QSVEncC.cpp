@@ -146,6 +146,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --vqp <int> or                 encode in Variable QP, default %d:%d:%d\n")
 			_T("         <int>:<int>:<int>        set qp value for i:p:b frame\n")
 			_T("   --la <int>                     encoded bitrate in Lookahead mode (kbps)\n")
+			_T("   --la-hrd <int>                 encoded bitrate in HRD-Lookahead mode (kbps)\n")
 			_T("   --icq <int>                    encode in Intelligent Const. Qualtiy mode\n")
 			_T("                                    default value: %d\n")
 			_T("   --la-icq <int>                 encode in ICQ mode with Lookahead\n")
@@ -153,9 +154,12 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --cbr <int>                    encoded bitrate in CBR mode (kbps)\n")
 			_T("   --vbr <int>                    encoded bitrate in VBR mode (kbps)\n")
 			_T("   --avbr <int>                   encoded bitrate in AVBR mode (kbps)\n")
-			_T("                                   avbr mode is only supported with API v1.3\n")
+			_T("                                   AVBR mode is only supported with API v1.3\n")
 			_T("   --avbr-unitsize <int>          avbr calculation period in x100 frames\n")
 			_T("                                   default %d (= unit size %d00 frames)\n")
+			_T("   --qvbr <int>                   encoded bitrate in Quality VBR mode.\n")
+			_T("                                    default value: %d\n")
+			_T("                                   QVBR mode is only supported with API v1.11\n")
 			_T("   --vcm <int>                    encoded bitrate in VCM mode (kbps)\n")
 			//_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
 			//_T("                                   in percentage, defalut %.1f(%%)\n)"
@@ -195,6 +199,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
 			QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
+			QSV_DEFAULT_QVBR,
 			QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
 			QSV_DEFAULT_REF,
 			QSV_DEFAULT_BFRAMES,
@@ -651,6 +656,15 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			}
 			pParams->nEncMode = MFX_RATECONTROL_LA_ICQ;
 		}
+		else if (0 == _tcscmp(option_name, _T("la-hrd")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->nEncMode = MFX_RATECONTROL_LA_HRD;
+		}
 		else if (0 == _tcscmp(option_name, _T("vcm")))
 		{
 			i++;
@@ -686,6 +700,15 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 			pParams->nEncMode = MFX_RATECONTROL_AVBR;
+		}
+		else if (0 == _tcscmp(option_name, _T("qvbr")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nQVBRQuality)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->nEncMode = MFX_RATECONTROL_QVBR;
 		}
 		else if (0 == _tcscmp(option_name, _T("maxbitrate")))
 		{

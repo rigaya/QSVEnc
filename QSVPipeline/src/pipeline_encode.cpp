@@ -357,6 +357,13 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 				PrintMes(_T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(pInParams->nEncMode));
 			}
 		}
+		if (   MFX_RATECONTROL_LA_EXT == pInParams->nEncMode
+			|| MFX_RATECONTROL_LA_HRD == pInParams->nEncMode
+			|| MFX_RATECONTROL_QVBR   == pInParams->nEncMode) {
+			if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+				PrintMes(_T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(pInParams->nEncMode));
+			}
+		}
 		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 	//その他機能のチェック
@@ -579,6 +586,15 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
 		}
 		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption2);
+	}
+
+	//API v1.11の機能
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+		INIT_MFX_EXT_BUFFER(m_CodingOption3, MFX_EXTBUFF_CODING_OPTION3);
+		if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
+			m_CodingOption3.QVBRQuality = pInParams->nQVBRQuality;
+		}
+		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
 	}
 
 	//Bluray互換出力
@@ -2504,29 +2520,27 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	mfxU8 spsbuf[256] = { 0 };
 	mfxU8 ppsbuf[256] = { 0 };
 	mfxExtCodingOptionSPSPPS spspps;
-	MSDK_ZERO_MEMORY(spspps);
-	spspps.Header.BufferId = MFX_EXTBUFF_CODING_OPTION_SPSPPS;
-	spspps.Header.BufferSz = sizeof(mfxExtCodingOptionSPSPPS);
+	INIT_MFX_EXT_BUFFER(spspps, MFX_EXTBUFF_CODING_OPTION_SPSPPS);
 	spspps.SPSBuffer = spsbuf;
 	spspps.SPSBufSize = sizeof(spsbuf);
 	spspps.PPSBuffer = ppsbuf;
 	spspps.PPSBufSize = sizeof(ppsbuf);
 
 	mfxExtCodingOption cop;
-	MSDK_ZERO_MEMORY(cop);
-	cop.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
-	cop.Header.BufferSz = sizeof(mfxExtCodingOption);
-
 	mfxExtCodingOption2 cop2;
-	MSDK_ZERO_MEMORY(cop2);
-	cop2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
-	cop2.Header.BufferSz = sizeof(mfxExtCodingOption2);
+	mfxExtCodingOption3 cop3;
+	INIT_MFX_EXT_BUFFER(cop, MFX_EXTBUFF_CODING_OPTION);
+	INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
+	INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
 
 	std::vector<mfxExtBuffer *> buf;
 	buf.push_back((mfxExtBuffer *)&cop);
 	buf.push_back((mfxExtBuffer *)&spspps);
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
 		buf.push_back((mfxExtBuffer *)&cop2);
+	}
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+		buf.push_back((mfxExtBuffer *)&cop3);
 	}
 
 	mfxVideoParam videoPrm;
@@ -2604,8 +2618,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		} else {
 			PRINT_INFO(_T("CQP Value               I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
 		}
-	} else if (MFX_RATECONTROL_LA     == m_mfxEncParams.mfx.RateControlMethod
-		    || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+	} else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
 		PRINT_INFO(_T("Lookahead Depth         %d frames\n"), cop2.LookAheadDepth);
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
 			PRINT_INFO(_T("Lookahead Quality       %s\n"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
@@ -2623,6 +2636,9 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		} else {
 			PRINT_INFO(_T("Max Bitrate             "));
 			PRINT_INT_AUTO(_T("%d kbps\n"), videoPrm.mfx.MaxKbps);
+			if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
+				PRINT_INFO(    _T("QVBR Quality            %d\n"), cop3.QVBRQuality);
+			}
 		}
 	}
 	PRINT_INFO(    _T("Target usage            %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));

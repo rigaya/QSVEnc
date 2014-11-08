@@ -785,6 +785,11 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 	if (!fcgCBBPyramid->Enabled)    fcgCBBPyramid->Checked  = false;
 	if (!fcgCXLookaheadDS->Enabled) fcgCXLookaheadDS->SelectedIndex = 0;
 
+	//API v1.11 features
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_HRD));
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_EXT, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_EXT));
+	fcgCheckRCModeLibVersion(MFX_RATECONTROL_QVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_QVBR));
+
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 }
@@ -815,8 +820,9 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	bool cqp_mode =     (enc_mode == MFX_RATECONTROL_CQP    || enc_mode == MFX_RATECONTROL_VQP);
 	bool avbr_mode =    (enc_mode == MFX_RATECONTROL_AVBR);
 	bool cbr_vbr_mode = (enc_mode == MFX_RATECONTROL_VBR    || enc_mode == MFX_RATECONTROL_CBR);
-	bool la_mode =      (enc_mode == MFX_RATECONTROL_LA     || enc_mode == MFX_RATECONTROL_LA_ICQ);
+	bool la_mode =      (rc_is_type_lookahead(enc_mode));
 	bool icq_mode =     (enc_mode == MFX_RATECONTROL_LA_ICQ || enc_mode == MFX_RATECONTROL_ICQ);
+	bool qvbr_mode =    (enc_mode == MFX_RATECONTROL_QVBR);
 	//bool vcm_mode =     (enc_mode == MFX_RATECONTROL_VCM);
 
 	fcgPNQP->Visible = cqp_mode;
@@ -857,6 +863,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcggroupBoxVpp->Enabled = fcgCBUseVpp->Checked;
 
 	fcgPNICQ->Visible = icq_mode;
+	fcgPNQVBR->Visible = qvbr_mode;
 
 	fcggroupBoxVppResize->Enabled = fcgCBVppResize->Checked;
 	fcggroupBoxVppDenoise->Enabled = fcgCBVppDenoise->Checked;
@@ -1028,6 +1035,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetNUValue(fcgNUQPP,          cnf->qsv.nQPP);
 	SetNUValue(fcgNUQPB,          cnf->qsv.nQPB);
 	SetNUValue(fcgNUICQQuality,   cnf->qsv.nICQQuality);
+	SetNUValue(fcgNUQVBR,         cnf->qsv.nQVBRQuality);
 	SetNUValue(fcgNUGopLength,    Convert::ToDecimal(cnf->qsv.nGOPLength));
 	SetNUValue(fcgNURef,          cnf->qsv.nRef);
 	SetNUValue(fcgNUBframes,      cnf->qsv.nBframes);
@@ -1147,6 +1155,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.nQPP                   = (mfxU16)fcgNUQPP->Value;
 	cnf->qsv.nQPB                   = (mfxU16)fcgNUQPB->Value;
 	cnf->qsv.nICQQuality            = (mfxU16)fcgNUICQQuality->Value;
+	cnf->qsv.nQVBRQuality           = (mfxU16)fcgNUQVBR->Value;
 	cnf->qsv.nBframes               = (mfxI16)fcgNUBframes->Value;
 	cnf->qsv.nTrellis               = (mfxU16)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
 	cnf->qsv.nPicStruct             = (mfxU16)list_interlaced[fcgCXInterlaced->SelectedIndex].value;

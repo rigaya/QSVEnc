@@ -157,7 +157,9 @@ struct sInputParams
 
 	mfxU8      bDisableTimerPeriodTuning;
 	
-	mfxU8      Reserved[1202];
+	mfxU16     nQVBRQuality;
+
+	mfxU8      Reserved[1200];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -413,6 +415,7 @@ static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
 const int QSV_DEFAULT_REF = 0;
 const int QSV_DEFAULT_GOP_LEN = 0;
 const int QSV_DEFAULT_ICQ = 23;
+const int QSV_DEFAULT_QVBR = 23;
 const int QSV_DEFAULT_QPI = 24;
 const int QSV_DEFAULT_QPP = 26;
 const int QSV_DEFAULT_QPB = 27;

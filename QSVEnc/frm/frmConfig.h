@@ -778,6 +778,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXAudioDelayCut;
 private: System::Windows::Forms::Label^  fcgLBAudioDelayCut;
 private: System::Windows::Forms::Label^  fcgLBGPUInfoOnFeatureTab;
 private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
+private: System::Windows::Forms::Panel^  fcgPNQVBR;
+private: System::Windows::Forms::NumericUpDown^  fcgNUQVBR;
+private: System::Windows::Forms::Label^  fcgLBQVBR;
 
 
 
@@ -1124,6 +1127,8 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgTXCustomTempDir = (gcnew System::Windows::Forms::TextBox());
 			this->fcgCXTempDir = (gcnew System::Windows::Forms::ComboBox());
 			this->tabPageFeatures = (gcnew System::Windows::Forms::TabPage());
+			this->fcgLBGPUInfoOnFeatureTab = (gcnew System::Windows::Forms::Label());
+			this->fcgLBGPUInfoLabelOnFeatureTab = (gcnew System::Windows::Forms::Label());
 			this->fcgLBCPUInfoOnFeatureTab = (gcnew System::Windows::Forms::Label());
 			this->fcgLBCPUInfoLabelOnFeatureTab = (gcnew System::Windows::Forms::Label());
 			this->fcgBTSaveFeatureList = (gcnew System::Windows::Forms::Button());
@@ -1134,8 +1139,9 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
-			this->fcgLBGPUInfoOnFeatureTab = (gcnew System::Windows::Forms::Label());
-			this->fcgLBGPUInfoLabelOnFeatureTab = (gcnew System::Windows::Forms::Label());
+			this->fcgPNQVBR = (gcnew System::Windows::Forms::Panel());
+			this->fcgNUQVBR = (gcnew System::Windows::Forms::NumericUpDown());
+			this->fcgLBQVBR = (gcnew System::Windows::Forms::Label());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -1185,6 +1191,8 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->tabPageFeatures->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->BeginInit();
 			this->fcgCSExeFiles->SuspendLayout();
+			this->fcgPNQVBR->SuspendLayout();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQVBR))->BeginInit();
 			this->SuspendLayout();
 			// 
 			// fcgtoolStripSettings
@@ -1205,7 +1213,7 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgTSBSave->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBSave.Image")));
 			this->fcgTSBSave->ImageTransparentColor = System::Drawing::Color::Magenta;
 			this->fcgTSBSave->Name = L"fcgTSBSave";
-			this->fcgTSBSave->Size = System::Drawing::Size(88, 22);
+			this->fcgTSBSave->Size = System::Drawing::Size(84, 22);
 			this->fcgTSBSave->Text = L"上書き保存";
 			this->fcgTSBSave->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSBSave_Click);
 			// 
@@ -1214,7 +1222,7 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgTSBSaveNew->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBSaveNew.Image")));
 			this->fcgTSBSaveNew->ImageTransparentColor = System::Drawing::Color::Black;
 			this->fcgTSBSaveNew->Name = L"fcgTSBSaveNew";
-			this->fcgTSBSaveNew->Size = System::Drawing::Size(76, 22);
+			this->fcgTSBSaveNew->Size = System::Drawing::Size(75, 22);
 			this->fcgTSBSaveNew->Text = L"新規保存";
 			this->fcgTSBSaveNew->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSBSaveNew_Click);
 			// 
@@ -1223,7 +1231,7 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgTSBDelete->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBDelete.Image")));
 			this->fcgTSBDelete->ImageTransparentColor = System::Drawing::Color::Magenta;
 			this->fcgTSBDelete->Name = L"fcgTSBDelete";
-			this->fcgTSBDelete->Size = System::Drawing::Size(52, 22);
+			this->fcgTSBDelete->Size = System::Drawing::Size(51, 22);
 			this->fcgTSBDelete->Text = L"削除";
 			this->fcgTSBDelete->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSBDelete_Click);
 			// 
@@ -1237,7 +1245,7 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgTSSettings->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSSettings.Image")));
 			this->fcgTSSettings->ImageTransparentColor = System::Drawing::Color::Magenta;
 			this->fcgTSSettings->Name = L"fcgTSSettings";
-			this->fcgTSSettings->Size = System::Drawing::Size(97, 22);
+			this->fcgTSSettings->Size = System::Drawing::Size(77, 22);
 			this->fcgTSSettings->Text = L"プリセット";
 			this->fcgTSSettings->DropDownItemClicked += gcnew System::Windows::Forms::ToolStripItemClickedEventHandler(this, &frmConfig::fcgTSSettings_DropDownItemClicked);
 			this->fcgTSSettings->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSSettings_Click);
@@ -1250,7 +1258,7 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgTSBBitrateCalc->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBBitrateCalc.Image")));
 			this->fcgTSBBitrateCalc->ImageTransparentColor = System::Drawing::Color::Magenta;
 			this->fcgTSBBitrateCalc->Name = L"fcgTSBBitrateCalc";
-			this->fcgTSBBitrateCalc->Size = System::Drawing::Size(120, 22);
+			this->fcgTSBBitrateCalc->Size = System::Drawing::Size(97, 22);
 			this->fcgTSBBitrateCalc->Text = L"ビットレート計算機";
 			this->fcgTSBBitrateCalc->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgTSBBitrateCalc_CheckedChanged);
 			// 
@@ -1267,7 +1275,7 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgTSBOtherSettings->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBOtherSettings.Image")));
 			this->fcgTSBOtherSettings->ImageTransparentColor = System::Drawing::Color::Magenta;
 			this->fcgTSBOtherSettings->Name = L"fcgTSBOtherSettings";
-			this->fcgTSBOtherSettings->Size = System::Drawing::Size(84, 22);
+			this->fcgTSBOtherSettings->Size = System::Drawing::Size(76, 22);
 			this->fcgTSBOtherSettings->Text = L"その他の設定";
 			this->fcgTSBOtherSettings->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSBOtherSettings_Click);
 			// 
@@ -2220,6 +2228,7 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			// 
 			// tabPageVideoEnc
 			// 
+			this->tabPageVideoEnc->Controls->Add(this->fcgPNQVBR);
 			this->tabPageVideoEnc->Controls->Add(this->fcgPNICQ);
 			this->tabPageVideoEnc->Controls->Add(this->fcgCXLookaheadDS);
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBLookaheadDS);
@@ -3619,6 +3628,30 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->tabPageFeatures->Text = L"機能情報";
 			this->tabPageFeatures->UseVisualStyleBackColor = true;
 			// 
+			// fcgLBGPUInfoOnFeatureTab
+			// 
+			this->fcgLBGPUInfoOnFeatureTab->AutoSize = true;
+			this->fcgLBGPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(128)));
+			this->fcgLBGPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
+			this->fcgLBGPUInfoOnFeatureTab->Location = System::Drawing::Point(159, 84);
+			this->fcgLBGPUInfoOnFeatureTab->Name = L"fcgLBGPUInfoOnFeatureTab";
+			this->fcgLBGPUInfoOnFeatureTab->Size = System::Drawing::Size(35, 17);
+			this->fcgLBGPUInfoOnFeatureTab->TabIndex = 116;
+			this->fcgLBGPUInfoOnFeatureTab->Text = L"GPU";
+			// 
+			// fcgLBGPUInfoLabelOnFeatureTab
+			// 
+			this->fcgLBGPUInfoLabelOnFeatureTab->AutoSize = true;
+			this->fcgLBGPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
+				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+			this->fcgLBGPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
+			this->fcgLBGPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(21, 82);
+			this->fcgLBGPUInfoLabelOnFeatureTab->Name = L"fcgLBGPUInfoLabelOnFeatureTab";
+			this->fcgLBGPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(40, 19);
+			this->fcgLBGPUInfoLabelOnFeatureTab->TabIndex = 115;
+			this->fcgLBGPUInfoLabelOnFeatureTab->Text = L"GPU";
+			// 
 			// fcgLBCPUInfoOnFeatureTab
 			// 
 			this->fcgLBCPUInfoOnFeatureTab->AutoSize = true;
@@ -3707,12 +3740,12 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			// 
 			this->fcgCSExeFiles->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(1) { this->fcgTSExeFileshelp });
 			this->fcgCSExeFiles->Name = L"fcgCSx264";
-			this->fcgCSExeFiles->Size = System::Drawing::Size(137, 26);
+			this->fcgCSExeFiles->Size = System::Drawing::Size(132, 26);
 			// 
 			// fcgTSExeFileshelp
 			// 
 			this->fcgTSExeFileshelp->Name = L"fcgTSExeFileshelp";
-			this->fcgTSExeFileshelp->Size = System::Drawing::Size(136, 22);
+			this->fcgTSExeFileshelp->Size = System::Drawing::Size(131, 22);
 			this->fcgTSExeFileshelp->Text = L"helpを表示";
 			this->fcgTSExeFileshelp->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSExeFileshelp_Click);
 			// 
@@ -3732,29 +3765,35 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
 			// 
-			// fcgLBGPUInfoOnFeatureTab
+			// fcgPNQVBR
 			// 
-			this->fcgLBGPUInfoOnFeatureTab->AutoSize = true;
-			this->fcgLBGPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
-				static_cast<System::Byte>(128)));
-			this->fcgLBGPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBGPUInfoOnFeatureTab->Location = System::Drawing::Point(159, 84);
-			this->fcgLBGPUInfoOnFeatureTab->Name = L"fcgLBGPUInfoOnFeatureTab";
-			this->fcgLBGPUInfoOnFeatureTab->Size = System::Drawing::Size(35, 17);
-			this->fcgLBGPUInfoOnFeatureTab->TabIndex = 116;
-			this->fcgLBGPUInfoOnFeatureTab->Text = L"GPU";
+			this->fcgPNQVBR->Controls->Add(this->fcgNUQVBR);
+			this->fcgPNQVBR->Controls->Add(this->fcgLBQVBR);
+			this->fcgPNQVBR->Location = System::Drawing::Point(8, 203);
+			this->fcgPNQVBR->Name = L"fcgPNQVBR";
+			this->fcgPNQVBR->Size = System::Drawing::Size(289, 26);
+			this->fcgPNQVBR->TabIndex = 145;
 			// 
-			// fcgLBGPUInfoLabelOnFeatureTab
+			// fcgNUQVBR
 			// 
-			this->fcgLBGPUInfoLabelOnFeatureTab->AutoSize = true;
-			this->fcgLBGPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
-				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
-			this->fcgLBGPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBGPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(21, 82);
-			this->fcgLBGPUInfoLabelOnFeatureTab->Name = L"fcgLBGPUInfoLabelOnFeatureTab";
-			this->fcgLBGPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(40, 19);
-			this->fcgLBGPUInfoLabelOnFeatureTab->TabIndex = 115;
-			this->fcgLBGPUInfoLabelOnFeatureTab->Text = L"GPU";
+			this->fcgNUQVBR->Location = System::Drawing::Point(125, 3);
+			this->fcgNUQVBR->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 51, 0, 0, 0 });
+			this->fcgNUQVBR->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+			this->fcgNUQVBR->Name = L"fcgNUQVBR";
+			this->fcgNUQVBR->Size = System::Drawing::Size(77, 21);
+			this->fcgNUQVBR->TabIndex = 95;
+			this->fcgNUQVBR->Tag = L"chValue";
+			this->fcgNUQVBR->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+			this->fcgNUQVBR->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+			// 
+			// fcgLBQVBR
+			// 
+			this->fcgLBQVBR->AutoSize = true;
+			this->fcgLBQVBR->Location = System::Drawing::Point(6, 6);
+			this->fcgLBQVBR->Name = L"fcgLBQVBR";
+			this->fcgLBQVBR->Size = System::Drawing::Size(71, 14);
+			this->fcgLBQVBR->TabIndex = 96;
+			this->fcgLBQVBR->Text = L"固定品質の値";
 			// 
 			// frmConfig
 			// 
@@ -3852,6 +3891,9 @@ private: System::Windows::Forms::Label^  fcgLBGPUInfoLabelOnFeatureTab;
 			this->tabPageFeatures->PerformLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->EndInit();
 			this->fcgCSExeFiles->ResumeLayout(false);
+			this->fcgPNQVBR->ResumeLayout(false);
+			this->fcgPNQVBR->PerformLayout();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQVBR))->EndInit();
 			this->ResumeLayout(false);
 			this->PerformLayout();
 

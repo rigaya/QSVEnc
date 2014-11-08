@@ -37,24 +37,30 @@ typedef struct CX_DESC {
 #define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 
 static const mfxVersion LIB_VER_LIST[] = {
-	{ 0, 0 },
-	{ 0, 1 },
-	{ 1, 1 },
-	{ 3, 1 },
-	{ 4, 1 },
-	{ 6, 1 },
-	{ 7, 1 },
-	{ 8, 1 },
+	{  0, 0 },
+	{  0, 1 },
+	{  1, 1 },
+	{  3, 1 },
+	{  4, 1 },
+	{  6, 1 },
+	{  7, 1 },
+	{  8, 1 },
+	{  9, 1 },
+	{ 10, 1 },
+	{ 11, 1 },
 	{ NULL, NULL } 
 };
 
-#define MFX_LIB_VERSION_0_0 LIB_VER_LIST[0]
-#define MFX_LIB_VERSION_1_1 LIB_VER_LIST[2]
-#define MFX_LIB_VERSION_1_3 LIB_VER_LIST[3]
-#define MFX_LIB_VERSION_1_4 LIB_VER_LIST[4]
-#define MFX_LIB_VERSION_1_6 LIB_VER_LIST[5]
-#define MFX_LIB_VERSION_1_7 LIB_VER_LIST[6]
-#define MFX_LIB_VERSION_1_8 LIB_VER_LIST[7]
+#define MFX_LIB_VERSION_0_0  LIB_VER_LIST[ 0]
+#define MFX_LIB_VERSION_1_1  LIB_VER_LIST[ 2]
+#define MFX_LIB_VERSION_1_3  LIB_VER_LIST[ 3]
+#define MFX_LIB_VERSION_1_4  LIB_VER_LIST[ 4]
+#define MFX_LIB_VERSION_1_6  LIB_VER_LIST[ 5]
+#define MFX_LIB_VERSION_1_7  LIB_VER_LIST[ 6]
+#define MFX_LIB_VERSION_1_8  LIB_VER_LIST[ 7]
+#define MFX_LIB_VERSION_1_9  LIB_VER_LIST[ 8]
+#define MFX_LIB_VERSION_1_10 LIB_VER_LIST[ 9]
+#define MFX_LIB_VERSION_1_11 LIB_VER_LIST[10]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 mfxVersion get_mfx_libhw_version();
@@ -86,7 +92,17 @@ enum {
 	ENC_FEATURE_SCENECHANGE            = 0x00080000,
 	ENC_FEATURE_B_PYRAMID_AND_SC       = 0x00100000,
 	ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x00200000,
+	ENC_FEATURE_LA_HRD                 = 0x00400000,
+	ENC_FEATURE_LA_EXT                 = 0x00800000,
+	ENC_FEATURE_QVBR                   = 0x01000000,
 };
+
+static bool inline rc_is_type_lookahead(int rc) {
+	return ((rc == MFX_RATECONTROL_LA)
+		| (rc == MFX_RATECONTROL_LA_ICQ)
+		| (rc == MFX_RATECONTROL_LA_EXT)
+		| (rc == MFX_RATECONTROL_LA_HRD));
+}
 
 static const CX_DESC list_rate_control_ry[] = {
 	{ _T("CBR  "), MFX_RATECONTROL_CBR    },
@@ -97,7 +113,10 @@ static const CX_DESC list_rate_control_ry[] = {
 	{ _T("LA   "), MFX_RATECONTROL_LA     },
 	{ _T("ICQ  "), MFX_RATECONTROL_ICQ    },
 	{ _T("LAICQ"), MFX_RATECONTROL_LA_ICQ },
+	//{ _T("LAEXT"), MFX_RATECONTROL_LA_EXT },
+	{ _T("LAHRD"), MFX_RATECONTROL_LA_HRD },
 	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
+	{ _T("QVBR "), MFX_RATECONTROL_QVBR   },
 };
 static const CX_DESC list_enc_feature[] = {
 	{ _T("RC mode available        "), ENC_FEATURE_CURRENT_RC             },
