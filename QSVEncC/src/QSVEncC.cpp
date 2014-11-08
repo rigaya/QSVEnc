@@ -89,112 +89,112 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("  QSVEncC -i \"<avsfilename>\" --benchmark \"<benchmark_result.txt>\"\n")
 			_T("\n")
 			_T("Options: \n")
-			_T("-h,-? --help                      show help\n")
-			_T("-v,--version                      show version info\n")
+			_T("-h,-? --help                    show help\n")
+			_T("-v,--version                    show version info\n")
 			_T("\n")
-			_T("-i,--input-file <filename>        set input file name\n")
-			_T("-o,--output-file <filename>       set ouput file name\n")
+			_T("-i,--input-file <filename>      set input file name\n")
+			_T("-o,--output-file <filename>     set ouput file name\n")
 			_T("\n")
 			_T(" Input formats (will be estimated from extension if not set.)\n")
-			_T("   --raw                          set input as raw format\n")
-			_T("   --y4m                          set input as y4m format\n")
-			_T("   --avi                          set input as avi format\n")
-			_T("   --avs                          set input as avs format\n")
-			_T("   --vpy                          set input as vpy format\n")
-			_T("   --vpy-mt                       set input as vpy format in multi-thread\n")
+			_T("   --raw                        set input as raw format\n")
+			_T("   --y4m                        set input as y4m format\n")
+			_T("   --avi                        set input as avi format\n")
+			_T("   --avs                        set input as avs format\n")
+			_T("   --vpy                        set input as vpy format\n")
+			_T("   --vpy-mt                     set input as vpy format in multi-thread\n")
 			_T("\n")
-			_T("   --nv12                         set raw input as NV12 color format,\n")
-			_T("                                  if not specified YV12 is expected\n")
-			_T("   --tff                          set as interlaced, top field first\n")
-			_T("   --bff                          set as interlaced, bottom field first\n")
-			_T("-f,--fps <int>/<int> or <float>   video frame rate (frames per second)\n")
+			_T("   --nv12                       set raw input as NV12 color format,\n")
+			_T("                                if not specified YV12 is expected\n")
+			_T("   --tff                        set as interlaced, top field first\n")
+			_T("   --bff                        set as interlaced, bottom field first\n")
+			_T("-f,--fps <int>/<int> or <float> video frame rate (frames per second)\n")
 			_T("\n")
-			_T("   --input-res <int>x<int>        input resolution\n")
-			_T("   --output-res <int>x<int>       output resolution\n")
-			_T("                                  if different from input, uses vpp resizing\n")
-			_T("                                  if not set, output resolution will be same\n")
-			_T("                                  as input (no resize will be done).\n")
-			_T("   --crop <int>,<int>,<int>,<int> set crop pixels of left, up, right, bottom.\n")
+			_T("   --input-res <int>x<int>      input resolution\n")
+			_T("   --output-res <int>x<int>     output resolution\n")
+			_T("                                if different from input, uses vpp resizing\n")
+			_T("                                if not set, output resolution will be same\n")
+			_T("                                as input (no resize will be done).\n")
+			_T("   --crop <int>,<int>,<int>,<int>\n")
+			_T("                                set crop pixels of left, up, right, bottom.\n")
 			_T("\n")
-			_T("   --slices <int>                 number of slices, default 0 (auto)\n")
+			_T("   --slices <int>               number of slices, default 0 (auto)\n")
 			_T("\n")
-			_T("   --sw                           use software encoding, instead of QSV (hw)\n")
-			_T("   --check-hw                     check if QuickSyncVideo is available\n")
-			_T("   --check-lib                    check lib API version installed\n")
-			_T("   --check-features               check encode features\n")
-			_T("   --check-environment            check environment info\n"),
+			_T("   --sw                         use software encoding, instead of QSV (hw)\n")
+			_T("   --check-hw                   check if QuickSyncVideo is available\n")
+			_T("   --check-lib                  check lib API version installed\n")
+			_T("   --check-features             check encode features\n")
+			_T("   --check-environment          check environment info\n"),
 			(ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
 			(ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
 			(ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
 #ifdef D3D_SURFACES_SUPPORT
 		_ftprintf(stdout, _T("")
-			_T("   --disable-d3d                  disable using d3d surfaces\n"));
+			_T("   --disable-d3d                disable using d3d surfaces\n"));
 #if MFX_D3D11_SUPPORT
 		_ftprintf(stdout, _T("")
-			_T("   --d3d                          use d3d9/d3d11 surfaces\n")
-			_T("   --d3d9                         use d3d9 surfaces\n")
-			_T("   --d3d11                        use d3d11 surfaces\n"));
+			_T("   --d3d                        use d3d9/d3d11 surfaces\n")
+			_T("   --d3d9                       use d3d9 surfaces\n")
+			_T("   --d3d11                      use d3d11 surfaces\n"));
 #else
 		_ftprintf(stdout, _T("")
-			_T("   --d3d                          use d3d9 surfaces\n"));
+			_T("   --d3d                        use d3d9 surfaces\n"));
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
 		_ftprintf(stdout,_T("\n")
 			_T(" EncMode default: --cqp\n")
-			_T("   --cqp <int> or                 encode in Constant QP, default %d:%d:%d\n")
-			_T("         <int>:<int>:<int>        set qp value for i:p:b frame\n")
-			_T("   --vqp <int> or                 encode in Variable QP, default %d:%d:%d\n")
-			_T("         <int>:<int>:<int>        set qp value for i:p:b frame\n")
-			_T("   --la <int>                     encoded bitrate in Lookahead mode (kbps)\n")
-			_T("   --la-hrd <int>                 encoded bitrate in HRD-Lookahead mode (kbps)\n")
-			_T("   --icq <int>                    encode in Intelligent Const. Qualtiy mode\n")
-			_T("                                    default value: %d\n")
-			_T("   --la-icq <int>                 encode in ICQ mode with Lookahead\n")
-			_T("                                    default value: %d\n")
-			_T("   --cbr <int>                    encoded bitrate in CBR mode (kbps)\n")
-			_T("   --vbr <int>                    encoded bitrate in VBR mode (kbps)\n")
-			_T("   --avbr <int>                   encoded bitrate in AVBR mode (kbps)\n")
-			_T("                                   AVBR mode is only supported with API v1.3\n")
-			_T("   --avbr-unitsize <int>          avbr calculation period in x100 frames\n")
-			_T("                                   default %d (= unit size %d00 frames)\n")
-			_T("   --qvbr <int>                   encoded bitrate in Quality VBR mode.\n")
-			_T("                                    default value: %d\n")
-			_T("                                   QVBR mode is only supported with API v1.11\n")
-			_T("   --vcm <int>                    encoded bitrate in VCM mode (kbps)\n")
+			_T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
+			_T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
+			_T("   --vqp <int> or               encode in Variable QP, default %d:%d:%d\n")
+			_T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
+			_T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
+			_T("   --la-hrd <int>               set bitrate in HRD-Lookahead mode (kbps)\n")
+			_T("   --icq <int>                  encode in Intelligent Const. Qualtiy mode\n")
+			_T("                                  default value: %d\n")
+			_T("   --la-icq <int>               encode in ICQ mode with Lookahead\n")
+			_T("                                  default value: %d\n")
+			_T("   --cbr <int>                  set bitrate in CBR mode (kbps)\n")
+			_T("   --vbr <int>                  set bitrate in VBR mode (kbps)\n")
+			_T("   --avbr <int>                 set bitrate in AVBR mode (kbps)\n")
+			_T("                                 AVBR mode is only supported with API v1.3\n")
+			_T("   --avbr-unitsize <int>        avbr calculation period in x100 frames\n")
+			_T("                                 default %d (= unit size %d00 frames)\n")
+			_T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
+			_T("                                  default value: %d\n")
+			_T("                                 QVBR mode is only supported with API v1.11\n")
+			_T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
 			//_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
 			//_T("                                   in percentage, defalut %.1f(%%)\n)"
 			_T("\n")
-			_T("   --la-depth <int>               set Lookahead Depth, %d-%d\n")
-			_T("   --maxbitrate <int>             set max bitrate(kbps)\n")
-			_T("-u,--quality <string>             encode quality\n")
-			_T("                                    - best, higher, high, balanced(default)\n")
-			_T("                                      fast, faster, fastest\n")
+			_T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
+			_T("   --maxbitrate <int>           set max bitrate(kbps)\n")
+			_T("-u,--quality <string>           encode quality\n")
+			_T("                                  - best, higher, high, balanced(default)\n")
+			_T("                                    fast, faster, fastest\n")
 			_T("\n")
-			_T("   --ref <int>                    reference frames for sw encoding,\n")
-			_T("                                    default %d (auto)\n")
-			_T("   --bframes <int>                number of sequential b frames,\n")
-			_T("                                    default %d (auto)\n")
+			_T("   --ref <int>                  reference frames for sw encoding\n")
+			_T("                                  default %d (auto)\n")
+			_T("-b,--bframes <int>              number of sequential b frames\n")
+			_T("                                  default %d (auto)\n")
 			_T("\n")
-			_T("   --gop-len <int>                (max) gop length, default %d (auto)\n")
-			_T("                                    when auto, fps x 10 will be set.\n")
-			_T("   --open-gop                     enable open gop structure, default off\n")
-			_T("   --strict-gop                   force gop structure\n")
-			_T("   --scenechange                  enable scene change detection\n")
-			_T("   --no-scenechange               disable scene change detection\n")
+			_T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
+			_T("                                  when auto, fps x 10 will be set.\n")
+			_T("   --(no-)open-gop              enables open gop (default:off)\n")
+			_T("   --strict-gop                 force gop structure\n")
+			_T("   --(no-)scenechange           enables scene change detection\n")
 			_T("\n")
-			_T("   --level <string>               set codec level, default auto\n")
-			_T("   --profile <string>             set codec profile, default auto\n")
-			_T("   --sar <int>:<int>              set Sample Aspect Ratio.\n")
-			_T("   --bluray                       for H.264 bluray encoding.\n")
+			_T("   --level <string>             set codec level, default auto\n")
+			_T("   --profile <string>           set codec profile, default auto\n")
+			_T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
+			_T("   --bluray                     for H.264 bluray encoding\n")
 			_T("\n")
-			_T("   --vpp-denoise <int>            use vpp denoise, set strength\n")
-			_T("   --vpp-detail-enhance <int>     use vpp detail enahancer, set strength\n")
-			_T("   --vpp-deinterlace <string>     set vpp deinterlace mode\n")
-			_T("                                  enabled only when set --tff or --bff\n")
-			_T("                                   - none    disable deinterlace\n")
-			_T("                                   - normal  normal deinterlace\n")
-			_T("                                   - it      inverse telecine\n")
-			_T("                                   - bob     double framerate\n"),
+			_T("   --vpp-denoise <int>          use vpp denoise, set strength\n")
+			_T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength\n")
+			_T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
+			_T("                                enabled only when set --tff or --bff\n")
+			_T("                                 - none    disable deinterlace\n")
+			_T("                                 - normal  normal deinterlace\n")
+			_T("                                 - it      inverse telecine\n")
+			_T("                                 - bob     double framerate\n"),
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
@@ -206,16 +206,16 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			QSV_DEFAULT_GOP_LEN
 			);
 		_ftprintf(stdout, _T("\n")
-			_T("   --input-buf <int>              buffer size for input (%d-%d)\n")
-			_T("                                   default   hw: %d,  sw: %d\n"),
+			_T("   --input-buf <int>            buffer size for input (%d-%d)\n")
+			_T("                                 default   hw: %d,  sw: %d\n"),
 			QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX,
 			QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
 			);
 		_ftprintf(stdout,
-			_T("   --log <string>                 output log to file.\n"));
+			_T("   --log <string>               output log to file.\n"));
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.3\n")
-			_T("   --fullrange                    set stream as fullrange yuv.\n")
+			_T("   --fullrange                  set stream as fullrange yuv\n")
 			);
 		PrintListOptions(stdout, _T("--videoformat <string>"), list_videoformat, 0);
 		PrintListOptions(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
@@ -223,42 +223,52 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 		PrintListOptions(stdout, _T("--transfer <string>"), list_transfer, 0);
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.6\n")
-			_T("   --mbbrc                        enables per macro block rate control.\n")
-			_T("   --extbrc                       enables extended rate control.\n")
+			_T("   --(no-)mbbrc                 enables per macro block rate control\n")
+			_T("                                 default: off\n")
+			_T("   --(no-)extbrc                enables extended rate control\n")
+			_T("                                 default: off\n")
 			);
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.7\n")
-			_T("   --trellis <string>             set trellis mode used in encoding.\n")
-			_T("                                   - auto(default), none, i, ip, all.\n")
+			_T("   --trellis <string>           set trellis mode used in encoding\n")
+			_T("                                 - auto(default), none, i, ip, all\n")
 			);
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.8\n")
-			_T("   --i-adapt                      enables adaptive I frame insert.\n")
-			_T("   --b-adapt                      enables adaptive B frame insert.\n")
-			_T("   --b-pyramid                    enables B-frame pyramid reference.\n")
-			_T("   --no-b-pyramid                 disables B-frame pyramid reference.\n")
-			_T("   --lookahead-ds <string>        set lookahead quality.\n")
-			_T("                                   - auto(default), fast, normal, slow\n")
+			_T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
+			_T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
+			_T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
+			_T("   --lookahead-ds <string>      set lookahead quality.\n")
+			_T("                                 - auto(default), fast, normal, slow\n")
+			);
+		_ftprintf(stdout, _T("\n")
+			_T(" settings below are only supported with API v1.9\n")
+			_T("   --(no-)intra-refresh         enables adaptive I frame insert\n")
+			_T("   --no-deblock                 disables H.264 deblock feature\n")
+			_T("   --qpmin <int> or             set min QP, default 0 (= unset)\n")
+			_T("           <int>:<int>:<int>\n")
+			_T("   --qpmax <int> or             set max QP, default 0 (= unset)\n")
+			_T("           <int>:<int>:<int>\n")
 			);
 		_ftprintf(stdout, _T("\n")
 			_T(" Settings below are available only for software ecoding.\n")
-			_T("   --cavlc                        use cavlc instead of cabac.\n")
-			_T("   --rdo                          use rate distortion optmization.\n")
-			_T("   --inter-pred <int>             set minimum block size used for\n")
-			_T("   --intra-pred <int>             inter/intra prediction.\n")
-			_T("                                    0: auto(default)   1: 16x16\n")
-			_T("                                    2: 8x8             3: 4x4\n")
-			_T("   --mv-search <int>              set window size for mv search.\n")
-			_T("                                    default: 0 (auto)\n")
-			_T("   --mv-precision <int>           set precision of mv search\n")
-			_T("                                    0: auto(default)   1: full-pell\n")
-			_T("                                    2: half-pell       3: quater-pell\n")
+			_T("   --cavlc                      use cavlc instead of cabac\n")
+			_T("   --rdo                        use rate distortion optmization\n")
+			_T("   --inter-pred <int>           set minimum block size used for\n")
+			_T("   --intra-pred <int>           inter/intra prediction\n")
+			_T("                                  0: auto(default)   1: 16x16\n")
+			_T("                                  2: 8x8             3: 4x4\n")
+			_T("   --mv-search <int>            set window size for mv search\n")
+			_T("                                  default: 0 (auto)\n")
+			_T("   --mv-precision <int>         set precision of mv search\n")
+			_T("                                  0: auto(default)   1: full-pell\n")
+			_T("                                  2: half-pell       3: quater-pell\n")
 			);
 		_ftprintf(stdout, _T("\n")
-			_T("   --benchmark <string>           run in benchmark mode\n")
-			_T("                                   and write result in txt file.\n")
-			_T("   --timer-period-tuning          enables timer period tuning (default).\n")
-			_T("   --no-timer-period-tuning       disables timer period tuning.\n")
+			_T("   --benchmark <string>         run in benchmark mode\n")
+			_T("                                 and write result in txt file\n")
+			_T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
+			_T("                                  default: enabled\n")
 			);
 	}
 }
@@ -317,6 +327,9 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			switch (strInput[i][1]) {
 				case _T('-'):
 					option_name = &strInput[i][2];
+					break;
+				case _T('b'):
+					option_name = _T("bframes");
 					break;
 				case _T('c'):
 					option_name = _T("codec");
@@ -575,9 +588,17 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		{
 			pParams->bAdaptiveI = true;
 		}
+		else if (0 == _tcscmp(option_name, _T("no-i-adapt")))
+		{
+			pParams->bAdaptiveI = false;
+		}
 		else if (0 == _tcscmp(option_name, _T("b-adapt")))
 		{
 			pParams->bAdaptiveB = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-b-adapt")))
+		{
+			pParams->bAdaptiveB = false;
 		}
 		else if (0 == _tcscmp(option_name, _T("b-pyramid")))
 		{
@@ -789,9 +810,51 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		{
 			pParams->bExtBRC = true;
 		}
+		else if (0 == _tcscmp(option_name, _T("no-extbrc")))
+		{
+			pParams->bExtBRC = false;
+		}
 		else if (0 == _tcscmp(option_name, _T("mbbrc")))
 		{
 			pParams->bMBBRC = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-mbbrc")))
+		{
+			pParams->bMBBRC = false;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-intra-refresh")))
+		{
+			pParams->bIntraRefresh = false;
+		}
+		else if (0 == _tcscmp(option_name, _T("intra-refresh")))
+		{
+			pParams->bIntraRefresh = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-deblock")))
+		{
+			pParams->bNoDeblock = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin")))
+		{
+			i++;
+			mfxU32 qpLimit[3] = { 0 };
+			if (3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2]))
+				;
+			else if (3 == _stscanf_s(strInput[i], _T("%d,%d,%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2]))
+				;
+			else if (3 == _stscanf_s(strInput[i], _T("%d/%d/%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2]))
+				;
+			else if (1 == _stscanf_s(strInput[i], _T("%d"), &qpLimit[0])) {
+				qpLimit[1] = qpLimit[0];
+				qpLimit[2] = qpLimit[0];
+			} else {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			mfxU8 *limit = (0 == _tcscmp(option_name, _T("qpmin"))) ? pParams->nQPMin : pParams->nQPMax;
+			for (int i = 0; i < 3; i++) {
+				limit[i] = (mfxU8)clamp(qpLimit[i], 0, 51);
+			}
 		}
 		else if (0 == _tcscmp(option_name, _T("fullrange")))
 		{

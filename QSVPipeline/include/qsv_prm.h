@@ -159,7 +159,12 @@ struct sInputParams
 	
 	mfxU16     nQVBRQuality;
 
-	mfxU8      Reserved[1200];
+	mfxU8      bIntraRefresh;
+	mfxU8      bNoDeblock;
+	mfxU8      nQPMin[3];
+	mfxU8      nQPMax[3];
+
+	mfxU8      Reserved[1192];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

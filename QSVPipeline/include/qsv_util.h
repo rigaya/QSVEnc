@@ -34,6 +34,8 @@ typedef struct CX_DESC {
 	int value;
 } CX_DESC;
 
+
+
 #define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 
 static const mfxVersion LIB_VER_LIST[] = {
@@ -95,6 +97,9 @@ enum {
 	ENC_FEATURE_LA_HRD                 = 0x00400000,
 	ENC_FEATURE_LA_EXT                 = 0x00800000,
 	ENC_FEATURE_QVBR                   = 0x01000000,
+	ENC_FEATURE_INTRA_REFRESH          = 0x02000000,
+	ENC_FEATURE_NO_DEBLOCK             = 0x04000000,
+	ENC_FEATURE_QP_MINMAX              = 0x08000000,
 };
 
 static bool inline rc_is_type_lookahead(int rc) {
@@ -119,23 +124,26 @@ static const CX_DESC list_rate_control_ry[] = {
 	{ _T("QVBR "), MFX_RATECONTROL_QVBR   },
 };
 static const CX_DESC list_enc_feature[] = {
-	{ _T("RC mode available        "), ENC_FEATURE_CURRENT_RC             },
-	{ _T("Interlace Enconding      "), ENC_FEATURE_INTERLACE              },
-	{ _T("Scene change detection   "), ENC_FEATURE_SCENECHANGE            },
-	{ _T("VUI info output          "), ENC_FEATURE_VUI_INFO               },
-	//{ _T("aud                      "), ENC_FEATURE_AUD                    },
-	//{ _T("pic_struct               "), ENC_FEATURE_PIC_STRUCT             },
-	{ _T("Trellis                  "), ENC_FEATURE_TRELLIS                },
-	//{ _T("rdo                      "), ENC_FEATURE_RDO                    },
-	//{ _T("CAVLC                    "), ENC_FEATURE_CAVLC                  },
-	{ _T("Adaptive_I Insert        "), ENC_FEATURE_ADAPTIVE_I             },
-	{ _T("Adaptive_B Insert        "), ENC_FEATURE_ADAPTIVE_B             },
-	{ _T("B_Pyramid                "), ENC_FEATURE_B_PYRAMID              },
-	{ _T("B_Pyramid + Scenechange  "), ENC_FEATURE_B_PYRAMID_AND_SC       },
-	{ _T("B_Pyramid + Many Bframes "), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
-	{ _T("Ext_BRC                  "), ENC_FEATURE_EXT_BRC                },
-	{ _T("MBBRC                    "), ENC_FEATURE_MBBRC                  },
-	{ _T("Lookahead Quality        "), ENC_FEATURE_LA_DS                  },
+	{ _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
+	{ _T("Interlace    "), ENC_FEATURE_INTERLACE              },
+	{ _T("SceneChange  "), ENC_FEATURE_SCENECHANGE            },
+	{ _T("VUI info     "), ENC_FEATURE_VUI_INFO               },
+	//{ _T("aud          "), ENC_FEATURE_AUD                    },
+	//{ _T("pic_struct   "), ENC_FEATURE_PIC_STRUCT             },
+	{ _T("Trellis      "), ENC_FEATURE_TRELLIS                },
+	//{ _T("rdo          "), ENC_FEATURE_RDO                    },
+	//{ _T("CAVLC        "), ENC_FEATURE_CAVLC                  },
+	{ _T("Adaptive_I   "), ENC_FEATURE_ADAPTIVE_I             },
+	{ _T("Adaptive_B   "), ENC_FEATURE_ADAPTIVE_B             },
+	{ _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
+	{ _T(" +Scenechange"), ENC_FEATURE_B_PYRAMID_AND_SC       },
+	{ _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
+	{ _T("Ext_BRC      "), ENC_FEATURE_EXT_BRC                },
+	{ _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
+	{ _T("LA Quality   "), ENC_FEATURE_LA_DS                  },
+	{ _T("QP Min/Max   "), ENC_FEATURE_QP_MINMAX              },
+	{ _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
+	{ _T("No Debloc    "), ENC_FEATURE_NO_DEBLOCK             },
 	{ NULL, 0 },
 };
 

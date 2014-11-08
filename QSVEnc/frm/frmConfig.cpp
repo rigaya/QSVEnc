@@ -784,6 +784,16 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 	if (!fcgCBAdaptiveI->Enabled)   fcgCBAdaptiveI->Checked = false;
 	if (!fcgCBBPyramid->Enabled)    fcgCBBPyramid->Checked  = false;
 	if (!fcgCXLookaheadDS->Enabled) fcgCXLookaheadDS->SelectedIndex = 0;
+	
+	//API v1.9 features
+	fcgNUQPMin->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
+	fcgNUQPMax->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
+	fcgCBIntraRefresh->Enabled = 0 != (available_features & ENC_FEATURE_INTRA_REFRESH);
+	fcgCBDeblock->Enabled      = 0 != (available_features & ENC_FEATURE_NO_DEBLOCK);
+	if (!fcgNUQPMin->Enabled)        fcgNUQPMin->Value = 0;
+	if (!fcgNUQPMax->Enabled)        fcgNUQPMax->Value = 0;
+	if (!fcgCBIntraRefresh->Enabled) fcgCBIntraRefresh->Checked = false;
+	if (!fcgCBDeblock->Enabled)      fcgCBDeblock->Checked = true;
 
 	//API v1.11 features
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_HRD));
@@ -1068,6 +1078,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
 	fcgCBBlurayCompat->Checked   = cnf->qsv.nBluray != 0;
 
+	SetNUValue(fcgNUQPMin,         cnf->qsv.nQPMin[0]);
+	SetNUValue(fcgNUQPMax,         cnf->qsv.nQPMax[0]);
+
 	fcgCBCABAC->Checked          = !cnf->qsv.bCAVLC;
 	fcgCBRDO->Checked            = cnf->qsv.bRDO;
 	SetNUValue(fcgNUMVSearchWindow, cnf->qsv.MVSearchWindow.x);
@@ -1075,6 +1088,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetCXIndex(fcgCXInterPred,   get_cx_index(list_pred_block_size, cnf->qsv.nInterPred));
 	SetCXIndex(fcgCXIntraPred,   get_cx_index(list_pred_block_size, cnf->qsv.nIntraPred));
 
+	fcgCBDeblock->Checked        = cnf->qsv.bNoDeblock == 0;
+	fcgCBIntraRefresh->Checked   = cnf->qsv.bIntraRefresh != 0;
 
 	SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer, cnf->qsv.Transfer));
 	SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, cnf->qsv.ColorMatrix));
@@ -1170,8 +1185,17 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.nAVBRAccuarcy          = (mfxU16)(fcgNUAVBRAccuarcy->Value * 10);
 	cnf->qsv.nAVBRConvergence       = (mfxU16)fcgNUAVBRConvergence->Value;
 	cnf->qsv.nSlices                = (mfxU16)fcgNUSlices->Value;
+	cnf->qsv.nQPMin[0]              = (mfxU8)fcgNUQPMin->Value;
+	cnf->qsv.nQPMin[1]              = (mfxU8)fcgNUQPMin->Value;
+	cnf->qsv.nQPMin[2]              = (mfxU8)fcgNUQPMin->Value;
+	cnf->qsv.nQPMax[0]              = (mfxU8)fcgNUQPMax->Value;
+	cnf->qsv.nQPMax[1]              = (mfxU8)fcgNUQPMax->Value;
+	cnf->qsv.nQPMax[2]              = (mfxU8)fcgNUQPMax->Value;
 
 	cnf->qsv.nBluray                = fcgCBBlurayCompat->Checked;
+
+	cnf->qsv.bNoDeblock             = !fcgCBDeblock->Checked;
+	cnf->qsv.bIntraRefresh          = fcgCBIntraRefresh->Checked;
 
 	cnf->qsv.bCAVLC                 = !fcgCBCABAC->Checked;
 	cnf->qsv.bRDO                   = fcgCBRDO->Checked;
@@ -1571,7 +1595,7 @@ System::Void frmConfig::UpdateFeatures() {
 
 	fcgDGVFeatures->DataSource = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureTable() : featuresSW->getFeatureTable(); //テーブルをバインド
 
-	fcgDGVFeatures->Columns[0]->FillWeight = 320;
+	fcgDGVFeatures->Columns[0]->FillWeight = 240;
 }
 
 System::Void frmConfig::SaveQSVFeature() {

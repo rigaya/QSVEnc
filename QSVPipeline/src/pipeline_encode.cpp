@@ -424,7 +424,25 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		PrintMes(_T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
 		pInParams->bBPyramid = false;
 	}
+	if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
+		PrintMes(_T("No deblock is not supported on current platform, disabled.\n"));
+		pInParams->bNoDeblock = false;
+	}
+	if (pInParams->bIntraRefresh && !(availableFeaures & ENC_FEATURE_INTRA_REFRESH)) {
+		PrintMes(_T("Intra Refresh is not supported on current platform, disabled.\n"));
+		pInParams->bIntraRefresh = false;
+	}
+	if (0 != (pInParams->nQPMin[0] | pInParams->nQPMin[1] | pInParams->nQPMin[2]
+		    | pInParams->nQPMax[0] | pInParams->nQPMax[1] | pInParams->nQPMax[2]) && !(availableFeaures & ENC_FEATURE_QP_MINMAX)) {
+		PrintMes(_T("Min/Max QP is not supported on current platform, disabled.\n"));
+		memset(pInParams->nQPMin, 0, sizeof(pInParams->nQPMin));
+		memset(pInParams->nQPMax, 0, sizeof(pInParams->nQPMax));
+	}
 
+	//Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
+	if (pInParams->bIntraRefresh) {
+		pInParams->bforceGOPSettings = true; //シーンチェンジ検出オフ
+	}
 
 	//GOP長さが短いならVQPもシーンチェンジ検出も実行しない
 	if (pInParams->nGOPLength != 0 && pInParams->nGOPLength < 4) {
@@ -525,7 +543,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	//MFX_GOP_STRICTにより、インタレ保持時にフレームが壊れる場合があるため、無効とする
 	//m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
-	m_mfxEncParams.mfx.GopPicSize              = pInParams->nGOPLength;
+	m_mfxEncParams.mfx.GopPicSize              = (pInParams->bIntraRefresh) ? 0 : pInParams->nGOPLength;
 	m_mfxEncParams.mfx.GopRefDist              = (mfxU16)(clamp(pInParams->nBframes, -1, 16) + 1);
 
 	// specify memory type
@@ -585,6 +603,25 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		if (pInParams->bExtBRC) {
 			m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
 		}
+		if (pInParams->bIntraRefresh) {
+			m_CodingOption2.IntRefType = 1;
+			m_CodingOption2.IntRefCycleSize = (pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 10;
+		}
+		if (pInParams->bNoDeblock) {
+			m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
+		}
+		for (int i = 0; i < 3; i++) {
+			mfxU8 qpMin = min(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+			mfxU8 qpMax = max(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+			pInParams->nQPMin[i] = (0 == pInParams->nQPMin[i]) ? 0 : qpMin;
+			pInParams->nQPMax[i] = (0 == pInParams->nQPMax[i]) ? 0 : qpMax;
+		}
+		m_CodingOption2.MaxQPI = pInParams->nQPMax[0];
+		m_CodingOption2.MaxQPP = pInParams->nQPMax[1];
+		m_CodingOption2.MaxQPB = pInParams->nQPMax[2];
+		m_CodingOption2.MinQPI = pInParams->nQPMin[0];
+		m_CodingOption2.MinQPP = pInParams->nQPMin[1];
+		m_CodingOption2.MinQPB = pInParams->nQPMin[2];
 		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption2);
 	}
 
