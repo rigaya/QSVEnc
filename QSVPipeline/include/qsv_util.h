@@ -71,6 +71,13 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl);
 BOOL check_lib_version(mfxVersion value, mfxVersion required);
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required);
 
+static bool inline rc_is_type_lookahead(int rc) {
+	return ((rc == MFX_RATECONTROL_LA)
+		| (rc == MFX_RATECONTROL_LA_ICQ)
+		| (rc == MFX_RATECONTROL_LA_EXT)
+		| (rc == MFX_RATECONTROL_LA_HRD));
+}
+
 enum {
 	ENC_FEATURE_CURRENT_RC             = 0x00000001,
 	ENC_FEATURE_AVBR                   = 0x00000002,
@@ -103,12 +110,16 @@ enum {
 	ENC_FEATURE_WINBRC                 = 0x10000000,
 };
 
-static bool inline rc_is_type_lookahead(int rc) {
-	return ((rc == MFX_RATECONTROL_LA)
-		| (rc == MFX_RATECONTROL_LA_ICQ)
-		| (rc == MFX_RATECONTROL_LA_EXT)
-		| (rc == MFX_RATECONTROL_LA_HRD));
-}
+enum {
+	VPP_FEATURE_RESIZE              = 0x00000001,
+	VPP_FEATURE_DENOISE             = 0x00000002,
+	VPP_FEATURE_DETAIL_ENHANCEMENT  = 0x00000004,
+	VPP_FEATURE_PROC_AMP            = 0x00000008,
+	VPP_FEATURE_IMAGE_STABILIZATION = 0x00000010,
+	VPP_FEATURE_VIDEO_SIGNAL_INFO   = 0x00000020,
+	VPP_FEATURE_FPS_CONVERSION      = 0x00000040,
+	VPP_FEATURE_FPS_CONVERSION_ADV  = 0x00000080 | VPP_FEATURE_FPS_CONVERSION,
+};
 
 static const CX_DESC list_rate_control_ry[] = {
 	{ _T("CBR  "), MFX_RATECONTROL_CBR    },
@@ -148,6 +159,17 @@ static const CX_DESC list_enc_feature[] = {
 	{ _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
 	{ NULL, 0 },
 };
+static const CX_DESC list_vpp_feature[] = {
+	{ _T("Resize               "), VPP_FEATURE_RESIZE              },
+	{ _T("Denoise              "), VPP_FEATURE_DENOISE             },
+	{ _T("Detail Enhancement   "), VPP_FEATURE_DETAIL_ENHANCEMENT  },
+	{ _T("Proc Amp.            "), VPP_FEATURE_PROC_AMP            },
+	{ _T("Image Stabilization  "), VPP_FEATURE_IMAGE_STABILIZATION },
+	{ _T("Video Signal Info    "), VPP_FEATURE_VIDEO_SIGNAL_INFO   },
+	{ _T("FPS Conversion       "), VPP_FEATURE_FPS_CONVERSION      },
+	{ _T("FPS Conversion (Adv.)"), VPP_FEATURE_FPS_CONVERSION_ADV  },
+	{ NULL, 0 },
+};
 
 mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
 mfxU32 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
@@ -155,6 +177,8 @@ mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VB
 void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
 void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
+
+void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();
 
