@@ -1,4 +1,13 @@
-﻿#define WIN32_LEAN_AND_MEAN
+﻿//  -----------------------------------------------------------------------------------------
+//    ram_speed by rigaya
+//  -----------------------------------------------------------------------------------------
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+//  -----------------------------------------------------------------------------------------
+
+#define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
 #include <stdio.h>
@@ -111,13 +120,19 @@ double ram_speed_mt(int check_size_kilobytes, int mode, int thread_n) {
 	return sum;
 }
 
-std::vector<double> ram_speed_mt_list(int check_size_kilobytes, int mode) {
+std::vector<double> ram_speed_mt_list(int check_size_kilobytes, int mode, bool logical_core) {
 	cpu_info_t cpu_info;
 	get_cpu_info(&cpu_info);
 
 	std::vector<double> results;
 	for (uint32_t ith = 1; ith <= cpu_info.physical_cores; ith++) {
 		results.push_back(ram_speed_mt(check_size_kilobytes, mode, ith));
+	}
+	if (logical_core && cpu_info.logical_cores != cpu_info.physical_cores) {
+		int smt = cpu_info.logical_cores / cpu_info.physical_cores;
+		for (int i_smt = 2; i_smt <= smt; i_smt++) {
+			results.push_back(ram_speed_mt(check_size_kilobytes, mode, cpu_info.physical_cores * i_smt));
+		}
 	}
 	return results;
 }
