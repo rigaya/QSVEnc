@@ -262,6 +262,8 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			result |= ENC_FEATURE_VUI_INFO;
 		}
 		//ひとつひとつパラメータを入れ替えて試していく
+#pragma warning(push)
+#pragma warning(disable:4244) //'mfxU16' から 'mfxU8' への変換です。データが失われる可能性があります。
 #define PICTYPE mfx.FrameInfo.PicStruct
 		const mfxU32 MFX_TRELLIS_ALL = MFX_TRELLIS_I | MFX_TRELLIS_P | MFX_TRELLIS_B;
 		CHECK_FEATURE(cop.AUDelimiter,           copOut.AUDelimiter,           ENC_FEATURE_AUD,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
@@ -280,11 +282,12 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			CHECK_FEATURE(cop2.LookAheadDS,      cop2Out.LookAheadDS,          ENC_FEATURE_LA_DS,         MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
 		}
 		CHECK_FEATURE(cop2.DisableDeblockingIdc, cop2Out.DisableDeblockingIdc, ENC_FEATURE_NO_DEBLOCK,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_9);
-#pragma warning(push)
-#pragma warning(disable:4244) //'mfxU16' から 'mfxU8' への変換です。データが失われる可能性があります。
 		CHECK_FEATURE(cop2.MaxQPI,               cop2Out.MaxQPI,               ENC_FEATURE_QP_MINMAX,     48,                      MFX_LIB_VERSION_1_9);
-#pragma warning(pop)
+		cop3.WinBRCMaxAvgKbps = 3000;
+		CHECK_FEATURE(cop3.WinBRCSize,           cop3Out.WinBRCSize,           ENC_FEATURE_WINBRC,        10,                      MFX_LIB_VERSION_1_11);
+		cop3.WinBRCMaxAvgKbps = 0;
 #undef PICTYPE
+#pragma warning(pop)
 		//付随オプション
 		result |= ENC_FEATURE_SCENECHANGE;
 		//encCtrlを渡すことにより実現するVQPでは、B-pyramidは不安定(フレーム順が入れ替わるなど)

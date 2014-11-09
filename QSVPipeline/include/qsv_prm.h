@@ -164,7 +164,8 @@ struct sInputParams
 	mfxU8      nQPMin[3];
 	mfxU8      nQPMax[3];
 
-	mfxU8      Reserved[1192];
+	mfxU16     nWinBRCSize;
+	mfxU8      Reserved[1190];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -399,7 +400,7 @@ static int get_cx_index(const CX_DESC * list, int v) {
 	for (int i = 0; list[i].desc; i++)
 		if (list[i].value == v)
 			return i;
-	return 0;
+	return -1;
 }
 static int get_cx_index(const CX_DESC * list, const TCHAR *chr) {
 	for (int i = 0; list[i].desc; i++)

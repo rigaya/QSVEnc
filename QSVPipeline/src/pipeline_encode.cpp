@@ -438,6 +438,15 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		memset(pInParams->nQPMin, 0, sizeof(pInParams->nQPMin));
 		memset(pInParams->nQPMax, 0, sizeof(pInParams->nQPMax));
 	}
+	if (0 != pInParams->nWinBRCSize) {
+		if (!(availableFeaures & ENC_FEATURE_WINBRC)) {
+			PrintMes(_T("WinBRC is not supported on current platform, disabled.\n"));
+			pInParams->nWinBRCSize = 0;
+		} else if (0 == pInParams->nMaxBitrate) {
+			PrintMes(_T("WinBRC requires Max bitrate to be set, disabled.\n"));
+			pInParams->nWinBRCSize = 0;
+		}
+	}
 
 	//Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
 	if (pInParams->bIntraRefresh) {
@@ -631,6 +640,8 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
 			m_CodingOption3.QVBRQuality = pInParams->nQVBRQuality;
 		}
+		m_CodingOption3.WinBRCSize = pInParams->nWinBRCSize;
+		m_CodingOption3.WinBRCMaxAvgKbps = pInParams->nMaxBitrate;
 		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
 	}
 

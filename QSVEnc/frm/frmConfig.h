@@ -751,12 +751,12 @@ private: System::Windows::Forms::Panel^  fcgPNLookahead;
 
 private: System::Windows::Forms::NumericUpDown^  fcgNULookaheadDepth;
 private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
-private: System::Windows::Forms::ComboBox^  fcgCXTrellis;
-private: System::Windows::Forms::Label^  fcgLBTrellis;
-private: System::Windows::Forms::Label^  label1;
-private: System::Windows::Forms::CheckBox^  fcgCBExtBRC;
 
-private: System::Windows::Forms::CheckBox^  fcgCBMBBRC;
+
+private: System::Windows::Forms::Label^  label1;
+
+
+
 private: System::Windows::Forms::CheckBox^  fcgCBBPyramid;
 private: System::Windows::Forms::CheckBox^  fcgCBAdaptiveB;
 private: System::Windows::Forms::CheckBox^  fcgCBAdaptiveI;
@@ -770,7 +770,7 @@ private: System::Windows::Forms::TabPage^  tabPageFeatures;
 private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
 private: System::Windows::Forms::Label^  fcgLBFeaturesCurrentAPIVer;
 private: System::Windows::Forms::Label^  fcgLBFeaturesShowCurrentAPI;
-private: System::Windows::Forms::Label^  label2;
+
 private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 private: System::Windows::Forms::Label^  fcgLBCPUInfoOnFeatureTab;
 private: System::Windows::Forms::Label^  fcgLBCPUInfoLabelOnFeatureTab;
@@ -791,6 +791,20 @@ private: System::Windows::Forms::CheckBox^  fcgCBD3DMemAlloc;
 private: System::Windows::Forms::GroupBox^  fcggroupBoxDetail;
 private: System::Windows::Forms::CheckBox^  fcgCBIntraRefresh;
 private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
+private: System::Windows::Forms::CheckBox^  fcgCBExtBRC;
+private: System::Windows::Forms::CheckBox^  fcgCBMBBRC;
+private: System::Windows::Forms::ComboBox^  fcgCXTrellis;
+private: System::Windows::Forms::Label^  fcgLBTrellis;
+private: System::Windows::Forms::Label^  fcgLBWinBRCSizeAuto;
+
+private: System::Windows::Forms::NumericUpDown^  fcgNUWinBRCSize;
+
+private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
+
+
+
+
+
 
 
 
@@ -1016,8 +1030,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBICQQuality = (gcnew System::Windows::Forms::Label());
 			this->fcgCXLookaheadDS = (gcnew System::Windows::Forms::ComboBox());
 			this->fcgLBLookaheadDS = (gcnew System::Windows::Forms::Label());
-			this->fcgCBExtBRC = (gcnew System::Windows::Forms::CheckBox());
-			this->fcgCBMBBRC = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBBPyramid = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBAdaptiveB = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBAdaptiveI = (gcnew System::Windows::Forms::CheckBox());
@@ -1025,8 +1037,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->label1 = (gcnew System::Windows::Forms::Label());
 			this->fcgNULookaheadDepth = (gcnew System::Windows::Forms::NumericUpDown());
 			this->fcgLBLookaheadDepth = (gcnew System::Windows::Forms::Label());
-			this->fcgCXTrellis = (gcnew System::Windows::Forms::ComboBox());
-			this->fcgLBTrellis = (gcnew System::Windows::Forms::Label());
 			this->fcgLBFullrange = (gcnew System::Windows::Forms::Label());
 			this->fcgCBFullrange = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgLBBlurayCompat = (gcnew System::Windows::Forms::Label());
@@ -1144,7 +1154,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBCPUInfoOnFeatureTab = (gcnew System::Windows::Forms::Label());
 			this->fcgLBCPUInfoLabelOnFeatureTab = (gcnew System::Windows::Forms::Label());
 			this->fcgBTSaveFeatureList = (gcnew System::Windows::Forms::Button());
-			this->label2 = (gcnew System::Windows::Forms::Label());
 			this->fcgLBFeaturesCurrentAPIVer = (gcnew System::Windows::Forms::Label());
 			this->fcgLBFeaturesShowCurrentAPI = (gcnew System::Windows::Forms::Label());
 			this->fcgDGVFeatures = (gcnew System::Windows::Forms::DataGridView());
@@ -1160,6 +1169,13 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcggroupBoxDetail = (gcnew System::Windows::Forms::GroupBox());
 			this->fcgCBDeblock = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBIntraRefresh = (gcnew System::Windows::Forms::CheckBox());
+			this->fcgCBExtBRC = (gcnew System::Windows::Forms::CheckBox());
+			this->fcgCBMBBRC = (gcnew System::Windows::Forms::CheckBox());
+			this->fcgCXTrellis = (gcnew System::Windows::Forms::ComboBox());
+			this->fcgLBTrellis = (gcnew System::Windows::Forms::Label());
+			this->fcgLBWinBRCSize = (gcnew System::Windows::Forms::Label());
+			this->fcgNUWinBRCSize = (gcnew System::Windows::Forms::NumericUpDown());
+			this->fcgLBWinBRCSizeAuto = (gcnew System::Windows::Forms::Label());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -1214,6 +1230,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPMin))->BeginInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPMax))->BeginInit();
 			this->fcggroupBoxDetail->SuspendLayout();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUWinBRCSize))->BeginInit();
 			this->SuspendLayout();
 			// 
 			// fcgtoolStripSettings
@@ -2201,7 +2218,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBVersionDate->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBVersionDate->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
-			this->fcgLBVersionDate->Location = System::Drawing::Point(445, 555);
+			this->fcgLBVersionDate->Location = System::Drawing::Point(490, 555);
 			this->fcgLBVersionDate->Name = L"fcgLBVersionDate";
 			this->fcgLBVersionDate->Size = System::Drawing::Size(47, 14);
 			this->fcgLBVersionDate->TabIndex = 8;
@@ -2214,7 +2231,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBVersion->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBVersion->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
-			this->fcgLBVersion->Location = System::Drawing::Point(136, 555);
+			this->fcgLBVersion->Location = System::Drawing::Point(131, 555);
 			this->fcgLBVersion->Name = L"fcgLBVersion";
 			this->fcgLBVersion->Size = System::Drawing::Size(47, 14);
 			this->fcgLBVersion->TabIndex = 9;
@@ -2249,6 +2266,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// 
 			// tabPageVideoEnc
 			// 
+			this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSizeAuto);
+			this->tabPageVideoEnc->Controls->Add(this->fcgNUWinBRCSize);
+			this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSize);
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBQPMinMaxAuto);
 			this->tabPageVideoEnc->Controls->Add(this->fcgNUQPMax);
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBQPMax);
@@ -2258,14 +2278,10 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->tabPageVideoEnc->Controls->Add(this->fcgPNICQ);
 			this->tabPageVideoEnc->Controls->Add(this->fcgCXLookaheadDS);
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBLookaheadDS);
-			this->tabPageVideoEnc->Controls->Add(this->fcgCBExtBRC);
-			this->tabPageVideoEnc->Controls->Add(this->fcgCBMBBRC);
 			this->tabPageVideoEnc->Controls->Add(this->fcgCBBPyramid);
 			this->tabPageVideoEnc->Controls->Add(this->fcgCBAdaptiveB);
 			this->tabPageVideoEnc->Controls->Add(this->fcgCBAdaptiveI);
 			this->tabPageVideoEnc->Controls->Add(this->fcgPNLookahead);
-			this->tabPageVideoEnc->Controls->Add(this->fcgCXTrellis);
-			this->tabPageVideoEnc->Controls->Add(this->fcgLBTrellis);
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBFullrange);
 			this->tabPageVideoEnc->Controls->Add(this->fcgCBFullrange);
 			this->tabPageVideoEnc->Controls->Add(this->fcgLBBlurayCompat);
@@ -2398,28 +2414,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBLookaheadDS->TabIndex = 143;
 			this->fcgLBLookaheadDS->Text = L"先行探索品質";
 			// 
-			// fcgCBExtBRC
-			// 
-			this->fcgCBExtBRC->AutoSize = true;
-			this->fcgCBExtBRC->Location = System::Drawing::Point(195, 421);
-			this->fcgCBExtBRC->Name = L"fcgCBExtBRC";
-			this->fcgCBExtBRC->Size = System::Drawing::Size(65, 18);
-			this->fcgCBExtBRC->TabIndex = 141;
-			this->fcgCBExtBRC->Tag = L"chValue";
-			this->fcgCBExtBRC->Text = L"ExtBRC";
-			this->fcgCBExtBRC->UseVisualStyleBackColor = true;
-			// 
-			// fcgCBMBBRC
-			// 
-			this->fcgCBMBBRC->AutoSize = true;
-			this->fcgCBMBBRC->Location = System::Drawing::Point(38, 421);
-			this->fcgCBMBBRC->Name = L"fcgCBMBBRC";
-			this->fcgCBMBBRC->Size = System::Drawing::Size(149, 18);
-			this->fcgCBMBBRC->TabIndex = 140;
-			this->fcgCBMBBRC->Tag = L"chValue";
-			this->fcgCBMBBRC->Text = L"マクロブロック単位レート制御";
-			this->fcgCBMBBRC->UseVisualStyleBackColor = true;
-			// 
 			// fcgCBBPyramid
 			// 
 			this->fcgCBBPyramid->AutoSize = true;
@@ -2489,25 +2483,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBLookaheadDepth->Size = System::Drawing::Size(95, 14);
 			this->fcgLBLookaheadDepth->TabIndex = 96;
 			this->fcgLBLookaheadDepth->Text = L"先行探索フレーム数";
-			// 
-			// fcgCXTrellis
-			// 
-			this->fcgCXTrellis->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-			this->fcgCXTrellis->FormattingEnabled = true;
-			this->fcgCXTrellis->Location = System::Drawing::Point(132, 393);
-			this->fcgCXTrellis->Name = L"fcgCXTrellis";
-			this->fcgCXTrellis->Size = System::Drawing::Size(121, 22);
-			this->fcgCXTrellis->TabIndex = 135;
-			this->fcgCXTrellis->Tag = L"chValue";
-			// 
-			// fcgLBTrellis
-			// 
-			this->fcgLBTrellis->AutoSize = true;
-			this->fcgLBTrellis->Location = System::Drawing::Point(14, 396);
-			this->fcgLBTrellis->Name = L"fcgLBTrellis";
-			this->fcgLBTrellis->Size = System::Drawing::Size(86, 14);
-			this->fcgLBTrellis->TabIndex = 136;
-			this->fcgLBTrellis->Text = L"歪みレート最適化";
 			// 
 			// fcgLBFullrange
 			// 
@@ -3238,7 +3213,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->tabPageVpp->Name = L"tabPageVpp";
 			this->tabPageVpp->Size = System::Drawing::Size(608, 481);
 			this->tabPageVpp->TabIndex = 2;
-			this->tabPageVpp->Text = L"Vpp / SW専用";
+			this->tabPageVpp->Text = L"Vpp / 詳細設定";
 			this->tabPageVpp->UseVisualStyleBackColor = true;
 			// 
 			// fcgPNExtSettings
@@ -3254,15 +3229,15 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgPNExtSettings->Controls->Add(this->fcgLBMVSearch);
 			this->fcgPNExtSettings->Controls->Add(this->fcgCBRDO);
 			this->fcgPNExtSettings->Controls->Add(this->fcgCBCABAC);
-			this->fcgPNExtSettings->Location = System::Drawing::Point(269, 341);
+			this->fcgPNExtSettings->Location = System::Drawing::Point(303, 347);
 			this->fcgPNExtSettings->Name = L"fcgPNExtSettings";
-			this->fcgPNExtSettings->Size = System::Drawing::Size(328, 126);
+			this->fcgPNExtSettings->Size = System::Drawing::Size(302, 126);
 			this->fcgPNExtSettings->TabIndex = 129;
 			// 
 			// fcgLBInterPred
 			// 
 			this->fcgLBInterPred->AutoSize = true;
-			this->fcgLBInterPred->Location = System::Drawing::Point(3, 40);
+			this->fcgLBInterPred->Location = System::Drawing::Point(5, 40);
 			this->fcgLBInterPred->Name = L"fcgLBInterPred";
 			this->fcgLBInterPred->Size = System::Drawing::Size(155, 14);
 			this->fcgLBInterPred->TabIndex = 127;
@@ -3271,7 +3246,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// fcgLBIntraPred
 			// 
 			this->fcgLBIntraPred->AutoSize = true;
-			this->fcgLBIntraPred->Location = System::Drawing::Point(3, 9);
+			this->fcgLBIntraPred->Location = System::Drawing::Point(5, 9);
 			this->fcgLBIntraPred->Name = L"fcgLBIntraPred";
 			this->fcgLBIntraPred->Size = System::Drawing::Size(155, 14);
 			this->fcgLBIntraPred->TabIndex = 126;
@@ -3281,9 +3256,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// 
 			this->fcgCXIntraPred->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
 			this->fcgCXIntraPred->FormattingEnabled = true;
-			this->fcgCXIntraPred->Location = System::Drawing::Point(179, 6);
+			this->fcgCXIntraPred->Location = System::Drawing::Point(171, 6);
 			this->fcgCXIntraPred->Name = L"fcgCXIntraPred";
-			this->fcgCXIntraPred->Size = System::Drawing::Size(132, 22);
+			this->fcgCXIntraPred->Size = System::Drawing::Size(122, 22);
 			this->fcgCXIntraPred->TabIndex = 20;
 			this->fcgCXIntraPred->Tag = L"chValue";
 			// 
@@ -3291,9 +3266,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// 
 			this->fcgCXInterPred->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
 			this->fcgCXInterPred->FormattingEnabled = true;
-			this->fcgCXInterPred->Location = System::Drawing::Point(177, 37);
+			this->fcgCXInterPred->Location = System::Drawing::Point(171, 37);
 			this->fcgCXInterPred->Name = L"fcgCXInterPred";
-			this->fcgCXInterPred->Size = System::Drawing::Size(134, 22);
+			this->fcgCXInterPred->Size = System::Drawing::Size(122, 22);
 			this->fcgCXInterPred->TabIndex = 21;
 			this->fcgCXInterPred->Tag = L"chValue";
 			// 
@@ -3301,16 +3276,16 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// 
 			this->fcgCXMVPred->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
 			this->fcgCXMVPred->FormattingEnabled = true;
-			this->fcgCXMVPred->Location = System::Drawing::Point(224, 71);
+			this->fcgCXMVPred->Location = System::Drawing::Point(213, 71);
 			this->fcgCXMVPred->Name = L"fcgCXMVPred";
-			this->fcgCXMVPred->Size = System::Drawing::Size(87, 22);
+			this->fcgCXMVPred->Size = System::Drawing::Size(80, 22);
 			this->fcgCXMVPred->TabIndex = 23;
 			this->fcgCXMVPred->Tag = L"chValue";
 			// 
 			// fcgLBMVPred
 			// 
 			this->fcgLBMVPred->AutoSize = true;
-			this->fcgLBMVPred->Location = System::Drawing::Point(189, 74);
+			this->fcgLBMVPred->Location = System::Drawing::Point(178, 74);
 			this->fcgLBMVPred->Name = L"fcgLBMVPred";
 			this->fcgLBMVPred->Size = System::Drawing::Size(29, 14);
 			this->fcgLBMVPred->TabIndex = 121;
@@ -3319,7 +3294,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// fcgLBMVWindowSize
 			// 
 			this->fcgLBMVWindowSize->AutoSize = true;
-			this->fcgLBMVWindowSize->Location = System::Drawing::Point(65, 74);
+			this->fcgLBMVWindowSize->Location = System::Drawing::Point(67, 74);
 			this->fcgLBMVWindowSize->Name = L"fcgLBMVWindowSize";
 			this->fcgLBMVWindowSize->Size = System::Drawing::Size(29, 14);
 			this->fcgLBMVWindowSize->TabIndex = 120;
@@ -3327,9 +3302,9 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// 
 			// fcgNUMVSearchWindow
 			// 
-			this->fcgNUMVSearchWindow->Location = System::Drawing::Point(98, 72);
+			this->fcgNUMVSearchWindow->Location = System::Drawing::Point(100, 72);
 			this->fcgNUMVSearchWindow->Name = L"fcgNUMVSearchWindow";
-			this->fcgNUMVSearchWindow->Size = System::Drawing::Size(77, 21);
+			this->fcgNUMVSearchWindow->Size = System::Drawing::Size(60, 21);
 			this->fcgNUMVSearchWindow->TabIndex = 22;
 			this->fcgNUMVSearchWindow->Tag = L"chValue";
 			this->fcgNUMVSearchWindow->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
@@ -3337,7 +3312,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// fcgLBMVSearch
 			// 
 			this->fcgLBMVSearch->AutoSize = true;
-			this->fcgLBMVSearch->Location = System::Drawing::Point(3, 74);
+			this->fcgLBMVSearch->Location = System::Drawing::Point(5, 74);
 			this->fcgLBMVSearch->Name = L"fcgLBMVSearch";
 			this->fcgLBMVSearch->Size = System::Drawing::Size(46, 14);
 			this->fcgLBMVSearch->TabIndex = 118;
@@ -3346,7 +3321,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// fcgCBRDO
 			// 
 			this->fcgCBRDO->AutoSize = true;
-			this->fcgCBRDO->Location = System::Drawing::Point(175, 105);
+			this->fcgCBRDO->Location = System::Drawing::Point(177, 105);
 			this->fcgCBRDO->Name = L"fcgCBRDO";
 			this->fcgCBRDO->Size = System::Drawing::Size(105, 18);
 			this->fcgCBRDO->TabIndex = 25;
@@ -3357,7 +3332,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// fcgCBCABAC
 			// 
 			this->fcgCBCABAC->AutoSize = true;
-			this->fcgCBCABAC->Location = System::Drawing::Point(53, 105);
+			this->fcgCBCABAC->Location = System::Drawing::Point(55, 105);
 			this->fcgCBCABAC->Name = L"fcgCBCABAC";
 			this->fcgCBCABAC->Size = System::Drawing::Size(61, 18);
 			this->fcgCBCABAC->TabIndex = 24;
@@ -3663,7 +3638,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->tabPageFeatures->Controls->Add(this->fcgLBCPUInfoOnFeatureTab);
 			this->tabPageFeatures->Controls->Add(this->fcgLBCPUInfoLabelOnFeatureTab);
 			this->tabPageFeatures->Controls->Add(this->fcgBTSaveFeatureList);
-			this->tabPageFeatures->Controls->Add(this->label2);
 			this->tabPageFeatures->Controls->Add(this->fcgLBFeaturesCurrentAPIVer);
 			this->tabPageFeatures->Controls->Add(this->fcgLBFeaturesShowCurrentAPI);
 			this->tabPageFeatures->Controls->Add(this->fcgDGVFeatures);
@@ -3680,7 +3654,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBGPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBGPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBGPUInfoOnFeatureTab->Location = System::Drawing::Point(159, 84);
+			this->fcgLBGPUInfoOnFeatureTab->Location = System::Drawing::Point(108, 36);
 			this->fcgLBGPUInfoOnFeatureTab->Name = L"fcgLBGPUInfoOnFeatureTab";
 			this->fcgLBGPUInfoOnFeatureTab->Size = System::Drawing::Size(35, 17);
 			this->fcgLBGPUInfoOnFeatureTab->TabIndex = 116;
@@ -3692,7 +3666,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBGPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
 			this->fcgLBGPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBGPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(21, 82);
+			this->fcgLBGPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(11, 34);
 			this->fcgLBGPUInfoLabelOnFeatureTab->Name = L"fcgLBGPUInfoLabelOnFeatureTab";
 			this->fcgLBGPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(40, 19);
 			this->fcgLBGPUInfoLabelOnFeatureTab->TabIndex = 115;
@@ -3704,7 +3678,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBCPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBCPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBCPUInfoOnFeatureTab->Location = System::Drawing::Point(159, 54);
+			this->fcgLBCPUInfoOnFeatureTab->Location = System::Drawing::Point(108, 11);
 			this->fcgLBCPUInfoOnFeatureTab->Name = L"fcgLBCPUInfoOnFeatureTab";
 			this->fcgLBCPUInfoOnFeatureTab->Size = System::Drawing::Size(34, 17);
 			this->fcgLBCPUInfoOnFeatureTab->TabIndex = 114;
@@ -3716,7 +3690,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBCPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
 			this->fcgLBCPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBCPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(21, 52);
+			this->fcgLBCPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(11, 9);
 			this->fcgLBCPUInfoLabelOnFeatureTab->Name = L"fcgLBCPUInfoLabelOnFeatureTab";
 			this->fcgLBCPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(39, 19);
 			this->fcgLBCPUInfoLabelOnFeatureTab->TabIndex = 113;
@@ -3725,7 +3699,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// fcgBTSaveFeatureList
 			// 
 			this->fcgBTSaveFeatureList->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
-			this->fcgBTSaveFeatureList->Location = System::Drawing::Point(477, 12);
+			this->fcgBTSaveFeatureList->Location = System::Drawing::Point(488, 57);
 			this->fcgBTSaveFeatureList->Name = L"fcgBTSaveFeatureList";
 			this->fcgBTSaveFeatureList->Size = System::Drawing::Size(114, 30);
 			this->fcgBTSaveFeatureList->TabIndex = 112;
@@ -3733,25 +3707,13 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgBTSaveFeatureList->UseVisualStyleBackColor = true;
 			this->fcgBTSaveFeatureList->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTSaveFeatureList_Click);
 			// 
-			// label2
-			// 
-			this->label2->AutoSize = true;
-			this->label2->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
-				static_cast<System::Byte>(128)));
-			this->label2->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
-			this->label2->Location = System::Drawing::Point(14, 17);
-			this->label2->Name = L"label2";
-			this->label2->Size = System::Drawing::Size(314, 19);
-			this->label2->TabIndex = 111;
-			this->label2->Text = L"現在の環境でサポートされる機能を表示しています。";
-			// 
 			// fcgLBFeaturesCurrentAPIVer
 			// 
 			this->fcgLBFeaturesCurrentAPIVer->AutoSize = true;
 			this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesCurrentAPIVer->ForeColor = System::Drawing::Color::DarkViolet;
-			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(159, 113);
+			this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(108, 61);
 			this->fcgLBFeaturesCurrentAPIVer->Name = L"fcgLBFeaturesCurrentAPIVer";
 			this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(33, 17);
 			this->fcgLBFeaturesCurrentAPIVer->TabIndex = 110;
@@ -3763,22 +3725,22 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
 				System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
 			this->fcgLBFeaturesShowCurrentAPI->ForeColor = System::Drawing::Color::Blue;
-			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(21, 111);
+			this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(11, 59);
 			this->fcgLBFeaturesShowCurrentAPI->Name = L"fcgLBFeaturesShowCurrentAPI";
-			this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(127, 19);
+			this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(88, 19);
 			this->fcgLBFeaturesShowCurrentAPI->TabIndex = 107;
-			this->fcgLBFeaturesShowCurrentAPI->Text = L"Intel Media SDK";
+			this->fcgLBFeaturesShowCurrentAPI->Text = L"Media SDK";
 			// 
 			// fcgDGVFeatures
 			// 
 			this->fcgDGVFeatures->BackgroundColor = System::Drawing::SystemColors::Control;
 			this->fcgDGVFeatures->BorderStyle = System::Windows::Forms::BorderStyle::None;
 			this->fcgDGVFeatures->ColumnHeadersHeightSizeMode = System::Windows::Forms::DataGridViewColumnHeadersHeightSizeMode::AutoSize;
-			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 149);
+			this->fcgDGVFeatures->Location = System::Drawing::Point(4, 92);
 			this->fcgDGVFeatures->Name = L"fcgDGVFeatures";
 			this->fcgDGVFeatures->ReadOnly = true;
 			this->fcgDGVFeatures->RowTemplate->Height = 21;
-			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 326);
+			this->fcgDGVFeatures->Size = System::Drawing::Size(601, 387);
 			this->fcgDGVFeatures->TabIndex = 0;
 			this->fcgDGVFeatures->CellFormatting += gcnew System::Windows::Forms::DataGridViewCellFormattingEventHandler(this, &frmConfig::fcgDGVFeatures_CellFormatting);
 			// 
@@ -3802,7 +3764,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgLBguiExBlog->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
 				static_cast<System::Byte>(128)));
 			this->fcgLBguiExBlog->LinkColor = System::Drawing::Color::Gray;
-			this->fcgLBguiExBlog->Location = System::Drawing::Point(639, 555);
+			this->fcgLBguiExBlog->Location = System::Drawing::Point(662, 555);
 			this->fcgLBguiExBlog->Name = L"fcgLBguiExBlog";
 			this->fcgLBguiExBlog->Size = System::Drawing::Size(86, 14);
 			this->fcgLBguiExBlog->TabIndex = 50;
@@ -3871,11 +3833,15 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			// 
 			// fcggroupBoxDetail
 			// 
+			this->fcggroupBoxDetail->Controls->Add(this->fcgCBExtBRC);
+			this->fcggroupBoxDetail->Controls->Add(this->fcgCBMBBRC);
+			this->fcggroupBoxDetail->Controls->Add(this->fcgCXTrellis);
+			this->fcggroupBoxDetail->Controls->Add(this->fcgLBTrellis);
 			this->fcggroupBoxDetail->Controls->Add(this->fcgCBIntraRefresh);
 			this->fcggroupBoxDetail->Controls->Add(this->fcgCBDeblock);
 			this->fcggroupBoxDetail->Location = System::Drawing::Point(12, 247);
 			this->fcggroupBoxDetail->Name = L"fcggroupBoxDetail";
-			this->fcggroupBoxDetail->Size = System::Drawing::Size(240, 220);
+			this->fcggroupBoxDetail->Size = System::Drawing::Size(276, 220);
 			this->fcggroupBoxDetail->TabIndex = 130;
 			this->fcggroupBoxDetail->TabStop = false;
 			this->fcggroupBoxDetail->Text = L"詳細設定";
@@ -3901,6 +3867,74 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			this->fcgCBIntraRefresh->Tag = L"chValue";
 			this->fcgCBIntraRefresh->Text = L"周期的イントラ更新";
 			this->fcgCBIntraRefresh->UseVisualStyleBackColor = true;
+			// 
+			// fcgCBExtBRC
+			// 
+			this->fcgCBExtBRC->AutoSize = true;
+			this->fcgCBExtBRC->Location = System::Drawing::Point(191, 100);
+			this->fcgCBExtBRC->Name = L"fcgCBExtBRC";
+			this->fcgCBExtBRC->Size = System::Drawing::Size(65, 18);
+			this->fcgCBExtBRC->TabIndex = 145;
+			this->fcgCBExtBRC->Tag = L"chValue";
+			this->fcgCBExtBRC->Text = L"ExtBRC";
+			this->fcgCBExtBRC->UseVisualStyleBackColor = true;
+			// 
+			// fcgCBMBBRC
+			// 
+			this->fcgCBMBBRC->AutoSize = true;
+			this->fcgCBMBBRC->Location = System::Drawing::Point(34, 100);
+			this->fcgCBMBBRC->Name = L"fcgCBMBBRC";
+			this->fcgCBMBBRC->Size = System::Drawing::Size(149, 18);
+			this->fcgCBMBBRC->TabIndex = 144;
+			this->fcgCBMBBRC->Tag = L"chValue";
+			this->fcgCBMBBRC->Text = L"マクロブロック単位レート制御";
+			this->fcgCBMBBRC->UseVisualStyleBackColor = true;
+			// 
+			// fcgCXTrellis
+			// 
+			this->fcgCXTrellis->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fcgCXTrellis->FormattingEnabled = true;
+			this->fcgCXTrellis->Location = System::Drawing::Point(128, 72);
+			this->fcgCXTrellis->Name = L"fcgCXTrellis";
+			this->fcgCXTrellis->Size = System::Drawing::Size(121, 22);
+			this->fcgCXTrellis->TabIndex = 142;
+			this->fcgCXTrellis->Tag = L"chValue";
+			// 
+			// fcgLBTrellis
+			// 
+			this->fcgLBTrellis->AutoSize = true;
+			this->fcgLBTrellis->Location = System::Drawing::Point(10, 75);
+			this->fcgLBTrellis->Name = L"fcgLBTrellis";
+			this->fcgLBTrellis->Size = System::Drawing::Size(86, 14);
+			this->fcgLBTrellis->TabIndex = 143;
+			this->fcgLBTrellis->Text = L"歪みレート最適化";
+			// 
+			// fcgLBWinBRCSize
+			// 
+			this->fcgLBWinBRCSize->AutoSize = true;
+			this->fcgLBWinBRCSize->Location = System::Drawing::Point(16, 396);
+			this->fcgLBWinBRCSize->Name = L"fcgLBWinBRCSize";
+			this->fcgLBWinBRCSize->Size = System::Drawing::Size(103, 14);
+			this->fcgLBWinBRCSize->TabIndex = 151;
+			this->fcgLBWinBRCSize->Text = L"レート制御ウィンドウ幅";
+			// 
+			// fcgNUWinBRCSize
+			// 
+			this->fcgNUWinBRCSize->Location = System::Drawing::Point(132, 394);
+			this->fcgNUWinBRCSize->Name = L"fcgNUWinBRCSize";
+			this->fcgNUWinBRCSize->Size = System::Drawing::Size(77, 21);
+			this->fcgNUWinBRCSize->TabIndex = 152;
+			this->fcgNUWinBRCSize->Tag = L"chValue";
+			this->fcgNUWinBRCSize->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+			// 
+			// fcgLBWinBRCSizeAuto
+			// 
+			this->fcgLBWinBRCSizeAuto->AutoSize = true;
+			this->fcgLBWinBRCSizeAuto->Location = System::Drawing::Point(212, 396);
+			this->fcgLBWinBRCSizeAuto->Name = L"fcgLBWinBRCSizeAuto";
+			this->fcgLBWinBRCSizeAuto->Size = System::Drawing::Size(107, 14);
+			this->fcgLBWinBRCSizeAuto->TabIndex = 153;
+			this->fcgLBWinBRCSizeAuto->Text = L"フレーム  ※\"0\"で自動";
 			// 
 			// frmConfig
 			// 
@@ -4005,6 +4039,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPMax))->EndInit();
 			this->fcggroupBoxDetail->ResumeLayout(false);
 			this->fcggroupBoxDetail->PerformLayout();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUWinBRCSize))->EndInit();
 			this->ResumeLayout(false);
 			this->PerformLayout();
 

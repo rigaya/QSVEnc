@@ -157,13 +157,14 @@ namespace QSVEnc {
 				{ _T("適応的Bフレーム "), ENC_FEATURE_ADAPTIVE_B             },
 				{ _T("ピラミッド参照  "), ENC_FEATURE_B_PYRAMID              },
 				{ _T(" +シーンチェンジ"), ENC_FEATURE_B_PYRAMID_AND_SC       },
-				{ _T(" +多Bframe      "), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
+				{ _T(" +多Bframe     "),  ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
 				{ _T("MB単位レート制御"), ENC_FEATURE_MBBRC                  },
 				{ _T("ExtBRC          "), ENC_FEATURE_EXT_BRC                },
 				{ _T("先行探索品質    "), ENC_FEATURE_LA_DS                  },
 				{ _T("最大/最小 QP    "), ENC_FEATURE_QP_MINMAX              },
 				{ _T("周期的ｲﾝﾄﾗ更新  "), ENC_FEATURE_INTRA_REFRESH          },
 				{ _T("No-Deblock      "), ENC_FEATURE_NO_DEBLOCK             },
+				{ _T("拡張レート制御  "), ENC_FEATURE_WINBRC                 },
 				{ NULL, 0 },
 			};
 			//第2行以降を連続で追加していく

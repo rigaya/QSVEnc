@@ -704,6 +704,8 @@ System::Void frmConfig::InitStgFileList() {
 System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported) {
 	System::Boolean selected_idx_changed = false;
 	int encmode_idx = get_cx_index(list_encmode, rc_mode_target);
+	if (encmode_idx < 0)
+		return false;
 	if (mode_supported) {
 		fcgCXEncMode->Items[encmode_idx] = String(list_encmode[encmode_idx].desc).ToString();
 	} else {
@@ -721,7 +723,10 @@ System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU32 
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	if (   fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR))
+		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_QVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_QVBR))
 		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA,     MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA))
+		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_EXT, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_EXT))
+		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_HRD))
 		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ))
 		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)))
 		|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, 0 != (available_features & ENC_FEATURE_VCM)))
@@ -799,6 +804,10 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_HRD));
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_EXT, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_EXT));
 	fcgCheckRCModeLibVersion(MFX_RATECONTROL_QVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_QVBR));
+	fcgLBWinBRCSize->Enabled     = 0 != (available_features & ENC_FEATURE_WINBRC);
+	fcgLBWinBRCSizeAuto->Enabled = 0 != (available_features & ENC_FEATURE_WINBRC);
+	fcgNUWinBRCSize->Enabled     = 0 != (available_features & ENC_FEATURE_WINBRC);
+	if (!fcgNUWinBRCSize->Enabled) fcgNUWinBRCSize->Value = 0;
 
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
@@ -846,9 +855,10 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgPNBitrate->Visible = !cqp_mode;
 	fcgNUBitrate->Enabled = !cqp_mode;
 	fcgLBBitrate->Enabled = !cqp_mode;
-	fcgNUMaxkbps->Enabled = cbr_vbr_mode;
-	fcgLBMaxkbps->Enabled = cbr_vbr_mode;
-	fcgLBMaxBitrate2->Enabled = cbr_vbr_mode;
+	bool enableMaxKbps = cbr_vbr_mode || (available_features & ENC_FEATURE_WINBRC);
+	fcgNUMaxkbps->Enabled = enableMaxKbps;
+	fcgLBMaxkbps->Enabled = enableMaxKbps;
+	fcgLBMaxBitrate2->Enabled = enableMaxKbps;
 
 	fcgPNAVBR->Visible = avbr_mode;
 	fcgLBAVBRAccuarcy->Enabled = avbr_mode;
@@ -863,6 +873,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgNULookaheadDepth->Enabled = la_mode;
 	fcgLBLookaheadDS->Visible = la_mode;
 	fcgCXLookaheadDS->Visible = la_mode;
+	fcgLBWinBRCSize->Visible = la_mode;
+	fcgNUWinBRCSize->Visible = la_mode;
 
 	fcgNURef->Visible = !fcgCBHWEncode->Checked;
 	fcgLBRef->Visible = !fcgCBHWEncode->Checked;
@@ -1065,6 +1077,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, cnf->qsv.nLookaheadDS));
 	fcgCBMBBRC->Checked         = cnf->qsv.bMBBRC != 0;
 	fcgCBExtBRC->Checked        = cnf->qsv.bExtBRC != 0;
+	SetNUValue(fcgNUWinBRCSize,       cnf->qsv.nWinBRCSize);
 	SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, cnf->qsv.nPicStruct));
 	if (cnf->qsv.nPAR[0] * cnf->qsv.nPAR[1] <= 0)
 		cnf->qsv.nPAR[0] = cnf->qsv.nPAR[1] = 0;
@@ -1180,6 +1193,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
 	cnf->qsv.bMBBRC                 = fcgCBMBBRC->Checked;
 	cnf->qsv.bExtBRC                = fcgCBExtBRC->Checked;
+	cnf->qsv.nWinBRCSize            = (mfxU16)fcgNUWinBRCSize->Value;
 	cnf->qsv.bUseHWLib              = fcgCBHWEncode->Checked;
 	cnf->qsv.memType                = (mfxU8)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
 	cnf->qsv.nAVBRAccuarcy          = (mfxU16)(fcgNUAVBRAccuarcy->Value * 10);

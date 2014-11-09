@@ -100,6 +100,7 @@ enum {
 	ENC_FEATURE_INTRA_REFRESH          = 0x02000000,
 	ENC_FEATURE_NO_DEBLOCK             = 0x04000000,
 	ENC_FEATURE_QP_MINMAX              = 0x08000000,
+	ENC_FEATURE_WINBRC                 = 0x10000000,
 };
 
 static bool inline rc_is_type_lookahead(int rc) {
@@ -113,15 +114,15 @@ static const CX_DESC list_rate_control_ry[] = {
 	{ _T("CBR  "), MFX_RATECONTROL_CBR    },
 	{ _T("VBR  "), MFX_RATECONTROL_VBR    },
 	{ _T("AVBR "), MFX_RATECONTROL_AVBR   },
+	{ _T("QVBR "), MFX_RATECONTROL_QVBR   },
 	{ _T("CQP  "), MFX_RATECONTROL_CQP    },
 	{ _T("VQP  "), MFX_RATECONTROL_VQP    },
 	{ _T("LA   "), MFX_RATECONTROL_LA     },
+	{ _T("LAHRD"), MFX_RATECONTROL_LA_HRD },
 	{ _T("ICQ  "), MFX_RATECONTROL_ICQ    },
 	{ _T("LAICQ"), MFX_RATECONTROL_LA_ICQ },
 	//{ _T("LAEXT"), MFX_RATECONTROL_LA_EXT },
-	{ _T("LAHRD"), MFX_RATECONTROL_LA_HRD },
 	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
-	{ _T("QVBR "), MFX_RATECONTROL_QVBR   },
 };
 static const CX_DESC list_enc_feature[] = {
 	{ _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
@@ -144,6 +145,7 @@ static const CX_DESC list_enc_feature[] = {
 	{ _T("QP Min/Max   "), ENC_FEATURE_QP_MINMAX              },
 	{ _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
 	{ _T("No Debloc    "), ENC_FEATURE_NO_DEBLOCK             },
+	{ _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
 	{ NULL, 0 },
 };
 

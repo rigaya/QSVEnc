@@ -166,6 +166,8 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			//_T("                                   in percentage, defalut %.1f(%%)\n)"
 			_T("\n")
 			_T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
+			_T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
+			_T("                                  and set the window size in frames.\n")
 			_T("   --maxbitrate <int>           set max bitrate(kbps)\n")
 			_T("-u,--quality <string>           encode quality\n")
 			_T("                                  - best, higher, high, balanced(default)\n")
