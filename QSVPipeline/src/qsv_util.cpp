@@ -856,10 +856,14 @@ mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info) {
 #include <process.h>
 
 BOOL check_OS_Win8orLater() {
+#if (_MSC_VER >= 1800)
+	return IsWindows8OrGreater();
+#else
 	OSVERSIONINFO osvi = { 0 };
 	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 	GetVersionEx(&osvi);
 	return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
+#endif
 }
 
 const TCHAR *getOSVersion() {
@@ -930,7 +934,7 @@ const TCHAR *getOSVersion() {
 			break;
 		default:
 			if (7 <= info.dwPlatformId) {
-				ptr = _T("Later than Windows 8.1");
+				ptr = _T("Later than Windows 10");
 			}
 			break;
 		}
