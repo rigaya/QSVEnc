@@ -178,6 +178,7 @@ void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlLi
 void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
+mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver);
 void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();
@@ -187,6 +188,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize); //やや時間がかかるので注
 double getCPUDefaultClock();
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only = false);
 const TCHAR *getOSVersion();
+BOOL is_64bit_os();
 UINT64 getPhysicalRamSize(UINT64 *ramUsed);
 void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info = true);
 
@@ -196,6 +198,8 @@ void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 	return (_tcsicmp(PathFindExtension(filename), ext) == NULL) ? TRUE : FALSE;
 }
+
+const TCHAR *get_vpp_image_stab_mode_str(int mode);
 
 BOOL check_OS_Win8orLater();
 

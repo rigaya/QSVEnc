@@ -71,6 +71,7 @@ namespace QSVEnc {
 		Thread^ thGetFeatures;
 
 		array<UInt32>^ availableFeatures;
+		UInt32 availableVppFeatures;
 		bool hardware;
 		bool getLibVerFinished;
 		bool getFeaturesFinished;
@@ -108,6 +109,14 @@ namespace QSVEnc {
 			version.Version = mfxVer;
 			return CheckEncodeFeature(hardware, version, (mfxU16)list_rate_control_ry[rc_index].value);
 		}
+		UInt32 getVppFeatures() {
+			if (getFeaturesFinished) {
+				return availableVppFeatures;
+			}
+			mfxVersion version;
+			version.Version = mfxVer;
+			return CheckVppFeatures(hardware, version);
+		}
 		DataTable^ getFeatureTable() {
 			return dataTableQsvFeatures;
 		}
@@ -138,6 +147,7 @@ namespace QSVEnc {
 				for (int i = 0; i < _countof(list_rate_control_ry); i++) {
 					availableFeatures[i] = availableFeatureForEachRC[i];
 				}
+				availableVppFeatures = CheckVppFeatures(hardware, version);
 				getFeaturesFinished = true;
 				GenerateTable();
 			}

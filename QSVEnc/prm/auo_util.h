@@ -305,11 +305,13 @@ static DWORD cpu_core_count() {
 	return si.dwNumberOfProcessors;
 }
 
+#if 0
 static BOOL is_64bit_os() {
 	SYSTEM_INFO sinfo = { 0 };
 	GetNativeSystemInfo(&sinfo);
 	return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 }
+#endif
 
 static size_t get_intlen(int i) {
 	char str[256];

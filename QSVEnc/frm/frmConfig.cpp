@@ -631,30 +631,32 @@ System::Void frmConfig::InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *syst
 
 System::Void frmConfig::InitComboBox() {
 	//コンボボックスに値を設定する
-	setComboBox(fcgCXEncMode,       list_encmode);
-	setComboBox(fcgCXOutputType,    list_outtype);
-	setComboBox(fcgCXCodecLevel,    list_avc_level);
-	setComboBox(fcgCXCodecProfile,  list_avc_profile);
-	setComboBox(fcgCXQuality,       list_quality);
-	setComboBox(fcgCXInterlaced,    list_interlaced);
-	setComboBox(fcgCXAspectRatio,   list_aspect_ratio);
-	setComboBox(fcgCXTrellis,       list_avc_trellis);
-	setComboBox(fcgCXLookaheadDS,   list_lookahead_ds);
+	setComboBox(fcgCXEncMode,         list_encmode);
+	setComboBox(fcgCXOutputType,      list_outtype);
+	setComboBox(fcgCXCodecLevel,      list_avc_level);
+	setComboBox(fcgCXCodecProfile,    list_avc_profile);
+	setComboBox(fcgCXQuality,         list_quality);
+	setComboBox(fcgCXInterlaced,      list_interlaced);
+	setComboBox(fcgCXAspectRatio,     list_aspect_ratio);
+	setComboBox(fcgCXTrellis,         list_avc_trellis);
+	setComboBox(fcgCXLookaheadDS,     list_lookahead_ds);
 	
-	setComboBox(fcgCXMVPred,        list_mv_presicion);
-	setComboBox(fcgCXInterPred,     list_pred_block_size);
-	setComboBox(fcgCXIntraPred,     list_pred_block_size);
+	setComboBox(fcgCXMVPred,          list_mv_presicion);
+	setComboBox(fcgCXInterPred,       list_pred_block_size);
+	setComboBox(fcgCXIntraPred,       list_pred_block_size);
 
-	setComboBox(fcgCXAudioTempDir,  list_audtempdir);
-	setComboBox(fcgCXMP4BoxTempDir, list_mp4boxtempdir);
-	setComboBox(fcgCXTempDir,       list_tempdir);
+	setComboBox(fcgCXAudioTempDir,    list_audtempdir);
+	setComboBox(fcgCXMP4BoxTempDir,   list_mp4boxtempdir);
+	setComboBox(fcgCXTempDir,         list_tempdir);
 
-	setComboBox(fcgCXColorPrim,     list_colorprim);
-	setComboBox(fcgCXColorMatrix,   list_colormatrix);
-	setComboBox(fcgCXTransfer,      list_transfer);
-	setComboBox(fcgCXVideoFormat,   list_videoformat);
+	setComboBox(fcgCXColorPrim,       list_colorprim);
+	setComboBox(fcgCXColorMatrix,     list_colormatrix);
+	setComboBox(fcgCXTransfer,        list_transfer);
+	setComboBox(fcgCXVideoFormat,     list_videoformat);
 
-	setComboBox(fcgCXDeinterlace,   list_deinterlace);
+	setComboBox(fcgCXDeinterlace,     list_deinterlace);
+	setComboBox(fcgCXFPSConversion,   list_vpp_fps_conversion);
+	setComboBox(fcgCXImageStabilizer, list_vpp_image_stabilizer);
 
 	setComboBox(fcgCXAudioEncTiming, audio_enc_timing_desc);
 	setComboBox(fcgCXAudioDelayCut,  AUDIO_DELAY_CUT_MODE);
@@ -855,7 +857,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgPNBitrate->Visible = !cqp_mode;
 	fcgNUBitrate->Enabled = !cqp_mode;
 	fcgLBBitrate->Enabled = !cqp_mode;
-	bool enableMaxKbps = cbr_vbr_mode || (available_features & ENC_FEATURE_WINBRC);
+	bool enableMaxKbps = cbr_vbr_mode || qvbr_mode || (available_features & ENC_FEATURE_WINBRC);
 	fcgNUMaxkbps->Enabled = enableMaxKbps;
 	fcgLBMaxkbps->Enabled = enableMaxKbps;
 	fcgLBMaxBitrate2->Enabled = enableMaxKbps;
@@ -874,6 +876,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcgLBLookaheadDS->Visible = la_mode;
 	fcgCXLookaheadDS->Visible = la_mode;
 	fcgLBWinBRCSize->Visible = la_mode;
+	fcgLBWinBRCSizeAuto->Visible = la_mode;
 	fcgNUWinBRCSize->Visible = la_mode;
 
 	fcgNURef->Visible = !fcgCBHWEncode->Checked;
@@ -893,6 +896,30 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
 	this->ResumeLayout();
 	this->PerformLayout();
+}
+
+System::Void frmConfig::fcgCheckVppFeatures() {
+	UInt32 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
+	fcgCBVppResize->Enabled = 0 != (available_features & VPP_FEATURE_RESIZE);
+	if (!fcgCBVppResize->Enabled) fcgCBVppResize->Checked;
+	
+	fcgCBVppDenoise->Enabled = 0 != (available_features & VPP_FEATURE_DENOISE);
+	if (!fcgCBVppDenoise->Enabled) fcgCBVppDenoise->Checked;
+
+	fcgCBVppDetail->Enabled = 0 != (available_features & VPP_FEATURE_DETAIL_ENHANCEMENT);
+	if (!fcgCBVppDetail->Enabled) fcgCBVppDetail->Checked;
+
+	//fcgCXFPSConversion->Enabled = 0 != (available_features & VPP_FEATURE_FPS_CONVERSION_ADV);
+	//fcgLBFPSConversion->Enabled = fcgCXFPSConversion->Enabled;
+	//if (!fcgCXFPSConversion->Enabled) fcgCXFPSConversion->SelectedIndex = 0;
+	//うまくうごいてなさそうなので無効化
+	fcgCXFPSConversion->Visible = false;
+	fcgLBFPSConversion->Visible = false;
+	fcgCXFPSConversion->SelectedIndex = 0;
+
+	fcgCXImageStabilizer->Enabled = 0 != (available_features & VPP_FEATURE_IMAGE_STABILIZATION);
+	fcgLBImageStabilizer->Enabled = fcgCXImageStabilizer->Enabled;
+	if (!fcgCXImageStabilizer->Enabled) fcgCXImageStabilizer->SelectedIndex = 0;
 }
 
 System::Void frmConfig::fcgCBHWLibChanged(System::Object^  sender, System::EventArgs^  e) {
@@ -1120,6 +1147,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	fcgCBVppDetail->Checked                = cnf->qsv.vpp.bUseDetailEnhance;
 	SetNUValue(fcgNUVppDetail,               cnf->qsv.vpp.nDetailEnhance);
 	SetCXIndex(fcgCXDeinterlace,             cnf->qsv.vpp.nDeinterlace);
+	SetCXIndex(fcgCXImageStabilizer,         cnf->qsv.vpp.nImageStabilizer);
+	SetCXIndex(fcgCXFPSConversion,           cnf->qsv.vpp.nFPSConversion);
 
 		//SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
 		const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -1243,6 +1272,8 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.vpp.bUseDetailEnhance   = fcgCBVppDetail->Checked;
 	cnf->qsv.vpp.nDetailEnhance      = (mfxU16)fcgNUVppDetail->Value;
 	cnf->qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace[fcgCXDeinterlace->SelectedIndex].value;
+	cnf->qsv.vpp.nImageStabilizer    = (mfxU16)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
+	cnf->qsv.vpp.nFPSConversion      = (mfxU16)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
 
 	//拡張部
 	const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -1610,6 +1641,8 @@ System::Void frmConfig::UpdateFeatures() {
 	fcgDGVFeatures->DataSource = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureTable() : featuresSW->getFeatureTable(); //テーブルをバインド
 
 	fcgDGVFeatures->Columns[0]->FillWeight = 240;
+
+	fcgCheckVppFeatures();
 }
 
 System::Void frmConfig::SaveQSVFeature() {

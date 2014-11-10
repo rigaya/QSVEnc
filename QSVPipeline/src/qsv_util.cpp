@@ -90,7 +90,7 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
 	return TRUE;
 }
 
-mfxU32 CheckVppFeatureInternal(mfxSession session, mfxVersion mfxVer) {
+mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 	using namespace std;
 
 	mfxU32 result = 0x00;
@@ -133,7 +133,7 @@ mfxU32 CheckVppFeatureInternal(mfxSession session, mfxVersion mfxVer) {
 	videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
 	videoPrm.AsyncDepth           = 3;
 	videoPrm.IOPattern            = MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
-	videoPrm.vpp.In.FrameRateExtN = 30000;
+	videoPrm.vpp.In.FrameRateExtN = 24000;
 	videoPrm.vpp.In.FrameRateExtD = 1001;
 	videoPrm.vpp.In.FourCC        = MFX_FOURCC_NV12;
 	videoPrm.vpp.In.ChromaFormat  = MFX_CHROMAFORMAT_YUV420;
@@ -225,7 +225,7 @@ mfxU32 CheckVppFeatureInternal(mfxSession session, mfxVersion mfxVer) {
 	return result;
 }
 
-mfxU32 CheckVppFeature(bool hardware, mfxVersion ver) {
+mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver) {
 	mfxU32 feature = 0x00;
 	if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
 		//API v1.3未満で実際にチェックする必要は殆ど無いので、
@@ -239,7 +239,7 @@ mfxU32 CheckVppFeature(bool hardware, mfxVersion ver) {
 
 		mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
-		feature = (MFX_ERR_NONE == ret) ? CheckVppFeatureInternal(session, ver) : 0x00;
+		feature = (MFX_ERR_NONE == ret) ? CheckVppFeaturesInternal(session, ver) : 0x00;
 
 		MFXClose(session);
 	}
@@ -624,7 +624,7 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 
 void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str) {
 	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-	int features = CheckVppFeature(hardware, ver);
+	int features = CheckVppFeatures(hardware, ver);
 	TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
 	for (const CX_DESC *ptr = list_vpp_feature; ptr->desc; ptr++) {
 		str += ptr->desc;
@@ -743,6 +743,14 @@ void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
 			a = b, b = c;
 		*sar_w = aspect_w / b;
 		*sar_h = aspect_h / b;
+	}
+}
+
+const TCHAR *get_vpp_image_stab_mode_str(int mode) {
+	switch (mode) {
+	case MFX_IMAGESTAB_MODE_UPSCALE: return _T("upscale");
+	case MFX_IMAGESTAB_MODE_BOXING:  return _T("boxing");
+	default: return _T("unknown");
 	}
 }
 

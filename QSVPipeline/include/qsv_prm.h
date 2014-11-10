@@ -50,6 +50,12 @@ typedef struct {
 	mfxU16 left, up, right, bottom;
 } sInputCrop;
 
+typedef enum {
+	FPS_CONVERT_NONE = 0,
+	FPS_CONVERT_MUL2,
+	FPS_CONVERT_MUL2_5,
+};
+
 typedef struct {
 	bool bEnable;             //use vpp
 
@@ -65,7 +71,10 @@ typedef struct {
 	mfxU16 nDetailEnhance;    // 0 - 100 
 	mfxU16 nDeinterlace;      //set deinterlace mode
 
-	mfxU8 Reserved[128];  
+	mfxU16 nImageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
+	mfxU16 nFPSConversion;    //FPS_CONVERT_xxxx
+
+	mfxU8 Reserved[124];
 } sVppParams;
 
 struct sInputParams
@@ -393,6 +402,20 @@ const CX_DESC list_pred_block_size[] = {
 	{ _T("16x16"),         MFX_BLOCKSIZE_MIN_16X16  },
 	{ _T("8x8"),           MFX_BLOCKSIZE_MIN_8X8    },
 	{ _T("4x4"),           MFX_BLOCKSIZE_MIN_4X4    },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_vpp_image_stabilizer[] = {
+	{ _T("none"),    0 },
+	{ _T("upscale"), MFX_IMAGESTAB_MODE_UPSCALE },
+	{ _T("box"),     MFX_IMAGESTAB_MODE_BOXING  },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_vpp_fps_conversion[] = {
+	{ _T("off"),  0 },
+	{ _T("x2"),   FPS_CONVERT_MUL2 },
+	{ _T("x2.5"), FPS_CONVERT_MUL2_5  },
 	{ NULL, NULL }
 };
 

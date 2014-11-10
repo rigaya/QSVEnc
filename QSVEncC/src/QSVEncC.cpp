@@ -196,7 +196,12 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                 - none    disable deinterlace\n")
 			_T("                                 - normal  normal deinterlace\n")
 			_T("                                 - it      inverse telecine\n")
-			_T("                                 - bob     double framerate\n"),
+			_T("                                 - bob     double framerate\n")
+			//_T("   --vpp-fps-conv <string>      set fps conversion mode\n")
+			//_T("                                enabled only when input is progressive\n")
+			//_T("                                 - none, x2, x2.5\n")
+			_T("   --vpp-image-stab <string>    set image stabilizer mode\n")
+			_T("                                 - none, upscale, box\n"),
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
@@ -1008,6 +1013,32 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
+		else if (0 == _tcscmp(option_name, _T("vpp-image-stab")))
+		{
+			i++;
+			int value = 0;
+			if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+				pParams->vpp.nImageStabilizer = (mfxU16)value;
+			} else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_image_stabilizer, strInput[i]))) {
+				pParams->vpp.nImageStabilizer = (mfxU16)value;
+			} else {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-fps-conv")))
+		{
+			i++;
+			int value = 0;
+			if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+				pParams->vpp.nFPSConversion = (mfxU16)value;
+			} else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_fps_conversion, strInput[i]))) {
+				pParams->vpp.nFPSConversion = (mfxU16)value;
+			} else {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+		}
 		else if (0 == _tcscmp(option_name, _T("input-buf")))
 		{
 			i++;
@@ -1321,12 +1352,6 @@ int run_encode(sInputParams *params) {
 	_ftprintf(stderr, _T("\nProcessing finished\n"));
 
 	return sts;
-}
-
-static BOOL is_64bit_os() {
-	SYSTEM_INFO sinfo = { 0 };
-	GetNativeSystemInfo(&sinfo);
-	return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 }
 
 mfxStatus run_benchmark(sInputParams *params) {

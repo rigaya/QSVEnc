@@ -802,6 +802,12 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUWinBRCSize;
 private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 
 
+private: System::Windows::Forms::ComboBox^  fcgCXFPSConversion;
+private: System::Windows::Forms::Label^  fcgLBFPSConversion;
+private: System::Windows::Forms::Label^  fcgLBImageStabilizer;
+private: System::Windows::Forms::ComboBox^  fcgCXImageStabilizer;
+
+
 
 
 
@@ -1176,6 +1182,10 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			this->fcgLBWinBRCSize = (gcnew System::Windows::Forms::Label());
 			this->fcgNUWinBRCSize = (gcnew System::Windows::Forms::NumericUpDown());
 			this->fcgLBWinBRCSizeAuto = (gcnew System::Windows::Forms::Label());
+			this->fcgLBFPSConversion = (gcnew System::Windows::Forms::Label());
+			this->fcgCXFPSConversion = (gcnew System::Windows::Forms::ComboBox());
+			this->fcgLBImageStabilizer = (gcnew System::Windows::Forms::Label());
+			this->fcgCXImageStabilizer = (gcnew System::Windows::Forms::ComboBox());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -3354,6 +3364,10 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// 
 			// fcggroupBoxVpp
 			// 
+			this->fcggroupBoxVpp->Controls->Add(this->fcgCXImageStabilizer);
+			this->fcggroupBoxVpp->Controls->Add(this->fcgLBImageStabilizer);
+			this->fcggroupBoxVpp->Controls->Add(this->fcgLBFPSConversion);
+			this->fcggroupBoxVpp->Controls->Add(this->fcgCXFPSConversion);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgLBDeinterlaceDesc);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgCXDeinterlace);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgLBDeinterlace);
@@ -3365,7 +3379,7 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			this->fcggroupBoxVpp->Controls->Add(this->fcggroupBoxVppResize);
 			this->fcggroupBoxVpp->Location = System::Drawing::Point(12, 8);
 			this->fcggroupBoxVpp->Name = L"fcggroupBoxVpp";
-			this->fcggroupBoxVpp->Size = System::Drawing::Size(585, 233);
+			this->fcggroupBoxVpp->Size = System::Drawing::Size(585, 253);
 			this->fcggroupBoxVpp->TabIndex = 1;
 			this->fcggroupBoxVpp->TabStop = false;
 			this->fcggroupBoxVpp->Tag = L"";
@@ -3373,7 +3387,7 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// fcgLBDeinterlaceDesc
 			// 
 			this->fcgLBDeinterlaceDesc->AutoSize = true;
-			this->fcgLBDeinterlaceDesc->Location = System::Drawing::Point(109, 69);
+			this->fcgLBDeinterlaceDesc->Location = System::Drawing::Point(86, 131);
 			this->fcgLBDeinterlaceDesc->Name = L"fcgLBDeinterlaceDesc";
 			this->fcgLBDeinterlaceDesc->Size = System::Drawing::Size(184, 14);
 			this->fcgLBDeinterlaceDesc->TabIndex = 13;
@@ -3383,16 +3397,16 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// 
 			this->fcgCXDeinterlace->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
 			this->fcgCXDeinterlace->FormattingEnabled = true;
-			this->fcgCXDeinterlace->Location = System::Drawing::Point(107, 41);
+			this->fcgCXDeinterlace->Location = System::Drawing::Point(84, 103);
 			this->fcgCXDeinterlace->Name = L"fcgCXDeinterlace";
-			this->fcgCXDeinterlace->Size = System::Drawing::Size(169, 22);
+			this->fcgCXDeinterlace->Size = System::Drawing::Size(186, 22);
 			this->fcgCXDeinterlace->TabIndex = 1;
 			this->fcgCXDeinterlace->Tag = L"chValue";
 			// 
 			// fcgLBDeinterlace
 			// 
 			this->fcgLBDeinterlace->AutoSize = true;
-			this->fcgLBDeinterlace->Location = System::Drawing::Point(40, 44);
+			this->fcgLBDeinterlace->Location = System::Drawing::Point(17, 106);
 			this->fcgLBDeinterlace->Name = L"fcgLBDeinterlace";
 			this->fcgLBDeinterlace->Size = System::Drawing::Size(61, 14);
 			this->fcgLBDeinterlace->TabIndex = 12;
@@ -3401,7 +3415,7 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// fcgCBVppDetail
 			// 
 			this->fcgCBVppDetail->AutoSize = true;
-			this->fcgCBVppDetail->Location = System::Drawing::Point(271, 94);
+			this->fcgCBVppDetail->Location = System::Drawing::Point(436, 25);
 			this->fcgCBVppDetail->Name = L"fcgCBVppDetail";
 			this->fcgCBVppDetail->Size = System::Drawing::Size(116, 18);
 			this->fcgCBVppDetail->TabIndex = 11;
@@ -3414,16 +3428,16 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// 
 			this->fcggroupBoxVppDetail->Controls->Add(this->fcgNUVppDetail);
 			this->fcggroupBoxVppDetail->Controls->Add(this->fcgLBDetail);
-			this->fcggroupBoxVppDetail->Location = System::Drawing::Point(258, 95);
+			this->fcggroupBoxVppDetail->Location = System::Drawing::Point(423, 26);
 			this->fcggroupBoxVppDetail->Name = L"fcggroupBoxVppDetail";
-			this->fcggroupBoxVppDetail->Size = System::Drawing::Size(179, 60);
+			this->fcggroupBoxVppDetail->Size = System::Drawing::Size(150, 60);
 			this->fcggroupBoxVppDetail->TabIndex = 12;
 			this->fcggroupBoxVppDetail->TabStop = false;
 			// 
 			// fcgNUVppDetail
 			// 
 			this->fcgNUVppDetail->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
-			this->fcgNUVppDetail->Location = System::Drawing::Point(65, 27);
+			this->fcgNUVppDetail->Location = System::Drawing::Point(50, 27);
 			this->fcgNUVppDetail->Name = L"fcgNUVppDetail";
 			this->fcgNUVppDetail->Size = System::Drawing::Size(79, 21);
 			this->fcgNUVppDetail->TabIndex = 0;
@@ -3442,7 +3456,7 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// fcgCBVppDenoise
 			// 
 			this->fcgCBVppDenoise->AutoSize = true;
-			this->fcgCBVppDenoise->Location = System::Drawing::Point(43, 93);
+			this->fcgCBVppDenoise->Location = System::Drawing::Point(268, 24);
 			this->fcgCBVppDenoise->Name = L"fcgCBVppDenoise";
 			this->fcgCBVppDenoise->Size = System::Drawing::Size(72, 18);
 			this->fcgCBVppDenoise->TabIndex = 2;
@@ -3455,16 +3469,16 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// 
 			this->fcggroupBoxVppDenoise->Controls->Add(this->fcgNUVppDenoise);
 			this->fcggroupBoxVppDenoise->Controls->Add(this->fcgLBVppDenoise);
-			this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(30, 95);
+			this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(260, 26);
 			this->fcggroupBoxVppDenoise->Name = L"fcggroupBoxVppDenoise";
-			this->fcggroupBoxVppDenoise->Size = System::Drawing::Size(216, 59);
+			this->fcggroupBoxVppDenoise->Size = System::Drawing::Size(145, 59);
 			this->fcggroupBoxVppDenoise->TabIndex = 3;
 			this->fcggroupBoxVppDenoise->TabStop = false;
 			// 
 			// fcgNUVppDenoise
 			// 
 			this->fcgNUVppDenoise->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
-			this->fcgNUVppDenoise->Location = System::Drawing::Point(94, 27);
+			this->fcgNUVppDenoise->Location = System::Drawing::Point(49, 27);
 			this->fcgNUVppDenoise->Name = L"fcgNUVppDenoise";
 			this->fcgNUVppDenoise->Size = System::Drawing::Size(79, 21);
 			this->fcgNUVppDenoise->TabIndex = 4;
@@ -3474,7 +3488,7 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// fcgLBVppDenoise
 			// 
 			this->fcgLBVppDenoise->AutoSize = true;
-			this->fcgLBVppDenoise->Location = System::Drawing::Point(44, 29);
+			this->fcgLBVppDenoise->Location = System::Drawing::Point(15, 29);
 			this->fcgLBVppDenoise->Name = L"fcgLBVppDenoise";
 			this->fcgLBVppDenoise->Size = System::Drawing::Size(26, 14);
 			this->fcgLBVppDenoise->TabIndex = 0;
@@ -3483,7 +3497,7 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			// fcgCBVppResize
 			// 
 			this->fcgCBVppResize->AutoSize = true;
-			this->fcgCBVppResize->Location = System::Drawing::Point(43, 160);
+			this->fcgCBVppResize->Location = System::Drawing::Point(26, 26);
 			this->fcgCBVppResize->Name = L"fcgCBVppResize";
 			this->fcgCBVppResize->Size = System::Drawing::Size(58, 18);
 			this->fcgCBVppResize->TabIndex = 5;
@@ -3497,9 +3511,9 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			this->fcggroupBoxVppResize->Controls->Add(this->fcgNUVppResizeW);
 			this->fcggroupBoxVppResize->Controls->Add(this->fcgNUVppResizeH);
 			this->fcggroupBoxVppResize->Controls->Add(this->fcgLBVppResize);
-			this->fcggroupBoxVppResize->Location = System::Drawing::Point(30, 160);
+			this->fcggroupBoxVppResize->Location = System::Drawing::Point(13, 26);
 			this->fcggroupBoxVppResize->Name = L"fcggroupBoxVppResize";
-			this->fcggroupBoxVppResize->Size = System::Drawing::Size(216, 63);
+			this->fcggroupBoxVppResize->Size = System::Drawing::Size(228, 59);
 			this->fcggroupBoxVppResize->TabIndex = 10;
 			this->fcggroupBoxVppResize->TabStop = false;
 			// 
@@ -3839,9 +3853,9 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			this->fcggroupBoxDetail->Controls->Add(this->fcgLBTrellis);
 			this->fcggroupBoxDetail->Controls->Add(this->fcgCBIntraRefresh);
 			this->fcggroupBoxDetail->Controls->Add(this->fcgCBDeblock);
-			this->fcggroupBoxDetail->Location = System::Drawing::Point(12, 247);
+			this->fcggroupBoxDetail->Location = System::Drawing::Point(12, 267);
 			this->fcggroupBoxDetail->Name = L"fcggroupBoxDetail";
-			this->fcggroupBoxDetail->Size = System::Drawing::Size(276, 220);
+			this->fcggroupBoxDetail->Size = System::Drawing::Size(276, 200);
 			this->fcggroupBoxDetail->TabIndex = 130;
 			this->fcggroupBoxDetail->TabStop = false;
 			this->fcggroupBoxDetail->Text = L"詳細設定";
@@ -3935,6 +3949,44 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 			this->fcgLBWinBRCSizeAuto->Size = System::Drawing::Size(107, 14);
 			this->fcgLBWinBRCSizeAuto->TabIndex = 153;
 			this->fcgLBWinBRCSizeAuto->Text = L"フレーム  ※\"0\"で自動";
+			// 
+			// fcgLBFPSConversion
+			// 
+			this->fcgLBFPSConversion->AutoSize = true;
+			this->fcgLBFPSConversion->Location = System::Drawing::Point(16, 178);
+			this->fcgLBFPSConversion->Name = L"fcgLBFPSConversion";
+			this->fcgLBFPSConversion->Size = System::Drawing::Size(128, 14);
+			this->fcgLBFPSConversion->TabIndex = 5;
+			this->fcgLBFPSConversion->Text = L"補完付きフレームレート変換";
+			// 
+			// fcgCXFPSConversion
+			// 
+			this->fcgCXFPSConversion->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fcgCXFPSConversion->FormattingEnabled = true;
+			this->fcgCXFPSConversion->Location = System::Drawing::Point(153, 175);
+			this->fcgCXFPSConversion->Name = L"fcgCXFPSConversion";
+			this->fcgCXFPSConversion->Size = System::Drawing::Size(117, 22);
+			this->fcgCXFPSConversion->TabIndex = 22;
+			this->fcgCXFPSConversion->Tag = L"chValue";
+			// 
+			// fcgLBImageStabilizer
+			// 
+			this->fcgLBImageStabilizer->AutoSize = true;
+			this->fcgLBImageStabilizer->Location = System::Drawing::Point(17, 216);
+			this->fcgLBImageStabilizer->Name = L"fcgLBImageStabilizer";
+			this->fcgLBImageStabilizer->Size = System::Drawing::Size(91, 14);
+			this->fcgLBImageStabilizer->TabIndex = 23;
+			this->fcgLBImageStabilizer->Text = L"ImageStabilizer";
+			// 
+			// fcgCXImageStabilizer
+			// 
+			this->fcgCXImageStabilizer->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fcgCXImageStabilizer->FormattingEnabled = true;
+			this->fcgCXImageStabilizer->Location = System::Drawing::Point(153, 213);
+			this->fcgCXImageStabilizer->Name = L"fcgCXImageStabilizer";
+			this->fcgCXImageStabilizer->Size = System::Drawing::Size(117, 22);
+			this->fcgCXImageStabilizer->TabIndex = 24;
+			this->fcgCXImageStabilizer->Tag = L"chValue";
 			// 
 			// frmConfig
 			// 
@@ -4130,6 +4182,7 @@ private: System::Windows::Forms::Label^  fcgLBWinBRCSize;
 		System::Boolean fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported);
 		System::Void UpdateMfxLibDetection();
 		System::Void UpdateFeatures();
+		System::Void fcgCheckVppFeatures();
 		System::Void fcgCBHWLibChanged(System::Object^  sender, System::EventArgs^  e);
 		System::Void SaveQSVFeatureAsImg(String^ SavePath);
 		System::Void SaveQSVFeatureAsTxt(String^ SavePath);
