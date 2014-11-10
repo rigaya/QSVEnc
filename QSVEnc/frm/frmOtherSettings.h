@@ -159,6 +159,7 @@ namespace QSVEnc {
 			this->fosCXDefaultOutExt = (gcnew System::Windows::Forms::ComboBox());
 			this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
 			this->fostabPageGUI = (gcnew System::Windows::Forms::TabPage());
+			this->fosCBOutputMoreLog = (gcnew System::Windows::Forms::CheckBox());
 			this->fosCBWineCompat = (gcnew System::Windows::Forms::CheckBox());
 			this->fosBTSetFont = (gcnew System::Windows::Forms::Button());
 			this->fosCBGetRelativePath = (gcnew System::Windows::Forms::CheckBox());
@@ -171,7 +172,6 @@ namespace QSVEnc {
 			this->fosBTStgDir = (gcnew System::Windows::Forms::Button());
 			this->fosLBStgDir = (gcnew System::Windows::Forms::Label());
 			this->fosTXStgDir = (gcnew System::Windows::Forms::TextBox());
-			this->fosCBOutputMoreLog = (gcnew System::Windows::Forms::CheckBox());
 			this->fosTabControl->SuspendLayout();
 			this->fostabPageGeneral->SuspendLayout();
 			this->fostabPageGUI->SuspendLayout();
@@ -372,6 +372,16 @@ namespace QSVEnc {
 			this->fostabPageGUI->Text = L"ログ・設定画面";
 			this->fostabPageGUI->UseVisualStyleBackColor = true;
 			// 
+			// fosCBOutputMoreLog
+			// 
+			this->fosCBOutputMoreLog->AutoSize = true;
+			this->fosCBOutputMoreLog->Location = System::Drawing::Point(16, 316);
+			this->fosCBOutputMoreLog->Name = L"fosCBOutputMoreLog";
+			this->fosCBOutputMoreLog->Size = System::Drawing::Size(143, 19);
+			this->fosCBOutputMoreLog->TabIndex = 27;
+			this->fosCBOutputMoreLog->Text = L"音声・muxのログも表示";
+			this->fosCBOutputMoreLog->UseVisualStyleBackColor = true;
+			// 
 			// fosCBWineCompat
 			// 
 			this->fosCBWineCompat->AutoSize = true;
@@ -381,6 +391,7 @@ namespace QSVEnc {
 			this->fosCBWineCompat->TabIndex = 26;
 			this->fosCBWineCompat->Text = L"wine互換モード";
 			this->fosCBWineCompat->UseVisualStyleBackColor = true;
+			this->fosCBWineCompat->Visible = false;
 			// 
 			// fosBTSetFont
 			// 
@@ -489,16 +500,6 @@ namespace QSVEnc {
 			this->fosTXStgDir->Name = L"fosTXStgDir";
 			this->fosTXStgDir->Size = System::Drawing::Size(294, 23);
 			this->fosTXStgDir->TabIndex = 6;
-			// 
-			// fosCBOutputMoreLog
-			// 
-			this->fosCBOutputMoreLog->AutoSize = true;
-			this->fosCBOutputMoreLog->Location = System::Drawing::Point(16, 316);
-			this->fosCBOutputMoreLog->Name = L"fosCBOutputMoreLog";
-			this->fosCBOutputMoreLog->Size = System::Drawing::Size(143, 19);
-			this->fosCBOutputMoreLog->TabIndex = 27;
-			this->fosCBOutputMoreLog->Text = L"音声・muxのログも表示";
-			this->fosCBOutputMoreLog->UseVisualStyleBackColor = true;
 			// 
 			// frmOtherSettings
 			// 
