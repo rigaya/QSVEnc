@@ -71,6 +71,7 @@ namespace QSVEnc {
 		Thread^ thGetFeatures;
 
 		array<UInt32>^ availableFeatures;
+		UInt32 availableVppFeatures;
 		bool hardware;
 		bool getLibVerFinished;
 		bool getFeaturesFinished;
@@ -108,6 +109,14 @@ namespace QSVEnc {
 			version.Version = mfxVer;
 			return CheckEncodeFeature(hardware, version, (mfxU16)list_rate_control_ry[rc_index].value);
 		}
+		UInt32 getVppFeatures() {
+			if (getFeaturesFinished) {
+				return availableVppFeatures;
+			}
+			mfxVersion version;
+			version.Version = mfxVer;
+			return CheckVppFeatures(hardware, version);
+		}
 		DataTable^ getFeatureTable() {
 			return dataTableQsvFeatures;
 		}
@@ -138,29 +147,34 @@ namespace QSVEnc {
 				for (int i = 0; i < _countof(list_rate_control_ry); i++) {
 					availableFeatures[i] = availableFeatureForEachRC[i];
 				}
+				availableVppFeatures = CheckVppFeatures(hardware, version);
 				getFeaturesFinished = true;
 				GenerateTable();
 			}
 		}
 		System::Void GenerateTable() {
 			static const CX_DESC list_enc_feature_jp[] = {
-				{ _T("モード有効               "), ENC_FEATURE_CURRENT_RC             },
-				{ _T("インタレ保持             "), ENC_FEATURE_INTERLACE              },
-				{ _T("シーンチェンジ検出(SC)   "), ENC_FEATURE_SCENECHANGE            },
-				{ _T("色設定等出力             "), ENC_FEATURE_VUI_INFO               },
-				//{ _T("aud                      "), ENC_FEATURE_AUD                    },
-				//{ _T("pic_struct               "), ENC_FEATURE_PIC_STRUCT             },
-				{ _T("Trellis                  "), ENC_FEATURE_TRELLIS                },
-				//{ _T("rdo                      "), ENC_FEATURE_RDO                    },
-				//{ _T("CAVLC                    "), ENC_FEATURE_CAVLC                  },
-				{ _T("適応的Iフレーム挿入      "), ENC_FEATURE_ADAPTIVE_I             },
-				{ _T("適応的Bフレーム挿入      "), ENC_FEATURE_ADAPTIVE_B             },
-				{ _T("ピラミッド参照           "), ENC_FEATURE_B_PYRAMID              },
-				{ _T("ピラミッド参照＋SC       "), ENC_FEATURE_B_PYRAMID_AND_SC       },
-				{ _T("ピラミッド参照＋多Bframe "), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
-				{ _T("MB単位レート制御         "), ENC_FEATURE_MBBRC                  },
-				{ _T("ExtBRC                   "), ENC_FEATURE_EXT_BRC                },
-				{ _T("先行探索品質             "), ENC_FEATURE_LA_DS                  },
+				{ _T("モード有効      "), ENC_FEATURE_CURRENT_RC             },
+				{ _T("インタレ保持    "), ENC_FEATURE_INTERLACE              },
+				{ _T("シーンチェンジ  "), ENC_FEATURE_SCENECHANGE            },
+				{ _T("色設定等出力    "), ENC_FEATURE_VUI_INFO               },
+				//{ _T("aud             "), ENC_FEATURE_AUD                    },
+				//{ _T("pic_struct      "), ENC_FEATURE_PIC_STRUCT             },
+				{ _T("Trellis         "), ENC_FEATURE_TRELLIS                },
+				//{ _T("rdo             "), ENC_FEATURE_RDO                    },
+				//{ _T("CAVLC           "), ENC_FEATURE_CAVLC                  },
+				{ _T("適応的Iフレーム "), ENC_FEATURE_ADAPTIVE_I             },
+				{ _T("適応的Bフレーム "), ENC_FEATURE_ADAPTIVE_B             },
+				{ _T("ピラミッド参照  "), ENC_FEATURE_B_PYRAMID              },
+				{ _T(" +シーンチェンジ"), ENC_FEATURE_B_PYRAMID_AND_SC       },
+				{ _T(" +多Bframe     "),  ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
+				{ _T("MB単位レート制御"), ENC_FEATURE_MBBRC                  },
+				{ _T("ExtBRC          "), ENC_FEATURE_EXT_BRC                },
+				{ _T("先行探索品質    "), ENC_FEATURE_LA_DS                  },
+				{ _T("最大/最小 QP    "), ENC_FEATURE_QP_MINMAX              },
+				{ _T("周期的ｲﾝﾄﾗ更新  "), ENC_FEATURE_INTRA_REFRESH          },
+				{ _T("No-Deblock      "), ENC_FEATURE_NO_DEBLOCK             },
+				{ _T("拡張レート制御  "), ENC_FEATURE_WINBRC                 },
 				{ NULL, 0 },
 			};
 			//第2行以降を連続で追加していく
@@ -220,9 +234,11 @@ const CX_DESC list_encmode[] = {
 	{ "ビットレート指定 - CBR",           MFX_RATECONTROL_CBR    },
 	{ "ビットレート指定 - VBR",           MFX_RATECONTROL_VBR    },
 	{ "ビットレート指定 - AVBR",          MFX_RATECONTROL_AVBR   },
+	{ "ビットレート指定 - QVBR",          MFX_RATECONTROL_QVBR   },
 	{ "固定量子化量 (CQP)",               MFX_RATECONTROL_CQP    },
 	{ "可変QP (VQP, プログレッシブのみ)", MFX_RATECONTROL_VQP    },
 	{ "先行探索レート制御",               MFX_RATECONTROL_LA     },
+	{ "先行探索レート制御 (HRD準拠)",     MFX_RATECONTROL_LA_HRD },
 	{ "固定品質モード",                   MFX_RATECONTROL_ICQ    },
 	{ "先行探索付き固定品質モード",       MFX_RATECONTROL_LA_ICQ },
 	{ "ビデオ会議モード",                 MFX_RATECONTROL_VCM    },

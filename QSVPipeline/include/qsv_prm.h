@@ -50,6 +50,12 @@ typedef struct {
 	mfxU16 left, up, right, bottom;
 } sInputCrop;
 
+typedef enum {
+	FPS_CONVERT_NONE = 0,
+	FPS_CONVERT_MUL2,
+	FPS_CONVERT_MUL2_5,
+};
+
 typedef struct {
 	bool bEnable;             //use vpp
 
@@ -65,7 +71,10 @@ typedef struct {
 	mfxU16 nDetailEnhance;    // 0 - 100 
 	mfxU16 nDeinterlace;      //set deinterlace mode
 
-	mfxU8 Reserved[128];  
+	mfxU16 nImageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
+	mfxU16 nFPSConversion;    //FPS_CONVERT_xxxx
+
+	mfxU8 Reserved[124];
 } sVppParams;
 
 struct sInputParams
@@ -157,7 +166,15 @@ struct sInputParams
 
 	mfxU8      bDisableTimerPeriodTuning;
 	
-	mfxU8      Reserved[1202];
+	mfxU16     nQVBRQuality;
+
+	mfxU8      bIntraRefresh;
+	mfxU8      bNoDeblock;
+	mfxU8      nQPMin[3];
+	mfxU8      nQPMax[3];
+
+	mfxU16     nWinBRCSize;
+	mfxU8      Reserved[1190];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -388,11 +405,25 @@ const CX_DESC list_pred_block_size[] = {
 	{ NULL, NULL }
 };
 
+const CX_DESC list_vpp_image_stabilizer[] = {
+	{ _T("none"),    0 },
+	{ _T("upscale"), MFX_IMAGESTAB_MODE_UPSCALE },
+	{ _T("box"),     MFX_IMAGESTAB_MODE_BOXING  },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_vpp_fps_conversion[] = {
+	{ _T("off"),  0 },
+	{ _T("x2"),   FPS_CONVERT_MUL2 },
+	{ _T("x2.5"), FPS_CONVERT_MUL2_5  },
+	{ NULL, NULL }
+};
+
 static int get_cx_index(const CX_DESC * list, int v) {
 	for (int i = 0; list[i].desc; i++)
 		if (list[i].value == v)
 			return i;
-	return 0;
+	return -1;
 }
 static int get_cx_index(const CX_DESC * list, const TCHAR *chr) {
 	for (int i = 0; list[i].desc; i++)
@@ -413,6 +444,7 @@ static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
 const int QSV_DEFAULT_REF = 0;
 const int QSV_DEFAULT_GOP_LEN = 0;
 const int QSV_DEFAULT_ICQ = 23;
+const int QSV_DEFAULT_QVBR = 23;
 const int QSV_DEFAULT_QPI = 24;
 const int QSV_DEFAULT_QPP = 26;
 const int QSV_DEFAULT_QPB = 27;

@@ -90,16 +90,176 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
 	return TRUE;
 }
 
+mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
+	using namespace std;
+
+	mfxU32 result = 0x00;
+	result |= VPP_FEATURE_RESIZE;
+	result |= VPP_FEATURE_DENOISE;
+	result |= VPP_FEATURE_DETAIL_ENHANCEMENT;
+	result |= VPP_FEATURE_PROC_AMP;
+	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_3))
+		return result;
+
+	MFXVideoVPP vpp(session);
+
+	mfxExtVPPDoUse vppDoUse;
+	mfxExtVPPDoUse vppDoNotUse;
+	mfxExtVPPFrameRateConversion vppFpsConv;
+	mfxExtVPPImageStab vppImageStab;
+	mfxExtVPPVideoSignalInfo vppVSI;
+	INIT_MFX_EXT_BUFFER(vppDoUse,     MFX_EXTBUFF_VPP_DOUSE);
+	INIT_MFX_EXT_BUFFER(vppDoNotUse,  MFX_EXTBUFF_VPP_DONOTUSE);
+	INIT_MFX_EXT_BUFFER(vppFpsConv,   MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
+	INIT_MFX_EXT_BUFFER(vppImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
+	INIT_MFX_EXT_BUFFER(vppVSI,       MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
+
+	vppFpsConv.Algorithm = MFX_FRCALGM_FRAME_INTERPOLATION;
+	vppImageStab.Mode = MFX_IMAGESTAB_MODE_UPSCALE;
+	vppVSI.In.TransferMatrix = MFX_TRANSFERMATRIX_BT601;
+	vppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT709;
+	vppVSI.In.NominalRange = MFX_NOMINALRANGE_16_235;
+	vppVSI.Out.NominalRange = MFX_NOMINALRANGE_0_255;
+
+	vector<mfxExtBuffer*> buf;
+	buf.push_back((mfxExtBuffer *)&vppDoUse);
+	buf.push_back((mfxExtBuffer *)&vppDoNotUse);
+	buf.push_back((mfxExtBuffer *)nullptr);
+
+	mfxVideoParam videoPrm;
+	MSDK_ZERO_MEMORY(videoPrm);
+	
+	videoPrm.NumExtParam = (mfxU16)buf.size();
+	videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
+	videoPrm.AsyncDepth           = 3;
+	videoPrm.IOPattern            = MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
+	videoPrm.vpp.In.FrameRateExtN = 24000;
+	videoPrm.vpp.In.FrameRateExtD = 1001;
+	videoPrm.vpp.In.FourCC        = MFX_FOURCC_NV12;
+	videoPrm.vpp.In.ChromaFormat  = MFX_CHROMAFORMAT_YUV420;
+	videoPrm.vpp.In.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
+	videoPrm.vpp.In.AspectRatioW  = 1;
+	videoPrm.vpp.In.AspectRatioH  = 1;
+	videoPrm.vpp.In.Width         = 1920;
+	videoPrm.vpp.In.Height        = 1088;
+	videoPrm.vpp.In.CropX         = 0;
+	videoPrm.vpp.In.CropY         = 0;
+	videoPrm.vpp.In.CropW         = 1920;
+	videoPrm.vpp.In.CropH         = 1080;
+	memcpy(&videoPrm.vpp.Out, &videoPrm.vpp.In, sizeof(videoPrm.vpp.In));
+	videoPrm.vpp.Out.Width        = 1280;
+	videoPrm.vpp.Out.Height       = 720;
+	videoPrm.vpp.Out.CropW        = 1280;
+	videoPrm.vpp.Out.CropH        = 720;
+
+	mfxExtVPPDoUse vppDoUseOut;
+	mfxExtVPPDoUse vppDoNotUseOut;
+	mfxExtVPPFrameRateConversion vppFpsConvOut;
+	mfxExtVPPImageStab vppImageStabOut;
+	mfxExtVPPVideoSignalInfo vppVSIOut;
+	
+	memcpy(&vppDoUseOut,     &vppDoUse,     sizeof(vppDoUse));
+	memcpy(&vppDoNotUseOut,  &vppDoNotUse,  sizeof(vppDoNotUse));
+	memcpy(&vppFpsConvOut,   &vppFpsConv,   sizeof(vppFpsConv));
+	memcpy(&vppImageStabOut, &vppImageStab, sizeof(vppImageStab));
+	memcpy(&vppVSIOut,       &vppVSI,       sizeof(vppVSI));
+	
+	vector<mfxExtBuffer *> bufOut;
+	bufOut.push_back((mfxExtBuffer *)&vppDoUse);
+	bufOut.push_back((mfxExtBuffer *)&vppDoNotUse);
+	bufOut.push_back((mfxExtBuffer *)nullptr);
+
+	mfxVideoParam videoPrmOut;
+	memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
+	videoPrmOut.NumExtParam = (mfxU16)bufOut.size();
+	videoPrmOut.ExtParam = (bufOut.size()) ? &bufOut[0] : NULL;
+
+	static const mfxU32 vppList[] = {
+		MFX_EXTBUFF_VPP_PROCAMP,
+		MFX_EXTBUFF_VPP_DENOISE,
+		MFX_EXTBUFF_VPP_DETAIL,
+		MFX_EXTBUFF_VPP_AUXDATA
+	};
+	auto check_feature = [&](mfxExtBuffer *structIn, mfxExtBuffer *structOut, mfxVersion requiredVer, mfxU32 featureNoErr, mfxU32 featureWarn) {
+		if (check_lib_version(mfxVer, requiredVer)) {
+			const mfxU32 target = structIn->BufferId;
+			//vppDoUseListとvppDoNotUseListを構築する
+			vector<mfxU32> vppDoUseList;
+			vector<mfxU32> vppDoNotUseList;
+			vppDoUseList.push_back(target);
+			for (int i = 0; i < _countof(vppList); i++)
+				vppDoNotUseList.push_back(vppList[i]);
+			//出力側に同じものをコピー
+			vector<mfxU32> vppDoUseListOut(vppDoUseList.size());
+			vector<mfxU32> vppDoNotUseListOut(vppDoNotUseList.size());
+			copy(vppDoUseList.begin(), vppDoUseList.end(), vppDoUseListOut.begin());
+			copy(vppDoNotUseList.begin(), vppDoNotUseList.end(), vppDoNotUseListOut.begin());
+			//入力側の設定
+			vppDoUse.NumAlg     = vppDoUseList.size();
+			vppDoUse.AlgList    = &vppDoUseList[0];
+			vppDoNotUse.NumAlg  = vppDoNotUseList.size();
+			vppDoNotUse.AlgList = &vppDoNotUseList[0];
+			//出力側の設定
+			vppDoUseOut.NumAlg     = vppDoUseListOut.size();
+			vppDoUseOut.AlgList    = &vppDoUseListOut[0];
+			vppDoNotUseOut.NumAlg  = vppDoNotUseListOut.size();
+			vppDoNotUseOut.AlgList = &vppDoNotUseListOut[0];
+			//bufの一番端はチェック用に開けてあるので、そこに構造体へのポインタを入れる
+			*(buf.end()    - 1) = (mfxExtBuffer *)structIn;
+			*(bufOut.end() - 1) = (mfxExtBuffer *)structOut;
+			mfxStatus ret = vpp.Query(&videoPrm, &videoPrmOut);
+			if (MFX_ERR_NONE <= ret)
+				result |= (MFX_ERR_NONE == ret) ? featureNoErr : featureWarn;
+		}
+	};
+
+	check_feature((mfxExtBuffer *)&vppImageStab, (mfxExtBuffer *)&vppImageStabOut, MFX_LIB_VERSION_1_6,  VPP_FEATURE_IMAGE_STABILIZATION, 0x00);
+	check_feature((mfxExtBuffer *)&vppVSI,       (mfxExtBuffer *)&vppVSIOut,       MFX_LIB_VERSION_1_8,  VPP_FEATURE_VIDEO_SIGNAL_INFO,   0x00);
+	
+	videoPrm.vpp.Out.FrameRateExtN    = 60000;
+	videoPrm.vpp.Out.FrameRateExtD    = 1001;
+	videoPrmOut.vpp.Out.FrameRateExtN = 60000;
+	videoPrmOut.vpp.Out.FrameRateExtD = 1001;
+	check_feature((mfxExtBuffer *)&vppFpsConv,   (mfxExtBuffer *)&vppFpsConvOut,   MFX_LIB_VERSION_1_3,  VPP_FEATURE_FPS_CONVERSION_ADV,  VPP_FEATURE_FPS_CONVERSION);
+
+	return result;
+}
+
+mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver) {
+	mfxU32 feature = 0x00;
+	if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
+		//API v1.3未満で実際にチェックする必要は殆ど無いので、
+		//コードで決められた値を返すようにする
+		feature |= VPP_FEATURE_RESIZE;
+		feature |= VPP_FEATURE_DENOISE;
+		feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
+		feature |= VPP_FEATURE_PROC_AMP;
+	} else {
+		mfxSession session;
+
+		mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
+
+		feature = (MFX_ERR_NONE == ret) ? CheckVppFeaturesInternal(session, ver) : 0x00;
+
+		MFXClose(session);
+	}
+
+	return feature;
+}
+
 mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol) {
 	const std::vector<std::pair<mfxU16, mfxVersion>> rc_list = {
-		{ MFX_RATECONTROL_VBR,    MFX_LIB_VERSION_1_1 },
-		{ MFX_RATECONTROL_CBR,    MFX_LIB_VERSION_1_1 },
-		{ MFX_RATECONTROL_CQP,    MFX_LIB_VERSION_1_1 },
-		{ MFX_RATECONTROL_VQP,    MFX_LIB_VERSION_1_1 },
-		{ MFX_RATECONTROL_AVBR,   MFX_LIB_VERSION_1_3 },
-		{ MFX_RATECONTROL_LA,     MFX_LIB_VERSION_1_7 },
-		{ MFX_RATECONTROL_LA_ICQ, MFX_LIB_VERSION_1_8 },
-		{ MFX_RATECONTROL_VCM,    MFX_LIB_VERSION_1_8 },
+		{ MFX_RATECONTROL_VBR,    MFX_LIB_VERSION_1_1  },
+		{ MFX_RATECONTROL_CBR,    MFX_LIB_VERSION_1_1  },
+		{ MFX_RATECONTROL_CQP,    MFX_LIB_VERSION_1_1  },
+		{ MFX_RATECONTROL_VQP,    MFX_LIB_VERSION_1_1  },
+		{ MFX_RATECONTROL_AVBR,   MFX_LIB_VERSION_1_3  },
+		{ MFX_RATECONTROL_LA,     MFX_LIB_VERSION_1_7  },
+		{ MFX_RATECONTROL_LA_ICQ, MFX_LIB_VERSION_1_8  },
+		{ MFX_RATECONTROL_VCM,    MFX_LIB_VERSION_1_8  },
+		//{ MFX_RATECONTROL_LA_EXT, MFX_LIB_VERSION_1_11 },
+		{ MFX_RATECONTROL_LA_HRD, MFX_LIB_VERSION_1_11 },
+		{ MFX_RATECONTROL_QVBR,   MFX_LIB_VERSION_1_11 },
 	};
 	for (auto rc : rc_list) {
 		if (ratecontrol == rc.first) {
@@ -113,19 +273,19 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 	MFXVideoENCODE encode(session);
 
 	mfxExtCodingOption cop;
-	MSDK_ZERO_MEMORY(cop);
-	cop.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
-	cop.Header.BufferSz = sizeof(mfxExtCodingOption);
-
 	mfxExtCodingOption2 cop2;
-	MSDK_ZERO_MEMORY(cop2);
-	cop2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
-	cop2.Header.BufferSz = sizeof(mfxExtCodingOption2);
+	mfxExtCodingOption3 cop3;
+	INIT_MFX_EXT_BUFFER(cop,  MFX_EXTBUFF_CODING_OPTION);
+	INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
+	INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
 
 	std::vector<mfxExtBuffer *> buf;
 	buf.push_back((mfxExtBuffer *)&cop);
 	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
 		buf.push_back((mfxExtBuffer *)&cop2);
+	}
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
+		buf.push_back((mfxExtBuffer *)&cop3);
 	}
 
 	mfxVideoParam videoPrm;
@@ -136,7 +296,10 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR
 			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CBR
 			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA
-			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VCM) {
+			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA_HRD
+			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA_EXT
+			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VCM
+			|| videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
 			videoPrm.mfx.TargetKbps = 3000;
 			videoPrm.mfx.MaxKbps    = 3000; //videoPrm.mfx.MaxKbpsはvideoPrm.mfx.TargetKbpsと一致させないとCBRの時に失敗する
 			if (videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
@@ -150,6 +313,8 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			videoPrm.mfx.QPP = 23;
 			videoPrm.mfx.QPB = 23;
 		} else {
+			//MFX_RATECONTROL_ICQ
+			//MFX_RATECONTROL_LA_ICQ
 			videoPrm.mfx.ICQQuality = 23;
 		}
 	};
@@ -186,16 +351,21 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 
 	mfxExtCodingOption copOut;
 	mfxExtCodingOption2 cop2Out;
+	mfxExtCodingOption3 cop3Out;
 	std::vector<mfxExtBuffer *> bufOut;
 	bufOut.push_back((mfxExtBuffer *)&copOut);
 	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
 		bufOut.push_back((mfxExtBuffer *)&cop2Out);
 	}
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
+		bufOut.push_back((mfxExtBuffer *)&cop3Out);
+	}
 	mfxVideoParam videoPrmOut;
 	//In, Outのパラメータが同一となっているようにきちんとコピーする
 	//そうしないとQueryが失敗する
-	MSDK_MEMCPY(&copOut, &cop, sizeof(cop));
+	MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop));
 	MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2));
+	MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3));
 	MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
 	videoPrm.NumExtParam = (mfxU16)bufOut.size();
 	videoPrm.ExtParam = &bufOut[0];
@@ -211,8 +381,9 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 				mfxU16 original_method = videoPrm.mfx.RateControlMethod;
 				videoPrm.mfx.RateControlMethod = mode;
 				set_default_quality_prm();
-				MSDK_MEMCPY(&copOut, &cop, sizeof(cop));
+				MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop));
 				MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2));
+				MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3));
 				MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
 				videoPrm.NumExtParam = (mfxU16)bufOut.size();
 				videoPrm.ExtParam = &bufOut[0];
@@ -222,17 +393,20 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 				set_default_quality_prm();
 			}
 		};
-		check_enc_mode(MFX_RATECONTROL_AVBR, ENC_FEATURE_AVBR, MFX_LIB_VERSION_1_3);
-		check_enc_mode(MFX_RATECONTROL_LA,   ENC_FEATURE_LA,   MFX_LIB_VERSION_1_7);
-		check_enc_mode(MFX_RATECONTROL_ICQ,  ENC_FEATURE_ICQ,  MFX_LIB_VERSION_1_8);
-		check_enc_mode(MFX_RATECONTROL_VCM,  ENC_FEATURE_VCM,  MFX_LIB_VERSION_1_8);
+		check_enc_mode(MFX_RATECONTROL_AVBR,   ENC_FEATURE_AVBR,   MFX_LIB_VERSION_1_3);
+		check_enc_mode(MFX_RATECONTROL_LA,     ENC_FEATURE_LA,     MFX_LIB_VERSION_1_7);
+		check_enc_mode(MFX_RATECONTROL_ICQ,    ENC_FEATURE_ICQ,    MFX_LIB_VERSION_1_8);
+		check_enc_mode(MFX_RATECONTROL_VCM,    ENC_FEATURE_VCM,    MFX_LIB_VERSION_1_8);
+		check_enc_mode(MFX_RATECONTROL_LA_HRD, ENC_FEATURE_LA_HRD, MFX_LIB_VERSION_1_11);
+		check_enc_mode(MFX_RATECONTROL_QVBR,   ENC_FEATURE_QVBR,   MFX_LIB_VERSION_1_11);
 
 #define CHECK_FEATURE(membersIn, membersOut, flag, value, required_ver) { \
 		if (check_lib_version(mfxVer, (required_ver))) { \
 			mfxU16 temp = (membersIn); \
 			(membersIn) = (value); \
-			MSDK_MEMCPY(&copOut, &cop, sizeof(cop)); \
+			MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop)); \
 			MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
+			MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3)); \
 			if (MFX_ERR_NONE <= encode.Query(&videoPrm, &videoPrmOut) \
 				&& (membersIn) == (membersOut) \
 				&& videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) \
@@ -245,23 +419,32 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			result |= ENC_FEATURE_VUI_INFO;
 		}
 		//ひとつひとつパラメータを入れ替えて試していく
+#pragma warning(push)
+#pragma warning(disable:4244) //'mfxU16' から 'mfxU8' への変換です。データが失われる可能性があります。
 #define PICTYPE mfx.FrameInfo.PicStruct
 		const mfxU32 MFX_TRELLIS_ALL = MFX_TRELLIS_I | MFX_TRELLIS_P | MFX_TRELLIS_B;
-		CHECK_FEATURE(cop.AUDelimiter,       copOut.AUDelimiter,       ENC_FEATURE_AUD,        MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(videoPrm.PICTYPE,      videoPrmOut.PICTYPE,      ENC_FEATURE_INTERLACE,  MFX_PICSTRUCT_FIELD_TFF, MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop.PicTimingSEI,      copOut.PicTimingSEI,      ENC_FEATURE_PIC_STRUCT, MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop.RateDistortionOpt, copOut.RateDistortionOpt, ENC_FEATURE_RDO,        MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop.CAVLC,             copOut.CAVLC,             ENC_FEATURE_CAVLC,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-		CHECK_FEATURE(cop2.ExtBRC,           cop2Out.ExtBRC,           ENC_FEATURE_EXT_BRC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
-		CHECK_FEATURE(cop2.MBBRC,            cop2Out.MBBRC,            ENC_FEATURE_MBBRC,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
-		CHECK_FEATURE(cop2.Trellis,          cop2Out.Trellis,          ENC_FEATURE_TRELLIS,    MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
-		CHECK_FEATURE(cop2.AdaptiveI,        cop2Out.AdaptiveI,        ENC_FEATURE_ADAPTIVE_I, MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
-		CHECK_FEATURE(cop2.AdaptiveB,        cop2Out.AdaptiveB,        ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
-		CHECK_FEATURE(cop2.BRefType,         cop2Out.BRefType,         ENC_FEATURE_B_PYRAMID,  MFX_B_REF_PYRAMID,       MFX_LIB_VERSION_1_8);
-		if (MFX_RATECONTROL_LA == ratecontrol || MFX_RATECONTROL_LA_ICQ == ratecontrol) {
-			CHECK_FEATURE(cop2.LookAheadDS,  cop2Out.LookAheadDS,      ENC_FEATURE_LA_DS,      MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
+		CHECK_FEATURE(cop.AUDelimiter,           copOut.AUDelimiter,           ENC_FEATURE_AUD,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(videoPrm.PICTYPE,          videoPrmOut.PICTYPE,          ENC_FEATURE_INTERLACE,     MFX_PICSTRUCT_FIELD_TFF, MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop.PicTimingSEI,          copOut.PicTimingSEI,          ENC_FEATURE_PIC_STRUCT,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop.RateDistortionOpt,     copOut.RateDistortionOpt,     ENC_FEATURE_RDO,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop.CAVLC,                 copOut.CAVLC,                 ENC_FEATURE_CAVLC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+		CHECK_FEATURE(cop2.ExtBRC,               cop2Out.ExtBRC,               ENC_FEATURE_EXT_BRC,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
+		CHECK_FEATURE(cop2.MBBRC,                cop2Out.MBBRC,                ENC_FEATURE_MBBRC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
+		CHECK_FEATURE(cop2.Trellis,              cop2Out.Trellis,              ENC_FEATURE_TRELLIS,       MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
+		CHECK_FEATURE(cop2.IntRefType,           cop2Out.IntRefType,           ENC_FEATURE_INTRA_REFRESH, 1,                       MFX_LIB_VERSION_1_7);
+		CHECK_FEATURE(cop2.AdaptiveI,            cop2Out.AdaptiveI,            ENC_FEATURE_ADAPTIVE_I,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+		CHECK_FEATURE(cop2.AdaptiveB,            cop2Out.AdaptiveB,            ENC_FEATURE_ADAPTIVE_B,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+		CHECK_FEATURE(cop2.BRefType,             cop2Out.BRefType,             ENC_FEATURE_B_PYRAMID,     MFX_B_REF_PYRAMID,       MFX_LIB_VERSION_1_8);
+		if (rc_is_type_lookahead(ratecontrol)) {
+			CHECK_FEATURE(cop2.LookAheadDS,      cop2Out.LookAheadDS,          ENC_FEATURE_LA_DS,         MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
 		}
+		CHECK_FEATURE(cop2.DisableDeblockingIdc, cop2Out.DisableDeblockingIdc, ENC_FEATURE_NO_DEBLOCK,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_9);
+		CHECK_FEATURE(cop2.MaxQPI,               cop2Out.MaxQPI,               ENC_FEATURE_QP_MINMAX,     48,                      MFX_LIB_VERSION_1_9);
+		cop3.WinBRCMaxAvgKbps = 3000;
+		CHECK_FEATURE(cop3.WinBRCSize,           cop3Out.WinBRCSize,           ENC_FEATURE_WINBRC,        10,                      MFX_LIB_VERSION_1_11);
+		cop3.WinBRCMaxAvgKbps = 0;
 #undef PICTYPE
+#pragma warning(pop)
 		//付随オプション
 		result |= ENC_FEATURE_SCENECHANGE;
 		//encCtrlを渡すことにより実現するVQPでは、B-pyramidは不安定(フレーム順が入れ替わるなど)
@@ -275,8 +458,7 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 			result |= ENC_FEATURE_B_PYRAMID_AND_SC;
 		}
 		//以下特殊な場合
-		if (   MFX_RATECONTROL_LA     == ratecontrol
-			|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {
+		if (rc_is_type_lookahead(ratecontrol)) {
 			result &= ~ENC_FEATURE_RDO;
 			result &= ~ENC_FEATURE_MBBRC;
 			result &= ~ENC_FEATURE_EXT_BRC;
@@ -348,15 +530,14 @@ static mfxU32 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
 		feature |= ENC_FEATURE_B_PYRAMID;
 		feature |= ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
 		feature |= ENC_FEATURE_VUI_INFO;
-		if (MFX_RATECONTROL_LA == ratecontrol || MFX_RATECONTROL_LA_ICQ == ratecontrol) {
+		if (rc_is_type_lookahead(ratecontrol)) {
 			feature |= ENC_FEATURE_LA_DS;
 			feature &= ~ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
 		}
 	}
 
 	//以下特殊な場合の制限
-	if (   MFX_RATECONTROL_LA     == ratecontrol
-		|| MFX_RATECONTROL_LA_ICQ == ratecontrol) {
+	if (rc_is_type_lookahead(ratecontrol)) {
 		feature &= ~ENC_FEATURE_RDO;
 		feature &= ~ENC_FEATURE_MBBRC;
 		feature &= ~ENC_FEATURE_EXT_BRC;
@@ -437,6 +618,17 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 		for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
 			str += MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
 		}
+		str += _T("\n");
+	}
+}
+
+void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str) {
+	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+	int features = CheckVppFeatures(hardware, ver);
+	TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
+	for (const CX_DESC *ptr = list_vpp_feature; ptr->desc; ptr++) {
+		str += ptr->desc;
+		str += MARK_YES_NO[ptr->value == (features & ptr->value)];
 		str += _T("\n");
 	}
 }
@@ -554,6 +746,14 @@ void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
 	}
 }
 
+const TCHAR *get_vpp_image_stab_mode_str(int mode) {
+	switch (mode) {
+	case MFX_IMAGESTAB_MODE_UPSCALE: return _T("upscale");
+	case MFX_IMAGESTAB_MODE_BOXING:  return _T("boxing");
+	default: return _T("unknown");
+	}
+}
+
 const TCHAR *get_err_mes(int sts) {
 	switch (sts) {
 		case MFX_ERR_NONE:                     return _T("no error.");
@@ -664,10 +864,14 @@ mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info) {
 #include <process.h>
 
 BOOL check_OS_Win8orLater() {
+#if (_MSC_VER >= 1800)
+	return IsWindows8OrGreater();
+#else
 	OSVERSIONINFO osvi = { 0 };
 	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 	GetVersionEx(&osvi);
 	return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
+#endif
 }
 
 const TCHAR *getOSVersion() {
@@ -738,7 +942,7 @@ const TCHAR *getOSVersion() {
 			break;
 		default:
 			if (7 <= info.dwPlatformId) {
-				ptr = _T("Later than Windows 8.1");
+				ptr = _T("Later than Windows 10");
 			}
 			break;
 		}

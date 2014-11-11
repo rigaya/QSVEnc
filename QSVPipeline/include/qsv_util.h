@@ -34,25 +34,35 @@ typedef struct CX_DESC {
 	int value;
 } CX_DESC;
 
+
+
+#define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
+
 static const mfxVersion LIB_VER_LIST[] = {
-	{ 0, 0 },
-	{ 0, 1 },
-	{ 1, 1 },
-	{ 3, 1 },
-	{ 4, 1 },
-	{ 6, 1 },
-	{ 7, 1 },
-	{ 8, 1 },
+	{  0, 0 },
+	{  0, 1 },
+	{  1, 1 },
+	{  3, 1 },
+	{  4, 1 },
+	{  6, 1 },
+	{  7, 1 },
+	{  8, 1 },
+	{  9, 1 },
+	{ 10, 1 },
+	{ 11, 1 },
 	{ NULL, NULL } 
 };
 
-#define MFX_LIB_VERSION_0_0 LIB_VER_LIST[0]
-#define MFX_LIB_VERSION_1_1 LIB_VER_LIST[2]
-#define MFX_LIB_VERSION_1_3 LIB_VER_LIST[3]
-#define MFX_LIB_VERSION_1_4 LIB_VER_LIST[4]
-#define MFX_LIB_VERSION_1_6 LIB_VER_LIST[5]
-#define MFX_LIB_VERSION_1_7 LIB_VER_LIST[6]
-#define MFX_LIB_VERSION_1_8 LIB_VER_LIST[7]
+#define MFX_LIB_VERSION_0_0  LIB_VER_LIST[ 0]
+#define MFX_LIB_VERSION_1_1  LIB_VER_LIST[ 2]
+#define MFX_LIB_VERSION_1_3  LIB_VER_LIST[ 3]
+#define MFX_LIB_VERSION_1_4  LIB_VER_LIST[ 4]
+#define MFX_LIB_VERSION_1_6  LIB_VER_LIST[ 5]
+#define MFX_LIB_VERSION_1_7  LIB_VER_LIST[ 6]
+#define MFX_LIB_VERSION_1_8  LIB_VER_LIST[ 7]
+#define MFX_LIB_VERSION_1_9  LIB_VER_LIST[ 8]
+#define MFX_LIB_VERSION_1_10 LIB_VER_LIST[ 9]
+#define MFX_LIB_VERSION_1_11 LIB_VER_LIST[10]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 mfxVersion get_mfx_libhw_version();
@@ -60,6 +70,13 @@ mfxVersion get_mfx_libsw_version();
 mfxVersion get_mfx_lib_version(mfxIMPL impl);
 BOOL check_lib_version(mfxVersion value, mfxVersion required);
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required);
+
+static bool inline rc_is_type_lookahead(int rc) {
+	return ((rc == MFX_RATECONTROL_LA)
+		| (rc == MFX_RATECONTROL_LA_ICQ)
+		| (rc == MFX_RATECONTROL_LA_EXT)
+		| (rc == MFX_RATECONTROL_LA_HRD));
+}
 
 enum {
 	ENC_FEATURE_CURRENT_RC             = 0x00000001,
@@ -84,37 +101,73 @@ enum {
 	ENC_FEATURE_SCENECHANGE            = 0x00080000,
 	ENC_FEATURE_B_PYRAMID_AND_SC       = 0x00100000,
 	ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x00200000,
+	ENC_FEATURE_LA_HRD                 = 0x00400000,
+	ENC_FEATURE_LA_EXT                 = 0x00800000,
+	ENC_FEATURE_QVBR                   = 0x01000000,
+	ENC_FEATURE_INTRA_REFRESH          = 0x02000000,
+	ENC_FEATURE_NO_DEBLOCK             = 0x04000000,
+	ENC_FEATURE_QP_MINMAX              = 0x08000000,
+	ENC_FEATURE_WINBRC                 = 0x10000000,
+};
+
+enum {
+	VPP_FEATURE_RESIZE              = 0x00000001,
+	VPP_FEATURE_DENOISE             = 0x00000002,
+	VPP_FEATURE_DETAIL_ENHANCEMENT  = 0x00000004,
+	VPP_FEATURE_PROC_AMP            = 0x00000008,
+	VPP_FEATURE_IMAGE_STABILIZATION = 0x00000010,
+	VPP_FEATURE_VIDEO_SIGNAL_INFO   = 0x00000020,
+	VPP_FEATURE_FPS_CONVERSION      = 0x00000040,
+	VPP_FEATURE_FPS_CONVERSION_ADV  = 0x00000080 | VPP_FEATURE_FPS_CONVERSION,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
 	{ _T("CBR  "), MFX_RATECONTROL_CBR    },
 	{ _T("VBR  "), MFX_RATECONTROL_VBR    },
 	{ _T("AVBR "), MFX_RATECONTROL_AVBR   },
+	{ _T("QVBR "), MFX_RATECONTROL_QVBR   },
 	{ _T("CQP  "), MFX_RATECONTROL_CQP    },
 	{ _T("VQP  "), MFX_RATECONTROL_VQP    },
 	{ _T("LA   "), MFX_RATECONTROL_LA     },
+	{ _T("LAHRD"), MFX_RATECONTROL_LA_HRD },
 	{ _T("ICQ  "), MFX_RATECONTROL_ICQ    },
 	{ _T("LAICQ"), MFX_RATECONTROL_LA_ICQ },
+	//{ _T("LAEXT"), MFX_RATECONTROL_LA_EXT },
 	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
 };
 static const CX_DESC list_enc_feature[] = {
-	{ _T("RC mode available        "), ENC_FEATURE_CURRENT_RC             },
-	{ _T("Interlace Enconding      "), ENC_FEATURE_INTERLACE              },
-	{ _T("Scene change detection   "), ENC_FEATURE_SCENECHANGE            },
-	{ _T("VUI info output          "), ENC_FEATURE_VUI_INFO               },
-	//{ _T("aud                      "), ENC_FEATURE_AUD                    },
-	//{ _T("pic_struct               "), ENC_FEATURE_PIC_STRUCT             },
-	{ _T("Trellis                  "), ENC_FEATURE_TRELLIS                },
-	//{ _T("rdo                      "), ENC_FEATURE_RDO                    },
-	//{ _T("CAVLC                    "), ENC_FEATURE_CAVLC                  },
-	{ _T("Adaptive_I Insert        "), ENC_FEATURE_ADAPTIVE_I             },
-	{ _T("Adaptive_B Insert        "), ENC_FEATURE_ADAPTIVE_B             },
-	{ _T("B_Pyramid                "), ENC_FEATURE_B_PYRAMID              },
-	{ _T("B_Pyramid + Scenechange  "), ENC_FEATURE_B_PYRAMID_AND_SC       },
-	{ _T("B_Pyramid + Many Bframes "), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
-	{ _T("Ext_BRC                  "), ENC_FEATURE_EXT_BRC                },
-	{ _T("MBBRC                    "), ENC_FEATURE_MBBRC                  },
-	{ _T("Lookahead Quality        "), ENC_FEATURE_LA_DS                  },
+	{ _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
+	{ _T("Interlace    "), ENC_FEATURE_INTERLACE              },
+	{ _T("SceneChange  "), ENC_FEATURE_SCENECHANGE            },
+	{ _T("VUI info     "), ENC_FEATURE_VUI_INFO               },
+	//{ _T("aud          "), ENC_FEATURE_AUD                    },
+	//{ _T("pic_struct   "), ENC_FEATURE_PIC_STRUCT             },
+	{ _T("Trellis      "), ENC_FEATURE_TRELLIS                },
+	//{ _T("rdo          "), ENC_FEATURE_RDO                    },
+	//{ _T("CAVLC        "), ENC_FEATURE_CAVLC                  },
+	{ _T("Adaptive_I   "), ENC_FEATURE_ADAPTIVE_I             },
+	{ _T("Adaptive_B   "), ENC_FEATURE_ADAPTIVE_B             },
+	{ _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
+	{ _T(" +Scenechange"), ENC_FEATURE_B_PYRAMID_AND_SC       },
+	{ _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
+	{ _T("Ext_BRC      "), ENC_FEATURE_EXT_BRC                },
+	{ _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
+	{ _T("LA Quality   "), ENC_FEATURE_LA_DS                  },
+	{ _T("QP Min/Max   "), ENC_FEATURE_QP_MINMAX              },
+	{ _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
+	{ _T("No Debloc    "), ENC_FEATURE_NO_DEBLOCK             },
+	{ _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
+	{ NULL, 0 },
+};
+static const CX_DESC list_vpp_feature[] = {
+	{ _T("Resize               "), VPP_FEATURE_RESIZE              },
+	{ _T("Denoise              "), VPP_FEATURE_DENOISE             },
+	{ _T("Detail Enhancement   "), VPP_FEATURE_DETAIL_ENHANCEMENT  },
+	{ _T("Proc Amp.            "), VPP_FEATURE_PROC_AMP            },
+	{ _T("Image Stabilization  "), VPP_FEATURE_IMAGE_STABILIZATION },
+	{ _T("Video Signal Info    "), VPP_FEATURE_VIDEO_SIGNAL_INFO   },
+	{ _T("FPS Conversion       "), VPP_FEATURE_FPS_CONVERSION      },
+	{ _T("FPS Conversion (Adv.)"), VPP_FEATURE_FPS_CONVERSION_ADV  },
 	{ NULL, 0 },
 };
 
@@ -125,6 +178,9 @@ void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlLi
 void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
+mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver);
+void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str);
+
 bool check_if_d3d11_necessary();
 
 double getCPUMaxTurboClock(DWORD num_thread = 1); //やや時間がかかるので注意 (～1/4秒)
@@ -132,6 +188,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize); //やや時間がかかるので注
 double getCPUDefaultClock();
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only = false);
 const TCHAR *getOSVersion();
+BOOL is_64bit_os();
 UINT64 getPhysicalRamSize(UINT64 *ramUsed);
 void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info = true);
 
@@ -141,6 +198,8 @@ void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 	return (_tcsicmp(PathFindExtension(filename), ext) == NULL) ? TRUE : FALSE;
 }
+
+const TCHAR *get_vpp_image_stab_mode_str(int mode);
 
 BOOL check_OS_Win8orLater();
 

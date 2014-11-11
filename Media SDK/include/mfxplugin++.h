@@ -1,6 +1,6 @@
 ﻿/* ****************************************************************************** *\
 
-Copyright (C) 2007-2013 Intel Corporation.  All rights reserved.
+Copyright (C) 2007-2014 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -134,7 +134,15 @@ struct MFXEncoderPlugin : MFXCodecPlugin
 struct MFXVPPPlugin : MFXCodecPlugin
 {
     virtual mfxStatus VPPFrameSubmit(mfxFrameSurface1 *surface_in, mfxFrameSurface1 *surface_out, mfxExtVppAuxData *aux, mfxThreadTask *task) = 0;
+    virtual mfxStatus VPPFrameSubmitEx(mfxFrameSurface1 *in, mfxFrameSurface1 *surface_work, mfxFrameSurface1 **surface_out, mfxThreadTask *task) = 0;
 };
+
+struct MFXEncPlugin : MFXCodecPlugin
+{
+    virtual mfxStatus EncFrameSubmit(mfxENCInput *in, mfxENCOutput *out, mfxThreadTask *task) = 0;
+};
+
+
 
 
 class MFXCoreInterface
@@ -251,6 +259,7 @@ namespace detail
             m_mfxAPI.PluginInit = _PluginInit;
             m_mfxAPI.PluginClose = _PluginClose;
             m_mfxAPI.GetPluginParam = _GetPluginParam;
+            m_mfxAPI.Submit = 0;
             m_mfxAPI.Execute = _Execute;
             m_mfxAPI.FreeResources = _FreeResources;
             m_mfxAPI.Video = pCodec;
@@ -426,6 +435,32 @@ namespace detail
         }
     };
 
+    template<>
+    class MFXPluginAdapterInternal<MFXEncPlugin> : public MFXCodecPluginAdapterBase<MFXEncPlugin>
+    {
+    public:
+        MFXPluginAdapterInternal(MFXEncPlugin *pPlugin)
+            : MFXCodecPluginAdapterBase<MFXEncPlugin>(pPlugin)
+        {
+            m_codecPlg.ENCFrameSubmit = _ENCFrameSubmit;
+        }
+        MFXPluginAdapterInternal(const MFXPluginAdapterInternal & that)
+            : MFXCodecPluginAdapterBase<MFXEncPlugin>(that) {
+            m_codecPlg.ENCFrameSubmit = _ENCFrameSubmit;
+        }
+
+        MFXPluginAdapterInternal<MFXEncPlugin>& operator = (const MFXPluginAdapterInternal<MFXEncPlugin> & that) {
+            MFXCodecPluginAdapterBase<MFXEncPlugin>::operator = (that);
+            m_codecPlg.ENCFrameSubmit = _ENCFrameSubmit;
+            return *this;
+        }
+
+    private:
+        static mfxStatus _ENCFrameSubmit(mfxHDL pthis,mfxENCInput *in, mfxENCOutput *out, mfxThreadTask *task) {
+            return reinterpret_cast<MFXEncPlugin*>(pthis)->EncFrameSubmit(in, out, task);
+        }
+    };
+
 
     template<>
     class MFXPluginAdapterInternal<MFXVPPPlugin> : public MFXCodecPluginAdapterBase<MFXVPPPlugin>
@@ -434,22 +469,29 @@ namespace detail
         MFXPluginAdapterInternal(MFXVPPPlugin *pPlugin)
             : MFXCodecPluginAdapterBase<MFXVPPPlugin>(pPlugin)
         {
-            m_codecPlg.VPPFrameSubmit = _VPPFrameSubmit;
+            SetupCallbacks();
         }
         MFXPluginAdapterInternal(const MFXPluginAdapterInternal & that)
             : MFXCodecPluginAdapterBase<MFXVPPPlugin>(that) {
-            m_codecPlg.VPPFrameSubmit = _VPPFrameSubmit;
+            SetupCallbacks();
         }
 
         MFXPluginAdapterInternal<MFXVPPPlugin>& operator = (const MFXPluginAdapterInternal<MFXVPPPlugin> & that) {
             MFXCodecPluginAdapterBase<MFXVPPPlugin>::operator = (that);
-            m_codecPlg.VPPFrameSubmit = _VPPFrameSubmit;
+            SetupCallbacks();
             return *this;
         }
 
     private:
+        void SetupCallbacks() {
+            m_codecPlg.VPPFrameSubmit = _VPPFrameSubmit;
+            m_codecPlg.VPPFrameSubmitEx = _VPPFrameSubmitEx;
+        }
         static mfxStatus _VPPFrameSubmit(mfxHDL pthis, mfxFrameSurface1 *surface_in, mfxFrameSurface1 *surface_out, mfxExtVppAuxData *aux, mfxThreadTask *task) {
             return reinterpret_cast<MFXVPPPlugin*>(pthis)->VPPFrameSubmit(surface_in, surface_out, aux, task);
+        }
+        static mfxStatus _VPPFrameSubmitEx(mfxHDL pthis, mfxFrameSurface1 *surface_in, mfxFrameSurface1 *surface_work, mfxFrameSurface1 **surface_out, mfxThreadTask *task) {
+            return reinterpret_cast<MFXVPPPlugin*>(pthis)->VPPFrameSubmitEx(surface_in, surface_work, surface_out, task);
         }
     };
 }

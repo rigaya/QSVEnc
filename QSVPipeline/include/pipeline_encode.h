@@ -5,7 +5,7 @@
 //  This software is supplied under the terms of a license  agreement or
 //  nondisclosure agreement with Intel Corporation and may not be copied
 //  or disclosed except in  accordance  with the terms of that agreement.
-//        Copyright (c) 2005-2011 Intel Corporation. All Rights Reserved.
+//        Copyright (c) 2005-2014 Intel Corporation. All Rights Reserved.
 //
 //
 //*/
@@ -20,6 +20,7 @@
 #include "qsv_prm.h"
 
 #include "sample_defs.h"
+#include "mfx_plugin_uids.h"
 #include "hw_device.h"
 
 #ifdef D3D_SURFACES_SUPPORT
@@ -42,8 +43,15 @@
 #include "scene_change_detection.h"
 
 #include <vector>
+#include <memory>
 #include <string>
 #include <iostream>
+
+#if defined(_WIN32) || defined(_WIN64)
+    #define PLUGIN_NAME "sample_rotate_plugin.dll"
+#else
+    #define PLUGIN_NAME "libsample_rotate_plugin.so"
+#endif
 
 #pragma comment(lib, "libmfx.lib")
 
@@ -152,9 +160,10 @@ protected:
 	CEncTaskPool m_TaskPool;
 	mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance
 
-	mfxExtVideoSignalInfo m_mfxVSI;
-	mfxExtCodingOption m_mfxCopt;
-	mfxExtCodingOption2 m_mfxCopt2;
+	mfxExtVideoSignalInfo m_VideoSignalInfo;
+	mfxExtCodingOption m_CodingOption;
+	mfxExtCodingOption2 m_CodingOption2;
+	mfxExtCodingOption3 m_CodingOption3;
 	MFXVideoSession m_mfxSession;
 	MFXVideoENCODE* m_pmfxENC;
 	MFXVideoVPP* m_pmfxVPP;
@@ -165,18 +174,19 @@ protected:
     mfxPluginUID m_UID_HEVC; 
     std::auto_ptr<MFXPlugin> m_pHEVC_plugin;  
     std::auto_ptr<MFXVideoUSER>  m_pUserModule;
-
+    const msdkPluginUID*     m_pUID;
 
 	std::vector<mfxExtBuffer*> m_EncExtParams;
 	std::vector<mfxExtBuffer*> m_VppExtParams;
 	tstring VppExtMes;
 
-	mfxExtVPPDoNotUse m_ExtDoNotUse;
-	mfxExtVPPDoNotUse m_ExtDoUse;
+	mfxExtVPPDoNotUse m_VppDoNotUse;
+	mfxExtVPPDoNotUse m_VppDoUse;
 	mfxExtVPPDenoise m_ExtDenoise;
 	mfxExtVPPDetail m_ExtDetail;
 	mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
 	mfxExtVPPVideoSignalInfo m_ExtVppVSI;
+	mfxExtVPPImageStab m_ExtImageStab;
 	std::vector<mfxU32> m_VppDoNotUseList;
 	std::vector<mfxU32> m_VppDoUseList;
 
@@ -213,8 +223,8 @@ protected:
 	//virtual void InitVppExtParam();
 	virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
 
-	//virtual mfxStatus AllocAndInitVppDoNotUse();
-	//virtual void FreeVppDoNotUse();
+	virtual mfxStatus AllocAndInitVppDoNotUse();
+	virtual void FreeVppDoNotUse();
 #if ENABLE_MVC_ENCODING
 	virtual mfxStatus AllocAndInitMVCSeqDesc();
 	virtual void FreeMVCSeqDesc();

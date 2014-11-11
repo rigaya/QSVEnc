@@ -301,15 +301,12 @@ public:
 			);
 		WriteLine(mes);
 
-		_stprintf_s(mes, _T("CPU Usage: %.2f%%"), GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
-		WriteLine(mes);
-
 		int hh = time_elapsed / (60*60*1000);
 		time_elapsed -= hh * (60*60*1000);
 		int mm = time_elapsed / (60*1000);
 		time_elapsed -= mm * (60*1000);
 		int ss = (time_elapsed + 500) / 1000;
-		_stprintf_s(mes, _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
+		_stprintf_s(mes, _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
 		WriteLine(mes);
 
 		mfxU32 maxCount = MAX3(m_sData.nICount, m_sData.nPCount, m_sData.nBCount);

@@ -1,10 +1,12 @@
-﻿//
-//               INTEL CORPORATION PROPRIETARY INFORMATION
-//  This software is supplied under the terms of a license agreement or
-//  nondisclosure agreement with Intel Corporation and may not be copied
-//  or disclosed except in accordance with the terms of that agreement.
-//        Copyright (c) 2005-2012 Intel Corporation. All Rights Reserved.
-//
+﻿/*********************************************************************************
+
+INTEL CORPORATION PROPRIETARY INFORMATION
+This software is supplied under the terms of a license agreement or nondisclosure
+agreement with Intel Corporation and may not be copied or disclosed except in
+accordance with the terms of that agreement
+Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
+
+**********************************************************************************/
 
 #include <tchar.h>
 #include <windows.h>
@@ -15,6 +17,7 @@
 #include <sstream>
 #include <algorithm>
 
+#include "mfx_samples_config.h"
 #include "pipeline_encode.h"
 #include "vpy_reader.h"
 #include "avs_reader.h"
@@ -36,8 +39,6 @@
 
 //#include "../../sample_user_modules/plugin_api/plugin_loader.h"
 
-//Library plugin UIDs
-const mfxU8 HEVC_ENCODER_UID[] = {0x2f,0xca,0x99,0x74,0x9f,0xdb,0x49,0xae,0xb1,0x21,0xa5,0xb6,0x3e,0xf5,0x68,0xf7};
 
 CEncTaskPool::CEncTaskPool()
 {
@@ -315,21 +316,19 @@ mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
 }
 #endif
 
-//mfxStatus CEncodingPipeline::AllocAndInitVppDoNotUse()
-//{
-//	m_VppDoNotUse.NumAlg = 4;
+mfxStatus CEncodingPipeline::AllocAndInitVppDoNotUse()
+{
+	MSDK_ZERO_MEMORY(m_VppDoNotUse);
+	m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
+	m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
+	m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
+	m_VppDoNotUse.AlgList = &m_VppDoNotUseList[0];
+    return MFX_ERR_NONE;
+} // CEncodingPipeline::AllocAndInitVppDoNotUse()
 
-//	m_VppDoNotUse.AlgList = new mfxU32 [m_VppDoNotUse.NumAlg];
-//	MSDK_CHECK_POINTER(m_VppDoNotUse.AlgList,  MFX_ERR_MEMORY_ALLOC);
-
-//	m_VppDoNotUse.AlgList[0] = MFX_EXTBUFF_VPP_DENOISE; // turn off denoising (on by default)
-//	m_VppDoNotUse.AlgList[1] = MFX_EXTBUFF_VPP_SCENE_ANALYSIS; // turn off scene analysis (on by default)
-//	m_VppDoNotUse.AlgList[2] = MFX_EXTBUFF_VPP_DETAIL; // turn off detail enhancement (on by default)
-//	m_VppDoNotUse.AlgList[3] = MFX_EXTBUFF_VPP_PROCAMP; // turn off processing amplified (on by default)
-
-//	return MFX_ERR_NONE;
-
-//} // CEncodingPipeline::AllocAndInitVppDoNotUse()
+void CEncodingPipeline::FreeVppDoNotUse()
+{
+}
 
 #if ENABLE_MVC_ENCODING
 void CEncodingPipeline::FreeMVCSeqDesc()
@@ -339,10 +338,6 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 	MSDK_SAFE_DELETE_ARRAY(m_MVCSeqDesc.OP);
 }
 #endif
-//void CEncodingPipeline::FreeVppDoNotUse()
-//{
-//    MSDK_SAFE_DELETE(m_VppDoNotUse.AlgList);
-//}
 
 mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
@@ -360,6 +355,13 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			|| MFX_RATECONTROL_VCM    == pInParams->nEncMode) {
 			if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
 				PrintMes(_T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(pInParams->nEncMode));
+			}
+		}
+		if (   MFX_RATECONTROL_LA_EXT == pInParams->nEncMode
+			|| MFX_RATECONTROL_LA_HRD == pInParams->nEncMode
+			|| MFX_RATECONTROL_QVBR   == pInParams->nEncMode) {
+			if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+				PrintMes(_T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(pInParams->nEncMode));
 			}
 		}
 		return MFX_ERR_INVALID_VIDEO_PARAM;
@@ -422,7 +424,34 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		PrintMes(_T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
 		pInParams->bBPyramid = false;
 	}
+	if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
+		PrintMes(_T("No deblock is not supported on current platform, disabled.\n"));
+		pInParams->bNoDeblock = false;
+	}
+	if (pInParams->bIntraRefresh && !(availableFeaures & ENC_FEATURE_INTRA_REFRESH)) {
+		PrintMes(_T("Intra Refresh is not supported on current platform, disabled.\n"));
+		pInParams->bIntraRefresh = false;
+	}
+	if (0 != (pInParams->nQPMin[0] | pInParams->nQPMin[1] | pInParams->nQPMin[2]
+		    | pInParams->nQPMax[0] | pInParams->nQPMax[1] | pInParams->nQPMax[2]) && !(availableFeaures & ENC_FEATURE_QP_MINMAX)) {
+		PrintMes(_T("Min/Max QP is not supported on current platform, disabled.\n"));
+		memset(pInParams->nQPMin, 0, sizeof(pInParams->nQPMin));
+		memset(pInParams->nQPMax, 0, sizeof(pInParams->nQPMax));
+	}
+	if (0 != pInParams->nWinBRCSize) {
+		if (!(availableFeaures & ENC_FEATURE_WINBRC)) {
+			PrintMes(_T("WinBRC is not supported on current platform, disabled.\n"));
+			pInParams->nWinBRCSize = 0;
+		} else if (0 == pInParams->nMaxBitrate) {
+			PrintMes(_T("WinBRC requires Max bitrate to be set, disabled.\n"));
+			pInParams->nWinBRCSize = 0;
+		}
+	}
 
+	//Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
+	if (pInParams->bIntraRefresh) {
+		pInParams->bforceGOPSettings = true; //シーンチェンジ検出オフ
+	}
 
 	//GOP長さが短いならVQPもシーンチェンジ検出も実行しない
 	if (pInParams->nGOPLength != 0 && pInParams->nGOPLength < 4) {
@@ -523,7 +552,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	//MFX_GOP_STRICTにより、インタレ保持時にフレームが壊れる場合があるため、無効とする
 	//m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
-	m_mfxEncParams.mfx.GopPicSize              = pInParams->nGOPLength;
+	m_mfxEncParams.mfx.GopPicSize              = (pInParams->bIntraRefresh) ? 0 : pInParams->nGOPLength;
 	m_mfxEncParams.mfx.GopRefDist              = (mfxU16)(clamp(pInParams->nBframes, -1, 16) + 1);
 
 	// specify memory type
@@ -540,52 +569,80 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	m_mfxEncParams.mfx.FrameInfo.AspectRatioW = (mfxU16)m_iSAR[0];
 	m_mfxEncParams.mfx.FrameInfo.AspectRatioH = (mfxU16)m_iSAR[1];
 
-	MSDK_ZERO_MEMORY(m_mfxCopt);
-	m_mfxCopt.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
-	m_mfxCopt.Header.BufferSz = sizeof(mfxExtCodingOption);
+	MSDK_ZERO_MEMORY(m_CodingOption);
+	m_CodingOption.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
+	m_CodingOption.Header.BufferSz = sizeof(mfxExtCodingOption);
 	if (!pInParams->bUseHWLib) {
 		//swライブラリ使用時のみ
-		m_mfxCopt.InterPredBlockSize = pInParams->nInterPred;
-		m_mfxCopt.IntraPredBlockSize = pInParams->nIntraPred;
-		m_mfxCopt.MVSearchWindow     = pInParams->MVSearchWindow;
-		m_mfxCopt.MVPrecision        = pInParams->nMVPrecision;
+		m_CodingOption.InterPredBlockSize = pInParams->nInterPred;
+		m_CodingOption.IntraPredBlockSize = pInParams->nIntraPred;
+		m_CodingOption.MVSearchWindow     = pInParams->MVSearchWindow;
+		m_CodingOption.MVPrecision        = pInParams->nMVPrecision;
 	}
 	if (!pInParams->bUseHWLib || pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
 		//swライブラリ使用時かbaselineを指定した時
-		m_mfxCopt.RateDistortionOpt  = (mfxU16)((pInParams->bRDO) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-		m_mfxCopt.CAVLC              = (mfxU16)((pInParams->bCAVLC) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+		m_CodingOption.RateDistortionOpt  = (mfxU16)((pInParams->bRDO) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+		m_CodingOption.CAVLC              = (mfxU16)((pInParams->bCAVLC) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
 	}
-	//m_mfxCopt.FramePicture = MFX_CODINGOPTION_ON;
-	//m_mfxCopt.FieldOutput = MFX_CODINGOPTION_ON;
-	//m_mfxCopt.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
-	//m_mfxCopt.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
-	m_mfxCopt.AUDelimiter = MFX_CODINGOPTION_OFF;
-	m_mfxCopt.PicTimingSEI = MFX_CODINGOPTION_OFF;
-	//m_mfxCopt.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
+	//m_CodingOption.FramePicture = MFX_CODINGOPTION_ON;
+	//m_CodingOption.FieldOutput = MFX_CODINGOPTION_ON;
+	//m_CodingOption.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
+	//m_CodingOption.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
+	m_CodingOption.AUDelimiter = MFX_CODINGOPTION_OFF;
+	m_CodingOption.PicTimingSEI = MFX_CODINGOPTION_OFF;
+	//m_CodingOption.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
 
 	//API v1.6の機能
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
-		MSDK_ZERO_MEMORY(m_mfxCopt2);
-		m_mfxCopt2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
-		m_mfxCopt2.Header.BufferSz = sizeof(mfxExtCodingOption2);
+		INIT_MFX_EXT_BUFFER(m_CodingOption2, MFX_EXTBUFF_CODING_OPTION2);
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-			m_mfxCopt2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-			m_mfxCopt2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-			m_mfxCopt2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
-			m_mfxCopt2.LookAheadDS = pInParams->nLookaheadDS;
+			m_CodingOption2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+			m_CodingOption2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+			m_CodingOption2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
+			m_CodingOption2.LookAheadDS = pInParams->nLookaheadDS;
 		}
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-			m_mfxCopt2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
-			m_mfxCopt2.Trellis = pInParams->nTrellis;
+			m_CodingOption2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
+			m_CodingOption2.Trellis = pInParams->nTrellis;
 		}
 		if (pInParams->bMBBRC) {
-			m_mfxCopt2.MBBRC = MFX_CODINGOPTION_ON;
+			m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
 		}
 
 		if (pInParams->bExtBRC) {
-			m_mfxCopt2.ExtBRC = MFX_CODINGOPTION_ON;
+			m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
 		}
-		m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxCopt2);
+		if (pInParams->bIntraRefresh) {
+			m_CodingOption2.IntRefType = 1;
+			m_CodingOption2.IntRefCycleSize = (pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 10;
+		}
+		if (pInParams->bNoDeblock) {
+			m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
+		}
+		for (int i = 0; i < 3; i++) {
+			mfxU8 qpMin = min(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+			mfxU8 qpMax = max(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+			pInParams->nQPMin[i] = (0 == pInParams->nQPMin[i]) ? 0 : qpMin;
+			pInParams->nQPMax[i] = (0 == pInParams->nQPMax[i]) ? 0 : qpMax;
+		}
+		m_CodingOption2.MaxQPI = pInParams->nQPMax[0];
+		m_CodingOption2.MaxQPP = pInParams->nQPMax[1];
+		m_CodingOption2.MaxQPB = pInParams->nQPMax[2];
+		m_CodingOption2.MinQPI = pInParams->nQPMin[0];
+		m_CodingOption2.MinQPP = pInParams->nQPMin[1];
+		m_CodingOption2.MinQPB = pInParams->nQPMin[2];
+		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption2);
+	}
+
+	//API v1.11の機能
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+		INIT_MFX_EXT_BUFFER(m_CodingOption3, MFX_EXTBUFF_CODING_OPTION3);
+		if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
+			m_CodingOption3.QVBRQuality = pInParams->nQVBRQuality;
+		}
+		m_CodingOption3.WinBRCSize = pInParams->nWinBRCSize;
+		m_CodingOption3.WinBRCMaxAvgKbps = pInParams->nMaxBitrate;
+		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
 	}
 
 	//Bluray互換出力
@@ -624,18 +681,18 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		m_mfxEncParams.mfx.GopRefDist = min(m_mfxEncParams.mfx.GopRefDist, 3+1);
 		m_mfxEncParams.mfx.GopPicSize = (int)(min(m_mfxEncParams.mfx.GopPicSize, 30) / m_mfxEncParams.mfx.GopRefDist) * m_mfxEncParams.mfx.GopRefDist;
 		m_mfxEncParams.mfx.NumRefFrame = min(m_mfxEncParams.mfx.NumRefFrame, 6);
-		m_mfxCopt.MaxDecFrameBuffering = m_mfxEncParams.mfx.NumRefFrame;
-		m_mfxCopt.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
-		m_mfxCopt.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
-		m_mfxCopt.AUDelimiter  = MFX_CODINGOPTION_ON;
-		m_mfxCopt.PicTimingSEI = MFX_CODINGOPTION_ON;
-		m_mfxCopt.ResetRefList = MFX_CODINGOPTION_ON;
+		m_CodingOption.MaxDecFrameBuffering = m_mfxEncParams.mfx.NumRefFrame;
+		m_CodingOption.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
+		m_CodingOption.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
+		m_CodingOption.AUDelimiter  = MFX_CODINGOPTION_ON;
+		m_CodingOption.PicTimingSEI = MFX_CODINGOPTION_ON;
+		m_CodingOption.ResetRefList = MFX_CODINGOPTION_ON;
 		m_nExPrm &= (~MFX_PRM_EX_SCENE_CHANGE);
-		//m_mfxCopt.EndOfSequence = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0a
-		//m_mfxCopt.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
+		//m_CodingOption.EndOfSequence = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0a
+		//m_CodingOption.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
 	}
 
-	m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxCopt);
+	m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
 
 	//m_mfxEncParams.mfx.TimeStampCalc = (mfxU16)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT) ? MFX_TIMESTAMPCALC_TELECINE : MFX_TIMESTAMPCALC_UNKNOWN);
 	//m_mfxEncParams.mfx.ExtendedPicStruct = pInParams->nPicStruct;
@@ -649,17 +706,15 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		) ) {
 #define GET_COLOR_PRM(v, list) (mfxU16)((v == MFX_COLOR_VALUE_AUTO) ? ((pInParams->nDstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
 			//色設定 (for API v1.3)
-			MSDK_ZERO_MEMORY(m_mfxVSI);
-			m_mfxVSI.Header.BufferId = MFX_EXTBUFF_VIDEO_SIGNAL_INFO;
-			m_mfxVSI.Header.BufferSz = sizeof(mfxExtVideoSignalInfo);
-			m_mfxVSI.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
-			m_mfxVSI.VideoFormat              = pInParams->VideoFormat;
-			m_mfxVSI.VideoFullRange           = pInParams->bFullrange != 0;
-			m_mfxVSI.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
-			m_mfxVSI.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
-			m_mfxVSI.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
+			INIT_MFX_EXT_BUFFER(m_VideoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
+			m_VideoSignalInfo.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
+			m_VideoSignalInfo.VideoFormat              = pInParams->VideoFormat;
+			m_VideoSignalInfo.VideoFullRange           = pInParams->bFullrange != 0;
+			m_VideoSignalInfo.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
+			m_VideoSignalInfo.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
+			m_VideoSignalInfo.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
 #undef GET_COLOR_PRM
-			m_EncExtParams.push_back((mfxExtBuffer *)&m_mfxVSI);
+			m_EncExtParams.push_back((mfxExtBuffer *)&m_VideoSignalInfo);
 	}
 
 	//シーンチェンジ検出をこちらで行う場合は、GOP長を最大に設定する
@@ -715,6 +770,20 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 
 mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 {
+	mfxU32 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
+	//if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
+	//	PrintMes(_T("FPS Conversion not supported on this platform, disabled.\n"));
+	//	pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+	//}
+	//現時点ではうまく動いてなさそうなので無効化
+	pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+
+	if (pInParams->vpp.nImageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
+		PrintMes(_T("Image Stabilizer not supported on this platform, disabled.\n"));
+		pInParams->vpp.nImageStabilizer = 0;
+	}
+	pInParams->vpp.nImageStabilizer = 0;
+
 	MSDK_CHECK_POINTER(pInParams,  MFX_ERR_NULL_PTR);
 
 	// specify memory type
@@ -782,6 +851,18 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 		default:
 			break;
 		}
+		pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+	} else {
+		switch (pInParams->vpp.nFPSConversion) {
+		case FPS_CONVERT_MUL2:
+			m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
+			break;
+		case FPS_CONVERT_MUL2_5:
+			m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 5 / 2;
+			break;
+		default:
+			break;
+		}
 	}
 	m_mfxVppParams.vpp.Out.Width = MSDK_ALIGN16(pInParams->nDstWidth);
 	m_mfxVppParams.vpp.Out.Height = (MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.Out.PicStruct)?
@@ -791,9 +872,7 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 		&& (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
 			|| MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC)) {
 		
-		MSDK_ZERO_MEMORY(m_ExtVppVSI);
-		m_ExtVppVSI.Header.BufferId = MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO;
-		m_ExtVppVSI.Header.BufferSz = sizeof(mfxExtVPPVideoSignalInfo);
+		INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
 		m_ExtVppVSI.In.NominalRange    = MFX_NOMINALRANGE_0_255;
 		m_ExtVppVSI.In.TransferMatrix  = MFX_TRANSFERMATRIX_UNKNOWN;
 		m_ExtVppVSI.Out.NominalRange   = (mfxU16)((pInParams->bFullrange) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
@@ -821,10 +900,17 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 {
 	m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
 
+	if (FPS_CONVERT_NONE != pParams->vpp.nFPSConversion) {
+		INIT_MFX_EXT_BUFFER(m_ExtFrameRateConv, MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
+		m_ExtFrameRateConv.Algorithm = MFX_FRCALGM_FRAME_INTERPOLATION;
+		m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtFrameRateConv);
+
+		VppExtMes += _T("fps conversion with interpolation\n");
+		m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
+	}
+
 	if (pParams->vpp.bUseDenoise) {
-		MSDK_ZERO_MEMORY(m_ExtDenoise);
-		m_ExtDenoise.Header.BufferId = MFX_EXTBUFF_VPP_DENOISE;
-		m_ExtDenoise.Header.BufferSz = sizeof(mfxExtVPPDenoise);
+		INIT_MFX_EXT_BUFFER(m_ExtDenoise, MFX_EXTBUFF_VPP_DENOISE);
 		m_ExtDenoise.DenoiseFactor  = pParams->vpp.nDenoise;
 		m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise);
 
@@ -836,10 +922,19 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 		m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
 	}
 
+	if (pParams->vpp.nImageStabilizer) {
+		INIT_MFX_EXT_BUFFER(m_ExtImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
+		m_ExtImageStab.Mode = pParams->vpp.nImageStabilizer;
+		m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtImageStab);
+
+		TStringStream stream;
+		stream << _T("Image Stabilizer, mode ") << get_vpp_image_stab_mode_str(m_ExtImageStab.Mode) << _T("\n");
+		VppExtMes += stream.str();
+		m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
+	}
+
 	if (pParams->vpp.bUseDetailEnhance) {
-		MSDK_ZERO_MEMORY(m_ExtDetail);
-		m_ExtDetail.Header.BufferId = MFX_EXTBUFF_VPP_DETAIL;
-		m_ExtDetail.Header.BufferSz = sizeof(mfxExtVPPDetail);
+		INIT_MFX_EXT_BUFFER(m_ExtDetail, MFX_EXTBUFF_VPP_DETAIL);
 		m_ExtDetail.DetailFactor = pParams->vpp.nDetailEnhance;
 		m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDetail);
 
@@ -858,9 +953,7 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 			switch (pParams->vpp.nDeinterlace) {
 			case MFX_DEINTERLACE_IT:
 			case MFX_DEINTERLACE_BOB:
-				MSDK_ZERO_MEMORY(m_ExtFrameRateConv);
-				m_ExtFrameRateConv.Header.BufferId = MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION;
-				m_ExtFrameRateConv.Header.BufferSz = sizeof(m_ExtFrameRateConv);
+				INIT_MFX_EXT_BUFFER(m_ExtFrameRateConv, MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
 				m_ExtFrameRateConv.Algorithm = MFX_FRCALGM_DISTRIBUTED_TIMESTAMP;
 
 				m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
@@ -871,24 +964,16 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 	}
 
 	if (m_VppDoUseList.size()) {
-		MSDK_ZERO_MEMORY(m_ExtDoUse);
-		m_ExtDoUse.Header.BufferId = MFX_EXTBUFF_VPP_DOUSE;
-		m_ExtDoUse.Header.BufferSz = sizeof(mfxExtVPPDoUse);
-		m_ExtDoUse.NumAlg = (mfxU32)m_VppDoUseList.size();
-		m_ExtDoUse.AlgList = &m_VppDoUseList[0];
+		INIT_MFX_EXT_BUFFER(m_VppDoUse, MFX_EXTBUFF_VPP_DOUSE);
+		m_VppDoUse.NumAlg = (mfxU32)m_VppDoUseList.size();
+		m_VppDoUse.AlgList = &m_VppDoUseList[0];
 
-		m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDoUse);
+		m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoUse);
 	}
 
 	if (m_VppDoNotUseList.size()) {
-		// configure vpp DoNotUse hint
-		MSDK_ZERO_MEMORY(m_ExtDoNotUse);
-		m_ExtDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
-		m_ExtDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
-		m_ExtDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
-		m_ExtDoNotUse.AlgList = &m_VppDoNotUseList[0];
-
-		m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDoNotUse);
+		AllocAndInitVppDoNotUse();
+		m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoNotUse);
 	}
 
 	m_mfxVppParams.ExtParam = &m_VppExtParams[0]; // vector is stored linearly in memory
@@ -1017,7 +1102,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	// prepare allocation requests
 	EncRequest.NumFrameMin = nEncSurfNum;
 	EncRequest.NumFrameSuggested = nEncSurfNum;
-	memcpy(&(EncRequest.Info), &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+    MSDK_MEMCPY_VAR(EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 	if (m_pmfxVPP)
 	{
 		EncRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; // surfaces are shared between vpp output and encode input
@@ -1032,7 +1117,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	{
 		VppRequest[0].NumFrameMin = nVppSurfNum;
 		VppRequest[0].NumFrameSuggested = nVppSurfNum;
-		memcpy(&(VppRequest[0].Info), &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+        MSDK_MEMCPY_VAR(VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
 		sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &(VppRequest[0]), &m_VppResponse);
 		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -1045,7 +1130,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	for (int i = 0; i < m_EncResponse.NumFrameActual; i++)
 	{
 		memset(&(m_pEncSurfaces[i]), 0, sizeof(mfxFrameSurface1));
-		memcpy(&(m_pEncSurfaces[i].Info), &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+        MSDK_MEMCPY_VAR(m_pEncSurfaces[i].Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
 		if (m_bExternalAlloc)
 		{
@@ -1067,8 +1152,8 @@ mfxStatus CEncodingPipeline::AllocFrames()
 
 		for (int i = 0; i < m_VppResponse.NumFrameActual; i++)
 		{
-			memset(&(m_pVppSurfaces[i]), 0, sizeof(mfxFrameSurface1));
-			memcpy(&(m_pVppSurfaces[i].Info), &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+            MSDK_ZERO_MEMORY(m_pVppSurfaces[i]);
+            MSDK_MEMCPY_VAR(m_pVppSurfaces[i].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
 			if (m_bExternalAlloc)
 			{
@@ -1247,6 +1332,7 @@ void CEncodingPipeline::DeleteAllocator()
 
 CEncodingPipeline::CEncodingPipeline()
 {
+    m_pUID = NULL;
 	m_pmfxENC = NULL;
 	m_pmfxVPP = NULL;
 	m_pMFXAllocator = NULL;
@@ -1267,20 +1353,19 @@ CEncodingPipeline::CEncodingPipeline()
 
 	m_pStrLog = NULL;
 
-	//MSDK_ZERO_MEMORY(m_VppDoNotUse);
-
-	MSDK_ZERO_MEMORY(m_mfxVSI);
-	MSDK_ZERO_MEMORY(m_mfxCopt);
 #if ENABLE_MVC_ENCODING
 	m_bIsMVC = false;
 	m_MVCflags = MVC_DISABLED;
 	m_nNumView = 0;
 	MSDK_ZERO_MEMORY(m_MVCSeqDesc);
 	m_MVCSeqDesc.Header.BufferId = MFX_EXTBUFF_MVC_SEQ_DESC;
-	m_MVCSeqDesc.Header.BufferSz = sizeof(mfxExtMVCSeqDesc);
+    m_MVCSeqDesc.Header.BufferSz = sizeof(m_MVCSeqDesc);
 #endif
-	//m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
-	//m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
+	INIT_MFX_EXT_BUFFER(m_VppDoNotUse,     MFX_EXTBUFF_VPP_DONOTUSE);
+	INIT_MFX_EXT_BUFFER(m_VideoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
+	INIT_MFX_EXT_BUFFER(m_CodingOption,    MFX_EXTBUFF_CODING_OPTION);
+	INIT_MFX_EXT_BUFFER(m_CodingOption2,   MFX_EXTBUFF_CODING_OPTION2);
+	INIT_MFX_EXT_BUFFER(m_CodingOption3,   MFX_EXTBUFF_CODING_OPTION3);
 
 #if D3D_SURFACES_SUPPORT
 	m_hwdev = NULL;
@@ -1288,9 +1373,9 @@ CEncodingPipeline::CEncodingPipeline()
 
 	MSDK_ZERO_MEMORY(m_mfxEncParams);
 	MSDK_ZERO_MEMORY(m_mfxVppParams);
-
-	MSDK_ZERO_MEMORY(m_ExtDoUse);
-	MSDK_ZERO_MEMORY(m_ExtDoNotUse);
+	
+	MSDK_ZERO_MEMORY(m_VppDoNotUse);
+	MSDK_ZERO_MEMORY(m_VppDoUse);
 	MSDK_ZERO_MEMORY(m_ExtDenoise);
 	MSDK_ZERO_MEMORY(m_ExtDetail);
 
@@ -1668,14 +1753,6 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	sts = InitSession(pParams->bUseHWLib, pParams->memType);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    //Load library plug-in
-    //if (pParams->IsUseHEVCEncoderPlugin)
-    //{
-    //    MSDK_MEMCPY(m_UID_HEVC.Data, HEVC_ENCODER_UID, 16);
-    //    sts = MFXVideoUSER_Load(m_mfxSession, &m_UID_HEVC, pParams->HEVCPluginVersion);
-    //}
-   //MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
 	// create and init frame allocator
 	sts = CreateAllocator();
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -1762,13 +1839,14 @@ void CEncodingPipeline::Close()
 	MSDK_SAFE_DELETE(m_pmfxENC);
 	MSDK_SAFE_DELETE(m_pmfxVPP);
 
-    MFXVideoUSER_UnLoad(m_mfxSession, &m_UID_HEVC);
+    if (m_pUID) MFXVideoUSER_UnLoad(m_mfxSession, &(m_pUID->mfx));
+
     m_pHEVC_plugin.reset();
 
 #if ENABLE_MVC_ENCODING
 	FreeMVCSeqDesc();
 #endif
-	//FreeVppDoNotUse();
+	FreeVppDoNotUse();
 
 	m_EncExtParams.clear();
 	m_VppDoNotUseList.clear();
@@ -1846,6 +1924,7 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
 		msdk_printf(MSDK_STRING("WARNING: partial acceleration\n"));
 		MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
 	}
+
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
 	if (m_pmfxVPP)
@@ -2535,29 +2614,27 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	mfxU8 spsbuf[256] = { 0 };
 	mfxU8 ppsbuf[256] = { 0 };
 	mfxExtCodingOptionSPSPPS spspps;
-	MSDK_ZERO_MEMORY(spspps);
-	spspps.Header.BufferId = MFX_EXTBUFF_CODING_OPTION_SPSPPS;
-	spspps.Header.BufferSz = sizeof(mfxExtCodingOptionSPSPPS);
+	INIT_MFX_EXT_BUFFER(spspps, MFX_EXTBUFF_CODING_OPTION_SPSPPS);
 	spspps.SPSBuffer = spsbuf;
 	spspps.SPSBufSize = sizeof(spsbuf);
 	spspps.PPSBuffer = ppsbuf;
 	spspps.PPSBufSize = sizeof(ppsbuf);
 
 	mfxExtCodingOption cop;
-	MSDK_ZERO_MEMORY(cop);
-	cop.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
-	cop.Header.BufferSz = sizeof(mfxExtCodingOption);
-
 	mfxExtCodingOption2 cop2;
-	MSDK_ZERO_MEMORY(cop2);
-	cop2.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
-	cop2.Header.BufferSz = sizeof(mfxExtCodingOption2);
+	mfxExtCodingOption3 cop3;
+	INIT_MFX_EXT_BUFFER(cop, MFX_EXTBUFF_CODING_OPTION);
+	INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
+	INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
 
 	std::vector<mfxExtBuffer *> buf;
 	buf.push_back((mfxExtBuffer *)&cop);
 	buf.push_back((mfxExtBuffer *)&spspps);
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
 		buf.push_back((mfxExtBuffer *)&cop2);
+	}
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+		buf.push_back((mfxExtBuffer *)&cop3);
 	}
 
 	mfxVideoParam videoPrm;
@@ -2583,116 +2660,145 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
-	PRINT_INFO(    _T("QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample %s\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, MSDK_SAMPLE_VERSION);
-	PRINT_INFO(    _T("OS                      %s\n"), getOSVersion());
-	PRINT_INFO(    _T("CPU Info                %s\n"), cpuInfo);
+	PRINT_INFO(    _T("%s (%s) / QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample %s\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, MSDK_SAMPLE_VERSION);
+	PRINT_INFO(    _T("CPU Info          %s\n"), cpuInfo);
 	if (Check_HWUsed(impl)) {
-		PRINT_INFO(_T("GPU Info                %s\n"), gpu_info);
+		PRINT_INFO(_T("GPU Info          %s\n"), gpu_info);
 	}
-	PRINT_INFO(    _T("Media SDK impl          %s, API v%d.%d\n"), (Check_HWUsed(impl)) ? _T("QuickSyncVideo (hardware encoder)") : _T("software encoder"), m_mfxVer.Major, m_mfxVer.Minor);
+	if (Check_HWUsed(impl)) {
+		static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
+		mfxU32 iGPUID = MSDKAdapter::GetNumber(m_mfxSession);
+		PRINT_INFO(    _T("Media SDK         QuickSyncVideo (hardware encoder), %d%s GPU, API v%d.%d\n"), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
+	} else {
+		PRINT_INFO(    _T("Media SDK         software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
+	}
+	PRINT_INFO(    _T("Buffer Memory     %d frames, %s\n"), m_EncThread.m_nFrameBuffer, MemTypeToStr(m_memType));
 	//PRINT_INFO(    _T("Input Frame Format      %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
 	//PRINT_INFO(    _T("Input Frame Type      %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
-	PRINT_INFO(    _T("Input Frame Info        %s\n"), m_pFileReader->GetInputMessage());
+	PRINT_INFO(    _T("Input Frame Info  %s\n"), m_pFileReader->GetInputMessage());
 	sInputCrop inputCrop;
 	m_pFileReader->GetInputCropInfo(&inputCrop);
-	if (inputCrop.bottom || inputCrop.left || inputCrop.right || inputCrop.up)
-		PRINT_INFO(_T("Crop                    %d,%d,%d,%d (%dx%d -> %dx%d)\n"),
+	if (0 != (inputCrop.bottom | inputCrop.left | inputCrop.right | inputCrop.up))
+		PRINT_INFO(_T("Crop              %d,%d,%d,%d (%dx%d -> %dx%d)\n"),
 			inputCrop.left, inputCrop.up, inputCrop.right, inputCrop.bottom,
 			SrcPicInfo.CropW + inputCrop.left + inputCrop.right,
 			SrcPicInfo.CropH + inputCrop.up + inputCrop.bottom,
 			SrcPicInfo.CropW, SrcPicInfo.CropH);
 
 	if (VppExtMes.size()) {
-		const TCHAR *m = _T("VPP Enabled             ");
+		const TCHAR *m = _T("VPP Enabled       ");
 		size_t len = VppExtMes.length() + 1;
 		TCHAR *vpp_mes = (TCHAR*)malloc(len * sizeof(vpp_mes[0]));
 		memcpy(vpp_mes, VppExtMes.c_str(), len * sizeof(vpp_mes[0]));
 		for (TCHAR *p = vpp_mes, *q; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
 			PRINT_INFO(_T("%s%s\n"), m, p);
-			m    = _T("                        ");
+			m    = _T("                  ");
 			p = NULL;
 		}
 		free(vpp_mes);
 		VppExtMes.clear();
 	}
-	//if (SrcPicInfo.CropW != DstPicInfo.CropW || SrcPicInfo.CropH != DstPicInfo.CropH)
-	//	PRINT_INFO(_T("Resolution              %dx%d -> %dx%d\n"), SrcPicInfo.CropW, SrcPicInfo.CropH, DstPicInfo.CropW, DstPicInfo.CropH);
-	PRINT_INFO(    _T("Output Video            %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
+	PRINT_INFO(    _T("Output Video      %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
 		                                             get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
 		                                             get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
-	PRINT_INFO(    _T("                        %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
+	PRINT_INFO(    _T("                  %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
 	                                                 DstPicInfo.CropW, DstPicInfo.CropH, (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("p") : _T("i"),
 													 videoPrm.mfx.FrameInfo.AspectRatioW, videoPrm.mfx.FrameInfo.AspectRatioH,
 													 DstPicInfo.FrameRateExtN / (double)DstPicInfo.FrameRateExtD, DstPicInfo.FrameRateExtN, DstPicInfo.FrameRateExtD,
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : _T(", "),
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
 
-	PRINT_INFO(    _T("Encode Mode             %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
+	PRINT_INFO(    _T("Encode Mode       %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
+	PRINT_INFO(    _T("Target usage      %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
 	if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
 		if (m_nExPrm & MFX_PRM_EX_VQP) {
 			//PRINT_INFO(_T("VQP params              I:%d  P:%d+  B:%d+  strength:%d  sensitivity:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB, m_SceneChange.getVQPStrength(), m_SceneChange.getVQPSensitivity());
-			PRINT_INFO(_T("VQP params              I:%d  P:%d+  B:%d+\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
+			PRINT_INFO(_T("VQP params        I:%d  P:%d+  B:%d+\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
 		} else {
-			PRINT_INFO(_T("CQP Value               I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
+			PRINT_INFO(_T("CQP Value         I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
 		}
-	} else if (MFX_RATECONTROL_LA     == m_mfxEncParams.mfx.RateControlMethod
-		    || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-		PRINT_INFO(_T("Lookahead Depth         %d frames\n"), cop2.LookAheadDepth);
+	} else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
+		PRINT_INFO(_T("Lookahead Depth   %d frames\n"), cop2.LookAheadDepth);
+		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+			if (cop3.WinBRCSize) {
+				PRINT_INFO(_T("Windowed RC       %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
+			} else {
+				PRINT_INFO(_T("Windowed RC       off\n"), cop2.LookAheadDepth);
+			}
+		}
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-			PRINT_INFO(_T("Lookahead Quality       %s\n"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
+			PRINT_INFO(_T("Lookahead Quality %s\n"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
 		}
 		if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-			PRINT_INFO(_T("ICQ Quality             %d\n"), videoPrm.mfx.ICQQuality);
+			PRINT_INFO(_T("ICQ Quality       %d\n"), videoPrm.mfx.ICQQuality);
 		}
 	} else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-		PRINT_INFO(    _T("ICQ Quality             %d\n"), videoPrm.mfx.ICQQuality);
+		PRINT_INFO(    _T("ICQ Quality       %d\n"), videoPrm.mfx.ICQQuality);
 	} else {
-		PRINT_INFO(    _T("Bitrate                 %d kbps\n"), videoPrm.mfx.TargetKbps);
+		PRINT_INFO(    _T("Bitrate           %d kbps\n"), videoPrm.mfx.TargetKbps);
 		if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
 			//PRINT_INFO(_T("AVBR Accuracy range\t%.01lf%%"), m_mfxEncParams.mfx.Accuracy / 10.0);
-			PRINT_INFO(_T("AVBR Convergence        %d frames unit\n"), videoPrm.mfx.Convergence * 100);
+			PRINT_INFO(_T("AVBR Convergence  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
 		} else {
-			PRINT_INFO(_T("Max Bitrate             "));
+			PRINT_INFO(_T("Max Bitrate       "));
 			PRINT_INT_AUTO(_T("%d kbps\n"), videoPrm.mfx.MaxKbps);
+			if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
+				PRINT_INFO(    _T("QVBR Quality      %d\n"), cop3.QVBRQuality);
+			}
 		}
 	}
-	PRINT_INFO(    _T("Target usage            %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
-	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-		PRINT_INFO(_T("Trellis                 %s\n"), list_avc_trellis[get_cx_index(list_avc_trellis_for_options, cop2.Trellis)].desc);
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
+		auto qp_limit_str =[](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {
+			mfxU8 limit[3] = {limitI, limitP, limitB };
+			if (0 == (limit[0] | limit[1] | limit[2]))
+				return std::basic_string<msdk_char>(_T("none"));
+			TStringStream stream;
+			for (int i = 0; i < 3; i++) {
+				stream << (i) ? _T(":") : _T("");
+				if (limit[i]) {
+					stream << limit[i];
+				} else {
+					stream << _T("-");
+				}
+			}
+			return stream.str();
+		};
+		PRINT_INFO(_T("QP Limit          min: %s, max: %s\n"),
+			qp_limit_str(cop2.MinQPI, cop2.MinQPP, cop2.MinQPB).c_str(),
+			qp_limit_str(cop2.MaxQPI, cop2.MaxQPP, cop2.MaxQPB).c_str());
 	}
-	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
-		PRINT_INFO(_T("Ext. Bitrate Control    %s%s%s\n"),
-			(cop2.MBBRC  != MFX_CODINGOPTION_ON && cop2.ExtBRC != MFX_CODINGOPTION_ON) ? _T("disabled") : _T(""),
-			(cop2.MBBRC  == MFX_CODINGOPTION_ON) ? _T("PerMBRateControl ") : _T(""),
-			(cop2.ExtBRC == MFX_CODINGOPTION_ON) ? _T("ExtBRC ") : _T(""));
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
+		PRINT_INFO(_T("Trellis           %s\n"), list_avc_trellis[get_cx_index(list_avc_trellis_for_options, cop2.Trellis)].desc);
 	}
 
 	if (videoPrm.mfx.CodecId == MFX_CODEC_AVC && !Check_HWUsed(impl)) {
-		PRINT_INFO(    _T("CABAC                   %s\n"), (cop.CAVLC == MFX_CODINGOPTION_ON) ? _T("off") : _T("on"));
-		PRINT_INFO(    _T("RDO                     %s\n"), (cop.RateDistortionOpt == MFX_CODINGOPTION_ON) ? _T("on") : _T("off"));
+		PRINT_INFO(    _T("CABAC             %s\n"), (cop.CAVLC == MFX_CODINGOPTION_ON) ? _T("off") : _T("on"));
+		PRINT_INFO(    _T("RDO               %s\n"), (cop.RateDistortionOpt == MFX_CODINGOPTION_ON) ? _T("on") : _T("off"));
 		if ((cop.MVSearchWindow.x | cop.MVSearchWindow.y) == 0) {
-			PRINT_INFO(    _T("mv search               precision: %s\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc);
+			PRINT_INFO(    _T("mv search         precision: %s\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc);
 		} else {
-			PRINT_INFO(    _T("mv search               precision: %s, window size:%dx%d\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc, cop.MVSearchWindow.x, cop.MVSearchWindow.y);
+			PRINT_INFO(    _T("mv search         precision: %s, window size:%dx%d\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc, cop.MVSearchWindow.x, cop.MVSearchWindow.y);
 		}
-		PRINT_INFO(    _T("min pred block size     inter: %s   intra: %s\n"), list_pred_block_size[get_cx_index(list_pred_block_size, cop.InterPredBlockSize)].desc, list_pred_block_size[get_cx_index(list_pred_block_size, cop.IntraPredBlockSize)].desc);
+		PRINT_INFO(    _T("min pred size     inter: %s   intra: %s\n"), list_pred_block_size[get_cx_index(list_pred_block_size, cop.InterPredBlockSize)].desc, list_pred_block_size[get_cx_index(list_pred_block_size, cop.IntraPredBlockSize)].desc);
 	}
-	PRINT_INFO(    _T("Ref frames              "));
+	PRINT_INFO(    _T("Ref frames        "));
 	PRINT_INT_AUTO(_T("%d frames\n"), videoPrm.mfx.NumRefFrame);
 
-	PRINT_INFO(    _T("Bframe Settings         "));
+	PRINT_INFO(    _T("Bframes           "));
 	switch (videoPrm.mfx.GopRefDist) {
 		case 0:  PRINT_INFO(_T("Auto\n")); break;
 		case 1:  PRINT_INFO(_T("none\n")); break;
-		default: PRINT_INFO(_T("%d frame%s\n"), videoPrm.mfx.GopRefDist - 1, (videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T("")); break;
+		default: PRINT_INFO(_T("%d frame%s%s%s\n"),
+			videoPrm.mfx.GopRefDist - 1, (videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
+			check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ", B-pyramid: " : "",
+			(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) && (MFX_B_REF_PYRAMID == cop2.BRefType)) ? _T("on") : _T("off")); break;
 	}
 
-	//PRINT_INFO(    _T("Idr Interval          %d\n"), videoPrm.mfx.IdrInterval);
-	PRINT_INFO(    _T("Max GOP Length          "));
+	//PRINT_INFO(    _T("Idr Interval     %d\n"), videoPrm.mfx.IdrInterval);
+	PRINT_INFO(    _T("Max GOP Length    "));
 	PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
-	PRINT_INFO(    _T("Scene Change Detection  %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
+	PRINT_INFO(    _T("Scene Change      %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-		PRINT_INFO(    _T("B pyramid               %s\n"), (MFX_B_REF_PYRAMID == cop2.BRefType) ? _T("on") : _T("off"));
 		//PRINT_INFO(    _T("GOP Structure           "));
 		//bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
 		//bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
@@ -2705,11 +2811,30 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		//		(adaptiveBOn) ? _T("B") : _T(""));
 		//}
 	}
-	PRINT_INFO(    _T("Slices                  "));
-	if (videoPrm.mfx.NumSlice) {
-		PRINT_INFO(_T("%d\n"), videoPrm.mfx.NumSlice);
-	} else {
-		PRINT_INFO(_T("Auto\n"));
+	if (videoPrm.mfx.NumSlice >= 2) {
+		PRINT_INFO(_T("Slices            %d\n"), videoPrm.mfx.NumSlice);
+	}
+
+	//last line
+	bool write_line = false;
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+		if (cop2.MBBRC  == MFX_CODINGOPTION_ON) {
+			PRINT_INFO(_T("PerMBRC ")); write_line = true;
+		}
+		if (cop2.ExtBRC == MFX_CODINGOPTION_ON) {
+			PRINT_INFO(_T("ExtBRC ")); write_line = true;
+		}
+	}
+	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
+		if (cop2.DisableDeblockingIdc) {
+			PRINT_INFO(_T("No-Deblock ")); write_line = true;
+		}
+		if (cop2.IntRefType) {
+			PRINT_INFO(_T("Intra-Refresh ")); write_line = true;
+		}
+	}
+	if (write_line) {
+		PRINT_INFO(_T("\n"));
 	}
 	//if (   MFX_CODINGOPTION_ON == cop.AUDelimiter
 	//	|| MFX_CODINGOPTION_ON == cop.PicTimingSEI
@@ -2720,25 +2845,9 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	//		(MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) ? _T("SingleSEI ") : _T(""));
 	//}
 
-	//PRINT_INFO(_T("Source picture:"));
-	//PRINT_INFO(_T("\tResolution\t%dx%d"), SrcPicInfo.Width, SrcPicInfo.Height);
-	//PRINT_INFO(_T("\tCrop X,Y,W,H\t%d,%d,%d,%d"), SrcPicInfo.CropX, SrcPicInfo.CropY, SrcPicInfo.CropW, SrcPicInfo.CropH);
 
-	//PRINT_INFO(_T("Destination picture:"));
-	//PRINT_INFO(_T("\tResolution\t%dx%d"), DstPicInfo.Width, DstPicInfo.Height);
-	//PRINT_INFO(_T("\tCrop X,Y,W,H\t%d,%d,%d,%d"), DstPicInfo.CropX, DstPicInfo.CropY, DstPicInfo.CropW, DstPicInfo.CropH);
-
-
-	PRINT_INFO(    _T("Memory type             %s\n"), MemTypeToStr(m_memType));
-	PRINT_INFO(    _T("Input Buffer Size       %d frames\n"), m_EncThread.m_nFrameBuffer);
 	//PRINT_INFO(    _T("Threads               %d\n"), videoPrm.mfx.NumThread);
 
-	if (Check_HWUsed(impl)) {
-		static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
-		mfxU32 iGPUID = MSDKAdapter::GetNumber(m_mfxSession);
-		PRINT_INFO(_T("Intel iGPU ID           %d%s GPU\n"), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)]);
-	}
-	PRINT_INFO(_T("\n"));
 
 	PrintMes(info);
 	if (str && bufSize > 0) {
