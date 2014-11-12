@@ -2112,7 +2112,6 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
 		PrintMes(_T("%s\n"), get_err_mes(sts));
 
 	m_EncThread.Close();
-	timeEndPeriod(1);
 
 	return sts;
 }
