@@ -195,14 +195,14 @@ mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 			copy(vppDoUseList.begin(), vppDoUseList.end(), vppDoUseListOut.begin());
 			copy(vppDoNotUseList.begin(), vppDoNotUseList.end(), vppDoNotUseListOut.begin());
 			//入力側の設定
-			vppDoUse.NumAlg     = vppDoUseList.size();
+			vppDoUse.NumAlg     = (mfxU32)vppDoUseList.size();
 			vppDoUse.AlgList    = &vppDoUseList[0];
-			vppDoNotUse.NumAlg  = vppDoNotUseList.size();
+			vppDoNotUse.NumAlg  = (mfxU32)vppDoNotUseList.size();
 			vppDoNotUse.AlgList = &vppDoNotUseList[0];
 			//出力側の設定
-			vppDoUseOut.NumAlg     = vppDoUseListOut.size();
+			vppDoUseOut.NumAlg     = (mfxU32)vppDoUseListOut.size();
 			vppDoUseOut.AlgList    = &vppDoUseListOut[0];
-			vppDoNotUseOut.NumAlg  = vppDoNotUseListOut.size();
+			vppDoNotUseOut.NumAlg  = (mfxU32)vppDoNotUseListOut.size();
 			vppDoNotUseOut.AlgList = &vppDoNotUseListOut[0];
 			//bufの一番端はチェック用に開けてあるので、そこに構造体へのポインタを入れる
 			*(buf.end()    - 1) = (mfxExtBuffer *)structIn;
