@@ -1326,7 +1326,7 @@ int run_encode(sInputParams *params) {
 	set_signal_handler();
 
 	pPipeline->CheckCurrentVideoParam();
-	_ftprintf(stderr, _T("Processing started\n"));
+	_ftprintf(stderr, _T("\nProcessing started\r"));
 
 	for (;;)
 	{
@@ -1349,8 +1349,7 @@ int run_encode(sInputParams *params) {
 		}
 	}
 
-	pPipeline->Close();  
-	_ftprintf(stderr, _T("\nProcessing finished\n"));
+	pPipeline->Close();
 
 	return sts;
 }
@@ -1624,7 +1623,7 @@ int _tmain(int argc, TCHAR *argv[])
 	set_signal_handler();
 
 	pPipeline->CheckCurrentVideoParam();
-	_ftprintf(stderr, _T("Processing started\n"));
+	_ftprintf(stderr, _T("\nProcessing started\r"));
 
 	for (;;)
 	{
