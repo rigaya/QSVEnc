@@ -640,8 +640,10 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
 			m_CodingOption3.QVBRQuality = pInParams->nQVBRQuality;
 		}
-		m_CodingOption3.WinBRCSize = pInParams->nWinBRCSize;
-		m_CodingOption3.WinBRCMaxAvgKbps = pInParams->nMaxBitrate;
+		if (0 != pInParams->nMaxBitrate) {
+			m_CodingOption3.WinBRCSize = (0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale);
+			m_CodingOption3.WinBRCMaxAvgKbps = pInParams->nMaxBitrate;
+		}
 		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
 	}
 
