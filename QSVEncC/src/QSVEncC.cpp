@@ -1195,7 +1195,9 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		}
 		else
 		{
-			PrintHelp(strInput[0], _T("Unknown options"), NULL);
+			tstring mes = _T("Unknown option: --");
+			mes += option_name;
+			PrintHelp(strInput[0], (TCHAR *)mes.c_str(), NULL);
 			return MFX_PRINT_OPTION_ERR;
 		}
 	}
