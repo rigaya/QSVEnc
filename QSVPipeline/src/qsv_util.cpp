@@ -1008,6 +1008,6 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
 		write_rw_speed(_T("L3 "), cpu_info.caches[2].size / 1024 / 2);
 		write_rw_speed(_T("RAM"), cpu_info.caches[cpu_info.max_cache_level-1].size / 1024 * 8);
 	}
-	add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? "    " : "RAM:", (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
+	add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
 	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
 }
