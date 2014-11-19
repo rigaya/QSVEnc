@@ -755,6 +755,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
+		else if (0 == _tcscmp(option_name, _T("la-window-size")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nWinBRCSize)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+		}
 		else if (0 == _tcscmp(option_name, _T("cqp")) || 0 == _tcscmp(option_name, _T("vqp")))
 		{
 			i++;
