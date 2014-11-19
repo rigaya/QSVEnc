@@ -168,7 +168,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
 			_T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
 			_T("                                  and set the window size in frames.\n")
-			_T("   --maxbitrate <int>           set max bitrate(kbps)\n")
+			_T("   --max-bitrate <int>          set max bitrate(kbps)\n")
 			_T("-u,--quality <string>           encode quality\n")
 			_T("                                  - best, higher, high, balanced(default)\n")
 			_T("                                    fast, faster, fastest\n")
@@ -738,7 +738,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			}
 			pParams->nEncMode = MFX_RATECONTROL_QVBR;
 		}
-		else if (0 == _tcscmp(option_name, _T("maxbitrate")))
+		else if (0 == _tcscmp(option_name, _T("max-bitrate"))
+			||   0 == _tcscmp(option_name, _T("maxbitrate"))) //互換性のため
 		{
 			i++;
 			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nMaxBitrate)) {
