@@ -119,6 +119,7 @@ enum {
 	VPP_FEATURE_VIDEO_SIGNAL_INFO   = 0x00000020,
 	VPP_FEATURE_FPS_CONVERSION      = 0x00000040,
 	VPP_FEATURE_FPS_CONVERSION_ADV  = 0x00000080 | VPP_FEATURE_FPS_CONVERSION,
+	VPP_FEATURE_DEINTERLACE         = 0x00000100,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -161,6 +162,7 @@ static const CX_DESC list_enc_feature[] = {
 };
 static const CX_DESC list_vpp_feature[] = {
 	{ _T("Resize               "), VPP_FEATURE_RESIZE              },
+	{ _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
 	{ _T("Denoise              "), VPP_FEATURE_DENOISE             },
 	{ _T("Detail Enhancement   "), VPP_FEATURE_DETAIL_ENHANCEMENT  },
 	{ _T("Proc Amp.            "), VPP_FEATURE_PROC_AMP            },

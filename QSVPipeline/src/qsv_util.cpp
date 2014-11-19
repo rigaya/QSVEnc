@@ -95,6 +95,7 @@ mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 
 	mfxU32 result = 0x00;
 	result |= VPP_FEATURE_RESIZE;
+	result |= VPP_FEATURE_DEINTERLACE;
 	result |= VPP_FEATURE_DENOISE;
 	result |= VPP_FEATURE_DETAIL_ENHANCEMENT;
 	result |= VPP_FEATURE_PROC_AMP;
@@ -231,6 +232,7 @@ mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver) {
 		//API v1.3未満で実際にチェックする必要は殆ど無いので、
 		//コードで決められた値を返すようにする
 		feature |= VPP_FEATURE_RESIZE;
+		feature |= VPP_FEATURE_DEINTERLACE;
 		feature |= VPP_FEATURE_DENOISE;
 		feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
 		feature |= VPP_FEATURE_PROC_AMP;
