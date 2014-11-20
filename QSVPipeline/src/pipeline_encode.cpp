@@ -2661,7 +2661,8 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
-	PRINT_INFO(    _T("%s (%s) / QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample %s\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, MSDK_SAMPLE_VERSION);
+	PRINT_INFO(    _T("QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample %s\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, MSDK_SAMPLE_VERSION);
+	PRINT_INFO(    _T("OS                %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
 	PRINT_INFO(    _T("CPU Info          %s\n"), cpuInfo);
 	if (Check_HWUsed(impl)) {
 		PRINT_INFO(_T("GPU Info          %s\n"), gpu_info);
@@ -2673,7 +2674,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	} else {
 		PRINT_INFO(    _T("Media SDK         software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
 	}
-	PRINT_INFO(    _T("Buffer Memory     %d frames, %s\n"), m_EncThread.m_nFrameBuffer, MemTypeToStr(m_memType));
+	PRINT_INFO(    _T("Buffer Memory     %s, %d input buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer);
 	//PRINT_INFO(    _T("Input Frame Format      %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
 	//PRINT_INFO(    _T("Input Frame Type      %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
 	PRINT_INFO(    _T("Input Frame Info  %s\n"), m_pFileReader->GetInputMessage());
@@ -2708,9 +2709,9 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 													 DstPicInfo.FrameRateExtN / (double)DstPicInfo.FrameRateExtD, DstPicInfo.FrameRateExtN, DstPicInfo.FrameRateExtD,
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : _T(", "),
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
-
-	PRINT_INFO(    _T("Encode Mode       %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
+	
 	PRINT_INFO(    _T("Target usage      %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
+	PRINT_INFO(    _T("Encode Mode       %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
 	if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
 		if (m_nExPrm & MFX_PRM_EX_VQP) {
 			//PRINT_INFO(_T("VQP params              I:%d  P:%d+  B:%d+  strength:%d  sensitivity:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB, m_SceneChange.getVQPStrength(), m_SceneChange.getVQPSensitivity());
@@ -2719,16 +2720,17 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 			PRINT_INFO(_T("CQP Value         I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
 		}
 	} else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
-		PRINT_INFO(_T("Lookahead Depth   %d frames\n"), cop2.LookAheadDepth);
+		PRINT_INFO(_T("Lookahead         depth %d frames"), cop2.LookAheadDepth);
+		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+			PRINT_INFO(_T(", quality %s"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
+		}
+		PRINT_INFO(_T("\n"));
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
 			if (cop3.WinBRCSize) {
 				PRINT_INFO(_T("Windowed RC       %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
 			} else {
 				PRINT_INFO(_T("Windowed RC       off\n"), cop2.LookAheadDepth);
 			}
-		}
-		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-			PRINT_INFO(_T("Lookahead Quality %s\n"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
 		}
 		if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
 			PRINT_INFO(_T("ICQ Quality       %d\n"), videoPrm.mfx.ICQQuality);
