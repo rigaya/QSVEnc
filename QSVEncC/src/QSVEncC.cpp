@@ -159,8 +159,8 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --avbr-unitsize <int>        avbr calculation period in x100 frames\n")
 			_T("                                 default %d (= unit size %d00 frames)\n")
 			_T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
-			_T("                                  default value: %d\n")
-			_T("                                 QVBR mode is only supported with API v1.11\n")
+			_T("   --qvbr-q <int>  or           set quality used in qvbr mode. default: %d\n")
+			_T("   --qvbr-quality <int>          QVBR mode is only supported with API v1.11\n")
 			_T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
 			//_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
 			//_T("                                   in percentage, defalut %.1f(%%)\n)"
@@ -730,6 +730,16 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			pParams->nEncMode = MFX_RATECONTROL_AVBR;
 		}
 		else if (0 == _tcscmp(option_name, _T("qvbr")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->nEncMode = MFX_RATECONTROL_QVBR;
+		}
+		else if (0 == _tcscmp(option_name, _T("qvbr-q"))
+			  || 0 == _tcscmp(option_name, _T("qvbr-quality")))
 		{
 			i++;
 			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nQVBRQuality)) {
