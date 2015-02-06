@@ -531,6 +531,17 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		default:
 			break;
 		}
+	} else {
+		switch (pInParams->vpp.nFPSConversion) {
+		case FPS_CONVERT_MUL2:
+			OutputFPSRate = OutputFPSRate * 2;
+			break;
+		case FPS_CONVERT_MUL2_5:
+			OutputFPSRate = OutputFPSRate * 5 / 2;
+			break;
+		default:
+			break;
+		}
 	}
 	mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
 	OutputFPSRate /= gcd;
