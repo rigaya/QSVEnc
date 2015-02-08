@@ -181,6 +181,8 @@
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN64;_M_IX64</PreprocessorDefinitions>
+      <Culture>0x0411</Culture>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
@@ -321,6 +323,8 @@
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN64;_M_IX64</PreprocessorDefinitions>
+      <Culture>0x0411</Culture>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
@@ -369,6 +373,8 @@
     <ResourceCompile>
       <NullTerminateStrings>true</NullTerminateStrings>
       <PreprocessorDefinitions>WIN64;_M_IX64</PreprocessorDefinitions>
+      <Culture>0x0411</Culture>
+      <AdditionalOptions>/c 65001 %(AdditionalOptions)</AdditionalOptions>
     </ResourceCompile>
     <Manifest>
       <AdditionalManifestFiles>src\QSVEncC.manifest</AdditionalManifestFiles>
