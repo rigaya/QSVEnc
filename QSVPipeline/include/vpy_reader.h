@@ -38,6 +38,20 @@ typedef void (__stdcall *func_vs_clearOutput)(VSScript *handle, int index);
 typedef VSCore * (__stdcall *func_vs_getCore)(VSScript *handle);
 typedef const VSAPI * (__stdcall *func_vs_getVSApi)(void);
 
+typedef struct {
+	HMODULE                hVSScriptDLL;
+	func_vs_init           init;
+	func_vs_finalize       finalize;
+	func_vs_evaluateScript evaluateScript;
+	func_vs_evaluateFile   evaluateFile;
+	func_vs_freeScript     freeScript;
+	func_vs_getError       getError;
+	func_vs_getOutput      getOutput;
+	func_vs_clearOutput    clearOutput;
+	func_vs_getCore        getCore;
+	func_vs_getVSApi       getVSApi;
+} vsscript_t;
+
 class CVSReader : public CSmplYUVReader
 {
 public:
@@ -51,14 +65,19 @@ public:
 
 	void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 private:
+	void release_vapoursynth();
+	int load_vapoursynth();
 	int initAsyncEvents();
 	void closeAsyncEvents();
 	const VSFrameRef* getFrameFromAsyncBuffer(int n) {
-		WaitForSingleObject(m_hAsyncEvent[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
-		return m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
+		WaitForSingleObject(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
+		const VSFrameRef *frame = m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)];
+		SetEvent(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)]);
+		return frame;
 	}
 	const VSFrameRef* m_pAsyncBuffer[ASYNC_BUFFER_SIZE];
-	HANDLE m_hAsyncEvent[ASYNC_BUFFER_SIZE];
+	HANDLE m_hAsyncEventFrameSetFin[ASYNC_BUFFER_SIZE];
+	HANDLE m_hAsyncEventFrameSetStart[ASYNC_BUFFER_SIZE];
 
 	int getRevInfo(const char *vs_version_string);
 
@@ -70,18 +89,7 @@ private:
 	VSNodeRef *m_sVSnode;
 	int m_nAsyncFrames;
 
-	//VSScript.dllのもろもろ
-	HMODULE hVSScriptDLL;
-	func_vs_init vs_init;
-	func_vs_finalize vs_finalize;
-	func_vs_evaluateScript vs_evaluateScript;
-	func_vs_evaluateFile vs_evaluateFile;
-	func_vs_freeScript vs_freeScript;
-	func_vs_getError vs_getError;
-	func_vs_getOutput vs_getOutput;
-	func_vs_clearOutput vs_clearOutput;
-	func_vs_getCore vs_getCore;
-	func_vs_getVSApi vs_getVSApi;
+	vsscript_t m_sVS;
 };
 
 #endif //ENABLE_VAPOURSYNTH_READER

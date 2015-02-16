@@ -20,31 +20,60 @@ CVSReader::CVSReader() {
 	m_sVSnode = NULL;
 	m_nAsyncFrames = 0;
 	memset(m_pAsyncBuffer, 0, sizeof(m_pAsyncBuffer));
-	memset(m_hAsyncEvent, 0, sizeof(m_hAsyncEvent));
+	memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
+	memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
 	
 	m_bAbortAsync = false;
 	m_nCopyOfInputFrames = 0;
-
-	hVSScriptDLL = NULL;
-	vs_init = NULL;
-	vs_finalize = NULL;
-	vs_evaluateScript = NULL;
-	vs_evaluateFile = NULL;
-	vs_freeScript = NULL;
-	vs_getError = NULL;
-	vs_getOutput = NULL;
-	vs_clearOutput = NULL;
-	vs_getCore = NULL;
-	vs_getVSApi = NULL;
+	
+	memset(&m_sVS, 0, sizeof(m_sVS));
 }
 
 CVSReader::~CVSReader() {
 	Close();
 }
 
+void CVSReader::release_vapoursynth() {
+	if (m_sVS.hVSScriptDLL)
+		FreeLibrary(m_sVS.hVSScriptDLL);
+
+	memset(&m_sVS, 0, sizeof(m_sVS));
+}
+
+int CVSReader::load_vapoursynth() {
+	release_vapoursynth();
+	
+	if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(_T("vsscript.dll")))) {
+		m_strInputInfo += _T("Failed to load vsscript.dll.\n");
+		return 1;
+	}
+
+	std::map<void **, const char*> vs_func_list = {
+		{ (void **)&m_sVS.init,           (VPY_X64) ? "vsscript_init"           : "_vsscript_init@0"            },
+		{ (void **)&m_sVS.finalize,       (VPY_X64) ? "vsscript_finalize"       : "_vsscript_finalize@0",       },
+		{ (void **)&m_sVS.evaluateScript, (VPY_X64) ? "vsscript_evaluateScript" : "_vsscript_evaluateScript@16" },
+		{ (void **)&m_sVS.evaluateFile,   (VPY_X64) ? "vsscript_evaluateFile"   : "_vsscript_evaluateFile@12"   },
+		{ (void **)&m_sVS.freeScript,     (VPY_X64) ? "vsscript_freeScript"     : "_vsscript_freeScript@4"      },
+		{ (void **)&m_sVS.getError,       (VPY_X64) ? "vsscript_getError"       : "_vsscript_getError@4"        },
+		{ (void **)&m_sVS.getOutput,      (VPY_X64) ? "vsscript_getOutput"      : "_vsscript_getOutput@8"       },
+		{ (void **)&m_sVS.clearOutput,    (VPY_X64) ? "vsscript_clearOutput"    : "_vsscript_clearOutput@8"     },
+		{ (void **)&m_sVS.getCore,        (VPY_X64) ? "vsscript_getCore"        : "_vsscript_getCore@4"         },
+		{ (void **)&m_sVS.getVSApi,       (VPY_X64) ? "vsscript_getVSApi"       : "_vsscript_getVSApi@0"        },
+	};
+
+	for (auto vs_func : vs_func_list) {
+		if (NULL == (*(vs_func.first) = GetProcAddress(m_sVS.hVSScriptDLL, vs_func.second))) {
+			m_strInputInfo += _T("Failed to load vsscript functions.\n");
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int CVSReader::initAsyncEvents() {
-	for (int i = 0; i < _countof(m_hAsyncEvent); i++) {
-		if (NULL == (m_hAsyncEvent[i] = CreateEvent(NULL, FALSE, FALSE, NULL)))
+	for (int i = 0; i < _countof(m_hAsyncEventFrameSetFin); i++) {
+		if (   NULL == (m_hAsyncEventFrameSetFin[i]   = CreateEvent(NULL, FALSE, FALSE, NULL))
+			|| NULL == (m_hAsyncEventFrameSetStart[i] = CreateEvent(NULL, FALSE, TRUE,  NULL)))
 			return 1;
 	}
 	return 0;
@@ -52,13 +81,17 @@ int CVSReader::initAsyncEvents() {
 void CVSReader::closeAsyncEvents() {
 	m_bAbortAsync = true;
 	for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
-		if (m_hAsyncEvent[i_frame & (ASYNC_BUFFER_SIZE-1)])
-			WaitForSingleObject(m_hAsyncEvent[i_frame & (ASYNC_BUFFER_SIZE-1)], INFINITE);
+		if (m_hAsyncEventFrameSetFin[i_frame & (ASYNC_BUFFER_SIZE-1)])
+			WaitForSingleObject(m_hAsyncEventFrameSetFin[i_frame & (ASYNC_BUFFER_SIZE-1)], INFINITE);
 	}
-	for (int i = 0; i < _countof(m_hAsyncEvent); i++)
-		if (m_hAsyncEvent[i])
-			CloseHandle(m_hAsyncEvent[i]);
-	memset(m_hAsyncEvent, 0, sizeof(m_hAsyncEvent));
+	for (int i = 0; i < _countof(m_hAsyncEventFrameSetFin); i++) {
+		if (m_hAsyncEventFrameSetFin[i])
+			CloseHandle(m_hAsyncEventFrameSetFin[i]);
+		if (m_hAsyncEventFrameSetStart[i])
+			CloseHandle(m_hAsyncEventFrameSetStart[i]);
+	}
+	memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
+	memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
 	m_bAbortAsync = false;
 }
 
@@ -70,8 +103,9 @@ void __stdcall frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSN
 #pragma warning(pop)
 
 void CVSReader::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
+	WaitForSingleObject(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
 	m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
-	SetEvent(m_hAsyncEvent[n & (ASYNC_BUFFER_SIZE-1)]);
+	SetEvent(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)]);
 
 	if (m_nAsyncFrames < *(int*)&m_inputFrameInfo.FrameId && !m_bAbortAsync) {
 		m_sVSapi->getFrameAsync(m_nAsyncFrames, m_sVSnode, frameDoneCallback, this);
@@ -86,8 +120,10 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
 	for (char *p = buf, *q = NULL, *r = NULL; NULL != (q = strtok_s(p, "\n", &r)); ) {
 		if (NULL != (api_info = strstr(q, "Core"))) {
 			strcpy_s(buf, _countof(buf), api_info);
+			for (char *s = buf; *s; s++)
+				*s = (char)tolower(*s);
 			int rev = 0;
-			return (1 == sscanf_s(buf, "Core r%d", &rev)) ? rev : 0;
+			return (1 == sscanf_s(buf, "core r%d", &rev)) ? rev : 0;
 		}
 		p = NULL;
 	}
@@ -112,30 +148,9 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 	memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
 
 	const bool use_mt_mode = option != 0;
-
-	if (NULL == (hVSScriptDLL = LoadLibrary(_T("vsscript.dll")))) {
-		m_strInputInfo += _T("Failed to load vsscript.dll.\n");
-		return MFX_ERR_INVALID_HANDLE;
-	}
-
-	std::map<void **, const char*> vs_func_list = {
-		{ (void **)&vs_init,           (VPY_X64) ? "vsscript_init"           : "_vsscript_init@0"            },
-		{ (void **)&vs_finalize,       (VPY_X64) ? "vsscript_finalize"       : "_vsscript_finalize@0",       },
-		{ (void **)&vs_evaluateScript, (VPY_X64) ? "vsscript_evaluateScript" : "_vsscript_evaluateScript@16" },
-		{ (void **)&vs_evaluateFile,   (VPY_X64) ? "vsscript_evaluateFile"   : "_vsscript_evaluateFile@12"   },
-		{ (void **)&vs_freeScript,     (VPY_X64) ? "vsscript_freeScript"     : "_vsscript_freeScript@4"      },
-		{ (void **)&vs_getError,       (VPY_X64) ? "vsscript_getError"       : "_vsscript_getError@4"        },
-		{ (void **)&vs_getOutput,      (VPY_X64) ? "vsscript_getOutput"      : "_vsscript_getOutput@8"       },
-		{ (void **)&vs_clearOutput,    (VPY_X64) ? "vsscript_clearOutput"    : "_vsscript_clearOutput@8"     },
-		{ (void **)&vs_getCore,        (VPY_X64) ? "vsscript_getCore"        : "_vsscript_getCore@4"         },
-		{ (void **)&vs_getVSApi,       (VPY_X64) ? "vsscript_getVSApi"       : "_vsscript_getVSApi@0"        },
-	};
-
-	for (auto vs_func : vs_func_list) {
-		if (NULL == (*(vs_func.first) = GetProcAddress(hVSScriptDLL, vs_func.second))) {
-			m_strInputInfo += _T("Failed to load vsscript functions.\n");
-			return MFX_ERR_INVALID_HANDLE;
-		}
+	
+	if (load_vapoursynth()) {
+		return MFX_ERR_NULL_PTR;
 	}
 
 	//ファイルデータ読み込み
@@ -151,18 +166,18 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 
 	const VSVideoInfo *vsvideoinfo = NULL;
 	const VSCoreInfo *vscoreinfo = NULL;
-	if (   !vs_init()
+	if (   !m_sVS.init()
 		|| initAsyncEvents()
-		|| NULL == (m_sVSapi = vs_getVSApi())
-		|| vs_evaluateScript(&m_sVSscript, script_data.c_str(), NULL, efSetWorkingDir)
-		|| NULL == (m_sVSnode = vs_getOutput(m_sVSscript, 0))
+		|| NULL == (m_sVSapi = m_sVS.getVSApi())
+		|| m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), NULL, efSetWorkingDir)
+		|| NULL == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
 		|| NULL == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
-		|| NULL == (vscoreinfo = m_sVSapi->getCoreInfo(vs_getCore(m_sVSscript)))) {
+		|| NULL == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
 		m_strInputInfo += _T("VapourSynth Initialize Error.\n");
 		if (m_sVSscript) {
 #if UNICODE
 			WCHAR buf[1024];
-			MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, vs_getError(m_sVSscript), -1, buf, _countof(buf));
+			MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, m_sVS.getError(m_sVSscript), -1, buf, _countof(buf));
 			m_strInputInfo += buf;
 #else
 			m_strInputInfo += vs_getError(m_sVSscript);
@@ -217,7 +232,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 	}
 
 	if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
-		m_strInputInfo += _T("avisynth: invalid colorformat.\n");
+		m_strInputInfo += _T("invalid colorformat.\n");
 		return MFX_ERR_INVALID_COLOR_FORMAT;
 	}
 
@@ -238,7 +253,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 	m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo->numThreads);
 	m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);
 	if (!use_mt_mode)
-		m_nAsyncFrames = (std::max)(m_nAsyncFrames, 1);
+		m_nAsyncFrames = 1;
 
 	for (int i = 0; i < m_nAsyncFrames; i++)
 		m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
@@ -262,22 +277,11 @@ void CVSReader::Close() {
 	if (m_sVSapi && m_sVSnode)
 		m_sVSapi->freeNode(m_sVSnode);
 	if (m_sVSscript)
-		vs_freeScript(m_sVSscript);
+		m_sVS.freeScript(m_sVSscript);
 	if (m_sVSapi)
-		vs_finalize();
-	if (hVSScriptDLL)
-		FreeLibrary(hVSScriptDLL);
+		m_sVS.finalize();
 
-	hVSScriptDLL = NULL;
-	vs_init = NULL;
-	vs_finalize = NULL;
-	vs_evaluateScript = NULL;
-	vs_freeScript = NULL;
-	vs_getError = NULL;
-	vs_getOutput = NULL;
-	vs_clearOutput = NULL;
-	vs_getCore = NULL;
-	vs_getVSApi = NULL;
+	release_vapoursynth();
 
 	m_bAbortAsync = false;
 	m_nCopyOfInputFrames = 0;
