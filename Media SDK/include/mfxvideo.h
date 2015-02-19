@@ -33,7 +33,7 @@ File Name: mfxvideo.h
 #include "mfxvstructures.h"
 
 #define MFX_VERSION_MAJOR 1
-#define MFX_VERSION_MINOR 11
+#define MFX_VERSION_MINOR 13
 
 #ifdef __cplusplus
 extern "C"

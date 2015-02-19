@@ -79,8 +79,12 @@ protected:
         mfxU16 m_type;
 
         UniqueResponse()
+            : m_cropw(0)
+            , m_croph(0)
+            , m_refCount(0)
+            , m_type(0)
         {
-            memset(this, 0, sizeof(*this));
+            memset(static_cast<mfxFrameAllocResponse*>(this), 0, sizeof(mfxFrameAllocResponse));
         }
 
         // compare responses by actual frame size, alignment (w and h) is up to application

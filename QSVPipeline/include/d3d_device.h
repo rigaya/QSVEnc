@@ -1,12 +1,12 @@
-﻿/* ****************************************************************************** *\
+﻿/*********************************************************************************
 
 INTEL CORPORATION PROPRIETARY INFORMATION
 This software is supplied under the terms of a license agreement or nondisclosure
 agreement with Intel Corporation and may not be copied or disclosed except in
 accordance with the terms of that agreement
-Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
+Copyright(c) 2011-2014 Intel Corporation. All Rights Reserved.
 
-\* ****************************************************************************** */
+**********************************************************************************/
 
 #pragma once
 
@@ -19,10 +19,6 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 #include <dxva2api.h>
 #include <dxva.h>
 #include <windows.h>
-
-enum {
-    MFX_HANDLE_GFXS3DCONTROL = 0x100 /* A handle to the IGFXS3DControl instance */
-}; //mfxHandleType
 
 #define VIDEO_MAIN_FORMAT D3DFMT_YUY2
 
@@ -51,7 +47,6 @@ public:
     virtual void      UpdateTitle(double /*fps*/) { }
     virtual void      Close() ;
             void      DefineFormat(bool isA2rgb10) { m_bIsA2rgb10 = (isA2rgb10) ? TRUE : FALSE; }
-
 protected:
     mfxStatus CreateVideoProcessors();
     bool CheckOverlaySupport();
@@ -75,8 +70,6 @@ private:
     IDirectXVideoProcessor*         m_pDXVAVP_Left;
     // right channel processor
     IDirectXVideoProcessor*         m_pDXVAVP_Right;
-    // the surface which is passed to render
-    IDirect3DSurface9*              m_pRenderSurface;
 
     // target rectangle
     RECT                            m_targetRect;
