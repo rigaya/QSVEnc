@@ -445,6 +445,10 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 		cop3.WinBRCMaxAvgKbps = 3000;
 		CHECK_FEATURE(cop3.WinBRCSize,           cop3Out.WinBRCSize,           ENC_FEATURE_WINBRC,        10,                      MFX_LIB_VERSION_1_11);
 		cop3.WinBRCMaxAvgKbps = 0;
+		CHECK_FEATURE(cop3.EnableMBQP,                 cop3Out.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+		CHECK_FEATURE(cop3.DirectBiasAdjustment,       cop3Out.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+		CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, cop3Out.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+		CHECK_FEATURE(cop3.MVCostScalingFactor,        cop3Out.MVCostScalingFactor,        ENC_FEATURE_MVCOST_SCALING,             1,                       MFX_LIB_VERSION_1_13);
 #undef PICTYPE
 #pragma warning(pop)
 		//付随オプション

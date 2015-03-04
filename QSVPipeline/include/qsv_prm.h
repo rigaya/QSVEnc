@@ -174,7 +174,11 @@ struct sInputParams
 	mfxU8      nQPMax[3];
 
 	mfxU16     nWinBRCSize;
-	mfxU8      Reserved[1190];
+	
+	mfxU8      nMVCostScaling;
+	mfxU8      bDirectBiasAdjust;
+	mfxU8      bGlobalMotionAdjust;
+	mfxU8      Reserved[1187];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -295,6 +299,16 @@ const CX_DESC list_lookahead_ds[] = {
 	{ _T("slow"),   MFX_LOOKAHEAD_DS_OFF     },
 	{ _T("medium"), MFX_LOOKAHEAD_DS_2x      },
 	{ _T("fast"),   MFX_LOOKAHEAD_DS_4x      },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_mv_cost_scaling[] = {
+	{ _T("default"), -1 },
+	{ _T("0"),        0 },
+	{ _T("1"),        1 },
+	{ _T("2"),        2 },
+	{ _T("3"),        3 },
+	{ _T("4"),        4 },
 	{ NULL, NULL }
 };
 

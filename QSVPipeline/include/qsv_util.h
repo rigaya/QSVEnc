@@ -114,6 +114,10 @@ enum : uint64_t {
 	ENC_FEATURE_NO_DEBLOCK             = 0x04000000,
 	ENC_FEATURE_QP_MINMAX              = 0x08000000,
 	ENC_FEATURE_WINBRC                 = 0x10000000,
+	ENC_FEATURE_PERMBQP                = 0x20000000,
+	ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x40000000,
+	ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x80000000,
+	ENC_FEATURE_MVCOST_SCALING         = 0x0000000100000000,
 };
 
 enum : uint64_t {
@@ -164,6 +168,10 @@ static const FEATURE_DESC list_enc_feature[] = {
 	{ _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
 	{ _T("No Debloc    "), ENC_FEATURE_NO_DEBLOCK             },
 	{ _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
+	{ _T("PerMBQP(CQP) "), ENC_FEATURE_PERMBQP                },
+	{ _T("DirectBiasAdj"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
+	{ _T("MotionAdj    "), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
+	{ _T("MVCostScaling"), ENC_FEATURE_MVCOST_SCALING         },
 	{ NULL, 0 },
 };
 static const FEATURE_DESC list_vpp_feature[] = {

@@ -258,6 +258,15 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("           <int>:<int>:<int>\n")
 			);
 		_ftprintf(stdout, _T("\n")
+			_T(" settings below are only supported with API v1.13\n")
+			_T("   --mv-scaling                 set mv cost scaling\n")
+			_T("                                 - 0  set MV cost to be 0\n")
+			_T("                                 - 1  set MV cost 1/8 of default\n")
+			_T("                                 - 2  set MV cost 1/4 of default\n")
+			_T("                                 - 3  set MV cost 1/2 of default\n")
+			_T("   --direct-bias-adjust         enables adaptive I frame insert\n")
+			);
+		_ftprintf(stdout, _T("\n")
 			_T(" Settings below are available only for software ecoding.\n")
 			_T("   --cavlc                      use cavlc instead of cabac\n")
 			_T("   --rdo                        use rate distortion optmization\n")
@@ -881,6 +890,26 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			for (int i = 0; i < 3; i++) {
 				limit[i] = (mfxU8)clamp(qpLimit[i], 0, 51);
 			}
+		}
+		else if (0 == _tcscmp(option_name, _T("mv-scaling")))
+		{
+			i++;
+			int value = 0;
+			if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+				pParams->bGlobalMotionAdjust = true;
+				pParams->nMVCostScaling = (mfxU8)value;
+			} else {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+		}
+		else if (0 == _tcscmp(option_name, _T("direct-bias-adjust")))
+		{
+			pParams->bDirectBiasAdjust = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-direct-bias-adjust")))
+		{
+			pParams->bDirectBiasAdjust = false;
 		}
 		else if (0 == _tcscmp(option_name, _T("fullrange")))
 		{
