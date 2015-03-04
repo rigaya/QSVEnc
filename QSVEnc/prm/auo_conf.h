@@ -29,7 +29,8 @@ enum {
 	RUN_BAT_BEFORE = 0x02,
 };
 
-static const char *CONF_NAME          = "QSVEnc ConfigFile";
+static const char *CONF_NAME_OLD      = "QSVEnc ConfigFile";
+static const char *CONF_NAME          = "QSVEnc ConfigFile v2";
 const int CONF_NAME_BLOCK_LEN         = 32;
 const int CONF_BLOCK_MAX              = 32;
 const int CONF_BLOCK_COUNT            = 5; //最大 CONF_BLOCK_MAXまで
@@ -121,6 +122,7 @@ class guiEx_config {
 private:
 	static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
 	static const int conf_block_data[CONF_BLOCK_COUNT];
+	static void convert_qsvstgv1_to_stgv2(CONF_GUIEX *conf);
 public:
 	guiEx_config();
 	static void write_conf_header(CONF_GUIEX *conf);

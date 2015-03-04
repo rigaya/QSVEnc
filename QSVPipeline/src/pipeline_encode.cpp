@@ -504,7 +504,12 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		m_mfxEncParams.mfx.ICQQuality      = pInParams->nICQQuality;
 		m_mfxEncParams.mfx.MaxKbps         = 0;
 	} else {
-		m_mfxEncParams.mfx.TargetKbps      = pInParams->nBitRate; // in kbps
+		if (pInParams->nBitRate > USHRT_MAX) {
+			m_mfxEncParams.mfx.BRCParamMultiplier = (mfxU16)(max(pInParams->nBitRate, pInParams->nMaxBitrate) / USHRT_MAX) + 1;
+			pInParams->nBitRate    /= m_mfxEncParams.mfx.BRCParamMultiplier;
+			pInParams->nMaxBitrate /= m_mfxEncParams.mfx.BRCParamMultiplier;
+		}
+		m_mfxEncParams.mfx.TargetKbps      = (mfxU16)pInParams->nBitRate; // in kbps
 		if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
 			//AVBR
 			//m_mfxEncParams.mfx.Accuracy        = pInParams->nAVBRAccuarcy;
@@ -512,7 +517,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			m_mfxEncParams.mfx.Convergence     = pInParams->nAVBRConvergence;
 		} else {
 			//CBR, VBR
-			m_mfxEncParams.mfx.MaxKbps         = pInParams->nMaxBitrate;
+			m_mfxEncParams.mfx.MaxKbps         = (mfxU16)pInParams->nMaxBitrate;
 		}
 	}
 	m_mfxEncParams.mfx.TargetUsage             = pInParams->nTargetUsage; // trade-off between quality and speed
@@ -653,7 +658,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		}
 		if (0 != pInParams->nMaxBitrate) {
 			m_CodingOption3.WinBRCSize = (0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale);
-			m_CodingOption3.WinBRCMaxAvgKbps = pInParams->nMaxBitrate;
+			m_CodingOption3.WinBRCMaxAvgKbps = (mfxU16)pInParams->nMaxBitrate;
 		}
 		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
 	}
@@ -1971,7 +1976,7 @@ mfxStatus CEncodingPipeline::AllocateSufficientBuffer(mfxBitstream* pBS)
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
 	// reallocate bigger buffer for output
-	sts = ExtendMfxBitstream(pBS, par.mfx.BufferSizeInKB * 1000);
+	sts = ExtendMfxBitstream(pBS, par.mfx.BufferSizeInKB * 1000 * max(1, par.mfx.BRCParamMultiplier));
 	MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, WipeMfxBitstream(pBS));
 
 	return MFX_ERR_NONE;
@@ -2749,13 +2754,13 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	} else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
 		PRINT_INFO(    _T("ICQ Quality       %d\n"), videoPrm.mfx.ICQQuality);
 	} else {
-		PRINT_INFO(    _T("Bitrate           %d kbps\n"), videoPrm.mfx.TargetKbps);
+		PRINT_INFO(    _T("Bitrate           %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
 		if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
 			//PRINT_INFO(_T("AVBR Accuracy range\t%.01lf%%"), m_mfxEncParams.mfx.Accuracy / 10.0);
 			PRINT_INFO(_T("AVBR Convergence  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
 		} else {
 			PRINT_INFO(_T("Max Bitrate       "));
-			PRINT_INT_AUTO(_T("%d kbps\n"), videoPrm.mfx.MaxKbps);
+			PRINT_INT_AUTO(_T("%d kbps\n"), (mfxU32)videoPrm.mfx.MaxKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
 			if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
 				PRINT_INFO(    _T("QVBR Quality      %d\n"), cop3.QVBRQuality);
 			}

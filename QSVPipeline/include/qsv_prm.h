@@ -111,9 +111,9 @@ struct sInputParams
     mfxU16 nHeight;       //height of input
     mfxU32 nFPSRate;      //fps rate of input
     mfxU32 nFPSScale;     //fps scale of input
-    mfxU16 nBitRate;      //target bitrate used in bitrate mode 
-	mfxU16 nMaxBitrate;   //max bitrate
-    mfxU16 nThreads;      //not supported
+    mfxU16 __nBitRate;    //old field of target bitrate used in bitrate mode
+	mfxU16 __nMaxBitrate; //max bitrate
+	mfxU16 __nThreads;    //max bitrate
 
     mfxU16 nDstWidth;     //output width 
     mfxU16 nDstHeight;    //input width
@@ -174,7 +174,11 @@ struct sInputParams
 	mfxU8      nQPMax[3];
 
 	mfxU16     nWinBRCSize;
-	mfxU8      Reserved[1190];
+	mfxU8      __reserved__[4];
+
+	mfxU32     nBitRate;
+	mfxU32     nMaxBitrate;
+	mfxU8      Reserved[1182];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

@@ -80,6 +80,11 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
 		}
 		if (data_table == NULL)
 			return ret;
+
+
+		if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD))
+			convert_qsvstgv1_to_stgv2((CONF_GUIEX *)old_data);
+
 		BYTE *dst = (BYTE *)conf_buf;
 		BYTE *block = NULL;
 		dst += CONF_HEAD_SIZE;
@@ -106,7 +111,8 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
 	//設定ファイルチェック
 	char conf_name[CONF_NAME_BLOCK_LEN + 32];
 	fread(&conf_name, sizeof(char), CONF_NAME_BLOCK_LEN, fp);
-	if (strcmp(CONF_NAME, conf_name)) {
+	if (   strcmp(CONF_NAME, conf_name)
+		&& strcmp(CONF_NAME_OLD, conf_name)) {
 		fclose(fp);
 		return CONF_ERROR_FILE_OPEN;
 	}
@@ -116,6 +122,11 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
 	fseek(fp, 0, SEEK_SET);
 	fread(dat, conf_size, 1, fp);
 	fclose(fp);
+	
+	//旧設定ファイルから変換
+	if (0 == strcmp(CONF_NAME_OLD, conf_name)) {
+		convert_qsvstgv1_to_stgv2((CONF_GUIEX *)dat);
+	}
 
 	//ブロックサイズチェック
 	if (((CONF_GUIEX *)dat)->block_count > CONF_BLOCK_COUNT)

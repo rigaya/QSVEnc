@@ -660,7 +660,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("la")))
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
@@ -687,7 +687,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("la-hrd")))
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
@@ -696,7 +696,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("vcm")))
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
@@ -705,7 +705,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("vbr")))
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
@@ -714,7 +714,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("cbr")))
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
@@ -723,7 +723,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("avbr")))
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
@@ -732,7 +732,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("qvbr")))
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBitRate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
@@ -752,7 +752,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			||   0 == _tcscmp(option_name, _T("maxbitrate"))) //互換性のため
 		{
 			i++;
-			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nMaxBitrate)) {
+			if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nMaxBitrate)) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
