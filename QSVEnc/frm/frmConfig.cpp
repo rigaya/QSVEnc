@@ -720,7 +720,7 @@ System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_m
 	return selected_idx_changed;
 }
 
-System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU32 available_features) {
+System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU64 available_features) {
 	System::Boolean result = false;
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
@@ -738,7 +738,7 @@ System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU32 
 	return result;
 }
 
-System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 available_features) {
+System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 available_features) {
 	if (0 == mfxlib_current)
 		return;
 
@@ -829,7 +829,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	mfxVersion mfxlib_target;
 	mfxlib_target.Version = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
 	
-	mfxU32 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
+	mfxU64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
 	//まず、レート制御モードのみのチェックを行う
 	//もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
 	if (fcgCheckLibRateControl(mfxlib_target.Version, available_features))
@@ -899,7 +899,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 }
 
 System::Void frmConfig::fcgCheckVppFeatures() {
-	UInt32 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
+	UInt64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
 	fcgCBVppResize->Enabled = 0 != (available_features & VPP_FEATURE_RESIZE);
 	if (!fcgCBVppResize->Enabled) fcgCBVppResize->Checked;
 	

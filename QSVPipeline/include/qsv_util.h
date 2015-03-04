@@ -34,6 +34,10 @@ typedef struct CX_DESC {
 	int value;
 } CX_DESC;
 
+typedef struct FEATURE_DESC {
+	TCHAR *desc;
+	uint64_t value;
+} FEATURE_DESC;
 
 
 #define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
@@ -78,7 +82,7 @@ static bool inline rc_is_type_lookahead(int rc) {
 		| (rc == MFX_RATECONTROL_LA_HRD));
 }
 
-enum {
+enum : uint64_t {
 	ENC_FEATURE_CURRENT_RC             = 0x00000001,
 	ENC_FEATURE_AVBR                   = 0x00000002,
 	ENC_FEATURE_LA                     = 0x00000004,
@@ -110,7 +114,7 @@ enum {
 	ENC_FEATURE_WINBRC                 = 0x10000000,
 };
 
-enum {
+enum : uint64_t {
 	VPP_FEATURE_RESIZE              = 0x00000001,
 	VPP_FEATURE_DENOISE             = 0x00000002,
 	VPP_FEATURE_DETAIL_ENHANCEMENT  = 0x00000004,
@@ -136,7 +140,7 @@ static const CX_DESC list_rate_control_ry[] = {
 	//{ _T("LAEXT"), MFX_RATECONTROL_LA_EXT },
 	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
 };
-static const CX_DESC list_enc_feature[] = {
+static const FEATURE_DESC list_enc_feature[] = {
 	{ _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
 	{ _T("Interlace    "), ENC_FEATURE_INTERLACE              },
 	{ _T("SceneChange  "), ENC_FEATURE_SCENECHANGE            },
@@ -160,7 +164,7 @@ static const CX_DESC list_enc_feature[] = {
 	{ _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
 	{ NULL, 0 },
 };
-static const CX_DESC list_vpp_feature[] = {
+static const FEATURE_DESC list_vpp_feature[] = {
 	{ _T("Resize               "), VPP_FEATURE_RESIZE              },
 	{ _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
 	{ _T("Denoise              "), VPP_FEATURE_DENOISE             },
@@ -173,14 +177,14 @@ static const CX_DESC list_vpp_feature[] = {
 	{ NULL, 0 },
 };
 
-mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-mfxU32 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
+mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC);
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
-mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver);
+mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
 void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();

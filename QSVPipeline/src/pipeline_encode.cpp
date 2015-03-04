@@ -342,7 +342,7 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
 	//エンコードモードのチェック
-	mfxU32 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode);
+	mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode);
 	if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
 		PrintMes(_T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
 		if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
@@ -783,7 +783,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 
 mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 {
-	mfxU32 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
+	mfxU64 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
 	//if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
 	//	PrintMes(_T("FPS Conversion not supported on this platform, disabled.\n"));
 	//	pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
