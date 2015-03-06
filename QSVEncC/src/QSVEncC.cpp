@@ -264,7 +264,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                 - 1  set MV cost 1/8 of default\n")
 			_T("                                 - 2  set MV cost 1/4 of default\n")
 			_T("                                 - 3  set MV cost 1/2 of default\n")
-			_T("   --direct-bias-adjust         enables adaptive I frame insert\n")
+			_T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
 			);
 		_ftprintf(stdout, _T("\n")
 			_T(" Settings below are available only for software ecoding.\n")
