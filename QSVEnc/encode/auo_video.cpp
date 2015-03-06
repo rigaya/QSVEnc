@@ -252,7 +252,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	} else if ((jitter = (int *)calloc(oip->n + 1, sizeof(int))) == NULL) {
 		sts = MFX_ERR_MEMORY_ALLOC; error_malloc_tc();
 	//Aviutl(afs)からのフレーム読み込み
-	} else if (!setup_afsvideo(oip, conf, pe, sys_dat->exstg->s_local.auto_afs_disable)) {
+	} else if (!setup_afsvideo(oip, sys_dat, conf, pe)) {
 		sts = MFX_ERR_UNKNOWN; //Aviutl(afs)からのフレーム読み込みに失敗
 	//QSVEncプロセス開始
 	} else if (AUO_RESULT_SUCCESS != set_auo_yuvreader_g_data(oip, conf, pe, jitter)
