@@ -669,7 +669,8 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
 			m_CodingOption3.GlobalMotionBiasAdjustment = (mfxU16)((pInParams->bGlobalMotionAdjust) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
 			m_CodingOption3.DirectBiasAdjustment       = (mfxU16)((pInParams->bDirectBiasAdjust)   ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
-			m_CodingOption3.MVCostScalingFactor        = pInParams->nMVCostScaling;
+			if (pInParams->bDirectBiasAdjust)
+				m_CodingOption3.MVCostScalingFactor    = pInParams->nMVCostScaling;
 		}
 		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
 	}
