@@ -117,7 +117,6 @@ enum : uint64_t {
 	ENC_FEATURE_PERMBQP                = 0x20000000,
 	ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x40000000,
 	ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x80000000,
-	ENC_FEATURE_MVCOST_SCALING         = 0x0000000100000000,
 };
 
 enum : uint64_t {
@@ -170,8 +169,7 @@ static const FEATURE_DESC list_enc_feature[] = {
 	{ _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
 	{ _T("PerMBQP(CQP) "), ENC_FEATURE_PERMBQP                },
 	{ _T("DirectBiasAdj"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
-	{ _T("MotionAdj    "), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
-	{ _T("MVCostScaling"), ENC_FEATURE_MVCOST_SCALING         },
+	{ _T("MVCostScaling"), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
 	{ NULL, 0 },
 };
 static const FEATURE_DESC list_vpp_feature[] = {

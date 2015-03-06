@@ -176,8 +176,7 @@ namespace QSVEnc {
 				{ _T("No-Deblock      "), ENC_FEATURE_NO_DEBLOCK             },
 				{ _T("MBQP(CQP)       "), ENC_FEATURE_PERMBQP                },
 				{ _T("ﾀﾞｲﾚｸﾄﾓｰﾄﾞ最適化"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
-				{ _T("動きﾍﾞｸﾄﾙ最適化 "), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
-				{ _T("MVコスト調整    "), ENC_FEATURE_MVCOST_SCALING         },
+				{ _T("MVコスト調整    "), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
 				{ NULL, 0 },
 			};
 			//第2行以降を連続で追加していく
