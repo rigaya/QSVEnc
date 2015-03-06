@@ -447,6 +447,15 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			pInParams->nWinBRCSize = 0;
 		}
 	}
+	if (pInParams->bDirectBiasAdjust && !(availableFeaures & ENC_FEATURE_DIRECT_BIAS_ADJUST)) {
+		PrintMes(_T("Direct Bias Adjust is not supported on current platform, disabled.\n"));
+		pInParams->bDirectBiasAdjust = 0;
+	}
+	if (pInParams->bGlobalMotionAdjust && !(availableFeaures & ENC_FEATURE_GLOBAL_MOTION_ADJUST)) {
+		PrintMes(_T("MV Cost Scaling is not supported on current platform, disabled.\n"));
+		pInParams->bGlobalMotionAdjust = 0;
+		pInParams->nMVCostScaling = 0;
+	}
 
 	//Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
 	if (pInParams->bIntraRefresh) {
