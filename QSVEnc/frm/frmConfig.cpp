@@ -644,6 +644,8 @@ System::Void frmConfig::InitComboBox() {
 	setComboBox(fcgCXMVPred,          list_mv_presicion);
 	setComboBox(fcgCXInterPred,       list_pred_block_size);
 	setComboBox(fcgCXIntraPred,       list_pred_block_size);
+	
+	setComboBox(fcgCXMVCostScaling,   list_mv_cost_scaling);
 
 	setComboBox(fcgCXAudioTempDir,    list_audtempdir);
 	setComboBox(fcgCXMP4BoxTempDir,   list_mp4boxtempdir);
@@ -810,6 +812,13 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 	fcgLBWinBRCSizeAuto->Enabled = 0 != (available_features & ENC_FEATURE_WINBRC);
 	fcgNUWinBRCSize->Enabled     = 0 != (available_features & ENC_FEATURE_WINBRC);
 	if (!fcgNUWinBRCSize->Enabled) fcgNUWinBRCSize->Value = 0;
+
+	//API v1.13 features
+	fcgLBMVCostScaling->Enabled    = 0 != (available_features & ENC_FEATURE_GLOBAL_MOTION_ADJUST);
+	fcgCXMVCostScaling->Enabled    = 0 != (available_features & ENC_FEATURE_GLOBAL_MOTION_ADJUST);
+	fcgCBDirectBiasAdjust->Enabled = 0 != (available_features & ENC_FEATURE_DIRECT_BIAS_ADJUST);
+	if (!fcgCXMVCostScaling->Enabled)    fcgCXMVCostScaling->SelectedIndex = 0;
+	if (!fcgCBDirectBiasAdjust->Enabled) fcgCBDirectBiasAdjust->Checked = false;
 
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
@@ -1124,9 +1133,12 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	fcgCBCABAC->Checked          = !cnf->qsv.bCAVLC;
 	fcgCBRDO->Checked            = cnf->qsv.bRDO;
 	SetNUValue(fcgNUMVSearchWindow, cnf->qsv.MVSearchWindow.x);
-	SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion, cnf->qsv.nMVPrecision));
+	SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion,    cnf->qsv.nMVPrecision));
 	SetCXIndex(fcgCXInterPred,   get_cx_index(list_pred_block_size, cnf->qsv.nInterPred));
 	SetCXIndex(fcgCXIntraPred,   get_cx_index(list_pred_block_size, cnf->qsv.nIntraPred));
+
+	fcgCBDirectBiasAdjust->Checked = 0 != cnf->qsv.bDirectBiasAdjust;
+	SetCXIndex(fcgCXMVCostScaling, (cnf->qsv.bGlobalMotionAdjust) ? get_cx_index(list_mv_cost_scaling, cnf->qsv.nMVCostScaling) : 0);
 
 	fcgCBDeblock->Checked        = cnf->qsv.bNoDeblock == 0;
 	fcgCBIntraRefresh->Checked   = cnf->qsv.bIntraRefresh != 0;
@@ -1247,6 +1259,10 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.nMVPrecision           = (mfxU16)list_mv_presicion[fcgCXMVPred->SelectedIndex].value;
 	cnf->qsv.nInterPred             = (mfxU16)list_pred_block_size[fcgCXInterPred->SelectedIndex].value;
 	cnf->qsv.nIntraPred             = (mfxU16)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
+
+	cnf->qsv.bDirectBiasAdjust      = fcgCBDirectBiasAdjust->Checked;
+	cnf->qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value < 0;
+	cnf->qsv.nMVCostScaling         = (mfxU8)((cnf->qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
 
 	cnf->qsv.ColorMatrix            = (mfxU16)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
 	cnf->qsv.ColorPrim              = (mfxU16)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
