@@ -2908,38 +2908,35 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	}
 
 	//last line
-	bool write_line = false;
+	tstring extFeatures;
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
 		if (cop2.MBBRC  == MFX_CODINGOPTION_ON) {
-			PRINT_INFO(_T("PerMBRC ")); write_line = true;
+			extFeatures += _T("PerMBRC ");
 		}
 		if (cop2.ExtBRC == MFX_CODINGOPTION_ON) {
-			PRINT_INFO(_T("ExtBRC ")); write_line = true;
+			extFeatures += _T("ExtBRC ");
 		}
 	}
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
 		if (cop2.DisableDeblockingIdc) {
-			PRINT_INFO(_T("No-Deblock ")); write_line = true;
+			extFeatures += _T("No-Deblock ");
 		}
 		if (cop2.IntRefType) {
-			PRINT_INFO(_T("Intra-Refresh ")); write_line = true;
+			extFeatures += _T("Intra-Refresh ");
 		}
 	}
-	if (write_line) {
-		PRINT_INFO(_T("\n"));
-	}
-	//if (   MFX_CODINGOPTION_ON == cop.AUDelimiter
-	//	|| MFX_CODINGOPTION_ON == cop.PicTimingSEI
-	//	|| MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) {
-	//	PRINT_INFO(    _T("Output Bitstream Info   %s%s%s\n"),
-	//		(MFX_CODINGOPTION_ON == cop.AUDelimiter) ? _T("aud ") : _T(""),
-	//		(MFX_CODINGOPTION_ON == cop.PicTimingSEI) ? _T("pic_struct ") : _T(""),
-	//		(MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) ? _T("SingleSEI ") : _T(""));
+	//if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {
+	//	extFeatures += _T("aud ");
 	//}
-
-
-	//PRINT_INFO(    _T("Threads               %d\n"), videoPrm.mfx.NumThread);
-
+	//if (cop.PicTimingSEI == MFX_CODINGOPTION_ON) {
+	//	extFeatures += _T("pic_struct ");
+	//}
+	//if (cop.SingleSeiNalUnit == MFX_CODINGOPTION_ON) {
+	//	extFeatures += _T("SingleSEI ");
+	//}
+	if (extFeatures.length() > 0) {
+		PRINT_INFO(_T("Extended Features %s\n"), extFeatures.c_str());
+	}
 
 	PrintMes(info);
 	if (str && bufSize > 0) {
