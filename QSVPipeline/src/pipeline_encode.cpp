@@ -2843,16 +2843,17 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 			mfxU8 limit[3] = {limitI, limitP, limitB };
 			if (0 == (limit[0] | limit[1] | limit[2]))
 				return std::basic_string<msdk_char>(_T("none"));
-			TStringStream stream;
+
+			tstring buf;
 			for (int i = 0; i < 3; i++) {
-				stream << (i) ? _T(":") : _T("");
+				buf += ((i) ? _T(":") : _T(""));
 				if (limit[i]) {
-					stream << limit[i];
+					buf += std::to_tstring(limit[i]);
 				} else {
-					stream << _T("-");
+					buf += _T("-");
 				}
 			}
-			return stream.str();
+			return buf;
 		};
 		PRINT_INFO(_T("QP Limit          min: %s, max: %s\n"),
 			qp_limit_str(cop2.MinQPI, cop2.MinQPP, cop2.MinQPB).c_str(),
