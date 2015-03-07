@@ -55,6 +55,11 @@
 
 #pragma comment(lib, "libmfx.lib")
 
+#if UNICODE
+#define to_tstring to_wstring
+#else
+#define to_tstring to_string
+#endif
 
 typedef std::basic_string<TCHAR> tstring;
 typedef std::basic_stringstream<TCHAR> TStringStream;
@@ -184,6 +189,7 @@ protected:
 	mfxExtVPPDoNotUse m_VppDoUse;
 	mfxExtVPPDenoise m_ExtDenoise;
 	mfxExtVPPDetail m_ExtDetail;
+	mfxExtVPPDeinterlacing m_ExtDeinterlacing;
 	mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
 	mfxExtVPPVideoSignalInfo m_ExtVppVSI;
 	mfxExtVPPImageStab m_ExtImageStab;

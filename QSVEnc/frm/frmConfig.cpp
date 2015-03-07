@@ -644,6 +644,8 @@ System::Void frmConfig::InitComboBox() {
 	setComboBox(fcgCXMVPred,          list_mv_presicion);
 	setComboBox(fcgCXInterPred,       list_pred_block_size);
 	setComboBox(fcgCXIntraPred,       list_pred_block_size);
+	
+	setComboBox(fcgCXMVCostScaling,   list_mv_cost_scaling);
 
 	setComboBox(fcgCXAudioTempDir,    list_audtempdir);
 	setComboBox(fcgCXMP4BoxTempDir,   list_mp4boxtempdir);
@@ -654,7 +656,8 @@ System::Void frmConfig::InitComboBox() {
 	setComboBox(fcgCXTransfer,        list_transfer);
 	setComboBox(fcgCXVideoFormat,     list_videoformat);
 
-	setComboBox(fcgCXDeinterlace,     list_deinterlace);
+	setComboBox(fcgCXDeinterlace,     list_deinterlace_ja);
+	setComboBox(fcgCXTelecinePatterns,list_telecine_patterns);
 	setComboBox(fcgCXFPSConversion,   list_vpp_fps_conversion);
 	setComboBox(fcgCXImageStabilizer, list_vpp_image_stabilizer);
 
@@ -720,7 +723,7 @@ System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_m
 	return selected_idx_changed;
 }
 
-System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU32 available_features) {
+System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU64 available_features) {
 	System::Boolean result = false;
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 	fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
@@ -738,7 +741,7 @@ System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU32 
 	return result;
 }
 
-System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 available_features) {
+System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 available_features) {
 	if (0 == mfxlib_current)
 		return;
 
@@ -811,6 +814,13 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU32 availab
 	fcgNUWinBRCSize->Enabled     = 0 != (available_features & ENC_FEATURE_WINBRC);
 	if (!fcgNUWinBRCSize->Enabled) fcgNUWinBRCSize->Value = 0;
 
+	//API v1.13 features
+	fcgLBMVCostScaling->Enabled    = 0 != (available_features & ENC_FEATURE_GLOBAL_MOTION_ADJUST);
+	fcgCXMVCostScaling->Enabled    = 0 != (available_features & ENC_FEATURE_GLOBAL_MOTION_ADJUST);
+	fcgCBDirectBiasAdjust->Enabled = 0 != (available_features & ENC_FEATURE_DIRECT_BIAS_ADJUST);
+	if (!fcgCXMVCostScaling->Enabled)    fcgCXMVCostScaling->SelectedIndex = 0;
+	if (!fcgCBDirectBiasAdjust->Enabled) fcgCBDirectBiasAdjust->Checked = false;
+
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 	fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 }
@@ -829,7 +839,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	mfxVersion mfxlib_target;
 	mfxlib_target.Version = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
 	
-	mfxU32 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
+	mfxU64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
 	//まず、レート制御モードのみのチェックを行う
 	//もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
 	if (fcgCheckLibRateControl(mfxlib_target.Version, available_features))
@@ -893,13 +903,14 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcggroupBoxVppResize->Enabled = fcgCBVppResize->Checked;
 	fcggroupBoxVppDenoise->Enabled = fcgCBVppDenoise->Checked;
 	fcggroupBoxVppDetail->Enabled = fcgCBVppDetail->Checked;
+	fcgCXTelecinePatterns->Visible = fcgCXDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, MFX_DEINTERLACE_IT_MANUAL);
 
 	this->ResumeLayout();
 	this->PerformLayout();
 }
 
 System::Void frmConfig::fcgCheckVppFeatures() {
-	UInt32 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
+	UInt64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
 	fcgCBVppResize->Enabled = 0 != (available_features & VPP_FEATURE_RESIZE);
 	if (!fcgCBVppResize->Enabled) fcgCBVppResize->Checked;
 	
@@ -1124,9 +1135,12 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	fcgCBCABAC->Checked          = !cnf->qsv.bCAVLC;
 	fcgCBRDO->Checked            = cnf->qsv.bRDO;
 	SetNUValue(fcgNUMVSearchWindow, cnf->qsv.MVSearchWindow.x);
-	SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion, cnf->qsv.nMVPrecision));
+	SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion,    cnf->qsv.nMVPrecision));
 	SetCXIndex(fcgCXInterPred,   get_cx_index(list_pred_block_size, cnf->qsv.nInterPred));
 	SetCXIndex(fcgCXIntraPred,   get_cx_index(list_pred_block_size, cnf->qsv.nIntraPred));
+
+	fcgCBDirectBiasAdjust->Checked = 0 != cnf->qsv.bDirectBiasAdjust;
+	SetCXIndex(fcgCXMVCostScaling, (cnf->qsv.bGlobalMotionAdjust) ? get_cx_index(list_mv_cost_scaling, cnf->qsv.nMVCostScaling) : 0);
 
 	fcgCBDeblock->Checked        = cnf->qsv.bNoDeblock == 0;
 	fcgCBIntraRefresh->Checked   = cnf->qsv.bIntraRefresh != 0;
@@ -1147,6 +1161,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	fcgCBVppDetail->Checked                = cnf->qsv.vpp.bUseDetailEnhance;
 	SetNUValue(fcgNUVppDetail,               cnf->qsv.vpp.nDetailEnhance);
 	SetCXIndex(fcgCXDeinterlace,             cnf->qsv.vpp.nDeinterlace);
+	SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, cnf->qsv.vpp.nTelecinePattern));
 	SetCXIndex(fcgCXImageStabilizer,         cnf->qsv.vpp.nImageStabilizer);
 	SetCXIndex(fcgCXFPSConversion,           cnf->qsv.vpp.nFPSConversion);
 
@@ -1248,6 +1263,10 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.nInterPred             = (mfxU16)list_pred_block_size[fcgCXInterPred->SelectedIndex].value;
 	cnf->qsv.nIntraPred             = (mfxU16)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
 
+	cnf->qsv.bDirectBiasAdjust      = fcgCBDirectBiasAdjust->Checked;
+	cnf->qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value < 0;
+	cnf->qsv.nMVCostScaling         = (mfxU8)((cnf->qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
+
 	cnf->qsv.ColorMatrix            = (mfxU16)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
 	cnf->qsv.ColorPrim              = (mfxU16)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
 	cnf->qsv.Transfer               = (mfxU16)list_transfer[fcgCXTransfer->SelectedIndex].value;
@@ -1271,7 +1290,8 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.vpp.nDenoise            = (mfxU16)fcgNUVppDenoise->Value;
 	cnf->qsv.vpp.bUseDetailEnhance   = fcgCBVppDetail->Checked;
 	cnf->qsv.vpp.nDetailEnhance      = (mfxU16)fcgNUVppDetail->Value;
-	cnf->qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace[fcgCXDeinterlace->SelectedIndex].value;
+	cnf->qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
+	cnf->qsv.vpp.nTelecinePattern    = (mfxU16)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
 	cnf->qsv.vpp.nImageStabilizer    = (mfxU16)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
 	cnf->qsv.vpp.nFPSConversion      = (mfxU16)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
 

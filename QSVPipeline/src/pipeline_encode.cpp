@@ -342,7 +342,7 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
 	//エンコードモードのチェック
-	mfxU32 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode);
+	mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode);
 	if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
 		PrintMes(_T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
 		if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
@@ -447,6 +447,15 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			pInParams->nWinBRCSize = 0;
 		}
 	}
+	if (pInParams->bDirectBiasAdjust && !(availableFeaures & ENC_FEATURE_DIRECT_BIAS_ADJUST)) {
+		PrintMes(_T("Direct Bias Adjust is not supported on current platform, disabled.\n"));
+		pInParams->bDirectBiasAdjust = 0;
+	}
+	if (pInParams->bGlobalMotionAdjust && !(availableFeaures & ENC_FEATURE_GLOBAL_MOTION_ADJUST)) {
+		PrintMes(_T("MV Cost Scaling is not supported on current platform, disabled.\n"));
+		pInParams->bGlobalMotionAdjust = 0;
+		pInParams->nMVCostScaling = 0;
+	}
 
 	//Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
 	if (pInParams->bIntraRefresh) {
@@ -467,19 +476,34 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	}
 	//拡張設定
 	if (!pInParams->bforceGOPSettings) {
-		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)
-			&& (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NORMAL && pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_BOB)) {
-			PrintMes(_T("Scene change detection cannot be used with interlaced output, disabled.\n"));
-			pInParams->bforceGOPSettings = true;
+		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
+			switch (pInParams->vpp.nDeinterlace) {
+			case MFX_DEINTERLACE_NORMAL:
+			case MFX_DEINTERLACE_BOB:
+			case MFX_DEINTERLACE_AUTO_SINGLE:
+			case MFX_DEINTERLACE_AUTO_DOUBLE:
+				break;
+			default:
+				PrintMes(_T("Scene change detection cannot be used with interlaced output, disabled.\n"));
+				pInParams->bforceGOPSettings = true;
+				break;
+			}
 		} else {
 			m_nExPrm |= MFX_PRM_EX_SCENE_CHANGE;
 		}
 	}
-	if (pInParams->nEncMode == MFX_RATECONTROL_VQP)	{
-		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)
-			&& (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NORMAL && pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_BOB)) {
-			PrintMes(_T("VQP mode cannot be used with interlaced output.\n"));
-			return MFX_ERR_INVALID_VIDEO_PARAM;
+	if (pInParams->nEncMode == MFX_RATECONTROL_VQP)	{ 
+		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
+			switch (pInParams->vpp.nDeinterlace) {
+			case MFX_DEINTERLACE_NORMAL:
+			case MFX_DEINTERLACE_BOB:
+			case MFX_DEINTERLACE_AUTO_SINGLE:
+			case MFX_DEINTERLACE_AUTO_DOUBLE:
+				break;
+			default:
+				PrintMes(_T("VQP mode cannot be used with interlaced output.\n"));
+				return MFX_ERR_INVALID_VIDEO_PARAM;
+			}
 		}
 		m_nExPrm |= MFX_PRM_EX_VQP;
 	}
@@ -527,10 +551,12 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		switch (pInParams->vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_IT:
+		case MFX_DEINTERLACE_IT_MANUAL:
 			OutputFPSRate = OutputFPSRate * 4;
 			OutputFPSScale = OutputFPSScale * 5;
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
 			OutputFPSRate = OutputFPSRate * 2;
 			break;
 		default:
@@ -660,6 +686,14 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 			m_CodingOption3.WinBRCSize = (0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale);
 			m_CodingOption3.WinBRCMaxAvgKbps = (mfxU16)pInParams->nMaxBitrate;
 		}
+
+		//API v1.13の機能
+		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
+			m_CodingOption3.GlobalMotionBiasAdjustment = (mfxU16)((pInParams->bGlobalMotionAdjust) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+			m_CodingOption3.DirectBiasAdjustment       = (mfxU16)((pInParams->bDirectBiasAdjust)   ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+			if (pInParams->bDirectBiasAdjust)
+				m_CodingOption3.MVCostScalingFactor    = pInParams->nMVCostScaling;
+		}
 		m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
 	}
 
@@ -788,7 +822,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 
 mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 {
-	mfxU32 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
+	mfxU64 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
 	//if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
 	//	PrintMes(_T("FPS Conversion not supported on this platform, disabled.\n"));
 	//	pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
@@ -800,7 +834,24 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 		PrintMes(_T("Image Stabilizer not supported on this platform, disabled.\n"));
 		pInParams->vpp.nImageStabilizer = 0;
 	}
-	pInParams->vpp.nImageStabilizer = 0;
+	
+	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+		switch (pInParams->vpp.nDeinterlace) {
+		case MFX_DEINTERLACE_IT_MANUAL:
+			if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
+				PrintMes(_T("Deinterlace \"it-manual\" is not supported on this platform.\n"));
+				return MFX_ERR_INVALID_VIDEO_PARAM;
+			}
+		case MFX_DEINTERLACE_AUTO_SINGLE:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
+			if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
+				PrintMes(_T("Deinterlace \"auto\" is not supported on this platform.\n"));
+				return MFX_ERR_INVALID_VIDEO_PARAM;
+			}
+		default:
+			break;
+		}
+	}
 
 	MSDK_CHECK_POINTER(pInParams,  MFX_ERR_NULL_PTR);
 
@@ -851,23 +902,45 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 	m_mfxVppParams.vpp.Out.FourCC = MFX_FOURCC_NV12;
 	m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
 	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+		INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
 		switch (pInParams->vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_NORMAL:
-			VppExtMes += _T("Deinterlace\n");
+		case MFX_DEINTERLACE_AUTO_SINGLE:
+			m_ExtDeinterlacing.Mode = (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NORMAL) ? MFX_DEINTERLACING_30FPS_OUT : MFX_DEINTERLACE_AUTO_SINGLE;
 			m_nExPrm |= MFX_PRM_EX_DEINT_NORMAL;
 			break;
 		case MFX_DEINTERLACE_IT:
+		case MFX_DEINTERLACE_IT_MANUAL:
+			if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+				m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_FIXED_TELECINE_PATTERN;
+				m_ExtDeinterlacing.TelecinePattern = pInParams->vpp.nTelecinePattern;
+			} else {
+				m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_24FPS_OUT;
+			}
 			m_mfxVppParams.vpp.Out.FrameRateExtN = (m_mfxVppParams.vpp.Out.FrameRateExtN * 4) / 5;
-			VppExtMes += _T("Deinterlace (Inverse Telecine)\n");
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
+			m_ExtDeinterlacing.Mode = (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACE_AUTO_DOUBLE;
 			m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
 			m_nExPrm |= MFX_PRM_EX_DEINT_BOB;
-			VppExtMes += _T("Deinterlace (Double)\n");
 			break;
 		case MFX_DEINTERLACE_NONE:
 		default:
 			break;
+		}
+		if (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NONE) {
+			if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
+				m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDeinterlacing);
+				m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DEINTERLACING);
+			}
+			VppExtMes += _T("Deinterlace (");
+			VppExtMes += list_deinterlace[get_cx_index(list_deinterlace, pInParams->vpp.nDeinterlace)].desc;
+			if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+				VppExtMes += _T(", ");
+				VppExtMes += list_telecine_patterns[get_cx_index(list_telecine_patterns, pInParams->vpp.nTelecinePattern)].desc;
+			}
+			VppExtMes += _T(")\n");
 		}
 		pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
 	} else {
@@ -970,7 +1043,9 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 		&& (pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 			switch (pParams->vpp.nDeinterlace) {
 			case MFX_DEINTERLACE_IT:
+			case MFX_DEINTERLACE_IT_MANUAL:
 			case MFX_DEINTERLACE_BOB:
+			case MFX_DEINTERLACE_AUTO_DOUBLE:
 				INIT_MFX_EXT_BUFFER(m_ExtFrameRateConv, MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
 				m_ExtFrameRateConv.Algorithm = MFX_FRCALGM_DISTRIBUTED_TIMESTAMP;
 
@@ -1678,11 +1753,13 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 	if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		switch (pParams->vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_IT:
+		case MFX_DEINTERLACE_IT_MANUAL:
 			OutputFPSRate = OutputFPSRate * 4;
 			OutputFPSScale = OutputFPSScale * 5;
-			outputFrames *= 4 / 5;
+			outputFrames = (outputFrames * 4) / 5;
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
 			OutputFPSRate = OutputFPSRate * 2;
 			outputFrames *= 2;
 			break;
@@ -2771,16 +2848,17 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 			mfxU8 limit[3] = {limitI, limitP, limitB };
 			if (0 == (limit[0] | limit[1] | limit[2]))
 				return std::basic_string<msdk_char>(_T("none"));
-			TStringStream stream;
+
+			tstring buf;
 			for (int i = 0; i < 3; i++) {
-				stream << (i) ? _T(":") : _T("");
+				buf += ((i) ? _T(":") : _T(""));
 				if (limit[i]) {
-					stream << limit[i];
+					buf += std::to_tstring(limit[i]);
 				} else {
-					stream << _T("-");
+					buf += _T("-");
 				}
 			}
-			return stream.str();
+			return buf;
 		};
 		PRINT_INFO(_T("QP Limit          min: %s, max: %s\n"),
 			qp_limit_str(cop2.MinQPI, cop2.MinQPP, cop2.MinQPB).c_str(),
@@ -2807,7 +2885,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	switch (videoPrm.mfx.GopRefDist) {
 		case 0:  PRINT_INFO(_T("Auto\n")); break;
 		case 1:  PRINT_INFO(_T("none\n")); break;
-		default: PRINT_INFO(_T("%d frame%s, B-pyramid: %s\n"),
+		default: PRINT_INFO(_T("%d frame%s%s%s\n"),
 			videoPrm.mfx.GopRefDist - 1, (videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
 			check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ", B-pyramid: " : "",
 			(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ((MFX_B_REF_PYRAMID == cop2.BRefType) ? _T("on") : _T("off")) : _T(""))); break;
@@ -2835,38 +2913,35 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	}
 
 	//last line
-	bool write_line = false;
+	tstring extFeatures;
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
 		if (cop2.MBBRC  == MFX_CODINGOPTION_ON) {
-			PRINT_INFO(_T("PerMBRC ")); write_line = true;
+			extFeatures += _T("PerMBRC ");
 		}
 		if (cop2.ExtBRC == MFX_CODINGOPTION_ON) {
-			PRINT_INFO(_T("ExtBRC ")); write_line = true;
+			extFeatures += _T("ExtBRC ");
 		}
 	}
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
 		if (cop2.DisableDeblockingIdc) {
-			PRINT_INFO(_T("No-Deblock ")); write_line = true;
+			extFeatures += _T("No-Deblock ");
 		}
 		if (cop2.IntRefType) {
-			PRINT_INFO(_T("Intra-Refresh ")); write_line = true;
+			extFeatures += _T("Intra-Refresh ");
 		}
 	}
-	if (write_line) {
-		PRINT_INFO(_T("\n"));
-	}
-	//if (   MFX_CODINGOPTION_ON == cop.AUDelimiter
-	//	|| MFX_CODINGOPTION_ON == cop.PicTimingSEI
-	//	|| MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) {
-	//	PRINT_INFO(    _T("Output Bitstream Info   %s%s%s\n"),
-	//		(MFX_CODINGOPTION_ON == cop.AUDelimiter) ? _T("aud ") : _T(""),
-	//		(MFX_CODINGOPTION_ON == cop.PicTimingSEI) ? _T("pic_struct ") : _T(""),
-	//		(MFX_CODINGOPTION_ON == cop.SingleSeiNalUnit) ? _T("SingleSEI ") : _T(""));
+	//if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {
+	//	extFeatures += _T("aud ");
 	//}
-
-
-	//PRINT_INFO(    _T("Threads               %d\n"), videoPrm.mfx.NumThread);
-
+	//if (cop.PicTimingSEI == MFX_CODINGOPTION_ON) {
+	//	extFeatures += _T("pic_struct ");
+	//}
+	//if (cop.SingleSeiNalUnit == MFX_CODINGOPTION_ON) {
+	//	extFeatures += _T("SingleSEI ");
+	//}
+	if (extFeatures.length() > 0) {
+		PRINT_INFO(_T("Extended Features %s\n"), extFeatures.c_str());
+	}
 
 	PrintMes(info);
 	if (str && bufSize > 0) {

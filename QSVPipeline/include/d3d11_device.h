@@ -40,6 +40,7 @@ public:
             void      DefineFormat(bool isA2rgb10) { m_bIsA2rgb10 = (isA2rgb10) ? TRUE : FALSE; }
 protected:
     virtual mfxStatus FillSCD(mfxHDL hWindow, DXGI_SWAP_CHAIN_DESC& scd);
+    virtual mfxStatus FillSCD1(DXGI_SWAP_CHAIN_DESC1& scd);
     mfxStatus CreateVideoProcessor(mfxFrameSurface1 * pSrf);
 
     CComPtr<ID3D11Device>                   m_pD3D11Device;
@@ -67,8 +68,8 @@ private:
     CComPtr<IDXGIOutput>                    m_pDXGIOutput;
     mfxU16                                  m_nViews;
     BOOL                                    m_bDefaultStereoEnabled;
-    UINT                                    m_nSyncInterval;
     BOOL                                    m_bIsA2rgb10;
+    HWND                                    m_HandleWindow;
 };
 
 #endif //#if defined( _WIN32 ) || defined ( _WIN64 )

@@ -31,7 +31,9 @@ File Name: mfxstructures.h
 #define __MFXSTRUCTURES_H__
 #include "mfxcommon.h"
 
+#if !defined (__GNUC__)
 #pragma warning(disable: 4201)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -432,10 +434,10 @@ enum {
 
 /* RateControlMethod */
 enum {
-    MFX_RATECONTROL_CBR     =1,
-    MFX_RATECONTROL_VBR     =2,
-    MFX_RATECONTROL_CQP     =3,
-    MFX_RATECONTROL_AVBR    =4,
+    MFX_RATECONTROL_CBR       =1,
+    MFX_RATECONTROL_VBR       =2,
+    MFX_RATECONTROL_CQP       =3,
+    MFX_RATECONTROL_AVBR      =4,
     MFX_RATECONTROL_RESERVED1 =5,
     MFX_RATECONTROL_RESERVED2 =6,
     MFX_RATECONTROL_RESERVED3 =100,
@@ -513,8 +515,10 @@ enum {
 };
 
 enum {
+    MFX_SKIPFRAME_NO_SKIP         = 0,
     MFX_SKIPFRAME_INSERT_DUMMY    = 1,
     MFX_SKIPFRAME_INSERT_NOTHING  = 2,
+    MFX_SKIPFRAME_BRC_ONLY        = 3,
 };
 
 typedef struct {
@@ -550,18 +554,27 @@ typedef struct {
     mfxU16      DisableVUI;
     mfxU16      BufferingPeriodSEI;
     mfxU16      EnableMAD;              /* tri-state option */
-    mfxU16      reserved2;
+    mfxU16      UseRawRef;              /* tri-state option */
 } mfxExtCodingOption2;
 
 typedef struct {
     mfxExtBuffer Header;
+
     mfxU16      NumSliceI;
     mfxU16      NumSliceP;
     mfxU16      NumSliceB;
+
     mfxU16      WinBRCMaxAvgKbps;
     mfxU16      WinBRCSize;
+
     mfxU16      QVBRQuality;
-    mfxU16      reserved[246];
+    mfxU16      EnableMBQP;
+    mfxU16      reserved1;
+    mfxU16      DirectBiasAdjustment;          /* tri-state option */
+    mfxU16      GlobalMotionBiasAdjustment;    /* tri-state option */
+    mfxU16      MVCostScalingFactor;
+    mfxU16      MBDisableSkipMap;              /* tri-state option */
+    mfxU16      reserved[240];
 } mfxExtCodingOption3;
 
 /* IntraPredBlockSize/InterPredBlockSize */
@@ -623,7 +636,11 @@ enum {
     MFX_EXTBUFF_VPP_DEINTERLACING          = MFX_MAKEFOURCC('V','P','D','I'),
     MFX_EXTBUFF_AVC_REFLISTS               = MFX_MAKEFOURCC('R','L','T','S'),
     MFX_EXTBUFF_VPP_FIELD_PROCESSING       = MFX_MAKEFOURCC('F','P','R','O'),
-    MFX_EXTBUFF_CODING_OPTION3             = MFX_MAKEFOURCC('C','D','O','3')
+    MFX_EXTBUFF_CODING_OPTION3             = MFX_MAKEFOURCC('C','D','O','3'),
+    MFX_EXTBUFF_CHROMA_LOC_INFO            = MFX_MAKEFOURCC('C','L','I','N'),
+    MFX_EXTBUFF_MBQP                       = MFX_MAKEFOURCC('M','B','Q','P'),
+    MFX_EXTBUFF_HEVC_TILES                 = MFX_MAKEFOURCC('2','6','5','T'),
+    MFX_EXTBUFF_MB_DISABLE_SKIP_MAP        = MFX_MAKEFOURCC('M','D','S','M')
 };
 
 /* VPP Conf: Do not use certain algorithms  */
@@ -1023,15 +1040,35 @@ typedef struct {
     } ROI[256];
 } mfxExtEncoderROI;
 
+/*Deinterlacing Mode*/
 enum {
-    MFX_DEINTERLACING_BOB      = 0x0001,
-    MFX_DEINTERLACING_ADVANCED = 0x0002
+    MFX_DEINTERLACING_BOB                    =  1,
+    MFX_DEINTERLACING_ADVANCED               =  2,
+    MFX_DEINTERLACING_AUTO_DOUBLE            =  3,
+    MFX_DEINTERLACING_AUTO_SINGLE            =  4,
+    MFX_DEINTERLACING_FULL_FR_OUT            =  5,
+    MFX_DEINTERLACING_HALF_FR_OUT            =  6,
+    MFX_DEINTERLACING_24FPS_OUT              =  7,
+    MFX_DEINTERLACING_FIXED_TELECINE_PATTERN =  8,
+    MFX_DEINTERLACING_30FPS_OUT              =  9,
+    MFX_DEINTERLACING_DETECT_INTERLACE       = 10
+};
+
+/*TelecinePattern*/
+enum {
+    MFX_TELECINE_PATTERN_32           = 0,
+    MFX_TELECINE_PATTERN_2332         = 1,
+    MFX_TELECINE_PATTERN_FRAME_REPEAT = 2,
+    MFX_TELECINE_PATTERN_41           = 3,
+    MFX_TELECINE_POSITION_PROVIDED    = 4
 };
 
 typedef struct {
     mfxExtBuffer    Header;
     mfxU16  Mode;
-    mfxU16  reserved[11];
+    mfxU16  TelecinePattern;
+    mfxU16  TelecineLocation;
+    mfxU16  reserved[9];
 } mfxExtVPPDeinterlacing;
 
 typedef struct {
@@ -1069,6 +1106,45 @@ typedef struct {
     mfxU16          OutField;
     mfxU16          reserved[25];
 } mfxExtVPPFieldProcessing;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16       ChromaLocInfoPresentFlag;
+    mfxU16       ChromaSampleLocTypeTopField;
+    mfxU16       ChromaSampleLocTypeBottomField;
+    mfxU16       reserved[9];
+} mfxExtChromaLocInfo;
+
+typedef struct {
+    mfxExtBuffer    Header;
+
+    mfxU32 reserved[11];
+    mfxU32 NumQPAlloc;
+    union {
+        mfxU8  *QP;
+        mfxU64 reserved2;
+    };
+} mfxExtMBQP;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16 NumTileRows;
+    mfxU16 NumTileColumns;
+    mfxU16 reserved[74];
+}mfxExtHEVCTiles;
+
+typedef struct {
+    mfxExtBuffer Header;
+    
+    mfxU32 reserved[11];
+    mfxU32 MapSize;
+    union {
+        mfxU8  *Map;
+        mfxU64  reserved2;
+    };
+} mfxExtMBDisableSkipMap;
 
 #ifdef __cplusplus
 } // extern "C"

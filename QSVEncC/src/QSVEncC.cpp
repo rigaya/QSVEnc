@@ -193,10 +193,14 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength\n")
 			_T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
 			_T("                                enabled only when set --tff or --bff\n")
-			_T("                                 - none    disable deinterlace\n")
-			_T("                                 - normal  normal deinterlace\n")
-			_T("                                 - it      inverse telecine\n")
-			_T("                                 - bob     double framerate\n")
+			_T("                                 - none     disable deinterlace\n")
+			_T("                                 - normal   normal deinterlace\n")
+			_T("                                 - it       inverse telecine\n")
+			_T("                                 - it-manual <string>\n")
+			_T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
+			_T("                                 - bob      double framerate\n")
+			_T("                                 - auto     auto deinterlace\n")
+			_T("                                 - auto-bob auto bob deinterlace\n")
 			//_T("   --vpp-fps-conv <string>      set fps conversion mode\n")
 			//_T("                                enabled only when input is progressive\n")
 			//_T("                                 - none, x2, x2.5\n")
@@ -256,6 +260,15 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("           <int>:<int>:<int>\n")
 			_T("   --qpmax <int> or             set max QP, default 0 (= unset)\n")
 			_T("           <int>:<int>:<int>\n")
+			);
+		_ftprintf(stdout, _T("\n")
+			_T(" settings below are only supported with API v1.13\n")
+			_T("   --mv-scaling                 set mv cost scaling\n")
+			_T("                                 - 0  set MV cost to be 0\n")
+			_T("                                 - 1  set MV cost 1/8 of default\n")
+			_T("                                 - 2  set MV cost 1/4 of default\n")
+			_T("                                 - 3  set MV cost 1/2 of default\n")
+			_T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
 			);
 		_ftprintf(stdout, _T("\n")
 			_T(" Settings below are available only for software ecoding.\n")
@@ -882,6 +895,26 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				limit[i] = (mfxU8)clamp(qpLimit[i], 0, 51);
 			}
 		}
+		else if (0 == _tcscmp(option_name, _T("mv-scaling")))
+		{
+			i++;
+			int value = 0;
+			if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+				pParams->bGlobalMotionAdjust = true;
+				pParams->nMVCostScaling = (mfxU8)value;
+			} else {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+		}
+		else if (0 == _tcscmp(option_name, _T("direct-bias-adjust")))
+		{
+			pParams->bDirectBiasAdjust = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("no-direct-bias-adjust")))
+		{
+			pParams->bDirectBiasAdjust = false;
+		}
 		else if (0 == _tcscmp(option_name, _T("fullrange")))
 		{
 			pParams->bFullrange = true;
@@ -1016,20 +1049,22 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("vpp-deinterlace")))
 		{
 			i++;
-			if (0 == _tcscmp(strInput[i], _T("none")))
-				pParams->vpp.nDeinterlace = MFX_DEINTERLACE_NONE;
-			else if (0 == _tcscmp(strInput[i], _T("normal"))) {
-				pParams->vpp.bEnable = true;
-				pParams->vpp.nDeinterlace = MFX_DEINTERLACE_NORMAL;
-			} else if (0 == _tcscmp(strInput[i], _T("it"))) {
-				pParams->vpp.bEnable = true;
-				pParams->vpp.nDeinterlace = MFX_DEINTERLACE_IT;
-			} else if (0 == _tcscmp(strInput[i], _T("bob"))) {
-				pParams->vpp.bEnable = true;
-				pParams->vpp.nDeinterlace = MFX_DEINTERLACE_BOB;
-			} else  {
+			int value = get_value_from_chr(list_telecine_patterns, strInput[i]);
+			if (PARSE_ERROR_FLAG == value) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
+			} else {
+				pParams->vpp.bEnable = true;
+				pParams->vpp.nDeinterlace = (mfxU16)value;
+			}
+			if (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+				i++;
+				if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
+					PrintHelp(strInput[0], _T("Unknown value"), option_name);
+					return MFX_PRINT_OPTION_ERR;
+				} else {
+					pParams->vpp.nTelecinePattern = (mfxU16)value;
+				}
 			}
 		}
 		else if (0 == _tcscmp(option_name, _T("vpp-image-stab")))

@@ -1,12 +1,12 @@
-﻿/* ****************************************************************************** *\
+﻿/*********************************************************************************
 
 INTEL CORPORATION PROPRIETARY INFORMATION
 This software is supplied under the terms of a license agreement or nondisclosure
 agreement with Intel Corporation and may not be copied or disclosed except in
 accordance with the terms of that agreement
-Copyright(c) 2008-2013 Intel Corporation. All Rights Reserved.
+Copyright(c) 2008-2014 Intel Corporation. All Rights Reserved.
 
-\* ****************************************************************************** */
+**********************************************************************************/
 
 #ifndef __D3D_ALLOCATOR_H__
 #define __D3D_ALLOCATOR_H__
@@ -24,6 +24,12 @@ enum eTypeHandle
     DXVA2_DECODER       = 0x01
 };
 
+struct directxMemId
+{
+    IDirect3DSurface9* m_surface;
+    HANDLE m_handle;
+};
+
 struct D3DAllocatorParams : mfxAllocatorParams
 {
     IDirect3DDeviceManager9 *pManager;
@@ -34,7 +40,6 @@ struct D3DAllocatorParams : mfxAllocatorParams
         , surfaceUsage()
     {
     }
-
 };
 
 class D3DFrameAllocator: public BaseFrameAllocator

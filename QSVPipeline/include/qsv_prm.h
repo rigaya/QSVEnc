@@ -17,10 +17,13 @@
 #include "qsv_util.h"
 
 typedef enum {
-	MFX_DEINTERLACE_NONE   = 0,
-	MFX_DEINTERLACE_NORMAL = 1,
-	MFX_DEINTERLACE_IT     = 2, //inverse telecine, to 24fps
-	MFX_DEINTERLACE_BOB    = 3,
+	MFX_DEINTERLACE_NONE        = 0,
+	MFX_DEINTERLACE_NORMAL      = 1,
+	MFX_DEINTERLACE_IT          = 2, //inverse telecine, to 24fps
+	MFX_DEINTERLACE_BOB         = 3,
+	MFX_DEINTERLACE_IT_MANUAL   = 4, //inverse telecine, manual select
+	MFX_DEINTERLACE_AUTO_SINGLE = 5,
+	MFX_DEINTERLACE_AUTO_DOUBLE = 6,
 } mfxDeinterlace;
 
 typedef enum {
@@ -73,6 +76,8 @@ typedef struct {
 
 	mfxU16 nImageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
 	mfxU16 nFPSConversion;    //FPS_CONVERT_xxxx
+
+	mfxU16 nTelecinePattern;
 
 	mfxU8 Reserved[124];
 } sVppParams;
@@ -174,8 +179,11 @@ struct sInputParams
 	mfxU8      nQPMax[3];
 
 	mfxU16     nWinBRCSize;
-	mfxU8      __reserved__[4];
-
+	
+	mfxU8      nMVCostScaling;
+	mfxU8      bDirectBiasAdjust;
+	mfxU8      bGlobalMotionAdjust;
+	mfxU8      __unused;
 	mfxU32     nBitRate;
 	mfxU32     nMaxBitrate;
 	mfxU8      Reserved[1182];
@@ -225,6 +233,25 @@ const CX_DESC list_interlaced[] = {
 	{ _T("progressive"),     MFX_PICSTRUCT_PROGRESSIVE },
 	{ _T("interlaced(tff)"), MFX_PICSTRUCT_FIELD_TFF   },
 	{ _T("interlaced(bff)"), MFX_PICSTRUCT_FIELD_BFF   },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_deinterlace[] = {
+	{ _T("none"),      MFX_DEINTERLACE_NONE        },
+	{ _T("normal"),    MFX_DEINTERLACE_NORMAL      },
+	{ _T("it"),        MFX_DEINTERLACE_IT          },
+	{ _T("bob"),       MFX_DEINTERLACE_BOB         },
+	{ _T("it-manual"), MFX_DEINTERLACE_IT_MANUAL   },
+	{ _T("auto"),      MFX_DEINTERLACE_AUTO_SINGLE },
+	{ _T("auto-bob"),  MFX_DEINTERLACE_AUTO_DOUBLE },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_telecine_patterns[] = {
+	{ _T("32"),     MFX_TELECINE_PATTERN_32 },
+	{ _T("2332"),   MFX_TELECINE_PATTERN_2332 },
+	{ _T("repeat"), MFX_TELECINE_PATTERN_FRAME_REPEAT },
+	{ _T("41"),     MFX_TELECINE_PATTERN_41 },
 	{ NULL, NULL }
 };
 
@@ -299,6 +326,16 @@ const CX_DESC list_lookahead_ds[] = {
 	{ _T("slow"),   MFX_LOOKAHEAD_DS_OFF     },
 	{ _T("medium"), MFX_LOOKAHEAD_DS_2x      },
 	{ _T("fast"),   MFX_LOOKAHEAD_DS_4x      },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_mv_cost_scaling[] = {
+	{ _T("default"), -1 },
+	{ _T("0"),        0 },
+	{ _T("1"),        1 },
+	{ _T("2"),        2 },
+	{ _T("3"),        3 },
+	{ _T("4"),        4 },
 	{ NULL, NULL }
 };
 

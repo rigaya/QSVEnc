@@ -44,11 +44,13 @@ mfxStatus AuoPipeline::InitInOut(sInputParams *pParams) {
 	if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		switch (pParams->vpp.nDeinterlace) {
 			case MFX_DEINTERLACE_IT:
+			case MFX_DEINTERLACE_IT_MANUAL:
 				OutputFPSRate = OutputFPSRate * 4;
 				OutputFPSScale = OutputFPSScale * 5;
-				outputFrames *= 4 / 5;
+				outputFrames = (outputFrames * 4) / 5;
 				break;
 			case MFX_DEINTERLACE_BOB:
+			case MFX_DEINTERLACE_AUTO_DOUBLE:
 				OutputFPSRate = OutputFPSRate * 2;
 				outputFrames *= 2;
 				break;

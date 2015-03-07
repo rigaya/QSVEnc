@@ -40,7 +40,7 @@ static int calc_input_frame_size(int width, int height, int color_format) {
 	return width * height * COLORFORMATS[color_format].size;
 }
 
-BOOL setup_afsvideo(const OUTPUT_INFO *oip, CONF_GUIEX *conf, PRM_ENC *pe, BOOL auto_afs_disable) {
+BOOL setup_afsvideo(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, CONF_GUIEX *conf, PRM_ENC *pe) {
 	//すでに初期化してある または 必要ない
 	if (pe->afs_init || pe->video_out_type == VIDEO_OUTPUT_DISABLED || !conf->vid.afs)
 		return TRUE;
@@ -51,16 +51,16 @@ BOOL setup_afsvideo(const OUTPUT_INFO *oip, CONF_GUIEX *conf, PRM_ENC *pe, BOOL 
 	if (afs_vbuf_setup((OUTPUT_INFO *)oip, conf->vid.afs, frame_size, COLORFORMATS[color_format].FOURCC)) {
 		pe->afs_init = TRUE;
 		return TRUE;
-	} else if (conf->vid.afs && auto_afs_disable) {
+	} else if (conf->vid.afs && sys_dat->exstg->s_local.auto_afs_disable) {
 		afs_vbuf_release(); //一度解放
 		warning_auto_afs_disable();
 		conf->vid.afs = FALSE;
 		//再度使用するmuxerをチェックする
-		pe->muxer_to_be_used = check_muxer_to_be_used(conf, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
+		pe->muxer_to_be_used = check_muxer_to_be_used(conf, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
 		return TRUE;
 	}
 	//エラー
-	error_afs_setup(conf->vid.afs, auto_afs_disable);
+	error_afs_setup(conf->vid.afs, sys_dat->exstg->s_local.auto_afs_disable);
 	return FALSE;
 }
 
@@ -89,9 +89,11 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
 		total_out_frames = oip->n;
 		switch (conf->qsv.vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_IT:
-			total_out_frames *= 4 / 5;
+		case MFX_DEINTERLACE_IT_MANUAL:
+			total_out_frames = (total_out_frames * 4) / 5;
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
 			total_out_frames *= 2;
 			break;
 		default:

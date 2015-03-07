@@ -90,10 +90,10 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
 	return TRUE;
 }
 
-mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
+mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 	using namespace std;
 
-	mfxU32 result = 0x00;
+	mfxU64 result = 0x00;
 	result |= VPP_FEATURE_RESIZE;
 	result |= VPP_FEATURE_DEINTERLACE;
 	result |= VPP_FEATURE_DENOISE;
@@ -102,6 +102,10 @@ mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_3))
 		return result;
 
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_13)) {
+		result |= VPP_FEATURE_DEINTERLACE_AUTO;
+		result |= VPP_FEATURE_DEINTERLACE_IT_MANUAL;
+	}
 	MFXVideoVPP vpp(session);
 
 	mfxExtVPPDoUse vppDoUse;
@@ -181,7 +185,7 @@ mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 		MFX_EXTBUFF_VPP_DETAIL,
 		MFX_EXTBUFF_VPP_AUXDATA
 	};
-	auto check_feature = [&](mfxExtBuffer *structIn, mfxExtBuffer *structOut, mfxVersion requiredVer, mfxU32 featureNoErr, mfxU32 featureWarn) {
+	auto check_feature = [&](mfxExtBuffer *structIn, mfxExtBuffer *structOut, mfxVersion requiredVer, mfxU64 featureNoErr, mfxU64 featureWarn) {
 		if (check_lib_version(mfxVer, requiredVer)) {
 			const mfxU32 target = structIn->BufferId;
 			//vppDoUseListとvppDoNotUseListを構築する
@@ -222,12 +226,11 @@ mfxU32 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 	videoPrmOut.vpp.Out.FrameRateExtN = 60000;
 	videoPrmOut.vpp.Out.FrameRateExtD = 1001;
 	check_feature((mfxExtBuffer *)&vppFpsConv,   (mfxExtBuffer *)&vppFpsConvOut,   MFX_LIB_VERSION_1_3,  VPP_FEATURE_FPS_CONVERSION_ADV,  VPP_FEATURE_FPS_CONVERSION);
-
 	return result;
 }
 
-mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver) {
-	mfxU32 feature = 0x00;
+mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
+	mfxU64 feature = 0x00;
 	if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
 		//API v1.3未満で実際にチェックする必要は殆ど無いので、
 		//コードで決められた値を返すようにする
@@ -249,7 +252,7 @@ mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver) {
 	return feature;
 }
 
-mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol) {
+mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol) {
 	const std::vector<std::pair<mfxU16, mfxVersion>> rc_list = {
 		{ MFX_RATECONTROL_VBR,    MFX_LIB_VERSION_1_1  },
 		{ MFX_RATECONTROL_CBR,    MFX_LIB_VERSION_1_1  },
@@ -374,11 +377,11 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 
 	mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
 	
-	mfxU32 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
+	mfxU64 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
 	if (result) {
 
 		//まず、エンコードモードについてチェック
-		auto check_enc_mode = [&](mfxU16 mode, mfxU32 flag, mfxVersion required_ver) {
+		auto check_enc_mode = [&](mfxU16 mode, mfxU64 flag, mfxVersion required_ver) {
 			if (check_lib_version(mfxVer, required_ver)) {
 				mfxU16 original_method = videoPrm.mfx.RateControlMethod;
 				videoPrm.mfx.RateControlMethod = mode;
@@ -445,6 +448,9 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 		cop3.WinBRCMaxAvgKbps = 3000;
 		CHECK_FEATURE(cop3.WinBRCSize,           cop3Out.WinBRCSize,           ENC_FEATURE_WINBRC,        10,                      MFX_LIB_VERSION_1_11);
 		cop3.WinBRCMaxAvgKbps = 0;
+		CHECK_FEATURE(cop3.EnableMBQP,                 cop3Out.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+		CHECK_FEATURE(cop3.DirectBiasAdjustment,       cop3Out.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+		CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, cop3Out.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
 #undef PICTYPE
 #pragma warning(pop)
 		//付随オプション
@@ -487,8 +493,8 @@ mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 //サポートする機能のチェックをAPIバージョンのみで行う
 //API v1.6以降はCheckEncodeFeatureを使うべき
 //同一のAPIバージョンでも環境により異なることが多くなるため
-static mfxU32 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
-	mfxU32 feature = 0x00;
+static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
+	mfxU64 feature = 0x00;
 	//まずレート制御モードをチェック
 	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)
 		&& (MFX_RATECONTROL_ICQ    == ratecontrol
@@ -552,8 +558,8 @@ static mfxU32 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
 	return feature;
 }
 
-mfxU32 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
-	mfxU32 feature = 0x00;
+mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
+	mfxU64 feature = 0x00;
 	if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
 		//API v1.6未満で実際にチェックする必要は殆ど無いので、
 		//コードで決められた値を返すようにする
@@ -571,19 +577,19 @@ mfxU32 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
 	return feature;
 }
 
-mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
+mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
 	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
 	return CheckEncodeFeature(hardware, ver, ratecontrol);
 }
 
-const msdk_char *EncFeatureStr(mfxU32 enc_feature) {
-	for (const CX_DESC *ptr = list_enc_feature; ptr->desc; ptr++)
-		if (enc_feature == (mfxU32)ptr->value)
+const msdk_char *EncFeatureStr(mfxU64 enc_feature) {
+	for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++)
+		if (enc_feature == (mfxU64)ptr->value)
 			return ptr->desc;
 	return NULL;
 }
 
-void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC) {
+void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC) {
 	availableFeatureForEachRC.resize(rateControlCount, 0);
 
 	for (int i_rc = 0; i_rc < rateControlCount; i_rc++) {
@@ -591,13 +597,13 @@ void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlLi
 	}
 }
 
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC) {
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC) {
 	MakeFeatureList(hardware, (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version(), rateControlList, rateControlCount, availableFeatureForEachRC);
 }
 
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 
-	std::vector<mfxU32> availableFeatureForEachRC;
+	std::vector<mfxU64> availableFeatureForEachRC;
 	MakeFeatureList(hardware, list_rate_control_ry, _countof(list_rate_control_ry), availableFeatureForEachRC);
 	
 	str.clear();
@@ -615,7 +621,7 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 	
 	//モードがサポートされているか
 	TCHAR *MARK_YES_NO[] = {  _T(" x    "), _T(" o    ") };
-	for (const CX_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
+	for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
 		str += ptr->desc;
 		for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
 			str += MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
@@ -626,9 +632,9 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
 
 void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str) {
 	mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-	int features = CheckVppFeatures(hardware, ver);
+	uint64_t features = CheckVppFeatures(hardware, ver);
 	TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
-	for (const CX_DESC *ptr = list_vpp_feature; ptr->desc; ptr++) {
+	for (const FEATURE_DESC *ptr = list_vpp_feature; ptr->desc; ptr++) {
 		str += ptr->desc;
 		str += MARK_YES_NO[ptr->value == (features & ptr->value)];
 		str += _T("\n");

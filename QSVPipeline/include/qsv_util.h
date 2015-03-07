@@ -34,6 +34,10 @@ typedef struct CX_DESC {
 	int value;
 } CX_DESC;
 
+typedef struct FEATURE_DESC {
+	TCHAR *desc;
+	uint64_t value;
+} FEATURE_DESC;
 
 
 #define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
@@ -50,6 +54,7 @@ static const mfxVersion LIB_VER_LIST[] = {
 	{  9, 1 },
 	{ 10, 1 },
 	{ 11, 1 },
+	{ 13, 1 },
 	{ NULL, NULL } 
 };
 
@@ -63,6 +68,7 @@ static const mfxVersion LIB_VER_LIST[] = {
 #define MFX_LIB_VERSION_1_9  LIB_VER_LIST[ 8]
 #define MFX_LIB_VERSION_1_10 LIB_VER_LIST[ 9]
 #define MFX_LIB_VERSION_1_11 LIB_VER_LIST[10]
+#define MFX_LIB_VERSION_1_13 LIB_VER_LIST[11]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 mfxVersion get_mfx_libhw_version();
@@ -78,7 +84,7 @@ static bool inline rc_is_type_lookahead(int rc) {
 		| (rc == MFX_RATECONTROL_LA_HRD));
 }
 
-enum {
+enum : uint64_t {
 	ENC_FEATURE_CURRENT_RC             = 0x00000001,
 	ENC_FEATURE_AVBR                   = 0x00000002,
 	ENC_FEATURE_LA                     = 0x00000004,
@@ -108,18 +114,23 @@ enum {
 	ENC_FEATURE_NO_DEBLOCK             = 0x04000000,
 	ENC_FEATURE_QP_MINMAX              = 0x08000000,
 	ENC_FEATURE_WINBRC                 = 0x10000000,
+	ENC_FEATURE_PERMBQP                = 0x20000000,
+	ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x40000000,
+	ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x80000000,
 };
 
-enum {
-	VPP_FEATURE_RESIZE              = 0x00000001,
-	VPP_FEATURE_DENOISE             = 0x00000002,
-	VPP_FEATURE_DETAIL_ENHANCEMENT  = 0x00000004,
-	VPP_FEATURE_PROC_AMP            = 0x00000008,
-	VPP_FEATURE_IMAGE_STABILIZATION = 0x00000010,
-	VPP_FEATURE_VIDEO_SIGNAL_INFO   = 0x00000020,
-	VPP_FEATURE_FPS_CONVERSION      = 0x00000040,
-	VPP_FEATURE_FPS_CONVERSION_ADV  = 0x00000080 | VPP_FEATURE_FPS_CONVERSION,
-	VPP_FEATURE_DEINTERLACE         = 0x00000100,
+enum : uint64_t {
+	VPP_FEATURE_RESIZE                = 0x00000001,
+	VPP_FEATURE_DENOISE               = 0x00000002,
+	VPP_FEATURE_DETAIL_ENHANCEMENT    = 0x00000004,
+	VPP_FEATURE_PROC_AMP              = 0x00000008,
+	VPP_FEATURE_IMAGE_STABILIZATION   = 0x00000010,
+	VPP_FEATURE_VIDEO_SIGNAL_INFO     = 0x00000020,
+	VPP_FEATURE_FPS_CONVERSION        = 0x00000040,
+	VPP_FEATURE_FPS_CONVERSION_ADV    = 0x00000080 | VPP_FEATURE_FPS_CONVERSION,
+	VPP_FEATURE_DEINTERLACE           = 0x00000100,
+	VPP_FEATURE_DEINTERLACE_AUTO      = 0x00000200,
+	VPP_FEATURE_DEINTERLACE_IT_MANUAL = 0x00000400,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -136,7 +147,7 @@ static const CX_DESC list_rate_control_ry[] = {
 	//{ _T("LAEXT"), MFX_RATECONTROL_LA_EXT },
 	{ _T("VCM  "), MFX_RATECONTROL_VCM    },
 };
-static const CX_DESC list_enc_feature[] = {
+static const FEATURE_DESC list_enc_feature[] = {
 	{ _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
 	{ _T("Interlace    "), ENC_FEATURE_INTERLACE              },
 	{ _T("SceneChange  "), ENC_FEATURE_SCENECHANGE            },
@@ -158,9 +169,12 @@ static const CX_DESC list_enc_feature[] = {
 	{ _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
 	{ _T("No Debloc    "), ENC_FEATURE_NO_DEBLOCK             },
 	{ _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
+	{ _T("PerMBQP(CQP) "), ENC_FEATURE_PERMBQP                },
+	{ _T("DirectBiasAdj"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
+	{ _T("MVCostScaling"), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
 	{ NULL, 0 },
 };
-static const CX_DESC list_vpp_feature[] = {
+static const FEATURE_DESC list_vpp_feature[] = {
 	{ _T("Resize               "), VPP_FEATURE_RESIZE              },
 	{ _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
 	{ _T("Denoise              "), VPP_FEATURE_DENOISE             },
@@ -173,14 +187,14 @@ static const CX_DESC list_vpp_feature[] = {
 	{ NULL, 0 },
 };
 
-mfxU32 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-mfxU32 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-mfxU32 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU32>& availableFeatureForEachRC);
+mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
+void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC);
+void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
-mfxU32 CheckVppFeatures(bool hardware, mfxVersion ver);
+mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
 void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str);
 
 bool check_if_d3d11_necessary();

@@ -70,8 +70,8 @@ namespace QSVEnc {
 		Thread^ thGetLibVersion;
 		Thread^ thGetFeatures;
 
-		array<UInt32>^ availableFeatures;
-		UInt32 availableVppFeatures;
+		array<UInt64>^ availableFeatures;
+		UInt64 availableVppFeatures;
 		bool hardware;
 		bool getLibVerFinished;
 		bool getFeaturesFinished;
@@ -101,7 +101,7 @@ namespace QSVEnc {
 		bool checkIfGetFeaturesFinished() {
 			return getFeaturesFinished;
 		}
-		UInt32 getFeatureOfRC(int rc_index) {
+		UInt64 getFeatureOfRC(int rc_index) {
 			if (getFeaturesFinished) {
 				return availableFeatures[rc_index];
 			}
@@ -109,7 +109,7 @@ namespace QSVEnc {
 			version.Version = mfxVer;
 			return CheckEncodeFeature(hardware, version, (mfxU16)list_rate_control_ry[rc_index].value);
 		}
-		UInt32 getVppFeatures() {
+		UInt64 getVppFeatures() {
 			if (getFeaturesFinished) {
 				return availableVppFeatures;
 			}
@@ -138,12 +138,12 @@ namespace QSVEnc {
 		}
 		System::Void getFeatures() {
 			if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_1.Version)) {
-				std::vector<mfxU32> availableFeatureForEachRC(_countof(list_rate_control_ry), 0);
+				std::vector<mfxU64> availableFeatureForEachRC(_countof(list_rate_control_ry), 0);
 				//MakeFeatureListが少し時間かかるので非同期にする必要がある
 				mfxVersion version;
 				version.Version = mfxVer;
 				MakeFeatureList(hardware, version, list_rate_control_ry, _countof(list_rate_control_ry), availableFeatureForEachRC);
-				availableFeatures = gcnew array<UInt32>(_countof(list_rate_control_ry));
+				availableFeatures = gcnew array<UInt64>(_countof(list_rate_control_ry));
 				for (int i = 0; i < _countof(list_rate_control_ry); i++) {
 					availableFeatures[i] = availableFeatureForEachRC[i];
 				}
@@ -153,7 +153,7 @@ namespace QSVEnc {
 			}
 		}
 		System::Void GenerateTable() {
-			static const CX_DESC list_enc_feature_jp[] = {
+			static const FEATURE_DESC list_enc_feature_jp[] = {
 				{ _T("モード有効      "), ENC_FEATURE_CURRENT_RC             },
 				{ _T("インタレ保持    "), ENC_FEATURE_INTERLACE              },
 				{ _T("シーンチェンジ  "), ENC_FEATURE_SCENECHANGE            },
@@ -174,7 +174,9 @@ namespace QSVEnc {
 				{ _T("最大/最小 QP    "), ENC_FEATURE_QP_MINMAX              },
 				{ _T("周期的ｲﾝﾄﾗ更新  "), ENC_FEATURE_INTRA_REFRESH          },
 				{ _T("No-Deblock      "), ENC_FEATURE_NO_DEBLOCK             },
-				{ _T("拡張レート制御  "), ENC_FEATURE_WINBRC                 },
+				{ _T("MBQP(CQP)       "), ENC_FEATURE_PERMBQP                },
+				{ _T("ﾀﾞｲﾚｸﾄﾓｰﾄﾞ最適化"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
+				{ _T("MVコスト調整    "), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
 				{ NULL, 0 },
 			};
 			//第2行以降を連続で追加していく
@@ -222,11 +224,14 @@ static const WCHAR * const list_mp4boxtempdir[] = {
 	NULL
 };
 
-const CX_DESC list_deinterlace[] = {
-	{ "なし",                   MFX_DEINTERLACE_NONE  },
-	{ "インタレ解除 (通常)",    MFX_DEINTERLACE_NORMAL  },
-	{ "インタレ解除 (24fps化)", MFX_DEINTERLACE_IT  },
-	{ "インタレ解除 (Bob化)",   MFX_DEINTERLACE_BOB },
+const CX_DESC list_deinterlace_ja[] = {
+	{ "なし",                       MFX_DEINTERLACE_NONE        },
+	{ "インタレ解除 (通常)",        MFX_DEINTERLACE_NORMAL      },
+	{ "インタレ解除 (24fps化)",     MFX_DEINTERLACE_IT          },
+	{ "インタレ解除 (Bob化)",       MFX_DEINTERLACE_BOB         },
+	{ "インタレ解除 (固定24fps化)", MFX_DEINTERLACE_IT_MANUAL   },
+	{ "インタレ解除 (自動)",        MFX_DEINTERLACE_AUTO_SINGLE },
+	{ "インタレ解除 (自動Bob化)",   MFX_DEINTERLACE_AUTO_DOUBLE },
 	{ NULL, NULL } 
 };
 

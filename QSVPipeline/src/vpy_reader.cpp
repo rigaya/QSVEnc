@@ -180,7 +180,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 			MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, m_sVS.getError(m_sVSscript), -1, buf, _countof(buf));
 			m_strInputInfo += buf;
 #else
-			m_strInputInfo += vs_getError(m_sVSscript);
+			m_strInputInfo += m_sVS.getError(m_sVSscript);
 #endif
 			m_strInputInfo += _T("\n");
 		}
