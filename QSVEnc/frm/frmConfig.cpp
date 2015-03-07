@@ -920,13 +920,16 @@ System::Void frmConfig::fcgCheckVppFeatures() {
 	fcgCBVppDetail->Enabled = 0 != (available_features & VPP_FEATURE_DETAIL_ENHANCEMENT);
 	if (!fcgCBVppDetail->Enabled) fcgCBVppDetail->Checked;
 
-	//fcgCXFPSConversion->Enabled = 0 != (available_features & VPP_FEATURE_FPS_CONVERSION_ADV);
-	//fcgLBFPSConversion->Enabled = fcgCXFPSConversion->Enabled;
-	//if (!fcgCXFPSConversion->Enabled) fcgCXFPSConversion->SelectedIndex = 0;
+#if ENABLE_FPS_CONVERSION
+	fcgCXFPSConversion->Enabled = 0 != (available_features & VPP_FEATURE_FPS_CONVERSION_ADV);
+	fcgLBFPSConversion->Enabled = fcgCXFPSConversion->Enabled;
+	if (!fcgCXFPSConversion->Enabled) fcgCXFPSConversion->SelectedIndex = 0;
+#else
 	//うまくうごいてなさそうなので無効化
 	fcgCXFPSConversion->Visible = false;
 	fcgLBFPSConversion->Visible = false;
 	fcgCXFPSConversion->SelectedIndex = 0;
+#endif
 
 	fcgCXImageStabilizer->Enabled = 0 != (available_features & VPP_FEATURE_IMAGE_STABILIZATION);
 	fcgLBImageStabilizer->Enabled = fcgCXImageStabilizer->Enabled;

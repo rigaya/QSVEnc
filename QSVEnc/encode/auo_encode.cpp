@@ -407,10 +407,30 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
 	int fps_rate = oip->rate;
 	int fps_scale = oip->scale;
 #ifdef MSDK_SAMPLE_VERSION
-	if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT || conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL)
+	switch (conf->qsv.vpp.nFPSConversion) {
+	case MFX_DEINTERLACE_IT:
+	case MFX_DEINTERLACE_IT_MANUAL:
 		fps_rate = (fps_rate * 4) / 5;
-	if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_BOB || conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)
+		break;
+	case MFX_DEINTERLACE_BOB:
+	case MFX_DEINTERLACE_AUTO_DOUBLE:
 		fps_rate = fps_rate * 2;
+		break;
+	default:
+		break;
+	}
+#ifdef ENABLE_FPS_CONVERSION
+	switch (conf->qsv.vpp.nFPSConversion) {
+	case FPS_CONVERT_MUL2:
+		fps_rate = fps_rate * 2;
+		break;
+	case FPS_CONVERT_MUL2_5:
+		fps_rate = (fps_rate * 5) / 2;
+		break;
+	default:
+		break;
+	}
+#endif
 #endif
 	const int fps_gcd = get_gcd(fps_rate, fps_scale);
 	fps_rate /= fps_gcd;

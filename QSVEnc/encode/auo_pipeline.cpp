@@ -58,6 +58,18 @@ mfxStatus AuoPipeline::InitInOut(sInputParams *pParams) {
 				break;
 		}
 	}
+	switch (pParams->vpp.nFPSConversion) {
+	case FPS_CONVERT_MUL2:
+		OutputFPSRate = OutputFPSRate * 2;
+		outputFrames *= 2;
+		break;
+	case FPS_CONVERT_MUL2_5:
+		OutputFPSRate = OutputFPSRate * 5 / 2;
+		outputFrames = outputFrames * 5 / 2;
+		break;
+	default:
+		break;
+	}
 	mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
 	OutputFPSRate /= gcd;
 	OutputFPSScale /= gcd;

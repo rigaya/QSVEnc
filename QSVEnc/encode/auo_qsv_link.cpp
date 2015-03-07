@@ -100,6 +100,16 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
 			break;
 		}
 	}
+	switch (conf->qsv.vpp.nFPSConversion) {
+	case FPS_CONVERT_MUL2:
+		total_out_frames *= 2;
+		break;
+	case FPS_CONVERT_MUL2_5:
+		total_out_frames = total_out_frames * 5 / 2;
+		break;
+	default:
+		break;
+	}
 	return AUO_RESULT_SUCCESS;
 }
 

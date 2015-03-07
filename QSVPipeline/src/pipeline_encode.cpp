@@ -823,12 +823,18 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 {
 	mfxU64 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
-	//if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
-	//	PrintMes(_T("FPS Conversion not supported on this platform, disabled.\n"));
-	//	pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
-	//}
+#if ENABLE_FPS_CONVERSION
+	if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
+		PrintMes(_T("FPS Conversion not supported on this platform, disabled.\n"));
+		pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+	}
+#else
 	//現時点ではうまく動いてなさそうなので無効化
-	pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+	if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion) {
+		PrintMes(_T("FPS Conversion not supported on this build, disabled.\n"));
+		pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+	}
+#endif
 
 	if (pInParams->vpp.nImageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
 		PrintMes(_T("Image Stabilizer not supported on this platform, disabled.\n"));
@@ -1766,6 +1772,18 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 		default:
 			break;
 		}
+	}
+	switch (pParams->vpp.nFPSConversion) {
+	case FPS_CONVERT_MUL2:
+		OutputFPSRate = OutputFPSRate * 2;
+		outputFrames *= 2;
+		break;
+	case FPS_CONVERT_MUL2_5:
+		OutputFPSRate = OutputFPSRate * 5 / 2;
+		outputFrames = outputFrames * 5 / 2;
+		break;
+	default:
+		break;
 	}
 	mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
 	OutputFPSRate /= gcd;

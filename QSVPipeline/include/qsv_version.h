@@ -30,6 +30,8 @@
 
 #define ENABLE_MVC_ENCODING 0
 
+#define ENABLE_FPS_CONVERSION 0
+
 #define ENABLE_OPENCL 1
 
 #ifndef QSVENC_AUO

@@ -201,9 +201,11 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                 - bob      double framerate\n")
 			_T("                                 - auto     auto deinterlace\n")
 			_T("                                 - auto-bob auto bob deinterlace\n")
-			//_T("   --vpp-fps-conv <string>      set fps conversion mode\n")
-			//_T("                                enabled only when input is progressive\n")
-			//_T("                                 - none, x2, x2.5\n")
+#if ENABLE_FPS_CONVERSION
+			_T("   --vpp-fps-conv <string>      set fps conversion mode\n")
+			_T("                                enabled only when input is progressive\n")
+			_T("                                 - none, x2, x2.5\n")
+#endif
 			_T("   --vpp-image-stab <string>    set image stabilizer mode\n")
 			_T("                                 - none, upscale, box\n"),
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
