@@ -234,13 +234,13 @@ const CX_DESC list_interlaced[] = {
 };
 
 const CX_DESC list_deinterlace[] = {
-	{ "none",      MFX_DEINTERLACE_NONE        },
-	{ "normal",    MFX_DEINTERLACE_NORMAL      },
-	{ "it",        MFX_DEINTERLACE_IT          },
-	{ "bob",       MFX_DEINTERLACE_BOB         },
-	{ "it-manual", MFX_DEINTERLACE_IT_MANUAL   },
-	{ "auto",      MFX_DEINTERLACE_AUTO_SINGLE },
-	{ "auto-bob",  MFX_DEINTERLACE_AUTO_DOUBLE },
+	{ _T("none"),      MFX_DEINTERLACE_NONE        },
+	{ _T("normal"),    MFX_DEINTERLACE_NORMAL      },
+	{ _T("it"),        MFX_DEINTERLACE_IT          },
+	{ _T("bob"),       MFX_DEINTERLACE_BOB         },
+	{ _T("it-manual"), MFX_DEINTERLACE_IT_MANUAL   },
+	{ _T("auto"),      MFX_DEINTERLACE_AUTO_SINGLE },
+	{ _T("auto-bob"),  MFX_DEINTERLACE_AUTO_DOUBLE },
 	{ NULL, NULL }
 };
 
