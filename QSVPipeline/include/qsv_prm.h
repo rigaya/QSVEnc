@@ -17,10 +17,13 @@
 #include "qsv_util.h"
 
 typedef enum {
-	MFX_DEINTERLACE_NONE   = 0,
-	MFX_DEINTERLACE_NORMAL = 1,
-	MFX_DEINTERLACE_IT     = 2, //inverse telecine, to 24fps
-	MFX_DEINTERLACE_BOB    = 3,
+	MFX_DEINTERLACE_NONE        = 0,
+	MFX_DEINTERLACE_NORMAL      = 1,
+	MFX_DEINTERLACE_IT          = 2, //inverse telecine, to 24fps
+	MFX_DEINTERLACE_BOB         = 3,
+	MFX_DEINTERLACE_IT_MANUAL   = 4, //inverse telecine, manual select
+	MFX_DEINTERLACE_AUTO_SINGLE = 5,
+	MFX_DEINTERLACE_AUTO_DOUBLE = 6,
 } mfxDeinterlace;
 
 typedef enum {
@@ -73,6 +76,8 @@ typedef struct {
 
 	mfxU16 nImageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
 	mfxU16 nFPSConversion;    //FPS_CONVERT_xxxx
+
+	mfxU16 nTelecinePattern;
 
 	mfxU8 Reserved[124];
 } sVppParams;
@@ -225,6 +230,25 @@ const CX_DESC list_interlaced[] = {
 	{ _T("progressive"),     MFX_PICSTRUCT_PROGRESSIVE },
 	{ _T("interlaced(tff)"), MFX_PICSTRUCT_FIELD_TFF   },
 	{ _T("interlaced(bff)"), MFX_PICSTRUCT_FIELD_BFF   },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_deinterlace[] = {
+	{ "none",      MFX_DEINTERLACE_NONE        },
+	{ "normal",    MFX_DEINTERLACE_NORMAL      },
+	{ "it",        MFX_DEINTERLACE_IT          },
+	{ "bob",       MFX_DEINTERLACE_BOB         },
+	{ "it-manual", MFX_DEINTERLACE_IT_MANUAL   },
+	{ "auto",      MFX_DEINTERLACE_AUTO_SINGLE },
+	{ "auto-bob",  MFX_DEINTERLACE_AUTO_DOUBLE },
+	{ NULL, NULL }
+};
+
+const CX_DESC list_telecine_patterns[] = {
+	{ _T("32"),     MFX_TELECINE_PATTERN_32 },
+	{ _T("2332"),   MFX_TELECINE_PATTERN_2332 },
+	{ _T("repeat"), MFX_TELECINE_PATTERN_FRAME_REPEAT },
+	{ _T("41"),     MFX_TELECINE_PATTERN_41 },
 	{ NULL, NULL }
 };
 

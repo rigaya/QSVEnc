@@ -89,9 +89,11 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
 		total_out_frames = oip->n;
 		switch (conf->qsv.vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_IT:
-			total_out_frames *= 4 / 5;
+		case MFX_DEINTERLACE_IT_MANUAL:
+			total_out_frames = (total_out_frames * 4) / 5;
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
 			total_out_frames *= 2;
 			break;
 		default:

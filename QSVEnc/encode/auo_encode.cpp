@@ -407,9 +407,9 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
 	int fps_rate = oip->rate;
 	int fps_scale = oip->scale;
 #ifdef MSDK_SAMPLE_VERSION
-	if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT)
+	if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT || conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL)
 		fps_rate = (fps_rate * 4) / 5;
-	if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_BOB)
+	if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_BOB || conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)
 		fps_rate = fps_rate * 2;
 #endif
 	const int fps_gcd = get_gcd(fps_rate, fps_scale);

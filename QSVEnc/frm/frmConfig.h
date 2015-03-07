@@ -809,6 +809,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXImageStabilizer;
 private: System::Windows::Forms::CheckBox^  fcgCBDirectBiasAdjust;
 private: System::Windows::Forms::ComboBox^  fcgCXMVCostScaling;
 private: System::Windows::Forms::Label^  fcgLBMVCostScaling;
+private: System::Windows::Forms::ComboBox^  fcgCXTelecinePatterns;
 
 
 
@@ -1127,6 +1128,9 @@ private: System::Windows::Forms::Label^  fcgLBMVCostScaling;
 			this->fcgCBHWEncode = (gcnew System::Windows::Forms::CheckBox());
 			this->tabPageVpp = (gcnew System::Windows::Forms::TabPage());
 			this->fcggroupBoxDetail = (gcnew System::Windows::Forms::GroupBox());
+			this->fcgCBDirectBiasAdjust = (gcnew System::Windows::Forms::CheckBox());
+			this->fcgCXMVCostScaling = (gcnew System::Windows::Forms::ComboBox());
+			this->fcgLBMVCostScaling = (gcnew System::Windows::Forms::Label());
 			this->fcgCBExtBRC = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCBMBBRC = (gcnew System::Windows::Forms::CheckBox());
 			this->fcgCXTrellis = (gcnew System::Windows::Forms::ComboBox());
@@ -1189,9 +1193,7 @@ private: System::Windows::Forms::Label^  fcgLBMVCostScaling;
 			this->fcgCSExeFiles = (gcnew System::Windows::Forms::ContextMenuStrip(this->components));
 			this->fcgTSExeFileshelp = (gcnew System::Windows::Forms::ToolStripMenuItem());
 			this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
-			this->fcgCXMVCostScaling = (gcnew System::Windows::Forms::ComboBox());
-			this->fcgLBMVCostScaling = (gcnew System::Windows::Forms::Label());
-			this->fcgCBDirectBiasAdjust = (gcnew System::Windows::Forms::CheckBox());
+			this->fcgCXTelecinePatterns = (gcnew System::Windows::Forms::ComboBox());
 			this->fcgtoolStripSettings->SuspendLayout();
 			this->fcggroupBoxAudio->SuspendLayout();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
@@ -3325,6 +3327,36 @@ private: System::Windows::Forms::Label^  fcgLBMVCostScaling;
 			this->fcggroupBoxDetail->TabStop = false;
 			this->fcggroupBoxDetail->Text = L"詳細設定";
 			// 
+			// fcgCBDirectBiasAdjust
+			// 
+			this->fcgCBDirectBiasAdjust->AutoSize = true;
+			this->fcgCBDirectBiasAdjust->Location = System::Drawing::Point(14, 49);
+			this->fcgCBDirectBiasAdjust->Name = L"fcgCBDirectBiasAdjust";
+			this->fcgCBDirectBiasAdjust->Size = System::Drawing::Size(142, 21);
+			this->fcgCBDirectBiasAdjust->TabIndex = 148;
+			this->fcgCBDirectBiasAdjust->Tag = L"chValue";
+			this->fcgCBDirectBiasAdjust->Text = L"ダイレクトモード最適化";
+			this->fcgCBDirectBiasAdjust->UseVisualStyleBackColor = true;
+			// 
+			// fcgCXMVCostScaling
+			// 
+			this->fcgCXMVCostScaling->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fcgCXMVCostScaling->FormattingEnabled = true;
+			this->fcgCXMVCostScaling->Location = System::Drawing::Point(145, 82);
+			this->fcgCXMVCostScaling->Name = L"fcgCXMVCostScaling";
+			this->fcgCXMVCostScaling->Size = System::Drawing::Size(136, 23);
+			this->fcgCXMVCostScaling->TabIndex = 146;
+			this->fcgCXMVCostScaling->Tag = L"chValue";
+			// 
+			// fcgLBMVCostScaling
+			// 
+			this->fcgLBMVCostScaling->AutoSize = true;
+			this->fcgLBMVCostScaling->Location = System::Drawing::Point(12, 85);
+			this->fcgLBMVCostScaling->Name = L"fcgLBMVCostScaling";
+			this->fcgLBMVCostScaling->Size = System::Drawing::Size(82, 17);
+			this->fcgLBMVCostScaling->TabIndex = 147;
+			this->fcgLBMVCostScaling->Text = L"MVコスト調整";
+			// 
 			// fcgCBExtBRC
 			// 
 			this->fcgCBExtBRC->AutoSize = true;
@@ -3526,6 +3558,7 @@ private: System::Windows::Forms::Label^  fcgLBMVCostScaling;
 			// 
 			// fcggroupBoxVpp
 			// 
+			this->fcggroupBoxVpp->Controls->Add(this->fcgCXTelecinePatterns);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgCXImageStabilizer);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgLBImageStabilizer);
 			this->fcggroupBoxVpp->Controls->Add(this->fcgLBFPSConversion);
@@ -3602,6 +3635,7 @@ private: System::Windows::Forms::Label^  fcgLBMVCostScaling;
 			this->fcgCXDeinterlace->Size = System::Drawing::Size(209, 23);
 			this->fcgCXDeinterlace->TabIndex = 1;
 			this->fcgCXDeinterlace->Tag = L"chValue";
+			this->fcgCXDeinterlace->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 			// 
 			// fcgLBDeinterlace
 			// 
@@ -3999,35 +4033,15 @@ private: System::Windows::Forms::Label^  fcgLBMVCostScaling;
 			this->fcgLBguiExBlog->VisitedLinkColor = System::Drawing::Color::Gray;
 			this->fcgLBguiExBlog->LinkClicked += gcnew System::Windows::Forms::LinkLabelLinkClickedEventHandler(this, &frmConfig::fcgLBguiExBlog_LinkClicked);
 			// 
-			// fcgCXMVCostScaling
+			// fcgCXTelecinePatterns
 			// 
-			this->fcgCXMVCostScaling->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-			this->fcgCXMVCostScaling->FormattingEnabled = true;
-			this->fcgCXMVCostScaling->Location = System::Drawing::Point(145, 82);
-			this->fcgCXMVCostScaling->Name = L"fcgCXMVCostScaling";
-			this->fcgCXMVCostScaling->Size = System::Drawing::Size(136, 23);
-			this->fcgCXMVCostScaling->TabIndex = 146;
-			this->fcgCXMVCostScaling->Tag = L"chValue";
-			// 
-			// fcgLBMVCostScaling
-			// 
-			this->fcgLBMVCostScaling->AutoSize = true;
-			this->fcgLBMVCostScaling->Location = System::Drawing::Point(12, 85);
-			this->fcgLBMVCostScaling->Name = L"fcgLBMVCostScaling";
-			this->fcgLBMVCostScaling->Size = System::Drawing::Size(82, 17);
-			this->fcgLBMVCostScaling->TabIndex = 147;
-			this->fcgLBMVCostScaling->Text = L"MVコスト調整";
-			// 
-			// fcgCBDirectBiasAdjust
-			// 
-			this->fcgCBDirectBiasAdjust->AutoSize = true;
-			this->fcgCBDirectBiasAdjust->Location = System::Drawing::Point(14, 49);
-			this->fcgCBDirectBiasAdjust->Name = L"fcgCBDirectBiasAdjust";
-			this->fcgCBDirectBiasAdjust->Size = System::Drawing::Size(142, 21);
-			this->fcgCBDirectBiasAdjust->TabIndex = 148;
-			this->fcgCBDirectBiasAdjust->Tag = L"chValue";
-			this->fcgCBDirectBiasAdjust->Text = L"ダイレクトモード最適化";
-			this->fcgCBDirectBiasAdjust->UseVisualStyleBackColor = true;
+			this->fcgCXTelecinePatterns->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+			this->fcgCXTelecinePatterns->FormattingEnabled = true;
+			this->fcgCXTelecinePatterns->Location = System::Drawing::Point(309, 116);
+			this->fcgCXTelecinePatterns->Name = L"fcgCXTelecinePatterns";
+			this->fcgCXTelecinePatterns->Size = System::Drawing::Size(127, 23);
+			this->fcgCXTelecinePatterns->TabIndex = 25;
+			this->fcgCXTelecinePatterns->Tag = L"chValue";
 			// 
 			// frmConfig
 			// 

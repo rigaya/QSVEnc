@@ -184,6 +184,7 @@ protected:
 	mfxExtVPPDoNotUse m_VppDoUse;
 	mfxExtVPPDenoise m_ExtDenoise;
 	mfxExtVPPDetail m_ExtDetail;
+	mfxExtVPPDeinterlacing m_ExtDeinterlacing;
 	mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
 	mfxExtVPPVideoSignalInfo m_ExtVppVSI;
 	mfxExtVPPImageStab m_ExtImageStab;

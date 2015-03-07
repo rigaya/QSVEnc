@@ -476,19 +476,34 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	}
 	//拡張設定
 	if (!pInParams->bforceGOPSettings) {
-		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)
-			&& (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NORMAL && pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_BOB)) {
-			PrintMes(_T("Scene change detection cannot be used with interlaced output, disabled.\n"));
-			pInParams->bforceGOPSettings = true;
+		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
+			switch (pInParams->vpp.nDeinterlace) {
+			case MFX_DEINTERLACE_NORMAL:
+			case MFX_DEINTERLACE_BOB:
+			case MFX_DEINTERLACE_AUTO_SINGLE:
+			case MFX_DEINTERLACE_AUTO_DOUBLE:
+				break;
+			default:
+				PrintMes(_T("Scene change detection cannot be used with interlaced output, disabled.\n"));
+				pInParams->bforceGOPSettings = true;
+				break;
+			}
 		} else {
 			m_nExPrm |= MFX_PRM_EX_SCENE_CHANGE;
 		}
 	}
-	if (pInParams->nEncMode == MFX_RATECONTROL_VQP)	{
-		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)
-			&& (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NORMAL && pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_BOB)) {
-			PrintMes(_T("VQP mode cannot be used with interlaced output.\n"));
-			return MFX_ERR_INVALID_VIDEO_PARAM;
+	if (pInParams->nEncMode == MFX_RATECONTROL_VQP)	{ 
+		if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
+			switch (pInParams->vpp.nDeinterlace) {
+			case MFX_DEINTERLACE_NORMAL:
+			case MFX_DEINTERLACE_BOB:
+			case MFX_DEINTERLACE_AUTO_SINGLE:
+			case MFX_DEINTERLACE_AUTO_DOUBLE:
+				break;
+			default:
+				PrintMes(_T("VQP mode cannot be used with interlaced output.\n"));
+				return MFX_ERR_INVALID_VIDEO_PARAM;
+			}
 		}
 		m_nExPrm |= MFX_PRM_EX_VQP;
 	}
@@ -531,10 +546,12 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		switch (pInParams->vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_IT:
+		case MFX_DEINTERLACE_IT_MANUAL:
 			OutputFPSRate = OutputFPSRate * 4;
 			OutputFPSScale = OutputFPSScale * 5;
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
 			OutputFPSRate = OutputFPSRate * 2;
 			break;
 		default:
@@ -812,7 +829,24 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 		PrintMes(_T("Image Stabilizer not supported on this platform, disabled.\n"));
 		pInParams->vpp.nImageStabilizer = 0;
 	}
-	pInParams->vpp.nImageStabilizer = 0;
+	
+	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+		switch (pInParams->vpp.nDeinterlace) {
+		case MFX_DEINTERLACE_IT_MANUAL:
+			if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
+				PrintMes(_T("Deinterlace \"it-manual\" is not supported on this platform.\n"));
+				return MFX_ERR_INVALID_VIDEO_PARAM;
+			}
+		case MFX_DEINTERLACE_AUTO_SINGLE:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
+			if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
+				PrintMes(_T("Deinterlace \"auto\" is not supported on this platform.\n"));
+				return MFX_ERR_INVALID_VIDEO_PARAM;
+			}
+		default:
+			break;
+		}
+	}
 
 	MSDK_CHECK_POINTER(pInParams,  MFX_ERR_NULL_PTR);
 
@@ -863,23 +897,45 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 	m_mfxVppParams.vpp.Out.FourCC = MFX_FOURCC_NV12;
 	m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
 	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+		INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
 		switch (pInParams->vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_NORMAL:
-			VppExtMes += _T("Deinterlace\n");
+		case MFX_DEINTERLACE_AUTO_SINGLE:
+			m_ExtDeinterlacing.Mode = (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NORMAL) ? MFX_DEINTERLACING_30FPS_OUT : MFX_DEINTERLACE_AUTO_SINGLE;
 			m_nExPrm |= MFX_PRM_EX_DEINT_NORMAL;
 			break;
 		case MFX_DEINTERLACE_IT:
+		case MFX_DEINTERLACE_IT_MANUAL:
+			if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+				m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_FIXED_TELECINE_PATTERN;
+				m_ExtDeinterlacing.TelecinePattern = pInParams->vpp.nTelecinePattern;
+			} else {
+				m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_24FPS_OUT;
+			}
 			m_mfxVppParams.vpp.Out.FrameRateExtN = (m_mfxVppParams.vpp.Out.FrameRateExtN * 4) / 5;
-			VppExtMes += _T("Deinterlace (Inverse Telecine)\n");
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
+			m_ExtDeinterlacing.Mode = (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACE_AUTO_DOUBLE;
 			m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
 			m_nExPrm |= MFX_PRM_EX_DEINT_BOB;
-			VppExtMes += _T("Deinterlace (Double)\n");
 			break;
 		case MFX_DEINTERLACE_NONE:
 		default:
 			break;
+		}
+		if (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NONE) {
+			if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
+				m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDeinterlacing);
+				m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DEINTERLACING);
+			}
+			VppExtMes += _T("Deinterlace (");
+			VppExtMes += list_deinterlace[get_cx_index(list_deinterlace, pInParams->vpp.nDeinterlace)].desc;
+			if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+				VppExtMes += _T(", ");
+				VppExtMes += list_telecine_patterns[get_cx_index(list_telecine_patterns, pInParams->vpp.nTelecinePattern)].desc;
+			}
+			VppExtMes += _T(")\n");
 		}
 		pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
 	} else {
@@ -982,7 +1038,9 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 		&& (pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 			switch (pParams->vpp.nDeinterlace) {
 			case MFX_DEINTERLACE_IT:
+			case MFX_DEINTERLACE_IT_MANUAL:
 			case MFX_DEINTERLACE_BOB:
+			case MFX_DEINTERLACE_AUTO_DOUBLE:
 				INIT_MFX_EXT_BUFFER(m_ExtFrameRateConv, MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
 				m_ExtFrameRateConv.Algorithm = MFX_FRCALGM_DISTRIBUTED_TIMESTAMP;
 
@@ -1690,11 +1748,13 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 	if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		switch (pParams->vpp.nDeinterlace) {
 		case MFX_DEINTERLACE_IT:
+		case MFX_DEINTERLACE_IT_MANUAL:
 			OutputFPSRate = OutputFPSRate * 4;
 			OutputFPSScale = OutputFPSScale * 5;
-			outputFrames *= 4 / 5;
+			outputFrames = (outputFrames * 4) / 5;
 			break;
 		case MFX_DEINTERLACE_BOB:
+		case MFX_DEINTERLACE_AUTO_DOUBLE:
 			OutputFPSRate = OutputFPSRate * 2;
 			outputFrames *= 2;
 			break;

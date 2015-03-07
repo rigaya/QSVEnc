@@ -224,11 +224,14 @@ static const WCHAR * const list_mp4boxtempdir[] = {
 	NULL
 };
 
-const CX_DESC list_deinterlace[] = {
-	{ "なし",                   MFX_DEINTERLACE_NONE  },
-	{ "インタレ解除 (通常)",    MFX_DEINTERLACE_NORMAL  },
-	{ "インタレ解除 (24fps化)", MFX_DEINTERLACE_IT  },
-	{ "インタレ解除 (Bob化)",   MFX_DEINTERLACE_BOB },
+const CX_DESC list_deinterlace_ja[] = {
+	{ "なし",                       MFX_DEINTERLACE_NONE        },
+	{ "インタレ解除 (通常)",        MFX_DEINTERLACE_NORMAL      },
+	{ "インタレ解除 (24fps化)",     MFX_DEINTERLACE_IT          },
+	{ "インタレ解除 (Bob化)",       MFX_DEINTERLACE_BOB         },
+	{ "インタレ解除 (固定24fps化)", MFX_DEINTERLACE_IT_MANUAL   },
+	{ "インタレ解除 (自動)",        MFX_DEINTERLACE_AUTO_SINGLE },
+	{ "インタレ解除 (自動Bob化)",   MFX_DEINTERLACE_AUTO_DOUBLE },
 	{ NULL, NULL } 
 };
 

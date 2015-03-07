@@ -656,7 +656,8 @@ System::Void frmConfig::InitComboBox() {
 	setComboBox(fcgCXTransfer,        list_transfer);
 	setComboBox(fcgCXVideoFormat,     list_videoformat);
 
-	setComboBox(fcgCXDeinterlace,     list_deinterlace);
+	setComboBox(fcgCXDeinterlace,     list_deinterlace_ja);
+	setComboBox(fcgCXTelecinePatterns,list_telecine_patterns);
 	setComboBox(fcgCXFPSConversion,   list_vpp_fps_conversion);
 	setComboBox(fcgCXImageStabilizer, list_vpp_image_stabilizer);
 
@@ -902,6 +903,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 	fcggroupBoxVppResize->Enabled = fcgCBVppResize->Checked;
 	fcggroupBoxVppDenoise->Enabled = fcgCBVppDenoise->Checked;
 	fcggroupBoxVppDetail->Enabled = fcgCBVppDetail->Checked;
+	fcgCXTelecinePatterns->Visible = fcgCXDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, MFX_DEINTERLACE_IT_MANUAL);
 
 	this->ResumeLayout();
 	this->PerformLayout();
@@ -1159,6 +1161,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 	fcgCBVppDetail->Checked                = cnf->qsv.vpp.bUseDetailEnhance;
 	SetNUValue(fcgNUVppDetail,               cnf->qsv.vpp.nDetailEnhance);
 	SetCXIndex(fcgCXDeinterlace,             cnf->qsv.vpp.nDeinterlace);
+	SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, cnf->qsv.vpp.nTelecinePattern));
 	SetCXIndex(fcgCXImageStabilizer,         cnf->qsv.vpp.nImageStabilizer);
 	SetCXIndex(fcgCXFPSConversion,           cnf->qsv.vpp.nFPSConversion);
 
@@ -1287,7 +1290,8 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 	cnf->qsv.vpp.nDenoise            = (mfxU16)fcgNUVppDenoise->Value;
 	cnf->qsv.vpp.bUseDetailEnhance   = fcgCBVppDetail->Checked;
 	cnf->qsv.vpp.nDetailEnhance      = (mfxU16)fcgNUVppDetail->Value;
-	cnf->qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace[fcgCXDeinterlace->SelectedIndex].value;
+	cnf->qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
+	cnf->qsv.vpp.nTelecinePattern    = (mfxU16)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
 	cnf->qsv.vpp.nImageStabilizer    = (mfxU16)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
 	cnf->qsv.vpp.nFPSConversion      = (mfxU16)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
 

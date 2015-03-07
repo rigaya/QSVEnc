@@ -102,6 +102,10 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_3))
 		return result;
 
+	if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_13)) {
+		result |= VPP_FEATURE_DEINTERLACE_AUTO;
+		result |= VPP_FEATURE_DEINTERLACE_IT_MANUAL;
+	}
 	MFXVideoVPP vpp(session);
 
 	mfxExtVPPDoUse vppDoUse;
@@ -222,7 +226,6 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 	videoPrmOut.vpp.Out.FrameRateExtN = 60000;
 	videoPrmOut.vpp.Out.FrameRateExtD = 1001;
 	check_feature((mfxExtBuffer *)&vppFpsConv,   (mfxExtBuffer *)&vppFpsConvOut,   MFX_LIB_VERSION_1_3,  VPP_FEATURE_FPS_CONVERSION_ADV,  VPP_FEATURE_FPS_CONVERSION);
-
 	return result;
 }
 
