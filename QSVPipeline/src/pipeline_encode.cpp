@@ -850,7 +850,7 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 			}
 		case MFX_DEINTERLACE_AUTO_SINGLE:
 		case MFX_DEINTERLACE_AUTO_DOUBLE:
-			if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
+			if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_AUTO)) {
 				PrintMes(_T("Deinterlace \"auto\" is not supported on this platform.\n"));
 				return MFX_ERR_INVALID_VIDEO_PARAM;
 			}
