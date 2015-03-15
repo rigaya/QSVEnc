@@ -2905,7 +2905,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		case 1:  PRINT_INFO(_T("none\n")); break;
 		default: PRINT_INFO(_T("%d frame%s%s%s\n"),
 			videoPrm.mfx.GopRefDist - 1, (videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
-			check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ", B-pyramid: " : "",
+			check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? _T(", B-pyramid: ") : _T(""),
 			(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ((MFX_B_REF_PYRAMID == cop2.BRefType) ? _T("on") : _T("off")) : _T(""))); break;
 	}
 
