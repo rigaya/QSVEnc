@@ -1051,7 +1051,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("vpp-deinterlace")))
 		{
 			i++;
-			int value = get_value_from_chr(list_telecine_patterns, strInput[i]);
+			int value = get_value_from_chr(list_deinterlace, strInput[i]);
 			if (PARSE_ERROR_FLAG == value) {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
