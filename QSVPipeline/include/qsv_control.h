@@ -241,13 +241,14 @@ public:
 				}
 			}
 #ifdef UNICODE
-			if (m_bStdErrWriteToConsole)
-				_ftprintf(stderr, _T("%s\n"), mes); //出力先がコンソールならWCHARで
-			else
+			if (!m_bStdErrWriteToConsole)
 #endif
 				fprintf(stderr, "%s\n", mes_char); //出力先がリダイレクトされるならANSIで
 #ifdef UNICODE
 			free(mes_char);
+		}
+		if (m_bStdErrWriteToConsole) {
+			_ftprintf(stderr, _T("%s\n"), mes); //出力先がコンソールならWCHARで
 		}
 #endif
 	}
@@ -290,7 +291,7 @@ public:
 
 		TCHAR mes[512] = { 0 };
 		for (int i = 0; i < 79; i++)
-			mes[i] = ' ';
+			mes[i] = _T(' ');
 		WriteLine(mes);
 
 		_stprintf_s(mes, _T("encoded %d frames, %.2f fps, %.2f kbps, %.2f MB"),
