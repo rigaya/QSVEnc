@@ -33,9 +33,10 @@ static void PrintVersion() {
 	_ftprintf(stdout, _T("QSVEncC (x64) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
 #endif
 	_ftprintf(stdout, _T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
-	_ftprintf(stdout, _T("  avi reader: %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
-	_ftprintf(stdout, _T("  avs reader: %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
-	_ftprintf(stdout, _T("  vpy reader: %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
+	_ftprintf(stdout, _T("  avi reader:         %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
+	_ftprintf(stdout, _T("  avs reader:         %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
+	_ftprintf(stdout, _T("  vpy reader:         %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
+	_ftprintf(stdout, _T("  avcodec+QSV reader: %s\n"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
 	_ftprintf(stdout, _T("\n"));
 }
 
@@ -98,10 +99,19 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T(" Input formats (will be estimated from extension if not set.)\n")
 			_T("   --raw                        set input as raw format\n")
 			_T("   --y4m                        set input as y4m format\n")
+#if ENABLE_AVI_READER
 			_T("   --avi                        set input as avi format\n")
+#endif
+#if ENABLE_AVISYNTH_READER
 			_T("   --avs                        set input as avs format\n")
+#endif
+#if ENABLE_VAPOURSYNTH_READER
 			_T("   --vpy                        set input as vpy format\n")
 			_T("   --vpy-mt                     set input as vpy format in multi-thread\n")
+#endif
+#if ENABLE_AVCODEC_QSV_READER
+			_T("   --avqsv                      set input to use avcodec + qsv\n")
+#endif
 			_T("\n")
 			_T("   --nv12                       set raw input as NV12 color format,\n")
 			_T("                                if not specified YV12 is expected\n")
@@ -473,6 +483,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("vpy-mt")))
 		{
 			pParams->nInputFmt = INPUT_FMT_VPY_MT;
+		}
+		else if (0 == _tcscmp(option_name, _T("avqsv")))
+		{
+			pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
 		}
 		else if (0 == _tcscmp(option_name, _T("input-file")))
 		{

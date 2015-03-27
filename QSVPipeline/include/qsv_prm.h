@@ -40,6 +40,7 @@ typedef enum {
 	INPUT_FMT_AVS,
 	INPUT_FMT_VPY,
 	INPUT_FMT_VPY_MT,
+	INPUT_FMT_AVCODEC_QSV,
 };
 
 typedef enum MemType {

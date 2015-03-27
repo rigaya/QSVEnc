@@ -170,9 +170,11 @@ protected:
 	mfxExtCodingOption2 m_CodingOption2;
 	mfxExtCodingOption3 m_CodingOption3;
 	MFXVideoSession m_mfxSession;
+	MFXVideoDECODE* m_pmfxDEC;
 	MFXVideoENCODE* m_pmfxENC;
 	MFXVideoVPP* m_pmfxVPP;
 
+	mfxVideoParam m_mfxDecParams;
 	mfxVideoParam m_mfxEncParams;
 	mfxVideoParam m_mfxVppParams;
     
@@ -204,10 +206,14 @@ protected:
 
 	bool *m_pAbortByUser;
 
-	mfxFrameSurface1* m_pEncSurfaces; // frames array for encoder input (vpp output)
-	mfxFrameSurface1* m_pVppSurfaces; // frames array for vpp input
+	mfxBitstream m_DecInputBitstream;
+
+	mfxFrameSurface1* m_pEncSurfaces; // frames array for encoder input (vpp output, decoder output)
+	mfxFrameSurface1* m_pVppSurfaces; // frames array for vpp input (decoder output)
+	mfxFrameSurface1* m_pDecSurfaces; // work area for decoder
 	mfxFrameAllocResponse m_EncResponse;  // memory allocation response for encoder
 	mfxFrameAllocResponse m_VppResponse;  // memory allocation response for vpp
+	mfxFrameAllocResponse m_DecResponse;  // memory allocation response for decoder
 
 #if ENABLE_MVC_ENCODING
 	mfxU16 m_MVCflags; // MVC codec is in use
@@ -223,6 +229,7 @@ protected:
 	virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
 	virtual mfxStatus InitInOut(sInputParams *pParams);
+	virtual mfxStatus InitMfxDecParams();
 	virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
 	virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
 	virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);

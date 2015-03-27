@@ -19,9 +19,27 @@
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
 #include "sample_defs.h"
+#include "sample_utils.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "ram_speed.h"
+
+
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str) {
+#if UNICODE
+	int multibyte_length = WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, tstr, -1, nullptr, 0, nullptr, nullptr);
+	str.resize(multibyte_length, 0);
+	BOOL error = FALSE;
+	if (0 == WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, tstr, -1, &str[0], str.size(), nullptr, &error) || error) {
+		str.clear();
+		return 0;
+	}
+	return multibyte_length;
+#else
+	str = std::string(tstr);
+	return str.length();
+#endif
+}
 
 BOOL Check_HWUsed(mfxIMPL impl) {
 	static const int HW_list[] = {
@@ -1018,4 +1036,22 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
 	}
 	add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
 	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
+}
+
+mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size) {
+	mfxStatus sts = MFX_ERR_NONE;
+	if (data) {
+		const DWORD new_data_length = bitstream->DataLength + size;
+		if (bitstream->MaxLength < new_data_length)
+			if (MFX_ERR_NONE != (sts = ExtendMfxBitstream(bitstream, new_data_length)))
+				return sts;
+
+		if (bitstream->MaxLength < new_data_length + bitstream->DataOffset) {
+			memmove(bitstream->Data, bitstream->Data + bitstream->DataOffset, bitstream->DataLength);
+			bitstream->DataOffset = 0;
+		}
+		memcpy(bitstream->Data + bitstream->DataLength + bitstream->DataOffset, data, size);
+		bitstream->DataLength = new_data_length;
+	}
+	return sts;
 }

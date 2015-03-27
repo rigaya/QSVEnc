@@ -74,25 +74,12 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 		m_strInputInfo += _T("avisynth: failed to init avisynth enviroment.\n");
 		return MFX_ERR_INVALID_HANDLE;
 	}
-#if UNICODE
-	char *filename_char = NULL;
-	{
-		const mfxU32 buffer_length = (mfxU32)(wcslen(strFileName) + 1) * 2;
-		BOOL error = FALSE;
-		if (NULL == (filename_char = (char *)calloc(buffer_length, sizeof(char)))) {
-			m_strInputInfo += _T("avisynth: failed to allocate memory for character conversion.\n");
-			return MFX_ERR_NULL_PTR;
-		} else if (0 == WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, strFileName, -1, filename_char, buffer_length, NULL, &error) || error) {
-			m_strInputInfo += _T("avisynth: failed to convert to ansi characters.\n");
-			free(filename_char);
-			return MFX_ERR_INVALID_HANDLE;
-		}
+	std::string filename_char;
+	if (0 == tchar_to_string(strFileName, filename_char)) {
+		m_strInputInfo += _T("avcodec: failed to convert to ansi characters.\n");
+		return MFX_ERR_INVALID_HANDLE;
 	}
-	fprintf(stderr, "%s\n", filename_char);
-	AVS_Value val_filename = avs_new_value_string(filename_char);
-#else
-	AVS_Value val_filename = avs_new_value_string(strFileName);
-#endif
+	AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
 	AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, NULL);
 	m_sAvisynth.release_value(val_filename);
 	if (!avs_is_clip(val_res)) {
@@ -112,10 +99,6 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opt
 	}
 	m_sAVSclip = m_sAvisynth.take_clip(val_res, m_sAVSenv);
 	m_sAvisynth.release_value(val_res);
-
-#if UNICODE	
-	free(filename_char);
-#endif
 
 	if (NULL == (m_sAVSinfo = m_sAvisynth.get_video_info(m_sAVSclip))) {
 		m_strInputInfo += _T("avisynth: failed to get avs info.\n");

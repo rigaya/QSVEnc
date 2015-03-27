@@ -124,6 +124,15 @@ public:
 		return MFX_ERR_NONE;
 	}
 
+#pragma warning (push)
+#pragma warning (disable: 4100)
+	virtual mfxStatus GetNextBitstream(mfxBitstream *bitstream) {
+		return MFX_ERR_NONE;
+	}
+	virtual mfxStatus GetHeader(mfxBitstream *bitstream) {
+		return MFX_ERR_NONE;
+	}
+#pragma warning (pop)
 
 	mfxStatus SetNextSurface(mfxFrameSurface1* pSurface)
 	{
@@ -145,6 +154,7 @@ public:
 	virtual void Close();
 	//virtual mfxStatus Init(const msdk_char *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<msdk_char*> srcFileBuff);
 	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+
 	mfxU32 m_ColorFormat; // color format of input YUV data, YUV420 or NV12
 	void GetInputCropInfo(sInputCrop *cropInfo) {
 		memcpy(cropInfo, &m_sInputCrop, sizeof(m_sInputCrop));
@@ -152,9 +162,15 @@ public:
 	void GetInputFrameInfo(mfxFrameInfo *inputFrameInfo) {
 		memcpy(inputFrameInfo, &m_inputFrameInfo, sizeof(m_inputFrameInfo));
 	}
+	void GetDecParam(mfxVideoParam *decParam) {
+		memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
+	}
 	const msdk_char *GetInputMessage() {
 		const msdk_char *mes = m_strInputInfo.c_str();
 		return (mes) ? mes : _T("");
+	}
+	mfxU32 getInputCodec() {
+		return m_nInputCodec;
 	}
 #if ENABLE_MVC_ENCODING
 	void SetMultiView() { m_bIsMultiView = true; }
@@ -174,8 +190,11 @@ protected:
 	sInputCrop m_sInputCrop;
 
 	mfxFrameInfo m_inputFrameInfo;
+	mfxVideoParam m_sDecParam;
 
 	const ConvertCSP *m_sConvert;
+
+	mfxU32 m_nInputCodec;
 
 	mfxU32 bufSize;
 	mfxU8 *buffer;
@@ -521,13 +540,14 @@ private:
 mfxStatus ConvertFrameRate(mfxF64 dFrameRate, mfxU32* pnFrameRateExtN, mfxU32* pnFrameRateExtD);
 mfxF64 CalculateFrameRate(mfxU32 nFrameRateExtN, mfxU32 nFrameRateExtD);
 
-static inline mfxU16 GetFreeSurface(mfxFrameSurface1* pSurfacesPool, mfxU16 nPoolSize) {
+static inline int GetFreeSurface(mfxFrameSurface1* pSurfacesPool, int nPoolSize) {
 	static const int SleepInterval = 1; // milliseconds
 	//wait if there's no free surface
 	for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j += SleepInterval) {
-		for (mfxU16 i = 0; i < nPoolSize; i++)
-		if (0 == pSurfacesPool[i].Data.Locked)
-			return i;
+		for (mfxU16 i = 0; i < nPoolSize; i++) {
+			if (0 == pSurfacesPool[i].Data.Locked)
+				return i;
+		}
 		MSDK_SLEEP(SleepInterval);
 	}
 	return MSDK_INVALID_SURF_IDX;

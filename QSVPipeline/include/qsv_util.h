@@ -29,6 +29,8 @@
 mfxU32 GCD(mfxU32 a, mfxU32 b);
 mfxI64 GCDI64(mfxI64 a, mfxI64 b);
 
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str);
+
 typedef struct CX_DESC {
 	TCHAR *desc;
 	int value;
@@ -222,6 +224,8 @@ BOOL check_OS_Win8orLater();
 mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
 
 const TCHAR *get_err_mes(int sts);
+
+mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size);
 
 static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
 	BYTE *dst_fin = dst + size;
