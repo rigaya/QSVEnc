@@ -241,9 +241,11 @@ const CX_DESC list_deinterlace[] = {
 	{ _T("normal"),    MFX_DEINTERLACE_NORMAL      },
 	{ _T("it"),        MFX_DEINTERLACE_IT          },
 	{ _T("bob"),       MFX_DEINTERLACE_BOB         },
+#if ENABLE_ADVANCED_DEINTERLACE
 	{ _T("it-manual"), MFX_DEINTERLACE_IT_MANUAL   },
 	{ _T("auto"),      MFX_DEINTERLACE_AUTO_SINGLE },
 	{ _T("auto-bob"),  MFX_DEINTERLACE_AUTO_DOUBLE },
+#endif
 	{ NULL, NULL }
 };
 

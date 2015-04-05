@@ -229,9 +229,11 @@ const CX_DESC list_deinterlace_ja[] = {
 	{ "インタレ解除 (通常)",        MFX_DEINTERLACE_NORMAL      },
 	{ "インタレ解除 (24fps化)",     MFX_DEINTERLACE_IT          },
 	{ "インタレ解除 (Bob化)",       MFX_DEINTERLACE_BOB         },
+#if ENABLE_ADVANCED_DEINTERLACE
 	{ "インタレ解除 (固定24fps化)", MFX_DEINTERLACE_IT_MANUAL   },
 	{ "インタレ解除 (自動)",        MFX_DEINTERLACE_AUTO_SINGLE },
 	{ "インタレ解除 (自動Bob化)",   MFX_DEINTERLACE_AUTO_DOUBLE },
+#endif
 	{ NULL, NULL } 
 };
 

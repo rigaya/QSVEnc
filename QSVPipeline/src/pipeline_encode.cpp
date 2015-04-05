@@ -936,10 +936,12 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 			break;
 		}
 		if (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NONE) {
+#if ENABLE_ADVANCED_DEINTERLACE
 			if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
 				m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDeinterlacing);
 				m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DEINTERLACING);
 			}
+#endif
 			VppExtMes += _T("Deinterlace (");
 			VppExtMes += list_deinterlace[get_cx_index(list_deinterlace, pInParams->vpp.nDeinterlace)].desc;
 			if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {

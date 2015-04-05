@@ -196,11 +196,15 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                 - none     disable deinterlace\n")
 			_T("                                 - normal   normal deinterlace\n")
 			_T("                                 - it       inverse telecine\n")
+#if ENABLE_ADVANCED_DEINTERLACE
 			_T("                                 - it-manual <string>\n")
 			_T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
+#endif
 			_T("                                 - bob      double framerate\n")
+#if ENABLE_ADVANCED_DEINTERLACE
 			_T("                                 - auto     auto deinterlace\n")
 			_T("                                 - auto-bob auto bob deinterlace\n")
+#endif
 #if ENABLE_FPS_CONVERSION
 			_T("   --vpp-fps-conv <string>      set fps conversion mode\n")
 			_T("                                enabled only when input is progressive\n")
