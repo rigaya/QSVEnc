@@ -148,7 +148,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
 			_T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
 			_T("   --la-hrd <int>               set bitrate in HRD-Lookahead mode (kbps)\n")
-			_T("   --icq <int>                  encode in Intelligent Const. Qualtiy mode\n")
+			_T("   --icq <int>                  encode in Intelligent Const. Quality mode\n")
 			_T("                                  default value: %d\n")
 			_T("   --la-icq <int>               encode in ICQ mode with Lookahead\n")
 			_T("                                  default value: %d\n")
