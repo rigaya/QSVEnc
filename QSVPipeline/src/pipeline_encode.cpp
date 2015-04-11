@@ -1620,9 +1620,11 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVCODEC_QSV_READER
 		if (   0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mp4"))
+			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".m4v"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mkv"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mov"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".264"))
+			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".avc"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mpg"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".m2v"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".ts")))
