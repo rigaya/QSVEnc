@@ -9,6 +9,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <memory>
+#include "mfxplugin.h"
+#include "mfxplugin++.h"
+#include "plugin_utils.h"
+#include "plugin_loader.h"
 #include "avcodec_reader.h"
 
 #if ENABLE_AVCODEC_QSV_READER
@@ -171,7 +176,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int
 	AVDEBUG_PRINT("avcodec: can be decoded by qsv.\n");
 
 	//必要ならbitstream filterを初期化
-	if (m_nInputCodec == MFX_CODEC_AVC && demux.pCodecCtx->extradata && demux.pCodecCtx->extradata[0] == 1) {
+	if ((m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) && demux.pCodecCtx->extradata && demux.pCodecCtx->extradata[0] == 1) {
 		if (NULL == (demux.bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
 			m_strInputInfo += _T("avcodec: unable to init h264_mp4toannexb.\n");
 			return MFX_ERR_NULL_PTR;
@@ -200,10 +205,20 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int
 		return decHeaderSts;
 	}
 
+	std::unique_ptr<MFXPlugin> m_pPlugin;
+	if (m_nInputCodec == MFX_CODEC_HEVC) {
+		m_pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, session, MFX_PLUGINID_HEVCD_HW, 1));
+		if (m_pPlugin.get() == NULL) {
+			m_strInputInfo += _T("avcodec: hevc decoder unavailable.\n");
+			return MFX_ERR_UNSUPPORTED;
+		}
+	}
+
 	memset(&m_sDecParam, 0, sizeof(m_sDecParam));
 	m_sDecParam.mfx.CodecId = m_nInputCodec;
 	m_sDecParam.IOPattern = (mfxU16)((option) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
 	decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam);
+	m_pPlugin.reset(); //必ずsessionをクローズする前に開放すること
 	MFXClose(session);
 	if (MFX_ERR_NONE != decHeaderSts) {
 		m_strInputInfo += _T("avcodec: failed to decode header.\n");

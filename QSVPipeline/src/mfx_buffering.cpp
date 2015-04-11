@@ -85,14 +85,12 @@ CBuffering::AllocOutputBuffer()
 }
 
 static void
-FreeList(msdkOutputSurface* head) {
+FreeList(msdkOutputSurface*& head) {
     msdkOutputSurface* next;
-    if (head) {
-        while (head) {
-            next = head->next;
-            free(head);
-            head = next;
-        }
+    while (head) {
+        next = head->next;
+        free(head);
+        head = next;
     }
 }
 

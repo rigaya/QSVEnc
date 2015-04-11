@@ -25,6 +25,8 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 #include "avcodec_reader.h"
 #include "sysmem_allocator.h"
 
+#include "plugin_loader.h"
+
 #if D3D_SURFACES_SUPPORT
 #include "d3d_allocator.h"
 #include "d3d11_allocator.h"
@@ -355,6 +357,12 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
 		//デコーダの作成
 		m_pmfxDEC = new MFXVideoDECODE(m_mfxSession);
 		MSDK_CHECK_POINTER(m_pmfxDEC, MFX_ERR_MEMORY_ALLOC);
+
+		if (m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
+            m_pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, m_mfxSession, MFX_PLUGINID_HEVCD_HW, 1));
+            if (m_pPlugin.get() == NULL) sts = MFX_ERR_UNSUPPORTED;	
+			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+		}
 
 		sts = m_pmfxDEC->Init(&m_mfxDecParams);
 		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -1483,7 +1491,6 @@ void CEncodingPipeline::DeleteAllocator()
 
 CEncodingPipeline::CEncodingPipeline()
 {
-    m_pUID = NULL;
 	m_pmfxDEC = NULL;
 	m_pmfxENC = NULL;
 	m_pmfxVPP = NULL;
@@ -1625,6 +1632,10 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mov"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".264"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".avc"))
+#if ENABLE_HEVC_DECODE
+			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".265"))
+			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".hevc"))
+#endif
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mpg"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".m2v"))
 			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".ts")))
@@ -2044,13 +2055,11 @@ void CEncodingPipeline::Close()
 	MSDK_SAFE_DELETE(m_pEncSatusInfo);
 	m_EncThread.Close();
 
+	m_pPlugin.reset();
+
 	MSDK_SAFE_DELETE(m_pmfxDEC);
 	MSDK_SAFE_DELETE(m_pmfxENC);
 	MSDK_SAFE_DELETE(m_pmfxVPP);
-
-    if (m_pUID) MFXVideoUSER_UnLoad(m_mfxSession, &(m_pUID->mfx));
-
-    m_pHEVC_plugin.reset();
 
 #if ENABLE_MVC_ENCODING
 	FreeMVCSeqDesc();

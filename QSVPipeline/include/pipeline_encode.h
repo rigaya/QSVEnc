@@ -20,7 +20,6 @@
 #include "qsv_prm.h"
 
 #include "sample_defs.h"
-#include "mfx_plugin_uids.h"
 #include "hw_device.h"
 
 #ifdef D3D_SURFACES_SUPPORT
@@ -173,15 +172,13 @@ protected:
 	MFXVideoDECODE* m_pmfxDEC;
 	MFXVideoENCODE* m_pmfxENC;
 	MFXVideoVPP* m_pmfxVPP;
+	std::unique_ptr<MFXPlugin> m_pPlugin;
 
 	mfxVideoParam m_mfxDecParams;
 	mfxVideoParam m_mfxEncParams;
 	mfxVideoParam m_mfxVppParams;
     
-    mfxPluginUID m_UID_HEVC; 
-    std::auto_ptr<MFXPlugin> m_pHEVC_plugin;  
     std::auto_ptr<MFXVideoUSER>  m_pUserModule;
-    const msdkPluginUID*     m_pUID;
 
 	std::vector<mfxExtBuffer*> m_EncExtParams;
 	std::vector<mfxExtBuffer*> m_VppExtParams;

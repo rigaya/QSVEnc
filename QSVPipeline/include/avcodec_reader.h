@@ -49,7 +49,7 @@ typedef struct QSVCodec {
 static const QSVCodec QSV_LIST[] = { 
 	{ AV_CODEC_ID_MPEG2VIDEO, MFX_CODEC_MPEG2 },
 	{ AV_CODEC_ID_H264,       MFX_CODEC_AVC   },
-	//{ AV_CODEC_ID_HEVC,       MFX_CODEC_HEVC  }
+	{ AV_CODEC_ID_HEVC,       MFX_CODEC_HEVC  },
 	//{ AV_CODEC_ID_VC1,        MFX_CODEC_VC1   },
 };
 

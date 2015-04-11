@@ -102,6 +102,9 @@
     <ClCompile Include="src\avcodec_reader.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\plugin_utils.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\base_allocator.h">

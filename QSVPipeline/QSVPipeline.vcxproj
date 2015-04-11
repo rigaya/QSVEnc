@@ -264,6 +264,7 @@
     <ClCompile Include="src\d3d_device.cpp" />
     <ClCompile Include="src\gpu_info.cpp" />
     <ClCompile Include="src\pipeline_encode.cpp" />
+    <ClCompile Include="src\plugin_utils.cpp" />
     <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
     <ClCompile Include="src\qsv_simd.cpp" />

@@ -13,6 +13,7 @@ Copyright(c) 2014 Intel Corporation. All Rights Reserved.
 
 #include "sample_defs.h"
 #include "sample_types.h"
+#include "mfxplugin.h"
 
 #if defined(_WIN32) || defined(_WIN64)
     #define MSDK_CPU_ROTATE_PLUGIN  MSDK_STRING("sample_rotate_plugin.dll")
