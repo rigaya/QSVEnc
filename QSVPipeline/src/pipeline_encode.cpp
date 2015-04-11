@@ -1948,7 +1948,7 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
 	sts = CheckParam(pParams);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+	MSDK_CHECK_NOT_EQUAL(sts, MFX_ERR_NONE, sts);
 
 	sts = m_EncThread.Init(pParams->nInputBufSize);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
