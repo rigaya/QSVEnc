@@ -939,6 +939,14 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 	m_mfxVppParams.vpp.In.CropW = pInParams->nWidth;
 	m_mfxVppParams.vpp.In.CropH = pInParams->nHeight;
 
+	//QSVデコードを行う場合、CropはVppで行う
+	if (m_pFileReader->getInputCodec()) {
+		m_mfxVppParams.vpp.In.CropX = pInParams->sInCrop.left;
+		m_mfxVppParams.vpp.In.CropY = pInParams->sInCrop.up;
+		m_mfxVppParams.vpp.In.CropW -= (pInParams->sInCrop.left   + pInParams->sInCrop.right);
+		m_mfxVppParams.vpp.In.CropH -= (pInParams->sInCrop.bottom + pInParams->sInCrop.up);
+	}
+
 	// fill output frame info
 	memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
 
@@ -1000,6 +1008,8 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 			break;
 		}
 	}
+	m_mfxVppParams.vpp.Out.CropX = 0;
+	m_mfxVppParams.vpp.Out.CropY = 0;
 	m_mfxVppParams.vpp.Out.CropW = pInParams->nDstWidth;
 	m_mfxVppParams.vpp.Out.CropH = pInParams->nDstHeight;
 	m_mfxVppParams.vpp.Out.Width = MSDK_ALIGN16(pInParams->nDstWidth);
@@ -1819,15 +1829,21 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 			PrintMes(_T("crop size is too big.\n"));
 			return MFX_PRINT_OPTION_ERR;
 	}
-	pParams->nWidth -= (pParams->sInCrop.left + pParams->sInCrop.right);
-	pParams->nHeight -= (pParams->sInCrop.bottom + pParams->sInCrop.up);
 
 	// if no destination picture width or height wasn't specified set it to the source picture size
-	if (pParams->nDstWidth == 0)
-		pParams->nDstWidth = pParams->nWidth;
+	if (pParams->nDstWidth == 0) {
+		pParams->nDstWidth = pParams->nWidth -  (pParams->sInCrop.left + pParams->sInCrop.right);
+	}
 
-	if (pParams->nDstHeight == 0)
-		pParams->nDstHeight = pParams->nHeight;
+	if (pParams->nDstHeight == 0) {
+		pParams->nDstHeight = pParams->nHeight - (pParams->sInCrop.bottom + pParams->sInCrop.up);
+	}
+
+	if (0 == m_pFileReader->getInputCodec()) {
+		//QSVデコードを使わない場合には、入力段階でCropが行われる
+		pParams->nWidth -= (pParams->sInCrop.left + pParams->sInCrop.right);
+		pParams->nHeight -= (pParams->sInCrop.bottom + pParams->sInCrop.up);
+	}
 
 	if (pParams->nDstHeight != pParams->nHeight || pParams->nDstWidth != pParams->nWidth) {
 		pParams->vpp.bEnable = true;

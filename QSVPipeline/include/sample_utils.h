@@ -169,6 +169,8 @@ public:
 		const msdk_char *mes = m_strInputInfo.c_str();
 		return (mes) ? mes : _T("");
 	}
+	//QSVデコードを行う場合のコーデックを返す
+	//行わない場合は0を返す
 	mfxU32 getInputCodec() {
 		return m_nInputCodec;
 	}
