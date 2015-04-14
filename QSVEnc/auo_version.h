@@ -17,9 +17,9 @@
 #define AUO_NAME_WITHOUT_EXT "QSVEnc"
 #define AUO_NAME             "QSVEnc.auo"
 #define AUO_NAME_W          L"QSVEnc.auo"
-#define AUO_FULL_NAME        "拡張 QSV 出力 "
+#define AUO_FULL_NAME        "拡張 QSV 出力"
 #define AUO_VERSION_NAME     "拡張 QSV 出力 "AUO_VERSION_STR
-#define AUO_VERSION_INFO     AUO_VERSION_NAME" by rigaya"
+#define AUO_VERSION_INFO     "拡張 QSV 出力 "AUO_VERSION_STR" by rigaya"
 #define AUO_EXT_FILTER       "All Support Formats (*.*)\0*.mp4;*.mkv;*.264;*.mp4\0mp4 file (*.mp4)\0*.mp4\0mkv file (*.mkv)\0*.mkv\0raw file (*.264)\0*.264\0"
 
 #ifdef DEBUG
