@@ -23,18 +23,28 @@ enum {
 	TMP_DIR_CUSTOM = 2,
 };
 
-enum {
-	RUN_BAT_NONE   = 0x00,
-	RUN_BAT_AFTER  = 0x01,
-	RUN_BAT_BEFORE = 0x02,
+enum : DWORD {
+	RUN_BAT_NONE           = 0x00,
+	RUN_BAT_BEFORE_PROCESS = 0x01,
+	RUN_BAT_AFTER_PROCESS  = 0x02,
+	RUN_BAT_BEFORE_AUDIO   = 0x04,
+	RUN_BAT_AFTER_AUDIO    = 0x08,
 };
 
-static const char *CONF_NAME_OLD      = "QSVEnc ConfigFile";
-static const char *CONF_NAME          = "QSVEnc ConfigFile v2";
-const int CONF_NAME_BLOCK_LEN         = 32;
-const int CONF_BLOCK_MAX              = 32;
-const int CONF_BLOCK_COUNT            = 5; //最大 CONF_BLOCK_MAXまで
-const int CONF_HEAD_SIZE              = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
+static inline int get_run_bat_idx(DWORD flag) {
+	DWORD ret;
+	_BitScanForward(&ret, flag);
+	return (int)ret;
+}
+
+static const char *const CONF_NAME_OLD_1 = "QSVEnc ConfigFile";
+static const char *const CONF_NAME_OLD_2 = "QSVEnc ConfigFile v2";
+static const char *const CONF_NAME_OLD_3 = "QSVEnc ConfigFile v3";
+static const char *const CONF_NAME       = CONF_NAME_OLD_3;
+const int CONF_NAME_BLOCK_LEN            = 32;
+const int CONF_BLOCK_MAX                 = 32;
+const int CONF_BLOCK_COUNT               = 5; //最大 CONF_BLOCK_MAXまで
+const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
 
 enum {
 	CONF_ERROR_NONE = 0,
@@ -100,8 +110,15 @@ typedef struct {
 	char notes[128];             //メモ
 	DWORD run_bat;                //バッチファイルを実行するかどうか
 	DWORD dont_wait_bat_fin;      //バッチファイルの処理終了待機をするかどうか
-	char  batfile_after[MAX_PATH_LEN];   //エンコ後バッチファイルのパス
-	char  batfile_before[MAX_PATH_LEN];  //エンコ前バッチファイルのパス
+	union {
+		char batfiles[4][512];        //バッチファイルのパス
+		struct {
+			char before_process[512]; //エンコ前バッチファイルのパス
+			char after_process[512];  //エンコ後バッチファイルのパス
+			char before_audio[512];   //音声エンコ前バッチファイルのパス
+			char after_audio[512];    //音声エンコ後バッチファイルのパス
+		} batfile;
+	};
 } CONF_OTHER;
 
 typedef struct {
@@ -122,7 +139,8 @@ class guiEx_config {
 private:
 	static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
 	static const int conf_block_data[CONF_BLOCK_COUNT];
-	static void convert_qsvstgv1_to_stgv2(CONF_GUIEX *conf);
+	static void convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf);
+	static void convert_qsvstgv2_to_stgv3(CONF_GUIEX *conf);
 public:
 	guiEx_config();
 	static void write_conf_header(CONF_GUIEX *conf);
