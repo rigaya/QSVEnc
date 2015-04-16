@@ -111,6 +111,9 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 #endif
 #if ENABLE_AVCODEC_QSV_READER
 			_T("   --avqsv                      set input to use avcodec + qsv\n")
+			_T("   --trim <int>-<int>,[<int>-<int>],...\n")
+			_T("                                trim video for the frame range specified.\n")
+			_T("                                could be only used with avqsv reader.\n")
 #endif
 			_T("\n")
 			_T("   --nv12                       set raw input as NV12 color format,\n")
@@ -499,6 +502,25 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			if (!pParams->bBenchmark)
 				_tcscpy_s(pParams->strDstFile, strInput[i]);
 		}
+		else if (0 == _tcscmp(option_name, _T("trim")))
+		{
+			i++;
+			auto trim_str_list = split(strInput[i], _T(","));
+			std::vector<sTrim> trim_list;
+			for (auto trim_str : trim_str_list) {
+				sTrim trim;
+				if (2 != _stscanf_s(trim_str.c_str(), _T("%d-%d"), &trim.start, &trim.fin) || trim.fin < trim.start) {
+					PrintHelp(strInput[0], _T("Invalid Value"), option_name);
+					return MFX_PRINT_OPTION_ERR;
+				}
+				trim_list.push_back(trim);
+			}
+			if (trim_list.size()) {
+				pParams->nTrimCount = (mfxU16)trim_list.size();
+				pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
+				memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
+			}
+ 		}
 		else if (0 == _tcscmp(option_name, _T("quality")))
 		{
 			i++;

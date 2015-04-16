@@ -1745,6 +1745,15 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 		PrintMes(m_pFileReader->GetInputMessage());
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
+	if (pParams->nTrimCount) {
+		if (m_pFileReader->getInputCodec()) {
+			m_TrimList = std::vector<sTrim>(pParams->pTrimList, pParams->pTrimList + pParams->nTrimCount);
+		} else {
+			PrintMes(_T("Trim is only supported with transcoding (avqsv reader).\n"));
+			return MFX_PRINT_OPTION_ERR;
+		}
+	}
+
 	// prepare output file writer
 	m_pFileWriter = new CSmplBitstreamWriter();
 	sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
@@ -2073,6 +2082,8 @@ void CEncodingPipeline::Close()
 
 	m_pPlugin.reset();
 
+	m_TrimList.clear();
+
 	MSDK_SAFE_DELETE(m_pmfxDEC);
 	MSDK_SAFE_DELETE(m_pmfxENC);
 	MSDK_SAFE_DELETE(m_pmfxVPP);
@@ -2377,6 +2388,17 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
 	return sts;
 }
 
+bool CEncodingPipeline::frameInsideTrimRange(mfxU32 frame) {
+	if (m_TrimList.size() == 0)
+		return true;
+	for (auto trim : m_TrimList) {
+		if (trim.start <= frame && frame <= trim.fin) {
+			return true;
+		}
+	}
+	return false;
+}
+
 mfxStatus CEncodingPipeline::RunEncode()
 {
 	MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_NOT_INITIALIZED);
@@ -2396,6 +2418,8 @@ mfxStatus CEncodingPipeline::RunEncode()
 	bool bVppMultipleOutput = false;  // this flag is true if VPP produces more frames at output
 									  // than consumes at input. E.g. framerate conversion 30 fps -> 60 fps
 
+	int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)
+
 	mfxU16 nLastFrameFlag = 0;
 	int nLastAQ = 0;
 	bool bVppDeintBobFirstFeild = true;
@@ -2410,7 +2434,8 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 	sts = MFX_ERR_NONE;
 
-	auto set_surface_to_input_buffer = [](int input_buffer_size, CSmplYUVReader *pFileReader, MFXFrameAllocator *pAllocator, bool bExternalAlloc, mfxFrameSurface1 *surfaces, int surfacePoolActual) {
+	auto set_surface_to_input_buffer = [](int input_buffer_size, CSmplYUVReader *pFileReader,
+		MFXFrameAllocator *pAllocator, bool bExternalAlloc, mfxFrameSurface1 *surfaces, int surfacePoolActual) {
 		mfxStatus sts_set_buffer = MFX_ERR_NONE;
 		for (int i = 0; i < input_buffer_size; i++) {
 			//空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
@@ -2471,6 +2496,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			} else {
 				pSurfEncIn = pSurfDecOut;
 			}
+			nInputFrameCount += (pSurfDecOut != NULL);
 		}
 		return dec_sts;
 	};
@@ -2634,6 +2660,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 			MSDK_BREAK_ON_ERROR(sts);
 		}
 
+		if (!frameInsideTrimRange(nInputFrameCount))
+			continue;
+
 		sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
 		MSDK_BREAK_ON_ERROR(sts);
 		if (bVppRequireMoreFrame)
@@ -2680,6 +2709,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 					continue;
 				MSDK_BREAK_ON_ERROR(sts);
 			}
+
+			if (!frameInsideTrimRange(nInputFrameCount))
+				continue;
 
 			sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
 			MSDK_BREAK_ON_ERROR(sts);
@@ -2926,6 +2958,12 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		}
 		free(vpp_mes);
 		VppExtMes.clear();
+	}
+	if (m_TrimList.size()) {
+		PRINT_INFO(_T("Trim              "));
+		for (auto trim : m_TrimList) {
+			PRINT_INFO(_T("%d-%d "), trim.start, trim.fin);
+		}
 	}
 	PRINT_INFO(    _T("Output Video      %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
 		                                             get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,

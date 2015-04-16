@@ -29,7 +29,17 @@
 mfxU32 GCD(mfxU32 a, mfxU32 b);
 mfxI64 GCDI64(mfxI64 a, mfxI64 b);
 
+#if UNICODE
+#define to_tstring to_wstring
+#else
+#define to_tstring to_string
+#endif
+
+typedef std::basic_string<TCHAR> tstring;
+typedef std::basic_stringstream<TCHAR> TStringStream;
+
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str);
+std::vector<tstring> split(const tstring &str, const tstring &delim);
 
 typedef struct CX_DESC {
 	TCHAR *desc;

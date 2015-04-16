@@ -54,6 +54,10 @@ typedef struct {
 	mfxU16 left, up, right, bottom;
 } sInputCrop;
 
+typedef struct {
+	mfxU32 start, fin;
+} sTrim;
+
 typedef enum {
 	FPS_CONVERT_NONE = 0,
 	FPS_CONVERT_MUL2,
@@ -187,7 +191,14 @@ struct sInputParams
 	mfxU8      __unused;
 	mfxU32     nBitRate;
 	mfxU32     nMaxBitrate;
-	mfxU8      Reserved[1182];
+
+	mfxU16     nTrimCount;
+	sTrim     *pTrimList;
+#ifdef _M_IX86
+	mfxU32     reserved2;
+#endif
+
+	mfxU8      Reserved[1172];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

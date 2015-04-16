@@ -41,6 +41,17 @@ unsigned int tchar_to_string(const TCHAR *tstr, std::string& str) {
 #endif
 }
 
+std::vector<tstring> split(const tstring &str, const tstring &delim) {
+	std::vector<tstring> res;
+	size_t current = 0, found, delimlen = delim.size();
+	while (tstring::npos != (found = str.find(delim, current))) {
+		res.push_back(tstring(str, current, found - current));
+		current = found + delimlen;
+	}
+	res.push_back(tstring(str, current, str.size() - current));
+	return res;
+}
+
 BOOL Check_HWUsed(mfxIMPL impl) {
 	static const int HW_list[] = {
 		MFX_IMPL_HARDWARE,

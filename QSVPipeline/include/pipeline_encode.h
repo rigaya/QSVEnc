@@ -54,15 +54,6 @@
 
 #pragma comment(lib, "libmfx.lib")
 
-#if UNICODE
-#define to_tstring to_wstring
-#else
-#define to_tstring to_string
-#endif
-
-typedef std::basic_string<TCHAR> tstring;
-typedef std::basic_stringstream<TCHAR> TStringStream;
-
 struct sTask
 {
 	mfxBitstream mfxBS;
@@ -174,6 +165,8 @@ protected:
 	MFXVideoVPP* m_pmfxVPP;
 	std::unique_ptr<MFXPlugin> m_pPlugin;
 
+	std::vector<sTrim> m_TrimList;
+
 	mfxVideoParam m_mfxDecParams;
 	mfxVideoParam m_mfxEncParams;
 	mfxVideoParam m_mfxVppParams;
@@ -222,6 +215,8 @@ protected:
 	//mfxExtVPPDoNotUse m_VppDoNotUse;
 
 	CHWDevice *m_hwdev;
+
+	virtual bool frameInsideTrimRange(mfxU32 frame);
 
 	virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
