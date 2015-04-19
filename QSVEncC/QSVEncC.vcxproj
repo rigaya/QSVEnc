@@ -135,7 +135,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -175,7 +175,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -223,7 +223,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -270,7 +270,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -319,7 +319,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -369,7 +369,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
