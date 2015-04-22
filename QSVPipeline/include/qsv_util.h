@@ -38,7 +38,10 @@ mfxI64 GCDI64(mfxI64 a, mfxI64 b);
 typedef std::basic_string<TCHAR> tstring;
 typedef std::basic_stringstream<TCHAR> TStringStream;
 
-unsigned int tchar_to_string(const TCHAR *tstr, std::string& str);
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage = CP_THREAD_ACP);
+std::string tchar_to_string(const TCHAR *tstr, DWORD codepage = CP_THREAD_ACP);
+unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage = CP_THREAD_ACP);
+tstring char_to_tstring(const char *str, DWORD codepage = CP_THREAD_ACP);
 std::vector<tstring> split(const tstring &str, const tstring &delim);
 
 typedef struct CX_DESC {

@@ -24,13 +24,14 @@
 #include "qsv_prm.h"
 #include "ram_speed.h"
 
-
-unsigned int tchar_to_string(const TCHAR *tstr, std::string& str) {
+#pragma warning (push)
+#pragma warning (disable: 4100)
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage) {
 #if UNICODE
-	int multibyte_length = WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, tstr, -1, nullptr, 0, nullptr, nullptr);
+	int multibyte_length = WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, nullptr, 0, nullptr, nullptr);
 	str.resize(multibyte_length, 0);
 	BOOL error = FALSE;
-	if (0 == WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, tstr, -1, &str[0], str.size(), nullptr, &error) || error) {
+	if (0 == WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, &str[0], str.size(), nullptr, &error) || error) {
 		str.clear();
 		return 0;
 	}
@@ -40,6 +41,35 @@ unsigned int tchar_to_string(const TCHAR *tstr, std::string& str) {
 	return str.length();
 #endif
 }
+
+std::string tchar_to_string(const TCHAR *tstr, DWORD codepage) {
+	std::string str;
+	tchar_to_string(tstr, str, codepage);
+	return str;
+}
+
+unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
+#if UNICODE
+	int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
+	tstr.resize(widechar_length, 0);
+	BOOL error = FALSE;
+	if (0 == MultiByteToWideChar(codepage, 0, str, -1, &tstr[0], tstr.size())) {
+		tstr.clear();
+		return 0;
+	}
+	return widechar_length;
+#else
+	tstr = std::string(str);
+	return tstr.length();
+#endif
+}
+
+tstring char_to_tstring(const char *str, DWORD codepage) {
+	tstring tstr;
+	char_to_tstring(tstr, str, codepage);
+	return tstr;
+}
+#pragma warning (pop)
 
 std::vector<tstring> split(const tstring &str, const tstring &delim) {
 	std::vector<tstring> res;
