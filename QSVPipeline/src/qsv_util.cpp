@@ -52,7 +52,6 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
 #if UNICODE
 	int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
 	tstr.resize(widechar_length, 0);
-	BOOL error = FALSE;
 	if (0 == MultiByteToWideChar(codepage, 0, str, -1, &tstr[0], tstr.size())) {
 		tstr.clear();
 		return 0;
