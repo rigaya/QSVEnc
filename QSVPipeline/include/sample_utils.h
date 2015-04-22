@@ -96,7 +96,7 @@ public:
 	CSmplYUVReader();
 	virtual ~CSmplYUVReader();
 
-	virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+	virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
 
 	//この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
 	mfxStatus GetNextFrame(mfxFrameSurface1** pSurface)

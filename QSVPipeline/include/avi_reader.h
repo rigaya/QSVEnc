@@ -22,7 +22,7 @@ public:
 	CAVIReader();
 	virtual ~CAVIReader();
 
-	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
 
 	virtual void Close();
 	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);

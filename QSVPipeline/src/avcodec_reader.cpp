@@ -117,7 +117,7 @@ int CAvcodecReader::getVideoStream() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 	if (!checkAvcodecDll()) {
 		m_strInputInfo += _T("avcodec: failed to load dlls.\n");
 		return MFX_ERR_NULL_PTR;
@@ -141,6 +141,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int
 	av_register_all();
 	avcodec_register_all();
 	av_log_set_level(AV_LOG_FATAL);
+
+	const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
 	
 	std::string filename_char;
 	if (0 == tchar_to_string(strFileName, filename_char)) {
@@ -216,7 +218,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int
 
 	memset(&m_sDecParam, 0, sizeof(m_sDecParam));
 	m_sDecParam.mfx.CodecId = m_nInputCodec;
-	m_sDecParam.IOPattern = (mfxU16)((option) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
+	m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
 	decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam);
 	m_pPlugin.reset(); //必ずsessionをクローズする前に開放すること
 	MFXClose(session);

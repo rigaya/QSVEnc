@@ -52,16 +52,21 @@ typedef struct {
 	func_vs_getVSApi       getVSApi;
 } vsscript_t;
 
+
+typedef struct VSReaderPrm {
+	bool use_mt;
+} VSReaderPrm;
+
 class CVSReader : public CSmplYUVReader
 {
 public:
 	CVSReader();
 	virtual ~CVSReader();
 
-	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) override;
 
 	virtual void Close();
-	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
 
 	void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 private:

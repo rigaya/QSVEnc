@@ -1686,9 +1686,14 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 	if (   pParams->nInputFmt == INPUT_FMT_VPY
 		|| pParams->nInputFmt == INPUT_FMT_VPY_MT
 		|| pParams->nInputFmt == INPUT_FMT_AVS) {
-
+		void *input_options = nullptr;
+#if ENABLE_VAPOURSYNTH_READER
+		VSReaderPrm vsReaderPrm = { 0 };
+#endif
 		if (pParams->nInputFmt == INPUT_FMT_VPY || pParams->nInputFmt == INPUT_FMT_VPY_MT) {
 #if ENABLE_VAPOURSYNTH_READER
+			vsReaderPrm.use_mt = pParams->nInputFmt == INPUT_FMT_VPY_MT;
+			input_options = &vsReaderPrm;
 			m_pFileReader = new CVSReader();
 #endif
 		} else {
@@ -1700,7 +1705,7 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 			//switch to avi reader and retry
 			pParams->nInputFmt = INPUT_FMT_AVI;
 		} else {
-			sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, pParams->nInputFmt == INPUT_FMT_VPY_MT,
+			sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_options,
 				&m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
 			if (sts == MFX_ERR_INVALID_COLOR_FORMAT) {
 				//if failed because of colorformat, switch to avi reader and retry.
@@ -1718,7 +1723,11 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 	}
 
 	if (NULL == m_pFileReader) {
-		int option = 0;
+		const void *input_option = nullptr;
+		bool bY4m = pParams->nInputFmt == INPUT_FMT_VPY_MT;
+#if ENABLE_AVCODEC_QSV_READER
+		AvcodecReaderPrm avcodecReaderPrm = { 0 };
+#endif
 		switch (pParams->nInputFmt) {
 #if ENABLE_AVI_READER
 			case INPUT_FMT_AVI:
@@ -1728,17 +1737,21 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 #if ENABLE_AVCODEC_QSV_READER
 			case INPUT_FMT_AVCODEC_QSV:
 				m_pFileReader = new CAvcodecReader();
-				option = pParams->memType != SYSTEM_MEMORY;
+				avcodecReaderPrm.memType = pParams->memType;
+				avcodecReaderPrm.pTrimList = pParams->pTrimList;
+				avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
+				avcodecReaderPrm.pAudioFilename = pParams->pAudioFilename;
+				input_option = &avcodecReaderPrm;
 				break;
 #endif
 			case INPUT_FMT_Y4M:
 			case INPUT_FMT_RAW:
 			default:
-				option = pParams->nInputFmt == INPUT_FMT_Y4M;
+				input_option = &bY4m;
 				m_pFileReader = new CSmplYUVReader();
 				break;
 		}
-		sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, option,
+		sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_option,
 			&m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
 	}
 	if (sts < MFX_ERR_NONE)
@@ -2936,7 +2949,11 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	PRINT_INFO(    _T("Buffer Memory     %s, %d input buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer);
 	//PRINT_INFO(    _T("Input Frame Format      %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
 	//PRINT_INFO(    _T("Input Frame Type      %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
-	PRINT_INFO(    _T("Input Frame Info  %s\n"), m_pFileReader->GetInputMessage());
+	auto inputMesSplitted = split(m_pFileReader->GetInputMessage(), _T("\n"));
+	for (mfxU32 i = 0; i < inputMesSplitted.size(); i++) {
+		PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Frame Info  ") : _T("                  "), inputMesSplitted[i].c_str());
+	}
+
 	sInputCrop inputCrop;
 	m_pFileReader->GetInputCropInfo(&inputCrop);
 	if (0 != (inputCrop.bottom | inputCrop.left | inputCrop.right | inputCrop.up))

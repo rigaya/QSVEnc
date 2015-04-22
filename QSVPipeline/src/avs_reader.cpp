@@ -49,7 +49,7 @@ mfxStatus CAVSReader::load_avisynth() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 
 	MSDK_CHECK_POINTER(strFileName, MFX_ERR_NULL_PTR);
 	MSDK_CHECK_ERROR(_tclen(strFileName), 0, MFX_ERR_NULL_PTR);
