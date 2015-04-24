@@ -211,19 +211,24 @@ public:
 	CSmplBitstreamWriter();
 	virtual ~CSmplBitstreamWriter();
 
-	virtual mfxStatus Init(const msdk_char *strFileName, sInputParams *prm, CEncodeStatusInfo *pEncSatusInfo);
+	virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
 
 	virtual mfxStatus SetVideoParam(mfxVideoParam *pMfxVideoPrm);
 
 	virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream);
 	virtual void Close();
-
+	
+	const msdk_char *GetOutputMessage() {
+		const msdk_char *mes = m_strOutputInfo.c_str();
+		return (mes) ? mes : _T("");
+	}
 protected:
 	CEncodeStatusInfo *m_pEncSatusInfo;
 	FILE*       m_fSource;
 	bool        m_bInited;
 	bool        m_bNoOutput;
 	char*       m_pOutputBuffer;
+	std::basic_string<msdk_char> m_strOutputInfo;
 };
 
 class CSmplYUVWriter

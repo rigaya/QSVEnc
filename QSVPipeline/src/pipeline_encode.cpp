@@ -1769,7 +1769,10 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 
 	// prepare output file writer
 	m_pFileWriter = new CSmplBitstreamWriter();
-	sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
+	bool bBenchmark = pParams->bBenchmark != 0;
+	sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
+	if (sts < MFX_ERR_NONE)
+		PrintMes(m_pFileWriter->GetOutputMessage());
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
 	return sts;
