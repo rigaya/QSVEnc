@@ -197,6 +197,9 @@
     <ClInclude Include="include\avcodec_reader.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="include\avcodec_qsv.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\gpu_info_dummy_calc.cl">

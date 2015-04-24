@@ -12,22 +12,9 @@
 #include "sample_utils.h"
 
 #if ENABLE_AVCODEC_QSV_READER
-#pragma warning (push)
-#pragma warning (disable: 4244)
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-}
-#pragma comment (lib, "avcodec.lib")
-#pragma comment (lib, "avformat.lib")
-#pragma comment (lib, "avutil.lib")
-#pragma warning (pop)
+#include "avcodec_qsv.h"
 
 static const mfxU32 AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
-
-static const TCHAR *AVCODEC_DLL_NAME[] = {
-	_T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
-};
 
 typedef struct AVDemuxer {
 	AVFormatContext          *pFormatCtx;      //動画ファイルのformatContext
@@ -73,11 +60,7 @@ public:
 	//ストリームのヘッダ部分を取得する
 	virtual mfxStatus GetHeader(mfxBitstream *bitstream) override;
 private:
-	//必要なavcodecのdllがそろっているかを確認
-	bool checkAvcodecDll();
 
-	//avcodecのライセンスがLGPLであるかどうかを確認
-	bool checkAvcodecLicense();
 
 	//avcodecのコーデックIDからIntel Media SDKのコーデックのFourccを取得
 	mfxU32 getQSVFourcc(mfxU32 id);

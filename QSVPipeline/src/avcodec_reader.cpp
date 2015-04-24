@@ -70,32 +70,6 @@ void CAvcodecReader::Close() {
 	MSDK_ZERO_MEMORY(demux);
 }
 
-bool CAvcodecReader::checkAvcodecDll() {
-	std::vector<HMODULE> hDllList;
-	bool check = true;
-	for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
-		HMODULE hDll = NULL;
-		if (NULL == (hDll = LoadLibrary(AVCODEC_DLL_NAME[i]))) {
-			check = false;
-			break;
-		}
-		hDllList.push_back(hDll);
-	}
-	for (auto hDll : hDllList) {
-		FreeLibrary(hDll);
-	}
-	return check;
-}
-
-bool CAvcodecReader::checkAvcodecLicense() {
-	auto check = [](const char *license) {
-		std::string str(license);
-		transform(str.begin(), str.end(), str.begin(), [](char in) -> char {return (char)tolower(in); });
-		return std::string::npos != str.find("lgpl");
-	};
-	return (check(avutil_license()) && check(avcodec_license()) && check(avformat_license()));
-}
-
 mfxU32 CAvcodecReader::getQSVFourcc(mfxU32 id) {
 	for (int i = 0; i < _countof(QSV_LIST); i++)
 		if (QSV_LIST[i].codec_id == id)
@@ -118,7 +92,7 @@ int CAvcodecReader::getVideoStream() {
 #pragma warning(push)
 #pragma warning(disable:4100)
 mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
-	if (!checkAvcodecDll()) {
+	if (!check_avcodec_dll()) {
 		m_strInputInfo += _T("avcodec: failed to load dlls.\n");
 		return MFX_ERR_NULL_PTR;
 	}
@@ -140,7 +114,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 
 	av_register_all();
 	avcodec_register_all();
-	av_log_set_level(AV_LOG_FATAL);
+	av_log_set_level(QSV_AV_LOG_LEVEL);
 
 	const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
 	

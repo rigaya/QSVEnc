@@ -284,6 +284,7 @@
     <ClCompile Include="src\vpy_reader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\avcodec_qsv.h" />
     <ClInclude Include="include\avcodec_reader.h" />
     <ClInclude Include="include\avi_reader.h" />
     <ClInclude Include="include\avs_reader.h" />
