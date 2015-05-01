@@ -149,6 +149,7 @@ protected:
 
 	TCHAR *m_pStrLog;
 
+	CSmplBitstreamWriter *m_pFileWriterAudio;
 	CSmplBitstreamWriter *m_pFileWriter;
 	CSmplYUVReader *m_pFileReader;
 
@@ -215,8 +216,6 @@ protected:
 	//mfxExtVPPDoNotUse m_VppDoNotUse;
 
 	CHWDevice *m_hwdev;
-
-	virtual bool frameInsideTrimRange(mfxU32 frame);
 
 	virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 

@@ -111,7 +111,9 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 #endif
 #if ENABLE_AVCODEC_QSV_READER
 			_T("   --avqsv                      set input to use avcodec + qsv\n")
-			_T("   --trim <int>-<int>,[<int>-<int>],...\n")
+			_T("   --audio-file                 set extracted audio file name.\n")
+			_T("                                could be only used with avqsv reader.\n")
+			_T("   --trim (<int>,<int>)[,(<int>,<int>)]...\n")
 			_T("                                trim video for the frame range specified.\n")
 			_T("                                could be only used with avqsv reader.\n")
 #endif
@@ -505,13 +507,19 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("trim")))
 		{
 			i++;
-			auto trim_str_list = split(strInput[i], _T(","));
+			auto trim_str_list = split(strInput[i], _T("),("));
 			std::vector<sTrim> trim_list;
 			for (auto trim_str : trim_str_list) {
 				sTrim trim;
-				if (2 != _stscanf_s(trim_str.c_str(), _T("%d-%d"), &trim.start, &trim.fin) || trim.fin < trim.start) {
+				const TCHAR *ptr = trim_str.c_str();
+				if (2 != _stscanf_s((*ptr == _T('(')) ? ptr+1 : ptr, _T("%d,%d"), &trim.start, &trim.fin) || trim.fin < trim.start) {
 					PrintHelp(strInput[0], _T("Invalid Value"), option_name);
 					return MFX_PRINT_OPTION_ERR;
+				}
+				if (trim.fin == 0) {
+					trim.fin = INT_MAX;
+				} else if (trim.fin < 0) {
+					trim.fin = trim.start - trim.fin - 1;
 				}
 				trim_list.push_back(trim);
 			}
@@ -520,7 +528,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
 				memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
 			}
- 		}
+		}
+		else if (0 == _tcscmp(option_name, _T("audio-file")))
+		{
+			i++;
+			int filename_len = (int)_tcslen(strInput[i]) + 1;
+			pParams->pAudioFilename = (TCHAR *)malloc(filename_len * sizeof(pParams->pAudioFilename[0]));
+			memcpy(pParams->pAudioFilename, strInput[i], sizeof(pParams->pAudioFilename[0]) * filename_len);
+		}
 		else if (0 == _tcscmp(option_name, _T("quality")))
 		{
 			i++;
@@ -624,11 +639,11 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		}
 		else if (0 == _tcscmp(option_name, _T("open-gop")))
 		{
-		    pParams->bopenGOP = true;
+			pParams->bopenGOP = true;
 		}
 		else if (0 == _tcscmp(option_name, _T("no-open-gop")))
 		{
-		    pParams->bopenGOP = false;
+			pParams->bopenGOP = false;
 		}
 		else if (0 == _tcscmp(option_name, _T("strict-gop")))
 		{
@@ -1506,7 +1521,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 			fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
 				sysTime.wYear, sysTime.wMonth, sysTime.wDay, sysTime.wHour, sysTime.wMinute, sysTime.wSecond);
 			fprintf(fp_bench, "Basic parameters of the benchmark\n"
-				              " (Target Usage and output resolution will be changed)\n");
+							  " (Target Usage and output resolution will be changed)\n");
 			fprintf(fp_bench, "%s\n\n", tchar_to_char(encode_info).c_str());
 			fprintf(fp_bench, tchar_to_char(enviroment_info).c_str());
 			fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n", 

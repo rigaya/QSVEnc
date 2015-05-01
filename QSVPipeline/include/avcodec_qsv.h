@@ -19,6 +19,7 @@
 extern "C" {
 #include <libavutil/avutil.h>
 #include <libavutil/error.h>
+#include <libavutil/opt.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 }
@@ -32,6 +33,8 @@ extern "C" {
 #else
 #define QSV_AV_LOG_LEVEL AV_LOG_FATAL
 #endif
+
+static const AVRational QSV_NATIVE_TIMEBASE = { 1, 90000 };
 
 //必要なavcodecのdllがそろっているかを確認
 static bool check_avcodec_dll() {

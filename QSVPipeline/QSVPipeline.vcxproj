@@ -242,6 +242,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\avcodec_reader.cpp" />
+    <ClCompile Include="src\avcodec_writer.cpp" />
     <ClCompile Include="src\avi_reader.cpp" />
     <ClCompile Include="src\avs_reader.cpp" />
     <ClCompile Include="src\base_allocator.cpp" />
@@ -286,6 +287,7 @@
   <ItemGroup>
     <ClInclude Include="include\avcodec_qsv.h" />
     <ClInclude Include="include\avcodec_reader.h" />
+    <ClInclude Include="include\avcodec_writer.h" />
     <ClInclude Include="include\avi_reader.h" />
     <ClInclude Include="include\avs_reader.h" />
     <ClInclude Include="include\base_allocator.h" />

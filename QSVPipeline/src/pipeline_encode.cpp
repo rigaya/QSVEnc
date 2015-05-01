@@ -23,6 +23,7 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 #include "avs_reader.h"
 #include "avi_reader.h"
 #include "avcodec_reader.h"
+#include "avcodec_writer.h"
 #include "sysmem_allocator.h"
 
 #include "plugin_loader.h"
@@ -344,6 +345,7 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 
 mfxStatus CEncodingPipeline::InitMfxDecParams()
 {
+#if ENABLE_AVCODEC_QSV_READER
 	mfxStatus sts = MFX_ERR_NONE;
 	if (m_pFileReader->getInputCodec()) {
 		m_pFileReader->GetDecParam(&m_mfxDecParams);
@@ -367,6 +369,7 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
 		sts = m_pmfxDEC->Init(&m_mfxDecParams);
 		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 	}
+#endif
 	return MFX_ERR_NONE;
 }
 
@@ -1518,6 +1521,7 @@ CEncodingPipeline::CEncodingPipeline()
 	m_pAbortByUser = NULL;
 
 	m_pEncSatusInfo = NULL;
+	m_pFileWriterAudio = NULL;
 	m_pFileWriter = NULL;
 	m_pFileReader = NULL;
 
@@ -1740,7 +1744,7 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 				avcodecReaderPrm.memType = pParams->memType;
 				avcodecReaderPrm.pTrimList = pParams->pTrimList;
 				avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-				avcodecReaderPrm.pAudioFilename = pParams->pAudioFilename;
+				avcodecReaderPrm.bReadAudio = pParams->pAudioFilename != NULL;
 				input_option = &avcodecReaderPrm;
 				break;
 #endif
@@ -1774,6 +1778,21 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 	if (sts < MFX_ERR_NONE)
 		PrintMes(m_pFileWriter->GetOutputMessage());
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+
+#if ENABLE_AVCODEC_QSV_READER
+	if (pParams->pAudioFilename) {
+		auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+		if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
+			PrintMes(_T("Audio output is only supported with transcoding (avqsv reader).\n"));
+			return MFX_PRINT_OPTION_ERR;
+		} else {
+			m_pFileWriterAudio = new CAvcodecWriter();
+			AvcodecWriterPrm writerAudioPrm = { 0 };
+			writerAudioPrm.pCodecCtxAudioIn = pAVCodecReader->GetAudioCodecCtx();
+			m_pFileWriterAudio->Init(pParams->pAudioFilename, &writerAudioPrm, m_pEncSatusInfo);
+		}
+	}
+#endif //ENABLE_AVCODEC_QSV_READER
 
 	return sts;
 }
@@ -2135,6 +2154,12 @@ void CEncodingPipeline::Close()
 		m_pStrLog = NULL;
 	}
 
+	if (m_pFileWriterAudio) {
+		m_pFileWriterAudio->Close();
+		delete m_pFileWriterAudio;
+		m_pFileWriterAudio = NULL;
+	}
+
 	if (m_pFileWriter) {
 		m_pFileWriter->Close();
 		delete m_pFileWriter;
@@ -2404,17 +2429,6 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
 	return sts;
 }
 
-bool CEncodingPipeline::frameInsideTrimRange(mfxU32 frame) {
-	if (m_TrimList.size() == 0)
-		return true;
-	for (auto trim : m_TrimList) {
-		if (trim.start <= frame && frame <= trim.fin) {
-			return true;
-		}
-	}
-	return false;
-}
-
 mfxStatus CEncodingPipeline::RunEncode()
 {
 	MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_NOT_INITIALIZED);
@@ -2480,6 +2494,18 @@ mfxStatus CEncodingPipeline::RunEncode()
 		mfxStatus dec_sts = MFX_ERR_NONE;
 		if (m_pmfxDEC) {
 			if (getNextBitstream) {
+#if ENABLE_AVCODEC_QSV_READER
+				if (m_pFileWriterAudio) {
+					auto pAVCodecWriter = reinterpret_cast<CAvcodecWriter *>(m_pFileWriterAudio);
+					auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+					if (pAVCodecWriter != NULL || pAVCodecReader != NULL) {
+						auto packetList = pAVCodecReader->GetAudioDataPackets();
+						for (mfxU32 i = 0; i < packetList.size(); i++) {
+							pAVCodecWriter->WriteNextFrame(&packetList[i]);
+						}
+					}
+				}
+#endif //ENABLE_AVCODEC_QSV_READER
 				//この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
 				dec_sts = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
 				MSDK_IGNORE_MFX_STS(dec_sts, MFX_ERR_MORE_DATA);
@@ -2676,7 +2702,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			MSDK_BREAK_ON_ERROR(sts);
 		}
 
-		if (!frameInsideTrimRange(nInputFrameCount))
+		if (!frame_inside_range(nInputFrameCount, m_TrimList))
 			continue;
 
 		sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
@@ -2726,7 +2752,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 				MSDK_BREAK_ON_ERROR(sts);
 			}
 
-			if (!frameInsideTrimRange(nInputFrameCount))
+			if (!frame_inside_range(nInputFrameCount, m_TrimList))
 				continue;
 
 			sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
@@ -2954,7 +2980,13 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	//PRINT_INFO(    _T("Input Frame Type      %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
 	auto inputMesSplitted = split(m_pFileReader->GetInputMessage(), _T("\n"));
 	for (mfxU32 i = 0; i < inputMesSplitted.size(); i++) {
-		PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Frame Info  ") : _T("                  "), inputMesSplitted[i].c_str());
+		PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Info        ") : _T("                  "), inputMesSplitted[i].c_str());
+	}
+	if (m_pFileWriterAudio) {
+		inputMesSplitted = split(m_pFileWriterAudio->GetOutputMessage(), _T("\n"));
+		for (auto str : inputMesSplitted) {
+			PRINT_INFO(_T("%s%s\n"), _T("                  "), str.c_str());
+		}
 	}
 
 	sInputCrop inputCrop;
@@ -2984,6 +3016,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		for (auto trim : m_TrimList) {
 			PRINT_INFO(_T("%d-%d "), trim.start, trim.fin);
 		}
+		PRINT_INFO(_T("\n"));
 	}
 	PRINT_INFO(    _T("Output Video      %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
 		                                             get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,

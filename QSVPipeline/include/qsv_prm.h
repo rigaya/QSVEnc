@@ -55,8 +55,21 @@ typedef struct {
 } sInputCrop;
 
 typedef struct {
-	mfxU32 start, fin;
+	int start, fin;
 } sTrim;
+
+static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
+	if (trimList.size() == 0)
+		return true;
+	if (frame < 0)
+		return false;
+	for (auto trim : trimList) {
+		if (trim.start <= frame && frame <= trim.fin) {
+			return true;
+		}
+	}
+	return false;
+}
 
 typedef enum {
 	FPS_CONVERT_NONE = 0,
@@ -197,8 +210,12 @@ struct sInputParams
 #ifdef _M_IX86
 	mfxU32     reserved2;
 #endif
+	TCHAR     *pAudioFilename;
+#ifdef _M_IX86
+	mfxU32     reserved3;
+#endif
 
-	mfxU8      Reserved[1172];
+	mfxU8      Reserved[1164];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

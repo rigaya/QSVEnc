@@ -18,29 +18,45 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 
-#if 0
+#if _DEBUG
 #define AVDEBUG_PRINT(fmt, ...) _ftprintf(stderr, _T(fmt), __VA_ARGS__)
 #else
 #define AVDEBUG_PRINT(fmt, ...)
 #endif
 
+static inline void extend_array_size(VideoFrameData *dataset) {
+	static int default_capacity = 8 * 1024;
+	int current_cap = dataset->capacity;
+	dataset->capacity = (current_cap) ? current_cap * 2 : default_capacity;
+	dataset->frame = (FramePos *)realloc(dataset->frame, dataset->capacity * sizeof(dataset->frame[0]));
+	memset(dataset->frame + current_cap, 0, sizeof(dataset->frame[0]) * (dataset->capacity - current_cap));
+}
+
 CAvcodecReader::CAvcodecReader()  {
 	MSDK_ZERO_MEMORY(demux);
-	memset(m_sPacket, 0, sizeof(m_sPacket));
+	MSDK_ZERO_MEMORY(m_sDecParam);
 }
 
 CAvcodecReader::~CAvcodecReader() {
 
 }
 
-void CAvcodecReader::Close() {
-	//リソースの解放
-	for (int i = 0; i < _countof(m_sPacket); i++) {
-		if (m_sPacket[i].data) {
-			av_free_packet(&m_sPacket[i]);
+void CAvcodecReader::clearAudioPacketList(std::vector<AVPacket>& pktList) {
+	for (mfxU32 i_pkt = 0; i_pkt < pktList.size(); i_pkt++) {
+		if (pktList[i_pkt].data) {
+			av_free_packet(&pktList[i_pkt]);
 		}
 	}
-	memset(m_sPacket, 0, sizeof(m_sPacket));
+	pktList.clear();
+}
+
+void CAvcodecReader::Close() {
+	//リソースの解放
+	for (int i = 0; i < _countof(m_AudioPacketsBufferL1); i++) {
+		m_AudioPacketsBufferL1[i].clear();
+	}
+	clearAudioPacketList(m_AudioPacketsBufferL2);
+	m_AudioPacketsBufferL2Used = 0;
 
 	//close bitstreamfilter
 	if (demux.bsfc) {
@@ -61,13 +77,20 @@ void CAvcodecReader::Close() {
 		av_free(demux.extradata);
 	}
 
+	m_sTrimList.clear();
+
 	//free input buffer (使用していない)
 	//if (buffer) {
 	//	free(buffer);
 	//	buffer = nullptr;
 	//}
 
+	if (demux.videoFrameData.cs_initialized) {
+		DeleteCriticalSection(&demux.videoFrameData.cs);
+	}
+
 	MSDK_ZERO_MEMORY(demux);
+	MSDK_ZERO_MEMORY(m_sDecParam);
 }
 
 mfxU32 CAvcodecReader::getQSVFourcc(mfxU32 id) {
@@ -87,6 +110,77 @@ int CAvcodecReader::getVideoStream() {
 		}
 	}
 	return videoIndex;
+}
+
+int CAvcodecReader::getAudioStream() {
+	int audioIndex = -1;
+	const int n_streams = demux.pFormatCtx->nb_streams;
+	for (int i = 0; i < n_streams; i++) {
+		if (demux.pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
+			audioIndex = i;
+			break;
+		}
+	}
+	return audioIndex;
+}
+
+void CAvcodecReader::addVideoPtsToList(FramePos pos) {
+	if (demux.videoFrameData.capacity <= demux.videoFrameData.num+1) {
+		EnterCriticalSection(&demux.videoFrameData.cs);
+		extend_array_size(&demux.videoFrameData);
+		LeaveCriticalSection(&demux.videoFrameData.cs);
+	}
+	demux.videoFrameData.frame[demux.videoFrameData.num] = pos;
+	demux.videoFrameData.num++;
+
+	//フレーム順序が確定していないところをソートする
+	FramePos *ptr = demux.videoFrameData.frame;
+	std::sort(ptr + demux.videoFrameData.fixed_num, ptr + demux.videoFrameData.num,
+		[](const FramePos& posA, const FramePos& posB){ return posA.pts < posB.pts; });
+
+	//フレーム順序がどこまで確定したか、確認する
+	int i_fix = demux.videoFrameData.fixed_num;
+	for (; i_fix < demux.videoFrameData.num; i_fix++) {
+		int e = ptr[i_fix].duration / 100;
+		if (e < abs((ptr[i_fix].pts + ptr[i_fix].duration) - ptr[i_fix+1].pts)) {
+			break;
+		}
+	}
+	demux.videoFrameData.fixed_num = i_fix;
+}
+
+mfxStatus CAvcodecReader::getFirstFramePos() {
+	mfxStatus sts = MFX_ERR_MORE_DATA;
+	FramePos firstKeyframePos;
+	AVPacket pkt;
+	getSample(&pkt);
+	demux.videoStreamFirstPts = pkt.pts;
+
+	do {
+		int flags = pkt.flags;
+		firstKeyframePos = { pkt.pts, pkt.duration };
+		av_free_packet(&pkt);
+		if (flags & AV_PKT_FLAG_KEY) {
+			sts = MFX_ERR_NONE;
+			break;
+		}
+	} while (!getSample(&pkt));
+
+	//TimeStampベースで最初のフレームに戻す
+	if (0 <= av_seek_frame(demux.pFormatCtx, demux.videoIndex, demux.videoStreamFirstPts, AVSEEK_FLAG_BACKWARD)) {
+		addVideoPtsToList(firstKeyframePos);
+	} else {
+		//失敗したら、Byte単位でのシークを試み、最初に戻す
+		demux.videoStreamPtsInvalid = true;
+		if (0 <= av_seek_frame(demux.pFormatCtx, demux.videoIndex, 0, AVSEEK_FLAG_BACKWARD|AVSEEK_FLAG_BYTE)) {
+			//ptsとdurationをpkt_timebaseで適当に作成する
+			addVideoPtsToList({ 0, (int)av_rescale_q(1, demux.pCodecCtx->time_base, demux.pCodecCtx->pkt_timebase) });
+		} else {
+			m_strInputInfo += _T("avcodec: failed to seek backward.\n");
+			sts = MFX_ERR_UNSUPPORTED;
+		}
+	}
+	return sts;
 }
 
 #pragma warning(push)
@@ -115,19 +209,30 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	av_register_all();
 	avcodec_register_all();
 	av_log_set_level(QSV_AV_LOG_LEVEL);
+	InitializeCriticalSection(&demux.videoFrameData.cs);
+	demux.videoFrameData.cs_initialized = true;
 
 	const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
+	m_sTrimList = std::vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
 	
 	std::string filename_char;
 	if (0 == tchar_to_string(strFileName, filename_char)) {
 		m_strInputInfo += _T("avcodec: failed to convert to ansi characters.\n");
 		return MFX_ERR_INVALID_HANDLE;
 	}
+	demux.pFormatCtx = avformat_alloc_context();
+	//if (av_opt_set_int(demux.pFormatCtx, "probesize", 60 * AV_TIME_BASE, 0)) {
+	//	AVDEBUG_PRINT("avcodec: faield to set probesize.\n");
+	//}
 	if (avformat_open_input(&(demux.pFormatCtx), filename_char.c_str(), nullptr, nullptr)) {
 		m_strInputInfo += _T("avcodec: error opening file\n");
 		return MFX_ERR_NULL_PTR; // Couldn't open file
 	}
+
 	AVDEBUG_PRINT("avcodec: opened file.\n");
+	//if (av_opt_set_int(demux.pFormatCtx, "analyzeduration", 60 * AV_TIME_BASE, 0)) {
+	//	AVDEBUG_PRINT("avcodec: faield to set analyzeduration.\n");
+	//}
 	if (avformat_find_stream_info(demux.pFormatCtx, nullptr) < 0) {
 		m_strInputInfo += _T("avcodec: error finding stream information!\n");
 		return MFX_ERR_NULL_PTR; // Couldn't find stream information
@@ -181,20 +286,24 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 		return decHeaderSts;
 	}
 
-	std::unique_ptr<MFXPlugin> m_pPlugin;
+	std::unique_ptr<MFXPlugin> pPlugin;
 	if (m_nInputCodec == MFX_CODEC_HEVC) {
-		m_pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, session, MFX_PLUGINID_HEVCD_HW, 1));
-		if (m_pPlugin.get() == NULL) {
+		pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, session, MFX_PLUGINID_HEVCD_HW, 1));
+		if (pPlugin.get() == NULL) {
 			m_strInputInfo += _T("avcodec: hevc decoder unavailable.\n");
 			return MFX_ERR_UNSUPPORTED;
 		}
 	}
-
+	
 	memset(&m_sDecParam, 0, sizeof(m_sDecParam));
 	m_sDecParam.mfx.CodecId = m_nInputCodec;
 	m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
-	decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam);
-	m_pPlugin.reset(); //必ずsessionをクローズする前に開放すること
+	if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
+		m_strInputInfo += _T("avcodec: failed to decode header.\n");
+	} else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePos())) {
+		m_strInputInfo += _T("avcodec: failed to get first frame position.\n");
+	}
+	pPlugin.reset(); //必ずsessionをクローズする前に開放すること
 	MFXClose(session);
 	if (MFX_ERR_NONE != decHeaderSts) {
 		m_strInputInfo += _T("avcodec: failed to decode header.\n");
@@ -205,6 +314,11 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	const mfxU32 fps_gcd = GCD(m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD);
 	m_sDecParam.mfx.FrameInfo.FrameRateExtN /= fps_gcd;
 	m_sDecParam.mfx.FrameInfo.FrameRateExtD /= fps_gcd;
+
+	//音声ストリームを探す
+	if (input_prm->bReadAudio && -1 != (demux.audioIndex = getAudioStream())) {
+		demux.pCodecCtxAudio = demux.pFormatCtx->streams[demux.audioIndex]->codec;
+	}
 
 	//情報を格納
 	memcpy(&m_inputFrameInfo, &m_sDecParam.mfx.FrameInfo, sizeof(m_inputFrameInfo));
@@ -217,13 +331,80 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	*(DWORD*)&m_inputFrameInfo.FrameId = 0;
 	
 	TCHAR mes[256];
-	_stprintf_s(mes, _countof(mes), _T("avcodec (%s), %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec).c_str(),
+	_stprintf_s(mes, _countof(mes), _T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec).c_str(),
 		m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 	m_strInputInfo += mes;
+
 	m_tmLastUpdate = timeGetTime();
 	return MFX_ERR_NONE;
 }
 #pragma warning(pop)
+
+int CAvcodecReader::getVideoFrameIdx(mfxI64 pts, AVRational timebase, int i_start) {
+	const int frame_n = demux.videoFrameData.num;
+	for (int i = max(0, i_start); i < frame_n; i++) {
+		//pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
+		if (0 > av_compare_ts(pts, timebase, demux.videoFrameData.frame[i].pts, demux.pCodecCtx->pkt_timebase)) {
+			return i - 1;
+		}
+	}
+	return frame_n;
+}
+
+mfxI64 CAvcodecReader::convertTimebaseVidToAud(mfxI64 pts) {
+	return av_rescale_q(pts, demux.pCodecCtx->pkt_timebase, demux.pCodecCtxAudio->pkt_timebase);
+}
+
+bool CAvcodecReader::checkAudioPacketToAdd(const AVPacket *pkt) {
+	demux.lastVidIndex = getVideoFrameIdx(pkt->pts, demux.pCodecCtxAudio->pkt_timebase, demux.lastVidIndex);
+
+	//該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
+	if (demux.lastVidIndex < -1) {
+		return false;
+	}
+
+	const FramePos *vidFramePos = &demux.videoFrameData.frame[max(demux.lastVidIndex, 0)];
+	const mfxI64 vid_fin = convertTimebaseVidToAud(vidFramePos->pts + ((demux.lastVidIndex >= 0) ? vidFramePos->duration : 0));
+
+	const mfxI64 aud_start = pkt->pts;
+	const mfxI64 aud_fin   = pkt->pts + pkt->duration;
+
+	const bool frame_is_in_range = frame_inside_range(demux.lastVidIndex,     m_sTrimList);
+	const bool next_is_in_range  = frame_inside_range(demux.lastVidIndex + 1, m_sTrimList);
+
+	bool result = true; //動画に含まれる音声かどうか
+
+	if (frame_is_in_range) {
+		if (aud_fin < vid_fin || next_is_in_range) {
+			; //完全に動画フレームの範囲内か、次のフレームも範囲内なら、その音声パケットは含まれる
+		//              vid_fin
+		//動画 <-----------|
+		//音声      |-----------|
+		//     aud_start     aud_fin
+		} else if (pkt->duration / 2 > (aud_fin - vid_fin + demux.audExtractErrExcess)) {
+			//はみ出した領域が少ないなら、その音声パケットは含まれる
+			demux.audExtractErrExcess += aud_fin - vid_fin;
+		} else {
+			//はみ出した領域が多いなら、その音声パケットは含まれない
+			demux.audExtractErrExcess -= vid_fin - aud_start;
+			result = false;
+		}
+	} else if (next_is_in_range && aud_fin > vid_fin) {
+		//             vid_fin
+		//動画             |------------>
+		//音声      |-----------|
+		//     aud_start     aud_fin
+		if (pkt->duration / 2 < (vid_fin - aud_start - demux.audExtractErrExcess)) {
+			demux.audExtractErrExcess += vid_fin - aud_start;
+		} else {
+			demux.audExtractErrExcess -= aud_fin - vid_fin;
+			result = false;
+		}
+	} else {
+		result = false;
+	}
+	return result;
+}
 
 int CAvcodecReader::getSample(AVPacket *pkt) {
 	av_init_packet(pkt);
@@ -241,9 +422,26 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 				av_free_packet(pkt); //メモリ解放を忘れない
 				av_packet_from_data(pkt, data, dataSize);
 			}
+			//最初のptsが格納されていたら、後続のptsを格納していく
+			if (demux.videoFrameData.num) {
+				//AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
+				//0フレーム目は格納されているので、その次からを格納する
+				if (demux.videoStreamPtsInvalid && demux.sampleLoadCount) {
+					int duration = demux.videoFrameData.frame[0].duration;
+					addVideoPtsToList({ demux.sampleLoadCount * duration, duration });
+				//最初のptsは格納されているので、その次からを格納する
+				} else if (demux.videoFrameData.frame[0].pts < pkt->pts) {
+					addVideoPtsToList({ pkt->pts, pkt->duration });
+				}
+			}
 			return 0;
 		}
-		av_free_packet(pkt);
+		if (pkt->stream_index == demux.audioIndex) {
+			//音声パケットはひとまずすべてバッファに格納する
+			m_AudioPacketsBufferL1[demux.sampleLoadCount % _countof(demux.videoPacket)].push_back(*pkt);
+		} else {
+			av_free_packet(pkt);
+		}
 	}
 	//ファイルの終わりに到達
 	pkt->data = nullptr;
@@ -262,9 +460,44 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
 }
 
 mfxStatus CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
-	mfxStatus sts = setToMfxBitstream(bitstream, &m_sPacket[demux.sampleGetCount % _countof(m_sPacket)]);
+	mfxStatus sts = setToMfxBitstream(bitstream, &demux.videoPacket[demux.sampleGetCount % _countof(demux.videoPacket)]);
 	demux.sampleGetCount++;
 	return sts;
+}
+
+std::vector<AVPacket> CAvcodecReader::GetAudioDataPackets() {
+	//すでに使用した音声バッファはクリアする
+	for (mfxU32 i = 0; i < m_AudioPacketsBufferL2Used; i++) {
+		av_free_packet(&m_AudioPacketsBufferL2[i]);
+	}
+	if (m_AudioPacketsBufferL2Used) {
+		m_AudioPacketsBufferL2.erase(m_AudioPacketsBufferL2.begin(), m_AudioPacketsBufferL2.begin() + m_AudioPacketsBufferL2Used);
+	}
+	m_AudioPacketsBufferL2Used = 0;
+
+	//別スレッドで使用されていないほうを連結する
+	const auto& packetsL1 = m_AudioPacketsBufferL1[demux.sampleGetCount % _countof(m_AudioPacketsBufferL1)];
+	m_AudioPacketsBufferL2.insert(m_AudioPacketsBufferL2.end(), packetsL1.begin(), packetsL1.end());
+
+	//出力するパケットを選択する
+	std::vector<AVPacket> packets;
+	EnterCriticalSection(&demux.videoFrameData.cs);
+	for (const auto& pkt : m_AudioPacketsBufferL2) {
+		//音声のptsが映像の終わりのptsを行きすぎたらやめる
+		if (0 < av_compare_ts(pkt.pts, demux.pCodecCtxAudio->pkt_timebase, demux.videoFrameData.frame[demux.videoFrameData.fixed_num].pts, demux.pCodecCtx->pkt_timebase)) {
+			break;
+		}
+		m_AudioPacketsBufferL2Used++;
+		if (checkAudioPacketToAdd(&pkt)) {
+			packets.push_back(pkt);
+		}
+	}
+	LeaveCriticalSection(&demux.videoFrameData.cs);
+	return std::move(packets);
+}
+
+const AVCodecContext *CAvcodecReader::GetAudioCodecCtx() {
+	return demux.pCodecCtxAudio;
 }
 
 mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
@@ -300,7 +533,9 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
 #pragma warning(push)
 #pragma warning(disable:4100)
 mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
-	AVPacket *pkt = &m_sPacket[demux.sampleLoadCount % _countof(m_sPacket)];
+	AVPacket *pkt = &demux.videoPacket[demux.sampleLoadCount % _countof(demux.videoPacket)];
+	m_AudioPacketsBufferL1[demux.sampleLoadCount % _countof(m_AudioPacketsBufferL1)].clear();
+
 	if (pkt->data) {
 		av_free_packet(pkt);
 		pkt->data = nullptr;
