@@ -31,7 +31,7 @@ unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage
 	int multibyte_length = WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, nullptr, 0, nullptr, nullptr);
 	str.resize(multibyte_length, 0);
 	BOOL error = FALSE;
-	if (0 == WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, &str[0], str.size(), nullptr, &error) || error) {
+	if (0 == WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, &str[0], (int)str.size(), nullptr, &error) || error) {
 		str.clear();
 		return 0;
 	}
@@ -52,7 +52,7 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
 #if UNICODE
 	int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
 	tstr.resize(widechar_length, 0);
-	if (0 == MultiByteToWideChar(codepage, 0, str, -1, &tstr[0], tstr.size())) {
+	if (0 == MultiByteToWideChar(codepage, 0, str, -1, &tstr[0], (int)tstr.size())) {
 		tstr.clear();
 		return 0;
 	}
@@ -298,7 +298,7 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
 		feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
 		feature |= VPP_FEATURE_PROC_AMP;
 	} else {
-		mfxSession session;
+		mfxSession session = NULL;
 
 		mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
@@ -623,7 +623,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
 		//コードで決められた値を返すようにする
 		feature = CheckEncodeFeatureStatic(ver, ratecontrol);
 	} else {
-		mfxSession session;
+		mfxSession session = NULL;
 
 		mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
