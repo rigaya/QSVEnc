@@ -315,6 +315,17 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	m_sDecParam.mfx.FrameInfo.FrameRateExtN /= fps_gcd;
 	m_sDecParam.mfx.FrameInfo.FrameRateExtD /= fps_gcd;
 
+	//近似値であれば、分母1001に合わせる
+	if (m_sDecParam.mfx.FrameInfo.FrameRateExtD != 1001) {
+		double fps = m_sDecParam.mfx.FrameInfo.FrameRateExtN / (double)m_sDecParam.mfx.FrameInfo.FrameRateExtD;
+		double fps_n = fps * 1001;
+		int fps_n_int = (int)(fps + 0.5) * 1000;
+		if (abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
+			m_sDecParam.mfx.FrameInfo.FrameRateExtN = fps_n_int;
+			m_sDecParam.mfx.FrameInfo.FrameRateExtD = 1001;
+		}
+	}
+
 	//音声ストリームを探す
 	if (input_prm->bReadAudio && -1 != (demux.audioIndex = getAudioStream())) {
 		demux.pCodecCtxAudio = demux.pFormatCtx->streams[demux.audioIndex]->codec;
