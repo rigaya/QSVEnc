@@ -52,8 +52,6 @@
     #define PLUGIN_NAME "libsample_rotate_plugin.so"
 #endif
 
-#pragma comment(lib, "libmfx.lib")
-
 struct sTask
 {
 	mfxBitstream mfxBS;
