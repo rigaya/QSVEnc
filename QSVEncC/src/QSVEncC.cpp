@@ -1565,6 +1565,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 		mfxU16 targetUsage;
 		double fps;
 		double bitrate;
+		double cpuUsagePercent;
 	} benchmark_t;
 
 	//解像度ごとに、target usageを変化させて測定
@@ -1611,10 +1612,11 @@ mfxStatus run_benchmark(sInputParams *params) {
 			pPipeline->Close();
 
 			benchmark_t result;
-			result.resolution  = resolution;
-			result.targetUsage = (mfxU16)list_quality[i].value;
-			result.fps         = data.fEncodeFps;
-			result.bitrate     = data.fBitrateKbps;
+			result.resolution      = resolution;
+			result.targetUsage     = (mfxU16)list_quality[i].value;
+			result.fps             = data.fEncodeFps;
+			result.bitrate         = data.fBitrateKbps;
+			result.cpuUsagePercent = data.fCPUUsagePercent;
 			benchmark_per_target_usage.push_back(result);
 
 			_ftprintf(stderr, _T("\n"));
@@ -1668,6 +1670,21 @@ mfxStatus run_benchmark(sInputParams *params) {
 				fprintf(fp_bench, " 　　TU-%d", benchmark_per_target_usage[0].targetUsage);
 				for (const auto &result : benchmark_per_target_usage) {
 					fprintf(fp_bench, ",　　　%6d", (int)(result.bitrate + 0.5));
+				}
+				fprintf(fp_bench, "\n");
+			}
+			fprintf(fp_bench, "\n");
+
+			fprintf(fp_bench, "CPU Usage (%%)\n");
+			fprintf(fp_bench, "TargetUsage");
+			for (auto resolution : test_resolution) {
+				fprintf(fp_bench, ",   %dx%d", resolution.first, resolution.second);
+			}
+			fprintf(fp_bench, "\n");
+			for (const auto &benchmark_per_target_usage : benchmark_result) {
+				fprintf(fp_bench, " 　　TU-%d", benchmark_per_target_usage[0].targetUsage);
+				for (const auto &result : benchmark_per_target_usage) {
+					fprintf(fp_bench, ",　　　%6.2f", result.cpuUsagePercent);
 				}
 				fprintf(fp_bench, "\n");
 			}
