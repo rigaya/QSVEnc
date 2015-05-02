@@ -141,7 +141,7 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 	//フレーム順序がどこまで確定したか、確認する
 	int i_fix = demux.videoFrameData.fixed_num;
 	for (; i_fix < demux.videoFrameData.num; i_fix++) {
-		int e = ptr[i_fix].duration / 100;
+		int e = (int)(sqrt((float)ptr[i_fix].duration) + 0.5f) - 1;
 		if (e < abs((ptr[i_fix].pts + ptr[i_fix].duration) - ptr[i_fix+1].pts)) {
 			break;
 		}
