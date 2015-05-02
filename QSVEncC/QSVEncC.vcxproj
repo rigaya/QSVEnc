@@ -388,6 +388,9 @@
     <ClCompile Include="src\QSVEncC.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\mfx_dispatch\libmfx.vcxproj">
+      <Project>{9e7b3527-11aa-46ba-a82f-c58761f9b56f}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\QSVPipeline\QSVPipeline.vcxproj">
       <Project>{a63ce263-8735-4405-8860-011a12a80def}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
