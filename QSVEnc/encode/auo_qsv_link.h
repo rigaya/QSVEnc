@@ -17,12 +17,12 @@ class AUO_YUVReader : public CSmplYUVReader
 {
 public :
 
-    AUO_YUVReader();
-    virtual ~AUO_YUVReader();
+	AUO_YUVReader();
+	virtual ~AUO_YUVReader();
 
 	virtual void Close();
 	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
 
 private:
 	mfxU32 current_frame;
@@ -32,8 +32,8 @@ private:
 class AUO_EncodeStatusInfo : public CEncodeStatusInfo
 {
 public :
-    AUO_EncodeStatusInfo();
-    virtual ~AUO_EncodeStatusInfo();
+	AUO_EncodeStatusInfo();
+	virtual ~AUO_EncodeStatusInfo();
 private:
 	virtual void UpdateDisplay(const char *mes, int drop_frames);
 	virtual void WriteLine(const TCHAR *mes);

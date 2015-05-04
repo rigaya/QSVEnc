@@ -50,8 +50,8 @@ static const int    DEFAULT_LOG_POS[2]           = { 100, 100 };
 ///ログ表示で使う色                                        R    G    B
 static const int    DEFAULT_LOG_COLOR_BACKGROUND[3] =   {   0,   0,   0 };
 static const int    DEFAULT_LOG_COLOR_TEXT[3][3]    = { { 198, 253, 226 },   //LOG_INFO
-                                                        { 245, 218,  90 },   //LOG_WARNING
-                                                        { 253,  83, 121 } }; //LOG_ERROR
+	                                                    { 245, 218,  90 },   //LOG_WARNING
+	                                                    { 253,  83, 121 } }; //LOG_ERROR
 
 static const BOOL   DEFAULT_FBC_CALC_BITRATE         = 1;
 static const BOOL   DEFAULT_FBC_CALC_TIME_FROM_FRAME = 0;

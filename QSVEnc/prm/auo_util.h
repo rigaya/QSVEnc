@@ -66,7 +66,7 @@ enum {
 //関数マクロ
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #define foreach(it,a) \
-    for (auto (it)=(a).begin();(it)!=(a).end();(it)++)
+	for (auto (it)=(a).begin();(it)!=(a).end();(it)++)
 
 static std::string strprintf(const char* format, ...) {
 	std::va_list arg;
@@ -96,9 +96,9 @@ template<typename T>
 static std::basic_string<T> replace(std::basic_string<T> targetString, std::basic_string<T> oldStr, std::basic_string<T> newStr) {
 	for (std::basic_string<T>::size_type pos(targetString.find(oldStr)); std::basic_string<T>::npos != pos;
 		pos = targetString.find(oldStr, pos + newStr.length()) ) {
-        targetString.replace(pos, oldStr.length(), newStr);
-    }
-    return targetString;
+		targetString.replace(pos, oldStr.length(), newStr);
+	}
+	return targetString;
 }
 
 template<typename T>

@@ -3,9 +3,9 @@
 
 /* just a dummy calculation to boost gpu, calulation has no meanings */
 __kernel void dummy_calc (
-    __global const float * restrict A,
-    __global const float * restrict B,
-    __global float * restrict C,
+	__global const float * restrict A,
+	__global const float * restrict B,
+	__global float * restrict C,
 	int width,
 	int height,
 	int lookaround

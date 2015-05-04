@@ -165,12 +165,12 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int 
 	m_strInputInfo += mes;
 
 	m_tmLastUpdate = timeGetTime();
-    return MFX_ERR_NONE;
+	return MFX_ERR_NONE;
 }
 #pragma warning( pop )
 
 AUO_YUVReader::~AUO_YUVReader() {
-    Close();
+	Close();
 }
 
 void AUO_YUVReader::Close() {
@@ -185,9 +185,9 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 #endif
 	int total_frames = oip->n;
 
-    // check if reader is initialized
-    //MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
-    //MSDK_CHECK_POINTER(pSurface, MFX_ERR_NULL_PTR);
+	// check if reader is initialized
+	//MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
+	//MSDK_CHECK_POINTER(pSurface, MFX_ERR_NULL_PTR);
 	int nFrame = m_pEncSatusInfo->m_nInputFrames + pe->drop_count;
 
 	if (nFrame >= total_frames) {
@@ -206,20 +206,20 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 		log_process_events();
 	}
 
-    mfxFrameInfo* pInfo = &pSurface->Info;
-    mfxFrameData* pData = &pSurface->Data;
+	mfxFrameInfo* pInfo = &pSurface->Info;
+	mfxFrameData* pData = &pSurface->Data;
 	
 	int w, h;
 	if (pInfo->CropH > 0 && pInfo->CropW > 0) 
-    {
-        w = pInfo->CropW;
-        h = pInfo->CropH;
-    } 
-    else 
-    {
-        w = pInfo->Width;
-        h = pInfo->Height;
-    }
+	{
+		w = pInfo->CropW;
+		h = pInfo->CropH;
+	} 
+	else 
+	{
+		w = pInfo->Width;
+		h = pInfo->Height;
+	}
 	
 	void *frame = nullptr;
 	if (pe->afs_init) {
@@ -263,7 +263,7 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 		oip->func_rest_time_disp(m_pEncSatusInfo->m_nInputFrames + pe->drop_count, total_frames);
 		oip->func_update_preview();
 	}
-    return MFX_ERR_NONE;    
+	return MFX_ERR_NONE;    
 }
 
 AUO_EncodeStatusInfo::AUO_EncodeStatusInfo() { }

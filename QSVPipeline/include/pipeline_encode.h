@@ -47,9 +47,9 @@
 #include <iostream>
 
 #if defined(_WIN32) || defined(_WIN64)
-    #define PLUGIN_NAME "sample_rotate_plugin.dll"
+	#define PLUGIN_NAME "sample_rotate_plugin.dll"
 #else
-    #define PLUGIN_NAME "libsample_rotate_plugin.so"
+	#define PLUGIN_NAME "libsample_rotate_plugin.so"
 #endif
 
 struct sTask
@@ -169,8 +169,8 @@ protected:
 	mfxVideoParam m_mfxDecParams;
 	mfxVideoParam m_mfxEncParams;
 	mfxVideoParam m_mfxVppParams;
-    
-    std::auto_ptr<MFXVideoUSER>  m_pUserModule;
+	
+	std::auto_ptr<MFXVideoUSER>  m_pUserModule;
 
 	std::vector<mfxExtBuffer*> m_EncExtParams;
 	std::vector<mfxExtBuffer*> m_VppExtParams;

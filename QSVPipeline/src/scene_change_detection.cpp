@@ -43,24 +43,24 @@ unsigned __stdcall func_make_hist(void *p) {
 typedef BOOL (WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
 
 static DWORD CountSetBits(ULONG_PTR bitMask) {
-    DWORD LSHIFT = sizeof(ULONG_PTR)*8 - 1;
-    DWORD bitSetCount = 0;
-    for (ULONG_PTR bitTest = (ULONG_PTR)1 << LSHIFT; bitTest; bitTest >>= 1)
-        bitSetCount += ((bitMask & bitTest) != 0);
+	DWORD LSHIFT = sizeof(ULONG_PTR)*8 - 1;
+	DWORD bitSetCount = 0;
+	for (ULONG_PTR bitTest = (ULONG_PTR)1 << LSHIFT; bitTest; bitTest >>= 1)
+		bitSetCount += ((bitMask & bitTest) != 0);
 
-    return bitSetCount;
+	return bitSetCount;
 }
 
 static BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
 	*physical_processor_core = 0;
 	*logical_processor_core = 0;
 
-    LPFN_GLPI glpi = (LPFN_GLPI)GetProcAddress(GetModuleHandle(_T("kernel32")), "GetLogicalProcessorInformation");
-    if (NULL == glpi)
+	LPFN_GLPI glpi = (LPFN_GLPI)GetProcAddress(GetModuleHandle(_T("kernel32")), "GetLogicalProcessorInformation");
+	if (NULL == glpi)
 		return FALSE;
 
-    DWORD returnLength = 0;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
+	DWORD returnLength = 0;
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
 	while (FALSE == glpi(buffer, &returnLength)) {
 		if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 			if (buffer) 
@@ -70,52 +70,52 @@ static BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_pro
 		}
 	}
 
-    DWORD logicalProcessorCount = 0;
-    DWORD numaNodeCount = 0;
-    DWORD processorCoreCount = 0;
-    DWORD processorL1CacheCount = 0;
-    DWORD processorL2CacheCount = 0;
-    DWORD processorL3CacheCount = 0;
-    DWORD processorPackageCount = 0;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = buffer;
-    for (DWORD byteOffset = 0; byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength;
+	DWORD logicalProcessorCount = 0;
+	DWORD numaNodeCount = 0;
+	DWORD processorCoreCount = 0;
+	DWORD processorL1CacheCount = 0;
+	DWORD processorL2CacheCount = 0;
+	DWORD processorL3CacheCount = 0;
+	DWORD processorPackageCount = 0;
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = buffer;
+	for (DWORD byteOffset = 0; byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength;
 		byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)) {
-        switch (ptr->Relationship) {
-        case RelationNumaNode:
-            // Non-NUMA systems report a single record of this type.
-            numaNodeCount++;
-            break;
-        case RelationProcessorCore:
-            processorCoreCount++;
-            // A hyperthreaded core supplies more than one logical processor.
-            logicalProcessorCount += CountSetBits(ptr->ProcessorMask);
-            break;
+		switch (ptr->Relationship) {
+		case RelationNumaNode:
+			// Non-NUMA systems report a single record of this type.
+			numaNodeCount++;
+			break;
+		case RelationProcessorCore:
+			processorCoreCount++;
+			// A hyperthreaded core supplies more than one logical processor.
+			logicalProcessorCount += CountSetBits(ptr->ProcessorMask);
+			break;
 
-        case RelationCache:
+		case RelationCache:
 			{
-            // Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
-            PCACHE_DESCRIPTOR Cache = &ptr->Cache;
+			// Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
+			PCACHE_DESCRIPTOR Cache = &ptr->Cache;
 			processorL1CacheCount += (Cache->Level == 1);
 			processorL2CacheCount += (Cache->Level == 2);
 			processorL3CacheCount += (Cache->Level == 3);
-            break;
+			break;
 			}
-        case RelationProcessorPackage:
-            // Logical processors share a physical package.
-            processorPackageCount++;
-            break;
+		case RelationProcessorPackage:
+			// Logical processors share a physical package.
+			processorPackageCount++;
+			break;
 
-        default:
-            //Unsupported LOGICAL_PROCESSOR_RELATIONSHIP value.
-            break;
-        }
-        ptr++;
-    }
+		default:
+			//Unsupported LOGICAL_PROCESSOR_RELATIONSHIP value.
+			break;
+		}
+		ptr++;
+	}
 
 	*physical_processor_core = processorCoreCount;
 	*logical_processor_core = logicalProcessorCount;
 
-    return TRUE;
+	return TRUE;
 }
 
 void CSceneChangeDetect::thread_close() {
@@ -251,7 +251,7 @@ static inline void inverse(float result[3][3], float a[3][3]) {
 	const float detinv = 1.0f
 		/ (  
 		   a[0][0] * a[1][1] * a[2][2]
-	     + a[0][1] * a[1][2] * a[2][0]
+		 + a[0][1] * a[1][2] * a[2][0]
 		 + a[0][2] * a[1][0] * a[2][1]
 		 - a[0][0] * a[1][2] * a[2][1]
 		 - a[0][1] * a[1][0] * a[2][2]

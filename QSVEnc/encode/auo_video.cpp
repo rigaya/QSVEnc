@@ -228,25 +228,25 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
 	std::auto_ptr<CEncodingPipeline> pPipeline;
 
-    mfxStatus sts = MFX_ERR_NONE;
+	mfxStatus sts = MFX_ERR_NONE;
 	int *jitter = NULL;
 
-    //sts = ParseInputString(argv, (mfxU8)argc, &Params);
-    //MSDK_CHECK_PARSE_RESULT(sts, MFX_ERR_NONE, 1);
+	//sts = ParseInputString(argv, (mfxU8)argc, &Params);
+	//MSDK_CHECK_PARSE_RESULT(sts, MFX_ERR_NONE, 1);
 
-    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline); 
+	//pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline); 
 	pPipeline.reset(new AuoPipeline);
-    //MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+	//MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
 	if (!pPipeline.get()) {
 		write_log_auo_line(LOG_ERROR, "メモリの確保に失敗しました。");
 		return AUO_RESULT_ERROR;
 	}
 
-    //if (Params.bIsMVC)
-    //{
-    //    pPipeline->SetMultiView();
-    //    pPipeline->SetNumView(Params.numViews);
-    //}
+	//if (Params.bIsMVC)
+	//{
+	//    pPipeline->SetMultiView();
+	//    pPipeline->SetNumView(Params.numViews);
+	//}
 	if (conf->vid.afs && (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		sts = MFX_ERR_INVALID_VIDEO_PARAM; error_afs_interlace_stg();
 	} else if ((jitter = (int *)calloc(oip->n + 1, sizeof(int))) == NULL) {
@@ -256,7 +256,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 		sts = MFX_ERR_UNKNOWN; //Aviutl(afs)からのフレーム読み込みに失敗
 	//QSVEncプロセス開始
 	} else if (AUO_RESULT_SUCCESS != set_auo_yuvreader_g_data(oip, conf, pe, jitter)
-		    || MFX_ERR_NONE != (sts = pPipeline->Init(Params))) {
+			|| MFX_ERR_NONE != (sts = pPipeline->Init(Params))) {
 		write_mfx_message(sts);
 	} else {
 

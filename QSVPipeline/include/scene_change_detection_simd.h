@@ -23,20 +23,20 @@ void make_hist_avx2(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_en
 
 
 static inline int popcnt32(DWORD bits) {
-    bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
-    bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
-    bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
-    bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
-    bits = (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
+	bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
+	bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
+	bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
+	bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
+	bits = (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
 	return bits;
 }
 static inline int popcnt64(UINT64 bits) {
-    bits = (bits & 0x5555555555555555) + ((bits >> 1) & 0x5555555555555555);
-    bits = (bits & 0x3333333333333333) + ((bits >> 2) & 0x3333333333333333);
-    bits = (bits & 0x0f0f0f0f0f0f0f0f) + ((bits >> 4) & 0x0f0f0f0f0f0f0f0f);
-    bits = (bits & 0x00ff00ff00ff00ff) + ((bits >> 8) & 0x00ff00ff00ff00ff);
-    bits = (bits & 0x0000ffff0000ffff) + ((bits >>16) & 0x0000ffff0000ffff);
-    bits = (bits & 0x00000000ffffffff) + ((bits >>32) & 0x00000000ffffffff);
+	bits = (bits & 0x5555555555555555) + ((bits >> 1) & 0x5555555555555555);
+	bits = (bits & 0x3333333333333333) + ((bits >> 2) & 0x3333333333333333);
+	bits = (bits & 0x0f0f0f0f0f0f0f0f) + ((bits >> 4) & 0x0f0f0f0f0f0f0f0f);
+	bits = (bits & 0x00ff00ff00ff00ff) + ((bits >> 8) & 0x00ff00ff00ff00ff);
+	bits = (bits & 0x0000ffff0000ffff) + ((bits >>16) & 0x0000ffff0000ffff);
+	bits = (bits & 0x00000000ffffffff) + ((bits >>32) & 0x00000000ffffffff);
 	return (int)bits;
 }
 

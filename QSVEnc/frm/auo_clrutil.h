@@ -54,8 +54,8 @@ static String^ MakeExeFilter(System::String^ fileExeName) {
 static bool ValidiateFileName(System::String^ fileName) {
 	array<wchar_t>^ InvalidChars = {L'\\', L'/', L':', L'*', L'?', L'\"', L'<', L'>', L'|'};
 	array<String^>^ InvalidString = { L"CON", L"PRN", L"AUX", L"CLOCK$", L"NUL",
-    L"COM0", L"COM1", L"COM2", L"COM3", L"COM4", L"COM5", L"COM6", L"COM7", L"COM8", L"COM9",
-    L"LPT0", L"LPT1", L"LPT2", L"LPT3", L"LPT4", L"LPT5", L"LPT6", L"LPT7", L"LPT8", L"LPT9" };
+	L"COM0", L"COM1", L"COM2", L"COM3", L"COM4", L"COM5", L"COM6", L"COM7", L"COM8", L"COM9",
+	L"LPT0", L"LPT1", L"LPT2", L"LPT3", L"LPT4", L"LPT5", L"LPT6", L"LPT7", L"LPT8", L"LPT9" };
 	if (fileName->IndexOfAny(InvalidChars) >= 0)
 		return false;
 	for (int i = 0; i < InvalidString->Length; i++)

@@ -81,14 +81,14 @@ mfxStatus AuoPipeline::InitInOut(sInputParams *pParams) {
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 void AuoPipeline::PrintMes(const TCHAR *format, ... ) {
-    va_list args;
-    va_start(args, format);
+	va_list args;
+	va_start(args, format);
 
-    int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    TCHAR *buffer = (TCHAR*)calloc((len * 2 + 20), sizeof(buffer[0]));
+	int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+	TCHAR *buffer = (TCHAR*)calloc((len * 2 + 20), sizeof(buffer[0]));
 	TCHAR *buffer_line = buffer + len;
 
-    _vstprintf_s(buffer, len, format, args);
+	_vstprintf_s(buffer, len, format, args);
 	//_ftprintf(fp, buffer);
 
 	TCHAR *q = NULL;

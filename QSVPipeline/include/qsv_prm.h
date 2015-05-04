@@ -27,9 +27,9 @@ typedef enum {
 } mfxDeinterlace;
 
 typedef enum {
-    MVC_DISABLED          = 0x0,
-    MVC_ENABLED           = 0x1,
-    MVC_VIEWOUTPUT        = 0x2,    // 2 output bitstreams
+	MVC_DISABLED          = 0x0,
+	MVC_ENABLED           = 0x1,
+	MVC_VIEWOUTPUT        = 0x2,    // 2 output bitstreams
 };
 
 typedef enum {
@@ -44,9 +44,9 @@ typedef enum {
 };
 
 typedef enum MemType {
-    SYSTEM_MEMORY = 0x00,
-    D3D9_MEMORY   = 0x01,
-    D3D11_MEMORY  = 0x02,
+	SYSTEM_MEMORY = 0x00,
+	D3D9_MEMORY   = 0x01,
+	D3D11_MEMORY  = 0x02,
 	HW_MEMORY = D3D9_MEMORY | D3D11_MEMORY,
 };
 
@@ -104,8 +104,8 @@ struct sInputParams
 {
 	mfxU16 nInputFmt;     // 0 - raw, 1 - y4m, 2 - avi/avs
 	mfxU16 nEncMode;      // RateControl
-    mfxU16 nTargetUsage;  // Quality
-    mfxU32 CodecId;       // H.264 only for this
+	mfxU16 nTargetUsage;  // Quality
+	mfxU32 CodecId;       // H.264 only for this
 	mfxU16 CodecProfile; 
 	mfxU16 CodecLevel;
 	mfxU16 nIdrInterval;  // Idr frame interval to I frame, not supported
@@ -128,26 +128,26 @@ struct sInputParams
 	mfxU16 Transfer;      //for API v1.3
 	bool   bFullrange;    //for API v1.3
 
-    mfxU32 ColorFormat;   //YV12 or NV12
-    mfxU16 nPicStruct;    //Progressive or interlaced, and other flags
-    mfxU16 nWidth;        //width of input
-    mfxU16 nHeight;       //height of input
-    mfxU32 nFPSRate;      //fps rate of input
-    mfxU32 nFPSScale;     //fps scale of input
-    mfxU16 __nBitRate;    //old field of target bitrate used in bitrate mode
+	mfxU32 ColorFormat;   //YV12 or NV12
+	mfxU16 nPicStruct;    //Progressive or interlaced, and other flags
+	mfxU16 nWidth;        //width of input
+	mfxU16 nHeight;       //height of input
+	mfxU32 nFPSRate;      //fps rate of input
+	mfxU32 nFPSScale;     //fps scale of input
+	mfxU16 __nBitRate;    //old field of target bitrate used in bitrate mode
 	mfxU16 __nMaxBitrate; //max bitrate
 	mfxU16 __nThreads;    //max bitrate
 
-    mfxU16 nDstWidth;     //output width 
-    mfxU16 nDstHeight;    //input width
+	mfxU16 nDstWidth;     //output width 
+	mfxU16 nDstHeight;    //input width
 
-    mfxU8 memType;       //use d3d surface
-    bool bUseHWLib;       //use QSV (hw encoding)
+	mfxU8 memType;       //use d3d surface
+	bool bUseHWLib;       //use QSV (hw encoding)
 
 	mfxU16 nInputBufSize; //input buf size
 
-    bool   bIsMVC; // true if Multi-View-Codec is in use
-    mfxU32 numViews; // number of views for Multi-View-Codec
+	bool   bIsMVC; // true if Multi-View-Codec is in use
+	mfxU32 numViews; // number of views for Multi-View-Codec
 	
 
 	mfxI32     nPAR[2]; //PAR比
@@ -166,7 +166,7 @@ struct sInputParams
 
 	sInputCrop sInCrop;
 
-    mfxU16     nQuality; // quality parameter for JPEG encoder
+	mfxU16     nQuality; // quality parameter for JPEG encoder
 
 	mfxU8      bMBBRC;
 	mfxU8      bExtBRC;
@@ -217,10 +217,10 @@ struct sInputParams
 
 	mfxU8      Reserved[1164];
 
-    TCHAR strSrcFile[MAX_FILENAME_LEN];
-    TCHAR strDstFile[MAX_FILENAME_LEN];
+	TCHAR strSrcFile[MAX_FILENAME_LEN];
+	TCHAR strDstFile[MAX_FILENAME_LEN];
 
-    mfxU16 nRotationAngle; //not supported
+	mfxU16 nRotationAngle; //not supported
 
 	sVppParams vpp;
 };

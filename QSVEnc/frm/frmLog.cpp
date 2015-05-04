@@ -16,15 +16,15 @@ using namespace QSVEnc;
 
 [STAThreadAttribute]
 void LogToTop() {
-    // Thread のアタッチ
+	// Thread のアタッチ
 	DWORD fore_thread = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
 	DWORD this_thread = GetCurrentThreadId();
-    AttachThreadInput(this_thread, fore_thread, TRUE);
+	AttachThreadInput(this_thread, fore_thread, TRUE);
 
 	frmLog::Instance::get()->LogBringToFront();
 
-    // Thread のデタッチ
-    AttachThreadInput(this_thread, fore_thread, FALSE) ;
+	// Thread のデタッチ
+	AttachThreadInput(this_thread, fore_thread, FALSE) ;
 }
 
 //すべてfrmLog::Instanceを通じてアクセス
