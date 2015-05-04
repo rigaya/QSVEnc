@@ -106,7 +106,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -125,7 +125,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -147,7 +147,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -171,7 +171,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -199,7 +199,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -225,7 +225,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -241,6 +241,8 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\avcodec_reader.cpp" />
+    <ClCompile Include="src\avcodec_writer.cpp" />
     <ClCompile Include="src\avi_reader.cpp" />
     <ClCompile Include="src\avs_reader.cpp" />
     <ClCompile Include="src\base_allocator.cpp" />
@@ -263,6 +265,7 @@
     <ClCompile Include="src\d3d_device.cpp" />
     <ClCompile Include="src\gpu_info.cpp" />
     <ClCompile Include="src\pipeline_encode.cpp" />
+    <ClCompile Include="src\plugin_utils.cpp" />
     <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
     <ClCompile Include="src\qsv_simd.cpp" />
@@ -282,6 +285,9 @@
     <ClCompile Include="src\vpy_reader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\avcodec_qsv.h" />
+    <ClInclude Include="include\avcodec_reader.h" />
+    <ClInclude Include="include\avcodec_writer.h" />
     <ClInclude Include="include\avi_reader.h" />
     <ClInclude Include="include\avs_reader.h" />
     <ClInclude Include="include\base_allocator.h" />

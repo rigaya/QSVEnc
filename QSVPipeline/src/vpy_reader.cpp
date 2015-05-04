@@ -132,7 +132,7 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 	MSDK_CHECK_POINTER(strFileName, MFX_ERR_NULL_PTR);
 	MSDK_CHECK_ERROR(_tclen(strFileName), 0, MFX_ERR_NULL_PTR);
 
@@ -147,7 +147,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int opti
 	MSDK_CHECK_POINTER(pInputCrop, MFX_ERR_NULL_PTR);
 	memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
 
-	const bool use_mt_mode = option != 0;
+	const bool use_mt_mode = ((VSReaderPrm *)option)->use_mt;
 	
 	if (load_vapoursynth()) {
 		return MFX_ERR_NULL_PTR;

@@ -24,7 +24,7 @@ CAVIReader::~CAVIReader() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 
 	MSDK_CHECK_POINTER(strFileName, MFX_ERR_NULL_PTR);
 	MSDK_CHECK_ERROR(_tclen(strFileName), 0, MFX_ERR_NULL_PTR);
@@ -157,7 +157,7 @@ void CAVIReader::Close() {
 		AVIFileRelease(m_pAviFile);
 	if (buffer)
 		_aligned_free(buffer);
-    AVIFileExit();
+	AVIFileExit();
 
 	m_pAviFile = NULL;
 	m_pAviStream = NULL;

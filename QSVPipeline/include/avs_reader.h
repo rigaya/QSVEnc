@@ -50,7 +50,7 @@ public:
 	CAVSReader();
 	virtual ~CAVSReader();
 
-	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
 
 	virtual void Close();
 	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
@@ -58,9 +58,9 @@ private:
 	mfxStatus load_avisynth();
 	void release_avisynth();
 
-    AVS_ScriptEnvironment *m_sAVSenv;
-    AVS_Clip *m_sAVSclip;
-    const AVS_VideoInfo *m_sAVSinfo;
+	AVS_ScriptEnvironment *m_sAVSenv;
+	AVS_Clip *m_sAVSclip;
+	const AVS_VideoInfo *m_sAVSinfo;
 
 	avs_dll_t m_sAvisynth;
 };

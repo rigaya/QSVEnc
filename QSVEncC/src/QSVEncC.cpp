@@ -33,9 +33,10 @@ static void PrintVersion() {
 	_ftprintf(stdout, _T("QSVEncC (x64) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
 #endif
 	_ftprintf(stdout, _T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
-	_ftprintf(stdout, _T("  avi reader: %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
-	_ftprintf(stdout, _T("  avs reader: %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
-	_ftprintf(stdout, _T("  vpy reader: %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
+	_ftprintf(stdout, _T("  avi reader:         %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
+	_ftprintf(stdout, _T("  avs reader:         %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
+	_ftprintf(stdout, _T("  vpy reader:         %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
+	_ftprintf(stdout, _T("  avcodec+QSV reader: %s\n"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
 	_ftprintf(stdout, _T("\n"));
 }
 
@@ -98,10 +99,24 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T(" Input formats (will be estimated from extension if not set.)\n")
 			_T("   --raw                        set input as raw format\n")
 			_T("   --y4m                        set input as y4m format\n")
+#if ENABLE_AVI_READER
 			_T("   --avi                        set input as avi format\n")
+#endif
+#if ENABLE_AVISYNTH_READER
 			_T("   --avs                        set input as avs format\n")
+#endif
+#if ENABLE_VAPOURSYNTH_READER
 			_T("   --vpy                        set input as vpy format\n")
 			_T("   --vpy-mt                     set input as vpy format in multi-thread\n")
+#endif
+#if ENABLE_AVCODEC_QSV_READER
+			_T("   --avqsv                      set input to use avcodec + qsv\n")
+			_T("   --audio-file                 set extracted audio file name.\n")
+			_T("                                could be only used with avqsv reader.\n")
+			_T("   --trim (<int>,<int>)[,(<int>,<int>)]...\n")
+			_T("                                trim video for the frame range specified.\n")
+			_T("                                could be only used with avqsv reader.\n")
+#endif
 			_T("\n")
 			_T("   --nv12                       set raw input as NV12 color format,\n")
 			_T("                                if not specified YV12 is expected\n")
@@ -478,6 +493,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		{
 			pParams->nInputFmt = INPUT_FMT_VPY_MT;
 		}
+		else if (0 == _tcscmp(option_name, _T("avqsv")))
+		{
+			pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
+		}
 		else if (0 == _tcscmp(option_name, _T("input-file")))
 		{
 			i++;
@@ -488,6 +507,38 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			i++;
 			if (!pParams->bBenchmark)
 				_tcscpy_s(pParams->strDstFile, strInput[i]);
+		}
+		else if (0 == _tcscmp(option_name, _T("trim")))
+		{
+			i++;
+			auto trim_str_list = split(strInput[i], _T("),("));
+			std::vector<sTrim> trim_list;
+			for (auto trim_str : trim_str_list) {
+				sTrim trim;
+				const TCHAR *ptr = trim_str.c_str();
+				if (2 != _stscanf_s((*ptr == _T('(')) ? ptr+1 : ptr, _T("%d,%d"), &trim.start, &trim.fin) || trim.fin < trim.start) {
+					PrintHelp(strInput[0], _T("Invalid Value"), option_name);
+					return MFX_PRINT_OPTION_ERR;
+				}
+				if (trim.fin == 0) {
+					trim.fin = INT_MAX;
+				} else if (trim.fin < 0) {
+					trim.fin = trim.start - trim.fin - 1;
+				}
+				trim_list.push_back(trim);
+			}
+			if (trim_list.size()) {
+				pParams->nTrimCount = (mfxU16)trim_list.size();
+				pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
+				memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
+			}
+		}
+		else if (0 == _tcscmp(option_name, _T("audio-file")))
+		{
+			i++;
+			int filename_len = (int)_tcslen(strInput[i]) + 1;
+			pParams->pAudioFilename = (TCHAR *)malloc(filename_len * sizeof(pParams->pAudioFilename[0]));
+			memcpy(pParams->pAudioFilename, strInput[i], sizeof(pParams->pAudioFilename[0]) * filename_len);
 		}
 		else if (0 == _tcscmp(option_name, _T("quality")))
 		{
@@ -592,11 +643,11 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		}
 		else if (0 == _tcscmp(option_name, _T("open-gop")))
 		{
-		    pParams->bopenGOP = true;
+			pParams->bopenGOP = true;
 		}
 		else if (0 == _tcscmp(option_name, _T("no-open-gop")))
 		{
-		    pParams->bopenGOP = false;
+			pParams->bopenGOP = false;
 		}
 		else if (0 == _tcscmp(option_name, _T("strict-gop")))
 		{
@@ -1474,7 +1525,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 			fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
 				sysTime.wYear, sysTime.wMonth, sysTime.wDay, sysTime.wHour, sysTime.wMinute, sysTime.wSecond);
 			fprintf(fp_bench, "Basic parameters of the benchmark\n"
-				              " (Target Usage and output resolution will be changed)\n");
+							  " (Target Usage and output resolution will be changed)\n");
 			fprintf(fp_bench, "%s\n\n", tchar_to_char(encode_info).c_str());
 			fprintf(fp_bench, tchar_to_char(enviroment_info).c_str());
 			fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n", 
@@ -1518,6 +1569,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 		mfxU16 targetUsage;
 		double fps;
 		double bitrate;
+		double cpuUsagePercent;
 	} benchmark_t;
 
 	//解像度ごとに、target usageを変化させて測定
@@ -1564,10 +1616,11 @@ mfxStatus run_benchmark(sInputParams *params) {
 			pPipeline->Close();
 
 			benchmark_t result;
-			result.resolution  = resolution;
-			result.targetUsage = (mfxU16)list_quality[i].value;
-			result.fps         = data.fEncodeFps;
-			result.bitrate     = data.fBitrateKbps;
+			result.resolution      = resolution;
+			result.targetUsage     = (mfxU16)list_quality[i].value;
+			result.fps             = data.fEncodeFps;
+			result.bitrate         = data.fBitrateKbps;
+			result.cpuUsagePercent = data.fCPUUsagePercent;
 			benchmark_per_target_usage.push_back(result);
 
 			_ftprintf(stderr, _T("\n"));
@@ -1621,6 +1674,21 @@ mfxStatus run_benchmark(sInputParams *params) {
 				fprintf(fp_bench, " 　　TU-%d", benchmark_per_target_usage[0].targetUsage);
 				for (const auto &result : benchmark_per_target_usage) {
 					fprintf(fp_bench, ",　　　%6d", (int)(result.bitrate + 0.5));
+				}
+				fprintf(fp_bench, "\n");
+			}
+			fprintf(fp_bench, "\n");
+
+			fprintf(fp_bench, "CPU Usage (%%)\n");
+			fprintf(fp_bench, "TargetUsage");
+			for (auto resolution : test_resolution) {
+				fprintf(fp_bench, ",   %dx%d", resolution.first, resolution.second);
+			}
+			fprintf(fp_bench, "\n");
+			for (const auto &benchmark_per_target_usage : benchmark_result) {
+				fprintf(fp_bench, " 　　TU-%d", benchmark_per_target_usage[0].targetUsage);
+				for (const auto &result : benchmark_per_target_usage) {
+					fprintf(fp_bench, ",　　　%6.2f", result.cpuUsagePercent);
 				}
 				fprintf(fp_bench, "\n");
 			}

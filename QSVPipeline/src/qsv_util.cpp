@@ -19,9 +19,67 @@
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
 #include "sample_defs.h"
+#include "sample_utils.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "ram_speed.h"
+
+#pragma warning (push)
+#pragma warning (disable: 4100)
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage) {
+#if UNICODE
+	int multibyte_length = WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, nullptr, 0, nullptr, nullptr);
+	str.resize(multibyte_length, 0);
+	BOOL error = FALSE;
+	if (0 == WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, &str[0], (int)str.size(), nullptr, &error) || error) {
+		str.clear();
+		return 0;
+	}
+	return multibyte_length;
+#else
+	str = std::string(tstr);
+	return str.length();
+#endif
+}
+
+std::string tchar_to_string(const TCHAR *tstr, DWORD codepage) {
+	std::string str;
+	tchar_to_string(tstr, str, codepage);
+	return str;
+}
+
+unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
+#if UNICODE
+	int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
+	tstr.resize(widechar_length, 0);
+	if (0 == MultiByteToWideChar(codepage, 0, str, -1, &tstr[0], (int)tstr.size())) {
+		tstr.clear();
+		return 0;
+	}
+	return widechar_length;
+#else
+	tstr = std::string(str);
+	return tstr.length();
+#endif
+}
+
+tstring char_to_tstring(const char *str, DWORD codepage) {
+	tstring tstr;
+	char_to_tstring(tstr, str, codepage);
+	return tstr;
+}
+#pragma warning (pop)
+
+std::vector<tstring> split(const tstring &str, const tstring &delim) {
+	std::vector<tstring> res;
+	size_t current = 0, found, delimlen = delim.size();
+	while (tstring::npos != (found = str.find(delim, current))) {
+		res.push_back(tstring(str, current, found - current));
+		current = found + delimlen;
+	}
+	res.push_back(tstring(str, current, str.size() - current));
+	return res;
+}
 
 BOOL Check_HWUsed(mfxIMPL impl) {
 	static const int HW_list[] = {
@@ -240,7 +298,7 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
 		feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
 		feature |= VPP_FEATURE_PROC_AMP;
 	} else {
-		mfxSession session;
+		mfxSession session = NULL;
 
 		mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
@@ -565,7 +623,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
 		//コードで決められた値を返すようにする
 		feature = CheckEncodeFeatureStatic(ver, ratecontrol);
 	} else {
-		mfxSession session;
+		mfxSession session = NULL;
 
 		mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
@@ -1018,4 +1076,22 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
 	}
 	add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
 	add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
+}
+
+mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size) {
+	mfxStatus sts = MFX_ERR_NONE;
+	if (data) {
+		const DWORD new_data_length = bitstream->DataLength + size;
+		if (bitstream->MaxLength < new_data_length)
+			if (MFX_ERR_NONE != (sts = ExtendMfxBitstream(bitstream, new_data_length)))
+				return sts;
+
+		if (bitstream->MaxLength < new_data_length + bitstream->DataOffset) {
+			memmove(bitstream->Data, bitstream->Data + bitstream->DataOffset, bitstream->DataLength);
+			bitstream->DataOffset = 0;
+		}
+		memcpy(bitstream->Data + bitstream->DataLength + bitstream->DataOffset, data, size);
+		bitstream->DataLength = new_data_length;
+	}
+	return sts;
 }

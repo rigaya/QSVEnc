@@ -156,6 +156,9 @@ protected:
         }
     protected:
         T* m_ptr; // the wrapped object pointer
+    private:
+        safe_array(const safe_array& );
+        safe_array& operator=(const safe_array& );
     };
 };
 

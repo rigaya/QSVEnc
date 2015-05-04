@@ -96,7 +96,7 @@ public:
 	CSmplYUVReader();
 	virtual ~CSmplYUVReader();
 
-	virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+	virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
 
 	//この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
 	mfxStatus GetNextFrame(mfxFrameSurface1** pSurface)
@@ -124,6 +124,15 @@ public:
 		return MFX_ERR_NONE;
 	}
 
+#pragma warning (push)
+#pragma warning (disable: 4100)
+	virtual mfxStatus GetNextBitstream(mfxBitstream *bitstream) {
+		return MFX_ERR_NONE;
+	}
+	virtual mfxStatus GetHeader(mfxBitstream *bitstream) {
+		return MFX_ERR_NONE;
+	}
+#pragma warning (pop)
 
 	mfxStatus SetNextSurface(mfxFrameSurface1* pSurface)
 	{
@@ -145,6 +154,7 @@ public:
 	virtual void Close();
 	//virtual mfxStatus Init(const msdk_char *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<msdk_char*> srcFileBuff);
 	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+
 	mfxU32 m_ColorFormat; // color format of input YUV data, YUV420 or NV12
 	void GetInputCropInfo(sInputCrop *cropInfo) {
 		memcpy(cropInfo, &m_sInputCrop, sizeof(m_sInputCrop));
@@ -152,9 +162,17 @@ public:
 	void GetInputFrameInfo(mfxFrameInfo *inputFrameInfo) {
 		memcpy(inputFrameInfo, &m_inputFrameInfo, sizeof(m_inputFrameInfo));
 	}
+	void GetDecParam(mfxVideoParam *decParam) {
+		memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
+	}
 	const msdk_char *GetInputMessage() {
 		const msdk_char *mes = m_strInputInfo.c_str();
 		return (mes) ? mes : _T("");
+	}
+	//QSVデコードを行う場合のコーデックを返す
+	//行わない場合は0を返す
+	mfxU32 getInputCodec() {
+		return m_nInputCodec;
 	}
 #if ENABLE_MVC_ENCODING
 	void SetMultiView() { m_bIsMultiView = true; }
@@ -174,8 +192,11 @@ protected:
 	sInputCrop m_sInputCrop;
 
 	mfxFrameInfo m_inputFrameInfo;
+	mfxVideoParam m_sDecParam;
 
 	const ConvertCSP *m_sConvert;
+
+	mfxU32 m_nInputCodec;
 
 	mfxU32 bufSize;
 	mfxU8 *buffer;
@@ -190,19 +211,24 @@ public:
 	CSmplBitstreamWriter();
 	virtual ~CSmplBitstreamWriter();
 
-	virtual mfxStatus Init(const msdk_char *strFileName, sInputParams *prm, CEncodeStatusInfo *pEncSatusInfo);
+	virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
 
 	virtual mfxStatus SetVideoParam(mfxVideoParam *pMfxVideoPrm);
 
 	virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream);
 	virtual void Close();
-
+	
+	const msdk_char *GetOutputMessage() {
+		const msdk_char *mes = m_strOutputInfo.c_str();
+		return (mes) ? mes : _T("");
+	}
 protected:
 	CEncodeStatusInfo *m_pEncSatusInfo;
 	FILE*       m_fSource;
 	bool        m_bInited;
 	bool        m_bNoOutput;
 	char*       m_pOutputBuffer;
+	std::basic_string<msdk_char> m_strOutputInfo;
 };
 
 class CSmplYUVWriter
@@ -521,13 +547,14 @@ private:
 mfxStatus ConvertFrameRate(mfxF64 dFrameRate, mfxU32* pnFrameRateExtN, mfxU32* pnFrameRateExtD);
 mfxF64 CalculateFrameRate(mfxU32 nFrameRateExtN, mfxU32 nFrameRateExtD);
 
-static inline mfxU16 GetFreeSurface(mfxFrameSurface1* pSurfacesPool, mfxU16 nPoolSize) {
+static inline int GetFreeSurface(mfxFrameSurface1* pSurfacesPool, int nPoolSize) {
 	static const int SleepInterval = 1; // milliseconds
 	//wait if there's no free surface
 	for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j += SleepInterval) {
-		for (mfxU16 i = 0; i < nPoolSize; i++)
-		if (0 == pSurfacesPool[i].Data.Locked)
-			return i;
+		for (mfxU16 i = 0; i < nPoolSize; i++) {
+			if (0 == pSurfacesPool[i].Data.Locked)
+				return i;
+		}
 		MSDK_SLEEP(SleepInterval);
 	}
 	return MSDK_INVALID_SURF_IDX;

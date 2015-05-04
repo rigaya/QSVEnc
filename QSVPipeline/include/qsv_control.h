@@ -143,6 +143,7 @@ typedef struct sEncodeStatusData {
 	mfxU32 tmStart;
 	mfxF64 fEncodeFps;
 	mfxF64 fBitrateKbps;
+	mfxF64 fCPUUsagePercent;
 } sEncodeStatusData;
 
 class CEncodeStatusInfo
@@ -307,7 +308,8 @@ public:
 		int mm = time_elapsed / (60*1000);
 		time_elapsed -= mm * (60*1000);
 		int ss = (time_elapsed + 500) / 1000;
-		_stprintf_s(mes, _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime));
+		m_sData.fCPUUsagePercent = GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime);
+		_stprintf_s(mes, _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, m_sData.fCPUUsagePercent);
 		WriteLine(mes);
 
 		mfxU32 maxCount = MAX3(m_sData.nICount, m_sData.nPCount, m_sData.nBCount);

@@ -40,6 +40,7 @@ typedef enum {
 	INPUT_FMT_AVS,
 	INPUT_FMT_VPY,
 	INPUT_FMT_VPY_MT,
+	INPUT_FMT_AVCODEC_QSV,
 };
 
 typedef enum MemType {
@@ -52,6 +53,23 @@ typedef enum MemType {
 typedef struct {
 	mfxU16 left, up, right, bottom;
 } sInputCrop;
+
+typedef struct {
+	int start, fin;
+} sTrim;
+
+static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
+	if (trimList.size() == 0)
+		return true;
+	if (frame < 0)
+		return false;
+	for (auto trim : trimList) {
+		if (trim.start <= frame && frame <= trim.fin) {
+			return true;
+		}
+	}
+	return false;
+}
 
 typedef enum {
 	FPS_CONVERT_NONE = 0,
@@ -186,7 +204,18 @@ struct sInputParams
 	mfxU8      __unused;
 	mfxU32     nBitRate;
 	mfxU32     nMaxBitrate;
-	mfxU8      Reserved[1182];
+
+	mfxU16     nTrimCount;
+	sTrim     *pTrimList;
+#ifdef _M_IX86
+	mfxU32     reserved2;
+#endif
+	TCHAR     *pAudioFilename;
+#ifdef _M_IX86
+	mfxU32     reserved3;
+#endif
+
+	mfxU8      Reserved[1164];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
