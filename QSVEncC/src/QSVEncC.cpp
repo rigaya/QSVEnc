@@ -112,7 +112,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 #endif
 #if ENABLE_AVCODEC_QSV_READER
 			_T("   --avqsv                      set input to use avcodec + qsv\n")
-			_T("   --audio-file                 set extracted audio file name.\n")
+			_T("   --audio-file <string>        extract audio into file.\n")
 			_T("                                could be only used with avqsv reader.\n")
 			_T("   --trim <int>:<int>[,<int>:<int>]...\n")
 			_T("                                trim video for the frame range specified.\n")
