@@ -520,7 +520,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 					return MFX_PRINT_OPTION_ERR;
 				}
 				if (trim.fin == 0) {
-					trim.fin = INT_MAX;
+					trim.fin = TRIM_MAX;
 				} else if (trim.fin < 0) {
 					trim.fin = trim.start - trim.fin - 1;
 				}

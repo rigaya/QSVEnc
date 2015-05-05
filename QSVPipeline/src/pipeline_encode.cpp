@@ -3016,7 +3016,11 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	if (m_TrimList.size()) {
 		PRINT_INFO(_T("Trim              "));
 		for (auto trim : m_TrimList) {
-			PRINT_INFO(_T("%d-%d "), trim.start, trim.fin);
+			if (trim.fin == TRIM_MAX) {
+				PRINT_INFO(_T("%d-fin "), trim.start);
+			} else {
+				PRINT_INFO(_T("%d-%d "), trim.start, trim.fin);
+			}
 		}
 		PRINT_INFO(_T("\n"));
 	}
