@@ -113,7 +113,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("   --avqsv                      set input to use avcodec + qsv\n")
 			_T("   --audio-file                 set extracted audio file name.\n")
 			_T("                                could be only used with avqsv reader.\n")
-			_T("   --trim (<int>,<int>)[,(<int>,<int>)]...\n")
+			_T("   --trim <int>:<int>[,<int>:<int>]...\n")
 			_T("                                trim video for the frame range specified.\n")
 			_T("                                could be only used with avqsv reader.\n")
 #endif
@@ -511,12 +511,11 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("trim")))
 		{
 			i++;
-			auto trim_str_list = split(strInput[i], _T("),("));
+			auto trim_str_list = split(strInput[i], _T(","));
 			std::vector<sTrim> trim_list;
 			for (auto trim_str : trim_str_list) {
 				sTrim trim;
-				const TCHAR *ptr = trim_str.c_str();
-				if (2 != _stscanf_s((*ptr == _T('(')) ? ptr+1 : ptr, _T("%d,%d"), &trim.start, &trim.fin) || trim.fin < trim.start) {
+				if (2 != _stscanf_s(trim_str.c_str(), _T("%d:%d"), &trim.start, &trim.fin) || (trim.fin > 0 && trim.fin < trim.start)) {
 					PrintHelp(strInput[0], _T("Invalid Value"), option_name);
 					return MFX_PRINT_OPTION_ERR;
 				}
