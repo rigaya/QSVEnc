@@ -18,6 +18,7 @@
 #include <fstream>
 #include <iomanip>
 #include <vector>
+#include <algorithm>
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
 
@@ -115,6 +116,7 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 			_T("                                could be only used with avqsv reader.\n")
 			_T("   --trim <int>:<int>[,<int>:<int>]...\n")
 			_T("                                trim video for the frame range specified.\n")
+			_T("                                frame range should not overwrap each other.\n")
 			_T("                                could be only used with avqsv reader.\n")
 #endif
 			_T("\n")
@@ -527,6 +529,13 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				trim_list.push_back(trim);
 			}
 			if (trim_list.size()) {
+				std::sort(trim_list.begin(), trim_list.end(), [](const sTrim& trimA, const sTrim& trimB) { return trimA.start < trimB.start; });
+				for (int i = (int)trim_list.size() - 2; i >= 0; i--) {
+					if (trim_list[i].fin > trim_list[i+1].start) {
+						trim_list[i].fin = trim_list[i+1].fin;
+						trim_list.erase(trim_list.begin() + i+1);
+					}
+				}
 				pParams->nTrimCount = (mfxU16)trim_list.size();
 				pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
 				memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
