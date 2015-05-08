@@ -8,6 +8,7 @@
 //  ---------------------------------------------------------------------------------------
 
 #include <algorithm>
+#include <numeric>
 #include <cctype>
 #include <memory>
 #include "mfxplugin.h"
@@ -124,6 +125,14 @@ int CAvcodecReader::getAudioStream() {
 	return audioIndex;
 }
 
+void CAvcodecReader::sortVideoPtsList() {
+	//フレーム順序が確定していないところをソートする
+	FramePos *ptr = demux.videoFrameData.frame;
+	std::sort(ptr + demux.videoFrameData.fixed_num, ptr + demux.videoFrameData.num,
+		[](const FramePos& posA, const FramePos& posB) {
+		return (abs(posA.pts - posB.pts) < 0xFFFFFFFF) ? posA.pts < posB.pts : posB.pts < posA.pts; });
+}
+
 void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 	if (demux.videoFrameData.capacity <= demux.videoFrameData.num+1) {
 		EnterCriticalSection(&demux.videoFrameData.cs);
@@ -133,54 +142,86 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 	demux.videoFrameData.frame[demux.videoFrameData.num] = pos;
 	demux.videoFrameData.num++;
 
-	//フレーム順序が確定していないところをソートする
-	FramePos *ptr = demux.videoFrameData.frame;
-	std::sort(ptr + demux.videoFrameData.fixed_num, ptr + demux.videoFrameData.num,
-		[](const FramePos& posA, const FramePos& posB){ return posA.pts < posB.pts; });
-
-	//フレーム順序がどこまで確定したか、確認する
-	int i_fix = demux.videoFrameData.fixed_num;
-	for (; i_fix < demux.videoFrameData.num; i_fix++) {
-		int e = (int)(sqrt((float)ptr[i_fix].duration) + 0.5f) - 1;
-		if (e < abs((ptr[i_fix].pts + ptr[i_fix].duration) - ptr[i_fix+1].pts)) {
-			break;
-		}
+	if (demux.videoFrameData.fixed_num + 32 < demux.videoFrameData.num) {
+		sortVideoPtsList();
+		demux.videoFrameData.fixed_num += 16;
 	}
-	demux.videoFrameData.fixed_num = i_fix;
 }
 
-mfxStatus CAvcodecReader::getFirstFramePos() {
-	mfxStatus sts = MFX_ERR_MORE_DATA;
-	FramePos firstKeyframePos;
+mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
+	const int max_check = 256;
+	std::vector<FramePos> framePosList;
+	framePosList.reserve(max_check);
+	
+	FramePos firstKeyframePos = { 0 };
 	AVPacket pkt;
-	getSample(&pkt);
-	demux.videoStreamFirstPts = pkt.pts;
-
-	do {
-		int flags = pkt.flags;
-		firstKeyframePos = { pkt.pts, pkt.duration };
-		av_free_packet(&pkt);
-		if (flags & AV_PKT_FLAG_KEY) {
-			sts = MFX_ERR_NONE;
-			break;
+	for (int i = 0; i < max_check && !getSample(&pkt); i++) {
+		FramePos pos = { pkt.pts, pkt.duration };
+		framePosList.push_back(pos);
+		if (firstKeyframePos.duration == 0 && pkt.flags & AV_PKT_FLAG_KEY) {
+			firstKeyframePos = pos;
 		}
-	} while (!getSample(&pkt));
+		av_free_packet(&pkt);
+	}
+	if (firstKeyframePos.duration == 0) {
+		m_strInputInfo += _T("avcodec: failed to get first frame pos.\n");
+		return MFX_ERR_UNKNOWN;
+	}
+
+	//durationを再計算する
+	std::sort(framePosList.begin(), framePosList.end(), [](const FramePos& posA, const FramePos& posB) { return posA.pts < posB.pts; });
+	for (int i = 0; i < (int)framePosList.size() - 1; i++) {
+		int duration = (int)(framePosList[i+1].pts - framePosList[i].pts);
+		if (abs(framePosList[i].duration - duration) <= 1) {
+			framePosList[i].duration = duration;
+		}
+	}
+
+	//durationのヒストグラムを作成
+	std::vector<std::pair<int, int>> durationHistgram;
+	for (auto pos : framePosList) {
+		auto target = std::find_if(durationHistgram.begin(), durationHistgram.end(), [pos](const std::pair<int, int>& pair) { return pair.first == pos.duration; });
+		if (target != durationHistgram.end()) {
+			target->second++;
+		} else {
+			durationHistgram.push_back(std::make_pair(pos.duration, 1));
+		}
+	}
+	//多い順にソートする
+	std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second < pairB.second; });
+
+	//durationの平均を求める
+	auto avgDuration = std::accumulate(framePosList.begin(), framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)framePosList.size();
+	//durationから求めた平均fpsを計算する
+	AVRational estimatedAvgFps = { 0 };
+	estimatedAvgFps.num = demux.pCodecCtx->pkt_timebase.den;
+	if (abs(avgDuration / durationHistgram[0].first - 1.0) < 5e-4) {
+		estimatedAvgFps.den = demux.pCodecCtx->pkt_timebase.num * durationHistgram[0].first;
+	} else {
+		estimatedAvgFps.den = demux.pCodecCtx->pkt_timebase.num * (int)(avgDuration + 0.5);
+	}
 
 	//TimeStampベースで最初のフレームに戻す
 	if (0 <= av_seek_frame(demux.pFormatCtx, demux.videoIndex, demux.videoStreamFirstPts, AVSEEK_FLAG_BACKWARD)) {
 		addVideoPtsToList(firstKeyframePos);
+		double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
+		double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
+		double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
+		//durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
+		demux.videoAvgFramerate = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder : estimatedAvgFps;
 	} else {
 		//失敗したら、Byte単位でのシークを試み、最初に戻す
 		demux.videoStreamPtsInvalid = true;
+		demux.videoAvgFramerate = fpsDecoder;
 		if (0 <= av_seek_frame(demux.pFormatCtx, demux.videoIndex, 0, AVSEEK_FLAG_BACKWARD|AVSEEK_FLAG_BYTE)) {
 			//ptsとdurationをpkt_timebaseで適当に作成する
 			addVideoPtsToList({ 0, (int)av_rescale_q(1, demux.pCodecCtx->time_base, demux.pCodecCtx->pkt_timebase) });
 		} else {
 			m_strInputInfo += _T("avcodec: failed to seek backward.\n");
-			sts = MFX_ERR_UNSUPPORTED;
+			return MFX_ERR_UNSUPPORTED;
 		}
 	}
-	return sts;
+	return MFX_ERR_NONE;
 }
 
 #pragma warning(push)
@@ -301,8 +342,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	m_sDecParam.mfx.CodecId = m_nInputCodec;
 	m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
 	if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
-	} else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePos())) {
 		m_strInputInfo += _T("avcodec reader: failed to decode header.\n");
+	} else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD }))) {
 		m_strInputInfo += _T("avcodec reader: failed to get first frame position.\n");
 	}
 	pPlugin.reset(); //必ずsessionをクローズする前に開放すること
@@ -313,6 +354,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	}
 	WipeMfxBitstream(&bitstream);
 
+	m_sDecParam.mfx.FrameInfo.FrameRateExtN = demux.videoAvgFramerate.num;
+	m_sDecParam.mfx.FrameInfo.FrameRateExtD = demux.videoAvgFramerate.den;
 	const mfxU32 fps_gcd = GCD(m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD);
 	m_sDecParam.mfx.FrameInfo.FrameRateExtN /= fps_gcd;
 	m_sDecParam.mfx.FrameInfo.FrameRateExtD /= fps_gcd;
@@ -459,6 +502,8 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 	//ファイルの終わりに到達
 	pkt->data = nullptr;
 	pkt->size = 0;
+	sortVideoPtsList();
+	demux.videoFrameData.fixed_num = demux.videoFrameData.num - 1;
 	return 1;
 }
 

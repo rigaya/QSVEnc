@@ -43,6 +43,7 @@ typedef struct AVDemuxer {
 	mfxU8                    *extradata;                  //動画のヘッダ情報
 	int                       extradataSize;              //動画のヘッダサイズ
 	AVPacket                  videoPacket[2];             //取得した動画ストリームの1フレーム分のデータ
+	AVRational                videoAvgFramerate;          //動画のフレームレート
 
 	int                       audioIndex;                 //音声のストリームID
 	AVCodecContext           *pCodecCtxAudio;             //音声のcodecContext
@@ -114,6 +115,9 @@ private:
 	//avcodecのaudioのストリームIDを取得
 	int getAudioStream();
 
+	//動画のptsをソートする
+	void sortVideoPtsList();
+
 	//動画のptsをリストに加える
 	void addVideoPtsToList(FramePos pos);
 
@@ -129,8 +133,10 @@ private:
 	//音声パケットリストを開放
 	void clearAudioPacketList(std::vector<AVPacket>& pktList);
 
-	//QSVでデコードした際のフレームのptsを取得する
-	mfxStatus getFirstFramePos();
+	//QSVでデコードした際の最初のフレームのptsを取得する
+	//さらに、平均フレームレートを推定する
+	//fpsDecoderはdecoderの推定したfps
+	mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder);
 
 	//指定したptsとtimebaseから、該当する動画フレームを取得する
 	int getVideoFrameIdx(mfxI64 pts, AVRational timebase, int i_start);
