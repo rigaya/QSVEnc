@@ -34,15 +34,15 @@ static void PrintVersion() {
 	_ftprintf(stdout, _T("QSVEncC (x64) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
 #endif
 	_ftprintf(stdout, _T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
-	_ftprintf(stdout, _T("  avi reader:         %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
-	_ftprintf(stdout, _T("  avs reader:         %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
-	_ftprintf(stdout, _T("  vpy reader:         %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
-	_ftprintf(stdout, _T("  avcodec+QSV reader: %s\n"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
+	_ftprintf(stdout, _T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
+	_ftprintf(stdout, _T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
+	_ftprintf(stdout, _T("  vpy reader:   %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
+	_ftprintf(stdout, _T("  avqsv reader: %s\n"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
 	_ftprintf(stdout, _T("\n"));
 }
 
 //適当に改行しながら表示する
-static void PrintListOptions(FILE *fp, TCHAR *option_name, const CX_DESC *list, int default_index) {
+static void PrintListOptions(FILE *fp, const TCHAR *option_name, const CX_DESC *list, int default_index) {
 	const TCHAR *indent_space = _T("                                  ");
 	const int indent_len = (int)_tcslen(indent_space);
 	const int max_len = 77;
@@ -62,7 +62,7 @@ static void PrintListOptions(FILE *fp, TCHAR *option_name, const CX_DESC *list, 
 	_ftprintf(fp, _T("\n%s default: %s\n"), indent_space, list[default_index].desc);
 }
 
-static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptionName)
+static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName)
 {
 	if (strErrorMessage)
 	{
@@ -353,11 +353,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 	pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
 
 	// parse command line parameters
-	for (mfxU8 i = 1; i < nArgNum; i++)
-	{
+	for (mfxU8 i = 1; i < nArgNum; i++) {
 		MSDK_CHECK_POINTER(strInput[i], MFX_ERR_NULL_PTR);
 
-		TCHAR *option_name = NULL;
+		const TCHAR *option_name = NULL;
 
 		if (strInput[i][0] == _T('-')) {
 			switch (strInput[i][1]) {
@@ -1375,10 +1374,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 	}
 
 	// not all options are supported if rotate plugin is enabled
-	if (pParams->nRotationAngle == 180) 
-	{
-		if (MFX_FOURCC_NV12 != pParams->ColorFormat)
-		{
+	if (pParams->nRotationAngle == 180) {
+		if (MFX_FOURCC_NV12 != pParams->ColorFormat) {
 			PrintHelp(strInput[0], _T("Rotation plugin requires NV12 input. Please specify -nv12 option."), NULL);
 			return MFX_PRINT_OPTION_ERR;
 		}
@@ -1429,12 +1426,10 @@ int run_encode(sInputParams *params) {
 	pPipeline->CheckCurrentVideoParam();
 	_ftprintf(stderr, _T("\nProcessing started\r"));
 
-	for (;;)
-	{
+	for (;;) {
 		sts = pPipeline->Run();
 
-		if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts)
-		{
+		if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
 			_ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
 			sts = pPipeline->ResetDevice();
 			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
@@ -1442,9 +1437,7 @@ int run_encode(sInputParams *params) {
 			sts = pPipeline->ResetMFXComponents(params);
 			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
 			continue;
-		}
-		else
-		{
+		} else {
 			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
 			break;
 		}
@@ -1459,13 +1452,12 @@ mfxStatus run_benchmark(sInputParams *params) {
 	using namespace std;
 	mfxStatus sts = MFX_ERR_NONE;
 	basic_string<msdk_char> benchmarkLogFile = params->strDstFile;
-	
+
 	//テストする解像度
 	const vector<pair<mfxU16, mfxU16>> test_resolution = { { 1920, 1080 }, { 1280, 720 } };
 
 	//初回出力
 	{
-
 		auto tchar_to_char = [](const TCHAR *tstr) {
 	#if UNICODE
 			int length_required = 1 + WideCharToMultiByte(CP_ACP, 0, tstr, -1, NULL, 0, NULL, NULL);
@@ -1504,7 +1496,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 		getEnviromentInfo(enviroment_info, _countof(enviroment_info));
 
 		MemType memtype = pPipeline->GetMemType();
-		
+
 		basic_stringstream<msdk_char> ss;
 		FILE *fp_bench = NULL;
 		if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
@@ -1551,7 +1543,6 @@ mfxStatus run_benchmark(sInputParams *params) {
 		pPipeline->Close();
 	}
 
-
 	//ベンチマークの集計データ
 	typedef struct benchmark_t {
 		pair<mfxU16, mfxU16> resolution;
@@ -1564,7 +1555,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 	//解像度ごとに、target usageを変化させて測定
 	vector<vector<benchmark_t>> benchmark_result;
 	benchmark_result.reserve(test_resolution.size() * (_countof(list_quality) - 1));
-	
+
 	for (int i = 0; MFX_ERR_NONE == sts && !g_signal_abort && list_quality[i].desc; i++) {
 		params->nTargetUsage = (mfxU16)list_quality[i].value;
 		vector<benchmark_t> benchmark_per_target_usage;
@@ -1575,11 +1566,11 @@ mfxStatus run_benchmark(sInputParams *params) {
 			auto_ptr<CEncodingPipeline> pPipeline;
 			pPipeline.reset(new CEncodingPipeline);
 			MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
-			
+
 			if (MFX_ERR_NONE != (sts = pPipeline->Init(params))) {
 				break;
 			}
-			
+
 			pPipeline->SetAbortFlagPointer(&g_signal_abort);
 			set_signal_handler();
 			pPipeline->CheckCurrentVideoParam();
@@ -1624,12 +1615,12 @@ mfxStatus run_benchmark(sInputParams *params) {
 	//結果を出力
 	if (MFX_ERR_NONE == sts && benchmark_result.size()) {
 		basic_stringstream<msdk_char> ss;
-		
+
 		mfxU32 maxLengthOfTargetUsageDesc = 0;
 		for (int i = 0; list_quality[i].desc; i++) {
 			maxLengthOfTargetUsageDesc = max(maxLengthOfTargetUsageDesc, (mfxU32)_tcslen(list_quality[i].desc));
 		}
-		
+
 		FILE *fp_bench = NULL;
 		if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
 			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
@@ -1739,12 +1730,10 @@ int run(int argc, TCHAR *argv[]) {
 	pPipeline->CheckCurrentVideoParam();
 	_ftprintf(stderr, _T("\nProcessing started\r"));
 
-	for (;;)
-	{
+	for (;;) {
 		sts = pPipeline->Run();
 
-		if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts)
-		{
+		if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
 			pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
 			sts = pPipeline->ResetDevice();
 			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
@@ -1752,9 +1741,7 @@ int run(int argc, TCHAR *argv[]) {
 			sts = pPipeline->ResetMFXComponents(&Params);
 			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
 			continue;
-		}
-		else
-		{
+		} else {
 			if (sts < MFX_ERR_NONE) return 1;
 			break;
 		}
