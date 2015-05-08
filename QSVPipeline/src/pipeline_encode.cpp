@@ -2597,6 +2597,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 				bVppRequireMoreFrame = true;
 			} else if (MFX_ERR_MORE_SURFACE == vpp_sts) {
 				bVppMultipleOutput = true;
+				vpp_sts = MFX_ERR_NONE;
 			}
 
 			// save the id of preceding vpp task which will produce input data for the encode task
@@ -2736,9 +2737,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 			continue;
 
 		sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
-		MSDK_BREAK_ON_ERROR(sts);
 		if (bVppRequireMoreFrame)
 			continue;
+		MSDK_BREAK_ON_ERROR(sts);
 		
 		sts = encode_one_frame(pSurfEncIn);
 	}
@@ -2788,9 +2789,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 				continue;
 
 			sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
-			MSDK_BREAK_ON_ERROR(sts);
 			if (bVppRequireMoreFrame)
 				continue;
+			MSDK_BREAK_ON_ERROR(sts);
 		
 			sts = encode_one_frame(pSurfEncIn);
 		}
@@ -2820,9 +2821,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 			MSDK_BREAK_ON_ERROR(sts);
 
 			sts = vpp_one_frame(NULL, pSurfEncIn);
-			MSDK_BREAK_ON_ERROR(sts);
 			if (bVppRequireMoreFrame)
-				continue;
+				break; // MFX_ERR_MORE_DATA is the correct status to exit vpp buffering loop
+			MSDK_BREAK_ON_ERROR(sts);
 
 			sts = encode_one_frame(pSurfEncIn);
 		}
