@@ -2516,22 +2516,26 @@ mfxStatus CEncodingPipeline::RunEncode()
 		(m_pmfxVPP) ? m_pVppSurfaces : m_pEncSurfaces,
 		(m_pmfxVPP) ? m_VppResponse.NumFrameActual : m_EncResponse.NumFrameActual);
 
+	auto extract_audio =[&]() {
+#if ENABLE_AVCODEC_QSV_READER
+		if (m_pFileWriterAudio) {
+			auto pAVCodecWriter = reinterpret_cast<CAvcodecWriter *>(m_pFileWriterAudio);
+			auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+			if (pAVCodecWriter != NULL || pAVCodecReader != NULL) {
+				auto packetList = pAVCodecReader->GetAudioDataPackets();
+				for (mfxU32 i = 0; i < packetList.size(); i++) {
+					pAVCodecWriter->WriteNextFrame(&packetList[i]);
+				}
+			}
+		}
+#endif //ENABLE_AVCODEC_QSV_READER
+	};
+
 	auto decode_one_frame = [&](bool getNextBitstream) {
 		mfxStatus dec_sts = MFX_ERR_NONE;
 		if (m_pmfxDEC) {
 			if (getNextBitstream) {
-#if ENABLE_AVCODEC_QSV_READER
-				if (m_pFileWriterAudio) {
-					auto pAVCodecWriter = reinterpret_cast<CAvcodecWriter *>(m_pFileWriterAudio);
-					auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
-					if (pAVCodecWriter != NULL || pAVCodecReader != NULL) {
-						auto packetList = pAVCodecReader->GetAudioDataPackets();
-						for (mfxU32 i = 0; i < packetList.size(); i++) {
-							pAVCodecWriter->WriteNextFrame(&packetList[i]);
-						}
-					}
-				}
-#endif //ENABLE_AVCODEC_QSV_READER
+				extract_audio();
 				//この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
 				dec_sts = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
 				MSDK_IGNORE_MFX_STS(dec_sts, MFX_ERR_MORE_DATA);
@@ -2746,6 +2750,8 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 	if (m_pmfxDEC)
 	{
+		extract_audio();
+
 		while (MFX_ERR_NONE <= sts || sts == MFX_ERR_MORE_SURFACE) {
 			// get a pointer to a free task (bit stream and sync point for encoder)
 			//空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
