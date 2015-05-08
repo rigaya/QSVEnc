@@ -275,7 +275,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 		return decHeaderSts;
 	}
 	
-	if (m_nInputCodec == MFX_CODEC_AVC) {
+	if (m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) {
 		//これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
 		const mfxU32 IDR = 0x65010000;
 		AppendMfxBitstream(&bitstream, (mfxU8 *)&IDR, sizeof(IDR));
