@@ -332,24 +332,25 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 	MSDK_ZERO_MEMORY(*pParams);
 	mfxU16 tmp_input_buf  = 0;
 
-	pParams->CodecId       = MFX_CODEC_AVC;
-	pParams->nTargetUsage  = QSV_DEFAULT_QUALITY;
-	pParams->nEncMode      = MFX_RATECONTROL_CQP;
-	pParams->ColorFormat   = MFX_FOURCC_YV12;
-	pParams->nPicStruct    = MFX_PICSTRUCT_PROGRESSIVE;
-	pParams->nQPI          = QSV_DEFAULT_QPI;
-	pParams->nQPP          = QSV_DEFAULT_QPP;
-	pParams->nQPB          = QSV_DEFAULT_QPB;
-	pParams->nRef          = QSV_DEFAULT_REF;
-	pParams->bUseHWLib     = true;
-	pParams->memType       = HW_MEMORY;
-	pParams->nBframes      = QSV_DEFAULT_BFRAMES;
-	pParams->nGOPLength    = QSV_DEFAULT_GOP_LEN;
-	pParams->ColorPrim     = (mfxU16)list_colorprim[0].value;
-	pParams->ColorMatrix   = (mfxU16)list_colormatrix[0].value;
-	pParams->Transfer      = (mfxU16)list_transfer[0].value;
-	pParams->VideoFormat   = (mfxU16)list_videoformat[0].value;
-	pParams->nInputBufSize = QSV_DEFAULT_INPUT_BUF_HW;
+	pParams->CodecId           = MFX_CODEC_AVC;
+	pParams->nTargetUsage      = QSV_DEFAULT_QUALITY;
+	pParams->nEncMode          = MFX_RATECONTROL_CQP;
+	pParams->ColorFormat       = MFX_FOURCC_YV12;
+	pParams->nPicStruct        = MFX_PICSTRUCT_PROGRESSIVE;
+	pParams->nQPI              = QSV_DEFAULT_QPI;
+	pParams->nQPP              = QSV_DEFAULT_QPP;
+	pParams->nQPB              = QSV_DEFAULT_QPB;
+	pParams->nRef              = QSV_DEFAULT_REF;
+	pParams->bUseHWLib         = true;
+	pParams->memType           = HW_MEMORY;
+	pParams->nBframes          = QSV_DEFAULT_BFRAMES;
+	pParams->nGOPLength        = QSV_DEFAULT_GOP_LEN;
+	pParams->ColorPrim         = (mfxU16)list_colorprim[0].value;
+	pParams->ColorMatrix       = (mfxU16)list_colormatrix[0].value;
+	pParams->Transfer          = (mfxU16)list_transfer[0].value;
+	pParams->VideoFormat       = (mfxU16)list_videoformat[0].value;
+	pParams->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
+	pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
 
 	// parse command line parameters
 	for (mfxU8 i = 1; i < nArgNum; i++)
