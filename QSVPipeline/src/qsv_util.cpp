@@ -81,6 +81,27 @@ std::vector<tstring> split(const tstring &str, const tstring &delim) {
 	return res;
 }
 
+int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
+	CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
+	static const WORD LOG_COLOR[] = {
+		FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,
+		FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED, //黄色
+		FOREGROUND_INTENSITY | FOREGROUND_RED //赤
+	};
+	if (handle == NULL) {
+		handle = GetStdHandle(STD_ERROR_HANDLE);
+	}
+	if (handle && log_level != QSV_LOG_INFO) {
+		GetConsoleScreenBufferInfo(handle, &csbi);
+		SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_INFO, QSV_LOG_ERROR)] | (csbi.wAttributes & 0x00f0));
+	}
+	int ret = _ftprintf(stderr, mes);
+	if (handle && log_level != QSV_LOG_INFO) {
+		SetConsoleTextAttribute(handle, csbi.wAttributes); //元に戻す
+	}
+	return ret;
+}
+
 BOOL Check_HWUsed(mfxIMPL impl) {
 	static const int HW_list[] = {
 		MFX_IMPL_HARDWARE,

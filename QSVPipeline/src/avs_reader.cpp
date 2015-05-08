@@ -76,7 +76,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
 	}
 	std::string filename_char;
 	if (0 == tchar_to_string(strFileName, filename_char)) {
-		m_strInputInfo += _T("avcodec: failed to convert to ansi characters.\n");
+		m_strInputInfo += _T("avisynth: failed to convert to ansi characters.\n");
 		return MFX_ERR_INVALID_HANDLE;
 	}
 	AVS_Value val_filename = avs_new_value_string(filename_char.c_str());

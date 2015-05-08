@@ -44,6 +44,15 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage = CP
 tstring char_to_tstring(const char *str, DWORD codepage = CP_THREAD_ACP);
 std::vector<tstring> split(const tstring &str, const tstring &delim);
 
+enum {
+	QSV_LOG_DEBUG = -1,
+	QSV_LOG_INFO = 0,
+	QSV_LOG_WARN,
+	QSV_LOG_ERROR,
+};
+
+int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
+
 typedef struct CX_DESC {
 	TCHAR *desc;
 	int value;

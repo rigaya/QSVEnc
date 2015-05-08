@@ -18,10 +18,10 @@ class AuoPipeline : public CEncodingPipeline
 public:
 	AuoPipeline();
 	virtual ~AuoPipeline();
-	virtual mfxStatus InitInOut(sInputParams *pParams);
+	virtual mfxStatus InitInOut(sInputParams *pParams) override;
 
 protected:
-	virtual void PrintMes(const TCHAR *format, ... );
+	virtual void PrintMes(int log_level, const TCHAR *format, ... ) override;
 };
 
 

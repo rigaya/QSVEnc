@@ -121,7 +121,7 @@ public:
 #endif
 	virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
-	virtual void PrintMes(const TCHAR *format, ... );
+	virtual void PrintMes(int log_level, const TCHAR *format, ... );
 
 	virtual void SetAbortFlagPointer(bool *abort);
 
@@ -146,6 +146,7 @@ protected:
 	CQSVFrameTypeSimulation m_frameTypeSim;
 
 	TCHAR *m_pStrLog;
+	int m_LogLevel;
 
 	CSmplBitstreamWriter *m_pFileWriterAudio;
 	CSmplBitstreamWriter *m_pFileWriter;

@@ -316,14 +316,6 @@ static void PrintHelp(TCHAR *strAppName, TCHAR *strErrorMessage, TCHAR *strOptio
 	}
 }
 
-static void PrintAPISupportError(TCHAR *option_name, mfxVersion required_ver, mfxVersion current_ver, BOOL hardware_mode) {
-	_ftprintf(stderr, _T("Error: %s requires API v%d.%d, current %s API v%d.%d"),
-		option_name, 
-		required_ver.Major, required_ver.Minor, 
-		hardware_mode ? _T("hw") : _T("sw"), 
-		current_ver.Major, current_ver.Minor);
-}
-
 mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pParams)
 {
 	TCHAR* strArgument = _T("");
@@ -1365,18 +1357,6 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 #endif
 		return MFX_PRINT_OPTION_ERR;
 	}
-	//check for API 1.3 options
-	mfxVersion mfxlib_current = (pParams->bUseHWLib) ? mfxlib_hw : mfxlib_sw;
-	if (!check_lib_version(mfxlib_current, MFX_LIB_VERSION_1_3)) {
-#define PRINT_API_1_3_SUPPORT_ERROR(option_name) { PrintAPISupportError(option_name, mfxlib_current, MFX_LIB_VERSION_1_3, pParams->bUseHWLib); return MFX_PRINT_OPTION_ERR; }
-		if (pParams->bFullrange)                               PRINT_API_1_3_SUPPORT_ERROR(_T("--fullrange"));
-		if (pParams->Transfer    != list_transfer[0].value)    PRINT_API_1_3_SUPPORT_ERROR(_T("--transfer"));
-		if (pParams->VideoFormat != list_videoformat[0].value) PRINT_API_1_3_SUPPORT_ERROR(_T("--videoformat"));
-		if (pParams->ColorMatrix != list_colormatrix[0].value) PRINT_API_1_3_SUPPORT_ERROR(_T("--colormatrix"));
-		if (pParams->ColorPrim   != list_colorprim[0].value)   PRINT_API_1_3_SUPPORT_ERROR(_T("--colorprim"));
-		if (pParams->nEncMode    == MFX_RATECONTROL_AVBR)      PRINT_API_1_3_SUPPORT_ERROR(_T("--avbr"));
-#undef PRINT_API_1_3_SUPPORT_ERROR
-	}
 
 	//don't use d3d memory with software encoding
 	if (!pParams->bUseHWLib) {
@@ -1527,7 +1507,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 		basic_stringstream<msdk_char> ss;
 		FILE *fp_bench = NULL;
 		if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
-			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
+			pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
 			return MFX_ERR_INVALID_HANDLE;
 		} else {
 			fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
@@ -1543,7 +1523,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 		}
 		basic_ofstream<msdk_char> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
 		if (!benchmark_log_test_open.good()) {
-			_ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
+			pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
 			return MFX_ERR_INVALID_HANDLE;
 		}
 		benchmark_log_test_open << ss.str();
@@ -1553,7 +1533,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 			sts = pPipeline->Run();
 
 			if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-				_ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+				pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
 				if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
 					|| MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
 					break;
@@ -1607,7 +1587,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 				sts = pPipeline->Run();
 
 				if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-					_ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+					pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
 					if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
 						|| MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
 						break;
@@ -1705,23 +1685,19 @@ mfxStatus run_benchmark(sInputParams *params) {
 			_ftprintf(stderr, _T("\nFinished benchmark.\n"));
 		}
 	} else {
-		_ftprintf(stderr, _T("\nError occurred during benchmark.\n"));
+		qsv_print_stderr(QSV_LOG_ERROR, _T("\nError occurred during benchmark.\n"));
 	}
 
 	return sts;
 }
 
-
-int _tmain(int argc, TCHAR *argv[])
-{
-	sInputParams        Params;   // input parameters from command line
-
-	mfxStatus sts = MFX_ERR_NONE; // return value check
+int run(int argc, TCHAR *argv[]) {
+	mfxStatus sts = MFX_ERR_NONE;
+	sInputParams Params = { 0 };
 
 	sts = ParseInputString(argv, (mfxU8)argc, &Params);
 	if (sts >= MFX_PRINT_OPTION_DONE)
-		return sts - MFX_PRINT_OPTION_DONE;
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+		return 0;
 
 	//set stdin to binary mode when using pipe input
 	if (_tcscmp(Params.strSrcFile, _T("-")) == NULL) {
@@ -1749,7 +1725,7 @@ int _tmain(int argc, TCHAR *argv[])
 	MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
 
 	sts = pPipeline->Init(&Params);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+	if (sts < MFX_ERR_NONE) return 1;
 
 	if (Params.pStrLogFile) {
 		free(Params.pStrLogFile);
@@ -1768,7 +1744,7 @@ int _tmain(int argc, TCHAR *argv[])
 
 		if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts)
 		{
-			_ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+			pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
 			sts = pPipeline->ResetDevice();
 			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
 
@@ -1778,13 +1754,21 @@ int _tmain(int argc, TCHAR *argv[])
 		}
 		else
 		{
-			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+			if (sts < MFX_ERR_NONE) return 1;
 			break;
 		}
 	}
 
 	pPipeline->Close();  
-	_ftprintf(stderr, _T("\nProcessing finished\n"));
+	pPipeline->PrintMes(QSV_LOG_INFO, _T("\nProcessing finished\n"));
 
 	return sts;
+}
+
+int _tmain(int argc, TCHAR *argv[]) {
+	int ret = 0;
+	if (0 != (ret = run(argc, argv))) {
+		qsv_print_stderr(QSV_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
+	}
+	return ret;
 }

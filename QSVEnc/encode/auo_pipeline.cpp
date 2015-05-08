@@ -80,7 +80,7 @@ mfxStatus AuoPipeline::InitInOut(sInputParams *pParams) {
 }
 #pragma warning( push )
 #pragma warning( disable: 4100 )
-void AuoPipeline::PrintMes(const TCHAR *format, ... ) {
+void AuoPipeline::PrintMes(int log_level, const TCHAR *format, ... ) {
 	va_list args;
 	va_start(args, format);
 
@@ -93,8 +93,9 @@ void AuoPipeline::PrintMes(const TCHAR *format, ... ) {
 
 	TCHAR *q = NULL;
 	for (TCHAR *p = buffer; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
-		_stprintf_s(buffer_line, len + 20, "qsv [info]: %s", p);
-		write_log_line(LOG_INFO, buffer_line);
+		static const char *LOG_STRING[] = { "debug", "info", "warn", "error" };
+		_stprintf_s(buffer_line, len + 20, "qsv [%s]: %s", LOG_STRING[1+clamp(log_level, QSV_LOG_DEBUG, QSV_LOG_ERROR)], p);
+		write_log_line(log_level, buffer_line);
 		p = NULL;
 	}
 

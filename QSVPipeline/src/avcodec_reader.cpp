@@ -217,59 +217,61 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	
 	std::string filename_char;
 	if (0 == tchar_to_string(strFileName, filename_char)) {
-		m_strInputInfo += _T("avcodec: failed to convert to ansi characters.\n");
+		m_strInputInfo += _T("avcodec reader: failed to convert filename to ansi characters.\n");
 		return MFX_ERR_INVALID_HANDLE;
 	}
 	demux.pFormatCtx = avformat_alloc_context();
 	//if (av_opt_set_int(demux.pFormatCtx, "probesize", 60 * AV_TIME_BASE, 0)) {
-	//	AVDEBUG_PRINT("avcodec: faield to set probesize.\n");
+	//	AVDEBUG_PRINT("avcodec reader: faield to set probesize.\n");
 	//}
 	if (avformat_open_input(&(demux.pFormatCtx), filename_char.c_str(), nullptr, nullptr)) {
-		m_strInputInfo += _T("avcodec: error opening file\n");
+		m_strInputInfo += _T("avcodec reader: error opening file.\n");
 		return MFX_ERR_NULL_PTR; // Couldn't open file
 	}
 
-	AVDEBUG_PRINT("avcodec: opened file.\n");
+	AVDEBUG_PRINT("avcodec reader: opened file.\n");
 	//if (av_opt_set_int(demux.pFormatCtx, "analyzeduration", 60 * AV_TIME_BASE, 0)) {
-	//	AVDEBUG_PRINT("avcodec: faield to set analyzeduration.\n");
+	//	AVDEBUG_PRINT("avcodec reader: faield to set analyzeduration.\n");
 	//}
 	if (avformat_find_stream_info(demux.pFormatCtx, nullptr) < 0) {
-		m_strInputInfo += _T("avcodec: error finding stream information!\n");
+		m_strInputInfo += _T("avcodec reader: error finding stream information.\n");
 		return MFX_ERR_NULL_PTR; // Couldn't find stream information
 	}
-	AVDEBUG_PRINT("avcodec: got stream information.\n");
+	AVDEBUG_PRINT("avcodec reader: got stream information.\n");
 	//dump_format(dec.pFormatCtx, 0, argv[1], 0);
 	
 	//動画ストリームを探す
 	if (-1 == (demux.videoIndex = getVideoStream())) {
-		m_strInputInfo += _T("avcodec: unable to find video stream!\n");
+		m_strInputInfo += _T("avcodec reader: unable to find video stream.\n");
 		return MFX_ERR_NULL_PTR; // Didn't find a video stream
 	}
-	AVDEBUG_PRINT("avcodec: found video stream.\n");
+	AVDEBUG_PRINT("avcodec reader: found video stream.\n");
 
 	demux.pCodecCtx = demux.pFormatCtx->streams[demux.videoIndex]->codec;
 
 	//QSVでデコード可能かチェック
 	if (0 == (m_nInputCodec = getQSVFourcc(demux.pCodecCtx->codec_id))) {
-		m_strInputInfo += _T("avcodec: unable to decode by qsv.\n");
+		m_strInputInfo += _T("avcodec reader: codec ");
+		m_strInputInfo += char_to_tstring(demux.pCodecCtx->codec->name);
+		m_strInputInfo += _T(" unable to decode by qsv.\n");
 		return MFX_ERR_NULL_PTR;
 	}
-	AVDEBUG_PRINT("avcodec: can be decoded by qsv.\n");
+	AVDEBUG_PRINT("avcodec reader: can be decoded by qsv.\n");
 
 	//必要ならbitstream filterを初期化
 	if ((m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) && demux.pCodecCtx->extradata && demux.pCodecCtx->extradata[0] == 1) {
 		if (NULL == (demux.bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
-			m_strInputInfo += _T("avcodec: unable to init h264_mp4toannexb.\n");
+			m_strInputInfo += _T("avcodec reader: unable to init h264_mp4toannexb.\n");
 			return MFX_ERR_NULL_PTR;
 		}
-		AVDEBUG_PRINT("avcodec: success to init h264_mp4toannexb.\n");
+		AVDEBUG_PRINT("avcodec reader: success to init h264_mp4toannexb.\n");
 	}
-	AVDEBUG_PRINT("avcodec: start demuxing... \n");
+	AVDEBUG_PRINT("avcodec reader: start demuxing... \n");
 	
 	mfxStatus decHeaderSts = MFX_ERR_NONE;
 	mfxBitstream bitstream = { 0 };
 	if (MFX_ERR_NONE != (decHeaderSts = GetHeader(&bitstream))) {
-		m_strInputInfo += _T("avcodec: failed to get header.\n");
+		m_strInputInfo += _T("avcodec reader: failed to get header.\n");
 		return decHeaderSts;
 	}
 	
@@ -282,7 +284,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	mfxSession session = { 0 };
 	mfxVersion version = MFX_LIB_VERSION_1_1;
 	if (MFX_ERR_NONE != (decHeaderSts = MFXInit(MFX_IMPL_HARDWARE_ANY, &version, &session))) {
-		m_strInputInfo += _T("avcodec: unable to init qsv decoder.\n");
+		m_strInputInfo += _T("avcodec reader: unable to init qsv decoder.\n");
 		return decHeaderSts;
 	}
 
@@ -290,7 +292,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	if (m_nInputCodec == MFX_CODEC_HEVC) {
 		pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, session, MFX_PLUGINID_HEVCD_HW, 1));
 		if (pPlugin.get() == NULL) {
-			m_strInputInfo += _T("avcodec: hevc decoder unavailable.\n");
+			m_strInputInfo += _T("avcodec reader: failed to load hw hevc decoder.\n");
 			return MFX_ERR_UNSUPPORTED;
 		}
 	}
@@ -299,14 +301,14 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	m_sDecParam.mfx.CodecId = m_nInputCodec;
 	m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
 	if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
-		m_strInputInfo += _T("avcodec: failed to decode header.\n");
 	} else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePos())) {
-		m_strInputInfo += _T("avcodec: failed to get first frame position.\n");
+		m_strInputInfo += _T("avcodec reader: failed to decode header.\n");
+		m_strInputInfo += _T("avcodec reader: failed to get first frame position.\n");
 	}
 	pPlugin.reset(); //必ずsessionをクローズする前に開放すること
 	MFXClose(session);
 	if (MFX_ERR_NONE != decHeaderSts) {
-		m_strInputInfo += _T("avcodec: failed to decode header.\n");
+		m_strInputInfo += _T("avcodec reader: unable to decode by qsv, please consider using other input method.\n");
 		return decHeaderSts;
 	}
 	WipeMfxBitstream(&bitstream);
