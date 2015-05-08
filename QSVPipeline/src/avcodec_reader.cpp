@@ -450,7 +450,7 @@ bool CAvcodecReader::checkAudioPacketToAdd(const AVPacket *pkt) {
 		//動画             |------------>
 		//音声      |-----------|
 		//     aud_start     aud_fin
-		if (pkt->duration / 2 < (vid_fin - aud_start - demux.audExtractErrExcess)) {
+		if (pkt->duration / 2 > (vid_fin - aud_start + demux.audExtractErrExcess)) {
 			demux.audExtractErrExcess += vid_fin - aud_start;
 		} else {
 			demux.audExtractErrExcess -= aud_fin - vid_fin;
