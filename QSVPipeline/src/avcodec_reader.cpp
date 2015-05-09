@@ -241,7 +241,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 #pragma warning(disable:4100)
 mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 	if (!check_avcodec_dll()) {
-		m_strInputInfo += _T("avcodec: failed to load dlls.\n");
+		m_strInputInfo += error_mes_avcodec_dll_not_found();
 		return MFX_ERR_NULL_PTR;
 	}
 	//if (!checkAvcodecLicense()) {

@@ -35,13 +35,13 @@ extern "C" {
 #endif
 
 static const AVRational QSV_NATIVE_TIMEBASE = { 1, 90000 };
+static const TCHAR *AVCODEC_DLL_NAME[] = {
+	_T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
+};
 
 //必要なavcodecのdllがそろっているかを確認
 static bool check_avcodec_dll() {
 	std::vector<HMODULE> hDllList;
-	static const TCHAR *AVCODEC_DLL_NAME[] = {
-		_T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
-	};
 	bool check = true;
 	for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
 		HMODULE hDll = NULL;
@@ -55,6 +55,19 @@ static bool check_avcodec_dll() {
 		FreeLibrary(hDll);
 	}
 	return check;
+}
+
+//avcodecのdllが存在しない場合のエラーメッセージ
+static tstring error_mes_avcodec_dll_not_found() {
+	tstring mes;
+	mes += _T("avcodec: failed to load dlls.\n");
+	mes += _T("         please make sure ");
+	for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
+		if (i) mes += _T(", ");
+		mes += _T("\"") + tstring(AVCODEC_DLL_NAME[i]) + _T("\"");
+	}
+	mes += _T("\n         is installed in your system.\n");
+	return mes;
 }
 
 //avcodecのライセンスがLGPLであるかどうかを確認

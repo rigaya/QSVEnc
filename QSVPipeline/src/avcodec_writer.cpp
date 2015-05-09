@@ -40,7 +40,7 @@ void CAvcodecWriter::Close() {
 
 mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option, CEncodeStatusInfo *pEncSatusInfo) {
 	if (!check_avcodec_dll()) {
-		m_strOutputInfo += _T("avcodec writer: failed to load dlls.\n");
+		m_strOutputInfo += error_mes_avcodec_dll_not_found();
 		return MFX_ERR_NULL_PTR;
 	}
 	
