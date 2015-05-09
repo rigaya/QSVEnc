@@ -39,6 +39,8 @@
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
 
+#pragma comment(lib, "libmfx.lib")
+
 #include "scene_change_detection.h"
 
 #include <vector>

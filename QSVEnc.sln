@@ -4,18 +4,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 11.0.50727.42
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVEnc", "QSVEnc\QSVEnc.vcxproj", "{05D4409E-70DD-489B-9A83-268E6CB1B4C5}"
-	ProjectSection(ProjectDependencies) = postProject
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F} = {9E7B3527-11AA-46BA-A82F-C58761F9B56F}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVEncC", "QSVEncC\QSVEncC.vcxproj", "{09239F87-B73E-4EC0-98BF-1BF4795912AF}"
-	ProjectSection(ProjectDependencies) = postProject
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F} = {9E7B3527-11AA-46BA-A82F-C58761F9B56F}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVPipeline", "QSVPipeline\QSVPipeline.vcxproj", "{A63CE263-8735-4405-8860-011A12A80DEF}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmfx", "mfx_dispatch\libmfx.vcxproj", "{9E7B3527-11AA-46BA-A82F-C58761F9B56F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -56,17 +48,6 @@ Global
 		{A63CE263-8735-4405-8860-011A12A80DEF}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
 		{A63CE263-8735-4405-8860-011A12A80DEF}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 		{A63CE263-8735-4405-8860-011A12A80DEF}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Debug|Win32.ActiveCfg = Debug|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Debug|Win32.Build.0 = Debug|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Debug|x64.ActiveCfg = Debug|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Debug|x64.Build.0 = Debug|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Release|Win32.ActiveCfg = Release|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Release|Win32.Build.0 = Release|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Release|x64.ActiveCfg = Release|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.ReleaseStatic|Win32.ActiveCfg = ReleaseStatic|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
