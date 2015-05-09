@@ -38,7 +38,7 @@ unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage
 	return multibyte_length;
 #else
 	str = std::string(tstr);
-	return str.length();
+	return (unsigned int)str.length();
 #endif
 }
 
@@ -59,7 +59,7 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
 	return widechar_length;
 #else
 	tstr = std::string(str);
-	return tstr.length();
+	return (unsigned int)tstr.length();
 #endif
 }
 
