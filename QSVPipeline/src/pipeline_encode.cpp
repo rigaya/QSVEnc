@@ -1199,7 +1199,7 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
 			m_memType = D3D11_MEMORY;
 
 			sts = m_hwdev->Init(
-				window,
+				NULL,
 				0,
 				MSDKAdapter::GetNumber(m_mfxSession));
 			if (sts != MFX_ERR_NONE) {
