@@ -1568,6 +1568,8 @@ CEncodingPipeline::CEncodingPipeline()
 	m_pFileWriter = NULL;
 	m_pFileReader = NULL;
 
+	m_pTrimParam = NULL;
+
 	m_pStrLog = NULL;
 	m_LogLevel = QSV_LOG_INFO;
 
@@ -2749,7 +2751,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			MSDK_BREAK_ON_ERROR(sts);
 		}
 
-		if (!frame_inside_range(nInputFrameCount, m_pTrimParam->list))
+		if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
 			continue;
 
 		sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
@@ -2802,7 +2804,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 				MSDK_BREAK_ON_ERROR(sts);
 			}
 
-			if (!frame_inside_range(nInputFrameCount, m_pTrimParam->list))
+			if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
 				continue;
 
 			sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
