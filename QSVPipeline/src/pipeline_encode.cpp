@@ -1517,6 +1517,10 @@ void CEncodingPipeline::DeleteFrames()
 		m_pMFXAllocator->Free(m_pMFXAllocator->pthis, &m_VppResponse);
 		m_pMFXAllocator->Free(m_pMFXAllocator->pthis, &m_DecResponse);
 	}
+
+	MSDK_ZERO_MEMORY(m_EncResponse);
+	MSDK_ZERO_MEMORY(m_VppResponse);
+	MSDK_ZERO_MEMORY(m_DecResponse);
 }
 
 void CEncodingPipeline::DeleteHWDevice()
@@ -2127,7 +2131,8 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 		timeBeginPeriod(1);
 	}
 
-	m_nAsyncDepth = 3; // this number can be tuned for better performance
+	// this number can be tuned for better performance
+	m_nAsyncDepth = (m_pFileReader->getInputCodec()) ? MSDK_MIN(pParams->nInputBufSize, 16) : 3;
 
 	sts = ResetMFXComponents(pParams);
 	if (sts < MFX_ERR_NONE) return sts;
@@ -3012,7 +3017,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	} else {
 		PRINT_INFO(    _T("Media SDK         software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
 	}
-	PRINT_INFO(    _T("Buffer Memory     %s, %d input buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer);
+	PRINT_INFO(    _T("Buffer Memory     %s, %d input buffer, %d work buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer, m_EncResponse.NumFrameActual + m_VppResponse.NumFrameActual + m_DecResponse.NumFrameActual);
 	//PRINT_INFO(    _T("Input Frame Format      %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
 	//PRINT_INFO(    _T("Input Frame Type      %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
 	auto inputMesSplitted = split(m_pFileReader->GetInputMessage(), _T("\n"));

@@ -248,7 +248,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			);
 		_ftprintf(stdout, _T("\n")
 			_T("   --input-buf <int>            buffer size for input (%d-%d)\n")
-			_T("                                 default   hw: %d,  sw: %d\n"),
+			_T("                                 default   hw: %d,  sw: %d\n")
+			_T("                                 cannot be used with avqsv reader.\n"),
 			QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX,
 			QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
 			);
