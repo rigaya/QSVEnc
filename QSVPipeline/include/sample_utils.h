@@ -155,6 +155,9 @@ public:
 	//virtual mfxStatus Init(const msdk_char *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<msdk_char*> srcFileBuff);
 	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
 
+	const sTrimParam *GetTrimParam() {
+		return &m_sTrimParam;
+	}
 	mfxU32 m_ColorFormat; // color format of input YUV data, YUV420 or NV12
 	void GetInputCropInfo(sInputCrop *cropInfo) {
 		memcpy(cropInfo, &m_sInputCrop, sizeof(m_sInputCrop));
@@ -202,6 +205,8 @@ protected:
 	mfxU8 *buffer;
 
 	std::basic_string<msdk_char> m_strInputInfo;
+
+	sTrimParam m_sTrimParam;
 };
 
 class CSmplBitstreamWriter

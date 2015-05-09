@@ -167,7 +167,7 @@ protected:
 	MFXVideoVPP* m_pmfxVPP;
 	std::unique_ptr<MFXPlugin> m_pPlugin;
 
-	std::vector<sTrim> m_TrimList;
+	const sTrimParam *m_pTrimParam;
 
 	mfxVideoParam m_mfxDecParams;
 	mfxVideoParam m_mfxEncParams;

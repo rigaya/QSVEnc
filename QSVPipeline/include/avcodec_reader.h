@@ -157,8 +157,6 @@ private:
 	std::vector<AVPacket> m_AudioPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
 	std::vector<AVPacket> m_AudioPacketsBufferL2;       //音声のAVPacketのバッファ
 	mfxU32                m_AudioPacketsBufferL2Used;   //m_AudioPacketsBufferL2のパケットのうち、すでに使用したもの
-
-	std::vector<sTrim> m_sTrimList;
 };
 
 #endif //ENABLE_AVCODEC_QSV_READER

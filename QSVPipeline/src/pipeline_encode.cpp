@@ -1790,7 +1790,7 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 
 	if (pParams->nTrimCount) {
 		if (m_pFileReader->getInputCodec()) {
-			m_TrimList = std::vector<sTrim>(pParams->pTrimList, pParams->pTrimList + pParams->nTrimCount);
+			m_pTrimParam = m_pFileReader->GetTrimParam();
 		} else {
 			PrintMes(QSV_LOG_ERROR, _T("Trim is only supported with transcoding (avqsv reader).\n"));
 			return MFX_PRINT_OPTION_ERR;
@@ -2144,7 +2144,7 @@ void CEncodingPipeline::Close()
 
 	m_pPlugin.reset();
 
-	m_TrimList.clear();
+	m_pTrimParam = NULL;
 
 	MSDK_SAFE_DELETE(m_pmfxDEC);
 	MSDK_SAFE_DELETE(m_pmfxENC);
@@ -2733,7 +2733,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			MSDK_BREAK_ON_ERROR(sts);
 		}
 
-		if (!frame_inside_range(nInputFrameCount, m_TrimList))
+		if (!frame_inside_range(nInputFrameCount, m_pTrimParam->list))
 			continue;
 
 		sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
@@ -2785,7 +2785,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 				MSDK_BREAK_ON_ERROR(sts);
 			}
 
-			if (!frame_inside_range(nInputFrameCount, m_TrimList))
+			if (!frame_inside_range(nInputFrameCount, m_pTrimParam->list))
 				continue;
 
 			sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
@@ -3048,16 +3048,16 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		free(vpp_mes);
 		VppExtMes.clear();
 	}
-	if (m_TrimList.size()) {
+	if (m_pTrimParam != NULL && m_pTrimParam->list.size()) {
 		PRINT_INFO(_T("Trim              "));
-		for (auto trim : m_TrimList) {
+		for (auto trim : m_pTrimParam->list) {
 			if (trim.fin == TRIM_MAX) {
-				PRINT_INFO(_T("%d-fin "), trim.start);
+				PRINT_INFO(_T("%d-fin "), trim.start + m_pTrimParam->offset);
 			} else {
-				PRINT_INFO(_T("%d-%d "), trim.start, trim.fin);
+				PRINT_INFO(_T("%d-%d "), trim.start + m_pTrimParam->offset, trim.fin + m_pTrimParam->offset);
 			}
 		}
-		PRINT_INFO(_T("\n"));
+		PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
 	}
 	PRINT_INFO(    _T("Output Video      %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
 													 get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,

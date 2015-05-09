@@ -58,6 +58,11 @@ typedef struct {
 	int start, fin;
 } sTrim;
 
+typedef struct {
+	std::vector<sTrim> list;
+	int offset;
+} sTrimParam;
+
 static const int TRIM_MAX = INT_MAX;
 
 static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {

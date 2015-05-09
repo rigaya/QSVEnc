@@ -87,7 +87,8 @@ void CAvcodecReader::Close() {
 		av_free(demux.extradata);
 	}
 
-	m_sTrimList.clear();
+	m_sTrimParam.list.clear();
+	m_sTrimParam.offset = 0;
 
 	//free input buffer (使用していない)
 	//if (buffer) {
@@ -169,6 +170,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 		framePosList.push_back(pos);
 		if (firstKeyframePos.duration == 0 && pkt.flags & AV_PKT_FLAG_KEY) {
 			firstKeyframePos = pos;
+			//キーフレームに到達するまでQSVではフレームが出てこない
+			//そのぶんのずれを記録しておき、Trim値などに補正をかける
+			m_sTrimParam.offset = i;
 		}
 		av_free_packet(&pkt);
 	}
@@ -263,7 +267,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	demux.videoFrameData.cs_initialized = true;
 
 	const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
-	m_sTrimList = std::vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
 	
 	std::string filename_char;
 	if (0 == tchar_to_string(strFileName, filename_char)) {
@@ -363,6 +366,21 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	}
 	WipeMfxBitstream(&bitstream);
 
+	m_sTrimParam.list = std::vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
+	//キーフレームに到達するまでQSVではフレームが出てこない
+	//そのぶんのずれを記録しておき、Trim値などに補正をかける
+	if (m_sTrimParam.offset) {
+		for (int i = (int)m_sTrimParam.list.size() - 1; i >= 0; i--) {
+			if (m_sTrimParam.list[i].fin - m_sTrimParam.offset < 0) {
+				m_sTrimParam.list.erase(m_sTrimParam.list.begin() + i);
+			} else {
+				m_sTrimParam.list[i].start = (std::max)(0, m_sTrimParam.list[i].start - m_sTrimParam.offset);
+				m_sTrimParam.list[i].fin   = (std::max)(0, m_sTrimParam.list[i].fin   - m_sTrimParam.offset);
+			}
+		}
+	}
+
+	//getFirstFramePosAndFrameRateをもとにfpsを決定
 	m_sDecParam.mfx.FrameInfo.FrameRateExtN = demux.videoAvgFramerate.num;
 	m_sDecParam.mfx.FrameInfo.FrameRateExtD = demux.videoAvgFramerate.den;
 	const mfxU32 fps_gcd = GCD(m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD);
@@ -434,8 +452,8 @@ bool CAvcodecReader::checkAudioPacketToAdd(const AVPacket *pkt) {
 	const mfxI64 aud_start = pkt->pts;
 	const mfxI64 aud_fin   = pkt->pts + pkt->duration;
 
-	const bool frame_is_in_range = frame_inside_range(demux.lastVidIndex,     m_sTrimList);
-	const bool next_is_in_range  = frame_inside_range(demux.lastVidIndex + 1, m_sTrimList);
+	const bool frame_is_in_range = frame_inside_range(demux.lastVidIndex,     m_sTrimParam.list);
+	const bool next_is_in_range  = frame_inside_range(demux.lastVidIndex + 1, m_sTrimParam.list);
 
 	bool result = true; //動画に含まれる音声かどうか
 
