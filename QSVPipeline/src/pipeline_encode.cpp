@@ -1883,24 +1883,24 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 	//check for crop settings
 	if (pParams->sInCrop.left % 2 != 0 || pParams->sInCrop.right % 2 != 0) {
 		PrintMes(QSV_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
-		return MFX_PRINT_OPTION_ERR;
+		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 	if (pParams->sInCrop.bottom % h_mul != 0 || pParams->sInCrop.up % h_mul != 0) {
 		PrintMes(QSV_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
-		return MFX_PRINT_OPTION_ERR;
+		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 	if (0 == pParams->nWidth || 0 == pParams->nHeight) {
 		PrintMes(QSV_LOG_ERROR, _T("--input-res must be specified with raw input.\n"));
-		return MFX_PRINT_OPTION_ERR;
+		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 	if (pParams->nFPSRate == 0 || pParams->nFPSScale == 0) {
 		PrintMes(QSV_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
-		return MFX_PRINT_OPTION_ERR;
+		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 	if (   pParams->nWidth < (pParams->sInCrop.left + pParams->sInCrop.right)
 		|| pParams->nHeight < (pParams->sInCrop.bottom + pParams->sInCrop.up)) {
 			PrintMes(QSV_LOG_ERROR, _T("crop size is too big.\n"));
-			return MFX_PRINT_OPTION_ERR;
+			return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 
 	// if no destination picture width or height wasn't specified set it to the source picture size
@@ -1924,18 +1924,18 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 	}
 	if (pParams->nDstWidth % 2 != 0) {
 		PrintMes(QSV_LOG_ERROR, _T("output width should be a multiple of 2."));
-		return MFX_PRINT_OPTION_ERR;
+		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 
 	if (pParams->nDstHeight % h_mul != 0) {
 		PrintMes(QSV_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
-		return MFX_PRINT_OPTION_ERR;
+		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 
 	//Cehck For Framerate
 	if (pParams->nFPSRate == 0 || pParams->nFPSScale == 0) {
 		PrintMes(QSV_LOG_ERROR, _T("unable to parse fps data.\n"));
-		return MFX_PRINT_OPTION_ERR;
+		return MFX_ERR_INVALID_VIDEO_PARAM;
 	}
 	mfxU32 OutputFPSRate = pParams->nFPSRate;
 	mfxU32 OutputFPSScale = pParams->nFPSScale;
