@@ -20,6 +20,8 @@ typedef struct AVMuxer {
 	AVStream             *pStreamAudio;     //出力ファイルの音声ストリーム
 	int                   nPacketWritten;   //出力したパケットの数
 	mfxI64                nLastPktDtsAudio; //出力音声のdts
+
+	bool                  bStreamError;     //エラーが発生
 } AVMuxer;
 
 typedef struct AvcodecWriterPrm {

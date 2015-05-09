@@ -28,7 +28,9 @@ CAvcodecWriter::~CAvcodecWriter() {
 void CAvcodecWriter::Close() {
 	//close audio file
 	if (m_Muxer.pFormatCtx) {
-		av_write_trailer(m_Muxer.pFormatCtx);
+		if (!m_Muxer.bStreamError) {
+			av_write_trailer(m_Muxer.pFormatCtx);
+		}
 		avio_close(m_Muxer.pFormatCtx->pb);
 		avformat_free_context(m_Muxer.pFormatCtx);
 	}
@@ -44,6 +46,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 		return MFX_ERR_NULL_PTR;
 	}
 	
+	m_Muxer.bStreamError = true;
 	const AvcodecWriterPrm *prm = (const AvcodecWriterPrm *)option;
 
 	std::string filename;
@@ -85,10 +88,9 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 
 	int ret = 0;
 	if (0 > (ret = avformat_write_header(m_Muxer.pFormatCtx, NULL))) {
-		m_strOutputInfo += _T("avcodec writer: failed to write header for audio.\n");
+		m_strOutputInfo += _T("avcodec writer: failed to write header for audio. :");
 		char buf[1024];
 		av_make_error_string(buf, sizeof(buf), ret);
-		m_strOutputInfo += _T("         ");
 		m_strOutputInfo += char_to_tstring(buf);
 		m_strOutputInfo += _T("\n");
 		return MFX_ERR_UNKNOWN;
@@ -103,6 +105,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	m_strOutputInfo += mes;
 
 	m_pEncSatusInfo = pEncSatusInfo;
+	m_Muxer.bStreamError = false;
 
 	return MFX_ERR_NONE;
 }
@@ -117,7 +120,8 @@ mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 	pkt->duration = duration;
 	pkt->dts      = m_Muxer.nLastPktDtsAudio;
 	pkt->pts      = m_Muxer.nLastPktDtsAudio;
-	return 0 == av_write_frame(m_Muxer.pFormatCtx, pkt) ? MFX_ERR_NONE : MFX_ERR_UNKNOWN;
+	m_Muxer.bStreamError = 0 != av_write_frame(m_Muxer.pFormatCtx, pkt);
+	return (m_Muxer.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
 #endif //ENABLE_AVCODEC_QSV_READER

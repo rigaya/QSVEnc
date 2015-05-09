@@ -354,7 +354,7 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
 		InitMfxBitstream(&m_DecInputBitstream, AVCODEC_READER_INPUT_BUF_SIZE);
 		//m_DecInputBitstream.TimeStamp = MFX_TIMESTAMP_UNKNOWN;
 
-		sts = m_pFileReader->GetHeader(&m_DecInputBitstream);		
+		sts = m_pFileReader->GetHeader(&m_DecInputBitstream);
 		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to get stream header from reader."));
 
 		//デコーダの作成
@@ -1803,7 +1803,7 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 			m_pTrimParam = m_pFileReader->GetTrimParam();
 		} else {
 			PrintMes(QSV_LOG_ERROR, _T("Trim is only supported with transcoding (avqsv reader).\n"));
-			return MFX_PRINT_OPTION_ERR;
+			return MFX_ERR_UNSUPPORTED;
 		}
 	}
 
@@ -1821,7 +1821,7 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 		auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
 		if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
 			PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
-			return MFX_PRINT_OPTION_ERR;
+			return MFX_ERR_UNSUPPORTED;
 		} else {
 			m_pFileWriterAudio = new CAvcodecWriter();
 			AvcodecWriterPrm writerAudioPrm = { 0 };
@@ -2528,6 +2528,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 		(m_pmfxVPP) ? m_VppResponse.NumFrameActual : m_EncResponse.NumFrameActual);
 
 	auto extract_audio =[&]() {
+		mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_AVCODEC_QSV_READER
 		if (m_pFileWriterAudio) {
 			auto pAVCodecWriter = reinterpret_cast<CAvcodecWriter *>(m_pFileWriterAudio);
@@ -2535,18 +2536,22 @@ mfxStatus CEncodingPipeline::RunEncode()
 			if (pAVCodecWriter != NULL || pAVCodecReader != NULL) {
 				auto packetList = pAVCodecReader->GetAudioDataPackets();
 				for (mfxU32 i = 0; i < packetList.size(); i++) {
-					pAVCodecWriter->WriteNextFrame(&packetList[i]);
+					if (MFX_ERR_NONE != (sts = pAVCodecWriter->WriteNextFrame(&packetList[i]))) {
+						return sts;
+					}
 				}
 			}
 		}
 #endif //ENABLE_AVCODEC_QSV_READER
+		return sts;
 	};
 
 	auto decode_one_frame = [&](bool getNextBitstream) {
 		mfxStatus dec_sts = MFX_ERR_NONE;
 		if (m_pmfxDEC) {
 			if (getNextBitstream) {
-				extract_audio();
+				dec_sts = extract_audio();
+				MSDK_CHECK_RESULT_MES(dec_sts, MFX_ERR_NONE, dec_sts, _T("Error on extracting audio."));
 				//この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
 				dec_sts = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
 				MSDK_IGNORE_MFX_STS(dec_sts, MFX_ERR_MORE_DATA);
@@ -2762,7 +2767,8 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 	if (m_pmfxDEC)
 	{
-		extract_audio();
+		sts = extract_audio();
+		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error on extracting audio."));
 
 		while (MFX_ERR_NONE <= sts || sts == MFX_ERR_MORE_SURFACE) {
 			// get a pointer to a free task (bit stream and sync point for encoder)
