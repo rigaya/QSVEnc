@@ -25,6 +25,15 @@
 #define AVDEBUG_PRINT(fmt, ...)
 #endif
 
+tstring getAVQSVSupportedCodecList() {
+	tstring codecs;
+	for (int i = 0; i < _countof(QSV_DECODE_LIST); i++) {
+		if (i) codecs += _T(", ");
+		codecs += CodecIdToStr(QSV_DECODE_LIST[i].qsv_fourcc);
+	}
+	return codecs;
+}
+
 static inline void extend_array_size(VideoFrameData *dataset) {
 	static int default_capacity = 8 * 1024;
 	int current_cap = dataset->capacity;
@@ -95,9 +104,9 @@ void CAvcodecReader::Close() {
 }
 
 mfxU32 CAvcodecReader::getQSVFourcc(mfxU32 id) {
-	for (int i = 0; i < _countof(QSV_LIST); i++)
-		if (QSV_LIST[i].codec_id == id)
-			return QSV_LIST[i].qsv_fourcc;
+	for (int i = 0; i < _countof(QSV_DECODE_LIST); i++)
+		if (QSV_DECODE_LIST[i].codec_id == id)
+			return QSV_DECODE_LIST[i].qsv_fourcc;
 	return 0;
 }
 

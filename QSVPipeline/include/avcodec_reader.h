@@ -60,7 +60,7 @@ typedef struct QSVCodec {
 } QSVCodec;
 
 //QSVでデコード可能なコーデックのリスト
-static const QSVCodec QSV_LIST[] = { 
+static const QSVCodec QSV_DECODE_LIST[] = { 
 	{ AV_CODEC_ID_MPEG2VIDEO, MFX_CODEC_MPEG2 },
 	{ AV_CODEC_ID_H264,       MFX_CODEC_AVC   },
 	{ AV_CODEC_ID_HEVC,       MFX_CODEC_HEVC  },

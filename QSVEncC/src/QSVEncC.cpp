@@ -26,6 +26,10 @@
 #include "qsv_prm.h"
 #include "qsv_version.h"
 
+#if ENABLE_AVCODEC_QSV_READER
+tstring getAVQSVSupportedCodecList();
+#endif
+
 static void PrintVersion() {
 	static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
 #ifdef _M_IX86
@@ -37,8 +41,11 @@ static void PrintVersion() {
 	_ftprintf(stdout, _T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
 	_ftprintf(stdout, _T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
 	_ftprintf(stdout, _T("  vpy reader:   %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
-	_ftprintf(stdout, _T("  avqsv reader: %s\n"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
-	_ftprintf(stdout, _T("\n"));
+	_ftprintf(stdout, _T("  avqsv reader: %s"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
+#if ENABLE_AVCODEC_QSV_READER
+	_ftprintf(stdout, _T(" [%s]"), getAVQSVSupportedCodecList().c_str());
+#endif
+	_ftprintf(stdout, _T("\n\n"));
 }
 
 //適当に改行しながら表示する
