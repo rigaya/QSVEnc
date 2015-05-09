@@ -1293,11 +1293,15 @@ mfxStatus CEncodingPipeline::AllocFrames()
 		nVppSurfNum += m_EncThread.m_nFrameBuffer + DecRequest.NumFrameSuggested;
 		if (m_pmfxDEC) {
 			VppRequest[0].Type = DecRequest.Type;
+			m_mfxVppParams.mfx.FrameInfo.Width = DecRequest.Info.Width;
+			m_mfxVppParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
 		}
 	} else {
 		nEncSurfNum += m_EncThread.m_nFrameBuffer + DecRequest.NumFrameSuggested;
 		if (m_pmfxDEC) {
 			EncRequest.Type |= MFX_MEMTYPE_FROM_DECODE;
+			m_mfxEncParams.mfx.FrameInfo.Width = DecRequest.Info.Width;
+			m_mfxEncParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
 		}
 	}
 
