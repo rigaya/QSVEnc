@@ -551,10 +551,12 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 				pInParams->bforceGOPSettings = true;
 				break;
 			}
-		} else if (m_pFileReader->getInputCodec()) {
+		}
+		if (m_pFileReader->getInputCodec()) {
 			PrintMes(QSV_LOG_WARN, _T("Scene change detection cannot be used with transcoding, disabled.\n"));
 			pInParams->bforceGOPSettings = true;
-		} else {
+		}
+		if (!pInParams->bforceGOPSettings) {
 			m_nExPrm |= MFX_PRM_EX_SCENE_CHANGE;
 		}
 	}
