@@ -108,18 +108,15 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 }
 
 mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
-	if (m_Muxer.nPacketWritten == 0) {
-		//最初のパケットのptsを記憶しておく
-		m_Muxer.nFirstPktPts = pkt->pts;
-		m_Muxer.nFirstPktDts = pkt->dts;
-	}
 	m_Muxer.nPacketWritten++;
 	pkt->stream_index = m_Muxer.pStreamAudio->id;
-	//pts, dts, durationについて、パケットのtimebaseから出力ストリームのtimebaseに変更する
-	//pts, dtsについては、先頭が0になるよう注意する
-	pkt->pts      = av_rescale_q(pkt->pts - m_Muxer.nFirstPktPts, m_Muxer.pStreamAudio->codec->pkt_timebase, m_Muxer.pStreamAudio->time_base);
-	pkt->dts      = av_rescale_q(pkt->dts - m_Muxer.nFirstPktDts, m_Muxer.pStreamAudio->codec->pkt_timebase, m_Muxer.pStreamAudio->time_base);
-	pkt->duration = (int)av_rescale_q(pkt->duration,              m_Muxer.pStreamAudio->codec->pkt_timebase, m_Muxer.pStreamAudio->time_base);
+	//durationについて、パケットのtimebaseから出力ストリームのtimebaseに変更する
+	const int duration = (int)av_rescale_q(pkt->duration, m_Muxer.pStreamAudio->codec->pkt_timebase, m_Muxer.pStreamAudio->time_base);
+	m_Muxer.nLastPktDtsAudio += duration;
+
+	pkt->duration = duration;
+	pkt->dts      = m_Muxer.nLastPktDtsAudio;
+	pkt->pts      = m_Muxer.nLastPktDtsAudio;
 	return 0 == av_write_frame(m_Muxer.pFormatCtx, pkt) ? MFX_ERR_NONE : MFX_ERR_UNKNOWN;
 }
 

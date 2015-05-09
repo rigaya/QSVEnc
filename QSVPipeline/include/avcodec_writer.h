@@ -15,12 +15,11 @@
 #include "avcodec_qsv.h"
 
 typedef struct AVMuxer {
-	AVFormatContext      *pFormatCtx;      //出力ファイルのformatContext
-	AVOutputFormat       *pOutputFmt;      //出力ファイルのoutputFormat
-	AVStream             *pStreamAudio;    //出力ファイルの音声ストリーム
-	int                   nPacketWritten;  //出力したパケットの数
-	mfxI64                nFirstPktPts;    //最初のパケットのpts
-	mfxI64                nFirstPktDts;    //最初のパケットのdts
+	AVFormatContext      *pFormatCtx;       //出力ファイルのformatContext
+	AVOutputFormat       *pOutputFmt;       //出力ファイルのoutputFormat
+	AVStream             *pStreamAudio;     //出力ファイルの音声ストリーム
+	int                   nPacketWritten;   //出力したパケットの数
+	mfxI64                nLastPktDtsAudio; //出力音声のdts
 } AVMuxer;
 
 typedef struct AvcodecWriterPrm {
