@@ -575,18 +575,36 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
 	mfxU64 feature = 0x00;
 	//まずレート制御モードをチェック
-	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)
-		&& (MFX_RATECONTROL_ICQ    == ratecontrol
-		 || MFX_RATECONTROL_LA_ICQ == ratecontrol
-		 || MFX_RATECONTROL_VCM    == ratecontrol)) {
-		return feature;
+	BOOL rate_control_supported = false;
+	switch (ratecontrol) {
+	case MFX_RATECONTROL_CBR:
+	case MFX_RATECONTROL_VBR:
+	case MFX_RATECONTROL_CQP:
+	case MFX_RATECONTROL_VQP:
+		rate_control_supported = true;
+		break;
+	case MFX_RATECONTROL_AVBR:
+		rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_3);
+		break;
+	case MFX_RATECONTROL_LA:
+		rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_7);
+		break;
+	case MFX_RATECONTROL_ICQ:
+	case MFX_RATECONTROL_LA_ICQ:
+	case MFX_RATECONTROL_VCM:
+		rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_8);
+		break;
+	case MFX_RATECONTROL_LA_EXT:
+		rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_10);
+		break;
+	case MFX_RATECONTROL_LA_HRD:
+	case MFX_RATECONTROL_QVBR:
+		rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_11);
+		break;
+	default:
+		break;
 	}
-	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_7)
-		&& MFX_RATECONTROL_LA == ratecontrol) {
-		return feature;
-	}
-	if (!check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)
-		&& MFX_RATECONTROL_AVBR == ratecontrol) {
+	if (!rate_control_supported) {
 		return feature;
 	}
 
