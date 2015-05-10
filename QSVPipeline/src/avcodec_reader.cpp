@@ -505,16 +505,23 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 				av_free_packet(pkt); //メモリ解放を忘れない
 				av_packet_from_data(pkt, data, dataSize);
 			}
-			//最初のptsが格納されていたら、後続のptsを格納していく
+			//最初のptsが格納されていたら( = getFirstFramePosAndFrameRate()が実行済み)、後続のptsを格納していく
 			if (demux.videoFrameData.num) {
-				//AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
-				//0フレーム目は格納されているので、その次からを格納する
-				if (demux.videoStreamPtsInvalid && demux.sampleLoadCount) {
-					int duration = demux.videoFrameData.frame[0].duration;
-					addVideoPtsToList({ demux.sampleLoadCount * duration, duration });
-				//最初のptsは格納されているので、その次からを格納する
-				} else if (demux.videoFrameData.frame[0].pts < pkt->pts) {
-					addVideoPtsToList({ pkt->pts, pkt->duration });
+				//最初のキーフレームを取得するまではスキップする
+				if (!demux.videoGotFirstKeyframe && !(pkt->flags & AV_PKT_FLAG_KEY)) {
+					av_free_packet(pkt);
+					continue;
+				} else {
+					demux.videoGotFirstKeyframe = true;
+					//AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
+					//0フレーム目は格納されているので、その次からを格納する
+					if (demux.videoStreamPtsInvalid && demux.sampleLoadCount) {
+						int duration = demux.videoFrameData.frame[0].duration;
+						addVideoPtsToList({ demux.sampleLoadCount * duration, duration });
+					//最初のptsは格納されているので、その次からを格納する
+					} else {
+						addVideoPtsToList({ pkt->pts, pkt->duration });
+					}
 				}
 			}
 			return 0;

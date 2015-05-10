@@ -38,6 +38,7 @@ typedef struct AVDemuxer {
 	int                       videoIndex;                 //動画のストリームID
 	int64_t                   videoStreamFirstPts;        //動画ファイルの最初のpts
 	bool                      videoStreamPtsInvalid;      //動画ファイルのptsが無効 (H.264/ES等)
+	bool                      videoGotFirstKeyframe;      //動画の最初のキーフレームを取得済み
 	VideoFrameData            videoFrameData;             //動画フレームのptsのリスト
 	AVBitStreamFilterContext *bsfc;                       //必要なら使用するbitstreamfilter
 	mfxU8                    *extradata;                  //動画のヘッダ情報
