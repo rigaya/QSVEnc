@@ -89,10 +89,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	int ret = 0;
 	if (0 > (ret = avformat_write_header(m_Muxer.pFormatCtx, NULL))) {
 		m_strOutputInfo += _T("avcodec writer: failed to write header for audio. :");
-		char buf[1024];
-		av_make_error_string(buf, sizeof(buf), ret);
-		m_strOutputInfo += char_to_tstring(buf);
-		m_strOutputInfo += _T("\n");
+		m_strOutputInfo += qsv_av_err2str(ret) + tstring(_T("\n"));
 		return MFX_ERR_UNKNOWN;
 	}
 	av_dump_format(m_Muxer.pFormatCtx, 0, m_Muxer.pFormatCtx->filename, 1);

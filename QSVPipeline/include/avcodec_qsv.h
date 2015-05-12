@@ -28,6 +28,8 @@ extern "C" {
 #pragma comment (lib, "avutil.lib")
 #pragma warning (pop)
 
+#include "qsv_util.h"
+
 #if _DEBUG
 #define QSV_AV_LOG_LEVEL AV_LOG_WARNING
 #else
@@ -38,6 +40,12 @@ static const AVRational QSV_NATIVE_TIMEBASE = { 1, 90000 };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
 	_T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
 };
+
+static tstring qsv_av_err2str(int ret) {
+	char mes[256];
+	av_make_error_string(mes, sizeof(mes), ret);
+	return char_to_tstring(mes);
+}
 
 //必要なavcodecのdllがそろっているかを確認
 static bool check_avcodec_dll() {
