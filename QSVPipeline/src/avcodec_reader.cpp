@@ -399,8 +399,13 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	}
 
 	//音声ストリームを探す
-	if (input_prm->bReadAudio && -1 != (demux.audioIndex = getAudioStream())) {
-		demux.pCodecCtxAudio = demux.pFormatCtx->streams[demux.audioIndex]->codec;
+	if (input_prm->bReadAudio) {
+		if (-1 == (demux.audioIndex = getAudioStream())) {
+			m_strInputInfo += _T("avcodec reader: --audio-file is set, but no audio stream found.\n");
+			return MFX_ERR_NOT_FOUND;
+		} else {
+			demux.pCodecCtxAudio = demux.pFormatCtx->streams[demux.audioIndex]->codec;
+		}
 	}
 
 	//情報を格納
