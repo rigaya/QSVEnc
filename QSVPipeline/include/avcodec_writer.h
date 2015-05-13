@@ -19,6 +19,15 @@ typedef struct AVMuxer {
 	AVOutputFormat       *pOutputFmt;       //出力ファイルのoutputFormat
 	AVStream             *pStreamAudio;     //出力ファイルの音声ストリーム
 	int                   nPacketWritten;   //出力したパケットの数
+	AVRational            pktTimebase;      //元の音声ストリームのtimebase
+	
+	//PCMの変換用
+	AVCodec              *pAudioOutCodecDecode;     //変換するPCMの元のコーデック
+	AVCodecContext       *pAudioOutCodecDecodeCtx;  //変換するPCMの元のCodecContext
+	AVCodec              *pAudioOutCodecEncode;     //変換先のPCMの音声のコーデック
+	AVCodecContext       *pAudioOutCodecEncodeCtx;  //変換先のPCMの音声のCodecContext
+	AVPacket              audioOutPacket;           //変換用の音声バッファ
+
 	mfxI64                nLastPktDtsAudio; //出力音声のdts
 
 	bool                  bStreamError;     //エラーが発生
@@ -40,6 +49,7 @@ public:
 
 	virtual void Close();
 private:
+	AVCodecID PCMRequiresConversion(const AVCodecContext *audioCtx);
 	AVMuxer m_Muxer;
 };
 

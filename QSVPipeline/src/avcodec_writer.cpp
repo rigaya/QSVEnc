@@ -26,6 +26,23 @@ CAvcodecWriter::~CAvcodecWriter() {
 }
 
 void CAvcodecWriter::Close() {
+	//close decoder
+	if (m_Muxer.pAudioOutCodecDecodeCtx) {
+		avcodec_close(m_Muxer.pAudioOutCodecDecodeCtx);
+		av_free(m_Muxer.pAudioOutCodecDecodeCtx);
+	}
+
+	//close encoder
+	if (m_Muxer.pAudioOutCodecEncodeCtx) {
+		avcodec_close(m_Muxer.pAudioOutCodecEncodeCtx);
+		av_free(m_Muxer.pAudioOutCodecEncodeCtx);
+	}
+
+	//free packet
+	if (m_Muxer.audioOutPacket.data) {
+		av_free_packet(&m_Muxer.audioOutPacket);
+	}
+
 	//close audio file
 	if (m_Muxer.pFormatCtx) {
 		if (!m_Muxer.bStreamError) {
@@ -40,6 +57,39 @@ void CAvcodecWriter::Close() {
 	MSDK_ZERO_MEMORY(m_Muxer);
 }
 
+AVCodecID CAvcodecWriter::PCMRequiresConversion(const AVCodecContext *audioCtx) {
+	static const std::pair<AVCodecID, AVCodecID> pcmConvertCodecs[] = {
+		{ AV_CODEC_ID_FIRST_AUDIO,      AV_CODEC_ID_FIRST_AUDIO },
+		{ AV_CODEC_ID_PCM_DVD,          AV_CODEC_ID_FIRST_AUDIO },
+		{ AV_CODEC_ID_PCM_BLURAY,       AV_CODEC_ID_FIRST_AUDIO },
+		{ AV_CODEC_ID_PCM_S8_PLANAR,    AV_CODEC_ID_PCM_S8      },
+		{ AV_CODEC_ID_PCM_S16LE_PLANAR, AV_CODEC_ID_PCM_S16LE   },
+		{ AV_CODEC_ID_PCM_S16BE_PLANAR, AV_CODEC_ID_PCM_S16LE   },
+		{ AV_CODEC_ID_PCM_S16BE,        AV_CODEC_ID_PCM_S16LE   },
+		{ AV_CODEC_ID_PCM_S24LE_PLANAR, AV_CODEC_ID_PCM_S24LE   },
+		{ AV_CODEC_ID_PCM_S24BE,        AV_CODEC_ID_PCM_S24LE   },
+		{ AV_CODEC_ID_PCM_S32LE_PLANAR, AV_CODEC_ID_PCM_S32LE   },
+		{ AV_CODEC_ID_PCM_S32BE,        AV_CODEC_ID_PCM_S32LE   },
+		{ AV_CODEC_ID_PCM_F32BE,        AV_CODEC_ID_PCM_S32LE   },
+		{ AV_CODEC_ID_PCM_F64BE,        AV_CODEC_ID_PCM_S32LE   },
+	};
+	for (int i = 0; i < _countof(pcmConvertCodecs); i++) {
+		if (pcmConvertCodecs[i].first == audioCtx->codec_id) {
+			if (pcmConvertCodecs[i].second != AV_CODEC_ID_FIRST_AUDIO) {
+				return pcmConvertCodecs[i].second;
+			}
+			switch (audioCtx->bits_per_raw_sample) {
+			case 32: return AV_CODEC_ID_PCM_S32LE;
+			case 24: return AV_CODEC_ID_PCM_S24LE;
+			case 8:  return AV_CODEC_ID_PCM_S16LE;
+			case 16:
+			default: return AV_CODEC_ID_PCM_S16LE;
+			}
+		}
+	}
+	return AV_CODEC_ID_NONE;
+}
+
 mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option, CEncodeStatusInfo *pEncSatusInfo) {
 	if (!check_avcodec_dll()) {
 		m_strOutputInfo += error_mes_avcodec_dll_not_found();
@@ -48,6 +98,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	
 	m_Muxer.bStreamError = true;
 	const AvcodecWriterPrm *prm = (const AvcodecWriterPrm *)option;
+	m_Muxer.pktTimebase = prm->pCodecCtxAudioIn->pkt_timebase;
 
 	std::string filename;
 	if (0 == tchar_to_string(strFileName, filename)) {
@@ -77,8 +128,50 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 		return MFX_ERR_NULL_PTR;
 	}
 
+	//音声がwavの場合、フォーマット変換が必要な場合がある
+	AVCodecID codecId = AV_CODEC_ID_NONE;
+	if (AV_CODEC_ID_NONE != (codecId = PCMRequiresConversion(prm->pCodecCtxAudioIn))) {
+		auto error_mes =[](const TCHAR *mes, AVCodecID targetCodec) {
+			return mes + tstring(_T(" for ")) + char_to_tstring(avcodec_get_name(targetCodec)).c_str() + tstring(_T(".\n"));
+		};
+		//PCM decoder
+		if (NULL == (m_Muxer.pAudioOutCodecDecode = avcodec_find_decoder(prm->pCodecCtxAudioIn->codec_id))) {
+			m_strOutputInfo += error_mes(_T("avcodec writer: failed to find decoder"), prm->pCodecCtxAudioIn->codec_id);
+			return MFX_ERR_NULL_PTR;
+		}
+		if (NULL == (m_Muxer.pAudioOutCodecDecodeCtx = avcodec_alloc_context3(m_Muxer.pAudioOutCodecDecode))) {
+			m_strOutputInfo += error_mes( _T("avcodec writer: failed to get decode codec context"), prm->pCodecCtxAudioIn->codec_id);
+			return MFX_ERR_NULL_PTR;
+		}
+		if (0 > avcodec_open2(m_Muxer.pAudioOutCodecDecodeCtx, m_Muxer.pAudioOutCodecDecode, NULL)) {
+			m_strOutputInfo += error_mes( _T("avcodec writer: failed to open decoder"), prm->pCodecCtxAudioIn->codec_id);
+			return MFX_ERR_NULL_PTR;
+		}
+		av_new_packet(&m_Muxer.audioOutPacket, 512 * 1024);
+		m_Muxer.audioOutPacket.size = 0;
+
+		//PCM encoder
+		if (NULL == (m_Muxer.pAudioOutCodecEncode = avcodec_find_encoder(codecId))) {
+			m_strOutputInfo += error_mes( _T("avcodec writer: failed to find encoder"), codecId);
+			return MFX_ERR_NULL_PTR;
+		}
+		if (NULL == (m_Muxer.pAudioOutCodecEncodeCtx = avcodec_alloc_context3(m_Muxer.pAudioOutCodecEncode))) {
+			m_strOutputInfo += error_mes( _T("avcodec writer: failed to get encode codec context"), codecId);
+			return MFX_ERR_NULL_PTR;
+		}
+		m_Muxer.pAudioOutCodecEncodeCtx->sample_fmt          = prm->pCodecCtxAudioIn->sample_fmt;
+		m_Muxer.pAudioOutCodecEncodeCtx->sample_rate         = prm->pCodecCtxAudioIn->sample_rate;
+		m_Muxer.pAudioOutCodecEncodeCtx->channels            = prm->pCodecCtxAudioIn->channels;
+		m_Muxer.pAudioOutCodecEncodeCtx->channel_layout      = prm->pCodecCtxAudioIn->channel_layout;
+		m_Muxer.pAudioOutCodecEncodeCtx->bits_per_raw_sample = prm->pCodecCtxAudioIn->bits_per_raw_sample;
+		if (0 > avcodec_open2(m_Muxer.pAudioOutCodecEncodeCtx, m_Muxer.pAudioOutCodecEncode, NULL)) {
+			m_strOutputInfo += error_mes( _T("avcodec writer: failed to open encoder"), codecId);
+			return MFX_ERR_NULL_PTR;
+		}
+	}
+
 	//パラメータのコピー
-	avcodec_copy_context(m_Muxer.pStreamAudio->codec, prm->pCodecCtxAudioIn);
+	avcodec_copy_context(m_Muxer.pStreamAudio->codec, (m_Muxer.pAudioOutCodecEncodeCtx) ? m_Muxer.pAudioOutCodecEncodeCtx : prm->pCodecCtxAudioIn);
 	sprintf_s(m_Muxer.pFormatCtx->filename, filename.c_str());
 	m_Muxer.pStreamAudio->time_base = av_make_q(1, m_Muxer.pStreamAudio->codec->sample_rate);
 	m_Muxer.pStreamAudio->codec->time_base = m_Muxer.pStreamAudio->time_base;
@@ -109,15 +202,65 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 
 mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 	m_Muxer.nPacketWritten++;
-	pkt->stream_index = m_Muxer.pStreamAudio->id;
-	//durationについて、パケットのtimebaseから出力ストリームのtimebaseに変更する
-	const int duration = (int)av_rescale_q(pkt->duration, m_Muxer.pStreamAudio->codec->pkt_timebase, m_Muxer.pStreamAudio->time_base);
-	m_Muxer.nLastPktDtsAudio += duration;
 
-	pkt->duration = duration;
-	pkt->dts      = m_Muxer.nLastPktDtsAudio;
-	pkt->pts      = m_Muxer.nLastPktDtsAudio;
-	m_Muxer.bStreamError = 0 != av_write_frame(m_Muxer.pFormatCtx, pkt);
+	int duration = 0;
+	BOOL got_result = TRUE;
+	if (!m_Muxer.pAudioOutCodecDecodeCtx) {
+		//durationについて、パケットのtimebaseから出力ストリームのtimebaseに変更する
+		duration = (int)av_rescale_q(pkt->duration, m_Muxer.pktTimebase, m_Muxer.pStreamAudio->time_base);
+	} else {
+		AVFrame *decodedFrame = av_frame_alloc();
+		AVPacket *pktIn = pkt;
+		if (m_Muxer.audioOutPacket.size != 0) {
+			int currentSize = m_Muxer.audioOutPacket.size;
+			if (m_Muxer.audioOutPacket.buf->size < currentSize + pkt->size) {
+				av_grow_packet(&m_Muxer.audioOutPacket, currentSize + pkt->size);
+				m_Muxer.audioOutPacket.size = currentSize;
+			}
+			memcpy(m_Muxer.audioOutPacket.data, pkt->data, pkt->size);
+			m_Muxer.audioOutPacket.size += pkt->size;
+			pktIn = &m_Muxer.audioOutPacket;
+		}
+		//PCM decode
+		int len = 0;
+		if (0 > (len = avcodec_decode_audio4(m_Muxer.pAudioOutCodecDecodeCtx, decodedFrame, &got_result, pkt))) {
+			m_strOutputInfo += _T("avcodec writer: failed to convert pcm format(1). :");
+			m_strOutputInfo += qsv_av_err2str(len) + tstring(_T("\n"));
+			m_Muxer.bStreamError = true;
+		} else if (pkt->size != len) {
+			int newLen = pkt->size - len;
+			memmove(m_Muxer.audioOutPacket.data, pkt->data + len, newLen);
+			m_Muxer.audioOutPacket.size = newLen;
+		} else {
+			m_Muxer.audioOutPacket.size = 0;
+		}
+		if (got_result) {
+			//PCM encode
+			AVPacket encodePkt = { 0 };
+			av_init_packet(&encodePkt);
+			int ret = avcodec_encode_audio2(m_Muxer.pAudioOutCodecEncodeCtx, &encodePkt, decodedFrame, &got_result);
+			if (ret < 0) {
+				m_strOutputInfo += _T("avcodec writer: failed to convert pcm format(2). :");
+				m_strOutputInfo += qsv_av_err2str(ret) + tstring(_T("\n"));
+				m_Muxer.bStreamError = true;
+			} else if (got_result) {
+				duration = encodePkt.duration;
+				pkt = &encodePkt;
+			}
+		}
+		if (decodedFrame) {
+			av_frame_free(&decodedFrame);
+		}
+	}
+
+	if (duration) {
+		pkt->stream_index  = m_Muxer.pStreamAudio->id;
+		pkt->duration      = duration;
+		pkt->dts           = m_Muxer.nLastPktDtsAudio;
+		pkt->pts           = m_Muxer.nLastPktDtsAudio;
+		m_Muxer.bStreamError = 0 != av_write_frame(m_Muxer.pFormatCtx, pkt);
+		m_Muxer.nLastPktDtsAudio += duration;
+	}
 	return (m_Muxer.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
