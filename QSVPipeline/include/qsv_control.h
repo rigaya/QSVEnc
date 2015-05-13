@@ -190,14 +190,18 @@ public:
 		fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
 	}
 #pragma warning(pop)
-	virtual void UpdateDisplay(mfxU32 tm, int drop_frames)
+	virtual void UpdateDisplay(mfxU32 tm, int drop_frames, double progressPercent = 0.0)
 	{
 		if (m_sData.nProcessedFramesNum + drop_frames) {
 			TCHAR mes[256];
 			m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (double)(tm - m_sData.tmStart);
 			m_sData.fBitrateKbps = (mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames));
-			if (m_nTotalOutFrames) {
-				mfxU32 remaining_time = (mfxU32)((m_nTotalOutFrames - (m_sData.nProcessedFramesNum + drop_frames)) * 1000.0 / ((m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (mfxF64)(tm - m_sData.tmStart)));
+			if (m_nTotalOutFrames || progressPercent > 0.0) {
+				if (progressPercent == 0.0) {
+					progressPercent = (m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_nTotalOutFrames;
+				}
+				progressPercent = min(progressPercent, 100.0);
+				mfxU32 remaining_time = (mfxU32)((double)(tm - m_sData.tmStart) * (100.0 - progressPercent) / progressPercent + 0.5);
 				int hh = remaining_time / (60*60*1000);
 				remaining_time -= hh * (60*60*1000);
 				int mm = remaining_time / (60*1000);
@@ -205,8 +209,8 @@ public:
 				int ss = (remaining_time + 500) / 1000;
 
 				int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
-					(m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_nTotalOutFrames,
-					(m_sData.nProcessedFramesNum + drop_frames),
+					progressPercent,
+					m_sData.nProcessedFramesNum + drop_frames,
 					m_sData.fEncodeFps,
 					m_sData.fBitrateKbps,
 					hh, mm, ss );

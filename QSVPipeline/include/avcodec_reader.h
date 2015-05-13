@@ -19,6 +19,7 @@ static const mfxU32 AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 //フレームの位置情報と長さを格納する
 typedef struct FramePos {
 	int64_t pts;  //pts
+	int64_t dts;  //dts
 	int duration; //該当フレームの表示時間
 } FramePos;
 
@@ -28,6 +29,7 @@ typedef struct VideoFrameData {
 	int fixed_num;        //frame配列でフレーム順序が確定したフレーム数
 	int num;              //frame配列で現在格納されているデータ数
 	int capacity;         //frame配列を確保した数
+	int64_t duration;     //合計の動画の長さ
 	CRITICAL_SECTION cs;  //frame配列アクセスへの排他制御用
 	bool cs_initialized;  //csが初期化されているかどうか
 } VideoFrameData;
