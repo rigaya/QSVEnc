@@ -202,7 +202,8 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 
 mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 	m_Muxer.nPacketWritten++;
-
+	
+	AVPacket encodePkt = { 0 };
 	int duration = 0;
 	BOOL got_result = TRUE;
 	if (!m_Muxer.pAudioOutCodecDecodeCtx) {
@@ -236,7 +237,6 @@ mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 		}
 		if (got_result) {
 			//PCM encode
-			AVPacket encodePkt = { 0 };
 			av_init_packet(&encodePkt);
 			int ret = avcodec_encode_audio2(m_Muxer.pAudioOutCodecEncodeCtx, &encodePkt, decodedFrame, &got_result);
 			if (ret < 0) {
@@ -260,6 +260,9 @@ mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 		pkt->pts           = m_Muxer.nLastPktDtsAudio;
 		m_Muxer.bStreamError = 0 != av_write_frame(m_Muxer.pFormatCtx, pkt);
 		m_Muxer.nLastPktDtsAudio += duration;
+	}
+	if (encodePkt.data) {
+		av_free_packet(&encodePkt);
 	}
 	return (m_Muxer.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }

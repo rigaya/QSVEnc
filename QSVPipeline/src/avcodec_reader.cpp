@@ -90,6 +90,8 @@ void CAvcodecReader::Close() {
 	m_sTrimParam.list.clear();
 	m_sTrimParam.offset = 0;
 
+	m_hevcMp42AnnexbBuffer.clear();
+
 	//free input buffer (使用していない)
 	//if (buffer) {
 	//	free(buffer);
@@ -160,7 +162,7 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 }
 
 void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
-	static const mfxU8 SC[] ={ 0, 0, 0, 1 };
+	static const mfxU8 SC[] = { 0, 0, 0, 1 };
 	const mfxU8 *ptr, *ptr_fin;
 	if (pkt == NULL) {
 		m_hevcMp42AnnexbBuffer.reserve(demux.extradataSize + 128);
@@ -172,13 +174,14 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
 		ptr = pkt->data;
 		ptr_fin = ptr + pkt->size;
 	}
-	int numOfArrays = *ptr;
+	const int numOfArrays = *ptr;
 	ptr += !!numOfArrays;
 
 	while (ptr + 6 < ptr_fin) {
 		ptr += !!numOfArrays;
-		int count = readUB16(ptr); ptr += 2;
-		for (int i = MSDK_MAX(1, (numOfArrays) ? count : 1); i; i--) {
+		const int count = readUB16(ptr); ptr += 2;
+		int units = (numOfArrays) ? count : 1;
+		for (int i = MSDK_MAX(1, units); i; i--) {
 			uint32_t size = readUB16(ptr); ptr += 2;
 			uint32_t uppper = count << 16;
 			size += (numOfArrays) ? 0 : uppper;
@@ -193,8 +196,9 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
 		memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
 		pkt->size = (int)m_hevcMp42AnnexbBuffer.size();
 	} else {
-		if (demux.extradata)
+		if (demux.extradata) {
 			av_free(demux.extradata);
+		}
 		demux.extradata = (mfxU8 *)av_malloc(m_hevcMp42AnnexbBuffer.size());
 		demux.extradataSize = (int)m_hevcMp42AnnexbBuffer.size();
 		memcpy(demux.extradata, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
