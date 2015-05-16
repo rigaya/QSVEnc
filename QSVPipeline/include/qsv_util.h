@@ -44,6 +44,11 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage = CP
 tstring char_to_tstring(const char *str, DWORD codepage = CP_THREAD_ACP);
 std::vector<tstring> split(const tstring &str, const tstring &delim);
 
+static inline mfxU16 readUB16(const void *ptr) {
+	mfxU16 i = *(mfxU16 *)ptr;
+	return (i >> 8) | (i << 8);
+}
+
 enum {
 	QSV_LOG_DEBUG = -1,
 	QSV_LOG_INFO = 0,

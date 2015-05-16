@@ -47,6 +47,7 @@ typedef struct AVDemuxer {
 	int                       extradataSize;              //動画のヘッダサイズ
 	AVPacket                  videoPacket[2];             //取得した動画ストリームの1フレーム分のデータ
 	AVRational                videoAvgFramerate;          //動画のフレームレート
+	bool                      videoUseHEVCmp42AnnexB;     //HEVCのmp4->AnnexB変換
 
 	int                       audioIndex;                 //音声のストリームID
 	AVCodecContext           *pCodecCtxAudio;             //音声のcodecContext
@@ -147,6 +148,9 @@ private:
 	//ptsを動画のtimebaseから音声のtimebaseに変換する
 	mfxI64 convertTimebaseVidToAud(mfxI64 pts);
 
+	//HEVCのmp4->AnnexB簡易変換
+	void hevcMp42Annexb(AVPacket *pkt);
+
 	//gcdを取得
 	int getGcd(int a, int b) {
 		if (a == 0 || b == 0)
@@ -157,6 +161,7 @@ private:
 		return b;
 	}
 	AVDemuxer demux; //デコード用情報
+	std::vector<mfxU8>    m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
 	std::vector<AVPacket> m_AudioPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
 	std::vector<AVPacket> m_AudioPacketsBufferL2;       //音声のAVPacketのバッファ
 	mfxU32                m_AudioPacketsBufferL2Used;   //m_AudioPacketsBufferL2のパケットのうち、すでに使用したもの

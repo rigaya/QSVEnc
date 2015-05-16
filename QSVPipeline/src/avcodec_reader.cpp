@@ -159,6 +159,49 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 	}
 }
 
+void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
+	static const mfxU8 SC[] ={ 0, 0, 0, 1 };
+	const mfxU8 *ptr, *ptr_fin;
+	if (pkt == NULL) {
+		m_hevcMp42AnnexbBuffer.reserve(demux.extradataSize + 128);
+		ptr = demux.extradata;
+		ptr_fin = ptr + demux.extradataSize;
+		ptr += 0x16;
+	} else {
+		m_hevcMp42AnnexbBuffer.reserve(pkt->size + 128);
+		ptr = pkt->data;
+		ptr_fin = ptr + pkt->size;
+	}
+	int numOfArrays = *ptr;
+	ptr += !!numOfArrays;
+
+	while (ptr + 6 < ptr_fin) {
+		ptr += !!numOfArrays;
+		int count = readUB16(ptr); ptr += 2;
+		for (int i = MSDK_MAX(1, (numOfArrays) ? count : 1); i; i--) {
+			uint32_t size = readUB16(ptr); ptr += 2;
+			uint32_t uppper = count << 16;
+			size += (numOfArrays) ? 0 : uppper;
+			m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC+4);
+			m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr+size); ptr += size;
+		}
+	}
+	if (pkt) {
+		if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size()) {
+			av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size());
+		}
+		memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
+		pkt->size = (int)m_hevcMp42AnnexbBuffer.size();
+	} else {
+		if (demux.extradata)
+			av_free(demux.extradata);
+		demux.extradata = (mfxU8 *)av_malloc(m_hevcMp42AnnexbBuffer.size());
+		demux.extradataSize = (int)m_hevcMp42AnnexbBuffer.size();
+		memcpy(demux.extradata, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
+	}
+	m_hevcMp42AnnexbBuffer.clear();
+}
+
 mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 	const int max_check = 256;
 	std::vector<FramePos> framePosList;
@@ -324,12 +367,16 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	AVDEBUG_PRINT("avcodec reader: can be decoded by qsv.\n");
 
 	//必要ならbitstream filterを初期化
-	if ((m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) && demux.pCodecCtx->extradata && demux.pCodecCtx->extradata[0] == 1) {
-		if (NULL == (demux.bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
-			m_strInputInfo += _T("avcodec reader: unable to init h264_mp4toannexb.\n");
-			return MFX_ERR_NULL_PTR;
+	if (demux.pCodecCtx->extradata && demux.pCodecCtx->extradata[0] == 1) {
+		if (m_nInputCodec == MFX_CODEC_AVC) {
+			if (NULL == (demux.bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
+				m_strInputInfo += _T("avcodec reader: unable to init h264_mp4toannexb.\n");
+				return MFX_ERR_NULL_PTR;
+			}
+			AVDEBUG_PRINT("avcodec reader: success to init h264_mp4toannexb.\n");
+		} else if (m_nInputCodec == MFX_CODEC_HEVC) {
+			demux.videoUseHEVCmp42AnnexB = true;
 		}
-		AVDEBUG_PRINT("avcodec reader: success to init h264_mp4toannexb.\n");
 	}
 	AVDEBUG_PRINT("avcodec reader: start demuxing... \n");
 	
@@ -522,6 +569,9 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 				av_free_packet(pkt); //メモリ解放を忘れない
 				av_packet_from_data(pkt, data, dataSize);
 			}
+			if (demux.videoUseHEVCmp42AnnexB) {
+				hevcMp42Annexb(pkt);
+			}
 			//最初のptsが格納されていたら( = getFirstFramePosAndFrameRate()が実行済み)、後続のptsを格納していく
 			if (demux.videoFrameData.num) {
 				//最初のキーフレームを取得するまではスキップする
@@ -625,7 +675,9 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
 		memcpy(demux.extradata, demux.pCodecCtx->extradata, demux.extradataSize);
 		memset(demux.extradata + demux.extradataSize, 0, FF_INPUT_BUFFER_PADDING_SIZE);
 
-		if (demux.bsfc && demux.extradata[0] == 1) {
+		if (demux.videoUseHEVCmp42AnnexB) {
+			hevcMp42Annexb(NULL);
+		} else if (demux.bsfc && demux.extradata[0] == 1) {
 			mfxU8 *dummy = NULL;
 			int dummy_size = 0;
 			std::swap(demux.extradata,     demux.pCodecCtx->extradata);
