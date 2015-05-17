@@ -140,7 +140,7 @@ private:
 	//QSVでデコードした際の最初のフレームのptsを取得する
 	//さらに、平均フレームレートを推定する
 	//fpsDecoderはdecoderの推定したfps
-	mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder);
+	mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream);
 
 	//指定したptsとtimebaseから、該当する動画フレームを取得する
 	int getVideoFrameIdx(mfxI64 pts, AVRational timebase, int i_start);

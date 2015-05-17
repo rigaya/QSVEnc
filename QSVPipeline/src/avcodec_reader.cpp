@@ -206,11 +206,49 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
 	m_hevcMp42AnnexbBuffer.clear();
 }
 
-mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
+mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream) {
+	mfxStatus sts = MFX_ERR_NONE;
 	const int max_check = 256;
 	std::vector<FramePos> framePosList;
 	framePosList.reserve(max_check);
-	
+
+	mfxVideoParam param = { 0 };
+	param.mfx.CodecId = m_nInputCodec;
+	param.AsyncDepth = 1;
+	param.IOPattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
+	if (MFX_ERR_NONE != (sts = MFXVideoDECODE_DecodeHeader(session, bitstream, &param))) {
+		m_strInputInfo += _T("avcodec reader: failed to decode header(2).\n");
+		return sts;
+	}
+
+	mfxFrameAllocRequest request = { 0 };
+	if (MFX_ERR_NONE != (sts = MFXVideoDECODE_QueryIOSurf(session, &param, &request))) {
+		m_strInputInfo += _T("avcodec reader: failed to get required frame.\n");
+		return sts;
+	}
+
+	int numSurfaces = request.NumFrameSuggested;
+	int surfaceWidth = MSDK_ALIGN32(request.Info.Width);
+	int surfaceHeight = MSDK_ALIGN32(request.Info.Height);
+	int surfaceSize = surfaceWidth * surfaceHeight * 3 / 2;
+	std::vector<mfxU8> surfaceBuffers(numSurfaces * surfaceSize);
+	std::unique_ptr<mfxFrameSurface1[]> pmfxSurfaces(new mfxFrameSurface1[numSurfaces]);
+
+	for (int i = 0; i < numSurfaces; i++) {
+		MSDK_ZERO_MEMORY(pmfxSurfaces[i]);
+		MSDK_MEMCPY(&pmfxSurfaces[i].Info, &param.mfx.FrameInfo, sizeof(param.mfx.FrameInfo));
+		pmfxSurfaces[i].Data.Y = surfaceBuffers.data() + i * surfaceSize;
+		pmfxSurfaces[i].Data.UV = pmfxSurfaces[i].Data.Y + surfaceWidth * surfaceHeight;
+		pmfxSurfaces[i].Data.Pitch = (mfxU16)surfaceWidth;
+	}
+
+	if (MFX_ERR_NONE != (sts = MFXVideoDECODE_Init(session, &param))) {
+		m_strInputInfo += _T("avcodec reader: failed to init decoder.");
+		return sts;
+	}
+
+	int gotFrameCount = 0; //デコーダの出力フレーム
+	int moreDataCount = 0; //出力が始まってから、デコーダが余剰にフレームを求めた回数
 	FramePos firstKeyframePos = { 0 };
 	AVPacket pkt;
 	for (int i = 0; i < max_check && !getSample(&pkt); i++) {
@@ -223,12 +261,60 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 			//そのぶんのずれを記録しておき、Trim値などに補正をかける
 			m_sTrimParam.offset = i;
 		}
+		///キーフレーム取得済み
+		if (firstKeyframePos.duration) {
+			AppendMfxBitstream(bitstream, pkt.data, pkt.size);
+
+			mfxStatus decsts = MFX_ERR_MORE_SURFACE;
+			while (MFX_ERR_MORE_SURFACE == decsts) {
+				auto getFreeSurface = [&]() -> mfxFrameSurface1* {
+					for (int i = 0; i < numSurfaces; i++) {
+						if (!pmfxSurfaces[i].Data.Locked) {
+							return &pmfxSurfaces[i];
+						}
+					}
+					return NULL;
+				};
+				mfxSyncPoint syncp = NULL;
+				mfxFrameSurface1 *pmfxOut = NULL;
+				decsts = MFXVideoDECODE_DecodeFrameAsync(session, bitstream, getFreeSurface(), &pmfxOut, &syncp);
+				if (MFX_ERR_NONE <= decsts && syncp) {
+					decsts = MFXVideoCORE_SyncOperation(session, syncp, 60 * 1000);
+					gotFrameCount += (MFX_ERR_NONE == decsts);
+				} else if (gotFrameCount && decsts == MFX_ERR_MORE_DATA) {
+					moreDataCount++;
+				}
+			}
+			if (decsts < MFX_ERR_NONE && decsts != MFX_ERR_MORE_DATA) {
+				m_strInputInfo += _T("avcodec reader: failed to decode stream.\n");
+				return decsts;
+			}
+		}
 		av_free_packet(&pkt);
 	}
+
 	if (firstKeyframePos.duration == 0) {
-		m_strInputInfo += _T("avcodec: failed to get first frame pos.\n");
+		m_strInputInfo += _T("avcodec reader: failed to get first frame pos.\n");
 		return MFX_ERR_UNKNOWN;
 	}
+
+	//PAFFの場合、2フィールド目のpts, dtsが存在しないことがある
+	mfxU32 dts_pts_no_value_in_between = 0;
+	for (int i = 0; i < (int)framePosList.size(); i++) {
+		if (i > 0
+			&& framePosList[i  ].dts == AV_NOPTS_VALUE
+			&& framePosList[i  ].pts == AV_NOPTS_VALUE
+			&& framePosList[i-1].dts != AV_NOPTS_VALUE
+			&& framePosList[i-1].pts != AV_NOPTS_VALUE) {
+			framePosList[i].dts = framePosList[i-1].dts;
+			framePosList[i].pts = framePosList[i-1].pts;
+			dts_pts_no_value_in_between++;
+		}
+	}
+	//PAFFっぽさ
+	const bool seemsLikePAFF =
+		(framePosList.size() * 9 / 20 <= dts_pts_no_value_in_between)
+		|| (abs(1.0 - moreDataCount / (double)gotFrameCount) <= 0.2);
 
 	//durationを再計算する
 	std::sort(framePosList.begin(), framePosList.end(), [](const FramePos& posA, const FramePos& posB) { return posA.pts < posB.pts; });
@@ -258,17 +344,21 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 	}
 	//多い順にソートする
 	std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
-	
+	//durationが0でなく、最も頻繁に出てきたもの
+	const int mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
+
 	AVRational estimatedAvgFps = { 0 };
-	if (durationHistgram[0].first == 0) {
+	if (mostPopularDuration == 0) {
 		demux.videoStreamPtsInvalid = true;
 	} else {
 		//durationの平均を求める
 		auto avgDuration = std::accumulate(framePosList.begin(), framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)framePosList.size();
+		//入力フレームに対し、出力フレームが半分程度なら、フレームのdurationを倍と見積もる
+		avgDuration *= (seemsLikePAFF) ? 2.0 : 1.0;
 		//durationから求めた平均fpsを計算する
 		estimatedAvgFps.num = demux.pCodecCtx->pkt_timebase.den;
-		if (abs(avgDuration / durationHistgram[0].first - 1.0) < 5e-4) {
-			estimatedAvgFps.den = demux.pCodecCtx->pkt_timebase.num * durationHistgram[0].first;
+		if (abs(avgDuration / mostPopularDuration - 1.0) < 5e-4) {
+			estimatedAvgFps.den = demux.pCodecCtx->pkt_timebase.num * mostPopularDuration;
 		} else {
 			estimatedAvgFps.den = demux.pCodecCtx->pkt_timebase.num * (int)(avgDuration + 0.5);
 		}
@@ -296,7 +386,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 			//ptsとdurationをpkt_timebaseで適当に作成する
 			addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, demux.pCodecCtx->time_base, demux.pCodecCtx->pkt_timebase) });
 		} else {
-			m_strInputInfo += _T("avcodec: failed to seek backward.\n");
+			m_strInputInfo += _T("avcodec reader: failed to seek backward.\n");
 			return MFX_ERR_UNSUPPORTED;
 		}
 	}
@@ -425,9 +515,10 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
 	if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
 		m_strInputInfo += _T("avcodec reader: failed to decode header.\n");
-	} else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD }))) {
+	} else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream))) {
 		m_strInputInfo += _T("avcodec reader: failed to get first frame position.\n");
 	}
+	MFXVideoDECODE_Close(session);
 	pPlugin.reset(); //必ずsessionをクローズする前に開放すること
 	MFXClose(session);
 	if (MFX_ERR_NONE != decHeaderSts) {
