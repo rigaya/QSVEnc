@@ -143,6 +143,11 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 			m_strOutputInfo += error_mes( _T("avcodec writer: failed to get decode codec context"), prm->pCodecCtxAudioIn->codec_id);
 			return MFX_ERR_NULL_PTR;
 		}
+#define COPY_IF_ZERO(dst, src) { if ((dst)==0) (dst)=(src); }
+		COPY_IF_ZERO(m_Muxer.pAudioOutCodecDecodeCtx->sample_rate,    prm->pCodecCtxAudioIn->sample_rate);
+		COPY_IF_ZERO(m_Muxer.pAudioOutCodecDecodeCtx->channels,       prm->pCodecCtxAudioIn->channels);
+		COPY_IF_ZERO(m_Muxer.pAudioOutCodecDecodeCtx->channel_layout, prm->pCodecCtxAudioIn->channel_layout);
+#undef COPY_IF_ZERO
 		if (0 > avcodec_open2(m_Muxer.pAudioOutCodecDecodeCtx, m_Muxer.pAudioOutCodecDecode, NULL)) {
 			m_strOutputInfo += error_mes( _T("avcodec writer: failed to open decoder"), prm->pCodecCtxAudioIn->codec_id);
 			return MFX_ERR_NULL_PTR;
