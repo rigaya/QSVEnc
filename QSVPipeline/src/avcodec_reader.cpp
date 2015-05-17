@@ -250,7 +250,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 		}
 	}
 	//多い順にソートする
-	std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second < pairB.second; });
+	std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
 	
 	AVRational estimatedAvgFps = { 0 };
 	if (durationHistgram[0].first == 0) {
