@@ -234,9 +234,16 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder) {
 	std::sort(framePosList.begin(), framePosList.end(), [](const FramePos& posA, const FramePos& posB) { return posA.pts < posB.pts; });
 	for (int i = 0; i < (int)framePosList.size() - 1; i++) {
 		int duration = (int)(framePosList[i+1].pts - framePosList[i].pts);
-		if (abs(framePosList[i].duration - duration) <= 1) {
+		if (duration >= 0) {
 			framePosList[i].duration = duration;
 		}
+	}
+	//より正確なduration計算のため、最後の数フレームは落とす
+	//最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationではない
+	if (framePosList.size() > 32) {
+		framePosList.erase(framePosList.end() - 16, framePosList.end());
+	} else if (framePosList.size() > 16) {
+		framePosList.erase(framePosList.end() - 8, framePosList.end());
 	}
 
 	//durationのヒストグラムを作成
