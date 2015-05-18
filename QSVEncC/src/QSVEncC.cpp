@@ -367,10 +367,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		const TCHAR *option_name = NULL;
 
 		if (strInput[i][0] == _T('-')) {
-			switch (strInput[i][1]) {
-				case _T('-'):
-					option_name = &strInput[i][2];
-					break;
+			if (strInput[i][1] == _T('-')) {
+				option_name = &strInput[i][2];
+			} else if (strInput[i][2] == _T('\0')) {
+				switch (strInput[i][1]) {
 				case _T('b'):
 					option_name = _T("bframes");
 					break;
@@ -400,10 +400,17 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				default:
 					PrintHelp(strInput[0], _T("Unknown options"), NULL);
 					return MFX_PRINT_OPTION_ERR;
+				}
+			} else {
+				PrintHelp(strInput[0], _T("Invalid options"), NULL);
+				return MFX_PRINT_OPTION_ERR;
 			}
 		}
 
-		MSDK_CHECK_POINTER(option_name, MFX_ERR_NULL_PTR);
+		if (option_name == NULL) {
+			PrintHelp(strInput[0], _T("Invalid options"), NULL);
+			return MFX_PRINT_OPTION_ERR;
+		}
 
 		// process multi-character options
 		if (0 == _tcscmp(option_name, _T("help")))
