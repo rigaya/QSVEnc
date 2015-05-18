@@ -1293,7 +1293,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 		nVppSurfNum += m_EncThread.m_nFrameBuffer + DecRequest.NumFrameSuggested;
 		if (m_pmfxDEC) {
 			VppRequest[0].Type = DecRequest.Type;
-			m_mfxVppParams.mfx.FrameInfo.Width = DecRequest.Info.Width;
+			m_mfxVppParams.mfx.FrameInfo.Width  = DecRequest.Info.Width;
 			m_mfxVppParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
 		}
 	} else {
@@ -3051,56 +3051,56 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
 	PRINT_INFO(    _T("QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample %s\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, MSDK_SAMPLE_VERSION);
-	PRINT_INFO(    _T("OS                %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
-	PRINT_INFO(    _T("CPU Info          %s\n"), cpuInfo);
+	PRINT_INFO(    _T("OS             %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
+	PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
 	if (Check_HWUsed(impl)) {
-		PRINT_INFO(_T("GPU Info          %s\n"), gpu_info);
+		PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
 	}
 	if (Check_HWUsed(impl)) {
 		static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
 		mfxU32 iGPUID = MSDKAdapter::GetNumber(m_mfxSession);
-		PRINT_INFO(    _T("Media SDK         QuickSyncVideo (hardware encoder), %d%s GPU, API v%d.%d\n"), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
+		PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder), %d%s GPU, API v%d.%d\n"), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
 	} else {
-		PRINT_INFO(    _T("Media SDK         software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
+		PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
 	}
-	PRINT_INFO(    _T("Buffer Memory     %s, %d input buffer, %d work buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer, m_EncResponse.NumFrameActual + m_VppResponse.NumFrameActual + m_DecResponse.NumFrameActual);
-	//PRINT_INFO(    _T("Input Frame Format      %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
-	//PRINT_INFO(    _T("Input Frame Type      %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
+	PRINT_INFO(    _T("Buffer Memory  %s, %d input buffer, %d work buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer, m_EncResponse.NumFrameActual + m_VppResponse.NumFrameActual + m_DecResponse.NumFrameActual);
+	//PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
+	//PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
 	auto inputMesSplitted = split(m_pFileReader->GetInputMessage(), _T("\n"));
 	for (mfxU32 i = 0; i < inputMesSplitted.size(); i++) {
-		PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Info        ") : _T("                  "), inputMesSplitted[i].c_str());
+		PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
 	}
 	if (m_pFileWriterAudio) {
 		inputMesSplitted = split(m_pFileWriterAudio->GetOutputMessage(), _T("\n"));
 		for (auto str : inputMesSplitted) {
-			PRINT_INFO(_T("%s%s\n"), _T("                  "), str.c_str());
+			PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
 		}
 	}
 
 	sInputCrop inputCrop;
 	m_pFileReader->GetInputCropInfo(&inputCrop);
 	if (0 != (inputCrop.bottom | inputCrop.left | inputCrop.right | inputCrop.up))
-		PRINT_INFO(_T("Crop              %d,%d,%d,%d (%dx%d -> %dx%d)\n"),
+		PRINT_INFO(_T("Crop           %d,%d,%d,%d (%dx%d -> %dx%d)\n"),
 			inputCrop.left, inputCrop.up, inputCrop.right, inputCrop.bottom,
 			SrcPicInfo.CropW + inputCrop.left + inputCrop.right,
 			SrcPicInfo.CropH + inputCrop.up + inputCrop.bottom,
 			SrcPicInfo.CropW, SrcPicInfo.CropH);
 
 	if (VppExtMes.size()) {
-		const TCHAR *m = _T("VPP Enabled       ");
+		const TCHAR *m = _T("VPP Enabled    ");
 		size_t len = VppExtMes.length() + 1;
 		TCHAR *vpp_mes = (TCHAR*)malloc(len * sizeof(vpp_mes[0]));
 		memcpy(vpp_mes, VppExtMes.c_str(), len * sizeof(vpp_mes[0]));
 		for (TCHAR *p = vpp_mes, *q; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
 			PRINT_INFO(_T("%s%s\n"), m, p);
-			m    = _T("                  ");
+			m    = _T("               ");
 			p = NULL;
 		}
 		free(vpp_mes);
 		VppExtMes.clear();
 	}
 	if (m_pTrimParam != NULL && m_pTrimParam->list.size()) {
-		PRINT_INFO(_T("Trim              "));
+		PRINT_INFO(_T("Trim           "));
 		for (auto trim : m_pTrimParam->list) {
 			if (trim.fin == TRIM_MAX) {
 				PRINT_INFO(_T("%d-fin "), trim.start + m_pTrimParam->offset);
@@ -3110,53 +3110,53 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		}
 		PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
 	}
-	PRINT_INFO(    _T("Output Video      %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
+	PRINT_INFO(    _T("Output Video   %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
 													 get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
 													 get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
-	PRINT_INFO(    _T("                  %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
+	PRINT_INFO(    _T("               %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
 													 DstPicInfo.CropW, DstPicInfo.CropH, (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("p") : _T("i"),
 													 videoPrm.mfx.FrameInfo.AspectRatioW, videoPrm.mfx.FrameInfo.AspectRatioH,
 													 DstPicInfo.FrameRateExtN / (double)DstPicInfo.FrameRateExtD, DstPicInfo.FrameRateExtN, DstPicInfo.FrameRateExtD,
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : _T(", "),
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
 	
-	PRINT_INFO(    _T("Target usage      %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
-	PRINT_INFO(    _T("Encode Mode       %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
+	PRINT_INFO(    _T("Target usage   %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
+	PRINT_INFO(    _T("Encode Mode    %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
 	if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
 		if (m_nExPrm & MFX_PRM_EX_VQP) {
-			//PRINT_INFO(_T("VQP params              I:%d  P:%d+  B:%d+  strength:%d  sensitivity:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB, m_SceneChange.getVQPStrength(), m_SceneChange.getVQPSensitivity());
-			PRINT_INFO(_T("VQP params        I:%d  P:%d+  B:%d+\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
+			//PRINT_INFO(_T("VQP params             I:%d  P:%d+  B:%d+  strength:%d  sensitivity:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB, m_SceneChange.getVQPStrength(), m_SceneChange.getVQPSensitivity());
+			PRINT_INFO(_T("VQP params     I:%d  P:%d+  B:%d+\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
 		} else {
-			PRINT_INFO(_T("CQP Value         I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
+			PRINT_INFO(_T("CQP Value      I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
 		}
 	} else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
-		PRINT_INFO(_T("Lookahead         depth %d frames"), cop2.LookAheadDepth);
+		PRINT_INFO(_T("Lookahead      depth %d frames"), cop2.LookAheadDepth);
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
 			PRINT_INFO(_T(", quality %s"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
 		}
 		PRINT_INFO(_T("\n"));
 		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
 			if (cop3.WinBRCSize) {
-				PRINT_INFO(_T("Windowed RC       %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
+				PRINT_INFO(_T("Windowed RC    %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
 			} else {
-				PRINT_INFO(_T("Windowed RC       off\n"), cop2.LookAheadDepth);
+				PRINT_INFO(_T("Windowed RC    off\n"), cop2.LookAheadDepth);
 			}
 		}
 		if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-			PRINT_INFO(_T("ICQ Quality       %d\n"), videoPrm.mfx.ICQQuality);
+			PRINT_INFO(_T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
 		}
 	} else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-		PRINT_INFO(    _T("ICQ Quality       %d\n"), videoPrm.mfx.ICQQuality);
+		PRINT_INFO(    _T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
 	} else {
-		PRINT_INFO(    _T("Bitrate           %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+		PRINT_INFO(    _T("Bitrate        %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
 		if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
 			//PRINT_INFO(_T("AVBR Accuracy range\t%.01lf%%"), m_mfxEncParams.mfx.Accuracy / 10.0);
-			PRINT_INFO(_T("AVBR Convergence  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
+			PRINT_INFO(_T("AVBR Converge  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
 		} else {
-			PRINT_INFO(_T("Max Bitrate       "));
+			PRINT_INFO(_T("Max Bitrate    "));
 			PRINT_INT_AUTO(_T("%d kbps\n"), (mfxU32)videoPrm.mfx.MaxKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
 			if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
-				PRINT_INFO(    _T("QVBR Quality      %d\n"), cop3.QVBRQuality);
+				PRINT_INFO(    _T("QVBR Quality   %d\n"), cop3.QVBRQuality);
 			}
 		}
 	}
@@ -3177,28 +3177,28 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 			}
 			return buf;
 		};
-		PRINT_INFO(_T("QP Limit          min: %s, max: %s\n"),
+		PRINT_INFO(_T("QP Limit       min: %s, max: %s\n"),
 			qp_limit_str(cop2.MinQPI, cop2.MinQPP, cop2.MinQPB).c_str(),
 			qp_limit_str(cop2.MaxQPI, cop2.MaxQPP, cop2.MaxQPB).c_str());
 	}
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-		PRINT_INFO(_T("Trellis           %s\n"), list_avc_trellis[get_cx_index(list_avc_trellis_for_options, cop2.Trellis)].desc);
+		PRINT_INFO(_T("Trellis        %s\n"), list_avc_trellis[get_cx_index(list_avc_trellis_for_options, cop2.Trellis)].desc);
 	}
 
 	if (videoPrm.mfx.CodecId == MFX_CODEC_AVC && !Check_HWUsed(impl)) {
-		PRINT_INFO(    _T("CABAC             %s\n"), (cop.CAVLC == MFX_CODINGOPTION_ON) ? _T("off") : _T("on"));
-		PRINT_INFO(    _T("RDO               %s\n"), (cop.RateDistortionOpt == MFX_CODINGOPTION_ON) ? _T("on") : _T("off"));
+		PRINT_INFO(    _T("CABAC          %s\n"), (cop.CAVLC == MFX_CODINGOPTION_ON) ? _T("off") : _T("on"));
+		PRINT_INFO(    _T("RDO            %s\n"), (cop.RateDistortionOpt == MFX_CODINGOPTION_ON) ? _T("on") : _T("off"));
 		if ((cop.MVSearchWindow.x | cop.MVSearchWindow.y) == 0) {
-			PRINT_INFO(    _T("mv search         precision: %s\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc);
+			PRINT_INFO(    _T("mv search      precision: %s\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc);
 		} else {
-			PRINT_INFO(    _T("mv search         precision: %s, window size:%dx%d\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc, cop.MVSearchWindow.x, cop.MVSearchWindow.y);
+			PRINT_INFO(    _T("mv search      precision: %s, window size:%dx%d\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc, cop.MVSearchWindow.x, cop.MVSearchWindow.y);
 		}
-		PRINT_INFO(    _T("min pred size     inter: %s   intra: %s\n"), list_pred_block_size[get_cx_index(list_pred_block_size, cop.InterPredBlockSize)].desc, list_pred_block_size[get_cx_index(list_pred_block_size, cop.IntraPredBlockSize)].desc);
+		PRINT_INFO(    _T("min pred size  inter: %s   intra: %s\n"), list_pred_block_size[get_cx_index(list_pred_block_size, cop.InterPredBlockSize)].desc, list_pred_block_size[get_cx_index(list_pred_block_size, cop.IntraPredBlockSize)].desc);
 	}
-	PRINT_INFO(    _T("Ref frames        "));
+	PRINT_INFO(    _T("Ref frames     "));
 	PRINT_INT_AUTO(_T("%d frames\n"), videoPrm.mfx.NumRefFrame);
 
-	PRINT_INFO(    _T("Bframes           "));
+	PRINT_INFO(    _T("Bframes        "));
 	switch (videoPrm.mfx.GopRefDist) {
 		case 0:  PRINT_INFO(_T("Auto\n")); break;
 		case 1:  PRINT_INFO(_T("none\n")); break;
@@ -3208,10 +3208,10 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 			(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ((MFX_B_REF_PYRAMID == cop2.BRefType) ? _T("on") : _T("off")) : _T(""))); break;
 	}
 
-	//PRINT_INFO(    _T("Idr Interval     %d\n"), videoPrm.mfx.IdrInterval);
-	PRINT_INFO(    _T("Max GOP Length    "));
+	//PRINT_INFO(    _T("Idr Interval    %d\n"), videoPrm.mfx.IdrInterval);
+	PRINT_INFO(    _T("Max GOP Length "));
 	PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
-	PRINT_INFO(    _T("Scene Change      %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
+	PRINT_INFO(    _T("Scene Change   %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
 	if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
 		//PRINT_INFO(    _T("GOP Structure           "));
 		//bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
@@ -3226,7 +3226,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		//}
 	}
 	if (videoPrm.mfx.NumSlice >= 2) {
-		PRINT_INFO(_T("Slices            %d\n"), videoPrm.mfx.NumSlice);
+		PRINT_INFO(_T("Slices         %d\n"), videoPrm.mfx.NumSlice);
 	}
 
 	//last line
@@ -3257,7 +3257,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	//	extFeatures += _T("SingleSEI ");
 	//}
 	if (extFeatures.length() > 0) {
-		PRINT_INFO(_T("Extended Features %s\n"), extFeatures.c_str());
+		PRINT_INFO(_T("Ext. Features  %s\n"), extFeatures.c_str());
 	}
 
 	PrintMes(QSV_LOG_INFO, info);

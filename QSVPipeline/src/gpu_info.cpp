@@ -14,6 +14,17 @@
 #include <future>
 #include <algorithm>
 #include "cl_func.h"
+#include "DeviceId.h"
+
+typedef struct IntelDeviceInfo {
+	unsigned int GPUMemoryBytes;
+	unsigned int GPUMaxFreqMHz;
+	unsigned int GPUMinFreqMHz;
+	unsigned int GTGeneration;
+	unsigned int EUCount;
+	unsigned int PackageTDP;
+	unsigned int MaxFillRate;
+} IntelDeviceInfo;
 
 #if ENABLE_OPENCL
 
@@ -119,56 +130,78 @@ cl_int cl_get_driver_version(const cl_data_t *cl_data, const cl_func_t *cl, TCHA
 	return ret;
 }
 
-static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, TCHAR *buffer, unsigned int buffer_size) {
+static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, const IntelDeviceInfo *info, TCHAR *buffer, unsigned int buffer_size) {
 	cl_int ret = CL_SUCCESS;
+
 	char cl_info_buffer[1024] = { 0 };
-	if (CL_SUCCESS != (ret = cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_NAME, _countof(cl_info_buffer), cl_info_buffer, NULL))) {
-		_tcscpy_s(buffer, buffer_size, _T("Unknown (error on OpenCL clGetDeviceInfo)"));
-		return ret;
-	} else {
+	if (cl_data && CL_SUCCESS == (ret = cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_NAME, _countof(cl_info_buffer), cl_info_buffer, NULL))) {
 		_tcscpy_s(buffer, buffer_size, to_tchar(cl_info_buffer).c_str());
-#if 0
-		bool abort_get_frequency_loop = false;
-		std::future<int> f_max_frequency = std::async([&]() {
-			int max_frequency = 0;
-			while (false == abort_get_frequency_loop) {
-				Sleep(1);
-				max_frequency = (std::max)(max_frequency, cl_get_device_max_clock_frequency_mhz(cl_data, cl));
-			}
-			return max_frequency;
-		});
-		Sleep(20);
-		cl_int ret = CL_SUCCESS;
-		if (   CL_SUCCESS != (ret = cl_create_kernel(cl_data, cl))
-			|| CL_SUCCESS != (ret = cl_calc(cl_data, cl))) {
-			;
-		}
-		abort_get_frequency_loop = true;
-		const int max_device_frequency = f_max_frequency.get(); //f_max_frequencyにセットされる値を待つ (async終了同期)
-#endif
-		const int max_device_frequency = cl_get_device_max_clock_frequency_mhz(cl_data, cl);
-		if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
-			_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%d EU)"), *(cl_uint *)cl_info_buffer);
-		}
-		if (max_device_frequency) {
-			_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" @ %d MHz"), max_device_frequency);
-		}
-		if (CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
-			_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%s)"), to_tchar(cl_info_buffer).c_str());
-		}
-		auto remove_string =[](TCHAR *target_str, const TCHAR *remove_str) {
-			TCHAR *ptr = _tcsstr(target_str, remove_str);
-			if (nullptr != ptr) {
-				memmove(ptr, ptr + _tcslen(remove_str), (_tcslen(ptr) - _tcslen(remove_str) + 1) *  sizeof(target_str[0]));
-			}
-		};
-		remove_string(buffer, _T("(R)"));
-		remove_string(buffer, _T("(TM)"));
 	}
+
+	int numEU = (info) ? info->EUCount : 0;
+	if (numEU == 0 && cl_data && CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DEVICE_MAX_COMPUTE_UNITS, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
+		numEU = *(cl_uint *)cl_info_buffer;
+	}
+	if (numEU) {
+		_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%dEU)"), numEU);
+	}
+
+	int MaxFreqMHz = (info) ? info->GPUMaxFreqMHz : 0;
+	int MinFreqMHz = (info) ? info->GPUMinFreqMHz : 0;
+	if (MaxFreqMHz == 0 && cl_data) {
+		MaxFreqMHz = cl_get_device_max_clock_frequency_mhz(cl_data, cl);
+	}
+	if (MaxFreqMHz && MinFreqMHz) {
+		_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" %d-%dMHz"), MinFreqMHz, MaxFreqMHz);
+	} else if (MaxFreqMHz) {
+		_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" %dMHz"), MaxFreqMHz);
+	}
+	if (info && info->PackageTDP) {
+		_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" [%dW]"), info->PackageTDP);
+	}
+	if (cl_data && CL_SUCCESS == cl->getDeviceInfo(cl_data->deviceID, CL_DRIVER_VERSION, _countof(cl_info_buffer), cl_info_buffer, NULL)) {
+		_stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%s)"), to_tchar(cl_info_buffer).c_str());
+	}
+	auto remove_string =[](TCHAR *target_str, const TCHAR *remove_str) {
+		TCHAR *ptr = _tcsstr(target_str, remove_str);
+		if (nullptr != ptr) {
+			memmove(ptr, ptr + _tcslen(remove_str), (_tcslen(ptr) - _tcslen(remove_str) + 1) *  sizeof(target_str[0]));
+		}
+	};
+	remove_string(buffer, _T("(R)"));
+	remove_string(buffer, _T("(TM)"));
 	return ret;
 }
 
 #endif //ENABLE_OPENCL
+
+int getIntelGPUInfo(IntelDeviceInfo *info) {
+	memset(info, 0, sizeof(info[0]));
+
+	unsigned int VendorId, DeviceId, VideoMemory;
+	if (!getGraphicsDeviceInfo(&VendorId, &DeviceId, &VideoMemory)) {
+		return 1;
+	}
+	info->GPUMemoryBytes = VideoMemory;
+
+	IntelDeviceInfoHeader intelDeviceInfoHeader = { 0 };
+	char intelDeviceInfoBuffer[1024];
+	if (GGF_SUCCESS != getIntelDeviceInfo(VendorId, &intelDeviceInfoHeader, &intelDeviceInfoBuffer)) {
+		return 1;
+	}
+
+	IntelDeviceInfoV2 intelDeviceInfo = { 0 };
+	memcpy(&intelDeviceInfo, intelDeviceInfoBuffer, intelDeviceInfoHeader.Size);
+	info->GPUMaxFreqMHz = intelDeviceInfo.GPUMaxFreq;
+	info->GPUMinFreqMHz = intelDeviceInfo.GPUMinFreq;
+	if (intelDeviceInfoHeader.Version == 2) {
+		info->EUCount      = intelDeviceInfo.EUCount;
+		info->GTGeneration = intelDeviceInfo.GTGeneration;
+		info->MaxFillRate  = intelDeviceInfo.MaxFillRate;
+		info->PackageTDP   = intelDeviceInfo.PackageTDP;
+	}
+	return 0;
+}
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -180,16 +213,32 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
 	int ret = CL_SUCCESS;
 	cl_func_t cl = { 0 };
 	cl_data_t data = { 0 };
+	IntelDeviceInfo info = { 0 };
 
+	bool opencl_error = false;
+	bool intel_error = false;
 	if (CL_SUCCESS != (ret = cl_get_func(&cl))) {
 		_tcscpy_s(buffer, buffer_size, _T("Unknown (Failed to load OpenCL.dll)"));
+		opencl_error = true;
 	} else if (CL_SUCCESS != (ret = cl_get_platform_and_device(VendorName, CL_DEVICE_TYPE_GPU, &data, &cl))) {
 		_stprintf_s(buffer, buffer_size, _T("Unknown (Failed to find %s GPU)"), to_tchar(VendorName).c_str());
-	} else {
-		if (driver_version_only)
+		opencl_error = true;
+	}
+
+	if (!driver_version_only && 0 != getIntelGPUInfo(&info)) {
+		_tcscpy_s(buffer, buffer_size, _T("Failed to get GPU Info."));
+		intel_error = true;
+	}
+
+
+	if (driver_version_only) {
+		if (!opencl_error) {
 			cl_get_driver_version(&data, &cl, buffer, buffer_size);
-		else
-			cl_create_info_string(&data, &cl, buffer, buffer_size);
+		}
+	} else {
+		if (!(opencl_error && intel_error)) {
+			cl_create_info_string((opencl_error) ? NULL : &data, &cl, (intel_error) ? NULL : &info, buffer, buffer_size);
+		}
 	}
 	cl_release(&data, &cl);
 	return ret;
