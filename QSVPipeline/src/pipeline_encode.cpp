@@ -1324,6 +1324,15 @@ mfxStatus CEncodingPipeline::AllocFrames()
 		VppRequest[0].NumFrameMin = nVppSurfNum;
 		VppRequest[0].NumFrameSuggested = nVppSurfNum;
 		MSDK_MEMCPY_VAR(VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+		//フレームのリクエストを出す時点でCropの値を入れておくと、
+		//DecFrameAsyncでMFX_ERR_UNDEFINED_BEHAVIORを出してしまう
+		//Cropの値はVppFrameAsyncの直前に渡すようにする
+		if (m_pmfxDEC) {
+			VppRequest[0].Info.CropX = DecRequest.Info.CropX;
+			VppRequest[0].Info.CropY = DecRequest.Info.CropY;
+			VppRequest[0].Info.CropW = DecRequest.Info.CropW;
+			VppRequest[0].Info.CropH = DecRequest.Info.CropH;
+		}
 
 		sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &(VppRequest[0]), &m_VppResponse);
 		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate frames for vpp."));
@@ -2536,6 +2545,15 @@ mfxStatus CEncodingPipeline::RunEncode()
 		(m_pmfxVPP) ? m_pVppSurfaces : m_pEncSurfaces,
 		(m_pmfxVPP) ? m_VppResponse.NumFrameActual : m_EncResponse.NumFrameActual);
 
+	auto copy_crop_info = [](mfxFrameSurface1 *dst, const mfxFrameInfo *src) {
+		if (NULL != dst) {
+			dst->Info.CropX = src->CropX;
+			dst->Info.CropY = src->CropY;
+			dst->Info.CropW = src->CropW;
+			dst->Info.CropH = src->CropH;
+		}
+	};
+
 	auto extract_audio =[&]() {
 		mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_AVCODEC_QSV_READER
@@ -2572,6 +2590,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 			mfxFrameSurface1 *pSurfDecOut = NULL;
 			mfxBitstream *pInputBitstream = (getNextBitstream || m_DecInputBitstream.DataLength) ? &m_DecInputBitstream : nullptr;
 
+			//デコード前には、デコード用のパラメータでFrameInfoを更新
+			copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
+
 			for (;;) {
 				mfxSyncPoint DecSyncPoint = NULL;
 				dec_sts = m_pmfxDEC->DecodeFrameAsync(pInputBitstream, pSurfDecWork, &pSurfDecOut, &DecSyncPoint);
@@ -2604,6 +2625,10 @@ mfxStatus CEncodingPipeline::RunEncode()
 			mfxSyncPoint VppSyncPoint = NULL; // a sync point associated with an asynchronous vpp call
 			bVppMultipleOutput = false;   // reset the flag before a call to VPP
 			bVppRequireMoreFrame = false; // reset the flag before a call to VPP
+
+			//vpp前に、vpp用のパラメータでFrameInfoを更新
+			copy_crop_info(pSurfVppIn, &m_mfxVppParams.mfx.FrameInfo);
+
 			for (;;) {
 				vpp_sts = m_pmfxVPP->RunFrameVPPAsync(pSurfVppIn, pSurfVppOut, NULL, &VppSyncPoint);
 
