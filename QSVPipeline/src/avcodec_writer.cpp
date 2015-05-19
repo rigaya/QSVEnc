@@ -16,6 +16,20 @@
 #include "avcodec_writer.h"
 
 #if ENABLE_AVCODEC_QSV_READER
+#if USE_CUSTOM_IO
+static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
+	CAvcodecWriter *writer = reinterpret_cast<CAvcodecWriter *>(opaque);
+	return writer->readPacket(buf, buf_size);
+}
+static int funcWritePacket(void *opaque, uint8_t *buf, int buf_size) {
+	CAvcodecWriter *writer = reinterpret_cast<CAvcodecWriter *>(opaque);
+	return writer->writePacket(buf, buf_size);
+}
+static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
+	CAvcodecWriter *writer = reinterpret_cast<CAvcodecWriter *>(opaque);
+	return writer->seek(offset, whence);
+}
+#endif //USE_CUSTOM_IO
 
 CAvcodecWriter::CAvcodecWriter() {
 	MSDK_ZERO_MEMORY(m_Muxer);
@@ -44,13 +58,34 @@ void CAvcodecWriter::Close() {
 	}
 
 	//close audio file
+	AVIOContext *pAVIOContext = m_Muxer.pFormatCtx->pb;
 	if (m_Muxer.pFormatCtx) {
 		if (!m_Muxer.bStreamError) {
 			av_write_trailer(m_Muxer.pFormatCtx);
 		}
-		avio_close(m_Muxer.pFormatCtx->pb);
 		avformat_free_context(m_Muxer.pFormatCtx);
 	}
+	if (m_Muxer.pStreamAudio) {
+		av_free(m_Muxer.pStreamAudio);
+	}
+	if (pAVIOContext) {
+		avio_close(pAVIOContext);
+		av_free(pAVIOContext);
+	}
+#if USE_CUSTOM_IO
+	if (m_Muxer.fpOutput) {
+		fflush(m_Muxer.fpOutput);
+		fclose(m_Muxer.fpOutput);
+	}
+
+	if (m_Muxer.pAVOutBuffer) {
+		av_free(m_Muxer.pAVOutBuffer);
+	}
+
+	if (m_Muxer.pOutputBuffer) {
+		free(m_Muxer.pOutputBuffer);
+	}
+#endif //USE_CUSTOM_IO
 
 	m_strOutputInfo.clear();
 
@@ -118,11 +153,33 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	m_Muxer.pFormatCtx = avformat_alloc_context();
 	m_Muxer.pFormatCtx->oformat = m_Muxer.pOutputFmt;
 
+#if USE_CUSTOM_IO
+	m_Muxer.nAVOutBufferSize = 1024 * 1024;
+	m_Muxer.nOutputBufferSize = 16 * 1024 * 1024;
+
+	if (NULL == (m_Muxer.pAVOutBuffer = (mfxU8 *)av_malloc(m_Muxer.nAVOutBufferSize))) {
+		m_strOutputInfo += _T("avcodec writer: failed to allocate muxer buffer.\n");
+		return MFX_ERR_NULL_PTR;
+	}
+
+	if (fopen_s(&m_Muxer.fpOutput, filename.c_str(), "wb")) {
+		m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
+		return MFX_ERR_NULL_PTR; // Couldn't open file
+	}
+	if (NULL != (m_Muxer.pOutputBuffer = (char *)malloc(m_Muxer.nOutputBufferSize))) {
+		setvbuf(m_Muxer.fpOutput, m_Muxer.pOutputBuffer, _IOFBF, m_Muxer.nOutputBufferSize);
+	}
+
+	if (NULL == (m_Muxer.pFormatCtx->pb = avio_alloc_context(m_Muxer.pAVOutBuffer, m_Muxer.nAVOutBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
+		m_strOutputInfo += _T("avcodec writer: failed to alloc avio context.\n");
+		return MFX_ERR_NULL_PTR;
+	}
+#else
 	if (0 > avio_open2(&m_Muxer.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL)) {
 		m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
 		return MFX_ERR_NULL_PTR; // Couldn't open file
 	}
-
+#endif
 	if (NULL == (m_Muxer.pStreamAudio = avformat_new_stream(m_Muxer.pFormatCtx, NULL))) {
 		m_strOutputInfo += _T("avcodec writer: failed to create new stream for audio.\n");
 		return MFX_ERR_NULL_PTR;
@@ -271,5 +328,17 @@ mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 	}
 	return (m_Muxer.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
+
+#if USE_CUSTOM_IO
+int CAvcodecWriter::readPacket(uint8_t *buf, int buf_size) {
+	return (int)fread(buf, 1, buf_size, m_Muxer.fpOutput);
+}
+int CAvcodecWriter::writePacket(uint8_t *buf, int buf_size) {
+	return (int)fwrite(buf, 1, buf_size, m_Muxer.fpOutput);
+}
+int64_t CAvcodecWriter::seek(int64_t offset, int whence) {
+	return _fseeki64(m_Muxer.fpOutput, offset, whence);
+}
+#endif //USE_CUSTOM_IO
 
 #endif //ENABLE_AVCODEC_QSV_READER
