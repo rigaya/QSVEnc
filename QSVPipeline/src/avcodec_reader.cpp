@@ -574,8 +574,10 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	//m_inputFrameInfoのWidthとHeightには解像度をそのまま入れて、
 	//他の読み込みに合わせる
 	//もともとは16ないし32でアラインされた数字が入っている
-	m_inputFrameInfo.Width = m_inputFrameInfo.CropW;
-	m_inputFrameInfo.Height = m_inputFrameInfo.CropH;
+	m_inputFrameInfo.Width          = m_inputFrameInfo.CropW;
+	m_inputFrameInfo.Height         = m_inputFrameInfo.CropH;
+	m_inputFrameInfo.BitDepthLuma   = m_inputFrameInfo.BitDepthLuma;
+	m_inputFrameInfo.BitDepthChroma = m_inputFrameInfo.BitDepthChroma;
 	//フレーム数は未定
 	*(DWORD*)&m_inputFrameInfo.FrameId = 0;
 	

@@ -958,8 +958,10 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 		m_mfxVppParams.vpp.In.Height    = (MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.In.PicStruct)?
 			MSDK_ALIGN16(pInParams->nHeight) : MSDK_ALIGN32(pInParams->nHeight);
 	} else {
-		m_mfxVppParams.vpp.In.FourCC       = inputFrameInfo.FourCC;
-		m_mfxVppParams.vpp.In.ChromaFormat = inputFrameInfo.ChromaFormat;
+		m_mfxVppParams.vpp.In.FourCC         = inputFrameInfo.FourCC;
+		m_mfxVppParams.vpp.In.ChromaFormat   = inputFrameInfo.ChromaFormat;
+		m_mfxVppParams.vpp.In.BitDepthLuma   = pInParams->inputBitDepthLuma;
+		m_mfxVppParams.vpp.In.BitDepthChroma = pInParams->inputBitDepthChroma;
 
 		// width must be a multiple of 16
 		// height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
@@ -985,8 +987,10 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 	memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
 
 	// only resizing is supported
-	m_mfxVppParams.vpp.Out.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-	m_mfxVppParams.vpp.Out.FourCC = MFX_FOURCC_NV12;
+	m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
+	m_mfxVppParams.vpp.Out.FourCC         = MFX_FOURCC_NV12;
+	m_mfxVppParams.vpp.Out.BitDepthLuma   = 0;
+	m_mfxVppParams.vpp.Out.BitDepthChroma = 0;
 	m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
 	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
@@ -1885,6 +1889,13 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 		pParams->nFPSScale = inputFrameInfo.FrameRateExtD;
 	}
 
+	if (0 == pParams->inputBitDepthLuma && inputFrameInfo.BitDepthLuma) {
+		pParams->inputBitDepthLuma = inputFrameInfo.BitDepthLuma;
+	}
+
+	if (0 == pParams->inputBitDepthChroma && inputFrameInfo.BitDepthChroma) {
+		pParams->inputBitDepthChroma = inputFrameInfo.BitDepthChroma;
+	}
 
 	//Checking Start...
 	//if picstruct not set, progressive frame is expected
@@ -2126,13 +2137,14 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 
 	// create preprocessor if resizing was requested from command line
 	// or if different FourCC is set in InitMfxVppParams
-	if (pParams->nWidth  != pParams->nDstWidth ||
-		pParams->nHeight != pParams->nDstHeight ||
-		m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC ||
-		m_mfxVppParams.NumExtParam > 1 ||
-		pParams->vpp.nDeinterlace
-		)
-	{
+	if (   pParams->nWidth  != pParams->nDstWidth
+		|| pParams->nHeight != pParams->nDstHeight
+		|| m_mfxVppParams.vpp.In.FourCC         != m_mfxVppParams.vpp.Out.FourCC
+		|| m_mfxVppParams.vpp.In.BitDepthLuma   != m_mfxVppParams.vpp.Out.BitDepthLuma
+		|| m_mfxVppParams.vpp.In.BitDepthChroma != m_mfxVppParams.vpp.Out.BitDepthChroma
+		|| m_mfxVppParams.NumExtParam > 1
+		|| pParams->vpp.nDeinterlace
+		) {
 		m_pmfxVPP = new MFXVideoVPP(m_mfxSession);
 		MSDK_CHECK_POINTER(m_pmfxVPP, MFX_ERR_MEMORY_ALLOC);
 	}

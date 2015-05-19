@@ -221,8 +221,10 @@ struct sInputParams
 #ifdef _M_IX86
 	mfxU32     reserved3;
 #endif
+	mfxU16     inputBitDepthLuma;
+	mfxU16     inputBitDepthChroma;
 
-	mfxU8      Reserved[1164];
+	mfxU8      Reserved[1160];
 
 	TCHAR strSrcFile[MAX_FILENAME_LEN];
 	TCHAR strDstFile[MAX_FILENAME_LEN];
