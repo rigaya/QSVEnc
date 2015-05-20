@@ -962,6 +962,10 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 		m_mfxVppParams.vpp.In.ChromaFormat   = inputFrameInfo.ChromaFormat;
 		m_mfxVppParams.vpp.In.BitDepthLuma   = pInParams->inputBitDepthLuma;
 		m_mfxVppParams.vpp.In.BitDepthChroma = pInParams->inputBitDepthChroma;
+		//QSVデコーダは特別にShiftパラメータを使う可能性がある
+		if (m_pFileReader->getInputCodec()) {
+			m_mfxVppParams.vpp.In.Shift      = inputFrameInfo.Shift;
+		}
 
 		// width must be a multiple of 16
 		// height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
@@ -991,6 +995,7 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 	m_mfxVppParams.vpp.Out.FourCC         = MFX_FOURCC_NV12;
 	m_mfxVppParams.vpp.Out.BitDepthLuma   = 0;
 	m_mfxVppParams.vpp.Out.BitDepthChroma = 0;
+	m_mfxVppParams.vpp.Out.Shift          = 0;
 	m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
 	if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
 		INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
