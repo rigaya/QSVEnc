@@ -206,19 +206,17 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
 		return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
 	}
 
-	if (pfYUV420P8 != vsvideoinfo->format->id) {
-		m_strInputInfo += _T("Invalid colorformat.\n");
-		return MFX_ERR_INVALID_COLOR_FORMAT;
-	}
-	
-
 	typedef struct CSPMap {
 		int fmtID;
 		mfxU32 in, out;
+		mfxU16 bitDepth;
 	} CSPMap;
 
 	static const std::vector<CSPMap> valid_csp_list = {
-		{ pfYUV420P8, MFX_FOURCC_YV12, MFX_FOURCC_NV12 },
+		{ pfYUV420P8,  MFX_FOURCC_YV12, MFX_FOURCC_NV12,  0 },
+		{ pfYUV420P9,  MFX_FOURCC_YV12, MFX_FOURCC_P010,  9 },
+		{ pfYUV420P10, MFX_FOURCC_YV12, MFX_FOURCC_P010, 10 },
+		{ pfYUV420P16, MFX_FOURCC_YV12, MFX_FOURCC_P010, 16 },
 	};
 
 	m_ColorFormat = 0x00;
@@ -226,6 +224,8 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
 		if (csp.fmtID == vsvideoinfo->format->id) {
 			m_ColorFormat = csp.in;
 			m_inputFrameInfo.FourCC = csp.out;
+			m_inputFrameInfo.BitDepthLuma = csp.bitDepth;
+			m_inputFrameInfo.BitDepthChroma = csp.bitDepth;
 			m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
 			break;
 		}
@@ -260,10 +260,19 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
 
 	TCHAR mes[256];
 	TCHAR rev_info[128] = { 0 };
+	TCHAR intputBitdepthStr[64] = { 0 };
 	int rev = getRevInfo(vscoreinfo->versionString);
-	if (0 != rev)
+	if (0 != rev) {
 		_stprintf_s(rev_info, _countof(rev_info), _T(" r%d"), rev);
-	_stprintf_s(mes, _countof(mes), _T("VapourSynth%s%s (%s)->%s[%s], %dx%d, %d/%d fps"), (use_mt_mode) ? _T("MT") : _T(""), rev_info, ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
+	}
+	if (m_inputFrameInfo.BitDepthLuma > 8) {
+		_stprintf_s(intputBitdepthStr, _T("(%dbit)"), m_inputFrameInfo.BitDepthLuma);
+	}
+	_stprintf_s(mes, _T("VapourSynth%s%s (%s%s)->%s[%s]%s%dx%d, %d/%d fps"),
+		(use_mt_mode) ? _T("MT") : _T(""), rev_info,
+		ColorFormatToStr(m_ColorFormat), intputBitdepthStr,
+		ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
+		(m_inputFrameInfo.BitDepthLuma > 8) ? _T("\n") : _T(", "),
 		m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 	m_strInputInfo += mes;
 	m_tmLastUpdate = timeGetTime();

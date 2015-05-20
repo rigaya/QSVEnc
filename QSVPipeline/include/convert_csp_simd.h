@@ -365,4 +365,40 @@ static void __forceinline convert_rgb4_to_rgb4_simd(void **dst, void **src, int 
 }
 #pragma warning (pop)
 
+static void convert_yuv42010_to_p101_simd(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop) {
+	const int crop_left   = crop[0];
+	const int crop_up     = crop[1];
+	const int crop_right  = crop[2];
+	const int crop_bottom = crop[3];
+	uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left;
+	uint8_t *dstLine = (uint8_t *)dst[0];
+	const int y_fin = height - crop_bottom;
+	const int y_width = width - crop_right - crop_left;
+	for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+		memcpy_sse(dstLine, srcYLine, y_width * sizeof(uint16_t));
+	}
+	//UV成分のコピー
+	uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	dstLine = (uint8_t *)dst[1];
+	const int uv_fin = (height - crop_bottom) >> 1;
+	for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+		const int x_fin = (width - crop_right) * sizeof(uint16_t);
+		uint8_t *src_u_ptr = srcULine;
+		uint8_t *src_v_ptr = srcVLine;
+		uint8_t *dst_ptr = dstLine;
+		__m128i x0, x1, x2;
+		for (int x = crop_left; x < x_fin; x += 32, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 32) {
+			x0 = _mm_loadu_si128((const __m128i *)src_u_ptr);
+			x1 = _mm_loadu_si128((const __m128i *)src_v_ptr);
+
+			x2 = _mm_unpackhi_epi16(x0, x1);
+			x0 = _mm_unpacklo_epi16(x0, x1);
+
+			_mm_storeu_si128((__m128i *)(dst_ptr +  0), x0);
+			_mm_storeu_si128((__m128i *)(dst_ptr + 16), x2);
+		}
+	}
+}
+
 #endif //_CONVERT_CSP_SIMD_H_

@@ -317,3 +317,44 @@ void convert_rgb4_to_rgb4_avx2(void **dst, void **src, int width, int src_y_pitc
 	_mm256_zeroupper();
 }
 #pragma warning (pop)
+
+void convert_yuv42010_to_p101_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop) {
+	const int crop_left   = crop[0];
+	const int crop_up     = crop[1];
+	const int crop_right  = crop[2];
+	const int crop_bottom = crop[3];
+	//Y成分のコピー
+	uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte * crop_up + crop_left;
+	uint8_t *dstLine = (uint8_t *)dst[0];
+	const int y_fin = height - crop_bottom;
+	const int y_width = width - crop_right - crop_left;
+	for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch_byte, dstLine += dst_y_pitch_byte) {
+		avx2_memcpy<false>(dstLine, srcYLine, y_width * sizeof(uint16_t));
+	}
+	//UV成分のコピー
+	uint8_t *srcULine = (uint8_t *)src[1] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	uint8_t *srcVLine = (uint8_t *)src[2] + (((src_uv_pitch_byte * crop_up) + crop_left) >> 1);
+	dstLine = (uint8_t *)dst[1];
+	const int uv_fin = (height - crop_bottom) >> 1;
+	for (int y = crop_up >> 1; y < uv_fin; y++, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+		const int x_fin = (width - crop_right) * sizeof(uint16_t);
+		uint8_t *src_u_ptr = srcULine;
+		uint8_t *src_v_ptr = srcVLine;
+		uint8_t *dst_ptr = dstLine;
+		__m256i y0, y1, y2;
+		for (int x = crop_left; x < x_fin; x += 64, src_u_ptr += 32, src_v_ptr += 32, dst_ptr += 64) {
+			y0 = _mm256_loadu_si256((const __m256i *)src_u_ptr);
+			y1 = _mm256_loadu_si256((const __m256i *)src_v_ptr);
+
+			y0 = _mm256_permute4x64_epi64(y0, _MM_SHUFFLE(3,1,2,0));
+			y1 = _mm256_permute4x64_epi64(y1, _MM_SHUFFLE(3,1,2,0));
+
+			y2 = _mm256_unpackhi_epi16(y0, y1);
+			y0 = _mm256_unpacklo_epi16(y0, y1);
+
+			_mm256_storeu_si256((__m256i *)(dst_ptr +  0), y0);
+			_mm256_storeu_si256((__m256i *)(dst_ptr + 32), y2);
+		}
+	}
+	_mm256_zeroupper();
+}

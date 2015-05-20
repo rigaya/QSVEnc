@@ -41,3 +41,7 @@ void convert_rgb3_to_rgb4_avx(void **dst, void **src, int width, int src_y_pitch
 void convert_rgb4_to_rgb4_avx(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop) {
 	convert_rgb4_to_rgb4_simd(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, crop);
 }
+
+void convert_yuv42010_to_p101_avx(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop) {
+	convert_yuv42010_to_p101_simd(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, crop);
+}

@@ -46,6 +46,10 @@ void convert_rgb4_to_rgb4_sse2(void **dst, void **src, int width, int src_y_pitc
 void convert_rgb4_to_rgb4_avx(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
 void convert_rgb4_to_rgb4_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
 
+void convert_yuv42010_to_p101_avx2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
+void convert_yuv42010_to_p101_avx(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
+void convert_yuv42010_to_p101_sse2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
+
 static const ConvertCSP funcList[] = {
 	{ MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, { convert_yuy2_to_nv12_avx2,     convert_yuy2_to_nv12_i_avx2   }, AVX2|AVX },
 	{ MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, { convert_yuy2_to_nv12_avx,      convert_yuy2_to_nv12_i_avx    }, AVX },
@@ -64,6 +68,9 @@ static const ConvertCSP funcList[] = {
 	{ MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, { convert_rgb4_to_rgb4_avx2,     convert_rgb4_to_rgb4_avx2     }, AVX2|AVX },
 	{ MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, { convert_rgb4_to_rgb4_avx,      convert_rgb4_to_rgb4_avx      }, AVX },
 	{ MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, { convert_rgb4_to_rgb4_sse2,     convert_rgb4_to_rgb4_sse2     }, SSE2 },
+	{ MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_avx2, convert_yuv42010_to_p101_avx2 }, AVX2|AVX },
+	{ MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_avx,  convert_yuv42010_to_p101_avx  }, AVX },
+	{ MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_sse2, convert_yuv42010_to_p101_sse2 }, SSE2 },
 #endif
 	{ 0, 0, 0, false, 0x0, 0 },
 };
