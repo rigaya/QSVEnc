@@ -326,10 +326,12 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	}
 	//より正確なduration計算のため、最後の数フレームは落とす
 	//最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationではない
-	if (framePosList.size() > 32) {
+	if (framePosList.size() > 64) {
 		framePosList.erase(framePosList.end() - 16, framePosList.end());
-	} else if (framePosList.size() > 16) {
+		framePosList.erase(framePosList.begin(), framePosList.begin() + 16);
+	} else if (framePosList.size() > 32) {
 		framePosList.erase(framePosList.end() - 8, framePosList.end());
+		framePosList.erase(framePosList.begin(), framePosList.begin() + 8);
 	}
 
 	//durationのヒストグラムを作成
