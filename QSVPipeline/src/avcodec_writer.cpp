@@ -58,19 +58,15 @@ void CAvcodecWriter::Close() {
 	}
 
 	//close audio file
-	AVIOContext *pAVIOContext = m_Muxer.pFormatCtx->pb;
 	if (m_Muxer.pFormatCtx) {
 		if (!m_Muxer.bStreamError) {
 			av_write_trailer(m_Muxer.pFormatCtx);
 		}
+#if USE_CUSTOM_IO
+		if (!m_Muxer.fpOutput)
+#endif
+			avio_close(m_Muxer.pFormatCtx->pb);
 		avformat_free_context(m_Muxer.pFormatCtx);
-	}
-	if (m_Muxer.pStreamAudio) {
-		av_free(m_Muxer.pStreamAudio);
-	}
-	if (pAVIOContext) {
-		avio_close(pAVIOContext);
-		av_free(pAVIOContext);
 	}
 #if USE_CUSTOM_IO
 	if (m_Muxer.fpOutput) {
