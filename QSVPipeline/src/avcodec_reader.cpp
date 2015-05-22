@@ -214,7 +214,10 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 	mfxVideoParam param = { 0 };
 	param.mfx.CodecId = m_nInputCodec;
-	param.AsyncDepth = 1;
+	//よくわからないが、ここは1としないほうがよい模様
+	//下記のフレームレート推定が怪しくなる(主にPAFFの判定に失敗する)
+	//フレーム確保量の問題から、原因不明の問題が発生すると思われる
+	//param.AsyncDepth = 1;
 	param.IOPattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
 	if (MFX_ERR_NONE != (sts = MFXVideoDECODE_DecodeHeader(session, bitstream, &param))) {
 		m_strInputInfo += _T("avcodec reader: failed to decode header(2).\n");
