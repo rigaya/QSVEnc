@@ -303,9 +303,8 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 	//PAFFの場合、2フィールド目のpts, dtsが存在しないことがある
 	mfxU32 dts_pts_no_value_in_between = 0;
-	for (int i = 0; i < (int)framePosList.size(); i++) {
-		if (i > 0
-			&& framePosList[i  ].dts == AV_NOPTS_VALUE
+	for (int i = 1; i < (int)framePosList.size(); i++) {
+		if (   framePosList[i  ].dts == AV_NOPTS_VALUE
 			&& framePosList[i  ].pts == AV_NOPTS_VALUE
 			&& framePosList[i-1].dts != AV_NOPTS_VALUE
 			&& framePosList[i-1].pts != AV_NOPTS_VALUE) {
@@ -314,7 +313,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 			dts_pts_no_value_in_between++;
 		}
 	}
-	//PAFFっぽさ
+	//PAFFっぽさ (適当)
 	const bool seemsLikePAFF =
 		(framePosList.size() * 9 / 20 <= dts_pts_no_value_in_between)
 		|| (abs(1.0 - moreDataCount / (double)gotFrameCount) <= 0.2);
@@ -327,14 +326,12 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 			framePosList[i].duration = duration;
 		}
 	}
-	//より正確なduration計算のため、最後の数フレームは落とす
-	//最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationではない
+	//より正確なduration計算のため、最初と最後の数フレームは落とす
+	//最初と最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationを算出しない
 	if (framePosList.size() > 64) {
-		framePosList.erase(framePosList.end() - 16, framePosList.end());
-		framePosList.erase(framePosList.begin(), framePosList.begin() + 16);
+		framePosList = std::vector<FramePos>(framePosList.begin() + 16, framePosList.end() - 16);
 	} else if (framePosList.size() > 32) {
-		framePosList.erase(framePosList.end() - 8, framePosList.end());
-		framePosList.erase(framePosList.begin(), framePosList.begin() + 8);
+		framePosList = std::vector<FramePos>(framePosList.begin() + 8, framePosList.end() - 8);
 	}
 
 	//durationのヒストグラムを作成
