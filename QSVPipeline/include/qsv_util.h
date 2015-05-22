@@ -49,6 +49,8 @@ static inline mfxU16 readUB16(const void *ptr) {
 	return (i >> 8) | (i << 8);
 }
 
+bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
+
 enum {
 	QSV_LOG_DEBUG = -1,
 	QSV_LOG_INFO = 0,

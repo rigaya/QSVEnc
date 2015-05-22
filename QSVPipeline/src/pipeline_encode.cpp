@@ -1677,40 +1677,28 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 	//Auto detection by input file extension
 	if (pParams->nInputFmt == INPUT_FMT_AUTO) {
 #if ENABLE_AVISYNTH_READER
-		if (   0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".avs")))
+		if (check_ext(pParams->strSrcFile, { ".avs" }))
 			pParams->nInputFmt = INPUT_FMT_AVS;
 		else
 #endif //ENABLE_AVISYNTH_READER
 #if ENABLE_VAPOURSYNTH_READER
-		if (   0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".vpy")))
+		if (check_ext(pParams->strSrcFile, { ".vpy" }))
 			pParams->nInputFmt = INPUT_FMT_VPY;
 		else
 #endif //ENABLE_VAPOURSYNTH_READER
 #if ENABLE_AVI_READER
-		if (   0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".avi"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".avs"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".vpy")))
+		if (check_ext(pParams->strSrcFile, { ".avi", ".avs", ".vpy" }))
 			pParams->nInputFmt = INPUT_FMT_AVI;
 		else
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVCODEC_QSV_READER
-		if (   0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mp4"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".m4v"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mkv"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mov"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".264"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".avc"))
-#if ENABLE_HEVC_DECODE
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".265"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".hevc"))
-#endif
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".mpg"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".m2v"))
-			|| 0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".ts")))
+		if (check_ext(pParams->strSrcFile, { ".mp4", ".m4v", ".mkv", ".mov",
+			".mts", ".m2ts", ".ts", ".264", ".avc", ".265", ".hevc",
+			".mpg", ".mpeg", "m2v", ".vob", ".flv", ".ogm" }))
 			pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
 		else
 #endif //ENABLE_AVCODEC_QSV_READER
-		if (   0 == _tcsicmp(PathFindExtension(pParams->strSrcFile), _T(".y4m")))
+		if (check_ext(pParams->strSrcFile, { ".y4m" }))
 			pParams->nInputFmt = INPUT_FMT_Y4M;
 	}
 

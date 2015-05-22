@@ -81,6 +81,18 @@ std::vector<tstring> split(const tstring &str, const tstring &delim) {
 	return res;
 }
 
+bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) {
+	const TCHAR *target = PathFindExtension(filename);
+	if (target) {
+		for (auto ext : ext_list) {
+			if (0 == _tcsicmp(target, char_to_tstring(ext).c_str())) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
 	CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
 	static const WORD LOG_COLOR[] = {
