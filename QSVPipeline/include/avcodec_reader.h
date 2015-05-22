@@ -58,19 +58,6 @@ typedef struct AVDemuxer {
 	mfxU32                    sampleGetCount;             //sampleをGetNextBitstreamで取得した数
 } AVDemuxer;
 
-typedef struct QSVCodec {
-	mfxU32 codec_id;   //avcodecのコーデックID
-	mfxU32 qsv_fourcc; //QSVのfourcc
-} QSVCodec;
-
-//QSVでデコード可能なコーデックのリスト
-static const QSVCodec QSV_DECODE_LIST[] = { 
-	{ AV_CODEC_ID_MPEG2VIDEO, MFX_CODEC_MPEG2 },
-	{ AV_CODEC_ID_H264,       MFX_CODEC_AVC   },
-	{ AV_CODEC_ID_HEVC,       MFX_CODEC_HEVC  },
-	//{ AV_CODEC_ID_VC1,        MFX_CODEC_VC1   },
-};
-
 typedef struct AvcodecReaderPrm {
 	mfxU8      memType;
 	bool       bReadAudio;
