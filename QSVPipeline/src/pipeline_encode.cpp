@@ -352,7 +352,11 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
 		m_pFileReader->GetDecParam(&m_mfxDecParams);
 
 		InitMfxBitstream(&m_DecInputBitstream, AVCODEC_READER_INPUT_BUF_SIZE);
-		//m_DecInputBitstream.TimeStamp = MFX_TIMESTAMP_UNKNOWN;
+		//TimeStampはQSVに自動的に計算させる
+		m_DecInputBitstream.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+		if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+			m_DecInputBitstream.DecodeTimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+		}
 
 		sts = m_pFileReader->GetHeader(&m_DecInputBitstream);
 		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to get stream header from reader."));
@@ -1640,7 +1644,71 @@ void CEncodingPipeline::SetMultiView()
 	m_bIsMVC = true;
 }
 #endif
-mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
+
+mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
+	mfxStatus sts = MFX_ERR_NONE;
+	// prepare output file writer
+#if ENABLE_AVCODEC_QSV_READER
+	if (check_ext(pParams->strDstFile, { ".mp4", ".mkv", ".mov" })) {
+		pParams->nAVMux |= QSVENC_MUX_VIDEO;
+	}
+	if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
+		m_pFileWriter = new CAvcodecWriter();
+		AvcodecWriterPrm writerPrm = { 0 };
+		writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
+		writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
+		writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
+		if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
+			auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+			if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
+				PrintMes(QSV_LOG_ERROR, _T("Audio mux is only supported with transcoding (avqsv reader).\n"));
+				return MFX_ERR_UNSUPPORTED;
+			} else {
+				writerPrm.pCodecCtxAudioIn = pAVCodecReader->GetAudioCodecCtx();
+			}
+		}
+		sts = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
+		if (sts < MFX_ERR_NONE) {
+			PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+			return sts;
+		} else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
+			m_pFileWriterAudio = m_pFileWriter;
+		}
+	} else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
+		PrintMes(QSV_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
+		return MFX_ERR_UNSUPPORTED;
+	} else {
+#endif
+		m_pFileWriter = new CSmplBitstreamWriter();
+		bool bBenchmark = pParams->bBenchmark != 0;
+		sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
+		if (sts < MFX_ERR_NONE) {
+			PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+			return sts;
+		}
+#if ENABLE_AVCODEC_QSV_READER
+	} //ENABLE_AVCODEC_QSV_READER
+	if ((!(pParams->nAVMux & QSVENC_MUX_AUDIO)) && pParams->pAudioFilename) {
+		auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+		if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
+			PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
+			return MFX_ERR_UNSUPPORTED;
+		} else {
+			m_pFileWriterAudio = new CAvcodecWriter();
+			AvcodecWriterPrm writerAudioPrm = { 0 };
+			writerAudioPrm.pCodecCtxAudioIn = pAVCodecReader->GetAudioCodecCtx();
+			sts = m_pFileWriterAudio->Init(pParams->pAudioFilename, &writerAudioPrm, m_pEncSatusInfo);
+			if (sts < MFX_ERR_NONE) {
+				PrintMes(QSV_LOG_ERROR, m_pFileWriterAudio->GetOutputMessage());
+				return sts;
+			}
+		}
+	}
+#endif //ENABLE_AVCODEC_QSV_READER
+	return sts;
+}
+
+mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 {
 	mfxStatus sts = MFX_ERR_NONE;
 
@@ -1787,7 +1855,7 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 				avcodecReaderPrm.memType = pParams->memType;
 				avcodecReaderPrm.pTrimList = pParams->pTrimList;
 				avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-				avcodecReaderPrm.bReadAudio = pParams->pAudioFilename != NULL;
+				avcodecReaderPrm.bReadAudio = (pParams->pAudioFilename != NULL) | (0 != (pParams->nAVMux & QSVENC_MUX_AUDIO));
 				input_option = &avcodecReaderPrm;
 				break;
 #endif
@@ -1806,42 +1874,13 @@ mfxStatus CEncodingPipeline::InitInOut(sInputParams *pParams)
 		return sts;
 	}
 
-	if (pParams->nTrimCount) {
-		if (m_pFileReader->getInputCodec()) {
-			m_pTrimParam = m_pFileReader->GetTrimParam();
-		} else {
-			PrintMes(QSV_LOG_ERROR, _T("Trim is only supported with transcoding (avqsv reader).\n"));
-			return MFX_ERR_UNSUPPORTED;
-		}
+	if (m_pFileReader->getInputCodec()) {
+		auto trimParam = m_pFileReader->GetTrimParam();
+		m_pTrimParam = (trimParam->list.size()) ? trimParam : NULL;
+	} else {
+		PrintMes(QSV_LOG_ERROR, _T("Trim is only supported with transcoding (avqsv reader).\n"));
+		return MFX_ERR_UNSUPPORTED;
 	}
-
-	// prepare output file writer
-	m_pFileWriter = new CSmplBitstreamWriter();
-	bool bBenchmark = pParams->bBenchmark != 0;
-	sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
-	if (sts < MFX_ERR_NONE) {
-		PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-		return sts;
-	}
-
-#if ENABLE_AVCODEC_QSV_READER
-	if (pParams->pAudioFilename) {
-		auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
-		if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
-			PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
-			return MFX_ERR_UNSUPPORTED;
-		} else {
-			m_pFileWriterAudio = new CAvcodecWriter();
-			AvcodecWriterPrm writerAudioPrm = { 0 };
-			writerAudioPrm.pCodecCtxAudioIn = pAVCodecReader->GetAudioCodecCtx();
-			sts = m_pFileWriterAudio->Init(pParams->pAudioFilename, &writerAudioPrm, m_pEncSatusInfo);
-			if (sts < MFX_ERR_NONE) {
-				PrintMes(QSV_LOG_ERROR, m_pFileWriterAudio->GetOutputMessage());
-				return sts;
-			}
-		}
-	}
-#endif //ENABLE_AVCODEC_QSV_READER
 
 	return sts;
 }
@@ -2076,7 +2115,7 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 
 	mfxStatus sts = MFX_ERR_NONE;
 
-	sts = InitInOut(pParams);
+	sts = InitInput(pParams);
 	if (sts < MFX_ERR_NONE) return sts;
 
 	sts = CheckParam(pParams);
@@ -2102,6 +2141,9 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	if (sts < MFX_ERR_NONE) return sts;
 
 	sts = InitMfxDecParams();
+	if (sts < MFX_ERR_NONE) return sts;
+
+	sts = InitOutput(pParams);
 	if (sts < MFX_ERR_NONE) return sts;
 
 #if ENABLE_MVC_ENCODING
@@ -2217,8 +2259,10 @@ void CEncodingPipeline::Close()
 	m_LogLevel = QSV_LOG_INFO;
 
 	if (m_pFileWriterAudio) {
-		m_pFileWriterAudio->Close();
-		delete m_pFileWriterAudio;
+		if (m_pFileWriterAudio != m_pFileWriter) {
+			m_pFileWriterAudio->Close();
+			delete m_pFileWriterAudio;
+		}
 		m_pFileWriterAudio = NULL;
 	}
 
@@ -2500,6 +2544,8 @@ mfxStatus CEncodingPipeline::RunEncode()
 	mfxFrameSurface1 *pSurfVppIn = NULL;
 	mfxFrameSurface1 **ppNextFrame;
 	bool bVppRequireMoreFrame = false;
+	int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
+	const double getTimeStampMul = m_mfxEncParams.mfx.FrameInfo.FrameRateExtD * (double)QSV_TIMEBASE / (double)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN; //TimeStamp計算用
 
 	sTask *pCurrentTask = NULL; // a pointer to the current task
 	int nEncSurfIdx = -1; // index of free surface for encoder input (vpp output)
@@ -2627,6 +2673,11 @@ mfxStatus CEncodingPipeline::RunEncode()
 	auto vpp_one_frame =[&](mfxFrameSurface1* pSurfVppIn, mfxFrameSurface1* pSurfVppOut) {
 		mfxStatus vpp_sts = MFX_ERR_NONE;
 		if (m_pmfxVPP) {
+			if (bVppMultipleOutput && pSurfVppIn) {
+				//bob化など、デコーダから出てきたフレームでないフレーム(=TimeStampが計算されていない)を途中ではさむ場合には、
+				//下記のようにTimeStampをUNKNOWNに設定してやることで、自動計算される
+				pSurfVppIn->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+			}
 			mfxSyncPoint VppSyncPoint = NULL; // a sync point associated with an asynchronous vpp call
 			bVppMultipleOutput = false;   // reset the flag before a call to VPP
 			bVppRequireMoreFrame = false; // reset the flag before a call to VPP
@@ -2705,6 +2756,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 					}
 					ptrCtrl = &encCtrl;
 				}
+				//TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
+				pSurfEncIn->Data.TimeStamp = (int)(nFramePutToEncoder * getTimeStampMul + 0.5);
+				nFramePutToEncoder++;
 			}
 			enc_sts = m_pmfxENC->EncodeFrameAsync(ptrCtrl, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
 			bDeviceBusy = false;
@@ -3075,12 +3129,6 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	for (mfxU32 i = 0; i < inputMesSplitted.size(); i++) {
 		PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
 	}
-	if (m_pFileWriterAudio) {
-		inputMesSplitted = split(m_pFileWriterAudio->GetOutputMessage(), _T("\n"));
-		for (auto str : inputMesSplitted) {
-			PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
-		}
-	}
 
 	sInputCrop inputCrop;
 	m_pFileReader->GetInputCropInfo(&inputCrop);
@@ -3104,7 +3152,8 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		free(vpp_mes);
 		VppExtMes.clear();
 	}
-	if (m_pTrimParam != NULL && m_pTrimParam->list.size()) {
+	if (m_pTrimParam != NULL && m_pTrimParam->list.size()
+		&& !(m_pTrimParam->list[0].start == 0 && m_pTrimParam->list[0].fin == TRIM_MAX)) {
 		PRINT_INFO(_T("Trim           "));
 		for (auto trim : m_pTrimParam->list) {
 			if (trim.fin == TRIM_MAX) {
@@ -3124,6 +3173,22 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 													 DstPicInfo.FrameRateExtN / (double)DstPicInfo.FrameRateExtD, DstPicInfo.FrameRateExtN, DstPicInfo.FrameRateExtD,
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : _T(", "),
 													 (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
+	if (m_pFileWriter) {
+		inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
+		for (auto str : inputMesSplitted) {
+			if (str.length()) {
+				PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
+			}
+		}
+	}
+	if (m_pFileWriterAudio && m_pFileWriterAudio != m_pFileWriter) {
+		inputMesSplitted = split(m_pFileWriterAudio->GetOutputMessage(), _T("\n"));
+		for (auto str : inputMesSplitted) {
+			if (str.length()) {
+				PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
+			}
+		}
+	}
 	
 	PRINT_INFO(    _T("Target usage   %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
 	PRINT_INFO(    _T("Encode Mode    %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));

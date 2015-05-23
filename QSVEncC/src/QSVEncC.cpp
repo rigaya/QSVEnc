@@ -41,7 +41,7 @@ static void PrintVersion() {
 	_ftprintf(stdout, _T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
 	_ftprintf(stdout, _T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
 	_ftprintf(stdout, _T("  vpy reader:   %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
-	_ftprintf(stdout, _T("  avqsv reader: %s"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
+	_ftprintf(stdout, _T("  avqsv reader: %s"),   ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
 #if ENABLE_AVCODEC_QSV_READER
 	_ftprintf(stdout, _T(" [%s]"), getAVQSVSupportedCodecList().c_str());
 #endif
@@ -103,6 +103,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("\n")
 			_T("-i,--input-file <filename>      set input file name\n")
 			_T("-o,--output-file <filename>     set ouput file name\n")
+#if ENABLE_AVCODEC_QSV_READER
+			_T("                                 for extension mp4/mkv/mov,\n")
+			_T("                                 avcodec muxer will be used.\n")
+#endif
 			_T("\n")
 			_T(" Input formats (will be estimated from extension if not set.)\n")
 			_T("   --raw                        set input as raw format\n")
@@ -123,8 +127,14 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("                                could be only used with avqsv reader.\n")
 			_T("   --trim <int>:<int>[,<int>:<int>]...\n")
 			_T("                                trim video for the frame range specified.\n")
-			_T("                                frame range should not overwrap each other.\n")
-			_T("                                could be only used with avqsv reader.\n")
+			_T("                                 frame range should not overwrap each other.\n")
+			_T("                                 could be only used with avqsv reader.\n")
+			_T("   --mux-video                  force video output to use avcodec muxer.\n")
+			_T("                                 if output file extension is mp4/mkv/mov,\n")
+			_T("                                 avcodec muxer will used by default.\n")
+			_T("   --copy-audio                 mux audio with video during output.\n")
+			_T("                                 could be only used with\n")
+			_T("                                 avqsv reader and avcodec muxer.\n")
 #endif
 			_T("\n")
 			_T("   --nv12                       set raw input as NV12 color format,\n")
@@ -554,6 +564,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			int filename_len = (int)_tcslen(strInput[i]) + 1;
 			pParams->pAudioFilename = (TCHAR *)malloc(filename_len * sizeof(pParams->pAudioFilename[0]));
 			memcpy(pParams->pAudioFilename, strInput[i], sizeof(pParams->pAudioFilename[0]) * filename_len);
+		}
+		else if (0 == _tcscmp(option_name, _T("mux-video")))
+		{
+			pParams->nAVMux |= QSVENC_MUX_VIDEO;
+		}
+		else if (0 == _tcscmp(option_name, _T("copy-audio")))
+		{
+			pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
 		}
 		else if (0 == _tcscmp(option_name, _T("quality")))
 		{

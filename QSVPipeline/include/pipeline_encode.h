@@ -220,7 +220,8 @@ protected:
 
 	virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
-	virtual mfxStatus InitInOut(sInputParams *pParams);
+	virtual mfxStatus InitInput(sInputParams *pParams);
+	virtual mfxStatus InitOutput(sInputParams *pParams);
 	virtual mfxStatus InitMfxDecParams();
 	virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
 	virtual mfxStatus InitMfxVppParams(sInputParams *pParams);

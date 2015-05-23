@@ -70,6 +70,7 @@ typedef struct FEATURE_DESC {
 	uint64_t value;
 } FEATURE_DESC;
 
+static const int QSV_TIMEBASE = 90000;
 
 #define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 

@@ -49,7 +49,7 @@ static const QSVCodec QSV_DECODE_LIST[] = {
 	//{ AV_CODEC_ID_VC1,        MFX_CODEC_VC1   },
 };
 
-static const AVRational QSV_NATIVE_TIMEBASE = { 1, 90000 };
+static const AVRational QSV_NATIVE_TIMEBASE = { 1, QSV_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
 	_T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
 };

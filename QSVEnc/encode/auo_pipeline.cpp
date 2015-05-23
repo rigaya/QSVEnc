@@ -20,19 +20,14 @@ AuoPipeline::AuoPipeline() {
 AuoPipeline::~AuoPipeline() {
 }
 
-mfxStatus AuoPipeline::InitInOut(sInputParams *pParams) {
+mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
 	mfxStatus sts = MFX_ERR_NONE;
-
 
 	m_pEncSatusInfo = new AUO_EncodeStatusInfo();
 
 	// prepare input file reader
 	m_pFileReader = new AUO_YUVReader();
 	sts = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-	m_pFileWriter = new CSmplBitstreamWriter();
-	sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
 	mfxFrameInfo inputFrameInfo = { 0 };
@@ -78,6 +73,17 @@ mfxStatus AuoPipeline::InitInOut(sInputParams *pParams) {
 
 	return sts;
 }
+
+mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
+	mfxStatus sts = MFX_ERR_NONE;
+
+	m_pFileWriter = new CSmplBitstreamWriter();
+	sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
+	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+
+	return sts;
+}
+
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 void AuoPipeline::PrintMes(int log_level, const TCHAR *format, ... ) {

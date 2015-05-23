@@ -84,6 +84,12 @@ typedef enum {
 	FPS_CONVERT_MUL2_5,
 };
 
+typedef enum {
+	QSVENC_MUX_NONE  = 0x00,
+	QSVENC_MUX_VIDEO = 0x01,
+	QSVENC_MUX_AUDIO = 0x02,
+};
+
 typedef struct {
 	bool bEnable;             //use vpp
 
@@ -223,8 +229,9 @@ struct sInputParams
 #endif
 	mfxU16     inputBitDepthLuma;
 	mfxU16     inputBitDepthChroma;
+	mfxU8      nAVMux; //QSVENC_MUX_xxx
 
-	mfxU8      Reserved[1160];
+	mfxU8      Reserved[1159];
 
 	TCHAR strSrcFile[MAX_FILENAME_LEN];
 	TCHAR strDstFile[MAX_FILENAME_LEN];
