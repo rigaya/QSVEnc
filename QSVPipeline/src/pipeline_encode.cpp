@@ -1878,7 +1878,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 	if (m_pFileReader->getInputCodec()) {
 		auto trimParam = m_pFileReader->GetTrimParam();
 		m_pTrimParam = (trimParam->list.size()) ? trimParam : NULL;
-	} else {
+	} else if (pParams->pTrimList) {
 		PrintMes(QSV_LOG_ERROR, _T("Trim is only supported with transcoding (avqsv reader).\n"));
 		return MFX_ERR_UNSUPPORTED;
 	}

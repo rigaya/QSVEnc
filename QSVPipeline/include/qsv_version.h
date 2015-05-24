@@ -18,9 +18,9 @@
 
 #define MSDK_SAMPLE_VERSION MSDK_STRING(MFX_PRODUCT_VERSION)
 
-#define VER_FILEVERSION             0,1,99,5
-#define VER_STR_FILEVERSION          "2.00 beta5"
-#define VER_STR_FILEVERSION_TCHAR _T("2.00 beta5")
+#define VER_FILEVERSION             0,1,99,6
+#define VER_STR_FILEVERSION          "2.00 beta6"
+#define VER_STR_FILEVERSION_TCHAR _T("2.00 beta6")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
