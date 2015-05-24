@@ -482,8 +482,11 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	//QSVでデコード可能かチェック
 	if (0 == (m_nInputCodec = getQSVFourcc(demux.pCodecCtx->codec_id))) {
 		m_strInputInfo += _T("avcodec reader: codec ");
-		m_strInputInfo += char_to_tstring(demux.pCodecCtx->codec->name);
-		m_strInputInfo += _T(" unable to decode by qsv.\n");
+		if (demux.pCodecCtx->codec && demux.pCodecCtx->codec->name) {
+			m_strInputInfo += char_to_tstring(demux.pCodecCtx->codec->name);
+			m_strInputInfo += _T(" ");
+		}
+		m_strInputInfo += _T("unable to decode by qsv.\n");
 		return MFX_ERR_NULL_PTR;
 	}
 	AVDEBUG_PRINT("avcodec reader: can be decoded by qsv.\n");
