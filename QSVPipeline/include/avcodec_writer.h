@@ -55,10 +55,11 @@ typedef struct AVMuxer {
 } AVMuxer;
 
 typedef struct AvcodecWriterPrm {
-	const mfxInfoMFX            *pVideoInfo;           //出力映像の情報
-	bool                         bVideoDtsUnavailable; //出力映像のdtsが無効 (API v1.6以下)
-	const mfxExtVideoSignalInfo *pVideoSignalInfo;     //出力映像の情報
-	const AVCodecContext        *pCodecCtxAudioIn;     //入力ファイルの音声のcodecContext
+	const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
+	bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
+	const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
+	const AVCodecContext        *pCodecCtxAudioIn;        //入力ファイルの音声のcodecContext
+	AVPacket                    *pAudioPktSample;         //入力ファイルの音声のサンプル
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CSmplBitstreamWriter
@@ -92,6 +93,9 @@ private:
 
 	//AAC音声にBitstreamフィルターを適用する
 	void applyBitstreamFilterAAC(AVPacket *pkt);
+
+	//extradataをコピーする
+	void SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, mfxU32 size);
 
 	AVMuxer m_Muxer;
 };

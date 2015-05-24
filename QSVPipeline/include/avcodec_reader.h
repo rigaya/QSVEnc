@@ -53,6 +53,7 @@ typedef struct AVDemuxer {
 	AVCodecContext           *pCodecCtxAudio;             //音声のcodecContext
 	int                       lastVidIndex;               //音声の直前の相当する動画の位置
 	mfxI64                    audExtractErrExcess;        //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
+	AVPacket                  audioPktSample;             //サンプル用の音声データ
 
 	mfxU32                    sampleLoadCount;            //sampleをLoadNextFrameでロードした数
 	mfxU32                    sampleGetCount;             //sampleをGetNextBitstreamで取得した数
@@ -92,6 +93,9 @@ public:
 	//音声のコーデックコンテキストを取得する
 	const AVCodecContext *GetAudioCodecCtx();
 
+	//サンプル用の音声データを取得する
+	AVPacket *GetAudioPacketSample();
+
 	//デコードするストリームの情報を取得する
 	void GetDecParam(mfxVideoParam *decParam) {
 		memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
@@ -100,11 +104,8 @@ private:
 	//avcodecのコーデックIDからIntel Media SDKのコーデックのFourccを取得
 	mfxU32 getQSVFourcc(mfxU32 id);
 
-	//avcodecのvideoのストリームIDを取得
-	int getVideoStream();
-
-	//avcodecのaudioのストリームIDを取得
-	int getAudioStream();
+	//avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
+	int getStreamIndex(AVMediaType type);
 
 	//動画のptsをソートする
 	void sortVideoPtsList();

@@ -1665,6 +1665,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 				return MFX_ERR_UNSUPPORTED;
 			} else {
 				writerPrm.pCodecCtxAudioIn = pAVCodecReader->GetAudioCodecCtx();
+				writerPrm.pAudioPktSample = pAVCodecReader->GetAudioPacketSample();
 			}
 		}
 		sts = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);

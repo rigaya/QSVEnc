@@ -138,6 +138,14 @@ AVCodecID CAvcodecWriter::PCMRequiresConversion(const AVCodecContext *audioCtx) 
 	return AV_CODEC_ID_NONE;
 }
 
+void CAvcodecWriter::SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, mfxU32 size) {
+	if (codecCtx->extradata)
+		av_free(codecCtx->extradata);
+	codecCtx->extradata_size = size;
+	codecCtx->extradata      = (uint8_t *)av_malloc(codecCtx->extradata_size);
+	memcpy(codecCtx->extradata, data, size);
+};
+
 mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option, CEncodeStatusInfo *pEncSatusInfo) {
 	if (!check_avcodec_dll()) {
 		m_strOutputInfo += error_mes_avcodec_dll_not_found();
@@ -311,6 +319,14 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 				m_strOutputInfo += _T("avcodec writer: failed to open bitstream filter for AAC audio.");
 				return MFX_ERR_NULL_PTR;
 			}
+			if (prm->pAudioPktSample) {
+				//mkvではavformat_write_headerまでにAVCodecContextにextradataをセットしておく必要がある
+				AVPacket *audpkt = prm->pAudioPktSample;
+				if (0 > av_bitstream_filter_filter(m_Muxer.pAudioAACBsfc, m_Muxer.pAudioCodecCtxIn, NULL, &audpkt->data, &audpkt->size, audpkt->data, audpkt->size, 0)) {
+					m_strOutputInfo += _T("avcodec writer: failed to run bitstream filter for AAC audio.");
+					return MFX_ERR_UNKNOWN;
+				}
+			}
 		}
 
 		//パラメータのコピー
@@ -328,9 +344,12 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 		m_Muxer.pAudioStream->codec->sample_rate     = srcCodecCtx->sample_rate;
 		m_Muxer.pAudioStream->codec->sample_fmt      = srcCodecCtx->sample_fmt;
 		if (srcCodecCtx->extradata_size) {
-			m_Muxer.pAudioStream->codec->extradata_size = srcCodecCtx->extradata_size;
-			m_Muxer.pAudioStream->codec->extradata      = (uint8_t *)av_malloc(m_Muxer.pAudioStream->codec->extradata_size);
-			memcpy(m_Muxer.pAudioStream->codec->extradata, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
+			SetExtraData(m_Muxer.pAudioStream->codec, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
+		} else if (m_Muxer.pAudioCodecCtxIn->extradata_size) {
+			//aac_adtstoascから得たヘッダをコピーする
+			//これをしておかないと、avformat_write_headerで"Error parsing AAC extradata, unable to determine samplerate."という
+			//意味不明なエラーメッセージが表示される
+			SetExtraData(m_Muxer.pAudioStream->codec, m_Muxer.pAudioCodecCtxIn->extradata, m_Muxer.pAudioCodecCtxIn->extradata_size);
 		}
 		m_Muxer.pAudioStream->time_base = av_make_q(1, m_Muxer.pAudioStream->codec->sample_rate);
 		m_Muxer.pAudioStream->codec->time_base = m_Muxer.pAudioStream->time_base;
