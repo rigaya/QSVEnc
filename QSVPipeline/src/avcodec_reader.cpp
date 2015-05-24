@@ -152,11 +152,20 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 		LeaveCriticalSection(&demux.videoFrameData.cs);
 	}
 	demux.videoFrameData.frame[demux.videoFrameData.num] = pos;
-	demux.videoFrameData.duration += MSDK_MAX(0, pos.dts - demux.videoFrameData.frame[MSDK_MAX(demux.videoFrameData.num, 1)-1].dts);
 	demux.videoFrameData.num++;
 
 	if (demux.videoFrameData.fixed_num + 32 < demux.videoFrameData.num) {
 		sortVideoPtsList();
+		const FramePos *pos = demux.videoFrameData.frame + demux.videoFrameData.fixed_num;
+		int64_t duration = pos[16].pts - pos[0].pts;
+		if (duration < 0 || duration > 0xFFFFFFFF) {
+			duration = 0;
+			for (int i = 1; i < 16; i++) {
+				int64_t diff = MSDK_MAX(0, pos[i].pts - pos[i-1].pts);
+				duration += (diff > 0xFFFFFFFF) ? 0 : diff;
+			}
+		}
+		demux.videoFrameData.duration += duration;
 		demux.videoFrameData.fixed_num += 16;
 	}
 }
@@ -730,6 +739,8 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 	pkt->size = 0;
 	sortVideoPtsList();
 	demux.videoFrameData.fixed_num = demux.videoFrameData.num - 1;
+	demux.videoFrameData.duration = demux.pFormatCtx->duration;
+	m_pEncSatusInfo->UpdateDisplay(timeGetTime(), 0, 100.0);
 	return 1;
 }
 
@@ -847,7 +858,7 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 	if (tm - m_tmLastUpdate > UPDATE_INTERVAL) {
 		double progressPercent = 0.0;
 		if (demux.pFormatCtx->duration) {
-			progressPercent = demux.videoFrameData.duration * (demux.pCodecCtx->pkt_timebase.num / (double)demux.pCodecCtx->pkt_timebase.den) / (demux.pFormatCtx->duration / (double)AV_TIME_BASE) * 100.0;
+			progressPercent = demux.videoFrameData.duration * (demux.pCodecCtx->pkt_timebase.num / (double)demux.pCodecCtx->pkt_timebase.den) / (demux.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
 		}
 		m_tmLastUpdate = tm;
 		m_pEncSatusInfo->UpdateDisplay(tm, 0, progressPercent);
