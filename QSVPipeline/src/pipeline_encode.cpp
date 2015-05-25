@@ -1852,6 +1852,10 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 #endif
 #if ENABLE_AVCODEC_QSV_READER
 			case INPUT_FMT_AVCODEC_QSV:
+				if (!pParams->bUseHWLib) {
+					PrintMes(QSV_LOG_ERROR, _T("avqsv reader is only supported with HW libs.\n"));
+					return MFX_ERR_UNSUPPORTED;
+				}
 				m_pFileReader = new CAvcodecReader();
 				avcodecReaderPrm.memType = pParams->memType;
 				avcodecReaderPrm.pTrimList = pParams->pTrimList;
