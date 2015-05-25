@@ -217,6 +217,7 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
 
 mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream) {
 	mfxStatus sts = MFX_ERR_NONE;
+	const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
 	const int max_check = 256;
 	std::vector<FramePos> framePosList;
 	framePosList.reserve(max_check);
@@ -337,10 +338,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	}
 	//より正確なduration計算のため、最初と最後の数フレームは落とす
 	//最初と最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationを算出しない
-	if (framePosList.size() > 64) {
-		framePosList = std::vector<FramePos>(framePosList.begin() + 16, framePosList.end() - 16);
-	} else if (framePosList.size() > 32) {
-		framePosList = std::vector<FramePos>(framePosList.begin() + 8, framePosList.end() - 8);
+	if (framePosList.size() >= 32) {
+		const int cutoff = (framePosList.size() >= 64) ? 16 : 8;
+		framePosList = std::vector<FramePos>(framePosList.begin() + cutoff, framePosList.end() - cutoff);
 	}
 
 	//durationのヒストグラムを作成
@@ -367,12 +367,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		//入力フレームに対し、出力フレームが半分程度なら、フレームのdurationを倍と見積もる
 		avgDuration *= (seemsLikePAFF) ? 2.0 : 1.0;
 		//durationから求めた平均fpsを計算する
-		estimatedAvgFps.num = demux.pCodecCtx->pkt_timebase.den;
-		if (abs(avgDuration / mostPopularDuration - 1.0) < 5e-4) {
-			estimatedAvgFps.den = demux.pCodecCtx->pkt_timebase.num * mostPopularDuration;
-		} else {
-			estimatedAvgFps.den = demux.pCodecCtx->pkt_timebase.num * (int)(avgDuration + 0.5);
-		}
+		const int mul = (int)ceil(1001.0 / demux.pCodecCtx->time_base.num);
+		estimatedAvgFps.num = (int)(demux.pCodecCtx->pkt_timebase.den / avgDuration * (double)demux.pCodecCtx->time_base.num * mul + 0.5);
+		estimatedAvgFps.den = demux.pCodecCtx->time_base.num * mul;
 	}
 
 	//TimeStampベースで最初のフレームに戻す
@@ -380,25 +377,54 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		if (demux.videoStreamPtsInvalid) {
 			//ptsとdurationをpkt_timebaseで適当に作成する
 			addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, demux.pCodecCtx->time_base, demux.pCodecCtx->pkt_timebase) });
-			demux.videoAvgFramerate = fpsDecoder;
+			demux.videoAvgFramerate = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder;
 		} else {
 			addVideoPtsToList(firstKeyframePos);
-			double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
-			double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
-			double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
-			//durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
-			demux.videoAvgFramerate = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder : estimatedAvgFps;
+			if (fpsDecoderInvalid) {
+				demux.videoAvgFramerate = estimatedAvgFps;
+			} else {
+				double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
+				double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
+				//2フレーム分程度がもたらす誤差があっても許容する
+				if (abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / framePosList.size())) {
+					demux.videoAvgFramerate = fpsDecoder;
+				} else {
+					double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
+					//durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
+					demux.videoAvgFramerate = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder : estimatedAvgFps;
+				}
+			}
 		}
 	} else {
 		//失敗したら、Byte単位でのシークを試み、最初に戻す
 		demux.videoStreamPtsInvalid = true;
-		demux.videoAvgFramerate = fpsDecoder;
+		demux.videoAvgFramerate = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder;
 		if (0 <= av_seek_frame(demux.pFormatCtx, demux.videoIndex, 0, AVSEEK_FLAG_BACKWARD|AVSEEK_FLAG_BYTE)) {
 			//ptsとdurationをpkt_timebaseで適当に作成する
 			addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, demux.pCodecCtx->time_base, demux.pCodecCtx->pkt_timebase) });
 		} else {
 			m_strInputInfo += _T("avcodec reader: failed to seek backward.\n");
 			return MFX_ERR_UNSUPPORTED;
+		}
+	}
+	
+	const mfxU32 fps_gcd = GCD(demux.videoAvgFramerate.num, demux.videoAvgFramerate.den);
+	demux.videoAvgFramerate.num /= fps_gcd;
+	demux.videoAvgFramerate.den /= fps_gcd;
+
+	//近似値であれば、分母1001/分母1に合わせる
+	double fps = demux.videoAvgFramerate.num / (double)demux.videoAvgFramerate.den;
+	double fps_n = fps * 1001;
+	int fps_n_int = (int)(fps + 0.5) * 1000;
+	if (abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
+		demux.videoAvgFramerate.num = fps_n_int;
+		demux.videoAvgFramerate.den = 1001;
+	} else {
+		fps_n = fps * 1000;
+		int fps_n_int = (int)(fps + 0.5) * 1000;
+		if (abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
+			demux.videoAvgFramerate.num = fps_n_int / 1000;
+			demux.videoAvgFramerate.den = 1;
 		}
 	}
 
@@ -585,20 +611,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	//getFirstFramePosAndFrameRateをもとにfpsを決定
 	m_sDecParam.mfx.FrameInfo.FrameRateExtN = demux.videoAvgFramerate.num;
 	m_sDecParam.mfx.FrameInfo.FrameRateExtD = demux.videoAvgFramerate.den;
-	const mfxU32 fps_gcd = GCD(m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD);
-	m_sDecParam.mfx.FrameInfo.FrameRateExtN /= fps_gcd;
-	m_sDecParam.mfx.FrameInfo.FrameRateExtD /= fps_gcd;
-
-	//近似値であれば、分母1001に合わせる
-	if (m_sDecParam.mfx.FrameInfo.FrameRateExtD != 1001) {
-		double fps = m_sDecParam.mfx.FrameInfo.FrameRateExtN / (double)m_sDecParam.mfx.FrameInfo.FrameRateExtD;
-		double fps_n = fps * 1001;
-		int fps_n_int = (int)(fps + 0.5) * 1000;
-		if (abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
-			m_sDecParam.mfx.FrameInfo.FrameRateExtN = fps_n_int;
-			m_sDecParam.mfx.FrameInfo.FrameRateExtD = 1001;
-		}
-	}
 
 	//情報を格納
 	memcpy(&m_inputFrameInfo, &m_sDecParam.mfx.FrameInfo, sizeof(m_inputFrameInfo));
