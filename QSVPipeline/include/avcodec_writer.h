@@ -16,21 +16,11 @@
 
 #define USE_CUSTOM_IO 1
 
-typedef struct AVMuxer {
+typedef struct AVMuxFormat {
 	AVFormatContext      *pFormatCtx;           //出力ファイルのformatContext
 	char                  metadataStr[256];     //出力ファイルのエンコーダ名
 	AVOutputFormat       *pOutputFmt;           //出力ファイルのoutputFormat
 
-	AVCodec              *pVideoCodec;          //出力映像のCodec
-	AVCodecContext       *pVideoCodecCtx;       //出力映像のCodecContext
-	AVRational            nVideoFPS;            //出力映像のフレームレート
-	AVStream             *pVideoStream;         //出力ファイルの映像ストリーム
-	bool                  bVideoDtsUnavailable; //出力映像のdtsが無効 (API v1.6以下)
-	int                   nVideoFpsBaseNextDts; //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
-
-	AVCodecContext       *pAudioCodecCtxIn;     //入力音声のCodecContextのコピー
-	AVStream             *pAudioStream;         //出力ファイルの音声ストリーム
-	int                   nAudioPacketWritten;  //出力したパケットの数
 #if USE_CUSTOM_IO
 	mfxU8                *pAVOutBuffer;         //avio_alloc_context用のバッファ
 	mfxU32                nAVOutBufferSize;     //avio_alloc_context用のバッファサイズ
@@ -38,21 +28,41 @@ typedef struct AVMuxer {
 	char                 *pOutputBuffer;        //出力ファイルポインタ用のバッファ
 	mfxU32                nOutputBufferSize;    //出力ファイルポインタ用のバッファサイズ
 #endif //USE_CUSTOM_IO
+	bool                  bStreamError;     //エラーが発生
+} AVMuxFormat;
+
+typedef struct AVMuxVideo {
+	AVCodec              *pCodec;          //出力映像のCodec
+	AVCodecContext       *pCodecCtx;       //出力映像のCodecContext
+	AVRational            nFPS;            //出力映像のフレームレート
+	AVStream             *pStream;         //出力ファイルの映像ストリーム
+	bool                  bDtsUnavailable; //出力映像のdtsが無効 (API v1.6以下)
+	int                   nFpsBaseNextDts; //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
+} AVMuxVideo;
+
+typedef struct AVMuxAudio {
+	AVCodecContext       *pCodecCtxIn;     //入力音声のCodecContextのコピー
+	AVStream             *pStream;         //出力ファイルの音声ストリーム
+	int                   nPacketWritten;  //出力したパケットの数
 
 	//PCMの変換用
-	AVCodec              *pAudioOutCodecDecode;     //変換するPCMの元のコーデック
-	AVCodecContext       *pAudioOutCodecDecodeCtx;  //変換するPCMの元のCodecContext
-	AVCodec              *pAudioOutCodecEncode;     //変換先のPCMの音声のコーデック
-	AVCodecContext       *pAudioOutCodecEncodeCtx;  //変換先のPCMの音声のCodecContext
-	AVPacket              audioOutPacket;           //変換用の音声バッファ
+	AVCodec              *pOutCodecDecode;     //変換するPCMの元のコーデック
+	AVCodecContext       *pOutCodecDecodeCtx;  //変換するPCMの元のCodecContext
+	AVCodec              *pOutCodecEncode;     //変換先のPCMの音声のコーデック
+	AVCodecContext       *pOutCodecEncodeCtx;  //変換先のPCMの音声のCodecContext
+	AVPacket              OutPacket;           //変換用の音声バッファ
 	//AACの変換用
-	AVBitStreamFilterContext *pAudioAACBsfc;        //必要なら使用するbitstreamfilter
+	AVBitStreamFilterContext *pAACBsfc;        //必要なら使用するbitstreamfilter
 
-	int                   nAudioOutputSamples; //出力音声の出力済みsample数
-	mfxI64                nAudioLastPts;       //出力音声の前パケットのpts
+	int                   nOutputSamples; //出力音声の出力済みsample数
+	mfxI64                nLastPts;       //出力音声の前パケットのpts
+} AVMuxAudio;
 
-	bool                  bStreamError;     //エラーが発生
-} AVMuxer;
+typedef struct AVMux {
+	AVMuxFormat         format;
+	AVMuxVideo          video;
+	AVMuxAudio          audio;
+} AVMux;
 
 typedef struct AvcodecWriterPrm {
 	const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
@@ -97,7 +107,11 @@ private:
 	//extradataをコピーする
 	void SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, mfxU32 size);
 
-	AVMuxer m_Muxer;
+	void CloseAudio(AVMuxAudio *pMuxAudio);
+	void CloseVideo(AVMuxVideo *pMuxVideo);
+	void CloseFormat(AVMuxFormat *pMuxFormat);
+
+	AVMux m_Mux;
 };
 
 #endif //ENABLE_AVCODEC_QSV_READER

@@ -34,29 +34,40 @@ typedef struct VideoFrameData {
 	bool cs_initialized;  //csが初期化されているかどうか
 } VideoFrameData;
 
+typedef struct AVDemuxFormat {
+	AVFormatContext          *pFormatCtx;            //動画ファイルのformatContext
+} AVDemuxFormat;
+
+typedef struct AVDemuxVideo {
+	AVCodecContext           *pCodecCtx;             //動画のcodecContext
+	int                       nIndex;                //動画のストリームID
+	int64_t                   nStreamFirstPts;       //動画ファイルの最初のpts
+	bool                      bStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES等)
+	bool                      bGotFirstKeyframe;     //動画の最初のキーフレームを取得済み
+	VideoFrameData            frameData;             //動画フレームのptsのリスト
+	AVBitStreamFilterContext *pH264Bsfc;             //必要なら使用するbitstreamfilter
+	mfxU8                    *pExtradata;            //動画のヘッダ情報
+	int                       nExtradataSize;        //動画のヘッダサイズ
+	AVPacket                  packet[2];             //取得した動画ストリームの1フレーム分のデータ
+	AVRational                nAvgFramerate;         //動画のフレームレート
+	bool                      bUseHEVCmp42AnnexB;    //HEVCのmp4->AnnexB変換
+
+	mfxU32                    nSampleLoadCount;      //sampleをLoadNextFrameでロードした数
+	mfxU32                    nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
+} AVDemuxVideo;
+
+typedef struct AVDemuxAudio {
+	int                       nIndex;                 //音声のストリームID
+	AVCodecContext           *pCodecCtx;              //音声のcodecContext
+	int                       nLastVidIndex;          //音声の直前の相当する動画の位置
+	mfxI64                    nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
+	AVPacket                  pktSample;              //サンプル用の音声データ
+} AVDemuxAudio;
+
 typedef struct AVDemuxer {
-	AVFormatContext          *pFormatCtx;                 //動画ファイルのformatContext
-	AVCodecContext           *pCodecCtx;                  //動画のcodecContext
-	int                       videoIndex;                 //動画のストリームID
-	int64_t                   videoStreamFirstPts;        //動画ファイルの最初のpts
-	bool                      videoStreamPtsInvalid;      //動画ファイルのptsが無効 (H.264/ES等)
-	bool                      videoGotFirstKeyframe;      //動画の最初のキーフレームを取得済み
-	VideoFrameData            videoFrameData;             //動画フレームのptsのリスト
-	AVBitStreamFilterContext *bsfc;                       //必要なら使用するbitstreamfilter
-	mfxU8                    *extradata;                  //動画のヘッダ情報
-	int                       extradataSize;              //動画のヘッダサイズ
-	AVPacket                  videoPacket[2];             //取得した動画ストリームの1フレーム分のデータ
-	AVRational                videoAvgFramerate;          //動画のフレームレート
-	bool                      videoUseHEVCmp42AnnexB;     //HEVCのmp4->AnnexB変換
-
-	int                       audioIndex;                 //音声のストリームID
-	AVCodecContext           *pCodecCtxAudio;             //音声のcodecContext
-	int                       lastVidIndex;               //音声の直前の相当する動画の位置
-	mfxI64                    audExtractErrExcess;        //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
-	AVPacket                  audioPktSample;             //サンプル用の音声データ
-
-	mfxU32                    sampleLoadCount;            //sampleをLoadNextFrameでロードした数
-	mfxU32                    sampleGetCount;             //sampleをGetNextBitstreamで取得した数
+	AVDemuxFormat format;
+	AVDemuxVideo  video;
+	AVDemuxAudio  audio;
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {
@@ -139,16 +150,11 @@ private:
 	//HEVCのmp4->AnnexB簡易変換
 	void hevcMp42Annexb(AVPacket *pkt);
 
-	//gcdを取得
-	int getGcd(int a, int b) {
-		if (a == 0 || b == 0)
-			return 1;
-		int c;
-		while ((c = a % b) != 0)
-			a = b, b = c;
-		return b;
-	}
-	AVDemuxer demux; //デコード用情報
+	void CloseAudio(AVDemuxAudio *pAudio);
+	void CloseVideo(AVDemuxVideo *pVideo);
+	void CloseFormat(AVDemuxFormat *pFormat);
+
+	AVDemuxer             m_Demux;                      //デコード用情報
 	std::vector<mfxU8>    m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
 	std::vector<AVPacket> m_AudioPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
 	std::vector<AVPacket> m_AudioPacketsBufferL2;       //音声のAVPacketのバッファ
