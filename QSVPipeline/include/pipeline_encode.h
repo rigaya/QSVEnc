@@ -48,6 +48,8 @@
 #include <string>
 #include <iostream>
 
+using std::vector;
+
 #if defined(_WIN32) || defined(_WIN64)
 	#define PLUGIN_NAME "sample_rotate_plugin.dll"
 #else
@@ -150,7 +152,7 @@ protected:
 	TCHAR *m_pStrLog;
 	int m_LogLevel;
 
-	CSmplBitstreamWriter *m_pFileWriterAudio;
+	vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
 	CSmplBitstreamWriter *m_pFileWriter;
 	CSmplYUVReader *m_pFileReader;
 

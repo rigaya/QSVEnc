@@ -1586,7 +1586,7 @@ CEncodingPipeline::CEncodingPipeline()
 	m_pAbortByUser = NULL;
 
 	m_pEncSatusInfo = NULL;
-	m_pFileWriterAudio = NULL;
+	m_pFileWriterListAudio.clear();
 	m_pFileWriter = NULL;
 	m_pFileReader = NULL;
 
@@ -1664,8 +1664,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 				PrintMes(QSV_LOG_ERROR, _T("Audio mux is only supported with transcoding (avqsv reader).\n"));
 				return MFX_ERR_UNSUPPORTED;
 			} else {
-				writerPrm.pCodecCtxAudioIn = pAVCodecReader->GetAudioCodecCtx();
-				writerPrm.pAudioPktSample = pAVCodecReader->GetAudioPacketSample();
+				writerPrm.inputAudioList = pAVCodecReader->GetInputAudioInfo();
 			}
 		}
 		sts = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
@@ -1673,7 +1672,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 			PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
 			return sts;
 		} else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
-			m_pFileWriterAudio = m_pFileWriter;
+			m_pFileWriterListAudio.push_back(m_pFileWriter);
 		}
 	} else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
 		PrintMes(QSV_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
@@ -1695,13 +1694,17 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 			PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
 			return MFX_ERR_UNSUPPORTED;
 		} else {
-			m_pFileWriterAudio = new CAvcodecWriter();
-			AvcodecWriterPrm writerAudioPrm = { 0 };
-			writerAudioPrm.pCodecCtxAudioIn = pAVCodecReader->GetAudioCodecCtx();
-			sts = m_pFileWriterAudio->Init(pParams->pAudioFilename, &writerAudioPrm, m_pEncSatusInfo);
-			if (sts < MFX_ERR_NONE) {
-				PrintMes(QSV_LOG_ERROR, m_pFileWriterAudio->GetOutputMessage());
-				return sts;
+			auto inutAudioInfoList = pAVCodecReader->GetInputAudioInfo();
+			for (const auto& info : inutAudioInfoList) {
+				auto pWriter = new CAvcodecWriter();
+				AvcodecWriterPrm writerAudioPrm = { 0 };
+				writerAudioPrm.inputAudioList.push_back(info);
+				sts = pWriter->Init(pParams->pAudioFilename, &writerAudioPrm, m_pEncSatusInfo);
+				if (sts < MFX_ERR_NONE) {
+					PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
+					return sts;
+				}
+				m_pFileWriterListAudio.push_back(pWriter);
 			}
 		}
 	}
@@ -2263,13 +2266,15 @@ void CEncodingPipeline::Close()
 	}
 	m_LogLevel = QSV_LOG_INFO;
 
-	if (m_pFileWriterAudio) {
-		if (m_pFileWriterAudio != m_pFileWriter) {
-			m_pFileWriterAudio->Close();
-			delete m_pFileWriterAudio;
+	for (auto pWriter : m_pFileWriterListAudio) {
+		if (pWriter) {
+			if (pWriter != m_pFileWriter) {
+				pWriter->Close();
+				delete pWriter;
+			}
 		}
-		m_pFileWriterAudio = NULL;
 	}
+	m_pFileWriterListAudio.clear();
 
 	if (m_pFileWriter) {
 		m_pFileWriter->Close();
@@ -2567,6 +2572,23 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 	m_pEncSatusInfo->SetStart();
 
+#if ENABLE_AVCODEC_QSV_READER
+	//streamのindexから必要なwriteへのポインタを返すテーブルを作成
+	vector<CAvcodecWriter *> pWriterForAudioStreams;
+	for (auto pWriter : m_pFileWriterListAudio) {
+		auto pAVCodecWriter = reinterpret_cast<CAvcodecWriter *>(pWriter);
+		if (pAVCodecWriter) {
+			auto indexes = pAVCodecWriter->GetAudioStreamIndex();
+			for (auto index : indexes) {
+				if (index >= (int)pWriterForAudioStreams.size()) {
+					pWriterForAudioStreams.resize(index+1, NULL);
+				}
+				pWriterForAudioStreams[index] = pAVCodecWriter;
+			}
+		}
+	}
+#endif
+
 #if ENABLE_MVC_ENCODING
 	// Since in sample we support just 2 views
 	// we will change this value between 0 and 1 in case of MVC
@@ -2613,13 +2635,17 @@ mfxStatus CEncodingPipeline::RunEncode()
 	auto extract_audio =[&]() {
 		mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_AVCODEC_QSV_READER
-		if (m_pFileWriterAudio) {
-			auto pAVCodecWriter = reinterpret_cast<CAvcodecWriter *>(m_pFileWriterAudio);
+		if (m_pFileWriterListAudio.size()) {
 			auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
-			if (pAVCodecWriter != NULL || pAVCodecReader != NULL) {
+			if (pAVCodecReader != NULL) {
 				auto packetList = pAVCodecReader->GetAudioDataPackets();
 				for (mfxU32 i = 0; i < packetList.size(); i++) {
-					if (MFX_ERR_NONE != (sts = pAVCodecWriter->WriteNextFrame(&packetList[i]))) {
+					auto pWriter = pWriterForAudioStreams[packetList[i].stream_index];
+					if (pWriter == NULL) {
+						PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for audio stream %d\n"), packetList[i].stream_index);
+						return MFX_ERR_NULL_PTR;
+					}
+					if (MFX_ERR_NONE != (sts = pWriter->WriteNextFrame(&packetList[i]))) {
 						return sts;
 					}
 				}
@@ -3186,11 +3212,13 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 			}
 		}
 	}
-	if (m_pFileWriterAudio && m_pFileWriterAudio != m_pFileWriter) {
-		inputMesSplitted = split(m_pFileWriterAudio->GetOutputMessage(), _T("\n"));
-		for (auto str : inputMesSplitted) {
-			if (str.length()) {
-				PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
+	for (auto pWriter : m_pFileWriterListAudio) {
+		if (pWriter && pWriter != m_pFileWriter) {
+			inputMesSplitted = split(pWriter->GetOutputMessage(), _T("\n"));
+			for (auto str : inputMesSplitted) {
+				if (str.length()) {
+					PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
+				}
 			}
 		}
 	}

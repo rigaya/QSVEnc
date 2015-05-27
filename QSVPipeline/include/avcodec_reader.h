@@ -14,6 +14,8 @@
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
 
+using std::vector;
+
 static const mfxU32 AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 
 //フレームの位置情報と長さを格納する
@@ -65,9 +67,9 @@ typedef struct AVDemuxAudio {
 } AVDemuxAudio;
 
 typedef struct AVDemuxer {
-	AVDemuxFormat format;
-	AVDemuxVideo  video;
-	AVDemuxAudio  audio;
+	AVDemuxFormat        format;
+	AVDemuxVideo         video;
+	vector<AVDemuxAudio> audio;
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {
@@ -99,13 +101,10 @@ public:
 	virtual mfxStatus GetHeader(mfxBitstream *bitstream) override;
 	
 	//音声パケットの配列を取得する
-	std::vector<AVPacket> GetAudioDataPackets();
+	vector<AVPacket> GetAudioDataPackets();
 
 	//音声のコーデックコンテキストを取得する
-	const AVCodecContext *GetAudioCodecCtx();
-
-	//サンプル用の音声データを取得する
-	AVPacket *GetAudioPacketSample();
+	vector<AVDemuxAudio> GetInputAudioInfo();
 
 	//デコードするストリームの情報を取得する
 	void GetDecParam(mfxVideoParam *decParam) {
@@ -116,7 +115,7 @@ private:
 	mfxU32 getQSVFourcc(mfxU32 id);
 
 	//avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
-	int getStreamIndex(AVMediaType type);
+	vector<int> getStreamIndex(AVMediaType type);
 
 	//動画のptsをソートする
 	void sortVideoPtsList();
@@ -128,7 +127,10 @@ private:
 	int getSample(AVPacket *pkt);
 
 	//対象の音声パケットを追加するかどうか
-	bool checkAudioPacketToAdd(const AVPacket *pkt);
+	bool checkAudioPacketToAdd(const AVPacket *pkt, AVDemuxAudio *pAudio);
+
+	//対象のパケットの必要な対象のストリーム情報へのポインタ
+	AVDemuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
 
 	//bitstreamにpktの内容を追加する
 	mfxStatus setToMfxBitstream(mfxBitstream *bitstream, AVPacket *pkt);
@@ -145,7 +147,7 @@ private:
 	int getVideoFrameIdx(mfxI64 pts, AVRational timebase, int i_start);
 
 	//ptsを動画のtimebaseから音声のtimebaseに変換する
-	mfxI64 convertTimebaseVidToAud(mfxI64 pts);
+	mfxI64 convertTimebaseVidToAud(mfxI64 pts, const AVDemuxAudio *pAudio);
 
 	//HEVCのmp4->AnnexB簡易変換
 	void hevcMp42Annexb(AVPacket *pkt);
@@ -154,11 +156,11 @@ private:
 	void CloseVideo(AVDemuxVideo *pVideo);
 	void CloseFormat(AVDemuxFormat *pFormat);
 
-	AVDemuxer             m_Demux;                      //デコード用情報
-	std::vector<mfxU8>    m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
-	std::vector<AVPacket> m_AudioPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
-	std::vector<AVPacket> m_AudioPacketsBufferL2;       //音声のAVPacketのバッファ
-	mfxU32                m_AudioPacketsBufferL2Used;   //m_AudioPacketsBufferL2のパケットのうち、すでに使用したもの
+	AVDemuxer        m_Demux;                      //デコード用情報
+	vector<mfxU8>    m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
+	vector<AVPacket> m_AudioPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
+	vector<AVPacket> m_AudioPacketsBufferL2;       //音声のAVPacketのバッファ
+	mfxU32           m_AudioPacketsBufferL2Used;   //m_AudioPacketsBufferL2のパケットのうち、すでに使用したもの
 };
 
 #endif //ENABLE_AVCODEC_QSV_READER

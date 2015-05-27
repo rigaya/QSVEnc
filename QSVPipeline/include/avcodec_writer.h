@@ -13,6 +13,9 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
+#include "avcodec_reader.h"
+
+using std::vector;
 
 #define USE_CUSTOM_IO 1
 
@@ -29,6 +32,7 @@ typedef struct AVMuxFormat {
 	mfxU32                nOutputBufferSize;    //出力ファイルポインタ用のバッファサイズ
 #endif //USE_CUSTOM_IO
 	bool                  bStreamError;     //エラーが発生
+	bool                  bIsMatroska;
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {
@@ -42,6 +46,7 @@ typedef struct AVMuxVideo {
 
 typedef struct AVMuxAudio {
 	AVCodecContext       *pCodecCtxIn;     //入力音声のCodecContextのコピー
+	int                   nStreamIndexIn;  //入力音声のStreamのindex
 	AVStream             *pStream;         //出力ファイルの音声ストリーム
 	int                   nPacketWritten;  //出力したパケットの数
 
@@ -61,15 +66,14 @@ typedef struct AVMuxAudio {
 typedef struct AVMux {
 	AVMuxFormat         format;
 	AVMuxVideo          video;
-	AVMuxAudio          audio;
+	vector<AVMuxAudio>  audio;
 } AVMux;
 
 typedef struct AvcodecWriterPrm {
 	const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
 	bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
 	const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
-	const AVCodecContext        *pCodecCtxAudioIn;        //入力ファイルの音声のcodecContext
-	AVPacket                    *pAudioPktSample;         //入力ファイルの音声のサンプル
+	vector<AVDemuxAudio>         inputAudioList;          //入力ファイルの音声の情報
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CSmplBitstreamWriter
@@ -83,6 +87,8 @@ public:
 	virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) override;
 
 	virtual mfxStatus WriteNextFrame(AVPacket *pkt);
+
+	virtual vector<int> GetAudioStreamIndex();
 
 	virtual void Close();
 
@@ -102,10 +108,22 @@ private:
 	tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec);
 
 	//AAC音声にBitstreamフィルターを適用する
-	void applyBitstreamFilterAAC(AVPacket *pkt);
+	void applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
 
 	//extradataをコピーする
 	void SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, mfxU32 size);
+	
+	//映像の初期化
+	mfxStatus InitVideo(const AvcodecWriterPrm *prm);
+
+	//音声の初期化
+	mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputAudio);
+
+	//メッセージを作成
+	tstring GetWriterMes();
+
+	//対象のパケットの必要な対象のストリーム情報へのポインタ
+	AVMuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
 
 	void CloseAudio(AVMuxAudio *pMuxAudio);
 	void CloseVideo(AVMuxVideo *pMuxVideo);
