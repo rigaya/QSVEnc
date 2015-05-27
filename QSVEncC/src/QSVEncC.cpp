@@ -123,6 +123,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 #endif
 #if ENABLE_AVCODEC_QSV_READER
 			_T("   --avqsv                      set input to use avcodec + qsv\n")
+			_T("   --avqsv-analyze <int>        set time in sec which reader analyze input file.\n")
+			_T("                                could be only used with avqsv reader.\n")
+			_T("                                use if reader fails to detect audio stream.\n")
 			_T("   --audio-file <string>        extract audio into file.\n")
 			_T("                                could be only used with avqsv reader.\n")
 			_T("   --trim <int>:<int>[,<int>:<int>]...\n")
@@ -515,6 +518,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("avqsv")))
 		{
 			pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
+		}
+		else if (0 == _tcscmp(option_name, _T("avqsv-analyze")))
+		{
+			i++;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nAVDemuxAnalyzeSec)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
 		}
 		else if (0 == _tcscmp(option_name, _T("input-file")))
 		{

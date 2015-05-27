@@ -1864,6 +1864,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 				avcodecReaderPrm.pTrimList = pParams->pTrimList;
 				avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
 				avcodecReaderPrm.bReadAudio = (pParams->pAudioFilename != NULL) | (0 != (pParams->nAVMux & QSVENC_MUX_AUDIO));
+				avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
 				input_option = &avcodecReaderPrm;
 				break;
 #endif

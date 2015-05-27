@@ -230,8 +230,9 @@ struct sInputParams
 	mfxU16     inputBitDepthLuma;
 	mfxU16     inputBitDepthChroma;
 	mfxU8      nAVMux; //QSVENC_MUX_xxx
+	mfxU16     nAVDemuxAnalyzeSec;
 
-	mfxU8      Reserved[1159];
+	mfxU8      Reserved[1157];
 
 	TCHAR strSrcFile[MAX_FILENAME_LEN];
 	TCHAR strDstFile[MAX_FILENAME_LEN];

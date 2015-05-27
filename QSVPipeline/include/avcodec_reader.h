@@ -38,6 +38,7 @@ typedef struct VideoFrameData {
 
 typedef struct AVDemuxFormat {
 	AVFormatContext          *pFormatCtx;            //動画ファイルのformatContext
+	int                       nAnalyzeSec;           //動画ファイルを先頭から分析する時間
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
@@ -64,6 +65,7 @@ typedef struct AVDemuxAudio {
 	int                       nLastVidIndex;          //音声の直前の相当する動画の位置
 	mfxI64                    nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
 	AVPacket                  pktSample;              //サンプル用の音声データ
+	int                       nDelayOfAudio;          //音声側の遅延
 } AVDemuxAudio;
 
 typedef struct AVDemuxer {
@@ -75,6 +77,7 @@ typedef struct AVDemuxer {
 typedef struct AvcodecReaderPrm {
 	mfxU8      memType;
 	bool       bReadAudio;
+	mfxU16     nAnalyzeSec;
 	mfxU16     nTrimCount;
 	sTrim     *pTrimList;
 } AvcodecReaderPrm;

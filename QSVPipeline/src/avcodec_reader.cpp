@@ -227,9 +227,10 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
 mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream) {
 	mfxStatus sts = MFX_ERR_NONE;
 	const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
-	const int max_check = 256;
+	const int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? 256 : 9000;
+	const int maxCheckSec = (m_Demux.format.nAnalyzeSec == 0) ? INT_MAX : m_Demux.format.nAnalyzeSec;
 	vector<FramePos> framePosList;
-	framePosList.reserve(max_check);
+	framePosList.reserve(maxCheckFrames);
 
 	mfxVideoParam param = { 0 };
 	param.mfx.CodecId = m_nInputCodec;
@@ -273,7 +274,18 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	int moreDataCount = 0; //出力が始まってから、デコーダが余剰にフレームを求めた回数
 	FramePos firstKeyframePos = { 0 };
 	AVPacket pkt;
-	for (int i = 0; i < max_check && !getSample(&pkt); i++) {
+	auto getTotalDuration =[&]() -> int {
+		if (firstKeyframePos.duration)
+			return 0;
+		int diff = 0;
+		if (pkt.dts != AV_NOPTS_VALUE) {
+			diff = (int)(pkt.dts - firstKeyframePos.dts);
+		} else if (pkt.pts != AV_NOPTS_VALUE) {
+			diff = (int)(pkt.pts - firstKeyframePos.pts);
+		}
+		return diff * m_Demux.video.pCodecCtx->pkt_timebase.num / m_Demux.video.pCodecCtx->pkt_timebase.den;
+	};
+	for (int i = 0; i < maxCheckFrames && getTotalDuration() < maxCheckSec && !getSample(&pkt); i++) {
 		int64_t pts = pkt.pts, dts = pkt.dts;
 		FramePos pos = { (pts == AV_NOPTS_VALUE) ? dts : pts, dts, pkt.duration };
 		framePosList.push_back(pos);
@@ -501,18 +513,23 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 		return MFX_ERR_INVALID_HANDLE;
 	}
 	m_Demux.format.pFormatCtx = avformat_alloc_context();
-	//if (av_opt_set_int(m_Demux.format.pFormatCtx, "probesize", 60 * AV_TIME_BASE, 0)) {
-	//	AVDEBUG_PRINT("avcodec reader: faield to set probesize.\n");
-	//}
+	m_Demux.format.nAnalyzeSec = input_prm->nAnalyzeSec;
+	if (m_Demux.format.nAnalyzeSec) {
+		if (av_opt_set_int(m_Demux.format.pFormatCtx, "probesize", m_Demux.format.nAnalyzeSec * AV_TIME_BASE, 0)) {
+			AVDEBUG_PRINT("avcodec reader: failed to set probesize.\n");
+		}
+	}
 	if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), nullptr, nullptr)) {
 		m_strInputInfo += _T("avcodec reader: error opening file.\n");
 		return MFX_ERR_NULL_PTR; // Couldn't open file
 	}
 
 	AVDEBUG_PRINT("avcodec reader: opened file.\n");
-	//if (av_opt_set_int(m_Demux.format.pFormatCtx, "analyzeduration", 60 * AV_TIME_BASE, 0)) {
-	//	AVDEBUG_PRINT("avcodec reader: faield to set analyzeduration.\n");
-	//}
+	if (m_Demux.format.nAnalyzeSec) {
+		if (av_opt_set_int(m_Demux.format.pFormatCtx, "analyzeduration", m_Demux.format.nAnalyzeSec * AV_TIME_BASE, 0)) {
+			AVDEBUG_PRINT("avcodec reader: failed to set analyzeduration.\n");
+		}
+	}
 	if (avformat_find_stream_info(m_Demux.format.pFormatCtx, nullptr) < 0) {
 		m_strInputInfo += _T("avcodec reader: error finding stream information.\n");
 		return MFX_ERR_NULL_PTR; // Couldn't find stream information
