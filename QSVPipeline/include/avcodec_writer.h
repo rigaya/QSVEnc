@@ -85,6 +85,8 @@ public:
 
 	virtual mfxStatus Init(const msdk_char *strFileName, const void *option, CEncodeStatusInfo *pEncSatusInfo) override;
 
+	virtual mfxStatus SetVideoParam(mfxVideoParam *pMfxVideoPrm) override;
+
 	virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) override;
 
 	virtual mfxStatus WriteNextFrame(AVPacket *pkt);

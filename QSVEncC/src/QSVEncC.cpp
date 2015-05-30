@@ -1467,7 +1467,9 @@ int run_encode(sInputParams *params) {
 	pPipeline->SetAbortFlagPointer(&g_signal_abort);
 	set_signal_handler();
 
-	pPipeline->CheckCurrentVideoParam();
+	if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
+		return sts;
+	}
 	_ftprintf(stderr, _T("\nProcessing started\r"));
 
 	for (;;) {
@@ -1530,7 +1532,9 @@ mfxStatus run_benchmark(sInputParams *params) {
 		GetLocalTime(&sysTime);
 
 		msdk_char encode_info[4096] = { 0 };
-		pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info));
+		if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info)))) {
+			return sts;
+		}
 
 		bool hardware;
 		mfxVersion ver;
@@ -1617,7 +1621,9 @@ mfxStatus run_benchmark(sInputParams *params) {
 
 			pPipeline->SetAbortFlagPointer(&g_signal_abort);
 			set_signal_handler();
-			pPipeline->CheckCurrentVideoParam();
+			if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
+				return sts;
+			}
 
 			for (;;) {
 				sts = pPipeline->Run();
@@ -1770,8 +1776,10 @@ int run(int argc, TCHAR *argv[]) {
 
 	pPipeline->SetAbortFlagPointer(&g_signal_abort);
 	set_signal_handler();
-
-	pPipeline->CheckCurrentVideoParam();
+	
+	if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
+		return sts;
+	}
 	_ftprintf(stderr, _T("\nProcessing started\r"));
 
 	for (;;) {

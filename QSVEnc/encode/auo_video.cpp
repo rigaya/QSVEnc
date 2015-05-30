@@ -258,9 +258,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	} else if (AUO_RESULT_SUCCESS != set_auo_yuvreader_g_data(oip, conf, pe, jitter)
 			|| MFX_ERR_NONE != (sts = pPipeline->Init(Params))) {
 		write_mfx_message(sts);
-	} else {
-
-		pPipeline->CheckCurrentVideoParam();
+	} else if (MFX_ERR_NONE == (sts = pPipeline->CheckCurrentVideoParam())) {
 		if (conf->vid.afs) write_log_auo_line(LOG_INFO, _T("自動フィールドシフト    on"));
 
 		//_ftprintf(stderr, _T("Processing started\n"));

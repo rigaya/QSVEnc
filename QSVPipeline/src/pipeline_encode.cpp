@@ -3126,8 +3126,10 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	mfxStatus sts = m_pmfxENC->GetVideoParam(&videoPrm);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-	sts = m_pFileWriter->SetVideoParam(&videoPrm);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+	if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm))) {
+		PrintMes(QSV_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
+		return sts;
+	}
 
 	TCHAR cpuInfo[256];
 	getCPUInfo(cpuInfo, _countof(cpuInfo));

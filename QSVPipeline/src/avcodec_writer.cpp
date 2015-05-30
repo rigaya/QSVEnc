@@ -403,6 +403,15 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 		}
 	}
 
+	m_pEncSatusInfo = pEncSatusInfo;
+	//音声のみの出力を行う場合、SetVideoParamは呼ばれないので、ここで最後まで初期化をすませてしまう
+	if (!m_Mux.video.pStream) {
+		return SetVideoParam(NULL);
+	}
+	return MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::SetVideoParam(mfxVideoParam *pMfxVideoPrm) {
 	//QSVEncCでエンコーダしたことを記録してみる
 	//これは直接metadetaにセットする
 	sprintf_s(m_Mux.format.metadataStr, "QSVEncC (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
@@ -415,6 +424,26 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	AVDictionary *avdict = NULL;
 	if (m_Mux.video.pStream && 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")) {
 		av_dict_set(&avdict, "brand", "mp42", 0);
+	}
+
+	//SPS/PPSをセット
+	if (m_Mux.video.pStream) {
+		mfxExtCodingOptionSPSPPS *pSpsPPS = NULL;
+		for (int iExt = 0; iExt < pMfxVideoPrm->NumExtParam; iExt++) {
+			if (pMfxVideoPrm->ExtParam[iExt]->BufferId == MFX_EXTBUFF_CODING_OPTION_SPSPPS) {
+				pSpsPPS = (mfxExtCodingOptionSPSPPS *)(pMfxVideoPrm->ExtParam[iExt]);
+				break;
+			}
+		}
+		if (pSpsPPS) {
+			m_Mux.video.pCodecCtx->extradata_size = pSpsPPS->SPSBufSize + pSpsPPS->PPSBufSize;
+			m_Mux.video.pCodecCtx->extradata = (mfxU8 *)av_malloc(m_Mux.video.pCodecCtx->extradata_size);
+			memcpy(m_Mux.video.pCodecCtx->extradata,                       pSpsPPS->SPSBuffer, pSpsPPS->SPSBufSize);
+			memcpy(m_Mux.video.pCodecCtx->extradata + pSpsPPS->SPSBufSize, pSpsPPS->PPSBuffer, pSpsPPS->PPSBufSize);
+		} else {
+			m_strOutputInfo += _T("avcodec writer: failed to get video header from QSV.");
+			return MFX_ERR_UNKNOWN;
+		}
 	}
 
 	//なんらかの問題があると、ここでよく死ぬ
@@ -442,8 +471,6 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 		m_Mux.video.nFpsBaseNextDts = (m_Mux.video.pCodecCtx->max_b_frames == 0) ? 0 : -1;
 	}
 	m_strOutputInfo += GetWriterMes();
-
-	m_pEncSatusInfo = pEncSatusInfo;
 	m_Mux.format.bStreamError = false;
 
 	m_bInited = true;
