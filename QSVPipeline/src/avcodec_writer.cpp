@@ -210,6 +210,7 @@ mfxStatus CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
 	m_Mux.video.pStream->codec->pkt_timebase = m_Mux.video.pStream->time_base;
 	m_Mux.video.pStream->codec->time_base = m_Mux.video.pStream->time_base;
 	m_Mux.video.pStream->codec->framerate = m_Mux.video.nFPS;
+	m_Mux.video.pStream->start_time       = 0;
 
 	m_Mux.video.bDtsUnavailable = prm->bVideoDtsUnavailable;
 	return MFX_ERR_NONE;
@@ -287,7 +288,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputA
 	//Tag mp4a/0x6134706d incompatible with output codec id '86018' ([64][0][0][0])のようなエラーを出すことがある
 	//そのため、必要な値だけをひとつづつコピーする
 	//avcodec_copy_context(pMuxAudio->pStream->codec, srcCodecCtx);
-	const AVCodecContext *srcCodecCtx            = (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx : pInputAudio->pCodecCtx;
+	const AVCodecContext *srcCodecCtx          = (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx : pInputAudio->pCodecCtx;
 	pMuxAudio->pStream->codec->codec_type      = srcCodecCtx->codec_type;
 	pMuxAudio->pStream->codec->codec_id        = srcCodecCtx->codec_id;
 	pMuxAudio->pStream->codec->frame_size      = srcCodecCtx->frame_size;
@@ -306,6 +307,9 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputA
 	}
 	pMuxAudio->pStream->time_base = av_make_q(1, pMuxAudio->pStream->codec->sample_rate);
 	pMuxAudio->pStream->codec->time_base = pMuxAudio->pStream->time_base;
+	pMuxAudio->pStream->start_time       = (int)av_rescale_q(pInputAudio->nDelayOfAudio, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
+	pMuxAudio->nDelaySamplesOfAudio      = (int)pMuxAudio->pStream->start_time;
+	pMuxAudio->nLastPts                  = pMuxAudio->pStream->start_time;
 	return MFX_ERR_NONE;
 }
 
@@ -601,7 +605,7 @@ mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 		//durationについて、sample数から出力ストリームのtimebaseに変更する
 		pkt->stream_index = pMuxAudio->pStream->index;
 		pkt->flags        = AV_PKT_FLAG_KEY;
-		pkt->dts          = av_rescale_q(pMuxAudio->nOutputSamples, samplerate, pMuxAudio->pStream->time_base);
+		pkt->dts          = av_rescale_q(pMuxAudio->nOutputSamples + pMuxAudio->nDelaySamplesOfAudio, samplerate, pMuxAudio->pStream->time_base);
 		pkt->pts          = pkt->dts;
 		pkt->duration     = (int)(pkt->pts - pMuxAudio->nLastPts);
 		if (pkt->duration == 0)

@@ -65,7 +65,7 @@ typedef struct AVDemuxAudio {
 	int                       nLastVidIndex;          //音声の直前の相当する動画の位置
 	mfxI64                    nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
 	AVPacket                  pktSample;              //サンプル用の音声データ
-	int                       nDelayOfAudio;          //音声側の遅延
+	int                       nDelayOfAudio;          //音声側の遅延 (pkt_timebase基準)
 } AVDemuxAudio;
 
 typedef struct AVDemuxer {
@@ -144,10 +144,10 @@ private:
 	//QSVでデコードした際の最初のフレームのptsを取得する
 	//さらに、平均フレームレートを推定する
 	//fpsDecoderはdecoderの推定したfps
-	mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream);
+	mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount);
 
 	//指定したptsとtimebaseから、該当する動画フレームを取得する
-	int getVideoFrameIdx(mfxI64 pts, AVRational timebase, int i_start);
+	int getVideoFrameIdx(mfxI64 pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart);
 
 	//ptsを動画のtimebaseから音声のtimebaseに変換する
 	mfxI64 convertTimebaseVidToAud(mfxI64 pts, const AVDemuxAudio *pAudio);
