@@ -326,6 +326,10 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		}
 		av_free_packet(&pkt);
 	}
+	//上記ループで最後まで行ってしまうと値が入ってしまうので初期化
+	m_Demux.video.frameData.duration = 0;
+	m_Demux.video.frameData.fixed_num = 0;
+	m_Demux.video.frameData.num = 0;
 
 	if (firstKeyframePos.duration == 0) {
 		m_strInputInfo += _T("avcodec reader: failed to get first frame pos.\n");
