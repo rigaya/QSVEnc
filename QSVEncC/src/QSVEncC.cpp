@@ -135,9 +135,12 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("   --mux-video                  force video output to use avcodec muxer.\n")
 			_T("                                 if output file extension is mp4/mkv/mov,\n")
 			_T("                                 avcodec muxer will used by default.\n")
-			_T("   --copy-audio                 mux audio with video during output.\n")
+			_T("   --copy-audio [<int>[,...]]   mux audio with video during output.\n")
 			_T("                                 could be only used with\n")
 			_T("                                 avqsv reader and avcodec muxer.\n")
+			_T("                                 by default copies all audio tracks.\n")
+			_T("                                 \"--copy-audio 1,2\" will extract\n")
+			_T("                                 audio track #1 and #2.\n")
 #endif
 			_T("\n")
 			_T("   --nv12                       set raw input as NV12 color format,\n")
@@ -583,6 +586,27 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("copy-audio")))
 		{
 			pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+			if (strInput[i+1][0] != _T('-')) {
+				i++;
+				auto trackListStr = split(strInput[i], _T(","));
+				vector<int> trackList;
+				trackList.reserve(trackListStr.size());
+				for (auto str : trackListStr) {
+					int i = 0;
+					if (1 != _stscanf(str.c_str(), _T("%d"), &i) || i < 1) {
+						PrintHelp(strInput[0], _T("Unknown value"), option_name);
+						return MFX_PRINT_OPTION_ERR;
+					} else {
+						trackList.push_back(i);
+					}
+				}
+				pParams->nAudioSelectCount = (mfxU8)trackList.size();
+				if (NULL == (pParams->pAudioSelect = (int *)malloc(sizeof(pParams->pAudioSelect) * pParams->nAudioSelectCount))) {
+					return MFX_PRINT_OPTION_ERR;
+				} else {
+					memcpy(pParams->pAudioSelect, trackList.data(), sizeof(trackList[0]) * trackList.size());
+				}
+			}
 		}
 		else if (0 == _tcscmp(option_name, _T("quality")))
 		{

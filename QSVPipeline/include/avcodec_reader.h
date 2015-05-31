@@ -80,6 +80,8 @@ typedef struct AvcodecReaderPrm {
 	mfxU16     nAnalyzeSec;
 	mfxU16     nTrimCount;
 	sTrim     *pTrimList;
+	mfxU8      nAudioSelectCount;
+	int       *pAudioSelect;
 } AvcodecReaderPrm;
 
 

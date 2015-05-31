@@ -189,7 +189,7 @@ struct sInputParams
 
 	TCHAR     *pStrLogFile; //ログファイル名へのポインタ
 #ifdef _M_IX86
-	mfxU32     reserved;
+	mfxU32     paddPtr1;
 #endif
 
 	mfxU16     bBPyramid;
@@ -221,18 +221,23 @@ struct sInputParams
 	mfxU16     nTrimCount;
 	sTrim     *pTrimList;
 #ifdef _M_IX86
-	mfxU32     reserved2;
+	mfxU32     paddPtr2;
 #endif
 	TCHAR     *pAudioFilename;
 #ifdef _M_IX86
-	mfxU32     reserved3;
+	mfxU32     paddPtr3;
 #endif
 	mfxU16     inputBitDepthLuma;
 	mfxU16     inputBitDepthChroma;
 	mfxU8      nAVMux; //QSVENC_MUX_xxx
 	mfxU16     nAVDemuxAnalyzeSec;
+	mfxU8      nAudioSelectCount;
+	int       *pAudioSelect;
+#ifdef _M_IX86
+	mfxU32     paddPtr4;
+#endif
 
-	mfxU8      Reserved[1157];
+	mfxU8      Reserved[1148];
 
 	TCHAR strSrcFile[MAX_FILENAME_LEN];
 	TCHAR strDstFile[MAX_FILENAME_LEN];
