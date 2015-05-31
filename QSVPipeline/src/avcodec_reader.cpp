@@ -472,7 +472,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 				//1パケット目はたまにおかしいので、可能なら2パケット目を使用する
 				av_copy_packet(&m_Demux.audio[i].pktSample, (pkt2) ? pkt2 : pkt1);
 				//その音声の属する動画フレーム番号
-				const int vidIndex = getVideoFrameIdx(pkt1->pts, m_Demux.audio[i].pCodecCtx->pkt_timebase, framePosList.data(), framePosList.size(), 0);
+				const int vidIndex = getVideoFrameIdx(pkt1->pts, m_Demux.audio[i].pCodecCtx->pkt_timebase, framePosList.data(), (int)framePosList.size(), 0);
 				if (vidIndex >= 0) {
 					//音声の遅れているフレーム数分のdurationを足し上げる
 					int delayOfAudio = (frame_inside_range(vidIndex, trimList)) ? (int)(pkt1->pts - framePosList[vidIndex].pts) : 0;
