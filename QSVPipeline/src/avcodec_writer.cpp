@@ -482,21 +482,21 @@ mfxStatus CAvcodecWriter::SetVideoParam(mfxVideoParam *pMfxVideoPrm) {
 
 tstring CAvcodecWriter::GetWriterMes() {
 	int iStream = 0;
-	tstring mes = _T("avcodec writer: ");
+	std::string mes = "avcodec writer: ";
 	if (m_Mux.video.pStream) {
-		mes += char_to_tstring(avcodec_get_name(m_Mux.video.pStream->codec->codec_id));
+		mes += avcodec_get_name(m_Mux.video.pStream->codec->codec_id);
 		iStream++;
 	}
 	for (const auto& audioStream : m_Mux.audio) {
 		if (audioStream.pStream) {
-			if (iStream) mes += _T(", ");
-			mes += char_to_tstring(avcodec_get_name(audioStream.pStream->codec->codec_id));
+			if (iStream) mes += ", ";
+			mes += avcodec_get_name(audioStream.pStream->codec->codec_id);
 			iStream++;
 		}
 	}
-	mes += _T(" -> ");
-	mes += char_to_tstring(m_Mux.format.pFormatCtx->oformat->name);
-	return mes;
+	mes += " -> ";
+	mes += m_Mux.format.pFormatCtx->oformat->name;
+	return char_to_tstring(mes.c_str());
 }
 
 mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
