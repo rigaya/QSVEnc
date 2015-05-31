@@ -307,9 +307,11 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputA
 	}
 	pMuxAudio->pStream->time_base = av_make_q(1, pMuxAudio->pStream->codec->sample_rate);
 	pMuxAudio->pStream->codec->time_base = pMuxAudio->pStream->time_base;
-	pMuxAudio->pStream->start_time       = (int)av_rescale_q(pInputAudio->nDelayOfAudio, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
-	pMuxAudio->nDelaySamplesOfAudio      = (int)pMuxAudio->pStream->start_time;
-	pMuxAudio->nLastPts                  = pMuxAudio->pStream->start_time;
+	if (m_Mux.video.pStream) {
+		pMuxAudio->pStream->start_time       = (int)av_rescale_q(pInputAudio->nDelayOfAudio, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
+		pMuxAudio->nDelaySamplesOfAudio      = (int)pMuxAudio->pStream->start_time;
+		pMuxAudio->nLastPts                  = pMuxAudio->pStream->start_time;
+	}
 	return MFX_ERR_NONE;
 }
 
