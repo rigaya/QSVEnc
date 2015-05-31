@@ -42,6 +42,7 @@ typedef struct AVMuxVideo {
 	AVStream             *pStream;              //出力ファイルの映像ストリーム
 	bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
 	int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
+	bool                  bIsPAFF;              //出力映像がPAFFである
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -112,6 +113,9 @@ private:
 
 	//AAC音声にBitstreamフィルターを適用する
 	void applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
+
+	//H.264ストリームからPAFFのフィールドの長さを返す
+	mfxU32 getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size);
 
 	//extradataをコピーする
 	void SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, mfxU32 size);

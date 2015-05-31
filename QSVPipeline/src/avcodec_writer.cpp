@@ -446,6 +446,7 @@ mfxStatus CAvcodecWriter::SetVideoParam(mfxVideoParam *pMfxVideoPrm) {
 			m_strOutputInfo += _T("avcodec writer: failed to get video header from QSV.");
 			return MFX_ERR_UNKNOWN;
 		}
+		m_Mux.video.bIsPAFF = 0 != (pMfxVideoPrm->mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
 	}
 
 	//なんらかの問題があると、ここでよく死ぬ
@@ -499,29 +500,53 @@ tstring CAvcodecWriter::GetWriterMes() {
 	return char_to_tstring(mes.c_str());
 }
 
-mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
-	AVPacket pkt = { 0 };
-	av_init_packet(&pkt);
-	av_new_packet(&pkt, pMfxBitstream->DataLength);
-	memcpy(pkt.data, pMfxBitstream->Data + pMfxBitstream->DataOffset, pMfxBitstream->DataLength);
-	pkt.size = pMfxBitstream->DataLength;
-
-	const AVRational fpsTimebase = av_inv_q(m_Mux.video.nFPS);
-	const AVRational streamTimebase = m_Mux.video.pStream->codec->pkt_timebase;
-	pkt.stream_index = m_Mux.video.pStream->index;
-	pkt.flags        = (pMfxBitstream->FrameType & MFX_FRAMETYPE_IDR) >> 7;
-	pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
-	pkt.pts          = av_rescale_q(av_rescale_q(pMfxBitstream->TimeStamp, QSV_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase);
-	if (!m_Mux.video.bDtsUnavailable) {
-		pkt.dts = av_rescale_q(av_rescale_q(pMfxBitstream->DecodeTimeStamp, QSV_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase);
-	} else {
-		pkt.dts = av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
-		m_Mux.video.nFpsBaseNextDts++;
+mfxU32 CAvcodecWriter::getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size) {
+	int sliceNalu = 0;
+	mfxU8 a = ptr[0], b = ptr[1], c = ptr[2], d = 0;
+	for (mfxU32 i = 3; i < size; i++) {
+		d = ptr[i];
+		if (((a | b) == 0) & (c == 1)) {
+			if (sliceNalu) {
+				return i-3-(ptr[i-4]==0)+1;
+			}
+			int nalType = d & 0x1F;
+			sliceNalu += ((nalType == 1) | (nalType == 5));
+		}
+		a = b, b = c, c = d;
 	}
-	m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
+	return size;
+}
 
+mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
+	const int bIsPAFF = !!m_Mux.video.bIsPAFF;
+	for (mfxU32 i = 0, frameSize = pMfxBitstream->DataLength; frameSize > 0; i++) {
+		const mfxU32 bytesToWrite = (bIsPAFF) ? getH264PAFFFieldLength(pMfxBitstream->Data + pMfxBitstream->DataOffset, frameSize) : frameSize;
+		AVPacket pkt = { 0 };
+		av_init_packet(&pkt);
+		av_new_packet(&pkt, bytesToWrite);
+		memcpy(pkt.data, pMfxBitstream->Data + pMfxBitstream->DataOffset, bytesToWrite);
+		pkt.size = bytesToWrite;
+
+		const AVRational fpsTimebase = av_div_q({1, 1 + bIsPAFF}, m_Mux.video.nFPS);
+		const AVRational streamTimebase = m_Mux.video.pStream->codec->pkt_timebase;
+		pkt.stream_index = m_Mux.video.pStream->index;
+		pkt.flags        = !!(pMfxBitstream->FrameType & (MFX_FRAMETYPE_IDR << (i<<3)));
+		pkt.duration     = (int)av_rescale_q(1, fpsTimebase, streamTimebase);
+		pkt.pts          = av_rescale_q(av_rescale_q(pMfxBitstream->TimeStamp, QSV_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+		if (!m_Mux.video.bDtsUnavailable) {
+			pkt.dts = av_rescale_q(av_rescale_q(pMfxBitstream->DecodeTimeStamp, QSV_NATIVE_TIMEBASE, fpsTimebase), fpsTimebase, streamTimebase) + bIsPAFF * i * pkt.duration;
+		} else {
+			pkt.dts = av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
+			m_Mux.video.nFpsBaseNextDts++;
+		}
+		m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
+
+		frameSize -= bytesToWrite;
+		pMfxBitstream->DataOffset += bytesToWrite;
+	}
 	m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
 	pMfxBitstream->DataLength = 0;
+	pMfxBitstream->DataOffset = 0;
 	return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
