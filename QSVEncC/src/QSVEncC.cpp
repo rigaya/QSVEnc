@@ -586,7 +586,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("copy-audio")))
 		{
 			pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
-			if (strInput[i+1][0] != _T('-')) {
+			if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
 				i++;
 				auto trackListStr = split(strInput[i], _T(","));
 				vector<int> trackList;
