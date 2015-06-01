@@ -272,6 +272,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 	int gotFrameCount = 0; //デコーダの出力フレーム
 	int moreDataCount = 0; //出力が始まってから、デコーダが余剰にフレームを求めた回数
+	bool gotFirstKeyframePos = false;
 	FramePos firstKeyframePos = { 0 };
 	AVPacket pkt;
 	auto getTotalDuration =[&]() -> int {
@@ -289,11 +290,12 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		int64_t pts = pkt.pts, dts = pkt.dts;
 		FramePos pos = { (pts == AV_NOPTS_VALUE) ? dts : pts, dts, pkt.duration };
 		framePosList.push_back(pos);
-		if (firstKeyframePos.duration == 0 && pkt.flags & AV_PKT_FLAG_KEY) {
+		if (!gotFirstKeyframePos && pkt.flags & AV_PKT_FLAG_KEY) {
 			firstKeyframePos = pos;
 			//キーフレームに到達するまでQSVではフレームが出てこない
 			//そのぶんのずれを記録しておき、Trim値などに補正をかける
 			m_sTrimParam.offset = i;
+			gotFirstKeyframePos = true;
 		}
 		///キーフレーム取得済み
 		if (firstKeyframePos.duration) {
@@ -331,7 +333,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	m_Demux.video.frameData.fixed_num = 0;
 	m_Demux.video.frameData.num = 0;
 
-	if (firstKeyframePos.duration == 0) {
+	if (!gotFirstKeyframePos) {
 		m_strInputInfo += _T("avcodec reader: failed to get first frame pos.\n");
 		return MFX_ERR_UNKNOWN;
 	}
