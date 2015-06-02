@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <fstream>
 #include <iomanip>
+#include <set>
 #include <vector>
 #include <algorithm>
 #include "shlwapi.h"
@@ -590,22 +591,24 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
 				i++;
 				auto trackListStr = split(strInput[i], _T(","));
-				vector<int> trackList;
-				trackList.reserve(trackListStr.size());
+				std::set<int> trackSet; //重複しないよう、setを使う
 				for (auto str : trackListStr) {
 					int i = 0;
 					if (1 != _stscanf(str.c_str(), _T("%d"), &i) || i < 1) {
 						PrintHelp(strInput[0], _T("Unknown value"), option_name);
 						return MFX_PRINT_OPTION_ERR;
 					} else {
-						trackList.push_back(i);
+						trackSet.insert(i);
 					}
 				}
-				pParams->nAudioSelectCount = (mfxU8)trackList.size();
-				if (NULL == (pParams->pAudioSelect = (int *)malloc(sizeof(pParams->pAudioSelect) * pParams->nAudioSelectCount))) {
+				pParams->nAudioSelectCount = (mfxU8)trackSet.size();
+				if (NULL == (pParams->pAudioSelect = (int *)realloc(pParams->pAudioSelect, sizeof(pParams->pAudioSelect) * pParams->nAudioSelectCount))) {
 					return MFX_PRINT_OPTION_ERR;
 				} else {
-					memcpy(pParams->pAudioSelect, trackList.data(), sizeof(trackList[0]) * trackList.size());
+					int i = 0;
+					for (auto it = trackSet.begin(); it != trackSet.end(); it++, i++) {
+						pParams->pAudioSelect[i] = *it;
+					}
 				}
 			}
 		}
