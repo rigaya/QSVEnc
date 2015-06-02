@@ -383,14 +383,19 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	//多い順にソートする
 	std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
 	//durationが0でなく、最も頻繁に出てきたもの
-	const int mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
+	auto mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
 
 	AVRational estimatedAvgFps = { 0 };
-	if (mostPopularDuration == 0) {
+	if (mostPopularDuration.first == 0) {
 		m_Demux.video.bStreamPtsInvalid = true;
 	} else {
 		//durationの平均を求める
-		auto avgDuration = std::accumulate(framePosList.begin(), framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)framePosList.size();
+		double avgDuration = std::accumulate(framePosList.begin(), framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)framePosList.size();
+		double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->time_base.num);
+		double torrelance = (abs(1 - avgFps / 25.0) < 0.5) ? 0.01 : 0.0008;
+		if (mostPopularDuration.second / (double)framePosList.size() > 0.95 && abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
+			avgDuration = mostPopularDuration.first;
+		}
 		//入力フレームに対し、出力フレームが半分程度なら、フレームのdurationを倍と見積もる
 		avgDuration *= (seemsLikePAFF) ? 2.0 : 1.0;
 		//durationから求めた平均fpsを計算する
