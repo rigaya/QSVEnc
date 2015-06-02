@@ -60,7 +60,8 @@ typedef struct AVDemuxVideo {
 } AVDemuxVideo;
 
 typedef struct AVDemuxAudio {
-	int                       nIndex;                 //音声のストリームID
+	int                       nIndex;                 //音声のストリームID (libavのストリームID)
+	int                       nTrackId;               //音声のトラックID (QSVEncC独自, 1,2,3,...)
 	AVCodecContext           *pCodecCtx;              //音声のcodecContext
 	int                       nLastVidIndex;          //音声の直前の相当する動画の位置
 	mfxI64                    nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
@@ -75,13 +76,15 @@ typedef struct AVDemuxer {
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {
-	mfxU8      memType;
-	bool       bReadAudio;
-	mfxU16     nAnalyzeSec;
-	mfxU16     nTrimCount;
-	sTrim     *pTrimList;
-	mfxU8      nAudioSelectCount;
-	int       *pAudioSelect;
+	mfxU8      memType;                 //使用するメモリの種類
+	bool       bReadAudio;              //音声の読み込みを行うかどうか
+	mfxU16     nAnalyzeSec;             //入力ファイルを分析する秒数
+	mfxU16     nTrimCount;              //Trimする動画フレームの領域の数
+	sTrim     *pTrimList;               //Trimする動画フレームの領域のリスト
+	mfxU8      nAudioSelectCount;       //muxする音声のトラック数
+	int       *pAudioSelect;            //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
+	mfxU8      nAudioExtractFileCount;  //ファイルへ抽出する音声のトラック数
+	int       *pAudioExtractFileSelect; //ファイルへ抽出する音声のトラック番号のリスト 1,2,...(1から連番で指定)
 } AvcodecReaderPrm;
 
 

@@ -590,12 +590,18 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 			return MFX_ERR_NOT_FOUND;
 		} else {
 			for (int iAudTrack = 0; iAudTrack < (int)audioStreams.size(); iAudTrack++) {
+				//特に指定なし = 全指定かどうか
 				bool useStream = input_prm->pAudioSelect == NULL || input_prm->nAudioSelectCount == 0;
+				//選択されているかをチェック
 				for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-					useStream = (input_prm->pAudioSelect[i] == (iAudTrack+1));
+					useStream = (input_prm->pAudioSelect[i] == (iAudTrack+1)); //トラック番号は1から連番
+				}
+				for (int i = 0; !useStream && i < input_prm->nAudioExtractFileCount; i++) {
+					useStream = (input_prm->pAudioExtractFileSelect[i] == (iAudTrack+1)); //トラック番号は1から連番
 				}
 				if (useStream) {
 					AVDemuxAudio audio = { 0 };
+					audio.nTrackId = iAudTrack+1; //トラック番号は1から連番
 					audio.nIndex = audioStreams[iAudTrack];
 					audio.pCodecCtx = m_Demux.format.pFormatCtx->streams[audio.nIndex]->codec;
 					m_Demux.audio.push_back(audio);

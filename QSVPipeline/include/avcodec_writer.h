@@ -32,7 +32,7 @@ typedef struct AVMuxFormat {
 	mfxU32                nOutputBufferSize;    //出力ファイルポインタ用のバッファサイズ
 #endif //USE_CUSTOM_IO
 	bool                  bStreamError;         //エラーが発生
-	bool                  bIsMatroska;
+	bool                  bIsMatroska;          //mkvかどうか
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {

@@ -223,7 +223,7 @@ struct sInputParams
 #ifdef _M_IX86
 	mfxU32     paddPtr2;
 #endif
-	TCHAR     *pAudioFilename;
+	TCHAR     **ppAudioExtractFilename; //抽出する音声のファイル名のリスト
 #ifdef _M_IX86
 	mfxU32     paddPtr3;
 #endif
@@ -231,13 +231,19 @@ struct sInputParams
 	mfxU16     inputBitDepthChroma;
 	mfxU8      nAVMux; //QSVENC_MUX_xxx
 	mfxU16     nAVDemuxAnalyzeSec;
-	mfxU8      nAudioSelectCount;
-	int       *pAudioSelect;
+	mfxU8      nAudioSelectCount; //pAudioSelectの数
+	int       *pAudioSelect;      //選択した音声トラックのリスト 1,2,...(1から連番で指定)
 #ifdef _M_IX86
 	mfxU32     paddPtr4;
 #endif
+	mfxU8      nAudioExtractFileCount;  //pAudioExtractFileSelectとppAudioExtractFilenameの数
+	int       *pAudioExtractFileSelect; //選択した音声トラックのリスト 1,2,...(1から連番で指定)
+#ifdef _M_IX86
+	mfxU32     paddPtr5;
+#endif
 
-	mfxU8      Reserved[1148];
+
+	mfxU8      Reserved[1139];
 
 	TCHAR strSrcFile[MAX_FILENAME_LEN];
 	TCHAR strDstFile[MAX_FILENAME_LEN];

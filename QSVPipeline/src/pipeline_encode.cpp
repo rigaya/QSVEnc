@@ -1653,6 +1653,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 	mfxStatus sts = MFX_ERR_NONE;
 	// prepare output file writer
 #if ENABLE_AVCODEC_QSV_READER
+	vector<int> audioTrackUsed; //使用した音声のトラックIDを保存する
 	if (check_ext(pParams->strDstFile, { ".mp4", ".mkv", ".mov" })) {
 		pParams->nAVMux |= QSVENC_MUX_VIDEO;
 	}
@@ -1668,7 +1669,32 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 				PrintMes(QSV_LOG_ERROR, _T("Audio mux is only supported with transcoding (avqsv reader).\n"));
 				return MFX_ERR_UNSUPPORTED;
 			} else {
-				writerPrm.inputAudioList = pAVCodecReader->GetInputAudioInfo();
+				//特に選択の指定がなければすべて採用
+				if (pParams->nAudioSelectCount == 0) {
+					writerPrm.inputAudioList = pAVCodecReader->GetInputAudioInfo();
+					for (const auto& info : writerPrm.inputAudioList) {
+						audioTrackUsed.push_back(info.nTrackId);
+					}
+				} else {
+					//選択の指定があれば、それを使用する
+					auto list = pAVCodecReader->GetInputAudioInfo();
+					for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+						const int findTrackId = pParams->pAudioSelect[i];
+						const AVDemuxAudio *audioTrackInfo = NULL;
+						for (const auto& info : list) {
+							if (info.nTrackId == findTrackId) {
+								audioTrackInfo = &info;
+							}
+						}
+						if (audioTrackInfo != NULL) {
+							writerPrm.inputAudioList.push_back(*audioTrackInfo);
+							audioTrackUsed.push_back(findTrackId);
+						} else {
+							PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is not available to mux.\n"), findTrackId);
+							return MFX_ERR_INVALID_AUDIO_PARAM;
+						}
+					}
+				}
 			}
 		}
 		sts = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
@@ -1692,23 +1718,42 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 		}
 #if ENABLE_AVCODEC_QSV_READER
 	} //ENABLE_AVCODEC_QSV_READER
-	if ((!(pParams->nAVMux & QSVENC_MUX_AUDIO)) && pParams->pAudioFilename) {
+
+	//音声の抽出
+	if (pParams->ppAudioExtractFilename) {
 		auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
 		if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
 			PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
 			return MFX_ERR_UNSUPPORTED;
 		} else {
 			auto inutAudioInfoList = pAVCodecReader->GetInputAudioInfo();
-			for (const auto& info : inutAudioInfoList) {
-				auto pWriter = new CAvcodecWriter();
-				AvcodecWriterPrm writerAudioPrm = { 0 };
-				writerAudioPrm.inputAudioList.push_back(info);
-				sts = pWriter->Init(pParams->pAudioFilename, &writerAudioPrm, m_pEncSatusInfo);
-				if (sts < MFX_ERR_NONE) {
-					PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
-					return sts;
+			for (int i = 0; i < pParams->nAudioExtractFileCount; i++) {
+				const int findTrackId = pParams->pAudioExtractFileSelect[i];
+				const AVDemuxAudio *audioTrackInfo = NULL;
+				for (const auto& info : inutAudioInfoList) {
+					if (info.nTrackId == findTrackId) {
+						audioTrackInfo = &info;
+					}
 				}
-				m_pFileWriterListAudio.push_back(pWriter);
+				if (audioTrackInfo != NULL) {
+					if (audioTrackUsed.end() != std::find(audioTrackUsed.begin(), audioTrackUsed.end(), findTrackId)) {
+						PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), findTrackId);
+						return MFX_ERR_INVALID_AUDIO_PARAM;
+					}
+					auto pWriter = new CAvcodecWriter();
+					AvcodecWriterPrm writerAudioPrm = { 0 };
+					writerAudioPrm.inputAudioList.push_back(*audioTrackInfo);
+					sts = pWriter->Init(pParams->ppAudioExtractFilename[i], &writerAudioPrm, m_pEncSatusInfo);
+					if (sts < MFX_ERR_NONE) {
+						PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
+						return sts;
+					}
+					m_pFileWriterListAudio.push_back(pWriter);
+				} else if (audioTrackUsed.end() == std::find(audioTrackUsed.begin(), audioTrackUsed.end(), findTrackId)) {
+					//--copy-audioでも使われていない音声ならなにかおかしなことが起こっている
+					PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is not available to extract.\n"), findTrackId);
+					return MFX_ERR_INVALID_AUDIO_PARAM;
+				}
 			}
 		}
 	}
@@ -1867,10 +1912,12 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 				avcodecReaderPrm.memType = pParams->memType;
 				avcodecReaderPrm.pTrimList = pParams->pTrimList;
 				avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-				avcodecReaderPrm.bReadAudio = (pParams->pAudioFilename != NULL) | (0 != (pParams->nAVMux & QSVENC_MUX_AUDIO));
+				avcodecReaderPrm.bReadAudio = (pParams->ppAudioExtractFilename != NULL) | (0 != (pParams->nAVMux & QSVENC_MUX_AUDIO));
 				avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
 				avcodecReaderPrm.pAudioSelect = pParams->pAudioSelect;
 				avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
+				avcodecReaderPrm.pAudioExtractFileSelect = pParams->pAudioExtractFileSelect;
+				avcodecReaderPrm.nAudioExtractFileCount = pParams->nAudioExtractFileCount;
 				input_option = &avcodecReaderPrm;
 				break;
 #endif

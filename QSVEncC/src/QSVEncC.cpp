@@ -128,7 +128,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("                                 default: 5.\n")
 			_T("                                 could be only used with avqsv reader.\n")
 			_T("                                 use if reader fails to detect audio stream.\n")
-			_T("   --audio-file <string>        extract audio into file.\n")
+			_T("   --audio-file [<#>?]<string>  extract audio into file.\n")
+			_T("                                 in <#>, you can specify track number to extract.\n")
 			_T("                                 could be only used with avqsv reader.\n")
 			_T("   --trim <int>:<int>[,<int>:<int>]...\n")
 			_T("                                trim video for the frame range specified.\n")
@@ -577,9 +578,54 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("audio-file")))
 		{
 			i++;
-			int filename_len = (int)_tcslen(strInput[i]) + 1;
-			pParams->pAudioFilename = (TCHAR *)malloc(filename_len * sizeof(pParams->pAudioFilename[0]));
-			memcpy(pParams->pAudioFilename, strInput[i], sizeof(pParams->pAudioFilename[0]) * filename_len);
+			TCHAR *ptr = strInput[i];
+			int trackId = 0;
+			if (1 != _stscanf(ptr, _T("%d?"), &trackId)) {
+				//トラック番号を適当に発番する (カウントは1から)
+				bool trackFound = true;
+				for (trackId = 0; trackFound; ) {
+					trackId++;
+					trackFound = false;
+					for (int i = 0; !trackFound && i < pParams->nAudioExtractFileCount; i++) {
+						trackFound = (pParams->pAudioExtractFileSelect[i] == trackId);
+					}
+				}
+			} else if (i <= 0) {
+				//トラック番号は1から連番で指定
+				PrintHelp(strInput[0], _T("Invalid track number"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			} else {
+				//トラック番号が重複していないかを確認する
+				for (int i = 0; i < pParams->nAudioExtractFileCount; i++) {
+					if (pParams->pAudioExtractFileSelect[0] == trackId) {
+						PrintHelp(strInput[0], _T("Same track number is used more than twice"), option_name);
+						return MFX_PRINT_OPTION_ERR;
+					}
+				}
+				ptr = _tcschr(ptr, '?') + 1;
+			}
+			//追加するもののidx
+			const int idx = pParams->nAudioExtractFileCount;
+			//領域再確保
+			pParams->nAudioExtractFileCount++;
+			pParams->pAudioExtractFileSelect = (int *)realloc(pParams->pAudioExtractFileSelect, sizeof(pParams->pAudioExtractFileSelect[0]) * pParams->nAudioExtractFileCount);
+			pParams->ppAudioExtractFilename = (TCHAR **)realloc(pParams->ppAudioExtractFilename, sizeof(pParams->ppAudioExtractFilename[0]) * pParams->nAudioExtractFileCount);
+			pParams->pAudioExtractFileSelect[idx] = trackId;
+			int filename_len = (int)_tcslen(ptr);
+			//ファイル名が""でくくられてたら取り除く
+			if (ptr[0] == _T('\"') && ptr[filename_len-1] == _T('\"')) {
+				filename_len -= 2;
+				ptr++;
+			}
+			//ファイル名が重複していないかを確認する
+			for (int i = 0; i < pParams->nAudioExtractFileCount-1; i++) {
+				if (0 == _tcsicmp(pParams->ppAudioExtractFilename[i], ptr)) {
+					PrintHelp(strInput[0], _T("Same output file name is used more than twice"), option_name);
+					return MFX_PRINT_OPTION_ERR;
+				}
+			}
+			pParams->ppAudioExtractFilename[idx] = (TCHAR *)calloc((filename_len + 1), sizeof(pParams->ppAudioExtractFilename[idx][0]));
+			memcpy(pParams->ppAudioExtractFilename[idx], ptr, sizeof(pParams->ppAudioExtractFilename[idx][0]) * filename_len);
 		}
 		else if (0 == _tcscmp(option_name, _T("mux-video")))
 		{
