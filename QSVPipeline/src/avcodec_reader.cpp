@@ -626,6 +626,9 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 		} else if (m_nInputCodec == MFX_CODEC_HEVC) {
 			m_Demux.video.bUseHEVCmp42AnnexB = true;
 		}
+	} else if (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0) {
+		m_strInputInfo += _T("avcodec reader: video header not extracted by libavcodec.\n");
+		return MFX_ERR_UNSUPPORTED;
 	}
 	AVDEBUG_PRINT("avcodec reader: start demuxing... \n");
 	
