@@ -3251,7 +3251,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 		}
 		PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
 	}
-	PRINT_INFO(    _T("Output Video   %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
+	PRINT_INFO(    _T("Output         %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
 													 get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
 													 get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
 	PRINT_INFO(    _T("               %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
