@@ -298,7 +298,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 			gotFirstKeyframePos = true;
 		}
 		///キーフレーム取得済み
-		if (firstKeyframePos.duration) {
+		if (gotFirstKeyframePos) {
 			AppendMfxBitstream(bitstream, pkt.data, pkt.size);
 
 			mfxStatus decsts = MFX_ERR_MORE_SURFACE;
