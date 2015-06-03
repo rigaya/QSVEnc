@@ -588,7 +588,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 	AVDEBUG_PRINT("avcodec reader: can be decoded by qsv.\n");
 
 	//音声ストリームを探す
-	if (input_prm->bReadAudio) {
+	if (input_prm->nReadAudio) {
 		auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO);
 		if (audioStreams.size() == 0) {
 			m_strInputInfo += _T("avcodec reader: --audio-file or --copy-audio is set, but no audio stream found.\n");
@@ -596,7 +596,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 		} else {
 			for (int iAudTrack = 0; iAudTrack < (int)audioStreams.size(); iAudTrack++) {
 				//特に指定なし = 全指定かどうか
-				bool useStream = input_prm->pAudioSelect == NULL || input_prm->nAudioSelectCount == 0;
+				bool useStream = (input_prm->nReadAudio & AVQSV_AUDIO_MUX) && (input_prm->pAudioSelect == NULL || input_prm->nAudioSelectCount == 0);
 				//選択されているかをチェック
 				for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
 					useStream = (input_prm->pAudioSelect[i] == (iAudTrack+1)); //トラック番号は1から連番

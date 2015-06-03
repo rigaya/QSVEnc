@@ -18,6 +18,12 @@ using std::vector;
 
 static const mfxU32 AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 
+enum {
+	AVQSV_AUDIO_NONE         = 0x00,
+	AVQSV_AUDIO_MUX          = 0x01,
+	AVQSV_AUDIO_COPY_TO_FILE = 0x02,
+};
+
 //フレームの位置情報と長さを格納する
 typedef struct FramePos {
 	int64_t pts;  //pts
@@ -77,7 +83,7 @@ typedef struct AVDemuxer {
 
 typedef struct AvcodecReaderPrm {
 	mfxU8      memType;                 //使用するメモリの種類
-	bool       bReadAudio;              //音声の読み込みを行うかどうか
+	mfxU32     nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
 	mfxU16     nAnalyzeSec;             //入力ファイルを分析する秒数
 	mfxU16     nTrimCount;              //Trimする動画フレームの領域の数
 	sTrim     *pTrimList;               //Trimする動画フレームの領域のリスト
