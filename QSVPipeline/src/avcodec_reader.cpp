@@ -341,14 +341,24 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 	//PAFFの場合、2フィールド目のpts, dtsが存在しないことがある
 	mfxU32 dts_pts_no_value_in_between = 0;
-	for (int i = 1; i < (int)framePosList.size(); i++) {
-		if (   framePosList[i  ].dts == AV_NOPTS_VALUE
-			&& framePosList[i  ].pts == AV_NOPTS_VALUE
-			&& framePosList[i-1].dts != AV_NOPTS_VALUE
-			&& framePosList[i-1].pts != AV_NOPTS_VALUE) {
-			framePosList[i].dts = framePosList[i-1].dts;
-			framePosList[i].pts = framePosList[i-1].pts;
-			dts_pts_no_value_in_between++;
+	mfxU32 dts_pts_invalid_count = 0;
+	for (mfxU32 i = 1; i < framePosList.size(); i++) {
+		//自分のpts/dtsがともにAV_NOPTS_VALUEで、それが前後ともにAV_NOPTS_VALUEでない場合に修正する
+		if (   framePosList[i].dts == AV_NOPTS_VALUE
+			&& framePosList[i].pts == AV_NOPTS_VALUE) {
+			if (   framePosList[i-1].dts != AV_NOPTS_VALUE
+				&& framePosList[i-1].pts != AV_NOPTS_VALUE
+				&& (i + 1 >= framePosList.size()
+					|| (framePosList[i+1].pts != AV_NOPTS_VALUE
+					 && framePosList[i+1].pts != AV_NOPTS_VALUE))) {
+				framePosList[i].dts = framePosList[i-1].dts;
+				framePosList[i].pts = framePosList[i-1].pts;
+				dts_pts_no_value_in_between++;
+			} else {
+				//自分のpts/dtsがともにAV_NOPTS_VALUEだが、規則的にはさまれているわけではなく、
+				//データが無効な場合、そのままとする
+				dts_pts_invalid_count++;
+			}
 		}
 	}
 	//PAFFっぽさ (適当)
@@ -356,12 +366,17 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		(framePosList.size() * 9 / 20 <= dts_pts_no_value_in_between)
 		|| (abs(1.0 - moreDataCount / (double)gotFrameCount) <= 0.2);
 
-	//durationを再計算する
-	std::sort(framePosList.begin(), framePosList.end(), [](const FramePos& posA, const FramePos& posB) { return posA.pts < posB.pts; });
-	for (int i = 0; i < (int)framePosList.size() - 1; i++) {
-		int duration = (int)(framePosList[i+1].pts - framePosList[i].pts);
-		if (duration >= 0) {
-			framePosList[i].duration = duration;
+	//pts/dtsがともにAV_NOPTS_VALUEがある場合にはdurationの再計算を行わない
+	if (dts_pts_invalid_count < framePosList.size() * 0.05) {
+		//durationを再計算する (主にmkvのくそな時間解像度への対策)
+		std::sort(framePosList.begin(), framePosList.end(), [](const FramePos& posA, const FramePos& posB) { return posA.pts < posB.pts; });
+		for (int i = 0; i < (int)framePosList.size() - 1; i++) {
+			if (framePosList[i+1].pts != AV_NOPTS_VALUE && framePosList[i].pts != AV_NOPTS_VALUE) {
+				int duration = (int)(framePosList[i+1].pts - framePosList[i].pts);
+				if (duration >= 0) {
+					framePosList[i].duration = duration;
+				}
+			}
 		}
 	}
 	//より正確なduration計算のため、最初と最後の数フレームは落とす
