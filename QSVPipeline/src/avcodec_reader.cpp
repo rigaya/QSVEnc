@@ -266,7 +266,8 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	}
 
 	if (MFX_ERR_NONE != (sts = MFXVideoDECODE_Init(session, &param))) {
-		m_strInputInfo += _T("avcodec reader: failed to init decoder.");
+		m_strInputInfo += _T("avcodec reader: failed to init decoder.\n");
+		m_strInputInfo += _T("                decoding of this video is not supported.\n");
 		return sts;
 	}
 
