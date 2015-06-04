@@ -437,10 +437,12 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	if (mostPopularDuration.first == 0) {
 		m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
 	} else {
+		//avgFpsとtargetFpsが近いかどうか
+		auto fps_near = [](double avgFps, double targetFps) { return abs(1 - avgFps / targetFps) < 0.5; };
 		//durationの平均を求める
 		double avgDuration = std::accumulate(framePosList.begin(), framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)framePosList.size();
 		double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->time_base.num);
-		double torrelance = (abs(1 - avgFps / 25.0) < 0.5) ? 0.01 : 0.0008;
+		double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.01 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
 		if (mostPopularDuration.second / (double)framePosList.size() > 0.95 && abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
 			avgDuration = mostPopularDuration.first;
 		}
