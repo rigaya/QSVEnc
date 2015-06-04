@@ -245,7 +245,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	}
 
 	mfxFrameAllocRequest request = { 0 };
-	if (MFX_ERR_NONE != (sts = MFXVideoDECODE_QueryIOSurf(session, &param, &request))) {
+	if (MFX_ERR_NONE > (sts = MFXVideoDECODE_QueryIOSurf(session, &param, &request))) {
 		m_strInputInfo += _T("avcodec reader: failed to get required frame.\n");
 		return sts;
 	}
