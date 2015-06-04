@@ -24,6 +24,12 @@ enum {
 	AVQSV_AUDIO_COPY_TO_FILE = 0x02,
 };
 
+enum : mfxU32 {
+	AVQSV_PTS_SOMETIMES_INVALID = 0x01,
+	AVQSV_PTS_HALF_INVALID      = 0x02,
+	AVQSV_PTS_ALL_INVALID       = 0x04,
+};
+
 //フレームの位置情報と長さを格納する
 typedef struct FramePos {
 	int64_t pts;  //pts
@@ -51,7 +57,7 @@ typedef struct AVDemuxVideo {
 	AVCodecContext           *pCodecCtx;             //動画のcodecContext
 	int                       nIndex;                //動画のストリームID
 	int64_t                   nStreamFirstPts;       //動画ファイルの最初のpts
-	bool                      bStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES等)
+	mfxU32                    nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
 	bool                      bGotFirstKeyframe;     //動画の最初のキーフレームを取得済み
 	VideoFrameData            frameData;             //動画フレームのptsのリスト
 	AVBitStreamFilterContext *pH264Bsfc;             //必要なら使用するbitstreamfilter

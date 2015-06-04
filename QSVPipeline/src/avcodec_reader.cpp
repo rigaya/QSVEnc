@@ -160,18 +160,43 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 		extend_array_size(&m_Demux.video.frameData);
 		LeaveCriticalSection(&m_Demux.video.frameData.cs);
 	}
+	if (pos.pts == AV_NOPTS_VALUE && m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_HALF_INVALID) {
+		//ptsがないのは音声抽出で、正常に抽出されない問題が生じる
+		//半分PTSがないPAFFのような動画については、前のフレームからの補完を行う
+		const FramePos *lastFrame = &m_Demux.video.frameData.frame[m_Demux.video.frameData.num-1];
+		pos.dts = lastFrame->dts + lastFrame->duration;
+		pos.pts = lastFrame->pts + lastFrame->duration;
+	}
 	m_Demux.video.frameData.frame[m_Demux.video.frameData.num] = pos;
 	m_Demux.video.frameData.num++;
 
 	if (m_Demux.video.frameData.fixed_num + 32 < m_Demux.video.frameData.num) {
+		if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_SOMETIMES_INVALID) {
+			//ptsがあてにならない時は、dtsから適当に生成する
+			FramePos *frame = m_Demux.video.frameData.frame;
+			const int i_fin = m_Demux.video.frameData.fixed_num + 16;
+			for (int i = m_Demux.video.frameData.fixed_num + 1; i <= i_fin; i++) {
+				if (frame[i].dts == AV_NOPTS_VALUE) {
+					//まずdtsがない場合は、前のフレームからコピーする
+					frame[i].dts = frame[i-1].dts;
+				}
+			}
+			int64_t firstFramePtsDtsDiff = frame[0].pts - frame[0].dts;
+			for (int i = m_Demux.video.frameData.fixed_num + 1; i <= i_fin; i++) {
+				frame[i].pts = frame[i].dts + firstFramePtsDtsDiff;
+			}
+		}
+		//m_Demux.video.frameData.fixed_numから16フレーム分、pts順にソートを行う
 		sortVideoPtsList();
+		//進捗表示用のdurationの計算を行う
 		const FramePos *pos = m_Demux.video.frameData.frame + m_Demux.video.frameData.fixed_num;
 		int64_t duration = pos[16].pts - pos[0].pts;
 		if (duration < 0 || duration > 0xFFFFFFFF) {
 			duration = 0;
 			for (int i = 1; i < 16; i++) {
 				int64_t diff = MSDK_MAX(0, pos[i].pts - pos[i-1].pts);
-				duration += (diff > 0xFFFFFFFF) ? 0 : diff;
+				int64_t last_frame_dur = MSDK_MAX(0, pos[i-1].duration);
+				duration += (diff > 0xFFFFFFFF) ? last_frame_dur : diff;
 			}
 		}
 		m_Demux.video.frameData.duration += duration;
@@ -361,13 +386,20 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 			}
 		}
 	}
+
+	//ほとんどのpts, dtsがあてにならない
+	m_Demux.video.nStreamPtsInvalid = (dts_pts_invalid_count >= framePosList.size() - 5) ? AVQSV_PTS_ALL_INVALID : 0;
+
 	//PAFFっぽさ (適当)
 	const bool seemsLikePAFF =
 		(framePosList.size() * 9 / 20 <= dts_pts_no_value_in_between)
 		|| (abs(1.0 - moreDataCount / (double)gotFrameCount) <= 0.2);
+	m_Demux.video.nStreamPtsInvalid |= (seemsLikePAFF) ? AVQSV_PTS_HALF_INVALID : 0;
 
-	//pts/dtsがともにAV_NOPTS_VALUEがある場合にはdurationの再計算を行わない
-	if (dts_pts_invalid_count < framePosList.size() * 0.05) {
+	if (dts_pts_invalid_count > framePosList.size() / 20) {
+		//pts/dtsがともにAV_NOPTS_VALUEがある場合にはdurationの再計算を行わない
+		m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_SOMETIMES_INVALID;
+	} else {
 		//durationを再計算する (主にmkvのくそな時間解像度への対策)
 		std::sort(framePosList.begin(), framePosList.end(), [](const FramePos& posA, const FramePos& posB) { return posA.pts < posB.pts; });
 		for (int i = 0; i < (int)framePosList.size() - 1; i++) {
@@ -403,7 +435,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 	AVRational estimatedAvgFps = { 0 };
 	if (mostPopularDuration.first == 0) {
-		m_Demux.video.bStreamPtsInvalid = true;
+		m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
 	} else {
 		//durationの平均を求める
 		double avgDuration = std::accumulate(framePosList.begin(), framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)framePosList.size();
@@ -422,7 +454,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 	//TimeStampベースで最初のフレームに戻す
 	if (0 <= av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, m_Demux.video.nStreamFirstPts, AVSEEK_FLAG_BACKWARD)) {
-		if (m_Demux.video.bStreamPtsInvalid) {
+		if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_ALL_INVALID) {
 			//ptsとdurationをpkt_timebaseで適当に作成する
 			addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, m_Demux.video.pCodecCtx->time_base, m_Demux.video.pCodecCtx->pkt_timebase) });
 			m_Demux.video.nAvgFramerate = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder;
@@ -445,7 +477,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		}
 	} else {
 		//失敗したら、Byte単位でのシークを試み、最初に戻す
-		m_Demux.video.bStreamPtsInvalid = true;
+		m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
 		m_Demux.video.nAvgFramerate = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder;
 		if (0 <= av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, 0, AVSEEK_FLAG_BACKWARD|AVSEEK_FLAG_BYTE)) {
 			//ptsとdurationをpkt_timebaseで適当に作成する
@@ -849,7 +881,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 					m_Demux.video.bGotFirstKeyframe = true;
 					//AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
 					//0フレーム目は格納されているので、その次からを格納する
-					if (m_Demux.video.bStreamPtsInvalid && m_Demux.video.nSampleLoadCount) {
+					if ((m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_ALL_INVALID) && m_Demux.video.nSampleLoadCount) {
 						int duration = m_Demux.video.frameData.frame[0].duration;
 						int64_t pts = m_Demux.video.nSampleLoadCount * duration;
 						addVideoPtsToList({ pts, pts, duration });
