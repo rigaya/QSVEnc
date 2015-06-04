@@ -464,11 +464,11 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	//出力時の音声解析用に1パケットコピーしておく
 	auto& audioBuffer = m_AudioPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_Demux.video.packet)];
 	if (audioBuffer.size()) {
-		for (int i = 0; i < (int)m_Demux.audio.size(); i++) {
+		for (auto audioInfo = m_Demux.audio.begin(); audioInfo != m_Demux.audio.end(); audioInfo++) {
 			const AVPacket *pkt1 = NULL; //最初のパケット
 			const AVPacket *pkt2 = NULL; //2番目のパケット
 			for (int j = 0; j < (int)audioBuffer.size(); j++) {
-				if (audioBuffer[j].stream_index == m_Demux.audio[i].nIndex) {
+				if (audioBuffer[j].stream_index == audioInfo->nIndex) {
 					if (pkt1) {
 						pkt2 = &audioBuffer[j];
 						break;
@@ -478,9 +478,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 			}
 			if (pkt1 != NULL) {
 				//1パケット目はたまにおかしいので、可能なら2パケット目を使用する
-				av_copy_packet(&m_Demux.audio[i].pktSample, (pkt2) ? pkt2 : pkt1);
+				av_copy_packet(&audioInfo->pktSample, (pkt2) ? pkt2 : pkt1);
 				//その音声の属する動画フレーム番号
-				const int vidIndex = getVideoFrameIdx(pkt1->pts, m_Demux.audio[i].pCodecCtx->pkt_timebase, framePosList.data(), (int)framePosList.size(), 0);
+				const int vidIndex = getVideoFrameIdx(pkt1->pts, audioInfo->pCodecCtx->pkt_timebase, framePosList.data(), (int)framePosList.size(), 0);
 				if (vidIndex >= 0) {
 					//音声の遅れているフレーム数分のdurationを足し上げる
 					int delayOfAudio = (frame_inside_range(vidIndex, trimList)) ? (int)(pkt1->pts - framePosList[vidIndex].pts) : 0;
@@ -489,13 +489,17 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 							delayOfAudio += framePosList[iFrame].duration;
 						}
 					}
-					m_Demux.audio[i].nDelayOfAudio = delayOfAudio;
+					audioInfo->nDelayOfAudio = delayOfAudio;
 				}
 			} else {
 				//音声の最初のサンプルを取得できていない
-				m_strInputInfo += _T("avcodec reader: failed to find audio stream in preread.\n");
-				return MFX_ERR_UNDEFINED_BEHAVIOR;
+				audioInfo = m_Demux.audio.erase(audioInfo) - 1;
 			}
+		}
+		if (audioBuffer.size() == 0) {
+			//音声の最初のサンプルを取得できていないため、音声がすべてなくなってしまった
+			m_strInputInfo += _T("avcodec reader: failed to find audio stream in preread.\n");
+			return MFX_ERR_UNDEFINED_BEHAVIOR;
 		}
 	}
 	//あとでもう一度読み直すのでこの関数内で読んだものは破棄する
