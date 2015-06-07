@@ -110,7 +110,9 @@ typedef struct {
 
 	mfxU16 nTelecinePattern;
 
-	mfxU8 Reserved[124];
+	bool bHalfTurn;
+
+	mfxU8 Reserved[123];
 } sVppParams;
 
 struct sInputParams

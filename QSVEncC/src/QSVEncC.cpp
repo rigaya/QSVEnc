@@ -254,7 +254,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("                                 - none, x2, x2.5\n")
 #endif
 			_T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-			_T("                                 - none, upscale, box\n"),
+			_T("                                 - none, upscale, box\n")
+			_T("   --vpp-half-turn <string>     half turn video image\n"),
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
@@ -1267,6 +1268,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-half-turn")))
+		{
+			pParams->vpp.bHalfTurn = true;
 		}
 		else if (0 == _tcscmp(option_name, _T("input-buf")))
 		{

@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVEncC", "QSVEncC\QSVEncC.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVPipeline", "QSVPipeline\QSVPipeline.vcxproj", "{A63CE263-8735-4405-8860-011A12A80DEF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rotate", "QSVPlugins\rotate\rotate.vcxproj", "{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -48,6 +50,18 @@ Global
 		{A63CE263-8735-4405-8860-011A12A80DEF}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
 		{A63CE263-8735-4405-8860-011A12A80DEF}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 		{A63CE263-8735-4405-8860-011A12A80DEF}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Debug|Win32.Build.0 = Debug|Win32
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Debug|x64.ActiveCfg = Debug|x64
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Debug|x64.Build.0 = Debug|x64
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Release|Win32.ActiveCfg = Release|Win32
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Release|Win32.Build.0 = Release|Win32
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Release|x64.ActiveCfg = Release|x64
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.Release|x64.Build.0 = Release|x64
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.ReleaseStatic|Win32.ActiveCfg = ReleaseStatic|Win32
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
+		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
