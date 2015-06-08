@@ -316,6 +316,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		int64_t pts = pkt.pts, dts = pkt.dts;
 		FramePos pos = { (pts == AV_NOPTS_VALUE) ? dts : pts, dts, pkt.duration };
 		framePosList.push_back(pos);
+		if (i == 0 && pts != AV_NOPTS_VALUE) {
+			m_Demux.video.nStreamFirstPts = pkt.pts;
+		}
 		if (!gotFirstKeyframePos && pkt.flags & AV_PKT_FLAG_KEY) {
 			firstKeyframePos = pos;
 			//キーフレームに到達するまでQSVではフレームが出てこない
@@ -455,7 +458,17 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	}
 
 	//TimeStampベースで最初のフレームに戻す
-	if (0 <= av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, m_Demux.video.nStreamFirstPts, AVSEEK_FLAG_BACKWARD)) {
+	//まずpts=0でもとに戻してみる。多くの場合これで良い結果を得る
+	if (0 <= av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, 0, AVSEEK_FLAG_BACKWARD)) {
+		//pts=0で成功してもファイルの最後にいっている場合があるので、getSampleでこれを確認する
+		//その場合は、実際のptsでシークを試みる
+		bool getSampleRet = getSample(&pkt);
+		av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex,
+			(getSampleRet) ? m_Demux.video.nStreamFirstPts : 0, //flvでは実際のptsの指定が必要
+			(getSampleRet) ? AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY : AVSEEK_FLAG_BACKWARD); //flvではAVSEEK_FLAG_ANYも必要
+		if (pkt.data) {
+			av_free_packet(&pkt);
+		}
 		if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_ALL_INVALID) {
 			//ptsとdurationをpkt_timebaseで適当に作成する
 			addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, m_Demux.video.pCodecCtx->time_base, m_Demux.video.pCodecCtx->pkt_timebase) });
