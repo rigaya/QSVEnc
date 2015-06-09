@@ -1975,10 +1975,6 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 	if (inputFrameInfo.PicStruct)
 		pParams->nPicStruct = inputFrameInfo.PicStruct;
 
-	if ((!pParams->nPAR[0] || !pParams->nPAR[1]) && inputFrameInfo.AspectRatioW && inputFrameInfo.AspectRatioH) {
-		pParams->nPAR[0] = inputFrameInfo.AspectRatioW;
-		pParams->nPAR[1] = inputFrameInfo.AspectRatioH;
-	}
 	if ((!pParams->nFPSRate || !pParams->nFPSScale) && inputFrameInfo.FrameRateExtN && inputFrameInfo.FrameRateExtD) {
 		pParams->nFPSRate = inputFrameInfo.FrameRateExtN;
 		pParams->nFPSScale = inputFrameInfo.FrameRateExtD;
@@ -2049,6 +2045,14 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
 		pParams->vpp.bEnable = true;
 		pParams->vpp.bUseResize = true;
 	}
+
+	if ((!pParams->nPAR[0] || !pParams->nPAR[1])
+		&& inputFrameInfo.AspectRatioW && inputFrameInfo.AspectRatioH
+		&& !pParams->vpp.bUseResize) {
+		pParams->nPAR[0] = inputFrameInfo.AspectRatioW;
+		pParams->nPAR[1] = inputFrameInfo.AspectRatioH;
+	}
+
 	if (pParams->nDstWidth % 2 != 0) {
 		PrintMes(QSV_LOG_ERROR, _T("output width should be a multiple of 2."));
 		return MFX_ERR_INVALID_VIDEO_PARAM;
