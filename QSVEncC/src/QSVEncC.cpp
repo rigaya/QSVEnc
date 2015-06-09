@@ -580,7 +580,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			i++;
 			TCHAR *ptr = strInput[i];
 			int trackId = 0;
-			if (1 != _stscanf(ptr, _T("%d?"), &trackId)) {
+			if (_tcschr(ptr, '?') == NULL || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
 				//トラック番号を適当に発番する (カウントは1から)
 				bool trackFound = true;
 				for (trackId = 0; trackFound; ) {
