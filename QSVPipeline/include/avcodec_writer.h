@@ -62,7 +62,8 @@ typedef struct AVMuxAudio {
 	AVBitStreamFilterContext *pAACBsfc;         //必要なら使用するbitstreamfilter
 
 	int                   nOutputSamples;       //出力音声の出力済みsample数
-	mfxI64                nLastPts;             //出力音声の前パケットのpts
+	mfxI64                nLastPtsIn;           //入力音声の前パケットのpts
+	mfxI64                nLastPtsOut;          //出力音声の前パケットのpts
 } AVMuxAudio;
 
 typedef struct AVMux {
