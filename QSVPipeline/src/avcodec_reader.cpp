@@ -418,12 +418,22 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	//最初と最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationを算出しない
 	if (framePosList.size() >= 32) {
 		const int cutoff = (framePosList.size() >= 64) ? 16 : 8;
-		framePosList = vector<FramePos>(framePosList.begin() + cutoff, framePosList.end() - cutoff);
+		vector<FramePos> newList;
+		newList.reserve(framePosList.size() - cutoff - m_sTrimParam.offset);
+		//最初のキーフレームからのフレームリストを構築する
+		//最初のキーフレームからのリストであることは後段で、nDelayOfAudioを正確に計算するために重要
+		//Bフレーム等の並べ替えを考慮し、キーフレームのpts以前のptsを持つものを削除、
+		//また、最後の16フレームもBフレームを考慮してカット
+		std::for_each(framePosList.begin() + m_sTrimParam.offset, framePosList.end() - cutoff,
+			[&newList, firstKeyframePos](const FramePos& pos) {
+			if (pos.pts == AV_NOPTS_VALUE || firstKeyframePos.pts <= pos.pts) newList.push_back(pos);
+		});
+		framePosList = std::move(newList);
 	}
 
 	//durationのヒストグラムを作成
 	vector<std::pair<int, int>> durationHistgram;
-	for (auto pos : framePosList) {
+	for (const auto& pos : framePosList) {
 		auto target = std::find_if(durationHistgram.begin(), durationHistgram.end(), [pos](const std::pair<int, int>& pair) { return pair.first == pos.duration; });
 		if (target != durationHistgram.end()) {
 			target->second++;
