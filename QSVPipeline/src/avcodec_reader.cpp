@@ -920,6 +920,26 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 	pkt->data = nullptr;
 	pkt->size = 0;
 	sortVideoPtsList();
+	//動画の終端を表す最後のptsを挿入する
+	int64_t videoFinPts = 0;
+	if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_ALL_INVALID) {
+		videoFinPts = m_Demux.video.nSampleLoadCount * m_Demux.video.frameData.frame[0].duration;
+	} else if (m_Demux.video.frameData.num) {
+		const FramePos *lastFrame = &m_Demux.video.frameData.frame[m_Demux.video.frameData.num - 1];
+		videoFinPts = lastFrame->pts + lastFrame->duration;
+	}
+	//もし選択範囲が手動で決定されていないのなら、音声を最大限取得する
+	if (m_sTrimParam.list.size() == 0 || m_sTrimParam.list.back().fin == TRIM_MAX) {
+		if (m_AudioPacketsBufferL2.size()) {
+			videoFinPts = (std::max)(videoFinPts, m_AudioPacketsBufferL2.back().pts + m_AudioPacketsBufferL2.back().duration);
+		}
+		for (auto packetsL1 : m_AudioPacketsBufferL1) {
+			if (packetsL1.size()) {
+				videoFinPts = (std::max)(videoFinPts, packetsL1.back().pts + packetsL1.back().duration);
+			}
+		}
+	}
+	addVideoPtsToList({ videoFinPts, videoFinPts, 0 });
 	m_Demux.video.frameData.fixed_num = m_Demux.video.frameData.num - 1;
 	m_Demux.video.frameData.duration = m_Demux.format.pFormatCtx->duration;
 	m_pEncSatusInfo->UpdateDisplay(timeGetTime(), 0, 100.0);
