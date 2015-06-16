@@ -612,16 +612,22 @@ mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 	}
 	if (!pMuxAudio->pOutCodecDecodeCtx) {
 		samples = (int)av_rescale_q(pkt->duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
-		//このdurationから計算したsampleが信頼できるか計算する
-		//mkvではたまにptsの差分とdurationが一致しないことがある
-		//ptsDiffが動画の1フレーム分より小さいときのみ対象とする (カット編集によるものを混同する可能性がある)
-		mfxI64 ptsDiff = pkt->pts - pMuxAudio->nLastPtsIn;
-		if (0 <= ptsDiff
-			&& ptsDiff < av_rescale_q(1, av_inv_q(m_Mux.video.nFPS), samplerate)
-			&& pMuxAudio->nLastPtsIn != AV_NOPTS_VALUE
-			&& 1 < abs(ptsDiff - pkt->duration)) {
-			//ptsの差分から計算しなおす
-			samples = (int)av_rescale_q(ptsDiff, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
+		// 1/1000 timebaseは信じるに値しないので、frame_sizeがあればその値を使用する
+		if (0 == av_cmp_q(pMuxAudio->pCodecCtxIn->pkt_timebase, { 1, 1000 })
+			&& pMuxAudio->pCodecCtxIn->frame_size) {
+			samples = pMuxAudio->pCodecCtxIn->frame_size;
+		} else {
+			//このdurationから計算したsampleが信頼できるか計算する
+			//mkvではたまにptsの差分とdurationが一致しないことがある
+			//ptsDiffが動画の1フレーム分より小さいときのみ対象とする (カット編集によるものを混同する可能性がある)
+			mfxI64 ptsDiff = pkt->pts - pMuxAudio->nLastPtsIn;
+			if (0 <= ptsDiff
+				&& ptsDiff < av_rescale_q(1, av_inv_q(m_Mux.video.nFPS), samplerate)
+				&& pMuxAudio->nLastPtsIn != AV_NOPTS_VALUE
+				&& 1 < abs(ptsDiff - pkt->duration)) {
+				//ptsの差分から計算しなおす
+				samples = (int)av_rescale_q(ptsDiff, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
+			}
 		}
 		pMuxAudio->nLastPtsIn = pkt->pts;
 	} else {
