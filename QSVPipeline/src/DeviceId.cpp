@@ -432,12 +432,9 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
 
 					argsFilled = sscanf_s( sDesc, "Version %d", &IntelCounterMajorVersion);
 					
-					if ( argsFilled == 1 )
+					if ( argsFilled != 1 || 1 != sscanf_s( sUnits, "Size %d", &IntelCounterSize))
 					{
-						sscanf_s( sUnits, "Size %d", &IntelCounterSize);
-					}
-					else // Fall back to version 1.0
-					{
+						// Fall back to version 1.0
 						IntelCounterMajorVersion = 1;
 						IntelCounterSize = sizeof( IntelDeviceInfoV1 );
 					}
