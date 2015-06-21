@@ -435,12 +435,12 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	if (framePosList.size() >= 32) {
 		const int cutoff = (framePosList.size() >= 64) ? 16 : 8;
 		vector<FramePos> newList;
-		newList.reserve(framePosList.size() - cutoff - m_sTrimParam.offset);
+		newList.reserve(framePosList.size() - cutoff * 2 - m_sTrimParam.offset);
 		//最初のキーフレームからのフレームリストを構築する
 		//最初のキーフレームからのリストであることは後段で、nDelayOfAudioを正確に計算するために重要
 		//Bフレーム等の並べ替えを考慮し、キーフレームのpts以前のptsを持つものを削除、
 		//また、最後の16フレームもBフレームを考慮してカット
-		std::for_each(framePosList.begin() + m_sTrimParam.offset, framePosList.end() - cutoff,
+		std::for_each(framePosList.begin() + m_sTrimParam.offset + cutoff, framePosList.end() - cutoff,
 			[&newList, firstKeyframePos](const FramePos& pos) {
 			if (pos.pts == AV_NOPTS_VALUE || firstKeyframePos.pts <= pos.pts) newList.push_back(pos);
 		});
