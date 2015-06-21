@@ -25,9 +25,10 @@ enum {
 };
 
 enum : mfxU32 {
-	AVQSV_PTS_SOMETIMES_INVALID = 0x01,
-	AVQSV_PTS_HALF_INVALID      = 0x02,
-	AVQSV_PTS_ALL_INVALID       = 0x04,
+	AVQSV_PTS_SOMETIMES_INVALID = 0x01, //時折、無効なptsやdtsを得る
+	AVQSV_PTS_HALF_INVALID      = 0x02, //PAFFなため、半分のフレームのptsやdtsが無効
+	AVQSV_PTS_ALL_INVALID       = 0x04, //すべてのフレームのptsやdtsが無効
+	AVQSV_PTS_NONKEY_INVALID    = 0x08, //キーフレーム以外のフレームのptsやdtsが無効
 };
 
 //フレームの位置情報と長さを格納する
@@ -35,6 +36,7 @@ typedef struct FramePos {
 	int64_t pts;  //pts
 	int64_t dts;  //dts
 	int duration; //該当フレームの表示時間
+	int flags;    //flags
 } FramePos;
 
 //動画フレームのデータ
