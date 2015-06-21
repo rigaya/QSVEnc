@@ -218,7 +218,7 @@ public:
 
 	virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
 
-	virtual mfxStatus SetVideoParam(mfxVideoParam *pMfxVideoPrm);
+	virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2);
 
 	virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream);
 	virtual void Close();

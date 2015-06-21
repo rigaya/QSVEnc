@@ -409,12 +409,12 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	m_pEncSatusInfo = pEncSatusInfo;
 	//音声のみの出力を行う場合、SetVideoParamは呼ばれないので、ここで最後まで初期化をすませてしまう
 	if (!m_Mux.video.pStream) {
-		return SetVideoParam(NULL);
+		return SetVideoParam(NULL, NULL);
 	}
 	return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::SetVideoParam(mfxVideoParam *pMfxVideoPrm) {
+mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) {
 	//QSVEncCでエンコーダしたことを記録してみる
 	//これは直接metadetaにセットする
 	sprintf_s(m_Mux.format.metadataStr, "QSVEncC (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
@@ -471,8 +471,11 @@ mfxStatus CAvcodecWriter::SetVideoParam(mfxVideoParam *pMfxVideoPrm) {
 
 	//API v1.6以下でdtsがQSVが提供されない場合、自前で計算する必要がある
 	//API v1.6ではB-pyramidが存在しないので、Bフレームがあるかないかだけ考慮するればよい
-	if (m_Mux.video.bDtsUnavailable) {
-		m_Mux.video.nFpsBaseNextDts = (m_Mux.video.pCodecCtx->max_b_frames == 0) ? 0 : -1;
+	if (m_Mux.video.pStream) {
+		m_Mux.video.bDtsUnavailable = true; //ひとまずマニュアルでのdts生成を強制。
+		if (m_Mux.video.bDtsUnavailable) {
+			m_Mux.video.nFpsBaseNextDts = 0 - (pMfxVideoPrm->mfx.GopRefDist > 0) - (cop2->BRefType == MFX_B_REF_PYRAMID);
+		}
 	}
 	m_strOutputInfo += GetWriterMes();
 	m_Mux.format.bStreamError = false;

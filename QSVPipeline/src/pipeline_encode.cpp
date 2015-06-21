@@ -2850,6 +2850,8 @@ mfxStatus CEncodingPipeline::RunEncode()
 				pSurfEncIn->Data.TimeStamp = (int)(nFramePutToEncoder * getTimeStampMul + 0.5);
 				nFramePutToEncoder++;
 			}
+			pCurrentTask->mfxBS.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+			pCurrentTask->mfxBS.DecodeTimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
 			enc_sts = m_pmfxENC->EncodeFrameAsync(ptrCtrl, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
 			bDeviceBusy = false;
 
@@ -3184,7 +3186,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 	mfxStatus sts = m_pmfxENC->GetVideoParam(&videoPrm);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-	if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm))) {
+	if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm, &cop2))) {
 		PrintMes(QSV_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
 		return sts;
 	}
