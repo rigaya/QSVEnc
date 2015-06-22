@@ -432,7 +432,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	}
 	//より正確なduration計算のため、最初と最後の数フレームは落とす
 	//最初と最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationを算出しない
-	const int cutoff = (framePosList.size() >= 64) ? 16 : 8;
+	const int cutoff = (framePosList.size() >= 64) ? 16 : ((uint32_t)framePosList.size() / 4);
 	if (framePosList.size() >= 32) {
 		vector<FramePos> newList;
 		newList.reserve(framePosList.size() - cutoff - m_sTrimParam.offset);
