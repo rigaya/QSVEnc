@@ -432,31 +432,31 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	}
 	//より正確なduration計算のため、最初と最後の数フレームは落とす
 	//最初と最後のフレームはBフレームによりまだ並べ替えが必要な場合があり、正確なdurationを算出しない
+	const int cutoff = (framePosList.size() >= 64) ? 16 : 8;
 	if (framePosList.size() >= 32) {
-		const int cutoff = (framePosList.size() >= 64) ? 16 : 8;
 		vector<FramePos> newList;
-		newList.reserve(framePosList.size() - cutoff * 2 - m_sTrimParam.offset);
+		newList.reserve(framePosList.size() - cutoff - m_sTrimParam.offset);
 		//最初のキーフレームからのフレームリストを構築する
 		//最初のキーフレームからのリストであることは後段で、nDelayOfAudioを正確に計算するために重要
 		//Bフレーム等の並べ替えを考慮し、キーフレームのpts以前のptsを持つものを削除、
 		//また、最後の16フレームもBフレームを考慮してカット
-		std::for_each(framePosList.begin() + m_sTrimParam.offset + cutoff, framePosList.end() - cutoff,
+		std::for_each(framePosList.begin() + m_sTrimParam.offset, framePosList.end() - cutoff,
 			[&newList, firstKeyframePos](const FramePos& pos) {
 			if (pos.pts == AV_NOPTS_VALUE || firstKeyframePos.pts <= pos.pts) newList.push_back(pos);
 		});
 		framePosList = std::move(newList);
 	}
 
-	//durationのヒストグラムを作成
+	//durationのヒストグラムを作成 (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
 	vector<std::pair<int, int>> durationHistgram;
-	for (const auto& pos : framePosList) {
+	std::for_each(framePosList.begin() + cutoff, framePosList.end(), [&durationHistgram](const FramePos& pos) {
 		auto target = std::find_if(durationHistgram.begin(), durationHistgram.end(), [pos](const std::pair<int, int>& pair) { return pair.first == pos.duration; });
 		if (target != durationHistgram.end()) {
 			target->second++;
 		} else {
 			durationHistgram.push_back(std::make_pair(pos.duration, 1));
 		}
-	}
+	});
 	//多い順にソートする
 	std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
 	//durationが0でなく、最も頻繁に出てきたもの
@@ -468,11 +468,11 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 	} else {
 		//avgFpsとtargetFpsが近いかどうか
 		auto fps_near = [](double avgFps, double targetFps) { return abs(1 - avgFps / targetFps) < 0.5; };
-		//durationの平均を求める
-		double avgDuration = std::accumulate(framePosList.begin(), framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)framePosList.size();
+		//durationの平均を求める (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
+		double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)(framePosList.size() - cutoff);
 		double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->time_base.num);
 		double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.01 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
-		if (mostPopularDuration.second / (double)framePosList.size() > 0.95 && abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
+		if (mostPopularDuration.second / (double)(framePosList.size() - cutoff) > 0.95 && abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
 			avgDuration = mostPopularDuration.first;
 		}
 		//入力フレームに対し、出力フレームが半分程度なら、フレームのdurationを倍と見積もる
