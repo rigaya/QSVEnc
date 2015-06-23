@@ -489,6 +489,10 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		//pts=0で成功してもファイルの最後にいっている場合があるので、getSampleでこれを確認する
 		//その場合は、実際のptsでシークを試みる
 		int getSampleRet = getSample(&pkt);
+		//上記getSampleで値が入ってしまうので初期化
+		m_Demux.video.frameData.duration = 0;
+		m_Demux.video.frameData.fixed_num = 0;
+		m_Demux.video.frameData.num = 0;
 		av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex,
 			(getSampleRet) ? m_Demux.video.nStreamFirstPts : 0, //flvでは実際のptsの指定が必要
 			(getSampleRet) ? AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY : AVSEEK_FLAG_BACKWARD); //flvではAVSEEK_FLAG_ANYも必要
