@@ -935,7 +935,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 						int64_t pts = pkt->pts, dts = pkt->dts;
 						if ((m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_NONKEY_INVALID) && pts == AV_NOPTS_VALUE) {
 							//キーフレーム以外のptsとdtsが無効な場合は、適当に推定する
-							const FramePos *lastFrame = &m_Demux.video.frameData.frame[m_Demux.video.frameData.num];
+							const FramePos *lastFrame = &m_Demux.video.frameData.frame[m_Demux.video.frameData.num-1];
 							int duration = lastFrame->duration;
 							pts = lastFrame->pts + duration;
 							dts = lastFrame->dts + duration;
