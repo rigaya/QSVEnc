@@ -48,6 +48,12 @@ std::string tchar_to_string(const TCHAR *tstr, DWORD codepage) {
 	return str;
 }
 
+std::string tchar_to_string(const tstring& tstr, DWORD codepage) {
+	std::string str;
+	tchar_to_string(tstr.c_str(), str, codepage);
+	return str;
+}
+
 unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
 #if UNICODE
 	int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
@@ -68,6 +74,34 @@ tstring char_to_tstring(const char *str, DWORD codepage) {
 	char_to_tstring(tstr, str, codepage);
 	return tstr;
 }
+tstring char_to_tstring(const std::string& str, DWORD codepage) {
+	tstring tstr;
+	char_to_tstring(tstr, str.c_str(), codepage);
+	return tstr;
+}
+std::string strsprintf(const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	const size_t len = _vscprintf(format, args) + 1;
+
+	std::vector<char> buffer(len, 0);
+	vsprintf(buffer.data(), format, args);
+	va_end(args);
+	std::string retStr = std::string(buffer.data());
+	return retStr;
+}
+std::wstring strsprintf(const WCHAR* format, ...) {
+	va_list args;
+	va_start(args, format);
+	const size_t len = _vscwprintf(format, args) + 1;
+
+	std::vector<WCHAR> buffer(len, 0);
+	vswprintf(buffer.data(), format, args);
+	va_end(args);
+	std::wstring retStr = std::wstring(buffer.data());
+	return retStr;
+}
+
 #pragma warning (pop)
 
 std::vector<tstring> split(const tstring &str, const tstring &delim) {
@@ -79,6 +113,23 @@ std::vector<tstring> split(const tstring &str, const tstring &delim) {
 	}
 	res.push_back(tstring(str, current, str.size() - current));
 	return res;
+}
+
+std::string GetFullPath(const char *path) {
+	if (PathIsRelativeA(path) == FALSE)
+		return std::string(path);
+
+	std::vector<char> buffer(strlen(path) + 1024, 0);
+	_fullpath(buffer.data(), path, buffer.size());
+	return std::string(buffer.data());
+}
+std::wstring GetFullPath(const WCHAR *path) {
+	if (PathIsRelativeW(path) == FALSE)
+		return std::wstring(path);
+	
+	std::vector<WCHAR> buffer(wcslen(path) + 1024, 0);
+	_wfullpath(buffer.data(), path, buffer.size());
+	return std::wstring(buffer.data());
 }
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) {

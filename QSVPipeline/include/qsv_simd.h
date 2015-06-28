@@ -20,6 +20,7 @@ enum {
 	POPCNT = 0x0020,
 	AVX    = 0x0040,
 	AVX2   = 0x0080,
+	FMA3   = 0x0100,
 };
 
 unsigned int get_availableSIMD();

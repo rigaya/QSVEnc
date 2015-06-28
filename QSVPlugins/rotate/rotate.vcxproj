@@ -210,6 +210,8 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <DisableSpecificWarnings>4505;4996;</DisableSpecificWarnings>
       <ExceptionHandling>Async</ExceptionHandling>
+      <Optimization>Full</Optimization>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OpenCL.lib;libmfx.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -252,6 +254,8 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <DisableSpecificWarnings>4505;4996;</DisableSpecificWarnings>
       <ExceptionHandling>Async</ExceptionHandling>
+      <Optimization>Full</Optimization>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OpenCL.lib;libmfx.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -280,7 +284,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Full</Optimization>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_WINDOWS;_NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -297,6 +301,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <DisableSpecificWarnings>4505;4996;</DisableSpecificWarnings>
       <ExceptionHandling>Async</ExceptionHandling>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OpenCL.lib;libmfx.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -321,7 +326,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Full</Optimization>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_WINDOWS;_NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -338,6 +343,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <DisableSpecificWarnings>4505;4996;</DisableSpecificWarnings>
       <ExceptionHandling>Async</ExceptionHandling>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OpenCL.lib;libmfx.lib;%(AdditionalDependencies)</AdditionalDependencies>

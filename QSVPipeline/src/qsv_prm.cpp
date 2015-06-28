@@ -52,4 +52,5 @@ void init_qsvp_prm(sInputParams *prm) {
 	prm->nDstHeight         = 720;
 	prm->vpp.nDenoise       = 20;
 	prm->vpp.nDetailEnhance = 20;
+	prm->vpp.delogo.nDepth  = QSV_DEFAULT_VPP_DELOGO_DEPTH;
 }

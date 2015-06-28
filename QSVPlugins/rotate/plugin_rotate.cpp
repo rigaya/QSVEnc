@@ -9,6 +9,7 @@
 
 #include "mfx_samples_config.h"
 
+#include <algorithm>
 #include <stdio.h>
 #include "sample_utils.h"
 #include "plugin_rotate.h"
@@ -20,19 +21,14 @@
 #define SWAP_BYTES(a, b) {mfxU8 tmp; tmp = a; a = b; b = tmp;}
 
 /* Rotate class implementation */
-Rotate::Rotate() :
-	m_bInited(false),
-	m_pTasks(NULL),
-	m_bIsInOpaque(false),
-	m_bIsOutOpaque(false) {
-	m_MaxNumTasks = 0;
-
+Rotate::Rotate() {
 	memset(&m_VideoParam, 0, sizeof(m_VideoParam));
 	memset(&m_Param, 0, sizeof(m_Param));
 
 	memset(&m_PluginParam, 0, sizeof(m_PluginParam));
 	m_PluginParam.MaxThreadNum = 1;
 	m_PluginParam.ThreadPolicy = MFX_THREADPOLICY_SERIAL;
+	m_pluginName = _T("rotate");
 }
 
 Rotate::~Rotate() {
@@ -41,24 +37,6 @@ Rotate::~Rotate() {
 }
 
 /* Methods required for integration with Media SDK */
-mfxStatus Rotate::PluginInit(mfxCoreInterface *core) {
-	MSDK_CHECK_POINTER(core, MFX_ERR_NULL_PTR);
-	m_mfxCore = MFXCoreInterface(*core);
-	return MFX_ERR_NONE;
-}
-
-mfxStatus Rotate::PluginClose() {
-	return MFX_ERR_NONE;
-}
-
-mfxStatus Rotate::GetPluginParam(mfxPluginParam *par) {
-	MSDK_CHECK_POINTER(par, MFX_ERR_NULL_PTR);
-
-	*par = m_PluginParam;
-
-	return MFX_ERR_NONE;
-}
-
 mfxStatus Rotate::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfxU32 out_num, mfxThreadTask *task) {
 	MSDK_CHECK_POINTER(in, MFX_ERR_NULL_PTR);
 	MSDK_CHECK_POINTER(out, MFX_ERR_NULL_PTR);
@@ -92,65 +70,30 @@ mfxStatus Rotate::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfx
 
 	mfxU32 ind = FindFreeTaskIdx();
 
-	if (ind >= m_MaxNumTasks) {
+	if (ind >= m_sTasks.size()) {
 		return MFX_WRN_DEVICE_BUSY; // currently there are no free tasks available
 	}
 
 	m_mfxCore.IncreaseReference(&(real_surface_in->Data));
 	m_mfxCore.IncreaseReference(&(real_surface_out->Data));
 
-	m_pTasks[ind].In = real_surface_in;
-	m_pTasks[ind].Out = real_surface_out;
-	m_pTasks[ind].bBusy = true;
+	m_sTasks[ind].In = real_surface_in;
+	m_sTasks[ind].Out = real_surface_out;
+	m_sTasks[ind].bBusy = true;
 
 	switch (m_Param.Angle) {
 	case 180:
-		m_pTasks[ind].pProcessor = new Rotator180;
-		MSDK_CHECK_POINTER(m_pTasks[ind].pProcessor, MFX_ERR_MEMORY_ALLOC);
+		m_sTasks[ind].pProcessor.reset(new Rotator180);
+		MSDK_CHECK_POINTER(m_sTasks[ind].pProcessor, MFX_ERR_MEMORY_ALLOC);
 		break;
 	default:
 		return MFX_ERR_UNSUPPORTED;
 	}
 
-	m_pTasks[ind].pProcessor->SetAllocator(&m_mfxCore.FrameAllocator());
-	m_pTasks[ind].pProcessor->Init(real_surface_in, real_surface_out);
+	m_sTasks[ind].pProcessor->SetAllocator(&m_mfxCore.FrameAllocator());
+	m_sTasks[ind].pProcessor->Init(real_surface_in, real_surface_out, nullptr);
 
-	*task = (mfxThreadTask)&m_pTasks[ind];
-
-	return MFX_ERR_NONE;
-}
-
-mfxStatus Rotate::Execute(mfxThreadTask task, mfxU32 uid_p, mfxU32 uid_a) {
-	MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
-
-	mfxStatus sts = MFX_ERR_NONE;
-	RotateTask *current_task = (RotateTask *)task;
-
-	// 0,...,NumChunks - 2 calls return TASK_WORKING, NumChunks - 1,.. return TASK_DONE
-	if (uid_a < m_NumChunks) {
-		// there's data to process
-		sts = current_task->pProcessor->Process(&m_pChunks[uid_a]);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-		// last call?
-		sts = ((m_NumChunks - 1) == uid_a) ? MFX_TASK_DONE : MFX_TASK_WORKING;
-	} else {
-		// no data to process
-		sts = MFX_TASK_DONE;
-	}
-
-	return sts;
-}
-
-mfxStatus Rotate::FreeResources(mfxThreadTask task, mfxStatus sts) {
-	MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
-
-	RotateTask *current_task = (RotateTask *)task;
-
-	m_mfxCore.DecreaseReference(&(current_task->In->Data));
-	m_mfxCore.DecreaseReference(&(current_task->Out->Data));
-
-	MSDK_SAFE_DELETE(current_task->pProcessor);
-	current_task->bBusy = false;
+	*task = (mfxThreadTask)&m_sTasks[ind];
 
 	return MFX_ERR_NONE;
 }
@@ -168,7 +111,10 @@ mfxStatus Rotate::Init(mfxVideoParam *mfxParam) {
 	if (m_bIsInOpaque || m_bIsOutOpaque) {
 		pluginOpaqueAlloc = (mfxExtOpaqueSurfaceAlloc*)GetExtBuffer(m_VideoParam.ExtParam,
 			m_VideoParam.NumExtParam, MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION);
-		MSDK_CHECK_POINTER(pluginOpaqueAlloc, MFX_ERR_INVALID_VIDEO_PARAM);
+		if (sts != MFX_ERR_NONE) {
+			m_message += _T("failed GetExtBuffer for OpaqueAlloc.\n");
+			return sts;
+		}
 	}
 
 	// check existence of corresponding allocs
@@ -178,34 +124,31 @@ mfxStatus Rotate::Init(mfxVideoParam *mfxParam) {
 	if (m_bIsInOpaque) {
 		sts = m_mfxCore.MapOpaqueSurface(pluginOpaqueAlloc->In.NumSurface,
 			pluginOpaqueAlloc->In.Type, pluginOpaqueAlloc->In.Surfaces);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
+		if (sts != MFX_ERR_NONE) {
+			m_message += _T("failed MapOpaqueSurface[In].\n");
+			return sts;
+		}
 	}
 
 	if (m_bIsOutOpaque) {
 		sts = m_mfxCore.MapOpaqueSurface(pluginOpaqueAlloc->Out.NumSurface,
 			pluginOpaqueAlloc->Out.Type, pluginOpaqueAlloc->Out.Surfaces);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
+		if (sts != MFX_ERR_NONE) {
+			m_message += _T("failed MapOpaqueSurface[Out].\n");
+			return sts;
+		}
 	}
 
-	m_MaxNumTasks = m_VideoParam.AsyncDepth;
-	if (m_MaxNumTasks < 2) m_MaxNumTasks = 2;
-
-	m_pTasks = new RotateTask[m_MaxNumTasks];
-	MSDK_CHECK_POINTER(m_pTasks, MFX_ERR_MEMORY_ALLOC);
-	memset(m_pTasks, 0, sizeof(RotateTask) * m_MaxNumTasks);
-
-	m_NumChunks = m_PluginParam.MaxThreadNum;
-	m_pChunks = new DataChunk[m_NumChunks];
-	MSDK_CHECK_POINTER(m_pChunks, MFX_ERR_MEMORY_ALLOC);
-	memset(m_pChunks, 0, sizeof(DataChunk) * m_NumChunks);
+	m_sTasks.resize((std::max)(1, (int)m_VideoParam.AsyncDepth));
+	m_sChunks.resize(m_PluginParam.MaxThreadNum);
 
 	// divide frame into data chunks
-	mfxU32 num_lines_in_chunk = mfxParam->vpp.In.CropH / m_NumChunks; // integer division
-	mfxU32 remainder_lines = mfxParam->vpp.In.CropH % m_NumChunks; // get remainder
+	mfxU32 num_lines_in_chunk = mfxParam->vpp.In.CropH / (mfxU32)m_sChunks.size(); // integer division
+	mfxU32 remainder_lines = mfxParam->vpp.In.CropH % (mfxU32)m_sChunks.size(); // get remainder
 	// remaining lines are distributed among first chunks (+ extra 1 line each)
-	for (mfxU32 i = 0; i < m_NumChunks; i++) {
-		m_pChunks[i].StartLine = (i == 0) ? 0 : m_pChunks[i-1].EndLine + 1;
-		m_pChunks[i].EndLine = (i < remainder_lines) ? (i + 1) * num_lines_in_chunk : (i + 1) * num_lines_in_chunk - 1;
+	for (mfxU32 i = 0; i < m_sChunks.size(); i++) {
+		m_sChunks[i].StartLine = (i == 0) ? 0 : m_sChunks[i-1].EndLine + 1;
+		m_sChunks[i].EndLine = (i < remainder_lines) ? (i + 1) * num_lines_in_chunk : (i + 1) * num_lines_in_chunk - 1;
 	}
 
 	m_bInited = true;
@@ -218,9 +161,11 @@ mfxStatus Rotate::SetAuxParams(void* auxParam, int auxParamSize) {
 	MSDK_CHECK_POINTER(pRotatePar, MFX_ERR_NULL_PTR);
 
 	// check validity of parameters
-	mfxStatus sts = CheckParam(&m_VideoParam, pRotatePar);
+	mfxStatus sts = CheckParam(&m_VideoParam);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 	m_Param = *pRotatePar;
+
+	m_message = _T("vpp-rotate (half-turn)\n");
 	return MFX_ERR_NONE;
 }
 
@@ -230,8 +175,6 @@ mfxStatus Rotate::Close() {
 		return MFX_ERR_NONE;
 
 	memset(&m_Param, 0, sizeof(RotateParam));
-
-	MSDK_SAFE_DELETE_ARRAY(m_pTasks);
 
 	mfxStatus sts = MFX_ERR_NONE;
 
@@ -259,79 +202,14 @@ mfxStatus Rotate::Close() {
 		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
 	}
 
+	m_message.clear();
 	m_bInited = false;
 
 	return MFX_ERR_NONE;
 }
 
-mfxStatus Rotate::QueryIOSurf(mfxVideoParam *par, mfxFrameAllocRequest *in, mfxFrameAllocRequest *out) {
-	MSDK_CHECK_POINTER(par, MFX_ERR_NULL_PTR);
-	MSDK_CHECK_POINTER(in, MFX_ERR_NULL_PTR);
-	MSDK_CHECK_POINTER(out, MFX_ERR_NULL_PTR);
-
-	in->Info = par->vpp.In;
-	in->NumFrameSuggested = in->NumFrameMin = par->AsyncDepth + 1;
-
-	out->Info = par->vpp.Out;
-	out->NumFrameSuggested = out->NumFrameMin = par->AsyncDepth + 1;
-
-	return MFX_ERR_NONE;
-}
-
 /* Internal methods */
-mfxU32 Rotate::FindFreeTaskIdx() {
-	mfxU32 i;
-	for (i = 0; i < m_MaxNumTasks; i++) {
-		if (false == m_pTasks[i].bBusy) {
-			break;
-		}
-	}
-	return i;
-}
-
-mfxStatus Rotate::CheckParam(mfxVideoParam *mfxParam, RotateParam *pRotatePar) {
-	MSDK_CHECK_POINTER(mfxParam, MFX_ERR_NULL_PTR);
-
-	mfxInfoVPP *pParam = &mfxParam->vpp;
-
-	// only NV12 color format is supported
-	if (MFX_FOURCC_NV12 != pParam->In.FourCC || MFX_FOURCC_NV12 != pParam->Out.FourCC) {
-		return MFX_ERR_UNSUPPORTED;
-	}
-
-	return MFX_ERR_NONE;
-}
-
-mfxStatus Rotate::CheckInOutFrameInfo(mfxFrameInfo *pIn, mfxFrameInfo *pOut) {
-	MSDK_CHECK_POINTER(pIn, MFX_ERR_NULL_PTR);
-	MSDK_CHECK_POINTER(pOut, MFX_ERR_NULL_PTR);
-
-	if (pIn->CropW != m_VideoParam.vpp.In.CropW   || pIn->CropH != m_VideoParam.vpp.In.CropH ||
-		pIn->FourCC != m_VideoParam.vpp.In.FourCC ||
-		pOut->CropW != m_VideoParam.vpp.Out.CropW || pOut->CropH != m_VideoParam.vpp.Out.CropH ||
-		pOut->FourCC != m_VideoParam.vpp.Out.FourCC) {
-		return MFX_ERR_INVALID_VIDEO_PARAM;
-	}
-
-	return MFX_ERR_NONE;
-}
-
-/* Processor class implementation */
-Processor::Processor()
-	: m_pIn(NULL)
-	, m_pOut(NULL)
-	, m_pAlloc(NULL) {
-}
-
-Processor::~Processor() {
-}
-
-mfxStatus Processor::SetAllocator(mfxFrameAllocator *pAlloc) {
-	m_pAlloc = pAlloc;
-	return MFX_ERR_NONE;
-}
-
-mfxStatus Processor::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out) {
+mfxStatus ProcessorRotate::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out, const void *data) {
 	MSDK_CHECK_POINTER(frame_in, MFX_ERR_NULL_PTR);
 	MSDK_CHECK_POINTER(frame_out, MFX_ERR_NULL_PTR);
 
@@ -341,43 +219,15 @@ mfxStatus Processor::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_ou
 	return MFX_ERR_NONE;
 }
 
-mfxStatus Processor::LockFrame(mfxFrameSurface1 *frame) {
-	MSDK_CHECK_POINTER(frame, MFX_ERR_NULL_PTR);
-	//double lock impossible
-	if (frame->Data.Y != 0 && frame->Data.MemId !=0)
-		return MFX_ERR_UNSUPPORTED;
-	//no allocator used, no need to do lock
-	if (frame->Data.Y != 0)
-		return MFX_ERR_NONE;
-	//lock required
-	mfxStatus sts = m_pAlloc->Lock(m_pAlloc->pthis, frame->Data.MemId, &frame->Data);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-	return sts;
-}
-
-mfxStatus Processor::UnlockFrame(mfxFrameSurface1 *frame) {
-	MSDK_CHECK_POINTER(frame, MFX_ERR_NULL_PTR);
-	//unlock not possible, no allocator used
-	if (frame->Data.Y != 0 && frame->Data.MemId ==0)
-		return MFX_ERR_NONE;
-	//already unlocked
-	if (frame->Data.Y == 0)
-		return MFX_ERR_NONE;
-	//unlock required
-	mfxStatus sts = m_pAlloc->Unlock(m_pAlloc->pthis, frame->Data.MemId, &frame->Data);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-	return sts;
-}
-
 
 /* 180 degrees rotator class implementation */
-Rotator180::Rotator180() : Processor() {
+Rotator180::Rotator180() : ProcessorRotate() {
 }
 
 Rotator180::~Rotator180() {
 }
 
-mfxStatus Rotator180::Process(DataChunk *chunk) {
+mfxStatus Rotator180::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 	MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
 
 	mfxStatus sts = MFX_ERR_NONE;

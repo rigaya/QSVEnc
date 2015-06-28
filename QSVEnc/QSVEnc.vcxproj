@@ -123,7 +123,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins\rotate;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -173,7 +173,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins\rotate;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -222,7 +222,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins\rotate;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -274,7 +274,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins\rotate;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -329,7 +329,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins\rotate;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -381,7 +381,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins\rotate;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -866,6 +866,9 @@
       <CopyLocalSatelliteAssemblies>false</CopyLocalSatelliteAssemblies>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
       <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
+    </ProjectReference>
+    <ProjectReference Include="..\QSVPlugins\delogo\delogo.vcxproj">
+      <Project>{7bbdaa1c-4f67-4f71-b245-f5d48f5e2142}</Project>
     </ProjectReference>
     <ProjectReference Include="..\QSVPlugins\rotate\rotate.vcxproj">
       <Project>{d5ccf0c0-32f6-4777-aa6c-6a249016db26}</Project>

@@ -12,7 +12,10 @@
 #include "d3d11_allocator.h"
 #endif
 #endif
-#include "plugin_rotate.h"
+#include "rotate/plugin_rotate.h"
+#include "delogo/plugin_delogo.h"
+
+#define GPU_FILTER 0
 
 using std::unique_ptr;
 
@@ -20,13 +23,16 @@ class CVPPPlugin
 {
 public:
 	CVPPPlugin() {
-		m_PluginModule = NULL;
-		m_pPluginSurfaces = NULL;
+		m_pPluginSurfaces = nullptr;
 		m_nSurfNum = 0;
+		m_memType = SYSTEM_MEMORY;
 		m_bPluginFlushed = false;
-		m_pMFXAllocator = NULL;
-		m_pmfxAllocatorParams = NULL;
+		m_pMFXAllocator = nullptr;
+		m_pmfxAllocatorParams = nullptr;
+		m_pPluginSurfaces = nullptr;
+#if GPU_FILTER
 		m_hwdev = NULL;
+#endif
 		MSDK_ZERO_MEMORY(m_PluginResponse);
 		MSDK_ZERO_MEMORY(m_pluginVideoParams);
 	};
@@ -36,110 +42,24 @@ public:
 	};
 public:
 	virtual void Close() {
-		MFXDisjoinSession(m_mfxSession);
-		MFXVideoUSER_Unregister(m_mfxSession, 0);
+		if (m_mfxSession) {
+			MFXDisjoinSession(m_mfxSession);
+			MFXVideoUSER_Unregister(m_mfxSession, 0);
+			m_mfxSession.Close();
+		}
 
 		m_pUsrPlugin.reset();
 		MSDK_SAFE_DELETE_ARRAY(m_pPluginSurfaces);
-		m_mfxSession.Close();
 		MSDK_SAFE_DELETE(m_pMFXAllocator);
 		MSDK_SAFE_DELETE(m_pmfxAllocatorParams);
 		m_bPluginFlushed = false;
 		m_nSurfNum = 0;
+		m_memType = SYSTEM_MEMORY;
+#if GPU_FILTER
+		m_hwdev = NULL;
+#endif
+		m_message.clear();
 	};
-	
-private:
-	virtual mfxStatus CreateHWDevice() {
-		mfxStatus sts = MFX_ERR_NONE;
-#if D3D_SURFACES_SUPPORT
-		POINT point = { 0, 0 };
-		HWND window = WindowFromPoint(point);
-
-#if MFX_D3D11_SUPPORT
-		if (D3D11_MEMORY == m_memType)
-			m_hwdev = new CD3D11Device();
-		else
-#endif // #if MFX_D3D11_SUPPORT
-			m_hwdev = new CD3D9Device();
-
-		if (NULL == m_hwdev)
-			return MFX_ERR_MEMORY_ALLOC;
-
-		sts = m_hwdev->Init(
-			window,
-			0,
-			MSDKAdapter::GetNumber(m_mfxSession));
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-#endif //D3D_SURFACES_SUPPORT
-		return MFX_ERR_NONE;
-	}
-
-private:
-	virtual mfxStatus CreateAllocator() {
-		mfxStatus sts = MFX_ERR_NONE;
-
-		if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType) {
-#if D3D_SURFACES_SUPPORT
-			//sts = CreateHWDevice();
-			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-			mfxHDL hdl = NULL;
-			mfxHandleType hdl_t =
-#if MFX_D3D11_SUPPORT
-				D3D11_MEMORY == m_memType ? MFX_HANDLE_D3D11_DEVICE :
-#endif // #if MFX_D3D11_SUPPORT
-				MFX_HANDLE_D3D9_DEVICE_MANAGER;
-
-			sts = m_hwdev->GetHandle(hdl_t, &hdl);
-			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-			// handle is needed for HW library only
-			mfxIMPL impl = 0;
-			m_mfxSession.QueryIMPL(&impl);
-			if (impl != MFX_IMPL_SOFTWARE) {
-				sts = m_mfxSession.SetHandle(hdl_t, hdl);
-				MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-			}
-#endif //D3D_SURFACES_SUPPORT
-
-			// create D3D allocator
-#if MFX_D3D11_SUPPORT
-			if (D3D11_MEMORY == m_memType) {
-				m_pMFXAllocator = new D3D11FrameAllocator;
-				MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
-
-				D3D11AllocatorParams *pd3dAllocParams = new D3D11AllocatorParams;
-				MSDK_CHECK_POINTER(pd3dAllocParams, MFX_ERR_MEMORY_ALLOC);
-				pd3dAllocParams->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
-
-				m_pmfxAllocatorParams = pd3dAllocParams;
-			} else
-#endif // #if MFX_D3D11_SUPPORT
-			{
-				m_pMFXAllocator = new D3DFrameAllocator;
-				MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
-
-				D3DAllocatorParams *pd3dAllocParams = new D3DAllocatorParams;
-				MSDK_CHECK_POINTER(pd3dAllocParams, MFX_ERR_MEMORY_ALLOC);
-				pd3dAllocParams->pManager = reinterpret_cast<IDirect3DDeviceManager9 *>(hdl);
-
-				m_pmfxAllocatorParams = pd3dAllocParams;
-			}
-
-			/* In case of video memory we must provide MediaSDK with external allocator
-			thus we demonstrate "external allocator" usage model.
-			Call SetAllocator to pass allocator to Media SDK */
-			sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator);
-			MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-		} else {
-			// create system memory allocator
-			m_pMFXAllocator = new SysMemFrameAllocator;
-			MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
-		}
-		sts = m_pMFXAllocator->Init(m_pmfxAllocatorParams);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-		return sts;
-	}
 
 public:
 	virtual mfxStatus AllocSurfaces(MFXFrameAllocator *pMFXAllocator, bool m_bExternalAlloc) {
@@ -178,34 +98,54 @@ public:
 		MSDK_CHECK_POINTER(pluginName, MFX_ERR_NULL_PTR);
 		MSDK_CHECK_POINTER(pPluginParam, MFX_ERR_NULL_PTR);
 		MSDK_CHECK_POINTER(phwdev, MFX_ERR_NULL_PTR);
-
+		
+#if GPU_FILTER
 		m_hwdev = phwdev;
+#endif
 
 		mfxStatus sts = InitSession(useHWLib, memType);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+		if (sts != MFX_ERR_NONE) {
+			m_message += _T("failed to init session for plugin.\n");
+			return sts;
+		}
 
 		m_mfxSession.SetFrameAllocator(pAllocator);
 		
-		m_pUsrPlugin.reset(new Rotate());
-		MSDK_CHECK_POINTER(m_pUsrPlugin.get(), MFX_ERR_NOT_FOUND);
+		if (0 == _tcsicmp(pluginName, _T("rotate"))) {
+			m_pUsrPlugin.reset(new Rotate());
+		} else if (0 == _tcsicmp(pluginName, _T("delogo"))) {
+			m_pUsrPlugin.reset(new Delogo());
+		}
+		if (m_pUsrPlugin.get() == nullptr) {
+			m_message += strsprintf(_T("plugin name \"%s\" could not be found."), pluginName);
+			return MFX_ERR_NOT_FOUND;
+		}
 
 		InitMfxPluginParam(nAsyncDepth, frameIn, IOPattern);
 
 		// register plugin callbacks in Media SDK
 		mfxPlugin plg = make_mfx_plugin_adapter((MFXGenericPlugin*)m_pUsrPlugin.get());
-		sts = MFXVideoUSER_Register(m_mfxSession, 0, &plg);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+		if (MFX_ERR_NONE != (sts = MFXVideoUSER_Register(m_mfxSession, 0, &plg))) {
+			m_message += strsprintf(_T("%s: failed to register plugin.\n"), m_pUsrPlugin->GetPluginName().c_str());
+			return sts;
+		}
 
-		// need to call Init after registration because mfxCore interface is needed
-		sts = m_pUsrPlugin->Init(&m_pluginVideoParams);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-		sts = m_pUsrPlugin->SetAuxParams(pPluginParam, nPluginParamSize);
-		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-		return MFX_ERR_NONE;
+		if (sts == MFX_ERR_NONE) sts = m_pUsrPlugin->Init(&m_pluginVideoParams);
+		if (sts == MFX_ERR_NONE) sts = m_pUsrPlugin->SetAuxParams(pPluginParam, nPluginParamSize);
+		m_message += strsprintf(_T("%s, %s\n"), m_pUsrPlugin->GetPluginName().c_str(), m_pUsrPlugin->GetPluginMessage().c_str());
+		return sts;
 	}
-
+public:
+	virtual tstring getMessage() {
+		return m_message;
+	}
+public:
+	virtual tstring getFilterName() {
+		if (m_pUsrPlugin.get() == nullptr) {
+			return _T("");
+		}
+		return m_pUsrPlugin->GetPluginName();
+	}
 public:
 	virtual mfxSession getSession() {
 		return m_mfxSession;
@@ -257,19 +197,21 @@ private:
 		return MFX_ERR_NONE;
 	}
 public:
-	mfxU16                  m_nSurfNum;
-	mfxFrameAllocRequest    m_PluginRequest;
-	mfxVideoParam           m_pluginVideoParams;
-	mfxFrameAllocResponse   m_PluginResponse;
-	mfxFrameSurface1       *m_pPluginSurfaces;
-	bool                    m_bPluginFlushed;
-	MFXFrameAllocator      *m_pMFXAllocator;
+	mfxU16                      m_nSurfNum;
+	mfxFrameAllocRequest        m_PluginRequest;
+	mfxVideoParam               m_pluginVideoParams;
+	mfxFrameAllocResponse       m_PluginResponse;
+	mfxFrameSurface1           *m_pPluginSurfaces;
+	bool                        m_bPluginFlushed;
+	MFXFrameAllocator          *m_pMFXAllocator;
 private:
-	mfxAllocatorParams     *m_pmfxAllocatorParams;
-	MFXVideoSession         m_mfxSession;
-	MemType                 m_memType;
-	mfxVersion              m_mfxVer;
-	msdk_so_handle          m_PluginModule;
-	unique_ptr<Rotate>      m_pUsrPlugin;
-	CHWDevice              *m_hwdev;
+	mfxAllocatorParams         *m_pmfxAllocatorParams;
+	MFXVideoSession             m_mfxSession;
+	MemType                     m_memType;
+	mfxVersion                  m_mfxVer;
+	unique_ptr<QSVEncPlugin>    m_pUsrPlugin;
+#if GPU_FILTER
+	CHWDevice                  *m_hwdev;
+#endif
+	tstring                     m_message;
 };

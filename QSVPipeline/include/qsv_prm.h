@@ -112,7 +112,24 @@ typedef struct {
 
 	bool bHalfTurn;
 
-	mfxU8 Reserved[123];
+	struct {
+		TCHAR     *pFilePath; //ロゴファイル名へのポインタ
+#ifdef _M_IX86
+		mfxU32     paddPtr1;
+#endif
+
+		TCHAR     *pSelect; //選択するロゴ
+#ifdef _M_IX86
+		mfxU32     paddPtr2;
+#endif
+		mfxI16Pair nPosOffset;
+		mfxI16     nDepth;
+		mfxI16     nYOffset;
+		mfxI16     nCbOffset;
+		mfxI16     nCrOffset;
+	} delogo;
+
+	mfxU8 Reserved[95];
 } sVppParams;
 
 struct sInputParams
@@ -566,6 +583,8 @@ const mfxU16 QSV_DEFAULT_SC_SENSITIVITY = 80;
 
 const int QSV_LOOKAHEAD_DEPTH_MIN = 10;
 const int QSV_LOOKAHEAD_DEPTH_MAX = 100;
+
+const mfxI16 QSV_DEFAULT_VPP_DELOGO_DEPTH = 128;
 
 void init_qsvp_prm(sInputParams *prm);
 
