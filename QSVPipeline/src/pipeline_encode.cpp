@@ -1892,7 +1892,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 
 	if (NULL == m_pFileReader) {
 		const void *input_option = nullptr;
-		bool bY4m = pParams->nInputFmt == INPUT_FMT_VPY_MT;
+		bool bY4m = pParams->nInputFmt == INPUT_FMT_Y4M;
 #if ENABLE_AVCODEC_QSV_READER
 		AvcodecReaderPrm avcodecReaderPrm = { 0 };
 #endif
