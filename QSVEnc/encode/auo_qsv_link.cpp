@@ -129,7 +129,7 @@ AUO_YUVReader::AUO_YUVReader() {
 
 #pragma warning( push )
 #pragma warning( disable: 4100 )
-mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 	MSDK_CHECK_POINTER(oip, MFX_ERR_NULL_PTR);
 
 	Close();

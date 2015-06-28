@@ -20,9 +20,9 @@ public :
 	AUO_YUVReader();
 	virtual ~AUO_YUVReader();
 
-	virtual void Close();
-	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, int option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
-	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+	virtual void Close() override;
+	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) override;
+	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
 
 private:
 	mfxU32 current_frame;
@@ -35,8 +35,8 @@ public :
 	AUO_EncodeStatusInfo();
 	virtual ~AUO_EncodeStatusInfo();
 private:
-	virtual void UpdateDisplay(const char *mes, int drop_frames);
-	virtual void WriteLine(const TCHAR *mes);
+	virtual void UpdateDisplay(const char *mes, int drop_frames) override;
+	virtual void WriteLine(const TCHAR *mes) override;
 };
 
 #endif //_AUO_YUVREADER_H_
