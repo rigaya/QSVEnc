@@ -808,7 +808,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			i++;
 			int value = MFX_LOOKAHEAD_DS_UNKNOWN;
 			if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_lookahead_ds, strInput[i]))) {
-				pParams->nTrellis = (mfxU16)value;
+				pParams->nLookaheadDS = (mfxU16)value;
 			} else {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
