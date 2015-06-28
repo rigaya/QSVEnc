@@ -152,6 +152,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -201,6 +202,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -251,6 +253,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -303,6 +306,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -357,6 +361,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -409,6 +414,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
