@@ -213,11 +213,6 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
 	sys_dat->exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
 	PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
 
-	if (pe->video_out_type != VIDEO_OUTPUT_DISABLED) {
-		//H.264/ESしか出せないので拡張子を変更
-		change_ext(pe->temp_filename, _countof(pe->temp_filename), ".264");
-	}
-
 	pe->muxer_to_be_used = check_muxer_to_be_used(conf, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
 	
 	//FAWチェックとオーディオディレイの修正
