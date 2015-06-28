@@ -624,7 +624,7 @@ mfxStatus CAvcodecWriter::WriteNextFrame(AVPacket *pkt) {
 			//mkvではたまにptsの差分とdurationが一致しないことがある
 			//ptsDiffが動画の1フレーム分より小さいときのみ対象とする (カット編集によるものを混同する可能性がある)
 			mfxI64 ptsDiff = pkt->pts - pMuxAudio->nLastPtsIn;
-			if (0 <= ptsDiff
+			if (0 < ptsDiff
 				&& ptsDiff < av_rescale_q(1, av_inv_q(m_Mux.video.nFPS), samplerate)
 				&& pMuxAudio->nLastPtsIn != AV_NOPTS_VALUE
 				&& 1 < abs(ptsDiff - pkt->duration)) {
