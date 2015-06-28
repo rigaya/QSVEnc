@@ -292,7 +292,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.7\n")
 			_T("   --trellis <string>           set trellis mode used in encoding\n")
-			_T("                                 - auto(default), none, i, ip, all\n")
+			_T("                                 - auto(default), off, i, ip, all\n")
 			);
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.8\n")
@@ -300,7 +300,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
 			_T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
 			_T("   --lookahead-ds <string>      set lookahead quality.\n")
-			_T("                                 - auto(default), fast, normal, slow\n")
+			_T("                                 - auto(default), fast, medium, slow\n")
 			);
 		_ftprintf(stdout, _T("\n")
 			_T(" settings below are only supported with API v1.9\n")
