@@ -1057,8 +1057,11 @@ const TCHAR *getOSVersion() {
 				break;
 			}
 			break;
+		case 10:
+			ptr = _T("Windows 10");
+			break;
 		default:
-			if (7 <= info.dwPlatformId) {
+			if (10 <= info.dwMajorVersion) {
 				ptr = _T("Later than Windows 10");
 			}
 			break;
