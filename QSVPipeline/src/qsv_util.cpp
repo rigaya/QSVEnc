@@ -979,6 +979,32 @@ mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info) {
 
 #include <Windows.h>
 #include <process.h>
+#include <regex>
+
+static int getRealWindowsVersion(DWORD *major, DWORD *minor) {
+	int ret = 1;
+	FILE *fp = _popen("ver", "rb");
+	if (fp == NULL)
+		return ret;
+
+	char buf[1024] = { 0 };
+	fread(buf, sizeof(buf[0]), _countof(buf), fp);
+
+	std::regex pattern(R"((\d+)\.(\d+)\.(\d+))");
+	std::cmatch matches;
+	std::regex_search(buf, matches, pattern);
+	if (matches.size() == 4) {
+		int a, b;
+		if (   1 == sscanf_s(matches[1].str().c_str(), "%d", &a)
+			&& 1 == sscanf_s(matches[2].str().c_str(), "%d", &b)) {
+			*major = a;
+			*minor = b;
+			ret = 0;
+		}
+	}
+	_pclose(fp);
+	return ret;
+}
 
 BOOL check_OS_Win8orLater() {
 #if (_MSC_VER >= 1800)
@@ -1008,6 +1034,9 @@ const TCHAR *getOSVersion() {
 		}
 		break;
 	case VER_PLATFORM_WIN32_NT:
+		if (info.dwMajorVersion == 6) {
+			getRealWindowsVersion(&info.dwMajorVersion, &info.dwMinorVersion);
+		}
 		switch (info.dwMajorVersion) {
 		case 3:
 			switch (info.dwMinorVersion) {
@@ -1034,18 +1063,6 @@ const TCHAR *getOSVersion() {
 			switch (info.dwMinorVersion) {
 			case 0:  ptr = _T("Windows Vista"); break;
 			case 1:  ptr = _T("Windows 7"); break;
-#if (_MSC_VER >= 1800)
-			default:
-				if (IsWindowsVersionOrGreater(6, 5, 0)) {
-					ptr = _T("Later than Windows 10");
-				} else if (IsWindowsVersionOrGreater(6, 4, 0)) {
-					ptr = _T("Windows 10");
-				} else if (IsWindowsVersionOrGreater(6, 3, 0)) {
-					ptr = _T("Windows 8.1");
-				} else {
-					ptr = _T("Windows 8");
-				}
-#else
 			case 2:  ptr = _T("Windows 8"); break;
 			case 3:  ptr = _T("Windows 8.1"); break;
 			case 4:  ptr = _T("Windows 10"); break;
@@ -1053,7 +1070,6 @@ const TCHAR *getOSVersion() {
 				if (5 <= info.dwMinorVersion) {
 					ptr = _T("Later than Windows 10");
 				}
-#endif
 				break;
 			}
 			break;
