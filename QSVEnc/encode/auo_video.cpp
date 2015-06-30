@@ -224,15 +224,13 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 	if (pe->video_out_type == VIDEO_OUTPUT_DISABLED)
 		return AUO_RESULT_SUCCESS;
 
-	sInputParams *Params = &conf->qsv;
-	set_conf_qsvp_prm(Params, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning);
-
 	if (!check_avcodec_dll() || !conf->vid.afs) {
 		//H.264/ESで出力するので拡張子を変更
 		change_ext(pe->temp_filename, _countof(pe->temp_filename), ".264");
-	} else {
-		Params->nAVMux |= QSVENC_MUX_VIDEO;
 	}
+
+	sInputParams *Params = &conf->qsv;
+	set_conf_qsvp_prm(Params, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning);
 
 	std::auto_ptr<CEncodingPipeline> pPipeline;
 
