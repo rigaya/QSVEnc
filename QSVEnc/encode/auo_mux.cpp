@@ -416,7 +416,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
 	//映像・音声のmux判定
 	BOOL  enable_vid_mux = TRUE;
 	DWORD enable_aud_mux = check_for_aud_mux(oip->flag, sys_dat->exstg->s_mux[pe->muxer_to_be_used].aud_cmd, pe);
-	BOOL  aud_use_remuxer = !!enable_aud_mux && sys_dat->exstg->s_aud[conf->aud.encoder].use_remuxer;
+	BOOL  aud_use_remuxer = !!enable_aud_mux && sys_dat->exstg->s_aud[conf->aud.encoder].mode[conf->aud.enc_mode].use_remuxer;
 	BOOL  enable_chap_mux = TRUE;
 	//事前muxが必要なら実行 (L-SMASH remuxerの前のmuxer)
 	if (pe->muxer_to_be_used == MUXER_TC2MP4 && video_to_mux_is_raw(pe, sys_dat)) {

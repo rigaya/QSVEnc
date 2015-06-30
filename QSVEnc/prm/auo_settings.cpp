@@ -239,7 +239,6 @@ void guiEx_settings::load_aud() {
 	int i, j, k;
 	char encoder_section[INI_KEY_MAX_LEN];
 	char key[INI_KEY_MAX_LEN];
-	size_t keybase_len;
 
 	clear_aud();
 
@@ -261,7 +260,6 @@ void guiEx_settings::load_aud() {
 		s_aud[i].cmd_ver      = s_aud_mc.SetPrivateProfileString(encoder_section, "ver_cmd",      "", ini_fileName);
 		s_aud[i].cmd_raw      = s_aud_mc.SetPrivateProfileString(encoder_section, "raw_cmd",      "", ini_fileName);
 		s_aud[i].pipe_input   = GetPrivateProfileInt(            encoder_section, "pipe_input",    0, ini_fileName);
-		s_aud[i].use_remuxer  = GetPrivateProfileInt(            encoder_section, "use_remuxer",   0, ini_fileName);
 		s_aud[i].disable_log  = GetPrivateProfileInt(            encoder_section, "disable_log",   0, ini_fileName);
 
 		sprintf_s(encoder_section, sizeof(encoder_section), "%s%s", INI_SECTION_MODE, s_aud[i].keyName);
@@ -273,13 +271,15 @@ void guiEx_settings::load_aud() {
 		for (j = 0; j < tmp_count; j++) {
 			sprintf_s(key, _countof(key), "mode_%d", j+1);
 			tmp_mode[j].name = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
-			keybase_len = strlen(key);
+			const size_t keybase_len = strlen(key);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_cmd");
 			tmp_mode[j].cmd = s_aud_mc.SetPrivateProfileString(encoder_section, key, "", ini_fileName);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_2pass");
 			tmp_mode[j].enc_2pass = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_convert8bit");
 			tmp_mode[j].use_8bit = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
+			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_use_remuxer");
+			tmp_mode[j].use_remuxer = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_delay");
 			tmp_mode[j].delay = GetPrivateProfileInt(encoder_section, key, 0, ini_fileName);
 			strcpy_s(key + keybase_len, _countof(key) - keybase_len, "_bitrate");
