@@ -13,6 +13,7 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 #include <Windows.h>
+#include <algorithm>
 
 #pragma warning (push)
 #pragma warning (disable: 4244)
