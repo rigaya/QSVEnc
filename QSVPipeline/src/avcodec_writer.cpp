@@ -327,7 +327,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 
 	std::string filename;
 	if (0 == tchar_to_string(strFileName, filename)) {
-		m_strOutputInfo += _T("avcodec writer: failed to convert audio filename to ansi characters.\n");
+		m_strOutputInfo += _T("avcodec writer: failed to convert output filename to ansi characters.\n");
 		return MFX_ERR_NULL_PTR;
 	}
 
@@ -336,8 +336,8 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	av_log_set_level(QSV_AV_LOG_LEVEL);
 
 	if (NULL == (m_Mux.format.pOutputFmt = av_guess_format(NULL, filename.c_str(), NULL))) {
-		m_strOutputInfo += _T("avcodec writer: failed to assume format from audio filename.\n");
-		m_strOutputInfo += _T("                please set proper extension for audio file.\n");
+		m_strOutputInfo += _T("avcodec writer: failed to assume format from output filename.\n");
+		m_strOutputInfo += _T("                please set proper extension for output file.\n");
 		return MFX_ERR_NULL_PTR;
 	}
 	m_Mux.format.pFormatCtx = avformat_alloc_context();
