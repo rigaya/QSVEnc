@@ -3004,46 +3004,45 @@ mfxStatus CEncodingPipeline::RunEncode()
 		bool bDeviceBusy = false;
 		mfxEncodeCtrl *ptrCtrl = NULL;
 		mfxEncodeCtrl encCtrl = { 0 };
-		for (;;)
-		{
-			// at this point surface for encoder contains either a frame from file or a frame processed by vpp
-			if (pSurfEncIn) {
-				if (!bDeviceBusy && m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
-					if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {
-						mfxU32 currentFrameFlag = m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].frameFlag;
-						if (nLastFrameFlag >> 8) {
-							encCtrl.FrameType = nLastFrameFlag >> 8;
-							encCtrl.QP = (mfxU16)nLastAQ;
-						} else {
-							encCtrl.FrameType = currentFrameFlag & 0xff;
-							encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[0];
-						}
-						nLastFrameFlag = (mfxU16)currentFrameFlag;
-						nLastAQ = m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[1];
-						pSurfEncIn->Data.TimeStamp = 0;
-					} else if (m_nExPrm & MFX_PRM_EX_DEINT_BOB) {
-						if (bVppDeintBobFirstFeild) {
-							nLastFrameFlag = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].frameFlag;
-							nLastAQ = m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[1];
-							encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[0];
-							encCtrl.FrameType = nLastFrameFlag & 0xff;
-							pSurfEncIn->Data.TimeStamp = 0;
-						} else {
-							encCtrl.FrameType = nLastFrameFlag >> 8;
-							encCtrl.QP = (mfxU16)nLastAQ;
-						}
-						bVppDeintBobFirstFeild ^= true;
+		// at this point surface for encoder contains either a frame from file or a frame processed by vpp
+		if (pSurfEncIn) {
+			if (!bDeviceBusy && m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
+				if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {
+					mfxU32 currentFrameFlag = m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].frameFlag;
+					if (nLastFrameFlag >> 8) {
+						encCtrl.FrameType = nLastFrameFlag >> 8;
+						encCtrl.QP = (mfxU16)nLastAQ;
 					} else {
-						encCtrl.FrameType = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].frameFlag;
+						encCtrl.FrameType = currentFrameFlag & 0xff;
 						encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[0];
-						pSurfEncIn->Data.TimeStamp = 0;
 					}
-					ptrCtrl = &encCtrl;
+					nLastFrameFlag = (mfxU16)currentFrameFlag;
+					nLastAQ = m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[1];
+					pSurfEncIn->Data.TimeStamp = 0;
+				} else if (m_nExPrm & MFX_PRM_EX_DEINT_BOB) {
+					if (bVppDeintBobFirstFeild) {
+						nLastFrameFlag = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].frameFlag;
+						nLastAQ = m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[1];
+						encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[0];
+						encCtrl.FrameType = nLastFrameFlag & 0xff;
+						pSurfEncIn->Data.TimeStamp = 0;
+					} else {
+						encCtrl.FrameType = nLastFrameFlag >> 8;
+						encCtrl.QP = (mfxU16)nLastAQ;
+					}
+					bVppDeintBobFirstFeild ^= true;
+				} else {
+					encCtrl.FrameType = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].frameFlag;
+					encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].AQP[0];
+					pSurfEncIn->Data.TimeStamp = 0;
 				}
-				//TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
-				pSurfEncIn->Data.TimeStamp = (int)(nFramePutToEncoder * getTimeStampMul + 0.5);
-				nFramePutToEncoder++;
+				ptrCtrl = &encCtrl;
 			}
+			//TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
+			pSurfEncIn->Data.TimeStamp = (int)(nFramePutToEncoder * getTimeStampMul + 0.5);
+			nFramePutToEncoder++;
+		}
+		for (;;) {
 			pCurrentTask->mfxBS.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
 			pCurrentTask->mfxBS.DecodeTimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
 			enc_sts = m_pmfxENC->EncodeFrameAsync(ptrCtrl, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
