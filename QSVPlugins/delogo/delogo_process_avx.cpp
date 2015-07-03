@@ -17,9 +17,9 @@
 #include "delogo_process_simd.h"
 #include "delogo_process.h"
 
-static __declspec(noinline) void process_delogo_avx(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
+static __declspec(noinline) void process_delogo_frame_avx(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
 	mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
-	process_delogo(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
+	process_delogo_frame(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
 }
 
 DelogoProcessAVX::DelogoProcessAVX() : ProcessorDelogo() {
@@ -42,8 +42,8 @@ mfxStatus DelogoProcessAVX::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 		return sts;
 	}
 
-	process_delogo_avx(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, m_pIn->Data.Y,  m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH,      &m_sData[0]);
-	process_delogo_avx(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.UV, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH >> 1, &m_sData[1]);
+	process_delogo_frame_avx(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, m_pIn->Data.Y,  m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH,      &m_sData[0]);
+	process_delogo_frame_avx(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.UV, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH >> 1, &m_sData[1]);
 
 	sts = UnlockFrame(m_pIn);
 	sts = UnlockFrame(m_pOut);

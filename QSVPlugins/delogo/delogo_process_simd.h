@@ -289,8 +289,19 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
 	}
 }
 
-static __forceinline void process_delogo(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
-	mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
+
+#if USE_AVX2
+#define CONST_M const __m256i
+#define CONST_MR(x) const __m256i& yC_ ## x
+#define SET_EPI16 _mm256_set1_epi16
+#define SET_EPI32 _mm256_set1_epi32
+#else //#if USE_AVX2
+#define CONST_MR(x) const __m128i& xC_ ## x
+#define CONST_M const __m128i
+#define SET_EPI16 _mm_set1_epi16
+#define SET_EPI32 _mm_set1_epi32
+#endif //#if USE_AVX2
+
 #define DEPTH_MUL_OPTIM (1)
 #define USE_SIMPLE_RCPPS (1)
 #if USE_SIMPLE_RCPPS
@@ -300,213 +311,255 @@ static __forceinline void process_delogo(mfxU8 *dst, const mfxU32 dst_pitch, mfx
 #define delogo_rcpps256 _mm256_rcp_ps_hp
 #define delogo_rcpps    _mm_rcp_ps_hp
 #endif
+
+static __forceinline void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_i_width,
+	CONST_MR(nv12_2_yc48_mul), CONST_MR(nv12_2_yc48_sub), CONST_MR(yc48_2_nv12_mul), CONST_MR(yc48_2_nv12_add),
+	CONST_MR(offset), CONST_MR(depth_mul_fade_slft_3)) {
+	mfxU8 *ptr_buf_fin = ptr_buf + logo_i_width;
+#if USE_AVX2
+	for (; ptr_buf < ptr_buf_fin; ptr_buf += 32, ptr_logo += 64) {
+		__m256i y0, y1, y2, y3;
+		__m256i yDp0, yDp1, yDp2, yDp3;
+		__m256i ySrc0, ySrc1;
+		y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 32)), _mm_loadu_si128((__m128i *)(ptr_logo +  0)));
+		y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 40)), _mm_loadu_si128((__m128i *)(ptr_logo +  8)));
+		y2 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 48)), _mm_loadu_si128((__m128i *)(ptr_logo + 16)));
+		y3 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 56)), _mm_loadu_si128((__m128i *)(ptr_logo + 24)));
+
+		// 不透明度情報のみ取り出し
+		yDp0 = _mm256_and_si256(y0, _mm256_load_si256((__m256i *)MASK_16BIT));
+		yDp1 = _mm256_and_si256(y1, _mm256_load_si256((__m256i *)MASK_16BIT));
+		yDp2 = _mm256_and_si256(y2, _mm256_load_si256((__m256i *)MASK_16BIT));
+		yDp3 = _mm256_and_si256(y3, _mm256_load_si256((__m256i *)MASK_16BIT));
+		//ロゴ色データの取り出し
+		y0 = _mm256_packs_epi32(_mm256_srai_epi32(y0, 16), _mm256_srai_epi32(y1, 16)); // lgp->yの抽出
+		y1 = _mm256_packs_epi32(_mm256_srai_epi32(y2, 16), _mm256_srai_epi32(y3, 16));
+
+		y0 = _mm256_add_epi16(y0, yC_offset); //lgp->y + py_offset
+		y1 = _mm256_add_epi16(y1, yC_offset); //lgp->y + py_offset
+#if DEPTH_MUL_OPTIM
+		yDp0 = _mm256_packus_epi32(yDp0, yDp1);
+		yDp1 = _mm256_packus_epi32(yDp2, yDp3);
+
+		yDp0 = _mm256_slli_epi16(yDp0, 4);
+		yDp1 = _mm256_slli_epi16(yDp1, 4);
+
+		yDp0 = _mm256_mulhi_epi16(yDp0, yC_depth_mul_fade_slft_3);
+		yDp1 = _mm256_mulhi_epi16(yDp1, yC_depth_mul_fade_slft_3);
+#else
+		//16bit→32bit
+		yDp0 = _mm256_sub_epi32(_mm256_add_epi16(yDp0, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
+		yDp1 = _mm256_sub_epi32(_mm256_add_epi16(yDp1, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
+		yDp2 = _mm256_sub_epi32(_mm256_add_epi16(yDp2, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
+		yDp3 = _mm256_sub_epi32(_mm256_add_epi16(yDp3, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
+			
+		//lgp->dp_y * logo_depth_mul_fade)/128 /LOGO_FADE_MAX;
+		yDp0 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp0, yC_depth_mul_fade), 15);
+		yDp1 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp1, yC_depth_mul_fade), 15);
+		yDp2 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp2, yC_depth_mul_fade), 15);
+		yDp3 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp3, yC_depth_mul_fade), 15);
+
+		yDp0 = _mm256_packs_epi32(yDp0, yDp1);
+		yDp1 = _mm256_packs_epi32(yDp2, yDp3);
+#endif
+		yDp0 = _mm256_neg_epi16(_mm256_add_epi16(yDp0, _mm256_cmpeq_epi16(yDp0, _mm256_set1_epi16(LOGO_MAX_DP)))); // -dp
+		yDp1 = _mm256_neg_epi16(_mm256_add_epi16(yDp1, _mm256_cmpeq_epi16(yDp1, _mm256_set1_epi16(LOGO_MAX_DP)))); // -dp
+
+		//ソースをロードしてNV12->YC48
+		ySrc0 = _mm256_load_si256((__m256i *)(ptr_buf));
+		ySrc1 = _mm256_unpackhi_epi8(ySrc0, _mm256_setzero_si256());
+		ySrc0 = _mm256_unpacklo_epi8(ySrc0, _mm256_setzero_si256());
+
+		ySrc0 = _mm256_slli_epi16(ySrc0, 6);
+		ySrc1 = _mm256_slli_epi16(ySrc1, 6);
+		ySrc0 = _mm256_mulhi_epi16(ySrc0, yC_nv12_2_yc48_mul);
+		ySrc1 = _mm256_mulhi_epi16(ySrc1, yC_nv12_2_yc48_mul);
+		ySrc0 = _mm256_sub_epi16(ySrc0, yC_nv12_2_yc48_sub);
+		ySrc1 = _mm256_sub_epi16(ySrc1, yC_nv12_2_yc48_sub);
+
+		y3 = _mm256_madd_epi16(_mm256_unpackhi_epi16(ySrc1, y1), _mm256_unpackhi_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp1));
+		y2 = _mm256_madd_epi16(_mm256_unpacklo_epi16(ySrc1, y1), _mm256_unpacklo_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp1));
+		y1 = _mm256_madd_epi16(_mm256_unpackhi_epi16(ySrc0, y0), _mm256_unpackhi_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
+		y0 = _mm256_madd_epi16(_mm256_unpacklo_epi16(ySrc0, y0), _mm256_unpacklo_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
+
+		yDp0 = _mm256_adds_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp0); // LOGO_MAX_DP + (-dp)
+		yDp1 = _mm256_adds_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp1); // LOGO_MAX_DP + (-dp)
+
+		//(ycp->y * LOGO_MAX_DP + yc * (-dp)) / (LOGO_MAX_DP +(-dp));
+		y0 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y0), delogo_rcpps256(_mm256_cvtepi32_ps(cvtlo256_epi16_epi32(yDp0)))));
+		y1 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y1), delogo_rcpps256(_mm256_cvtepi32_ps(cvthi256_epi16_epi32(yDp0)))));
+		y2 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y2), delogo_rcpps256(_mm256_cvtepi32_ps(cvtlo256_epi16_epi32(yDp1)))));
+		y3 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y3), delogo_rcpps256(_mm256_cvtepi32_ps(cvthi256_epi16_epi32(yDp1)))));
+		y0 = _mm256_packs_epi32(y0, y1);
+		y1 = _mm256_packs_epi32(y2, y3);
+
+		//YC48->NV12
+		y0 = _mm256_add_epi16(y0, yC_yc48_2_nv12_add);
+		y1 = _mm256_add_epi16(y1, yC_yc48_2_nv12_add);
+
+		y0 = _mm256_mulhi_epi16(y0, yC_yc48_2_nv12_mul);
+		y1 = _mm256_mulhi_epi16(y1, yC_yc48_2_nv12_mul);
+
+		y0 = _mm256_packus_epi16(y0, y1);
+
+		_mm256_store_si256((__m256i *)(ptr_buf), y0);
+#else
+	for (; ptr_buf < ptr_buf_fin; ptr_buf += 16, ptr_logo += 32) {
+		__m128i x0, x1, x2, x3;
+		__m128i xDp0, xDp1, xDp2, xDp3;
+		__m128i xSrc0, xSrc1;
+
+		x0   = _mm_load_si128((__m128i *)(ptr_logo +  0));
+		x1   = _mm_load_si128((__m128i *)(ptr_logo +  8));
+		x2   = _mm_load_si128((__m128i *)(ptr_logo + 16));
+		x3   = _mm_load_si128((__m128i *)(ptr_logo + 24));
+			
+		// 不透明度情報のみ取り出し
+		xDp0 = _mm_and_si128(x0, _mm_load_si128((__m128i *)MASK_16BIT));
+		xDp1 = _mm_and_si128(x1, _mm_load_si128((__m128i *)MASK_16BIT));
+		xDp2 = _mm_and_si128(x2, _mm_load_si128((__m128i *)MASK_16BIT));
+		xDp3 = _mm_and_si128(x3, _mm_load_si128((__m128i *)MASK_16BIT));
+			
+		//ロゴ色データの取り出し
+		x0   = _mm_packs_epi32(_mm_srai_epi32(x0, 16), _mm_srai_epi32(x1, 16));
+		x1   = _mm_packs_epi32(_mm_srai_epi32(x2, 16), _mm_srai_epi32(x3, 16));
+
+		x0   = _mm_add_epi16(x0, xC_offset);
+		x1   = _mm_add_epi16(x1, xC_offset);
+#if DEPTH_MUL_OPTIM
+		xDp0 = _mm_packus_epi32(xDp0, xDp1);
+		xDp1 = _mm_packus_epi32(xDp2, xDp3);
+
+		xDp0 = _mm_slli_epi16(xDp0, 4);
+		xDp1 = _mm_slli_epi16(xDp1, 4);
+
+		xDp0 = _mm_mulhi_epi16(xDp0, xC_depth_mul_fade_slft_3);
+		xDp1 = _mm_mulhi_epi16(xDp1, xC_depth_mul_fade_slft_3);
+#else
+		//16bit→32bit
+		xDp0 = _mm_sub_epi32(_mm_add_epi16(xDp0, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+		xDp1 = _mm_sub_epi32(_mm_add_epi16(xDp1, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+		xDp2 = _mm_sub_epi32(_mm_add_epi16(xDp2, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+		xDp3 = _mm_sub_epi32(_mm_add_epi16(xDp3, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+
+		//lgp->dp_y * logo_depth_mul_fade)/128 /LOGO_FADE_MAX;
+		xDp0 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp0, xC_depth_mul_fade), 15);
+		xDp1 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp1, xC_depth_mul_fade), 15);
+		xDp2 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp2, xC_depth_mul_fade), 15);
+		xDp3 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp3, xC_depth_mul_fade), 15);
+
+		xDp0 = _mm_packs_epi32(xDp0, xDp1);
+		xDp1 = _mm_packs_epi32(xDp2, xDp3);
+#endif
+			
+		//dp -= (dp==LOGO_MAX_DP)
+		//dp = -dp
+		xDp0 = _mm_neg_epi16(_mm_add_epi16(xDp0, _mm_cmpeq_epi16(xDp0, _mm_set1_epi16(LOGO_MAX_DP)))); // -dp
+		xDp1 = _mm_neg_epi16(_mm_add_epi16(xDp1, _mm_cmpeq_epi16(xDp1, _mm_set1_epi16(LOGO_MAX_DP)))); // -dp
+
+		//ソースをロードしてNV12->YC48
+		xSrc0 = _mm_load_si128((__m128i *)(ptr_buf));
+		xSrc1 = _mm_unpackhi_epi8(xSrc0, _mm_setzero_si128());
+		xSrc0 = _mm_unpacklo_epi8(xSrc0, _mm_setzero_si128());
+
+		xSrc0 = _mm_slli_epi16(xSrc0, 6);
+		xSrc1 = _mm_slli_epi16(xSrc1, 6);
+		xSrc0 = _mm_mulhi_epi16(xSrc0, xC_nv12_2_yc48_mul);
+		xSrc1 = _mm_mulhi_epi16(xSrc1, xC_nv12_2_yc48_mul);
+		xSrc0 = _mm_sub_epi16(xSrc0, xC_nv12_2_yc48_sub);
+		xSrc1 = _mm_sub_epi16(xSrc1, xC_nv12_2_yc48_sub);
+
+		x3 = _mm_madd_epi16(_mm_unpackhi_epi16(xSrc1, x1), _mm_unpackhi_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1));
+		x2 = _mm_madd_epi16(_mm_unpacklo_epi16(xSrc1, x1), _mm_unpacklo_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1));
+		x1 = _mm_madd_epi16(_mm_unpackhi_epi16(xSrc0, x0), _mm_unpackhi_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
+		x0 = _mm_madd_epi16(_mm_unpacklo_epi16(xSrc0, x0), _mm_unpacklo_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
+
+		xDp0 = _mm_adds_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0); // LOGO_MAX_DP + (-dp)
+		xDp1 = _mm_adds_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1); // LOGO_MAX_DP + (-dp)
+			
+		//(ycp->y * LOGO_MAX_DP + yc * (-dp)) / (LOGO_MAX_DP +(-dp));
+		x0 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x0), delogo_rcpps(_mm_cvtepi32_ps(cvtlo_epi16_epi32(xDp0)))));
+		x1 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x1), delogo_rcpps(_mm_cvtepi32_ps(cvthi_epi16_epi32(xDp0)))));
+		x2 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x2), delogo_rcpps(_mm_cvtepi32_ps(cvtlo_epi16_epi32(xDp1)))));
+		x3 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x3), delogo_rcpps(_mm_cvtepi32_ps(cvthi_epi16_epi32(xDp1)))));
+
+		x0 = _mm_packs_epi32(x0, x1);
+		x1 = _mm_packs_epi32(x2, x3);
+
+		//YC48->NV12
+		x0 = _mm_add_epi16(x0, xC_yc48_2_nv12_add);
+		x1 = _mm_add_epi16(x1, xC_yc48_2_nv12_add);
+
+		x0 = _mm_mulhi_epi16(x0, xC_yc48_2_nv12_mul);
+		x1 = _mm_mulhi_epi16(x1, xC_yc48_2_nv12_mul);
+
+		x0 = _mm_packus_epi16(x0, x1);
+
+		_mm_store_si128((__m128i *)(ptr_buf), x0);
+#endif
+	}
+}
+
+static __forceinline void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
+	mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
 	mfxU8 *src_line = src;
 	mfxU8 *dst_line = dst;
-	const mfxU32 logo_j_start   = data->j_start;
-	const mfxU32 logo_j_height  = data->height;
-	const mfxU32 logo_i_start   = data->i_start;
-	const mfxU32 logo_i_width   = data->pitch;
-	const short nv12_2_yc48_mul = data->nv12_2_yc48_mul;
-	const short nv12_2_yc48_sub = data->nv12_2_yc48_sub;
-	const short yc48_2_nv12_mul = data->yc48_2_nv12_mul;
-	const short yc48_2_nv12_add = data->yc48_2_nv12_add;
-	const mfxI32 offset         = *(mfxI32 *)&data->offset;
+	const mfxU32 logo_j_start  = data->j_start;
+	const mfxU32 logo_j_height = data->height;
+	const mfxU32 logo_i_start  = data->i_start;
+	const mfxU32 logo_i_width  = data->pitch;
+	CONST_M c_nv12_2_yc48_mul  = SET_EPI16(data->nv12_2_yc48_mul);
+	CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
+	CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
+	CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
+	CONST_M c_offset           = SET_EPI32(*(mfxI32 *)&data->offset);
 #if DEPTH_MUL_OPTIM
-	const short depth_mul_fade_slft_3 = (short)((data->depth * data->fade) >> 3);
-#else
-	const int depth_mul_fade          = data->depth * data->fade;
-#endif
+	CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
+#else //#if DEPTH_MUL_OPTIM
+	CONST_M c_depth_mul_fade        = SET_EPI32(data->depth * data->fade);
+#endif //#if DEPTH_MUL_OPTIM
 
 	for (mfxU32 j = height_start; j < height_fin; j++, dst_line += dst_pitch, src_line += src_pitch) {
 		load_line_to_buffer(buffer, src_line, width);
-
 		//if (logo_j_start <= j && j < logo_j_start + logo_j_height) {
 		if (j - logo_j_start < logo_j_height) {
 			mfxU8 *ptr_buf = buffer + logo_i_start;
-			mfxU8 *ptr_buf_fin = ptr_buf + logo_i_width;
 			short *ptr_logo = data->ptr + (j - logo_j_start) * (logo_i_width << 1);
-#if USE_AVX2
-			for (; ptr_buf < ptr_buf_fin; ptr_buf += 32, ptr_logo += 64) {
-				__m256i y0, y1, y2, y3;
-				__m256i yDp0, yDp1, yDp2, yDp3;
-				__m256i ySrc0, ySrc1;
-				y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 32)), _mm_loadu_si128((__m128i *)(ptr_logo +  0)));
-				y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 40)), _mm_loadu_si128((__m128i *)(ptr_logo +  8)));
-				y2 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 48)), _mm_loadu_si128((__m128i *)(ptr_logo + 16)));
-				y3 = _mm256_set_m128i(_mm_loadu_si128((__m128i *)(ptr_logo + 56)), _mm_loadu_si128((__m128i *)(ptr_logo + 24)));
+			delogo_line(ptr_buf, ptr_logo, logo_i_width, c_nv12_2_yc48_mul, c_nv12_2_yc48_sub, c_yc48_2_nv12_mul, c_yc48_2_nv12_add, c_offset, c_depth_mul_fade_slft_3);
+		}
+		store_line_from_buffer(dst_line, buffer, width);
+	}
+#if USE_AVX
+	_mm256_zeroupper();
+#endif
+}
 
-				// 不透明度情報のみ取り出し
-				yDp0 = _mm256_and_si256(y0, _mm256_load_si256((__m256i *)MASK_16BIT));
-				yDp1 = _mm256_and_si256(y1, _mm256_load_si256((__m256i *)MASK_16BIT));
-				yDp2 = _mm256_and_si256(y2, _mm256_load_si256((__m256i *)MASK_16BIT));
-				yDp3 = _mm256_and_si256(y3, _mm256_load_si256((__m256i *)MASK_16BIT));
-				//ロゴ色データの取り出し
-				y0 = _mm256_packs_epi32(_mm256_srai_epi32(y0, 16), _mm256_srai_epi32(y1, 16)); // lgp->yの抽出
-				y1 = _mm256_packs_epi32(_mm256_srai_epi32(y2, 16), _mm256_srai_epi32(y3, 16));
-
-				y0 = _mm256_add_epi16(y0, _mm256_set1_epi32(offset)); //lgp->y + py_offset
-				y1 = _mm256_add_epi16(y1, _mm256_set1_epi32(offset)); //lgp->y + py_offset
+static __forceinline void process_delogo(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
+	mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
+	mfxU8 *src_line = src;
+	mfxU8 *dst_line = dst;
+	const mfxU32 logo_j_start  = data->j_start;
+	const mfxU32 logo_j_height = data->height;
+	const mfxU32 logo_i_start  = data->i_start;
+	const mfxU32 logo_i_width  = data->pitch;
+	CONST_M c_nv12_2_yc48_mul  = SET_EPI16(data->nv12_2_yc48_mul);
+	CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
+	CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
+	CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
+	CONST_M c_offset           = SET_EPI32(*(mfxI32 *)&data->offset);
 #if DEPTH_MUL_OPTIM
-				yDp0 = _mm256_packus_epi32(yDp0, yDp1);
-				yDp1 = _mm256_packus_epi32(yDp2, yDp3);
+	CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
+#else //#if DEPTH_MUL_OPTIM
+	CONST_M c_depth_mul_fade        = SET_EPI32(data->depth * data->fade);
+#endif //#if DEPTH_MUL_OPTIM
 
-				yDp0 = _mm256_slli_epi16(yDp0, 4);
-				yDp1 = _mm256_slli_epi16(yDp1, 4);
-
-				yDp0 = _mm256_mulhi_epi16(yDp0, _mm256_set1_epi16(depth_mul_fade_slft_3));
-				yDp1 = _mm256_mulhi_epi16(yDp1, _mm256_set1_epi16(depth_mul_fade_slft_3));
-#else
-				//16bit→32bit
-				yDp0 = _mm256_sub_epi32(_mm256_add_epi16(yDp0, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
-				yDp1 = _mm256_sub_epi32(_mm256_add_epi16(yDp1, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
-				yDp2 = _mm256_sub_epi32(_mm256_add_epi16(yDp2, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
-				yDp3 = _mm256_sub_epi32(_mm256_add_epi16(yDp3, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
-			
-				//lgp->dp_y * logo_depth_mul_fade)/128 /LOGO_FADE_MAX;
-				yDp0 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp0, _mm256_set1_epi32(depth_mul_fade)), 15);
-				yDp1 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp1, _mm256_set1_epi32(depth_mul_fade)), 15);
-				yDp2 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp2, _mm256_set1_epi32(depth_mul_fade)), 15);
-				yDp3 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp3, _mm256_set1_epi32(depth_mul_fade)), 15);
-
-				yDp0 = _mm256_packs_epi32(yDp0, yDp1);
-				yDp1 = _mm256_packs_epi32(yDp2, yDp3);
-#endif
-				yDp0 = _mm256_neg_epi16(_mm256_add_epi16(yDp0, _mm256_cmpeq_epi16(yDp0, _mm256_set1_epi16(LOGO_MAX_DP)))); // -dp
-				yDp1 = _mm256_neg_epi16(_mm256_add_epi16(yDp1, _mm256_cmpeq_epi16(yDp1, _mm256_set1_epi16(LOGO_MAX_DP)))); // -dp
-
-				//ソースをロードしてNV12->YC48
-				ySrc0 = _mm256_load_si256((__m256i *)(ptr_buf));
-				ySrc1 = _mm256_unpackhi_epi8(ySrc0, _mm256_setzero_si256());
-				ySrc0 = _mm256_unpacklo_epi8(ySrc0, _mm256_setzero_si256());
-
-				ySrc0 = _mm256_slli_epi16(ySrc0, 6);
-				ySrc1 = _mm256_slli_epi16(ySrc1, 6);
-				ySrc0 = _mm256_mulhi_epi16(ySrc0, _mm256_set1_epi16(nv12_2_yc48_mul));
-				ySrc1 = _mm256_mulhi_epi16(ySrc1, _mm256_set1_epi16(nv12_2_yc48_mul));
-				ySrc0 = _mm256_sub_epi16(ySrc0, _mm256_set1_epi16(nv12_2_yc48_sub));
-				ySrc1 = _mm256_sub_epi16(ySrc1, _mm256_set1_epi16(nv12_2_yc48_sub));
-
-				y3 = _mm256_madd_epi16(_mm256_unpackhi_epi16(ySrc1, y1), _mm256_unpackhi_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp1));
-				y2 = _mm256_madd_epi16(_mm256_unpacklo_epi16(ySrc1, y1), _mm256_unpacklo_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp1));
-				y1 = _mm256_madd_epi16(_mm256_unpackhi_epi16(ySrc0, y0), _mm256_unpackhi_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
-				y0 = _mm256_madd_epi16(_mm256_unpacklo_epi16(ySrc0, y0), _mm256_unpacklo_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
-
-				yDp0 = _mm256_adds_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp0); // LOGO_MAX_DP + (-dp)
-				yDp1 = _mm256_adds_epi16(_mm256_set1_epi16(LOGO_MAX_DP), yDp1); // LOGO_MAX_DP + (-dp)
-
-				//(ycp->y * LOGO_MAX_DP + yc * (-dp)) / (LOGO_MAX_DP +(-dp));
-				y0 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y0), delogo_rcpps256(_mm256_cvtepi32_ps(cvtlo256_epi16_epi32(yDp0)))));
-				y1 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y1), delogo_rcpps256(_mm256_cvtepi32_ps(cvthi256_epi16_epi32(yDp0)))));
-				y2 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y2), delogo_rcpps256(_mm256_cvtepi32_ps(cvtlo256_epi16_epi32(yDp1)))));
-				y3 = _mm256_cvtps_epi32(_mm256_mul_ps(_mm256_cvtepi32_ps(y3), delogo_rcpps256(_mm256_cvtepi32_ps(cvthi256_epi16_epi32(yDp1)))));
-				y0 = _mm256_packs_epi32(y0, y1);
-				y1 = _mm256_packs_epi32(y2, y3);
-
-				//YC48->NV12
-				y0 = _mm256_add_epi16(y0, _mm256_set1_epi16(yc48_2_nv12_add));
-				y1 = _mm256_add_epi16(y1, _mm256_set1_epi16(yc48_2_nv12_add));
-
-				y0 = _mm256_mulhi_epi16(y0, _mm256_set1_epi16(yc48_2_nv12_mul));
-				y1 = _mm256_mulhi_epi16(y1, _mm256_set1_epi16(yc48_2_nv12_mul));
-
-				y0 = _mm256_packus_epi16(y0, y1);
-
-				_mm256_store_si256((__m256i *)(ptr_buf), y0);
-#else
-			for (; ptr_buf < ptr_buf_fin; ptr_buf += 16, ptr_logo += 32) {
-				__m128i x0, x1, x2, x3;
-				__m128i xDp0, xDp1, xDp2, xDp3;
-				__m128i xSrc0, xSrc1;
-
-				x0   = _mm_load_si128((__m128i *)(ptr_logo +  0));
-				x1   = _mm_load_si128((__m128i *)(ptr_logo +  8));
-				x2   = _mm_load_si128((__m128i *)(ptr_logo + 16));
-				x3   = _mm_load_si128((__m128i *)(ptr_logo + 24));
-			
-				// 不透明度情報のみ取り出し
-				xDp0 = _mm_and_si128(x0, _mm_load_si128((__m128i *)MASK_16BIT));
-				xDp1 = _mm_and_si128(x1, _mm_load_si128((__m128i *)MASK_16BIT));
-				xDp2 = _mm_and_si128(x2, _mm_load_si128((__m128i *)MASK_16BIT));
-				xDp3 = _mm_and_si128(x3, _mm_load_si128((__m128i *)MASK_16BIT));
-			
-				//ロゴ色データの取り出し
-				x0   = _mm_packs_epi32(_mm_srai_epi32(x0, 16), _mm_srai_epi32(x1, 16));
-				x1   = _mm_packs_epi32(_mm_srai_epi32(x2, 16), _mm_srai_epi32(x3, 16));
-
-				x0   = _mm_add_epi16(x0, _mm_set1_epi32(offset));
-				x1   = _mm_add_epi16(x1, _mm_set1_epi32(offset));
-#if DEPTH_MUL_OPTIM
-				xDp0 = _mm_packus_epi32(xDp0, xDp1);
-				xDp1 = _mm_packus_epi32(xDp2, xDp3);
-
-				xDp0 = _mm_slli_epi16(xDp0, 4);
-				xDp1 = _mm_slli_epi16(xDp1, 4);
-
-				xDp0 = _mm_mulhi_epi16(xDp0, _mm_set1_epi16(depth_mul_fade_slft_3));
-				xDp1 = _mm_mulhi_epi16(xDp1, _mm_set1_epi16(depth_mul_fade_slft_3));
-#else
-				//16bit→32bit
-				xDp0 = _mm_sub_epi32(_mm_add_epi16(xDp0, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
-				xDp1 = _mm_sub_epi32(_mm_add_epi16(xDp1, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
-				xDp2 = _mm_sub_epi32(_mm_add_epi16(xDp2, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
-				xDp3 = _mm_sub_epi32(_mm_add_epi16(xDp3, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
-
-				//lgp->dp_y * logo_depth_mul_fade)/128 /LOGO_FADE_MAX;
-				xDp0 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp0, _mm_set1_epi32(depth_mul_fade)), 15);
-				xDp1 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp1, _mm_set1_epi32(depth_mul_fade)), 15);
-				xDp2 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp2, _mm_set1_epi32(depth_mul_fade)), 15);
-				xDp3 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp3, _mm_set1_epi32(depth_mul_fade)), 15);
-
-				xDp0 = _mm_packs_epi32(xDp0, xDp1);
-				xDp1 = _mm_packs_epi32(xDp2, xDp3);
-#endif
-			
-				//dp -= (dp==LOGO_MAX_DP)
-				//dp = -dp
-				xDp0 = _mm_neg_epi16(_mm_add_epi16(xDp0, _mm_cmpeq_epi16(xDp0, _mm_set1_epi16(LOGO_MAX_DP)))); // -dp
-				xDp1 = _mm_neg_epi16(_mm_add_epi16(xDp1, _mm_cmpeq_epi16(xDp1, _mm_set1_epi16(LOGO_MAX_DP)))); // -dp
-
-				//ソースをロードしてNV12->YC48
-				xSrc0 = _mm_load_si128((__m128i *)(ptr_buf));
-				xSrc1 = _mm_unpackhi_epi8(xSrc0, _mm_setzero_si128());
-				xSrc0 = _mm_unpacklo_epi8(xSrc0, _mm_setzero_si128());
-
-				xSrc0 = _mm_slli_epi16(xSrc0, 6);
-				xSrc1 = _mm_slli_epi16(xSrc1, 6);
-				xSrc0 = _mm_mulhi_epi16(xSrc0, _mm_set1_epi16(nv12_2_yc48_mul));
-				xSrc1 = _mm_mulhi_epi16(xSrc1, _mm_set1_epi16(nv12_2_yc48_mul));
-				xSrc0 = _mm_sub_epi16(xSrc0, _mm_set1_epi16(nv12_2_yc48_sub));
-				xSrc1 = _mm_sub_epi16(xSrc1, _mm_set1_epi16(nv12_2_yc48_sub));
-
-				x3 = _mm_madd_epi16(_mm_unpackhi_epi16(xSrc1, x1), _mm_unpackhi_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1));
-				x2 = _mm_madd_epi16(_mm_unpacklo_epi16(xSrc1, x1), _mm_unpacklo_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1));
-				x1 = _mm_madd_epi16(_mm_unpackhi_epi16(xSrc0, x0), _mm_unpackhi_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
-				x0 = _mm_madd_epi16(_mm_unpacklo_epi16(xSrc0, x0), _mm_unpacklo_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0)); //xSrc0 * LOGO_MAX_DP + x0 * xDp0(-dp)
-
-				xDp0 = _mm_adds_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0); // LOGO_MAX_DP + (-dp)
-				xDp1 = _mm_adds_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1); // LOGO_MAX_DP + (-dp)
-			
-				//(ycp->y * LOGO_MAX_DP + yc * (-dp)) / (LOGO_MAX_DP +(-dp));
-				x0 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x0), delogo_rcpps(_mm_cvtepi32_ps(cvtlo_epi16_epi32(xDp0)))));
-				x1 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x1), delogo_rcpps(_mm_cvtepi32_ps(cvthi_epi16_epi32(xDp0)))));
-				x2 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x2), delogo_rcpps(_mm_cvtepi32_ps(cvtlo_epi16_epi32(xDp1)))));
-				x3 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x3), delogo_rcpps(_mm_cvtepi32_ps(cvthi_epi16_epi32(xDp1)))));
-
-				x0 = _mm_packs_epi32(x0, x1);
-				x1 = _mm_packs_epi32(x2, x3);
-
-				//YC48->NV12
-				x0 = _mm_add_epi16(x0, _mm_set1_epi16(yc48_2_nv12_add));
-				x1 = _mm_add_epi16(x1, _mm_set1_epi16(yc48_2_nv12_add));
-
-				x0 = _mm_mulhi_epi16(x0, _mm_set1_epi16(yc48_2_nv12_mul));
-				x1 = _mm_mulhi_epi16(x1, _mm_set1_epi16(yc48_2_nv12_mul));
-
-				x0 = _mm_packus_epi16(x0, x1);
-
-				_mm_store_si128((__m128i *)(ptr_buf), x0);
-#endif
-			}
+	for (mfxU32 j = height_start; j < height_fin; j++, dst_line += dst_pitch, src_line += src_pitch) {
+		load_line_to_buffer(buffer, src_line, width);
+		//if (logo_j_start <= j && j < logo_j_start + logo_j_height) {
+		if (j - logo_j_start < logo_j_height) {
+			mfxU8 *ptr_buf = buffer + logo_i_start;
+			short *ptr_logo = data->ptr + (j - logo_j_start) * (logo_i_width << 1);
+			delogo_line(ptr_buf, ptr_logo, logo_i_width, c_nv12_2_yc48_mul, c_nv12_2_yc48_sub, c_yc48_2_nv12_mul, c_yc48_2_nv12_add, c_offset, c_depth_mul_fade_slft_3);
 		}
 		store_line_from_buffer(dst_line, buffer, width);
 	}
