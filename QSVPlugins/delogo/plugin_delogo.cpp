@@ -24,18 +24,10 @@
 
 /* Delogo class implementation */
 Delogo::Delogo() :
+	m_nSimdAvail(0x00),
 	m_nLogoIdx(-1) {
-	
-	memset(&m_sProcessData, 0, sizeof(m_sProcessData));
-	m_nLogoIdx = LOGO_AUTO_SELECT_INVALID;
-
-	memset(&m_VideoParam, 0, sizeof(m_VideoParam));
 	memset(&m_DelogoParam, 0, sizeof(m_DelogoParam));
-
-	memset(&m_PluginParam, 0, sizeof(m_PluginParam));
-	m_PluginParam.MaxThreadNum = 1;
-	m_PluginParam.ThreadPolicy = MFX_THREADPOLICY_SERIAL;
-
+	memset(&m_sProcessData, 0, sizeof(m_sProcessData));
 	m_nSimdAvail = get_availableSIMD();
 	m_pluginName = _T("delogo");
 }

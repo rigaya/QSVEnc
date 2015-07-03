@@ -22,12 +22,7 @@
 
 /* Rotate class implementation */
 Rotate::Rotate() {
-	memset(&m_VideoParam, 0, sizeof(m_VideoParam));
 	memset(&m_Param, 0, sizeof(m_Param));
-
-	memset(&m_PluginParam, 0, sizeof(m_PluginParam));
-	m_PluginParam.MaxThreadNum = 1;
-	m_PluginParam.ThreadPolicy = MFX_THREADPOLICY_SERIAL;
 	m_pluginName = _T("rotate");
 }
 

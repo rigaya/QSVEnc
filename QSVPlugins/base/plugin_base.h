@@ -101,6 +101,21 @@ typedef struct PluginTask {
 class QSVEncPlugin : public MFXGenericPlugin
 {
 public:
+	QSVEncPlugin() :
+		m_bIsInOpaque(false),
+		m_bIsOutOpaque(false),
+		m_pAllocator(nullptr) {
+		memset(&m_VideoParam, 0, sizeof(m_VideoParam));
+
+		memset(&m_PluginParam, 0, sizeof(m_PluginParam));
+		m_PluginParam.MaxThreadNum = 1;
+		m_PluginParam.ThreadPolicy = MFX_THREADPOLICY_SERIAL;
+	}
+
+	virtual ~QSVEncPlugin() {
+
+	}
+
 	// methods to be called by Media SDK
 	virtual mfxStatus PluginInit(mfxCoreInterface *core) {
 		MSDK_CHECK_POINTER(core, MFX_ERR_NULL_PTR);
