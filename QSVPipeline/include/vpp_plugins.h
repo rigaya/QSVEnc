@@ -91,7 +91,7 @@ public:
 	}
 
 public:
-	virtual mfxStatus Init(const TCHAR *pluginName, void *pPluginParam, mfxU32 nPluginParamSize,
+	virtual mfxStatus Init(mfxVersion ver, const TCHAR *pluginName, void *pPluginParam, mfxU32 nPluginParamSize,
 		bool useHWLib, MemType memType, CHWDevice *phwdev, MFXFrameAllocator* pAllocator,
 		mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern) {
 
@@ -122,6 +122,8 @@ public:
 		}
 
 		InitMfxPluginParam(nAsyncDepth, frameIn, IOPattern);
+
+		m_pUsrPlugin->SetMfxVer(ver);
 
 		// register plugin callbacks in Media SDK
 		mfxPlugin plg = make_mfx_plugin_adapter((MFXGenericPlugin*)m_pUsrPlugin.get());

@@ -172,6 +172,9 @@ public:
 	virtual tstring GetPluginMessage() {
 		return m_message;
 	}
+	virtual void SetMfxVer(mfxVersion ver) {
+		m_PluginParam.APIVersion = ver;
+	}
 
 protected:
 	mfxU32 FindFreeTaskIdx() {

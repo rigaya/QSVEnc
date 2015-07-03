@@ -1193,7 +1193,7 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
 		DelogoParam param(pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
 			pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
 			pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset);
-		sts = filter->Init(_T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern);
+		sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern);
 		if (sts == MFX_ERR_ABORTED) {
 			PrintMes(QSV_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
 			sts = MFX_ERR_NONE;
@@ -1209,7 +1209,7 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
 	if (pParams->vpp.bHalfTurn) {
 		unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
 		RotateParam param(180);
-		sts = filter->Init(_T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern);
+		sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern);
 		if (sts != MFX_ERR_NONE) {
 			PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
 		} else {
