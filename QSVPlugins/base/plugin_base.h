@@ -16,6 +16,9 @@
 #include "mfx_plugin_base.h"
 #include "sample_defs.h"
 #include "qsv_util.h"
+#include "d3d_allocator.h"
+
+#define D3D_CALL(x) { HRESULT hr = (x); if( FAILED(hr) ) { return MFX_ERR_UNDEFINED_BEHAVIOR; } }
 
 using std::vector;
 using std::unique_ptr;
@@ -35,12 +38,17 @@ class Processor
 {
 public:
 	Processor()
-		: m_pIn(NULL)
-		, m_pOut(NULL)
-		, m_pAlloc(NULL) {
+		: m_pIn(nullptr)
+		, m_pOut(nullptr)
+		, m_pAlloc(nullptr)
+		, m_hDevice(nullptr)
+		, m_pD3DDeviceManager(nullptr) {
 	}
 	virtual ~Processor() {
-
+		if (m_pD3DDeviceManager && m_hDevice) {
+			m_pD3DDeviceManager->CloseDeviceHandle(m_hDevice);
+			m_hDevice = nullptr;
+		}
 	}
 	virtual mfxStatus SetAllocator(mfxFrameAllocator *pAlloc) {
 		m_pAlloc = pAlloc;
@@ -49,6 +57,28 @@ public:
 	virtual mfxStatus Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out, const void *data) = 0;
 	virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) = 0;
 protected:
+	//D3DバッファをGPUでコピーする
+	//CPUでmovntdqa(_mm_stream_load_si128)を駆使するよりは高速
+	//正常に実行するためには、m_pAllocは、
+	//PluginのmfxCoreから取得したAllocatorではなく、
+	//メインパイプラインから直接受け取ったAllocatorでなければならない
+	mfxStatus CopyD3DFrameGPU(mfxFrameSurface1 *pFrameIn, mfxFrameSurface1 *pFrameOut) {
+		if (m_pD3DDeviceManager == nullptr) {
+			m_pD3DDeviceManager = ((D3DFrameAllocator*)m_pAlloc)->GetDeviceManager();
+		}
+		if (m_hDevice == NULL) {
+			D3D_CALL(m_pD3DDeviceManager->OpenDeviceHandle(&m_hDevice));
+		}
+		IDirect3DDevice9 *pd3dDevice = nullptr;
+		D3D_CALL(m_pD3DDeviceManager->LockDevice(m_hDevice, &pd3dDevice, false));
+		D3D_CALL(pd3dDevice->StretchRect(
+			static_cast<directxMemId *>(pFrameIn->Data.MemId)->m_surface, NULL,
+			static_cast<directxMemId *>(pFrameOut->Data.MemId)->m_surface, NULL, D3DTEXF_NONE));
+		D3D_CALL(pd3dDevice->Release());
+		D3D_CALL(m_pD3DDeviceManager->UnlockDevice(m_hDevice, false));
+		return MFX_ERR_NONE;
+	}
+
 	//locks frame or report of an error
 	mfxStatus LockFrame(mfxFrameSurface1 *frame) {
 		MSDK_CHECK_POINTER(frame, MFX_ERR_NULL_PTR);
@@ -83,6 +113,9 @@ protected:
 
 	vector<mfxU8>      m_YIn, m_UVIn;
 	vector<mfxU8>      m_YOut, m_UVOut;
+
+	IDirect3DDeviceManager9 *m_pD3DDeviceManager;
+	HANDLE                   m_hDevice;
 };
 
 #pragma warning (push)
@@ -103,8 +136,7 @@ class QSVEncPlugin : public MFXGenericPlugin
 public:
 	QSVEncPlugin() :
 		m_bIsInOpaque(false),
-		m_bIsOutOpaque(false),
-		m_pAllocator(nullptr) {
+		m_bIsOutOpaque(false) {
 		memset(&m_VideoParam, 0, sizeof(m_VideoParam));
 
 		memset(&m_PluginParam, 0, sizeof(m_PluginParam));
@@ -125,7 +157,7 @@ public:
 	virtual mfxStatus PluginClose() {
 		return MFX_ERR_NONE;
 	}
-	virtual mfxStatus GetPluginParam(mfxPluginParam *par) {
+	virtual mfxStatus GetPluginParam(mfxPluginParam *par) override {
 		MSDK_CHECK_POINTER(par, MFX_ERR_NULL_PTR);
 
 		*par = m_PluginParam;
@@ -146,8 +178,7 @@ public:
 			// last call?
 			sts = ((m_sChunks.size() - 1) == uid_a) ? MFX_TASK_DONE : MFX_TASK_WORKING;
 		} else {
-			// no data to process
-			sts = MFX_TASK_DONE;
+			return MFX_TASK_DONE;
 		}
 
 		return sts;

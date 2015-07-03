@@ -82,17 +82,22 @@ mfxStatus Delogo::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfx
 	m_sTasks[ind].bBusy = true;
 
 	if (m_sTasks[ind].pProcessor.get() == nullptr) {
+		bool d3dSurface = !!(m_DelogoParam.memType & D3D9_MEMORY);
 		if ((m_nSimdAvail & (AVX2 | FMA3)) == (AVX2 | FMA3)) {
-			m_sTasks[ind].pProcessor.reset(new DelogoProcessAVX2);
+			m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX2) : new DelogoProcessAVX2);
 		} else if (m_nSimdAvail & AVX) {
-			m_sTasks[ind].pProcessor.reset(new DelogoProcessAVX);
+			m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX) : new DelogoProcessAVX);
 		} else if (m_nSimdAvail & SSE41) {
-			m_sTasks[ind].pProcessor.reset(new DelogoProcessSSE41);
+			m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DSSE41) : new DelogoProcessSSE41);
 		} else {
 			m_message += _T("vpp-delogo requires SSE4.1 support.\n");
 			return MFX_ERR_UNSUPPORTED;
 		}
-		m_sTasks[ind].pProcessor->SetAllocator(&m_mfxCore.FrameAllocator());
+
+		//GPUによるD3DSurfaceのコピーを正常に実行するためには、m_pAllocは、
+		//PluginのmfxCoreから取得したAllocatorではなく、
+		//メインパイプラインから直接受け取ったAllocatorでなければならない
+		m_sTasks[ind].pProcessor->SetAllocator((m_DelogoParam.pAllocator) ? m_DelogoParam.pAllocator : &m_mfxCore.FrameAllocator());
 	}
 	m_sTasks[ind].pProcessor->Init(real_surface_in, real_surface_out, m_sProcessData);
 
@@ -319,7 +324,7 @@ mfxStatus Delogo::SetAuxParams(void* auxParam, int auxParamSize) {
 	mfxStatus sts = CheckParam(&m_VideoParam);
 	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-	memcpy(&m_DelogoParam, auxParam, sizeof(m_DelogoParam));
+	memcpy(&m_DelogoParam, pDelogoPar, sizeof(m_DelogoParam));
 
 	if (MFX_ERR_NONE != (sts = readLogoFile())) {
 		return sts;

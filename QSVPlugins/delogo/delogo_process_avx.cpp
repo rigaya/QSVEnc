@@ -22,6 +22,11 @@ static __declspec(noinline) void process_delogo_frame_avx(mfxU8 *dst, const mfxU
 	process_delogo_frame(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
 }
 
+template<mfxU32 step>
+static __declspec(noinline) void process_delogo_avx(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
+	process_delogo<step>(ptr, pitch, buffer, height_start, height_fin, data);
+}
+
 DelogoProcessAVX::DelogoProcessAVX() : ProcessorDelogo() {
 }
 
@@ -46,6 +51,37 @@ mfxStatus DelogoProcessAVX::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 	process_delogo_frame_avx(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.UV, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH >> 1, &m_sData[1]);
 
 	sts = UnlockFrame(m_pIn);
+	sts = UnlockFrame(m_pOut);
+
+	return sts;
+}
+
+DelogoProcessD3DAVX::DelogoProcessD3DAVX() : ProcessorDelogo() {
+}
+
+DelogoProcessD3DAVX::~DelogoProcessD3DAVX() {
+}
+
+mfxStatus DelogoProcessD3DAVX::Process(DataChunk *chunk, mfxU8 *pBuffer) {
+	MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
+
+	if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
+		return MFX_ERR_UNSUPPORTED;
+	}
+
+	mfxStatus sts = MFX_ERR_NONE;
+
+	if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
+		return sts;
+	}
+	
+	if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+		return sts;
+	}
+
+	process_delogo_avx<64>(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH,      &m_sData[0]);
+	process_delogo_avx<32>(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH >> 1, &m_sData[1]);
+
 	sts = UnlockFrame(m_pOut);
 
 	return sts;

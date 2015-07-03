@@ -545,6 +545,8 @@ static __forceinline void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_
 	}
 }
 
+//dstで示される画像フレームをsrcにコピーしつつ、ロゴ部分を消去する
+//height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
 static __forceinline void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
 	mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
 	mfxU8 *src_line = src;
@@ -579,10 +581,12 @@ static __forceinline void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitc
 #endif
 }
 
-static __forceinline void process_delogo(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
-	mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
-	mfxU8 *src_line = src;
-	mfxU8 *dst_line = dst;
+//ptrで示される画像フレーム内のロゴ部分を消去して上書きする
+//template引数stepはロゴ部分を一時バッファにロードする単位
+//height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
+template<mfxU32 step>
+static __forceinline void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
+	mfxU8 *ptr_line = ptr;
 	const mfxU32 logo_j_start  = data->j_start;
 	const mfxU32 logo_j_height = data->height;
 	const mfxU32 logo_i_start  = data->i_start;
@@ -598,15 +602,18 @@ static __forceinline void process_delogo(mfxU8 *dst, const mfxU32 dst_pitch, mfx
 	CONST_M c_depth_mul_fade        = SET_EPI32(data->depth * data->fade);
 #endif //#if DEPTH_MUL_OPTIM
 
-	for (mfxU32 j = height_start; j < height_fin; j++, dst_line += dst_pitch, src_line += src_pitch) {
-		load_line_to_buffer(buffer, src_line, width);
-		//if (logo_j_start <= j && j < logo_j_start + logo_j_height) {
-		if (j - logo_j_start < logo_j_height) {
-			mfxU8 *ptr_buf = buffer + logo_i_start;
-			short *ptr_logo = data->ptr + (j - logo_j_start) * (logo_i_width << 1);
-			delogo_line(ptr_buf, ptr_logo, logo_i_width, c_nv12_2_yc48_mul, c_nv12_2_yc48_sub, c_yc48_2_nv12_mul, c_yc48_2_nv12_add, c_offset, c_depth_mul_fade_slft_3);
-		}
-		store_line_from_buffer(dst_line, buffer, width);
+	height_start = max(height_start, logo_j_start);
+	height_fin   = min(height_fin, logo_j_start + logo_j_height);
+
+	ptr_line += logo_j_start * pitch;
+
+	for (mfxU32 j = height_start; j < height_fin; j++, ptr_line += pitch) {
+		load_line_to_buffer<step, true>(buffer, ptr_line + logo_i_start, logo_i_width);
+
+		short *ptr_logo = data->ptr + (j - logo_j_start) * (logo_i_width << 1);
+		delogo_line(buffer, ptr_logo, logo_i_width, c_nv12_2_yc48_mul, c_nv12_2_yc48_sub, c_yc48_2_nv12_mul, c_yc48_2_nv12_add, c_offset, c_depth_mul_fade_slft_3);
+
+		store_line_from_buffer<step, true>(ptr_line + logo_i_start, buffer, logo_i_width);
 	}
 #if USE_AVX
 	_mm256_zeroupper();

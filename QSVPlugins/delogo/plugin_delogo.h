@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <vector>
 
+#include "qsv_prm.h"
 #include "mfx_plugin_base.h"
 #include "sample_defs.h"
 #include "../base/plugin_base.h"
@@ -44,13 +45,18 @@ protected:
 };
 
 struct DelogoParam {
-	const TCHAR *inputFileName; //入力ファイル名
-	const TCHAR *logoFilePath;  //ロゴファイル名
-	const TCHAR *logoSelect; //ロゴの名前
-	short posX, posY, depth;
-	short Y, Cb, Cr;
+	mfxFrameAllocator *pAllocator;    //メインパイプラインのアロケータ
+	MemType            memType;       //アロケータのメモリタイプ
+	const TCHAR       *inputFileName; //入力ファイル名
+	const TCHAR       *logoFilePath;  //ロゴファイル名
+	const TCHAR       *logoSelect;    //ロゴの名前
+	short posX, posY; //位置オフセット
+	short depth;      //透明度深度
+	short Y, Cb, Cr;  //(輝度・色差)オフセット
 
 	DelogoParam() :
+		pAllocator(nullptr),
+		memType(SYSTEM_MEMORY),
 		logoFilePath(nullptr),
 		logoSelect(nullptr),
 		inputFileName(nullptr),
@@ -58,23 +64,26 @@ struct DelogoParam {
 		Y(0), Cb(0), Cr(0) {
 	};
 
-	DelogoParam(const TCHAR *logoFilePath, const TCHAR *logoSelect, const TCHAR *inputFileName,
+	DelogoParam(mfxFrameAllocator *pAllocator, MemType memType, 
+		const TCHAR *logoFilePath, const TCHAR *logoSelect, const TCHAR *inputFileName,
 		short posX = 0, short posY = 0, short depth = 128,
 		short Y = 0, short Cb = 0, short Cr = 0) {
-		this->logoFilePath = logoFilePath;
-		this->logoSelect = logoSelect;
+		this->pAllocator    = pAllocator;
+		this->memType       = memType;
+		this->logoFilePath  = logoFilePath;
+		this->logoSelect    = logoSelect;
 		this->inputFileName = inputFileName;
-		this->posX = posX;
-		this->posY = posY;
+		this->posX  = posX;
+		this->posY  = posY;
 		this->depth = depth;
-		this->Y = Y;
-		this->Cb = Cb;
-		this->Cr = Cr;
+		this->Y     = Y;
+		this->Cb    = Cb;
+		this->Cr    = Cr;
 	};
 };
 
 enum {
-	LOGO_AUTO_SELECT_NOHIT = -2,
+	LOGO_AUTO_SELECT_NOHIT   = -2,
 	LOGO_AUTO_SELECT_INVALID = -1,
 };
 
