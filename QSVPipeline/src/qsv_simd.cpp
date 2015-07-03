@@ -27,6 +27,10 @@ unsigned int get_availableSIMD() {
 		xgetbv = _xgetbv(0);
 		if ((xgetbv & 0x06) == 0x06)
 			simd |= AVX;
+#if (_MSC_VER >= 1700)
+		if (CPUInfo[2] & 0x00001000)
+			simd |= FMA3;
+#endif //(_MSC_VER >= 1700)
 	}
 #endif
 #if (_MSC_VER >= 1700)

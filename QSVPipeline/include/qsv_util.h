@@ -40,9 +40,15 @@ typedef std::basic_stringstream<TCHAR> TStringStream;
 
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const TCHAR *tstr, DWORD codepage = CP_THREAD_ACP);
+std::string tchar_to_string(const tstring& tstr, DWORD codepage = CP_THREAD_ACP);
 unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage = CP_THREAD_ACP);
 tstring char_to_tstring(const char *str, DWORD codepage = CP_THREAD_ACP);
+tstring char_to_tstring(const std::string& str, DWORD codepage = CP_THREAD_ACP);
+std::string strsprintf(const char* format, ...);
+std::wstring strsprintf(const WCHAR* format, ...);
 std::vector<tstring> split(const tstring &str, const tstring &delim);
+std::string GetFullPath(const char *path);
+std::wstring GetFullPath(const WCHAR *path);
 
 static inline mfxU16 readUB16(const void *ptr) {
 	mfxU16 i = *(mfxU16 *)ptr;

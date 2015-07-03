@@ -254,7 +254,16 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("                                 - none, x2, x2.5\n")
 #endif
 			_T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-			_T("                                 - none, upscale, box\n"),
+			_T("                                 - none, upscale, box\n")
+			_T("   --vpp-delogo-file <string>   set delogo file path\n")
+			_T("   --vpp-delogo-select <string> set target logo name or auto select file")
+			_T("                                 or logo index starting from 1.\n")
+			_T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
+			_T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
+			_T("   --vpp-delogo-y  <int>        set delogo y  param\n")
+			_T("   --vpp-delogo-cb <int>        set delogo cb param\n")
+			_T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+			_T("   --vpp-half-turn              half turn video image\n"),
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
@@ -263,7 +272,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
 			QSV_DEFAULT_REF,
 			QSV_DEFAULT_BFRAMES,
-			QSV_DEFAULT_GOP_LEN
+			QSV_DEFAULT_GOP_LEN,
+			QSV_DEFAULT_VPP_DELOGO_DEPTH
 			);
 		_ftprintf(stdout, _T("\n")
 			_T("   --input-buf <int>            buffer size for input (%d-%d)\n")
@@ -378,6 +388,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 	pParams->VideoFormat       = (mfxU16)list_videoformat[0].value;
 	pParams->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
 	pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
+	pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
 
 	// parse command line parameters
 	for (mfxU8 i = 1; i < nArgNum; i++) {
@@ -1267,6 +1278,82 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
 				return MFX_PRINT_OPTION_ERR;
 			}
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-half-turn")))
+		{
+			pParams->vpp.bHalfTurn = true;
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo-file")))
+		{
+			i++;
+			int filename_len = (int)_tcslen(strInput[i]);
+			pParams->vpp.delogo.pFilePath = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->vpp.delogo.pFilePath[0]));
+			memcpy(pParams->vpp.delogo.pFilePath, strInput[i], sizeof(pParams->vpp.delogo.pFilePath[0]) * filename_len);
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo-select")))
+		{
+			i++;
+			int filename_len = (int)_tcslen(strInput[i]);
+			pParams->vpp.delogo.pSelect = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->vpp.delogo.pSelect[0]));
+			memcpy(pParams->vpp.delogo.pSelect, strInput[i], sizeof(pParams->vpp.delogo.pSelect[0]) * filename_len);
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo-pos")))
+		{
+			i++;
+			mfxI16Pair posOffset;
+			if (2 == _stscanf_s(strInput[i], _T("%hdx%hd"), &posOffset.x, &posOffset.y))
+				;
+			else if (2 == _stscanf_s(strInput[i], _T("%hd,%hd"), &posOffset.x, &posOffset.y))
+				;
+			else if (2 == _stscanf_s(strInput[i], _T("%hd/%hd"), &posOffset.x, &posOffset.y))
+				;
+			else if (2 == _stscanf_s(strInput[i], _T("%hd:%hd"), &posOffset.x, &posOffset.y))
+				;
+			else {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->vpp.delogo.nPosOffset = posOffset;
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo-depth")))
+		{
+			i++;
+			mfxI16 depth;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &depth)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->vpp.delogo.nDepth = depth;
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo-y")))
+		{
+			i++;
+			mfxI16 value;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->vpp.delogo.nYOffset = value;
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo-cb")))
+		{
+			i++;
+			mfxI16 value;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->vpp.delogo.nCbOffset = value;
+		}
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo-cr")))
+		{
+			i++;
+			mfxI16 value;
+			if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
+				PrintHelp(strInput[0], _T("Unknown value"), option_name);
+				return MFX_PRINT_OPTION_ERR;
+			}
+			pParams->vpp.delogo.nCrOffset = value;
 		}
 		else if (0 == _tcscmp(option_name, _T("input-buf")))
 		{

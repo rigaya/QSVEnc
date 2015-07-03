@@ -41,6 +41,7 @@
 
 #pragma comment(lib, "libmfx.lib")
 
+#include "vpp_plugins.h"
 #include "scene_change_detection.h"
 
 #include <vector>
@@ -49,12 +50,7 @@
 #include <iostream>
 
 using std::vector;
-
-#if defined(_WIN32) || defined(_WIN64)
-	#define PLUGIN_NAME "sample_rotate_plugin.dll"
-#else
-	#define PLUGIN_NAME "libsample_rotate_plugin.so"
-#endif
+using std::unique_ptr;
 
 struct sTask
 {
@@ -167,7 +163,9 @@ protected:
 	MFXVideoDECODE* m_pmfxDEC;
 	MFXVideoENCODE* m_pmfxENC;
 	MFXVideoVPP* m_pmfxVPP;
-	std::unique_ptr<MFXPlugin> m_pPlugin;
+	unique_ptr<MFXPlugin> m_pPlugin;
+	vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
+	vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
 
 	const sTrimParam *m_pTrimParam;
 
@@ -177,8 +175,8 @@ protected:
 	
 	std::auto_ptr<MFXVideoUSER>  m_pUserModule;
 
-	std::vector<mfxExtBuffer*> m_EncExtParams;
-	std::vector<mfxExtBuffer*> m_VppExtParams;
+	vector<mfxExtBuffer*> m_EncExtParams;
+	vector<mfxExtBuffer*> m_VppExtParams;
 	tstring VppExtMes;
 
 	mfxExtVPPDoNotUse m_VppDoNotUse;
@@ -189,8 +187,8 @@ protected:
 	mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
 	mfxExtVPPVideoSignalInfo m_ExtVppVSI;
 	mfxExtVPPImageStab m_ExtImageStab;
-	std::vector<mfxU32> m_VppDoNotUseList;
-	std::vector<mfxU32> m_VppDoUseList;
+	vector<mfxU32> m_VppDoNotUseList;
+	vector<mfxU32> m_VppDoUseList;
 
 	MFXFrameAllocator* m_pMFXAllocator;
 	mfxAllocatorParams* m_pmfxAllocatorParams;
@@ -227,6 +225,8 @@ protected:
 	virtual mfxStatus InitMfxDecParams();
 	virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
 	virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
+	virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
+	virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);
 	virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);
 	//virtual void InitVppExtParam();
 	virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);

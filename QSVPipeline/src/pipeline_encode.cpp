@@ -1185,6 +1185,51 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 	return MFX_ERR_NONE;
 }
 
+mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
+	tstring vppPreMes = _T("");
+	mfxStatus sts = MFX_ERR_NONE;
+	if (pParams->vpp.delogo.pFilePath) {
+		unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
+		DelogoParam param(pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
+			pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
+			pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset);
+		sts = filter->Init(_T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern);
+		if (sts == MFX_ERR_ABORTED) {
+			PrintMes(QSV_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
+			sts = MFX_ERR_NONE;
+		} else if (sts != MFX_ERR_NONE) {
+			PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
+		} else {
+			sts = MFXJoinSession(m_mfxSession, filter->getSession());
+			MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to join vpp pre filter session."));
+			vppPreMes += filter->getMessage();
+			m_VppPrePlugins.push_back(std::move(filter));
+		}
+	}
+	if (pParams->vpp.bHalfTurn) {
+		unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
+		RotateParam param(180);
+		sts = filter->Init(_T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern);
+		if (sts != MFX_ERR_NONE) {
+			PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
+		} else {
+			sts = MFXJoinSession(m_mfxSession, filter->getSession());
+			MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to join vpp pre filter session."));
+			vppPreMes += filter->getMessage();
+			m_VppPrePlugins.push_back(std::move(filter));
+		}
+	}
+	VppExtMes = vppPreMes + VppExtMes;
+	return sts;
+}
+
+#pragma warning (push)
+#pragma warning (disable: 4100)
+mfxStatus CEncodingPipeline::InitVppPostPlugins(sInputParams *pParams) {
+	return MFX_ERR_NONE;
+}
+#pragma warning (pop)
+
 //void CEncodingPipeline::DeleteVppExtBuffers()
 //{
 //	//free external buffers
@@ -1263,22 +1308,33 @@ mfxStatus CEncodingPipeline::ResetDevice()
 	return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::AllocFrames()
-{
+mfxStatus CEncodingPipeline::AllocFrames() {
 	MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_NOT_INITIALIZED);
 
 	mfxStatus sts = MFX_ERR_NONE;
 	mfxFrameAllocRequest DecRequest;
 	mfxFrameAllocRequest EncRequest;
 	mfxFrameAllocRequest VppRequest[2];
-	
+
 	mfxU16 nEncSurfNum = 0; // number of surfaces for encoder
 	mfxU16 nVppSurfNum = 0; // number of surfaces for vpp
-	
+
+	mfxU16 nInputSurfAdd = 0;
+	mfxU16 nDecSurfAdd = 0; // number of surfaces for decoder
+	mfxU16 nVppPreSurfAdd = 0; // number of surfaces for decoder
+	mfxU16 nVppSurfAdd = 0;
+	mfxU16 nVppPostSurfAdd = 0; // number of surfaces for decoder
+
 	MSDK_ZERO_MEMORY(DecRequest);
 	MSDK_ZERO_MEMORY(EncRequest);
 	MSDK_ZERO_MEMORY(VppRequest[0]);
 	MSDK_ZERO_MEMORY(VppRequest[1]);
+	for (const auto& filter : m_VppPrePlugins) {
+		MSDK_ZERO_MEMORY(filter->m_PluginResponse);
+	}
+	for (const auto& filter : m_VppPostPlugins) {
+		MSDK_ZERO_MEMORY(filter->m_PluginResponse);
+	}
 
 	// Calculate the number of surfaces for components.
 	// QueryIOSurf functions tell how many surfaces are required to produce at least 1 output.
@@ -1299,36 +1355,133 @@ mfxStatus CEncodingPipeline::AllocFrames()
 		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to get required buffer size for decoder."));
 	}
 
+	nInputSurfAdd = MSDK_MAX(m_EncThread.m_nFrameBuffer, 1);
+
+	nDecSurfAdd = DecRequest.NumFrameSuggested;
+
 	// The number of surfaces shared by vpp output and encode input.
 	// When surfaces are shared 1 surface at first component output contains output frame that goes to next component input
-	nEncSurfNum = EncRequest.NumFrameSuggested + MSDK_MAX(VppRequest[1].NumFrameSuggested, 1) - 1 + (m_nAsyncDepth - 1);
+	nEncSurfNum = EncRequest.NumFrameSuggested + (m_nAsyncDepth - 1);
 
 	// The number of surfaces for vpp input - so that vpp can work at async depth = m_nAsyncDepth
 	nVppSurfNum = VppRequest[0].NumFrameSuggested + (m_nAsyncDepth - 1);
-	
-	if (m_pmfxVPP) {
-		nVppSurfNum += m_EncThread.m_nFrameBuffer + DecRequest.NumFrameSuggested;
-		if (m_pmfxDEC) {
-			VppRequest[0].Type = DecRequest.Type;
-			m_mfxVppParams.mfx.FrameInfo.Width  = DecRequest.Info.Width;
-			m_mfxVppParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
+
+	//VppPrePlugins
+	if (m_VppPrePlugins.size()) {
+		for (mfxU32 i = 0; i < (mfxU32)m_VppPrePlugins.size(); i++) {
+			mfxU16 mem_type = (HW_MEMORY & m_memType) ? (mfxU16)(MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_EXTERNAL_FRAME) : (mfxU16)MFX_MEMTYPE_SYSTEM_MEMORY;
+			m_VppPrePlugins[i]->m_nSurfNum += m_nAsyncDepth;
+			if (i == 0) {
+				mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : 0;
+				m_VppPrePlugins[i]->m_nSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
+			} else {
+				// If surfaces are shared by 2 components, c1 and c2. NumSurf = c1_out + c2_in - AsyncDepth + 1
+				mem_type |= MFX_MEMTYPE_FROM_VPPOUT;
+				m_VppPrePlugins[i]->m_nSurfNum += m_VppPrePlugins[i-1]->m_nSurfNum - m_nAsyncDepth + 1;
+			}
+			m_VppPrePlugins[i]->m_PluginRequest.Type = mem_type;
+			m_VppPrePlugins[i]->m_PluginRequest.NumFrameMin = m_VppPrePlugins[i]->m_nSurfNum;
+			m_VppPrePlugins[i]->m_PluginRequest.NumFrameSuggested = m_VppPrePlugins[i]->m_nSurfNum;
+			MSDK_MEMCPY_VAR(m_VppPrePlugins[i]->m_PluginRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+			if (m_pmfxDEC && nDecSurfAdd) {
+				m_VppPrePlugins[i]->m_PluginRequest.Info.Width  = DecRequest.Info.Width;
+				m_VppPrePlugins[i]->m_PluginRequest.Info.Height = DecRequest.Info.Height;
+				m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Width  = DecRequest.Info.Width;
+				m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
+			}
 		}
-	} else {
-		nEncSurfNum += m_EncThread.m_nFrameBuffer + DecRequest.NumFrameSuggested;
-		if (m_pmfxDEC) {
-			EncRequest.Type |= MFX_MEMTYPE_FROM_DECODE;
-			m_mfxEncParams.mfx.FrameInfo.Width = DecRequest.Info.Width;
-			m_mfxEncParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
-		}
+
+		//後始末
+		nDecSurfAdd = 0;
+		nInputSurfAdd = 0;
+		nVppPreSurfAdd = m_VppPrePlugins.back()->m_nSurfNum;
 	}
 
-	// prepare allocation requests
-	EncRequest.NumFrameMin = nEncSurfNum;
-	EncRequest.NumFrameSuggested = nEncSurfNum;
-	MSDK_MEMCPY_VAR(EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
-	if (m_pmfxVPP)
+	//Vpp
+	if (m_pmfxVPP) {
+		nVppSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd - m_nAsyncDepth + 1);
+
+		//VppRequest[0]の準備
+		VppRequest[0].NumFrameMin = nVppSurfNum;
+		VppRequest[0].NumFrameSuggested = nVppSurfNum;
+		MSDK_MEMCPY_VAR(VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+		if (m_pmfxDEC && nDecSurfAdd) {
+			VppRequest[0].Type = DecRequest.Type;
+			VppRequest[0].Info.Width  = DecRequest.Info.Width;
+			VppRequest[0].Info.Height = DecRequest.Info.Height;
+			m_mfxVppParams.mfx.FrameInfo.Width = DecRequest.Info.Width;
+			m_mfxVppParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
+			//フレームのリクエストを出す時点でCropの値を入れておくと、
+			//DecFrameAsyncでMFX_ERR_UNDEFINED_BEHAVIORを出してしまう
+			//Cropの値はVppFrameAsyncの直前に渡すようにする
+			VppRequest[0].Info.CropX = DecRequest.Info.CropX;
+			VppRequest[0].Info.CropY = DecRequest.Info.CropY;
+			VppRequest[0].Info.CropW = DecRequest.Info.CropW;
+			VppRequest[0].Info.CropH = DecRequest.Info.CropH;
+		}
+
+		//後始末
+		nInputSurfAdd = 0;
+		nDecSurfAdd = 0;
+		nVppPreSurfAdd = 0;
+		nVppSurfAdd = MSDK_MAX(VppRequest[1].NumFrameSuggested, 1);
+	}
+
+	//VppPostPlugins
+	if (m_VppPostPlugins.size()) {
+		for (mfxU32 i = 0; i < (mfxU32)m_VppPostPlugins.size(); i++) {
+			mfxU16 mem_type = (HW_MEMORY & m_memType) ? (mfxU16)(MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_EXTERNAL_FRAME) : (mfxU16)MFX_MEMTYPE_SYSTEM_MEMORY;
+			m_VppPostPlugins[i]->m_nSurfNum += m_nAsyncDepth;
+			if (i == 0) {
+				mem_type |= (m_pmfxDEC && nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : 0;
+				m_VppPostPlugins[i]->m_nSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
+			} else {
+				// If surfaces are shared by 2 components, c1 and c2. NumSurf = c1_out + c2_in - AsyncDepth + 1
+				mem_type |= MFX_MEMTYPE_FROM_VPPOUT;
+				m_VppPostPlugins[i]->m_nSurfNum += m_VppPostPlugins[i-1]->m_nSurfNum - m_nAsyncDepth + 1;
+			}
+			m_VppPostPlugins[i]->m_PluginRequest.Type = mem_type;
+			m_VppPostPlugins[i]->m_PluginRequest.NumFrameMin = m_VppPostPlugins[i]->m_nSurfNum;
+			m_VppPostPlugins[i]->m_PluginRequest.NumFrameSuggested = m_VppPostPlugins[i]->m_nSurfNum;
+			MSDK_MEMCPY_VAR(m_VppPostPlugins[i]->m_PluginRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+			if (m_pmfxDEC && nDecSurfAdd) {
+				m_VppPostPlugins[i]->m_PluginRequest.Type = DecRequest.Type;
+				m_VppPostPlugins[i]->m_PluginRequest.Info.Width  = DecRequest.Info.Width;
+				m_VppPostPlugins[i]->m_PluginRequest.Info.Height = DecRequest.Info.Height;
+				m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Width  = DecRequest.Info.Width;
+				m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
+			}
+		}
+
+		//後始末
+		nInputSurfAdd = 0;
+		nDecSurfAdd = 0;
+		nVppPreSurfAdd = 0;
+		nVppSurfAdd = 0;
+		nVppPostSurfAdd = m_VppPostPlugins.back()->m_nSurfNum;
+	}
+
+	//Enc
 	{
-		EncRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; // surfaces are shared between vpp output and encode input
+		nEncSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
+		EncRequest.NumFrameMin = nEncSurfNum;
+		EncRequest.NumFrameSuggested = nEncSurfNum;
+		MSDK_MEMCPY_VAR(EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+		if (m_pmfxDEC && nDecSurfAdd) {
+			EncRequest.Type |= MFX_MEMTYPE_FROM_DECODE;
+			EncRequest.Info.Width = DecRequest.Info.Width;
+			EncRequest.Info.Height = DecRequest.Info.Height;
+		}
+		if (nVppPreSurfAdd || nVppSurfAdd || nVppPostSurfAdd) {
+			EncRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; // surfaces are shared between vpp output and encode input
+		}
+
+		//後始末
+		nInputSurfAdd = 0;
+		nDecSurfAdd = 0;
+		nVppPreSurfAdd = 0;
+		nVppSurfAdd = 0;
+		nVppPostSurfAdd = 0;
 	}
 
 	// alloc frames for encoder
@@ -1336,21 +1489,7 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate frames for encoder."));
 
 	// alloc frames for vpp if vpp is enabled
-	if (m_pmfxVPP)
-	{
-		VppRequest[0].NumFrameMin = nVppSurfNum;
-		VppRequest[0].NumFrameSuggested = nVppSurfNum;
-		MSDK_MEMCPY_VAR(VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
-		//フレームのリクエストを出す時点でCropの値を入れておくと、
-		//DecFrameAsyncでMFX_ERR_UNDEFINED_BEHAVIORを出してしまう
-		//Cropの値はVppFrameAsyncの直前に渡すようにする
-		if (m_pmfxDEC) {
-			VppRequest[0].Info.CropX = DecRequest.Info.CropX;
-			VppRequest[0].Info.CropY = DecRequest.Info.CropY;
-			VppRequest[0].Info.CropW = DecRequest.Info.CropW;
-			VppRequest[0].Info.CropH = DecRequest.Info.CropH;
-		}
-
+	if (m_pmfxVPP) {
 		sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &(VppRequest[0]), &m_VppResponse);
 		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate frames for vpp."));
 	}
@@ -1359,17 +1498,13 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	m_pEncSurfaces = new mfxFrameSurface1 [m_EncResponse.NumFrameActual];
 	MSDK_CHECK_POINTER(m_pEncSurfaces, MFX_ERR_MEMORY_ALLOC);
 
-	for (int i = 0; i < m_EncResponse.NumFrameActual; i++)
-	{
+	for (int i = 0; i < m_EncResponse.NumFrameActual; i++) {
 		memset(&(m_pEncSurfaces[i]), 0, sizeof(mfxFrameSurface1));
 		MSDK_MEMCPY_VAR(m_pEncSurfaces[i].Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
-		if (m_bExternalAlloc)
-		{
+		if (m_bExternalAlloc) {
 			m_pEncSurfaces[i].Data.MemId = m_EncResponse.mids[i];
-		}
-		else
-		{
+		} else {
 			// get YUV pointers
 			sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, m_EncResponse.mids[i], &(m_pEncSurfaces[i].Data));
 			MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate surfaces for encoder."));
@@ -1377,26 +1512,31 @@ mfxStatus CEncodingPipeline::AllocFrames()
 	}
 
 	// prepare mfxFrameSurface1 array for vpp if vpp is enabled
-	if (m_pmfxVPP)
-	{
+	if (m_pmfxVPP) {
 		m_pVppSurfaces = new mfxFrameSurface1 [m_VppResponse.NumFrameActual];
 		MSDK_CHECK_POINTER(m_pVppSurfaces, MFX_ERR_MEMORY_ALLOC);
 
-		for (int i = 0; i < m_VppResponse.NumFrameActual; i++)
-		{
+		for (int i = 0; i < m_VppResponse.NumFrameActual; i++) {
 			MSDK_ZERO_MEMORY(m_pVppSurfaces[i]);
 			MSDK_MEMCPY_VAR(m_pVppSurfaces[i].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
-			if (m_bExternalAlloc)
-			{
+			if (m_bExternalAlloc) {
 				m_pVppSurfaces[i].Data.MemId = m_VppResponse.mids[i];
-			}
-			else
-			{
+			} else {
 				sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, m_VppResponse.mids[i], &(m_pVppSurfaces[i].Data));
 				MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate surfaces for vpp."));
 			}
 		}
+	}
+
+	for (const auto& filter : m_VppPrePlugins) {
+		sts = filter->AllocSurfaces(m_pMFXAllocator, m_bExternalAlloc);
+		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate surfaces for plugin filter."));
+	}
+
+	for (const auto& filter : m_VppPostPlugins) {
+		sts = filter->AllocSurfaces(m_pMFXAllocator, m_bExternalAlloc);
+		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate surfaces for plugin filter."));
 	}
 
 	return MFX_ERR_NONE;
@@ -2188,6 +2328,9 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	sts = CheckParam(pParams);
 	if (sts != MFX_ERR_NONE) return sts;
 
+	// this number can be tuned for better performance
+	m_nAsyncDepth = (m_pFileReader->getInputCodec()) ? 6 : 3;
+
 	sts = m_EncThread.Init(pParams->nInputBufSize);
 	MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate memory for thread control."));
 
@@ -2205,6 +2348,12 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	if (sts < MFX_ERR_NONE) return sts;
 
 	sts = CreateVppExtBuffers(pParams);
+	if (sts < MFX_ERR_NONE) return sts;
+
+	sts = InitVppPrePlugins(pParams);
+	if (sts < MFX_ERR_NONE) return sts;
+
+	sts = InitVppPostPlugins(pParams);
 	if (sts < MFX_ERR_NONE) return sts;
 
 	sts = InitMfxDecParams();
@@ -2269,9 +2418,6 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 		timeBeginPeriod(1);
 	}
 
-	// this number can be tuned for better performance
-	m_nAsyncDepth = (m_pFileReader->getInputCodec()) ? MSDK_MIN(pParams->nInputBufSize, 16) : 3;
-
 	sts = ResetMFXComponents(pParams);
 	if (sts < MFX_ERR_NONE) return sts;
 
@@ -2292,6 +2438,8 @@ void CEncodingPipeline::Close()
 	MSDK_SAFE_DELETE(m_pmfxDEC);
 	MSDK_SAFE_DELETE(m_pmfxENC);
 	MSDK_SAFE_DELETE(m_pmfxVPP);
+	m_VppPrePlugins.clear();
+	m_VppPostPlugins.clear();
 
 #if ENABLE_MVC_ENCODING
 	FreeMVCSeqDesc();
@@ -2611,7 +2759,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 	mfxFrameSurface1 *pSurfInputBuf = NULL;
 	mfxFrameSurface1 *pSurfEncIn = NULL;
 	mfxFrameSurface1 *pSurfVppIn = NULL;
-	mfxFrameSurface1 **ppNextFrame;
+	vector<mfxFrameSurface1 *>pSurfVppPreFilter(m_VppPrePlugins.size() + 1, NULL);
+	vector<mfxFrameSurface1 *>pSurfVppPostFilter(m_VppPostPlugins.size() + 1, NULL);
+	mfxFrameSurface1 *pNextFrame;
 	bool bVppRequireMoreFrame = false;
 	int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
 	const double getTimeStampMul = m_mfxEncParams.mfx.FrameInfo.FrameRateExtD * (double)QSV_TIMEBASE / (double)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN; //TimeStamp計算用
@@ -2656,19 +2806,44 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 	sts = MFX_ERR_NONE;
 
-	auto set_surface_to_input_buffer = [](int input_buffer_size, CSmplYUVReader *pFileReader,
-		MFXFrameAllocator *pAllocator, bool bExternalAlloc, mfxFrameSurface1 *surfaces, int surfacePoolActual) {
-		mfxStatus sts_set_buffer = MFX_ERR_NONE;
-		for (int i = 0; i < input_buffer_size; i++) {
+	auto get_all_free_surface =[&](mfxFrameSurface1 *pSurfEncInput) {
+		//パイプラインの後ろからたどっていく
+		pSurfInputBuf = pSurfEncInput; //pSurfEncInにはパイプラインを後ろからたどった順にフレームポインタを更新していく
+		pSurfVppPostFilter[m_VppPostPlugins.size()] = pSurfInputBuf; //pSurfVppPreFilterの最後はその直前のステップのフレームに出力される
+		for (int i_filter = (int)m_VppPostPlugins.size()-1; i_filter >= 0; i_filter--) {
+			int freeSurfIdx = GetFreeSurface(m_VppPostPlugins[i_filter]->m_pPluginSurfaces, m_VppPostPlugins[i_filter]->m_PluginResponse.NumFrameActual);
+			pSurfVppPostFilter[i_filter] = &m_VppPostPlugins[i_filter]->m_pPluginSurfaces[freeSurfIdx];
+			pSurfInputBuf = pSurfVppPostFilter[i_filter];
+		}
+		// if vpp is enabled find free surface for vpp input and point pSurf to vpp surface
+		if (m_pmfxVPP) {
 			//空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
-			int surfaceIdx = GetFreeSurface(surfaces, surfacePoolActual);
-			MSDK_CHECK_ERROR(surfaceIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
-			if (bExternalAlloc) {
-				sts_set_buffer = pAllocator->Lock(pAllocator->pthis, surfaces[surfaceIdx].Data.MemId, &(surfaces[surfaceIdx].Data));
+			nVppSurfIdx = GetFreeSurface(m_pVppSurfaces, m_VppResponse.NumFrameActual);
+			pSurfVppIn = &m_pVppSurfaces[nVppSurfIdx];
+			MSDK_CHECK_ERROR(nVppSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
+			pSurfInputBuf = pSurfVppIn;
+		}
+		pSurfVppPreFilter[m_VppPrePlugins.size()] = pSurfInputBuf; //pSurfVppPreFilterの最後はその直前のステップのフレームに出力される
+		for (int i_filter = (int)m_VppPrePlugins.size()-1; i_filter >= 0; i_filter--) {
+			int freeSurfIdx = GetFreeSurface(m_VppPrePlugins[i_filter]->m_pPluginSurfaces, m_VppPrePlugins[i_filter]->m_PluginResponse.NumFrameActual);
+			pSurfVppPreFilter[i_filter] = &m_VppPrePlugins[i_filter]->m_pPluginSurfaces[freeSurfIdx];
+			pSurfInputBuf = pSurfVppPreFilter[i_filter];
+		}
+		//最終的にpSurfInputBufには一番最初のステップのフレームポインタが入る
+		return MFX_ERR_NONE;
+	};
+
+	auto set_surface_to_input_buffer = [&]() {
+		mfxStatus sts_set_buffer = MFX_ERR_NONE;
+		for (int i = 0; i < m_EncThread.m_nFrameBuffer; i++) {
+			get_all_free_surface(&m_pEncSurfaces[GetFreeSurface(m_pEncSurfaces, m_EncResponse.NumFrameActual)]);
+
+			if (m_bExternalAlloc) {
+				sts_set_buffer = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data));
 				MSDK_BREAK_ON_ERROR(sts_set_buffer);
 			}
 			//空いているフレームを読み込み側に渡し、該当フレームの読み込み開始イベントをSetする(pInputBuf->heInputStart)
-			pFileReader->SetNextSurface(&surfaces[surfaceIdx]);
+			m_pFileReader->SetNextSurface(pSurfInputBuf);
 #if ENABLE_MVC_ENCODING
 			m_pEncSurfaces[nEncSurfIdx].Info.FrameId.ViewId = currViewNum;
 			if (m_bIsMVC) currViewNum ^= 1; // Flip between 0 and 1 for ViewId
@@ -2676,11 +2851,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 		}
 		return sts_set_buffer;
 	};
-
+	
 	//先読みバッファ用フレームを読み込み側に提供する
-	set_surface_to_input_buffer(m_EncThread.m_nFrameBuffer, m_pFileReader, m_pMFXAllocator, m_bExternalAlloc,
-		(m_pmfxVPP) ? m_pVppSurfaces : m_pEncSurfaces,
-		(m_pmfxVPP) ? m_VppResponse.NumFrameActual : m_EncResponse.NumFrameActual);
+	set_surface_to_input_buffer();
 
 	auto copy_crop_info = [](mfxFrameSurface1 *dst, const mfxFrameInfo *src) {
 		if (NULL != dst) {
@@ -2727,7 +2900,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			}
 
 			//デコードも行う場合は、デコード用のフレームをpSurfVppInかpSurfEncInから受け取る
-			mfxFrameSurface1 *pSurfDecWork = (m_pmfxVPP) ? pSurfVppIn : pSurfEncIn;
+			mfxFrameSurface1 *pSurfDecWork = pNextFrame;
 			mfxFrameSurface1 *pSurfDecOut = NULL;
 			mfxBitstream *pInputBitstream = (getNextBitstream || m_DecInputBitstream.DataLength) ? &m_DecInputBitstream : nullptr;
 
@@ -2750,14 +2923,34 @@ mfxStatus CEncodingPipeline::RunEncode()
 			}
 
 			//次のステップのフレームをデコードの出力に設定
-			if (m_pmfxVPP) {
-				pSurfVppIn = pSurfDecOut;
-			} else {
-				pSurfEncIn = pSurfDecOut;
-			}
+			pNextFrame = pSurfDecOut;
 			nInputFrameCount += (pSurfDecOut != NULL);
 		}
 		return dec_sts;
+	};
+
+	auto filter_one_frame = [&](const unique_ptr<CVPPPlugin>& filter, mfxFrameSurface1** ppSurfIn, mfxFrameSurface1** ppSurfOut) {
+		mfxStatus filter_sts = MFX_ERR_NONE;
+		mfxSyncPoint filterSyncPoint = NULL;
+
+		for (;;) {
+			mfxHDL *h1 = (mfxHDL *)ppSurfIn;
+			mfxHDL *h2 = (mfxHDL *)ppSurfOut;
+
+			filter_sts = MFXVideoUSER_ProcessFrameAsync(filter->getSession(), h1, 1, h2, 1, &filterSyncPoint);
+
+			if (MFX_WRN_DEVICE_BUSY == filter_sts) {
+				MSDK_SLEEP(1);
+			} else {
+				break;
+			}
+		}
+		// save the id of preceding vpp task which will produce input data for the encode task
+		if (filterSyncPoint) {
+			pCurrentTask->DependentVppTasks.push_back(filterSyncPoint);
+			filterSyncPoint = NULL;
+		}
+		return filter_sts;
 	};
 
 	auto vpp_one_frame =[&](mfxFrameSurface1* pSurfVppIn, mfxFrameSurface1* pSurfVppOut) {
@@ -2800,6 +2993,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			if (VppSyncPoint) {
 				pCurrentTask->DependentVppTasks.push_back(VppSyncPoint);
 				VppSyncPoint = NULL;
+				pNextFrame = pSurfVppOut;
 			}
 		}
 		return vpp_sts;
@@ -2892,29 +3086,27 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 		if (!bVppMultipleOutput)
 		{
-			// if vpp is enabled find free surface for vpp input and point pSurf to vpp surface
-			if (m_pmfxVPP)
-			{
-				//空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
-				nVppSurfIdx = GetFreeSurface(m_pVppSurfaces, m_VppResponse.NumFrameActual);
-				MSDK_CHECK_ERROR(nVppSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
-
-				pSurfInputBuf = &m_pVppSurfaces[nVppSurfIdx];
-				ppNextFrame = &pSurfVppIn;
-			}
-			else
-			{
-				pSurfInputBuf = pSurfEncIn;
-				ppNextFrame = &pSurfEncIn;
-			}
+			get_all_free_surface(pSurfEncIn);
+			//if (m_VppPrePlugins.size()) {
+			//	pSurfInputBuf = pSurfVppPreFilter[0];
+			//	//ppNextFrame = &;
+			//} else if (m_pmfxVPP) {
+			//	pSurfInputBuf = &m_pVppSurfaces[nVppSurfIdx];
+			//	//ppNextFrame = &pSurfVppIn;
+			//} else if (m_VppPostPlugins.size()) {
+			//	pSurfInputBuf = &pSurfVppPostFilter[0];
+			//	//ppNextFrame = &;
+			//} else {
+			//	pSurfInputBuf = pSurfEncIn;
+			//	//ppNextFrame = &pSurfEncIn;
+			//}
 			//読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
 			//この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-			sts = m_pFileReader->GetNextFrame(ppNextFrame);
+			sts = m_pFileReader->GetNextFrame(&pNextFrame);
 			MSDK_BREAK_ON_ERROR(sts);
 
-			if (m_bExternalAlloc)
-			{
-				sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (*ppNextFrame)->Data.MemId, &((*ppNextFrame)->Data));
+			if (m_bExternalAlloc) {
+				sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data));
 				MSDK_BREAK_ON_ERROR(sts);
 
 				sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data));
@@ -2932,17 +3124,35 @@ mfxStatus CEncodingPipeline::RunEncode()
 			if (sts == MFX_ERR_MORE_DATA || sts == MFX_ERR_MORE_SURFACE)
 				continue;
 			MSDK_BREAK_ON_ERROR(sts);
+
+			for (int i_filter = 0; i_filter < (int)m_VppPrePlugins.size(); i_filter++) {
+				mfxFrameSurface1 *pSurfFilterOut = pSurfVppPreFilter[i_filter + 1];
+				sts = filter_one_frame(m_VppPrePlugins[i_filter], &pNextFrame, &pSurfFilterOut);
+				MSDK_BREAK_ON_ERROR(sts);
+				pNextFrame = pSurfFilterOut;
+			}
+			MSDK_BREAK_ON_ERROR(sts);
+
+			pSurfVppIn = pNextFrame;
 		}
 
 		if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
 			continue;
 
-		sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
+		sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
 		if (bVppRequireMoreFrame)
 			continue;
 		MSDK_BREAK_ON_ERROR(sts);
+
+		for (int i_filter = 0; i_filter < (int)m_VppPostPlugins.size(); i_filter++) {
+			mfxFrameSurface1 *pSurfFilterOut = pSurfVppPostFilter[i_filter + 1];
+			sts = filter_one_frame(m_VppPostPlugins[i_filter], &pNextFrame, &pSurfFilterOut);
+			MSDK_BREAK_ON_ERROR(sts);
+			pNextFrame = pSurfFilterOut;
+		}
+		MSDK_BREAK_ON_ERROR(sts);
 		
-		sts = encode_one_frame(pSurfEncIn);
+		sts = encode_one_frame(pNextFrame);
 	}
 	
 	// means that the input file has ended, need to go to buffering loops
@@ -2954,6 +3164,8 @@ mfxStatus CEncodingPipeline::RunEncode()
 	{
 		sts = extract_audio();
 		MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error on extracting audio."));
+
+		pNextFrame = NULL;
 
 		while (MFX_ERR_NONE <= sts || sts == MFX_ERR_MORE_SURFACE) {
 			// get a pointer to a free task (bit stream and sync point for encoder)
@@ -2971,31 +3183,42 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 			if (!bVppMultipleOutput)
 			{
-				// if vpp is enabled find free surface for vpp input and point pSurf to vpp surface
-				if (m_pmfxVPP)
-				{
-					//空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
-					nVppSurfIdx = GetFreeSurface(m_pVppSurfaces, m_VppResponse.NumFrameActual);
-					MSDK_CHECK_ERROR(nVppSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
-
-					pSurfVppIn = &m_pVppSurfaces[nVppSurfIdx];
-				}
+				get_all_free_surface(pSurfEncIn);
+				pNextFrame = pSurfInputBuf;
 
 				sts = decode_one_frame(false);
 				if (sts == MFX_ERR_MORE_SURFACE)
 					continue;
 				MSDK_BREAK_ON_ERROR(sts);
+
+				for (int i_filter = 0; i_filter < (int)m_VppPrePlugins.size(); i_filter++) {
+					mfxFrameSurface1 *pSurfFilterOut = pSurfVppPreFilter[i_filter + 1];
+					sts = filter_one_frame(m_VppPrePlugins[i_filter], &pNextFrame, &pSurfFilterOut);
+					MSDK_BREAK_ON_ERROR(sts);
+					pNextFrame = pSurfFilterOut;
+				}
+				MSDK_BREAK_ON_ERROR(sts);
+
+				pSurfVppIn = pNextFrame;
 			}
 
 			if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
 				continue;
 
-			sts = vpp_one_frame(pSurfVppIn, pSurfEncIn);
+			sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
 			if (bVppRequireMoreFrame)
 				continue;
 			MSDK_BREAK_ON_ERROR(sts);
+
+			for (int i_filter = 0; i_filter < (int)m_VppPostPlugins.size(); i_filter++) {
+				mfxFrameSurface1 *pSurfFilterOut = pSurfVppPostFilter[i_filter + 1];
+				sts = filter_one_frame(m_VppPostPlugins[i_filter], &pNextFrame, &pSurfFilterOut);
+				MSDK_BREAK_ON_ERROR(sts);
+				pNextFrame = pSurfFilterOut;
+			}
+			MSDK_BREAK_ON_ERROR(sts);
 		
-			sts = encode_one_frame(pSurfEncIn);
+			sts = encode_one_frame(pNextFrame);
 		}
 
 		// MFX_ERR_MORE_DATA is the correct status to exit buffering loop with
@@ -3012,6 +3235,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			// MFX_ERR_MORE_SURFACE can be returned only by RunFrameVPPAsync
 			// MFX_ERR_MORE_DATA is accepted only from EncodeFrameAsync
 		{
+			pNextFrame = NULL;
 			// find free surface for encoder input (vpp output)
 			nEncSurfIdx = GetFreeSurface(m_pEncSurfaces, m_EncResponse.NumFrameActual);
 			MSDK_CHECK_ERROR(nEncSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
@@ -3021,13 +3245,39 @@ mfxStatus CEncodingPipeline::RunEncode()
 			// get a free task (bit stream and sync point for encoder)
 			sts = GetFreeTask(&pCurrentTask);
 			MSDK_BREAK_ON_ERROR(sts);
+			
+			get_all_free_surface(pSurfEncIn);
 
-			sts = vpp_one_frame(NULL, pSurfEncIn);
-			if (bVppRequireMoreFrame)
+			//for (int i_filter = 0; i_filter < (int)m_VppPrePlugins.size(); i_filter++) {
+			//	bVppAllFiltersFlushed &= m_VppPrePlugins[i_filter]->m_bPluginFlushed;
+			//	if (!m_VppPrePlugins[i_filter]->m_bPluginFlushed) {
+			//		mfxFrameSurface1 *pSurfFilterOut = pSurfVppPreFilter[i_filter + 1];
+			//		sts = filter_one_frame(m_VppPrePlugins[i_filter], &pNextFrame, &pSurfFilterOut);
+			//		if (sts == MFX_ERR_MORE_DATA) {
+			//			m_VppPrePlugins[i_filter]->m_bPluginFlushed = true;
+			//			sts = MFX_ERR_NONE;
+			//		}
+			//		MSDK_BREAK_ON_ERROR(sts);
+			//		pNextFrame = pSurfFilterOut;
+			//	}
+			//}
+			//MSDK_BREAK_ON_ERROR(sts);
+
+			sts = vpp_one_frame(pNextFrame, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
+			if (bVppRequireMoreFrame) {
 				break; // MFX_ERR_MORE_DATA is the correct status to exit vpp buffering loop
+			}
 			MSDK_BREAK_ON_ERROR(sts);
 
-			sts = encode_one_frame(pSurfEncIn);
+			for (int i_filter = 0; i_filter < (int)m_VppPostPlugins.size(); i_filter++) {
+				mfxFrameSurface1 *pSurfFilterOut = pSurfVppPostFilter[i_filter + 1];
+				sts = filter_one_frame(m_VppPostPlugins[i_filter], &pNextFrame, &pSurfFilterOut);
+				MSDK_BREAK_ON_ERROR(sts);
+				pNextFrame = pSurfFilterOut;
+			}
+			MSDK_BREAK_ON_ERROR(sts);
+
+			sts = encode_one_frame(pNextFrame);
 		}
 
 		// MFX_ERR_MORE_DATA is the correct status to exit buffering loop with
