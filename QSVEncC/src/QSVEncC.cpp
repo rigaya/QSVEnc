@@ -625,7 +625,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			TCHAR *format = NULL;
 			TCHAR *qtr = _tcschr(ptr, ':');
 			if (qtr != NULL) {
-				int len = qtr - ptr;
+				size_t len = (qtr - ptr);
 				format = (TCHAR *)calloc((len + 1), sizeof(format[0]));
 				memcpy(format, ptr, sizeof(format[0]) * len);
 				ptr = qtr + 1;

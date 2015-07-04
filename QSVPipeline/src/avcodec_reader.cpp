@@ -1048,7 +1048,8 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
 	if (bitstream == nullptr)
 		return MFX_ERR_NULL_PTR;
 	if (bitstream->Data == nullptr)
-		InitMfxBitstream(bitstream, AVCODEC_READER_INPUT_BUF_SIZE);
+		if (MFX_ERR_NONE != InitMfxBitstream(bitstream, AVCODEC_READER_INPUT_BUF_SIZE))
+			return MFX_ERR_NULL_PTR;
 
 	if (m_Demux.video.pExtradata == nullptr) {
 		m_Demux.video.nExtradataSize = m_Demux.video.pCodecCtx->extradata_size;

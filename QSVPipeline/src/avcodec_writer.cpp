@@ -373,7 +373,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 			return MFX_ERR_NULL_PTR;
 		}
 
-		if (fopen_s(&m_Mux.format.fpOutput, filename.c_str(), "wb")) {
+		if (fopen_s(&m_Mux.format.fpOutput, filename.c_str(), "wb") || m_Mux.format.fpOutput == NULL) {
 			m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
 			return MFX_ERR_NULL_PTR; // Couldn't open file
 		}

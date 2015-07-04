@@ -3552,7 +3552,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 			if (cop3.WinBRCSize) {
 				PRINT_INFO(_T("Windowed RC    %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
 			} else {
-				PRINT_INFO(_T("Windowed RC    off\n"), cop2.LookAheadDepth);
+				PRINT_INFO(_T("Windowed RC    off\n"));
 			}
 		}
 		if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
