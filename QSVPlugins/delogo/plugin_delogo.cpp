@@ -394,18 +394,18 @@ mfxStatus Delogo::SetAuxParams(void* auxParam, int auxParamSize) {
 		return MFX_ERR_ABORTED;
 	}
 
-	m_sProcessData[0].ptr = (mfxI16 *)_aligned_malloc(sizeof(mfxI16) * 2 * m_sProcessData[0].pitch * m_sProcessData[0].height, 32);
-	m_sProcessData[1].ptr = (mfxI16 *)_aligned_malloc(sizeof(mfxI16) * 2 * m_sProcessData[1].pitch * m_sProcessData[1].height, 32);
+	m_sProcessData[0].pLogoPtr.reset((mfxI16 *)_aligned_malloc(sizeof(mfxI16) * 2 * m_sProcessData[0].pitch * m_sProcessData[0].height, 32));
+	m_sProcessData[1].pLogoPtr.reset((mfxI16 *)_aligned_malloc(sizeof(mfxI16) * 2 * m_sProcessData[1].pitch * m_sProcessData[1].height, 32));
 
-	memset(m_sProcessData[0].ptr, 0, sizeof(mfxI16) * 2 * m_sProcessData[0].pitch * m_sProcessData[0].height);
-	memset(m_sProcessData[1].ptr, 0, sizeof(mfxI16) * 2 * m_sProcessData[1].pitch * m_sProcessData[1].height);
+	memset(m_sProcessData[0].pLogoPtr.get(), 0, sizeof(mfxI16) * 2 * m_sProcessData[0].pitch * m_sProcessData[0].height);
+	memset(m_sProcessData[1].pLogoPtr.get(), 0, sizeof(mfxI16) * 2 * m_sProcessData[1].pitch * m_sProcessData[1].height);
 
 	//まず輝度成分をコピーしてしまう
 	for (mfxU32 j = 0; j < m_sProcessData[0].height; j++) {
 		//輝度成分はそのままコピーするだけ
 		for (int i = 0; i < logoData.header.w; i++) {
 			mfxI16Pair logoY = *(mfxI16Pair *)&logoData.logoPixel[j * logoData.header.w + i].dp_y;
-			*(mfxI16Pair *)&m_sProcessData[0].ptr[(j * m_sProcessData[0].pitch + i + yWidthOffset) * 2] = logoY;
+			*(mfxI16Pair *)&m_sProcessData[0].pLogoPtr.get()[(j * m_sProcessData[0].pitch + i + yWidthOffset) * 2] = logoY;
 		}
 	}
 	//まずは4:4:4->4:2:0処理時に端を気にしなくていいよう、縦横ともに2の倍数となるよう拡張する
@@ -468,8 +468,8 @@ mfxStatus Delogo::SetAuxParams(void* auxParam, int auxParamSize) {
 			logoCr.y = (logoCr0.y + logoCr1.y + logoCr2.y + logoCr3.y + 2) >> 2;
 
 			//単純平均により4:4:4->4:2:0に
-			*(mfxI16Pair *)&m_sProcessData[1].ptr[(j >> 1) * m_sProcessData[1].pitch * 2 + (i >> 1) * 4 + 0] = logoCb;
-			*(mfxI16Pair *)&m_sProcessData[1].ptr[(j >> 1) * m_sProcessData[1].pitch * 2 + (i >> 1) * 4 + 2] = logoCr;
+			*(mfxI16Pair *)&m_sProcessData[1].pLogoPtr.get()[(j >> 1) * m_sProcessData[1].pitch * 2 + (i >> 1) * 4 + 0] = logoCb;
+			*(mfxI16Pair *)&m_sProcessData[1].pLogoPtr.get()[(j >> 1) * m_sProcessData[1].pitch * 2 + (i >> 1) * 4 + 2] = logoCr;
 		}
 	}
 
@@ -534,13 +534,6 @@ mfxStatus Delogo::Close() {
 		MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
 	}
 
-	for (int i = 0; i < 2; i++) {
-		if (m_sProcessData[i].ptr) {
-			_aligned_free(m_sProcessData[i].ptr);
-			m_sProcessData[i].ptr = nullptr;
-		}
-	}
-
 	m_sLogoDataList.clear();
 	memset(&m_sProcessData, 0, sizeof(m_sProcessData));
 	m_nLogoIdx = LOGO_AUTO_SELECT_INVALID;
@@ -560,8 +553,8 @@ mfxStatus ProcessorDelogo::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *fr
 
 	m_pIn = frame_in;
 	m_pOut = frame_out;
-	m_sData[0] = param[0];
-	m_sData[1] = param[1];
+	m_sData[0] = &param[0];
+	m_sData[1] = &param[1];
 
 	return MFX_ERR_NONE;
 }

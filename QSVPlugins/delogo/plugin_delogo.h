@@ -21,7 +21,7 @@
 #include "logo.h"
 
 typedef struct {
-	short *ptr;
+	unique_ptr<mfxI16, aligned_malloc_deleter> pLogoPtr;
 	mfxU32 pitch;
 	mfxU32 i_start;
 	mfxU32 height;
@@ -41,7 +41,7 @@ public:
 	virtual mfxStatus Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out, const void *data) override;
 
 protected:
-	ProcessDataDelogo m_sData[2];
+	const ProcessDataDelogo *m_sData[2];
 };
 
 struct DelogoParam {
