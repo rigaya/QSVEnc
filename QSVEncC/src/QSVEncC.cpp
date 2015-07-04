@@ -1496,13 +1496,13 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("sar")))
 		{
 			i++;
-			if (2 == _stscanf_s(strInput[i], _T("%hdx%hd"), &pParams->nPAR[0], &pParams->nPAR[1]))
+			if (2 == _stscanf_s(strInput[i], _T("%dx%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
 				;
-			else if (2 == _stscanf_s(strInput[i], _T("%hd,%hd"), &pParams->nPAR[0], &pParams->nPAR[1]))
+			else if (2 == _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
 				;
-			else if (2 == _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nPAR[0], &pParams->nPAR[1]))
+			else if (2 == _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
 				;
-			else if (2 == _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nPAR[0], &pParams->nPAR[1]))
+			else if (2 == _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
 				;
 			else {
 				PrintHelp(strInput[0], _T("Unknown value"), option_name);
