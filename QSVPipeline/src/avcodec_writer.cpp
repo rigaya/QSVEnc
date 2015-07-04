@@ -483,7 +483,6 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
 	//API v1.6以下でdtsがQSVが提供されない場合、自前で計算する必要がある
 	//API v1.6ではB-pyramidが存在しないので、Bフレームがあるかないかだけ考慮するればよい
 	if (m_Mux.video.pStream) {
-		m_Mux.video.bDtsUnavailable = true; //ひとまずマニュアルでのdts生成を強制
 		if (m_Mux.video.bDtsUnavailable) {
 			m_Mux.video.nFpsBaseNextDts = (0 - (pMfxVideoPrm->mfx.GopRefDist > 0) - (cop2->BRefType == MFX_B_REF_PYRAMID)) * (1 + m_Mux.video.bIsPAFF);
 		}
