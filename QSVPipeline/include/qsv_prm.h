@@ -259,10 +259,10 @@ struct sInputParams
 	int       *pAudioExtractFileSelect; //選択した音声トラックのリスト 1,2,...(1から連番で指定)
 #ifdef _M_IX86
 	mfxU32     paddPtr5;
+#endif
 	TCHAR     **ppAudioExtractFormat; //抽出する音声ファイルのフォーマット
 #ifdef _M_IX86
 	mfxU32     paddPtr6;
-#endif
 #endif
 	TCHAR     *pAVMuxOutputFormat; //出力ファイルのフォーマット
 #ifdef _M_IX86
