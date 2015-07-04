@@ -44,15 +44,14 @@ mfxStatus DelogoProcessAVX2::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 	
 	if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
 	if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
-		UnlockFrame(m_pIn);
-		return sts;
+		return UnlockFrame(m_pIn);
 	}
 
 	process_delogo_frame_avx2(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, m_pIn->Data.Y,  m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH,      m_sData[0]);
 	process_delogo_frame_avx2(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.UV, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
 
-	sts = UnlockFrame(m_pIn);
-	sts = UnlockFrame(m_pOut);
+	if (MFX_ERR_NONE != (sts = UnlockFrame(m_pIn)))  return sts;
+	if (MFX_ERR_NONE != (sts = UnlockFrame(m_pOut))) return sts;
 
 	return sts;
 }
@@ -83,7 +82,5 @@ mfxStatus DelogoProcessD3DAVX2::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 	process_delogo_avx2<64>(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH,      m_sData[0]);
 	process_delogo_avx2<32>(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
 
-	sts = UnlockFrame(m_pOut);
-
-	return sts;
+	return UnlockFrame(m_pOut);
 }
