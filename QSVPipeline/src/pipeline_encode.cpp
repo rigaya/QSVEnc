@@ -1190,7 +1190,7 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
 	mfxStatus sts = MFX_ERR_NONE;
 	if (pParams->vpp.delogo.pFilePath) {
 		unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
-		DelogoParam param(pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
+		DelogoParam param(m_pMFXAllocator, m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
 			pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
 			pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset);
 		sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern);
