@@ -2916,6 +2916,10 @@ mfxStatus CEncodingPipeline::RunEncode()
 				if (MFX_ERR_NONE < dec_sts && !DecSyncPoint) {
 					if (MFX_WRN_DEVICE_BUSY == dec_sts)
 						sleep_hybrid(i); // wait if device is busy
+					if (i > 1024 * 1024 * 30) {
+						PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+						return MFX_ERR_UNKNOWN;
+					}
 				} else if (MFX_ERR_NONE < dec_sts && DecSyncPoint) {
 					dec_sts = MFX_ERR_NONE; // ignore warnings if output is available
 					break;
@@ -2943,6 +2947,10 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 			if (MFX_WRN_DEVICE_BUSY == filter_sts) {
 				sleep_hybrid(i);
+				if (i > 1024 * 1024 * 30) {
+					PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+					return MFX_ERR_UNKNOWN;
+				}
 			} else {
 				break;
 			}
@@ -2976,6 +2984,10 @@ mfxStatus CEncodingPipeline::RunEncode()
 				if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) { // repeat the call if warning and no output
 					if (MFX_WRN_DEVICE_BUSY == vpp_sts)
 						sleep_hybrid(i); // wait if device is busy
+					if (i > 1024 * 1024 * 30) {
+						PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+						return MFX_ERR_UNKNOWN;
+					}
 				} else if (MFX_ERR_NONE < vpp_sts && VppSyncPoint) {
 					vpp_sts = MFX_ERR_NONE; // ignore warnings if output is available
 					break;
@@ -3056,7 +3068,11 @@ mfxStatus CEncodingPipeline::RunEncode()
 			if (MFX_ERR_NONE < enc_sts && !pCurrentTask->EncSyncP) { // repeat the call if warning and no output
 				bDeviceBusy = true;
 				if (MFX_WRN_DEVICE_BUSY == enc_sts)
-					sleep_hybrid(i);
+				sleep_hybrid(i);
+				if (i > 1024 * 1024 * 30) {
+					PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+					return MFX_ERR_UNKNOWN;
+				}
 			} else if (MFX_ERR_NONE < enc_sts && pCurrentTask->EncSyncP) {
 				enc_sts = MFX_ERR_NONE; // ignore warnings if output is available
 				break;
