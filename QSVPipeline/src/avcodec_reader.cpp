@@ -317,6 +317,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 	m_Demux.format.nPreReadBufferIdx = UINT32_MAX; //PreReadBufferからの読み込みを禁止にする
 	clearAudioPacketList(m_PreReadBuffer);
+	m_PreReadBuffer.reserve(maxCheckFrames);
 
 	for (int i = 0; i < maxCheckFrames && getTotalDuration() < maxCheckSec && !getSample(&pkt); i++) {
 		int64_t pts = pkt.pts, dts = pkt.dts;
