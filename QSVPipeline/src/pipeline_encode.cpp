@@ -2899,10 +2899,12 @@ mfxStatus CEncodingPipeline::RunEncode()
 				MSDK_CHECK_RESULT_MES(dec_sts, MFX_ERR_NONE, dec_sts, _T("Error on getting video bitstream."));
 			}
 
+			getNextBitstream |= 0 < m_DecInputBitstream.DataLength;
+
 			//デコードも行う場合は、デコード用のフレームをpSurfVppInかpSurfEncInから受け取る
 			mfxFrameSurface1 *pSurfDecWork = pNextFrame;
 			mfxFrameSurface1 *pSurfDecOut = NULL;
-			mfxBitstream *pInputBitstream = (getNextBitstream || m_DecInputBitstream.DataLength) ? &m_DecInputBitstream : nullptr;
+			mfxBitstream *pInputBitstream = (getNextBitstream) ? &m_DecInputBitstream : nullptr;
 
 			//デコード前には、デコード用のパラメータでFrameInfoを更新
 			copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
@@ -2947,7 +2949,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 		}
 		// save the id of preceding vpp task which will produce input data for the encode task
 		if (filterSyncPoint) {
-			pCurrentTask->DependentVppTasks.push_back(filterSyncPoint);
+			//pCurrentTask->DependentVppTasks.push_back(filterSyncPoint);
 			filterSyncPoint = NULL;
 		}
 		return filter_sts;
@@ -3001,12 +3003,12 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 	auto encode_one_frame =[&](mfxFrameSurface1* pSurfEncIn) {
 		mfxStatus enc_sts = MFX_ERR_NONE;
-		bool bDeviceBusy = false;
 		mfxEncodeCtrl *ptrCtrl = NULL;
 		mfxEncodeCtrl encCtrl = { 0 };
-		// at this point surface for encoder contains either a frame from file or a frame processed by vpp
+
+		//以下の処理は
 		if (pSurfEncIn) {
-			if (!bDeviceBusy && m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
+			if (m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
 				if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {
 					mfxU32 currentFrameFlag = m_EncThread.m_InputBuf[pSurfEncIn->Data.TimeStamp].frameFlag;
 					if (nLastFrameFlag >> 8) {
@@ -3041,10 +3043,13 @@ mfxStatus CEncodingPipeline::RunEncode()
 			//TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
 			pSurfEncIn->Data.TimeStamp = (int)(nFramePutToEncoder * getTimeStampMul + 0.5);
 			nFramePutToEncoder++;
-		}
-		for (;;) {
+			//TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
 			pCurrentTask->mfxBS.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
 			pCurrentTask->mfxBS.DecodeTimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+		}
+
+		bool bDeviceBusy = false;
+		for (int i = 0; ; i++) {
 			enc_sts = m_pmfxENC->EncodeFrameAsync(ptrCtrl, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
 			bDeviceBusy = false;
 
