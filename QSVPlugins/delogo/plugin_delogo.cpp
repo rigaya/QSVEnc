@@ -171,7 +171,7 @@ mfxStatus Delogo::readLogoFile() {
 int Delogo::getLogoIdx(const std::string& logoName) {
 	int idx = LOGO_AUTO_SELECT_INVALID;
 	for (int i = 0; i < (int)m_sLogoDataList.size(); i++) {
-		if (std::string(m_sLogoDataList[i].header.name) == logoName) {
+		if (0 == strcmp(m_sLogoDataList[i].header.name, logoName.c_str())) {
 			idx = i;
 			break;
 		}
