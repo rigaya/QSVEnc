@@ -263,7 +263,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("   --vpp-delogo-y  <int>        set delogo y  param\n")
 			_T("   --vpp-delogo-cb <int>        set delogo cb param\n")
 			_T("   --vpp-delogo-cr <int>        set delogo cr param\n")
-			_T("   --vpp-half-turn              half turn video image\n"),
+			_T("   --vpp-half-turn              half turn video image\n")
+			_T("                                 unoptimized and very slow.\n"),
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
 			QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
