@@ -159,6 +159,7 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
 		SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_INFO, QSV_LOG_ERROR)] | (csbi.wAttributes & 0x00f0));
 	}
 	int ret = _ftprintf(stderr, mes);
+	fflush(stderr);
 	if (handle && log_level != QSV_LOG_INFO) {
 		SetConsoleTextAttribute(handle, csbi.wAttributes); //元に戻す
 	}
