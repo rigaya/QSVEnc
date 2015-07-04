@@ -33,6 +33,7 @@ typedef struct AVMuxFormat {
 #endif //USE_CUSTOM_IO
 	bool                  bStreamError;         //エラーが発生
 	bool                  bIsMatroska;          //mkvかどうか
+	bool                  bIsPipe;              //パイプ出力かどうか
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {
@@ -73,6 +74,7 @@ typedef struct AVMux {
 } AVMux;
 
 typedef struct AvcodecWriterPrm {
+	const TCHAR                 *pOutputFormat;           //出力のフォーマット
 	const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
 	bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
 	const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報

@@ -128,14 +128,20 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("                                 default: 5.\n")
 			_T("                                 could be only used with avqsv reader.\n")
 			_T("                                 use if reader fails to detect audio stream.\n")
-			_T("   --audio-file [<#>?]<string>  extract audio into file.\n")
-			_T("                                 in <#>, you can specify track number to extract.\n")
+			_T("   --audio-file [<int>?][<string>:]<string>\n")
+			_T("                                extract audio into file.\n")
 			_T("                                 could be only used with avqsv reader.\n")
+			_T("                                 below are optional,\n")
+			_T("                                  in [<int>?], specify track number to extract.\n")
+			_T("                                  in [<string>?], specify output format.\n")
 			_T("   --trim <int>:<int>[,<int>:<int>]...\n")
 			_T("                                trim video for the frame range specified.\n")
 			_T("                                 frame range should not overwrap each other.\n")
 			_T("                                 could be only used with avqsv reader.\n")
-			_T("   --mux-video                  force video output to use avcodec muxer.\n")
+			_T("   --mux-video [<string>]       force video output to use avcodec muxer.\n")
+			_T("                                 [<string>] is optional, to set output format.\n")
+			_T("                                 if output format is omitted, output format will.\n")
+			_T("                                 be guessed from output file extension.\n")
 			_T("                                 if output file extension is mp4/mkv/mov,\n")
 			_T("                                 avcodec muxer will used by default.\n")
 			_T("   --copy-audio [<int>[,...]]   mux audio with video during output.\n")
@@ -616,13 +622,23 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 				}
 				ptr = _tcschr(ptr, '?') + 1;
 			}
+			TCHAR *format = NULL;
+			TCHAR *qtr = _tcschr(ptr, ':');
+			if (qtr != NULL) {
+				int len = qtr - ptr;
+				format = (TCHAR *)calloc((len + 1), sizeof(format[0]));
+				memcpy(format, ptr, sizeof(format[0]) * len);
+				ptr = qtr + 1;
+			}
 			//追加するもののidx
 			const int idx = pParams->nAudioExtractFileCount;
 			//領域再確保
 			pParams->nAudioExtractFileCount++;
-			pParams->pAudioExtractFileSelect = (int *)realloc(pParams->pAudioExtractFileSelect, sizeof(pParams->pAudioExtractFileSelect[0]) * pParams->nAudioExtractFileCount);
-			pParams->ppAudioExtractFilename = (TCHAR **)realloc(pParams->ppAudioExtractFilename, sizeof(pParams->ppAudioExtractFilename[0]) * pParams->nAudioExtractFileCount);
+			pParams->pAudioExtractFileSelect   = (int *)realloc(pParams->pAudioExtractFileSelect, sizeof(pParams->pAudioExtractFileSelect[0]) * pParams->nAudioExtractFileCount);
+			pParams->ppAudioExtractFilename = (TCHAR **)realloc(pParams->ppAudioExtractFilename,  sizeof(pParams->ppAudioExtractFilename[0])  * pParams->nAudioExtractFileCount);
+			pParams->ppAudioExtractFormat    = (TCHAR **)realloc(pParams->ppAudioExtractFormat,   sizeof(pParams->ppAudioExtractFormat[0])    * pParams->nAudioExtractFileCount);
 			pParams->pAudioExtractFileSelect[idx] = trackId;
+			pParams->ppAudioExtractFormat[idx] = format;
 			int filename_len = (int)_tcslen(ptr);
 			//ファイル名が""でくくられてたら取り除く
 			if (ptr[0] == _T('\"') && ptr[filename_len-1] == _T('\"')) {
@@ -642,6 +658,12 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		else if (0 == _tcscmp(option_name, _T("mux-video")))
 		{
 			pParams->nAVMux |= QSVENC_MUX_VIDEO;
+			if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+				i++;
+				const int formatLen = (int)_tcslen(strInput[i]);
+				pParams->pAVMuxOutputFormat = (TCHAR *)realloc(pParams->pAVMuxOutputFormat, sizeof(pParams->pAVMuxOutputFormat[0]) * (formatLen + 1));
+				_tcscpy_s(pParams->pAVMuxOutputFormat, formatLen + 1, strInput[i]);
+			}
 		}
 		else if (0 == _tcscmp(option_name, _T("copy-audio")))
 		{

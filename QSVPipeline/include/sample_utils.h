@@ -222,6 +222,10 @@ public:
 
 	virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream);
 	virtual void Close();
+
+	virtual bool outputStdout() {
+		return m_bOutputIsStdout;
+	}
 	
 	const msdk_char *GetOutputMessage() {
 		const msdk_char *mes = m_strOutputInfo.c_str();
@@ -230,6 +234,7 @@ public:
 protected:
 	CEncodeStatusInfo *m_pEncSatusInfo;
 	FILE*       m_fSource;
+	bool        m_bOutputIsStdout;
 	bool        m_bInited;
 	bool        m_bNoOutput;
 	char*       m_pOutputBuffer;

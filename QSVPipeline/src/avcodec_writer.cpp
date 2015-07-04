@@ -7,6 +7,8 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  ---------------------------------------------------------------------------------------
 
+#include <io.h>
+#include <fcntl.h>
 #include <algorithm>
 #include <cctype>
 #include <memory>
@@ -251,24 +253,24 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputA
 		av_new_packet(&pMuxAudio->OutPacket, 512 * 1024);
 		pMuxAudio->OutPacket.size = 0;
 
-		//PCM encoder
-		if (NULL == (pMuxAudio->pOutCodecEncode = avcodec_find_encoder(codecId))) {
-			m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to find encoder"), codecId);
-			return MFX_ERR_NULL_PTR;
-		}
-		if (NULL == (pMuxAudio->pOutCodecEncodeCtx = avcodec_alloc_context3(pMuxAudio->pOutCodecEncode))) {
-			m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to get encode codec context"), codecId);
-			return MFX_ERR_NULL_PTR;
-		}
-		pMuxAudio->pOutCodecEncodeCtx->sample_fmt          = pInputAudio->pCodecCtx->sample_fmt;
-		pMuxAudio->pOutCodecEncodeCtx->sample_rate         = pInputAudio->pCodecCtx->sample_rate;
-		pMuxAudio->pOutCodecEncodeCtx->channels            = pInputAudio->pCodecCtx->channels;
-		pMuxAudio->pOutCodecEncodeCtx->channel_layout      = pInputAudio->pCodecCtx->channel_layout;
-		pMuxAudio->pOutCodecEncodeCtx->bits_per_raw_sample = pInputAudio->pCodecCtx->bits_per_raw_sample;
-		if (0 > avcodec_open2(pMuxAudio->pOutCodecEncodeCtx, pMuxAudio->pOutCodecEncode, NULL)) {
-			m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to open encoder"), codecId);
-			return MFX_ERR_NULL_PTR;
-		}
+//PCM encoder
+if (NULL == (pMuxAudio->pOutCodecEncode = avcodec_find_encoder(codecId))) {
+	m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to find encoder"), codecId);
+	return MFX_ERR_NULL_PTR;
+}
+if (NULL == (pMuxAudio->pOutCodecEncodeCtx = avcodec_alloc_context3(pMuxAudio->pOutCodecEncode))) {
+	m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to get encode codec context"), codecId);
+	return MFX_ERR_NULL_PTR;
+}
+pMuxAudio->pOutCodecEncodeCtx->sample_fmt = pInputAudio->pCodecCtx->sample_fmt;
+pMuxAudio->pOutCodecEncodeCtx->sample_rate = pInputAudio->pCodecCtx->sample_rate;
+pMuxAudio->pOutCodecEncodeCtx->channels = pInputAudio->pCodecCtx->channels;
+pMuxAudio->pOutCodecEncodeCtx->channel_layout = pInputAudio->pCodecCtx->channel_layout;
+pMuxAudio->pOutCodecEncodeCtx->bits_per_raw_sample = pInputAudio->pCodecCtx->bits_per_raw_sample;
+if (0 > avcodec_open2(pMuxAudio->pOutCodecEncodeCtx, pMuxAudio->pOutCodecEncode, NULL)) {
+	m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to open encoder"), codecId);
+	return MFX_ERR_NULL_PTR;
+}
 	} else if (pMuxAudio->pCodecCtxIn->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pCodecCtxIn->extradata == NULL && m_Mux.video.pStream) {
 		if (NULL == (pMuxAudio->pAACBsfc = av_bitstream_filter_init("aac_adtstoasc"))) {
 			m_strOutputInfo += _T("avcodec writer: failed to open bitstream filter for AAC audio.");
@@ -289,15 +291,15 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputA
 	//Tag mp4a/0x6134706d incompatible with output codec id '86018' ([64][0][0][0])のようなエラーを出すことがある
 	//そのため、必要な値だけをひとつづつコピーする
 	//avcodec_copy_context(pMuxAudio->pStream->codec, srcCodecCtx);
-	const AVCodecContext *srcCodecCtx          = (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx : pInputAudio->pCodecCtx;
-	pMuxAudio->pStream->codec->codec_type      = srcCodecCtx->codec_type;
-	pMuxAudio->pStream->codec->codec_id        = srcCodecCtx->codec_id;
-	pMuxAudio->pStream->codec->frame_size      = srcCodecCtx->frame_size;
-	pMuxAudio->pStream->codec->channels        = srcCodecCtx->channels;
-	pMuxAudio->pStream->codec->channel_layout  = srcCodecCtx->channel_layout;
+	const AVCodecContext *srcCodecCtx = (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx : pInputAudio->pCodecCtx;
+	pMuxAudio->pStream->codec->codec_type = srcCodecCtx->codec_type;
+	pMuxAudio->pStream->codec->codec_id = srcCodecCtx->codec_id;
+	pMuxAudio->pStream->codec->frame_size = srcCodecCtx->frame_size;
+	pMuxAudio->pStream->codec->channels = srcCodecCtx->channels;
+	pMuxAudio->pStream->codec->channel_layout = srcCodecCtx->channel_layout;
 	pMuxAudio->pStream->codec->ticks_per_frame = srcCodecCtx->ticks_per_frame;
-	pMuxAudio->pStream->codec->sample_rate     = srcCodecCtx->sample_rate;
-	pMuxAudio->pStream->codec->sample_fmt      = srcCodecCtx->sample_fmt;
+	pMuxAudio->pStream->codec->sample_rate = srcCodecCtx->sample_rate;
+	pMuxAudio->pStream->codec->sample_fmt = srcCodecCtx->sample_fmt;
 	if (srcCodecCtx->extradata_size) {
 		SetExtraData(pMuxAudio->pStream->codec, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
 	} else if (pMuxAudio->pCodecCtxIn->extradata_size) {
@@ -309,9 +311,9 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputA
 	pMuxAudio->pStream->time_base = av_make_q(1, pMuxAudio->pStream->codec->sample_rate);
 	pMuxAudio->pStream->codec->time_base = pMuxAudio->pStream->time_base;
 	if (m_Mux.video.pStream) {
-		pMuxAudio->pStream->start_time       = (int)av_rescale_q(pInputAudio->nDelayOfAudio, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
-		pMuxAudio->nDelaySamplesOfAudio      = (int)pMuxAudio->pStream->start_time;
-		pMuxAudio->nLastPtsOut               = pMuxAudio->pStream->start_time;
+		pMuxAudio->pStream->start_time = (int)av_rescale_q(pInputAudio->nDelayOfAudio, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
+		pMuxAudio->nDelaySamplesOfAudio = (int)pMuxAudio->pStream->start_time;
+		pMuxAudio->nLastPtsOut = pMuxAudio->pStream->start_time;
 	}
 	return MFX_ERR_NONE;
 }
@@ -321,7 +323,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 		m_strOutputInfo += error_mes_avcodec_dll_not_found();
 		return MFX_ERR_NULL_PTR;
 	}
-	
+
 	m_Mux.format.bStreamError = true;
 	AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
 
@@ -335,7 +337,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	avcodec_register_all();
 	av_log_set_level(QSV_AV_LOG_LEVEL);
 
-	if (NULL == (m_Mux.format.pOutputFmt = av_guess_format(NULL, filename.c_str(), NULL))) {
+	if (NULL == (m_Mux.format.pOutputFmt = av_guess_format((prm->pOutputFormat) ? tchar_to_string(prm->pOutputFormat).c_str() : NULL, filename.c_str(), NULL))) {
 		m_strOutputInfo += _T("avcodec writer: failed to assume format from output filename.\n");
 		m_strOutputInfo += _T("                please set proper extension for output file.\n");
 		return MFX_ERR_NULL_PTR;
@@ -343,42 +345,51 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 	m_Mux.format.pFormatCtx = avformat_alloc_context();
 	m_Mux.format.pFormatCtx->oformat = m_Mux.format.pOutputFmt;
 	m_Mux.format.bIsMatroska = 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "matroska");
+	m_Mux.format.bIsPipe = (0 == strcmp(filename.c_str(), "-")) || filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)");
 
-#if USE_CUSTOM_IO
-	m_Mux.format.nAVOutBufferSize = 1024 * 1024;
-	m_Mux.format.nOutputBufferSize = 16 * 1024 * 1024;
-	if (prm->pVideoInfo) {
-		m_Mux.format.nAVOutBufferSize *= 8;
-		m_Mux.format.nOutputBufferSize *= 4;
-	}
+	if (m_Mux.format.bIsPipe) {
+		if (_setmode(_fileno(stdout), _O_BINARY) < 0) {
+			m_strOutputInfo += _T("avcodec writer: failed to switch stdout to binary mode.\n");
+			return MFX_ERR_UNKNOWN;
+		}
+		if (0 == strcmp(filename.c_str(), "-")) {
+			m_bOutputIsStdout = true;
+			filename = "pipe:1";
+		}
+		if (0 > avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL)) {
+			m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
+			return MFX_ERR_NULL_PTR; // Couldn't open file
+		}
+	} else {
+		m_Mux.format.nAVOutBufferSize = 1024 * 1024;
+		m_Mux.format.nOutputBufferSize = 16 * 1024 * 1024;
+		if (prm->pVideoInfo) {
+			m_Mux.format.nAVOutBufferSize *= 8;
+			m_Mux.format.nOutputBufferSize *= 4;
+		}
 
-	if (NULL == (m_Mux.format.pAVOutBuffer = (mfxU8 *)av_malloc(m_Mux.format.nAVOutBufferSize))) {
-		m_strOutputInfo += _T("avcodec writer: failed to allocate muxer buffer.\n");
-		return MFX_ERR_NULL_PTR;
-	}
+		if (NULL == (m_Mux.format.pAVOutBuffer = (mfxU8 *)av_malloc(m_Mux.format.nAVOutBufferSize))) {
+			m_strOutputInfo += _T("avcodec writer: failed to allocate muxer buffer.\n");
+			return MFX_ERR_NULL_PTR;
+		}
 
-	if (fopen_s(&m_Mux.format.fpOutput, filename.c_str(), "wb")) {
-		m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
-		return MFX_ERR_NULL_PTR; // Couldn't open file
-	}
-	//確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
-	for ( ; m_Mux.format.nOutputBufferSize >= 1024 * 1024; m_Mux.format.nOutputBufferSize >>= 1) {
-		if (NULL != (m_Mux.format.pOutputBuffer = (char *)malloc(m_Mux.format.nOutputBufferSize))) {
-			setvbuf(m_Mux.format.fpOutput, m_Mux.format.pOutputBuffer, _IOFBF, m_Mux.format.nOutputBufferSize);
-			break;
+		if (fopen_s(&m_Mux.format.fpOutput, filename.c_str(), "wb")) {
+			m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
+			return MFX_ERR_NULL_PTR; // Couldn't open file
+		}
+		//確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
+		for (; m_Mux.format.nOutputBufferSize >= 1024 * 1024; m_Mux.format.nOutputBufferSize >>= 1) {
+			if (NULL != (m_Mux.format.pOutputBuffer = (char *)malloc(m_Mux.format.nOutputBufferSize))) {
+				setvbuf(m_Mux.format.fpOutput, m_Mux.format.pOutputBuffer, _IOFBF, m_Mux.format.nOutputBufferSize);
+				break;
+			}
+		}
+
+		if (NULL == (m_Mux.format.pFormatCtx->pb = avio_alloc_context(m_Mux.format.pAVOutBuffer, m_Mux.format.nAVOutBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
+			m_strOutputInfo += _T("avcodec writer: failed to alloc avio context.\n");
+			return MFX_ERR_NULL_PTR;
 		}
 	}
-
-	if (NULL == (m_Mux.format.pFormatCtx->pb = avio_alloc_context(m_Mux.format.pAVOutBuffer, m_Mux.format.nAVOutBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
-		m_strOutputInfo += _T("avcodec writer: failed to alloc avio context.\n");
-		return MFX_ERR_NULL_PTR;
-	}
-#else
-	if (0 > avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL)) {
-		m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
-		return MFX_ERR_NULL_PTR; // Couldn't open file
-	}
-#endif
 	if (prm->pVideoInfo) {
 		mfxStatus sts = InitVideo(prm);
 		if (sts != MFX_ERR_NONE) {

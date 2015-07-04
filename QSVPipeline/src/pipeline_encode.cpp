@@ -1791,15 +1791,17 @@ void CEncodingPipeline::SetMultiView()
 
 mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 	mfxStatus sts = MFX_ERR_NONE;
+	bool stdoutUsed = false;
 	// prepare output file writer
 #if ENABLE_AVCODEC_QSV_READER
 	vector<int> audioTrackUsed; //使用した音声のトラックIDを保存する
-	if (check_ext(pParams->strDstFile, { ".mp4", ".mkv", ".mov" })) {
+	if (check_ext(pParams->strDstFile, { ".mp4", ".mkv", ".mov" }) || pParams->pAVMuxOutputFormat) {
 		pParams->nAVMux |= QSVENC_MUX_VIDEO;
 	}
 	if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
 		m_pFileWriter = new CAvcodecWriter();
 		AvcodecWriterPrm writerPrm = { 0 };
+		writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
 		writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
 		writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
 		writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
@@ -1844,6 +1846,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 		} else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
 			m_pFileWriterListAudio.push_back(m_pFileWriter);
 		}
+		stdoutUsed = m_pFileWriter->outputStdout();
 	} else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
 		PrintMes(QSV_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
 		return MFX_ERR_UNSUPPORTED;
@@ -1856,6 +1859,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 			PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
 			return sts;
 		}
+		stdoutUsed = m_pFileWriter->outputStdout();
 #if ENABLE_AVCODEC_QSV_READER
 	} //ENABLE_AVCODEC_QSV_READER
 
@@ -1882,13 +1886,20 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 					}
 					auto pWriter = new CAvcodecWriter();
 					AvcodecWriterPrm writerAudioPrm = { 0 };
+					writerAudioPrm.pOutputFormat = pParams->ppAudioExtractFormat[i];
 					writerAudioPrm.inputAudioList.push_back(*audioTrackInfo);
 					sts = pWriter->Init(pParams->ppAudioExtractFilename[i], &writerAudioPrm, m_pEncSatusInfo);
 					if (sts < MFX_ERR_NONE) {
 						PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
 						return sts;
 					}
-					m_pFileWriterListAudio.push_back(pWriter);
+					bool audioStdout = pWriter->outputStdout();
+					if (stdoutUsed && audioStdout) {
+						PrintMes(QSV_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
+						return MFX_ERR_INVALID_AUDIO_PARAM;
+					}
+					stdoutUsed |= audioStdout;
+					m_pFileWriterListAudio.push_back(std::move(pWriter));
 				} else if (audioTrackUsed.end() == std::find(audioTrackUsed.begin(), audioTrackUsed.end(), findTrackId)) {
 					//--copy-audioでも使われていない音声ならなにかおかしなことが起こっている
 					PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is not available to extract.\n"), findTrackId);
