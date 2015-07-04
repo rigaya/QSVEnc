@@ -2909,13 +2909,13 @@ mfxStatus CEncodingPipeline::RunEncode()
 			//デコード前には、デコード用のパラメータでFrameInfoを更新
 			copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
 
-			for (;;) {
+			for (int i = 0; ; i++) {
 				mfxSyncPoint DecSyncPoint = NULL;
 				dec_sts = m_pmfxDEC->DecodeFrameAsync(pInputBitstream, pSurfDecWork, &pSurfDecOut, &DecSyncPoint);
 
 				if (MFX_ERR_NONE < dec_sts && !DecSyncPoint) {
 					if (MFX_WRN_DEVICE_BUSY == dec_sts)
-						Sleep(1); // wait if device is busy
+						sleep_hybrid(i); // wait if device is busy
 				} else if (MFX_ERR_NONE < dec_sts && DecSyncPoint) {
 					dec_sts = MFX_ERR_NONE; // ignore warnings if output is available
 					break;
@@ -2935,14 +2935,14 @@ mfxStatus CEncodingPipeline::RunEncode()
 		mfxStatus filter_sts = MFX_ERR_NONE;
 		mfxSyncPoint filterSyncPoint = NULL;
 
-		for (;;) {
+		for (int i = 0; ; i++) {
 			mfxHDL *h1 = (mfxHDL *)ppSurfIn;
 			mfxHDL *h2 = (mfxHDL *)ppSurfOut;
 
 			filter_sts = MFXVideoUSER_ProcessFrameAsync(filter->getSession(), h1, 1, h2, 1, &filterSyncPoint);
 
 			if (MFX_WRN_DEVICE_BUSY == filter_sts) {
-				MSDK_SLEEP(1);
+				sleep_hybrid(i);
 			} else {
 				break;
 			}
@@ -2970,12 +2970,12 @@ mfxStatus CEncodingPipeline::RunEncode()
 			//vpp前に、vpp用のパラメータでFrameInfoを更新
 			copy_crop_info(pSurfVppIn, &m_mfxVppParams.mfx.FrameInfo);
 
-			for (;;) {
+			for (int i = 0; ; i++) {
 				vpp_sts = m_pmfxVPP->RunFrameVPPAsync(pSurfVppIn, pSurfVppOut, NULL, &VppSyncPoint);
 
 				if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) { // repeat the call if warning and no output
 					if (MFX_WRN_DEVICE_BUSY == vpp_sts)
-						Sleep(1); // wait if device is busy
+						sleep_hybrid(i); // wait if device is busy
 				} else if (MFX_ERR_NONE < vpp_sts && VppSyncPoint) {
 					vpp_sts = MFX_ERR_NONE; // ignore warnings if output is available
 					break;
@@ -3056,7 +3056,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 			if (MFX_ERR_NONE < enc_sts && !pCurrentTask->EncSyncP) { // repeat the call if warning and no output
 				bDeviceBusy = true;
 				if (MFX_WRN_DEVICE_BUSY == enc_sts)
-					Sleep(1); // wait if device is busy
+					sleep_hybrid(i);
 			} else if (MFX_ERR_NONE < enc_sts && pCurrentTask->EncSyncP) {
 				enc_sts = MFX_ERR_NONE; // ignore warnings if output is available
 				break;

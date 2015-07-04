@@ -296,6 +296,13 @@ static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
 	_mm_storeu_ps((float*)(dst_tmp + 48), x3);
 }
 
+static void __forceinline sleep_hybrid(int count) {
+	_mm_pause();
+	if ((count & 255) == 255) {
+		 Sleep((count & 1023) == 1023);
+	}
+}
+
 const int MAX_FILENAME_LEN = 1024;
 
 #endif //_QSV_UTIL_H_
