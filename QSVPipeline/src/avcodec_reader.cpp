@@ -891,7 +891,7 @@ AVDemuxAudio *CAvcodecReader::getAudioPacketStreamData(const AVPacket *pkt) {
 
 int CAvcodecReader::getSample(AVPacket *pkt) {
 	av_init_packet(pkt);
-	auto get_sample = [this](AVPacket *pkt) {
+	auto get_sample = [this](AVPacket *pkt, bool *fromPreReadBuffer) {
 		if (m_Demux.format.nPreReadBufferIdx < m_PreReadBuffer.size()) {
 			*pkt = m_PreReadBuffer[m_Demux.format.nPreReadBufferIdx];
 			m_Demux.format.nPreReadBufferIdx++;
@@ -899,27 +899,31 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 				m_PreReadBuffer.clear();
 				m_Demux.format.nPreReadBufferIdx = UINT32_MAX;
 			}
+			*fromPreReadBuffer = true;
 			return 0;
 		} else {
 			return av_read_frame(m_Demux.format.pFormatCtx, pkt);
 		}
 	};
-	while (get_sample(pkt) >= 0) {
+	bool fromPreReadBuffer = false;
+	while (get_sample(pkt, &fromPreReadBuffer) >= 0) {
 		if (pkt->stream_index == m_Demux.video.nIndex) {
-			if (m_Demux.video.pH264Bsfc) {
-				mfxU8 *data = NULL;
-				int dataSize = 0;
-				std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
-				std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-				av_bitstream_filter_filter(m_Demux.video.pH264Bsfc, m_Demux.video.pCodecCtx, nullptr,
-					&data, &dataSize, pkt->data, pkt->size, 0);
-				std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
-				std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-				av_free_packet(pkt); //メモリ解放を忘れない
-				av_packet_from_data(pkt, data, dataSize);
-			}
-			if (m_Demux.video.bUseHEVCmp42AnnexB) {
-				hevcMp42Annexb(pkt);
+			if (!fromPreReadBuffer) {
+				if (m_Demux.video.pH264Bsfc) {
+					mfxU8 *data = NULL;
+					int dataSize = 0;
+					std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
+					std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
+					av_bitstream_filter_filter(m_Demux.video.pH264Bsfc, m_Demux.video.pCodecCtx, nullptr,
+						&data, &dataSize, pkt->data, pkt->size, 0);
+					std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
+					std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
+					av_free_packet(pkt); //メモリ解放を忘れない
+					av_packet_from_data(pkt, data, dataSize);
+				}
+				if (m_Demux.video.bUseHEVCmp42AnnexB) {
+					hevcMp42Annexb(pkt);
+				}
 			}
 			//最初のptsが格納されていたら( = getFirstFramePosAndFrameRate()が実行済み)、後続のptsを格納していく
 			if (m_Demux.video.frameData.num) {
