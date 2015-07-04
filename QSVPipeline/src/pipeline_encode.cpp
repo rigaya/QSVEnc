@@ -1178,9 +1178,12 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 	return MFX_ERR_NONE;
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4100)
 mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
-	tstring vppPreMes = _T("");
 	mfxStatus sts = MFX_ERR_NONE;
+#if ENABLE_CUSTOM_VPP
+	tstring vppPreMes = _T("");
 	if (pParams->vpp.delogo.pFilePath) {
 		unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
 		DelogoParam param(m_pMFXAllocator, m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
@@ -1213,11 +1216,10 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
 		}
 	}
 	VppExtMes = vppPreMes + VppExtMes;
+#endif
 	return sts;
 }
 
-#pragma warning (push)
-#pragma warning (disable: 4100)
 mfxStatus CEncodingPipeline::InitVppPostPlugins(sInputParams *pParams) {
 	return MFX_ERR_NONE;
 }

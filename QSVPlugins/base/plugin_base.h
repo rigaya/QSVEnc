@@ -12,7 +12,7 @@
 
 #include <memory>
 #include <vector>
-
+#include "qsv_version.h"
 #include "mfx_plugin_base.h"
 #include "sample_defs.h"
 #include "qsv_util.h"
@@ -277,6 +277,5 @@ protected:
 	tstring m_message;
 };
 #pragma warning (pop)
-
 
 #endif // __PLUGIN_BASE_H__
