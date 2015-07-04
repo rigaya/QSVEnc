@@ -1115,9 +1115,7 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 		m_ExtDenoise.DenoiseFactor  = pParams->vpp.nDenoise;
 		m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise);
 
-		TStringStream stream;
-		stream << _T("Denoise, strength ") << m_ExtDenoise.DenoiseFactor << _T("\n");
-		VppExtMes += stream.str();
+		VppExtMes += strsprintf(_T("Denoise, strength %d\n"), m_ExtDenoise.DenoiseFactor);
 		m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
 	} else {
 		m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
@@ -1127,10 +1125,8 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 		INIT_MFX_EXT_BUFFER(m_ExtImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
 		m_ExtImageStab.Mode = pParams->vpp.nImageStabilizer;
 		m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtImageStab);
-
-		TStringStream stream;
-		stream << _T("Image Stabilizer, mode ") << get_vpp_image_stab_mode_str(m_ExtImageStab.Mode) << _T("\n");
-		VppExtMes += stream.str();
+		
+		VppExtMes += strsprintf(_T("Stabilizer, mode %s\n"), get_vpp_image_stab_mode_str(m_ExtImageStab.Mode));
 		m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
 	}
 
@@ -1138,11 +1134,8 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 		INIT_MFX_EXT_BUFFER(m_ExtDetail, MFX_EXTBUFF_VPP_DETAIL);
 		m_ExtDetail.DetailFactor = pParams->vpp.nDetailEnhance;
 		m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDetail);
-
-		TStringStream stream;
-		stream << _T("Detail Enhancer, strength ") << m_ExtDetail.DetailFactor << _T("\n");
-		VppExtMes += stream.str();
-		m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DETAIL);
+		
+		VppExtMes += strsprintf(_T("Detail Enhancer, strength %d\n"), m_ExtDetail.DetailFactor);
 	} else {
 		m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DETAIL);
 	}
@@ -2411,17 +2404,11 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 		MSDK_CHECK_POINTER(m_pmfxVPP, MFX_ERR_MEMORY_ALLOC);
 	}
 	if (m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC) {
-		VppExtMes += _T("ColorFmtConvertion: ");
-		VppExtMes += ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC);
-		VppExtMes += _T(" -> ");
-		VppExtMes += ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC);
-		VppExtMes += _T("\n");
+		VppExtMes += strsprintf(_T("ColorFmtConvertion: %s -> %s\n"), ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC));
 	}
 	if (pParams->nWidth  != pParams->nDstWidth ||
 		pParams->nHeight != pParams->nDstHeight) {
-		TCHAR mes[256];
-		_stprintf_s(mes, _countof(mes), _T("Resizer, %dx%d -> %dx%d\n"), pParams->nWidth, pParams->nHeight, pParams->nDstWidth, pParams->nDstHeight);
-		VppExtMes += mes;
+		VppExtMes += strsprintf(_T("Resizer, %dx%d -> %dx%d\n"), pParams->nWidth, pParams->nHeight, pParams->nDstWidth, pParams->nDstHeight);
 	}
 	
 	if (!pParams->bDisableTimerPeriodTuning) {
