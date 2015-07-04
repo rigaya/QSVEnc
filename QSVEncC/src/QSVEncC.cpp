@@ -1616,6 +1616,11 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 	return MFX_ERR_NONE;
 }
 
+bool check_locale_is_ja() {
+	const WORD LangID_ja_JP = MAKELANGID(LANG_JAPANESE, SUBLANG_JAPANESE_JAPAN);
+	return GetUserDefaultLangID() == LangID_ja_JP;
+}
+
 //Ctrl + C ハンドラ
 static bool g_signal_abort = false;
 #pragma warning(push)
@@ -1929,6 +1934,10 @@ int run(int argc, TCHAR *argv[]) {
 			PrintHelp(argv[0], _T("failed to switch stdout to binary mode."), NULL);
 			return 1;
 		}
+	}
+
+	if (check_locale_is_ja()) {
+		_tsetlocale(LC_ALL, _T("Japanese"));
 	}
 
 	if (Params.bBenchmark) {
