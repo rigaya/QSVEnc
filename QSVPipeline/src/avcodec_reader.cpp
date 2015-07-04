@@ -7,6 +7,8 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  ---------------------------------------------------------------------------------------
 
+#include <io.h>
+#include <fcntl.h>
 #include <algorithm>
 #include <numeric>
 #include <cctype>
@@ -312,6 +314,10 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		}
 		return diff * m_Demux.video.pCodecCtx->pkt_timebase.num / m_Demux.video.pCodecCtx->pkt_timebase.den;
 	};
+
+	m_Demux.format.nPreReadBufferIdx = UINT32_MAX; //PreReadBufferからの読み込みを禁止にする
+	clearAudioPacketList(m_PreReadBuffer);
+
 	for (int i = 0; i < maxCheckFrames && getTotalDuration() < maxCheckSec && !getSample(&pkt); i++) {
 		int64_t pts = pkt.pts, dts = pkt.dts;
 		FramePos pos = { (pts == AV_NOPTS_VALUE) ? dts : pts, dts, pkt.duration, pkt.flags };
@@ -355,7 +361,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 				return decsts;
 			}
 		}
-		av_free_packet(&pkt);
+		m_PreReadBuffer.push_back(pkt);
 	}
 	//上記ループで最後まで行ってしまうと値が入ってしまうので初期化
 	m_Demux.video.frameData.duration = 0;
@@ -483,53 +489,25 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 		estimatedAvgFps.den = m_Demux.video.pCodecCtx->time_base.num * mul;
 	}
 
-	//TimeStampベースで最初のフレームに戻す
-	//まずpts=0でもとに戻してみる。多くの場合これで良い結果を得る
-	if (0 <= av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, 0, AVSEEK_FLAG_BACKWARD)) {
-		//pts=0で成功してもファイルの最後にいっている場合があるので、getSampleでこれを確認する
-		//その場合は、実際のptsでシークを試みる
-		int getSampleRet = getSample(&pkt);
-		//上記getSampleで値が入ってしまうので初期化
-		m_Demux.video.frameData.duration = 0;
-		m_Demux.video.frameData.fixed_num = 0;
-		m_Demux.video.frameData.num = 0;
-		av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex,
-			(getSampleRet) ? m_Demux.video.nStreamFirstPts : 0, //flvでは実際のptsの指定が必要
-			(getSampleRet) ? AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_ANY : AVSEEK_FLAG_BACKWARD); //flvではAVSEEK_FLAG_ANYも必要
-		if (pkt.data) {
-			av_free_packet(&pkt);
-		}
-		if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_ALL_INVALID) {
-			//ptsとdurationをpkt_timebaseで適当に作成する
-			addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, m_Demux.video.pCodecCtx->time_base, m_Demux.video.pCodecCtx->pkt_timebase), firstKeyframePos.flags });
-			m_Demux.video.nAvgFramerate = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder;
-		} else {
-			addVideoPtsToList(firstKeyframePos);
-			if (fpsDecoderInvalid) {
-				m_Demux.video.nAvgFramerate = estimatedAvgFps;
-			} else {
-				double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
-				double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
-				//2フレーム分程度がもたらす誤差があっても許容する
-				if (abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / framePosList.size())) {
-					m_Demux.video.nAvgFramerate = fpsDecoder;
-				} else {
-					double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
-					//durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
-					m_Demux.video.nAvgFramerate = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder : estimatedAvgFps;
-				}
-			}
-		}
-	} else {
-		//失敗したら、Byte単位でのシークを試み、最初に戻す
-		m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
+	if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_ALL_INVALID) {
+		//ptsとdurationをpkt_timebaseで適当に作成する
+		addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, m_Demux.video.pCodecCtx->time_base, m_Demux.video.pCodecCtx->pkt_timebase), firstKeyframePos.flags });
 		m_Demux.video.nAvgFramerate = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder;
-		if (0 <= av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, 0, AVSEEK_FLAG_BACKWARD|AVSEEK_FLAG_BYTE)) {
-			//ptsとdurationをpkt_timebaseで適当に作成する
-			addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, m_Demux.video.pCodecCtx->time_base, m_Demux.video.pCodecCtx->pkt_timebase), firstKeyframePos.flags });
+	} else {
+		addVideoPtsToList(firstKeyframePos);
+		if (fpsDecoderInvalid) {
+			m_Demux.video.nAvgFramerate = estimatedAvgFps;
 		} else {
-			m_strInputInfo += _T("avcodec reader: failed to seek backward.\n");
-			return MFX_ERR_UNSUPPORTED;
+			double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
+			double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
+			//2フレーム分程度がもたらす誤差があっても許容する
+			if (abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / framePosList.size())) {
+				m_Demux.video.nAvgFramerate = fpsDecoder;
+			} else {
+				double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
+				//durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
+				m_Demux.video.nAvgFramerate = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder : estimatedAvgFps;
+			}
 		}
 	}
 
@@ -598,8 +576,10 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 			return MFX_ERR_UNDEFINED_BEHAVIOR;
 		}
 	}
-	//あとでもう一度読み直すのでこの関数内で読んだものは破棄する
-	clearAudioPacketList(audioBuffer);
+	//音声パケットもm_PreReadBufferに接続する
+	m_PreReadBuffer.insert(m_PreReadBuffer.end(), audioBuffer.begin(), audioBuffer.end());
+	audioBuffer.clear();
+	m_Demux.format.nPreReadBufferIdx = 0; //PreReadBufferからの読み込み優先にする
 
 	return MFX_ERR_NONE;
 }
@@ -640,12 +620,20 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 		m_strInputInfo += _T("avcodec reader: failed to convert filename to ansi characters.\n");
 		return MFX_ERR_INVALID_HANDLE;
 	}
+	m_Demux.format.bIsPipe = (0 == strcmp(filename_char.c_str(), "-")) || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
 	m_Demux.format.pFormatCtx = avformat_alloc_context();
 	m_Demux.format.nAnalyzeSec = input_prm->nAnalyzeSec;
 	if (m_Demux.format.nAnalyzeSec) {
 		if (av_opt_set_int(m_Demux.format.pFormatCtx, "probesize", m_Demux.format.nAnalyzeSec * AV_TIME_BASE, 0)) {
 			AVDEBUG_PRINT("avcodec reader: failed to set probesize.\n");
 		}
+	}
+	if (0 == strcmp(filename_char.c_str(), "-")) {
+		if (_setmode(_fileno(stdin), _O_BINARY) < 0) {
+			m_strInputInfo += _T("avcodec reader: failed to switch stdin to binary mode.");
+			return MFX_ERR_UNKNOWN;
+		}
+		filename_char = "pipe:0";
 	}
 	if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), nullptr, nullptr)) {
 		m_strInputInfo += _T("avcodec reader: error opening file.\n");
@@ -903,7 +891,20 @@ AVDemuxAudio *CAvcodecReader::getAudioPacketStreamData(const AVPacket *pkt) {
 
 int CAvcodecReader::getSample(AVPacket *pkt) {
 	av_init_packet(pkt);
-	while (av_read_frame(m_Demux.format.pFormatCtx, pkt) >= 0) {
+	auto get_sample = [this](AVPacket *pkt) {
+		if (m_Demux.format.nPreReadBufferIdx < m_PreReadBuffer.size()) {
+			*pkt = m_PreReadBuffer[m_Demux.format.nPreReadBufferIdx];
+			m_Demux.format.nPreReadBufferIdx++;
+			if (m_Demux.format.nPreReadBufferIdx >= m_PreReadBuffer.size()) {
+				m_PreReadBuffer.clear();
+				m_Demux.format.nPreReadBufferIdx = UINT32_MAX;
+			}
+			return 0;
+		} else {
+			return av_read_frame(m_Demux.format.pFormatCtx, pkt);
+		}
+	};
+	while (get_sample(pkt) >= 0) {
 		if (pkt->stream_index == m_Demux.video.nIndex) {
 			if (m_Demux.video.pH264Bsfc) {
 				mfxU8 *data = NULL;

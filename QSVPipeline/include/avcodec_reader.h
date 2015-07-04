@@ -53,6 +53,8 @@ typedef struct VideoFrameData {
 typedef struct AVDemuxFormat {
 	AVFormatContext          *pFormatCtx;            //動画ファイルのformatContext
 	int                       nAnalyzeSec;           //動画ファイルを先頭から分析する時間
+	bool                      bIsPipe;               //入力がパイプ
+	uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
@@ -180,6 +182,7 @@ private:
 
 	AVDemuxer        m_Demux;                      //デコード用情報
 	vector<mfxU8>    m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
+	vector<AVPacket> m_PreReadBuffer;              //解析用に先行取得した映像パケット
 	vector<AVPacket> m_AudioPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
 	vector<AVPacket> m_AudioPacketsBufferL2;       //音声のAVPacketのバッファ
 	mfxU32           m_AudioPacketsBufferL2Used;   //m_AudioPacketsBufferL2のパケットのうち、すでに使用したもの
