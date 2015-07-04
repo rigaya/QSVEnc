@@ -1666,16 +1666,6 @@ mfxStatus run_benchmark(sInputParams *params) {
 
 	//初回出力
 	{
-		auto tchar_to_char = [](const TCHAR *tstr) {
-	#if UNICODE
-			int length_required = 1 + WideCharToMultiByte(CP_ACP, 0, tstr, -1, NULL, 0, NULL, NULL);
-			string str(length_required, _T('\0'));
-			WideCharToMultiByte(CP_ACP, 0, tstr, -1, &str[0], (int)str.size(), NULL, NULL);
-	#else
-			string str = tstr;
-	#endif
-			return str;
-		};
 		params->nDstWidth = test_resolution[0].first;
 		params->nDstHeight = test_resolution[0].second;
 		params->nTargetUsage = MFX_TARGETUSAGE_BEST_SPEED;
@@ -1717,10 +1707,10 @@ mfxStatus run_benchmark(sInputParams *params) {
 				sysTime.wYear, sysTime.wMonth, sysTime.wDay, sysTime.wHour, sysTime.wMinute, sysTime.wSecond);
 			fprintf(fp_bench, "Basic parameters of the benchmark\n"
 							  " (Target Usage and output resolution will be changed)\n");
-			fprintf(fp_bench, "%s\n\n", tchar_to_char(encode_info).c_str());
-			fprintf(fp_bench, tchar_to_char(enviroment_info).c_str());
+			fprintf(fp_bench, "%s\n\n", tchar_to_string(encode_info).c_str());
+			fprintf(fp_bench, tchar_to_string(enviroment_info).c_str());
 			fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n", 
-				VER_STR_FILEVERSION, tchar_to_char(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor, tchar_to_char(MemTypeToStr(memtype)).c_str());
+				VER_STR_FILEVERSION, tchar_to_string(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor, tchar_to_string(MemTypeToStr(memtype)).c_str());
 			fprintf(fp_bench, "\n");
 			fclose(fp_bench);
 		}
