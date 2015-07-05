@@ -1960,8 +1960,9 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVCODEC_QSV_READER
 		if (check_ext(pParams->strSrcFile, { ".mp4", ".m4v", ".mkv", ".mov",
-			".mts", ".m2ts", ".ts", ".264", ".avc", ".265", ".hevc",
-			".mpg", ".mpeg", "m2v", ".vob", ".flv", ".ogm" }))
+			".mts", ".m2ts", ".ts", ".264", ".h264", ".x264", ".avc", ".avc1",
+			".265", ".h265", ".hevc",
+			".mpg", ".mpeg", "m2v", ".vob", ".vro",".flv", ".ogm" }))
 			pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
 		else
 #endif //ENABLE_AVCODEC_QSV_READER
