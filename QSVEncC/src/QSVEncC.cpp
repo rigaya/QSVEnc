@@ -138,12 +138,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("                                trim video for the frame range specified.\n")
 			_T("                                 frame range should not overwrap each other.\n")
 			_T("                                 could be only used with avqsv reader.\n")
-			_T("   --mux-video [<string>]       force video output to use avcodec muxer.\n")
-			_T("                                 [<string>] is optional, to set output format.\n")
-			_T("                                 if output format is omitted, output format will.\n")
+			_T("-f,--format <string>            set output format of output file.\n")
+			_T("                                 if format is not specified, output format will\n")
 			_T("                                 be guessed from output file extension.\n")
-			_T("                                 if output file extension is mp4/mkv/mov,\n")
-			_T("                                 avcodec muxer will used by default.\n")
+			_T("                                 set \"raw\" for H.264/ES output.\n")
 			_T("   --copy-audio [<int>[,...]]   mux audio with video during output.\n")
 			_T("                                 could be only used with\n")
 			_T("                                 avqsv reader and avcodec muxer.\n")
@@ -156,7 +154,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 			_T("                                if not specified YV12 is expected\n")
 			_T("   --tff                        set as interlaced, top field first\n")
 			_T("   --bff                        set as interlaced, bottom field first\n")
-			_T("-f,--fps <int>/<int> or <float> video frame rate (frames per second)\n")
+			_T("   --fps <int>/<int> or <float> video frame rate (frames per second)\n")
 			_T("\n")
 			_T("   --input-res <int>x<int>      input resolution\n")
 			_T("   --output-res <int>x<int>     output resolution\n")
@@ -418,7 +416,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 					option_name = _T("quality");
 					break;
 				case _T('f'):
-					option_name = _T("fps");
+					option_name = _T("format");
 					break;
 				case _T('i'):
 					option_name = _T("input-file");
@@ -655,7 +653,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 			pParams->ppAudioExtractFilename[idx] = (TCHAR *)calloc((filename_len + 1), sizeof(pParams->ppAudioExtractFilename[idx][0]));
 			memcpy(pParams->ppAudioExtractFilename[idx], ptr, sizeof(pParams->ppAudioExtractFilename[idx][0]) * filename_len);
 		}
-		else if (0 == _tcscmp(option_name, _T("mux-video")))
+		else if (0 == _tcscmp(option_name, _T("format")))
 		{
 			pParams->nAVMux |= QSVENC_MUX_VIDEO;
 			if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {

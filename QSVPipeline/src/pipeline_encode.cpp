@@ -1790,7 +1790,11 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 	// prepare output file writer
 #if ENABLE_AVCODEC_QSV_READER
 	vector<int> audioTrackUsed; //使用した音声のトラックIDを保存する
-	if (check_ext(pParams->strDstFile, { ".mp4", ".mkv", ".mov" }) || pParams->pAVMuxOutputFormat) {
+	bool useH264ESOutput =
+		((pParams->pAVMuxOutputFormat && 0 == _tcscmp(pParams->pAVMuxOutputFormat, _T("raw")))) //--formatにrawが指定されている
+		|| (PathFindExtension(pParams->strDstFile) == nullptr || PathFindExtension(pParams->strDstFile)[0] != '.') //拡張子がしない
+		|| check_ext(pParams->strDstFile, { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
+	if (!useH264ESOutput) {
 		pParams->nAVMux |= QSVENC_MUX_VIDEO;
 	}
 	if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
