@@ -2332,6 +2332,12 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 	MSDK_CHECK_POINTER(pParams, MFX_ERR_NULL_PTR);
 
 	mfxStatus sts = MFX_ERR_NONE;
+	
+	if (pParams->bBenchmark) {
+		pParams->nAVMux = QSVENC_MUX_NONE;
+		MSDK_SAFE_FREE(pParams->ppAudioExtractFilename);
+		pParams->pAVMuxOutputFormat = _T("raw");
+	}
 
 	sts = InitInput(pParams);
 	if (sts < MFX_ERR_NONE) return sts;
