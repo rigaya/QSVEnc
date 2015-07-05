@@ -34,7 +34,7 @@ extern "C" {
 #if _DEBUG
 #define QSV_AV_LOG_LEVEL AV_LOG_WARNING
 #else
-#define QSV_AV_LOG_LEVEL AV_LOG_FATAL
+#define QSV_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
 
 typedef struct QSVCodec {
