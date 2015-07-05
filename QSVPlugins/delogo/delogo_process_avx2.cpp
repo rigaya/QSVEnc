@@ -18,13 +18,13 @@
 #include "delogo_process.h"
 
 static __declspec(noinline) void process_delogo_frame_avx2(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
-	mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
-	process_delogo_frame(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
+    mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
+    process_delogo_frame(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
 }
 
 template<mfxU32 step>
 static __declspec(noinline) void process_delogo_avx2(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
-	process_delogo<step>(ptr, pitch, buffer, height_start, height_fin, data);
+    process_delogo<step>(ptr, pitch, buffer, height_start, height_fin, data);
 }
 
 DelogoProcessAVX2::DelogoProcessAVX2() : ProcessorDelogo() {
@@ -34,26 +34,26 @@ DelogoProcessAVX2::~DelogoProcessAVX2() {
 }
 
 mfxStatus DelogoProcessAVX2::Process(DataChunk *chunk, mfxU8 *pBuffer) {
-	MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
+    MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
 
-	if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
-		return MFX_ERR_UNSUPPORTED;
-	}
+    if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
+        return MFX_ERR_UNSUPPORTED;
+    }
 
-	mfxStatus sts = MFX_ERR_NONE;
-	
-	if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
-	if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
-		return UnlockFrame(m_pIn);
-	}
+    mfxStatus sts = MFX_ERR_NONE;
+    
+    if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
+    if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+        return UnlockFrame(m_pIn);
+    }
 
-	process_delogo_frame_avx2(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, m_pIn->Data.Y,  m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH,      m_sData[0]);
-	process_delogo_frame_avx2(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.UV, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
+    process_delogo_frame_avx2(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, m_pIn->Data.Y,  m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH,      m_sData[0]);
+    process_delogo_frame_avx2(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.UV, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
 
-	if (MFX_ERR_NONE != (sts = UnlockFrame(m_pIn)))  return sts;
-	if (MFX_ERR_NONE != (sts = UnlockFrame(m_pOut))) return sts;
+    if (MFX_ERR_NONE != (sts = UnlockFrame(m_pIn)))  return sts;
+    if (MFX_ERR_NONE != (sts = UnlockFrame(m_pOut))) return sts;
 
-	return sts;
+    return sts;
 }
 
 DelogoProcessD3DAVX2::DelogoProcessD3DAVX2() : ProcessorDelogo() {
@@ -63,24 +63,24 @@ DelogoProcessD3DAVX2::~DelogoProcessD3DAVX2() {
 }
 
 mfxStatus DelogoProcessD3DAVX2::Process(DataChunk *chunk, mfxU8 *pBuffer) {
-	MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
+    MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
 
-	if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
-		return MFX_ERR_UNSUPPORTED;
-	}
+    if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
+        return MFX_ERR_UNSUPPORTED;
+    }
 
-	mfxStatus sts = MFX_ERR_NONE;
+    mfxStatus sts = MFX_ERR_NONE;
 
-	if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
-		return sts;
-	}
-	
-	if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
-		return sts;
-	}
+    if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
+        return sts;
+    }
+    
+    if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+        return sts;
+    }
 
-	process_delogo_avx2<64>(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH,      m_sData[0]);
-	process_delogo_avx2<32>(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
+    process_delogo_avx2<64>(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH,      m_sData[0]);
+    process_delogo_avx2<32>(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
 
-	return UnlockFrame(m_pOut);
+    return UnlockFrame(m_pOut);
 }

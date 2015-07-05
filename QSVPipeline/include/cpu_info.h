@@ -14,20 +14,20 @@
 #include <tchar.h>
 
 typedef struct cache_info_t {
-	uint16_t count;
-	uint8_t  level;
-	uint8_t  associativity;
-	uint16_t linesize;
-	uint16_t type;
-	uint32_t size;
+    uint16_t count;
+    uint8_t  level;
+    uint8_t  associativity;
+    uint16_t linesize;
+    uint16_t type;
+    uint32_t size;
 } cache_info_t;
 
 typedef struct {
-	uint32_t nodes;
-	uint32_t physical_cores;
-	uint32_t logical_cores;
-	uint32_t max_cache_level;
-	cache_info_t caches[4];
+    uint32_t nodes;
+    uint32_t physical_cores;
+    uint32_t logical_cores;
+    uint32_t max_cache_level;
+    cache_info_t caches[4];
 } cpu_info_t;
 
 
@@ -37,14 +37,14 @@ int getCPUInfo(TCHAR *buffer, size_t nSize);
 
 template <size_t size>
 int inline getCPUInfo(TCHAR(&buffer)[size]) {
-	return getCPUInfo(buffer, size);
+    return getCPUInfo(buffer, size);
 }
 
 double getCPUDefaultClock();
 double getCPUMaxTurboClock(unsigned int num_thread);
 
 typedef struct PROCESS_TIME {
-	UINT64 creation, exit, kernel, user;
+    UINT64 creation, exit, kernel, user;
 } PROCESS_TIME;
 
 BOOL GetProcessTime(HANDLE hProcess, PROCESS_TIME *time);

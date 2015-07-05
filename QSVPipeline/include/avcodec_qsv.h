@@ -38,68 +38,68 @@ extern "C" {
 #endif
 
 typedef struct QSVCodec {
-	mfxU32 codec_id;   //avcodecのコーデックID
-	mfxU32 qsv_fourcc; //QSVのfourcc
+    mfxU32 codec_id;   //avcodecのコーデックID
+    mfxU32 qsv_fourcc; //QSVのfourcc
 } QSVCodec;
 
 //QSVでデコード可能なコーデックのリスト
 static const QSVCodec QSV_DECODE_LIST[] = { 
-	{ AV_CODEC_ID_MPEG2VIDEO, MFX_CODEC_MPEG2 },
-	{ AV_CODEC_ID_H264,       MFX_CODEC_AVC   },
-	{ AV_CODEC_ID_HEVC,       MFX_CODEC_HEVC  },
-	//{ AV_CODEC_ID_VC1,        MFX_CODEC_VC1   },
+    { AV_CODEC_ID_MPEG2VIDEO, MFX_CODEC_MPEG2 },
+    { AV_CODEC_ID_H264,       MFX_CODEC_AVC   },
+    { AV_CODEC_ID_HEVC,       MFX_CODEC_HEVC  },
+    //{ AV_CODEC_ID_VC1,        MFX_CODEC_VC1   },
 };
 
 static const AVRational QSV_NATIVE_TIMEBASE = { 1, QSV_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
-	_T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
+    _T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
 };
 
 static tstring qsv_av_err2str(int ret) {
-	char mes[256];
-	av_make_error_string(mes, sizeof(mes), ret);
-	return char_to_tstring(mes);
+    char mes[256];
+    av_make_error_string(mes, sizeof(mes), ret);
+    return char_to_tstring(mes);
 }
 
 //必要なavcodecのdllがそろっているかを確認
 static bool check_avcodec_dll() {
-	std::vector<HMODULE> hDllList;
-	bool check = true;
-	for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
-		HMODULE hDll = NULL;
-		if (NULL == (hDll = LoadLibrary(AVCODEC_DLL_NAME[i]))) {
-			check = false;
-			break;
-		}
-		hDllList.push_back(hDll);
-	}
-	for (auto hDll : hDllList) {
-		FreeLibrary(hDll);
-	}
-	return check;
+    std::vector<HMODULE> hDllList;
+    bool check = true;
+    for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
+        HMODULE hDll = NULL;
+        if (NULL == (hDll = LoadLibrary(AVCODEC_DLL_NAME[i]))) {
+            check = false;
+            break;
+        }
+        hDllList.push_back(hDll);
+    }
+    for (auto hDll : hDllList) {
+        FreeLibrary(hDll);
+    }
+    return check;
 }
 
 //avcodecのdllが存在しない場合のエラーメッセージ
 static tstring error_mes_avcodec_dll_not_found() {
-	tstring mes;
-	mes += _T("avcodec: failed to load dlls.\n");
-	mes += _T("         please make sure ");
-	for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
-		if (i) mes += _T(", ");
-		mes += _T("\"") + tstring(AVCODEC_DLL_NAME[i]) + _T("\"");
-	}
-	mes += _T("\n         is installed in your system.\n");
-	return mes;
+    tstring mes;
+    mes += _T("avcodec: failed to load dlls.\n");
+    mes += _T("         please make sure ");
+    for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
+        if (i) mes += _T(", ");
+        mes += _T("\"") + tstring(AVCODEC_DLL_NAME[i]) + _T("\"");
+    }
+    mes += _T("\n         is installed in your system.\n");
+    return mes;
 }
 
 //avcodecのライセンスがLGPLであるかどうかを確認
 static bool checkAvcodecLicense() {
-	auto check = [](const char *license) {
-		std::string str(license);
-		transform(str.begin(), str.end(), str.begin(), [](char in) -> char {return (char)tolower(in); });
-		return std::string::npos != str.find("lgpl");
-	};
-	return (check(avutil_license()) && check(avcodec_license()) && check(avformat_license()));
+    auto check = [](const char *license) {
+        std::string str(license);
+        transform(str.begin(), str.end(), str.begin(), [](char in) -> char {return (char)tolower(in); });
+        return std::string::npos != str.find("lgpl");
+    };
+    return (check(avutil_license()) && check(avcodec_license()) && check(avformat_license()));
 }
 
 #endif //ENABLE_AVCODEC_QSV_READER

@@ -15,55 +15,55 @@
 class DelogoProcessSSE41 : public ProcessorDelogo
 {
 public:
-	DelogoProcessSSE41();
-	virtual ~DelogoProcessSSE41();
+    DelogoProcessSSE41();
+    virtual ~DelogoProcessSSE41();
 
-	virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
 class DelogoProcessAVX : public ProcessorDelogo
 {
 public:
-	DelogoProcessAVX();
-	virtual ~DelogoProcessAVX();
+    DelogoProcessAVX();
+    virtual ~DelogoProcessAVX();
 
-	virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
 class DelogoProcessAVX2 : public ProcessorDelogo
 {
 public:
-	DelogoProcessAVX2();
-	virtual ~DelogoProcessAVX2();
+    DelogoProcessAVX2();
+    virtual ~DelogoProcessAVX2();
 
-	virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
 class DelogoProcessD3DSSE41 : public ProcessorDelogo
 {
 public:
-	DelogoProcessD3DSSE41();
-	virtual ~DelogoProcessD3DSSE41();
+    DelogoProcessD3DSSE41();
+    virtual ~DelogoProcessD3DSSE41();
 
-	virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
 class DelogoProcessD3DAVX : public ProcessorDelogo
 {
 public:
-	DelogoProcessD3DAVX();
-	virtual ~DelogoProcessD3DAVX();
+    DelogoProcessD3DAVX();
+    virtual ~DelogoProcessD3DAVX();
 
-	virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
 class DelogoProcessD3DAVX2 : public ProcessorDelogo
 {
 public:
-	DelogoProcessD3DAVX2();
-	virtual ~DelogoProcessD3DAVX2();
+    DelogoProcessD3DAVX2();
+    virtual ~DelogoProcessD3DAVX2();
 
-	virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
 #endif // __SAMPLE_PLUGIN_H__

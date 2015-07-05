@@ -21,90 +21,90 @@ AuoPipeline::~AuoPipeline() {
 }
 
 mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
-	mfxStatus sts = MFX_ERR_NONE;
+    mfxStatus sts = MFX_ERR_NONE;
 
-	m_pEncSatusInfo = new AUO_EncodeStatusInfo();
+    m_pEncSatusInfo = new AUO_EncodeStatusInfo();
 
-	// prepare input file reader
-	m_pFileReader = new AUO_YUVReader();
-	sts = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    // prepare input file reader
+    m_pFileReader = new AUO_YUVReader();
+    sts = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
+    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-	mfxFrameInfo inputFrameInfo = { 0 };
-	m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
+    mfxFrameInfo inputFrameInfo = { 0 };
+    m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
 
-	mfxU32 OutputFPSRate = pParams->nFPSRate;
-	mfxU32 OutputFPSScale = pParams->nFPSScale;
-	mfxU32 outputFrames = *(mfxU32 *)&inputFrameInfo.FrameId;
-	if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-		switch (pParams->vpp.nDeinterlace) {
-			case MFX_DEINTERLACE_IT:
-			case MFX_DEINTERLACE_IT_MANUAL:
-				OutputFPSRate = OutputFPSRate * 4;
-				OutputFPSScale = OutputFPSScale * 5;
-				outputFrames = (outputFrames * 4) / 5;
-				break;
-			case MFX_DEINTERLACE_BOB:
-			case MFX_DEINTERLACE_AUTO_DOUBLE:
-				OutputFPSRate = OutputFPSRate * 2;
-				outputFrames *= 2;
-				break;
-			default:
-				break;
-		}
-	}
-	switch (pParams->vpp.nFPSConversion) {
-	case FPS_CONVERT_MUL2:
-		OutputFPSRate = OutputFPSRate * 2;
-		outputFrames *= 2;
-		break;
-	case FPS_CONVERT_MUL2_5:
-		OutputFPSRate = OutputFPSRate * 5 / 2;
-		outputFrames = outputFrames * 5 / 2;
-		break;
-	default:
-		break;
-	}
-	mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
-	OutputFPSRate /= gcd;
-	OutputFPSScale /= gcd;
+    mfxU32 OutputFPSRate = pParams->nFPSRate;
+    mfxU32 OutputFPSScale = pParams->nFPSScale;
+    mfxU32 outputFrames = *(mfxU32 *)&inputFrameInfo.FrameId;
+    if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+        switch (pParams->vpp.nDeinterlace) {
+            case MFX_DEINTERLACE_IT:
+            case MFX_DEINTERLACE_IT_MANUAL:
+                OutputFPSRate = OutputFPSRate * 4;
+                OutputFPSScale = OutputFPSScale * 5;
+                outputFrames = (outputFrames * 4) / 5;
+                break;
+            case MFX_DEINTERLACE_BOB:
+            case MFX_DEINTERLACE_AUTO_DOUBLE:
+                OutputFPSRate = OutputFPSRate * 2;
+                outputFrames *= 2;
+                break;
+            default:
+                break;
+        }
+    }
+    switch (pParams->vpp.nFPSConversion) {
+    case FPS_CONVERT_MUL2:
+        OutputFPSRate = OutputFPSRate * 2;
+        outputFrames *= 2;
+        break;
+    case FPS_CONVERT_MUL2_5:
+        OutputFPSRate = OutputFPSRate * 5 / 2;
+        outputFrames = outputFrames * 5 / 2;
+        break;
+    default:
+        break;
+    }
+    mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
+    OutputFPSRate /= gcd;
+    OutputFPSScale /= gcd;
 
-	m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, NULL);
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, NULL);
 
-	return sts;
+    return sts;
 }
 
 mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
-	mfxStatus sts = MFX_ERR_NONE;
+    mfxStatus sts = MFX_ERR_NONE;
 
-	m_pFileWriter = new CSmplBitstreamWriter();
-	sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
-	MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    m_pFileWriter = new CSmplBitstreamWriter();
+    sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
+    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-	return sts;
+    return sts;
 }
 
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 void AuoPipeline::PrintMes(int log_level, const TCHAR *format, ... ) {
-	va_list args;
-	va_start(args, format);
+    va_list args;
+    va_start(args, format);
 
-	int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-	TCHAR *buffer = (TCHAR*)calloc((len * 2 + 20), sizeof(buffer[0]));
-	TCHAR *buffer_line = buffer + len;
+    int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    TCHAR *buffer = (TCHAR*)calloc((len * 2 + 20), sizeof(buffer[0]));
+    TCHAR *buffer_line = buffer + len;
 
-	_vstprintf_s(buffer, len, format, args);
-	//_ftprintf(fp, buffer);
+    _vstprintf_s(buffer, len, format, args);
+    //_ftprintf(fp, buffer);
 
-	TCHAR *q = NULL;
-	for (TCHAR *p = buffer; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
-		static const char *LOG_STRING[] = { "debug", "info", "warn", "error" };
-		_stprintf_s(buffer_line, len + 20, "qsv [%s]: %s", LOG_STRING[1+clamp(log_level, QSV_LOG_DEBUG, QSV_LOG_ERROR)], p);
-		write_log_line(log_level, buffer_line);
-		p = NULL;
-	}
+    TCHAR *q = NULL;
+    for (TCHAR *p = buffer; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
+        static const char *LOG_STRING[] = { "debug", "info", "warn", "error" };
+        _stprintf_s(buffer_line, len + 20, "qsv [%s]: %s", LOG_STRING[1+clamp(log_level, QSV_LOG_DEBUG, QSV_LOG_ERROR)], p);
+        write_log_line(log_level, buffer_line);
+        p = NULL;
+    }
 
-	free(buffer);
+    free(buffer);
 }
 #pragma warning( pop )

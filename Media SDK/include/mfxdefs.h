@@ -134,11 +134,11 @@ typedef enum
     MFX_TASK_DONE = MFX_ERR_NONE, /* task has been completed */
     MFX_TASK_WORKING = 8, /*  there is some more work to do */
     MFX_TASK_BUSY = 9, /* task is waiting for resources */
-	/*  for print options   */
-	MFX_PRINT_OPTION_DONE = 20,
-	MFX_PRINT_OPTION_ERR  = 21,
-	/* other errors */
-	MFX_ERR_INVALID_COLOR_FORMAT = -100,
+    /*  for print options   */
+    MFX_PRINT_OPTION_DONE = 20,
+    MFX_PRINT_OPTION_ERR  = 21,
+    /* other errors */
+    MFX_ERR_INVALID_COLOR_FORMAT = -100,
 
 } mfxStatus;
 

@@ -12,10 +12,10 @@
 typedef void (*func_convert_csp) (void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
 
 typedef struct ConvertCSP {
-	unsigned int csp_from, csp_to;
-	bool uv_only;
-	func_convert_csp func[2];
-	unsigned int simd;
+    unsigned int csp_from, csp_to;
+    bool uv_only;
+    func_convert_csp func[2];
+    unsigned int simd;
 } ConvertCSP;
 
 const ConvertCSP *get_convert_csp_func(unsigned int csp_from, unsigned int csp_to, bool uv_only);

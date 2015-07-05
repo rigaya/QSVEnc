@@ -31,38 +31,38 @@ typedef void (__stdcall *func_avs_delete_script_environment) (AVS_ScriptEnvironm
 typedef float (__stdcall *func_avs_get_version)(void);
 
 typedef struct {
-	HMODULE h_avisynth;
-	func_avs_invoke invoke;
-	func_avs_take_clip take_clip;
-	func_avs_release_value release_value;
-	func_avs_create_script_environment create_script_environment;
-	func_avs_get_video_info get_video_info;
-	func_avs_get_frame get_frame;
-	func_avs_release_video_frame release_video_frame;
-	func_avs_release_clip release_clip;
-	func_avs_delete_script_environment delete_script_environment;
-	func_avs_get_version get_version;
+    HMODULE h_avisynth;
+    func_avs_invoke invoke;
+    func_avs_take_clip take_clip;
+    func_avs_release_value release_value;
+    func_avs_create_script_environment create_script_environment;
+    func_avs_get_video_info get_video_info;
+    func_avs_get_frame get_frame;
+    func_avs_release_video_frame release_video_frame;
+    func_avs_release_clip release_clip;
+    func_avs_delete_script_environment delete_script_environment;
+    func_avs_get_version get_version;
 } avs_dll_t;
 
 class CAVSReader : public CSmplYUVReader
 {
 public:
-	CAVSReader();
-	virtual ~CAVSReader();
+    CAVSReader();
+    virtual ~CAVSReader();
 
-	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
 
-	virtual void Close();
-	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+    virtual void Close();
+    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
 private:
-	mfxStatus load_avisynth();
-	void release_avisynth();
+    mfxStatus load_avisynth();
+    void release_avisynth();
 
-	AVS_ScriptEnvironment *m_sAVSenv;
-	AVS_Clip *m_sAVSclip;
-	const AVS_VideoInfo *m_sAVSinfo;
+    AVS_ScriptEnvironment *m_sAVSenv;
+    AVS_Clip *m_sAVSclip;
+    const AVS_VideoInfo *m_sAVSinfo;
 
-	avs_dll_t m_sAvisynth;
+    avs_dll_t m_sAvisynth;
 };
 
 #endif //ENABLE_AVISYNTH_READER

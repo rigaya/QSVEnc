@@ -1,6 +1,6 @@
 
 .code
-	align 16
+    align 16
 
 ;PUBLIC C read_sse
 
@@ -11,42 +11,42 @@
 ;)
 
 read_sse PROC
-		push rdi
-		push rsi
-		push rbx
+        push rdi
+        push rsi
+        push rbx
 
-		mov edi, 128
-		mov rsi, r8
-		mov r9,  rcx
-		mov eax, edx
-		shr eax, 7
-	OUTER_LOOP:
-		mov rbx, r9
-		mov rdx, rbx
-		add rdx, 64
-		mov ecx, eax
-	INNER_LOOP:
-		movaps xmm0, [rbx];
-		movaps xmm1, [rbx+16];
-		movaps xmm2, [rbx+32];
-		movaps xmm3, [rbx+48];
-		add rbx, rdi;
-		movaps xmm4, [rdx];
-		movaps xmm5, [rdx+16];
-		movaps xmm6, [rdx+32];
-		movaps xmm7, [rdx+48];
-		add rdx, rdi
-		dec ecx
-		jnz INNER_LOOP
+        mov edi, 128
+        mov rsi, r8
+        mov r9,  rcx
+        mov eax, edx
+        shr eax, 7
+    OUTER_LOOP:
+        mov rbx, r9
+        mov rdx, rbx
+        add rdx, 64
+        mov ecx, eax
+    INNER_LOOP:
+        movaps xmm0, [rbx];
+        movaps xmm1, [rbx+16];
+        movaps xmm2, [rbx+32];
+        movaps xmm3, [rbx+48];
+        add rbx, rdi;
+        movaps xmm4, [rdx];
+        movaps xmm5, [rdx+16];
+        movaps xmm6, [rdx+32];
+        movaps xmm7, [rdx+48];
+        add rdx, rdi
+        dec ecx
+        jnz INNER_LOOP
 
-		dec esi
-		jnz OUTER_LOOP
-		
-		pop rbx
-		pop rsi
-		pop rdi
+        dec esi
+        jnz OUTER_LOOP
+        
+        pop rbx
+        pop rsi
+        pop rdi
 
-		ret
+        ret
 
 read_sse ENDP
 
@@ -61,44 +61,44 @@ read_sse ENDP
 ;)
 
 read_avx PROC
-		push rdi
-		push rsi
-		push rbx
+        push rdi
+        push rsi
+        push rbx
 
-		mov edi, 256
-		mov rsi, r8
-		mov r9,  rcx
-		mov eax, edx
-		shr eax, 8
-	OUTER_LOOP:
-		mov rbx, r9
-		mov rdx, rbx
-		add rdx, 128
-		mov ecx, eax
-	INNER_LOOP:
-		movaps xmm0, [rbx];
-		movaps xmm1, [rbx+32];
-		movaps xmm2, [rbx+64];
-		movaps xmm3, [rbx+96];
-		add rbx, rdi
-		movaps xmm4, [rdx];
-		movaps xmm5, [rdx+32];
-		movaps xmm6, [rdx+64];
-		movaps xmm7, [rdx+96];
-		add rdx, rdi
-		dec ecx
-		jnz INNER_LOOP
+        mov edi, 256
+        mov rsi, r8
+        mov r9,  rcx
+        mov eax, edx
+        shr eax, 8
+    OUTER_LOOP:
+        mov rbx, r9
+        mov rdx, rbx
+        add rdx, 128
+        mov ecx, eax
+    INNER_LOOP:
+        movaps xmm0, [rbx];
+        movaps xmm1, [rbx+32];
+        movaps xmm2, [rbx+64];
+        movaps xmm3, [rbx+96];
+        add rbx, rdi
+        movaps xmm4, [rdx];
+        movaps xmm5, [rdx+32];
+        movaps xmm6, [rdx+64];
+        movaps xmm7, [rdx+96];
+        add rdx, rdi
+        dec ecx
+        jnz INNER_LOOP
 
-		dec esi
-		jnz OUTER_LOOP
+        dec esi
+        jnz OUTER_LOOP
 
-		vzeroupper
-		
-		pop rbx
-		pop rsi
-		pop rdi
+        vzeroupper
+        
+        pop rbx
+        pop rsi
+        pop rdi
 
-		ret
+        ret
 
 read_avx ENDP
 
@@ -111,42 +111,42 @@ read_avx ENDP
 ;)
 
 write_sse PROC
-		push rdi
-		push rsi
-		push rbx
+        push rdi
+        push rsi
+        push rbx
 
-		mov edi, 128
-		mov rsi, r8
-		mov r9,  rcx
-		mov eax, edx
-		shr eax, 7
-	OUTER_LOOP:
-		mov rbx, r9
-		mov rdx, rbx
-		add rdx, 64
-		mov ecx, eax
-	INNER_LOOP:
-		movaps [rbx],    xmm0 
-		movaps [rbx+16], xmm0 
-		movaps [rbx+32], xmm0
-		movaps [rbx+48], xmm0
-		add rbx, rdi
-		movaps [rdx],    xmm0 
-		movaps [rdx+16], xmm0 
-		movaps [rdx+32], xmm0
-		movaps [rdx+48], xmm0
-		add rdx, rdi
-		dec ecx
-		jnz INNER_LOOP
+        mov edi, 128
+        mov rsi, r8
+        mov r9,  rcx
+        mov eax, edx
+        shr eax, 7
+    OUTER_LOOP:
+        mov rbx, r9
+        mov rdx, rbx
+        add rdx, 64
+        mov ecx, eax
+    INNER_LOOP:
+        movaps [rbx],    xmm0 
+        movaps [rbx+16], xmm0 
+        movaps [rbx+32], xmm0
+        movaps [rbx+48], xmm0
+        add rbx, rdi
+        movaps [rdx],    xmm0 
+        movaps [rdx+16], xmm0 
+        movaps [rdx+32], xmm0
+        movaps [rdx+48], xmm0
+        add rdx, rdi
+        dec ecx
+        jnz INNER_LOOP
 
-		dec esi
-		jnz OUTER_LOOP
-		
-		pop rbx
-		pop rsi
-		pop rdi
+        dec esi
+        jnz OUTER_LOOP
+        
+        pop rbx
+        pop rsi
+        pop rdi
 
-		ret
+        ret
 
 write_sse ENDP
 
@@ -161,44 +161,44 @@ write_sse ENDP
 ;)
 
 write_avx PROC
-		push rdi
-		push rsi
-		push rbx
+        push rdi
+        push rsi
+        push rbx
 
-		mov edi, 256
-		mov rsi, r8
-		mov r9,  rcx
-		mov eax, edx
-		shr eax, 8
-	OUTER_LOOP:
-		mov rbx, r9
-		mov rdx, rbx
-		add rdx, 128
-		mov ecx, eax
-	INNER_LOOP:
-		vmovaps [rbx],    ymm0 
-		vmovaps [rbx+32], ymm0 
-		vmovaps [rbx+64], ymm0
-		vmovaps [rbx+96], ymm0
-		add rbx, rdi
-		vmovaps [rdx],    ymm0 
-		vmovaps [rdx+32], ymm0 
-		vmovaps [rdx+64], ymm0
-		vmovaps [rdx+96], ymm0
-		add rdx, rdi
-		dec ecx
-		jnz INNER_LOOP
+        mov edi, 256
+        mov rsi, r8
+        mov r9,  rcx
+        mov eax, edx
+        shr eax, 8
+    OUTER_LOOP:
+        mov rbx, r9
+        mov rdx, rbx
+        add rdx, 128
+        mov ecx, eax
+    INNER_LOOP:
+        vmovaps [rbx],    ymm0 
+        vmovaps [rbx+32], ymm0 
+        vmovaps [rbx+64], ymm0
+        vmovaps [rbx+96], ymm0
+        add rbx, rdi
+        vmovaps [rdx],    ymm0 
+        vmovaps [rdx+32], ymm0 
+        vmovaps [rdx+64], ymm0
+        vmovaps [rdx+96], ymm0
+        add rdx, rdi
+        dec ecx
+        jnz INNER_LOOP
 
-		dec esi
-		jnz OUTER_LOOP
+        dec esi
+        jnz OUTER_LOOP
 
-		vzeroupper
-		
-		pop rbx
-		pop rsi
-		pop rdi
+        vzeroupper
+        
+        pop rbx
+        pop rsi
+        pop rdi
 
-		ret
+        ret
 
 write_avx ENDP
 

@@ -19,19 +19,19 @@
 class CAVIReader : public CSmplYUVReader
 {
 public:
-	CAVIReader();
-	virtual ~CAVIReader();
+    CAVIReader();
+    virtual ~CAVIReader();
 
-	virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
 
-	virtual void Close();
-	virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+    virtual void Close();
+    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
 
-	PAVIFILE m_pAviFile;
-	PAVISTREAM m_pAviStream;
-	PGETFRAME m_pGetFrame;
-	LPBITMAPINFOHEADER m_pBitmapInfoHeader;
-	int m_nYPitchMultiplizer;
+    PAVIFILE m_pAviFile;
+    PAVISTREAM m_pAviStream;
+    PGETFRAME m_pGetFrame;
+    LPBITMAPINFOHEADER m_pBitmapInfoHeader;
+    int m_nYPitchMultiplizer;
 };
 
 #endif //ENABLE_AVI_READER

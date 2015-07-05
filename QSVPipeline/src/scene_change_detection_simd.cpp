@@ -14,17 +14,17 @@
 
 
 static const func_make_hist_simd FUNC_MAKE_HIST_LIST[] = {
-	make_hist_sse2, make_hist_sse41_popcnt, make_hist_avx, make_hist_avx2
+    make_hist_sse2, make_hist_sse41_popcnt, make_hist_avx, make_hist_avx2
 };
 func_make_hist_simd get_make_hist_func() {
-	const DWORD simd = get_availableSIMD();
-	int index = ((simd & (SSE41|POPCNT)) == (SSE41|POPCNT)) + ((simd & (AVX|POPCNT)) == (AVX|POPCNT)) + ((simd & (AVX2|AVX|POPCNT)) == (AVX2|AVX|POPCNT));
-	return FUNC_MAKE_HIST_LIST[index];
+    const DWORD simd = get_availableSIMD();
+    int index = ((simd & (SSE41|POPCNT)) == (SSE41|POPCNT)) + ((simd & (AVX|POPCNT)) == (AVX|POPCNT)) + ((simd & (AVX2|AVX|POPCNT)) == (AVX2|AVX|POPCNT));
+    return FUNC_MAKE_HIST_LIST[index];
 }
 
 void make_hist_sse2(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch) {
-	make_hist_simd(frame_Y, hist_buf, y_start, y_end, y_step, x_skip, width, pitch, SSE2);
+    make_hist_simd(frame_Y, hist_buf, y_start, y_end, y_step, x_skip, width, pitch, SSE2);
 }
 void make_hist_sse41_popcnt(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch) {
-	make_hist_simd(frame_Y, hist_buf, y_start, y_end, y_step, x_skip, width, pitch, POPCNT|SSE41|SSSE3|SSE3|SSE2);
+    make_hist_simd(frame_Y, hist_buf, y_start, y_end, y_step, x_skip, width, pitch, POPCNT|SSE41|SSSE3|SSE3|SSE2);
 }

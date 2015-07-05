@@ -35,13 +35,13 @@
 // Define settings to reflect Fidelity abstraction levels you need
 typedef enum
 {
-	NotCompatible,  // Found GPU is not compatible with the app
-	Low,
-	Medium,
-	MediumPlus,
-	High,
-	Undefined  // No predefined setting found in cfg file. 
-			   // Use a default level for unknown video cards.
+    NotCompatible,  // Found GPU is not compatible with the app
+    Low,
+    Medium,
+    MediumPlus,
+    High,
+    Undefined  // No predefined setting found in cfg file. 
+               // Use a default level for unknown video cards.
 }
 PresetLevel;
 
@@ -52,33 +52,33 @@ PresetLevel;
 
 typedef enum
 { 
-	IGFX_UNKNOWN     = 0x0, 
-	IGFX_SANDYBRIDGE = 0xC, 
-	IGFX_IVYBRIDGE,    
-	IGFX_HASWELL,
+    IGFX_UNKNOWN     = 0x0, 
+    IGFX_SANDYBRIDGE = 0xC, 
+    IGFX_IVYBRIDGE,    
+    IGFX_HASWELL,
 } PRODUCT_FAMILY;
 
 // New device dependent structure
 struct IntelDeviceInfoV1
 {
-	DWORD GPUMaxFreq;
-	DWORD GPUMinFreq;
+    DWORD GPUMaxFreq;
+    DWORD GPUMinFreq;
 };
 
 struct IntelDeviceInfoV2
 {
-	DWORD GPUMaxFreq;
-	DWORD GPUMinFreq;
-	DWORD GTGeneration;
-	DWORD EUCount;
-	DWORD PackageTDP;
-	DWORD MaxFillRate;
+    DWORD GPUMaxFreq;
+    DWORD GPUMinFreq;
+    DWORD GTGeneration;
+    DWORD EUCount;
+    DWORD PackageTDP;
+    DWORD MaxFillRate;
 };
 
 struct IntelDeviceInfoHeader
 {
-	DWORD Size;
-	DWORD Version;
+    DWORD Size;
+    DWORD Version;
 };
 
 /*****************************************************************************************
@@ -88,13 +88,13 @@ struct IntelDeviceInfoHeader
  *     through the new DXGI interface or through the older D3D9 interfaces.
  *     The function also returns the amount of memory availble for graphics using 
  *     the value shared + dedicated video memory returned from DXGI, or, if the DXGI
- *	   interface is not available, the amount of memory returned from WMI.
+ *       interface is not available, the amount of memory returned from WMI.
  *
  *****************************************************************************************/
 
 bool getGraphicsDeviceInfo( unsigned int* VendorId,
-						  unsigned int* DeviceId,
-						  unsigned int* VideoMemory);
+                          unsigned int* DeviceId,
+                          unsigned int* VideoMemory);
 
 
 /*****************************************************************************************
@@ -126,7 +126,7 @@ PresetLevel getDefaultFidelityPresets( unsigned int VendorId, unsigned int Devic
  *       Max Fill Rate (Pixel/Clk)
  * 
  * A return value of GGF_SUCCESS indicates 
- *	   the frequency was returned correctly. 
+ *       the frequency was returned correctly. 
  *     This function is only valid on Intel graphics devices SNB and later.
  *****************************************************************************************/
 
@@ -138,7 +138,7 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
  *
  *     Returns the amount of dedicated video memory in the first device. The function 
  *     uses the Windows Management Instrumentation interfaces as is recommended in the
- *	   Developer Guide.
+ *       Developer Guide.
  *
  *****************************************************************************************/
 
@@ -155,7 +155,7 @@ bool getVideoMemory( unsigned int* pVideoMemory );
  *****************************************************************************************/
 unsigned int checkDxExtensionVersion();
 #define GGF_SUCCESS 0
-#define GGF_ERROR					-1
-#define GGF_E_UNSUPPORTED_HARDWARE	-2
-#define GGF_E_UNSUPPORTED_DRIVER	-3
-#define GGF_E_D3D_ERROR				-4
+#define GGF_ERROR                    -1
+#define GGF_E_UNSUPPORTED_HARDWARE    -2
+#define GGF_E_UNSUPPORTED_DRIVER    -3
+#define GGF_E_D3D_ERROR                -4

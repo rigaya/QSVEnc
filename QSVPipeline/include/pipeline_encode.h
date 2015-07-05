@@ -54,202 +54,202 @@ using std::unique_ptr;
 
 struct sTask
 {
-	mfxBitstream mfxBS;
-	mfxSyncPoint EncSyncP;
-	std::list<mfxSyncPoint> DependentVppTasks;
-	CSmplBitstreamWriter *pWriter;
+    mfxBitstream mfxBS;
+    mfxSyncPoint EncSyncP;
+    std::list<mfxSyncPoint> DependentVppTasks;
+    CSmplBitstreamWriter *pWriter;
 
-	sTask();
-	mfxStatus WriteBitstream();
-	mfxStatus Reset();
-	mfxStatus Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pWriter = NULL);
-	mfxStatus Close();
+    sTask();
+    mfxStatus WriteBitstream();
+    mfxStatus Reset();
+    mfxStatus Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pWriter = NULL);
+    mfxStatus Close();
 };
 
 class CEncTaskPool
 {
 public:
-	CEncTaskPool();
-	virtual ~CEncTaskPool();
+    CEncTaskPool();
+    virtual ~CEncTaskPool();
 
-	virtual mfxStatus Init(MFXVideoSession* pmfxSession, CSmplBitstreamWriter* pWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter = NULL);
+    virtual mfxStatus Init(MFXVideoSession* pmfxSession, CSmplBitstreamWriter* pWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter = NULL);
 
-	mfxStatus GetFreeTask(sTask **ppTask);
+    mfxStatus GetFreeTask(sTask **ppTask);
 
-	virtual mfxStatus SynchronizeFirstTask();
-	virtual void Close();
+    virtual mfxStatus SynchronizeFirstTask();
+    virtual void Close();
 
 protected:
-	sTask* m_pTasks;
-	mfxU32 m_nPoolSize;
-	mfxU32 m_nTaskBufferStart;
+    sTask* m_pTasks;
+    mfxU32 m_nPoolSize;
+    mfxU32 m_nTaskBufferStart;
 
-	MFXVideoSession* m_pmfxSession;
+    MFXVideoSession* m_pmfxSession;
 
-	virtual mfxU32 GetFreeTaskIndex();
+    virtual mfxU32 GetFreeTaskIndex();
 };
 
 enum {
-	MFX_PRM_EX_SCENE_CHANGE = 0x01,
-	MFX_PRM_EX_VQP          = 0x02,
-	MFX_PRM_EX_DEINT_NORMAL = 0x04,
-	MFX_PRM_EX_DEINT_BOB    = 0x08
+    MFX_PRM_EX_SCENE_CHANGE = 0x01,
+    MFX_PRM_EX_VQP          = 0x02,
+    MFX_PRM_EX_DEINT_NORMAL = 0x04,
+    MFX_PRM_EX_DEINT_BOB    = 0x08
 };
 enum {
-	SC_FIELDFLAG_INVALID_ALL  = 0xffffffff,
-	SC_FIELDFLAG_INVALID_LOW  = 0x0000ffff,
-	SC_FIELDFLAG_INVALID_HIGH = 0xffff0000,
+    SC_FIELDFLAG_INVALID_ALL  = 0xffffffff,
+    SC_FIELDFLAG_INVALID_LOW  = 0x0000ffff,
+    SC_FIELDFLAG_INVALID_HIGH = 0xffff0000,
 };
 
 /* This class implements a pipeline with 2 mfx components: vpp (video preprocessing) and encode */
 class CEncodingPipeline
 {
 public:
-	CEncodingPipeline();
-	virtual ~CEncodingPipeline();
+    CEncodingPipeline();
+    virtual ~CEncodingPipeline();
 
-	virtual mfxStatus CheckParam(sInputParams *pParams);
-	virtual mfxStatus Init(sInputParams *pParams);
-	virtual mfxStatus Run();
-	virtual mfxStatus Run(DWORD_PTR SubThreadAffinityMask);
-	virtual void Close();
-	virtual mfxStatus ResetMFXComponents(sInputParams* pParams);
-	virtual mfxStatus ResetDevice();
+    virtual mfxStatus CheckParam(sInputParams *pParams);
+    virtual mfxStatus Init(sInputParams *pParams);
+    virtual mfxStatus Run();
+    virtual mfxStatus Run(DWORD_PTR SubThreadAffinityMask);
+    virtual void Close();
+    virtual mfxStatus ResetMFXComponents(sInputParams* pParams);
+    virtual mfxStatus ResetDevice();
 #if ENABLE_MVC_ENCODING
-	void SetMultiView();
-	void SetNumView(mfxU32 numViews) { m_nNumView = numViews; }
+    void SetMultiView();
+    void SetNumView(mfxU32 numViews) { m_nNumView = numViews; }
 #endif
-	virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
+    virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
-	virtual void PrintMes(int log_level, const TCHAR *format, ... );
+    virtual void PrintMes(int log_level, const TCHAR *format, ... );
 
-	virtual void SetAbortFlagPointer(bool *abort);
+    virtual void SetAbortFlagPointer(bool *abort);
 
-	virtual mfxStatus GetEncodeStatusData(sEncodeStatusData *data);
-	virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
-	virtual const msdk_char *GetInputMessage();
-	virtual MemType GetMemType();
+    virtual mfxStatus GetEncodeStatusData(sEncodeStatusData *data);
+    virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
+    virtual const msdk_char *GetInputMessage();
+    virtual MemType GetMemType();
 
 protected:
-	virtual mfxStatus RunEncode();
-	mfxStatus CheckSceneChange();
-	static unsigned int __stdcall RunEncThreadLauncher(void *pParam);
-	static unsigned int __stdcall RunSubThreadLauncher(void *pParam);
-	mfxVersion m_mfxVer;
-	CEncodeStatusInfo *m_pEncSatusInfo;
-	CEncodingThread m_EncThread;
+    virtual mfxStatus RunEncode();
+    mfxStatus CheckSceneChange();
+    static unsigned int __stdcall RunEncThreadLauncher(void *pParam);
+    static unsigned int __stdcall RunSubThreadLauncher(void *pParam);
+    mfxVersion m_mfxVer;
+    CEncodeStatusInfo *m_pEncSatusInfo;
+    CEncodingThread m_EncThread;
 
-	bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する
+    bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する
 
-	CSceneChangeDetect m_SceneChange;
-	mfxU32 m_nExPrm;
-	CQSVFrameTypeSimulation m_frameTypeSim;
+    CSceneChangeDetect m_SceneChange;
+    mfxU32 m_nExPrm;
+    CQSVFrameTypeSimulation m_frameTypeSim;
 
-	TCHAR *m_pStrLog;
-	int m_LogLevel;
+    TCHAR *m_pStrLog;
+    int m_LogLevel;
 
-	vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
-	CSmplBitstreamWriter *m_pFileWriter;
-	CSmplYUVReader *m_pFileReader;
+    vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
+    CSmplBitstreamWriter *m_pFileWriter;
+    CSmplYUVReader *m_pFileReader;
 
-	CEncTaskPool m_TaskPool;
-	mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance
+    CEncTaskPool m_TaskPool;
+    mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance
 
-	mfxExtVideoSignalInfo m_VideoSignalInfo;
-	mfxExtCodingOption m_CodingOption;
-	mfxExtCodingOption2 m_CodingOption2;
-	mfxExtCodingOption3 m_CodingOption3;
-	MFXVideoSession m_mfxSession;
-	MFXVideoDECODE* m_pmfxDEC;
-	MFXVideoENCODE* m_pmfxENC;
-	MFXVideoVPP* m_pmfxVPP;
-	unique_ptr<MFXPlugin> m_pPlugin;
-	vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
-	vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
+    mfxExtVideoSignalInfo m_VideoSignalInfo;
+    mfxExtCodingOption m_CodingOption;
+    mfxExtCodingOption2 m_CodingOption2;
+    mfxExtCodingOption3 m_CodingOption3;
+    MFXVideoSession m_mfxSession;
+    MFXVideoDECODE* m_pmfxDEC;
+    MFXVideoENCODE* m_pmfxENC;
+    MFXVideoVPP* m_pmfxVPP;
+    unique_ptr<MFXPlugin> m_pPlugin;
+    vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
+    vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
 
-	const sTrimParam *m_pTrimParam;
+    const sTrimParam *m_pTrimParam;
 
-	mfxVideoParam m_mfxDecParams;
-	mfxVideoParam m_mfxEncParams;
-	mfxVideoParam m_mfxVppParams;
-	
-	std::auto_ptr<MFXVideoUSER>  m_pUserModule;
+    mfxVideoParam m_mfxDecParams;
+    mfxVideoParam m_mfxEncParams;
+    mfxVideoParam m_mfxVppParams;
+    
+    std::auto_ptr<MFXVideoUSER>  m_pUserModule;
 
-	vector<mfxExtBuffer*> m_EncExtParams;
-	vector<mfxExtBuffer*> m_VppExtParams;
-	tstring VppExtMes;
+    vector<mfxExtBuffer*> m_EncExtParams;
+    vector<mfxExtBuffer*> m_VppExtParams;
+    tstring VppExtMes;
 
-	mfxExtVPPDoNotUse m_VppDoNotUse;
-	mfxExtVPPDoNotUse m_VppDoUse;
-	mfxExtVPPDenoise m_ExtDenoise;
-	mfxExtVPPDetail m_ExtDetail;
-	mfxExtVPPDeinterlacing m_ExtDeinterlacing;
-	mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
-	mfxExtVPPVideoSignalInfo m_ExtVppVSI;
-	mfxExtVPPImageStab m_ExtImageStab;
-	vector<mfxU32> m_VppDoNotUseList;
-	vector<mfxU32> m_VppDoUseList;
+    mfxExtVPPDoNotUse m_VppDoNotUse;
+    mfxExtVPPDoNotUse m_VppDoUse;
+    mfxExtVPPDenoise m_ExtDenoise;
+    mfxExtVPPDetail m_ExtDetail;
+    mfxExtVPPDeinterlacing m_ExtDeinterlacing;
+    mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
+    mfxExtVPPVideoSignalInfo m_ExtVppVSI;
+    mfxExtVPPImageStab m_ExtImageStab;
+    vector<mfxU32> m_VppDoNotUseList;
+    vector<mfxU32> m_VppDoUseList;
 
-	MFXFrameAllocator* m_pMFXAllocator;
-	mfxAllocatorParams* m_pmfxAllocatorParams;
-	MemType m_memType;
-	bool m_bd3dAlloc; // use d3d surfaces
-	bool m_bExternalAlloc; // use memory allocator as external for Media SDK
+    MFXFrameAllocator* m_pMFXAllocator;
+    mfxAllocatorParams* m_pmfxAllocatorParams;
+    MemType m_memType;
+    bool m_bd3dAlloc; // use d3d surfaces
+    bool m_bExternalAlloc; // use memory allocator as external for Media SDK
 
-	bool *m_pAbortByUser;
+    bool *m_pAbortByUser;
 
-	mfxBitstream m_DecInputBitstream;
+    mfxBitstream m_DecInputBitstream;
 
-	mfxFrameSurface1* m_pEncSurfaces; // frames array for encoder input (vpp output, decoder output)
-	mfxFrameSurface1* m_pVppSurfaces; // frames array for vpp input (decoder output)
-	mfxFrameSurface1* m_pDecSurfaces; // work area for decoder
-	mfxFrameAllocResponse m_EncResponse;  // memory allocation response for encoder
-	mfxFrameAllocResponse m_VppResponse;  // memory allocation response for vpp
-	mfxFrameAllocResponse m_DecResponse;  // memory allocation response for decoder
+    mfxFrameSurface1* m_pEncSurfaces; // frames array for encoder input (vpp output, decoder output)
+    mfxFrameSurface1* m_pVppSurfaces; // frames array for vpp input (decoder output)
+    mfxFrameSurface1* m_pDecSurfaces; // work area for decoder
+    mfxFrameAllocResponse m_EncResponse;  // memory allocation response for encoder
+    mfxFrameAllocResponse m_VppResponse;  // memory allocation response for vpp
+    mfxFrameAllocResponse m_DecResponse;  // memory allocation response for decoder
 
 #if ENABLE_MVC_ENCODING
-	mfxU16 m_MVCflags; // MVC codec is in use
-	mfxU32 m_nNumView;
-	// for MVC encoder and VPP configuration
-	mfxExtMVCSeqDesc m_MVCSeqDesc;
+    mfxU16 m_MVCflags; // MVC codec is in use
+    mfxU32 m_nNumView;
+    // for MVC encoder and VPP configuration
+    mfxExtMVCSeqDesc m_MVCSeqDesc;
 #endif
-	// for disabling VPP algorithms
-	//mfxExtVPPDoNotUse m_VppDoNotUse;
+    // for disabling VPP algorithms
+    //mfxExtVPPDoNotUse m_VppDoNotUse;
 
-	CHWDevice *m_hwdev;
+    CHWDevice *m_hwdev;
 
-	virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
+    virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
-	virtual mfxStatus InitInput(sInputParams *pParams);
-	virtual mfxStatus InitOutput(sInputParams *pParams);
-	virtual mfxStatus InitMfxDecParams();
-	virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
-	virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
-	virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
-	virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);
-	virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);
-	//virtual void InitVppExtParam();
-	virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
+    virtual mfxStatus InitInput(sInputParams *pParams);
+    virtual mfxStatus InitOutput(sInputParams *pParams);
+    virtual mfxStatus InitMfxDecParams();
+    virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
+    virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
+    virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
+    virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);
+    virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);
+    //virtual void InitVppExtParam();
+    virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
 
-	virtual mfxStatus AllocAndInitVppDoNotUse();
-	virtual void FreeVppDoNotUse();
+    virtual mfxStatus AllocAndInitVppDoNotUse();
+    virtual void FreeVppDoNotUse();
 #if ENABLE_MVC_ENCODING
-	virtual mfxStatus AllocAndInitMVCSeqDesc();
-	virtual void FreeMVCSeqDesc();
+    virtual mfxStatus AllocAndInitMVCSeqDesc();
+    virtual void FreeMVCSeqDesc();
 #endif
-	virtual mfxStatus CreateAllocator();
-	virtual void DeleteAllocator();
+    virtual mfxStatus CreateAllocator();
+    virtual void DeleteAllocator();
 
-	virtual mfxStatus CreateHWDevice();
-	virtual void DeleteHWDevice();
+    virtual mfxStatus CreateHWDevice();
+    virtual void DeleteHWDevice();
 
-	virtual mfxStatus AllocFrames();
-	virtual void DeleteFrames();
+    virtual mfxStatus AllocFrames();
+    virtual void DeleteFrames();
 
-	virtual mfxStatus AllocateSufficientBuffer(mfxBitstream* pBS);
+    virtual mfxStatus AllocateSufficientBuffer(mfxBitstream* pBS);
 
-	virtual mfxStatus GetFreeTask(sTask **ppTask);
-	virtual mfxStatus SynchronizeFirstTask();
+    virtual mfxStatus GetFreeTask(sTask **ppTask);
+    virtual mfxStatus SynchronizeFirstTask();
 };
 
 #endif // __PIPELINE_ENCODE_H__
