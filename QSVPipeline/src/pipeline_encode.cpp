@@ -1364,14 +1364,14 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     //VppPrePlugins
     if (m_VppPrePlugins.size()) {
         for (mfxU32 i = 0; i < (mfxU32)m_VppPrePlugins.size(); i++) {
-            mfxU16 mem_type = (HW_MEMORY & m_memType) ? (mfxU16)(MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_EXTERNAL_FRAME) : (mfxU16)MFX_MEMTYPE_SYSTEM_MEMORY;
+            mfxU16 mem_type = (mfxU16)((HW_MEMORY & m_memType) ? MFX_MEMTYPE_EXTERNAL_FRAME : MFX_MEMTYPE_SYSTEM_MEMORY);
             m_VppPrePlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
-                mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : 0;
+                mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
                 m_VppPrePlugins[i]->m_nSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
             } else {
                 // If surfaces are shared by 2 components, c1 and c2. NumSurf = c1_out + c2_in - AsyncDepth + 1
-                mem_type |= MFX_MEMTYPE_FROM_VPPOUT;
+                mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
                 m_VppPrePlugins[i]->m_nSurfNum += m_VppPrePlugins[i-1]->m_nSurfNum - m_nAsyncDepth + 1;
             }
             m_VppPrePlugins[i]->m_PluginRequest.Type = mem_type;
@@ -1425,14 +1425,14 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     //VppPostPlugins
     if (m_VppPostPlugins.size()) {
         for (mfxU32 i = 0; i < (mfxU32)m_VppPostPlugins.size(); i++) {
-            mfxU16 mem_type = (HW_MEMORY & m_memType) ? (mfxU16)(MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_EXTERNAL_FRAME) : (mfxU16)MFX_MEMTYPE_SYSTEM_MEMORY;
+            mfxU16 mem_type = (mfxU16)((HW_MEMORY & m_memType) ? MFX_MEMTYPE_EXTERNAL_FRAME : MFX_MEMTYPE_SYSTEM_MEMORY);
             m_VppPostPlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
-                mem_type |= (m_pmfxDEC && nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : 0;
+                mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
                 m_VppPostPlugins[i]->m_nSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
             } else {
                 // If surfaces are shared by 2 components, c1 and c2. NumSurf = c1_out + c2_in - AsyncDepth + 1
-                mem_type |= MFX_MEMTYPE_FROM_VPPOUT;
+                mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
                 m_VppPostPlugins[i]->m_nSurfNum += m_VppPostPlugins[i-1]->m_nSurfNum - m_nAsyncDepth + 1;
             }
             m_VppPostPlugins[i]->m_PluginRequest.Type = mem_type;
