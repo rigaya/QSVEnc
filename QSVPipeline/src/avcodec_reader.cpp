@@ -618,7 +618,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     
     std::string filename_char;
     if (0 == tchar_to_string(strFileName, filename_char, CP_UTF8)) {
-        m_strInputInfo += _T("avcodec reader: failed to convert filename to ansi characters.\n");
+        m_strInputInfo += _T("avcodec reader: failed to convert filename to utf-8 characters.\n");
         return MFX_ERR_INVALID_HANDLE;
     }
     m_Demux.format.bIsPipe = (0 == strcmp(filename_char.c_str(), "-")) || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");

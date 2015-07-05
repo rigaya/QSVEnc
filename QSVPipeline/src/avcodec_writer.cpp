@@ -329,7 +329,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 
     std::string filename;
     if (0 == tchar_to_string(strFileName, filename, CP_UTF8)) {
-        m_strOutputInfo += _T("avcodec writer: failed to convert output filename to ansi characters.\n");
+        m_strOutputInfo += _T("avcodec writer: failed to convert output filename to utf-8 characters.\n");
         return MFX_ERR_NULL_PTR;
     }
 
@@ -357,7 +357,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
             filename = "pipe:1";
         }
         if (0 > avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL)) {
-            m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
+            m_strOutputInfo += _T("avcodec writer: failed to open output file.\n");
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
     } else {
@@ -374,7 +374,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
         }
 
         if (_tfopen_s(&m_Mux.format.fpOutput, strFileName, _T("wb")) || m_Mux.format.fpOutput == NULL) {
-            m_strOutputInfo += _T("avcodec writer: failed to open audio output file.\n");
+            m_strOutputInfo += _T("avcodec writer: failed to open output file.\n");
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
         //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
