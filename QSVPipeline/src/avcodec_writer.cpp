@@ -208,11 +208,11 @@ mfxStatus CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     if (m_Mux.format.bIsMatroska) {
         m_Mux.video.pCodecCtx->time_base = av_make_q(1, 1000);
     }
-    m_Mux.video.pStream->time_base = m_Mux.video.pCodecCtx->time_base;
+    m_Mux.video.pStream->time_base           = m_Mux.video.pCodecCtx->time_base;
     m_Mux.video.pStream->codec->pkt_timebase = m_Mux.video.pStream->time_base;
-    m_Mux.video.pStream->codec->time_base = m_Mux.video.pStream->time_base;
-    m_Mux.video.pStream->codec->framerate = m_Mux.video.nFPS;
-    m_Mux.video.pStream->start_time       = 0;
+    m_Mux.video.pStream->codec->time_base    = m_Mux.video.pStream->time_base;
+    m_Mux.video.pStream->codec->framerate    = m_Mux.video.nFPS;
+    m_Mux.video.pStream->start_time          = 0;
 
     m_Mux.video.bDtsUnavailable = prm->bVideoDtsUnavailable;
     return MFX_ERR_NONE;
@@ -253,24 +253,24 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputA
         av_new_packet(&pMuxAudio->OutPacket, 512 * 1024);
         pMuxAudio->OutPacket.size = 0;
 
-//PCM encoder
-if (NULL == (pMuxAudio->pOutCodecEncode = avcodec_find_encoder(codecId))) {
-    m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to find encoder"), codecId);
-    return MFX_ERR_NULL_PTR;
-}
-if (NULL == (pMuxAudio->pOutCodecEncodeCtx = avcodec_alloc_context3(pMuxAudio->pOutCodecEncode))) {
-    m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to get encode codec context"), codecId);
-    return MFX_ERR_NULL_PTR;
-}
-pMuxAudio->pOutCodecEncodeCtx->sample_fmt = pInputAudio->pCodecCtx->sample_fmt;
-pMuxAudio->pOutCodecEncodeCtx->sample_rate = pInputAudio->pCodecCtx->sample_rate;
-pMuxAudio->pOutCodecEncodeCtx->channels = pInputAudio->pCodecCtx->channels;
-pMuxAudio->pOutCodecEncodeCtx->channel_layout = pInputAudio->pCodecCtx->channel_layout;
-pMuxAudio->pOutCodecEncodeCtx->bits_per_raw_sample = pInputAudio->pCodecCtx->bits_per_raw_sample;
-if (0 > avcodec_open2(pMuxAudio->pOutCodecEncodeCtx, pMuxAudio->pOutCodecEncode, NULL)) {
-    m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to open encoder"), codecId);
-    return MFX_ERR_NULL_PTR;
-}
+    //PCM encoder
+    if (NULL == (pMuxAudio->pOutCodecEncode = avcodec_find_encoder(codecId))) {
+        m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to find encoder"), codecId);
+        return MFX_ERR_NULL_PTR;
+    }
+    if (NULL == (pMuxAudio->pOutCodecEncodeCtx = avcodec_alloc_context3(pMuxAudio->pOutCodecEncode))) {
+        m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to get encode codec context"), codecId);
+        return MFX_ERR_NULL_PTR;
+    }
+    pMuxAudio->pOutCodecEncodeCtx->sample_fmt          = pInputAudio->pCodecCtx->sample_fmt;
+    pMuxAudio->pOutCodecEncodeCtx->sample_rate         = pInputAudio->pCodecCtx->sample_rate;
+    pMuxAudio->pOutCodecEncodeCtx->channels            = pInputAudio->pCodecCtx->channels;
+    pMuxAudio->pOutCodecEncodeCtx->channel_layout      = pInputAudio->pCodecCtx->channel_layout;
+    pMuxAudio->pOutCodecEncodeCtx->bits_per_raw_sample = pInputAudio->pCodecCtx->bits_per_raw_sample;
+    if (0 > avcodec_open2(pMuxAudio->pOutCodecEncodeCtx, pMuxAudio->pOutCodecEncode, NULL)) {
+        m_strOutputInfo += errorMesForCodec(_T("avcodec writer: failed to open encoder"), codecId);
+        return MFX_ERR_NULL_PTR;
+    }
     } else if (pMuxAudio->pCodecCtxIn->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pCodecCtxIn->extradata == NULL && m_Mux.video.pStream) {
         if (NULL == (pMuxAudio->pAACBsfc = av_bitstream_filter_init("aac_adtstoasc"))) {
             m_strOutputInfo += _T("avcodec writer: failed to open bitstream filter for AAC audio.");
