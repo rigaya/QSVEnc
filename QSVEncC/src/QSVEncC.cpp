@@ -261,7 +261,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 #endif
 			_T("   --vpp-image-stab <string>    set image stabilizer mode\n")
 			_T("                                 - none, upscale, box\n")
-			_T("   --vpp-delogo-file <string>   set delogo file path\n")
+			_T("   --vpp-delogo <string>        set delogo file path\n")
 			_T("   --vpp-delogo-select <string> set target logo name or auto select file")
 			_T("                                 or logo index starting from 1.\n")
 			_T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
@@ -1306,7 +1306,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 		{
 			pParams->vpp.bHalfTurn = true;
 		}
-		else if (0 == _tcscmp(option_name, _T("vpp-delogo-file")))
+		else if (0 == _tcscmp(option_name, _T("vpp-delogo"))
+			  || 0 == _tcscmp(option_name, _T("vpp-delogo-file")))
 		{
 			i++;
 			int filename_len = (int)_tcslen(strInput[i]);
