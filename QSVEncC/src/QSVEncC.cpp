@@ -433,11 +433,11 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 					option_name = _T("help");
 					break;
 				default:
-					PrintHelp(strInput[0], _T("Unknown options"), NULL);
+					PrintHelp(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), NULL);
 					return MFX_PRINT_OPTION_ERR;
 				}
 			} else {
-				PrintHelp(strInput[0], _T("Invalid options"), NULL);
+				PrintHelp(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), NULL);
 				return MFX_PRINT_OPTION_ERR;
 			}
 		}
