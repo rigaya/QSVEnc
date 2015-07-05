@@ -328,7 +328,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
     AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
 
     std::string filename;
-    if (0 == tchar_to_string(strFileName, filename)) {
+    if (0 == tchar_to_string(strFileName, filename, CP_UTF8)) {
         m_strOutputInfo += _T("avcodec writer: failed to convert output filename to ansi characters.\n");
         return MFX_ERR_NULL_PTR;
     }

@@ -28,10 +28,10 @@
 #pragma warning (disable: 4100)
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage) {
 #if UNICODE
-    int multibyte_length = WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, nullptr, 0, nullptr, nullptr);
+    DWORD flags = (codepage == CP_UTF8) ? 0 : WC_NO_BEST_FIT_CHARS;
+    int multibyte_length = WideCharToMultiByte(codepage, flags, tstr, -1, nullptr, 0, nullptr, nullptr);
     str.resize(multibyte_length, 0);
-    BOOL error = FALSE;
-    if (0 == WideCharToMultiByte(codepage, WC_NO_BEST_FIT_CHARS, tstr, -1, &str[0], (int)str.size(), nullptr, &error) || error) {
+    if (0 == WideCharToMultiByte(codepage, flags, tstr, -1, &str[0], multibyte_length, nullptr, nullptr)) {
         str.clear();
         return 0;
     }

@@ -617,7 +617,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
     
     std::string filename_char;
-    if (0 == tchar_to_string(strFileName, filename_char)) {
+    if (0 == tchar_to_string(strFileName, filename_char, CP_UTF8)) {
         m_strInputInfo += _T("avcodec reader: failed to convert filename to ansi characters.\n");
         return MFX_ERR_INVALID_HANDLE;
     }
