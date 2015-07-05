@@ -60,7 +60,7 @@ public:
         }
 
         m_pUsrPlugin.reset();
-        MSDK_SAFE_DELETE_ARRAY(m_pPluginSurfaces);
+        m_pPluginSurfaces.reset();
         MSDK_SAFE_DELETE(m_pMFXAllocator);
         MSDK_SAFE_DELETE(m_pmfxAllocatorParams);
         m_bPluginFlushed = false;
@@ -83,7 +83,7 @@ public:
         if (MFX_ERR_NONE != sts)
             return sts;
 
-        m_pPluginSurfaces = new mfxFrameSurface1 [m_PluginResponse.NumFrameActual];
+        m_pPluginSurfaces.reset(new mfxFrameSurface1 [m_PluginResponse.NumFrameActual]);
         MSDK_CHECK_POINTER(m_pPluginSurfaces, MFX_ERR_MEMORY_ALLOC);
 
         for (int i = 0; i < m_PluginResponse.NumFrameActual; i++) {
@@ -210,21 +210,21 @@ private:
         return MFX_ERR_NONE;
     }
 public:
-    mfxU16                      m_nSurfNum;
-    mfxFrameAllocRequest        m_PluginRequest;
-    mfxVideoParam               m_pluginVideoParams;
-    mfxFrameAllocResponse       m_PluginResponse;
-    mfxFrameSurface1           *m_pPluginSurfaces;
-    bool                        m_bPluginFlushed;
-    MFXFrameAllocator          *m_pMFXAllocator;
+    mfxVideoParam                  m_pluginVideoParams;   //カスタムVPP用の入出力パラメータ
+    mfxU16                         m_nSurfNum;            //保持しているSurfaceの枚数
+    mfxFrameAllocRequest           m_PluginRequest;       //AllocatorへのRequest
+    mfxFrameAllocResponse          m_PluginResponse;      //AllocatorからのResponse
+    unique_ptr<mfxFrameSurface1[]> m_pPluginSurfaces;     //保持しているSurface配列へのポインタ
+    bool                           m_bPluginFlushed;      //使用していない
+    MFXFrameAllocator             *m_pMFXAllocator;       //使用していない
 private:
-    mfxAllocatorParams         *m_pmfxAllocatorParams;
-    MFXVideoSession             m_mfxSession;
-    MemType                     m_memType;
-    mfxVersion                  m_mfxVer;
-    unique_ptr<QSVEncPlugin>    m_pUsrPlugin;
+    mfxAllocatorParams            *m_pmfxAllocatorParams; //使用していない
+    MFXVideoSession                m_mfxSession;          //カスタムVPP用のSession メインSessionにJoinして使用する
+    MemType                        m_memType;             //パイプラインのSurfaceのメモリType
+    mfxVersion                     m_mfxVer;              //使用しているMediaSDKのバージョン
+    unique_ptr<QSVEncPlugin>       m_pUsrPlugin;          //カスタムプラグインのインスタンス
 #if GPU_FILTER
-    CHWDevice                  *m_hwdev;
+    CHWDevice                     *m_hwdev;               //使用しているデバイス
 #endif
-    tstring                     m_message;
+    tstring                        m_message;             //このカスタムVPPからのメッセージ
 };

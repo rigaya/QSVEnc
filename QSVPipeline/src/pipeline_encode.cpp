@@ -2822,7 +2822,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         pSurfInputBuf = pSurfEncInput; //pSurfEncInにはパイプラインを後ろからたどった順にフレームポインタを更新していく
         pSurfVppPostFilter[m_VppPostPlugins.size()] = pSurfInputBuf; //pSurfVppPreFilterの最後はその直前のステップのフレームに出力される
         for (int i_filter = (int)m_VppPostPlugins.size()-1; i_filter >= 0; i_filter--) {
-            int freeSurfIdx = GetFreeSurface(m_VppPostPlugins[i_filter]->m_pPluginSurfaces, m_VppPostPlugins[i_filter]->m_PluginResponse.NumFrameActual);
+            int freeSurfIdx = GetFreeSurface(m_VppPostPlugins[i_filter]->m_pPluginSurfaces.get(), m_VppPostPlugins[i_filter]->m_PluginResponse.NumFrameActual);
             pSurfVppPostFilter[i_filter] = &m_VppPostPlugins[i_filter]->m_pPluginSurfaces[freeSurfIdx];
             pSurfInputBuf = pSurfVppPostFilter[i_filter];
         }
@@ -2836,7 +2836,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         }
         pSurfVppPreFilter[m_VppPrePlugins.size()] = pSurfInputBuf; //pSurfVppPreFilterの最後はその直前のステップのフレームに出力される
         for (int i_filter = (int)m_VppPrePlugins.size()-1; i_filter >= 0; i_filter--) {
-            int freeSurfIdx = GetFreeSurface(m_VppPrePlugins[i_filter]->m_pPluginSurfaces, m_VppPrePlugins[i_filter]->m_PluginResponse.NumFrameActual);
+            int freeSurfIdx = GetFreeSurface(m_VppPrePlugins[i_filter]->m_pPluginSurfaces.get(), m_VppPrePlugins[i_filter]->m_PluginResponse.NumFrameActual);
             pSurfVppPreFilter[i_filter] = &m_VppPrePlugins[i_filter]->m_pPluginSurfaces[freeSurfIdx];
             pSurfInputBuf = pSurfVppPreFilter[i_filter];
         }
