@@ -139,7 +139,7 @@ class guiEx_config {
 private:
     static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
     static const int conf_block_data[CONF_BLOCK_COUNT];
-    static void convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf);
+    static void convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf, int size);
     static void convert_qsvstgv2_to_stgv3(CONF_GUIEX *conf);
 public:
     guiEx_config();

@@ -13,7 +13,7 @@
 #include "auo_util.h"
 #include "auo_conf.h"
 
-void guiEx_config::convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf) {
+void guiEx_config::convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf, int size) {
     strcpy_s(conf->conf_name, CONF_NAME);
     conf->qsv.nBitRate = conf->qsv.__nBitRate;
     conf->qsv.nMaxBitrate = conf->qsv.__nMaxBitrate;
@@ -21,8 +21,9 @@ void guiEx_config::convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf) {
     conf->qsv.__nMaxBitrate = 0;
     conf->qsv.__nThreads = 0;
     strcpy_s(conf->conf_name, CONF_NAME_OLD_2);
-
-    convert_qsvstgv2_to_stgv3(conf);
+    
+    memset(((BYTE *)conf) + size - 2056, 0, 2056);
+    strcpy_s(conf->conf_name, CONF_NAME_OLD_3);
 }
 
 void guiEx_config::convert_qsvstgv2_to_stgv3(CONF_GUIEX *conf) {

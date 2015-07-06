@@ -84,7 +84,7 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
             return ret;
 
         if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_1))
-            convert_qsvstgv1_to_stgv3((CONF_GUIEX *)old_data);
+            convert_qsvstgv1_to_stgv3((CONF_GUIEX *)old_data, old_size);
     
         if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_2))
             convert_qsvstgv2_to_stgv3((CONF_GUIEX *)old_data);
@@ -104,6 +104,10 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
 }
 
 int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
+    static_assert(sizeof(conf->qsv) == 3560, "sizeof(conf->qsv) not equal to 3560, which will break convert_qsvstgv2_to_stgv3().");
+    static_assert(sizeof(conf->vid) == 16,   "sizeof(conf->vid) not equal to 16,   which will break convert_qsvstgv2_to_stgv3().");
+    static_assert(sizeof(conf->aud) == 44,   "sizeof(conf->aud) not equal to 44,   which will break convert_qsvstgv2_to_stgv3().");
+    static_assert(sizeof(conf->mux) == 40,   "sizeof(conf->mux) not equal to 40,   which will break convert_qsvstgv2_to_stgv3().");
     size_t conf_size = 0;
     BYTE *dst, *filedat;
     //初期化
@@ -127,10 +131,10 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
     fseek(fp, 0, SEEK_SET);
     fread(dat, conf_size, 1, fp);
     fclose(fp);
-    
+
     //旧設定ファイルから変換
     if (0 == strcmp(CONF_NAME_OLD_1, conf_name)) {
-        convert_qsvstgv1_to_stgv3((CONF_GUIEX *)dat);
+        convert_qsvstgv1_to_stgv3((CONF_GUIEX *)dat, conf_size);
     }
     if (0 == strcmp(CONF_NAME_OLD_2, conf_name)) {
         convert_qsvstgv2_to_stgv3((CONF_GUIEX *)dat);
@@ -142,10 +146,10 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
 
     write_conf_header(conf);
 
-    dst = (BYTE *)conf;
+    //dst = (BYTE *)conf;
     //filedat = (BYTE *)data;
     //memcpy(dst, filedat, data->head_size);
-    dst += CONF_HEAD_SIZE;
+    //dst += CONF_HEAD_SIZE;
 
     //ブロック部分のコピー
     for (int i = 0; i < ((CONF_GUIEX *)dat)->block_count; ++i) {

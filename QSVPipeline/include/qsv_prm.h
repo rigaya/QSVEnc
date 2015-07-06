@@ -270,7 +270,7 @@ struct sInputParams
 #endif
 
 
-    mfxU8      Reserved[1123];
+    mfxU8      Reserved[1112];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
