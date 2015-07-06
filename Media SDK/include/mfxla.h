@@ -51,8 +51,9 @@ typedef struct
     mfxU16  LookAheadDepth;
     mfxU16  DependencyDepth;
     mfxU16  DownScaleFactor;
+    mfxU16  BPyramid;
 
-    mfxU16  reserved1[24];
+    mfxU16  reserved1[23];
     
     mfxU16  NumOutStream;
     struct  mfxStream{
@@ -74,8 +75,8 @@ typedef struct
     mfxU32  IntraCost;
     mfxU32  InterCost;
     mfxU32  DependencyCost;
-
-    mfxU16  reserved[24];
+    mfxU16  Layer;
+    mfxU16  reserved[23];
 
     mfxU64 EstimatedRate[52];
 }mfxLAFrameInfo; 

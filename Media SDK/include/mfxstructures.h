@@ -55,6 +55,7 @@ typedef struct {
     };
 } mfxFrameId;
 
+#pragma pack(push, 4)
 /* Frame Info */
 typedef struct {
     mfxU32  reserved[4];
@@ -66,13 +67,21 @@ typedef struct {
     mfxFrameId FrameId;
 
     mfxU32  FourCC;
-    mfxU16  Width;
-    mfxU16  Height;
+    union {
+        struct { /* Frame parameters */
+            mfxU16  Width;
+            mfxU16  Height;
 
-    mfxU16  CropX;
-    mfxU16  CropY;
-    mfxU16  CropW;
-    mfxU16  CropH;
+            mfxU16  CropX;
+            mfxU16  CropY;
+            mfxU16  CropW;
+            mfxU16  CropH;
+        };
+        struct { /* Buffer parameters (for plain formats like P8) */
+            mfxU64 BufferSize;
+            mfxU32 reserved5;
+        };
+    };
 
     mfxU32  FrameRateExtN;
     mfxU32  FrameRateExtD;
@@ -85,6 +94,7 @@ typedef struct {
     mfxU16  ChromaFormat;
     mfxU16  reserved2;
 } mfxFrameInfo;
+#pragma pack(pop)
 
 /* FourCC */
 enum {
@@ -216,7 +226,7 @@ enum {
 typedef struct {
     mfxU32  reserved[7];
 
-    mfxU16  reserved4;
+    mfxU16  LowPower;
     mfxU16  BRCParamMultiplier;
 
     mfxFrameInfo    FrameInfo;
@@ -337,6 +347,7 @@ enum {
     MFX_PROFILE_AVC_MAIN                    =77,
     MFX_PROFILE_AVC_EXTENDED                =88,
     MFX_PROFILE_AVC_HIGH                    =100,
+    MFX_PROFILE_AVC_HIGH_422                =122,
     MFX_PROFILE_AVC_CONSTRAINED_BASELINE    =MFX_PROFILE_AVC_BASELINE + MFX_PROFILE_AVC_CONSTRAINT_SET1,
     MFX_PROFILE_AVC_CONSTRAINED_HIGH        =MFX_PROFILE_AVC_HIGH     + MFX_PROFILE_AVC_CONSTRAINT_SET4
                                                                       + MFX_PROFILE_AVC_CONSTRAINT_SET5,
@@ -640,7 +651,11 @@ enum {
     MFX_EXTBUFF_CHROMA_LOC_INFO            = MFX_MAKEFOURCC('C','L','I','N'),
     MFX_EXTBUFF_MBQP                       = MFX_MAKEFOURCC('M','B','Q','P'),
     MFX_EXTBUFF_HEVC_TILES                 = MFX_MAKEFOURCC('2','6','5','T'),
-    MFX_EXTBUFF_MB_DISABLE_SKIP_MAP        = MFX_MAKEFOURCC('M','D','S','M')
+    MFX_EXTBUFF_MB_DISABLE_SKIP_MAP        = MFX_MAKEFOURCC('M','D','S','M'),
+    MFX_EXTBUFF_HEVC_PARAM                 = MFX_MAKEFOURCC('2','6','5','P'),
+    MFX_EXTBUFF_DECODED_FRAME_INFO         = MFX_MAKEFOURCC('D','E','F','I'),
+    MFX_EXTBUFF_TIME_CODE                  = MFX_MAKEFOURCC('T','M','C','D'),
+    MFX_EXTBUFF_HEVC_REGION                = MFX_MAKEFOURCC('2','6','5','R')
 };
 
 /* VPP Conf: Do not use certain algorithms  */
@@ -937,6 +952,11 @@ typedef struct {
     mfxU16      reserved[11];
 } mfxExtEncoderResetOption;
 
+/*LongTermIdx*/
+enum {
+    MFX_LONGTERM_IDX_NO_IDX = 0xFFFF
+};
+
 typedef struct {
     mfxExtBuffer    Header; 
 
@@ -1145,6 +1165,44 @@ typedef struct {
         mfxU64  reserved2;
     };
 } mfxExtMBDisableSkipMap;
+
+typedef struct {
+    mfxExtBuffer    Header;
+
+    mfxU16          PicWidthInLumaSamples;
+    mfxU16          PicHeightInLumaSamples;
+    mfxU16          reserved[122];
+} mfxExtHEVCParam;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16       FrameType;
+    mfxU16       reserved[59];
+} mfxExtDecodedFrameInfo;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16       DropFrameFlag;
+    mfxU16       TimeCodeHours;
+    mfxU16       TimeCodeMinutes;
+    mfxU16       TimeCodeSeconds;
+    mfxU16       TimeCodePictures;
+    mfxU16       reserved[7];
+} mfxExtTimeCode;
+
+enum {
+    MFX_HEVC_REGION_SLICE = 0
+};
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU32       RegionId;
+    mfxU16       RegionType;
+    mfxU16       reserved[25];
+} mfxExtHEVCRegion;
 
 #ifdef __cplusplus
 } // extern "C"

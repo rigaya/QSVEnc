@@ -283,6 +283,12 @@ public:
         }
         return m_core.GetOpaqueSurface(m_core.pthis, surf, op_surf);
     }
+    mfxStatus CreateAccelerationDevice(mfxHandleType type, mfxHDL *handle) {
+        if (!IsCoreSet()) {
+            return MFX_ERR_NULL_PTR;
+        }
+        return m_core.CreateAccelerationDevice(m_core.pthis, type, handle);
+    }
     mfxFrameAllocator & FrameAllocator() {
         return m_core.FrameAllocator;
     }
