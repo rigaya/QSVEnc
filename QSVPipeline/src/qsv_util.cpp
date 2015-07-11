@@ -147,6 +147,9 @@ bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) 
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     static const WORD LOG_COLOR[] = {
+        FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_BLUE, //水色
+        FOREGROUND_INTENSITY | FOREGROUND_GREEN, //緑
+        FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,
         FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,
         FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED, //黄色
         FOREGROUND_INTENSITY | FOREGROUND_RED //赤
@@ -156,7 +159,7 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
     }
     if (handle && log_level != QSV_LOG_INFO) {
         GetConsoleScreenBufferInfo(handle, &csbi);
-        SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_INFO, QSV_LOG_ERROR)] | (csbi.wAttributes & 0x00f0));
+        SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE] | (csbi.wAttributes & 0x00f0));
     }
     int ret = _ftprintf(stderr, mes);
     fflush(stderr);

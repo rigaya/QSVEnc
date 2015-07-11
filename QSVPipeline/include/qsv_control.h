@@ -344,7 +344,7 @@ public:
     mfxStatus Init(mfxU16 bufferSize);
     void Close();
     //終了を待機する
-    mfxStatus WaitToFinish(mfxStatus sts);
+    mfxStatus WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog);
     mfxU16    GetBufferSize();
     mfxStatus RunEncFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask);
     mfxStatus RunSubFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask);

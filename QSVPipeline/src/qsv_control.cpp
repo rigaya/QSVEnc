@@ -125,7 +125,7 @@ mfxStatus CEncodingThread::RunSubFuncbyThread(unsigned (__stdcall * func) (void 
 }
 
 //終了を待機する
-mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts) {
+mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
     MSDK_CHECK_ERROR(m_thEncode, NULL, MFX_ERR_INVALID_HANDLE);
     //最後のLoadNextFrameの結果をm_stsThreadにセットし、RunEncodeに知らせる
@@ -133,19 +133,22 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts) {
     //読み込み終了(MFX_ERR_MORE_DATA)ではなく、エラーや中断だった場合、
     //直ちに終了する
     if (sts != MFX_ERR_MORE_DATA) {
+        (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
         InterlockedIncrement((DWORD*)&m_bthForceAbort); //m_bthForceAbort = TRUE;
         InterlockedIncrement((DWORD*)&m_bthSubAbort); //m_bthSubAbort = TRUE;
-    //    if (m_InputBuf) {
-    //        for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
-    //            SetEvent(m_InputBuf[i].heInputDone);
-    //            SetEvent(m_InputBuf[i].heSubStart);
-    //        }
-    //    }
+        if (m_InputBuf) {
+            (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
+            for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
+                SetEvent(m_InputBuf[i].heInputDone);
+                SetEvent(m_InputBuf[i].heSubStart);
+            }
+        }
     }
     //RunEncodeの終了を待つ
     WaitForSingleObject(m_thEncode, INFINITE);
     CloseHandle(m_thEncode);
     m_thEncode = NULL;
+    (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Encode thread shut down.\n"));
     return MFX_ERR_NONE;
 }
 

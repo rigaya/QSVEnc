@@ -19,7 +19,6 @@ void guiEx_config::convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf, int size) {
     conf->qsv.nMaxBitrate = conf->qsv.__nMaxBitrate;
     conf->qsv.__nBitRate = 0;
     conf->qsv.__nMaxBitrate = 0;
-    conf->qsv.__nThreads = 0;
     strcpy_s(conf->conf_name, CONF_NAME_OLD_2);
     
     memset(((BYTE *)conf) + size - 2056, 0, 2056);

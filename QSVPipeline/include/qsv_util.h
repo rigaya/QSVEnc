@@ -11,7 +11,7 @@
 #include "vm/strings_defs.h"
 #include "mfxstructures.h"
 #include "mfxSession.h"
-
+#include "qsv_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
 
@@ -55,16 +55,15 @@ static inline mfxU16 readUB16(const void *ptr) {
     return (i >> 8) | (i << 8);
 }
 
+static tstring fourccToStr(mfxU32 nFourCC) {
+    tstring fcc;
+    for (int i = 0; i < 4; i++) {
+        fcc.push_back((msdk_char)*(i + (char*)&nFourCC));
+    }
+    return fcc;
+}
+
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
-
-enum {
-    QSV_LOG_DEBUG = -1,
-    QSV_LOG_INFO = 0,
-    QSV_LOG_WARN,
-    QSV_LOG_ERROR,
-};
-
-int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 typedef struct CX_DESC {
     TCHAR *desc;
@@ -304,5 +303,50 @@ static void __forceinline sleep_hybrid(int count) {
 }
 
 const int MAX_FILENAME_LEN = 1024;
+
+
+enum {
+    QSV_LOG_TRACE = -3,
+    QSV_LOG_DEBUG = -2,
+    QSV_LOG_MORE = -1,
+    QSV_LOG_INFO = 0,
+    QSV_LOG_WARN,
+    QSV_LOG_ERROR,
+};
+
+int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
+
+class CQSVLog {
+private:
+    int m_nLogLevel = QSV_LOG_INFO;
+    const TCHAR *m_pStrLog = nullptr;
+    CRITICAL_SECTION cs;
+public:
+    CQSVLog(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO) {
+        InitializeCriticalSection(&cs);
+        init(pLogFile, log_level);
+    };
+    virtual ~CQSVLog() {
+        DeleteCriticalSection(&cs);
+    };
+    void init(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO) {
+        m_pStrLog = pLogFile;
+        m_nLogLevel = log_level;
+        if (m_nLogLevel == QSV_LOG_DEBUG) {
+            TCHAR cpuInfo[256];
+            TCHAR gpu_info[1024] = { 0 };
+            getCPUInfo(cpuInfo, _countof(cpuInfo));
+            getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+            (*this)(QSV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+            (*this)(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
+            (*this)(QSV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+            (*this)(QSV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+        }
+    };
+    int getLogLevel() {
+        return m_nLogLevel;
+    }
+    virtual void operator()(int log_level, const TCHAR *format, ...);
+};
 
 #endif //_QSV_UTIL_H_

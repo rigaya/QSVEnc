@@ -288,7 +288,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
             );
         _ftprintf(stdout,
-            _T("   --log <string>               output log to file.\n"));
+            _T("   --log <string>               output log to file.\n")
+            _T("   --log-level <string>         set output log level\n")
+            _T("                                 info(default), warn, error, debug\n"));
         _ftprintf(stdout, _T("\n")
             _T(" settings below are only supported with API v1.3\n")
             _T("   --fullrange                  set stream as fullrange yuv\n")
@@ -1194,6 +1196,19 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                     PrintHelp(strInput[0], _T("Unknown value"), option_name);
                     return MFX_PRINT_OPTION_ERR;
                 }
+            }
+        }
+        else if (0 == _tcscmp(option_name, _T("log-level")))
+        {
+            i++;
+            mfxI32 v;
+            if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_log_level, strInput[i]))) {
+                pParams->nLogLevel = (mfxI16)v;
+            } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_log_level) - 1) {
+                pParams->nLogLevel = (mfxI16)v;
+            } else {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
             }
         }
 #ifdef D3D_SURFACES_SUPPORT

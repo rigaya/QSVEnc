@@ -121,14 +121,15 @@ public:
 #endif
     virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
-    virtual void PrintMes(int log_level, const TCHAR *format, ... );
-
     virtual void SetAbortFlagPointer(bool *abort);
 
     virtual mfxStatus GetEncodeStatusData(sEncodeStatusData *data);
     virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
     virtual const msdk_char *GetInputMessage();
     virtual MemType GetMemType();
+
+    virtual void PrintMes(int log_level, const TCHAR *format, ...);
+    unique_ptr<CQSVLog> m_pQSVLog;
 
 protected:
     virtual mfxStatus RunEncode();
@@ -146,7 +147,7 @@ protected:
     CQSVFrameTypeSimulation m_frameTypeSim;
 
     TCHAR *m_pStrLog;
-    int m_LogLevel;
+    int m_nLogLevel;
 
     vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
     CSmplBitstreamWriter *m_pFileWriter;

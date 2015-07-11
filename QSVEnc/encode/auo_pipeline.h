@@ -13,6 +13,12 @@
 
 #include "pipeline_encode.h"
 
+class CAuoLog : public CQSVLog {
+public:
+    CAuoLog(const TCHAR *pLogFile, int log_level) : CQSVLog(pLogFile, log_level) { };
+    virtual void operator()(int log_level, const TCHAR *format, ...) override;
+};
+
 class AuoPipeline : public CEncodingPipeline
 {
 public:
@@ -20,9 +26,6 @@ public:
     virtual ~AuoPipeline();
     virtual mfxStatus InitInput(sInputParams *pParams) override;
     virtual mfxStatus InitOutput(sInputParams *pParams) override;
-
-protected:
-    virtual void PrintMes(int log_level, const TCHAR *format, ... ) override;
 };
 
 

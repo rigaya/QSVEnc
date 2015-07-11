@@ -34,6 +34,7 @@ class CVPPPlugin
 {
 public:
     CVPPPlugin() {
+        m_pQSVLog = nullptr;
         m_pPluginSurfaces = nullptr;
         m_nSurfNum = 0;
         m_memType = SYSTEM_MEMORY;
@@ -53,10 +54,16 @@ public:
     };
 public:
     virtual void Close() {
+        tstring pluginName = _T("");
+        if (m_pUsrPlugin.get() != nullptr) {
+            pluginName = m_pUsrPlugin->GetPluginName().c_str();
+        }
         if (m_mfxSession) {
             MFXDisjoinSession(m_mfxSession);
             MFXVideoUSER_Unregister(m_mfxSession, 0);
+            (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginClose[%s]: unregistered plugin.\n"), pluginName.c_str());
             m_mfxSession.Close();
+            (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginClose[%s]: closed session.\n"), pluginName.c_str());
         }
 
         m_pUsrPlugin.reset();
@@ -70,6 +77,8 @@ public:
         m_hwdev = NULL;
 #endif
         m_message.clear();
+        (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginClose[%s]: closed.\n"), pluginName.c_str());
+        m_pQSVLog = nullptr;
     };
 
 public:
@@ -80,8 +89,11 @@ public:
         }
 
         mfxStatus sts = pMFXAllocator->Alloc(pMFXAllocator->pthis, &m_PluginRequest, &m_PluginResponse);
-        if (MFX_ERR_NONE != sts)
+        if (MFX_ERR_NONE != sts) {
+            (*m_pQSVLog)(QSV_LOG_ERROR, _T("CVPPPluginAlloc[%s]: failed to allocate surface.\n"), m_pUsrPlugin->GetPluginName().c_str());
             return sts;
+        }
+        (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginAlloc[%s]: allocated %d surfaces\n"), m_pUsrPlugin->GetPluginName().c_str(), m_PluginResponse.NumFrameActual);
 
         m_pPluginSurfaces.reset(new mfxFrameSurface1 [m_PluginResponse.NumFrameActual]);
         MSDK_CHECK_POINTER(m_pPluginSurfaces, MFX_ERR_MEMORY_ALLOC);
@@ -104,7 +116,7 @@ public:
 public:
     virtual mfxStatus Init(mfxVersion ver, const TCHAR *pluginName, void *pPluginParam, mfxU32 nPluginParamSize,
         bool useHWLib, MemType memType, CHWDevice *phwdev, MFXFrameAllocator* pAllocator,
-        mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern) {
+        mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, CQSVLog *pQSVLog) {
 
         MSDK_CHECK_POINTER(pluginName, MFX_ERR_NULL_PTR);
         MSDK_CHECK_POINTER(pPluginParam, MFX_ERR_NULL_PTR);
@@ -113,12 +125,13 @@ public:
 #if GPU_FILTER
         m_hwdev = phwdev;
 #endif
-
+        m_pQSVLog = pQSVLog;
         mfxStatus sts = InitSession(useHWLib, memType);
         if (sts != MFX_ERR_NONE) {
-            m_message += _T("failed to init session for plugin.\n");
+            (*m_pQSVLog)(QSV_LOG_ERROR, _T("CVPPPluginInit: failed to init session for plugin.\n"));
             return sts;
         }
+        (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginInit: initialized session for plugin.\n"));
 
         m_mfxSession.SetFrameAllocator(pAllocator);
         
@@ -128,7 +141,7 @@ public:
             m_pUsrPlugin.reset(new Delogo());
         }
         if (m_pUsrPlugin.get() == nullptr) {
-            m_message += strsprintf(_T("plugin name \"%s\" could not be found."), pluginName);
+            (*m_pQSVLog)(QSV_LOG_ERROR, _T("CVPPPluginInit: plugin name \"%s\" could not be found."), pluginName);
             return MFX_ERR_NOT_FOUND;
         }
 
@@ -139,13 +152,15 @@ public:
         // register plugin callbacks in Media SDK
         mfxPlugin plg = make_mfx_plugin_adapter((MFXGenericPlugin*)m_pUsrPlugin.get());
         if (MFX_ERR_NONE != (sts = MFXVideoUSER_Register(m_mfxSession, 0, &plg))) {
-            m_message += strsprintf(_T("%s: failed to register plugin.\n"), m_pUsrPlugin->GetPluginName().c_str());
+            (*m_pQSVLog)(QSV_LOG_ERROR, _T("CVPPPluginInit: %s: failed to register plugin.\n"), m_pUsrPlugin->GetPluginName().c_str());
             return sts;
         }
+        (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginInit: registered plugin to plugin session.\n"));
 
         if (sts == MFX_ERR_NONE) sts = m_pUsrPlugin->Init(&m_pluginVideoParams);
         if (sts == MFX_ERR_NONE) sts = m_pUsrPlugin->SetAuxParams(pPluginParam, nPluginParamSize);
-        m_message += strsprintf(_T("%s, %s\n"), m_pUsrPlugin->GetPluginName().c_str(), m_pUsrPlugin->GetPluginMessage().c_str());
+        m_message = strsprintf(_T("%s, %s\n"), m_pUsrPlugin->GetPluginName().c_str(), m_pUsrPlugin->GetPluginMessage().c_str());
+        (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginInit: %s\n"), m_message.c_str());
         return sts;
     }
 public:
@@ -227,4 +242,5 @@ private:
     CHWDevice                     *m_hwdev;               //使用しているデバイス
 #endif
     tstring                        m_message;             //このカスタムVPPからのメッセージ
+    CQSVLog                       *m_pQSVLog;            //ログ出力用関数オブジェクト
 };

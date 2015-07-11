@@ -16,6 +16,7 @@ CAVIReader::CAVIReader() {
     m_pGetFrame = NULL;
     m_pBitmapInfoHeader = NULL;
     m_nYPitchMultiplizer = 1;
+    m_strReaderName = _T("avi");
 }
 
 CAVIReader::~CAVIReader() {
@@ -44,15 +45,17 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     AVIFileInit();
 
     if (0 != AVIFileOpen(&m_pAviFile, strFileName, OF_READ | OF_SHARE_DENY_NONE, NULL)) {
-        m_strInputInfo += _T("avi: failed to open avi file.\n");
+        AddMessage(QSV_LOG_ERROR, _T("failed to open avi file: \"%s\"\n"), strFileName);
         return MFX_ERR_INVALID_HANDLE;
     }
+    AddMessage(QSV_LOG_DEBUG, _T("openend avi file: \"%s\"\n"), strFileName);
 
     AVIFILEINFO finfo = { 0 };
     if (0 != AVIFileInfo(m_pAviFile, &finfo, sizeof(AVIFILEINFO))) {
-        m_strInputInfo += _T("avi: failed to get avi file info.\n");
+        AddMessage(QSV_LOG_ERROR, _T("failed to get avi file info.\n"));
         return MFX_ERR_INVALID_HANDLE;
     }
+    tstring strFcc;
     for (DWORD i_stream = 0; i_stream < finfo.dwStreams; i_stream++) {
         if (0 != AVIFileGetStream(m_pAviFile, &m_pAviStream, 0, i_stream))
             return MFX_ERR_INVALID_HANDLE;
@@ -68,23 +71,17 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
             m_inputFrameInfo.FrameRateExtD = sinfo.dwScale / fps_gcd;
             *(DWORD*)&m_inputFrameInfo.FrameId = sinfo.dwLength - sinfo.dwStart;
             m_ColorFormat = sinfo.fccHandler;
-            TCHAR fcc[5] = { 0 };
-#if defined(UNICODE) || defined(_UNICODE)
-            MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, (char *)&sinfo.fccHandler, 4, fcc, _countof(fcc));
-#else
-            *(DWORD *)fcc = sinfo.fccHandler;
-#endif
-            m_strInputInfo += _T("avi: ");
-            m_strInputInfo += fcc;
+            strFcc = char_to_tstring((char *)sinfo.fccHandler);
             break;
         }
         AVIStreamRelease(m_pAviStream);
         m_pAviStream = NULL;
     }
     if (m_pAviStream == NULL) {
-        m_strInputInfo += _T("\navi: failed to get valid stream from avi file.\n");
+        AddMessage(QSV_LOG_ERROR, _T("failed to get valid stream from avi file.\n"));
         return MFX_ERR_INVALID_HANDLE;
     }
+    AddMessage(QSV_LOG_DEBUG, _T("found video stream from avi file.\n"));
 
     if (   m_ColorFormat == MFX_FOURCC_YUY2
         || m_ColorFormat == MFX_FOURCC_YV12) {
@@ -107,12 +104,12 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
         if (m_pGetFrame == NULL) {
             if (   NULL == (m_pGetFrame = AVIStreamGetFrameOpen(m_pAviStream, NULL))
                 && NULL == (m_pGetFrame = AVIStreamGetFrameOpen(m_pAviStream, (BITMAPINFOHEADER *)AVIGETFRAMEF_BESTDISPLAYFMT))) {
-                m_strInputInfo += _T("\navi: failed to decode avi file.\n");
+                AddMessage(QSV_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
                 return MFX_ERR_INVALID_HANDLE;
             }
             BITMAPINFOHEADER *bmpInfoHeader = (BITMAPINFOHEADER *)AVIStreamGetFrame(m_pGetFrame, 0);
             if (NULL == bmpInfoHeader || bmpInfoHeader->biCompression != 0) {
-                m_strInputInfo += _T("\navi: failed to decode avi file.\n");
+                AddMessage(QSV_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
                 return MFX_ERR_MORE_DATA;
             }
 
@@ -137,9 +134,10 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
         m_inputFrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
     }
     m_sConvert = get_convert_csp_func(m_ColorFormat, m_inputFrameInfo.FourCC, false);
-    TCHAR mes[256];
-    _stprintf_s(mes, _countof(mes), _T("(%s)->%s[%s], %dx%d, %d/%d fps"), ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
+    tstring mes = strsprintf(_T("avi: %s(%s)->%s[%s], %dx%d, %d/%d fps"), strFcc.c_str(),
+        ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
+    AddMessage(QSV_LOG_DEBUG, mes);
     m_strInputInfo += mes;
     m_tmLastUpdate = timeGetTime();
 
@@ -149,6 +147,7 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
 #pragma warning(pop)
 
 void CAVIReader::Close() {
+    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
     if (m_pGetFrame)
         AVIStreamGetFrameClose(m_pGetFrame);
     if (m_pAviStream)
@@ -167,6 +166,7 @@ void CAVIReader::Close() {
     m_nYPitchMultiplizer = 1;
     bufSize = 0;
     buffer = NULL;
+    AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
 mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {

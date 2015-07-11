@@ -16,6 +16,7 @@ CAVSReader::CAVSReader() {
     m_sAVSinfo = NULL;
 
     memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
+    m_strReaderName = _T("avs");
 }
 
 CAVSReader::~CAVSReader() {
@@ -66,33 +67,27 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
 
     if (MFX_ERR_NONE != load_avisynth()) {
-        m_strInputInfo += _T("avisynth: failed to load avisynth.dll.\n");
+        AddMessage(QSV_LOG_ERROR,  _T("failed to load avisynth.dll.\n"));
         return MFX_ERR_INVALID_HANDLE;
     }
 
     if (NULL == (m_sAVSenv = m_sAvisynth.create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
-        m_strInputInfo += _T("avisynth: failed to init avisynth enviroment.\n");
+        AddMessage(QSV_LOG_ERROR,  _T("failed to init avisynth enviroment.\n"));
         return MFX_ERR_INVALID_HANDLE;
     }
     std::string filename_char;
     if (0 == tchar_to_string(strFileName, filename_char)) {
-        m_strInputInfo += _T("avisynth: failed to convert to ansi characters.\n");
+        AddMessage(QSV_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
         return MFX_ERR_INVALID_HANDLE;
     }
     AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
     AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, NULL);
     m_sAvisynth.release_value(val_filename);
+    AddMessage(QSV_LOG_DEBUG,  _T("opened avs file: \"%s\"\n"), char_to_tstring(filename_char).c_str());
     if (!avs_is_clip(val_res)) {
-        m_strInputInfo += _T("avisynth: invalid clip.\n");
+        AddMessage(QSV_LOG_ERROR,  _T("invalid clip.\n"));
         if (avs_is_error(val_res)) {
-#if UNICODE
-            WCHAR buf[1024];
-            MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, avs_as_string(val_res), -1, buf, _countof(buf));
-            m_strInputInfo += buf;
-#else
-            m_strInputInfo += avs_as_string(val_res);
-#endif
-            m_strInputInfo += _T("\n");
+            AddMessage(QSV_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
         }
         m_sAvisynth.release_value(val_res);
         return MFX_ERR_INVALID_HANDLE;
@@ -101,14 +96,15 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     m_sAvisynth.release_value(val_res);
 
     if (NULL == (m_sAVSinfo = m_sAvisynth.get_video_info(m_sAVSclip))) {
-        m_strInputInfo += _T("avisynth: failed to get avs info.\n");
+        AddMessage(QSV_LOG_ERROR,  _T("failed to get avs info.\n"));
         return MFX_ERR_INVALID_HANDLE;
     }
 
     if (!avs_has_video(m_sAVSinfo)) {
-        m_strInputInfo += _T("avisynth: avs has no video.\n");
+        AddMessage(QSV_LOG_ERROR,  _T("avs has no video.\n"));
         return MFX_ERR_INVALID_HANDLE;
     }
+    AddMessage(QSV_LOG_DEBUG,  _T("found video from avs file, pixel type 0x%x.\n"), m_sAVSinfo->pixel_type);
 
     memset(&m_inputFrameInfo, 0, sizeof(m_inputFrameInfo));
 
@@ -137,7 +133,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     }
 
     if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
-        m_strInputInfo += _T("avisynth: invalid colorformat.\n");
+        AddMessage(QSV_LOG_ERROR,  _T("invalid colorformat.\n"));
         return MFX_ERR_INVALID_COLOR_FORMAT;
     }
 
@@ -150,16 +146,17 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     m_inputFrameInfo.FrameRateExtD = m_sAVSinfo->fps_denominator / fps_gcd;
     *(DWORD*)&m_inputFrameInfo.FrameId = m_sAVSinfo->num_frames;
     
-    TCHAR avisynth_version[32] = { 0 };
+    tstring avisynth_version;
     AVS_Value val_version = m_sAvisynth.invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(NULL, 0), NULL);
     if (avs_is_float(val_version)) {
-        _stprintf_s(avisynth_version, _countof(avisynth_version), _T("%.2f"), avs_as_float(val_version));
+        avisynth_version = strsprintf(_T("%.2f"), avs_as_float(val_version));
     }
     m_sAvisynth.release_value(val_version);
     
-    TCHAR mes[256];
-    _stprintf_s(mes, _countof(mes), _T("Avisynth %s (%s)->%s[%s], %dx%d, %d/%d fps"), avisynth_version, ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
+    tstring mes = strsprintf( _T("Avisynth %s (%s)->%s[%s], %dx%d, %d/%d fps"), avisynth_version.c_str(),
+        ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
+    AddMessage(QSV_LOG_DEBUG, mes);
     m_strInputInfo += mes;
     m_tmLastUpdate = timeGetTime();
 
@@ -169,6 +166,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
 #pragma warning(pop)
 
 void CAVSReader::Close() {
+    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
     if (m_sAVSclip)
         m_sAvisynth.release_clip(m_sAVSclip);
     if (m_sAVSenv)
@@ -180,6 +178,7 @@ void CAVSReader::Close() {
     m_sAVSclip = NULL;
     m_sAVSinfo = NULL;
     m_bInited = false;
+    AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
 mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {

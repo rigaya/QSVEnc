@@ -27,6 +27,7 @@ CVSReader::CVSReader() {
     m_nCopyOfInputFrames = 0;
     
     memset(&m_sVS, 0, sizeof(m_sVS));
+    m_strReaderName = _T("vpy");
 }
 
 CVSReader::~CVSReader() {
@@ -44,7 +45,7 @@ int CVSReader::load_vapoursynth() {
     release_vapoursynth();
     
     if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(_T("vsscript.dll")))) {
-        m_strInputInfo += _T("Failed to load vsscript.dll.\n");
+        AddMessage(QSV_LOG_ERROR, _T("Failed to load vsscript.dll.\n"));
         return 1;
     }
 
@@ -63,7 +64,7 @@ int CVSReader::load_vapoursynth() {
 
     for (auto vs_func : vs_func_list) {
         if (NULL == (*(vs_func.first) = GetProcAddress(m_sVS.hVSScriptDLL, vs_func.second))) {
-            m_strInputInfo += _T("Failed to load vsscript functions.\n");
+            AddMessage(QSV_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
             return 1;
         }
     }
@@ -156,9 +157,10 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     //ファイルデータ読み込み
     std::ifstream inputFile(strFileName);
     if (inputFile.bad()) {
-        m_strInputInfo += _T("Failed to open vpy file.\n");
+        AddMessage(QSV_LOG_ERROR, _T("Failed to open vpy file \"%s\".\n"), strFileName);
         return MFX_ERR_INVALID_HANDLE;
     }
+    AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\""), strFileName);
     std::istreambuf_iterator<char> data_begin(inputFile);
     std::istreambuf_iterator<char> data_end;
     std::string script_data = std::string(data_begin, data_end);
@@ -173,36 +175,29 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
         || NULL == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
         || NULL == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
         || NULL == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
-        m_strInputInfo += _T("VapourSynth Initialize Error.\n");
+        AddMessage(QSV_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
         if (m_sVSscript) {
-#if UNICODE
-            WCHAR buf[1024];
-            MultiByteToWideChar(CP_THREAD_ACP, MB_PRECOMPOSED, m_sVS.getError(m_sVSscript), -1, buf, _countof(buf));
-            m_strInputInfo += buf;
-#else
-            m_strInputInfo += m_sVS.getError(m_sVSscript);
-#endif
-            m_strInputInfo += _T("\n");
+            AddMessage(QSV_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
         return MFX_ERR_NULL_PTR;
     }
     if (vscoreinfo->api < 3) {
-        m_strInputInfo += _T("VapourSynth API v3 or later is necessary.\n");
+        AddMessage(QSV_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->height <= 0 || vsvideoinfo->width <= 0) {
-        m_strInputInfo += _T("Variable resolution is not supported.\n");
+        AddMessage(QSV_LOG_ERROR, _T("Variable resolution is not supported.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->numFrames == 0) {
-        m_strInputInfo += _T("Length of input video is unknown.\n");
+        AddMessage(QSV_LOG_ERROR, _T("Length of input video is unknown.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (!vsvideoinfo->format) {
-        m_strInputInfo += _T("Variable colorformat is not supported.\n");
+        AddMessage(QSV_LOG_ERROR, _T("Variable colorformat is not supported.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
@@ -232,12 +227,12 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     }
 
     if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
-        m_strInputInfo += _T("invalid colorformat.\n");
+        AddMessage(QSV_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
         return MFX_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
-        m_strInputInfo += _T("Invalid framerate.\n");
+        AddMessage(QSV_LOG_ERROR, _T("Invalid framerate %d/%d.\n"), vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     const mfxI64 fps_gcd = GCDI64(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
@@ -254,27 +249,28 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);
     if (!use_mt_mode)
         m_nAsyncFrames = 1;
-
+    
+    AddMessage(QSV_LOG_DEBUG, _T("VpyReader using %d async frames.\n"), m_nAsyncFrames);
     for (int i = 0; i < m_nAsyncFrames; i++)
         m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
 
-    TCHAR mes[256];
-    TCHAR rev_info[128] = { 0 };
-    TCHAR intputBitdepthStr[64] = { 0 };
+    tstring rev_info = _T("");
+    tstring intputBitdepthStr = _T("");
     int rev = getRevInfo(vscoreinfo->versionString);
     if (0 != rev) {
-        _stprintf_s(rev_info, _countof(rev_info), _T(" r%d"), rev);
+        rev_info = strsprintf( _T(" r%d"), rev);
     }
     if (m_inputFrameInfo.BitDepthLuma > 8) {
-        _stprintf_s(intputBitdepthStr, _T("(%dbit)"), m_inputFrameInfo.BitDepthLuma);
+        intputBitdepthStr = strsprintf(_T("(%dbit)"), m_inputFrameInfo.BitDepthLuma);
     }
-    _stprintf_s(mes, _T("VapourSynth%s%s (%s%s)->%s[%s]%s%dx%d, %d/%d fps"),
-        (use_mt_mode) ? _T("MT") : _T(""), rev_info,
-        ColorFormatToStr(m_ColorFormat), intputBitdepthStr,
+    tstring str = strsprintf(_T("VapourSynth%s%s (%s%s)->%s[%s]%s%dx%d, %d/%d fps"),
+        (use_mt_mode) ? _T("MT") : _T(""), rev_info.c_str(),
+        ColorFormatToStr(m_ColorFormat), intputBitdepthStr.c_str(),
         ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
         (m_inputFrameInfo.BitDepthLuma > 8) ? _T("\n") : _T(", "),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
-    m_strInputInfo += mes;
+    AddMessage(QSV_LOG_DEBUG, str);
+    m_strInputInfo += str;
     m_tmLastUpdate = timeGetTime();
 
     m_bInited = true;
@@ -282,6 +278,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
 }
 
 void CVSReader::Close() {
+    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
     closeAsyncEvents();
     if (m_sVSapi && m_sVSnode)
         m_sVSapi->freeNode(m_sVSnode);
@@ -303,6 +300,7 @@ void CVSReader::Close() {
     m_bInited = false;
     bufSize = 0;
     buffer = NULL;
+    AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
 mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {

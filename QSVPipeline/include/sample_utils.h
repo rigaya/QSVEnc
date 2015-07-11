@@ -34,6 +34,8 @@
 #include "qsv_control.h"
 #include "convert_csp.h"
 
+using std::vector;
+
 // A macro to disallow the copy constructor and operator= functions
 // This should be used in the private: declarations for a class
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \
@@ -95,7 +97,10 @@ public:
 
     CSmplYUVReader();
     virtual ~CSmplYUVReader();
-
+    
+    virtual void SetQSVLogPtr(CQSVLog *pQSVLog) {
+        m_pPrintMes = pQSVLog;
+    }
     virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
 
     //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
@@ -112,11 +117,15 @@ public:
         //_ftprintf(stderr, "wait for heInputDone, %d\n", m_pEncThread->m_nFrameGet);
         WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
         //エラー・中断要求などでの終了
-        if (m_pEncThread->m_bthForceAbort)
+        if (m_pEncThread->m_bthForceAbort) {
+            AddMessage(QSV_LOG_DEBUG, _T("GetNextFrame: Encode Aborted...\n"));
             return m_pEncThread->m_stsThread;
+        }
         //読み込み完了による終了
-        if (m_pEncThread->m_stsThread == MFX_ERR_MORE_DATA && m_pEncThread->m_nFrameGet == m_pEncSatusInfo->m_nInputFrames)
+        if (m_pEncThread->m_stsThread == MFX_ERR_MORE_DATA && m_pEncThread->m_nFrameGet == m_pEncSatusInfo->m_nInputFrames) {
+            AddMessage(QSV_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
             return m_pEncThread->m_stsThread;
+        }
         *pSurface = pInputBuf->pFrameSurface;
         (*pSurface)->Data.TimeStamp = inputBufIdx;
         (*pSurface)->Data.Locked = FALSE;
@@ -172,6 +181,31 @@ public:
         const msdk_char *mes = m_strInputInfo.c_str();
         return (mes) ? mes : _T("");
     }
+    void AddMessage(int log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+         auto lines = split(str, _T("\n"));
+         for (const auto& line : lines) {
+             if (line[0] != _T('\0')) {
+                 (*m_pPrintMes)(log_level, (m_strReaderName + _T(": ") + line + _T("\n")).c_str());
+             }
+         }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+         _vstprintf_s(&buffer[0], len, format, args);
+         va_end(args);
+         AddMessage(log_level, buffer);
+    }
     //QSVデコードを行う場合のコーデックを返す
     //行わない場合は0を返す
     mfxU32 getInputCodec() {
@@ -204,7 +238,9 @@ protected:
     mfxU32 bufSize;
     mfxU8 *buffer;
 
-    std::basic_string<msdk_char> m_strInputInfo;
+    tstring m_strReaderName;
+    tstring m_strInputInfo;
+    CQSVLog *m_pPrintMes;  //ログ出力
 
     sTrimParam m_sTrimParam;
 };
@@ -216,6 +252,9 @@ public:
     CSmplBitstreamWriter();
     virtual ~CSmplBitstreamWriter();
 
+    virtual void SetQSVLogPtr(CQSVLog *pQSVLog) {
+        m_pPrintMes = pQSVLog;
+    }
     virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
 
     virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2);
@@ -231,6 +270,31 @@ public:
         const msdk_char *mes = m_strOutputInfo.c_str();
         return (mes) ? mes : _T("");
     }
+    void AddMessage(int log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+         auto lines = split(str, _T("\n"));
+         for (const auto& line : lines) {
+             if (line[0] != _T('\0')) {
+                 (*m_pPrintMes)(log_level, (m_strWriterName + _T(": ") + line + _T("\n")).c_str());
+             }
+         }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+         _vstprintf_s(&buffer[0], len, format, args);
+         va_end(args);
+         AddMessage(log_level, buffer);
+    }
 protected:
     CEncodeStatusInfo *m_pEncSatusInfo;
     FILE*       m_fSource;
@@ -238,7 +302,9 @@ protected:
     bool        m_bInited;
     bool        m_bNoOutput;
     char*       m_pOutputBuffer;
-    std::basic_string<msdk_char> m_strOutputInfo;
+    tstring     m_strWriterName;
+    tstring     m_strOutputInfo;
+    CQSVLog    *m_pPrintMes;  //ログ出力
 };
 
 class CSmplYUVWriter

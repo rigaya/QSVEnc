@@ -168,7 +168,7 @@ struct sInputParams
     mfxU32 nFPSScale;     //fps scale of input
     mfxU16 __nBitRate;    //old field of target bitrate used in bitrate mode
     mfxU16 __nMaxBitrate; //max bitrate
-    mfxU16 __nThreads;    //max bitrate
+    mfxI16 nLogLevel;     //ログレベル
 
     mfxU16 nDstWidth;     //output width 
     mfxU16 nDstHeight;    //input width
@@ -268,7 +268,6 @@ struct sInputParams
 #ifdef _M_IX86
     mfxU32     paddPtr7;
 #endif
-
 
     mfxU8      Reserved[1112];
 
@@ -422,6 +421,16 @@ const CX_DESC list_mv_cost_scaling[] = {
     { _T("2"),        2 },
     { _T("3"),        3 },
     { _T("4"),        4 },
+    { NULL, NULL }
+};
+
+const CX_DESC list_log_level[] = {
+    { _T("trace"), QSV_LOG_TRACE },
+    { _T("debug"), QSV_LOG_DEBUG },
+    { _T("more"),  QSV_LOG_MORE  },
+    { _T("info"),  QSV_LOG_INFO  },
+    { _T("warn"),  QSV_LOG_WARN  },
+    { _T("error"), QSV_LOG_ERROR },
     { NULL, NULL }
 };
 
