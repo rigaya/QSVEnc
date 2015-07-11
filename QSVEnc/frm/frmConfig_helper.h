@@ -268,6 +268,13 @@ const CX_DESC list_outtype[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_log_level_jp[] = {
+    { "通常",                  QSV_LOG_INFO  },
+    { "音声/muxのログも表示 ", QSV_LOG_MORE  },
+    { "デバッグ用出力も表示 ", QSV_LOG_DEBUG },
+    { NULL, NULL }
+};
+
 //メモ表示用 RGB
 const int StgNotesColor[][3] = {
     {  80,  72,  92 },

@@ -116,7 +116,11 @@ namespace QSVEnc {
     private: System::Windows::Forms::Label^  fosLBStgDir;
     private: System::Windows::Forms::TextBox^  fosTXStgDir;
     private: System::Windows::Forms::CheckBox^  fosCBWineCompat;
-    private: System::Windows::Forms::CheckBox^  fosCBOutputMoreLog;
+    private: System::Windows::Forms::ComboBox^  fosCXLogLevel;
+    private: System::Windows::Forms::Label^  fosLBLogOut;
+
+
+
 
 
 
@@ -159,7 +163,8 @@ namespace QSVEnc {
             this->fosCXDefaultOutExt = (gcnew System::Windows::Forms::ComboBox());
             this->fosLBDefaultOutExt = (gcnew System::Windows::Forms::Label());
             this->fostabPageGUI = (gcnew System::Windows::Forms::TabPage());
-            this->fosCBOutputMoreLog = (gcnew System::Windows::Forms::CheckBox());
+            this->fosCXLogLevel = (gcnew System::Windows::Forms::ComboBox());
+            this->fosLBLogOut = (gcnew System::Windows::Forms::Label());
             this->fosCBWineCompat = (gcnew System::Windows::Forms::CheckBox());
             this->fosBTSetFont = (gcnew System::Windows::Forms::Button());
             this->fosCBGetRelativePath = (gcnew System::Windows::Forms::CheckBox());
@@ -181,7 +186,7 @@ namespace QSVEnc {
             // 
             this->fosCBCancel->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
             this->fosCBCancel->DialogResult = System::Windows::Forms::DialogResult::Cancel;
-            this->fosCBCancel->Location = System::Drawing::Point(171, 382);
+            this->fosCBCancel->Location = System::Drawing::Point(171, 401);
             this->fosCBCancel->Name = L"fosCBCancel";
             this->fosCBCancel->Size = System::Drawing::Size(84, 29);
             this->fosCBCancel->TabIndex = 1;
@@ -192,7 +197,7 @@ namespace QSVEnc {
             // fosCBOK
             // 
             this->fosCBOK->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
-            this->fosCBOK->Location = System::Drawing::Point(283, 382);
+            this->fosCBOK->Location = System::Drawing::Point(283, 401);
             this->fosCBOK->Name = L"fosCBOK";
             this->fosCBOK->Size = System::Drawing::Size(84, 29);
             this->fosCBOK->TabIndex = 2;
@@ -217,7 +222,7 @@ namespace QSVEnc {
             this->fosTabControl->Location = System::Drawing::Point(1, 0);
             this->fosTabControl->Name = L"fosTabControl";
             this->fosTabControl->SelectedIndex = 0;
-            this->fosTabControl->Size = System::Drawing::Size(391, 373);
+            this->fosTabControl->Size = System::Drawing::Size(391, 395);
             this->fosTabControl->TabIndex = 26;
             // 
             // fostabPageGeneral
@@ -236,7 +241,7 @@ namespace QSVEnc {
             this->fostabPageGeneral->Location = System::Drawing::Point(4, 24);
             this->fostabPageGeneral->Name = L"fostabPageGeneral";
             this->fostabPageGeneral->Padding = System::Windows::Forms::Padding(3);
-            this->fostabPageGeneral->Size = System::Drawing::Size(383, 345);
+            this->fostabPageGeneral->Size = System::Drawing::Size(383, 367);
             this->fostabPageGeneral->TabIndex = 0;
             this->fostabPageGeneral->Text = L"エンコード設定";
             this->fostabPageGeneral->UseVisualStyleBackColor = true;
@@ -351,7 +356,8 @@ namespace QSVEnc {
             // 
             // fostabPageGUI
             // 
-            this->fostabPageGUI->Controls->Add(this->fosCBOutputMoreLog);
+            this->fostabPageGUI->Controls->Add(this->fosCXLogLevel);
+            this->fostabPageGUI->Controls->Add(this->fosLBLogOut);
             this->fostabPageGUI->Controls->Add(this->fosCBWineCompat);
             this->fostabPageGUI->Controls->Add(this->fosBTSetFont);
             this->fostabPageGUI->Controls->Add(this->fosCBGetRelativePath);
@@ -367,25 +373,33 @@ namespace QSVEnc {
             this->fostabPageGUI->Location = System::Drawing::Point(4, 24);
             this->fostabPageGUI->Name = L"fostabPageGUI";
             this->fostabPageGUI->Padding = System::Windows::Forms::Padding(3);
-            this->fostabPageGUI->Size = System::Drawing::Size(383, 345);
+            this->fostabPageGUI->Size = System::Drawing::Size(383, 367);
             this->fostabPageGUI->TabIndex = 1;
             this->fostabPageGUI->Text = L"ログ・設定画面";
             this->fostabPageGUI->UseVisualStyleBackColor = true;
             // 
-            // fosCBOutputMoreLog
+            // fosCXLogLevel
             // 
-            this->fosCBOutputMoreLog->AutoSize = true;
-            this->fosCBOutputMoreLog->Location = System::Drawing::Point(16, 316);
-            this->fosCBOutputMoreLog->Name = L"fosCBOutputMoreLog";
-            this->fosCBOutputMoreLog->Size = System::Drawing::Size(143, 19);
-            this->fosCBOutputMoreLog->TabIndex = 27;
-            this->fosCBOutputMoreLog->Text = L"音声・muxのログも表示";
-            this->fosCBOutputMoreLog->UseVisualStyleBackColor = true;
+            this->fosCXLogLevel->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fosCXLogLevel->FormattingEnabled = true;
+            this->fosCXLogLevel->Location = System::Drawing::Point(35, 99);
+            this->fosCXLogLevel->Name = L"fosCXLogLevel";
+            this->fosCXLogLevel->Size = System::Drawing::Size(234, 23);
+            this->fosCXLogLevel->TabIndex = 28;
+            // 
+            // fosLBLogOut
+            // 
+            this->fosLBLogOut->AutoSize = true;
+            this->fosLBLogOut->Location = System::Drawing::Point(8, 79);
+            this->fosLBLogOut->Name = L"fosLBLogOut";
+            this->fosLBLogOut->Size = System::Drawing::Size(49, 15);
+            this->fosLBLogOut->TabIndex = 27;
+            this->fosLBLogOut->Text = L"ログ出力";
             // 
             // fosCBWineCompat
             // 
             this->fosCBWineCompat->AutoSize = true;
-            this->fosCBWineCompat->Location = System::Drawing::Point(16, 289);
+            this->fosCBWineCompat->Location = System::Drawing::Point(11, 333);
             this->fosCBWineCompat->Name = L"fosCBWineCompat";
             this->fosCBWineCompat->Size = System::Drawing::Size(104, 19);
             this->fosCBWineCompat->TabIndex = 26;
@@ -395,7 +409,7 @@ namespace QSVEnc {
             // 
             // fosBTSetFont
             // 
-            this->fosBTSetFont->Location = System::Drawing::Point(251, 253);
+            this->fosBTSetFont->Location = System::Drawing::Point(246, 305);
             this->fosBTSetFont->Name = L"fosBTSetFont";
             this->fosBTSetFont->Size = System::Drawing::Size(124, 27);
             this->fosBTSetFont->TabIndex = 25;
@@ -406,7 +420,7 @@ namespace QSVEnc {
             // fosCBGetRelativePath
             // 
             this->fosCBGetRelativePath->AutoSize = true;
-            this->fosCBGetRelativePath->Location = System::Drawing::Point(16, 261);
+            this->fosCBGetRelativePath->Location = System::Drawing::Point(11, 305);
             this->fosCBGetRelativePath->Name = L"fosCBGetRelativePath";
             this->fosCBGetRelativePath->Size = System::Drawing::Size(185, 19);
             this->fosCBGetRelativePath->TabIndex = 24;
@@ -416,7 +430,7 @@ namespace QSVEnc {
             // fosCBStgEscKey
             // 
             this->fosCBStgEscKey->AutoSize = true;
-            this->fosCBStgEscKey->Location = System::Drawing::Point(16, 232);
+            this->fosCBStgEscKey->Location = System::Drawing::Point(11, 276);
             this->fosCBStgEscKey->Name = L"fosCBStgEscKey";
             this->fosCBStgEscKey->Size = System::Drawing::Size(168, 19);
             this->fosCBStgEscKey->TabIndex = 23;
@@ -426,7 +440,7 @@ namespace QSVEnc {
             // fosCBLogDisableTransparency
             // 
             this->fosCBLogDisableTransparency->AutoSize = true;
-            this->fosCBLogDisableTransparency->Location = System::Drawing::Point(16, 203);
+            this->fosCBLogDisableTransparency->Location = System::Drawing::Point(11, 247);
             this->fosCBLogDisableTransparency->Name = L"fosCBLogDisableTransparency";
             this->fosCBLogDisableTransparency->Size = System::Drawing::Size(174, 19);
             this->fosCBLogDisableTransparency->TabIndex = 22;
@@ -436,7 +450,7 @@ namespace QSVEnc {
             // fosCBLogStartMinimized
             // 
             this->fosCBLogStartMinimized->AutoSize = true;
-            this->fosCBLogStartMinimized->Location = System::Drawing::Point(16, 173);
+            this->fosCBLogStartMinimized->Location = System::Drawing::Point(11, 217);
             this->fosCBLogStartMinimized->Name = L"fosCBLogStartMinimized";
             this->fosCBLogStartMinimized->Size = System::Drawing::Size(184, 19);
             this->fosCBLogStartMinimized->TabIndex = 21;
@@ -449,7 +463,7 @@ namespace QSVEnc {
             this->fosLBDisableVisualStyles->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->fosLBDisableVisualStyles->ForeColor = System::Drawing::Color::OrangeRed;
-            this->fosLBDisableVisualStyles->Location = System::Drawing::Point(37, 139);
+            this->fosLBDisableVisualStyles->Location = System::Drawing::Point(32, 187);
             this->fosLBDisableVisualStyles->Name = L"fosLBDisableVisualStyles";
             this->fosLBDisableVisualStyles->Size = System::Drawing::Size(161, 14);
             this->fosLBDisableVisualStyles->TabIndex = 20;
@@ -458,7 +472,7 @@ namespace QSVEnc {
             // fosCBDisableVisualStyles
             // 
             this->fosCBDisableVisualStyles->AutoSize = true;
-            this->fosCBDisableVisualStyles->Location = System::Drawing::Point(16, 120);
+            this->fosCBDisableVisualStyles->Location = System::Drawing::Point(11, 168);
             this->fosCBDisableVisualStyles->Name = L"fosCBDisableVisualStyles";
             this->fosCBDisableVisualStyles->Size = System::Drawing::Size(128, 19);
             this->fosCBDisableVisualStyles->TabIndex = 19;
@@ -468,7 +482,7 @@ namespace QSVEnc {
             // fosCBDisableToolTip
             // 
             this->fosCBDisableToolTip->AutoSize = true;
-            this->fosCBDisableToolTip->Location = System::Drawing::Point(16, 90);
+            this->fosCBDisableToolTip->Location = System::Drawing::Point(11, 138);
             this->fosCBDisableToolTip->Name = L"fosCBDisableToolTip";
             this->fosCBDisableToolTip->Size = System::Drawing::Size(158, 19);
             this->fosCBDisableToolTip->TabIndex = 18;
@@ -507,7 +521,7 @@ namespace QSVEnc {
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
             this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Dpi;
             this->CancelButton = this->fosCBCancel;
-            this->ClientSize = System::Drawing::Size(392, 420);
+            this->ClientSize = System::Drawing::Size(392, 439);
             this->Controls->Add(this->fosTabControl);
             this->Controls->Add(this->fosCBOK);
             this->Controls->Add(this->fosCBCancel);
@@ -550,7 +564,7 @@ namespace QSVEnc {
             fos_ex_stg->s_log.minimized                   = fosCBLogStartMinimized->Checked;
             fos_ex_stg->s_log.transparent                 = !fosCBLogDisableTransparency->Checked;
             fos_ex_stg->s_log.wine_compat                 = fosCBWineCompat->Checked;
-            fos_ex_stg->s_log.log_level                   =(fosCBOutputMoreLog->Checked) ? LOG_MORE : LOG_INFO;
+            fos_ex_stg->s_log.log_level                   = list_log_level_jp[fosCXLogLevel->SelectedIndex].value;
             fos_ex_stg->s_local.get_relative_path         = fosCBGetRelativePath->Checked;
             fos_ex_stg->s_local.default_output_ext        = fosCXDefaultOutExt->SelectedIndex;
             fos_ex_stg->s_local.default_audio_encoder     = fosCXDefaultAudioEncoder->SelectedIndex;
@@ -571,6 +585,12 @@ namespace QSVEnc {
             for (int i = 0; i < fos_ex_stg->s_aud_count; i++)
                 fosCXDefaultAudioEncoder->Items->Add(String(fos_ex_stg->s_aud[i].dispname).ToString());
             fosCXDefaultAudioEncoder->ResumeLayout();
+            
+            fosCXLogLevel->SuspendLayout();
+            fosCXLogLevel->Items->Clear();
+            for (int i = 0; list_log_level_jp[i].desc; i++)
+                fosCXLogLevel->Items->Add(String(list_log_level_jp[i].desc).ToString());
+            fosCXLogLevel->ResumeLayout();
         }
     private: 
         System::Void frmOtherSettings_Load(System::Object^  sender, System::EventArgs^  e) {
@@ -591,7 +611,7 @@ namespace QSVEnc {
             fosCBLogStartMinimized->Checked         = fos_ex_stg->s_log.minimized != 0;
             fosCBLogDisableTransparency->Checked    = fos_ex_stg->s_log.transparent == 0;
             fosCBWineCompat->Checked                = fos_ex_stg->s_log.wine_compat != 0;
-            fosCBOutputMoreLog->Checked             = fos_ex_stg->s_log.log_level != LOG_INFO;
+            fosCXLogLevel->SelectedIndex            = get_cx_index(list_log_level_jp, fos_ex_stg->s_log.log_level);
             fosCBGetRelativePath->Checked           = fos_ex_stg->s_local.get_relative_path != 0;
             fosCXDefaultOutExt->SelectedIndex       = fos_ex_stg->s_local.default_output_ext;
             fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder, 0, fosCXDefaultAudioEncoder->Items->Count);

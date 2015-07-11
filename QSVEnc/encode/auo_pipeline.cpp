@@ -88,11 +88,15 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
 }
 
 void CAuoLog::operator()(int log_level, const TCHAR *format, ... ) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
     va_list args;
     va_start(args, format);
 
     int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    TCHAR *buffer = (TCHAR*)calloc((len * 2 + 20), sizeof(buffer[0]));
+    TCHAR *buffer = (TCHAR*)calloc((len * 2 + 64), sizeof(buffer[0]));
     TCHAR *buffer_line = buffer + len;
 
     _vstprintf_s(buffer, len, format, args);
@@ -100,8 +104,8 @@ void CAuoLog::operator()(int log_level, const TCHAR *format, ... ) {
 
     TCHAR *q = NULL;
     for (TCHAR *p = buffer; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
-        static const char *LOG_STRING[] = { "debug", "info", "warn", "error" };
-        _stprintf_s(buffer_line, len + 20, "qsv [%s]: %s", LOG_STRING[1+clamp(log_level, QSV_LOG_DEBUG, QSV_LOG_ERROR)], p);
+        static const TCHAR *const LOG_STRING[] = { _T("trace"),  _T("debug"), _T("info"), _T("info"), _T("warn"), _T("error") };
+        _stprintf_s(buffer_line, len + 64, "qsv [%s]: %s", LOG_STRING[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE], p);
         write_log_line(log_level, buffer_line);
         p = NULL;
     }

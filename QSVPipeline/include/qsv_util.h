@@ -317,7 +317,7 @@ enum {
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 class CQSVLog {
-private:
+protected:
     int m_nLogLevel = QSV_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
     CRITICAL_SECTION cs;
