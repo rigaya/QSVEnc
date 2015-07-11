@@ -71,7 +71,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
 
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, NULL);
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, NULL, m_pQSVLog.get());
 
     return sts;
 }

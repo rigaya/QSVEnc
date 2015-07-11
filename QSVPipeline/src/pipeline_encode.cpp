@@ -2375,7 +2375,7 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pStrLog);
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pStrLog, m_pQSVLog.get());
     PrintMes(QSV_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);

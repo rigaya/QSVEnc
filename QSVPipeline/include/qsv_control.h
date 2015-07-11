@@ -150,7 +150,7 @@ class CEncodeStatusInfo
 {
 public:
     CEncodeStatusInfo();
-    void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, TCHAR *pStrLog);
+    void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, const TCHAR *pStrLog, CQSVLog *m_pQSVLog);
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
         if (NULL != data) {
@@ -173,6 +173,9 @@ public:
 #pragma warning(disable:4100)
     virtual void UpdateDisplay(const TCHAR *mes, int drop_frames)
     {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+            return;
+        }
 #if UNICODE
         char *mes_char = NULL;
         if (!m_bStdErrWriteToConsole) {
@@ -192,6 +195,9 @@ public:
 #pragma warning(pop)
     virtual void UpdateDisplay(mfxU32 tm, int drop_frames, double progressPercent = 0.0)
     {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+            return;
+        }
         if (m_sData.nProcessedFramesNum + drop_frames) {
             TCHAR mes[256];
             m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (double)(tm - m_sData.tmStart);
@@ -227,6 +233,10 @@ public:
         }
     }
     virtual void WriteLine(const TCHAR *mes) {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+            return;
+        }
+
 #ifdef UNICODE
         char *mes_char = NULL;
         if (m_pStrLog || !m_bStdErrWriteToConsole) {
@@ -331,7 +341,8 @@ public:
 protected:
     PROCESS_TIME m_sStartTime;
     sEncodeStatusData m_sData;
-    TCHAR *m_pStrLog;
+    const TCHAR *m_pStrLog;
+    CQSVLog *m_pQSVLog;
     bool m_bStdErrWriteToConsole;
 };
 
