@@ -1673,7 +1673,6 @@ int run_encode(sInputParams *params) {
     if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
         return sts;
     }
-    _ftprintf(stderr, _T("\nProcessing started\r"));
 
     for (;;) {
         sts = pPipeline->Run();
@@ -1977,7 +1976,6 @@ int run(int argc, TCHAR *argv[]) {
     if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
         return sts;
     }
-    _ftprintf(stderr, _T("\nProcessing started\r"));
 
     for (;;) {
         sts = pPipeline->Run();

@@ -269,9 +269,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     } else if (MFX_ERR_NONE == (sts = pPipeline->CheckCurrentVideoParam())) {
         if (conf->vid.afs) write_log_auo_line(LOG_INFO, _T("自動フィールドシフト    on"));
 
-        //_ftprintf(stderr, _T("Processing started\n"));
         DWORD tm_qsv = timeGetTime();
-        //write_log_auo_line(LOG_INFO, "Processing started...");
         const char * const encode_name = (conf->qsv.bUseHWLib) ? "QuickSyncVideoエンコード" : "IntelMediaSDKエンコード";
         set_window_title(encode_name, PROGRESSBAR_CONTINUOUS);
 
