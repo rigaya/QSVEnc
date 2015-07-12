@@ -11,6 +11,10 @@
 #include "scene_change_detection.h"
 #include "scene_change_detection_simd.h"
 
+#if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
+static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
+#endif
+
 void make_hist_avx(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch) {
     make_hist_simd(frame_Y, hist_buf, y_start, y_end, y_step, x_skip, width, pitch, AVX|POPCNT|SSE42|SSE41|SSSE3|SSE3|SSE2);
 }
