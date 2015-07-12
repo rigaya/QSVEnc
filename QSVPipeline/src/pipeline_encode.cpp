@@ -45,6 +45,30 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 
 #define MSDK_CHECK_RESULT_MES(P, X, ERR, MES)    {if ((X) > (P)) {PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)P)); MSDK_PRINT_RET_MSG(ERR); return ERR;}}
 
+#if 0
+/* obtain the clock tick of an uninterrupted master clock */
+msdk_tick time_get_tick(void)
+{
+    return msdk_time_get_tick();/*
+    LARGE_INTEGER t1;
+
+    QueryPerformanceCounter(&t1);
+    return t1.QuadPart;*/
+
+} /* vm_tick vm_time_get_tick(void) */
+
+/* obtain the clock resolution */
+msdk_tick time_get_frequency(void)
+{
+    return msdk_time_get_frequency();/*
+    LARGE_INTEGER t1;
+
+    QueryPerformanceFrequency(&t1);
+    return t1.QuadPart;*/
+
+} /* vm_tick vm_time_get_frequency(void) */
+#endif
+
 CEncTaskPool::CEncTaskPool()
 {
     m_pTasks  = NULL;
