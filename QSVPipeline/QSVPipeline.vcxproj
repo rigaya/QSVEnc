@@ -306,6 +306,9 @@
   <ItemGroup>
     <ClCompile Include="src\avcodec_reader.cpp" />
     <ClCompile Include="src\avcodec_writer.cpp" />
+    <ClCompile Include="src\avc_bitstream.cpp" />
+    <ClCompile Include="src\avc_nal_spl.cpp" />
+    <ClCompile Include="src\avc_spl.cpp" />
     <ClCompile Include="src\avi_reader.cpp" />
     <ClCompile Include="src\avs_reader.cpp" />
     <ClCompile Include="src\base_allocator.cpp" />

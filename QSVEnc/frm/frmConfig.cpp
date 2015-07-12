@@ -838,14 +838,16 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
     this->SuspendLayout();
 
+    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+
     mfxVersion mfxlib_target;
     mfxlib_target.Version = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
     
-    mfxU64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
+    mfxU64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
     //まず、レート制御モードのみのチェックを行う
     //もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
     if (fcgCheckLibRateControl(mfxlib_target.Version, available_features))
-        available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex);
+        available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
 
     //つぎに全体のチェックを行う
     fcgCheckLibVersion(mfxlib_target.Version, available_features);
@@ -949,6 +951,9 @@ System::Void frmConfig::fcgCXOutputType_SelectedIndexChanged(System::Object^  se
     setComboBox(fcgCXCodecProfile, get_profile_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
     fcgCXCodecLevel->SelectedIndex = 0;
     fcgCXCodecProfile->SelectedIndex = 0;
+
+    UpdateFeatures();
+    fcgChangeEnabled(sender, e);
 
     this->ResumeLayout();
     this->PerformLayout();
@@ -1681,20 +1686,26 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 
 System::Void frmConfig::UpdateFeatures() {
     //表示更新
-    mfxU32 currentLib = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
-    bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
+    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    const mfxU32 currentLib = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
+    const bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
     String^ currentAPI = ((fcgCBHWEncode->Checked) ? L"hw" : L"sw") + L": ";
     currentAPI += (currentLibValid) ? L"API v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-------";
-    fcgLBFeaturesCurrentAPIVer->Text = currentAPI;
+    fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_outtype[fcgCXOutputType->SelectedIndex].desc).ToString();
+
+    auto dataGridViewFont = gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, FontStyle::Regular, GraphicsUnit::Point, static_cast<Byte>(128));
 
     fcgDGVFeatures->ReadOnly = true;
     fcgDGVFeatures->AllowUserToAddRows = false;
     fcgDGVFeatures->AllowUserToResizeRows = false;
     fcgDGVFeatures->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
 
-    fcgDGVFeatures->DataSource = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureTable() : featuresSW->getFeatureTable(); //テーブルをバインド
+    fcgDGVFeatures->DataSource = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureTable(codecId) : featuresSW->getFeatureTable(codecId); //テーブルをバインド
 
     fcgDGVFeatures->Columns[0]->FillWeight = 240;
+    fcgDGVFeatures->DefaultCellStyle->Font = dataGridViewFont;
+    fcgDGVFeatures->ColumnHeadersDefaultCellStyle->Font = dataGridViewFont;
+    fcgDGVFeatures->RowHeadersDefaultCellStyle->Font = dataGridViewFont;
 
     fcgCheckVppFeatures();
 }

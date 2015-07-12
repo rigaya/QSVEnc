@@ -1,14 +1,12 @@
-﻿/* ////////////////////////////////////////////////////////////////////////////// */
-/*
-//
-//              INTEL CORPORATION PROPRIETARY INFORMATION
-//  This software is supplied under the terms of a license  agreement or
-//  nondisclosure agreement with Intel Corporation and may not be copied
-//  or disclosed except in  accordance  with the terms of that agreement.
-//        Copyright (c) 2005-2014 Intel Corporation. All Rights Reserved.
-//
-//
-*/
+﻿/*********************************************************************************
+
+INTEL CORPORATION PROPRIETARY INFORMATION
+This software is supplied under the terms of a license agreement or nondisclosure
+agreement with Intel Corporation and may not be copied or disclosed except in
+accordance with the terms of that agreement
+Copyright(c) 2005-2015 Intel Corporation. All Rights Reserved.
+
+**********************************************************************************/
 
 #ifndef __SAMPLE_UTILS_H__
 #define __SAMPLE_UTILS_H__
@@ -35,6 +33,12 @@
 #include "convert_csp.h"
 
 using std::vector;
+
+#include "abstract_splitter.h"
+#include "avc_bitstream.h"
+#include "avc_spl.h"
+#include "avc_headers.h"
+#include "avc_nal_spl.h"
 
 // A macro to disallow the copy constructor and operator= functions
 // This should be used in the private: declarations for a class
@@ -344,20 +348,32 @@ protected:
     bool      m_bInited;
 };
 
-//provides output bistream with at least 1 slice, reports about error
 class CH264FrameReader : public CSmplBitstreamReader
 {
 public:
     CH264FrameReader();
+    virtual ~CH264FrameReader();
+
+    /** Free resources.*/
+    virtual void      Close();
+    virtual mfxStatus Init(const msdk_char *strFileName);
     virtual mfxStatus ReadNextFrame(mfxBitstream *pBS);
-protected:
-    //1 - means slice start indicator present
-    //2 - means slice start and backend startcode present
-    int FindSlice(mfxBitstream *pBS, int & pos2ndnalu);
 
+private:
+    mfxBitstream *m_processedBS;
+    // input bit stream
+    std::auto_ptr<mfxBitstream>  m_originalBS;
 
-    mfxBitstream m_lastBs;
-    std::vector<mfxU8> m_bsBuffer;
+    mfxStatus PrepareNextFrame(mfxBitstream *in, mfxBitstream **out);
+
+    // is stream ended
+    bool m_isEndOfStream;
+
+    std::auto_ptr<AbstractSplitter> m_pNALSplitter;
+    FrameSplitterInfo *m_frame;
+    mfxU8 *m_plainBuffer;
+    mfxU32 m_plainBufferSize;
+    mfxBitstream m_outBS;
 };
 
 //provides output bistream with at least 1 frame, reports about error
@@ -717,6 +733,10 @@ template<>struct mfx_ext_buffer_id<mfxExtAvcTemporalLayers>{
 template<>struct mfx_ext_buffer_id<mfxExtAVCRefListCtrl>{
     enum { id = MFX_EXTBUFF_AVC_REFLIST_CTRL };
 };
+template<>struct mfx_ext_buffer_id<mfxExtThreadsParam>{
+    enum {id = MFX_EXTBUFF_THREADS_PARAM};
+};
+
 
 //helper function to initialize mfx ext buffer structure
 template <class T>

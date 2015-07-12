@@ -160,11 +160,13 @@ protected:
     mfxExtCodingOption m_CodingOption;
     mfxExtCodingOption2 m_CodingOption2;
     mfxExtCodingOption3 m_CodingOption3;
+    mfxExtHEVCParam m_ExtHEVCParam;
     MFXVideoSession m_mfxSession;
     MFXVideoDECODE* m_pmfxDEC;
     MFXVideoENCODE* m_pmfxENC;
     MFXVideoVPP* m_pmfxVPP;
-    unique_ptr<MFXPlugin> m_pPlugin;
+    unique_ptr<MFXPlugin> m_pDecPlugin;
+    unique_ptr<MFXPlugin> m_pEncPlugin;
     vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
     vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
 

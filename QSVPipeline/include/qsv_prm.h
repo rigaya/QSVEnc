@@ -283,6 +283,7 @@ const int MFX_COLOR_VALUE_AUTO = 0x0000ffff; //max of 16bit-integer (unsigned)
 
 const CX_DESC list_codec[] = {
     { _T("h264"),     MFX_CODEC_AVC   },
+    { _T("hevc"),     MFX_CODEC_HEVC  },
     { _T("mpeg2"),    MFX_CODEC_MPEG2 },
     { _T("vc-1"),     MFX_CODEC_VC1   },
     { NULL, NULL }
@@ -293,6 +294,14 @@ const CX_DESC list_avc_profile[] = {
     { _T("Baseline"), MFX_PROFILE_AVC_BASELINE },
     { _T("Main"),     MFX_PROFILE_AVC_MAIN     },
     { _T("High"),     MFX_PROFILE_AVC_HIGH     },
+    { NULL, NULL }
+};
+
+const CX_DESC list_hevc_profile[] = {
+    { _T("auto"),     0                       },
+    { _T("main"),     MFX_PROFILE_HEVC_MAIN   },
+    //{ _T("main10"),   MFX_PROFILE_HEVC_MAIN10 },
+    //{ _T("mainsp"),   MFX_PROFILE_HEVC_MAINSP },
     { NULL, NULL }
 };
 
@@ -358,6 +367,23 @@ const CX_DESC list_avc_level[] = {
     { _T("4.2"),  MFX_LEVEL_AVC_42  },
     { _T("5"),    MFX_LEVEL_AVC_5   },
     { _T("5.1"),  MFX_LEVEL_AVC_51  },
+    { NULL, NULL }
+};
+const CX_DESC list_hevc_level[] = { 
+    { _T("auto"), 0                 },
+    { _T("1"),    MFX_LEVEL_HEVC_1   },
+    { _T("2"),    MFX_LEVEL_HEVC_2   },
+    { _T("2.1"),  MFX_LEVEL_HEVC_21  },
+    { _T("3"),    MFX_LEVEL_HEVC_3   },
+    { _T("3.1"),  MFX_LEVEL_HEVC_31  },
+    { _T("4"),    MFX_LEVEL_HEVC_4   },
+    { _T("4.1"),  MFX_LEVEL_HEVC_41  },
+    { _T("5"),    MFX_LEVEL_HEVC_5   },
+    { _T("5.1"),  MFX_LEVEL_HEVC_51  },
+    { _T("5.2"),  MFX_LEVEL_HEVC_52  },
+    { _T("6"),    MFX_LEVEL_HEVC_6   },
+    { _T("6.1"),  MFX_LEVEL_HEVC_61  },
+    { _T("6.2"),  MFX_LEVEL_HEVC_62  },
     { NULL, NULL }
 };
 const CX_DESC list_mpeg2_level[] = { 
@@ -438,6 +464,7 @@ static inline const CX_DESC *get_level_list(int CodecID) {
     switch (CodecID) {
         case MFX_CODEC_MPEG2: return list_mpeg2_level;
         case MFX_CODEC_VC1:   return list_vc1_level;
+        case MFX_CODEC_HEVC:  return list_hevc_level;
         case MFX_CODEC_AVC:
         default:              return list_avc_level;
     }
@@ -447,6 +474,7 @@ static inline const CX_DESC *get_profile_list(int CodecID) {
     switch (CodecID) {
         case MFX_CODEC_MPEG2: return list_mpeg2_profile;
         case MFX_CODEC_VC1:   return list_vc1_profile;
+        case MFX_CODEC_HEVC:  return list_hevc_profile;
         case MFX_CODEC_AVC:
         default:              return list_avc_profile;
     }

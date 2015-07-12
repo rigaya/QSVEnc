@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <memory>
 #include <sstream>
 #include <algorithm>
 #if (_MSC_VER >= 1800)
@@ -18,6 +19,9 @@
 #include "mfxStructures.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
+#include "mfxplugin.h"
+#include "mfxplugin++.h"
+#include "plugin_loader.h"
 #include "sample_defs.h"
 #include "sample_utils.h"
 #include "qsv_util.h"
@@ -398,7 +402,10 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
     return feature;
 }
 
-mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol) {
+mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
+    if (codecId == MFX_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
+        return 0x00;
+    }
     const std::vector<std::pair<mfxU16, mfxVersion>> rc_list = {
         { MFX_RATECONTROL_VBR,    MFX_LIB_VERSION_1_1  },
         { MFX_RATECONTROL_CBR,    MFX_LIB_VERSION_1_1  },
@@ -426,9 +433,11 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     mfxExtCodingOption cop;
     mfxExtCodingOption2 cop2;
     mfxExtCodingOption3 cop3;
+    mfxExtHEVCParam hevc;
     INIT_MFX_EXT_BUFFER(cop,  MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
+    INIT_MFX_EXT_BUFFER(hevc, MFX_EXTBUFF_HEVC_PARAM);
 
     std::vector<mfxExtBuffer *> buf;
     buf.push_back((mfxExtBuffer *)&cop);
@@ -437,6 +446,10 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     }
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
         buf.push_back((mfxExtBuffer *)&cop3);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)
+        && codecId == MFX_CODEC_HEVC) {
+        buf.push_back((mfxExtBuffer *)&hevc);
     }
 
     mfxVideoParam videoPrm;
@@ -474,10 +487,19 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
     videoPrm.AsyncDepth                  = 3;
     videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
-    videoPrm.mfx.CodecId                 = MFX_CODEC_AVC;
+    videoPrm.mfx.CodecId                 = codecId;
     videoPrm.mfx.RateControlMethod       = (ratecontrol == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : ratecontrol;
-    videoPrm.mfx.CodecLevel              = MFX_LEVEL_AVC_41;
-    videoPrm.mfx.CodecProfile            = MFX_PROFILE_AVC_HIGH;
+    switch (codecId) {
+    case MFX_CODEC_HEVC:
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_HEVC_4;
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_HEVC_MAIN;
+        break;
+    default:
+    case MFX_CODEC_AVC:
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_AVC_41;
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_AVC_HIGH;
+        break;
+    }
     videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BEST_QUALITY;
     videoPrm.mfx.EncodedOrder            = 0;
     videoPrm.mfx.NumSlice                = 1;
@@ -503,6 +525,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     mfxExtCodingOption copOut;
     mfxExtCodingOption2 cop2Out;
     mfxExtCodingOption3 cop3Out;
+    mfxExtHEVCParam hevcOut;
     std::vector<mfxExtBuffer *> bufOut;
     bufOut.push_back((mfxExtBuffer *)&copOut);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
@@ -511,12 +534,19 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
         bufOut.push_back((mfxExtBuffer *)&cop3Out);
     }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)
+        && codecId == MFX_CODEC_HEVC) {
+        hevc.PicWidthInLumaSamples  = videoPrm.mfx.FrameInfo.CropW;
+        hevc.PicHeightInLumaSamples = videoPrm.mfx.FrameInfo.CropH;
+        bufOut.push_back((mfxExtBuffer*)&hevcOut);
+    }
     mfxVideoParam videoPrmOut;
     //In, Outのパラメータが同一となっているようにきちんとコピーする
     //そうしないとQueryが失敗する
     MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop));
     MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2));
     MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3));
+    MSDK_MEMCPY(&hevcOut, &hevc, sizeof(hevc));
     MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
     videoPrm.NumExtParam = (mfxU16)bufOut.size();
     videoPrm.ExtParam = &bufOut[0];
@@ -535,6 +565,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
                 MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop));
                 MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2));
                 MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3));
+                MSDK_MEMCPY(&hevcOut, &hevc, sizeof(hevc));
                 MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
                 videoPrm.NumExtParam = (mfxU16)bufOut.size();
                 videoPrm.ExtParam = &bufOut[0];
@@ -558,6 +589,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
             MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop)); \
             MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
             MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3)); \
+            MSDK_MEMCPY(&hevcOut, &hevc, sizeof(hevc)); \
             if (MFX_ERR_NONE <= encode.Query(&videoPrm, &videoPrmOut) \
                 && (membersIn) == (membersOut) \
                 && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) \
@@ -722,9 +754,11 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
     return feature;
 }
 
-mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
+mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId) {
     mfxU64 feature = 0x00;
-    if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
+    if (!check_lib_version(ver, MFX_LIB_VERSION_1_0)) {
+        ; //特にすることはない
+    } else if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
         //API v1.6未満で実際にチェックする必要は殆ど無いので、
         //コードで決められた値を返すようにする
         feature = CheckEncodeFeatureStatic(ver, ratecontrol);
@@ -733,17 +767,22 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol) {
 
         mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
-        feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol) : 0x00;
-
+        std::unique_ptr<MFXPlugin> m_pEncPlugin;
+        if (codecId == MFX_CODEC_HEVC) {
+            m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, session, MFX_PLUGINID_HEVCE_HW, 1));
+        }
+        feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol, codecId) : 0x00;
+        
+        m_pEncPlugin.reset();
         MFXClose(session);
     }
 
     return feature;
 }
 
-mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol) {
+mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId) {
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-    return CheckEncodeFeature(hardware, ver, ratecontrol);
+    return CheckEncodeFeature(hardware, ver, ratecontrol, codecId);
 }
 
 const msdk_char *EncFeatureStr(mfxU64 enc_feature) {
@@ -753,42 +792,65 @@ const msdk_char *EncFeatureStr(mfxU64 enc_feature) {
     return NULL;
 }
 
-void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC) {
-    availableFeatureForEachRC.resize(rateControlCount, 0);
-
-    for (int i_rc = 0; i_rc < rateControlCount; i_rc++) {
-        availableFeatureForEachRC[i_rc] = CheckEncodeFeature(hardware, ver, (mfxU16)rateControlList[i_rc].value);
+vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, mfxU32 codecId) {
+    vector<mfxU64> availableFeatureForEachRC;
+    availableFeatureForEachRC.reserve(rateControlList.size());
+    for (const auto& ratecontrol : rateControlList) {
+        mfxU64 ret = CheckEncodeFeature(hardware, ver, (mfxU16)ratecontrol.value, codecId);
+        if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
+            ver = MFX_LIB_VERSION_0_0;
+        }
+        availableFeatureForEachRC.push_back(ret);
     }
+    return std::move(availableFeatureForEachRC);
 }
 
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC) {
-    MakeFeatureList(hardware, (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version(), rateControlList, rateControlCount, availableFeatureForEachRC);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+    vector<vector<mfxU64>> codecFeatures;
+    for (auto codec : codecIdList) {
+        codecFeatures.push_back(MakeFeatureList(hardware, ver, rateControlList, codec));
+    }
+    return std::move(codecFeatures);
+}
+
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+    vector<vector<mfxU64>> codecFeatures;
+    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+    for (auto codec : codecIdList) {
+        codecFeatures.push_back(MakeFeatureList(hardware, ver, rateControlList, codec));
+    }
+    return std::move(codecFeatures);
 }
 
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
-
-    std::vector<mfxU64> availableFeatureForEachRC;
-    MakeFeatureList(hardware, list_rate_control_ry, _countof(list_rate_control_ry), availableFeatureForEachRC);
+    const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2 };
+    auto featurePerCodec = MakeFeatureListPerCodec(hardware, to_vector(list_rate_control_ry), codecLists);
     
     str.clear();
     
-    //ヘッダ部分
-    const mfxU32 row_header_length = (mfxU32)_tcslen(list_enc_feature[0].desc);
-    for (mfxU32 i = 1; i < row_header_length; i++)
-        str += _T(" ");
+    for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
+        auto& availableFeatureForEachRC = featurePerCodec[i_codec];
+        str += _T("Codec: ") + CodecIdToStr(codecLists[i_codec]) + _T("\n");
 
-    for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
-        str += _T(" ");
-        str += list_rate_control_ry[i].desc;
-    }
-    str += _T("\n");
-    
-    //モードがサポートされているか
-    TCHAR *MARK_YES_NO[] = {  _T(" x    "), _T(" o    ") };
-    for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
-        str += ptr->desc;
+        //ヘッダ部分
+        const mfxU32 row_header_length = (mfxU32)_tcslen(list_enc_feature[0].desc);
+        for (mfxU32 i = 1; i < row_header_length; i++)
+            str += _T(" ");
+
         for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
-            str += MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
+            str += _T(" ");
+            str += list_rate_control_ry[i].desc;
+        }
+        str += _T("\n");
+
+        //モードがサポートされているか
+        TCHAR *MARK_YES_NO[] = { _T(" x    "), _T(" o    ") };
+        for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
+            str += ptr->desc;
+            for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
+                str += MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
+            }
+            str += _T("\n");
         }
         str += _T("\n");
     }

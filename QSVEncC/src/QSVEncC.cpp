@@ -102,6 +102,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("-h,-? --help                    show help\n")
             _T("-v,--version                    show version info\n")
             _T("\n")
+            _T("-c,--codec <string>             set encode codec\n")
+            _T("                                 - h264(default), hevc, mpeg2\n")
             _T("-i,--input-file <filename>      set input file name\n")
             _T("-o,--output-file <filename>     set ouput file name\n")
 #if ENABLE_AVCODEC_QSV_READER
@@ -504,16 +506,19 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 return MFX_PRINT_OPTION_ERR;
             }
         }
-        else if (0 == _tcscmp(option_name, _T("codec")))
-        {
+        else if (0 == _tcscmp(option_name, _T("codec"))) {
             i++;
-            for (int i = 0; list_codec[i].desc; i++)
-                if (_tcsicmp(list_codec[i].desc, strInput[i]) == 0) {
-                    pParams->CodecId = list_codec[i].value;
-                    continue;
+            int j = 0;
+            for (; list_codec[j].desc; j++) {
+                if (_tcsicmp(list_codec[j].desc, strInput[i]) == 0) {
+                    pParams->CodecId = list_codec[j].value;
+                    break;
                 }
+            }
+            if (list_codec[j].desc == nullptr) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
+            }
         }
         else if (0 == _tcscmp(option_name, _T("raw")))
         {
@@ -1554,13 +1559,6 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
 
     if (0 == _tcslen(pParams->strDstFile)) {
         PrintHelp(strInput[0], _T("Destination file name not found"), NULL);
-        return MFX_PRINT_OPTION_ERR;
-    }
-
-    if (MFX_CODEC_MPEG2 != pParams->CodecId && 
-        MFX_CODEC_AVC   != pParams->CodecId && 
-        MFX_CODEC_VC1   != pParams->CodecId) {
-        PrintHelp(strInput[0], _T("Unknown codec"), NULL);
         return MFX_PRINT_OPTION_ERR;
     }
 

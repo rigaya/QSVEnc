@@ -15,6 +15,8 @@
 #include "cpu_info.h"
 #include "gpu_info.h"
 
+using std::vector;
+
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
 #endif
@@ -25,6 +27,15 @@
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
+
+template<typename T, size_t size>
+std::vector<T> to_vector(T(&ptr)[size]) {
+    return std::vector<T>(ptr, ptr + size);
+}
+template<typename T, size_t size>
+std::vector<const T> to_vector(const T(&ptr)[size]) {
+    return std::vector<const T>(ptr, ptr + size);
+}
 
 mfxU32 GCD(mfxU32 a, mfxU32 b);
 mfxI64 GCDI64(mfxI64 a, mfxI64 b);
@@ -92,10 +103,12 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 10, 1 },
     { 11, 1 },
     { 13, 1 },
+    { 15, 1 },
     { NULL, NULL } 
 };
 
 #define MFX_LIB_VERSION_0_0  LIB_VER_LIST[ 0]
+#define MFX_LIB_VERSION_1_0  LIB_VER_LIST[ 1]
 #define MFX_LIB_VERSION_1_1  LIB_VER_LIST[ 2]
 #define MFX_LIB_VERSION_1_3  LIB_VER_LIST[ 3]
 #define MFX_LIB_VERSION_1_4  LIB_VER_LIST[ 4]
@@ -106,6 +119,7 @@ static const mfxVersion LIB_VER_LIST[] = {
 #define MFX_LIB_VERSION_1_10 LIB_VER_LIST[ 9]
 #define MFX_LIB_VERSION_1_11 LIB_VER_LIST[10]
 #define MFX_LIB_VERSION_1_13 LIB_VER_LIST[11]
+#define MFX_LIB_VERSION_1_15 LIB_VER_LIST[12]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 mfxVersion get_mfx_libhw_version();
@@ -122,38 +136,38 @@ static bool inline rc_is_type_lookahead(int rc) {
 }
 
 enum : uint64_t {
-    ENC_FEATURE_CURRENT_RC             = 0x00000001,
-    ENC_FEATURE_AVBR                   = 0x00000002,
-    ENC_FEATURE_LA                     = 0x00000004,
-    ENC_FEATURE_ICQ                    = 0x00000008,
-    ENC_FEATURE_LA_ICQ                 = 0x00000010,
-    ENC_FEATURE_VCM                    = 0x00000020,
-    ENC_FEATURE_AUD                    = 0x00000040,
-    ENC_FEATURE_PIC_STRUCT             = 0x00000080,
-    ENC_FEATURE_VUI_INFO               = 0x00000100,
-    ENC_FEATURE_CAVLC                  = 0x00000200,
-    ENC_FEATURE_RDO                    = 0x00000400,
-    ENC_FEATURE_ADAPTIVE_I             = 0x00000800,
-    ENC_FEATURE_ADAPTIVE_B             = 0x00001000,
-    ENC_FEATURE_B_PYRAMID              = 0x00002000,
-    ENC_FEATURE_TRELLIS                = 0x00004000,
-    ENC_FEATURE_EXT_BRC                = 0x00008000,
-    ENC_FEATURE_MBBRC                  = 0x00010000,
-    ENC_FEATURE_LA_DS                  = 0x00020000,
-    ENC_FEATURE_INTERLACE              = 0x00040000,
-    ENC_FEATURE_SCENECHANGE            = 0x00080000,
-    ENC_FEATURE_B_PYRAMID_AND_SC       = 0x00100000,
-    ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x00200000,
-    ENC_FEATURE_LA_HRD                 = 0x00400000,
-    ENC_FEATURE_LA_EXT                 = 0x00800000,
-    ENC_FEATURE_QVBR                   = 0x01000000,
-    ENC_FEATURE_INTRA_REFRESH          = 0x02000000,
-    ENC_FEATURE_NO_DEBLOCK             = 0x04000000,
-    ENC_FEATURE_QP_MINMAX              = 0x08000000,
-    ENC_FEATURE_WINBRC                 = 0x10000000,
-    ENC_FEATURE_PERMBQP                = 0x20000000,
-    ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x40000000,
-    ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x80000000,
+    ENC_FEATURE_CURRENT_RC             = 0x0000000000000001,
+    ENC_FEATURE_AVBR                   = 0x0000000000000002,
+    ENC_FEATURE_LA                     = 0x0000000000000004,
+    ENC_FEATURE_ICQ                    = 0x0000000000000008,
+    ENC_FEATURE_LA_ICQ                 = 0x0000000000000010,
+    ENC_FEATURE_VCM                    = 0x0000000000000020,
+    ENC_FEATURE_AUD                    = 0x0000000000000040,
+    ENC_FEATURE_PIC_STRUCT             = 0x0000000000000080,
+    ENC_FEATURE_VUI_INFO               = 0x0000000000000100,
+    ENC_FEATURE_CAVLC                  = 0x0000000000000200,
+    ENC_FEATURE_RDO                    = 0x0000000000000400,
+    ENC_FEATURE_ADAPTIVE_I             = 0x0000000000000800,
+    ENC_FEATURE_ADAPTIVE_B             = 0x0000000000001000,
+    ENC_FEATURE_B_PYRAMID              = 0x0000000000002000,
+    ENC_FEATURE_TRELLIS                = 0x0000000000004000,
+    ENC_FEATURE_EXT_BRC                = 0x0000000000008000,
+    ENC_FEATURE_MBBRC                  = 0x0000000000010000,
+    ENC_FEATURE_LA_DS                  = 0x0000000000020000,
+    ENC_FEATURE_INTERLACE              = 0x0000000000040000,
+    ENC_FEATURE_SCENECHANGE            = 0x0000000000080000,
+    ENC_FEATURE_B_PYRAMID_AND_SC       = 0x0000000000100000,
+    ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x0000000000200000,
+    ENC_FEATURE_LA_HRD                 = 0x0000000000400000,
+    ENC_FEATURE_LA_EXT                 = 0x0000000000800000,
+    ENC_FEATURE_QVBR                   = 0x0000000001000000,
+    ENC_FEATURE_INTRA_REFRESH          = 0x0000000002000000,
+    ENC_FEATURE_NO_DEBLOCK             = 0x0000000004000000,
+    ENC_FEATURE_QP_MINMAX              = 0x0000000008000000,
+    ENC_FEATURE_WINBRC                 = 0x0000000010000000,
+    ENC_FEATURE_PERMBQP                = 0x0000000020000000,
+    ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x0000000040000000,
+    ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x0000000080000000,
 };
 
 enum : uint64_t {
@@ -224,11 +238,12 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { NULL, 0 },
 };
 
-mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol = MFX_RATECONTROL_VBR);
-void MakeFeatureList(bool hardware, mfxVersion ver, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC);
-void MakeFeatureList(bool hardware, const CX_DESC *rateControlList, int rateControlCount, std::vector<mfxU64>& availableFeatureForEachRC);
+mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
+mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
+mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId);
+vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, mfxU32 codecId);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
 
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);

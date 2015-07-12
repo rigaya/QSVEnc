@@ -45,6 +45,30 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 
 #define MSDK_CHECK_RESULT_MES(P, X, ERR, MES)    {if ((X) > (P)) {PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)P)); MSDK_PRINT_RET_MSG(ERR); return ERR;}}
 
+#if 0
+/* obtain the clock tick of an uninterrupted master clock */
+msdk_tick time_get_tick(void)
+{
+    return msdk_time_get_tick();/*
+    LARGE_INTEGER t1;
+
+    QueryPerformanceCounter(&t1);
+    return t1.QuadPart;*/
+
+} /* vm_tick vm_time_get_tick(void) */
+
+/* obtain the clock resolution */
+msdk_tick time_get_frequency(void)
+{
+    return msdk_time_get_frequency();/*
+    LARGE_INTEGER t1;
+
+    QueryPerformanceFrequency(&t1);
+    return t1.QuadPart;*/
+
+} /* vm_tick vm_time_get_frequency(void) */
+#endif
+
 CEncTaskPool::CEncTaskPool()
 {
     m_pTasks  = NULL;
@@ -376,12 +400,12 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
 
         if (m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
             PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loading HEVC decoder plugin..."));
-            m_pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, m_mfxSession, MFX_PLUGINID_HEVCD_HW, 1));
-            if (m_pPlugin.get() == NULL) {
+            m_pDecPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, m_mfxSession, MFX_PLUGINID_HEVCD_HW, 1));
+            if (m_pDecPlugin.get() == NULL) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc decoder.\n"));
                 return MFX_ERR_UNSUPPORTED;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loading HEVC decoder plugin..."));
+            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded HEVC decoder plugin."));
         }
 
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
@@ -398,7 +422,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
     //エンコードモードのチェック
-    mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode);
+    mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
         PrintMes(QSV_LOG_ERROR, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
@@ -896,9 +920,26 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     }
 #endif
 
+    // In case of HEVC when height and/or width divided with 8 but not divided with 16
+    // add extended parameter to increase performance
+    if ( ( !((m_mfxEncParams.mfx.FrameInfo.CropW & 15 ) ^ 8 ) ||
+           !((m_mfxEncParams.mfx.FrameInfo.CropH & 15 ) ^ 8 ) ) &&
+             (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) ) {
+        m_ExtHEVCParam.PicWidthInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropW;
+        m_ExtHEVCParam.PicHeightInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropH;
+        m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtHEVCParam);
+    }
+
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+        m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, m_mfxSession, MFX_PLUGINID_HEVCE_HW, 1));
+        if (m_pEncPlugin.get() == NULL) {
+            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+    }
+
     // JPEG encoder settings overlap with other encoders settings in mfxInfoMFX structure
-    if (MFX_CODEC_JPEG == pInParams->CodecId)
-    {
+    if (MFX_CODEC_JPEG == pInParams->CodecId) {
         m_mfxEncParams.mfx.Interleaved = 1;
         m_mfxEncParams.mfx.Quality = pInParams->nQuality;
         m_mfxEncParams.mfx.RestartInterval = 0;
@@ -1841,6 +1882,8 @@ CEncodingPipeline::CEncodingPipeline()
     INIT_MFX_EXT_BUFFER(m_CodingOption,    MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(m_CodingOption2,   MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(m_CodingOption3,   MFX_EXTBUFF_CODING_OPTION3);
+    INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,    MFX_EXTBUFF_HEVC_PARAM);
+
 
 #if D3D_SURFACES_SUPPORT
     m_hwdev = NULL;
@@ -2582,7 +2625,8 @@ void CEncodingPipeline::Close()
     MSDK_SAFE_DELETE(m_pEncSatusInfo);
     m_EncThread.Close();
 
-    m_pPlugin.reset();
+    m_pDecPlugin.reset();
+    m_pEncPlugin.reset();
 
     m_pTrimParam = NULL;
 
