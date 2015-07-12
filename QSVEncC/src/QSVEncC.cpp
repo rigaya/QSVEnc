@@ -102,6 +102,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("-h,-? --help                    show help\n")
             _T("-v,--version                    show version info\n")
             _T("\n")
+            _T("-c,--codec <string>             set encode codec\n")
+            _T("                                 - h264(default), hevc, mpeg2\n")
             _T("-i,--input-file <filename>      set input file name\n")
             _T("-o,--output-file <filename>     set ouput file name\n")
 #if ENABLE_AVCODEC_QSV_READER

@@ -3712,83 +3712,85 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             // fcgLBGPUInfoOnFeatureTab
             // 
             this->fcgLBGPUInfoOnFeatureTab->AutoSize = true;
-            this->fcgLBGPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+            this->fcgLBGPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->fcgLBGPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
-            this->fcgLBGPUInfoOnFeatureTab->Location = System::Drawing::Point(108, 36);
+            this->fcgLBGPUInfoOnFeatureTab->Location = System::Drawing::Point(94, 28);
             this->fcgLBGPUInfoOnFeatureTab->Name = L"fcgLBGPUInfoOnFeatureTab";
-            this->fcgLBGPUInfoOnFeatureTab->Size = System::Drawing::Size(35, 17);
+            this->fcgLBGPUInfoOnFeatureTab->Size = System::Drawing::Size(30, 14);
             this->fcgLBGPUInfoOnFeatureTab->TabIndex = 116;
             this->fcgLBGPUInfoOnFeatureTab->Text = L"GPU";
             // 
             // fcgLBGPUInfoLabelOnFeatureTab
             // 
             this->fcgLBGPUInfoLabelOnFeatureTab->AutoSize = true;
-            this->fcgLBGPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
-                System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+            this->fcgLBGPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+                static_cast<System::Byte>(128)));
             this->fcgLBGPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
-            this->fcgLBGPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(11, 34);
+            this->fcgLBGPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(11, 28);
             this->fcgLBGPUInfoLabelOnFeatureTab->Name = L"fcgLBGPUInfoLabelOnFeatureTab";
-            this->fcgLBGPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(40, 19);
+            this->fcgLBGPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(32, 15);
             this->fcgLBGPUInfoLabelOnFeatureTab->TabIndex = 115;
             this->fcgLBGPUInfoLabelOnFeatureTab->Text = L"GPU";
             // 
             // fcgLBCPUInfoOnFeatureTab
             // 
             this->fcgLBCPUInfoOnFeatureTab->AutoSize = true;
-            this->fcgLBCPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+            this->fcgLBCPUInfoOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->fcgLBCPUInfoOnFeatureTab->ForeColor = System::Drawing::Color::DarkViolet;
-            this->fcgLBCPUInfoOnFeatureTab->Location = System::Drawing::Point(108, 11);
+            this->fcgLBCPUInfoOnFeatureTab->Location = System::Drawing::Point(95, 7);
             this->fcgLBCPUInfoOnFeatureTab->Name = L"fcgLBCPUInfoOnFeatureTab";
-            this->fcgLBCPUInfoOnFeatureTab->Size = System::Drawing::Size(34, 17);
+            this->fcgLBCPUInfoOnFeatureTab->Size = System::Drawing::Size(29, 14);
             this->fcgLBCPUInfoOnFeatureTab->TabIndex = 114;
             this->fcgLBCPUInfoOnFeatureTab->Text = L"CPU";
             // 
             // fcgLBCPUInfoLabelOnFeatureTab
             // 
             this->fcgLBCPUInfoLabelOnFeatureTab->AutoSize = true;
-            this->fcgLBCPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
-                System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+            this->fcgLBCPUInfoLabelOnFeatureTab->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+                static_cast<System::Byte>(128)));
             this->fcgLBCPUInfoLabelOnFeatureTab->ForeColor = System::Drawing::Color::Blue;
-            this->fcgLBCPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(11, 9);
+            this->fcgLBCPUInfoLabelOnFeatureTab->Location = System::Drawing::Point(11, 7);
             this->fcgLBCPUInfoLabelOnFeatureTab->Name = L"fcgLBCPUInfoLabelOnFeatureTab";
-            this->fcgLBCPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(39, 19);
+            this->fcgLBCPUInfoLabelOnFeatureTab->Size = System::Drawing::Size(31, 15);
             this->fcgLBCPUInfoLabelOnFeatureTab->TabIndex = 113;
             this->fcgLBCPUInfoLabelOnFeatureTab->Text = L"CPU";
             // 
             // fcgBTSaveFeatureList
             // 
             this->fcgBTSaveFeatureList->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
-            this->fcgBTSaveFeatureList->Location = System::Drawing::Point(488, 57);
+            this->fcgBTSaveFeatureList->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+                static_cast<System::Byte>(128)));
+            this->fcgBTSaveFeatureList->Location = System::Drawing::Point(514, 37);
             this->fcgBTSaveFeatureList->Name = L"fcgBTSaveFeatureList";
-            this->fcgBTSaveFeatureList->Size = System::Drawing::Size(114, 30);
+            this->fcgBTSaveFeatureList->Size = System::Drawing::Size(88, 30);
             this->fcgBTSaveFeatureList->TabIndex = 112;
-            this->fcgBTSaveFeatureList->Text = L"ファイルに保存...";
+            this->fcgBTSaveFeatureList->Text = L"ファイルに保存..";
             this->fcgBTSaveFeatureList->UseVisualStyleBackColor = true;
             this->fcgBTSaveFeatureList->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTSaveFeatureList_Click);
             // 
             // fcgLBFeaturesCurrentAPIVer
             // 
             this->fcgLBFeaturesCurrentAPIVer->AutoSize = true;
-            this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+            this->fcgLBFeaturesCurrentAPIVer->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->fcgLBFeaturesCurrentAPIVer->ForeColor = System::Drawing::Color::DarkViolet;
-            this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(108, 61);
+            this->fcgLBFeaturesCurrentAPIVer->Location = System::Drawing::Point(96, 49);
             this->fcgLBFeaturesCurrentAPIVer->Name = L"fcgLBFeaturesCurrentAPIVer";
-            this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(33, 17);
+            this->fcgLBFeaturesCurrentAPIVer->Size = System::Drawing::Size(28, 14);
             this->fcgLBFeaturesCurrentAPIVer->TabIndex = 110;
             this->fcgLBFeaturesCurrentAPIVer->Text = L"hw:";
             // 
             // fcgLBFeaturesShowCurrentAPI
             // 
             this->fcgLBFeaturesShowCurrentAPI->AutoSize = true;
-            this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic,
-                System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+            this->fcgLBFeaturesShowCurrentAPI->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+                static_cast<System::Byte>(128)));
             this->fcgLBFeaturesShowCurrentAPI->ForeColor = System::Drawing::Color::Blue;
-            this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(11, 59);
+            this->fcgLBFeaturesShowCurrentAPI->Location = System::Drawing::Point(11, 49);
             this->fcgLBFeaturesShowCurrentAPI->Name = L"fcgLBFeaturesShowCurrentAPI";
-            this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(88, 19);
+            this->fcgLBFeaturesShowCurrentAPI->Size = System::Drawing::Size(70, 15);
             this->fcgLBFeaturesShowCurrentAPI->TabIndex = 107;
             this->fcgLBFeaturesShowCurrentAPI->Text = L"Media SDK";
             // 
@@ -3797,11 +3799,11 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             this->fcgDGVFeatures->BackgroundColor = System::Drawing::SystemColors::Control;
             this->fcgDGVFeatures->BorderStyle = System::Windows::Forms::BorderStyle::None;
             this->fcgDGVFeatures->ColumnHeadersHeightSizeMode = System::Windows::Forms::DataGridViewColumnHeadersHeightSizeMode::AutoSize;
-            this->fcgDGVFeatures->Location = System::Drawing::Point(4, 92);
+            this->fcgDGVFeatures->Location = System::Drawing::Point(4, 74);
             this->fcgDGVFeatures->Name = L"fcgDGVFeatures";
             this->fcgDGVFeatures->ReadOnly = true;
             this->fcgDGVFeatures->RowTemplate->Height = 21;
-            this->fcgDGVFeatures->Size = System::Drawing::Size(601, 387);
+            this->fcgDGVFeatures->Size = System::Drawing::Size(601, 405);
             this->fcgDGVFeatures->TabIndex = 0;
             this->fcgDGVFeatures->CellFormatting += gcnew System::Windows::Forms::DataGridViewCellFormattingEventHandler(this, &frmConfig::fcgDGVFeatures_CellFormatting);
             // 

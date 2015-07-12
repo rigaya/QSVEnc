@@ -410,7 +410,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
     //エンコードモードのチェック
-    mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode);
+    mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
         PrintMes(QSV_LOG_ERROR, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
@@ -905,17 +905,33 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     }
 #endif
 
+    // In case of HEVC when height and/or width divided with 8 but not divided with 16
+    // add extended parameter to increase performance
+    if ( ( !((m_mfxEncParams.mfx.FrameInfo.CropW & 15 ) ^ 8 ) ||
+           !((m_mfxEncParams.mfx.FrameInfo.CropH & 15 ) ^ 8 ) ) &&
+             (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) ) {
+        m_ExtHEVCParam.PicWidthInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropW;
+        m_ExtHEVCParam.PicHeightInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropH;
+        m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtHEVCParam);
+    }
+
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+        m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, m_mfxSession, MFX_PLUGINID_HEVCE_HW, 1));
+        if (m_pEncPlugin.get() == NULL) {
+            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+    }
+
     // JPEG encoder settings overlap with other encoders settings in mfxInfoMFX structure
-    if (MFX_CODEC_JPEG == pInParams->CodecId)
-    {
+    if (MFX_CODEC_JPEG == pInParams->CodecId) {
         m_mfxEncParams.mfx.Interleaved = 1;
         m_mfxEncParams.mfx.Quality = pInParams->nQuality;
         m_mfxEncParams.mfx.RestartInterval = 0;
         MSDK_ZERO_MEMORY(m_mfxEncParams.mfx.reserved5);
     }
 
-    if (!m_EncExtParams.empty())
-    {
+    if (!m_EncExtParams.empty()) {
         m_mfxEncParams.ExtParam = &m_EncExtParams[0]; // vector is stored linearly in memory
         m_mfxEncParams.NumExtParam = (mfxU16)m_EncExtParams.size();
     }
@@ -1771,6 +1787,8 @@ CEncodingPipeline::CEncodingPipeline()
     INIT_MFX_EXT_BUFFER(m_CodingOption,    MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(m_CodingOption2,   MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(m_CodingOption3,   MFX_EXTBUFF_CODING_OPTION3);
+    INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,    MFX_EXTBUFF_HEVC_PARAM);
+
 
 #if D3D_SURFACES_SUPPORT
     m_hwdev = NULL;
@@ -2467,6 +2485,7 @@ void CEncodingPipeline::Close()
     m_EncThread.Close();
 
     m_pDecPlugin.reset();
+    m_pEncPlugin.reset();
 
     m_pTrimParam = NULL;
 
