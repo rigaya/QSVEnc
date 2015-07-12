@@ -163,7 +163,7 @@ protected:
     MFXVideoDECODE* m_pmfxDEC;
     MFXVideoENCODE* m_pmfxENC;
     MFXVideoVPP* m_pmfxVPP;
-    unique_ptr<MFXPlugin> m_pPlugin;
+    unique_ptr<MFXPlugin> m_pDecPlugin;
     vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
     vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
 

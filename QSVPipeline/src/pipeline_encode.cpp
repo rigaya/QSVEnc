@@ -390,8 +390,8 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
         MSDK_CHECK_POINTER(m_pmfxDEC, MFX_ERR_MEMORY_ALLOC);
 
         if (m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
-            m_pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, m_mfxSession, MFX_PLUGINID_HEVCD_HW, 1));
-            if (m_pPlugin.get() == NULL) {
+            m_pDecPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, m_mfxSession, MFX_PLUGINID_HEVCD_HW, 1));
+            if (m_pDecPlugin.get() == NULL) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc decoder.\n"));
                 return MFX_ERR_UNSUPPORTED;
             }
@@ -2466,7 +2466,7 @@ void CEncodingPipeline::Close()
     MSDK_SAFE_DELETE(m_pEncSatusInfo);
     m_EncThread.Close();
 
-    m_pPlugin.reset();
+    m_pDecPlugin.reset();
 
     m_pTrimParam = NULL;
 
