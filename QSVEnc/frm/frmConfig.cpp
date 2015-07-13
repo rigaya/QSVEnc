@@ -1278,7 +1278,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.nIntraPred             = (mfxU16)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
 
     cnf->qsv.bDirectBiasAdjust      = fcgCBDirectBiasAdjust->Checked;
-    cnf->qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value < 0;
+    cnf->qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value > 0;
     cnf->qsv.nMVCostScaling         = (mfxU8)((cnf->qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
 
     cnf->qsv.ColorMatrix            = (mfxU16)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
