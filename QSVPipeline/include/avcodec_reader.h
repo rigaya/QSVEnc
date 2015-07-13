@@ -141,6 +141,9 @@ private:
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
     vector<int> getStreamIndex(AVMediaType type);
 
+    //VC-1のスタートコードの確認
+    bool vc1StartCodeExists(mfxU8 *ptr);
+
     //動画のptsをソートする
     void sortVideoPtsList();
 
@@ -175,6 +178,12 @@ private:
 
     //HEVCのmp4->AnnexB簡易変換
     void hevcMp42Annexb(AVPacket *pkt);
+
+    //VC-1のヘッダの修正を行う
+    void vc1FixHeader();
+
+    //VC-1のフレームヘッダを追加
+    void vc1AddFrameHeader(AVPacket *pkt);
 
     void CloseAudio(AVDemuxAudio *pAudio);
     void CloseVideo(AVDemuxVideo *pVideo);

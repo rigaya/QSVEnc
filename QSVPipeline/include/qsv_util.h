@@ -66,6 +66,15 @@ static inline mfxU16 readUB16(const void *ptr) {
     return (i >> 8) | (i << 8);
 }
 
+static inline mfxU32 readUB32(const void *ptr) {
+    mfxU32 i = *(mfxU32 *)ptr;
+    return (i >> 24) | ((i & 0xff0000) >> 8) | ((i & 0xff00) << 8) | ((i & 0xff) << 24);
+}
+
+static inline mfxU32 check_range_unsigned(mfxU32 value, mfxU32 min, mfxU32 max) {
+    return (value - min) <= (max - min);
+}
+
 static tstring fourccToStr(mfxU32 nFourCC) {
     tstring fcc;
     for (int i = 0; i < 4; i++) {

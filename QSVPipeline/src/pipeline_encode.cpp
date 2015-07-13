@@ -2116,7 +2116,8 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
         if (check_ext(pParams->strSrcFile, { ".mp4", ".m4v", ".mkv", ".mov",
             ".mts", ".m2ts", ".ts", ".264", ".h264", ".x264", ".avc", ".avc1",
             ".265", ".h265", ".hevc",
-            ".mpg", ".mpeg", "m2v", ".vob", ".vro",".flv", ".ogm" }))
+            ".mpg", ".mpeg", "m2v", ".vob", ".vro", ".flv", ".ogm",
+            ".wmv" }))
             pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
         else
 #endif //ENABLE_AVCODEC_QSV_READER
@@ -3132,6 +3133,8 @@ mfxStatus CEncodingPipeline::RunEncode()
                 } else if (MFX_ERR_NONE < dec_sts && DecSyncPoint) {
                     dec_sts = MFX_ERR_NONE; // ignore warnings if output is available
                     break;
+                } else if (dec_sts < MFX_ERR_NONE && (dec_sts != MFX_ERR_MORE_DATA && dec_sts != MFX_ERR_MORE_SURFACE)) {
+                    PrintMes(QSV_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
                 } else {
                     break; // not a warning
                 }
@@ -3288,6 +3291,9 @@ mfxStatus CEncodingPipeline::RunEncode()
             } else if (MFX_ERR_NOT_ENOUGH_BUFFER == enc_sts) {
                 enc_sts = AllocateSufficientBuffer(&pCurrentTask->mfxBS);
                 if (enc_sts < MFX_ERR_NONE) return enc_sts;
+            } else if (enc_sts < MFX_ERR_NONE && (enc_sts != MFX_ERR_MORE_DATA && enc_sts != MFX_ERR_MORE_SURFACE)) {
+                PrintMes(QSV_LOG_ERROR, _T("EncodeFrameAsync error: %s.\n"), get_err_mes(enc_sts));
+                break;
             } else {
                 // get next surface and new task for 2nd bitstream in ViewOutput mode
                 MSDK_IGNORE_MFX_STS(enc_sts, MFX_ERR_MORE_BITSTREAM);
