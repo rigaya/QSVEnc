@@ -468,7 +468,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             PrintHelp(strInput[0], NULL, NULL);
             return MFX_PRINT_OPTION_DONE;
         }
-        else if (0 == _tcscmp(option_name, _T("version")))
+        if (0 == _tcscmp(option_name, _T("version")))
         {
             PrintVersion();
             return MFX_PRINT_OPTION_DONE;
@@ -476,15 +476,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         else if (0 == _tcscmp(option_name, _T("output-res")))
         {
             i++;
-            if (2 == _stscanf_s(strInput[i], _T("%hdx%hd"), &pParams->nDstWidth, &pParams->nDstHeight))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd,%hd"), &pParams->nDstWidth, &pParams->nDstHeight))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nDstWidth, &pParams->nDstHeight))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nDstWidth, &pParams->nDstHeight))
-                ;
-            else {
+            if (   2 != _stscanf_s(strInput[i], _T("%hdx%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
+                && 2 != _stscanf_s(strInput[i], _T("%hd,%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
+                && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
+                && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nDstWidth, &pParams->nDstHeight)) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
@@ -492,15 +487,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         else if (0 == _tcscmp(option_name, _T("input-res")))
         {
             i++;
-            if (2 == _stscanf_s(strInput[i], _T("%hdx%hd"), &pParams->nWidth, &pParams->nHeight))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd,%hd"), &pParams->nWidth, &pParams->nHeight))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nWidth, &pParams->nHeight))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nWidth, &pParams->nHeight))
-                ;
-            else {
+            if (   2 != _stscanf_s(strInput[i], _T("%hdx%hd"), &pParams->nWidth, &pParams->nHeight)
+                && 2 != _stscanf_s(strInput[i], _T("%hd,%hd"), &pParams->nWidth, &pParams->nHeight)
+                && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nWidth, &pParams->nHeight)
+                && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nWidth, &pParams->nHeight)) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
@@ -508,11 +498,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         else if (0 == _tcscmp(option_name, _T("crop")))
         {
             i++;
-            if (4 == _stscanf_s(strInput[i], _T("%hd,%hd,%hd,%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom))
-                ;
-            else if (4 == _stscanf_s(strInput[i], _T("%hd:%hd:%hd:%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom))
-                ;
-            else {
+            if (   4 != _stscanf_s(strInput[i], _T("%hd,%hd,%hd,%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom)
+                && 4 != _stscanf_s(strInput[i], _T("%hd:%hd:%hd:%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom)) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
@@ -773,15 +760,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         else if (0 == _tcscmp(option_name, _T("sar")))
         {
             i++;
-            if (2 == _stscanf_s(strInput[i], _T("%dx%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else {
+            if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &pParams->nPAR[0], &pParams->nPAR[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nPAR[0], &pParams->nPAR[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1])) {
                 MSDK_ZERO_MEMORY(pParams->nPAR);
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
@@ -875,13 +857,9 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 return MFX_PRINT_OPTION_ERR;
             }
         }
-        else if (0 == _tcscmp(option_name, _T("bluray")))
+        else if (0 == _tcscmp(option_name, _T("bluray")) || 0 == _tcscmp(option_name, _T("force-bluray")))
         {
-            pParams->nBluray = 1;
-        }
-        else if (0 == _tcscmp(option_name, _T("force-bluray")))
-        {
-            pParams->nBluray = 2;
+            pParams->nBluray = (0 == _tcscmp(option_name, _T("force-bluray"))) ? 2 : 1;
         }
         else if (0 == _tcscmp(option_name, _T("nv12")))
         {
@@ -1014,18 +992,16 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         else if (0 == _tcscmp(option_name, _T("cqp")) || 0 == _tcscmp(option_name, _T("vqp")))
         {
             i++;
-            if (3 == _stscanf_s(strInput[i], _T("%hd:%hd:%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB))
-                ;
-            else if (3 == _stscanf_s(strInput[i], _T("%hd,%hd,%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB))
-                ;
-            else if (3 == _stscanf_s(strInput[i], _T("%hd/%hd/%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB))
-                ;
-            else if (1 == _stscanf_s(strInput[i], _T("%hd"), &pParams->nQPI)) {
-                pParams->nQPP = pParams->nQPI;
-                pParams->nQPB = pParams->nQPI;
-            } else {
-                PrintHelp(strInput[0], _T("Unknown value"), option_name);
-                return MFX_PRINT_OPTION_ERR;
+            if (   3 != _stscanf_s(strInput[i], _T("%hd:%hd:%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)
+                && 3 != _stscanf_s(strInput[i], _T("%hd,%hd,%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)
+                && 3 != _stscanf_s(strInput[i], _T("%hd/%hd/%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)) {
+                if (1 == _stscanf_s(strInput[i], _T("%hd"), &pParams->nQPI)) {
+                    pParams->nQPP = pParams->nQPI;
+                    pParams->nQPB = pParams->nQPI;
+                } else {
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
             }
             pParams->nEncMode = (mfxU16)((0 == _tcscmp(option_name, _T("vqp"))) ? MFX_RATECONTROL_VQP : MFX_RATECONTROL_CQP);
         }
@@ -1102,18 +1078,16 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         {
             i++;
             mfxU32 qpLimit[3] = { 0 };
-            if (3 == _stscanf_s(strInput[i], _T("%d:%d:%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2]))
-                ;
-            else if (3 == _stscanf_s(strInput[i], _T("%d,%d,%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2]))
-                ;
-            else if (3 == _stscanf_s(strInput[i], _T("%d/%d/%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2]))
-                ;
-            else if (1 == _stscanf_s(strInput[i], _T("%d"), &qpLimit[0])) {
-                qpLimit[1] = qpLimit[0];
-                qpLimit[2] = qpLimit[0];
-            } else {
-                PrintHelp(strInput[0], _T("Unknown value"), option_name);
-                return MFX_PRINT_OPTION_ERR;
+            if (   3 != _stscanf_s(strInput[i], _T("%d:%d:%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])
+                && 3 != _stscanf_s(strInput[i], _T("%d,%d,%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])
+                && 3 != _stscanf_s(strInput[i], _T("%d/%d/%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])) {
+                if (1 == _stscanf_s(strInput[i], _T("%d"), &qpLimit[0])) {
+                    qpLimit[1] = qpLimit[0];
+                    qpLimit[2] = qpLimit[0];
+                } else {
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
             }
             mfxU8 *limit = (0 == _tcscmp(option_name, _T("qpmin"))) ? pParams->nQPMin : pParams->nQPMax;
             for (int i = 0; i < 3; i++) {
@@ -1354,15 +1328,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         {
             i++;
             mfxI16Pair posOffset;
-            if (2 == _stscanf_s(strInput[i], _T("%hdx%hd"), &posOffset.x, &posOffset.y))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd,%hd"), &posOffset.x, &posOffset.y))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd/%hd"), &posOffset.x, &posOffset.y))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%hd:%hd"), &posOffset.x, &posOffset.y))
-                ;
-            else {
+            if (   2 != _stscanf_s(strInput[i], _T("%hdx%hd"), &posOffset.x, &posOffset.y)
+                && 2 != _stscanf_s(strInput[i], _T("%hd,%hd"), &posOffset.x, &posOffset.y)
+                && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &posOffset.x, &posOffset.y)
+                && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &posOffset.x, &posOffset.y)) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
@@ -1548,15 +1517,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         else if (0 == _tcscmp(option_name, _T("sar")))
         {
             i++;
-            if (2 == _stscanf_s(strInput[i], _T("%dx%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else if (2 == _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1]))
-                ;
-            else {
+            if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &pParams->nPAR[0], &pParams->nPAR[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nPAR[0], &pParams->nPAR[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1])) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
