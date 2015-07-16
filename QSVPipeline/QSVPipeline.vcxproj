@@ -304,6 +304,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\avcodec_qsv.cpp" />
     <ClCompile Include="src\avcodec_reader.cpp" />
     <ClCompile Include="src\avcodec_writer.cpp" />
     <ClCompile Include="src\avc_bitstream.cpp" />

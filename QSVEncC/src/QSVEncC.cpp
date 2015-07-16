@@ -26,6 +26,7 @@
 #include "pipeline_encode.h"
 #include "qsv_prm.h"
 #include "qsv_version.h"
+#include "avcodec_qsv.h"
 
 #if ENABLE_AVCODEC_QSV_READER
 tstring getAVQSVSupportedCodecList();
@@ -172,7 +173,14 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --check-hw                   check if QuickSyncVideo is available\n")
             _T("   --check-lib                  check lib API version installed\n")
             _T("   --check-features             check encode features\n")
-            _T("   --check-environment          check environment info\n"),
+            _T("   --check-environment          check environment info\n")
+#if ENABLE_AVCODEC_QSV_READER
+            _T("   --check-codecs               show codecs available\n")
+            _T("   --check-encoders             show audio encoders available\n")
+            _T("   --check-decoders             show audio decoders available\n")
+            _T("   --check-formats              show in/out formats available\n")
+#endif
+            ,
             (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
             (ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
             (ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
@@ -1480,6 +1488,28 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 _ftprintf(stdout, _T("libmfxsw%s.dll : ----\n"), dll_platform);
             return MFX_PRINT_OPTION_DONE;
         }
+#if ENABLE_AVCODEC_QSV_READER
+        else if (0 == _tcscmp(option_name, _T("check-codecs")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs((AVQSVCodecType)(AVQSV_CODEC_DEC | AVQSV_CODEC_ENC)).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        else if (0 == _tcscmp(option_name, _T("check-encoders")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_ENC).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        else if (0 == _tcscmp(option_name, _T("check-decoders")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_DEC).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        else if (0 == _tcscmp(option_name, _T("check-formats")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+#endif //ENABLE_AVCODEC_QSV_READER
         else if (0 == _tcscmp(option_name, _T("colormatrix")))
         {
             i++;

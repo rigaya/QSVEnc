@@ -56,52 +56,36 @@ static const TCHAR *AVCODEC_DLL_NAME[] = {
     _T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
 };
 
-static tstring qsv_av_err2str(int ret) {
-    char mes[256];
-    av_make_error_string(mes, sizeof(mes), ret);
-    return char_to_tstring(mes);
-}
+enum AVQSVCodecType : uint32_t {
+    AVQSV_CODEC_DEC = 0x01,
+    AVQSV_CODEC_ENC = 0x02,
+};
+
+enum AVQSVFormatType : uint32_t {
+    AVQSV_FORMAT_DEMUX = 0x01,
+    AVQSV_FORMAT_MUX   = 0x02,
+};
+
+//avcodecのエラーを表示
+tstring qsv_av_err2str(int ret);
 
 //必要なavcodecのdllがそろっているかを確認
-static bool check_avcodec_dll() {
-    std::vector<HMODULE> hDllList;
-    bool check = true;
-    for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
-        HMODULE hDll = NULL;
-        if (NULL == (hDll = LoadLibrary(AVCODEC_DLL_NAME[i]))) {
-            check = false;
-            break;
-        }
-        hDllList.push_back(hDll);
-    }
-    for (auto hDll : hDllList) {
-        FreeLibrary(hDll);
-    }
-    return check;
-}
+bool check_avcodec_dll();
 
 //avcodecのdllが存在しない場合のエラーメッセージ
-static tstring error_mes_avcodec_dll_not_found() {
-    tstring mes;
-    mes += _T("avcodec: failed to load dlls.\n");
-    mes += _T("         please make sure ");
-    for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
-        if (i) mes += _T(", ");
-        mes += _T("\"") + tstring(AVCODEC_DLL_NAME[i]) + _T("\"");
-    }
-    mes += _T("\n         is installed in your system.\n");
-    return mes;
-}
+tstring error_mes_avcodec_dll_not_found();
 
 //avcodecのライセンスがLGPLであるかどうかを確認
-static bool checkAvcodecLicense() {
-    auto check = [](const char *license) {
-        std::string str(license);
-        transform(str.begin(), str.end(), str.begin(), [](char in) -> char {return (char)tolower(in); });
-        return std::string::npos != str.find("lgpl");
-    };
-    return (check(avutil_license()) && check(avcodec_license()) && check(avformat_license()));
-}
+bool checkAvcodecLicense();
+
+//avqsvでサポートされている動画コーデックを表示
+tstring getAVQSVSupportedCodecList();
+
+//利用可能な音声エンコーダ/デコーダを表示
+tstring getAVCodecs(AVQSVCodecType flag);
+
+//利用可能なフォーマットを表示
+tstring getAVFormats(AVQSVFormatType flag);
 
 #endif //ENABLE_AVCODEC_QSV_READER
 
