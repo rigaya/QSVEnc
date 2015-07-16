@@ -334,9 +334,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T(" settings below are only supported with API v1.13\n")
             _T("   --mv-scaling                 set mv cost scaling\n")
             _T("                                 - 0  set MV cost to be 0\n")
-            _T("                                 - 1  set MV cost 1/8 of default\n")
+            _T("                                 - 1  set MV cost 1/2 of default\n")
             _T("                                 - 2  set MV cost 1/4 of default\n")
-            _T("                                 - 3  set MV cost 1/2 of default\n")
+            _T("                                 - 3  set MV cost 1/8 of default\n")
             _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
             );
         _ftprintf(stdout, _T("\n")
