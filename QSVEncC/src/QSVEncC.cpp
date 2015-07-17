@@ -410,6 +410,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
     pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
 
+    tstring cachedlevel, cachedprofile;
+
     // parse command line parameters
     for (mfxU8 i = 1; i < nArgNum; i++) {
         MSDK_CHECK_POINTER(strInput[i], MFX_ERR_NULL_PTR);
@@ -710,52 +712,23 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         }
         else if (0 == _tcscmp(option_name, _T("level")))
         {
-            i++;
-            double d;
-            int value;
-            if (_tcscmp(strInput[i], _T("1b")) == 0) {
-                pParams->CodecLevel = MFX_LEVEL_AVC_1b;
-                continue;
+            if (i+1 < nArgNum) {
+                i++;
+                cachedlevel = strInput[i];
+            } else {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
             }
-            if (1 == _stscanf_s(strInput[i], _T("%lf"), &d)) {
-                if (get_cx_index(list_avc_level, (int)(d * 10.0 + 0.5)) >= 0) {
-                    pParams->CodecLevel = (mfxU16)(d * 10.0 + 0.5);
-                    continue;
-                }
-            }
-            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_mpeg2_level, strInput[i]))) {
-                pParams->CodecLevel = (mfxU16)value;
-                continue;
-            }                
-            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vc1_level, strInput[i]))) {
-                pParams->CodecLevel = (mfxU16)value;
-                continue;
-            }                
-            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vc1_level_adv, strInput[i]))) {
-                pParams->CodecLevel = (mfxU16)value;
-                continue;
-            }
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
-            return MFX_PRINT_OPTION_ERR;
         }
         else if (0 == _tcscmp(option_name, _T("profile")))
         {
-            i++;
-            int value;
-            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avc_profile, strInput[i]))) {
-                pParams->CodecProfile = (mfxU16)value;
-                continue;
+            if (i+1 < nArgNum) {
+                i++;
+                cachedprofile = strInput[i];
+            } else {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
             }
-            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_mpeg2_profile, strInput[i]))) {
-                pParams->CodecProfile = (mfxU16)value;
-                continue;
-            }
-            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vc1_profile, strInput[i]))) {
-                pParams->CodecProfile = (mfxU16)value;
-                continue;
-            }
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
-            return MFX_PRINT_OPTION_ERR;
         }
         else if (0 == _tcscmp(option_name, _T("sar")))
         {
@@ -1544,6 +1517,40 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             tstring mes = _T("Unknown option: --");
             mes += option_name;
             PrintHelp(strInput[0], (TCHAR *)mes.c_str(), NULL);
+            return MFX_PRINT_OPTION_ERR;
+        }
+    }
+
+    //parse cached profile and level
+    if (cachedlevel.length() > 0) {
+        const CX_DESC *desc = nullptr;
+        switch (pParams->CodecId) {
+        case MFX_CODEC_AVC: desc = list_avc_level; break;
+        case MFX_CODEC_HEVC: desc = list_hevc_level; break;
+        case MFX_CODEC_MPEG2: desc = list_mpeg2_level; break;
+        default: break;
+        }
+        int value = 0;
+        if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, cachedlevel.c_str()))) {
+            pParams->CodecLevel = (mfxU16)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), _T("level"));
+            return MFX_PRINT_OPTION_ERR;
+        }
+    }
+    if (cachedprofile.length() > 0) {
+        const CX_DESC *desc = nullptr;
+        switch (pParams->CodecId) {
+        case MFX_CODEC_AVC: desc = list_avc_profile; break;
+        case MFX_CODEC_HEVC: desc = list_hevc_profile; break;
+        case MFX_CODEC_MPEG2: desc = list_mpeg2_profile; break;
+        default: break;
+        }
+        int value = 0;
+        if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avc_level, cachedprofile.c_str()))) {
+            pParams->CodecLevel = (mfxU16)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), _T("profile"));
             return MFX_PRINT_OPTION_ERR;
         }
     }
