@@ -118,19 +118,22 @@ tstring getAVCodecs(AVQSVCodecType flag) {
     uint32_t flag_enc = flag & AVQSV_CODEC_ENC;
     int flagCount = popcnt32(flag);
 
-    std::string codecstr = (flagCount > 1) ? "D: Decode\nE: Encode\n" : "";
+    std::string codecstr = (flagCount > 1) ? "D-: Decode\n-E: Encode\n---------------------\n" : "";
     std::for_each(list.begin(), list.end(), [&codecstr, maxNameLength, flagCount, flag_dec, flag_enc](const avcodecName& format) {
-        if (flagCount > 1) {
-            codecstr += (format.type & flag_dec) ? "D" : "-";
-            codecstr += (format.type & flag_enc) ? "E" : "-";
-        }
-        codecstr += (std::string(" ") + format.name);
-        if (format.long_name) {
-            for (uint32_t i = strlen(format.name); i <= maxNameLength; i++)
+        if (format.type & (flag_dec | flag_enc)) {
+            if (flagCount > 1) {
+                codecstr += (format.type & flag_dec) ? "D" : "-";
+                codecstr += (format.type & flag_enc) ? "E" : "-";
                 codecstr += " ";
-            codecstr += ": " + std::string(format.long_name);
+            }
+            codecstr += format.name;
+            if (format.long_name) {
+                for (uint32_t i = strlen(format.name); i <= maxNameLength; i++)
+                    codecstr += " ";
+                codecstr += ": " + std::string(format.long_name);
+            }
+            codecstr += "\n";
         }
-        codecstr += "\n";
     });
 
     return char_to_tstring(codecstr);
@@ -191,19 +194,22 @@ tstring getAVFormats(AVQSVFormatType flag) {
     uint32_t flag_mux = flag & AVQSV_FORMAT_MUX;
     int flagCount = popcnt32(flag);
 
-    std::string formatstr = (flagCount > 1) ? "D: Demux\nM: Mux\n" : "";
+    std::string formatstr = (flagCount > 1) ? "D-: Demux\n-M: Mux\n---------------------\n" : "";
     std::for_each(list.begin(), list.end(), [&formatstr, maxNameLength, flagCount, flag_demux, flag_mux](const avformatName& format) {
-        if (flagCount > 1) {
-            formatstr += (format.type & flag_demux) ? "D" : "-";
-            formatstr += (format.type & flag_mux) ? "M" : "-";
-        }
-        formatstr += (std::string(" ") + format.name);
-        if (format.long_name) {
-            for (uint32_t i = strlen(format.name); i <= maxNameLength; i++)
+        if (format.type & (flag_demux | flag_mux)) {
+            if (flagCount > 1) {
+                formatstr += (format.type & flag_demux) ? "D" : "-";
+                formatstr += (format.type & flag_mux) ? "M" : "-";
                 formatstr += " ";
-            formatstr += ": " + std::string(format.long_name);
+            }
+            formatstr += format.name;
+            if (format.long_name) {
+                for (uint32_t i = strlen(format.name); i <= maxNameLength; i++)
+                    formatstr += " ";
+                formatstr += ": " + std::string(format.long_name);
+            }
+            formatstr += "\n";
         }
-        formatstr += "\n";
     });
 
     return char_to_tstring(formatstr);
