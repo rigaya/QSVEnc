@@ -693,7 +693,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 
     for (mfxU32 i = 0; i < input_prm->nAudioSelectCount; i++) {
         AddMessage(QSV_LOG_DEBUG, _T("select audio track %s, codec %s, format %s, bitrate %d, filename \"%s\"\n"),
-            (input_prm->ppAudioSelect[i]->nAudioSelect) ? strsprintf("#%d", input_prm->ppAudioSelect[i]->nAudioSelect).c_str() : _T("all"),
+            (input_prm->ppAudioSelect[i]->nAudioSelect) ? strsprintf(_T("#%d"), input_prm->ppAudioSelect[i]->nAudioSelect).c_str() : _T("all"),
             input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, input_prm->ppAudioSelect[i]->pAudioExtractFormat,
             input_prm->ppAudioSelect[i]->nAVAudioEncodeBitrate, input_prm->ppAudioSelect[i]->pAudioExtractFilename);
     }
