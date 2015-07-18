@@ -110,8 +110,8 @@ tstring getAVCodecs(AVQSVCodecType flag) {
             }
         }
     }
-    size_t maxNameLength = 0;
-    std::for_each(list.begin(), list.end(), [&maxNameLength](const avcodecName& format) { maxNameLength = (std::max)(maxNameLength, strlen(format.name)); });
+    uint32_t maxNameLength = 0;
+    std::for_each(list.begin(), list.end(), [&maxNameLength](const avcodecName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
     maxNameLength = (std::min)(maxNameLength, 12u);
 
     uint32_t flag_dec = flag & AVQSV_CODEC_DEC;
@@ -128,7 +128,7 @@ tstring getAVCodecs(AVQSVCodecType flag) {
             }
             codecstr += format.name;
             if (format.long_name) {
-                for (uint32_t i = strlen(format.name); i <= maxNameLength; i++)
+                for (uint32_t i = (uint32_t)strlen(format.name); i <= maxNameLength; i++)
                     codecstr += " ";
                 codecstr += ": " + std::string(format.long_name);
             }
@@ -186,8 +186,8 @@ tstring getAVFormats(AVQSVFormatType flag) {
         }
     }
 
-    size_t maxNameLength = 0;
-    std::for_each(list.begin(), list.end(), [&maxNameLength](const avformatName& format) { maxNameLength = (std::max)(maxNameLength, strlen(format.name)); });
+    uint32_t maxNameLength = 0;
+    std::for_each(list.begin(), list.end(), [&maxNameLength](const avformatName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
     maxNameLength = (std::min)(maxNameLength, 12u);
 
     uint32_t flag_demux = flag & AVQSV_FORMAT_DEMUX;
@@ -204,7 +204,7 @@ tstring getAVFormats(AVQSVFormatType flag) {
             }
             formatstr += format.name;
             if (format.long_name) {
-                for (uint32_t i = strlen(format.name); i <= maxNameLength; i++)
+                for (uint32_t i = (uint32_t)strlen(format.name); i <= maxNameLength; i++)
                     formatstr += " ";
                 formatstr += ": " + std::string(format.long_name);
             }
