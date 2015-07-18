@@ -67,7 +67,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     default:
         break;
     }
-    mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
+    mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
 

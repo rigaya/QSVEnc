@@ -8,6 +8,7 @@
 #pragma comment(lib, "shlwapi.lib")
 #include <vector>
 #include <string>
+#include <type_traits>
 #include "vm/strings_defs.h"
 #include "mfxstructures.h"
 #include "mfxSession.h"
@@ -37,8 +38,17 @@ std::vector<const T> to_vector(const T(&ptr)[size]) {
     return std::vector<const T>(ptr, ptr + size);
 }
 
-mfxU32 GCD(mfxU32 a, mfxU32 b);
-mfxI64 GCDI64(mfxI64 a, mfxI64 b);
+
+template<typename T>
+static inline T qsv_gcd(T a, T b) {
+    static_assert(std::is_integral<T>::value, "qsv_gcd is defined only for integer.");
+    if (a == 0) return b;
+    if (b == 0) return a;
+    T c;
+    while ((c = a % b) != 0)
+        a = b, b = c;
+    return b;
+}
 
 #if UNICODE
 #define to_tstring to_wstring

@@ -235,7 +235,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
         AddMessage(QSV_LOG_ERROR, _T("Invalid framerate %d/%d.\n"), vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    const mfxI64 fps_gcd = GCDI64(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
+    const mfxI64 fps_gcd = qsv_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
 
     m_inputFrameInfo.Width = (mfxU16)vsvideoinfo->width;
     m_inputFrameInfo.Height = (mfxU16)vsvideoinfo->height;

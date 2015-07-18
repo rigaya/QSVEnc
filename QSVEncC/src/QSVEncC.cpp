@@ -1292,7 +1292,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                     } else {
                         pParams->nFPSScale = 100000;
                         pParams->nFPSRate = (int)(d * pParams->nFPSScale + 0.5);
-                        int gcd = GCD(pParams->nFPSRate, pParams->nFPSScale);
+                        int gcd = qsv_gcd(pParams->nFPSRate, pParams->nFPSScale);
                         pParams->nFPSScale /= gcd;
                         pParams->nFPSRate  /= gcd;
                     }

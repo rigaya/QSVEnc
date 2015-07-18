@@ -689,7 +689,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
             break;
         }
     }
-    mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
+    mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
     PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: Output FPS %d/%d\n"), OutputFPSRate, OutputFPSScale);
@@ -2421,7 +2421,7 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     default:
         break;
     }
-    mfxU32 gcd = GCD(OutputFPSRate, OutputFPSScale);
+    mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
     m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pStrLog, m_pQSVLog.get());

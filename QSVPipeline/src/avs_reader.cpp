@@ -137,7 +137,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
         return MFX_ERR_INVALID_COLOR_FORMAT;
     }
 
-    int fps_gcd = GCD(m_sAVSinfo->fps_numerator, m_sAVSinfo->fps_denominator);
+    int fps_gcd = qsv_gcd(m_sAVSinfo->fps_numerator, m_sAVSinfo->fps_denominator);
     m_inputFrameInfo.Width = (mfxU16)m_sAVSinfo->width;
     m_inputFrameInfo.Height = (mfxU16)m_sAVSinfo->height;
     m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);

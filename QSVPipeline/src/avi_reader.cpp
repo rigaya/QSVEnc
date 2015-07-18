@@ -62,7 +62,7 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
         AVISTREAMINFO sinfo = { 0 };
         if (0 == AVIStreamInfo(m_pAviStream, &sinfo, sizeof(AVISTREAMINFO)) && sinfo.fccType == streamtypeVIDEO) {
             memset(&m_inputFrameInfo, 0, sizeof(m_inputFrameInfo));
-            const DWORD fps_gcd = GCD(sinfo.dwRate, sinfo.dwScale);
+            const DWORD fps_gcd = qsv_gcd(sinfo.dwRate, sinfo.dwScale);
             m_inputFrameInfo.Width = (mfxU16)(sinfo.rcFrame.right - sinfo.rcFrame.left);
             m_inputFrameInfo.Height = (mfxU16)(sinfo.rcFrame.bottom - sinfo.rcFrame.top);
             m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);
