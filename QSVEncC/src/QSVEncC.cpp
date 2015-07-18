@@ -2108,11 +2108,6 @@ int run(int argc, TCHAR *argv[]) {
     sts = pPipeline->Init(&Params);
     if (sts < MFX_ERR_NONE) return 1;
 
-    if (Params.pStrLogFile) {
-        free(Params.pStrLogFile);
-        Params.pStrLogFile = NULL;
-    }
-
     pPipeline->SetAbortFlagPointer(&g_signal_abort);
     set_signal_handler();
     
