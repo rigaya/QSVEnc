@@ -1949,32 +1949,31 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
                 PrintMes(QSV_LOG_ERROR, _T("Output: Audio mux is only supported with transcoding (avqsv reader).\n"));
                 return MFX_ERR_UNSUPPORTED;
             } else {
-                //特に選択の指定がなければすべて採用
-                if (pParams->nAudioSelectCount == 0) {
-                    writerPrm.inputAudioList = pAVCodecReader->GetInputAudioInfo();
-                    for (const auto& info : writerPrm.inputAudioList) {
-                        audioTrackUsed.push_back(info.nTrackId);
-                        PrintMes(QSV_LOG_DEBUG, _T("Output: Added audio track#%d (stream idx %d) for mux.\n"), info.nTrackId, info.nIndex);
-                    }
-                } else {
-                    //選択の指定があれば、それを使用する
-                    auto list = pAVCodecReader->GetInputAudioInfo();
+                bool copyAll = false;
+                for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
+                    //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
+                    copyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
+                }
+                PrintMes(QSV_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
+                auto audioList = pAVCodecReader->GetInputAudioInfo();
+                for (auto& audioTrack : audioList) {
+                    const sAudioSelect *pAudioSelect = nullptr;
                     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                        const int findTrackId = pParams->pAudioSelect[i];
-                        const AVDemuxAudio *audioTrackInfo = NULL;
-                        for (const auto& info : list) {
-                            if (info.nTrackId == findTrackId) {
-                                audioTrackInfo = &info;
-                            }
+                        if (audioTrack.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
+                            && pParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
+                            pAudioSelect = pParams->ppAudioSelectList[i];
                         }
-                        if (audioTrackInfo != NULL) {
-                            writerPrm.inputAudioList.push_back(*audioTrackInfo);
-                            audioTrackUsed.push_back(findTrackId);
-                            PrintMes(QSV_LOG_DEBUG, _T("Output: Added audio track#%d (stream idx %d) for mux.\n"), audioTrackInfo->nTrackId, audioTrackInfo->nIndex);
-                        } else {
-                            PrintMes(QSV_LOG_ERROR, _T("Output: Audio track #%d is not available to mux.\n"), findTrackId);
-                            return MFX_ERR_INVALID_AUDIO_PARAM;
-                        }
+                    }
+                    if (pAudioSelect != nullptr || copyAll) {
+                        audioTrackUsed.push_back(audioTrack.nTrackId);
+                        AVOutputAudioPrm prm;
+                        prm.src = audioTrack;
+                        //pAudioSelect == nullptrは "copyAll" によるもの
+                        prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
+                        prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
+                        PrintMes(QSV_LOG_DEBUG, _T("Output: Added audio track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
+                            audioTrack.nTrackId, audioTrack.nIndex, prm.nBitrate, prm.pEncodeCodec);
+                        writerPrm.inputAudioList.push_back(std::move(prm));
                     }
                 }
             }
@@ -2008,51 +2007,60 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     } //ENABLE_AVCODEC_QSV_READER
 
     //音声の抽出
-    if (pParams->ppAudioExtractFilename) {
-        PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file extraction enabled.\n"));
+    if (pParams->nAudioSelectCount > audioTrackUsed.size()) {
+        PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
         if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
             PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return MFX_ERR_UNSUPPORTED;
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputAudioInfo();
-            for (int i = 0; i < pParams->nAudioExtractFileCount; i++) {
-                const int findTrackId = pParams->pAudioExtractFileSelect[i];
-                const AVDemuxAudio *audioTrackInfo = NULL;
-                for (const auto& info : inutAudioInfoList) {
-                    if (info.nTrackId == findTrackId) {
-                        audioTrackInfo = &info;
+            for (auto& audioTrack : inutAudioInfoList) {
+                for (auto usedTrack : audioTrackUsed) {
+                    if (usedTrack == audioTrack.nTrackId) {
+                        PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), audioTrack.nTrackId);
+                        return MFX_ERR_INVALID_AUDIO_PARAM;
                     }
                 }
-                if (audioTrackInfo != NULL) {
-                    if (audioTrackUsed.end() != std::find(audioTrackUsed.begin(), audioTrackUsed.end(), findTrackId)) {
-                        PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), findTrackId);
-                        return MFX_ERR_INVALID_AUDIO_PARAM;
+                const sAudioSelect *pAudioSelect = nullptr;
+                for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+                    if (audioTrack.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
+                        && pParams->ppAudioSelectList[i]->pAudioExtractFilename != nullptr) {
+                        pAudioSelect = pParams->ppAudioSelectList[i];
                     }
-                    PrintMes(QSV_LOG_DEBUG, _T("Output: Extract audio track #%d (stream index %d).\n"), audioTrackInfo->nTrackId, audioTrackInfo->nIndex);
-                    auto pWriter = new CAvcodecWriter();
-                    AvcodecWriterPrm writerAudioPrm = { 0 };
-                    writerAudioPrm.pOutputFormat = pParams->ppAudioExtractFormat[i];
-                    writerAudioPrm.inputAudioList.push_back(*audioTrackInfo);
-                    pWriter->SetQSVLogPtr(m_pQSVLog.get());
-                    sts = pWriter->Init(pParams->ppAudioExtractFilename[i], &writerAudioPrm, m_pEncSatusInfo);
-                    if (sts < MFX_ERR_NONE) {
-                        PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
-                        return sts;
-                    }
-                    PrintMes(QSV_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), audioTrackInfo->nTrackId);
-                    bool audioStdout = pWriter->outputStdout();
-                    if (stdoutUsed && audioStdout) {
-                        PrintMes(QSV_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
-                        return MFX_ERR_INVALID_AUDIO_PARAM;
-                    }
-                    stdoutUsed |= audioStdout;
-                    m_pFileWriterListAudio.push_back(std::move(pWriter));
-                } else if (audioTrackUsed.end() == std::find(audioTrackUsed.begin(), audioTrackUsed.end(), findTrackId)) {
-                    //--copy-audioでも使われていない音声ならなにかおかしなことが起こっている
-                    PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is not available to extract.\n"), findTrackId);
+                }
+                if (pAudioSelect == nullptr) {
+                    PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), audioTrack.nTrackId);
                     return MFX_ERR_INVALID_AUDIO_PARAM;
                 }
+                PrintMes(QSV_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
+                    audioTrack.nTrackId, audioTrack.nIndex, pAudioSelect->pAudioExtractFilename, pAudioSelect->pAudioExtractFormat, pAudioSelect->pAVAudioEncodeCodec, pAudioSelect->nAVAudioEncodeBitrate);
+
+                AVOutputAudioPrm prm;
+                prm.src = audioTrack;
+                //pAudioSelect == nullptrは "copyAll" によるもの
+                prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
+                prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
+                
+                AvcodecWriterPrm writerAudioPrm = { 0 };
+                writerAudioPrm.pOutputFormat = pAudioSelect->pAudioExtractFormat;
+                writerAudioPrm.inputAudioList.push_back(prm);
+
+                auto pWriter = new CAvcodecWriter();
+                pWriter->SetQSVLogPtr(m_pQSVLog.get());
+                sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pEncSatusInfo);
+                if (sts < MFX_ERR_NONE) {
+                    PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
+                    return sts;
+                }
+                PrintMes(QSV_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), audioTrack.nTrackId);
+                bool audioStdout = pWriter->outputStdout();
+                if (stdoutUsed && audioStdout) {
+                    PrintMes(QSV_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
+                    return MFX_ERR_INVALID_AUDIO_PARAM;
+                }
+                stdoutUsed |= audioStdout;
+                m_pFileWriterListAudio.push_back(std::move(pWriter));
             }
         }
     }
@@ -2218,13 +2226,10 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.pTrimList = pParams->pTrimList;
                 avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-                avcodecReaderPrm.nReadAudio |= (0 != (pParams->nAVMux & QSVENC_MUX_AUDIO)) ? AVQSV_AUDIO_MUX : 0; 
-                avcodecReaderPrm.nReadAudio |= (pParams->ppAudioExtractFilename != NULL) ? AVQSV_AUDIO_COPY_TO_FILE : 0;
+                avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0; 
                 avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
-                avcodecReaderPrm.pAudioSelect = pParams->pAudioSelect;
+                avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
-                avcodecReaderPrm.pAudioExtractFileSelect = pParams->pAudioExtractFileSelect;
-                avcodecReaderPrm.nAudioExtractFileCount = pParams->nAudioExtractFileCount;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
@@ -2509,7 +2514,8 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     
     if (pParams->bBenchmark) {
         pParams->nAVMux = QSVENC_MUX_NONE;
-        MSDK_SAFE_FREE(pParams->ppAudioExtractFilename);
+        for (int i = 0; i < pParams->nAudioSelectCount; i++)
+            MSDK_SAFE_FREE(pParams->ppAudioSelectList[i]);
         pParams->pAVMuxOutputFormat = _T("raw");
         PrintMes(QSV_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
@@ -2994,7 +3000,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
     vector<CAvcodecWriter *> pWriterForAudioStreams;
     for (auto pWriter : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = reinterpret_cast<CAvcodecWriter *>(pWriter);
+        auto pAVCodecWriter = dynamic_cast<CAvcodecWriter *>(pWriter);
         if (pAVCodecWriter) {
             auto indexes = pAVCodecWriter->GetAudioStreamIndex();
             for (auto index : indexes) {
@@ -3078,16 +3084,16 @@ mfxStatus CEncodingPipeline::RunEncode()
         mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_AVCODEC_QSV_READER
         if (m_pFileWriterListAudio.size()) {
-            auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
-            if (pAVCodecReader != NULL) {
+            auto pAVCodecReader = dynamic_cast<CAvcodecReader *>(m_pFileReader);
+            if (pAVCodecReader != nullptr) {
                 auto packetList = pAVCodecReader->GetAudioDataPackets();
                 for (mfxU32 i = 0; i < packetList.size(); i++) {
                     auto pWriter = pWriterForAudioStreams[packetList[i].stream_index];
-                    if (pWriter == NULL) {
+                    if (pWriter == nullptr) {
                         PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for audio stream %d\n"), packetList[i].stream_index);
                         return MFX_ERR_NULL_PTR;
                     }
-                    if (MFX_ERR_NONE != (sts = pWriter->WriteNextFrame(&packetList[i]))) {
+                    if (MFX_ERR_NONE != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
                         return sts;
                     }
                 }
@@ -3463,6 +3469,14 @@ mfxStatus CEncodingPipeline::RunEncode()
         // exit in case of other errors
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error in getting buffered frames from decoder."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
+    }
+
+    for (const auto& writer : m_pFileWriterListAudio) {
+        auto pAVCodecWriter = dynamic_cast<CAvcodecWriter *>(writer);
+        if (pAVCodecWriter != nullptr) {
+            //エンコーダなどにキャッシュされたパケットを書き出す
+            pAVCodecWriter->WriteNextPacket(nullptr);
+        }
     }
 
     if (m_pmfxVPP)

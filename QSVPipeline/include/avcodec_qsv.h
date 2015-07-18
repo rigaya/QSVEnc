@@ -23,10 +23,12 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libswresample/swresample.h>
 }
 #pragma comment (lib, "avcodec.lib")
 #pragma comment (lib, "avformat.lib")
 #pragma comment (lib, "avutil.lib")
+#pragma comment (lib, "swresample.lib")
 #pragma warning (pop)
 
 #include "qsv_util.h"
@@ -51,9 +53,21 @@ static const QSVCodec QSV_DECODE_LIST[] = {
     { AV_CODEC_ID_WMV3,       MFX_CODEC_VC1   },
 };
 
+static const TCHAR *AVQSV_CODEC_AUTO = _T("auto");
+static const TCHAR *AVQSV_CODEC_COPY = _T("copy");
+
+static const int AVQSV_DEFAULT_AUDIO_BITRATE = 192;
+
+static inline bool avcodecIsCopy(const TCHAR *codec) {
+    return codec == nullptr || 0 == _tcsicmp(codec, AVQSV_CODEC_COPY);
+}
+static inline bool avcodecIsAuto(const TCHAR *codec) {
+    return codec != nullptr && 0 == _tcsicmp(codec, AVQSV_CODEC_AUTO);
+}
+
 static const AVRational QSV_NATIVE_TIMEBASE = { 1, QSV_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
-    _T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll")
+    _T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll"), _T("swresample-1.dll")
 };
 
 enum AVQSVCodecType : uint32_t {

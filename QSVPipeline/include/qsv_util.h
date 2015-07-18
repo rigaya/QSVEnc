@@ -75,6 +75,30 @@ static inline mfxU32 check_range_unsigned(mfxU32 value, mfxU32 min, mfxU32 max) 
     return (value - min) <= (max - min);
 }
 
+static int popcnt32(mfxU32 bits) {
+    bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
+    bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
+    bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
+    bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
+    return (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
+}
+
+static TCHAR *alloc_str(const TCHAR *str, size_t length = 0) {
+    const size_t count = (length) ? length : _tcslen(str);
+    TCHAR *ptr = (TCHAR *)calloc(count + 1, sizeof(str[0]));
+    memcpy(ptr, str, sizeof(str[0]) * count);
+    return ptr;
+}
+
+template<typename type>
+static std::basic_string<type> repeatStr(std::basic_string<type> str, int count) {
+    std::basic_string<type> ret;
+    for (int i = 0; i < count; i++) {
+        ret += str;
+    }
+    return ret;
+}
+
 static tstring fourccToStr(mfxU32 nFourCC) {
     tstring fcc;
     for (int i = 0; i < 4; i++) {

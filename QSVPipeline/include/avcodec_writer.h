@@ -47,18 +47,24 @@ typedef struct AVMuxVideo {
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
+    int                   nInTrackId;           //ソースファイルの入力トラック番号
     AVCodecContext       *pCodecCtxIn;          //入力音声のCodecContextのコピー
     int                   nStreamIndexIn;       //入力音声のStreamのindex
     int                   nDelaySamplesOfAudio; //入力音声の遅延 (pkt_timebase基準)
     AVStream             *pStream;              //出力ファイルの音声ストリーム
     int                   nPacketWritten;       //出力したパケットの数
 
-    //PCMの変換用
-    AVCodec              *pOutCodecDecode;      //変換するPCMの元のコーデック
-    AVCodecContext       *pOutCodecDecodeCtx;   //変換するPCMの元のCodecContext
-    AVCodec              *pOutCodecEncode;      //変換先のPCMの音声のコーデック
-    AVCodecContext       *pOutCodecEncodeCtx;   //変換先のPCMの音声のCodecContext
+    //変換用
+    AVCodec              *pOutCodecDecode;      //変換する元のコーデック
+    AVCodecContext       *pOutCodecDecodeCtx;   //変換する元のCodecContext
+    AVCodec              *pOutCodecEncode;      //変換先の音声のコーデック
+    AVCodecContext       *pOutCodecEncodeCtx;   //変換先の音声のCodecContext
     AVPacket              OutPacket;            //変換用の音声バッファ
+    SwrContext           *pSwrContext;          //Sampleformatの変換用
+    uint8_t             **pSwrBuffer;           //Sampleformatの変換用のバッファ
+    uint32_t              nSwrBufferSize;       //Sampleformatの変換用のバッファのサイズ
+    int                   nSwrBufferLinesize;   //Sampleformatの変換用
+    AVFrame              *pDecodedFrameCache;   //デコードされたデータのキャッシュされたもの
     //AACの変換用
     AVBitStreamFilterContext *pAACBsfc;         //必要なら使用するbitstreamfilter
 
@@ -73,12 +79,18 @@ typedef struct AVMux {
     vector<AVMuxAudio>  audio;
 } AVMux;
 
+typedef struct AVOutputAudioPrm {
+    AVDemuxAudio src;          //入力音声の情報
+    const TCHAR *pEncodeCodec; //音声をエンコードするコーデック
+    int          nBitrate;     //ビットレートの指定
+} AVOutputAudioPrm;
+
 typedef struct AvcodecWriterPrm {
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
     const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
     const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
-    vector<AVDemuxAudio>         inputAudioList;          //入力ファイルの音声の情報
+    vector<AVOutputAudioPrm>     inputAudioList;          //入力ファイルの音声の情報
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CSmplBitstreamWriter
@@ -93,7 +105,7 @@ public:
 
     virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) override;
 
-    virtual mfxStatus WriteNextFrame(AVPacket *pkt);
+    virtual mfxStatus WriteNextPacket(AVPacket *pkt);
 
     virtual vector<int> GetAudioStreamIndex();
 
@@ -127,13 +139,34 @@ private:
     mfxStatus InitVideo(const AvcodecWriterPrm *prm);
 
     //音声の初期化
-    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVDemuxAudio *pInputAudio);
+    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pInputAudio);
 
     //メッセージを作成
     tstring GetWriterMes();
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVMuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
+
+    //音声のsample formatを自動選択する
+    AVSampleFormat AutoSelectSampleFmt(const AVSampleFormat *pSamplefmtList, const AVCodecContext *pSrcAudioCtx);
+
+    //音声のサンプリングレートを自動選択する
+    int AutoSelectSamplingRate(const int *pSamplingRateList, int nSrcSamplingRate);
+
+    //音声ストリームをすべて吐き出す
+    void AudioFlushStream(AVMuxAudio *pMuxAudio);
+
+    //音声をデコード
+    AVFrame *AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket *pkt, int *got_result);
+
+    //音声をresample
+    int AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame);
+
+    //音声をエンコード
+    int AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, const AVFrame *frame, int *got_result);
+
+    //パケットを実際に書き出す
+    void WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples);
 
     void CloseAudio(AVMuxAudio *pMuxAudio);
     void CloseVideo(AVMuxVideo *pMuxVideo);

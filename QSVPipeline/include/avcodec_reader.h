@@ -92,15 +92,13 @@ typedef struct AVDemuxer {
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {
-    mfxU8      memType;                 //使用するメモリの種類
-    mfxU32     nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
-    mfxU16     nAnalyzeSec;             //入力ファイルを分析する秒数
-    mfxU16     nTrimCount;              //Trimする動画フレームの領域の数
-    sTrim     *pTrimList;               //Trimする動画フレームの領域のリスト
-    mfxU8      nAudioSelectCount;       //muxする音声のトラック数
-    int       *pAudioSelect;            //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
-    mfxU8      nAudioExtractFileCount;  //ファイルへ抽出する音声のトラック数
-    int       *pAudioExtractFileSelect; //ファイルへ抽出する音声のトラック番号のリスト 1,2,...(1から連番で指定)
+    mfxU8          memType;                 //使用するメモリの種類
+    mfxU32         nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
+    mfxU16         nAnalyzeSec;             //入力ファイルを分析する秒数
+    mfxU16         nTrimCount;              //Trimする動画フレームの領域の数
+    sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
+    mfxU8          nAudioSelectCount;       //muxする音声のトラック数
+    sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
 } AvcodecReaderPrm;
 
 

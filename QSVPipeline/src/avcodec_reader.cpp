@@ -21,17 +21,6 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 
-tstring getAVQSVSupportedCodecList() {
-    tstring codecs;
-    for (int i = 0; i < _countof(QSV_DECODE_LIST); i++) {
-        if (i == 0 || QSV_DECODE_LIST[i-1].qsv_fourcc != QSV_DECODE_LIST[i].qsv_fourcc) {
-            if (i) codecs += _T(", ");
-            codecs += CodecIdToStr(QSV_DECODE_LIST[i].qsv_fourcc);
-        }
-    }
-    return codecs;
-}
-
 static inline void extend_array_size(VideoFrameData *dataset) {
     static int default_capacity = 8 * 1024;
     int current_cap = dataset->capacity;
@@ -696,6 +685,13 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     //    return MFX_ERR_NULL_PTR;
     //}
 
+    for (mfxU32 i = 0; i < input_prm->nAudioSelectCount; i++) {
+        AddMessage(QSV_LOG_DEBUG, _T("select audio track %s, codec %s, format %s, bitrate %d, filename \"%s\"\n"),
+            (input_prm->ppAudioSelect[i]->nAudioSelect) ? strsprintf("#%d", input_prm->ppAudioSelect[i]->nAudioSelect).c_str() : _T("all"),
+            input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, input_prm->ppAudioSelect[i]->pAudioExtractFormat,
+            input_prm->ppAudioSelect[i]->nAVAudioEncodeBitrate, input_prm->ppAudioSelect[i]->pAudioExtractFilename);
+    }
+
     av_register_all();
     avcodec_register_all();
     av_log_set_level((m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
@@ -778,18 +774,16 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     if (input_prm->nReadAudio) {
         auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO);
         if (audioStreams.size() == 0) {
-            AddMessage(QSV_LOG_ERROR, _T("--audio-file or --copy-audio is set, but no audio stream found.\n"));
+            AddMessage(QSV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
             return MFX_ERR_NOT_FOUND;
         } else {
             for (int iAudTrack = 0; iAudTrack < (int)audioStreams.size(); iAudTrack++) {
-                //特に指定なし = 全指定かどうか
-                bool useStream = (input_prm->nReadAudio & AVQSV_AUDIO_MUX) && (input_prm->pAudioSelect == NULL || input_prm->nAudioSelectCount == 0);
-                //選択されているかをチェック
+                bool useStream = false;
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                    useStream = (input_prm->pAudioSelect[i] == (iAudTrack+1)); //トラック番号は1から連番
-                }
-                for (int i = 0; !useStream && i < input_prm->nAudioExtractFileCount; i++) {
-                    useStream = (input_prm->pAudioExtractFileSelect[i] == (iAudTrack+1)); //トラック番号は1から連番
+                    if (input_prm->ppAudioSelect[i]->nAudioSelect == 0 //特に指定なし = 全指定かどうか
+                        || input_prm->ppAudioSelect[i]->nAudioSelect == (iAudTrack+1)) { //トラック番号は1から連番
+                        useStream = true;
+                    }
                 }
                 if (useStream) {
                     AVDemuxAudio audio = { 0 };
@@ -800,6 +794,23 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
                     AddMessage(QSV_LOG_DEBUG, _T("found audio stream, stream idx %d, trackID %d, %s, frame_size %d, timebase %d/%d\n"),
                         audio.nIndex, audio.nTrackId, char_to_tstring(avcodec_get_name(audio.pCodecCtx->codec_id)).c_str(),
                         audio.pCodecCtx->frame_size, audio.pCodecCtx->pkt_timebase.num, audio.pCodecCtx->pkt_timebase.den);
+                }
+            }
+            //指定されたすべての音声トラックが発見されたかを確認する
+            for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
+                //全指定のトラック=0は無視
+                if (input_prm->ppAudioSelect[i]->nAudioSelect > 0) {
+                    bool audioFound = false;
+                    for (const auto& stream : m_Demux.audio) {
+                        if (stream.nTrackId == input_prm->ppAudioSelect[i]->nAudioSelect) {
+                            audioFound = true;
+                            break;
+                        }
+                    }
+                    if (!audioFound) {
+                        AddMessage(QSV_LOG_ERROR, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
+                        return MFX_ERR_INVALID_AUDIO_PARAM;
+                    }
                 }
             }
         }

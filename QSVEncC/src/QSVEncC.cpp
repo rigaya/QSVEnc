@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <Math.h>
 #include <signal.h>
+#include <cassert>
 #include <fstream>
 #include <iomanip>
 #include <set>
@@ -145,12 +146,18 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 if format is not specified, output format will\n")
             _T("                                 be guessed from output file extension.\n")
             _T("                                 set \"raw\" for H.264/ES output.\n")
-            _T("   --copy-audio [<int>[,...]]   mux audio with video during output.\n")
+            _T("   --audio-copy [<int>[,...]]   mux audio with video during output.\n")
             _T("                                 could be only used with\n")
             _T("                                 avqsv reader and avcodec muxer.\n")
             _T("                                 by default copies all audio tracks.\n")
-            _T("                                 \"--copy-audio 1,2\" will extract\n")
+            _T("                                 \"--audio-copy 1,2\" will extract\n")
             _T("                                 audio track #1 and #2.\n")
+            _T("   --audio-codec [<int>?]<string>\n")
+            _T("                                encode audio to specified format.\n")
+            _T("                                  in [<int>?], specify track number to encode.\n")
+            _T("   --audio-bitrate [<int>?]<int>\n")
+            _T("                                set encode bitrate for audio (kbps).\n")
+            _T("                                  in [<int>?], specify track number to set bitrate.\n")
 #endif
             _T("\n")
             _T("   --nv12                       set raw input as NV12 color format,\n")
@@ -373,12 +380,28 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
     }
 }
 
+static int getAudioTrackIdx(const sInputParams* pParams, int iTrack) {
+    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+        if (iTrack == pParams->ppAudioSelectList[i]->nAudioSelect) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int getFreeAudioTrack(const sInputParams* pParams) {
+    for (int iTrack = 1;; iTrack++) {
+        if (0 > getAudioTrackIdx(pParams, iTrack)) {
+            return iTrack;
+        }
+    }
+}
+
 mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pParams)
 {
     TCHAR* strArgument = _T("");
 
-    if (1 == nArgNum)
-    {
+    if (1 == nArgNum) {
         PrintHelp(strInput[0], NULL, NULL);
         PrintHelp(strInput[0], _T("options needed."), NULL);
         return MFX_PRINT_OPTION_ERR;
@@ -411,6 +434,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
 
     tstring cachedlevel, cachedprofile;
+    mfxU32 nParsedAudioFile = 0;
+    mfxU32 nParsedAudioEncode = 0;
+    mfxU32 nParsedAudioCopy = 0;
+    mfxU32 nParsedAudioBitrate = 0;
 
     // parse command line parameters
     for (mfxU8 i = 1; i < nArgNum; i++) {
@@ -602,63 +629,64 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         {
             i++;
             TCHAR *ptr = strInput[i];
+            sAudioSelect *pAudioSelect = nullptr;
+            int audioIdx = -1;
             int trackId = 0;
             if (_tcschr(ptr, '?') == NULL || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
                 //トラック番号を適当に発番する (カウントは1から)
-                bool trackFound = true;
-                for (trackId = 0; trackFound; ) {
-                    trackId++;
-                    trackFound = false;
-                    for (int i = 0; !trackFound && i < pParams->nAudioExtractFileCount; i++) {
-                        trackFound = (pParams->pAudioExtractFileSelect[i] == trackId);
-                    }
+                trackId = nParsedAudioFile+1;
+                audioIdx = getAudioTrackIdx(pParams, trackId);
+                if (audioIdx >= 0 && pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename != nullptr) {
+                    trackId = getFreeAudioTrack(pParams);
+                    pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));;
+                    pAudioSelect->nAudioSelect = trackId;
+                } else {
+                    pAudioSelect = pParams->ppAudioSelectList[audioIdx];
                 }
             } else if (i <= 0) {
                 //トラック番号は1から連番で指定
                 PrintHelp(strInput[0], _T("Invalid track number"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             } else {
-                //トラック番号が重複していないかを確認する
-                for (int i = 0; i < pParams->nAudioExtractFileCount; i++) {
-                    if (pParams->pAudioExtractFileSelect[0] == trackId) {
-                        PrintHelp(strInput[0], _T("Same track number is used more than twice"), option_name);
-                        return MFX_PRINT_OPTION_ERR;
-                    }
+                audioIdx = getAudioTrackIdx(pParams, trackId);
+                if (audioIdx < 0) {
+                    pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                    pAudioSelect->nAudioSelect = trackId;
+                } else {
+                    pAudioSelect = pParams->ppAudioSelectList[audioIdx];
                 }
                 ptr = _tcschr(ptr, '?') + 1;
             }
-            TCHAR *format = NULL;
+            assert(pAudioSelect != nullptr);
             TCHAR *qtr = _tcschr(ptr, ':');
             if (qtr != NULL && !(ptr + 1 == qtr && qtr[1] == _T('\\'))) {
-                size_t len = (qtr - ptr);
-                format = (TCHAR *)calloc((len + 1), sizeof(format[0]));
-                memcpy(format, ptr, sizeof(format[0]) * len);
+                pAudioSelect->pAudioExtractFormat = alloc_str(ptr, qtr - ptr);
                 ptr = qtr + 1;
             }
-            //追加するもののidx
-            const int idx = pParams->nAudioExtractFileCount;
-            //領域再確保
-            pParams->nAudioExtractFileCount++;
-            pParams->pAudioExtractFileSelect   = (int *)realloc(pParams->pAudioExtractFileSelect, sizeof(pParams->pAudioExtractFileSelect[0]) * pParams->nAudioExtractFileCount);
-            pParams->ppAudioExtractFilename = (TCHAR **)realloc(pParams->ppAudioExtractFilename,  sizeof(pParams->ppAudioExtractFilename[0])  * pParams->nAudioExtractFileCount);
-            pParams->ppAudioExtractFormat    = (TCHAR **)realloc(pParams->ppAudioExtractFormat,   sizeof(pParams->ppAudioExtractFormat[0])    * pParams->nAudioExtractFileCount);
-            pParams->pAudioExtractFileSelect[idx] = trackId;
-            pParams->ppAudioExtractFormat[idx] = format;
-            int filename_len = (int)_tcslen(ptr);
+            size_t filename_len = _tcslen(ptr);
             //ファイル名が""でくくられてたら取り除く
             if (ptr[0] == _T('\"') && ptr[filename_len-1] == _T('\"')) {
                 filename_len -= 2;
                 ptr++;
             }
             //ファイル名が重複していないかを確認する
-            for (int i = 0; i < pParams->nAudioExtractFileCount-1; i++) {
-                if (0 == _tcsicmp(pParams->ppAudioExtractFilename[i], ptr)) {
+            for (int j = 0; j < pParams->nAudioSelectCount; j++) {
+                if (pParams->ppAudioSelectList[j]->pAudioExtractFilename != nullptr
+                    && 0 == _tcsicmp(pParams->ppAudioSelectList[j]->pAudioExtractFilename, ptr)) {
                     PrintHelp(strInput[0], _T("Same output file name is used more than twice"), option_name);
                     return MFX_PRINT_OPTION_ERR;
                 }
             }
-            pParams->ppAudioExtractFilename[idx] = (TCHAR *)calloc((filename_len + 1), sizeof(pParams->ppAudioExtractFilename[idx][0]));
-            memcpy(pParams->ppAudioExtractFilename[idx], ptr, sizeof(pParams->ppAudioExtractFilename[idx][0]) * filename_len);
+
+            if (audioIdx < 0) {
+                audioIdx = pParams->nAudioSelectCount;
+                //新たに要素を追加
+                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                pParams->nAudioSelectCount++;
+            }
+            pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = alloc_str(ptr);
+            nParsedAudioFile++;
         }
         else if (0 == _tcscmp(option_name, _T("format")))
         {
@@ -670,31 +698,144 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 _tcscpy_s(pParams->pAVMuxOutputFormat, formatLen + 1, strInput[i]);
             }
         }
-        else if (0 == _tcscmp(option_name, _T("copy-audio")))
+        else if (0 == _tcscmp(option_name, _T("audio-copy"))
+               ||0 == _tcscmp(option_name, _T("copy-audio")))
         {
             pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+            std::set<int> trackSet; //重複しないよう、setを使う
             if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
                 i++;
                 auto trackListStr = split(strInput[i], _T(","));
-                std::set<int> trackSet; //重複しないよう、setを使う
                 for (auto str : trackListStr) {
-                    int i = 0;
-                    if (1 != _stscanf(str.c_str(), _T("%d"), &i) || i < 1) {
+                    int iTrack = 0;
+                    if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
                         PrintHelp(strInput[0], _T("Unknown value"), option_name);
                         return MFX_PRINT_OPTION_ERR;
                     } else {
-                        trackSet.insert(i);
+                        trackSet.insert(iTrack);
                     }
                 }
-                pParams->nAudioSelectCount = (mfxU8)trackSet.size();
-                if (NULL == (pParams->pAudioSelect = (int *)realloc(pParams->pAudioSelect, sizeof(pParams->pAudioSelect) * pParams->nAudioSelectCount))) {
-                    return MFX_PRINT_OPTION_ERR;
+            } else {
+                trackSet.insert(0);
+            }
+
+            for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
+                int trackId = *it;
+                sAudioSelect *pAudioSelect = nullptr;
+                int audioIdx = getAudioTrackIdx(pParams, trackId);
+                if (audioIdx < 0) {
+                    pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                    pAudioSelect->nAudioSelect = trackId;
                 } else {
-                    int i = 0;
-                    for (auto it = trackSet.begin(); it != trackSet.end(); it++, i++) {
-                        pParams->pAudioSelect[i] = *it;
+                    pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+                }
+                pAudioSelect->pAVAudioEncodeCodec = alloc_str(AVQSV_CODEC_COPY);
+
+                if (audioIdx < 0) {
+                    audioIdx = pParams->nAudioSelectCount;
+                    //新たに要素を追加
+                    pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                    pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                    pParams->nAudioSelectCount++;
+                }
+                nParsedAudioCopy++;
+            }
+        }
+        else if (0 == _tcscmp(option_name, _T("audio-codec")))
+        {
+            pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+            if (i+1 < nArgNum) {
+                TCHAR *ptr = nullptr;
+                TCHAR *ptrDelim = nullptr;
+                if (strInput[i+1][0] != _T('-')) {
+                    i++;
+                    ptrDelim = _tcschr(strInput[i], _T('?'));
+                    ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
+                }
+                int trackId = 1;
+                if (ptrDelim == nullptr) {
+                    trackId = nParsedAudioEncode+1;
+                    int idx = getAudioTrackIdx(pParams, trackId);
+                    if (idx >= 0 && pParams->ppAudioSelectList[idx]->pAVAudioEncodeCodec != nullptr) {
+                        trackId = getFreeAudioTrack(pParams);
+                    }
+                } else {
+                    *ptrDelim = _T('\0');
+                    if (1 != _stscanf(strInput[i], _T("%d"), &trackId)) {
+                        PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                        return MFX_PRINT_OPTION_ERR;
                     }
                 }
+                sAudioSelect *pAudioSelect = nullptr;
+                int audioIdx = getAudioTrackIdx(pParams, trackId);
+                if (audioIdx < 0) {
+                    pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                    pAudioSelect->nAudioSelect = trackId;
+                } else {
+                    pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+                }
+                pAudioSelect->pAVAudioEncodeCodec = alloc_str((ptr) ? ptr : AVQSV_CODEC_AUTO);
+
+                if (audioIdx < 0) {
+                    audioIdx = pParams->nAudioSelectCount;
+                    //新たに要素を追加
+                    pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                    pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                    pParams->nAudioSelectCount++;
+                }
+                nParsedAudioEncode++;
+            } else {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+        }
+        else if (0 == _tcscmp(option_name, _T("audio-bitrate")))
+        {
+            if (i+1 < nArgNum) {
+                i++;
+                TCHAR *ptr = _tcschr(strInput[i], _T('?'));
+                int trackId = 1;
+                if (ptr == nullptr) {
+                    trackId = nParsedAudioBitrate+1;
+                    int idx = getAudioTrackIdx(pParams, trackId);
+                    if (idx >= 0 && pParams->ppAudioSelectList[idx]->nAVAudioEncodeBitrate > 0) {
+                        trackId = getFreeAudioTrack(pParams);
+                    }
+                    ptr = strInput[i];
+                } else {
+                    *ptr = _T('\0');
+                    if (1 != _stscanf(strInput[i], _T("%d"), &trackId)) {
+                        PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                        return MFX_PRINT_OPTION_ERR;
+                    }
+                    ptr++;
+                }
+                sAudioSelect *pAudioSelect = nullptr;
+                int audioIdx = getAudioTrackIdx(pParams, trackId);
+                if (audioIdx < 0) {
+                    pAudioSelect = new sAudioSelect();
+                    pAudioSelect->nAudioSelect = trackId;
+                } else {
+                    pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+                }
+                int bitrate = 0;
+                if (1 != _stscanf(ptr, _T("%d"), &bitrate)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
+                pAudioSelect->nAVAudioEncodeBitrate = bitrate;
+
+                if (audioIdx < 0) {
+                    audioIdx = pParams->nAudioSelectCount;
+                    //新たに要素を追加
+                    pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                    pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                    pParams->nAudioSelectCount++;
+                }
+                nParsedAudioBitrate++;
+            } else {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
             }
         }
         else if (0 == _tcscmp(option_name, _T("quality")))
