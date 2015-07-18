@@ -1020,7 +1020,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
         }
         if (got_result && decodedFrame != nullptr) {
             if (0 <= AudioResampleFrame(pMuxAudio, &decodedFrame)) {
-                if (pMuxAudio->pDecodedFrameCache == nullptr && decodedFrame->nb_samples == pMuxAudio->pOutCodecEncodeCtx->frame_size) {
+                if (pMuxAudio->pDecodedFrameCache == nullptr && (decodedFrame->nb_samples == pMuxAudio->pOutCodecEncodeCtx->frame_size || pMuxAudio->pOutCodecEncodeCtx->frame_size == 0)) {
                     //デコードの出力サンプル数とエンコーダのframe_sizeが一致していれば、そのままエンコードする
                     samples = AudioEncodeFrame(pMuxAudio, pkt, decodedFrame, &got_result);
                     if (got_result && samples) {
