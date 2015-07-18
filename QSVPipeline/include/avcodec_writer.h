@@ -117,6 +117,9 @@ public:
     int64_t seek(int64_t offset, int whence);
 #endif //USE_CUSTOM_IO
 private:
+    //CodecIDがPCM系かどうか判定
+    bool codecIDIsPCM(AVCodecID targetCodec);
+
     //PCMのコーデックがwav出力時に変換を必要とするかを判定する
     AVCodecID PCMRequiresConversion(const AVCodecContext *audioCtx);
 

@@ -147,6 +147,46 @@ AVCodecID CAvcodecWriter::getAVCodecId(mfxU32 QSVFourcc) {
             return (AVCodecID)QSV_DECODE_LIST[i].codec_id;
     return AV_CODEC_ID_NONE;
 }
+bool CAvcodecWriter::codecIDIsPCM(AVCodecID targetCodec) {
+    const std::vector<AVCodecID> pcmCodecs = {
+        AV_CODEC_ID_FIRST_AUDIO,
+        AV_CODEC_ID_PCM_S16LE,
+        AV_CODEC_ID_PCM_S16BE,
+        AV_CODEC_ID_PCM_U16LE,
+        AV_CODEC_ID_PCM_U16BE,
+        AV_CODEC_ID_PCM_S8,
+        AV_CODEC_ID_PCM_U8,
+        AV_CODEC_ID_PCM_MULAW,
+        AV_CODEC_ID_PCM_ALAW,
+        AV_CODEC_ID_PCM_S32LE,
+        AV_CODEC_ID_PCM_S32BE,
+        AV_CODEC_ID_PCM_U32LE,
+        AV_CODEC_ID_PCM_U32BE,
+        AV_CODEC_ID_PCM_S24LE,
+        AV_CODEC_ID_PCM_S24BE,
+        AV_CODEC_ID_PCM_U24LE,
+        AV_CODEC_ID_PCM_U24BE,
+        AV_CODEC_ID_PCM_S24DAUD,
+        AV_CODEC_ID_PCM_ZORK,
+        AV_CODEC_ID_PCM_S16LE_PLANAR,
+        AV_CODEC_ID_PCM_DVD,
+        AV_CODEC_ID_PCM_F32BE,
+        AV_CODEC_ID_PCM_F32LE,
+        AV_CODEC_ID_PCM_F64BE,
+        AV_CODEC_ID_PCM_F64LE,
+        AV_CODEC_ID_PCM_BLURAY,
+        AV_CODEC_ID_PCM_LXF,
+        AV_CODEC_ID_S302M,
+        AV_CODEC_ID_PCM_S8_PLANAR,
+        AV_CODEC_ID_PCM_S24LE_PLANAR_DEPRECATED,
+        AV_CODEC_ID_PCM_S32LE_PLANAR_DEPRECATED,
+        AV_CODEC_ID_PCM_S16BE_PLANAR_DEPRECATED,
+        AV_CODEC_ID_PCM_S24LE_PLANAR,
+        AV_CODEC_ID_PCM_S32LE_PLANAR,
+        AV_CODEC_ID_PCM_S16BE_PLANAR
+    };
+    return (pcmCodecs.end() != std::find(pcmCodecs.begin(), pcmCodecs.end(), targetCodec));
+}
 
 AVCodecID CAvcodecWriter::PCMRequiresConversion(const AVCodecContext *audioCtx) {
     static const std::pair<AVCodecID, AVCodecID> pcmConvertCodecs[] = {
@@ -216,6 +256,9 @@ AVSampleFormat CAvcodecWriter::AutoSelectSampleFmt(const AVSampleFormat *pSample
     AVSampleFormat srcFormat = pSrcAudioCtx->sample_fmt;
     if (pSamplefmtList == nullptr) {
         return srcFormat;
+    }
+    if (srcFormat == AV_SAMPLE_FMT_NONE) {
+        return pSamplefmtList[0];
     }
     for (int i = 0; pSamplefmtList[i] >= 0; i++) {
         if (srcFormat == pSamplefmtList[i]) {
@@ -412,9 +455,10 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
             AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
             return MFX_ERR_NULL_PTR;
         }
-        if (   pMuxAudio->pOutCodecEncodeCtx->sample_fmt  != pMuxAudio->pOutCodecDecodeCtx->sample_fmt
-            || pMuxAudio->pOutCodecEncodeCtx->sample_rate != pMuxAudio->pOutCodecDecodeCtx->sample_rate
-            || pMuxAudio->pOutCodecEncodeCtx->channels    != pMuxAudio->pOutCodecDecodeCtx->channels) {
+        if ((!codecIDIsPCM(codecId) //PCM系のコーデックに出力するなら、sample_fmtのresampleは不要
+            && pMuxAudio->pOutCodecEncodeCtx->sample_fmt   != pMuxAudio->pOutCodecDecodeCtx->sample_fmt)
+             || pMuxAudio->pOutCodecEncodeCtx->sample_rate != pMuxAudio->pOutCodecDecodeCtx->sample_rate
+             || pMuxAudio->pOutCodecEncodeCtx->channels    != pMuxAudio->pOutCodecDecodeCtx->channels) {
             pMuxAudio->pSwrContext = swr_alloc();
             av_opt_set_int       (pMuxAudio->pSwrContext, "in_channel_count",   pMuxAudio->pOutCodecDecodeCtx->channels,    0);
             av_opt_set_int       (pMuxAudio->pSwrContext, "in_sample_rate",     pMuxAudio->pOutCodecDecodeCtx->sample_rate, 0);
