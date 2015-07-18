@@ -526,14 +526,19 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         AddMessage(QSV_LOG_DEBUG, _T("%3d [%3d frames]\n"), sample.first, sample.second);
     }
 
-    AVRational estimatedAvgFps = { 0 };
+    struct Rational64 {
+        mfxU64 num;
+        mfxU64 den;
+    } estimatedAvgFps = { 0 }, nAvgFramerate64 = { 0 }, fpsDecoder64 = { (mfxU64)fpsDecoder.num, (mfxU64)fpsDecoder.den };
     if (mostPopularDuration.first == 0) {
         m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
     } else {
         //avgFpsとtargetFpsが近いかどうか
         auto fps_near = [](double avgFps, double targetFps) { return abs(1 - avgFps / targetFps) < 0.5; };
         //durationの平均を求める (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
-        double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), 0, [](const int sum, const FramePos& pos) { return sum + pos.duration; }) / (double)(framePosList.size() - cutoff);
+        //std::accumulateの初期値に"(mfxU64)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
+        //大きすぎるtimebaseの時に必要
+        double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), (mfxU64)0, [](const mfxU64 sum, const FramePos& pos) { return sum + pos.duration; }) / (double)(framePosList.size() - cutoff);
         double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->time_base.num);
         double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.01 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
         if (mostPopularDuration.second / (double)(framePosList.size() - cutoff) > 0.95 && abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
@@ -543,43 +548,44 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         //入力フレームに対し、出力フレームが半分程度なら、フレームのdurationを倍と見積もる
         avgDuration *= (seemsLikePAFF) ? 2.0 : 1.0;
         //durationから求めた平均fpsを計算する
-        const int mul = (int)ceil(1001.0 / m_Demux.video.pCodecCtx->time_base.num);
-        estimatedAvgFps.num = (int)(m_Demux.video.pCodecCtx->pkt_timebase.den / avgDuration * (double)m_Demux.video.pCodecCtx->time_base.num * mul + 0.5);
-        estimatedAvgFps.den = m_Demux.video.pCodecCtx->time_base.num * mul;
+        const mfxU64 mul = (mfxU64)ceil(1001.0 / m_Demux.video.pCodecCtx->time_base.num);
+        estimatedAvgFps.num = (mfxU64)(m_Demux.video.pCodecCtx->pkt_timebase.den / avgDuration * (double)m_Demux.video.pCodecCtx->time_base.num * mul + 0.5);
+        estimatedAvgFps.den = (mfxU64)m_Demux.video.pCodecCtx->time_base.num * mul;
         
         AddMessage(QSV_LOG_DEBUG, _T("fps mul:         %d\n"),    mul);
         AddMessage(QSV_LOG_DEBUG, _T("raw avgDuration: %lf\n"),   avgDuration);
-        AddMessage(QSV_LOG_DEBUG, _T("estimatedAvgFps: %d/%d\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+        AddMessage(QSV_LOG_DEBUG, _T("estimatedAvgFps: %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
     }
 
     if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_ALL_INVALID) {
         //ptsとdurationをpkt_timebaseで適当に作成する
         addVideoPtsToList({ 0, 0, (int)av_rescale_q(1, m_Demux.video.pCodecCtx->time_base, m_Demux.video.pCodecCtx->pkt_timebase), firstKeyframePos.flags });
-        m_Demux.video.nAvgFramerate = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder;
+        nAvgFramerate64 = (fpsDecoderInvalid) ? estimatedAvgFps : fpsDecoder64;
     } else {
         addVideoPtsToList(firstKeyframePos);
         if (fpsDecoderInvalid) {
-            m_Demux.video.nAvgFramerate = estimatedAvgFps;
+            nAvgFramerate64 = estimatedAvgFps;
         } else {
             double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
             double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
             //2フレーム分程度がもたらす誤差があっても許容する
             if (abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / framePosList.size())) {
                 AddMessage(QSV_LOG_DEBUG, _T("use decoder fps...\n"));
-                m_Demux.video.nAvgFramerate = fpsDecoder;
+                nAvgFramerate64 = fpsDecoder64;
             } else {
                 double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
                 //durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
-                m_Demux.video.nAvgFramerate = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder : estimatedAvgFps;
+                nAvgFramerate64 = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder64 : estimatedAvgFps;
             }
         }
     }
-    AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (raw): %d/%d\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+    AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (raw64): %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
 
-    const mfxU32 fps_gcd = GCD(m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
-    m_Demux.video.nAvgFramerate.num /= fps_gcd;
-    m_Demux.video.nAvgFramerate.den /= fps_gcd;
-    AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+    const mfxU64 fps_gcd = qsv_gcd(nAvgFramerate64.num, nAvgFramerate64.den);
+    nAvgFramerate64.num /= fps_gcd;
+    nAvgFramerate64.den /= fps_gcd;
+    m_Demux.video.nAvgFramerate = av_make_q((int)nAvgFramerate64.num, (int)nAvgFramerate64.den);
+    AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (gcd): %d/%d\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
     //近似値であれば、分母1001/分母1に合わせる
     double fps = m_Demux.video.nAvgFramerate.num / (double)m_Demux.video.nAvgFramerate.den;
@@ -596,7 +602,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
             m_Demux.video.nAvgFramerate.den = 1;
         }
     }
-    AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (round): %d/%d\n\n"), estimatedAvgFps.num, estimatedAvgFps.den);
+    AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (round): %d/%d\n\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
     auto trimList = vector<sTrim>(pTrimList, pTrimList + nTrimCount);
     //出力時の音声解析用に1パケットコピーしておく
