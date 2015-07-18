@@ -919,7 +919,7 @@ int CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, c
 }
 
 void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
-    for (;;) {
+    while (pMuxAudio->pOutCodecDecodeCtx) {
         int samples = 0;
         int got_result = 0;
         AVPacket pkt = { 0 };
@@ -935,7 +935,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
         }
         WriteNextPacket(pMuxAudio, &pkt, samples);
     }
-    for (;;) {
+    while (pMuxAudio->pSwrContext) {
         int samples = 0;
         int got_result = 0;
         AVPacket pkt = { 0 };
@@ -946,7 +946,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
         samples = AudioEncodeFrame(pMuxAudio, &pkt, decodedFrame, &got_result);
         WriteNextPacket(pMuxAudio, &pkt, samples);
     }
-    for (;;) {
+    while (pMuxAudio->pOutCodecEncodeCtx) {
         int got_result = 0;
         AVPacket pkt = { 0 };
         int samples = AudioEncodeFrame(pMuxAudio, &pkt, nullptr, &got_result);
