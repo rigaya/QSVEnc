@@ -1027,7 +1027,9 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
                         WriteNextPacket(pMuxAudio, pkt, samples);
                     }
                 } else {
-                    const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt);
+                    const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
+                        * (av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? 1 : pMuxAudio->pOutCodecEncodeCtx->channels);
+                    const int channel_loop_count = av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? pMuxAudio->pOutCodecEncodeCtx->channels : 1;
                     //それまでにたまっているキャッシュがあれば、それを結合する
                     if (pMuxAudio->pDecodedFrameCache) {
                         //pMuxAudio->pDecodedFrameCacheとdecodedFrameを結合
@@ -1036,7 +1038,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
                         pCombinedFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
                         pCombinedFrame->nb_samples = decodedFrame->nb_samples + pMuxAudio->pDecodedFrameCache->nb_samples;
                         av_frame_get_buffer(pCombinedFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
-                        for (int i = 0; i < pCombinedFrame->channels; i++) {
+                        for (int i = 0; i < channel_loop_count; i++) {
                             mfxU32 cachedBytes = pMuxAudio->pDecodedFrameCache->nb_samples * bytes_per_sample;
                             memcpy(pCombinedFrame->data[i], pMuxAudio->pDecodedFrameCache->data[i], cachedBytes);
                             memcpy(pCombinedFrame->data[i] + cachedBytes, decodedFrame->data[i], decodedFrame->nb_samples * bytes_per_sample);
@@ -1058,7 +1060,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
                     //残りサンプル数がframe_size未満になるまで回す
                     for (; samplesRemain >= pMuxAudio->pOutCodecEncodeCtx->frame_size;
                         samplesWritten += pMuxAudio->pOutCodecEncodeCtx->frame_size, samplesRemain -= pMuxAudio->pOutCodecEncodeCtx->frame_size) {
-                        for (int i = 0; i < pCutFrame->channels; i++) {
+                        for (int i = 0; i < channel_loop_count; i++) {
                             memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
                         }
                         samples = AudioEncodeFrame(pMuxAudio, pkt, pCutFrame, &got_result);
@@ -1068,7 +1070,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
                     }
                     if (samplesRemain) {
                         pCutFrame->nb_samples = samplesRemain;
-                        for (int i = 0; i < pCutFrame->channels; i++) {
+                        for (int i = 0; i < channel_loop_count; i++) {
                             memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
                         }
                         pMuxAudio->pDecodedFrameCache = pCutFrame;
