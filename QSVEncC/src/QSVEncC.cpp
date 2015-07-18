@@ -632,13 +632,13 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             sAudioSelect *pAudioSelect = nullptr;
             int audioIdx = -1;
             int trackId = 0;
-            if (_tcschr(ptr, '?') == NULL || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
+            if (_tcschr(ptr, '?') == nullptr || 1 != _stscanf(ptr, _T("%d?"), &trackId)) {
                 //トラック番号を適当に発番する (カウントは1から)
                 trackId = nParsedAudioFile+1;
                 audioIdx = getAudioTrackIdx(pParams, trackId);
-                if (audioIdx >= 0 && pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename != nullptr) {
+                if (audioIdx < 0 || pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename != nullptr) {
                     trackId = getFreeAudioTrack(pParams);
-                    pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));;
+                    pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
                     pAudioSelect->nAudioSelect = trackId;
                 } else {
                     pAudioSelect = pParams->ppAudioSelectList[audioIdx];
