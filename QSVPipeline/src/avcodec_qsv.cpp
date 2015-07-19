@@ -110,6 +110,16 @@ tstring getAVCodecs(AVQSVCodecType flag) {
             }
         }
     }
+
+    std::sort(list.begin(), list.end(), [](const avcodecName& x, const avcodecName& y) {
+        int i = 0;
+        for (; x.name[i] && y.name[i]; i++) {
+            if (x.name[i] != y.name[i]) {
+                return x.name[i] < y.name[i];
+            }
+        }
+        return x.name[i] < y.name[i];
+    });
     uint32_t maxNameLength = 0;
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avcodecName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
     maxNameLength = (std::min)(maxNameLength, 12u);
@@ -185,6 +195,16 @@ tstring getAVFormats(AVQSVFormatType flag) {
             list.push_back({ AVQSV_FORMAT_MUX, oformat->name, oformat->long_name });
         }
     }
+
+    std::sort(list.begin(), list.end(), [](const avformatName& x, const avformatName& y) {
+        int i = 0;
+        for (; x.name[i] && y.name[i]; i++) {
+            if (x.name[i] != y.name[i]) {
+                return x.name[i] < y.name[i];
+            }
+        }
+        return x.name[i] < y.name[i];
+    });
 
     uint32_t maxNameLength = 0;
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avformatName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
