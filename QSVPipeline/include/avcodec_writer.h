@@ -150,6 +150,9 @@ private:
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVMuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
 
+    //音声のchannel_layoutを自動選択する
+    uint64_t AutoSelectChannelLayout(const uint64_t *pChannelLayout, const AVCodecContext *pSrcAudioCtx);
+
     //音声のsample formatを自動選択する
     AVSampleFormat AutoSelectSampleFmt(const AVSampleFormat *pSamplefmtList, const AVCodecContext *pSrcAudioCtx);
 

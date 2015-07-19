@@ -235,6 +235,34 @@ void CAvcodecWriter::SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, m
     memcpy(codecCtx->extradata, data, size);
 };
 
+//音声のchannel_layoutを自動選択する
+uint64_t CAvcodecWriter::AutoSelectChannelLayout(const uint64_t *pChannelLayout, const AVCodecContext *pSrcAudioCtx) {
+    int srcChannels = av_get_channel_layout_nb_channels(pSrcAudioCtx->channel_layout);
+    if (srcChannels == 0) {
+        srcChannels = pSrcAudioCtx->channels;
+    }
+    if (pChannelLayout == nullptr) {
+        switch (srcChannels) {
+        case 1:  return AV_CH_LAYOUT_MONO;
+        case 2:  return AV_CH_LAYOUT_STEREO;
+        case 3:  return AV_CH_LAYOUT_2_1;
+        case 4:  return AV_CH_LAYOUT_QUAD;
+        case 5:  return AV_CH_LAYOUT_5POINT0;
+        case 6:  return AV_CH_LAYOUT_5POINT1;
+        case 7:  return AV_CH_LAYOUT_6POINT1;
+        case 8:  return AV_CH_LAYOUT_7POINT1;
+        default: return AV_CH_LAYOUT_NATIVE;
+        }
+    }
+
+    for (int i = 0; pChannelLayout[i]; i++) {
+        if (srcChannels == av_get_channel_layout_nb_channels(pChannelLayout[i])) {
+            return pChannelLayout[i];
+        }
+    }
+    return pChannelLayout[0];
+}
+
 int CAvcodecWriter::AutoSelectSamplingRate(const int *pSamplingRateList, int nSrcSamplingRate) {
     if (pSamplingRateList == nullptr) {
         return nSrcSamplingRate;
@@ -444,8 +472,8 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
         //select samplefmt
         pMuxAudio->pOutCodecEncodeCtx->sample_fmt          = AutoSelectSampleFmt(pMuxAudio->pOutCodecEncode->sample_fmts, pMuxAudio->pOutCodecDecodeCtx);
         pMuxAudio->pOutCodecEncodeCtx->sample_rate         = AutoSelectSamplingRate(pMuxAudio->pOutCodecEncode->supported_samplerates, pMuxAudio->pOutCodecDecodeCtx->sample_rate);
-        pMuxAudio->pOutCodecEncodeCtx->channels            = pMuxAudio->pOutCodecDecodeCtx->channels;
-        pMuxAudio->pOutCodecEncodeCtx->channel_layout      = pMuxAudio->pOutCodecDecodeCtx->channel_layout;
+        pMuxAudio->pOutCodecEncodeCtx->channel_layout      = AutoSelectChannelLayout(pMuxAudio->pOutCodecEncode->channel_layouts, pMuxAudio->pOutCodecDecodeCtx);
+        pMuxAudio->pOutCodecEncodeCtx->channels            = av_get_channel_layout_nb_channels(pMuxAudio->pOutCodecEncodeCtx->channel_layout);
         pMuxAudio->pOutCodecEncodeCtx->bits_per_raw_sample = pMuxAudio->pOutCodecDecodeCtx->bits_per_raw_sample;
         pMuxAudio->pOutCodecEncodeCtx->pkt_timebase        = av_make_q(1, pMuxAudio->pOutCodecDecodeCtx->sample_rate);
         if (!avcodecIsCopy(pInputAudio->pEncodeCodec)) {
