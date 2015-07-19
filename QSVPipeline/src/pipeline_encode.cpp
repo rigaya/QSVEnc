@@ -3471,6 +3471,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
     }
 
+#if ENABLE_AVCODEC_QSV_READER
     for (const auto& writer : m_pFileWriterListAudio) {
         auto pAVCodecWriter = dynamic_cast<CAvcodecWriter *>(writer);
         if (pAVCodecWriter != nullptr) {
@@ -3478,6 +3479,7 @@ mfxStatus CEncodingPipeline::RunEncode()
             pAVCodecWriter->WriteNextPacket(nullptr);
         }
     }
+#endif //ENABLE_AVCODEC_QSV_READER
 
     if (m_pmfxVPP)
     {
