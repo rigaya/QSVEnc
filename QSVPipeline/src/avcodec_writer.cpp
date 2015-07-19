@@ -389,6 +389,10 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
         COPY_IF_ZERO(pMuxAudio->pOutCodecDecodeCtx->bits_per_raw_sample, pInputAudio->src.pCodecCtx->bits_per_raw_sample);
 #undef COPY_IF_ZERO
         pMuxAudio->pOutCodecDecodeCtx->pkt_timebase = pInputAudio->src.pCodecCtx->pkt_timebase;
+        if (nullptr != strstr(pMuxAudio->pOutCodecDecode->name, "wma")) {
+            pMuxAudio->pOutCodecDecodeCtx->block_align = pInputAudio->src.pCodecCtx->block_align;
+            SetExtraData(pMuxAudio->pOutCodecDecodeCtx, pInputAudio->src.pCodecCtx->extradata, pInputAudio->src.pCodecCtx->extradata_size);
+        }
         int ret;
         if (0 > (ret = avcodec_open2(pMuxAudio->pOutCodecDecodeCtx, pMuxAudio->pOutCodecDecode, NULL))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
@@ -516,6 +520,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
     pMuxAudio->pStream->codec->ticks_per_frame = srcCodecCtx->ticks_per_frame;
     pMuxAudio->pStream->codec->sample_rate     = srcCodecCtx->sample_rate;
     pMuxAudio->pStream->codec->sample_fmt      = srcCodecCtx->sample_fmt;
+    pMuxAudio->pStream->codec->block_align     = srcCodecCtx->block_align;
     if (srcCodecCtx->extradata_size) {
         AddMessage(QSV_LOG_DEBUG, _T("set extradata from stream codec...\n"));
         SetExtraData(pMuxAudio->pStream->codec, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
