@@ -496,13 +496,15 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
              || pMuxAudio->pOutCodecEncodeCtx->sample_rate != pMuxAudio->pOutCodecDecodeCtx->sample_rate
              || pMuxAudio->pOutCodecEncodeCtx->channels    != pMuxAudio->pOutCodecDecodeCtx->channels) {
             pMuxAudio->pSwrContext = swr_alloc();
-            av_opt_set_int       (pMuxAudio->pSwrContext, "in_channel_count",   pMuxAudio->pOutCodecDecodeCtx->channels,    0);
-            av_opt_set_int       (pMuxAudio->pSwrContext, "in_sample_rate",     pMuxAudio->pOutCodecDecodeCtx->sample_rate, 0);
-            av_opt_set_sample_fmt(pMuxAudio->pSwrContext, "in_sample_fmt",      pMuxAudio->pOutCodecDecodeCtx->sample_fmt,  0);
-            av_opt_set_int       (pMuxAudio->pSwrContext, "out_channel_count",  pMuxAudio->pOutCodecEncodeCtx->channels,    0);
-            av_opt_set_int       (pMuxAudio->pSwrContext, "out_sample_rate",    pMuxAudio->pOutCodecEncodeCtx->sample_rate, 0);
-            av_opt_set_sample_fmt(pMuxAudio->pSwrContext, "out_sample_fmt",     pMuxAudio->pOutCodecEncodeCtx->sample_fmt,  0);
-            //av_opt_set           (pMuxAudio->pSwrContext, "resampler",          "sox",                                      0);
+            av_opt_set_int       (pMuxAudio->pSwrContext, "in_channel_count",   pMuxAudio->pOutCodecDecodeCtx->channels,       0);
+            av_opt_set_int       (pMuxAudio->pSwrContext, "in_channel_layout",  pMuxAudio->pOutCodecDecodeCtx->channel_layout, 0);
+            av_opt_set_int       (pMuxAudio->pSwrContext, "in_sample_rate",     pMuxAudio->pOutCodecDecodeCtx->sample_rate,    0);
+            av_opt_set_sample_fmt(pMuxAudio->pSwrContext, "in_sample_fmt",      pMuxAudio->pOutCodecDecodeCtx->sample_fmt,     0);
+            av_opt_set_int       (pMuxAudio->pSwrContext, "out_channel_count",  pMuxAudio->pOutCodecEncodeCtx->channels,       0);
+            av_opt_set_int       (pMuxAudio->pSwrContext, "out_channel_layout", pMuxAudio->pOutCodecEncodeCtx->channel_layout, 0);
+            av_opt_set_int       (pMuxAudio->pSwrContext, "out_sample_rate",    pMuxAudio->pOutCodecEncodeCtx->sample_rate,    0);
+            av_opt_set_sample_fmt(pMuxAudio->pSwrContext, "out_sample_fmt",     pMuxAudio->pOutCodecEncodeCtx->sample_fmt,     0);
+            //av_opt_set           (pMuxAudio->pSwrContext, "resampler",          "sox",                                         0);
 
             int ret = swr_init(pMuxAudio->pSwrContext);
             if (ret < 0) {
