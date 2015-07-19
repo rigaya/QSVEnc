@@ -449,7 +449,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
         if (!avcodecIsCopy(pInputAudio->pEncodeCodec)) {
             pMuxAudio->pOutCodecEncodeCtx->bit_rate        = ((pInputAudio->nBitrate) ? pInputAudio->nBitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[%d], %.1fkHz, %s, %d/%d\n"), pMuxAudio->pOutCodecEncode->name,
+        AddMessage(QSV_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[%d], %.1fkHz, %s, %d/%d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->channels, (int)pMuxAudio->pOutCodecEncodeCtx->channel_layout, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den);
