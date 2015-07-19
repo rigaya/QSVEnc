@@ -984,7 +984,6 @@ int CAvcodecWriter::AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame) {
                     pMuxAudio->pOutCodecEncodeCtx->channels, dst_nb_samples * 2, pMuxAudio->pOutCodecEncodeCtx->sample_fmt, 0);
                 pMuxAudio->nSwrBufferSize = dst_nb_samples * 2;
             }
-            const int dst_samples_size = av_samples_get_buffer_size(NULL, pMuxAudio->pOutCodecEncodeCtx->channels, dst_nb_samples, pMuxAudio->pOutCodecEncodeCtx->sample_fmt, 0);
             if (0 > (ret = swr_convert(pMuxAudio->pSwrContext,
                 pMuxAudio->pSwrBuffer, dst_nb_samples,
                 (*frame) ? (const uint8_t **)(*frame)->data : nullptr,
@@ -997,10 +996,20 @@ int CAvcodecWriter::AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame) {
             }
 
             if (ret >= 0 && dst_nb_samples > 0) {
-                (*frame) = av_frame_alloc();
-                (*frame)->nb_samples = ret;
-                avcodec_fill_audio_frame((*frame), pMuxAudio->pOutCodecEncodeCtx->channels,
-                    pMuxAudio->pOutCodecEncodeCtx->sample_fmt, pMuxAudio->pSwrBuffer[0], dst_samples_size, 0);
+                AVFrame *pResampledFrame        = av_frame_alloc();
+                pResampledFrame->nb_samples     = ret;
+                pResampledFrame->channels       = pMuxAudio->pOutCodecEncodeCtx->channels;
+                pResampledFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
+                pResampledFrame->sample_rate    = pMuxAudio->pOutCodecEncodeCtx->sample_rate;
+                pResampledFrame->format         = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
+                av_frame_get_buffer(pResampledFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+                const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
+                    * (av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? 1 : pMuxAudio->pOutCodecEncodeCtx->channels);
+                const int channel_loop_count = av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? pMuxAudio->pOutCodecEncodeCtx->channels : 1;
+                for (int i = 0; i < channel_loop_count; i++) {
+                    memcpy(pResampledFrame->data[i], pMuxAudio->pSwrBuffer[i], pResampledFrame->nb_samples * bytes_per_sample);
+                }
+                (*frame) = pResampledFrame;
             }
         }
     }
