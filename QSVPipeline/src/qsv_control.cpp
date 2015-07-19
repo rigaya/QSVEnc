@@ -43,6 +43,7 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_nOutputFPSRate = 0;
     m_nOutputFPSScale = 0;
     m_pStrLog = NULL;
+    m_pQSVLog = nullptr;
     m_bStdErrWriteToConsole = true;
 }
 
