@@ -521,7 +521,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     
     AddMessage(QSV_LOG_DEBUG, _T("stream timebase %d/%d\n"), m_Demux.video.pCodecCtx->time_base.num, m_Demux.video.pCodecCtx->time_base.den);
     AddMessage(QSV_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
-    AddMessage(QSV_LOG_DEBUG, _T("duration histgram of %d frames\n"), m_Demux.video.nStreamPtsInvalid, framePosList.size() - cutoff);
+    AddMessage(QSV_LOG_DEBUG, _T("duration histgram of %d frames\n"), framePosList.size() - cutoff);
     for (const auto& sample : durationHistgram) {
         AddMessage(QSV_LOG_DEBUG, _T("%3d [%3d frames]\n"), sample.first, sample.second);
     }
