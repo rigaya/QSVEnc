@@ -394,9 +394,9 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
             return MFX_ERR_NULL_PTR;
         }
         AddMessage(QSV_LOG_DEBUG, _T("Audio Decoder opened\n"));
-        AddMessage(QSV_LOG_DEBUG, _T("Audio Decode Info: %s, %dch[%d], %.1fkHz, %s, %d/%d\n"), avcodec_get_name(pMuxAudio->pCodecCtxIn->codec_id),
+        AddMessage(QSV_LOG_DEBUG, _T("Audio Decode Info: %s, %dch[%d], %.1fkHz, %s, %d/%d\n"), char_to_tstring(avcodec_get_name(pMuxAudio->pCodecCtxIn->codec_id)).c_str(),
             pMuxAudio->pOutCodecDecodeCtx->channels, (int)pMuxAudio->pOutCodecDecodeCtx->channel_layout, pMuxAudio->pOutCodecDecodeCtx->sample_rate / 1000.0,
-            av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt),
+            char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt)).c_str(),
             pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.den);
 
         av_new_packet(&pMuxAudio->OutPacket, 512 * 1024);
@@ -445,7 +445,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
         }
         AddMessage(QSV_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[%d], %.1fkHz, %s, %d/%d\n"), pMuxAudio->pOutCodecEncode->name,
             pMuxAudio->pOutCodecEncodeCtx->channels, (int)pMuxAudio->pOutCodecEncodeCtx->channel_layout, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0,
-            av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt),
+            char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den);
         if (pMuxAudio->pOutCodecEncode->capabilities & CODEC_CAP_EXPERIMENTAL) { 
             //誰がなんと言おうと使うと言ったら使うのだ
@@ -480,8 +480,8 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
                 return MFX_ERR_UNKNOWN;
             }
             AddMessage(QSV_LOG_DEBUG, _T("Created audio resampler: %s, %dch, %.1fkHz -> %s, %dch, %.1fkHz\n"),
-                av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt), pMuxAudio->pOutCodecDecodeCtx->channels, pMuxAudio->pOutCodecDecodeCtx->sample_rate / 1000.0,
-                av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt), pMuxAudio->pOutCodecEncodeCtx->channels, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0);
+                char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt)).c_str(), pMuxAudio->pOutCodecDecodeCtx->channels, pMuxAudio->pOutCodecDecodeCtx->sample_rate / 1000.0,
+                char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(), pMuxAudio->pOutCodecEncodeCtx->channels, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0);
         }
     } else if (pMuxAudio->pCodecCtxIn->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pCodecCtxIn->extradata == NULL && m_Mux.video.pStream) {
         AddMessage(QSV_LOG_DEBUG, _T("start initialize aac_adtstoasc filter...\n"));
@@ -728,10 +728,10 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
         if (audio.pOutCodecDecodeCtx || audio.pOutCodecEncodeCtx) {
             tstring audioFrameSize = strsprintf(_T("audio track #%d:"), audio.nInTrackId);
             if (audio.pOutCodecDecodeCtx) {
-                audioFrameSize += strsprintf( _T(" %s frame_size %d sample/byte"), audio.pOutCodecDecode->name, audio.pOutCodecDecodeCtx->frame_size);
+                audioFrameSize += strsprintf( _T(" %s frame_size %d sample/byte"), char_to_tstring(audio.pOutCodecDecode->name).c_str(), audio.pOutCodecDecodeCtx->frame_size);
             }
             if (audio.pOutCodecEncodeCtx) {
-                audioFrameSize += strsprintf(_T(" -> %s frame_size %d sample/byte"), audio.pOutCodecEncode->name, audio.pOutCodecEncodeCtx->frame_size);
+                audioFrameSize += strsprintf(_T(" -> %s frame_size %d sample/byte"), char_to_tstring(audio.pOutCodecEncode->name).c_str(), audio.pOutCodecEncodeCtx->frame_size);
             }
             AddMessage(QSV_LOG_DEBUG, audioFrameSize);
         }
