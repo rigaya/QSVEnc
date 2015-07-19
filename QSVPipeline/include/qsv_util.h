@@ -287,10 +287,10 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId);
 vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, mfxU32 codecId);
 vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
-void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str);
+tstring MakeFeatureListStr(bool hardware);
 
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
-void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str);
+tstring MakeVppFeatureStr(bool hardware);
 
 bool check_if_d3d11_necessary();
 

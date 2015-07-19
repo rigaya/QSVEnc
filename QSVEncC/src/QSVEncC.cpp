@@ -1530,12 +1530,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                     _ftprintf(stdout, _T("Media SDK %s unavailable.\n"), impl_str);
                 } else {
                     _ftprintf(stdout, _T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor);
-                    std::basic_string<msdk_char> strEnc;
-                    MakeFeatureListStr(0 == impl_type, strEnc);
-                    _ftprintf(stdout, _T("Supported Enc features:\n%s\n\n"), strEnc.c_str());
-                    std::basic_string<msdk_char> strVpp;
-                    MakeVppFeatureStr(0 == impl_type, strVpp);
-                    _ftprintf(stdout, _T("Supported Vpp features:\n%s\n\n"), strVpp.c_str());
+                    _ftprintf(stdout, _T("Supported Enc features:\n%s\n\n"), MakeFeatureListStr(0 == impl_type).c_str());
+                    _ftprintf(stdout, _T("Supported Vpp features:\n%s\n\n"), MakeVppFeatureStr(0 == impl_type).c_str());
                 }
             }
             return MFX_PRINT_OPTION_DONE;

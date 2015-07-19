@@ -822,11 +822,13 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const
     return std::move(codecFeatures);
 }
 
-void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
+static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] = { _T(" x    "), _T(" o    ") };
+
+tstring MakeFeatureListStr(bool hardware) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2 };
     auto featurePerCodec = MakeFeatureListPerCodec(hardware, to_vector(list_rate_control_ry), codecLists);
     
-    str.clear();
+    tstring str;
     
     for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
         auto& availableFeatureForEachRC = featurePerCodec[i_codec];
@@ -844,27 +846,29 @@ void MakeFeatureListStr(bool hardware, std::basic_string<msdk_char>& str) {
         str += _T("\n");
 
         //モードがサポートされているか
-        TCHAR *MARK_YES_NO[] = { _T(" x    "), _T(" o    ") };
         for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
             str += ptr->desc;
             for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
-                str += MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
+                str += QSV_FEATURE_MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
             }
             str += _T("\n");
         }
         str += _T("\n");
     }
+    return str;
 }
 
-void MakeVppFeatureStr(bool hardware, std::basic_string<msdk_char>& str) {
+tstring MakeVppFeatureStr(bool hardware) {
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
     uint64_t features = CheckVppFeatures(hardware, ver);
     TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
+    tstring str;
     for (const FEATURE_DESC *ptr = list_vpp_feature; ptr->desc; ptr++) {
         str += ptr->desc;
         str += MARK_YES_NO[ptr->value == (features & ptr->value)];
         str += _T("\n");
     }
+    return str;
 }
 
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
