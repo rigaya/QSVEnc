@@ -903,17 +903,37 @@ void CAvcodecWriter::WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int s
 }
 
 AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket *pkt, int *got_result) {
-    int len = 0;
+    const AVPacket *pktIn = pkt;
+    if (pMuxAudio->OutPacket.size != 0) {
+        int currentSize = pMuxAudio->OutPacket.size;
+        if (pMuxAudio->OutPacket.buf->size < currentSize + pkt->size) {
+            av_grow_packet(&pMuxAudio->OutPacket, currentSize + pkt->size);
+        }
+        memcpy(pMuxAudio->OutPacket.data + currentSize, pkt->data, pkt->size);
+        pMuxAudio->OutPacket.size = currentSize + pkt->size;
+        pktIn = &pMuxAudio->OutPacket;
+        av_packet_copy_props(&pMuxAudio->OutPacket, pkt);
+    }
     AVFrame *decodedFrame = av_frame_alloc();
-    if (0 > (len = avcodec_decode_audio4(pMuxAudio->pOutCodecDecodeCtx, decodedFrame, got_result, pkt))) {
-        AddMessage(QSV_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(len).c_str());
-        m_Mux.format.bStreamError = true;
-    } else if (pkt->size != len) {
-        int newLen = pkt->size - len;
-        memmove(pMuxAudio->OutPacket.data, pkt->data + len, newLen);
-        pMuxAudio->OutPacket.size = newLen;
-    } else {
-        pMuxAudio->OutPacket.size = 0;
+    *got_result = FALSE;
+    while (!got_result || decodedFrame->nb_samples == 0) {
+        int len = avcodec_decode_audio4(pMuxAudio->pOutCodecDecodeCtx, decodedFrame, got_result, pktIn);
+        if (len < 0) {
+            AddMessage(QSV_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(len).c_str());
+            m_Mux.format.bStreamError = true;
+        } else if (pktIn->size != len) {
+            int newLen = pktIn->size - len;
+            memmove(pMuxAudio->OutPacket.data, pktIn->data + len, newLen);
+            pMuxAudio->OutPacket.size = newLen;
+            pktIn = &pMuxAudio->OutPacket;
+        } else {
+            pMuxAudio->OutPacket.size = 0;
+            break;
+        }
+        if (pMuxAudio->pOutCodecDecodeCtx->block_align > 0
+            && pMuxAudio->OutPacket.size < pMuxAudio->pOutCodecDecodeCtx->block_align) {
+            break;
+        }
     }
     return decodedFrame;
 }
@@ -1053,17 +1073,6 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
         pMuxAudio->nLastPtsIn = pkt->pts;
         WriteNextPacket(pMuxAudio, pkt, samples);
     } else {
-        AVPacket *pktIn = pkt;
-        if (pMuxAudio->OutPacket.size != 0) {
-            int currentSize = pMuxAudio->OutPacket.size;
-            if (pMuxAudio->OutPacket.buf->size < currentSize + pkt->size) {
-                av_grow_packet(&pMuxAudio->OutPacket, currentSize + pkt->size);
-                pMuxAudio->OutPacket.size = currentSize;
-            }
-            memcpy(pMuxAudio->OutPacket.data, pkt->data, pkt->size);
-            pMuxAudio->OutPacket.size += pkt->size;
-            pktIn = &pMuxAudio->OutPacket;
-        }
         int got_result = 0;
         AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, pkt, &got_result);
         if (pkt != nullptr) {
