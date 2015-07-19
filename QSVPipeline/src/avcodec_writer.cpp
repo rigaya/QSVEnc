@@ -318,7 +318,7 @@ AVSampleFormat CAvcodecWriter::AutoSelectSampleFmt(const AVSampleFormat *pSample
             }
         }
     }
-    return AV_SAMPLE_FMT_NONE;
+    return pSamplefmtList[0];
 }
 
 mfxStatus CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
