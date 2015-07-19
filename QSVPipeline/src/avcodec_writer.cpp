@@ -226,6 +226,8 @@ AVCodecID CAvcodecWriter::PCMRequiresConversion(const AVCodecContext *audioCtx) 
 }
 
 void CAvcodecWriter::SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, mfxU32 size) {
+    if (data == nullptr || size == 0)
+        return;
     if (codecCtx->extradata)
         av_free(codecCtx->extradata);
     codecCtx->extradata_size = size;
@@ -389,9 +391,9 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
         COPY_IF_ZERO(pMuxAudio->pOutCodecDecodeCtx->bits_per_raw_sample, pInputAudio->src.pCodecCtx->bits_per_raw_sample);
 #undef COPY_IF_ZERO
         pMuxAudio->pOutCodecDecodeCtx->pkt_timebase = pInputAudio->src.pCodecCtx->pkt_timebase;
+        SetExtraData(pMuxAudio->pOutCodecDecodeCtx, pInputAudio->src.pCodecCtx->extradata, pInputAudio->src.pCodecCtx->extradata_size);
         if (nullptr != strstr(pMuxAudio->pOutCodecDecode->name, "wma")) {
             pMuxAudio->pOutCodecDecodeCtx->block_align = pInputAudio->src.pCodecCtx->block_align;
-            SetExtraData(pMuxAudio->pOutCodecDecodeCtx, pInputAudio->src.pCodecCtx->extradata, pInputAudio->src.pCodecCtx->extradata_size);
         }
         int ret;
         if (0 > (ret = avcodec_open2(pMuxAudio->pOutCodecDecodeCtx, pMuxAudio->pOutCodecDecode, NULL))) {
