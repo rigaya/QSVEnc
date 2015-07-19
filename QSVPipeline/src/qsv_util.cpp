@@ -824,6 +824,17 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const
 
 static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] = { _T(" x    "), _T(" o    ") };
 
+tstring MakeFeatureListStr(mfxU64 feature) {
+    tstring str;
+    for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
+        str += ptr->desc;
+        str += QSV_FEATURE_MARK_YES_NO[!!(feature & ptr->value)];
+        str += _T("\n");
+    }
+    str += _T("\n");
+    return str;
+}
+
 tstring MakeFeatureListStr(bool hardware) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2 };
     auto featurePerCodec = MakeFeatureListPerCodec(hardware, to_vector(list_rate_control_ry), codecLists);
