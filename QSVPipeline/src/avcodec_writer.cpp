@@ -389,8 +389,10 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
         COPY_IF_ZERO(pMuxAudio->pOutCodecDecodeCtx->bits_per_raw_sample, pInputAudio->src.pCodecCtx->bits_per_raw_sample);
 #undef COPY_IF_ZERO
         pMuxAudio->pOutCodecDecodeCtx->pkt_timebase = pInputAudio->src.pCodecCtx->pkt_timebase;
-        if (0 > avcodec_open2(pMuxAudio->pOutCodecDecodeCtx, pMuxAudio->pOutCodecDecode, NULL)) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to open decoder"), pInputAudio->src.pCodecCtx->codec_id));
+        int ret;
+        if (0 > (ret = avcodec_open2(pMuxAudio->pOutCodecDecodeCtx, pMuxAudio->pOutCodecDecode, NULL))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
+                char_to_tstring(avcodec_get_name(pInputAudio->src.pCodecCtx->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
             return MFX_ERR_NULL_PTR;
         }
         AddMessage(QSV_LOG_DEBUG, _T("Audio Decoder opened\n"));
