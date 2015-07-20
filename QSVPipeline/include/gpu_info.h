@@ -12,6 +12,6 @@
 
 #include <tchar.h>
 
-int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only);
+int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only = false);
 
 #endif //_GPU_INFO_H_
