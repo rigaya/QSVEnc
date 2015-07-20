@@ -350,6 +350,8 @@ double getCPUDefaultClock() {
     return defautlClock;
 }
 
+#include "qsv_util.h"
+
 int getCPUInfo(TCHAR *buffer, size_t nSize) {
     int ret = 0;
     buffer[0] = _T('\0');
@@ -370,7 +372,11 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
             if (maxFrequency / defaultClock > 1.01) {
                 _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
             }
-            _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
+        }
+        _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
+        int cpuGen = getCPUGen();
+        if (cpuGen) {
+            _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" <%s>"), CPU_GEN_STR[cpuGen]);
         }
     }
     return ret;

@@ -178,6 +178,30 @@ static bool inline rc_is_type_lookahead(int rc) {
         | (rc == MFX_RATECONTROL_LA_HRD));
 }
 
+enum {
+    CPU_GEN_UNKNOWN = 0,
+    CPU_GEN_SANDYBRIDGE,
+    CPU_GEN_IVYBRIDGE,
+    CPU_GEN_SILVERMONT,
+    CPU_GEN_HASWELL,
+    CPU_GEN_AIRMONT,
+    CPU_GEN_BROADWELL,
+    CPU_GEN_SKYLAKE,
+};
+
+static const TCHAR *const CPU_GEN_STR[] = {
+    _T(""),
+    _T("SandyBridge"),
+    _T("IvyBridge"),
+    _T("Silvermont"),
+    _T("Haswell"),
+    _T("Airmont"),
+    _T("Broadwell"),
+    _T("Skylake"),
+};
+
+int getCPUGen();
+
 enum : uint64_t {
     ENC_FEATURE_CURRENT_RC             = 0x0000000000000001,
     ENC_FEATURE_AVBR                   = 0x0000000000000002,

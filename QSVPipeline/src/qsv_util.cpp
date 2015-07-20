@@ -1231,3 +1231,24 @@ mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 
     }
     return sts;
 }
+
+int getCPUGen() {
+    int CPUInfo[4] = {-1};
+    __cpuid(CPUInfo, 0x01);
+    bool bMOVBE  = !!(CPUInfo[2] & (1<<22));
+    bool bRDRand = !!(CPUInfo[2] & (1<<30));
+
+    __cpuid(CPUInfo, 0x07);
+    bool bRDSeed   = !!(CPUInfo[1] & (1<<17));
+    bool bFsgsbase = !!(CPUInfo[1] & (1));
+
+    if (bRDSeed)             return CPU_GEN_BROADWELL;
+    if (bMOVBE && bFsgsbase) return CPU_GEN_HASWELL;
+
+    bool bICQ = !!(CheckEncodeFeature(true, get_mfx_libhw_version(), MFX_RATECONTROL_ICQ, MFX_CODEC_AVC) & ENC_FEATURE_CURRENT_RC);
+
+    if (bICQ)      return CPU_GEN_AIRMONT;
+    if (bFsgsbase) return CPU_GEN_IVYBRIDGE;
+    if (bRDRand)   return CPU_GEN_SILVERMONT;
+    return CPU_GEN_SANDYBRIDGE;
+}
