@@ -511,6 +511,9 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         PrintMes(QSV_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
     }
+    if (pInParams->bBPyramid && pInParams->bUseHWLib && getCPUGen() < CPU_GEN_HASWELL) {
+        PrintMes(QSV_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
+    }
     if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
         print_feature_warnings(QSV_LOG_WARN, _T("No deblock"));
         pInParams->bNoDeblock = false;

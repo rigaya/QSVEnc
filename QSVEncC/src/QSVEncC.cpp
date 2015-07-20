@@ -424,6 +424,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
     pParams->bUseHWLib         = true;
     pParams->memType           = HW_MEMORY;
     pParams->nBframes          = QSV_DEFAULT_BFRAMES;
+    pParams->bBPyramid         = getCPUGen() >= CPU_GEN_HASWELL;
     pParams->nGOPLength        = QSV_DEFAULT_GOP_LEN;
     pParams->ColorPrim         = (mfxU16)list_colorprim[0].value;
     pParams->ColorMatrix       = (mfxU16)list_colormatrix[0].value;
