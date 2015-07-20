@@ -263,7 +263,7 @@ void CAvcodecReader::vc1FixHeader() {
         memcpy(buffer.data() +  8 + datasize, &height, sizeof(height));
         memcpy(buffer.data() + 12 + datasize, &width, sizeof(width));
         m_Demux.video.pExtradata = (mfxU8 *)av_realloc(m_Demux.video.pExtradata, sizeof(buffer) + FF_INPUT_BUFFER_PADDING_SIZE);
-        m_Demux.video.nExtradataSize = buffer.size();
+        m_Demux.video.nExtradataSize = (int)buffer.size();
         memcpy(m_Demux.video.pExtradata, buffer.data(), buffer.size());
     } else {
         m_Demux.video.nExtradataSize--;
