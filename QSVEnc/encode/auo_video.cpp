@@ -228,8 +228,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 #if ENABLE_AVCODEC_QSV_READER
     if (!check_avcodec_dll() || !conf->vid.afs)
 #endif //ENABLE_AVCODEC_QSV_READER
-        //H.264/ESで出力するので拡張子を変更
-        change_ext(pe->temp_filename, _countof(pe->temp_filename), ".264");
 
     sInputParams *Params = &conf->qsv;
     set_conf_qsvp_prm(Params, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
