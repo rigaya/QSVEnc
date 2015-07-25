@@ -200,6 +200,20 @@ bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) 
     return false;
 }
 
+bool qsv_get_filesize(const char *filepath, UINT64 *filesize) {
+    WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
+    bool ret = (GetFileAttributesExA(filepath, GetFileExInfoStandard, &fd)) ? true : false;
+    *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
+    return ret;
+}
+
+bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize) {
+    WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
+    bool ret = (GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd)) ? true : false;
+    *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
+    return ret;
+}
+
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     static const WORD LOG_COLOR[] = {

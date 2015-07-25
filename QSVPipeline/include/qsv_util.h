@@ -78,6 +78,8 @@ std::vector<std::string> split(const std::string &str, const std::string &delim)
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
 std::wstring GetFullPath(const WCHAR *path);
+bool qsv_get_filesize(const char *filepath, UINT64 *filesize);
+bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize);
 
 static inline mfxU16 readUB16(const void *ptr) {
     mfxU16 i = *(mfxU16 *)ptr;
