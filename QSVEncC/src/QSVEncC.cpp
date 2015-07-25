@@ -1685,8 +1685,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         default: break;
         }
         int value = 0;
-        if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avc_level, cachedprofile.c_str()))) {
-            pParams->CodecLevel = (mfxU16)value;
+        if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, cachedprofile.c_str()))) {
+            pParams->CodecProfile = (mfxU16)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), _T("profile"));
             return MFX_PRINT_OPTION_ERR;
