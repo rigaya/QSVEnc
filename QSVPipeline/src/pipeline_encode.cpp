@@ -16,6 +16,7 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 #include <process.h>
 #include <sstream>
 #include <algorithm>
+#include <cassert>
 
 #include "mfx_samples_config.h"
 #include "pipeline_encode.h"
@@ -1872,9 +1873,6 @@ CEncodingPipeline::CEncodingPipeline()
 
     m_pTrimParam = NULL;
 
-    m_pStrLog = NULL;
-    m_nLogLevel = QSV_LOG_INFO;
-
 #if ENABLE_MVC_ENCODING
     m_bIsMVC = false;
     m_MVCflags = MVC_DISABLED;
@@ -2081,30 +2079,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 
     //prepare for LogFile
     if (pParams->pStrLogFile) {
-        int logFilenameLen = (int)_tcslen(pParams->pStrLogFile);
-        if (NULL == (m_pStrLog = (TCHAR *)calloc(logFilenameLen + 1, sizeof(m_pStrLog[0])))) {
-            PrintMes(QSV_LOG_WARN, _T("Failed to set log file.\n"));
-        } else {
-            _tcscpy_s(m_pStrLog, logFilenameLen + 1, pParams->pStrLogFile);
-
-            FILE *fp_log = NULL;
-            if (_tfopen_s(&fp_log, m_pStrLog, _T("a")) || fp_log == NULL) {
-                m_pStrLog = NULL; //disable log file output
-                PrintMes(QSV_LOG_WARN, _T("Failed to open log file.\n"));
-            } else {
-                int dstFilenameLen = (int)_tcslen(pParams->strDstFile);
-                static const char *const SEP5 = "-----";
-                int sep_count = max(16, dstFilenameLen / 5 + 1);
-                for (int i = 0; i < sep_count; i++)
-                    fprintf(fp_log, "%s", SEP5);
-                fprintf(fp_log, "\n");
-                fprintf(fp_log, " %s\n", tchar_to_string(pParams->strSrcFile).c_str());
-                for (int i = 0; i < sep_count; i++)
-                    fprintf(fp_log, "%s", SEP5);
-                fprintf(fp_log, "\n");
-                fclose(fp_log);
-            }
-        }
+        m_pQSVLog->writeFileHeader(pParams->strDstFile);
     }
 
     m_pEncSatusInfo = new CEncodeStatusInfo();
@@ -2430,7 +2405,7 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pStrLog, m_pQSVLog.get());
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog.get());
     PrintMes(QSV_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
@@ -2670,17 +2645,6 @@ void CEncodingPipeline::Close()
 
     m_SceneChange.Close();
 
-    if (m_pStrLog) {
-        FILE *fp_log = NULL;
-        if (0 == _tfopen_s(&fp_log, m_pStrLog, _T("a")) && fp_log) {
-            fprintf(fp_log, "\n\n");
-            fclose(fp_log);
-        }
-        free(m_pStrLog);
-        m_pStrLog = NULL;
-    }
-    m_nLogLevel = QSV_LOG_INFO;
-
     for (auto pWriter : m_pFileWriterListAudio) {
         if (pWriter) {
             if (pWriter != m_pFileWriter) {
@@ -2711,7 +2675,10 @@ void CEncodingPipeline::Close()
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
     PrintMes(QSV_LOG_DEBUG, _T("Closed pipeline.\n"));
-    m_pQSVLog.reset();
+    if (m_pQSVLog.get() != nullptr) {
+        m_pQSVLog->writeFileFooter();
+        m_pQSVLog.reset();
+    }
 }
 
 mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
@@ -3596,40 +3563,157 @@ void CEncodingPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
     (*m_pQSVLog)(log_level, buffer.data());
 }
 
+const char *CQSVLog::HTML_FOOTER = "</body>\n</html>\n";
+
+void CQSVLog::init(const TCHAR *pLogFile, int log_level) {
+    m_pStrLog = pLogFile;
+    m_nLogLevel = log_level;
+    if (check_ext(pLogFile, { ".html", ".htm" })) {
+        m_bHtml = true;
+    }
+    if (m_bHtml && !PathFileExists(pLogFile)) {
+        writeHtmlHeader();
+    }
+};
+
+void CQSVLog::writeHtmlHeader() {
+    FILE *fp = _tfopen(m_pStrLog, _T("wb"));
+    if (fp) {
+        std::wstring header =
+            L"<!DOCTYPE html>\n"
+            L"<html lang = \"ja\">\n"
+            L"<head>\n"
+            L"<meta charset = \"UTF-8\">\n"
+            L"<title>QSVEncC Log</title>\n"
+            L"<style type=text/css>\n"
+            L"   body   { \n"
+            L"       background-color: #303030;\n"
+            L"       line-height:1.0; font-family: \"MeiryoKe_Gothic\",\"遊ゴシック\",\"ＭＳ ゴシック\",sans-serif;\n"
+            L"       margin: 10px;\n"
+            L"       padding: 0px;\n"
+            L"   }\n"
+            L"   div {\n"
+            L"       white-space: pre;\n"
+            L"   }\n"
+            L"   .error { color: #FA5858 }\n"
+            L"   .warn  { color: #F7D358 }\n"
+            L"   .more  { color: #CEF6F5 }\n"
+            L"   .info  { color: #CEF6F5 }\n"
+            L"   .debug { color: #ACFA58 }\n"
+            L"   .trace { color: #ACFA58 }\n"
+            L"</style>\n"
+            L"</head>\n"
+            L"<body>\n";
+        fprintf(fp, wstring_to_string(header, CP_UTF8).c_str());
+        fprintf(fp, HTML_FOOTER);
+        fclose(fp);
+    }
+}
+void CQSVLog::writeFileHeader(const TCHAR *pDstFilename) {
+    tstring fileHeader;
+    int dstFilenameLen = (int)_tcslen(pDstFilename);
+    static const TCHAR *const SEP5 = _T("-----");
+    int sep_count = max(16, dstFilenameLen / 5 + 1);
+    if (m_bHtml) {
+        fileHeader += _T("<hr>");
+    } else {
+        for (int i = 0; i < sep_count; i++)
+            fileHeader += SEP5;
+    }
+    fileHeader += _T("\n") + tstring(pDstFilename) + _T("\n");
+    if (m_bHtml) {
+        fileHeader += _T("<hr>");
+    } else {
+        for (int i = 0; i < sep_count; i++)
+            fileHeader += SEP5;
+    }
+    fileHeader += _T("\n");
+    (*this)(QSV_LOG_INFO, fileHeader.c_str());
+
+    if (m_nLogLevel == QSV_LOG_DEBUG) {
+        TCHAR cpuInfo[256] = { 0 };
+        TCHAR gpu_info[1024] = { 0 };
+        getCPUInfo(cpuInfo, _countof(cpuInfo));
+        getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+        (*this)(QSV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        (*this)(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
+        (*this)(QSV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+        (*this)(QSV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+    }
+}
+void CQSVLog::writeFileFooter() {
+    (*this)(QSV_LOG_INFO, _T("\n\n"));
+}
+
 void CQSVLog::operator()(int log_level, const TCHAR *format, ...) {
     if (log_level < m_nLogLevel) {
         return;
     }
 
+    auto convert_to_html = [log_level](std::string str) {
+        //str = str_replace(str, "<", "&lt;");
+        //str = str_replace(str, ">", "&gt;");
+        //str = str_replace(str, "&", "&amp;");
+        //str = str_replace(str, "\"", "&quot;");
+
+        auto strLines = split(str, "\n");
+
+        std::string strHtml;
+        for (mfxU32 i = 0; i < strLines.size() - 1; i++) {
+            strHtml += strsprintf("<div class=\"%s\">", tchar_to_string(list_log_level[log_level - QSV_LOG_TRACE].desc).c_str());
+            strHtml += strLines[i];
+            strHtml += "</div>\n";
+        }
+        return strHtml;
+    };
+
     va_list args;
     va_start(args, format);
 
     int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    vector<TCHAR> buffer(len, 0);
+    tstring buffer(len, 0);
     if (buffer.data() != nullptr) {
 
-        _vstprintf_s(buffer.data(), len, format, args); // C4996
+        _vstprintf_s(&buffer[0], len, format, args); // C4996
         
         HANDLE hStdErr = GetStdHandle(STD_ERROR_HANDLE);
+        std::string buffer_char;
 #ifdef UNICODE
         char *buffer_ptr = NULL;
-        vector<char> buffer_char;
         DWORD mode = 0;
         bool stderr_write_to_console = 0 != GetConsoleMode(hStdErr, &mode); //stderrの出力先がコンソールかどうか
         if (m_pStrLog || !stderr_write_to_console) {
-            buffer_char.resize(len * 3, 0);
-            WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, buffer.data(), -1, buffer_char.data(), len * 2, NULL, NULL);
-            buffer_ptr = buffer_char.data();
+            buffer_char = tchar_to_string(buffer, (m_bHtml) ? CP_UTF8 : CP_THREAD_ACP);
+            if (m_bHtml) {
+                buffer_char = convert_to_html(buffer_char);
+            }
+            buffer_ptr = &buffer_char[0];
         }
 #else
-        char *buffer_ptr = buffer.data();
+        char *buffer_ptr = &buffer[0];
+        if (m_bHtml) {
+            buffer_char = wstring_to_string(char_to_wstring(buffer_ptr), CP_UTF8);
+            if (m_bHtml) {
+                buffer_char = convert_to_html(buffer_char);
+            }
+            buffer_ptr = &buffer_char[0];
+        }
 #endif
         EnterCriticalSection(&cs);
         if (m_pStrLog) {
             FILE *fp_log = NULL;
             //logはANSI(まあようはShift-JIS)で保存する
-            if (0 == _tfopen_s(&fp_log, m_pStrLog, _T("a")) && fp_log) {
-                fprintf(fp_log, buffer_ptr);
+            if (0 == _tfopen_s(&fp_log, m_pStrLog, (m_bHtml) ? _T("rb+") : _T("a")) && fp_log) {
+                if (m_bHtml) {
+                    _fseeki64(fp_log, 0, SEEK_END);
+                    __int64 pos = _ftelli64(fp_log);
+                    _fseeki64(fp_log, 0, SEEK_SET);
+                    _fseeki64(fp_log, pos -1 * strlen(HTML_FOOTER), SEEK_CUR);
+                }
+                fwrite(buffer_ptr, 1, strlen(buffer_ptr), fp_log);
+                if (m_bHtml) {
+                    fwrite(HTML_FOOTER, 1, strlen(HTML_FOOTER), fp_log);
+                }
                 fclose(fp_log);
             }
         }

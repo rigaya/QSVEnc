@@ -59,15 +59,23 @@ static inline T qsv_gcd(T a, T b) {
 typedef std::basic_string<TCHAR> tstring;
 typedef std::basic_stringstream<TCHAR> TStringStream;
 
+unsigned int wstring_to_string(const WCHAR *wstr, std::string& str, DWORD codepage = CP_THREAD_ACP);
+std::string wstring_to_string(const WCHAR *wstr, DWORD codepage = CP_THREAD_ACP);
+std::string wstring_to_string(const std::wstring& wstr, DWORD codepage = CP_THREAD_ACP);
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const TCHAR *tstr, DWORD codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const tstring& tstr, DWORD codepage = CP_THREAD_ACP);
 unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage = CP_THREAD_ACP);
 tstring char_to_tstring(const char *str, DWORD codepage = CP_THREAD_ACP);
 tstring char_to_tstring(const std::string& str, DWORD codepage = CP_THREAD_ACP);
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, DWORD codepage = CP_THREAD_ACP);
+std::wstring char_to_wstring(const char *str, DWORD codepage = CP_THREAD_ACP);
+std::wstring char_to_wstring(const std::string& str, DWORD codepage = CP_THREAD_ACP);
 std::string strsprintf(const char* format, ...);
 std::wstring strsprintf(const WCHAR* format, ...);
 std::vector<tstring> split(const tstring &str, const tstring &delim);
+std::vector<std::string> split(const std::string &str, const std::string &delim);
+std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
 std::wstring GetFullPath(const WCHAR *path);
 
@@ -399,7 +407,9 @@ class CQSVLog {
 protected:
     int m_nLogLevel = QSV_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
+    bool m_bHtml = false;
     CRITICAL_SECTION cs;
+    static const char *HTML_FOOTER;
 public:
     CQSVLog(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO) {
         InitializeCriticalSection(&cs);
@@ -408,20 +418,10 @@ public:
     virtual ~CQSVLog() {
         DeleteCriticalSection(&cs);
     };
-    void init(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO) {
-        m_pStrLog = pLogFile;
-        m_nLogLevel = log_level;
-        if (m_nLogLevel == QSV_LOG_DEBUG) {
-            TCHAR cpuInfo[256];
-            TCHAR gpu_info[1024] = { 0 };
-            getCPUInfo(cpuInfo, _countof(cpuInfo));
-            getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-            (*this)(QSV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
-            (*this)(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
-            (*this)(QSV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
-            (*this)(QSV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
-        }
-    };
+    void init(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO);
+    void writeHtmlHeader();
+    void writeFileHeader(const TCHAR *pDstFilename);
+    void writeFileFooter();
     int getLogLevel() {
         return m_nLogLevel;
     }

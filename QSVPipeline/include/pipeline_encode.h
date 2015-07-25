@@ -146,9 +146,6 @@ protected:
     mfxU32 m_nExPrm;
     CQSVFrameTypeSimulation m_frameTypeSim;
 
-    TCHAR *m_pStrLog;
-    int m_nLogLevel;
-
     vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
     CSmplBitstreamWriter *m_pFileWriter;
     CSmplYUVReader *m_pFileReader;

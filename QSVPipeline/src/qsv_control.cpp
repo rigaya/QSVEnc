@@ -42,16 +42,14 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_nTotalOutFrames = 0;
     m_nOutputFPSRate = 0;
     m_nOutputFPSScale = 0;
-    m_pStrLog = NULL;
     m_pQSVLog = nullptr;
     m_bStdErrWriteToConsole = true;
 }
 
-void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, const TCHAR *pStrLog, CQSVLog *pQSVLog) {
+void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, CQSVLog *pQSVLog) {
     m_nOutputFPSRate = outputFPSRate;
     m_nOutputFPSScale = outputFPSScale;
     m_nTotalOutFrames = totalOutputFrames;
-    m_pStrLog = pStrLog;
     m_pQSVLog = pQSVLog;
     DWORD mode = 0;
     m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか

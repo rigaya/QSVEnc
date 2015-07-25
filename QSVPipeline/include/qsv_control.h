@@ -150,7 +150,7 @@ class CEncodeStatusInfo
 {
 public:
     CEncodeStatusInfo();
-    void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, const TCHAR *pStrLog, CQSVLog *m_pQSVLog);
+    void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, CQSVLog *m_pQSVLog);
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
         if (NULL != data) {
@@ -236,36 +236,7 @@ public:
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
             return;
         }
-
-#ifdef UNICODE
-        char *mes_char = NULL;
-        if (m_pStrLog || !m_bStdErrWriteToConsole) {
-            int buf_len = (int)wcslen(mes) + 1;
-            if (NULL != (mes_char = (char *)calloc(buf_len * 2, sizeof(mes_char[0]))))
-                WideCharToMultiByte(CP_THREAD_ACP, WC_NO_BEST_FIT_CHARS, mes, -1, mes_char, buf_len * 2, NULL, NULL);
-        }
-        if (mes_char) {
-#else
-            const char *mes_char = mes;
-#endif
-            if (m_pStrLog) {
-                FILE *fp_log = NULL;
-                if (0 == _tfopen_s(&fp_log, m_pStrLog, _T("a")) && fp_log) {
-                    fprintf(fp_log, "%s\n", mes_char);
-                    fclose(fp_log);
-                }
-            }
-#ifdef UNICODE
-            if (!m_bStdErrWriteToConsole)
-#endif
-                fprintf(stderr, "%s\n", mes_char); //出力先がリダイレクトされるならANSIで
-#ifdef UNICODE
-            free(mes_char);
-        }
-        if (m_bStdErrWriteToConsole) {
-            _ftprintf(stderr, _T("%s\n"), mes); //出力先がコンソールならWCHARで
-        }
-#endif
+        (*m_pQSVLog)(QSV_LOG_INFO, _T("%s\n"), mes);
     }
     virtual void WriteFrameTypeResult(const TCHAR *header, mfxU32 count, mfxU32 maxCount, mfxU64 frameSize, mfxU64 maxFrameSize, double avgQP) {
         if (count) {
@@ -341,7 +312,6 @@ public:
 protected:
     PROCESS_TIME m_sStartTime;
     sEncodeStatusData m_sData;
-    const TCHAR *m_pStrLog;
     CQSVLog *m_pQSVLog;
     bool m_bStdErrWriteToConsole;
 };

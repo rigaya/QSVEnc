@@ -36,12 +36,15 @@ bool check_avcodec_dll() {
 tstring error_mes_avcodec_dll_not_found() {
     tstring mes;
     mes += _T("avcodec: failed to load dlls.\n");
-    mes += _T("         please make sure ");
+    mes += _T("please make sure ");
     for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
         if (i) mes += _T(", ");
+        if (i % 3 == 2) {
+            mes += _T("\n");
+        }
         mes += _T("\"") + tstring(AVCODEC_DLL_NAME[i]) + _T("\"");
     }
-    mes += _T("\n         is installed in your system.\n");
+    mes += _T("\nis installed in your system.\n");
     return mes;
 }
 

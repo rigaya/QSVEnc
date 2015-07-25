@@ -12,6 +12,7 @@
 #include <memory>
 #include <sstream>
 #include <algorithm>
+#include <type_traits>
 #if (_MSC_VER >= 1800)
 #include <Windows.h>
 #include <VersionHelpers.h>
@@ -30,16 +31,32 @@
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage) {
-#if UNICODE
+unsigned int wstring_to_string(const WCHAR *wstr, std::string& str, DWORD codepage) {
     DWORD flags = (codepage == CP_UTF8) ? 0 : WC_NO_BEST_FIT_CHARS;
-    int multibyte_length = WideCharToMultiByte(codepage, flags, tstr, -1, nullptr, 0, nullptr, nullptr);
+    int multibyte_length = WideCharToMultiByte(codepage, flags, wstr, -1, nullptr, 0, nullptr, nullptr);
     str.resize(multibyte_length, 0);
-    if (0 == WideCharToMultiByte(codepage, flags, tstr, -1, &str[0], multibyte_length, nullptr, nullptr)) {
+    if (0 == WideCharToMultiByte(codepage, flags, wstr, -1, &str[0], multibyte_length, nullptr, nullptr)) {
         str.clear();
         return 0;
     }
     return multibyte_length;
+}
+
+std::string wstring_to_string(const WCHAR *wstr, DWORD codepage) {
+    std::string str;
+    wstring_to_string(wstr, str, codepage);
+    return str;
+}
+
+std::string wstring_to_string(const std::wstring& wstr, DWORD codepage) {
+    std::string str;
+    wstring_to_string(wstr.c_str(), str, codepage);
+    return str;
+}
+
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage) {
+#if UNICODE
+    return wstring_to_string(tstr, str, codepage);
 #else
     str = std::string(tstr);
     return (unsigned int)str.length();
@@ -58,15 +75,30 @@ std::string tchar_to_string(const tstring& tstr, DWORD codepage) {
     return str;
 }
 
-unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
-#if UNICODE
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, DWORD codepage) {
     int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
-    tstr.resize(widechar_length, 0);
-    if (0 == MultiByteToWideChar(codepage, 0, str, -1, &tstr[0], (int)tstr.size())) {
-        tstr.clear();
+    wstr.resize(widechar_length, 0);
+    if (0 == MultiByteToWideChar(codepage, 0, str, -1, &wstr[0], (int)wstr.size())) {
+        wstr.clear();
         return 0;
     }
     return widechar_length;
+}
+
+std::wstring char_to_wstring(const char *str, DWORD codepage) {
+    std::wstring wstr;
+    char_to_wstring(wstr, str, codepage);
+    return wstr;
+}
+std::wstring char_to_wstring(const std::string& str, DWORD codepage) {
+    std::wstring wstr;
+    char_to_wstring(wstr, str.c_str(), codepage);
+    return wstr;
+}
+
+unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
+#if UNICODE
+    return char_to_wstring(tstr, str, codepage);
 #else
     tstr = std::string(str);
     return (unsigned int)tstr.length();
@@ -106,16 +138,36 @@ std::wstring strsprintf(const WCHAR* format, ...) {
     return retStr;
 }
 
+std::string str_replace(std::string str, const std::string& from, const std::string& to) {
+    std::string::size_type pos = 0;
+    while(pos = str.find(from, pos), pos != std::string::npos) {
+        str.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+    return std::move(str);
+}
+
 #pragma warning (pop)
 
-std::vector<tstring> split(const tstring &str, const tstring &delim) {
-    std::vector<tstring> res;
+std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim) {
+    std::vector<std::wstring> res;
     size_t current = 0, found, delimlen = delim.size();
-    while (tstring::npos != (found = str.find(delim, current))) {
-        res.push_back(tstring(str, current, found - current));
+    while (std::wstring::npos != (found = str.find(delim, current))) {
+        res.push_back(std::wstring(str, current, found - current));
         current = found + delimlen;
     }
-    res.push_back(tstring(str, current, str.size() - current));
+    res.push_back(std::wstring(str, current, str.size() - current));
+    return res;
+}
+
+std::vector<std::string> split(const std::string &str, const std::string &delim) {
+    std::vector<std::string> res;
+    size_t current = 0, found, delimlen = delim.size();
+    while (std::string::npos != (found = str.find(delim, current))) {
+        res.push_back(std::string(str, current, found - current));
+        current = found + delimlen;
+    }
+    res.push_back(std::string(str, current, str.size() - current));
     return res;
 }
 
