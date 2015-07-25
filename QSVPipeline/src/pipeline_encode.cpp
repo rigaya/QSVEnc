@@ -3568,11 +3568,28 @@ const char *CQSVLog::HTML_FOOTER = "</body>\n</html>\n";
 void CQSVLog::init(const TCHAR *pLogFile, int log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
-    if (check_ext(pLogFile, { ".html", ".htm" })) {
-        m_bHtml = true;
-    }
-    if (m_bHtml && !PathFileExists(pLogFile)) {
-        writeHtmlHeader();
+    if (pLogFile != nullptr) {
+        FILE *fp = NULL;
+        if (_tfopen_s(&fp, pLogFile, _T("a+")) || fp == NULL) {
+            fprintf(stderr, "failed to open log file, log writing disabled.\n");
+            pLogFile = nullptr;
+        } else {
+            if (check_ext(pLogFile, { ".html", ".htm" })) {
+                _fseeki64(fp, 0, SEEK_SET);
+                char buffer[1024] = { 0 };
+                size_t file_read = fread(buffer, 1, sizeof(buffer)-1, fp);
+                if (file_read == 0) {
+                    m_bHtml = true;
+                    writeHtmlHeader();
+                } else {
+                    std::transform(buffer, buffer + file_read, buffer, [](char in) -> char {return (char)tolower(in); });
+                    if (strstr(buffer, "doctype") && strstr(buffer, "html")) {
+                        m_bHtml = true;
+                    }
+                }
+            }
+            fclose(fp);
+        }
     }
 };
 

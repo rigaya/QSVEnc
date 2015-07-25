@@ -308,7 +308,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
             );
         _ftprintf(stdout,
-            _T("   --log <string>               output log to file.\n")
+            _T("   --log <string>               output log to file (txt or html).\n")
             _T("   --log-level <string>         set output log level\n")
             _T("                                 info(default), warn, error, debug\n"));
         _ftprintf(stdout, _T("\n")
