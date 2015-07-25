@@ -2420,7 +2420,7 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
                 pParams->memType &= ~D3D9_MEMORY;
                 pParams->memType |= D3D11_MEMORY;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("Swicthed to d3d11 mode for HEVC encoding.\n"));
+            PrintMes(QSV_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC encoding.\n"));
         }
     }
 
@@ -2442,8 +2442,10 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
         //Win7でD3D11のチェックをやると、
         //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
         //D3D11をWin8以降に限定
-        if (!check_OS_Win8orLater())
+        if (!check_OS_Win8orLater()) {
             memType &= (~D3D11_MEMORY);
+            PrintMes(QSV_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
+        }
 
         //D3D11モードは基本的には遅い模様なので、自動モードなら切る
         if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
@@ -2459,20 +2461,25 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
                 if (0 == i_try_d3d11) {
                     impl |= MFX_IMPL_VIA_D3D11; //first try with d3d11 memory
                     m_memType = D3D11_MEMORY;
+                    PrintMes(QSV_LOG_DEBUG, _T("InitSession: trying to init session for d3d11 mode.\n"));
                 } else {
                     impl &= ~MFX_IMPL_VIA_D3D11; //turn of d3d11 flag and retry
                     m_memType = D3D9_MEMORY;
+                    PrintMes(QSV_LOG_DEBUG, _T("InitSession: trying to init session for d3d9 mode.\n"));
                 }
             }
 #endif
             sts = m_mfxSession.Init(impl, &verRequired);
 
             // MSDK API version may not support multiple adapters - then try initialize on the default
-            if (MFX_ERR_NONE != sts)
+            if (MFX_ERR_NONE != sts) {
+                PrintMes(QSV_LOG_DEBUG, _T("InitSession: failed to init session for multi GPU mode, retry by single GPU mode.\n"));
                 sts = m_mfxSession.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
+            }
 
-            if (MFX_ERR_NONE == sts)
+            if (MFX_ERR_NONE == sts) {
                 break;
+            }
         }
         PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), (m_memType & D3D11_MEMORY) ? _T("d3d11") : _T("d3d9"));
     } else {
