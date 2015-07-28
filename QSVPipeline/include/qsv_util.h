@@ -353,6 +353,7 @@ const TCHAR *get_vpp_image_stab_mode_str(int mode);
 BOOL check_OS_Win8orLater();
 
 mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
+mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info);
 
 const TCHAR *get_err_mes(int sts);
 

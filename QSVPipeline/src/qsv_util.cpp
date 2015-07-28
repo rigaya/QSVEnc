@@ -1051,6 +1051,31 @@ const TCHAR *get_err_mes(int sts) {
     }
 }
 
+mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info) {
+    MSDK_CHECK_POINTER(fp,   MFX_ERR_NULL_PTR);
+    MSDK_CHECK_POINTER(info, MFX_ERR_NULL_PTR);
+
+    char buffer[256];
+    char *ptr = buffer;
+    mfxU32 len = 0;
+    memcpy(ptr, "YUV4MPEG2 ", 10);
+    len += 10;
+
+    len += sprintf_s(ptr+len, sizeof(buffer)-len, "W%d H%d ", info->CropW, info->CropH);
+    len += sprintf_s(ptr+len, sizeof(buffer)-len, "F%d:%d ", info->FrameRateExtN, info->FrameRateExtD);
+
+    const char *picstruct = "Ip ";
+    if (info->PicStruct & MFX_PICSTRUCT_FIELD_TFF) {
+        picstruct = "It ";
+    } else if (info->PicStruct & MFX_PICSTRUCT_FIELD_BFF) {
+        picstruct = "Ib ";
+    }
+    strcpy_s(ptr+len, sizeof(buffer)-len, picstruct); len += 3;
+    len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->AspectRatioW, info->AspectRatioH);
+    strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += strlen("C420mpeg2\n");
+    return (len == fwrite(buffer, 1, len, fp)) ? MFX_ERR_NONE : MFX_ERR_UNDEFINED_BEHAVIOR;
+}
+
 mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info) {
     char *p, *q = NULL;
     memset(info, 0, sizeof(mfxFrameInfo));
