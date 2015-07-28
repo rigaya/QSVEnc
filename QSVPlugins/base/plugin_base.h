@@ -28,12 +28,6 @@ typedef struct {
     mfxU32 EndLine;
 } DataChunk;
 
-struct aligned_malloc_deleter {
-    void operator()(void* ptr) const {
-        _aligned_free(ptr);
-    }
-};
-
 class Processor
 {
 public:

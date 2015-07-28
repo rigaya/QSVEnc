@@ -38,6 +38,11 @@ std::vector<const T> to_vector(const T(&ptr)[size]) {
     return std::vector<const T>(ptr, ptr + size);
 }
 
+struct aligned_malloc_deleter {
+    void operator()(void* ptr) const {
+        _aligned_free(ptr);
+    }
+};
 
 template<typename T>
 static inline T qsv_gcd(T a, T b) {
