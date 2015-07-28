@@ -83,13 +83,17 @@ CEncTaskPool::~CEncTaskPool()
     Close();
 }
 
-mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, CSmplBitstreamWriter* pWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter)
+mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, CSmplBitstreamWriter* pBitstreamWriter, CSmplYUVWriter *pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter)
 {
     MSDK_CHECK_POINTER(pmfxSession, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(pWriter, MFX_ERR_NULL_PTR);
 
     MSDK_CHECK_ERROR(nPoolSize, 0, MFX_ERR_UNDEFINED_BEHAVIOR);
-    MSDK_CHECK_ERROR(nBufferSize, 0, MFX_ERR_UNDEFINED_BEHAVIOR);
+    if (pBitstreamWriter) {
+        MSDK_CHECK_ERROR(nBufferSize, 0, MFX_ERR_UNDEFINED_BEHAVIOR);
+    } else {
+        //フレーム出力時には、Allocatorも必要
+        MSDK_CHECK_POINTER(pmfxAllocator, MFX_ERR_NULL_PTR);
+    }
 
     // nPoolSize must be even in case of 2 output bitstreams
     if (pOtherWriter && (0 != nPoolSize % 2))
@@ -107,7 +111,7 @@ mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, CSmplBitstreamWriter*
     {
         for (mfxU32 i = 0; i < m_nPoolSize; i+=2)
         {
-            sts = m_pTasks[i+0].Init(nBufferSize, pWriter);
+            sts = m_pTasks[i+0].Init(nBufferSize, pBitstreamWriter, pYUVWriter, pmfxAllocator);
             sts = m_pTasks[i+1].Init(nBufferSize, pOtherWriter);
             MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
         }
@@ -116,7 +120,7 @@ mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, CSmplBitstreamWriter*
     {
         for (mfxU32 i = 0; i < m_nPoolSize; i++)
         {
-            sts = m_pTasks[i].Init(nBufferSize, pWriter);
+            sts = m_pTasks[i].Init(nBufferSize, pBitstreamWriter, pYUVWriter, pmfxAllocator);
             MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
         }
     }
@@ -240,23 +244,34 @@ void CEncTaskPool::Close()
 }
 
 sTask::sTask()
-    : EncSyncP(0)
-    , pWriter(NULL)
+    : EncSyncP(0),
+    pBsWriter(nullptr),
+    pYUVWriter(nullptr),
+    mfxSurf(nullptr)
 {
     MSDK_ZERO_MEMORY(mfxBS);
 }
 
-mfxStatus sTask::Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pwriter)
+mfxStatus sTask::Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pBitstreamWriter, CSmplYUVWriter *pFrameWriter, MFXFrameAllocator *pAllocator)
 {
     Close();
 
-    pWriter = pwriter;
+    pBsWriter = pBitstreamWriter;
 
     mfxStatus sts = Reset();
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    sts = InitMfxBitstream(&mfxBS, nBufferSize);
-    MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, WipeMfxBitstream(&mfxBS));
+    if (pBitstreamWriter) {
+        MSDK_CHECK_ERROR(nBufferSize, 0, MFX_ERR_UNDEFINED_BEHAVIOR);
+        sts = InitMfxBitstream(&mfxBS, nBufferSize);
+        MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, WipeMfxBitstream(&mfxBS));
+    } else {
+        //フレーム出力時には、Allocatorも必要
+        MSDK_CHECK_POINTER(pFrameWriter, MFX_ERR_NULL_PTR);
+        MSDK_CHECK_POINTER(pAllocator, MFX_ERR_NULL_PTR);
+        pYUVWriter = pFrameWriter;
+        pmfxAllocator = pAllocator;
+    }
 
     return sts;
 }
@@ -265,6 +280,10 @@ mfxStatus sTask::Close()
 {
     WipeMfxBitstream(&mfxBS);
     EncSyncP = 0;
+    pBsWriter = nullptr;
+    pYUVWriter = nullptr;
+    pmfxAllocator = nullptr;
+    mfxSurf = nullptr;
     DependentVppTasks.clear();
 
     return MFX_ERR_NONE;
@@ -272,16 +291,31 @@ mfxStatus sTask::Close()
 
 mfxStatus sTask::WriteBitstream()
 {
-    if (!pWriter)
+    if (!pBsWriter && !pYUVWriter)
         return MFX_ERR_NOT_INITIALIZED;
+    
+    mfxStatus sts = MFX_ERR_NONE;
+    if (pBsWriter) {
+        sts = pBsWriter->WriteNextFrame(&mfxBS);
+    } else {
+        sts = pmfxAllocator->Lock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    return pWriter->WriteNextFrame(&mfxBS);
+        sts = pYUVWriter->WriteNextFrame(mfxSurf);
+
+        pmfxAllocator->Unlock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+
+        //最終で加算したLockをここで減算する
+        mfxSurf->Data.Locked--;
+    }
+    return sts;
 }
 
 mfxStatus sTask::Reset()
 {
     // mark sync point as free
     EncSyncP = NULL;
+    mfxSurf = nullptr;
 
     // prepare bit stream
     mfxBS.DataOffset = 0;
@@ -419,6 +453,10 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
 
 mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
+    if (pInParams->CodecId == MFX_CODEC_RAW) {
+        PrintMes(QSV_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
+        return MFX_ERR_NONE;
+    }
     auto print_feature_warnings = [this](int log_level, const TCHAR *feature_name) {
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
@@ -1406,12 +1444,11 @@ mfxStatus CEncodingPipeline::ResetDevice()
 }
 
 mfxStatus CEncodingPipeline::AllocFrames() {
-    MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_NOT_INITIALIZED);
-
     mfxStatus sts = MFX_ERR_NONE;
     mfxFrameAllocRequest DecRequest;
     mfxFrameAllocRequest EncRequest;
     mfxFrameAllocRequest VppRequest[2];
+    mfxFrameAllocRequest NextRequest; //出力されてくるフレーム情報とフレームタイプを記録する
 
     mfxU16 nEncSurfNum = 0; // number of surfaces for encoder
     mfxU16 nVppSurfNum = 0; // number of surfaces for vpp
@@ -1432,6 +1469,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     for (const auto& filter : m_VppPostPlugins) {
         MSDK_ZERO_MEMORY(filter->m_PluginResponse);
     }
+    MSDK_ZERO_MEMORY(NextRequest);
     
     PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
 
@@ -1439,10 +1477,12 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     // QueryIOSurf functions tell how many surfaces are required to produce at least 1 output.
     // To achieve better performance we provide extra surfaces.
     // 1 extra surface at input allows to get 1 extra output.
-
-    sts = m_pmfxENC->QueryIOSurf(&m_mfxEncParams, &EncRequest);
-    MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to get required buffer size for encoder."));
-    PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Enc query - %d frames\n"), EncRequest.NumFrameSuggested);
+    
+    if (m_pmfxENC) {
+        sts = m_pmfxENC->QueryIOSurf(&m_mfxEncParams, &EncRequest);
+        MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to get required buffer size for encoder."));
+        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Enc query - %d frames\n"), EncRequest.NumFrameSuggested);
+    }
 
     if (m_pmfxVPP) {
         // VppRequest[0] for input frames request, VppRequest[1] for output frames request
@@ -1471,6 +1511,10 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     
     PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: nInputSurfAdd %d frames\n"), nInputSurfAdd);
     PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: nDecSurfAdd   %d frames\n"), nDecSurfAdd);
+
+    if (m_pmfxDEC) {
+        NextRequest = DecRequest;
+    }
 
     //VppPrePlugins
     if (m_VppPrePlugins.size()) {
@@ -1589,12 +1633,17 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         nVppPostSurfAdd = m_VppPostPlugins.back()->m_nSurfNum;
     }
 
-    //Enc
+    //Enc、エンコーダが有効でない場合は出力フレーム
     {
         nEncSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
+        if (m_pmfxENC == nullptr) {
+            EncRequest = NextRequest;
+            nEncSurfNum += (m_nAsyncDepth - 1);
+        } else {
+            MSDK_MEMCPY_VAR(EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+        }
         EncRequest.NumFrameMin = nEncSurfNum;
         EncRequest.NumFrameSuggested = nEncSurfNum;
-        MSDK_MEMCPY_VAR(EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
         if (m_pmfxDEC && nDecSurfAdd) {
             EncRequest.Type |= MFX_MEMTYPE_FROM_DECODE;
             EncRequest.Info.Width = DecRequest.Info.Width;
@@ -1617,7 +1666,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
             EncRequest.Info.CropX, EncRequest.Info.CropY, EncRequest.Info.CropW, EncRequest.Info.CropH, EncRequest.NumFrameSuggested);
     }
 
-    // alloc frames for encoder
+    // alloc frames for encoder or output
     sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &EncRequest, &m_EncResponse);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate frames for encoder."));
     PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated EncRequest\n"));
@@ -1629,13 +1678,13 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated VppRequest\n"));
     }
 
-    // prepare mfxFrameSurface1 array for encoder
-    m_pEncSurfaces = new mfxFrameSurface1 [m_EncResponse.NumFrameActual];
+    // prepare mfxFrameSurface1 array for encoder or output
+    m_pEncSurfaces = new mfxFrameSurface1[m_EncResponse.NumFrameActual];
     MSDK_CHECK_POINTER(m_pEncSurfaces, MFX_ERR_MEMORY_ALLOC);
 
     for (int i = 0; i < m_EncResponse.NumFrameActual; i++) {
         memset(&(m_pEncSurfaces[i]), 0, sizeof(mfxFrameSurface1));
-        MSDK_MEMCPY_VAR(m_pEncSurfaces[i].Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+        MSDK_MEMCPY_VAR(m_pEncSurfaces[i].Info, &(EncRequest.Info), sizeof(mfxFrameInfo));
 
         if (m_bExternalAlloc) {
             m_pEncSurfaces[i].Data.MemId = m_EncResponse.mids[i];
@@ -1653,7 +1702,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
 
         for (int i = 0; i < m_VppResponse.NumFrameActual; i++) {
             MSDK_ZERO_MEMORY(m_pVppSurfaces[i]);
-            MSDK_MEMCPY_VAR(m_pVppSurfaces[i].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+            MSDK_MEMCPY_VAR(m_pVppSurfaces[i].Info, &(VppRequest[0].Info), sizeof(mfxFrameInfo));
 
             if (m_bExternalAlloc) {
                 m_pVppSurfaces[i].Data.MemId = m_VppResponse.mids[i];
@@ -1947,6 +1996,9 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     if (!useH264ESOutput) {
         pParams->nAVMux |= QSVENC_MUX_VIDEO;
     }
+    if (pParams->CodecId == MFX_CODEC_RAW) {
+        pParams->nAVMux &= ~QSVENC_MUX_VIDEO;
+    }
     if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
         PrintMes(QSV_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = new CAvcodecWriter();
@@ -2006,16 +2058,31 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         return MFX_ERR_UNSUPPORTED;
     } else {
 #endif
-        m_pFileWriter = new CSmplBitstreamWriter();
-        m_pFileWriter->SetQSVLogPtr(m_pQSVLog.get());
-        bool bBenchmark = pParams->bBenchmark != 0;
-        sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
-        if (sts < MFX_ERR_NONE) {
-            PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-            return sts;
+        if (pParams->CodecId == MFX_CODEC_RAW) {
+            m_pFrameWriter.reset(new CSmplYUVWriter());
+            m_pFrameWriter->SetQSVLogPtr(m_pQSVLog.get());
+            YUVWriterParam param;
+            param.bY4m = true;
+            param.memType = m_memType;
+            sts = m_pFrameWriter->Init(pParams->strDstFile, &param, m_pEncSatusInfo);
+            if (sts < MFX_ERR_NONE) {
+                PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+                return sts;
+            }
+            stdoutUsed = m_pFrameWriter->outputStdout();
+            PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+        } else {
+            m_pFileWriter = new CSmplBitstreamWriter();
+            m_pFileWriter->SetQSVLogPtr(m_pQSVLog.get());
+            bool bBenchmark = pParams->bBenchmark != 0;
+            sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
+            if (sts < MFX_ERR_NONE) {
+                PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+                return sts;
+            }
+            stdoutUsed = m_pFileWriter->outputStdout();
+            PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         }
-        stdoutUsed = m_pFileWriter->outputStdout();
-        PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
 #if ENABLE_AVCODEC_QSV_READER
     } //ENABLE_AVCODEC_QSV_READER
 
@@ -2580,8 +2647,10 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     }
 
     // create encoder
-    m_pmfxENC = new MFXVideoENCODE(m_mfxSession);
-    MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_MEMORY_ALLOC);
+    if (pParams->CodecId != MFX_CODEC_RAW) {
+        m_pmfxENC = new MFXVideoENCODE(m_mfxSession);
+        MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_MEMORY_ALLOC);
+    }
 
     // create preprocessor if resizing was requested from command line
     // or if different FourCC is set in InitMfxVppParams
@@ -2700,15 +2769,16 @@ void CEncodingPipeline::Close()
 mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
 {
     MSDK_CHECK_POINTER(pParams, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_NOT_INITIALIZED);
 
     mfxStatus sts = MFX_ERR_NONE;
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Start...\n"));
 
-    sts = m_pmfxENC->Close();
-    MSDK_IGNORE_MFX_STS(sts, MFX_ERR_NOT_INITIALIZED);
-    MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to reset encoder (fail on closing)."));
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Enc closed.\n"));
+    if (m_pmfxENC) {
+        sts = m_pmfxENC->Close();
+        MSDK_IGNORE_MFX_STS(sts, MFX_ERR_NOT_INITIALIZED);
+        MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to reset encoder (fail on closing)."));
+        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Enc closed.\n"));
+    }
 
     if (m_pmfxVPP) {
         sts = m_pmfxVPP->Close();
@@ -2734,14 +2804,15 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
     if (sts < MFX_ERR_NONE) return sts;
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Frames allocated.\n"));
 
-    sts = m_pmfxENC->Init(&m_mfxEncParams);
-    if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
-        PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on Encoding.\n"));
-        MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
+    if (m_pmfxENC) {
+        sts = m_pmfxENC->Init(&m_mfxEncParams);
+        if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
+            PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on Encoding.\n"));
+            MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
+        }
+        MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize encoder."));
+        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Enc initialized.\n"));
     }
-
-    MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize encoder."));
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Enc initialized.\n"));
 
     if (m_pmfxVPP) {
         sts = m_pmfxVPP->Init(&m_mfxVppParams);
@@ -2956,7 +3027,6 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
 mfxStatus CEncodingPipeline::RunEncode()
 {
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: Starting Encode...\n"));
-    MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_NOT_INITIALIZED);
 
     mfxStatus sts = MFX_ERR_NONE;
 
@@ -2966,6 +3036,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     vector<mfxFrameSurface1 *>pSurfVppPreFilter(m_VppPrePlugins.size() + 1, NULL);
     vector<mfxFrameSurface1 *>pSurfVppPostFilter(m_VppPostPlugins.size() + 1, NULL);
     mfxFrameSurface1 *pNextFrame;
+    mfxSyncPoint lastSyncP = nullptr;
     bool bVppRequireMoreFrame = false;
     int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
     const double getTimeStampMul = m_mfxEncParams.mfx.FrameInfo.FrameRateExtD * (double)QSV_TIMEBASE / (double)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN; //TimeStamp計算用
@@ -3117,6 +3188,7 @@ mfxStatus CEncodingPipeline::RunEncode()
             for (int i = 0; ; i++) {
                 mfxSyncPoint DecSyncPoint = NULL;
                 dec_sts = m_pmfxDEC->DecodeFrameAsync(pInputBitstream, pSurfDecWork, &pSurfDecOut, &DecSyncPoint);
+                lastSyncP = DecSyncPoint;
 
                 if (MFX_ERR_NONE < dec_sts && !DecSyncPoint) {
                     if (MFX_WRN_DEVICE_BUSY == dec_sts)
@@ -3165,6 +3237,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         }
         // save the id of preceding vpp task which will produce input data for the encode task
         if (filterSyncPoint) {
+            lastSyncP = filterSyncPoint;
             //pCurrentTask->DependentVppTasks.push_back(filterSyncPoint);
             filterSyncPoint = NULL;
         }
@@ -3188,6 +3261,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 
             for (int i = 0; ; i++) {
                 vpp_sts = m_pmfxVPP->RunFrameVPPAsync(pSurfVppIn, pSurfVppOut, NULL, &VppSyncPoint);
+                lastSyncP = VppSyncPoint;
 
                 if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) { // repeat the call if warning and no output
                     if (MFX_WRN_DEVICE_BUSY == vpp_sts)
@@ -3222,6 +3296,18 @@ mfxStatus CEncodingPipeline::RunEncode()
     };
 
     auto encode_one_frame =[&](mfxFrameSurface1* pSurfEncIn) {
+        if (m_pmfxENC == nullptr) {
+            //エンコードが有効でない場合、このフレームデータを出力する
+            //パイプラインの最後のSyncPointをセットする
+            pCurrentTask->EncSyncP = lastSyncP;
+            //フレームデータが出力されるまで空きフレームとして使われないようLockを加算しておく
+            //TaskのWriteBitstreamで減算され、解放される
+            pSurfEncIn->Data.Locked++;
+            //フレームのポインタを出力用にセット
+            pCurrentTask->mfxSurf = pSurfEncIn;
+            return MFX_ERR_NONE;
+        }
+
         mfxStatus enc_sts = MFX_ERR_NONE;
         mfxEncodeCtrl *ptrCtrl = NULL;
         mfxEncodeCtrl encCtrl = { 0 };
@@ -3532,7 +3618,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     }
 
     // loop to get buffered frames from encoder
-    while (MFX_ERR_NONE <= sts)
+    while (MFX_ERR_NONE <= sts && m_pmfxENC)
     {
         // get a free task (bit stream and sync point for encoder)
         sts = GetFreeTask(&pCurrentTask);
@@ -3830,14 +3916,30 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = &buf[0];
 
-    mfxStatus sts = m_pmfxENC->GetVideoParam(&videoPrm);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-    if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm, &cop2))) {
-        PrintMes(QSV_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
-        return sts;
+    mfxStatus sts = MFX_ERR_NONE;
+    if (m_pmfxENC) {
+        sts = m_pmfxENC->GetVideoParam(&videoPrm);
+        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    } else if (m_pmfxVPP) {
+        mfxVideoParam videoPrmVpp;
+        MSDK_ZERO_MEMORY(videoPrmVpp);
+        sts = m_pmfxVPP->GetVideoParam(&videoPrmVpp);
+        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        videoPrm.mfx.FrameInfo = videoPrmVpp.vpp.Out;
+        DstPicInfo = videoPrmVpp.vpp.Out;
+    } else if (m_pmfxDEC) {
+        sts = m_pmfxDEC->GetVideoParam(&videoPrm);
+        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        DstPicInfo = videoPrm.mfx.FrameInfo;
     }
-    PrintMes(QSV_LOG_DEBUG, _T("CheckCurrentVideoParam: SetVideoParam to video file writer.\n"));
+
+    if (m_pFileWriter) {
+        if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm, &cop2))) {
+            PrintMes(QSV_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
+            return sts;
+        }
+        PrintMes(QSV_LOG_DEBUG, _T("CheckCurrentVideoParam: SetVideoParam to video file writer.\n"));
+    }
 
     TCHAR cpuInfo[256];
     getCPUInfo(cpuInfo, _countof(cpuInfo));
@@ -3906,15 +4008,18 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         }
         PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
     }
-    PRINT_INFO(    _T("Output         %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
-                                                     get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
-                                                     get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
-    PRINT_INFO(    _T("               %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
-                                                     DstPicInfo.CropW, DstPicInfo.CropH, (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("p") : _T("i"),
-                                                     videoPrm.mfx.FrameInfo.AspectRatioW, videoPrm.mfx.FrameInfo.AspectRatioH,
-                                                     DstPicInfo.FrameRateExtN / (double)DstPicInfo.FrameRateExtD, DstPicInfo.FrameRateExtN, DstPicInfo.FrameRateExtD,
-                                                     (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : _T(", "),
-                                                     (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
+    if (m_pmfxENC) {
+        PRINT_INFO(_T("Output         %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
+            get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
+            get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
+    }
+    PRINT_INFO(_T("%s         %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
+        (m_pmfxENC) ? _T("      ") : _T("Output"),
+        DstPicInfo.CropW, DstPicInfo.CropH, (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("p") : _T("i"),
+        videoPrm.mfx.FrameInfo.AspectRatioW, videoPrm.mfx.FrameInfo.AspectRatioH,
+        DstPicInfo.FrameRateExtN / (double)DstPicInfo.FrameRateExtD, DstPicInfo.FrameRateExtN, DstPicInfo.FrameRateExtD,
+        (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : _T(", "),
+        (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
     if (m_pFileWriter) {
         inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
         for (auto str : inputMesSplitted) {
@@ -3934,144 +4039,146 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         }
     }
     
-    PRINT_INFO(    _T("Target usage   %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
-    PRINT_INFO(    _T("Encode Mode    %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
-    if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
-        if (m_nExPrm & MFX_PRM_EX_VQP) {
-            //PRINT_INFO(_T("VQP params             I:%d  P:%d+  B:%d+  strength:%d  sensitivity:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB, m_SceneChange.getVQPStrength(), m_SceneChange.getVQPSensitivity());
-            PRINT_INFO(_T("VQP params     I:%d  P:%d+  B:%d+\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
-        } else {
-            PRINT_INFO(_T("CQP Value      I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
-        }
-    } else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
-        PRINT_INFO(_T("Lookahead      depth %d frames"), cop2.LookAheadDepth);
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-            PRINT_INFO(_T(", quality %s"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
-        }
-        PRINT_INFO(_T("\n"));
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
-            if (cop3.WinBRCSize) {
-                PRINT_INFO(_T("Windowed RC    %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
+    if (m_pmfxENC) {
+        PRINT_INFO(_T("Target usage   %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
+        PRINT_INFO(_T("Encode Mode    %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
+        if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
+            if (m_nExPrm & MFX_PRM_EX_VQP) {
+                //PRINT_INFO(_T("VQP params             I:%d  P:%d+  B:%d+  strength:%d  sensitivity:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB, m_SceneChange.getVQPStrength(), m_SceneChange.getVQPSensitivity());
+                PRINT_INFO(_T("VQP params     I:%d  P:%d+  B:%d+\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
             } else {
-                PRINT_INFO(_T("Windowed RC    off\n"));
+                PRINT_INFO(_T("CQP Value      I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
             }
-        }
-        if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-            PRINT_INFO(_T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
-        }
-    } else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-        PRINT_INFO(    _T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
-    } else {
-        PRINT_INFO(    _T("Bitrate        %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
-        if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
-            //PRINT_INFO(_T("AVBR Accuracy range\t%.01lf%%"), m_mfxEncParams.mfx.Accuracy / 10.0);
-            PRINT_INFO(_T("AVBR Converge  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
-        } else {
-            PRINT_INFO(_T("Max Bitrate    "));
-            PRINT_INT_AUTO(_T("%d kbps\n"), (mfxU32)videoPrm.mfx.MaxKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
-            if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
-                PRINT_INFO(    _T("QVBR Quality   %d\n"), cop3.QVBRQuality);
+        } else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
+            PRINT_INFO(_T("Lookahead      depth %d frames"), cop2.LookAheadDepth);
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+                PRINT_INFO(_T(", quality %s"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
             }
-        }
-    }
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
-        auto qp_limit_str =[](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {
-            mfxU8 limit[3] = {limitI, limitP, limitB };
-            if (0 == (limit[0] | limit[1] | limit[2]))
-                return std::basic_string<msdk_char>(_T("none"));
-
-            tstring buf;
-            for (int i = 0; i < 3; i++) {
-                buf += ((i) ? _T(":") : _T(""));
-                if (limit[i]) {
-                    buf += std::to_tstring(limit[i]);
+            PRINT_INFO(_T("\n"));
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+                if (cop3.WinBRCSize) {
+                    PRINT_INFO(_T("Windowed RC    %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
                 } else {
-                    buf += _T("-");
+                    PRINT_INFO(_T("Windowed RC    off\n"));
                 }
             }
-            return buf;
-        };
-        PRINT_INFO(_T("QP Limit       min: %s, max: %s\n"),
-            qp_limit_str(cop2.MinQPI, cop2.MinQPP, cop2.MinQPB).c_str(),
-            qp_limit_str(cop2.MaxQPI, cop2.MaxQPP, cop2.MaxQPB).c_str());
-    }
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-        PRINT_INFO(_T("Trellis        %s\n"), list_avc_trellis[get_cx_index(list_avc_trellis_for_options, cop2.Trellis)].desc);
-    }
-
-    if (videoPrm.mfx.CodecId == MFX_CODEC_AVC && !Check_HWUsed(impl)) {
-        PRINT_INFO(    _T("CABAC          %s\n"), (cop.CAVLC == MFX_CODINGOPTION_ON) ? _T("off") : _T("on"));
-        PRINT_INFO(    _T("RDO            %s\n"), (cop.RateDistortionOpt == MFX_CODINGOPTION_ON) ? _T("on") : _T("off"));
-        if ((cop.MVSearchWindow.x | cop.MVSearchWindow.y) == 0) {
-            PRINT_INFO(    _T("mv search      precision: %s\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc);
+            if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+                PRINT_INFO(_T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
+            }
+        } else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+            PRINT_INFO(_T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
         } else {
-            PRINT_INFO(    _T("mv search      precision: %s, window size:%dx%d\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc, cop.MVSearchWindow.x, cop.MVSearchWindow.y);
+            PRINT_INFO(_T("Bitrate        %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+            if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
+                //PRINT_INFO(_T("AVBR Accuracy range\t%.01lf%%"), m_mfxEncParams.mfx.Accuracy / 10.0);
+                PRINT_INFO(_T("AVBR Converge  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
+            } else {
+                PRINT_INFO(_T("Max Bitrate    "));
+                PRINT_INT_AUTO(_T("%d kbps\n"), (mfxU32)videoPrm.mfx.MaxKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+                if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
+                    PRINT_INFO(_T("QVBR Quality   %d\n"), cop3.QVBRQuality);
+                }
+            }
         }
-        PRINT_INFO(    _T("min pred size  inter: %s   intra: %s\n"), list_pred_block_size[get_cx_index(list_pred_block_size, cop.InterPredBlockSize)].desc, list_pred_block_size[get_cx_index(list_pred_block_size, cop.IntraPredBlockSize)].desc);
-    }
-    PRINT_INFO(    _T("Ref frames     "));
-    PRINT_INT_AUTO(_T("%d frames\n"), videoPrm.mfx.NumRefFrame);
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
+            auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {
+                mfxU8 limit[3] = { limitI, limitP, limitB };
+                if (0 == (limit[0] | limit[1] | limit[2]))
+                    return std::basic_string<msdk_char>(_T("none"));
 
-    PRINT_INFO(    _T("Bframes        "));
-    switch (videoPrm.mfx.GopRefDist) {
+                tstring buf;
+                for (int i = 0; i < 3; i++) {
+                    buf += ((i) ? _T(":") : _T(""));
+                    if (limit[i]) {
+                        buf += std::to_tstring(limit[i]);
+                    } else {
+                        buf += _T("-");
+                    }
+                }
+                return buf;
+            };
+            PRINT_INFO(_T("QP Limit       min: %s, max: %s\n"),
+                qp_limit_str(cop2.MinQPI, cop2.MinQPP, cop2.MinQPB).c_str(),
+                qp_limit_str(cop2.MaxQPI, cop2.MaxQPP, cop2.MaxQPB).c_str());
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
+            PRINT_INFO(_T("Trellis        %s\n"), list_avc_trellis[get_cx_index(list_avc_trellis_for_options, cop2.Trellis)].desc);
+        }
+
+        if (videoPrm.mfx.CodecId == MFX_CODEC_AVC && !Check_HWUsed(impl)) {
+            PRINT_INFO(_T("CABAC          %s\n"), (cop.CAVLC == MFX_CODINGOPTION_ON) ? _T("off") : _T("on"));
+            PRINT_INFO(_T("RDO            %s\n"), (cop.RateDistortionOpt == MFX_CODINGOPTION_ON) ? _T("on") : _T("off"));
+            if ((cop.MVSearchWindow.x | cop.MVSearchWindow.y) == 0) {
+                PRINT_INFO(_T("mv search      precision: %s\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc);
+            } else {
+                PRINT_INFO(_T("mv search      precision: %s, window size:%dx%d\n"), list_mv_presicion[get_cx_index(list_mv_presicion, cop.MVPrecision)].desc, cop.MVSearchWindow.x, cop.MVSearchWindow.y);
+            }
+            PRINT_INFO(_T("min pred size  inter: %s   intra: %s\n"), list_pred_block_size[get_cx_index(list_pred_block_size, cop.InterPredBlockSize)].desc, list_pred_block_size[get_cx_index(list_pred_block_size, cop.IntraPredBlockSize)].desc);
+        }
+        PRINT_INFO(_T("Ref frames     "));
+        PRINT_INT_AUTO(_T("%d frames\n"), videoPrm.mfx.NumRefFrame);
+
+        PRINT_INFO(_T("Bframes        "));
+        switch (videoPrm.mfx.GopRefDist) {
         case 0:  PRINT_INFO(_T("Auto\n")); break;
         case 1:  PRINT_INFO(_T("none\n")); break;
         default: PRINT_INFO(_T("%d frame%s%s%s\n"),
             videoPrm.mfx.GopRefDist - 1, (videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
             check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? _T(", B-pyramid: ") : _T(""),
             (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ((MFX_B_REF_PYRAMID == cop2.BRefType) ? _T("on") : _T("off")) : _T(""))); break;
-    }
+        }
 
-    //PRINT_INFO(    _T("Idr Interval    %d\n"), videoPrm.mfx.IdrInterval);
-    PRINT_INFO(    _T("Max GOP Length "));
-    PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
-    PRINT_INFO(    _T("Scene Change   %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-        //PRINT_INFO(    _T("GOP Structure           "));
-        //bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
-        //bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
-        //if (!adaptiveIOn && !adaptiveBOn) {
-        //    PRINT_INFO(_T("fixed\n"))
-        //} else {
-        //    PRINT_INFO(_T("Adaptive %s%s%s insert\n"),
-        //        (adaptiveIOn) ? _T("I") : _T(""),
-        //        (adaptiveIOn && adaptiveBOn) ? _T(",") : _T(""),
-        //        (adaptiveBOn) ? _T("B") : _T(""));
+        //PRINT_INFO(    _T("Idr Interval    %d\n"), videoPrm.mfx.IdrInterval);
+        PRINT_INFO(_T("Max GOP Length "));
+        PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
+        PRINT_INFO(_T("Scene Change   %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+            //PRINT_INFO(    _T("GOP Structure           "));
+            //bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
+            //bool adaptiveBOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveB);
+            //if (!adaptiveIOn && !adaptiveBOn) {
+            //    PRINT_INFO(_T("fixed\n"))
+            //} else {
+            //    PRINT_INFO(_T("Adaptive %s%s%s insert\n"),
+            //        (adaptiveIOn) ? _T("I") : _T(""),
+            //        (adaptiveIOn && adaptiveBOn) ? _T(",") : _T(""),
+            //        (adaptiveBOn) ? _T("B") : _T(""));
+            //}
+        }
+        if (videoPrm.mfx.NumSlice >= 2) {
+            PRINT_INFO(_T("Slices         %d\n"), videoPrm.mfx.NumSlice);
+        }
+
+        //last line
+        tstring extFeatures;
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+            if (cop2.MBBRC  == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("PerMBRC ");
+            }
+            if (cop2.ExtBRC == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("ExtBRC ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
+            if (cop2.DisableDeblockingIdc) {
+                extFeatures += _T("No-Deblock ");
+            }
+            if (cop2.IntRefType) {
+                extFeatures += _T("Intra-Refresh ");
+            }
+        }
+        //if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {
+        //    extFeatures += _T("aud ");
         //}
-    }
-    if (videoPrm.mfx.NumSlice >= 2) {
-        PRINT_INFO(_T("Slices         %d\n"), videoPrm.mfx.NumSlice);
-    }
-
-    //last line
-    tstring extFeatures;
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
-        if (cop2.MBBRC  == MFX_CODINGOPTION_ON) {
-            extFeatures += _T("PerMBRC ");
+        //if (cop.PicTimingSEI == MFX_CODINGOPTION_ON) {
+        //    extFeatures += _T("pic_struct ");
+        //}
+        //if (cop.SingleSeiNalUnit == MFX_CODINGOPTION_ON) {
+        //    extFeatures += _T("SingleSEI ");
+        //}
+        if (extFeatures.length() > 0) {
+            PRINT_INFO(_T("Ext. Features  %s\n"), extFeatures.c_str());
         }
-        if (cop2.ExtBRC == MFX_CODINGOPTION_ON) {
-            extFeatures += _T("ExtBRC ");
-        }
-    }
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
-        if (cop2.DisableDeblockingIdc) {
-            extFeatures += _T("No-Deblock ");
-        }
-        if (cop2.IntRefType) {
-            extFeatures += _T("Intra-Refresh ");
-        }
-    }
-    //if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {
-    //    extFeatures += _T("aud ");
-    //}
-    //if (cop.PicTimingSEI == MFX_CODINGOPTION_ON) {
-    //    extFeatures += _T("pic_struct ");
-    //}
-    //if (cop.SingleSeiNalUnit == MFX_CODINGOPTION_ON) {
-    //    extFeatures += _T("SingleSEI ");
-    //}
-    if (extFeatures.length() > 0) {
-        PRINT_INFO(_T("Ext. Features  %s\n"), extFeatures.c_str());
     }
 
     PrintMes(QSV_LOG_INFO, info);

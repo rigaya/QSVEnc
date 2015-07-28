@@ -311,6 +311,11 @@ protected:
     CQSVLog    *m_pPrintMes;  //ログ出力
 };
 
+struct YUVWriterParam {
+    bool bY4m;
+    MemType memType;
+};
+
 class CSmplYUVWriter
 {
 public:
@@ -318,16 +323,61 @@ public:
     CSmplYUVWriter();
     virtual ~CSmplYUVWriter();
 
+    virtual void SetQSVLogPtr(CQSVLog *pQSVLog) {
+        m_pPrintMes = pQSVLog;
+    }
+
     virtual void      Close();
-    virtual mfxStatus Init(const msdk_char *strFileName, const mfxU32 numViews);
+    virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
     virtual mfxStatus WriteNextFrame(mfxFrameSurface1 *pSurface);
 
-    void SetMultiView() { m_bIsMultiView = true; }
+    virtual bool outputStdout() {
+        return m_bOutputIsStdout;
+    }
+    
+    const msdk_char *GetOutputMessage() {
+        const msdk_char *mes = m_strOutputInfo.c_str();
+        return (mes) ? mes : _T("");
+    }
+    void AddMessage(int log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+         auto lines = split(str, _T("\n"));
+         for (const auto& line : lines) {
+             if (line[0] != _T('\0')) {
+                 (*m_pPrintMes)(log_level, (m_strWriterName + _T(": ") + line + _T("\n")).c_str());
+             }
+         }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+         _vstprintf_s(&buffer[0], len, format, args);
+         va_end(args);
+         AddMessage(log_level, buffer);
+    }
 
 protected:
-    FILE         *m_fDest, **m_fDestMVC;
-    bool         m_bInited, m_bIsMultiView;
-    mfxU32       m_numCreatedFiles;
+    CEncodeStatusInfo *m_pEncSatusInfo;
+    bool         m_bInited;
+    FILE        *m_fDest;
+    bool         m_bOutputIsStdout;
+    bool         m_bY4m;
+    bool         m_bHWMem;
+    bool         m_bY4mHeaderWritten;
+    tstring      m_strWriterName;
+    tstring      m_strOutputInfo;
+    CQSVLog     *m_pPrintMes;  //ログ出力
+    std::unique_ptr<mfxU8, aligned_malloc_deleter> m_pReadBuffer;
+    std::unique_ptr<mfxU8, aligned_malloc_deleter> m_pUVBuffer;
 };
 
 class CSmplBitstreamReader

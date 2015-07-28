@@ -55,14 +55,17 @@ using std::unique_ptr;
 struct sTask
 {
     mfxBitstream mfxBS;
+    mfxFrameSurface1 *mfxSurf;
     mfxSyncPoint EncSyncP;
     std::list<mfxSyncPoint> DependentVppTasks;
-    CSmplBitstreamWriter *pWriter;
+    CSmplBitstreamWriter *pBsWriter;
+    CSmplYUVWriter *pYUVWriter;
+    MFXFrameAllocator *pmfxAllocator;
 
     sTask();
     mfxStatus WriteBitstream();
     mfxStatus Reset();
-    mfxStatus Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pWriter = NULL);
+    mfxStatus Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pBitstreamWriter = nullptr, CSmplYUVWriter *pFrameWriter = nullptr, MFXFrameAllocator *pAllocator = nullptr);
     mfxStatus Close();
 };
 
@@ -72,7 +75,7 @@ public:
     CEncTaskPool();
     virtual ~CEncTaskPool();
 
-    virtual mfxStatus Init(MFXVideoSession* pmfxSession, CSmplBitstreamWriter* pWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter = NULL);
+    virtual mfxStatus Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, CSmplBitstreamWriter* pBitstreamWriter, CSmplYUVWriter *pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter = NULL);
 
     mfxStatus GetFreeTask(sTask **ppTask);
 
@@ -148,6 +151,7 @@ protected:
 
     vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
     CSmplBitstreamWriter *m_pFileWriter;
+    unique_ptr<CSmplYUVWriter> m_pFrameWriter;
     CSmplYUVReader *m_pFileReader;
 
     CEncTaskPool m_TaskPool;

@@ -274,6 +274,7 @@ const CX_DESC list_codec[] = {
     { _T("hevc"),     MFX_CODEC_HEVC  },
     { _T("mpeg2"),    MFX_CODEC_MPEG2 },
     { _T("vc-1"),     MFX_CODEC_VC1   },
+    { _T("raw"),      MFX_CODEC_RAW   },
     { NULL, NULL }
 };
 
