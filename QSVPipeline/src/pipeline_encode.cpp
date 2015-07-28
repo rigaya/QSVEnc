@@ -72,8 +72,8 @@ msdk_tick time_get_frequency(void)
 
 CEncTaskPool::CEncTaskPool()
 {
-    m_pTasks  = NULL;
-    m_pmfxSession       = NULL;
+    m_pTasks            = nullptr;
+    m_pmfxSession       = nullptr;
     m_nTaskBufferStart  = 0;
     m_nPoolSize         = 0;
 }
@@ -406,12 +406,12 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
                 PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc decoder.\n"));
                 return MFX_ERR_UNSUPPORTED;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded HEVC decoder plugin."));
+            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded HEVC decoder plugin.\n"));
         }
 
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("InitMfxDecParams: Failed to initialize QSV decoder."));
-        PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Initialized QSVDec."));
+        PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Initialized QSVDec.\n"));
     }
 #endif
     return MFX_ERR_NONE;
@@ -1418,9 +1418,9 @@ mfxStatus CEncodingPipeline::AllocFrames() {
 
     mfxU16 nInputSurfAdd = 0;
     mfxU16 nDecSurfAdd = 0; // number of surfaces for decoder
-    mfxU16 nVppPreSurfAdd = 0; // number of surfaces for decoder
+    mfxU16 nVppPreSurfAdd = 0; // number of surfaces for vpp pre
     mfxU16 nVppSurfAdd = 0;
-    mfxU16 nVppPostSurfAdd = 0; // number of surfaces for decoder
+    mfxU16 nVppPostSurfAdd = 0; // number of surfaces for vpp post
 
     MSDK_ZERO_MEMORY(DecRequest);
     MSDK_ZERO_MEMORY(EncRequest);
