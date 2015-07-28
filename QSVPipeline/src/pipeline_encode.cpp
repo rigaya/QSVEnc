@@ -2762,10 +2762,10 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize decoder.\n"));
         PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Dec initialized.\n"));
     }
-    
+
     mfxU32 nEncodedDataBufferSize = m_mfxEncParams.mfx.FrameInfo.Width * m_mfxEncParams.mfx.FrameInfo.Height * 4;
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth * 2, nEncodedDataBufferSize >> 10);
-    sts = m_TaskPool.Init(&m_mfxSession, m_pFileWriter, m_nAsyncDepth * 2, nEncodedDataBufferSize, NULL);
+    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth, nEncodedDataBufferSize >> 10);
+    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator, m_pFileWriter, m_pFrameWriter.get(), m_nAsyncDepth, nEncodedDataBufferSize, NULL);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize task pool for encoding."));
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Created task pool.\n"));
 
