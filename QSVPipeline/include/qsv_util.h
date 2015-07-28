@@ -86,6 +86,8 @@ std::wstring GetFullPath(const WCHAR *path);
 bool qsv_get_filesize(const char *filepath, UINT64 *filesize);
 bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize);
 
+tstring qsv_memtype_str(mfxU16 memtype);
+
 static inline mfxU16 readUB16(const void *ptr) {
     mfxU16 i = *(mfxU16 *)ptr;
     return (i >> 8) | (i << 8);

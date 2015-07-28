@@ -214,6 +214,22 @@ bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize) {
     return ret;
 }
 
+tstring qsv_memtype_str(mfxU16 memtype) {
+    tstring str;
+    if (memtype & MFX_MEMTYPE_INTERNAL_FRAME)         str += _T("internal,");
+    if (memtype & MFX_MEMTYPE_EXTERNAL_FRAME)         str += _T("external,");
+    if (memtype & MFX_MEMTYPE_OPAQUE_FRAME)           str += _T("opaque,");
+    if (memtype & MFX_MEMTYPE_DXVA2_DECODER_TARGET)   str += _T("dxvadec,");
+    if (memtype & MFX_MEMTYPE_DXVA2_PROCESSOR_TARGET) str += _T("dxvaproc,");
+    if (memtype & MFX_MEMTYPE_SYSTEM_MEMORY)          str += _T("system,");
+    if (memtype & MFX_MEMTYPE_FROM_ENCODE)            str += _T("enc,");
+    if (memtype & MFX_MEMTYPE_FROM_DECODE)            str += _T("dec,");
+    if (memtype & MFX_MEMTYPE_FROM_VPPIN)             str += _T("vppin,");
+    if (memtype & MFX_MEMTYPE_FROM_VPPOUT)            str += _T("vppout,");
+    if (memtype == 0)                                 str += _T("none,");
+    return str.substr(0, str.length()-1);
+}
+
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     static const WORD LOG_COLOR[] = {

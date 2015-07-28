@@ -1495,9 +1495,11 @@ mfxStatus CEncodingPipeline::AllocFrames() {
                 m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Width  = DecRequest.Info.Width;
                 m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PrePlugins[%d] %s, type: 0x%04x, %dx%d [%d,%d,%d,%d], request %d frames\n"),
-                i, m_VppPrePlugins[i]->getFilterName().c_str(),
-                mem_type, m_VppPrePlugins[i]->m_PluginRequest.Info.Width, m_VppPrePlugins[i]->m_PluginRequest.Info.Height,
+            NextRequest = m_VppPrePlugins[i]->m_PluginRequest;
+            MSDK_MEMCPY_VAR(NextRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
+            PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PrePlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+                i, m_VppPrePlugins[i]->getFilterName().c_str(), qsv_memtype_str(mem_type).c_str(),
+                m_VppPrePlugins[i]->m_PluginRequest.Info.Width, m_VppPrePlugins[i]->m_PluginRequest.Info.Height,
                 m_VppPrePlugins[i]->m_PluginRequest.Info.CropX, m_VppPrePlugins[i]->m_PluginRequest.Info.CropY,
                 m_VppPrePlugins[i]->m_PluginRequest.Info.CropW, m_VppPrePlugins[i]->m_PluginRequest.Info.CropH,
                 m_VppPrePlugins[i]->m_PluginRequest.NumFrameSuggested);
@@ -1537,8 +1539,11 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         nDecSurfAdd = 0;
         nVppPreSurfAdd = 0;
         nVppSurfAdd = MSDK_MAX(VppRequest[1].NumFrameSuggested, 1);
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp type: 0x%04x, %dx%d [%d,%d,%d,%d], request %d frames\n"),
-            VppRequest[0].Type, VppRequest[0].Info.Width, VppRequest[0].Info.Height,
+        NextRequest = VppRequest[1];
+        MSDK_MEMCPY_VAR(NextRequest.Info, &(m_mfxVppParams.vpp.Out), sizeof(mfxFrameInfo));
+        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+            qsv_memtype_str(VppRequest[0].Type).c_str(),
+            VppRequest[0].Info.Width, VppRequest[0].Info.Height,
             VppRequest[0].Info.CropX, VppRequest[0].Info.CropY, VppRequest[0].Info.CropW, VppRequest[0].Info.CropH, VppRequest[0].NumFrameSuggested);
     }
 
@@ -1566,9 +1571,11 @@ mfxStatus CEncodingPipeline::AllocFrames() {
                 m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Width  = DecRequest.Info.Width;
                 m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PostPlugins[%d] %s, type: 0x%04x, %dx%d [%d,%d,%d,%d], request %d frames\n"),
-                i, m_VppPostPlugins[i]->getFilterName().c_str(),
-                mem_type, m_VppPostPlugins[i]->m_PluginRequest.Info.Width, m_VppPostPlugins[i]->m_PluginRequest.Info.Height,
+            NextRequest = m_VppPostPlugins[i]->m_PluginRequest;
+            MSDK_MEMCPY_VAR(NextRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
+            PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PostPlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+                i, m_VppPostPlugins[i]->getFilterName().c_str(), qsv_memtype_str(mem_type).c_str(),
+                m_VppPostPlugins[i]->m_PluginRequest.Info.Width, m_VppPostPlugins[i]->m_PluginRequest.Info.Height,
                 m_VppPostPlugins[i]->m_PluginRequest.Info.CropX, m_VppPostPlugins[i]->m_PluginRequest.Info.CropY,
                 m_VppPostPlugins[i]->m_PluginRequest.Info.CropW, m_VppPostPlugins[i]->m_PluginRequest.Info.CropH,
                 m_VppPostPlugins[i]->m_PluginRequest.NumFrameSuggested);
@@ -1603,8 +1610,10 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         nVppPreSurfAdd = 0;
         nVppSurfAdd = 0;
         nVppPostSurfAdd = 0;
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Enc type: 0x%04x, %dx%d [%d,%d,%d,%d], request %d frames\n"),
-            EncRequest.Type, EncRequest.Info.Width, EncRequest.Info.Height,
+        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: %s type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+            (m_pmfxENC) ? _T("Enc") : _T("Out"),
+            qsv_memtype_str(EncRequest.Type).c_str(),
+            EncRequest.Info.Width, EncRequest.Info.Height,
             EncRequest.Info.CropX, EncRequest.Info.CropY, EncRequest.Info.CropW, EncRequest.Info.CropH, EncRequest.NumFrameSuggested);
     }
 
