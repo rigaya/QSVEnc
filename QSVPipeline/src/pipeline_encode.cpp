@@ -3130,6 +3130,7 @@ mfxStatus CEncodingPipeline::RunEncode()
                     break;
                 } else if (dec_sts < MFX_ERR_NONE && (dec_sts != MFX_ERR_MORE_DATA && dec_sts != MFX_ERR_MORE_SURFACE)) {
                     PrintMes(QSV_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
+                    break;
                 } else {
                     break; // not a warning
                 }
