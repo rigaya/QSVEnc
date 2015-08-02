@@ -1152,30 +1152,26 @@ mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info) {
 
 #include <Windows.h>
 #include <process.h>
-#include <regex>
+
+typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
 
 static int getRealWindowsVersion(DWORD *major, DWORD *minor) {
+    *major = 0;
+    *minor = 0;
+    OSVERSIONINFOEXW osver;
+    HMODULE hModule = NULL;
+    RtlGetVersion_FUNC func = NULL;
     int ret = 1;
-    FILE *fp = _popen("ver", "rb");
-    if (fp == NULL)
-        return ret;
-
-    char buf[1024] = { 0 };
-    fread(buf, sizeof(buf[0]), _countof(buf), fp);
-
-    std::regex pattern(R"((\d+)\.(\d+)\.(\d+))");
-    std::cmatch matches;
-    std::regex_search(buf, matches, pattern);
-    if (matches.size() == 4) {
-        int a = 0, b = 0;
-        if (   1 == sscanf_s(matches[1].str().c_str(), "%d", &a)
-            && 1 == sscanf_s(matches[2].str().c_str(), "%d", &b)) {
-            *major = a;
-            *minor = b;
-            ret = 0;
-        }
+    if (   NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
+        && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
+        func(&osver);
+        *major = osver.dwMajorVersion;
+        *minor = osver.dwMinorVersion;
+        ret = 0;
     }
-    _pclose(fp);
+    if (hModule) {
+        FreeLibrary(hModule);
+    }
     return ret;
 }
 
