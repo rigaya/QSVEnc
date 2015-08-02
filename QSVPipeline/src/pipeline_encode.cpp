@@ -1945,13 +1945,14 @@ CEncodingPipeline::CEncodingPipeline()
     INIT_MFX_EXT_BUFFER(m_CodingOption2,   MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(m_CodingOption3,   MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,    MFX_EXTBUFF_HEVC_PARAM);
-
+    INIT_MFX_EXT_BUFFER(m_ThreadsParam,    MFX_EXTBUFF_THREADS_PARAM);
 
 #if D3D_SURFACES_SUPPORT
     m_hwdev = NULL;
 #endif
     MSDK_ZERO_MEMORY(m_DecInputBitstream);
     
+    MSDK_ZERO_MEMORY(m_InitParam);
     MSDK_ZERO_MEMORY(m_mfxDecParams);
     MSDK_ZERO_MEMORY(m_mfxEncParams);
     MSDK_ZERO_MEMORY(m_mfxVppParams);
@@ -2503,6 +2504,18 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     return MFX_ERR_NONE;
 }
 
+mfxStatus CEncodingPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priority) {
+    INIT_MFX_EXT_BUFFER(m_ThreadsParam, MFX_EXTBUFF_THREADS_PARAM);
+    m_ThreadsParam.NumThread = threads;
+    m_ThreadsParam.Priority = priority;
+    m_pInitParamExtBuf[0] = &m_ThreadsParam.Header;
+
+    MSDK_ZERO_MEMORY(m_InitParam);
+    m_InitParam.ExtParam = m_pInitParamExtBuf;
+    m_InitParam.NumExtParam = 1;
+    return MFX_ERR_NONE;
+}
+
 mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     mfxStatus sts = MFX_ERR_NONE;
     // init session, and set memory type
@@ -2510,6 +2523,23 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     mfxVersion verRequired = MFX_LIB_VERSION_1_1;
     m_mfxSession.Close();
     PrintMes(QSV_LOG_DEBUG, _T("InitSession: Start initilaizing...\n"));
+
+    auto InitSessionEx = [&]() {
+#if ENABLE_SESSION_THREAD_CONFIG
+        if (m_ThreadsParam.NumThread != 0 || m_ThreadsParam.Priority != get_value_from_chr(list_priority, _T("normal"))) {
+            m_InitParam.Implementation = impl;
+            m_InitParam.Version = MFX_LIB_VERSION_1_15;
+            if (MFX_ERR_NONE == m_mfxSession.InitEx(m_InitParam)) {
+                return MFX_ERR_NONE;
+            } else {
+                m_ThreadsParam.NumThread = 0;
+                m_ThreadsParam.Priority = get_value_from_chr(list_priority, _T("normal"));
+            }
+        }
+#endif
+        return m_mfxSession.Init(impl, &verRequired);
+    };
+
     if (useHWLib) {
         // try searching on all display adapters
         impl = MFX_IMPL_HARDWARE_ANY;
@@ -2545,7 +2575,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
                 }
             }
 #endif
-            sts = m_mfxSession.Init(impl, &verRequired);
+            sts = InitSessionEx();
 
             // MSDK API version may not support multiple adapters - then try initialize on the default
             if (MFX_ERR_NONE != sts) {
@@ -2560,7 +2590,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
         PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), (m_memType & D3D11_MEMORY) ? _T("d3d11") : _T("d3d9"));
     } else {
         impl = MFX_IMPL_SOFTWARE;
-        sts = m_mfxSession.Init(impl, &verRequired);
+        sts = InitSessionEx();
         m_memType = SYSTEM_MEMORY;
         PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized with system memory.\n"));
     }
@@ -2583,6 +2613,9 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         pParams->pAVMuxOutputFormat = _T("raw");
         PrintMes(QSV_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
+
+    sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
+    if (sts < MFX_ERR_NONE) return sts;
 
     sts = InitInput(pParams);
     if (sts < MFX_ERR_NONE) return sts;

@@ -157,6 +157,10 @@ protected:
     CEncTaskPool m_TaskPool;
     mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance
 
+    mfxInitParam m_InitParam;
+    mfxExtBuffer *m_pInitParamExtBuf[1];
+    mfxExtThreadsParam m_ThreadsParam;
+
     mfxExtVideoSignalInfo m_VideoSignalInfo;
     mfxExtCodingOption m_CodingOption;
     mfxExtCodingOption2 m_CodingOption2;
@@ -224,6 +228,7 @@ protected:
 
     virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
+    virtual mfxStatus InitSessionInitParam(mfxU16 threads, mfxU16 priority);
     virtual mfxStatus InitInput(sInputParams *pParams);
     virtual mfxStatus InitOutput(sInputParams *pParams);
     virtual mfxStatus InitMfxDecParams();

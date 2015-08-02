@@ -256,7 +256,10 @@ struct sInputParams
     mfxU8      nAudioSelectCount; //pAudioSelectの数
     sAudioSelect **ppAudioSelectList;
 
-    mfxU8      Reserved[1152];
+    mfxU16     nSessionThreads;
+    mfxU16     nSessionThreadPriority;
+
+    mfxU8      Reserved[1148];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -448,6 +451,13 @@ const CX_DESC list_log_level[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_priority[] = {
+    { _T("low"),    MFX_PRIORITY_LOW    },
+    { _T("normal"), MFX_PRIORITY_NORMAL },
+    { _T("high"),   MFX_PRIORITY_HIGH   },
+};
+
+
 static inline const CX_DESC *get_level_list(int CodecID) {
     switch (CodecID) {
         case MFX_CODEC_MPEG2: return list_mpeg2_level;
@@ -616,6 +626,7 @@ const mfxU16 QSV_DEFAULT_SC_SENSITIVITY = 80;
 
 const mfxU16 QSV_DEFAULT_ASYNC_DEPTH = 4;
 const mfxU16 QSV_ASYNC_DEPTH_MAX = 64;
+const mfxU16 QSV_SESSION_THREAD_MAX = 64;
 
 const int QSV_LOOKAHEAD_DEPTH_MIN = 10;
 const int QSV_LOOKAHEAD_DEPTH_MAX = 100;

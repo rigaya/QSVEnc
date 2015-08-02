@@ -179,6 +179,7 @@ void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const PRM_ENC 
 
     prm->bDisableTimerPeriodTuning = !timer_period_tuning;
     prm->nLogLevel = (mfxI16)log_level;
+    prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 }
 
 static DWORD_PTR setThreadAffinityMaskforQSVEnc(DWORD_PTR *mainThreadAffinityMask, DWORD_PTR *subThreadAffinityMask) {

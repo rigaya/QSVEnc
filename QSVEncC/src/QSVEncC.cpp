@@ -256,8 +256,14 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
             _T("   --bluray                     for H.264 bluray encoding\n")
             _T("\n")
-            _T("   --async-depth                set async depth for QSV pipeline. (0-64)\n")
+            _T("   --async-depth                set async depth for QSV pipeline. (0-%d)\n")
             _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
+#if ENABLE_SESSION_THREAD_CONFIG
+            _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
+            _T("                                 default: 0 (=auto)\n")
+            _T("   --session-thread-priority    set thread priority for QSV session.\n")
+            _T("                                  - low, normal(default), high\n")
+#endif
             _T("\n")
             _T("   --vpp-denoise <int>          use vpp denoise, set strength\n")
             _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength\n")
@@ -301,6 +307,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_REF,
             QSV_DEFAULT_BFRAMES,
             QSV_DEFAULT_GOP_LEN,
+            QSV_ASYNC_DEPTH_MAX, QSV_SESSION_THREAD_MAX,
             QSV_DEFAULT_VPP_DELOGO_DEPTH
             );
         _ftprintf(stdout, _T("\n")
@@ -436,6 +443,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
     pParams->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
     pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
+    pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 
     tstring cachedlevel, cachedprofile;
     mfxU32 nParsedAudioFile = 0;
@@ -1431,6 +1439,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             pParams->memType = D3D9_MEMORY;
         }
 #endif //MFX_D3D11_SUPPORT
+#endif //D3D_SURFACES_SUPPORT
         else if (0 == _tcscmp(option_name, _T("async-depth")))
         {
             i++;
@@ -1441,7 +1450,30 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             }
             pParams->nAsyncDepth = (mfxU16)v;
         }
-#endif //D3D_SURFACES_SUPPORT
+#if ENABLE_SESSION_THREAD_CONFIG
+        else if (0 == _tcscmp(option_name, _T("session-threads")))
+        {
+            i++;
+            int v;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_SESSION_THREAD_MAX < v) {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            pParams->nSessionThreads = (mfxU16)v;
+        }
+        else if (0 == _tcscmp(option_name, _T("session-thread-priority"))
+              || 0 == _tcscmp(option_name, _T("session-threads-priority")))
+        {
+            i++;
+            mfxI32 v;
+            if (PARSE_ERROR_FLAG == (v = get_value_from_chr(list_priority, strInput[i]))
+                && 1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_log_level) - 1) {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            pParams->nSessionThreadPriority = (mfxU16)v;
+        }
+#endif
         else if (0 == _tcscmp(option_name, _T("vpp-denoise")))
         {
             i++;
