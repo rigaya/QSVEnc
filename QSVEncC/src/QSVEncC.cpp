@@ -506,7 +506,95 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             PrintVersion();
             return MFX_PRINT_OPTION_DONE;
         }
-        else if (0 == _tcscmp(option_name, _T("output-res")))
+
+        if (0 == _tcscmp(option_name, _T("check-environment")))
+        {
+            PrintVersion();
+
+            TCHAR buffer[4096];
+            getEnviromentInfo(buffer, _countof(buffer));
+            _ftprintf(stdout, buffer);
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-features")))
+        {
+            PrintVersion();
+            TCHAR buffer[4096];
+            getEnviromentInfo(buffer, _countof(buffer), false);
+            _ftprintf(stdout, _T("%s\n"), buffer);
+
+            mfxVersion test = { 0, 1 };
+            for (int impl_type = 0; impl_type < 2; impl_type++) {
+                mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
+                const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
+                if (!check_lib_version(lib, test)) {
+                    _ftprintf(stdout, _T("Media SDK %s unavailable.\n"), impl_str);
+                } else {
+                    _ftprintf(stdout, _T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor);
+                    _ftprintf(stdout, _T("Supported Enc features:\n%s\n\n"), MakeFeatureListStr(0 == impl_type).c_str());
+                    _ftprintf(stdout, _T("Supported Vpp features:\n%s\n\n"), MakeVppFeatureStr(0 == impl_type).c_str());
+                }
+            }
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-hw"))
+              || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
+        {
+            mfxVersion ver = { 0, 1 };
+            if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
+                _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available"));
+                return MFX_PRINT_OPTION_DONE;
+            } else {
+                _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable"));
+                return MFX_PRINT_OPTION_ERR;
+            }
+        }
+        if (0 == _tcscmp(option_name, _T("lib-check"))
+              || 0 == _tcscmp(option_name, _T("check-lib")))
+        {
+            mfxVersion test = { 0, 1 };
+            mfxVersion hwlib = get_mfx_libhw_version();
+            mfxVersion swlib = get_mfx_libsw_version();
+            PrintVersion();
+#ifdef _M_IX86
+            const TCHAR *dll_platform = _T("32");
+#else
+            const TCHAR *dll_platform = _T("64");
+#endif
+            if (check_lib_version(hwlib, test))
+                _ftprintf(stdout, _T("libmfxhw%s.dll : v%d.%d\n"), dll_platform, hwlib.Major, hwlib.Minor);
+            else
+                _ftprintf(stdout, _T("libmfxhw%s.dll : ----\n"), dll_platform);
+            if (check_lib_version(swlib, test))
+                _ftprintf(stdout, _T("libmfxsw%s.dll : v%d.%d\n"), dll_platform, swlib.Major, swlib.Minor);
+            else
+                _ftprintf(stdout, _T("libmfxsw%s.dll : ----\n"), dll_platform);
+            return MFX_PRINT_OPTION_DONE;
+        }
+#if ENABLE_AVCODEC_QSV_READER
+        if (0 == _tcscmp(option_name, _T("check-codecs")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs((AVQSVCodecType)(AVQSV_CODEC_DEC | AVQSV_CODEC_ENC)).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-encoders")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_ENC).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-decoders")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_DEC).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-formats")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+#endif //ENABLE_AVCODEC_QSV_READER
+
+        if (0 == _tcscmp(option_name, _T("output-res")))
         {
             i++;
             if (   2 != _stscanf_s(strInput[i], _T("%hdx%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
@@ -1520,92 +1608,6 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             pParams->pStrLogFile = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pStrLogFile[0]));
             memcpy(pParams->pStrLogFile, strInput[i], sizeof(pParams->pStrLogFile[0]) * filename_len);
         }
-        else if (0 == _tcscmp(option_name, _T("check-environment")))
-        {
-            PrintVersion();
-
-            TCHAR buffer[4096];
-            getEnviromentInfo(buffer, _countof(buffer));
-            _ftprintf(stdout, buffer);
-            return MFX_PRINT_OPTION_DONE;
-        }
-        else if (0 == _tcscmp(option_name, _T("check-features")))
-        {
-            PrintVersion();
-            TCHAR buffer[4096];
-            getEnviromentInfo(buffer, _countof(buffer), false);
-            _ftprintf(stdout, _T("%s\n"), buffer);
-
-            mfxVersion test = { 0, 1 };
-            for (int impl_type = 0; impl_type < 2; impl_type++) {
-                mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
-                const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
-                if (!check_lib_version(lib, test)) {
-                    _ftprintf(stdout, _T("Media SDK %s unavailable.\n"), impl_str);
-                } else {
-                    _ftprintf(stdout, _T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor);
-                    _ftprintf(stdout, _T("Supported Enc features:\n%s\n\n"), MakeFeatureListStr(0 == impl_type).c_str());
-                    _ftprintf(stdout, _T("Supported Vpp features:\n%s\n\n"), MakeVppFeatureStr(0 == impl_type).c_str());
-                }
-            }
-            return MFX_PRINT_OPTION_DONE;
-        }
-        else if (0 == _tcscmp(option_name, _T("check-hw"))
-              || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
-        {
-            mfxVersion ver = { 0, 1 };
-            if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
-                _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available"));
-                return MFX_PRINT_OPTION_DONE;
-            } else {
-                _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable"));
-                return MFX_PRINT_OPTION_ERR;
-            }
-        }
-        else if (0 == _tcscmp(option_name, _T("lib-check"))
-              || 0 == _tcscmp(option_name, _T("check-lib")))
-        {
-            mfxVersion test = { 0, 1 };
-            mfxVersion hwlib = get_mfx_libhw_version();
-            mfxVersion swlib = get_mfx_libsw_version();
-            PrintVersion();
-#ifdef _M_IX86
-            const TCHAR *dll_platform = _T("32");
-#else
-            const TCHAR *dll_platform = _T("64");
-#endif
-            if (check_lib_version(hwlib, test))
-                _ftprintf(stdout, _T("libmfxhw%s.dll : v%d.%d\n"), dll_platform, hwlib.Major, hwlib.Minor);
-            else
-                _ftprintf(stdout, _T("libmfxhw%s.dll : ----\n"), dll_platform);
-            if (check_lib_version(swlib, test))
-                _ftprintf(stdout, _T("libmfxsw%s.dll : v%d.%d\n"), dll_platform, swlib.Major, swlib.Minor);
-            else
-                _ftprintf(stdout, _T("libmfxsw%s.dll : ----\n"), dll_platform);
-            return MFX_PRINT_OPTION_DONE;
-        }
-#if ENABLE_AVCODEC_QSV_READER
-        else if (0 == _tcscmp(option_name, _T("check-codecs")))
-        {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs((AVQSVCodecType)(AVQSV_CODEC_DEC | AVQSV_CODEC_ENC)).c_str());
-            return MFX_PRINT_OPTION_DONE;
-        }
-        else if (0 == _tcscmp(option_name, _T("check-encoders")))
-        {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_ENC).c_str());
-            return MFX_PRINT_OPTION_DONE;
-        }
-        else if (0 == _tcscmp(option_name, _T("check-decoders")))
-        {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_DEC).c_str());
-            return MFX_PRINT_OPTION_DONE;
-        }
-        else if (0 == _tcscmp(option_name, _T("check-formats")))
-        {
-            _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
-            return MFX_PRINT_OPTION_DONE;
-        }
-#endif //ENABLE_AVCODEC_QSV_READER
         else if (0 == _tcscmp(option_name, _T("colormatrix")))
         {
             i++;
