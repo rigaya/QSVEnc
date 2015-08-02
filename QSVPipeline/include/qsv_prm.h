@@ -215,9 +215,8 @@ struct sInputParams
     mfxU16     nTrellis;
 
     TCHAR     *pStrLogFile; //ログファイル名へのポインタ
-#ifdef _M_IX86
-    mfxU32     paddPtr1;
-#endif
+    mfxU16     nAsyncDepth;
+    mfxU16     __unused;
 
     mfxU16     bBPyramid;
     mfxU8      bAdaptiveI;
@@ -241,7 +240,7 @@ struct sInputParams
     mfxU8      nMVCostScaling;
     mfxU8      bDirectBiasAdjust;
     mfxU8      bGlobalMotionAdjust;
-    mfxU8      __unused;
+    mfxU8      __unused2;
     mfxU32     nBitRate;
     mfxU32     nMaxBitrate;
 
@@ -614,6 +613,9 @@ const int QSV_DEFAULT_FORCE_GOP_LEN = 1;
 const mfxU16 QSV_DEFAULT_VQP_STRENGTH = 10;
 const mfxU16 QSV_DEFAULT_VQP_SENSITIVITY = 50;
 const mfxU16 QSV_DEFAULT_SC_SENSITIVITY = 80;
+
+const mfxU16 QSV_DEFAULT_ASYNC_DEPTH = 4;
+const mfxU16 QSV_ASYNC_DEPTH_MAX = 64;
 
 const int QSV_LOOKAHEAD_DEPTH_MIN = 10;
 const int QSV_LOOKAHEAD_DEPTH_MAX = 100;

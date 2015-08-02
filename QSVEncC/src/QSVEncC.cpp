@@ -256,6 +256,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
             _T("   --bluray                     for H.264 bluray encoding\n")
             _T("\n")
+            _T("   --async-depth                set async depth for QSV pipeline. (0-64)\n")
+            _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
+            _T("\n")
             _T("   --vpp-denoise <int>          use vpp denoise, set strength\n")
             _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength\n")
             _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
@@ -1340,6 +1343,16 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             pParams->memType = D3D9_MEMORY;
         }
 #endif //MFX_D3D11_SUPPORT
+        else if (0 == _tcscmp(option_name, _T("async-depth")))
+        {
+            i++;
+            int v;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_ASYNC_DEPTH_MAX < v) {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            pParams->nAsyncDepth = (mfxU16)v;
+        }
 #endif //D3D_SURFACES_SUPPORT
         else if (0 == _tcscmp(option_name, _T("vpp-denoise")))
         {

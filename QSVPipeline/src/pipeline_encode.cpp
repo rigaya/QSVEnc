@@ -2590,9 +2590,6 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     sts = CheckParam(pParams);
     if (sts != MFX_ERR_NONE) return sts;
 
-    // this number can be tuned for better performance
-    m_nAsyncDepth = (m_pFileReader->getInputCodec()) ? 6 : 3;
-
     sts = m_EncThread.Init(pParams->nInputBufSize);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to allocate memory for thread control."));
 
@@ -2677,7 +2674,15 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         PrintMes(QSV_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
         VppExtMes += mes;
     }
-    
+
+    const int nPipelineElements = !!m_pmfxDEC + !!m_pmfxVPP + !!m_pmfxENC + m_VppPrePlugins.size() + m_VppPostPlugins.size();
+    // this number can be tuned for better performance
+    m_nAsyncDepth = pParams->nAsyncDepth;
+    if (m_nAsyncDepth == 0) {
+        m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1) * 2, (int)QSV_ASYNC_DEPTH_MAX);
+        PrintMes(QSV_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
+    }
+
     if (!pParams->bDisableTimerPeriodTuning) {
         m_bTimerPeriodTuning = true;
         timeBeginPeriod(1);
@@ -3966,6 +3971,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     } else {
         PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     }
+    PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);
     PRINT_INFO(    _T("Buffer Memory  %s, %d input buffer, %d work buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer, m_EncResponse.NumFrameActual + m_VppResponse.NumFrameActual + m_DecResponse.NumFrameActual);
     //PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
     //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
