@@ -2676,6 +2676,12 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     }
 
     const int nPipelineElements = !!m_pmfxDEC + !!m_pmfxVPP + !!m_pmfxENC + m_VppPrePlugins.size() + m_VppPostPlugins.size();
+    if (nPipelineElements == 0) {
+        PrintMes(QSV_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    PrintMes(QSV_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
+
     // this number can be tuned for better performance
     m_nAsyncDepth = pParams->nAsyncDepth;
     if (m_nAsyncDepth == 0) {
