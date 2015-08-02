@@ -1481,10 +1481,9 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             if (PARSE_ERROR_FLAG == value) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
-            } else {
-                pParams->vpp.bEnable = true;
-                pParams->vpp.nDeinterlace = (mfxU16)value;
             }
+            pParams->vpp.bEnable = true;
+            pParams->vpp.nDeinterlace = (mfxU16)value;
             if (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
                 i++;
                 if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
