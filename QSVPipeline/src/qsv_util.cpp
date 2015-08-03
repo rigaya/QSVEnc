@@ -1072,7 +1072,7 @@ mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info) {
     }
     strcpy_s(ptr+len, sizeof(buffer)-len, picstruct); len += 3;
     len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->AspectRatioW, info->AspectRatioH);
-    strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += strlen("C420mpeg2\n");
+    strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += (mfxU32)strlen("C420mpeg2\n");
     return (len == fwrite(buffer, 1, len, fp)) ? MFX_ERR_NONE : MFX_ERR_UNDEFINED_BEHAVIOR;
 }
 

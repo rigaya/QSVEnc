@@ -2708,7 +2708,7 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         VppExtMes += mes;
     }
 
-    const int nPipelineElements = !!m_pmfxDEC + !!m_pmfxVPP + !!m_pmfxENC + m_VppPrePlugins.size() + m_VppPostPlugins.size();
+    const int nPipelineElements = !!m_pmfxDEC + !!m_pmfxVPP + !!m_pmfxENC + (int)m_VppPrePlugins.size() + (int)m_VppPostPlugins.size();
     if (nPipelineElements == 0) {
         PrintMes(QSV_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
