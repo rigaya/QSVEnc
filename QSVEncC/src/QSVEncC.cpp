@@ -346,7 +346,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
             _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
             _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
-            _T("   --lookahead-ds <string>      set lookahead quality.\n")
+            _T("   --la-quality <string>        set lookahead quality.\n")
             _T("                                 - auto(default), fast, medium, slow\n")
             );
         _ftprintf(stdout, _T("\n")
@@ -1049,7 +1049,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         {
             pParams->bBPyramid = false;
         }
-        else if (0 == _tcscmp(option_name, _T("lookahead-ds")))
+        else if (0 == _tcscmp(option_name, _T("lookahead-ds"))
+              || 0 == _tcscmp(option_name, _T("la-quality")))
         {
             i++;
             int value = MFX_LOOKAHEAD_DS_UNKNOWN;
