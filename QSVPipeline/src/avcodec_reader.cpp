@@ -289,7 +289,7 @@ void CAvcodecReader::vc1AddFrameHeader(AVPacket *pkt) {
 mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount) {
     mfxStatus sts = MFX_ERR_NONE;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
-    const int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? 256 : 9000;
+    const int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? 256 : 18000;
     const int maxCheckSec = (m_Demux.format.nAnalyzeSec == 0) ? INT_MAX : m_Demux.format.nAnalyzeSec;
     vector<FramePos> framePosList;
     framePosList.reserve(maxCheckFrames);
@@ -339,15 +339,18 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     FramePos firstKeyframePos = { 0 };
     AVPacket pkt;
     auto getTotalDuration =[&]() -> int {
-        if (firstKeyframePos.duration)
+        if (!gotFirstKeyframePos
+            || m_Demux.video.pCodecCtx->pkt_timebase.num == 0
+            || m_Demux.video.pCodecCtx->pkt_timebase.den == 0)
             return 0;
-        int diff = 0;
-        if (pkt.dts != AV_NOPTS_VALUE) {
+        int64_t diff = 0;
+        if (pkt.dts != AV_NOPTS_VALUE && firstKeyframePos.dts != AV_NOPTS_VALUE) {
             diff = (int)(pkt.dts - firstKeyframePos.dts);
-        } else if (pkt.pts != AV_NOPTS_VALUE) {
+        } else if (pkt.pts != AV_NOPTS_VALUE && firstKeyframePos.pts != AV_NOPTS_VALUE) {
             diff = (int)(pkt.pts - firstKeyframePos.pts);
         }
-        return diff * m_Demux.video.pCodecCtx->pkt_timebase.num / m_Demux.video.pCodecCtx->pkt_timebase.den;
+        double timebase = m_Demux.video.pCodecCtx->pkt_timebase.num / (double)m_Demux.video.pCodecCtx->pkt_timebase.den;
+        return (int)((double)diff * timebase + 0.5);
     };
 
     m_Demux.format.nPreReadBufferIdx = UINT32_MAX; //PreReadBufferからの読み込みを禁止にする

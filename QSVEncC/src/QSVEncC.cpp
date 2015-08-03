@@ -678,9 +678,15 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         else if (0 == _tcscmp(option_name, _T("avqsv-analyze")))
         {
             i++;
-            if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nAVDemuxAnalyzeSec)) {
+            int value = 0;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
+            } else if (value < 0) {
+                PrintHelp(strInput[0], _T("avqsv-analyze requires non-negative value."), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            } else {
+                pParams->nAVDemuxAnalyzeSec = (mfxU16)((std::min)(value, USHRT_MAX));
             }
         }
         else if (0 == _tcscmp(option_name, _T("input-file")))
