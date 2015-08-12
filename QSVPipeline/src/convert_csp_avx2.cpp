@@ -118,7 +118,7 @@ void convert_yuy2_to_nv12_avx2(void **dst, void **src, int width, int src_y_pitc
             separate_low_up(y0, y1);
             y3 = y1;
 
-            _mm256_store_si256((__m256i *)(dstYLine + x), y0);
+            _mm256_storeu_si256((__m256i *)(dstYLine + x), y0);
             //-----------1行目終了---------------
 
             //-----------2行目---------------
@@ -127,11 +127,11 @@ void convert_yuy2_to_nv12_avx2(void **dst, void **src, int width, int src_y_pitc
 
             separate_low_up(y0, y1);
 
-            _mm256_store_si256((__m256i *)(dstYLine + dst_y_pitch_byte + x), y0);
+            _mm256_storeu_si256((__m256i *)(dstYLine + dst_y_pitch_byte + x), y0);
             //-----------2行目終了---------------
 
             y1 = _mm256_avg_epu8(y1, y3);  //VUVUVUVUVUVUVUVU
-            _mm256_store_si256((__m256i *)(dstCLine + x), y1);
+            _mm256_storeu_si256((__m256i *)(dstCLine + x), y1);
         }
         srcLine  += src_y_pitch_byte << 1;
         dstYLine += dst_y_pitch_byte << 1;
@@ -180,7 +180,7 @@ void convert_yuy2_to_nv12_i_avx2(void **dst, void **src, int width, int src_y_pi
                 separate_low_up(y0, y1);
                 y3 = y1;
 
-                _mm256_store_si256((__m256i *)(dstYLine + x), y0);
+                _mm256_storeu_si256((__m256i *)(dstYLine + x), y0);
                 //-----------1+i行目終了---------------
 
                 //-----------3+i行目---------------
@@ -189,11 +189,11 @@ void convert_yuy2_to_nv12_i_avx2(void **dst, void **src, int width, int src_y_pi
 
                 separate_low_up(y0, y1);
 
-                _mm256_store_si256((__m256i *)(dstYLine + (dst_y_pitch_byte<<1) + x), y0);
+                _mm256_storeu_si256((__m256i *)(dstYLine + (dst_y_pitch_byte<<1) + x), y0);
                 //-----------3+i行目終了---------------
                 y0 = yuv422_to_420_i_interpolate(y3, y1, i);
 
-                _mm256_store_si256((__m256i *)(dstCLine + x), y0);
+                _mm256_storeu_si256((__m256i *)(dstCLine + x), y0);
             }
             srcLine  += src_y_pitch_byte;
             dstYLine += dst_y_pitch_byte;
