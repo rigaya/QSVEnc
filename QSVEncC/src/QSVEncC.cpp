@@ -796,12 +796,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         }
         else if (0 == _tcscmp(option_name, _T("format")))
         {
-            pParams->nAVMux |= QSVENC_MUX_VIDEO;
             if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
                 i++;
                 const int formatLen = (int)_tcslen(strInput[i]);
                 pParams->pAVMuxOutputFormat = (TCHAR *)realloc(pParams->pAVMuxOutputFormat, sizeof(pParams->pAVMuxOutputFormat[0]) * (formatLen + 1));
                 _tcscpy_s(pParams->pAVMuxOutputFormat, formatLen + 1, strInput[i]);
+                if (0 != _tcsicmp(pParams->pAVMuxOutputFormat, _T("raw"))) {
+                    pParams->nAVMux |= QSVENC_MUX_VIDEO;
+                }
             }
         }
         else if (0 == _tcscmp(option_name, _T("audio-copy"))
