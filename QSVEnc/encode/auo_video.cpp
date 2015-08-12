@@ -230,8 +230,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     if (!check_avcodec_dll() || !conf->vid.afs)
 #endif //ENABLE_AVCODEC_QSV_READER
 
-    sInputParams *Params = &conf->qsv;
-    set_conf_qsvp_prm(Params, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
+    set_conf_qsvp_prm(&conf->qsv, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
 
     std::auto_ptr<CEncodingPipeline> pPipeline;
 
@@ -263,7 +262,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         sts = MFX_ERR_UNKNOWN; //Aviutl(afs)からのフレーム読み込みに失敗
     //QSVEncプロセス開始
     } else if (AUO_RESULT_SUCCESS != set_auo_yuvreader_g_data(oip, conf, pe, jitter)
-            || MFX_ERR_NONE != (sts = pPipeline->Init(Params))) {
+            || MFX_ERR_NONE != (sts = pPipeline->Init(&conf->qsv))) {
         write_mfx_message(sts);
     } else if (MFX_ERR_NONE == (sts = pPipeline->CheckCurrentVideoParam())) {
         if (conf->vid.afs) write_log_auo_line(LOG_INFO, _T("自動フィールドシフト    on"));
@@ -287,7 +286,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                     break;
                 }
 
-                if (MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(Params))) {
+                if (MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(&conf->qsv))) {
                     write_mfx_message(sts);
                     break;
                 }
