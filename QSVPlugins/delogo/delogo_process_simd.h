@@ -192,12 +192,13 @@ static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 
 #else
 #define UNROLL_64BIT (1)
 #endif
-    const mfxU32 align = ((USE_AVX2) ? 32 : 16);
-    const mfxU32 increment = min(step, ((USE_AVX2 || UNROLL_64BIT) ? 256 : 128));
+    const bool use_avx2 = USE_AVX2 && (0 == ((size_t)src & 0x10));
+    const mfxU32 align = ((use_avx2) ? 32 : 16);
+    const mfxU32 increment = min(step, ((use_avx2 || UNROLL_64BIT) ? 256 : 128));
     mfxU8 *src_fin = src + ((ignore_fraction || increment == align) ? width : (width & ~(increment-1)));
     mfxU8 *src_ptr = src, *buf_ptr = buffer;
 #if USE_AVX2
-    if ((size_t)src_ptr & 0x10) {
+    if (!use_avx2) {
 #endif
         for (; src_ptr < src_fin; src_ptr += increment, buf_ptr += increment) {
             __m128i x0, x1, x2, x3, x4, x5, x6, x7;
@@ -265,14 +266,9 @@ static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 
 
     if (!(ignore_fraction || increment == align)) {
         src_fin += width & ~(increment-1);
-        for (; src_ptr < src_fin; src_ptr += align, buf_ptr += align) {
-#if USE_AVX2
-            __m256i y0 = _mm256_stream_load_si256((__m256i *)(src_ptr));
-            _mm256_store_si256((__m256i *)(buf_ptr), y0);
-#else
+        for (; src_ptr < src_fin; src_ptr += 16, buf_ptr += 16) {
             __m128i x0  = _mm_stream_load_si128((__m128i *)(src_ptr));
             _mm_store_si128((__m128i *)(buf_ptr), x0);
-#endif
         }
     }
 }
@@ -284,12 +280,13 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
 #else
     static_assert(step % 16 == 0, "step should be mod16.");
 #endif
-    const mfxU32 align = ((USE_AVX) ? 32 : 16);
-    const mfxU32 increment = min(step, ((USE_AVX) ? 256 : 128));
+    const bool use_avx = USE_AVX && (0 == ((size_t)dst & 0x10));
+    const mfxU32 align = ((use_avx) ? 32 : 16);
+    const mfxU32 increment = min(step, ((use_avx) ? 256 : 128));
     mfxU8 *dst_fin = dst + ((ignore_fraction || increment == align) ? width : (width & ~(increment-1)));
     mfxU8 *dst_ptr = dst, *buf_ptr = buffer;
 #if USE_AVX
-    if ((size_t)dst_ptr & 0x10) {
+    if (!use_avx) {
 #endif
         for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
             __m128i x0, x1, x2, x3, x4, x5, x6, x7;
@@ -335,14 +332,9 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
 #endif
     if (!(ignore_fraction || increment == align)) {
         dst_fin += width & ~(increment-1);
-        for (; dst_ptr < dst_fin; dst_ptr += align, buf_ptr += align) {
-#if USE_AVX
-            __m256 y0 = _mm256_load_ps((float *)(buf_ptr));
-            _mm256_store_ps((float *)(dst_ptr), y0);
-#else
+        for (; dst_ptr < dst_fin; dst_ptr += 16, buf_ptr += 16) {
             __m128i x0 = _mm_load_si128((__m128i *)(buf_ptr));
             _mm_store_si128((__m128i *)(dst_ptr), x0);
-#endif
         }
     }
 }
