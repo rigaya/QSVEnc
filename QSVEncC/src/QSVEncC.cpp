@@ -1994,7 +1994,7 @@ mfxStatus run_benchmark(sInputParams *params) {
     for (int i = 0; MFX_ERR_NONE == sts && !g_signal_abort && list_quality[i].desc; i++) {
         params->nTargetUsage = (mfxU16)list_quality[i].value;
         vector<benchmark_t> benchmark_per_target_usage;
-        for (auto resolution : test_resolution) {
+        for (const auto& resolution : test_resolution) {
             params->nDstWidth = resolution.first;
             params->nDstHeight = resolution.second;
 
@@ -2067,7 +2067,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             fprintf(fp_bench, "Encode Speed (fps)\n");
             fprintf(fp_bench, "TargetUsage");
-            for (auto resolution : test_resolution) {
+            for (const auto& resolution : test_resolution) {
                 fprintf(fp_bench, ",   %dx%d", resolution.first, resolution.second);
             }
             fprintf(fp_bench, "\n");
@@ -2083,7 +2083,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             fprintf(fp_bench, "Bitrate (kbps)\n");
             fprintf(fp_bench, "TargetUsage");
-            for (auto resolution : test_resolution) {
+            for (const auto& resolution : test_resolution) {
                 fprintf(fp_bench, ",   %dx%d", resolution.first, resolution.second);
             }
             fprintf(fp_bench, "\n");
@@ -2098,7 +2098,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             fprintf(fp_bench, "CPU Usage (%%)\n");
             fprintf(fp_bench, "TargetUsage");
-            for (auto resolution : test_resolution) {
+            for (const auto& resolution : test_resolution) {
                 fprintf(fp_bench, ",   %dx%d", resolution.first, resolution.second);
             }
             fprintf(fp_bench, "\n");
