@@ -254,6 +254,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 HEVC : Main\n")
             _T("                                 MPEG2: Simple, Main, High\n")
             _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
+            _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
             _T("   --bluray                     for H.264 bluray encoding\n")
             _T("\n")
             _T("   --async-depth                set async depth for QSV pipeline. (0-%d)\n")
@@ -979,17 +980,25 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 return MFX_PRINT_OPTION_ERR;
             }
         }
-        else if (0 == _tcscmp(option_name, _T("sar")))
+        else if (0 == _tcscmp(option_name, _T("sar"))
+              || 0 == _tcscmp(option_name, _T("dar")))
         {
             i++;
-            if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &pParams->nPAR[0], &pParams->nPAR[1])
-                && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nPAR[0], &pParams->nPAR[1])
-                && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1])
-                && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1])) {
+            int value[2] = { 0 };
+            if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &value[0], &value[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &value[0], &value[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &value[0], &value[1])
+                && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &value[0], &value[1])) {
                 MSDK_ZERO_MEMORY(pParams->nPAR);
                 PrintHelp(strInput[0], _T("Unknown value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
+            if (0 == _tcscmp(option_name, _T("dar"))) {
+                value[0] = -value[0];
+                value[1] = -value[1];
+            }
+            pParams->nPAR[0] = value[0];
+            pParams->nPAR[1] = value[1];
         }
         else if (0 == _tcscmp(option_name, _T("sw")))
         {
