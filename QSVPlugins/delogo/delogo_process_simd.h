@@ -265,7 +265,7 @@ static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 
 #endif
 
     if (!(ignore_fraction || increment == align)) {
-        src_fin += width & ~(increment-1);
+        src_fin += width & (increment-1);
         for (; src_ptr < src_fin; src_ptr += 16, buf_ptr += 16) {
             __m128i x0  = _mm_stream_load_si128((__m128i *)(src_ptr));
             _mm_store_si128((__m128i *)(buf_ptr), x0);
@@ -331,7 +331,7 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
     }
 #endif
     if (!(ignore_fraction || increment == align)) {
-        dst_fin += width & ~(increment-1);
+        dst_fin += width & (increment-1);
         for (; dst_ptr < dst_fin; dst_ptr += 16, buf_ptr += 16) {
             __m128i x0 = _mm_load_si128((__m128i *)(buf_ptr));
             _mm_store_si128((__m128i *)(dst_ptr), x0);
