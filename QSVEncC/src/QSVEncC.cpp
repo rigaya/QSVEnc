@@ -1733,9 +1733,23 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         default: break;
         }
         int value = 0;
-        if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, cachedlevel.c_str()))) {
-            pParams->CodecLevel = (mfxU16)value;
-        } else {
+        bool bParsed = false;
+        if (desc != nullptr) {
+            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, cachedlevel.c_str()))) {
+                pParams->CodecLevel = (mfxU16)value;
+                bParsed = true;
+            } else {
+                double val_float = 0.0;
+                if (1 == _stscanf_s(cachedlevel.c_str(), _T("%lf"), &val_float)) {
+                    value = (int)(val_float * 10 + 0.5);
+                    if (value == desc[get_cx_index(desc, value)].value) {
+                        pParams->CodecLevel = (mfxU16)value;
+                        bParsed = true;
+                    }
+                }
+            }
+        }
+        if (!bParsed) {
             PrintHelp(strInput[0], _T("Unknown value"), _T("level"));
             return MFX_PRINT_OPTION_ERR;
         }
