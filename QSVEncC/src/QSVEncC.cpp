@@ -2122,7 +2122,10 @@ int run(int argc, TCHAR *argv[]) {
     mfxStatus sts = MFX_ERR_NONE;
     sInputParams Params = { 0 };
 
-    sts = ParseInputString(argv, (mfxU8)argc, &Params);
+    vector<TCHAR *> argvCopy(argv, argv + argc);
+    argvCopy.push_back(_T(""));
+
+    sts = ParseInputString(argvCopy.data(), (mfxU8)argc, &Params);
     if (sts >= MFX_PRINT_OPTION_DONE)
         return 0;
 
