@@ -218,10 +218,10 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
     bool opencl_error = false;
     bool intel_error = false;
     if (CL_SUCCESS != (ret = cl_get_func(&cl))) {
-        _tcscpy_s(buffer, buffer_size, _T("Unknown (Failed to load OpenCL.dll)"));
+        _tcscpy_s(buffer, buffer_size, _T("Intel HD Graphics"));
         opencl_error = true;
     } else if (CL_SUCCESS != (ret = cl_get_platform_and_device(VendorName, CL_DEVICE_TYPE_GPU, &data, &cl))) {
-        _stprintf_s(buffer, buffer_size, _T("Unknown (Failed to find %s GPU)"), to_tchar(VendorName).c_str());
+        _stprintf_s(buffer, buffer_size, _T("Intel HD Graphics"), to_tchar(VendorName).c_str());
         opencl_error = true;
     }
 

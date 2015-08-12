@@ -107,12 +107,12 @@ cl_int cl_get_platform_and_device(const char *VendorName, cl_int device_type, cl
     for (auto platform : platform_list) {
         if (checkPlatformForVendor(platform)) {
             if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, 0, NULL, &size))) {
-                _ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
+                //_ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
                 return ret;
             }
             vector<cl_device_id> device_list(size);
             if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, size, &device_list[0], &size))) {
-                _ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
+                //_ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
                 return ret;
             }
             cl_data->platformID = platform;
