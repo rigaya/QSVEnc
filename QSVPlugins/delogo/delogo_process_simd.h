@@ -196,66 +196,73 @@ static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 
     const mfxU32 increment = min(step, ((USE_AVX2 || UNROLL_64BIT) ? 256 : 128));
     mfxU8 *src_fin = src + ((ignore_fraction || increment == align) ? width : (width & ~(increment-1)));
     mfxU8 *src_ptr = src, *buf_ptr = buffer;
-    for (; src_ptr < src_fin; src_ptr += increment, buf_ptr += increment) {
 #if USE_AVX2
-        __m256i y0, y1, y2, y3, y4, y5, y6, y7;
-        if (step >=  32) y0 = _mm256_stream_load_si256((__m256i *)(src_ptr +   0));
-        if (step >=  64) y1 = _mm256_stream_load_si256((__m256i *)(src_ptr +  32));
-        if (step >=  96) y2 = _mm256_stream_load_si256((__m256i *)(src_ptr +  64));
-        if (step >= 128) y3 = _mm256_stream_load_si256((__m256i *)(src_ptr +  96));
-        if (step >= 160) y4 = _mm256_stream_load_si256((__m256i *)(src_ptr + 128));
-        if (step >= 192) y5 = _mm256_stream_load_si256((__m256i *)(src_ptr + 160));
-        if (step >= 224) y6 = _mm256_stream_load_si256((__m256i *)(src_ptr + 192));
-        if (step >= 256) y7 = _mm256_stream_load_si256((__m256i *)(src_ptr + 224));
-        if (step >=  32) _mm256_store_si256((__m256i *)(buf_ptr +   0), y0);
-        if (step >=  64) _mm256_store_si256((__m256i *)(buf_ptr +  32), y1);
-        if (step >=  96) _mm256_store_si256((__m256i *)(buf_ptr +  64), y2);
-        if (step >= 128) _mm256_store_si256((__m256i *)(buf_ptr +  96), y3);
-        if (step >= 160) _mm256_store_si256((__m256i *)(buf_ptr + 128), y4);
-        if (step >= 192) _mm256_store_si256((__m256i *)(buf_ptr + 160), y5);
-        if (step >= 224) _mm256_store_si256((__m256i *)(buf_ptr + 192), y6);
-        if (step >= 256) _mm256_store_si256((__m256i *)(buf_ptr + 224), y7);
-#else //USE_AVX2
-        __m128i x0, x1, x2, x3, x4, x5, x6, x7;
-        if (step >=  16) x0  = _mm_stream_load_si128((__m128i *)(src_ptr +   0));
-        if (step >=  32) x1  = _mm_stream_load_si128((__m128i *)(src_ptr +  16));
-        if (step >=  48) x2  = _mm_stream_load_si128((__m128i *)(src_ptr +  32));
-        if (step >=  64) x3  = _mm_stream_load_si128((__m128i *)(src_ptr +  48));
-        if (step >=  80) x4  = _mm_stream_load_si128((__m128i *)(src_ptr +  64));
-        if (step >=  96) x5  = _mm_stream_load_si128((__m128i *)(src_ptr +  80));
-        if (step >= 112) x6  = _mm_stream_load_si128((__m128i *)(src_ptr +  96));
-        if (step >= 128) x7  = _mm_stream_load_si128((__m128i *)(src_ptr + 112));
-#if UNROLL_64BIT
-        __m128i x8, x9, x10, x11, x12, x13, x14, x15;
-        if (step >= 144) x8  = _mm_stream_load_si128((__m128i *)(src_ptr + 128));
-        if (step >= 160) x9  = _mm_stream_load_si128((__m128i *)(src_ptr + 144));
-        if (step >= 176) x10 = _mm_stream_load_si128((__m128i *)(src_ptr + 160));
-        if (step >= 192) x11 = _mm_stream_load_si128((__m128i *)(src_ptr + 176));
-        if (step >= 208) x12 = _mm_stream_load_si128((__m128i *)(src_ptr + 192));
-        if (step >= 224) x13 = _mm_stream_load_si128((__m128i *)(src_ptr + 208));
-        if (step >= 240) x14 = _mm_stream_load_si128((__m128i *)(src_ptr + 224));
-        if (step >= 256) x15 = _mm_stream_load_si128((__m128i *)(src_ptr + 240));
-#endif //UNROLL_64BIT
-        if (step >=  16) _mm_store_si128((__m128i *)(buf_ptr +   0), x0);
-        if (step >=  32) _mm_store_si128((__m128i *)(buf_ptr +  16), x1);
-        if (step >=  48) _mm_store_si128((__m128i *)(buf_ptr +  32), x2);
-        if (step >=  64) _mm_store_si128((__m128i *)(buf_ptr +  48), x3);
-        if (step >=  80) _mm_store_si128((__m128i *)(buf_ptr +  64), x4);
-        if (step >=  96) _mm_store_si128((__m128i *)(buf_ptr +  80), x5);
-        if (step >= 112) _mm_store_si128((__m128i *)(buf_ptr +  96), x6);
-        if (step >= 128) _mm_store_si128((__m128i *)(buf_ptr + 112), x7);
-#if UNROLL_64BIT
-        if (step >= 128) _mm_store_si128((__m128i *)(buf_ptr + 128), x8);
-        if (step >= 144) _mm_store_si128((__m128i *)(buf_ptr + 144), x9);
-        if (step >= 160) _mm_store_si128((__m128i *)(buf_ptr + 160), x10);
-        if (step >= 176) _mm_store_si128((__m128i *)(buf_ptr + 176), x11);
-        if (step >= 192) _mm_store_si128((__m128i *)(buf_ptr + 192), x12);
-        if (step >= 208) _mm_store_si128((__m128i *)(buf_ptr + 208), x13);
-        if (step >= 224) _mm_store_si128((__m128i *)(buf_ptr + 224), x14);
-        if (step >= 240) _mm_store_si128((__m128i *)(buf_ptr + 240), x15);
-#endif //UNROLL_64BIT
-#endif //USE_AVX2
+    if ((size_t)src_ptr & 0x10) {
+#endif
+        for (; src_ptr < src_fin; src_ptr += increment, buf_ptr += increment) {
+            __m128i x0, x1, x2, x3, x4, x5, x6, x7;
+            if (step >=  16) x0  = _mm_stream_load_si128((__m128i *)(src_ptr +   0));
+            if (step >=  32) x1  = _mm_stream_load_si128((__m128i *)(src_ptr +  16));
+            if (step >=  48) x2  = _mm_stream_load_si128((__m128i *)(src_ptr +  32));
+            if (step >=  64) x3  = _mm_stream_load_si128((__m128i *)(src_ptr +  48));
+            if (step >=  80) x4  = _mm_stream_load_si128((__m128i *)(src_ptr +  64));
+            if (step >=  96) x5  = _mm_stream_load_si128((__m128i *)(src_ptr +  80));
+            if (step >= 112) x6  = _mm_stream_load_si128((__m128i *)(src_ptr +  96));
+            if (step >= 128) x7  = _mm_stream_load_si128((__m128i *)(src_ptr + 112));
+    #if UNROLL_64BIT
+            __m128i x8, x9, x10, x11, x12, x13, x14, x15;
+            if (step >= 144) x8  = _mm_stream_load_si128((__m128i *)(src_ptr + 128));
+            if (step >= 160) x9  = _mm_stream_load_si128((__m128i *)(src_ptr + 144));
+            if (step >= 176) x10 = _mm_stream_load_si128((__m128i *)(src_ptr + 160));
+            if (step >= 192) x11 = _mm_stream_load_si128((__m128i *)(src_ptr + 176));
+            if (step >= 208) x12 = _mm_stream_load_si128((__m128i *)(src_ptr + 192));
+            if (step >= 224) x13 = _mm_stream_load_si128((__m128i *)(src_ptr + 208));
+            if (step >= 240) x14 = _mm_stream_load_si128((__m128i *)(src_ptr + 224));
+            if (step >= 256) x15 = _mm_stream_load_si128((__m128i *)(src_ptr + 240));
+    #endif //UNROLL_64BIT
+            if (step >=  16) _mm_store_si128((__m128i *)(buf_ptr +   0), x0);
+            if (step >=  32) _mm_store_si128((__m128i *)(buf_ptr +  16), x1);
+            if (step >=  48) _mm_store_si128((__m128i *)(buf_ptr +  32), x2);
+            if (step >=  64) _mm_store_si128((__m128i *)(buf_ptr +  48), x3);
+            if (step >=  80) _mm_store_si128((__m128i *)(buf_ptr +  64), x4);
+            if (step >=  96) _mm_store_si128((__m128i *)(buf_ptr +  80), x5);
+            if (step >= 112) _mm_store_si128((__m128i *)(buf_ptr +  96), x6);
+            if (step >= 128) _mm_store_si128((__m128i *)(buf_ptr + 112), x7);
+    #if UNROLL_64BIT
+            if (step >= 128) _mm_store_si128((__m128i *)(buf_ptr + 128), x8);
+            if (step >= 144) _mm_store_si128((__m128i *)(buf_ptr + 144), x9);
+            if (step >= 160) _mm_store_si128((__m128i *)(buf_ptr + 160), x10);
+            if (step >= 176) _mm_store_si128((__m128i *)(buf_ptr + 176), x11);
+            if (step >= 192) _mm_store_si128((__m128i *)(buf_ptr + 192), x12);
+            if (step >= 208) _mm_store_si128((__m128i *)(buf_ptr + 208), x13);
+            if (step >= 224) _mm_store_si128((__m128i *)(buf_ptr + 224), x14);
+            if (step >= 240) _mm_store_si128((__m128i *)(buf_ptr + 240), x15);
+    #endif //UNROLL_64BIT
+        }
+#if USE_AVX2
+    } else {
+        for (; src_ptr < src_fin; src_ptr += increment, buf_ptr += increment) {
+            __m256i y0, y1, y2, y3, y4, y5, y6, y7;
+            if (step >=  32) y0 = _mm256_stream_load_si256((__m256i *)(src_ptr +   0));
+            if (step >=  64) y1 = _mm256_stream_load_si256((__m256i *)(src_ptr +  32));
+            if (step >=  96) y2 = _mm256_stream_load_si256((__m256i *)(src_ptr +  64));
+            if (step >= 128) y3 = _mm256_stream_load_si256((__m256i *)(src_ptr +  96));
+            if (step >= 160) y4 = _mm256_stream_load_si256((__m256i *)(src_ptr + 128));
+            if (step >= 192) y5 = _mm256_stream_load_si256((__m256i *)(src_ptr + 160));
+            if (step >= 224) y6 = _mm256_stream_load_si256((__m256i *)(src_ptr + 192));
+            if (step >= 256) y7 = _mm256_stream_load_si256((__m256i *)(src_ptr + 224));
+            if (step >=  32) _mm256_store_si256((__m256i *)(buf_ptr +   0), y0);
+            if (step >=  64) _mm256_store_si256((__m256i *)(buf_ptr +  32), y1);
+            if (step >=  96) _mm256_store_si256((__m256i *)(buf_ptr +  64), y2);
+            if (step >= 128) _mm256_store_si256((__m256i *)(buf_ptr +  96), y3);
+            if (step >= 160) _mm256_store_si256((__m256i *)(buf_ptr + 128), y4);
+            if (step >= 192) _mm256_store_si256((__m256i *)(buf_ptr + 160), y5);
+            if (step >= 224) _mm256_store_si256((__m256i *)(buf_ptr + 192), y6);
+            if (step >= 256) _mm256_store_si256((__m256i *)(buf_ptr + 224), y7);
+        }
     }
+#endif
+
     if (!(ignore_fraction || increment == align)) {
         src_fin += width & ~(increment-1);
         for (; src_ptr < src_fin; src_ptr += align, buf_ptr += align) {
@@ -281,45 +288,51 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
     const mfxU32 increment = min(step, ((USE_AVX) ? 256 : 128));
     mfxU8 *dst_fin = dst + ((ignore_fraction || increment == align) ? width : (width & ~(increment-1)));
     mfxU8 *dst_ptr = dst, *buf_ptr = buffer;
-    for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
 #if USE_AVX
-        __m256 y0, y1, y2, y3, y4, y5, y6, y7;
-        if (step >=  32) y0 = _mm256_load_ps((float *)(buf_ptr +   0));
-        if (step >=  64) y1 = _mm256_load_ps((float *)(buf_ptr +  32));
-        if (step >=  96) y2 = _mm256_load_ps((float *)(buf_ptr +  64));
-        if (step >= 128) y3 = _mm256_load_ps((float *)(buf_ptr +  96));
-        if (step >= 160) y4 = _mm256_load_ps((float *)(buf_ptr + 128));
-        if (step >= 192) y5 = _mm256_load_ps((float *)(buf_ptr + 160));
-        if (step >= 224) y6 = _mm256_load_ps((float *)(buf_ptr + 192));
-        if (step >= 256) y7 = _mm256_load_ps((float *)(buf_ptr + 224));
-        if (step >=  32) _mm256_store_ps((float *)(dst_ptr +   0), y0);
-        if (step >=  64) _mm256_store_ps((float *)(dst_ptr +  32), y1);
-        if (step >=  96) _mm256_store_ps((float *)(dst_ptr +  64), y2);
-        if (step >= 128) _mm256_store_ps((float *)(dst_ptr +  96), y3);
-        if (step >= 160) _mm256_store_ps((float *)(dst_ptr + 128), y4);
-        if (step >= 192) _mm256_store_ps((float *)(dst_ptr + 160), y5);
-        if (step >= 224) _mm256_store_ps((float *)(dst_ptr + 192), y6);
-        if (step >= 256) _mm256_store_ps((float *)(dst_ptr + 224), y7);
-#else //USE_AVX
-        __m128i x0, x1, x2, x3, x4, x5, x6, x7;
-        if (step >=  16) x0 = _mm_load_si128((__m128i *)(buf_ptr +   0));
-        if (step >=  32) x1 = _mm_load_si128((__m128i *)(buf_ptr +  16));
-        if (step >=  48) x2 = _mm_load_si128((__m128i *)(buf_ptr +  32));
-        if (step >=  64) x3 = _mm_load_si128((__m128i *)(buf_ptr +  48));
-        if (step >=  80) x4 = _mm_load_si128((__m128i *)(buf_ptr +  64));
-        if (step >=  96) x5 = _mm_load_si128((__m128i *)(buf_ptr +  80));
-        if (step >= 112) x6 = _mm_load_si128((__m128i *)(buf_ptr +  96));
-        if (step >= 128) x7 = _mm_load_si128((__m128i *)(buf_ptr + 112));
-        if (step >=  16) _mm_store_si128((__m128i *)(dst_ptr +   0), x0);
-        if (step >=  32) _mm_store_si128((__m128i *)(dst_ptr +  16), x1);
-        if (step >=  48) _mm_store_si128((__m128i *)(dst_ptr +  32), x2);
-        if (step >=  64) _mm_store_si128((__m128i *)(dst_ptr +  48), x3);
-        if (step >=  80) _mm_store_si128((__m128i *)(dst_ptr +  64), x4);
-        if (step >=  96) _mm_store_si128((__m128i *)(dst_ptr +  80), x5);
-        if (step >= 112) _mm_store_si128((__m128i *)(dst_ptr +  96), x6);
-        if (step >= 128) _mm_store_si128((__m128i *)(dst_ptr + 112), x7);
-#endif //USE_AVX
+    if ((size_t)dst_ptr & 0x10) {
+#endif
+        for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
+            __m128i x0, x1, x2, x3, x4, x5, x6, x7;
+            if (step >=  16) x0 = _mm_load_si128((__m128i *)(buf_ptr +   0));
+            if (step >=  32) x1 = _mm_load_si128((__m128i *)(buf_ptr +  16));
+            if (step >=  48) x2 = _mm_load_si128((__m128i *)(buf_ptr +  32));
+            if (step >=  64) x3 = _mm_load_si128((__m128i *)(buf_ptr +  48));
+            if (step >=  80) x4 = _mm_load_si128((__m128i *)(buf_ptr +  64));
+            if (step >=  96) x5 = _mm_load_si128((__m128i *)(buf_ptr +  80));
+            if (step >= 112) x6 = _mm_load_si128((__m128i *)(buf_ptr +  96));
+            if (step >= 128) x7 = _mm_load_si128((__m128i *)(buf_ptr + 112));
+            if (step >=  16) _mm_store_si128((__m128i *)(dst_ptr +   0), x0);
+            if (step >=  32) _mm_store_si128((__m128i *)(dst_ptr +  16), x1);
+            if (step >=  48) _mm_store_si128((__m128i *)(dst_ptr +  32), x2);
+            if (step >=  64) _mm_store_si128((__m128i *)(dst_ptr +  48), x3);
+            if (step >=  80) _mm_store_si128((__m128i *)(dst_ptr +  64), x4);
+            if (step >=  96) _mm_store_si128((__m128i *)(dst_ptr +  80), x5);
+            if (step >= 112) _mm_store_si128((__m128i *)(dst_ptr +  96), x6);
+            if (step >= 128) _mm_store_si128((__m128i *)(dst_ptr + 112), x7);
+        }
+#if USE_AVX
+    } else {
+        for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
+            __m256 y0, y1, y2, y3, y4, y5, y6, y7;
+            if (step >=  32) y0 = _mm256_loadu_ps((float *)(buf_ptr +   0));
+            if (step >=  64) y1 = _mm256_loadu_ps((float *)(buf_ptr +  32));
+            if (step >=  96) y2 = _mm256_loadu_ps((float *)(buf_ptr +  64));
+            if (step >= 128) y3 = _mm256_loadu_ps((float *)(buf_ptr +  96));
+            if (step >= 160) y4 = _mm256_loadu_ps((float *)(buf_ptr + 128));
+            if (step >= 192) y5 = _mm256_loadu_ps((float *)(buf_ptr + 160));
+            if (step >= 224) y6 = _mm256_loadu_ps((float *)(buf_ptr + 192));
+            if (step >= 256) y7 = _mm256_loadu_ps((float *)(buf_ptr + 224));
+            if (step >=  32) _mm256_store_ps((float *)(dst_ptr +   0), y0);
+            if (step >=  64) _mm256_store_ps((float *)(dst_ptr +  32), y1);
+            if (step >=  96) _mm256_store_ps((float *)(dst_ptr +  64), y2);
+            if (step >= 128) _mm256_store_ps((float *)(dst_ptr +  96), y3);
+            if (step >= 160) _mm256_store_ps((float *)(dst_ptr + 128), y4);
+            if (step >= 192) _mm256_store_ps((float *)(dst_ptr + 160), y5);
+            if (step >= 224) _mm256_store_ps((float *)(dst_ptr + 192), y6);
+            if (step >= 256) _mm256_store_ps((float *)(dst_ptr + 224), y7);
+        }
     }
+#endif
     if (!(ignore_fraction || increment == align)) {
         dst_fin += width & ~(increment-1);
         for (; dst_ptr < dst_fin; dst_ptr += align, buf_ptr += align) {

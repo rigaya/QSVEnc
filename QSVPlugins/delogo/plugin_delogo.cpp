@@ -304,7 +304,7 @@ mfxStatus Delogo::Init(mfxVideoParam *mfxParam) {
     }
 
     for (mfxU32 i = 0; i < m_sTasks.size(); i++) {
-        m_sTasks[i].pBuffer.reset((mfxU8 *)_aligned_malloc(((std::max)(mfxParam->mfx.FrameInfo.Width, mfxParam->mfx.FrameInfo.CropW) + 255) & ~255, 32));
+        m_sTasks[i].pBuffer.reset((mfxU8 *)_aligned_malloc(((std::max)(mfxParam->mfx.FrameInfo.Width, mfxParam->mfx.FrameInfo.CropW) + 255 + 16) & ~255, 32));
         if (m_sTasks[i].pBuffer.get() == nullptr) {
             m_message += _T("failed to allocate buffer.\n");
             return MFX_ERR_NULL_PTR;
