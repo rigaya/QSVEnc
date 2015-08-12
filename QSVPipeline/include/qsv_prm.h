@@ -585,13 +585,13 @@ static int get_cx_index(const CX_DESC * list, int v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return i;
-    return -1;
+    return 0;
 }
 static int get_cx_index(const CX_DESC * list, const TCHAR *chr) {
     for (int i = 0; list[i].desc; i++)
         if (0 == _tcsicmp(list[i].desc, chr))
             return i;
-    return -1;
+    return 0;
 }
 
 static int PARSE_ERROR_FLAG = INT_MIN;
