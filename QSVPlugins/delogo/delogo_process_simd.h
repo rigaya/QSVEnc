@@ -195,7 +195,7 @@ static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 
     const bool use_avx2 = USE_AVX2 && (0 == ((size_t)src & 0x10));
     const mfxU32 align = ((use_avx2) ? 32 : 16);
     const mfxU32 increment = min(step, ((use_avx2 || UNROLL_64BIT) ? 256 : 128));
-    mfxU8 *src_fin = src + ((ignore_fraction || increment == align) ? width : (width & ~(increment-1)));
+    mfxU8 *src_fin = src + ((increment == align || ignore_fraction) ? width : (width & ~(increment-1)));
     mfxU8 *src_ptr = src, *buf_ptr = buffer;
 #if USE_AVX2
     if (!use_avx2) {
@@ -283,7 +283,7 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
     const bool use_avx = USE_AVX && (0 == ((size_t)dst & 0x10));
     const mfxU32 align = ((use_avx) ? 32 : 16);
     const mfxU32 increment = min(step, ((use_avx) ? 256 : 128));
-    mfxU8 *dst_fin = dst + ((ignore_fraction || increment == align) ? width : (width & ~(increment-1)));
+    mfxU8 *dst_fin = dst + ((increment == align || ignore_fraction) ? width : (width & ~(increment-1)));
     mfxU8 *dst_ptr = dst, *buf_ptr = buffer;
 #if USE_AVX
     if (!use_avx) {
