@@ -240,7 +240,7 @@ struct sInputParams
     mfxU8      nMVCostScaling;
     mfxU8      bDirectBiasAdjust;
     mfxU8      bGlobalMotionAdjust;
-    mfxU8      __unused2;
+    mfxU8      bUseFixedFunc;
     mfxU32     nBitRate;
     mfxU32     nMaxBitrate;
 

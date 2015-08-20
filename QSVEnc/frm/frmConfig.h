@@ -848,6 +848,7 @@ private: System::Windows::Forms::Label^  fcgLBBatBeforeAudioPath;
 private: System::Windows::Forms::CheckBox^  fcgCBRunBatBeforeAudio;
 private: System::Windows::Forms::ComboBox^  fcgCXAudioPriority;
 private: System::Windows::Forms::Label^  fcgLBAudioPriority;
+private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
 
 
 
@@ -1246,6 +1247,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
+            this->fcgCBFixedFunc = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1356,7 +1358,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             this->fcgTSSettings->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSSettings.Image")));
             this->fcgTSSettings->ImageTransparentColor = System::Drawing::Color::Magenta;
             this->fcgTSSettings->Name = L"fcgTSSettings";
-            this->fcgTSSettings->Size = System::Drawing::Size(79, 22);
+            this->fcgTSSettings->Size = System::Drawing::Size(81, 22);
             this->fcgTSSettings->Text = L"プリセット";
             this->fcgTSSettings->DropDownItemClicked += gcnew System::Windows::Forms::ToolStripItemClickedEventHandler(this, &frmConfig::fcgTSSettings_DropDownItemClicked);
             this->fcgTSSettings->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSSettings_Click);
@@ -1369,7 +1371,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             this->fcgTSBBitrateCalc->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBBitrateCalc.Image")));
             this->fcgTSBBitrateCalc->ImageTransparentColor = System::Drawing::Color::Magenta;
             this->fcgTSBBitrateCalc->Name = L"fcgTSBBitrateCalc";
-            this->fcgTSBBitrateCalc->Size = System::Drawing::Size(97, 22);
+            this->fcgTSBBitrateCalc->Size = System::Drawing::Size(96, 22);
             this->fcgTSBBitrateCalc->Text = L"ビットレート計算機";
             this->fcgTSBBitrateCalc->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgTSBBitrateCalc_CheckedChanged);
             // 
@@ -2077,6 +2079,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCBFixedFunc);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSizeAuto);
             this->tabPageVideoEnc->Controls->Add(this->fcgNUWinBRCSize);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSize);
@@ -3077,7 +3080,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             // fcgCBHWEncode
             // 
             this->fcgCBHWEncode->AutoSize = true;
-            this->fcgCBHWEncode->Location = System::Drawing::Point(17, 11);
+            this->fcgCBHWEncode->Location = System::Drawing::Point(9, 11);
             this->fcgCBHWEncode->Name = L"fcgCBHWEncode";
             this->fcgCBHWEncode->Size = System::Drawing::Size(217, 18);
             this->fcgCBHWEncode->TabIndex = 0;
@@ -3812,12 +3815,12 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             this->fcgCSExeFiles->ImageScalingSize = System::Drawing::Size(18, 18);
             this->fcgCSExeFiles->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(1) { this->fcgTSExeFileshelp });
             this->fcgCSExeFiles->Name = L"fcgCSx264";
-            this->fcgCSExeFiles->Size = System::Drawing::Size(132, 26);
+            this->fcgCSExeFiles->Size = System::Drawing::Size(131, 26);
             // 
             // fcgTSExeFileshelp
             // 
             this->fcgTSExeFileshelp->Name = L"fcgTSExeFileshelp";
-            this->fcgTSExeFileshelp->Size = System::Drawing::Size(131, 22);
+            this->fcgTSExeFileshelp->Size = System::Drawing::Size(130, 22);
             this->fcgTSExeFileshelp->Text = L"helpを表示";
             this->fcgTSExeFileshelp->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSExeFileshelp_Click);
             // 
@@ -4257,6 +4260,17 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
             this->fcgLBAudioPriority->Size = System::Drawing::Size(62, 14);
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
+            // 
+            // fcgCBFixedFunc
+            // 
+            this->fcgCBFixedFunc->AutoSize = true;
+            this->fcgCBFixedFunc->Location = System::Drawing::Point(242, 11);
+            this->fcgCBFixedFunc->Name = L"fcgCBFixedFunc";
+            this->fcgCBFixedFunc->Size = System::Drawing::Size(80, 18);
+            this->fcgCBFixedFunc->TabIndex = 154;
+            this->fcgCBFixedFunc->Tag = L"chValue";
+            this->fcgCBFixedFunc->Text = L"FixedFunc";
+            this->fcgCBFixedFunc->UseVisualStyleBackColor = true;
             // 
             // frmConfig
             // 

@@ -711,6 +711,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         CHECK_FEATURE(cop3.EnableMBQP,                 cop3Out.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.DirectBiasAdjustment,       cop3Out.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, cop3Out.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+        CHECK_FEATURE(videoPrm.mfx.LowPower,     videoPrmOut.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
 #undef PICTYPE
 #pragma warning(pop)
         //付随オプション
@@ -1048,6 +1049,14 @@ const TCHAR *get_err_mes(int sts) {
         case MFX_WRN_VALUE_NOT_CHANGED:        return _T("the value is saturated based on its valid range.");
         case MFX_WRN_OUT_OF_RANGE:             return _T("the value is out of valid range.");
         default:                               return _T("unknown error."); 
+    }
+}
+
+const TCHAR *get_low_power_str(mfxU16 LowPower) {
+    switch (LowPower) {
+    case MFX_CODINGOPTION_OFF: return _T(" PG");
+    case MFX_CODINGOPTION_ON:  return _T(" FF");
+    default: return _T("");
     }
 }
 

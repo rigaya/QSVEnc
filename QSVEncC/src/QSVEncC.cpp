@@ -232,6 +232,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
             _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
             _T("                                  and set the window size in frames.\n")
+            _T("   --fixed-func                 use fixed function instead of GPU EU(default:off)\n")
             _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
             _T("-u,--quality <string>           encode quality\n")
             _T("                                  - best, higher, high, balanced(default)\n")
@@ -1254,6 +1255,14 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         //    }
         //    pParams->nAVBRAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
         //}
+        else if (0 == _tcscmp(option_name, _T("fixed-func")))
+        {
+            pParams->bUseFixedFunc = true;
+        }
+        else if (0 == _tcscmp(option_name, _T("no-fixed-func")))
+        {
+            pParams->bUseFixedFunc = false;
+        }
         else if (0 == _tcscmp(option_name, _T("ref")))
         {
             i++;

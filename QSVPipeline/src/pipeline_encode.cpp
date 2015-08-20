@@ -586,6 +586,10 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         pInParams->bGlobalMotionAdjust = 0;
         pInParams->nMVCostScaling = 0;
     }
+    if (pInParams->bUseFixedFunc && !(availableFeaures & ENC_FEATURE_FIXED_FUNC)) {
+        print_feature_warnings(QSV_LOG_WARN, _T("Fixed Func"));
+        pInParams->bUseFixedFunc = 0;
+    }
     if (!(availableFeaures & ENC_FEATURE_VUI_INFO)) {
         if (pInParams->bFullrange) {
             print_feature_warnings(QSV_LOG_WARN, _T("fullrange"));
@@ -703,6 +707,9 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
             //CBR, VBR
             m_mfxEncParams.mfx.MaxKbps         = (mfxU16)pInParams->nMaxBitrate;
         }
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
+        m_mfxEncParams.mfx.LowPower = (mfxU16)((pInParams->bUseFixedFunc) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     }
     m_mfxEncParams.mfx.TargetUsage             = pInParams->nTargetUsage; // trade-off between quality and speed
 
@@ -4007,7 +4014,8 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     if (Check_HWUsed(impl)) {
         static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
         mfxU32 iGPUID = MSDKAdapter::GetNumber(m_mfxSession);
-        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder), %d%s GPU, API v%d.%d\n"), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
+        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU, API v%d.%d\n"),
+            get_low_power_str(videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
     } else {
         PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     }

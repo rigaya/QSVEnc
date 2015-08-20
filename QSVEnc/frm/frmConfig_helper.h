@@ -275,6 +275,7 @@ namespace QSVEnc {
         System::Void GenerateTable(mfxU32 codecId) {
             static const FEATURE_DESC list_enc_feature_jp[] = {
                 { _T("モード有効      "), ENC_FEATURE_CURRENT_RC             },
+                { _T("完全HWモード    "), ENC_FEATURE_FIXED_FUNC             },
                 { _T("インタレ保持    "), ENC_FEATURE_INTERLACE              },
                 { _T("シーンチェンジ  "), ENC_FEATURE_SCENECHANGE            },
                 { _T("色設定等出力    "), ENC_FEATURE_VUI_INFO               },

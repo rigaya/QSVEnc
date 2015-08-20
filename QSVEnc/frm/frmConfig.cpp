@@ -823,6 +823,10 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
     if (!fcgCXMVCostScaling->Enabled)    fcgCXMVCostScaling->SelectedIndex = 0;
     if (!fcgCBDirectBiasAdjust->Enabled) fcgCBDirectBiasAdjust->Checked = false;
 
+    //API v1.15 features
+    fcgCBFixedFunc->Enabled        = 0 != (available_features & ENC_FEATURE_FIXED_FUNC);
+    if (!fcgCBFixedFunc->Enabled) fcgCBFixedFunc->Checked = false;
+
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 }
@@ -1113,7 +1117,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level, cnf->qsv.CodecLevel));
     SetCXIndex(fcgCXCodecProfile, get_cx_index(list_avc_profile, cnf->qsv.CodecProfile));
     if (fcgCBHWEncode->Enabled)
-        fcgCBHWEncode->Checked =  cnf->qsv.bUseHWLib;
+        fcgCBHWEncode->Checked  = cnf->qsv.bUseHWLib;
+    if (fcgCBFixedFunc->Enabled)
+        fcgCBFixedFunc->Checked = cnf->qsv.bUseFixedFunc != 0;
     if (fcgCBD3DMemAlloc->Enabled)
         fcgCBD3DMemAlloc->Checked = cnf->qsv.memType != SYSTEM_MEMORY;
     SetNUValue(fcgNUAVBRAccuarcy, cnf->qsv.nAVBRAccuarcy / Convert::ToDecimal(10.0));
@@ -1253,6 +1259,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.bExtBRC                = fcgCBExtBRC->Checked;
     cnf->qsv.nWinBRCSize            = (mfxU16)fcgNUWinBRCSize->Value;
     cnf->qsv.bUseHWLib              = fcgCBHWEncode->Checked;
+    cnf->qsv.bUseFixedFunc          = fcgCBFixedFunc->Checked;
     cnf->qsv.memType                = (mfxU8)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
     cnf->qsv.nAVBRAccuarcy          = (mfxU16)(fcgNUAVBRAccuarcy->Value * 10);
     cnf->qsv.nAVBRConvergence       = (mfxU16)fcgNUAVBRConvergence->Value;

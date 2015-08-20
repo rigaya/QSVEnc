@@ -252,6 +252,7 @@ enum : uint64_t {
     ENC_FEATURE_PERMBQP                = 0x0000000020000000,
     ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x0000000040000000,
     ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x0000000080000000,
+    ENC_FEATURE_FIXED_FUNC             = 0x0000000100000000,
 };
 
 enum : uint64_t {
@@ -284,6 +285,7 @@ static const CX_DESC list_rate_control_ry[] = {
 };
 static const FEATURE_DESC list_enc_feature[] = {
     { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
+    { _T("Fixed Func   "), ENC_FEATURE_FIXED_FUNC             },
     { _T("Interlace    "), ENC_FEATURE_INTERLACE              },
     { _T("SceneChange  "), ENC_FEATURE_SCENECHANGE            },
     { _T("VUI info     "), ENC_FEATURE_VUI_INFO               },
@@ -356,6 +358,8 @@ mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
 mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info);
 
 const TCHAR *get_err_mes(int sts);
+
+const TCHAR *get_low_power_str(mfxU16 LowPower);
 
 mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size);
 
