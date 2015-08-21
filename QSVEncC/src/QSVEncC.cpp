@@ -33,22 +33,24 @@
 tstring getAVQSVSupportedCodecList();
 #endif
 
-static void PrintVersion() {
+static tstring GetQSVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
-#ifdef _M_IX86
-    _ftprintf(stdout, _T("QSVEncC (x86) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
-#else
-    _ftprintf(stdout, _T("QSVEncC (x64) %s by rigaya, build %s %s\n"), VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
-#endif
-    _ftprintf(stdout, _T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
-    _ftprintf(stdout, _T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
-    _ftprintf(stdout, _T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
-    _ftprintf(stdout, _T("  vpy reader:   %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
-    _ftprintf(stdout, _T("  avqsv reader: %s"),   ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
+    tstring version;
+    version += strsprintf(_T("QSVEncC (%s) %s by rigaya, build %s %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
+    version += strsprintf(_T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
+    version += strsprintf(_T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
+    version += strsprintf(_T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
+    version += strsprintf(_T("  vpy reader:   %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
+    version += strsprintf(_T("  avqsv reader: %s"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
 #if ENABLE_AVCODEC_QSV_READER
-    _ftprintf(stdout, _T(" [%s]"), getAVQSVSupportedCodecList().c_str());
+    version += strsprintf(_T(" [%s]"), getAVQSVSupportedCodecList().c_str());
 #endif
-    _ftprintf(stdout, _T("\n\n"));
+    version += _T("\n\n");
+    return version;
+}
+
+static void PrintVersion() {
+    _ftprintf(stdout, _T("%s"), GetQSVEncVersion().c_str());
 }
 
 //適当に改行しながら表示する
@@ -179,7 +181,12 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --sw                         use software encoding, instead of QSV (hw)\n")
             _T("   --check-hw                   check if QuickSyncVideo is available\n")
             _T("   --check-lib                  check lib API version installed\n")
-            _T("   --check-features             check encode features\n")
+            _T("   --check-features [<string>]  check encode/vpp features\n")
+            _T("                                 with no option value, result will be written to stdout,\n")
+            _T("                                 otherwise it will be written to file path set,\n")
+            _T("                                 and afterwards will be opened by default application.\n")
+            _T("                                 when writing to file, txt/html/csv format is available,\n")
+            _T("                                 chosen by the extension of the output file.\n")
             _T("   --check-environment          check environment info\n")
 #if ENABLE_AVCODEC_QSV_READER
             _T("   --check-codecs               show codecs available\n")
@@ -409,6 +416,151 @@ static int getFreeAudioTrack(const sInputParams* pParams) {
     }
 }
 
+static int writeFeatureList(tstring filename) {
+    static const tstring header =
+        _T("<!DOCTYPE html>\n")
+        _T("<html lang = \"ja\">\n")
+        _T("<head>\n")
+        _T("<meta charset = \"UTF-8\">\n")
+        _T("<title>QSVEncC Check Features</title>\n")
+        _T("<style type=text/css>\n")
+        _T("   body { \n")
+        _T("        font-family: \"Segoe UI\",\"Meiryo UI\", \"ＭＳ ゴシック\", sans-serif;\n")
+        _T("        background: #eeeeee;\n")
+        _T("        margin: 0px 20px 20px;\n")
+        _T("        padding: 0px;\n")
+        _T("        color: #223377;\n")
+        _T("   }\n")
+        _T("   div {\n")
+        _T("       background-color: #ffffff;\n")
+        _T("       border: 1px solid #aaaaaa;\n")
+        _T("       padding: 15px;\n")
+        _T("   }\n")
+        _T("   h1 {\n")
+        _T("       text-shadow: 0 0 6px #000;\n")
+        _T("       color: #CEF6F5;\n")
+        _T("       background: #0B173B;\n")
+        _T("       background: -moz-linear-gradient(top,  #0b173b 0%%, #2167b2 50%%, #155287 52%%, #2d7d91 100%%);\n")
+        _T("       background: -webkit-linear-gradient(top,  #0b173b 0%%,#2167b2 50%%,#155287 52%%,#2d7d91 100%%);\n")
+        _T("       background: -ms-linear-gradient(top,  #0b173b 0%%,#2167b2 50%%,#155287 52%%,#2d7d91 100%%);\n")
+        _T("       background: linear-gradient(to bottom,  #0b173b 0%%,#2167b2 50%%,#155287 52%%,#2d7d91 100%%);\n")
+        _T("       border-collapse: collapse;\n")
+        _T("       border: 0px;\n")
+        _T("       margin: 0px;\n")
+        _T("       padding: 10px;\n")
+        _T("       border-spacing: 0px;\n")
+        _T("       font-family: \"Segoe UI\", \"Meiryo UI\", \"ＭＳ ゴシック\", sans-serif;\n")
+        _T("   }\n")
+        _T("    table.simpleOrange {\n")
+        _T("        background-color: #ff9951;\n")
+        _T("        border-collapse: collapse;\n")
+        _T("        border: 0px;\n")
+        _T("        border-spacing: 0px;\n")
+        _T("    }\n")
+        _T("    table.simpleOrange th,\n")
+        _T("    table.simpleOrange td {\n")
+        _T("        background-color: #ffffff;\n")
+        _T("        padding: 2px 10px;\n")
+        _T("        border: 1px solid #ff9951;\n")
+        _T("        color: #223377;\n")
+        _T("        margin: 10px;\n")
+        _T("        font-size: small;\n")
+        _T("        font-family: \"Segoe UI\",\"Meiryo UI\",\"ＭＳ ゴシック\",sans-serif;\n")
+        _T("    }\n")
+        _T("    table.simpleOrange td.ok {\n")
+        _T("        background-color: #A9F5A9;\n")
+        _T("        border: 1px solid #ff9951;\n")
+        _T("        tex-align: center;\n")
+        _T("        color: #223377;\n")
+        _T("        font-size: small;\n")
+        _T("    }\n")
+        _T("    table.simpleOrange td.fail {\n")
+        _T("        background-color: #F5A9A9;\n")
+        _T("        border: 1px solid #ff9951;\n")
+        _T("        tex-align: center;\n")
+        _T("        color: #223377;\n")
+        _T("        font-size: small;\n")
+        _T("    }\n")
+        _T("</style>\n")
+        _T("</head>\n")
+        _T("<body>\n");
+
+    DWORD codepage = CP_THREAD_ACP;
+    FeatureListStrType type = FEATURE_LIST_STR_TYPE_TXT;
+    if (check_ext(filename.c_str(), { ".html", ".htm" })) {
+        type = FEATURE_LIST_STR_TYPE_HTML;
+        codepage = CP_UTF8;
+    } else if (check_ext(filename.c_str(), { ".csv" })) {
+        type = FEATURE_LIST_STR_TYPE_CSV;
+    }
+
+    FILE *fp = stdout;
+    if (filename.length()) {
+        if (_tfopen_s(&fp, filename.c_str(), _T("w"))) {
+            return 1;
+        }
+    }
+
+    auto print_tstring = [&](tstring str, bool html_replace) {
+        if (type == FEATURE_LIST_STR_TYPE_TXT) {
+            _ftprintf(fp, str.c_str());
+        } else if (type == FEATURE_LIST_STR_TYPE_CSV) {
+            fprintf(fp, tchar_to_string(str, codepage).c_str());
+        } else {
+            if (html_replace) {
+                str = str_replace(str, _T("<"),  _T("&lt;"));
+                str = str_replace(str, _T(">"),  _T("&gt;"));
+                str = str_replace(str, _T("\n"), _T("<br>\n"));
+            }
+            fprintf(fp, tchar_to_string(str, codepage).c_str());
+        }
+    };
+
+
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        print_tstring(header, false);
+        print_tstring(_T("<h1>QSVEncC Check Features</h1>\n<div>\n"), false);
+    }
+
+    print_tstring(GetQSVEncVersion(), true);
+
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        print_tstring(_T("<hr>\n"), false);
+    }
+    TCHAR buffer[4096];
+    getEnviromentInfo(buffer, _countof(buffer), false);
+    print_tstring(buffer, true);
+
+    mfxVersion test = { 0, 1 };
+    for (int impl_type = 0; impl_type < 2; impl_type++) {
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            print_tstring(_T("<hr>\n"), false);
+        }
+        mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
+        const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
+        if (!check_lib_version(lib, test)) {
+            print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
+        } else {
+            print_tstring(strsprintf(_T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor), true);
+            print_tstring(_T("Supported Enc features:\n"), true);
+            print_tstring(strsprintf(_T("%s\n\n"), MakeFeatureListStr(0 == impl_type, type)), false);
+            print_tstring(_T("Supported Vpp features:\n"), true);
+            print_tstring(strsprintf(_T("%s\n\n"), MakeVppFeatureStr(0 == impl_type, type)), false);
+        }
+    }
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        print_tstring(_T("</div>\n</body>\n</html>"), false);
+    }
+    if (filename.length() && fp) {
+        fclose(fp);
+        TCHAR exePath[1024] = { 0 };
+        if (32 <= (size_t)FindExecutable(filename.c_str(), nullptr, exePath) && _tcslen(exePath) && PathFileExists(exePath)) {
+            ShellExecute(NULL, _T("open"), filename.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    }
+    return 0;
+}
+
 mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pParams)
 {
     TCHAR* strArgument = _T("");
@@ -528,23 +680,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
         }
         if (0 == _tcscmp(option_name, _T("check-features")))
         {
-            PrintVersion();
-            TCHAR buffer[4096];
-            getEnviromentInfo(buffer, _countof(buffer), false);
-            _ftprintf(stdout, _T("%s\n"), buffer);
-
-            mfxVersion test = { 0, 1 };
-            for (int impl_type = 0; impl_type < 2; impl_type++) {
-                mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
-                const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
-                if (!check_lib_version(lib, test)) {
-                    _ftprintf(stdout, _T("Media SDK %s unavailable.\n"), impl_str);
-                } else {
-                    _ftprintf(stdout, _T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor);
-                    _ftprintf(stdout, _T("Supported Enc features:\n%s\n\n"), MakeFeatureListStr(0 == impl_type).c_str());
-                    _ftprintf(stdout, _T("Supported Vpp features:\n%s\n\n"), MakeVppFeatureStr(0 == impl_type).c_str());
-                }
-            }
+            tstring output = (strInput[i+1][0] != _T('-')) ? strInput[i+1] : _T("");
+            writeFeatureList(output);
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-hw"))

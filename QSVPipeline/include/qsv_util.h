@@ -81,6 +81,7 @@ std::wstring strsprintf(const WCHAR* format, ...);
 std::vector<tstring> split(const tstring &str, const tstring &delim);
 std::vector<std::string> split(const std::string &str, const std::string &delim);
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
+std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
 std::string GetFullPath(const char *path);
 std::wstring GetFullPath(const WCHAR *path);
 bool qsv_get_filesize(const char *filepath, UINT64 *filesize);
@@ -324,6 +325,12 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { NULL, 0 },
 };
 
+enum FeatureListStrType {
+    FEATURE_LIST_STR_TYPE_TXT,
+    FEATURE_LIST_STR_TYPE_CSV,
+    FEATURE_LIST_STR_TYPE_HTML,
+};
+
 mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId);
@@ -331,10 +338,11 @@ vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<const
 vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 tstring MakeFeatureListStr(mfxU64 feature);
-tstring MakeFeatureListStr(bool hardware);
+tstring MakeFeatureListStr(bool hardware, FeatureListStrType outputType);
 
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
 tstring MakeVppFeatureStr(bool hardware);
+tstring MakeVppFeatureStr(bool hardware, FeatureListStrType outputType);
 
 bool check_if_d3d11_necessary();
 

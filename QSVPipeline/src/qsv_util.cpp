@@ -147,6 +147,15 @@ std::string str_replace(std::string str, const std::string& from, const std::str
     return std::move(str);
 }
 
+std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to) {
+    std::wstring::size_type pos = 0;
+    while (pos = str.find(from, pos), pos != std::wstring::npos) {
+        str.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+    return std::move(str);
+}
+
 #pragma warning (pop)
 
 std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim) {
@@ -905,20 +914,21 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const
     return std::move(codecFeatures);
 }
 
-static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] = { _T(" x    "), _T(" o    ") };
+static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] ={ _T("×"), _T("○") };
+static const TCHAR *const QSV_FEATURE_MARK_YES_NO_WITH_SPACE[] = { _T(" x    "), _T(" o    ") };
 
 tstring MakeFeatureListStr(mfxU64 feature) {
     tstring str;
     for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
         str += ptr->desc;
-        str += QSV_FEATURE_MARK_YES_NO[!!(feature & ptr->value)];
+        str += QSV_FEATURE_MARK_YES_NO_WITH_SPACE[!!(feature & ptr->value)];
         str += _T("\n");
     }
     str += _T("\n");
     return str;
 }
 
-tstring MakeFeatureListStr(bool hardware) {
+tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2 };
     auto featurePerCodec = MakeFeatureListPerCodec(hardware, to_vector(list_rate_control_ry), codecLists);
     
@@ -926,41 +936,115 @@ tstring MakeFeatureListStr(bool hardware) {
     
     for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
         auto& availableFeatureForEachRC = featurePerCodec[i_codec];
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("<b>");
+        }
         str += _T("Codec: ") + CodecIdToStr(codecLists[i_codec]) + _T("\n");
 
-        //ヘッダ部分
-        const mfxU32 row_header_length = (mfxU32)_tcslen(list_enc_feature[0].desc);
-        for (mfxU32 i = 1; i < row_header_length; i++)
-            str += _T(" ");
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("</b><table class=simpleOrange>");
+        }
+
+        switch (type) {
+        case FEATURE_LIST_STR_TYPE_HTML: str += _T("<tr><th></th>"); break;
+        case FEATURE_LIST_STR_TYPE_TXT:
+        default:
+            //ヘッダ部分
+            const mfxU32 row_header_length = (mfxU32)_tcslen(list_enc_feature[0].desc);
+            for (mfxU32 i = 1; i < row_header_length; i++)
+                str += _T(" ");
+            break;
+        }
 
         for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
-            str += _T(" ");
+            switch (type) {
+            case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
+            case FEATURE_LIST_STR_TYPE_HTML: str += _T("<th>"); break;
+            case FEATURE_LIST_STR_TYPE_TXT:
+            default: str += _T(" "); break;
+            }
             str += list_rate_control_ry[i].desc;
+            if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                str += _T("</th>");
+            }
+        }
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("</tr>");
         }
         str += _T("\n");
 
         //モードがサポートされているか
         for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
+            if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                str += _T("<tr><td>");
+            }
             str += ptr->desc;
+            switch (type) {
+            case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
+            case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
+            default: break;
+            }
             for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
-                str += QSV_FEATURE_MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    str += !!(availableFeatureForEachRC[i] & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
+                }
+                if (type == FEATURE_LIST_STR_TYPE_TXT) {
+                    str += QSV_FEATURE_MARK_YES_NO_WITH_SPACE[!!(availableFeatureForEachRC[i] & ptr->value)];
+                } else {
+                    str += QSV_FEATURE_MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
+                }
+                switch (type) {
+                case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
+                case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
+                default: break;
+                }
+            }
+            if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                str += _T("</tr>");
             }
             str += _T("\n");
+        }
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("</table><br>");
         }
         str += _T("\n");
     }
     return str;
 }
 
-tstring MakeVppFeatureStr(bool hardware) {
+tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
     uint64_t features = CheckVppFeatures(hardware, ver);
     TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
     tstring str;
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        str += _T("<table class=simpleOrange>");
+    }
     for (const FEATURE_DESC *ptr = list_vpp_feature; ptr->desc; ptr++) {
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("<tr><td>");
+        }
         str += ptr->desc;
-        str += MARK_YES_NO[ptr->value == (features & ptr->value)];
+        switch (type) {
+        case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
+        case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
+        default: break;
+        }
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += (features & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
+        }
+        if (type == FEATURE_LIST_STR_TYPE_TXT) {
+            str += MARK_YES_NO[ptr->value == (features & ptr->value)];
+        } else {
+            str += QSV_FEATURE_MARK_YES_NO[ptr->value == (features & ptr->value)];
+        }
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("</td></tr>");
+        }
         str += _T("\n");
+    }
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        str += _T("</table>\n");
     }
     return str;
 }
