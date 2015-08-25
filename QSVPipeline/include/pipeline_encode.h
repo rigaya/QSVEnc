@@ -166,6 +166,7 @@ protected:
     mfxExtCodingOption m_CodingOption;
     mfxExtCodingOption2 m_CodingOption2;
     mfxExtCodingOption3 m_CodingOption3;
+    mfxExtVP8CodingOption m_ExtVP8CodingOption;
     mfxExtHEVCParam m_ExtHEVCParam;
     MFXVideoSession m_mfxSession;
     MFXVideoDECODE* m_pmfxDEC;

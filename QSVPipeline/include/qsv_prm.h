@@ -11,10 +11,11 @@
 #define _QSV_PRM_H_
 
 #include <Windows.h>
-
 #include "sample_defs.h"
 #include "qsv_version.h"
 #include "qsv_util.h"
+#include "mfxcommon.h"
+#include "mfxvp8.h"
 
 typedef enum {
     MFX_DEINTERLACE_NONE        = 0,
@@ -259,7 +260,8 @@ struct sInputParams
     mfxU16     nSessionThreads;
     mfxU16     nSessionThreadPriority;
 
-    mfxU8      reserved[3];
+    mfxU8      reserved[2];
+    mfxU8      nVP8Sharpness;
     mfxU8      nAudioSourceCount;
     TCHAR      **ppAudioSourceList;
 
@@ -280,6 +282,7 @@ const CX_DESC list_codec[] = {
     { _T("hevc"),     MFX_CODEC_HEVC  },
     { _T("mpeg2"),    MFX_CODEC_MPEG2 },
     { _T("vc-1"),     MFX_CODEC_VC1   },
+    { _T("vp8"),      MFX_CODEC_VP8   },
     { _T("raw"),      MFX_CODEC_RAW   },
     { NULL, NULL }
 };
@@ -313,6 +316,15 @@ const CX_DESC list_vc1_profile[] = {
     { _T("Simple"),   MFX_PROFILE_VC1_SIMPLE   },
     { _T("Main"),     MFX_PROFILE_VC1_MAIN     },
     { _T("Advanced"), MFX_PROFILE_VC1_ADVANCED },
+    { NULL, NULL }
+};
+
+const CX_DESC list_vp8_profile[] ={
+    { _T("auto"),     0 },
+    { _T("0"),        MFX_PROFILE_VP8_0 },
+    { _T("1"),        MFX_PROFILE_VP8_1 },
+    { _T("2"),        MFX_PROFILE_VP8_2 },
+    { _T("3"),        MFX_PROFILE_VP8_3 },
     { NULL, NULL }
 };
 

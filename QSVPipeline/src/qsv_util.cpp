@@ -862,6 +862,8 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
         std::unique_ptr<MFXPlugin> m_pEncPlugin;
         if (codecId == MFX_CODEC_HEVC) {
             m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, session, MFX_PLUGINID_HEVCE_HW, 1));
+        } else if (codecId == MFX_CODEC_VP8) {
+            m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, session, MFX_PLUGINID_VP8E_HW, 1));
         }
         feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol, codecId) : 0x00;
         
@@ -929,7 +931,7 @@ tstring MakeFeatureListStr(mfxU64 feature) {
 }
 
 tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
-    const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2 };
+    const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8 };
     auto featurePerCodec = MakeFeatureListPerCodec(hardware, to_vector(list_rate_control_ry), codecLists);
     
     tstring str;

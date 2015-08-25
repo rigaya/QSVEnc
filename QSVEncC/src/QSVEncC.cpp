@@ -256,6 +256,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --(no-)open-gop              enables open gop (default:off)\n")
             _T("   --strict-gop                 force gop structure\n")
             _T("   --(no-)scenechange           enables scene change detection\n")
+            _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
             _T("\n")
             _T("   --level <string>             set codec level, default auto\n")
             _T("   --profile <string>           set codec profile, default auto\n")
@@ -1547,6 +1548,16 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             }
             pParams->MVSearchWindow.x = (mfxU16)clamp(v, 0, 128);
             pParams->MVSearchWindow.y = (mfxU16)clamp(v, 0, 128);
+        }
+        else if (0 == _tcscmp(option_name, _T("sharpness")))
+        {
+            i++;
+            mfxI32 v;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < 8) {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            pParams->nVP8Sharpness = (mfxU8)v;
         }
         else if (0 == _tcscmp(option_name, _T("fps")))
         {

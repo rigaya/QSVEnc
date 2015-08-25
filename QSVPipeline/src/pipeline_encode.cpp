@@ -983,10 +983,22 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtHEVCParam);
     }
 
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
+        INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
+        m_ExtVP8CodingOption.SharpnessLevel = pInParams->nVP8Sharpness;
+        m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP8CodingOption);
+    }
+
     if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
         m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, m_mfxSession, MFX_PLUGINID_HEVCE_HW, 1));
         if (m_pEncPlugin.get() == NULL) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+    } else if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
+        m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, m_mfxSession, MFX_PLUGINID_VP8E_HW, 1));
+        if (m_pEncPlugin.get() == NULL) {
+            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     }
@@ -1947,13 +1959,14 @@ CEncodingPipeline::CEncodingPipeline()
     m_MVCSeqDesc.Header.BufferId = MFX_EXTBUFF_MVC_SEQ_DESC;
     m_MVCSeqDesc.Header.BufferSz = sizeof(m_MVCSeqDesc);
 #endif
-    INIT_MFX_EXT_BUFFER(m_VppDoNotUse,     MFX_EXTBUFF_VPP_DONOTUSE);
-    INIT_MFX_EXT_BUFFER(m_VideoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
-    INIT_MFX_EXT_BUFFER(m_CodingOption,    MFX_EXTBUFF_CODING_OPTION);
-    INIT_MFX_EXT_BUFFER(m_CodingOption2,   MFX_EXTBUFF_CODING_OPTION2);
-    INIT_MFX_EXT_BUFFER(m_CodingOption3,   MFX_EXTBUFF_CODING_OPTION3);
-    INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,    MFX_EXTBUFF_HEVC_PARAM);
-    INIT_MFX_EXT_BUFFER(m_ThreadsParam,    MFX_EXTBUFF_THREADS_PARAM);
+    INIT_MFX_EXT_BUFFER(m_VppDoNotUse,        MFX_EXTBUFF_VPP_DONOTUSE);
+    INIT_MFX_EXT_BUFFER(m_VideoSignalInfo,    MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
+    INIT_MFX_EXT_BUFFER(m_CodingOption,       MFX_EXTBUFF_CODING_OPTION);
+    INIT_MFX_EXT_BUFFER(m_CodingOption2,      MFX_EXTBUFF_CODING_OPTION2);
+    INIT_MFX_EXT_BUFFER(m_CodingOption3,      MFX_EXTBUFF_CODING_OPTION3);
+    INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
+    INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,       MFX_EXTBUFF_HEVC_PARAM);
+    INIT_MFX_EXT_BUFFER(m_ThreadsParam,       MFX_EXTBUFF_THREADS_PARAM);
 
 #if D3D_SURFACES_SUPPORT
     m_hwdev = NULL;
@@ -4005,9 +4018,11 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     mfxExtCodingOption cop;
     mfxExtCodingOption2 cop2;
     mfxExtCodingOption3 cop3;
+    mfxExtVP8CodingOption copVp8;
     INIT_MFX_EXT_BUFFER(cop, MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
+    INIT_MFX_EXT_BUFFER(copVp8, MFX_EXTBUFF_VP8_CODING_OPTION);
 
     std::vector<mfxExtBuffer *> buf;
     buf.push_back((mfxExtBuffer *)&cop);
@@ -4017,6 +4032,9 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
         buf.push_back((mfxExtBuffer *)&cop3);
+    }
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
+        buf.push_back((mfxExtBuffer *)&copVp8);
     }
 
     mfxVideoParam videoPrm;
@@ -4261,6 +4279,10 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         }
         if (videoPrm.mfx.NumSlice >= 2) {
             PRINT_INFO(_T("Slices         %d\n"), videoPrm.mfx.NumSlice);
+        }
+
+        if (videoPrm.mfx.CodecId == MFX_CODEC_VP8) {
+            PRINT_INFO(_T("Sharpness      %d\n"), copVp8.SharpnessLevel);
         }
 
         //last line
