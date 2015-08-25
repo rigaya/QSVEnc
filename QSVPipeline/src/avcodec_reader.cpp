@@ -520,7 +520,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     //多い順にソートする
     std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
     //durationが0でなく、最も頻繁に出てきたもの
-    auto mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
+    auto& mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
     
     AddMessage(QSV_LOG_DEBUG, _T("stream timebase %d/%d\n"), m_Demux.video.pCodecCtx->time_base.num, m_Demux.video.pCodecCtx->time_base.den);
     AddMessage(QSV_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
@@ -674,16 +674,21 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 
     Close();
 
-    MSDK_CHECK_POINTER(pEncThread, MFX_ERR_NULL_PTR);
-    m_pEncThread = pEncThread;
-
-    MSDK_CHECK_POINTER(pEncSatusInfo, MFX_ERR_NULL_PTR);
-    m_pEncSatusInfo = pEncSatusInfo;
-
-    MSDK_CHECK_POINTER(pInputCrop, MFX_ERR_NULL_PTR);
-    memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
-    
+    MSDK_CHECK_POINTER(option, MFX_ERR_NULL_PTR);
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
+
+    if (input_prm->bReadVideo) {
+        MSDK_CHECK_POINTER(pEncThread, MFX_ERR_NULL_PTR);
+        m_pEncThread = pEncThread;
+
+        MSDK_CHECK_POINTER(pEncSatusInfo, MFX_ERR_NULL_PTR);
+        m_pEncSatusInfo = pEncSatusInfo;
+
+        MSDK_CHECK_POINTER(pInputCrop, MFX_ERR_NULL_PTR);
+        memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
+    } else {
+        MSDK_ZERO_MEMORY(m_sInputCrop);
+    }
 
     if (!check_avcodec_dll()) {
         AddMessage(QSV_LOG_ERROR, error_mes_avcodec_dll_not_found());
@@ -704,8 +709,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     av_register_all();
     avcodec_register_all();
     av_log_set_level((m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
-    InitializeCriticalSection(&m_Demux.video.frameData.cs);
-    m_Demux.video.frameData.cs_initialized = true;
 
     int ret = 0;
     std::string filename_char;
@@ -751,38 +754,12 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     AddMessage(QSV_LOG_DEBUG, _T("got stream information.\n"));
     av_dump_format(m_Demux.format.pFormatCtx, 0, filename_char.c_str(), 0);
     //dump_format(dec.pFormatCtx, 0, argv[1], 0);
-    
-    //動画ストリームを探す
-    auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
-    if (videoStreams.size() == 0) {
-        AddMessage(QSV_LOG_ERROR, _T("unable to find video stream.\n"));
-        return MFX_ERR_NULL_PTR; // Didn't find a video stream
-    }
-    m_Demux.video.nIndex = videoStreams[0];
-    AddMessage(QSV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
-
-    m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
-
-    //QSVでデコード可能かチェック
-    if (0 == (m_nInputCodec = getQSVFourcc(m_Demux.video.pCodecCtx->codec_id))) {
-        AddMessage(QSV_LOG_ERROR, _T("codec "));
-        if (m_Demux.video.pCodecCtx->codec && m_Demux.video.pCodecCtx->codec->name) {
-            AddMessage(QSV_LOG_ERROR, char_to_tstring(m_Demux.video.pCodecCtx->codec->name) + _T(" "));
-        }
-        AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv.\n"));
-        return MFX_ERR_NULL_PTR;
-    }
-    AddMessage(QSV_LOG_DEBUG, _T("can be decoded by qsv.\n"));
-    //wmv3はAdvanced Profile (3)のみの対応
-    if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
-        AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv.\n"));
-        return MFX_ERR_NULL_PTR;
-    }
 
     //音声ストリームを探す
     if (input_prm->nReadAudio) {
         auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO);
-        if (audioStreams.size() == 0) {
+        m_Demux.format.nAudioTracks = audioStreams.size();
+        if (m_Demux.format.nAudioTracks == 0) {
             AddMessage(QSV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
             return MFX_ERR_NOT_FOUND;
         } else {
@@ -790,13 +767,13 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
                 bool useStream = false;
                 for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
                     if (input_prm->ppAudioSelect[i]->nAudioSelect == 0 //特に指定なし = 全指定かどうか
-                        || input_prm->ppAudioSelect[i]->nAudioSelect == (iAudTrack+1)) { //トラック番号は1から連番
+                        || input_prm->ppAudioSelect[i]->nAudioSelect == (iAudTrack + input_prm->nAudioTrackStart)) {
                         useStream = true;
                     }
                 }
                 if (useStream) {
                     AVDemuxAudio audio = { 0 };
-                    audio.nTrackId = iAudTrack+1; //トラック番号は1から連番
+                    audio.nTrackId = iAudTrack + input_prm->nAudioTrackStart;
                     audio.nIndex = audioStreams[iAudTrack];
                     audio.pCodecCtx = m_Demux.format.pFormatCtx->streams[audio.nIndex]->codec;
                     m_Demux.audio.push_back(audio);
@@ -824,120 +801,166 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
             }
         }
     }
-
-    //必要ならbitstream filterを初期化
-    if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
-        if (m_nInputCodec == MFX_CODEC_AVC) {
-            if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
-                return MFX_ERR_NULL_PTR;
-            }
-            AddMessage(QSV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
-        } else if (m_nInputCodec == MFX_CODEC_HEVC) {
-            m_Demux.video.bUseHEVCmp42AnnexB = true;
-            AddMessage(QSV_LOG_DEBUG, _T("enabled HEVCmp42AnnexB filter.\n"));
+    
+    //動画ストリームを探す
+    if (input_prm->bReadVideo) {
+        InitializeCriticalSection(&m_Demux.video.frameData.cs);
+        m_Demux.video.frameData.cs_initialized = true;
+        auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
+        if (videoStreams.size() == 0) {
+            AddMessage(QSV_LOG_ERROR, _T("unable to find video stream.\n"));
+            return MFX_ERR_NULL_PTR; // Didn't find a video stream
         }
-    } else if (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0) {
-        AddMessage(QSV_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
-        return MFX_ERR_UNSUPPORTED;
-    }
-    AddMessage(QSV_LOG_DEBUG, _T("start predecode.\n"));
-    
-    mfxStatus decHeaderSts = MFX_ERR_NONE;
-    mfxBitstream bitstream = { 0 };
-    if (MFX_ERR_NONE != (decHeaderSts = GetHeader(&bitstream))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to get header.\n"));
-        return decHeaderSts;
-    }
-    
-    if (m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) {
-        //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
-        const mfxU32 IDR = 0x65010000;
-        AppendMfxBitstream(&bitstream, (mfxU8 *)&IDR, sizeof(IDR));
-    }
+        m_Demux.video.nIndex = videoStreams[0];
+        AddMessage(QSV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
 
-    mfxSession session = { 0 };
-    mfxVersion version = MFX_LIB_VERSION_1_1;
-    if (MFX_ERR_NONE != (decHeaderSts = MFXInit(MFX_IMPL_HARDWARE_ANY, &version, &session))) {
-        AddMessage(QSV_LOG_ERROR, _T("unable to init qsv decoder.\n"));
-        return decHeaderSts;
-    }
+        m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
 
-    std::unique_ptr<MFXPlugin> pPlugin;
-    if (m_nInputCodec == MFX_CODEC_HEVC) {
-        pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, session, MFX_PLUGINID_HEVCD_HW, 1));
-        if (pPlugin.get() == NULL) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to load hw hevc decoder.\n"));
+        //QSVでデコード可能かチェック
+        if (0 == (m_nInputCodec = getQSVFourcc(m_Demux.video.pCodecCtx->codec_id))) {
+            AddMessage(QSV_LOG_ERROR, _T("codec "));
+            if (m_Demux.video.pCodecCtx->codec && m_Demux.video.pCodecCtx->codec->name) {
+                AddMessage(QSV_LOG_ERROR, char_to_tstring(m_Demux.video.pCodecCtx->codec->name) + _T(" "));
+            }
+            AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv.\n"));
+            return MFX_ERR_NULL_PTR;
+        }
+        AddMessage(QSV_LOG_DEBUG, _T("can be decoded by qsv.\n"));
+        //wmv3はAdvanced Profile (3)のみの対応
+        if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3 && m_Demux.video.pCodecCtx->profile != 3) {
+            AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv.\n"));
+            return MFX_ERR_NULL_PTR;
+        }
+
+        //必要ならbitstream filterを初期化
+        if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
+            if (m_nInputCodec == MFX_CODEC_AVC) {
+                if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
+                    AddMessage(QSV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
+                    return MFX_ERR_NULL_PTR;
+                }
+                AddMessage(QSV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
+            } else if (m_nInputCodec == MFX_CODEC_HEVC) {
+                m_Demux.video.bUseHEVCmp42AnnexB = true;
+                AddMessage(QSV_LOG_DEBUG, _T("enabled HEVCmp42AnnexB filter.\n"));
+            }
+        } else if (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0) {
+            AddMessage(QSV_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
-    }
-    
-    memset(&m_sDecParam, 0, sizeof(m_sDecParam));
-    m_sDecParam.mfx.CodecId = m_nInputCodec;
-    m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
-    if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to decode header.\n"));
-    } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to get first frame position.\n"));
-    }
-    MFXVideoDECODE_Close(session);
-    pPlugin.reset(); //必ずsessionをクローズする前に開放すること
-    MFXClose(session);
-    if (MFX_ERR_NONE != decHeaderSts) {
-        AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv, please consider using other input method.\n"));
-        return decHeaderSts;
-    }
-    WipeMfxBitstream(&bitstream);
-    AddMessage(QSV_LOG_DEBUG, _T("predecode success.\n"));
+        AddMessage(QSV_LOG_DEBUG, _T("start predecode.\n"));
 
-    m_sTrimParam.list = vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
-    //キーフレームに到達するまでQSVではフレームが出てこない
-    //そのぶんのずれを記録しておき、Trim値などに補正をかける
-    if (m_sTrimParam.offset) {
-        for (int i = (int)m_sTrimParam.list.size() - 1; i >= 0; i--) {
-            if (m_sTrimParam.list[i].fin - m_sTrimParam.offset < 0) {
-                m_sTrimParam.list.erase(m_sTrimParam.list.begin() + i);
-            } else {
-                m_sTrimParam.list[i].start = (std::max)(0, m_sTrimParam.list[i].start - m_sTrimParam.offset);
-                if (m_sTrimParam.list[i].fin != TRIM_MAX) {
-                    m_sTrimParam.list[i].fin = (std::max)(0, m_sTrimParam.list[i].fin - m_sTrimParam.offset);
-                }
+        mfxStatus decHeaderSts = MFX_ERR_NONE;
+        mfxBitstream bitstream ={ 0 };
+        if (MFX_ERR_NONE != (decHeaderSts = GetHeader(&bitstream))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to get header.\n"));
+            return decHeaderSts;
+        }
+
+        if (m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) {
+            //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
+            const mfxU32 IDR = 0x65010000;
+            AppendMfxBitstream(&bitstream, (mfxU8 *)&IDR, sizeof(IDR));
+        }
+
+        mfxSession session ={ 0 };
+        mfxVersion version = MFX_LIB_VERSION_1_1;
+        if (MFX_ERR_NONE != (decHeaderSts = MFXInit(MFX_IMPL_HARDWARE_ANY, &version, &session))) {
+            AddMessage(QSV_LOG_ERROR, _T("unable to init qsv decoder.\n"));
+            return decHeaderSts;
+        }
+
+        std::unique_ptr<MFXPlugin> pPlugin;
+        if (m_nInputCodec == MFX_CODEC_HEVC) {
+            pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, session, MFX_PLUGINID_HEVCD_HW, 1));
+            if (pPlugin.get() == NULL) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to load hw hevc decoder.\n"));
+                return MFX_ERR_UNSUPPORTED;
             }
         }
-        //ずれが存在し、範囲指定がない場合はダミーの全域指定を追加する
-        //これにより、自動的に音声側との同期がとれるようになる
-        if (m_sTrimParam.list.size() == 0) {
-            m_sTrimParam.list.push_back({ 0, TRIM_MAX });
+
+        memset(&m_sDecParam, 0, sizeof(m_sDecParam));
+        m_sDecParam.mfx.CodecId = m_nInputCodec;
+        m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
+        if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to decode header.\n"));
+        } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to get first frame position.\n"));
         }
-        AddMessage(QSV_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_sTrimParam.offset);
+        MFXVideoDECODE_Close(session);
+        pPlugin.reset(); //必ずsessionをクローズする前に開放すること
+        MFXClose(session);
+        if (MFX_ERR_NONE != decHeaderSts) {
+            AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv, please consider using other input method.\n"));
+            return decHeaderSts;
+        }
+        WipeMfxBitstream(&bitstream);
+        AddMessage(QSV_LOG_DEBUG, _T("predecode success.\n"));
+
+        m_sTrimParam.list = vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
+        //キーフレームに到達するまでQSVではフレームが出てこない
+        //そのぶんのずれを記録しておき、Trim値などに補正をかける
+        if (m_sTrimParam.offset) {
+            for (int i = (int)m_sTrimParam.list.size() - 1; i >= 0; i--) {
+                if (m_sTrimParam.list[i].fin - m_sTrimParam.offset < 0) {
+                    m_sTrimParam.list.erase(m_sTrimParam.list.begin() + i);
+                } else {
+                    m_sTrimParam.list[i].start = (std::max)(0, m_sTrimParam.list[i].start - m_sTrimParam.offset);
+                    if (m_sTrimParam.list[i].fin != TRIM_MAX) {
+                        m_sTrimParam.list[i].fin = (std::max)(0, m_sTrimParam.list[i].fin - m_sTrimParam.offset);
+                    }
+                }
+            }
+            //ずれが存在し、範囲指定がない場合はダミーの全域指定を追加する
+            //これにより、自動的に音声側との同期がとれるようになる
+            if (m_sTrimParam.list.size() == 0) {
+                m_sTrimParam.list.push_back({ 0, TRIM_MAX });
+            }
+            AddMessage(QSV_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_sTrimParam.offset);
+        }
+
+        //getFirstFramePosAndFrameRateをもとにfpsを決定
+        m_sDecParam.mfx.FrameInfo.FrameRateExtN = m_Demux.video.nAvgFramerate.num;
+        m_sDecParam.mfx.FrameInfo.FrameRateExtD = m_Demux.video.nAvgFramerate.den;
+
+        //情報を格納
+        memcpy(&m_inputFrameInfo, &m_sDecParam.mfx.FrameInfo, sizeof(m_inputFrameInfo));
+        //m_inputFrameInfoのWidthとHeightには解像度をそのまま入れて、
+        //他の読み込みに合わせる
+        //もともとは16ないし32でアラインされた数字が入っている
+        m_inputFrameInfo.Width          = m_inputFrameInfo.CropW;
+        m_inputFrameInfo.Height         = m_inputFrameInfo.CropH;
+        m_inputFrameInfo.BitDepthLuma   = m_inputFrameInfo.BitDepthLuma;
+        m_inputFrameInfo.BitDepthChroma = m_inputFrameInfo.BitDepthChroma;
+        //フレーム数は未定
+        *(DWORD*)&m_inputFrameInfo.FrameId = 0;
+
+        tstring mes = strsprintf(_T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec).c_str(),
+            m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
+        AddMessage(QSV_LOG_DEBUG, _T("%s, sar %d:%d, bitdepth %d, shift %d\n"), mes.c_str(),
+            m_inputFrameInfo.AspectRatioW, m_inputFrameInfo.AspectRatioH, m_inputFrameInfo.BitDepthLuma, m_inputFrameInfo.Shift);
+        m_strInputInfo += mes;
+    } else {
+        m_Demux.video.nAvgFramerate = av_make_q(input_prm->nVideoAvgFramerate.first, input_prm->nVideoAvgFramerate.second);
+
+        tstring mes;
+        for (const auto& stream : m_Demux.audio) {
+            if (mes.length()) mes += _T(", ");
+            tstring codec_name = char_to_tstring(avcodec_get_name(stream.pCodecCtx->codec_id));
+            mes += codec_name;
+            AddMessage(QSV_LOG_DEBUG, _T("avcodec audio: %s from %s\n"), codec_name.c_str(), strFileName);
+        }
+        m_strInputInfo += _T("avcodec audio: ") + mes;
     }
-
-    //getFirstFramePosAndFrameRateをもとにfpsを決定
-    m_sDecParam.mfx.FrameInfo.FrameRateExtN = m_Demux.video.nAvgFramerate.num;
-    m_sDecParam.mfx.FrameInfo.FrameRateExtD = m_Demux.video.nAvgFramerate.den;
-
-    //情報を格納
-    memcpy(&m_inputFrameInfo, &m_sDecParam.mfx.FrameInfo, sizeof(m_inputFrameInfo));
-    //m_inputFrameInfoのWidthとHeightには解像度をそのまま入れて、
-    //他の読み込みに合わせる
-    //もともとは16ないし32でアラインされた数字が入っている
-    m_inputFrameInfo.Width          = m_inputFrameInfo.CropW;
-    m_inputFrameInfo.Height         = m_inputFrameInfo.CropH;
-    m_inputFrameInfo.BitDepthLuma   = m_inputFrameInfo.BitDepthLuma;
-    m_inputFrameInfo.BitDepthChroma = m_inputFrameInfo.BitDepthChroma;
-    //フレーム数は未定
-    *(DWORD*)&m_inputFrameInfo.FrameId = 0;
-    
-    tstring mes = strsprintf(_T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec).c_str(),
-        m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
-    AddMessage(QSV_LOG_DEBUG, _T("%s, sar %d:%d, bitdepth %d, shift %d\n"), mes.c_str(),
-        m_inputFrameInfo.AspectRatioW, m_inputFrameInfo.AspectRatioH, m_inputFrameInfo.BitDepthLuma, m_inputFrameInfo.Shift);
-    m_strInputInfo += mes;
 
     m_tmLastUpdate = timeGetTime();
     return MFX_ERR_NONE;
 }
 #pragma warning(pop)
+
+int CAvcodecReader::GetAudioTrackCount() {
+    return m_Demux.format.nAudioTracks;
+}
 
 int CAvcodecReader::getVideoFrameIdx(mfxI64 pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
     for (int i = max(0, iStart); i < framePosCount; i++) {
@@ -1136,7 +1159,47 @@ mfxStatus CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
     return sts;
 }
 
+vector<AVPacket> CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
+    //音声の読み込みのみ行う場合は、LoadNextFrameが呼ばれないため、
+    //音声データがm_AudioPacketsBufferL1に格納されていない
+    //そこでここでデータを取得し、これを返すようにする
+    vector<AVPacket> packets;
+
+    m_Demux.video.nSampleGetCount++;
+
+    const double vidEstDurationSec = m_Demux.video.nSampleGetCount * (double)m_Demux.video.nAvgFramerate.den / (double)m_Demux.video.nAvgFramerate.num; //1フレームの時間(秒)
+
+    //およそ1フレーム分のパケットを取得する
+    AVPacket pkt;
+    av_init_packet(&pkt);
+    while (av_read_frame(m_Demux.format.pFormatCtx, &pkt) >= 0) {
+        AVStream *pStream = m_Demux.format.pFormatCtx->streams[pkt.stream_index];
+        if (pStream->codec->codec_type != AVMEDIA_TYPE_AUDIO) {
+            av_free_packet(&pkt);
+        } else {
+            AVDemuxAudio *pAudio = getAudioPacketStreamData(&pkt);
+            pkt.priv = &pAudio->nTrackId; //privには、trackIdへのポインタを格納しておく
+            packets.push_back(pkt); //音声ストリームなら、すべて格納してしまう
+
+            //最初のパケットは参照用にコピーしておく
+            if (pAudio->pktSample.data == nullptr) {
+                av_copy_packet(&pAudio->pktSample, &pkt);
+            }
+            uint64_t pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
+            uint64_t pkt_dist = pktt - pAudio->pktSample.pts;
+            //1フレーム分のサンプルを取得したら終了
+            if (pkt_dist * (double)pAudio->pCodecCtx->pkt_timebase.num / (double)pAudio->pCodecCtx->pkt_timebase.den > vidEstDurationSec) {
+                break;
+            }
+        }
+    }
+    return std::move(packets);
+}
+
 vector<AVPacket> CAvcodecReader::GetAudioDataPackets() {
+    if (m_Demux.video.pCodecCtx == nullptr) {
+        return GetAudioDataPacketsWhenNoVideoRead();
+    }
     //すでに使用した音声バッファはクリアする
     if (m_AudioPacketsBufferL2Used) {
         //使用済みパケットを削除する
@@ -1147,7 +1210,9 @@ vector<AVPacket> CAvcodecReader::GetAudioDataPackets() {
 
     //別スレッドで使用されていないほうを連結する
     const auto& packetsL1 = m_AudioPacketsBufferL1[m_Demux.video.nSampleGetCount % _countof(m_AudioPacketsBufferL1)];
-    m_AudioPacketsBufferL2.insert(m_AudioPacketsBufferL2.end(), packetsL1.begin(), packetsL1.end());
+    if (packetsL1.size()) {
+        m_AudioPacketsBufferL2.insert(m_AudioPacketsBufferL2.end(), packetsL1.begin(), packetsL1.end());
+    }
 
     //出力するパケットを選択する
     vector<AVPacket> packets;
@@ -1161,6 +1226,7 @@ vector<AVPacket> CAvcodecReader::GetAudioDataPackets() {
         }
         m_AudioPacketsBufferL2Used++;
         if (checkAudioPacketToAdd(pkt, pAudio)) {
+            pkt->priv = &pAudio->nTrackId; //privには、trackIdへのポインタを格納しておく
             packets.push_back(*pkt); //Writer側に渡したパケットはWriter側で開放する
         } else {
             av_free_packet(pkt); //Writer側に渡さないパケットはここで開放する

@@ -2019,36 +2019,42 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
             PrintMes(QSV_LOG_DEBUG, _T("Output: Audio muxing enabled.\n"));
             auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
-            if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
-                PrintMes(QSV_LOG_ERROR, _T("Output: Audio mux is only supported with transcoding (avqsv reader).\n"));
-                return MFX_ERR_UNSUPPORTED;
-            } else {
-                bool copyAll = false;
-                for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
-                    //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
-                    copyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
+            bool copyAll = false;
+            for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
+                //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
+                copyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
+            }
+            PrintMes(QSV_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
+            std::vector<AVDemuxAudio> audioList;
+            if (pAVCodecReader->GetAudioTrackCount()) {
+                audioList = pAVCodecReader->GetInputAudioInfo();
+            }
+            for (const auto& audioReader : m_AudioReaders) {
+                if (audioReader->GetAudioTrackCount()) {
+                    auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(audioReader.get());
+                    auto tempList = pAVCodecReader->GetInputAudioInfo();
+                    audioList.insert(audioList.end(), tempList.begin(), tempList.end());
                 }
-                PrintMes(QSV_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
-                auto audioList = pAVCodecReader->GetInputAudioInfo();
-                for (auto& audioTrack : audioList) {
-                    const sAudioSelect *pAudioSelect = nullptr;
-                    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                        if (audioTrack.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
-                            && pParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
-                            pAudioSelect = pParams->ppAudioSelectList[i];
-                        }
+            }
+
+            for (auto& audioTrack : audioList) {
+                const sAudioSelect *pAudioSelect = nullptr;
+                for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+                    if (audioTrack.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
+                        && pParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
+                        pAudioSelect = pParams->ppAudioSelectList[i];
                     }
-                    if (pAudioSelect != nullptr || copyAll) {
-                        audioTrackUsed.push_back(audioTrack.nTrackId);
-                        AVOutputAudioPrm prm;
-                        prm.src = audioTrack;
-                        //pAudioSelect == nullptrは "copyAll" によるもの
-                        prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
-                        prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
-                        PrintMes(QSV_LOG_DEBUG, _T("Output: Added audio track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
-                            audioTrack.nTrackId, audioTrack.nIndex, prm.nBitrate, prm.pEncodeCodec);
-                        writerPrm.inputAudioList.push_back(std::move(prm));
-                    }
+                }
+                if (pAudioSelect != nullptr || copyAll) {
+                    audioTrackUsed.push_back(audioTrack.nTrackId);
+                    AVOutputAudioPrm prm;
+                    prm.src = audioTrack;
+                    //pAudioSelect == nullptrは "copyAll" によるもの
+                    prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
+                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
+                    PrintMes(QSV_LOG_DEBUG, _T("Output: Added audio track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
+                        audioTrack.nTrackId, audioTrack.nIndex, prm.nBitrate, prm.pEncodeCodec);
+                    writerPrm.inputAudioList.push_back(std::move(prm));
                 }
             }
         }
@@ -2167,6 +2173,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
         m_pQSVLog->writeFileHeader(pParams->strDstFile);
     }
 
+    int sourceAudioTrackIdStart = 1; //トラック番号は1スタート
     m_pEncSatusInfo = new CEncodeStatusInfo();
 
     //Auto detection by input file extension
@@ -2290,10 +2297,12 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
                 }
                 m_pFileReader = new CAvcodecReader();
                 avcodecReaderPrm.memType = pParams->memType;
+                avcodecReaderPrm.bReadVideo = true;
                 avcodecReaderPrm.pTrimList = pParams->pTrimList;
                 avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
                 avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0; 
                 avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
+                avcodecReaderPrm.nAudioTrackStart = (mfxU8)sourceAudioTrackIdStart;
                 avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
                 input_option = &avcodecReaderPrm;
@@ -2315,9 +2324,42 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
     if (sts < MFX_ERR_NONE) {
         PrintMes(QSV_LOG_ERROR, m_pFileReader->GetInputMessage());
         return sts;
-    } else {
-        PrintMes(QSV_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
     }
+    PrintMes(QSV_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
+    sourceAudioTrackIdStart += m_pFileReader->GetAudioTrackCount();
+
+#if ENABLE_AVCODEC_QSV_READER
+    if (pParams->nAudioSourceCount && pParams->ppAudioSourceList) {
+        if (pParams->nTrimCount > 0) {
+            PrintMes(QSV_LOG_ERROR, _T("Input: audio source not supported with trim option.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+        mfxFrameInfo videoInfo = { 0 };
+        m_pFileReader->GetInputFrameInfo(&videoInfo);
+
+        for (int i = 0; i < pParams->nAudioSourceCount; i++) {
+            AvcodecReaderPrm avcodecReaderPrm = { 0 };
+            avcodecReaderPrm.memType = pParams->memType;
+            avcodecReaderPrm.bReadVideo = false;
+            avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
+            avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
+            avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(videoInfo.FrameRateExtN, videoInfo.FrameRateExtD);
+            avcodecReaderPrm.nAudioTrackStart = (mfxU8)sourceAudioTrackIdStart;
+            avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
+            avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
+
+            unique_ptr<CSmplYUVReader> audioReader(new CAvcodecReader());
+            audioReader->SetQSVLogPtr(m_pQSVLog.get());
+            sts = audioReader->Init(pParams->ppAudioSourceList[i], 0, &avcodecReaderPrm, nullptr, nullptr, nullptr);
+            if (sts < MFX_ERR_NONE) {
+                PrintMes(QSV_LOG_ERROR, audioReader->GetInputMessage());
+                return sts;
+            }
+            sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
+            m_AudioReaders.push_back(std::move(audioReader));
+        }
+    }
+#endif
 
     if (m_pFileReader->getInputCodec()) {
         auto trimParam = m_pFileReader->GetTrimParam();
@@ -2782,6 +2824,8 @@ void CEncodingPipeline::Close()
 
     m_SceneChange.Close();
 
+    m_AudioReaders.clear();
+
     for (auto pWriter : m_pFileWriterListAudio) {
         if (pWriter) {
             if (pWriter != m_pFileWriter) {
@@ -3197,17 +3241,29 @@ mfxStatus CEncodingPipeline::RunEncode()
 #if ENABLE_AVCODEC_QSV_READER
         if (m_pFileWriterListAudio.size()) {
             auto pAVCodecReader = dynamic_cast<CAvcodecReader *>(m_pFileReader);
+            vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
-                auto packetList = pAVCodecReader->GetAudioDataPackets();
-                for (mfxU32 i = 0; i < packetList.size(); i++) {
-                    auto pWriter = pWriterForAudioStreams[packetList[i].stream_index];
-                    if (pWriter == nullptr) {
-                        PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for audio stream %d\n"), packetList[i].stream_index);
-                        return MFX_ERR_NULL_PTR;
+                packetList = pAVCodecReader->GetAudioDataPackets();
+            }
+            //音声ファイルリーダーからのトラックを結合する
+            for (const auto& reader : m_AudioReaders) {
+                auto pReader = dynamic_cast<CAvcodecReader *>(reader.get());
+                if (pReader != nullptr) {
+                    auto list = pReader->GetAudioDataPackets();
+                    if (list.size()) {
+                        packetList.insert(packetList.end(), list.begin(), list.end());
                     }
-                    if (MFX_ERR_NONE != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
-                        return sts;
-                    }
+                }
+            }
+            //パケットを各Writerに分配する
+            for (mfxU32 i = 0; i < packetList.size(); i++) {
+                auto pWriter = pWriterForAudioStreams[packetList[i].stream_index];
+                if (pWriter == nullptr) {
+                    PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for audio stream %d\n"), packetList[i].stream_index);
+                    return MFX_ERR_NULL_PTR;
+                }
+                if (MFX_ERR_NONE != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
+                    return sts;
                 }
             }
         }
@@ -3219,8 +3275,6 @@ mfxStatus CEncodingPipeline::RunEncode()
         mfxStatus dec_sts = MFX_ERR_NONE;
         if (m_pmfxDEC) {
             if (getNextBitstream) {
-                dec_sts = extract_audio();
-                MSDK_CHECK_RESULT_MES(dec_sts, MFX_ERR_NONE, dec_sts, _T("Error on extracting audio."));
                 //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
                 dec_sts = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
                 MSDK_IGNORE_MFX_STS(dec_sts, MFX_ERR_MORE_DATA);
@@ -3488,6 +3542,8 @@ mfxStatus CEncodingPipeline::RunEncode()
             pSurfInputBuf->Info.FrameId.ViewId = currViewNum;
             if (m_bIsMVC) currViewNum ^= 1; // Flip between 0 and 1 for ViewId
 #endif
+            sts = extract_audio();
+            MSDK_BREAK_ON_ERROR(sts);
 
             sts = decode_one_frame(true);
             if (sts == MFX_ERR_MORE_DATA || sts == MFX_ERR_MORE_SURFACE)
@@ -4023,7 +4079,11 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     PRINT_INFO(    _T("Buffer Memory  %s, %d input buffer, %d work buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer, m_EncResponse.NumFrameActual + m_VppResponse.NumFrameActual + m_DecResponse.NumFrameActual);
     //PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
     //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
-    auto inputMesSplitted = split(m_pFileReader->GetInputMessage(), _T("\n"));
+    tstring inputMes = m_pFileReader->GetInputMessage();
+    for (const auto& reader : m_AudioReaders) {
+        inputMes += _T("\n") + tstring(reader->GetInputMessage());
+    }
+    auto inputMesSplitted = split(inputMes, _T("\n"));
     for (mfxU32 i = 0; i < inputMesSplitted.size(); i++) {
         PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
     }

@@ -15,6 +15,7 @@
 #include "avcodec_qsv.h"
 
 using std::vector;
+using std::pair;
 
 static const mfxU32 AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 
@@ -55,6 +56,7 @@ typedef struct AVDemuxFormat {
     int                       nAnalyzeSec;           //動画ファイルを先頭から分析する時間
     bool                      bIsPipe;               //入力がパイプ
     uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
+    int                       nAudioTracks;          //存在する音声のトラック数
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
@@ -93,10 +95,13 @@ typedef struct AVDemuxer {
 
 typedef struct AvcodecReaderPrm {
     mfxU8          memType;                 //使用するメモリの種類
+    bool           bReadVideo;              //映像の読み込みを行うかどうか
     mfxU32         nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
+    pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート (映像のみ読み込ませるときに使用する)
     mfxU16         nAnalyzeSec;             //入力ファイルを分析する秒数
     mfxU16         nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
+    mfxU8          nAudioTrackStart;        //音声のトラック番号の開始点
     mfxU8          nAudioSelectCount;       //muxする音声のトラック数
     sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
 } AvcodecReaderPrm;
@@ -127,6 +132,9 @@ public:
 
     //音声のコーデックコンテキストを取得する
     vector<AVDemuxAudio> GetInputAudioInfo();
+
+    //入力ファイルに存在する音声のトラック数を返す
+    int GetAudioTrackCount() override;
 
     //デコードするストリームの情報を取得する
     void GetDecParam(mfxVideoParam *decParam) {
@@ -162,6 +170,9 @@ private:
 
     //音声パケットリストを開放
     void clearAudioPacketList(std::vector<AVPacket>& pktList);
+
+    //音声パケットの配列を取得する (映像を読み込んでいないときに使用)
+    vector<AVPacket> GetAudioDataPacketsWhenNoVideoRead();
 
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する

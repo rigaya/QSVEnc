@@ -181,6 +181,9 @@ public:
     void GetDecParam(mfxVideoParam *decParam) {
         memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
     }
+    virtual int GetAudioTrackCount() {
+        return 0;
+    }
     const msdk_char *GetInputMessage() {
         const msdk_char *mes = m_strInputInfo.c_str();
         return (mes) ? mes : _T("");

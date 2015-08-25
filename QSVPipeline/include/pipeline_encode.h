@@ -152,6 +152,7 @@ protected:
     vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
     CSmplBitstreamWriter *m_pFileWriter;
     unique_ptr<CSmplYUVWriter> m_pFrameWriter;
+    vector<unique_ptr<CSmplYUVReader>> m_AudioReaders;
     CSmplYUVReader *m_pFileReader;
 
     CEncTaskPool m_TaskPool;

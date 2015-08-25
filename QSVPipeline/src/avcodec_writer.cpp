@@ -882,9 +882,13 @@ vector<int> CAvcodecWriter::GetAudioStreamIndex() {
 }
 
 AVMuxAudio *CAvcodecWriter::getAudioPacketStreamData(const AVPacket *pkt) {
-    int streamIndex = pkt->stream_index;
+    const int streamIndex = pkt->stream_index;
+    //privには、trackIdへのポインタが格納してある…はず
+    const int inTrackId = (pkt->priv) ? *(int *)(pkt->priv) : -1;
     for (int i = 0; i < (int)m_Mux.audio.size(); i++) {
-        if (m_Mux.audio[i].nStreamIndexIn == streamIndex) {
+        //streamIndexの一致とtrackIdの一致を確認する
+        if (m_Mux.audio[i].nStreamIndexIn == streamIndex
+            && (inTrackId < 0 || m_Mux.audio[i].nInTrackId == inTrackId)) {
             return &m_Mux.audio[i];
         }
     }

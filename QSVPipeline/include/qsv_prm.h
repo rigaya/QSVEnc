@@ -259,7 +259,11 @@ struct sInputParams
     mfxU16     nSessionThreads;
     mfxU16     nSessionThreadPriority;
 
-    mfxU8      Reserved[1148];
+    mfxU8      reserved[3];
+    mfxU8      nAudioSourceCount;
+    TCHAR      **ppAudioSourceList;
+
+    mfxU8      Reserved[1140];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

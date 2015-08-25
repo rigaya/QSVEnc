@@ -134,6 +134,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 default: 5.\n")
             _T("                                 could be only used with avqsv reader.\n")
             _T("                                 use if reader fails to detect audio stream.\n")
+            _T("   --audio-source <string>      input extra audio file\n")
             _T("   --audio-file [<int>?][<string>:]<string>\n")
             _T("                                extract audio into file.\n")
             _T("                                 could be only used with avqsv reader.\n")
@@ -869,6 +870,16 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
                 memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
             }
+        }
+        else if (0 == _tcscmp(option_name, _T("audio-source")))
+        {
+            i++;
+            size_t audioSourceLen = _tcslen(strInput[i]) + 1;
+            TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
+            memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);
+            pParams->ppAudioSourceList = (TCHAR **)realloc(pParams->ppAudioSourceList, sizeof(pParams->ppAudioSourceList[0]) * (pParams->nAudioSourceCount + 1));
+            pParams->ppAudioSourceList[pParams->nAudioSourceCount] = pAudioSource;
+            pParams->nAudioSourceCount++;
         }
         else if (0 == _tcscmp(option_name, _T("audio-file")))
         {
