@@ -165,6 +165,7 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 11, 1 },
     { 13, 1 },
     { 15, 1 },
+    { 16, 1 },
     { NULL, NULL } 
 };
 
@@ -181,6 +182,7 @@ static const mfxVersion LIB_VER_LIST[] = {
 #define MFX_LIB_VERSION_1_11 LIB_VER_LIST[10]
 #define MFX_LIB_VERSION_1_13 LIB_VER_LIST[11]
 #define MFX_LIB_VERSION_1_15 LIB_VER_LIST[12]
+#define MFX_LIB_VERSION_1_16 LIB_VER_LIST[13]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 mfxVersion get_mfx_libhw_version();
