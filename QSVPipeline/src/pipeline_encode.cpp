@@ -2024,6 +2024,11 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         pParams->nAVMux &= ~QSVENC_MUX_VIDEO;
     }
     if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
+        if (   pParams->CodecId == MFX_CODEC_HEVC
+            || pParams->CodecId == MFX_CODEC_VP8) {
+            PrintMes(QSV_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId).c_str());
+            return MFX_ERR_UNSUPPORTED;
+        }
         PrintMes(QSV_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = new CAvcodecWriter();
         AvcodecWriterPrm writerPrm = { 0 };
