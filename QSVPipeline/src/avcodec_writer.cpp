@@ -704,22 +704,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
     return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) {
-    //QSVEncCでエンコーダしたことを記録してみる
-    //これは直接metadetaにセットする
-    sprintf_s(m_Mux.format.metadataStr, "QSVEncC (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
-    av_dict_set(&m_Mux.format.pFormatCtx->metadata, "encoding_tool", m_Mux.format.metadataStr, 0); //mp4
-    //encoderではなく、encoding_toolを使用する。mp4はcomment, titleなどは設定可能, mkvではencode_byも可能
-
-    //mp4のmajor_brandをisonからmp42に変更
-    //これはmetadataではなく、avformat_write_headerのoptionsに渡す
-    //この差ははっきり言って謎
-    AVDictionary *avdict = NULL;
-    if (m_Mux.video.pStream && 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")) {
-        av_dict_set(&avdict, "brand", "mp42", 0);
-        AddMessage(QSV_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
-    }
-
+mfxStatus CAvcodecWriter::SetSPSPPSToExtraData(const mfxVideoParam *pMfxVideoPrm) {
     //SPS/PPSをセット
     if (m_Mux.video.pStream) {
         mfxExtCodingOptionSPSPPS *pSpsPPS = NULL;
@@ -744,6 +729,63 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
             AddMessage(QSV_LOG_DEBUG, _T("output is PAFF.\n"));
         }
     }
+    return MFX_ERR_NONE;
+}
+
+//extradataにHEVCのヘッダーを追加する
+mfxStatus CAvcodecWriter::AddHEVCHeaderToExtraData(const mfxBitstream *pMfxBitstream) {
+    mfxU8 *ptr = pMfxBitstream->Data;
+    mfxU8 *vps_start_ptr = nullptr;
+    mfxU8 *vps_fin_ptr = nullptr;
+    const int i_fin = pMfxBitstream->DataOffset + pMfxBitstream->DataLength - 3;
+    for (int i = pMfxBitstream->DataOffset; i < i_fin; i++) {
+        if (ptr[i+0] == 0 && ptr[i+1] == 0 && ptr[i+2] == 1) {
+            mfxU8 nalu_type = (ptr[i+3] & 0x7f) >> 1;
+            if (nalu_type == 32 && vps_start_ptr == nullptr) {
+                vps_start_ptr = ptr + i - (i > 0 && ptr[i] == 0);
+                i += 5;
+            } else if (vps_start_ptr && vps_fin_ptr == nullptr) {
+                vps_fin_ptr = ptr + i - (i > 0 && ptr[i] == 0);
+            }
+        }
+    }
+    if (vps_fin_ptr == nullptr) {
+        vps_fin_ptr = ptr + pMfxBitstream->DataOffset + pMfxBitstream->DataLength;
+    }
+    if (vps_start_ptr) {
+        const mfxU32 vps_length = vps_fin_ptr - vps_start_ptr;
+        mfxU8 *ptr = (mfxU8 *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + vps_length);
+        memcpy(ptr, vps_start_ptr, vps_length);
+        memcpy(ptr + vps_length, m_Mux.video.pCodecCtx->extradata, m_Mux.video.pCodecCtx->extradata_size);
+        m_Mux.video.pCodecCtx->extradata_size += vps_length;
+        av_free(m_Mux.video.pCodecCtx->extradata);
+        m_Mux.video.pCodecCtx->extradata = ptr;
+    }
+    return MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2, const mfxBitstream *pMfxBitstream) {
+    if (pMfxVideoPrm->mfx.CodecId == MFX_CODEC_HEVC && pMfxBitstream) {
+        mfxStatus sts = AddHEVCHeaderToExtraData(pMfxBitstream);
+        if (sts != MFX_ERR_NONE) {
+            return sts;
+        }
+    }
+
+    //QSVEncCでエンコーダしたことを記録してみる
+    //これは直接metadetaにセットする
+    sprintf_s(m_Mux.format.metadataStr, "QSVEncC (%s) %s", tchar_to_string(BUILD_ARCH_STR).c_str(), VER_STR_FILEVERSION);
+    av_dict_set(&m_Mux.format.pFormatCtx->metadata, "encoding_tool", m_Mux.format.metadataStr, 0); //mp4
+    //encoderではなく、encoding_toolを使用する。mp4はcomment, titleなどは設定可能, mkvではencode_byも可能
+
+    //mp4のmajor_brandをisonからmp42に変更
+    //これはmetadataではなく、avformat_write_headerのoptionsに渡す
+    //この差ははっきり言って謎
+    AVDictionary *avdict = NULL;
+    if (m_Mux.video.pStream && 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")) {
+        av_dict_set(&avdict, "brand", "mp42", 0);
+        AddMessage(QSV_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
+    }
 
     //なんらかの問題があると、ここでよく死ぬ
     int ret = 0;
@@ -760,6 +802,8 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
     if (avdict) {
         av_dict_free(&avdict);
     }
+    m_Mux.format.bFileHeaderWritten = true;
+
     av_dump_format(m_Mux.format.pFormatCtx, 0, m_Mux.format.pFormatCtx->filename, 1);
 
     //frame_sizeを表示
@@ -767,7 +811,7 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
         if (audio.pOutCodecDecodeCtx || audio.pOutCodecEncodeCtx) {
             tstring audioFrameSize = strsprintf(_T("audio track #%d:"), audio.nInTrackId);
             if (audio.pOutCodecDecodeCtx) {
-                audioFrameSize += strsprintf( _T(" %s frame_size %d sample/byte"), char_to_tstring(audio.pOutCodecDecode->name).c_str(), audio.pOutCodecDecodeCtx->frame_size);
+                audioFrameSize += strsprintf(_T(" %s frame_size %d sample/byte"), char_to_tstring(audio.pOutCodecDecode->name).c_str(), audio.pOutCodecDecodeCtx->frame_size);
             }
             if (audio.pOutCodecEncodeCtx) {
                 audioFrameSize += strsprintf(_T(" -> %s frame_size %d sample/byte"), char_to_tstring(audio.pOutCodecEncode->name).c_str(), audio.pOutCodecEncodeCtx->frame_size);
@@ -784,6 +828,24 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
             AddMessage(QSV_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
         }
     }
+    return MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) {
+    mfxStatus sts = SetSPSPPSToExtraData(pMfxVideoPrm);
+    if (sts != MFX_ERR_NONE) {
+        return sts;
+    }
+
+    m_Mux.video.mfxParam = *pMfxVideoPrm;
+    m_Mux.video.mfxCop2 = *cop2;
+
+    if (pMfxVideoPrm->mfx.CodecId != MFX_CODEC_HEVC) {
+        if (MFX_ERR_NONE != (sts = WriteFileHeader(pMfxVideoPrm, cop2, nullptr))) {
+            return sts;
+        }
+    }
+
     tstring mes = GetWriterMes();
     AddMessage(QSV_LOG_DEBUG, mes);
     m_strOutputInfo += mes;
@@ -840,6 +902,14 @@ mfxU32 CAvcodecWriter::getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size) {
 }
 
 mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
+    if (!m_Mux.format.bFileHeaderWritten) {
+        mfxStatus sts = WriteFileHeader(&m_Mux.video.mfxParam, &m_Mux.video.mfxCop2, pMfxBitstream);
+        if (sts != MFX_ERR_NONE) {
+            return sts;
+        }
+        m_Mux.format.bFileHeaderWritten = true;
+    }
+
     const int bIsPAFF = !!m_Mux.video.bIsPAFF;
     for (mfxU32 i = 0, frameSize = pMfxBitstream->DataLength; frameSize > 0; i++) {
         const mfxU32 bytesToWrite = (bIsPAFF) ? getH264PAFFFieldLength(pMfxBitstream->Data + pMfxBitstream->DataOffset, frameSize) : frameSize;

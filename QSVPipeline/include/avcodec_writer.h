@@ -34,6 +34,7 @@ typedef struct AVMuxFormat {
     bool                  bStreamError;         //エラーが発生
     bool                  bIsMatroska;          //mkvかどうか
     bool                  bIsPipe;              //パイプ出力かどうか
+    bool                  bFileHeaderWritten;   //ファイルヘッダを出力したかどうか
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {
@@ -44,6 +45,8 @@ typedef struct AVMuxVideo {
     bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     bool                  bIsPAFF;              //出力映像がPAFFである
+    mfxVideoParam         mfxParam;             //動画パラメータのコピー
+    mfxExtCodingOption2   mfxCop2;              //動画パラメータのコピー
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -173,6 +176,15 @@ private:
 
     //パケットを実際に書き出す
     void WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples);
+
+    //extradataに動画のヘッダーをセットする
+    mfxStatus SetSPSPPSToExtraData(const mfxVideoParam *pMfxVideoPrm);
+
+    //extradataにHEVCのヘッダーを追加する
+    mfxStatus AddHEVCHeaderToExtraData(const mfxBitstream *pMfxBitstream);
+
+    //ファイルヘッダーを書き出す
+    mfxStatus WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2, const mfxBitstream *pMfxBitstream);
 
     void CloseAudio(AVMuxAudio *pMuxAudio);
     void CloseVideo(AVMuxVideo *pMuxVideo);
