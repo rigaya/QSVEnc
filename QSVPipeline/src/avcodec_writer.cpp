@@ -1143,6 +1143,24 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
 }
 
 mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
+    if (!m_Mux.format.bFileHeaderWritten) {
+        //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
+        m_AudPktBufFileHead.push_back(pkt);
+        return MFX_ERR_NONE;
+    }
+    //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
+    if (m_AudPktBufFileHead.end() == std::find(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(), pkt)) {
+        //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
+        for (auto bufPkt : m_AudPktBufFileHead) {
+            mfxStatus sts = WriteNextPacket(bufPkt);
+            if (sts != MFX_ERR_NONE) {
+                return sts;
+            }
+        }
+        //キャッシュをすべて書き出したらクリア
+        m_AudPktBufFileHead.clear();
+    }
+
     if (pkt == nullptr) {
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
             AudioFlushStream(&m_Mux.audio[i]);

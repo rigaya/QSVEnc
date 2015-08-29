@@ -191,6 +191,7 @@ private:
     void CloseFormat(AVMuxFormat *pMuxFormat);
 
     AVMux m_Mux;
+    vector<AVPacket *> m_AudPktBufFileHead; //ファイルヘッダを書く前にやってきた音声パケットのバッファ
 };
 
 #endif //ENABLE_AVCODEC_QSV_READER
