@@ -39,7 +39,9 @@
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
 
+#ifndef QSVENC_AUO
 #pragma comment(lib, "libmfx.lib")
+#endif
 
 #include "vpp_plugins.h"
 #include "scene_change_detection.h"

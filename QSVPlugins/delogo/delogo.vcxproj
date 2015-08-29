@@ -201,6 +201,7 @@
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;</AdditionalIncludeDirectories>
       <ExceptionHandling>Async</ExceptionHandling>
       <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -233,6 +234,7 @@
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;</AdditionalIncludeDirectories>
       <ExceptionHandling>Async</ExceptionHandling>
       <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
