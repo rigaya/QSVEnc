@@ -548,9 +548,9 @@ static int writeFeatureList(tstring filename) {
         } else {
             print_tstring(strsprintf(_T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor), true);
             print_tstring(_T("Supported Enc features:\n"), true);
-            print_tstring(strsprintf(_T("%s\n\n"), MakeFeatureListStr(0 == impl_type, type)), false);
+            print_tstring(strsprintf(_T("%s\n\n"), MakeFeatureListStr(0 == impl_type, type).c_str()), false);
             print_tstring(_T("Supported Vpp features:\n"), true);
-            print_tstring(strsprintf(_T("%s\n\n"), MakeVppFeatureStr(0 == impl_type, type)), false);
+            print_tstring(strsprintf(_T("%s\n\n"), MakeVppFeatureStr(0 == impl_type, type).c_str()), false);
         }
     }
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
