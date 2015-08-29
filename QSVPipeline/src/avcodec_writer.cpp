@@ -766,7 +766,7 @@ mfxStatus CAvcodecWriter::AddHEVCHeaderToExtraData(const mfxBitstream *pMfxBitst
 }
 
 mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2, const mfxBitstream *pMfxBitstream) {
-    if (pMfxVideoPrm->mfx.CodecId == MFX_CODEC_HEVC && pMfxBitstream) {
+    if ((m_Mux.video.pCodecCtx && m_Mux.video.pCodecCtx->codec_id == AV_CODEC_ID_HEVC) && pMfxBitstream) {
         mfxStatus sts = AddHEVCHeaderToExtraData(pMfxBitstream);
         if (sts != MFX_ERR_NONE) {
             return sts;
@@ -838,10 +838,10 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
         return sts;
     }
 
-    m_Mux.video.mfxParam = *pMfxVideoPrm;
-    m_Mux.video.mfxCop2 = *cop2;
+    if (pMfxVideoPrm) m_Mux.video.mfxParam = *pMfxVideoPrm;
+    if (cop2) m_Mux.video.mfxCop2 = *cop2;
 
-    if (pMfxVideoPrm->mfx.CodecId != MFX_CODEC_HEVC) {
+    if (m_Mux.video.pCodecCtx == nullptr || m_Mux.video.pCodecCtx->codec_id != AV_CODEC_ID_HEVC) {
         if (MFX_ERR_NONE != (sts = WriteFileHeader(pMfxVideoPrm, cop2, nullptr))) {
             return sts;
         }
