@@ -907,7 +907,6 @@ mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
         if (sts != MFX_ERR_NONE) {
             return sts;
         }
-        m_Mux.format.bFileHeaderWritten = true;
     }
 
     const int bIsPAFF = !!m_Mux.video.bIsPAFF;
