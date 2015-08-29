@@ -742,10 +742,11 @@ mfxStatus CAvcodecWriter::AddHEVCHeaderToExtraData(const mfxBitstream *pMfxBitst
         if (ptr[i+0] == 0 && ptr[i+1] == 0 && ptr[i+2] == 1) {
             mfxU8 nalu_type = (ptr[i+3] & 0x7f) >> 1;
             if (nalu_type == 32 && vps_start_ptr == nullptr) {
-                vps_start_ptr = ptr + i - (i > 0 && ptr[i] == 0);
-                i += 5;
-            } else if (vps_start_ptr && vps_fin_ptr == nullptr) {
-                vps_fin_ptr = ptr + i - (i > 0 && ptr[i] == 0);
+                vps_start_ptr = ptr + i - (i > 0 && ptr[i-1] == 0);
+                i += 3;
+            } else if (nalu_type != 32 && vps_start_ptr && vps_fin_ptr == nullptr) {
+                vps_fin_ptr = ptr + i - (i > 0 && ptr[i-1] == 0);
+                break;
             }
         }
     }
