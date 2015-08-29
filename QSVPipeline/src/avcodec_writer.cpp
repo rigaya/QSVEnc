@@ -904,6 +904,10 @@ mfxU32 CAvcodecWriter::getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size) {
 
 mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
     if (!m_Mux.format.bFileHeaderWritten) {
+        //HEVCエンコードでは、DecodeTimeStampが正しく設定されない
+        if (pMfxBitstream->DecodeTimeStamp == MFX_TIMESTAMP_UNKNOWN) {
+            m_Mux.video.bDtsUnavailable = true;
+        }
         mfxStatus sts = WriteFileHeader(&m_Mux.video.mfxParam, &m_Mux.video.mfxCop2, pMfxBitstream);
         if (sts != MFX_ERR_NONE) {
             return sts;
