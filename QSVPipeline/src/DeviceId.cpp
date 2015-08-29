@@ -30,6 +30,7 @@
 #include <wbemidl.h>
 #include <ObjBase.h>
 
+#pragma warning(disable:4456)
 #pragma comment(lib, "wbemuuid.lib")
 
 static const int FIRST_GFX_ADAPTER = 0;
@@ -239,7 +240,7 @@ PresetLevel getDefaultFidelityPresets( unsigned int VendorId, unsigned int Devic
             {
                 // Found the device
                 char s[10];
-                sscanf_s( szPresetLevel, "%s", s, _countof( s ) );
+                sscanf_s( szPresetLevel, "%s", s, (int)_countof( s ) );
 
                 if( !_stricmp( s, "Low" ) )
                     presets = Low;

@@ -886,7 +886,7 @@ const msdk_char *EncFeatureStr(mfxU64 enc_feature) {
     return NULL;
 }
 
-vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, mfxU32 codecId) {
+vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId) {
     vector<mfxU64> availableFeatureForEachRC;
     availableFeatureForEachRC.reserve(rateControlList.size());
     for (const auto& ratecontrol : rateControlList) {
@@ -899,7 +899,7 @@ vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<const
     return std::move(availableFeatureForEachRC);
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
     vector<vector<mfxU64>> codecFeatures;
     for (auto codec : codecIdList) {
         codecFeatures.push_back(MakeFeatureList(hardware, ver, rateControlList, codec));
@@ -907,7 +907,7 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, co
     return std::move(codecFeatures);
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
     vector<vector<mfxU64>> codecFeatures;
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
     for (auto codec : codecIdList) {
@@ -1392,8 +1392,8 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
     add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
     add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
     if (add_ram_info) {
-        cpu_info_t cpu_info;
-        get_cpu_info(&cpu_info);
+        cpu_info_t cpuinfo;
+        get_cpu_info(&cpuinfo);
         auto write_rw_speed = [&](TCHAR *type, int test_size) {
             if (test_size) {
                 auto ram_read_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_READ);
@@ -1403,10 +1403,10 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
                 add_tchar_to_buf(_T("%s: Read:%7.2fGB/s, Write:%7.2fGB/s\n"), type, max_read, max_write);
             }
         };
-        write_rw_speed(_T("L1 "), cpu_info.caches[0].size / 1024 / 8);
-        write_rw_speed(_T("L2 "), cpu_info.caches[1].size / 1024 / 2);
-        write_rw_speed(_T("L3 "), cpu_info.caches[2].size / 1024 / 2);
-        write_rw_speed(_T("RAM"), cpu_info.caches[cpu_info.max_cache_level-1].size / 1024 * 8);
+        write_rw_speed(_T("L1 "), cpuinfo.caches[0].size / 1024 / 8);
+        write_rw_speed(_T("L2 "), cpuinfo.caches[1].size / 1024 / 2);
+        write_rw_speed(_T("L3 "), cpuinfo.caches[2].size / 1024 / 2);
+        write_rw_speed(_T("RAM"), cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8);
     }
     add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
     add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);

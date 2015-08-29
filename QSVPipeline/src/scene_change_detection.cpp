@@ -12,7 +12,7 @@
 #include <process.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <Math.h>
+#include <cmath>
 #include <intrin.h>
 #include <emmintrin.h> //SSE2
 #include <smmintrin.h> //SSE4.1
@@ -453,7 +453,7 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
                 for (int idx = 0; idx < index; idx++) {
                     tmp += pow2(data_array[idx] - avg);
                 }
-                sigma.f[i_hist] = (sum) ? (sqrt(tmp / (float)index) / (float)(frame_size >> HIST_LEN_2N)) : 0.0f;
+                sigma.f[i_hist] = (sum) ? ((float)sqrt(tmp / (float)index) / (float)(frame_size >> HIST_LEN_2N)) : 0.0f;
                 estimate.v[i_hist] = max(0, (int)(estimate_next_2(data_array, index) + 0.5f));
             }
 
@@ -629,10 +629,10 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
 
         if (result & KEY_FRAMETYPE[i_field]) {
             if (index) {
-                __m128i x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] +  0));
-                __m128i x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 16));
-                __m128i x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 32));
-                __m128i x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 48));
+                x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] +  0));
+                x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 16));
+                x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 32));
+                x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 48));
                 _mm_store_si128((__m128i*)((BYTE *)&hist[0] +  0), x0);
                 _mm_store_si128((__m128i*)((BYTE *)&hist[0] + 16), x1);
                 _mm_store_si128((__m128i*)((BYTE *)&hist[0] + 32), x2);
@@ -647,10 +647,10 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
         } else {
             if (index == HIST_COUNT - 1) {
                 for (int idx = 1; idx <= index; idx++) {
-                    __m128i x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] +  0));
-                    __m128i x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 16));
-                    __m128i x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 32));
-                    __m128i x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 48));
+                    x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] +  0));
+                    x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 16));
+                    x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 32));
+                    x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 48));
                     _mm_store_si128((__m128i*)((BYTE *)&hist[idx-1] +  0), x0);
                     _mm_store_si128((__m128i*)((BYTE *)&hist[idx-1] + 16), x1);
                     _mm_store_si128((__m128i*)((BYTE *)&hist[idx-1] + 32), x2);

@@ -2050,8 +2050,8 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
             }
             for (const auto& audioReader : m_AudioReaders) {
                 if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(audioReader.get());
-                    auto tempList = pAVCodecReader->GetInputAudioInfo();
+                    auto pAVCodecAudioReader = reinterpret_cast<CAvcodecReader *>(audioReader.get());
+                    auto tempList = pAVCodecAudioReader->GetInputAudioInfo();
                     audioList.insert(audioList.end(), tempList.begin(), tempList.end());
                 }
             }
@@ -4160,18 +4160,18 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
     if (m_pFileWriter) {
         inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
-        for (auto str : inputMesSplitted) {
-            if (str.length()) {
-                PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
+        for (auto mes : inputMesSplitted) {
+            if (mes.length()) {
+                PRINT_INFO(_T("%s%s\n"), _T("               "), mes.c_str());
             }
         }
     }
     for (auto pWriter : m_pFileWriterListAudio) {
         if (pWriter && pWriter != m_pFileWriter) {
             inputMesSplitted = split(pWriter->GetOutputMessage(), _T("\n"));
-            for (auto str : inputMesSplitted) {
-                if (str.length()) {
-                    PRINT_INFO(_T("%s%s\n"), _T("               "), str.c_str());
+            for (auto mes : inputMesSplitted) {
+                if (mes.length()) {
+                    PRINT_INFO(_T("%s%s\n"), _T("               "), mes.c_str());
                 }
             }
         }

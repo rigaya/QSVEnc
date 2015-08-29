@@ -10,6 +10,9 @@
 #include "avi_reader.h"
 #if ENABLE_AVI_READER
 
+#pragma warning(disable:4312)
+#pragma warning(disable:4838)
+
 CAVIReader::CAVIReader() {
     m_pAviFile = NULL;
     m_pAviStream = NULL;
@@ -154,8 +157,8 @@ void CAVIReader::Close() {
         AVIStreamRelease(m_pAviStream);
     if (m_pAviFile)
         AVIFileRelease(m_pAviFile);
-    if (buffer)
-        _aligned_free(buffer);
+    if (m_pBuffer)
+        _aligned_free(m_pBuffer);
     AVIFileExit();
 
     m_pAviFile = NULL;
@@ -164,8 +167,8 @@ void CAVIReader::Close() {
     m_pBitmapInfoHeader = NULL;
     m_bInited = false;
     m_nYPitchMultiplizer = 1;
-    bufSize = 0;
-    buffer = NULL;
+    m_nBufSize = 0;
+    m_pBuffer = NULL;
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
@@ -202,17 +205,17 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         ptr_src += sizeof(BITMAPINFOHEADER);
     } else {
         mfxU32 required_bufsize = w * h * 3;
-        if (bufSize < required_bufsize) {
-            if (buffer)
-                _aligned_free(buffer);
-            if (NULL == (buffer = (mfxU8 *)_aligned_malloc(sizeof(mfxU8) * required_bufsize, 16)))
+        if (m_nBufSize < required_bufsize) {
+            if (m_pBuffer)
+                _aligned_free(m_pBuffer);
+            if (NULL == (m_pBuffer = (mfxU8 *)_aligned_malloc(sizeof(mfxU8) * required_bufsize, 16)))
                 return MFX_ERR_MEMORY_ALLOC;
-            bufSize = required_bufsize;
+            m_nBufSize = required_bufsize;
         }
         LONG sizeRead = 0;
-        if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, buffer, (LONG)bufSize, &sizeRead, NULL))
+        if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, m_pBuffer, (LONG)m_nBufSize, &sizeRead, NULL))
             return MFX_ERR_MORE_DATA;
-        ptr_src = buffer;
+        ptr_src = m_pBuffer;
     }
 
     BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));

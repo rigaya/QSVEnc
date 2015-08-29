@@ -188,13 +188,13 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
         //m_Demux.video.frameData.fixed_numから16フレーム分、pts順にソートを行う
         sortVideoPtsList();
         //進捗表示用のdurationの計算を行う
-        const FramePos *pos = m_Demux.video.frameData.frame + m_Demux.video.frameData.fixed_num;
-        int64_t duration = pos[16].pts - pos[0].pts;
+        const FramePos *pos_fixed = m_Demux.video.frameData.frame + m_Demux.video.frameData.fixed_num;
+        int64_t duration = pos_fixed[16].pts - pos_fixed[0].pts;
         if (duration < 0 || duration > 0xFFFFFFFF) {
             duration = 0;
             for (int i = 1; i < 16; i++) {
-                int64_t diff = MSDK_MAX(0, pos[i].pts - pos[i-1].pts);
-                int64_t last_frame_dur = MSDK_MAX(0, pos[i-1].duration);
+                int64_t diff = MSDK_MAX(0, pos_fixed[i].pts - pos_fixed[i-1].pts);
+                int64_t last_frame_dur = MSDK_MAX(0, pos_fixed[i-1].duration);
                 duration += (diff > 0xFFFFFFFF) ? last_frame_dur : diff;
             }
         }
@@ -599,7 +599,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         m_Demux.video.nAvgFramerate.den = 1001;
     } else {
         fps_n = fps * 1000;
-        int fps_n_int = (int)(fps + 0.5) * 1000;
+        fps_n_int = (int)(fps + 0.5) * 1000;
         if (abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
             m_Demux.video.nAvgFramerate.num = fps_n_int / 1000;
             m_Demux.video.nAvgFramerate.den = 1;
@@ -758,7 +758,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     //音声ストリームを探す
     if (input_prm->nReadAudio) {
         auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO);
-        m_Demux.format.nAudioTracks = audioStreams.size();
+        m_Demux.format.nAudioTracks = (int)audioStreams.size();
         if (m_Demux.format.nAudioTracks == 0) {
             AddMessage(QSV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
             return MFX_ERR_NOT_FOUND;
@@ -884,7 +884,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
         m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to decode header.\n"));
-        } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ m_sDecParam.mfx.FrameInfo.FrameRateExtN, m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount))) {
+        } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ (int)m_sDecParam.mfx.FrameInfo.FrameRateExtN, (int)m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to get first frame position.\n"));
         }
         MFXVideoDECODE_Close(session);

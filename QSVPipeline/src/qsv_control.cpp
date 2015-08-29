@@ -87,14 +87,11 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
     memset(m_InputBuf, 0, m_nFrameBuffer * sizeof(sInputBufSys));
 
     for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
-        m_InputBuf[i].heInputDone  = CreateEvent(NULL, FALSE, FALSE, NULL);
-        MSDK_CHECK_ERROR(m_InputBuf[i].heInputDone, NULL, MFX_ERR_INVALID_HANDLE);
-
-        m_InputBuf[i].heSubStart  = CreateEvent(NULL, FALSE, FALSE, NULL);
-        MSDK_CHECK_ERROR(m_InputBuf[i].heSubStart, NULL, MFX_ERR_INVALID_HANDLE);
-
-        m_InputBuf[i].heInputStart = CreateEvent(NULL, FALSE, FALSE, NULL);
-        MSDK_CHECK_ERROR(m_InputBuf[i].heInputStart, NULL, MFX_ERR_INVALID_HANDLE);
+        if (   NULL == (m_InputBuf[i].heInputDone  = CreateEvent(NULL, FALSE, FALSE, NULL))
+            || NULL == (m_InputBuf[i].heSubStart   = CreateEvent(NULL, FALSE, FALSE, NULL))
+            || NULL == (m_InputBuf[i].heInputStart = CreateEvent(NULL, FALSE, FALSE, NULL))) {
+            return MFX_ERR_INVALID_HANDLE;
+        }
     }
     m_bInit = true;
     return MFX_ERR_NONE;
@@ -103,8 +100,9 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
 mfxStatus CEncodingThread::RunEncFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
 
-    m_thEncode = (HANDLE)_beginthreadex(NULL, NULL, func, pClass, FALSE, NULL);
-    MSDK_CHECK_ERROR(m_thEncode, NULL, MFX_ERR_INVALID_HANDLE);
+    if (NULL == (m_thEncode = (HANDLE)_beginthreadex(NULL, NULL, func, pClass, FALSE, NULL))) {
+        return MFX_ERR_INVALID_HANDLE;
+    }
 
     if (threadAffinityMask)
         SetThreadAffinityMask(m_thEncode, threadAffinityMask);
@@ -115,8 +113,9 @@ mfxStatus CEncodingThread::RunEncFuncbyThread(unsigned (__stdcall * func) (void 
 mfxStatus CEncodingThread::RunSubFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
 
-    m_thSub = (HANDLE)_beginthreadex(NULL, NULL, func, pClass, FALSE, NULL);
-    MSDK_CHECK_ERROR(m_thEncode, NULL, MFX_ERR_INVALID_HANDLE);
+    if (NULL == (m_thSub = (HANDLE)_beginthreadex(NULL, NULL, func, pClass, FALSE, NULL))) {
+        return MFX_ERR_INVALID_HANDLE;
+    }
 
     if (threadAffinityMask)
         SetThreadAffinityMask(m_thSub, threadAffinityMask);
@@ -127,7 +126,7 @@ mfxStatus CEncodingThread::RunSubFuncbyThread(unsigned (__stdcall * func) (void 
 //終了を待機する
 mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
-    MSDK_CHECK_ERROR(m_thEncode, NULL, MFX_ERR_INVALID_HANDLE);
+    MSDK_CHECK_POINTER(m_thEncode, MFX_ERR_INVALID_HANDLE);
     //最後のLoadNextFrameの結果をm_stsThreadにセットし、RunEncodeに知らせる
     m_stsThread = sts;
     //読み込み終了(MFX_ERR_MORE_DATA)ではなく、エラーや中断だった場合、

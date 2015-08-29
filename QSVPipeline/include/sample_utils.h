@@ -242,8 +242,8 @@ protected:
 
     mfxU32 m_nInputCodec;
 
-    mfxU32 bufSize;
-    mfxU8 *buffer;
+    mfxU32 m_nBufSize;
+    mfxU8 *m_pBuffer;
 
     tstring m_strReaderName;
     tstring m_strInputInfo;

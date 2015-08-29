@@ -506,7 +506,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
             av_opt_set_sample_fmt(pMuxAudio->pSwrContext, "out_sample_fmt",     pMuxAudio->pOutCodecEncodeCtx->sample_fmt,     0);
             //av_opt_set           (pMuxAudio->pSwrContext, "resampler",          "sox",                                         0);
 
-            int ret = swr_init(pMuxAudio->pSwrContext);
+            ret = swr_init(pMuxAudio->pSwrContext);
             if (ret < 0) {
                 AddMessage(QSV_LOG_ERROR, _T("Failed to initialize the resampling context: %s\n"), qsv_av_err2str(ret).c_str());
                 return MFX_ERR_UNKNOWN;
@@ -754,13 +754,13 @@ mfxStatus CAvcodecWriter::AddHEVCHeaderToExtraData(const mfxBitstream *pMfxBitst
         vps_fin_ptr = ptr + pMfxBitstream->DataOffset + pMfxBitstream->DataLength;
     }
     if (vps_start_ptr) {
-        const mfxU32 vps_length = vps_fin_ptr - vps_start_ptr;
-        mfxU8 *ptr = (mfxU8 *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + vps_length);
-        memcpy(ptr, vps_start_ptr, vps_length);
-        memcpy(ptr + vps_length, m_Mux.video.pCodecCtx->extradata, m_Mux.video.pCodecCtx->extradata_size);
+        const mfxU32 vps_length = (mfxU32)(vps_fin_ptr - vps_start_ptr);
+        mfxU8 *new_ptr = (mfxU8 *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + vps_length);
+        memcpy(new_ptr, vps_start_ptr, vps_length);
+        memcpy(new_ptr + vps_length, m_Mux.video.pCodecCtx->extradata, m_Mux.video.pCodecCtx->extradata_size);
         m_Mux.video.pCodecCtx->extradata_size += vps_length;
         av_free(m_Mux.video.pCodecCtx->extradata);
-        m_Mux.video.pCodecCtx->extradata = ptr;
+        m_Mux.video.pCodecCtx->extradata = new_ptr;
     }
     return MFX_ERR_NONE;
 }

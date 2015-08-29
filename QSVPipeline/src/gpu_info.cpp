@@ -221,7 +221,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
         _tcscpy_s(buffer, buffer_size, _T("Intel HD Graphics"));
         opencl_error = true;
     } else if (CL_SUCCESS != (ret = cl_get_platform_and_device(VendorName, CL_DEVICE_TYPE_GPU, &data, &cl))) {
-        _stprintf_s(buffer, buffer_size, _T("Intel HD Graphics"), to_tchar(VendorName).c_str());
+        _tcscpy_s(buffer, buffer_size, _T("Intel HD Graphics"));
         opencl_error = true;
     }
 

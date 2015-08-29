@@ -318,7 +318,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_REF,
             QSV_DEFAULT_BFRAMES,
             QSV_DEFAULT_GOP_LEN,
-            QSV_ASYNC_DEPTH_MAX, QSV_SESSION_THREAD_MAX,
+            QSV_ASYNC_DEPTH_MAX,
+#if ENABLE_SESSION_THREAD_CONFIG
+            QSV_SESSION_THREAD_MAX,
+#endif
             QSV_DEFAULT_VPP_DELOGO_DEPTH
             );
         _ftprintf(stdout, _T("\n")
@@ -861,10 +864,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
             }
             if (trim_list.size()) {
                 std::sort(trim_list.begin(), trim_list.end(), [](const sTrim& trimA, const sTrim& trimB) { return trimA.start < trimB.start; });
-                for (int i = (int)trim_list.size() - 2; i >= 0; i--) {
-                    if (trim_list[i].fin > trim_list[i+1].start) {
-                        trim_list[i].fin = trim_list[i+1].fin;
-                        trim_list.erase(trim_list.begin() + i+1);
+                for (int j = (int)trim_list.size() - 2; j >= 0; j--) {
+                    if (trim_list[j].fin > trim_list[j+1].start) {
+                        trim_list[j].fin = trim_list[j+1].fin;
+                        trim_list.erase(trim_list.begin() + j+1);
                     }
                 }
                 pParams->nTrimCount = (mfxU16)trim_list.size();
@@ -1480,8 +1483,8 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 }
             }
             mfxU8 *limit = (0 == _tcscmp(option_name, _T("qpmin"))) ? pParams->nQPMin : pParams->nQPMax;
-            for (int i = 0; i < 3; i++) {
-                limit[i] = (mfxU8)clamp(qpLimit[i], 0, 51);
+            for (int j = 0; j < 3; j++) {
+                limit[j] = (mfxU8)clamp(qpLimit[j], 0, 51);
             }
         }
         else if (0 == _tcscmp(option_name, _T("mv-scaling")))

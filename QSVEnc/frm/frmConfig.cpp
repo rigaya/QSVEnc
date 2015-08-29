@@ -236,21 +236,21 @@ System::Boolean frmConfig::CheckLocalStg() {
     return error;
 }
 
-System::Boolean frmConfig::CheckVppResolution(CONF_GUIEX *conf) {
+System::Boolean frmConfig::CheckVppResolution(CONF_GUIEX *cnf) {
     bool error = false;
-    if (!conf->qsv.vpp.bUseResize)
+    if (!cnf->qsv.vpp.bUseResize)
         return error;
     int w_mul = 2;
     int h_mul = 2;
-    if ((conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) != 0 &&
-        !conf->qsv.vpp.nDeinterlace)
+    if ((cnf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) != 0 &&
+        !cnf->qsv.vpp.nDeinterlace)
         h_mul *= 2;
     String^ err = L"";
-    if (conf->qsv.nDstWidth % w_mul != 0) {
+    if (cnf->qsv.nDstWidth % w_mul != 0) {
         err += L"VPP リサイズに指定した横解像度が " + w_mul + L" で割りきれません。\n";
         error = true;
     }
-    if (conf->qsv.nDstHeight % h_mul != 0) {
+    if (cnf->qsv.nDstHeight % h_mul != 0) {
         err += L"VPP リサイズに指定した縦解像度が " + h_mul + L" で割りきれません。\n";
         error = true;
     }

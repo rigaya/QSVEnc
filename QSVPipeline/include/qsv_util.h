@@ -34,8 +34,8 @@ std::vector<T> to_vector(T(&ptr)[size]) {
     return std::vector<T>(ptr, ptr + size);
 }
 template<typename T, size_t size>
-std::vector<const T> to_vector(const T(&ptr)[size]) {
-    return std::vector<const T>(ptr, ptr + size);
+std::vector<T> to_vector(const T(&ptr)[size]) {
+    return std::vector<T>(ptr, ptr + size);
 }
 
 struct aligned_malloc_deleter {
@@ -336,9 +336,9 @@ enum FeatureListStrType {
 mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId);
-vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, mfxU32 codecId);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<const CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
+vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 tstring MakeFeatureListStr(mfxU64 feature);
 tstring MakeFeatureListStr(bool hardware, FeatureListStrType outputType);
 

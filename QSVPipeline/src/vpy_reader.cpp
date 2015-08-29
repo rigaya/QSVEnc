@@ -298,8 +298,8 @@ void CVSReader::Close() {
     m_nAsyncFrames = 0;
 
     m_bInited = false;
-    bufSize = 0;
-    buffer = NULL;
+    m_nBufSize = 0;
+    m_pBuffer = NULL;
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
