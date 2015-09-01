@@ -543,7 +543,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
         && pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {
-        PrintMes(QSV_LOG_WARN, _T("Interlaced encoding is not supported on current rate control mode.\n"));
+        PrintMes(QSV_LOG_ERROR, _T("Interlaced encoding is not supported on current rate control mode.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
