@@ -493,6 +493,9 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         PrintMes(QSV_LOG_ERROR, _T("%s mode cannot be used with avqsv reader.\n"), EncmodeToStr(pInParams->nEncMode));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
+    if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
+        pInParams->nBframes = (pInParams->CodecId == MFX_CODEC_HEVC) ? QSV_DEFAULT_HEVC_BFRAMES : QSV_DEFAULT_H264_BFRAMES;
+    }
     //その他機能のチェック
     if (pInParams->bAdaptiveI && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
         PrintMes(QSV_LOG_WARN, _T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));
@@ -542,6 +545,9 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {
         PrintMes(QSV_LOG_WARN, _T("Interlaced encoding is not supported on current rate control mode.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
+        PrintMes(QSV_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
     }
     if (pInParams->bBPyramid && !pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_B_PYRAMID_AND_SC)) {
         PrintMes(QSV_LOG_WARN, _T("B pyramid with scenechange is not supported on current platform, B pyramid disabled.\n"));

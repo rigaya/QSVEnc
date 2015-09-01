@@ -2980,7 +2980,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // 
             this->fcgNUBframes->Location = System::Drawing::Point(133, 268);
             this->fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
-            this->fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, System::Int32::MinValue });
+            this->fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { -1, 0, 0, System::Int32::MinValue });
             this->fcgNUBframes->Name = L"fcgNUBframes";
             this->fcgNUBframes->Size = System::Drawing::Size(77, 21);
             this->fcgNUBframes->TabIndex = 16;

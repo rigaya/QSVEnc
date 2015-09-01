@@ -249,7 +249,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --ref <int>                  reference frames for sw encoding\n")
             _T("                                  default %d (auto)\n")
             _T("-b,--bframes <int>              number of sequential b frames\n")
-            _T("                                  default %d (auto)\n")
+            _T("                                  default %d(HEVC) / %d(others)\n")
             _T("\n")
             _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
             _T("                                  when auto, fps x 10 will be set.\n")
@@ -316,7 +316,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_QVBR,
             QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
             QSV_DEFAULT_REF,
-            QSV_DEFAULT_BFRAMES,
+            QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
             QSV_DEFAULT_GOP_LEN,
             QSV_ASYNC_DEPTH_MAX,
 #if ENABLE_SESSION_THREAD_CONFIG
@@ -592,7 +592,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
     pParams->nRef              = QSV_DEFAULT_REF;
     pParams->bUseHWLib         = true;
     pParams->memType           = HW_MEMORY;
-    pParams->nBframes          = QSV_DEFAULT_BFRAMES;
+    pParams->nBframes          = QSV_BFRAMES_AUTO;
     pParams->bBPyramid         = getCPUGen() >= CPU_GEN_HASWELL;
     pParams->nGOPLength        = QSV_DEFAULT_GOP_LEN;
     pParams->ColorPrim         = (mfxU16)list_colorprim[0].value;

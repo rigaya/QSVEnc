@@ -32,7 +32,7 @@ void init_qsvp_prm(sInputParams *prm) {
     prm->nAVBRAccuarcy     = QSV_DEFAULT_ACCURACY;
     prm->nAVBRConvergence  = QSV_DEFAULT_CONVERGENCE;
     prm->nIdrInterval      = 0;
-    prm->nBframes          = QSV_DEFAULT_BFRAMES;
+    prm->nBframes          = QSV_BFRAMES_AUTO;
     prm->nGOPLength        = QSV_DEFAULT_GOP_LEN;
     prm->nRef              = QSV_DEFAULT_REF;
     prm->bopenGOP          = false;
