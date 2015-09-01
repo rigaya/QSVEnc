@@ -4315,6 +4315,14 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
                 extFeatures += _T("Intra-Refresh ");
             }
         }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
+            if (cop3.DirectBiasAdjustment == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("DirectBiasAdjust ");
+            }
+            if (cop3.GlobalMotionBiasAdjustment == MFX_CODINGOPTION_ON) {
+                extFeatures += strsprintf(_T("MVCostScaling=%d "), cop3.MVCostScalingFactor);
+            }
+        }
         //if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {
         //    extFeatures += _T("aud ");
         //}
