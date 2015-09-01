@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <numeric>
 #include <memory>
 #include <sstream>
 #include <algorithm>
@@ -938,6 +939,12 @@ tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
     
     for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
         auto& availableFeatureForEachRC = featurePerCodec[i_codec];
+        //H.264以外で、ひとつもフラグが立っていなかったら、スキップする
+        if (codecLists[i_codec] != MFX_CODEC_AVC
+            && 0 == std::accumulate(availableFeatureForEachRC.begin(), availableFeatureForEachRC.end(), 0,
+            [](mfxU32 sum, mfxU64 value) { return sum | (mfxU32)(value & 0xffffffff) | (mfxU32)(value >> 32); })) {
+            continue;
+        }
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             str += _T("<b>");
         }
