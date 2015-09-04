@@ -56,7 +56,7 @@ static void PrintVersion() {
 
 //適当に改行しながら表示する
 static void PrintListOptions(FILE *fp, const TCHAR *option_name, const CX_DESC *list, int default_index) {
-    const TCHAR *indent_space = _T("                                  ");
+    const TCHAR *indent_space = _T("                                ");
     const int indent_len = (int)_tcslen(indent_space);
     const int max_len = 77;
     int print_len = _ftprintf(fp, _T("   %s "), option_name);
@@ -251,7 +251,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --d3d                        use d3d9 surfaces\n"));
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
-        _ftprintf(stdout,_T("\n")
+        _ftprintf(stdout, _T("\n")
             _T(" EncMode default: --cqp\n")
             _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
             _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
@@ -279,7 +279,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
             _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
             _T("                                  and set the window size in frames.\n")
-            _T("   --fixed-func                 use fixed function instead of GPU EU(default:off)\n")
+            _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
             _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
             _T("-u,--quality <string>           encode quality\n")
             _T("                                  - best, higher, high, balanced(default)\n")
@@ -355,7 +355,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
             _T("                                 - none, upscale, box\n")
             _T("   --vpp-delogo <string>        set delogo file path\n")
-            _T("   --vpp-delogo-select <string> set target logo name or auto select file")
+            _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
             _T("                                 or logo index starting from 1.\n")
             _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
             _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
