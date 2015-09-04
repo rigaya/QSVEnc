@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <set>
 #include <vector>
+#include <numeric>
 #include <algorithm>
 #include "shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
@@ -72,6 +73,44 @@ static void PrintListOptions(FILE *fp, const TCHAR *option_name, const CX_DESC *
         print_len += _ftprintf(fp, _T("%s"), list[i].desc);
     }
     _ftprintf(fp, _T("\n%s default: %s\n"), indent_space, list[default_index].desc);
+}
+
+typedef struct ListData {
+    const TCHAR *name;
+    const CX_DESC *list;
+    int default_index;
+} ListData;
+
+static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
+    const TCHAR *indent_space = _T("                                ");
+    const int indent_len = (int)_tcslen(indent_space);
+    const int max_len = 79;
+    int print_len = _ftprintf(fp, _T("   %s "), option_name);
+    while (print_len < indent_len)
+        print_len += _ftprintf(fp, _T(" "));
+    _ftprintf(fp, _T("%s\n"), option_desc);
+    const auto data_name_max_len = indent_len + 4 + std::accumulate(listDatas.begin(), listDatas.end(), 0,
+        [](const int max_len, const ListData data) { return (std::max)(max_len, (int)_tcslen(data.name)); });
+
+    for (const auto& data : listDatas) {
+        print_len = _ftprintf(fp, _T("%s- %s: "), indent_space, data.name);
+        while (print_len < data_name_max_len)
+            print_len += _ftprintf(fp, _T(" "));
+        for (int i = 0; data.list[i].desc; i++) {
+            const int desc_len = (int)(_tcslen(data.list[i].desc) + _tcslen(_T(", ")) + ((i == data.default_index) ? _tcslen(_T("(default)")) : 0));
+            if (print_len + desc_len >= max_len) {
+                _ftprintf(fp, _T("\n%s"), indent_space);
+                print_len = indent_len;
+                while (print_len < data_name_max_len)
+                    print_len += _ftprintf(fp, _T(" "));
+            } else {
+                if (i)
+                    print_len += _ftprintf(fp, _T(", "));
+            }
+            print_len += _ftprintf(fp, _T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
+        }
+        _ftprintf(fp, _T("\n"));
+    }
 }
 
 static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName)
@@ -257,12 +296,28 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --strict-gop                 force gop structure\n")
             _T("   --(no-)scenechange           enables scene change detection\n")
             _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
-            _T("\n")
-            _T("   --level <string>             set codec level, default auto\n")
-            _T("   --profile <string>           set codec profile, default auto\n")
-            _T("                                 H.264: Baseline, Main, High\n")
-            _T("                                 HEVC : Main\n")
-            _T("                                 MPEG2: Simple, Main, High\n")
+            _T("\n"),
+            QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
+            QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
+            QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
+            QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
+            QSV_DEFAULT_QVBR,
+            QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
+            QSV_DEFAULT_REF,
+            QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
+            QSV_DEFAULT_GOP_LEN);
+        PrintMultipleListOptions(stdout, _T("--level <string>"), _T("set codec level"),
+            { { _T("H.264"), list_avc_level,   0 },
+              { _T("HEVC"),  list_hevc_level,  0 },
+              { _T("H.264"), list_mpeg2_level, 0 }
+        });
+        PrintMultipleListOptions(stdout, _T("--profile <string>"), _T("set codec profile"),
+            { { _T("H.264"), list_avc_profile,   0 },
+              { _T("HEVC"),  list_hevc_profile,  0 },
+              { _T("H.264"), list_mpeg2_profile, 0 }
+        });
+
+        _ftprintf(stdout, _T("\n")
             _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
             _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
             _T("   --bluray                     for H.264 bluray encoding\n")
@@ -309,15 +364,6 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
             _T("   --vpp-half-turn              half turn video image\n")
             _T("                                 unoptimized and very slow.\n"),
-            QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
-            QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
-            QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
-            QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
-            QSV_DEFAULT_QVBR,
-            QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
-            QSV_DEFAULT_REF,
-            QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
-            QSV_DEFAULT_GOP_LEN,
             QSV_ASYNC_DEPTH_MAX,
 #if ENABLE_SESSION_THREAD_CONFIG
             QSV_SESSION_THREAD_MAX,
