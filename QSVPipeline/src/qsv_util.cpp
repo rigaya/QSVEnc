@@ -933,7 +933,7 @@ tstring MakeFeatureListStr(mfxU64 feature) {
 
 tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8 };
-    auto featurePerCodec = MakeFeatureListPerCodec(hardware, to_vector(list_rate_control_ry), codecLists);
+    auto featurePerCodec = MakeFeatureListPerCodec(hardware, make_vector(list_rate_control_ry), codecLists);
     
     tstring str;
     

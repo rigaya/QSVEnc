@@ -7,6 +7,7 @@
 #include <emmintrin.h>
 #pragma comment(lib, "shlwapi.lib")
 #include <vector>
+#include <array>
 #include <string>
 #include <type_traits>
 #include "vm/strings_defs.h"
@@ -30,12 +31,34 @@ using std::vector;
 #endif
 
 template<typename T, size_t size>
-std::vector<T> to_vector(T(&ptr)[size]) {
+std::vector<T> make_vector(T(&ptr)[size]) {
     return std::vector<T>(ptr, ptr + size);
 }
 template<typename T, size_t size>
-std::vector<T> to_vector(const T(&ptr)[size]) {
+std::vector<T> make_vector(const T(&ptr)[size]) {
     return std::vector<T>(ptr, ptr + size);
+}
+template<typename T0, typename T1>
+std::vector<T0> make_vector(const T0 *ptr, T1 size) {
+    static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
+    return std::vector<T0>(ptr, ptr + size);
+}
+template<typename T0, typename T1>
+std::vector<T0> make_vector(T0 *ptr, T1 size) {
+    static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
+    return std::vector<T0>(ptr, ptr + size);
+}
+template<typename T, typename ...Args>
+constexpr std::array<T, sizeof...(Args)> make_array(Args&&... args) {
+    return std::array<T, sizeof...(Args)>{ static_cast<Args&&>(args)... };
+}
+template<typename T, std::size_t N>
+constexpr std::size_t array_size(const std::array<T, N>&) {
+    return N;
+}
+template<typename T, std::size_t N>
+constexpr std::size_t array_size(T(&)[N]) {
+    return N;
 }
 
 struct aligned_malloc_deleter {
