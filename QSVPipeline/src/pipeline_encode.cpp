@@ -2038,12 +2038,19 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         m_pFileWriter = new CAvcodecWriter();
         AvcodecWriterPrm writerPrm = { 0 };
         writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
+        if (m_pTrimParam) {
+            writerPrm.trimList = m_pTrimParam->list;
+        }
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
+        auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            writerPrm.chapterList = pAVCodecReader->GetChapterList();
+        }
         if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
             PrintMes(QSV_LOG_DEBUG, _T("Output: Audio muxing enabled.\n"));
-            auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+            pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
             bool copyAll = false;
             for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
@@ -2130,7 +2137,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->nAudioSelectCount > audioTrackUsed.size()) {
         PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
-        if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == NULL) {
+        if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == nullptr) {
             PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return MFX_ERR_UNSUPPORTED;
         } else {
@@ -2165,6 +2172,9 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
                 AvcodecWriterPrm writerAudioPrm = { 0 };
                 writerAudioPrm.pOutputFormat = pAudioSelect->pAudioExtractFormat;
                 writerAudioPrm.inputAudioList.push_back(prm);
+                if (m_pTrimParam) {
+                    writerAudioPrm.trimList = m_pTrimParam->list;
+                }
 
                 auto pWriter = new CAvcodecWriter();
                 pWriter->SetQSVLogPtr(m_pQSVLog.get());
@@ -2323,6 +2333,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
                 m_pFileReader = new CAvcodecReader();
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.bReadVideo = true;
+                avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
                 avcodecReaderPrm.pTrimList = pParams->pTrimList;
                 avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
                 avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0; 

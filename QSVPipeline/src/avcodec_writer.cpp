@@ -576,6 +576,34 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
     return MFX_ERR_NONE;
 }
 
+mfxStatus CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterList) {
+    vector<AVChapter *> outChapters;
+    for (int i = 0; i < (int)pChapterList.size(); i++) {
+        int64_t start = AdjustTimestampTrimmed(pChapterList[i]->start, pChapterList[i]->time_base, pChapterList[i]->time_base, true);
+        int64_t end   = AdjustTimestampTrimmed(pChapterList[i]->end,   pChapterList[i]->time_base, pChapterList[i]->time_base, true);
+        if (start < end) {
+            AVChapter *pChap = (AVChapter *)av_mallocz(sizeof(pChap[0]));
+            pChap->start     = start;
+            pChap->end       = end;
+            pChap->id        = pChapterList[i]->id;
+            pChap->time_base = pChapterList[i]->time_base;
+            av_dict_copy(&pChap->metadata, pChapterList[i]->metadata, 0);
+            outChapters.push_back(pChap);
+        }
+    }
+    if (outChapters.size() > 0) {
+        m_Mux.format.pFormatCtx->nb_chapters = (uint32_t)outChapters.size();
+        m_Mux.format.pFormatCtx->chapters = (AVChapter **)av_realloc_f(m_Mux.format.pFormatCtx->chapters, outChapters.size(), sizeof(m_Mux.format.pFormatCtx->chapters[0]) * outChapters.size());
+        for (int i = 0; i < (int)outChapters.size(); i++) {
+            m_Mux.format.pFormatCtx->chapters[i] = outChapters[i];
+
+            AddMessage(QSV_LOG_DEBUG, _T("chapter #%d: id %d, start %I64d, end %I64d\n, timebase %d/%d\n"),
+                outChapters[i]->id, outChapters[i]->start, outChapters[i]->end, outChapters[i]->time_base.num, outChapters[i]->time_base.den);
+        }
+    }
+    return MFX_ERR_NONE;
+}
+
 mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option, CEncodeStatusInfo *pEncSatusInfo) {
     m_Mux.format.bStreamError = true;
     AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
@@ -668,6 +696,9 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
             return MFX_ERR_NULL_PTR;
         }
     }
+
+    m_Mux.trim = prm->trimList;
+
     if (prm->pVideoInfo) {
         mfxStatus sts = InitVideo(prm);
         if (sts != MFX_ERR_NONE) {
@@ -687,6 +718,8 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
             AddMessage(QSV_LOG_DEBUG, _T("Initialized audio output - %d.\n"), i);
         }
     }
+
+    SetChapters(prm->chapterList);
     
     sprintf_s(m_Mux.format.pFormatCtx->filename, filename.c_str());
     if (m_Mux.format.pOutputFmt->flags & AVFMT_GLOBALHEADER) {
@@ -857,6 +890,35 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
     return MFX_ERR_NONE;
 }
 
+int64_t CAvcodecWriter::AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame) {
+    AVRational timescaleFps = av_inv_q(m_Mux.video.nFPS);
+    const int vidFrameIdx = (int)av_rescale_q(nTimeIn, timescaleIn, timescaleFps);
+    int cutFrames = 0;
+    if (m_Mux.trim.size()) {
+        int nLastFinFrame = 0;
+        for (const auto& trim : m_Mux.trim) {
+            if (vidFrameIdx < trim.start) {
+                if (lastValidFrame) {
+                    cutFrames += (vidFrameIdx - nLastFinFrame);
+                    nLastFinFrame = vidFrameIdx;
+                    break;
+                }
+                return AV_NOPTS_VALUE;
+            }
+            cutFrames += trim.start - nLastFinFrame;
+            if (vidFrameIdx <= trim.fin) {
+                nLastFinFrame = vidFrameIdx;
+                break;
+            }
+            nLastFinFrame = trim.fin;
+        }
+        cutFrames += vidFrameIdx - nLastFinFrame;
+    }
+    int64_t tsTimeOut = av_rescale_q(nTimeIn,   timescaleIn,  timescaleOut);
+    int64_t tsTrim    = av_rescale_q(cutFrames, timescaleFps, timescaleOut);
+    return tsTimeOut - tsTrim;
+}
+
 tstring CAvcodecWriter::GetWriterMes() {
     int iStream = 0;
     std::string mes = "avcodec writer: ";
@@ -879,6 +941,9 @@ tstring CAvcodecWriter::GetWriterMes() {
             }
             iStream++;
         }
+    }
+    if (m_Mux.format.pFormatCtx->nb_chapters > 0) {
+        mes += ", chap";
     }
     mes += " -> ";
     mes += m_Mux.format.pFormatCtx->oformat->name;

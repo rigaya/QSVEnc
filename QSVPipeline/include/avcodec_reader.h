@@ -88,15 +88,17 @@ typedef struct AVDemuxAudio {
 } AVDemuxAudio;
 
 typedef struct AVDemuxer {
-    AVDemuxFormat        format;
-    AVDemuxVideo         video;
-    vector<AVDemuxAudio> audio;
+    AVDemuxFormat            format;
+    AVDemuxVideo             video;
+    vector<AVDemuxAudio>     audio;
+    vector<const AVChapter*> chapter;
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {
     mfxU8          memType;                 //使用するメモリの種類
     bool           bReadVideo;              //映像の読み込みを行うかどうか
     mfxU32         nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
+    bool           bReadChapter;            //チャプターの読み込みを行うかどうか
     pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート (映像のみ読み込ませるときに使用する)
     mfxU16         nAnalyzeSec;             //入力ファイルを分析する秒数
     mfxU16         nTrimCount;              //Trimする動画フレームの領域の数
@@ -132,6 +134,9 @@ public:
 
     //音声のコーデックコンテキストを取得する
     vector<AVDemuxAudio> GetInputAudioInfo();
+
+    //チャプターリストを取得する
+    vector<const AVChapter *> GetChapterList();
 
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;

@@ -80,6 +80,7 @@ typedef struct AVMux {
     AVMuxFormat         format;
     AVMuxVideo          video;
     vector<AVMuxAudio>  audio;
+    vector<sTrim>       trim;
 } AVMux;
 
 typedef struct AVOutputAudioPrm {
@@ -92,8 +93,10 @@ typedef struct AvcodecWriterPrm {
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
     const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
+    vector<sTrim>                trimList;                //Trimする動画フレームの領域のリスト
     const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
     vector<AVOutputAudioPrm>     inputAudioList;          //入力ファイルの音声の情報
+    vector<const AVChapter *>    chapterList;             //チャプターリスト
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CSmplBitstreamWriter
@@ -185,6 +188,14 @@ private:
 
     //ファイルヘッダーを書き出す
     mfxStatus WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2, const mfxBitstream *pMfxBitstream);
+
+    //タイムスタンプをTrimなどを考慮しつつ計算しなおす
+    //nTimeInがTrimで切り取られる領域の場合
+    //lastValidFrame ... true 最後の有効なフレーム+1のtimestampを返す / false .. AV_NOPTS_VALUEを返す
+    int64_t AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame);
+
+    //チャプターをコピー
+    mfxStatus SetChapters(const vector<const AVChapter *>& chapterList);
 
     void CloseAudio(AVMuxAudio *pMuxAudio);
     void CloseVideo(AVMuxVideo *pMuxVideo);

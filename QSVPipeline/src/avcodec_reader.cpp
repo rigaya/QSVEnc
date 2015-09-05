@@ -801,7 +801,11 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
             }
         }
     }
-    
+
+    if (input_prm->bReadChapter) {
+        m_Demux.chapter = std::vector<const AVChapter *>(m_Demux.format.pFormatCtx->chapters, m_Demux.format.pFormatCtx->chapters + m_Demux.format.pFormatCtx->nb_chapters);
+    }
+
     //動画ストリームを探す
     if (input_prm->bReadVideo) {
         InitializeCriticalSection(&m_Demux.video.frameData.cs);
@@ -957,6 +961,10 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
     return MFX_ERR_NONE;
 }
 #pragma warning(pop)
+
+vector<const AVChapter *> CAvcodecReader::GetChapterList() {
+    return m_Demux.chapter;
+}
 
 int CAvcodecReader::GetAudioTrackCount() {
     return m_Demux.format.nAudioTracks;

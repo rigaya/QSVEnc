@@ -200,6 +200,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --audio-bitrate [<int>?]<int>\n")
             _T("                                set encode bitrate for audio (kbps).\n")
             _T("                                  in [<int>?], specify track number to set bitrate.\n")
+            _T("   --chapter-copy               copy chapter to output file.\n")
+            _T("                                 could be only used with\n")
+            _T("                                 avqsv reader and avcodec muxer.\n")
 #endif
             _T("\n")
             _T("   --nv12                       set raw input as NV12 color format,\n")
@@ -1150,6 +1153,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 PrintHelp(strInput[0], _T("Invalid value"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
+        }
+        else if (0 == _tcscmp(option_name, _T("chapter-copy")))
+        {
+            pParams->bCopyChapter = TRUE;
         }
         else if (0 == _tcscmp(option_name, _T("quality")))
         {
