@@ -270,6 +270,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --avbr-unitsize <int>        avbr calculation period in x100 frames\n")
             _T("                                 default %d (= unit size %d00 frames)\n")
             _T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
+            _T("                                 requires --qvbr-q option to be set as well\n")
             _T("   --qvbr-q <int>  or           set quality used in qvbr mode. default: %d\n")
             _T("   --qvbr-quality <int>          QVBR mode is only supported with API v1.11\n")
             _T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
