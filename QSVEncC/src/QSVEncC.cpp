@@ -322,7 +322,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
             _T("   --bluray                     for H.264 bluray encoding\n")
             _T("\n")
-            _T("   --async-depth                set async depth for QSV pipeline. (0-%d)\n")
+            _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
             _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
 #if ENABLE_SESSION_THREAD_CONFIG
             _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
@@ -667,6 +667,9 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
                 switch (strInput[i][1]) {
+                case _T('a'):
+                    option_name = _T("async-depth");
+                    break;
                 case _T('b'):
                     option_name = _T("bframes");
                     break;
