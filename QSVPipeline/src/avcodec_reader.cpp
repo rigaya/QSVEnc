@@ -1232,6 +1232,10 @@ vector<AVPacket> CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
     return std::move(packets);
 }
 
+const AVDictionary *CAvcodecReader::GetInputFormatMetadata() {
+    return m_Demux.format.pFormatCtx->metadata;
+}
+
 const AVCodecContext *CAvcodecReader::GetInputVideoCodecCtx() {
     return m_Demux.video.pCodecCtx;
 }

@@ -2047,6 +2047,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
+            writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
             writerPrm.chapterList = pAVCodecReader->GetChapterList();
             writerPrm.nVideoInputFirstPts = pAVCodecReader->GetVideoFirstPts();
             writerPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();

@@ -599,6 +599,18 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         AddMessage(QSV_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStream->start_time,  pMuxAudio->pStream->codec->time_base.num, pMuxAudio->pStream->codec->time_base.den);
     }
 
+    if (pInputAudio->src.pStream->metadata) {
+        for (AVDictionaryEntry *pEntry = nullptr;
+        nullptr != (pEntry = av_dict_get(pInputAudio->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
+            av_dict_set(&pMuxAudio->pStream->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
+            AddMessage(QSV_LOG_DEBUG, _T("Copy Audio Metadata: key %s, value %s\n"), pEntry->key, pEntry->value);
+        }
+        auto language_data = av_dict_get(pInputAudio->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
+        if (language_data) {
+            av_dict_set(&pMuxAudio->pStream->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+            AddMessage(QSV_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), language_data->key, language_data->value);
+        }
+    }
     return MFX_ERR_NONE;
 }
 
@@ -908,6 +920,12 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
         for (uint32_t i = 0; i < m_Mux.sub.size(); i++) {
             if (m_Mux.sub[i].pStream) { m_Mux.sub[i].pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
         }
+    }
+
+    if (m_Mux.format.pFormatCtx->metadata) {
+        av_dict_copy(&m_Mux.format.pFormatCtx->metadata, prm->pInputFormatMetadata, AV_DICT_DONT_OVERWRITE);
+        av_dict_set(&m_Mux.format.pFormatCtx->metadata, "duration", NULL, 0);
+        av_dict_set(&m_Mux.format.pFormatCtx->metadata, "creation_time", NULL, 0);
     }
 
     m_pEncSatusInfo = pEncSatusInfo;

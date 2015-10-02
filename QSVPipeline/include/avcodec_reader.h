@@ -133,6 +133,9 @@ public:
     //ストリームのヘッダ部分を取得する
     virtual mfxStatus GetHeader(mfxBitstream *bitstream) override;
 
+    //入力ファイルのグローバルメタデータを取得する
+    const AVDictionary *GetInputFormatMetadata();
+
     //動画の入力情報を取得する
     const AVCodecContext *GetInputVideoCodecCtx();
     
