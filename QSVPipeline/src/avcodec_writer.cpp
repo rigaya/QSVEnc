@@ -178,9 +178,6 @@ bool CAvcodecWriter::codecIDIsPCM(AVCodecID targetCodec) {
         AV_CODEC_ID_PCM_LXF,
         AV_CODEC_ID_S302M,
         AV_CODEC_ID_PCM_S8_PLANAR,
-        AV_CODEC_ID_PCM_S24LE_PLANAR_DEPRECATED,
-        AV_CODEC_ID_PCM_S32LE_PLANAR_DEPRECATED,
-        AV_CODEC_ID_PCM_S16BE_PLANAR_DEPRECATED,
         AV_CODEC_ID_PCM_S24LE_PLANAR,
         AV_CODEC_ID_PCM_S32LE_PLANAR,
         AV_CODEC_ID_PCM_S16BE_PLANAR
@@ -1023,7 +1020,7 @@ vector<int> CAvcodecWriter::GetAudioStreamIndex() {
 AVMuxAudio *CAvcodecWriter::getAudioPacketStreamData(const AVPacket *pkt) {
     const int streamIndex = pkt->stream_index;
     //privには、trackIdへのポインタが格納してある…はず
-    const int inTrackId = (pkt->priv) ? *(int *)(pkt->priv) : -1;
+    const int inTrackId = (int16_t)(pkt->flags >> 16);
     for (int i = 0; i < (int)m_Mux.audio.size(); i++) {
         //streamIndexの一致とtrackIdの一致を確認する
         if (m_Mux.audio[i].nStreamIndexIn == streamIndex
@@ -1061,7 +1058,7 @@ void CAvcodecWriter::WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int s
     if (samples) {
         //durationについて、sample数から出力ストリームのtimebaseに変更する
         pkt->stream_index = pMuxAudio->pStream->index;
-        pkt->flags        = AV_PKT_FLAG_KEY;
+        pkt->flags        = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
         pkt->dts          = av_rescale_q(pMuxAudio->nOutputSamples + pMuxAudio->nDelaySamplesOfAudio, samplerate, pMuxAudio->pStream->time_base);
         pkt->pts          = pkt->dts;
         pkt->duration     = (int)(pkt->pts - pMuxAudio->nLastPtsOut);

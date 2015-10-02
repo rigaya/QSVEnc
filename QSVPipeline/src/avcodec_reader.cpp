@@ -1108,7 +1108,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
                             pts = lastFrame->pts + duration;
                             dts = lastFrame->dts + duration;
                         }
-                        addVideoPtsToList({ (pts == AV_NOPTS_VALUE) ? dts : pts, dts, pkt->duration, pkt->flags });
+                        addVideoPtsToList({ (pts == AV_NOPTS_VALUE) ? dts : pts, dts, (int)pkt->duration, pkt->flags });
                     }
                 }
             }
@@ -1186,7 +1186,7 @@ vector<AVPacket> CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
             av_free_packet(&pkt);
         } else {
             AVDemuxAudio *pAudio = getAudioPacketStreamData(&pkt);
-            pkt.priv = &pAudio->nTrackId; //privには、trackIdへのポインタを格納しておく
+            pkt.flags = (pkt.flags & 0xffff) | (pAudio->nTrackId << 16);
             packets.push_back(pkt); //音声ストリームなら、すべて格納してしまう
 
             //最初のパケットは参照用にコピーしておく
