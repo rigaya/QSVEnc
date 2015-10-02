@@ -243,7 +243,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll;swresample-1.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -284,7 +284,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll;swresample-1.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -428,7 +428,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll;swresample-1.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -478,7 +478,7 @@
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-56.dll;avformat-56.dll;avutil-54.dll;swresample-1.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>

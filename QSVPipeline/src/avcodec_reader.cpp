@@ -360,7 +360,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     int i_samples = 0;
     for (; i_samples < maxCheckFrames && getTotalDuration() < maxCheckSec && !getSample(&pkt); i_samples++) {
         int64_t pts = pkt.pts, dts = pkt.dts;
-        FramePos pos = { (pts == AV_NOPTS_VALUE) ? dts : pts, dts, pkt.duration, pkt.flags };
+        FramePos pos = { (pts == AV_NOPTS_VALUE) ? dts : pts, dts, (int)pkt.duration, pkt.flags };
         framePosList.push_back(pos);
         if (i_samples == 0 && pts != AV_NOPTS_VALUE) {
             m_Demux.video.nStreamFirstPts = pkt.pts;

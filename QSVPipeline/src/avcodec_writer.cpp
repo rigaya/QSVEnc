@@ -878,7 +878,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
         AddMessage(QSV_LOG_DEBUG, _T("Initialized video output.\n"));
     }
 
-    const int audioStreamCount = count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return prm.src.nTrackId > 0; });
+    const int audioStreamCount = (int)count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return prm.src.nTrackId > 0; });
     if (audioStreamCount) {
         m_Mux.audio.resize(audioStreamCount, { 0 });
         int iAudioIdx = 0;
@@ -893,7 +893,7 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
             }
         }
     }
-    const int subStreamCount = count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return prm.src.nTrackId < 0; });
+    const int subStreamCount = (int)count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return prm.src.nTrackId < 0; });
     if (subStreamCount) {
         m_Mux.sub.resize(subStreamCount, { 0 });
         int iSubIdx = 0;
@@ -1455,8 +1455,6 @@ mfxStatus CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
 
     const int nOutPackets = 1 + (pMuxSub->pOutCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE);
     for (int i = 0; i < nOutPackets; i++) {
-        int sub_num_rects = sub.num_rects;
-
         sub.pts               += av_rescale_q(sub.start_display_time, av_make_q(1, 1000), av_make_q(1, AV_TIME_BASE));
         sub.end_display_time  -= sub.start_display_time;
         sub.start_display_time = 0;
