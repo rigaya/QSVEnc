@@ -60,6 +60,12 @@ template<typename T, std::size_t N>
 constexpr std::size_t array_size(T(&)[N]) {
     return N;
 }
+template<typename T>
+void vector_cat(vector<T>& v1, const vector<T>& v2) {
+    if (v2.size()) {
+        v1.insert(v1.end(), v2.begin(), v2.end());
+    }
+}
 
 struct aligned_malloc_deleter {
     void operator()(void* ptr) const {

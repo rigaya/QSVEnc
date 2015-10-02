@@ -19,6 +19,8 @@ using std::vector;
 
 #define USE_CUSTOM_IO 1
 
+static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
+
 typedef struct AVMuxFormat {
     AVFormatContext      *pFormatCtx;           //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
@@ -43,6 +45,8 @@ typedef struct AVMuxVideo {
     AVRational            nFPS;                 //出力映像のフレームレート
     AVStream             *pStream;              //出力ファイルの映像ストリーム
     bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
+    const AVCodecContext *pInputCodecCtx;       //入力映像のコーデック情報
+    int64_t               nInputFirstPts;       //入力映像の最初のpts
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     bool                  bIsPAFF;              //出力映像がPAFFである
     mfxVideoParam         mfxParam;             //動画パラメータのコピー
@@ -76,26 +80,45 @@ typedef struct AVMuxAudio {
     mfxI64                nLastPtsOut;          //出力音声の前パケットのpts
 } AVMuxAudio;
 
+typedef struct AVMuxSub {
+    int                   nInTrackId;           //ソースファイルの入力トラック番号
+    AVCodecContext       *pCodecCtxIn;          //入力字幕のCodecContextのコピー
+    int                   nStreamIndexIn;       //入力字幕のStreamのindex
+    AVStream             *pStream;              //出力ファイルの字幕ストリーム
+
+    //変換用
+    AVCodec              *pOutCodecDecode;      //変換する元のコーデック
+    AVCodecContext       *pOutCodecDecodeCtx;   //変換する元のCodecContext
+    AVCodec              *pOutCodecEncode;      //変換先の音声のコーデック
+    AVCodecContext       *pOutCodecEncodeCtx;   //変換先の音声のCodecContext
+
+    uint8_t              *pBuf;                 //変換用のバッファ
+} AVMuxSub;
+
 typedef struct AVMux {
     AVMuxFormat         format;
     AVMuxVideo          video;
     vector<AVMuxAudio>  audio;
+    vector<AVMuxSub>    sub;
     vector<sTrim>       trim;
 } AVMux;
 
-typedef struct AVOutputAudioPrm {
-    AVDemuxAudio src;          //入力音声の情報
-    const TCHAR *pEncodeCodec; //音声をエンコードするコーデック
-    int          nBitrate;     //ビットレートの指定
-} AVOutputAudioPrm;
+typedef struct AVOutputStreamPrm {
+    AVDemuxStream src;          //入力音声・字幕の情報
+    const TCHAR  *pEncodeCodec; //音声をエンコードするコーデック
+    int           nBitrate;     //ビットレートの指定
+} AVOutputStreamPrm;
 
 typedef struct AvcodecWriterPrm {
+    const AVDictionary          *pInputFormatMetadata;    //入力ファイルのグローバルメタデータ
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
     const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
+    const AVCodecContext        *pVideoInputCodecCtx;     //入力映像のコーデック情報
+    int64_t                      nVideoInputFirstPts;     //入力映像の最初のpts
     vector<sTrim>                trimList;                //Trimする動画フレームの領域のリスト
     const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
-    vector<AVOutputAudioPrm>     inputAudioList;          //入力ファイルの音声の情報
+    vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
 } AvcodecWriterPrm;
 
@@ -113,7 +136,7 @@ public:
 
     virtual mfxStatus WriteNextPacket(AVPacket *pkt);
 
-    virtual vector<int> GetAudioStreamIndex();
+    virtual vector<int> GetStreamTrackIdList();
 
     virtual void Close();
 
@@ -148,13 +171,22 @@ private:
     mfxStatus InitVideo(const AvcodecWriterPrm *prm);
 
     //音声の初期化
-    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pInputAudio);
+    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio);
+
+    //字幕の初期化
+    mfxStatus InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
+
+    //チャプターをコピー
+    mfxStatus SetChapters(const vector<const AVChapter *>& chapterList);
 
     //メッセージを作成
     tstring GetWriterMes();
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVMuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
+
+    //対象のパケットの必要な対象のストリーム情報へのポインタ
+    AVMuxSub *getSubPacketStreamData(const AVPacket *pkt);
 
     //音声のchannel_layoutを自動選択する
     uint64_t AutoSelectChannelLayout(const uint64_t *pChannelLayout, const AVCodecContext *pSrcAudioCtx);
@@ -177,6 +209,12 @@ private:
     //音声をエンコード
     int AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, const AVFrame *frame, int *got_result);
 
+    //字幕パケットを書き出す
+    mfxStatus SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt);
+
+    //字幕パケットを書き出す
+    mfxStatus SubtitleWritePacket(AVPacket *pkt);
+
     //パケットを実際に書き出す
     void WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples);
 
@@ -194,9 +232,7 @@ private:
     //lastValidFrame ... true 最後の有効なフレーム+1のtimestampを返す / false .. AV_NOPTS_VALUEを返す
     int64_t AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame);
 
-    //チャプターをコピー
-    mfxStatus SetChapters(const vector<const AVChapter *>& chapterList);
-
+    void CloseSubtitle(AVMuxSub *pMuxSub);
     void CloseAudio(AVMuxAudio *pMuxAudio);
     void CloseVideo(AVMuxVideo *pMuxVideo);
     void CloseFormat(AVMuxFormat *pMuxFormat);

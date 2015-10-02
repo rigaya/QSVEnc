@@ -181,7 +181,14 @@ public:
     void GetDecParam(mfxVideoParam *decParam) {
         memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
     }
+
+    //入力ファイルに存在する音声のトラック数を返す
     virtual int GetAudioTrackCount() {
+        return 0;
+    }
+
+    //入力ファイルに存在する字幕のトラック数を返す
+    virtual int GetSubtitleTrackCount() {
         return 0;
     }
     const msdk_char *GetInputMessage() {

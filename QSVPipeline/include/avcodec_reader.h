@@ -57,6 +57,7 @@ typedef struct AVDemuxFormat {
     bool                      bIsPipe;               //入力がパイプ
     uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
     int                       nAudioTracks;          //存在する音声のトラック数
+    int                       nSubtitleTracks;       //存在する字幕のトラック数
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
@@ -77,20 +78,21 @@ typedef struct AVDemuxVideo {
     mfxU32                    nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 } AVDemuxVideo;
 
-typedef struct AVDemuxAudio {
-    int                       nIndex;                 //音声のストリームID (libavのストリームID)
-    int                       nTrackId;               //音声のトラックID (QSVEncC独自, 1,2,3,...)
-    AVCodecContext           *pCodecCtx;              //音声のcodecContext
+typedef struct AVDemuxStream {
+    int                       nIndex;                 //音声・字幕のストリームID (libavのストリームID)
+    int                       nTrackId;               //音声のトラックID (QSVEncC独自, 1,2,3,...)、字幕は0
+    AVCodecContext           *pCodecCtx;              //音声・字幕のcodecContext
+    AVStream                 *pStream;                //音声・字幕のストリーム
     int                       nLastVidIndex;          //音声の直前の相当する動画の位置
     mfxI64                    nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
-    AVPacket                  pktSample;              //サンプル用の音声データ
-    int                       nDelayOfAudio;          //音声側の遅延 (pkt_timebase基準)
-} AVDemuxAudio;
+    AVPacket                  pktSample;              //サンプル用の音声・字幕データ
+    int                       nDelayOfStream;         //音声側の遅延 (pkt_timebase基準)
+} AVDemuxStream;
 
 typedef struct AVDemuxer {
     AVDemuxFormat            format;
     AVDemuxVideo             video;
-    vector<AVDemuxAudio>     audio;
+    vector<AVDemuxStream>    stream;
     vector<const AVChapter*> chapter;
 } AVDemuxer;
 
@@ -98,13 +100,15 @@ typedef struct AvcodecReaderPrm {
     mfxU8          memType;                 //使用するメモリの種類
     bool           bReadVideo;              //映像の読み込みを行うかどうか
     mfxU32         nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
+    bool           bReadSubtitle;           //字幕の読み込みを行うかどうか
     bool           bReadChapter;            //チャプターの読み込みを行うかどうか
     pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート (映像のみ読み込ませるときに使用する)
     mfxU16         nAnalyzeSec;             //入力ファイルを分析する秒数
     mfxU16         nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
-    mfxU8          nAudioTrackStart;        //音声のトラック番号の開始点
-    mfxU8          nAudioSelectCount;       //muxする音声のトラック数
+    int            nAudioTrackStart;        //音声のトラック番号の開始点
+    int            nSubtitleTrackStart;     //字幕のトラック番号の開始点
+    int            nAudioSelectCount;       //muxする音声のトラック数
     sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
 } AvcodecReaderPrm;
 
@@ -128,12 +132,15 @@ public:
 
     //ストリームのヘッダ部分を取得する
     virtual mfxStatus GetHeader(mfxBitstream *bitstream) override;
-    
-    //音声パケットの配列を取得する
-    vector<AVPacket> GetAudioDataPackets();
 
-    //音声のコーデックコンテキストを取得する
-    vector<AVDemuxAudio> GetInputAudioInfo();
+    //動画の入力情報を取得する
+    const AVCodecContext *GetInputVideoCodecCtx();
+    
+    //音声・字幕パケットの配列を取得する
+    vector<AVPacket> GetStreamDataPackets();
+
+    //音声・字幕のコーデックコンテキストを取得する
+    vector<AVDemuxStream> GetInputStreamInfo();
 
     //チャプターリストを取得する
     vector<const AVChapter *> GetChapterList();
@@ -141,10 +148,16 @@ public:
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
 
+    //入力ファイルに存在する字幕のトラック数を返す
+    int GetSubtitleTrackCount() override;
+
     //デコードするストリームの情報を取得する
     void GetDecParam(mfxVideoParam *decParam) {
         memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
     }
+
+    //動画の最初のフレームのptsを取得する
+    int64_t GetVideoFirstPts();
 private:
     //avcodecのコーデックIDからIntel Media SDKのコーデックのFourccを取得
     mfxU32 getQSVFourcc(mfxU32 id);
@@ -164,17 +177,17 @@ private:
     //対象ストリームのパケットを取得
     int getSample(AVPacket *pkt);
 
-    //対象の音声パケットを追加するかどうか
-    bool checkAudioPacketToAdd(const AVPacket *pkt, AVDemuxAudio *pAudio);
+    //対象・字幕の音声パケットを追加するかどうか
+    bool checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *pStream);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
-    AVDemuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
+    AVDemuxStream *getPacketStreamData(const AVPacket *pkt);
 
     //bitstreamにpktの内容を追加する
     mfxStatus setToMfxBitstream(mfxBitstream *bitstream, AVPacket *pkt);
 
     //音声パケットリストを開放
-    void clearAudioPacketList(std::vector<AVPacket>& pktList);
+    void clearStreamPacketList(std::vector<AVPacket>& pktList);
 
     //音声パケットの配列を取得する (映像を読み込んでいないときに使用)
     vector<AVPacket> GetAudioDataPacketsWhenNoVideoRead();
@@ -188,7 +201,7 @@ private:
     int getVideoFrameIdx(mfxI64 pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart);
 
     //ptsを動画のtimebaseから音声のtimebaseに変換する
-    mfxI64 convertTimebaseVidToAud(mfxI64 pts, const AVDemuxAudio *pAudio);
+    mfxI64 convertTimebaseVidToStream(mfxI64 pts, const AVDemuxStream *pStream);
 
     //HEVCのmp4->AnnexB簡易変換
     void hevcMp42Annexb(AVPacket *pkt);
@@ -199,16 +212,16 @@ private:
     //VC-1のフレームヘッダを追加
     void vc1AddFrameHeader(AVPacket *pkt);
 
-    void CloseAudio(AVDemuxAudio *pAudio);
+    void CloseStream(AVDemuxStream *pAudio);
     void CloseVideo(AVDemuxVideo *pVideo);
     void CloseFormat(AVDemuxFormat *pFormat);
 
     AVDemuxer        m_Demux;                      //デコード用情報
     vector<mfxU8>    m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
     vector<AVPacket> m_PreReadBuffer;              //解析用に先行取得した映像パケット
-    vector<AVPacket> m_AudioPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
-    vector<AVPacket> m_AudioPacketsBufferL2;       //音声のAVPacketのバッファ
-    mfxU32           m_AudioPacketsBufferL2Used;   //m_AudioPacketsBufferL2のパケットのうち、すでに使用したもの
+    vector<AVPacket> m_StreamPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
+    vector<AVPacket> m_StreamPacketsBufferL2;       //音声のAVPacketのバッファ
+    mfxU32           m_StreamPacketsBufferL2Used;   //m_StreamPacketsBufferL2のパケットのうち、すでに使用したもの
 };
 
 #endif //ENABLE_AVCODEC_QSV_READER

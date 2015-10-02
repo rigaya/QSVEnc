@@ -65,6 +65,11 @@ tstring qsv_av_err2str(int ret) {
     return char_to_tstring(mes);
 }
 
+//コーデックの種類を表示
+tstring get_media_type_string(AVCodecID codecId) {
+    return char_to_tstring(av_get_media_type_string(avcodec_get_type(codecId))).c_str();
+}
+
 //avqsvでサポートされている動画コーデックを表示
 tstring getAVQSVSupportedCodecList() {
     tstring codecs;
@@ -95,7 +100,7 @@ tstring getAVCodecs(AVQSVCodecType flag) {
 
     AVCodec *codec = nullptr;
     while (nullptr != (codec = av_codec_next(codec))) {
-        if (codec->type & AVMEDIA_TYPE_AUDIO) {
+        if (codec->type == AVMEDIA_TYPE_AUDIO || codec->type == AVMEDIA_TYPE_SUBTITLE) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
                 if (0 == strcmp(list[i].name, codec->name)) {

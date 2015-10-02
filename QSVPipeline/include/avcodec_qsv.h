@@ -83,6 +83,9 @@ enum AVQSVFormatType : uint32_t {
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret);
 
+//コーデックの種類を表示
+tstring get_media_type_string(AVCodecID codecId);
+
 //必要なavcodecのdllがそろっているかを確認
 bool check_avcodec_dll();
 

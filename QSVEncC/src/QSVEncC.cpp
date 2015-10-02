@@ -201,7 +201,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                set encode bitrate for audio (kbps).\n")
             _T("                                  in [<int>?], specify track number to set bitrate.\n")
             _T("   --chapter-copy               copy chapter to output file.\n")
-            _T("                                 could be only used with\n")
+            _T("   --sub-copy                   copy subtitle to output file.\n")
+            _T("                                 these could be only used with\n")
             _T("                                 avqsv reader and avcodec muxer.\n")
 #endif
             _T("\n")
@@ -1154,9 +1155,15 @@ mfxStatus ParseInputString(TCHAR* strInput[], mfxU8 nArgNum, sInputParams* pPara
                 return MFX_PRINT_OPTION_ERR;
             }
         }
-        else if (0 == _tcscmp(option_name, _T("chapter-copy")))
+        else if (0 == _tcscmp(option_name, _T("chapter-copy"))
+              || 0 == _tcscmp(option_name, _T("copy-chapter")))
         {
             pParams->bCopyChapter = TRUE;
+        }
+        else if (0 == _tcscmp(option_name, _T("sub-copy"))
+              || 0 == _tcscmp(option_name, _T("copy-sub")))
+        {
+            pParams->bCopySubtitle = TRUE;
         }
         else if (0 == _tcscmp(option_name, _T("quality")))
         {

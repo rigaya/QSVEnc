@@ -43,6 +43,28 @@ CAvcodecWriter::~CAvcodecWriter() {
 
 }
 
+void CAvcodecWriter::CloseSubtitle(AVMuxSub *pMuxSub) {
+    //close decoder
+    if (pMuxSub->pOutCodecDecodeCtx) {
+        avcodec_close(pMuxSub->pOutCodecDecodeCtx);
+        av_free(pMuxSub->pOutCodecDecodeCtx);
+        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
+    }
+
+    //close encoder
+    if (pMuxSub->pOutCodecEncodeCtx) {
+        avcodec_close(pMuxSub->pOutCodecEncodeCtx);
+        av_free(pMuxSub->pOutCodecEncodeCtx);
+        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
+    }
+    if (pMuxSub->pBuf) {
+        av_free(pMuxSub->pBuf);
+    }
+
+    memset(pMuxSub, 0, sizeof(pMuxSub[0]));
+    AddMessage(QSV_LOG_DEBUG, _T("Closed subtitle.\n"));
+}
+
 void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
     //close resampler
     if (pMuxAudio->pSwrContext) {
@@ -132,6 +154,10 @@ void CAvcodecWriter::Close() {
         CloseAudio(&m_Mux.audio[i]);
     }
     m_Mux.audio.clear();
+    for (int i = 0; i < (int)m_Mux.sub.size(); i++) {
+        CloseSubtitle(&m_Mux.sub[i]);
+    }
+    m_Mux.sub.clear();
     CloseVideo(&m_Mux.video);
     m_strOutputInfo.clear();
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
@@ -228,7 +254,7 @@ void CAvcodecWriter::SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, m
     if (codecCtx->extradata)
         av_free(codecCtx->extradata);
     codecCtx->extradata_size = size;
-    codecCtx->extradata      = (uint8_t *)av_malloc(codecCtx->extradata_size);
+    codecCtx->extradata      = (uint8_t *)av_malloc(codecCtx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(codecCtx->extradata, data, size);
 };
 
@@ -374,13 +400,15 @@ mfxStatus CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     m_Mux.video.pStream->start_time          = 0;
 
     m_Mux.video.bDtsUnavailable = prm->bVideoDtsUnavailable;
+    m_Mux.video.nInputFirstPts  = prm->nVideoInputFirstPts;
+    m_Mux.video.pInputCodecCtx  = prm->pVideoInputCodecCtx;
 
     AddMessage(QSV_LOG_DEBUG, _T("output video stream timebase: %d/%d\n"), m_Mux.video.pStream->time_base.num, m_Mux.video.pStream->time_base.den);
     AddMessage(QSV_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
     return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pInputAudio) {
+mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio) {
     pMuxAudio->pCodecCtxIn = avcodec_alloc_context3(NULL);
     avcodec_copy_context(pMuxAudio->pCodecCtxIn, pInputAudio->src.pCodecCtx);
     AddMessage(QSV_LOG_DEBUG, _T("start initializing audio ouput...\n"));
@@ -563,12 +591,146 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputAudioPrm *pIn
     pMuxAudio->pStream->time_base = av_make_q(1, pMuxAudio->pStream->codec->sample_rate);
     pMuxAudio->pStream->codec->time_base = pMuxAudio->pStream->time_base;
     if (m_Mux.video.pStream) {
-        pMuxAudio->pStream->start_time = (int)av_rescale_q(pInputAudio->src.nDelayOfAudio, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
+        pMuxAudio->pStream->start_time = (int)av_rescale_q(pInputAudio->src.nDelayOfStream, pMuxAudio->pCodecCtxIn->pkt_timebase, pMuxAudio->pStream->time_base);
         pMuxAudio->nDelaySamplesOfAudio = (int)pMuxAudio->pStream->start_time;
         pMuxAudio->nLastPtsOut = pMuxAudio->pStream->start_time;
 
-        AddMessage(QSV_LOG_DEBUG, _T("delay      %6d (timabase %d/%d)\n"), pInputAudio->src.nDelayOfAudio, pMuxAudio->pCodecCtxIn->pkt_timebase.num, pMuxAudio->pCodecCtxIn->pkt_timebase.den);
-        AddMessage(QSV_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStream->start_time, pMuxAudio->pStream->codec->time_base.num, pMuxAudio->pStream->codec->time_base.den);
+        AddMessage(QSV_LOG_DEBUG, _T("delay      %6d (timabase %d/%d)\n"), pInputAudio->src.nDelayOfStream, pMuxAudio->pCodecCtxIn->pkt_timebase.num, pMuxAudio->pCodecCtxIn->pkt_timebase.den);
+        AddMessage(QSV_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStream->start_time,  pMuxAudio->pStream->codec->time_base.num, pMuxAudio->pStream->codec->time_base.den);
+    }
+
+    return MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle) {
+    AddMessage(QSV_LOG_DEBUG, _T("start initializing subtitle ouput...\n"));
+    AddMessage(QSV_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
+        pInputSubtitle->src.nIndex, pInputSubtitle->src.pCodecCtx->pkt_timebase.num, pInputSubtitle->src.pCodecCtx->pkt_timebase.den, pInputSubtitle->src.nTrackId);
+
+    if (NULL == (pMuxSub->pStream = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
+        AddMessage(QSV_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
+        return MFX_ERR_NULL_PTR;
+    }
+
+    AVCodecID codecId = pInputSubtitle->src.pCodecCtx->codec_id;
+    if (   0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")
+        || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mov")
+        || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "3gp")
+        || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "3g2")
+        || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "psp")
+        || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "ipod")
+        || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "f4v")) {
+        if (avcodec_descriptor_get(codecId)->props & AV_CODEC_PROP_TEXT_SUB) {
+            codecId = AV_CODEC_ID_MOV_TEXT;
+        }
+    } else if (codecId == AV_CODEC_ID_MOV_TEXT) {
+        codecId = AV_CODEC_ID_ASS;
+    }
+
+    auto copy_subtitle_header = [](AVCodecContext *pDstCtx, const AVCodecContext *pSrcCtx) {
+        if (pSrcCtx->subtitle_header_size) {
+            pDstCtx->subtitle_header_size = pSrcCtx->subtitle_header_size;
+            pDstCtx->subtitle_header = (uint8_t *)av_mallocz(pDstCtx->subtitle_header_size + AV_INPUT_BUFFER_PADDING_SIZE);
+            memcpy(pDstCtx->subtitle_header, pSrcCtx->subtitle_header, pSrcCtx->subtitle_header_size);
+        }
+    };
+
+    if (codecId != pInputSubtitle->src.pCodecCtx->codec_id || codecId == AV_CODEC_ID_MOV_TEXT) {
+        //setup decoder
+        if (NULL == (pMuxSub->pOutCodecDecode = avcodec_find_decoder(pInputSubtitle->src.pCodecCtx->codec_id))) {
+            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), pInputSubtitle->src.pCodecCtx->codec_id));
+            AddMessage(QSV_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
+            return MFX_ERR_NULL_PTR;
+        }
+        if (NULL == (pMuxSub->pOutCodecDecodeCtx = avcodec_alloc_context3(pMuxSub->pOutCodecDecode))) {
+            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), pInputSubtitle->src.pCodecCtx->codec_id));
+            return MFX_ERR_NULL_PTR;
+        }
+        //設定されていない必須情報があれば設定する
+#define COPY_IF_ZERO(dst, src) { if ((dst)==0) (dst)=(src); }
+        COPY_IF_ZERO(pMuxSub->pOutCodecDecodeCtx->width,  pInputSubtitle->src.pCodecCtx->width);
+        COPY_IF_ZERO(pMuxSub->pOutCodecDecodeCtx->height, pInputSubtitle->src.pCodecCtx->height);
+#undef COPY_IF_ZERO
+        pMuxSub->pOutCodecDecodeCtx->pkt_timebase = pInputSubtitle->src.pCodecCtx->pkt_timebase;
+        SetExtraData(pMuxSub->pOutCodecDecodeCtx, pInputSubtitle->src.pCodecCtx->extradata, pInputSubtitle->src.pCodecCtx->extradata_size);
+        int ret;
+        if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecDecodeCtx, pMuxSub->pOutCodecDecode, NULL))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
+                char_to_tstring(avcodec_get_name(pInputSubtitle->src.pCodecCtx->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            return MFX_ERR_NULL_PTR;
+        }
+        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
+        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(pInputSubtitle->src.pCodecCtx->codec_id)).c_str(),
+            pMuxSub->pOutCodecDecodeCtx->width, pMuxSub->pOutCodecDecodeCtx->height);
+
+        //エンコーダを探す
+        if (NULL == (pMuxSub->pOutCodecEncode = avcodec_find_encoder(codecId))) {
+            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
+            AddMessage(QSV_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
+            return MFX_ERR_NULL_PTR;
+        }
+        AddMessage(QSV_LOG_DEBUG, _T("found encoder for codec %s for subtitle track %d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(), pInputSubtitle->src.nTrackId);
+
+        if (NULL == (pMuxSub->pOutCodecEncodeCtx = avcodec_alloc_context3(pMuxSub->pOutCodecEncode))) {
+            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
+            return MFX_ERR_NULL_PTR;
+        }
+        pMuxSub->pOutCodecEncodeCtx->side_data_only_packets = pInputSubtitle->src.pCodecCtx->side_data_only_packets;
+        pMuxSub->pOutCodecEncodeCtx->time_base = av_make_q(1, 1000);
+        copy_subtitle_header(pMuxSub->pOutCodecEncodeCtx, pInputSubtitle->src.pCodecCtx);
+
+        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(),
+            pMuxSub->pOutCodecEncodeCtx->width, pMuxSub->pOutCodecEncodeCtx->height);
+        if (pMuxSub->pOutCodecEncode->capabilities & CODEC_CAP_EXPERIMENTAL) {
+            //問答無用で使うのだ
+            av_opt_set(pMuxSub->pOutCodecEncodeCtx, "strict", "experimental", 0);
+        }
+        if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecEncodeCtx, pMuxSub->pOutCodecEncode, NULL))) {
+            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
+            AddMessage(QSV_LOG_ERROR, _T("%s\n"), qsv_av_err2str(ret).c_str());
+            return MFX_ERR_NULL_PTR;
+        }
+        AddMessage(QSV_LOG_DEBUG, _T("Opened Subtitle Encoder Param: %s\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str());
+        if (nullptr == (pMuxSub->pBuf = (uint8_t *)av_malloc(SUB_ENC_BUF_MAX_SIZE))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to allocate buffer memory for subtitle encoding.\n"));
+            return MFX_ERR_NULL_PTR;
+        }
+        pMuxSub->pStream->codec->codec = pMuxSub->pOutCodecEncodeCtx->codec;
+    }
+
+    pMuxSub->nInTrackId     = pInputSubtitle->src.nTrackId;
+    pMuxSub->nStreamIndexIn = pInputSubtitle->src.nIndex;
+    pMuxSub->pCodecCtxIn    = pInputSubtitle->src.pCodecCtx;
+
+    const AVCodecContext *srcCodecCtx = (pMuxSub->pOutCodecEncodeCtx) ? pMuxSub->pOutCodecEncodeCtx : pMuxSub->pCodecCtxIn;
+    avcodec_get_context_defaults3(pMuxSub->pStream->codec, NULL);
+    copy_subtitle_header(pMuxSub->pStream->codec, srcCodecCtx);
+    SetExtraData(pMuxSub->pStream->codec, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
+    pMuxSub->pStream->codec->codec_type      = srcCodecCtx->codec_type;
+    pMuxSub->pStream->codec->codec_id        = srcCodecCtx->codec_id;
+
+    pMuxSub->pStream->codec->codec_tag       = srcCodecCtx->codec_tag;
+    pMuxSub->pStream->codec->width           = srcCodecCtx->width;
+    pMuxSub->pStream->codec->height          = srcCodecCtx->height;
+    pMuxSub->pStream->time_base              = srcCodecCtx->time_base;
+    pMuxSub->pStream->codec->time_base       = pMuxSub->pStream->time_base;
+    pMuxSub->pStream->start_time             = 0;
+    pMuxSub->pStream->codec->framerate       = srcCodecCtx->framerate;
+
+    if (pInputSubtitle->src.nTrackId == -1) {
+        pMuxSub->pStream->disposition |= AV_DISPOSITION_DEFAULT;
+    }
+    if (pInputSubtitle->src.pStream->metadata) {
+        for (AVDictionaryEntry *pEntry = nullptr;
+        nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
+            av_dict_set(&pMuxSub->pStream->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
+            AddMessage(QSV_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), pEntry->key, pEntry->value);
+        }
+        auto language_data = av_dict_get(pInputSubtitle->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
+        if (language_data) {
+            av_dict_set(&pMuxSub->pStream->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+            AddMessage(QSV_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), language_data->key, language_data->value);
+        }
     }
     return MFX_ERR_NONE;
 }
@@ -703,16 +865,35 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
         }
         AddMessage(QSV_LOG_DEBUG, _T("Initialized video output.\n"));
     }
-    
-    const int audioStreamCount = (int)prm->inputAudioList.size();
+
+    const int audioStreamCount = count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return prm.src.nTrackId > 0; });
     if (audioStreamCount) {
         m_Mux.audio.resize(audioStreamCount, { 0 });
-        for (int i = 0; i < audioStreamCount; i++) {
-            mfxStatus sts = InitAudio(&m_Mux.audio[i], &prm->inputAudioList[i]);
-            if (sts != MFX_ERR_NONE) {
-                return sts;
+        int iAudioIdx = 0;
+        for (int iStream = 0; iStream < (int)prm->inputStreamList.size(); iStream++) {
+            if (prm->inputStreamList[iStream].src.nTrackId > 0) {
+                mfxStatus sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream]);
+                if (sts != MFX_ERR_NONE) {
+                    return sts;
+                }
+                AddMessage(QSV_LOG_DEBUG, _T("Initialized audio output - %d.\n"), iAudioIdx);
+                iAudioIdx++;
             }
-            AddMessage(QSV_LOG_DEBUG, _T("Initialized audio output - %d.\n"), i);
+        }
+    }
+    const int subStreamCount = count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return prm.src.nTrackId < 0; });
+    if (subStreamCount) {
+        m_Mux.sub.resize(subStreamCount, { 0 });
+        int iSubIdx = 0;
+        for (int iStream = 0; iStream < (int)prm->inputStreamList.size(); iStream++) {
+            if (prm->inputStreamList[iStream].src.nTrackId < 0) {
+                mfxStatus sts = InitSubtitle(&m_Mux.sub[iSubIdx], &prm->inputStreamList[iStream]);
+                if (sts != MFX_ERR_NONE) {
+                    return sts;
+                }
+                AddMessage(QSV_LOG_DEBUG, _T("Initialized subtitle output - %d.\n"), iSubIdx);
+                iSubIdx++;
+            }
         }
     }
 
@@ -721,8 +902,11 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
     sprintf_s(m_Mux.format.pFormatCtx->filename, filename.c_str());
     if (m_Mux.format.pOutputFmt->flags & AVFMT_GLOBALHEADER) {
         if (m_Mux.video.pStream) { m_Mux.video.pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
-        for (auto audio : m_Mux.audio) {
-            if (audio.pStream) { audio.pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
+            if (m_Mux.audio[i].pStream) { m_Mux.audio[i].pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
+        }
+        for (uint32_t i = 0; i < m_Mux.sub.size(); i++) {
+            if (m_Mux.sub[i].pStream) { m_Mux.sub[i].pStream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER; }
         }
     }
 
@@ -939,6 +1123,15 @@ tstring CAvcodecWriter::GetWriterMes() {
             iStream++;
         }
     }
+    for (const auto& subtitleStream : m_Mux.sub) {
+        if (subtitleStream.pStream) {
+            if (iStream) {
+                mes += ", ";
+            }
+            mes += strsprintf("sub#%d", abs(subtitleStream.nInTrackId));
+            iStream++;
+        }
+    }
     if (m_Mux.format.pFormatCtx->nb_chapters > 0) {
         mes += ", chap";
     }
@@ -1008,13 +1201,16 @@ mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
-vector<int> CAvcodecWriter::GetAudioStreamIndex() {
-    vector<int> audioStreamIndexes;
-    audioStreamIndexes.reserve(m_Mux.audio.size());
+vector<int> CAvcodecWriter::GetStreamTrackIdList() {
+    vector<int> streamTrackId;
+    streamTrackId.reserve(m_Mux.audio.size());
     for (auto audio : m_Mux.audio) {
-        audioStreamIndexes.push_back(audio.nStreamIndexIn);
+        streamTrackId.push_back(audio.nInTrackId);
     }
-    return std::move(audioStreamIndexes);
+    for (auto sub : m_Mux.sub) {
+        streamTrackId.push_back(sub.nInTrackId);
+    }
+    return std::move(streamTrackId);
 }
 
 AVMuxAudio *CAvcodecWriter::getAudioPacketStreamData(const AVPacket *pkt) {
@@ -1024,8 +1220,22 @@ AVMuxAudio *CAvcodecWriter::getAudioPacketStreamData(const AVPacket *pkt) {
     for (int i = 0; i < (int)m_Mux.audio.size(); i++) {
         //streamIndexの一致とtrackIdの一致を確認する
         if (m_Mux.audio[i].nStreamIndexIn == streamIndex
-            && (inTrackId < 0 || m_Mux.audio[i].nInTrackId == inTrackId)) {
+            && m_Mux.audio[i].nInTrackId == inTrackId) {
             return &m_Mux.audio[i];
+        }
+    }
+    return NULL;
+}
+
+AVMuxSub *CAvcodecWriter::getSubPacketStreamData(const AVPacket *pkt) {
+    const int streamIndex = pkt->stream_index;
+    //privには、trackIdへのポインタが格納してある…はず
+    const int inTrackId = (int16_t)(pkt->flags >> 16);
+    for (int i = 0; i < (int)m_Mux.sub.size(); i++) {
+        //streamIndexの一致とtrackIdの一致を確認する
+        if (m_Mux.sub[i].nStreamIndexIn == streamIndex
+            && m_Mux.sub[i].nInTrackId == inTrackId) {
+            return &m_Mux.sub[i];
         }
     }
     return NULL;
@@ -1208,6 +1418,78 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
     }
 }
 
+mfxStatus CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt) {
+    int got_sub = 0;
+    AVSubtitle sub = { 0 };
+    if (0 > avcodec_decode_subtitle2(pMuxSub->pOutCodecDecodeCtx, &sub, &got_sub, pkt)) {
+        AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
+        m_Mux.format.bStreamError = true;
+    }
+    if (!pMuxSub->pBuf) {
+        AddMessage(QSV_LOG_ERROR, _T("No buffer for encoding subtitle.\n"));
+        m_Mux.format.bStreamError = true;
+    }
+    av_free_packet(pkt);
+    if (m_Mux.format.bStreamError)
+        return MFX_ERR_UNKNOWN;
+    if (!got_sub || sub.num_rects == 0)
+        return MFX_ERR_NONE;
+
+    const int nOutPackets = 1 + (pMuxSub->pOutCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE);
+    for (int i = 0; i < nOutPackets; i++) {
+        int sub_num_rects = sub.num_rects;
+
+        sub.pts               += av_rescale_q(sub.start_display_time, av_make_q(1, 1000), av_make_q(1, AV_TIME_BASE));
+        sub.end_display_time  -= sub.start_display_time;
+        sub.start_display_time = 0;
+        if (i > 0) {
+            sub.num_rects = 0;
+        }
+
+        int sub_out_size = avcodec_encode_subtitle(pMuxSub->pOutCodecEncodeCtx, pMuxSub->pBuf, SUB_ENC_BUF_MAX_SIZE, &sub);
+        if (sub_out_size < 0) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to encode subtitle.\n"));
+            m_Mux.format.bStreamError = true;
+            return MFX_ERR_UNKNOWN;
+        }
+
+        AVPacket pktOut;
+        av_init_packet(&pktOut);
+        pktOut.data = pMuxSub->pBuf;
+        pktOut.stream_index = pMuxSub->pStream->index;
+        pktOut.size = sub_out_size;
+        pktOut.duration = (int)av_rescale_q(sub.end_display_time, av_make_q(1, 1000), pMuxSub->pStream->time_base);
+        pktOut.convergence_duration = pktOut.duration;
+        pktOut.pts  = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), pMuxSub->pStream->time_base);
+        if (pMuxSub->pOutCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
+            pktOut.pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
+        }
+        pktOut.dts = pktOut.pts;
+        m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pktOut);
+    }
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
+    //字幕を処理する
+    const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
+    int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstPts, m_Mux.video.pInputCodecCtx->pkt_timebase, pMuxSub->pStream->time_base);
+    //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
+    //Trimによりカットされたときのみ
+    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(pkt->pts - pts_adjust, pMuxSub->pStream->time_base, pMuxSub->pStream->time_base, false))) {
+        if (pMuxSub->pOutCodecEncodeCtx) {
+            return SubtitleTranscode(pMuxSub, pkt);
+        }
+        pkt->dts = pkt->pts;
+        pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
+        pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base);
+        pkt->stream_index = pMuxSub->pStream->index;
+        pkt->pos = -1;
+        m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
+    }
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+}
+
 mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
     if (!m_Mux.format.bFileHeaderWritten) {
         //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
@@ -1233,6 +1515,10 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
         }
         AddMessage(QSV_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+    }
+
+    if (((int16_t)(pkt->flags >> 16)) < 0) {
+        return SubtitleWritePacket(pkt);
     }
 
     int samples = 0;
