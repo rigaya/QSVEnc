@@ -256,7 +256,7 @@ namespace QSVEnc {
                     for each(auto codec in codecIdList) {
                         _codecIdList.push_back(codec);
                     }
-                    auto featuresPerCodec = MakeFeatureListPerCodec(hardware, version, to_vector(list_rate_control_ry), _codecIdList);
+                    auto featuresPerCodec = MakeFeatureListPerCodec(hardware, version, make_vector(list_rate_control_ry), _codecIdList);
 
                     availableFeatures = gcnew array<array<UInt64>^>(codecIdList->Length);
                     for (int j = 0; j < (int)featuresPerCodec.size(); j++) {
