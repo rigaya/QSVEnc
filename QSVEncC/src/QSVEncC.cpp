@@ -315,12 +315,12 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
         PrintMultipleListOptions(stdout, _T("--level <string>"), _T("set codec level"),
             { { _T("H.264"), list_avc_level,   0 },
               { _T("HEVC"),  list_hevc_level,  0 },
-              { _T("H.264"), list_mpeg2_level, 0 }
+              { _T("MPEG2"), list_mpeg2_level, 0 }
         });
         PrintMultipleListOptions(stdout, _T("--profile <string>"), _T("set codec profile"),
             { { _T("H.264"), list_avc_profile,   0 },
               { _T("HEVC"),  list_hevc_profile,  0 },
-              { _T("H.264"), list_mpeg2_profile, 0 }
+              { _T("MPEG2"), list_mpeg2_profile, 0 }
         });
 
         _ftprintf(stdout, _T("\n")
