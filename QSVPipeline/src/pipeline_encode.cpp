@@ -2045,7 +2045,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
-        auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+        auto pAVCodecReader = dynamic_cast<CAvcodecReader *>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
             writerPrm.chapterList = pAVCodecReader->GetChapterList();
@@ -2054,18 +2054,23 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         }
         if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
             PrintMes(QSV_LOG_DEBUG, _T("Output: Audio muxing enabled.\n"));
-            pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+            pAVCodecReader = dynamic_cast<CAvcodecReader *>(m_pFileReader);
             bool copyAll = false;
             for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
                 copyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
             }
             PrintMes(QSV_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
-            auto streamList = pAVCodecReader->GetInputStreamInfo();
+            vector<AVDemuxStream> streamList;
+            if (pAVCodecReader) {
+                streamList = pAVCodecReader->GetInputStreamInfo();
+            }
             for (const auto& audioReader : m_AudioReaders) {
                 if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecAudioReader = reinterpret_cast<CAvcodecReader *>(audioReader.get());
-                    vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
+                    auto pAVCodecAudioReader = dynamic_cast<CAvcodecReader *>(audioReader.get());
+                    if (pAVCodecAudioReader) {
+                        vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
+                    }
                 }
             }
 
