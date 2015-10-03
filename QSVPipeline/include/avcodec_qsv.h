@@ -67,7 +67,7 @@ static inline bool avcodecIsAuto(const TCHAR *codec) {
 
 static const AVRational QSV_NATIVE_TIMEBASE = { 1, QSV_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
-    _T("avcodec-56.dll"), _T("avformat-56.dll"), _T("avutil-54.dll"), _T("swresample-1.dll")
+    _T("avcodec-57.dll"), _T("avformat-57.dll"), _T("avutil-55.dll"), _T("swresample-2.dll")
 };
 
 enum AVQSVCodecType : uint32_t {
