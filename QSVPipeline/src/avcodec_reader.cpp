@@ -613,7 +613,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     auto& streamBuffer = m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_Demux.video.packet)];
     if (streamBuffer.size()) {
         for (auto streamInfo = m_Demux.stream.begin(); streamInfo != m_Demux.stream.end(); streamInfo++) {
-            if (avcodec_get_type(streamInfo->pCodecCtx->codec_id) != AVMEDIA_TYPE_AUDIO) {
+            if (avcodec_get_type(streamInfo->pCodecCtx->codec_id) == AVMEDIA_TYPE_AUDIO) {
                 AddMessage(QSV_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->nIndex);
                 const AVPacket *pkt1 = NULL; //最初のパケット
                 const AVPacket *pkt2 = NULL; //2番目のパケット
