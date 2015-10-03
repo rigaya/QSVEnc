@@ -29,7 +29,7 @@ static inline void extend_array_size(VideoFrameData *dataset) {
     memset(dataset->frame + current_cap, 0, sizeof(dataset->frame[0]) * (dataset->capacity - current_cap));
 }
 
-CAvcodecReader::CAvcodecReader()  {
+CAvcodecReader::CAvcodecReader() {
     MSDK_ZERO_MEMORY(m_Demux.format);
     MSDK_ZERO_MEMORY(m_Demux.video);
     MSDK_ZERO_MEMORY(m_sDecParam);
@@ -106,6 +106,7 @@ void CAvcodecReader::Close() {
         AddMessage(QSV_LOG_DEBUG, _T("Cleared Stream #%d.\n"), i);
     }
     m_Demux.stream.clear();
+    m_Demux.chapter.clear();
 
     m_sTrimParam.list.clear();
     m_sTrimParam.offset = 0;
