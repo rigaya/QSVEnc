@@ -603,12 +603,12 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputAudio->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
             av_dict_set(&pMuxAudio->pStream->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Copy Audio Metadata: key %s, value %s\n"), pEntry->key, pEntry->value);
+            AddMessage(QSV_LOG_DEBUG, _T("Copy Audio Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
         }
         auto language_data = av_dict_get(pInputAudio->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
         if (language_data) {
             av_dict_set(&pMuxAudio->pStream->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), language_data->key, language_data->value);
+            AddMessage(QSV_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
         }
     }
     return MFX_ERR_NONE;
@@ -736,12 +736,12 @@ mfxStatus CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
             av_dict_set(&pMuxSub->pStream->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), pEntry->key, pEntry->value);
+            AddMessage(QSV_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
         }
         auto language_data = av_dict_get(pInputSubtitle->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
         if (language_data) {
             av_dict_set(&pMuxSub->pStream->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), language_data->key, language_data->value);
+            AddMessage(QSV_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
         }
     }
     return MFX_ERR_NONE;
