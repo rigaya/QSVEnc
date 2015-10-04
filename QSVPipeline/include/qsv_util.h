@@ -285,6 +285,8 @@ enum : uint64_t {
     ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x0000000040000000,
     ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x0000000080000000,
     ENC_FEATURE_FIXED_FUNC             = 0x0000000100000000,
+    ENC_FEATURE_WEIGHT_P               = 0x0000000200000000,
+    ENC_FEATURE_WEIGHT_B               = 0x0000000400000000,
 };
 
 enum : uint64_t {
@@ -328,6 +330,8 @@ static const FEATURE_DESC list_enc_feature[] = {
     //{ _T("CAVLC        "), ENC_FEATURE_CAVLC                  },
     { _T("Adaptive_I   "), ENC_FEATURE_ADAPTIVE_I             },
     { _T("Adaptive_B   "), ENC_FEATURE_ADAPTIVE_B             },
+    { _T("WeightP      "), ENC_FEATURE_WEIGHT_P               },
+    { _T("WeightB      "), ENC_FEATURE_WEIGHT_B               },
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +Scenechange"), ENC_FEATURE_B_PYRAMID_AND_SC       },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },

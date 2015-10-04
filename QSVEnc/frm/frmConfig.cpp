@@ -827,6 +827,12 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
     fcgCBFixedFunc->Enabled        = 0 != (available_features & ENC_FEATURE_FIXED_FUNC);
     if (!fcgCBFixedFunc->Enabled) fcgCBFixedFunc->Checked = false;
 
+    //API v1.16 features
+    fcgCBWeightP->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_P);
+    fcgCBWeightB->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_B);
+    if (!fcgCBWeightP->Enabled) fcgCBWeightP->Checked = false;
+    if (!fcgCBWeightB->Enabled) fcgCBWeightB->Checked = false;
+
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 }
@@ -1127,6 +1133,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNULookaheadDepth, cnf->qsv.nLookaheadDepth);
     fcgCBAdaptiveI->Checked     = cnf->qsv.bAdaptiveI != 0;
     fcgCBAdaptiveB->Checked     = cnf->qsv.bAdaptiveB != 0;
+    fcgCBWeightP->Checked       = cnf->qsv.nWeightP == MFX_CODINGOPTION_ON;
+    fcgCBWeightB->Checked       = cnf->qsv.nWeightB != MFX_CODINGOPTION_ON;
     fcgCBBPyramid->Checked      = cnf->qsv.bBPyramid != 0;
     SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, cnf->qsv.nLookaheadDS));
     fcgCBMBBRC->Checked         = cnf->qsv.bMBBRC != 0;
@@ -1253,6 +1261,8 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.nPicStruct             = (mfxU16)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
     cnf->qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
     cnf->qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
+    cnf->qsv.nWeightP               = fcgCBWeightP->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
+    cnf->qsv.nWeightB               = fcgCBWeightB->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
     cnf->qsv.bBPyramid              = fcgCBBPyramid->Checked;
     cnf->qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
     cnf->qsv.bMBBRC                 = fcgCBMBBRC->Checked;

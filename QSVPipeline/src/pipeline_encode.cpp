@@ -598,6 +598,18 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         print_feature_warnings(QSV_LOG_WARN, _T("Fixed Func"));
         pInParams->bUseFixedFunc = 0;
     }
+    if (pInParams->nWeightP && !(availableFeaures & ENC_FEATURE_WEIGHT_P)) {
+        if (pInParams->nWeightP == MFX_CODINGOPTION_ON) {
+            print_feature_warnings(QSV_LOG_WARN, _T("WeightP"));
+        }
+        pInParams->nWeightP = 0;
+    }
+    if (pInParams->nWeightB && !(availableFeaures & ENC_FEATURE_WEIGHT_B)) {
+        if (pInParams->nWeightB == MFX_CODINGOPTION_ON) {
+            print_feature_warnings(QSV_LOG_WARN, _T("WeightB"));
+        }
+        pInParams->nWeightB = 0;
+    }
     if (!(availableFeaures & ENC_FEATURE_VUI_INFO)) {
         if (pInParams->bFullrange) {
             print_feature_warnings(QSV_LOG_WARN, _T("fullrange"));
@@ -870,6 +882,10 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
             m_CodingOption3.GlobalMotionBiasAdjustment = (mfxU16)((pInParams->bGlobalMotionAdjust) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
             if (pInParams->bGlobalMotionAdjust)
                 m_CodingOption3.MVCostScalingFactor    = pInParams->nMVCostScaling;
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
+            m_CodingOption3.WeightedBiPred = pInParams->nWeightB;
+            m_CodingOption3.WeightedPred   = pInParams->nWeightP;
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
@@ -4346,6 +4362,14 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
             }
             if (cop3.GlobalMotionBiasAdjustment == MFX_CODINGOPTION_ON) {
                 extFeatures += strsprintf(_T("MVCostScaling=%d "), cop3.MVCostScalingFactor);
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
+            if (cop3.WeightedPred == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("WeightP ");
+            }
+            if (cop3.WeightedBiPred == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("WeightB ");
             }
         }
         //if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {

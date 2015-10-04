@@ -722,6 +722,8 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         CHECK_FEATURE(cop3.DirectBiasAdjustment,       cop3Out.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, cop3Out.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(videoPrm.mfx.LowPower,     videoPrmOut.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
+        CHECK_FEATURE(cop3.WeightedPred,         cop3Out.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_16);
+        CHECK_FEATURE(cop3.WeightedBiPred,       cop3Out.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_16);
 #undef PICTYPE
 #pragma warning(pop)
         //付随オプション

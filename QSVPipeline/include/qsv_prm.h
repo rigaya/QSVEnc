@@ -266,7 +266,10 @@ struct sInputParams
     mfxU8      nAudioSourceCount;
     TCHAR      **ppAudioSourceList;
 
-    mfxU8      Reserved[1140];
+    mfxU16     nWeightP;
+    mfxU16     nWeightB;
+    mfxU8      __reserved3[2];
+    mfxU8      Reserved[1136];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

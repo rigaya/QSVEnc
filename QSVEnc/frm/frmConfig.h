@@ -849,6 +849,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBRunBatBeforeAudio;
 private: System::Windows::Forms::ComboBox^  fcgCXAudioPriority;
 private: System::Windows::Forms::Label^  fcgLBAudioPriority;
 private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
+private: System::Windows::Forms::CheckBox^  fcgCBWeightB;
+private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
 
 
 
@@ -1047,6 +1049,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBFixedFunc = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBWinBRCSizeAuto = (gcnew System::Windows::Forms::Label());
             this->fcgNUWinBRCSize = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgLBWinBRCSize = (gcnew System::Windows::Forms::Label());
@@ -1247,7 +1250,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcgCBFixedFunc = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBWeightB = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBWeightP = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1358,7 +1362,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             this->fcgTSSettings->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSSettings.Image")));
             this->fcgTSSettings->ImageTransparentColor = System::Drawing::Color::Magenta;
             this->fcgTSSettings->Name = L"fcgTSSettings";
-            this->fcgTSSettings->Size = System::Drawing::Size(81, 22);
+            this->fcgTSSettings->Size = System::Drawing::Size(79, 22);
             this->fcgTSSettings->Text = L"プリセット";
             this->fcgTSSettings->DropDownItemClicked += gcnew System::Windows::Forms::ToolStripItemClickedEventHandler(this, &frmConfig::fcgTSSettings_DropDownItemClicked);
             this->fcgTSSettings->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSSettings_Click);
@@ -1371,7 +1375,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             this->fcgTSBBitrateCalc->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBBitrateCalc.Image")));
             this->fcgTSBBitrateCalc->ImageTransparentColor = System::Drawing::Color::Magenta;
             this->fcgTSBBitrateCalc->Name = L"fcgTSBBitrateCalc";
-            this->fcgTSBBitrateCalc->Size = System::Drawing::Size(96, 22);
+            this->fcgTSBBitrateCalc->Size = System::Drawing::Size(97, 22);
             this->fcgTSBBitrateCalc->Text = L"ビットレート計算機";
             this->fcgTSBBitrateCalc->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgTSBBitrateCalc_CheckedChanged);
             // 
@@ -2079,6 +2083,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightB);
+            this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightP);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBFixedFunc);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSizeAuto);
             this->tabPageVideoEnc->Controls->Add(this->fcgNUWinBRCSize);
@@ -2149,10 +2155,21 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
             // 
+            // fcgCBFixedFunc
+            // 
+            this->fcgCBFixedFunc->AutoSize = true;
+            this->fcgCBFixedFunc->Location = System::Drawing::Point(242, 11);
+            this->fcgCBFixedFunc->Name = L"fcgCBFixedFunc";
+            this->fcgCBFixedFunc->Size = System::Drawing::Size(80, 18);
+            this->fcgCBFixedFunc->TabIndex = 154;
+            this->fcgCBFixedFunc->Tag = L"chValue";
+            this->fcgCBFixedFunc->Text = L"FixedFunc";
+            this->fcgCBFixedFunc->UseVisualStyleBackColor = true;
+            // 
             // fcgLBWinBRCSizeAuto
             // 
             this->fcgLBWinBRCSizeAuto->AutoSize = true;
-            this->fcgLBWinBRCSizeAuto->Location = System::Drawing::Point(212, 396);
+            this->fcgLBWinBRCSizeAuto->Location = System::Drawing::Point(212, 422);
             this->fcgLBWinBRCSizeAuto->Name = L"fcgLBWinBRCSizeAuto";
             this->fcgLBWinBRCSizeAuto->Size = System::Drawing::Size(107, 14);
             this->fcgLBWinBRCSizeAuto->TabIndex = 153;
@@ -2160,7 +2177,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // 
             // fcgNUWinBRCSize
             // 
-            this->fcgNUWinBRCSize->Location = System::Drawing::Point(132, 394);
+            this->fcgNUWinBRCSize->Location = System::Drawing::Point(132, 420);
             this->fcgNUWinBRCSize->Name = L"fcgNUWinBRCSize";
             this->fcgNUWinBRCSize->Size = System::Drawing::Size(77, 21);
             this->fcgNUWinBRCSize->TabIndex = 152;
@@ -2170,7 +2187,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // fcgLBWinBRCSize
             // 
             this->fcgLBWinBRCSize->AutoSize = true;
-            this->fcgLBWinBRCSize->Location = System::Drawing::Point(16, 396);
+            this->fcgLBWinBRCSize->Location = System::Drawing::Point(16, 422);
             this->fcgLBWinBRCSize->Name = L"fcgLBWinBRCSize";
             this->fcgLBWinBRCSize->Size = System::Drawing::Size(103, 14);
             this->fcgLBWinBRCSize->TabIndex = 151;
@@ -2179,7 +2196,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // fcgLBQPMinMaxAuto
             // 
             this->fcgLBQPMinMaxAuto->AutoSize = true;
-            this->fcgLBQPMinMaxAuto->Location = System::Drawing::Point(244, 452);
+            this->fcgLBQPMinMaxAuto->Location = System::Drawing::Point(247, 452);
             this->fcgLBQPMinMaxAuto->Name = L"fcgLBQPMinMaxAuto";
             this->fcgLBQPMinMaxAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBQPMinMaxAuto->TabIndex = 150;
@@ -2187,7 +2204,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // 
             // fcgNUQPMax
             // 
-            this->fcgNUQPMax->Location = System::Drawing::Point(176, 450);
+            this->fcgNUQPMax->Location = System::Drawing::Point(179, 450);
             this->fcgNUQPMax->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 51, 0, 0, 0 });
             this->fcgNUQPMax->Name = L"fcgNUQPMax";
             this->fcgNUQPMax->Size = System::Drawing::Size(58, 21);
@@ -2198,7 +2215,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // fcgLBQPMax
             // 
             this->fcgLBQPMax->AutoSize = true;
-            this->fcgLBQPMax->Location = System::Drawing::Point(141, 452);
+            this->fcgLBQPMax->Location = System::Drawing::Point(144, 452);
             this->fcgLBQPMax->Name = L"fcgLBQPMax";
             this->fcgLBQPMax->Size = System::Drawing::Size(29, 14);
             this->fcgLBQPMax->TabIndex = 148;
@@ -2207,7 +2224,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // fcgLBQPMinMAX
             // 
             this->fcgLBQPMinMAX->AutoSize = true;
-            this->fcgLBQPMinMAX->Location = System::Drawing::Point(13, 452);
+            this->fcgLBQPMinMAX->Location = System::Drawing::Point(15, 452);
             this->fcgLBQPMinMAX->Name = L"fcgLBQPMinMAX";
             this->fcgLBQPMinMAX->Size = System::Drawing::Size(48, 14);
             this->fcgLBQPMinMAX->TabIndex = 147;
@@ -2215,7 +2232,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // 
             // fcgNUQPMin
             // 
-            this->fcgNUQPMin->Location = System::Drawing::Point(67, 450);
+            this->fcgNUQPMin->Location = System::Drawing::Point(70, 450);
             this->fcgNUQPMin->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 51, 0, 0, 0 });
             this->fcgNUQPMin->Name = L"fcgNUQPMin";
             this->fcgNUQPMin->Size = System::Drawing::Size(58, 21);
@@ -2287,7 +2304,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // 
             this->fcgCXLookaheadDS->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXLookaheadDS->FormattingEnabled = true;
-            this->fcgCXLookaheadDS->Location = System::Drawing::Point(132, 366);
+            this->fcgCXLookaheadDS->Location = System::Drawing::Point(132, 392);
             this->fcgCXLookaheadDS->Name = L"fcgCXLookaheadDS";
             this->fcgCXLookaheadDS->Size = System::Drawing::Size(121, 22);
             this->fcgCXLookaheadDS->TabIndex = 142;
@@ -2296,7 +2313,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // fcgLBLookaheadDS
             // 
             this->fcgLBLookaheadDS->AutoSize = true;
-            this->fcgLBLookaheadDS->Location = System::Drawing::Point(14, 369);
+            this->fcgLBLookaheadDS->Location = System::Drawing::Point(14, 395);
             this->fcgLBLookaheadDS->Name = L"fcgLBLookaheadDS";
             this->fcgLBLookaheadDS->Size = System::Drawing::Size(73, 14);
             this->fcgLBLookaheadDS->TabIndex = 143;
@@ -2829,7 +2846,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             // fcgCBOpenGOP
             // 
             this->fcgCBOpenGOP->AutoSize = true;
-            this->fcgCBOpenGOP->Location = System::Drawing::Point(195, 342);
+            this->fcgCBOpenGOP->Location = System::Drawing::Point(195, 366);
             this->fcgCBOpenGOP->Name = L"fcgCBOpenGOP";
             this->fcgCBOpenGOP->Size = System::Drawing::Size(81, 18);
             this->fcgCBOpenGOP->TabIndex = 14;
@@ -3815,12 +3832,12 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             this->fcgCSExeFiles->ImageScalingSize = System::Drawing::Size(18, 18);
             this->fcgCSExeFiles->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(1) { this->fcgTSExeFileshelp });
             this->fcgCSExeFiles->Name = L"fcgCSx264";
-            this->fcgCSExeFiles->Size = System::Drawing::Size(131, 26);
+            this->fcgCSExeFiles->Size = System::Drawing::Size(132, 26);
             // 
             // fcgTSExeFileshelp
             // 
             this->fcgTSExeFileshelp->Name = L"fcgTSExeFileshelp";
-            this->fcgTSExeFileshelp->Size = System::Drawing::Size(130, 22);
+            this->fcgTSExeFileshelp->Size = System::Drawing::Size(131, 22);
             this->fcgTSExeFileshelp->Text = L"helpを表示";
             this->fcgTSExeFileshelp->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSExeFileshelp_Click);
             // 
@@ -4261,16 +4278,27 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
             // 
-            // fcgCBFixedFunc
+            // fcgCBWeightB
             // 
-            this->fcgCBFixedFunc->AutoSize = true;
-            this->fcgCBFixedFunc->Location = System::Drawing::Point(242, 11);
-            this->fcgCBFixedFunc->Name = L"fcgCBFixedFunc";
-            this->fcgCBFixedFunc->Size = System::Drawing::Size(80, 18);
-            this->fcgCBFixedFunc->TabIndex = 154;
-            this->fcgCBFixedFunc->Tag = L"chValue";
-            this->fcgCBFixedFunc->Text = L"FixedFunc";
-            this->fcgCBFixedFunc->UseVisualStyleBackColor = true;
+            this->fcgCBWeightB->AutoSize = true;
+            this->fcgCBWeightB->Location = System::Drawing::Point(195, 343);
+            this->fcgCBWeightB->Name = L"fcgCBWeightB";
+            this->fcgCBWeightB->Size = System::Drawing::Size(106, 18);
+            this->fcgCBWeightB->TabIndex = 156;
+            this->fcgCBWeightB->Tag = L"chValue";
+            this->fcgCBWeightB->Text = L"重み付きBフレーム";
+            this->fcgCBWeightB->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBWeightP
+            // 
+            this->fcgCBWeightP->AutoSize = true;
+            this->fcgCBWeightP->Location = System::Drawing::Point(39, 343);
+            this->fcgCBWeightP->Name = L"fcgCBWeightP";
+            this->fcgCBWeightP->Size = System::Drawing::Size(106, 18);
+            this->fcgCBWeightP->TabIndex = 155;
+            this->fcgCBWeightP->Tag = L"chValue";
+            this->fcgCBWeightP->Text = L"重み付きPフレーム";
+            this->fcgCBWeightP->UseVisualStyleBackColor = true;
             // 
             // frmConfig
             // 
