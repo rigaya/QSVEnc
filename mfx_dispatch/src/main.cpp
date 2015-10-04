@@ -1,6 +1,6 @@
-/* ****************************************************************************** *\
+﻿/* ****************************************************************************** *\
 
-Copyright (C) 2012-2014 Intel Corporation.  All rights reserved.
+Copyright (C) 2012-2015 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -151,7 +151,7 @@ int HandleSort (const void * plhs, const void * prhs)
     return 0;
 }
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXInit)(mfxIMPL impl, mfxVersion *pVer, mfxSession *session)
+mfxStatus MFXInit(mfxIMPL impl, mfxVersion *pVer, mfxSession *session)
 {
     mfxInitParam par = {};
 
@@ -170,7 +170,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXInit)(mfxIMPL impl, mfxVersion *pVer, mfx
     return MFXInitEx(par, session);
 }
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXInitEx)(mfxInitParam par, mfxSession *session)
+mfxStatus MFXInitEx(mfxInitParam par, mfxSession *session)
 {
     MFX::MFXAutomaticCriticalSection guard(&dispGuard);
 
@@ -453,7 +453,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXInitEx)(mfxInitParam par, mfxSession *ses
         //pulling up current mediasdk version, that required to match plugin version
         mfxVersion apiVerActual;
         mfxStatus stsQueryVersion;
-        stsQueryVersion = DISPATCHER_EXPOSED_PREFIX(MFXQueryVersion)((mfxSession)pHandle, &apiVerActual);
+        stsQueryVersion = MFXQueryVersion((mfxSession)pHandle, &apiVerActual);
         if (MFX_ERR_NONE !=  stsQueryVersion) 
         {
             DISPATCHER_LOG_ERROR((("MFXQueryVersion returned: %d, cannot load plugins\n"), mfxRes))
@@ -502,7 +502,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXInitEx)(mfxInitParam par, mfxSession *ses
 
 } // mfxStatus MFXInit(mfxIMPL impl, mfxVersion *ver, mfxSession *session)
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXClose)(mfxSession session)
+mfxStatus MFXClose(mfxSession session)
 {
     MFX::MFXAutomaticCriticalSection guard(&dispGuard);
 
@@ -535,7 +535,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXClose)(mfxSession session)
 
 } // mfxStatus MFXClose(mfxSession session)
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXJoinSession)(mfxSession session, mfxSession child_session)
+mfxStatus MFXJoinSession(mfxSession session, mfxSession child_session)
 {
     mfxStatus mfxRes = MFX_ERR_INVALID_HANDLE;
     MFX_DISP_HANDLE *pHandle = (MFX_DISP_HANDLE *) session;
@@ -568,7 +568,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXJoinSession)(mfxSession session, mfxSessi
 
 } // mfxStatus MFXJoinSession(mfxSession session, mfxSession child_session)
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXCloneSession)(mfxSession session, mfxSession *clone)
+mfxStatus MFXCloneSession(mfxSession session, mfxSession *clone)
 {
     mfxStatus mfxRes = MFX_ERR_INVALID_HANDLE;
     MFX_DISP_HANDLE *pHandle = (MFX_DISP_HANDLE *) session;
@@ -602,7 +602,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXCloneSession)(mfxSession session, mfxSess
 } // mfxStatus MFXCloneSession(mfxSession session, mfxSession *clone)
 
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXVideoUSER_Load)(mfxSession session, const mfxPluginUID *uid, mfxU32 version) 
+mfxStatus MFXVideoUSER_Load(mfxSession session, const mfxPluginUID *uid, mfxU32 version)
 {
     mfxStatus sts = MFX_ERR_NONE;
     bool ErrFlag = false;
@@ -684,7 +684,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXVideoUSER_Load)(mfxSession session, const
 }
 
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXVideoUSER_LoadByPath)(mfxSession session, const mfxPluginUID *uid, mfxU32 version, const mfxChar *path, mfxU32 len)
+mfxStatus MFXVideoUSER_LoadByPath(mfxSession session, const mfxPluginUID *uid, mfxU32 version, const mfxChar *path, mfxU32 len)
 {
     MFX_DISP_HANDLE &pHandle = *(MFX_DISP_HANDLE *) session;
     if (!&pHandle)
@@ -734,7 +734,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXVideoUSER_LoadByPath)(mfxSession session,
 }
 
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXVideoUSER_UnLoad)(mfxSession session, const mfxPluginUID *uid) 
+mfxStatus MFXVideoUSER_UnLoad(mfxSession session, const mfxPluginUID *uid)
 {
     MFX_DISP_HANDLE &rHandle = *(MFX_DISP_HANDLE *) session;
     if (!&rHandle) 
@@ -760,7 +760,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXVideoUSER_UnLoad)(mfxSession session, con
     return bDestroyed ? MFX_ERR_NONE : MFX_ERR_NOT_FOUND;
 }
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXAudioUSER_Load)(mfxSession session, const mfxPluginUID *uid, mfxU32 version) 
+mfxStatus MFXAudioUSER_Load(mfxSession session, const mfxPluginUID *uid, mfxU32 version)
 {
     MFX_DISP_HANDLE &pHandle = *(MFX_DISP_HANDLE *) session;
     if (!&pHandle)
@@ -822,7 +822,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXAudioUSER_Load)(mfxSession session, const
     return MFX_ERR_NOT_FOUND;
 }
 
-mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXAudioUSER_UnLoad)(mfxSession session, const mfxPluginUID *uid) 
+mfxStatus MFXAudioUSER_UnLoad(mfxSession session, const mfxPluginUID *uid)
 {
     MFX_DISP_HANDLE &rHandle = *(MFX_DISP_HANDLE *) session;
     if (!&rHandle) 
@@ -856,7 +856,7 @@ mfxStatus DISPATCHER_EXPOSED_PREFIX(MFXAudioUSER_UnLoad)(mfxSession session, con
 // define for common functions (from mfxsession.h)
 #undef FUNCTION
 #define FUNCTION(return_value, func_name, formal_param_list, actual_param_list) \
-    return_value DISPATCHER_EXPOSED_PREFIX(func_name) formal_param_list \
+    return_value func_name formal_param_list \
 { \
     mfxStatus mfxRes = MFX_ERR_INVALID_HANDLE; \
     MFX_DISP_HANDLE *pHandle = (MFX_DISP_HANDLE *) session; \
@@ -893,7 +893,7 @@ FUNCTION(mfxStatus, MFXGetPriority, (mfxSession session, mfxPriority *priority),
 
 #undef FUNCTION
 #define FUNCTION(return_value, func_name, formal_param_list, actual_param_list) \
-    return_value DISPATCHER_EXPOSED_PREFIX(func_name) formal_param_list \
+    return_value func_name formal_param_list \
 { \
     mfxStatus mfxRes = MFX_ERR_INVALID_HANDLE; \
     MFX_DISP_HANDLE *pHandle = (MFX_DISP_HANDLE *) session; \
@@ -915,7 +915,7 @@ FUNCTION(mfxStatus, MFXGetPriority, (mfxSession session, mfxPriority *priority),
 #include "mfx_exposed_functions_list.h"
 #undef FUNCTION
 #define FUNCTION(return_value, func_name, formal_param_list, actual_param_list) \
-    return_value DISPATCHER_EXPOSED_PREFIX(func_name) formal_param_list \
+    return_value func_name formal_param_list \
 { \
     mfxStatus mfxRes = MFX_ERR_INVALID_HANDLE; \
     MFX_DISP_HANDLE *pHandle = (MFX_DISP_HANDLE *) session; \

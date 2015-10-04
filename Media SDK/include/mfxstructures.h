@@ -1,6 +1,6 @@
 ﻿/******************************************************************************* *\
 
-Copyright (C) 2007-2014 Intel Corporation.  All rights reserved.
+Copyright (C) 2007-2015 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -271,7 +271,8 @@ typedef struct {
             mfxU16  ExtendedPicStruct;
             mfxU16  TimeStampCalc;
             mfxU16  SliceGroupsPresent;
-            mfxU16  reserved2[9];
+            mfxU16  MaxDecFrameBuffering;
+            mfxU16  reserved2[8];
         };
         struct {   /* JPEG Decoding Options */
             mfxU16  JPEGChromaFormat;
@@ -403,6 +404,7 @@ enum {
     MFX_PROFILE_HEVC_MAIN             =1,
     MFX_PROFILE_HEVC_MAIN10           =2,
     MFX_PROFILE_HEVC_MAINSP           =3,
+    MFX_PROFILE_HEVC_REXT             =4,
 
     MFX_LEVEL_HEVC_1   = 10,
     MFX_LEVEL_HEVC_2   = 20,
@@ -569,6 +571,38 @@ typedef struct {
     mfxU16      UseRawRef;              /* tri-state option */
 } mfxExtCodingOption2;
 
+/* WeightedPred */
+enum {
+    MFX_WEIGHTED_PRED_UNKNOWN  = 0,
+    MFX_WEIGHTED_PRED_DEFAULT  = 1,
+    MFX_WEIGHTED_PRED_EXPLICIT = 2,
+    MFX_WEIGHTED_PRED_IMPLICIT = 3
+};
+
+/* ScenarioInfo */
+enum {
+    MFX_SCENARIO_UNKNOWN             = 0,
+    MFX_SCENARIO_DISPLAY_REMOTING    = 1,
+    MFX_SCENARIO_VIDEO_CONFERENCE    = 2,
+    MFX_SCENARIO_ARCHIVE             = 3,
+    MFX_SCENARIO_LIVE_STREAMING      = 4,
+    MFX_SCENARIO_CAMERA_CAPTURE      = 5
+};
+
+/* ContentInfo */
+enum {
+    MFX_CONTENT_UNKNOWN              = 0,
+    MFX_CONTENT_FULL_SCREEN_VIDEO    = 1,
+    MFX_CONTENT_NON_VIDEO_SCREEN     = 2
+};
+
+/* PRefType */
+enum {
+    MFX_P_REF_DEFAULT = 0,
+    MFX_P_REF_SIMPLE  = 1,
+    MFX_P_REF_PYRAMID = 2
+};
+
 typedef struct {
     mfxExtBuffer Header;
 
@@ -581,12 +615,27 @@ typedef struct {
 
     mfxU16      QVBRQuality;
     mfxU16      EnableMBQP;
-    mfxU16      reserved1;
+    mfxU16      IntRefCycleDist;
     mfxU16      DirectBiasAdjustment;          /* tri-state option */
     mfxU16      GlobalMotionBiasAdjustment;    /* tri-state option */
     mfxU16      MVCostScalingFactor;
     mfxU16      MBDisableSkipMap;              /* tri-state option */
-    mfxU16      reserved[240];
+
+    mfxU16      WeightedPred;
+    mfxU16      WeightedBiPred;
+
+    mfxU16      AspectRatioInfoPresent;         /* tri-state option */
+    mfxU16      OverscanInfoPresent;            /* tri-state option */
+    mfxU16      OverscanAppropriate;            /* tri-state option */
+    mfxU16      TimingInfoPresent;              /* tri-state option */
+    mfxU16      BitstreamRestriction;           /* tri-state option */
+    mfxU16      reserved1[4];
+
+    mfxU16      ScenarioInfo;
+    mfxU16      ContentInfo;
+
+    mfxU16      PRefType;
+    mfxU16      reserved[226];
 } mfxExtCodingOption3;
 
 /* IntraPredBlockSize/InterPredBlockSize */
@@ -656,7 +705,10 @@ enum {
     MFX_EXTBUFF_HEVC_PARAM                 = MFX_MAKEFOURCC('2','6','5','P'),
     MFX_EXTBUFF_DECODED_FRAME_INFO         = MFX_MAKEFOURCC('D','E','F','I'),
     MFX_EXTBUFF_TIME_CODE                  = MFX_MAKEFOURCC('T','M','C','D'),
-    MFX_EXTBUFF_HEVC_REGION                = MFX_MAKEFOURCC('2','6','5','R')
+    MFX_EXTBUFF_HEVC_REGION                = MFX_MAKEFOURCC('2','6','5','R'),
+    MFX_EXTBUFF_PRED_WEIGHT_TABLE          = MFX_MAKEFOURCC('E','P','W','T'),
+    MFX_EXTBUFF_DIRTY_RECTANGLES           = MFX_MAKEFOURCC('D','R','O','I'),
+    MFX_EXTBUFF_MOVING_RECTANGLES          = MFX_MAKEFOURCC('M','R','O','I')
 };
 
 /* VPP Conf: Do not use certain algorithms  */
@@ -775,7 +827,11 @@ enum {
 };
 
 typedef struct {
-    mfxU32  reserved[4];
+    union {
+        mfxU32  AllocId;
+        mfxU32  reserved[1];
+    };
+    mfxU32  reserved3[3];
     mfxFrameInfo    Info;
     mfxU16  Type;   /* decoder or processor render targets */
     mfxU16  NumFrameMin;
@@ -784,7 +840,8 @@ typedef struct {
 } mfxFrameAllocRequest;
 
 typedef struct {
-    mfxU32      reserved[4];
+    mfxU32      AllocId;
+    mfxU32      reserved[3];
     mfxMemId    *mids;      /* the array allocated by application */
     mfxU16      NumFrameActual;
     mfxU16      reserved2;
@@ -1112,6 +1169,7 @@ enum {
     MFX_VPP_SWAP_FIELDS     =0x03
 };
 
+/*PicType*/
 enum {
     MFX_PICTYPE_UNKNOWN     =0x00,
     MFX_PICTYPE_FRAME       =0x01,
@@ -1167,13 +1225,30 @@ typedef struct {
     };
 } mfxExtMBDisableSkipMap;
 
+/*GeneralConstraintFlags*/
+enum {
+    /* REXT Profile constraint flags*/
+    MFX_HEVC_CONSTR_REXT_MAX_12BIT          = (1 << 0),
+    MFX_HEVC_CONSTR_REXT_MAX_10BIT          = (1 << 1),
+    MFX_HEVC_CONSTR_REXT_MAX_8BIT           = (1 << 2),
+    MFX_HEVC_CONSTR_REXT_MAX_422CHROMA      = (1 << 3),
+    MFX_HEVC_CONSTR_REXT_MAX_420CHROMA      = (1 << 4),
+    MFX_HEVC_CONSTR_REXT_MAX_MONOCHROME     = (1 << 5),
+    MFX_HEVC_CONSTR_REXT_INTRA              = (1 << 6),
+    MFX_HEVC_CONSTR_REXT_ONE_PICTURE_ONLY   = (1 << 7),
+    MFX_HEVC_CONSTR_REXT_LOWER_BIT_RATE     = (1 << 8)
+};
+
+#pragma pack(push, 4)
 typedef struct {
     mfxExtBuffer    Header;
 
     mfxU16          PicWidthInLumaSamples;
     mfxU16          PicHeightInLumaSamples;
-    mfxU16          reserved[122];
+    mfxU64          GeneralConstraintFlags;
+    mfxU16          reserved[118];
 } mfxExtHEVCParam;
+#pragma pack(pop)
 
 typedef struct {
     mfxExtBuffer Header;
@@ -1193,8 +1268,15 @@ typedef struct {
     mfxU16       reserved[7];
 } mfxExtTimeCode;
 
+/*RegionType*/
 enum {
     MFX_HEVC_REGION_SLICE = 0
+};
+
+/*RegionEncoding*/
+enum {
+    MFX_HEVC_REGION_ENCODING_ON  = 0,
+    MFX_HEVC_REGION_ENCODING_OFF = 1
 };
 
 typedef struct {
@@ -1202,8 +1284,54 @@ typedef struct {
 
     mfxU32       RegionId;
     mfxU16       RegionType;
-    mfxU16       reserved[25];
+    mfxU16       RegionEncoding;
+    mfxU16       reserved[24];
 } mfxExtHEVCRegion;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16       LumaLog2WeightDenom;       // 0..7
+    mfxU16       ChromaLog2WeightDenom;     // 0..7
+    mfxU16       LumaWeightFlag[2][32];     // [list] 0,1
+    mfxU16       ChromaWeightFlag[2][32];   // [list] 0,1
+    mfxI16       Weights[2][32][3][2];      // [list][list entry][Y, Cb, Cr][weight, offset]
+    mfxU16       reserved[58];
+} mfxExtPredWeightTable;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16  NumRect;
+    mfxU16  reserved1[11];
+
+    struct {
+        mfxU32  Left;
+        mfxU32  Top;
+        mfxU32  Right;
+        mfxU32  Bottom;
+
+        mfxU16  reserved2[8];
+    } Rect[256];
+} mfxExtDirtyRect;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16  NumRect;
+    mfxU16  reserved1[11];
+
+    struct {
+        mfxU32  DestLeft;
+        mfxU32  DestTop;
+        mfxU32  DestRight;
+        mfxU32  DestBottom;
+
+        mfxU32  SourceLeft;
+        mfxU32  SourceTop;
+        mfxU16  reserved2[4];
+    } Rect[256];
+} mfxExtMoveRect;
 
 #ifdef __cplusplus
 } // extern "C"
