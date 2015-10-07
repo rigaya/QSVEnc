@@ -261,15 +261,17 @@ struct sInputParams
     mfxU16     nSessionThreadPriority;
 
     mfxU8      bCopyChapter;
-    mfxU8      bCopySubtitle;
+    mfxU8      __reserved4;
     mfxU8      nVP8Sharpness;
     mfxU8      nAudioSourceCount;
     TCHAR      **ppAudioSourceList;
 
     mfxU16     nWeightP;
     mfxU16     nWeightB;
-    mfxU8      __reserved3[2];
-    mfxU8      Reserved[1136];
+    mfxU8      __reserved3;
+    mfxU8      nSubtitleSelectCount;
+    int       *pSubtitleSelect;
+    mfxU8      Reserved[1132];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

@@ -781,11 +781,22 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
         }
         for (int iTrack = 0; iTrack < (int)mediaStreams.size(); iTrack++) {
             const AVCodecID codecId = m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codec->codec_id;
-            bool useStream = AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId);
-            for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
-                if (input_prm->ppAudioSelect[i]->nAudioSelect == 0 //特に指定なし = 全指定かどうか
-                    || input_prm->ppAudioSelect[i]->nAudioSelect == (iTrack + input_prm->nAudioTrackStart)) {
-                    useStream = true;
+            bool useStream = false;
+            if (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId)) {
+                //字幕の場合
+                for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
+                    if (input_prm->pSubtitleSelect[i] == 0 //特に指定なし = 全指定かどうか
+                        || input_prm->pSubtitleSelect[i] == (iTrack - m_Demux.format.nAudioTracks + 1 + input_prm->nSubtitleTrackStart)) {
+                        useStream = true;
+                    }
+                }
+            } else {
+                //音声の場合
+                for (int i = 0; !useStream && i < input_prm->nAudioSelectCount; i++) {
+                    if (input_prm->ppAudioSelect[i]->nAudioSelect == 0 //特に指定なし = 全指定かどうか
+                        || input_prm->ppAudioSelect[i]->nAudioSelect == (iTrack + input_prm->nAudioTrackStart)) {
+                        useStream = true;
+                    }
                 }
             }
             if (useStream) {

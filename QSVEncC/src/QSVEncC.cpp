@@ -201,9 +201,11 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                set encode bitrate for audio (kbps).\n")
             _T("                                  in [<int>?], specify track number to set bitrate.\n")
             _T("   --chapter-copy               copy chapter to output file.\n")
-            _T("   --sub-copy                   copy subtitle to output file.\n")
+            _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
             _T("                                 these could be only used with\n")
             _T("                                 avqsv reader and avcodec muxer.\n")
+            _T("                                 below are optional,\n")
+            _T("                                  in [<int>?], specify track number to copy.\n")
 #endif
             _T("\n")
             _T("   --nv12                       set raw input as NV12 color format,\n")
@@ -995,7 +997,35 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
     }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
-        pParams->bCopySubtitle = TRUE;
+        std::set<int> trackSet; //重複しないよう、setを使う
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            auto trackListStr = split(strInput[i], _T(","));
+            for (auto str : trackListStr) {
+                int iTrack = 0;
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                } else {
+                    trackSet.insert(iTrack);
+                }
+            }
+        } else {
+            trackSet.insert(0);
+        }
+        for (int iTrack = 0; iTrack < pParams->nSubtitleSelectCount; iTrack++) {
+            trackSet.insert(pParams->pSubtitleSelect[iTrack]);
+        }
+        if (pParams->pSubtitleSelect) {
+            free(pParams->pSubtitleSelect);
+        }
+
+        pParams->pSubtitleSelect = (int *)malloc(sizeof(pParams->pSubtitleSelect[0]) * trackSet.size());
+        pParams->nSubtitleSelectCount = (mfxU8)trackSet.size();
+        int iTrack = 0;
+        for (auto it = trackSet.begin(); it != trackSet.end(); it++, iTrack++) {
+            pParams->pSubtitleSelect[iTrack] = *it;
+        }
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("quality"))) {

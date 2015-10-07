@@ -2360,7 +2360,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.bReadVideo = true;
                 avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
-                avcodecReaderPrm.bReadSubtitle = !!pParams->bCopySubtitle;
+                avcodecReaderPrm.bReadSubtitle = pParams->nSubtitleSelectCount > 0;
                 avcodecReaderPrm.pTrimList = pParams->pTrimList;
                 avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
                 avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0; 
@@ -2368,6 +2368,8 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
                 avcodecReaderPrm.nAudioTrackStart = (mfxU8)sourceAudioTrackIdStart;
                 avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
+                avcodecReaderPrm.pSubtitleSelect = pParams->pSubtitleSelect;
+                avcodecReaderPrm.nSubtitleSelectCount = pParams->nSubtitleSelectCount;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
