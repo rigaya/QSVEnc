@@ -1852,7 +1852,9 @@ mfxStatus ParseInputString(TCHAR* strInput[], int nArgNum, sInputParams* pParams
 
         const TCHAR *option_name = NULL;
 
-        if (strInput[i][0] == _T('-')) {
+        if (strInput[i][0] == _T('|')) {
+            break;
+        } else if (strInput[i][0] == _T('-')) {
             if (strInput[i][1] == _T('-')) {
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
