@@ -1322,8 +1322,35 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
     }
     AVFrame *decodedFrame = av_frame_alloc();
     *got_result = FALSE;
-    while (!got_result || decodedFrame->nb_samples == 0) {
-        int len = avcodec_decode_audio4(pMuxAudio->pOutCodecDecodeCtx, decodedFrame, got_result, pktIn);
+    while (!(*got_result) || pktIn->size > 0) {
+        AVFrame *decodedData = av_frame_alloc();
+        int len = avcodec_decode_audio4(pMuxAudio->pOutCodecDecodeCtx, decodedData, got_result, pktIn);
+        if (decodedFrame->nb_samples && decodedData->nb_samples) {
+            AVFrame *decodedFrameNew        = av_frame_alloc();
+            decodedFrameNew->nb_samples     = decodedFrame->nb_samples + decodedData->nb_samples;
+            decodedFrameNew->channels       = decodedData->channels;
+            decodedFrameNew->channel_layout = decodedData->channel_layout;
+            decodedFrameNew->sample_rate    = decodedData->sample_rate;
+            decodedFrameNew->format         = decodedData->format;
+            av_frame_get_buffer(decodedFrameNew, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+            const int bytes_per_sample = av_get_bytes_per_sample((AVSampleFormat)decodedFrameNew->format)
+                * (av_sample_fmt_is_planar((AVSampleFormat)decodedFrameNew->format) ? 1 : decodedFrameNew->channels);
+            const int channel_loop_count = av_sample_fmt_is_planar((AVSampleFormat)decodedFrameNew->format) ? decodedFrameNew->channels : 1;
+            for (int i = 0; i < channel_loop_count; i++) {
+                if (decodedFrame->nb_samples > 0) {
+                    memcpy(decodedFrameNew->data[i], decodedFrame->data[i], decodedFrame->nb_samples * bytes_per_sample);
+                }
+                if (decodedData->nb_samples > 0) {
+                    memcpy(decodedFrameNew->data[i] + decodedFrame->nb_samples * bytes_per_sample,
+                        decodedData->data[i], decodedData->nb_samples * bytes_per_sample);
+                }
+            }
+            av_frame_free(&decodedFrame);
+            decodedFrame = decodedFrameNew;
+        } else if (decodedData->nb_samples) {
+            av_frame_free(&decodedFrame);
+            decodedFrame = decodedData;
+        }
         if (len < 0) {
             AddMessage(QSV_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(len).c_str());
             m_Mux.format.bStreamError = true;
@@ -1336,11 +1363,8 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
             pMuxAudio->OutPacket.size = 0;
             break;
         }
-        if (pMuxAudio->pOutCodecDecodeCtx->block_align > 0
-            && pMuxAudio->OutPacket.size < pMuxAudio->pOutCodecDecodeCtx->block_align) {
-            break;
-        }
     }
+    *got_result = decodedFrame->nb_samples > 0;
     return decodedFrame;
 }
 
