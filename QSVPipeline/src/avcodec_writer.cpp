@@ -993,7 +993,7 @@ mfxStatus CAvcodecWriter::AddHEVCHeaderToExtraData(const mfxBitstream *pMfxBitst
     }
     if (vps_start_ptr) {
         const mfxU32 vps_length = (mfxU32)(vps_fin_ptr - vps_start_ptr);
-        mfxU8 *new_ptr = (mfxU8 *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + vps_length);
+        mfxU8 *new_ptr = (mfxU8 *)av_malloc(m_Mux.video.pCodecCtx->extradata_size + vps_length + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, vps_start_ptr, vps_length);
         memcpy(new_ptr + vps_length, m_Mux.video.pCodecCtx->extradata, m_Mux.video.pCodecCtx->extradata_size);
         m_Mux.video.pCodecCtx->extradata_size += vps_length;
