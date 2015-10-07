@@ -720,8 +720,14 @@ mfxStatus CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
     SetExtraData(pMuxSub->pStream->codec, srcCodecCtx->extradata, srcCodecCtx->extradata_size);
     pMuxSub->pStream->codec->codec_type      = srcCodecCtx->codec_type;
     pMuxSub->pStream->codec->codec_id        = srcCodecCtx->codec_id;
-
-    pMuxSub->pStream->codec->codec_tag       = srcCodecCtx->codec_tag;
+    if (!pMuxSub->pStream->codec->codec_tag) {
+        uint32_t codec_tag = 0;
+        if (!m_Mux.format.pFormatCtx->oformat->codec_tag
+            || av_codec_get_id(m_Mux.format.pFormatCtx->oformat->codec_tag, srcCodecCtx->codec_tag) == srcCodecCtx->codec_id
+            || !av_codec_get_tag2(m_Mux.format.pFormatCtx->oformat->codec_tag, srcCodecCtx->codec_id, &codec_tag)) {
+            pMuxSub->pStream->codec->codec_tag = srcCodecCtx->codec_tag;
+        }
+    }
     pMuxSub->pStream->codec->width           = srcCodecCtx->width;
     pMuxSub->pStream->codec->height          = srcCodecCtx->height;
     pMuxSub->pStream->time_base              = srcCodecCtx->time_base;
