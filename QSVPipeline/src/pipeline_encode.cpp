@@ -2736,6 +2736,12 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         PrintMes(QSV_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
 
+    //メモリの指定が自動の場合、出力コーデックがrawなら、systemメモリを自動的に使用する
+    if (HW_MEMORY == (pParams->memType & HW_MEMORY) && pParams->CodecId == MFX_CODEC_RAW) {
+        PrintMes(QSV_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
+        pParams->memType = SYSTEM_MEMORY;
+    }
+
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
 
