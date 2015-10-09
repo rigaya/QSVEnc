@@ -268,10 +268,10 @@ struct sInputParams
 
     mfxU16     nWeightP;
     mfxU16     nWeightB;
-    mfxU8      __reserved3;
-    mfxU8      nSubtitleSelectCount;
+    mfxU16      __reserved3;
+    mfxU16     nSubtitleSelectCount;
     int       *pSubtitleSelect;
-    mfxU8      Reserved[1132];
+    mfxU8      Reserved[1128];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
