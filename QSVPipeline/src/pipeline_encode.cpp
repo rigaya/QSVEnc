@@ -299,12 +299,16 @@ mfxStatus sTask::WriteBitstream()
     if (pBsWriter) {
         sts = pBsWriter->WriteNextFrame(&mfxBS);
     } else {
-        sts = pmfxAllocator->Lock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        if (mfxSurf->Data.MemId) {
+            sts = pmfxAllocator->Lock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        }
 
         sts = pYUVWriter->WriteNextFrame(mfxSurf);
 
-        pmfxAllocator->Unlock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+        if (mfxSurf->Data.MemId) {
+            pmfxAllocator->Unlock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+        }
 
         //最終で加算したLockをここで減算する
         mfxSurf->Data.Locked--;
@@ -2661,7 +2665,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     if (useHWLib) {
         // try searching on all display adapters
         impl = MFX_IMPL_HARDWARE_ANY;
-        m_memType = D3D9_MEMORY;
+        m_memType = (memType) ? D3D9_MEMORY : SYSTEM_MEMORY;
 
         //Win7でD3D11のチェックをやると、
         //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
@@ -2705,7 +2709,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
                 break;
             }
         }
-        PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), (m_memType & D3D11_MEMORY) ? _T("d3d11") : _T("d3d9"));
+        PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), MemTypeToStr(m_memType));
     } else {
         impl = MFX_IMPL_SOFTWARE;
         sts = InitSessionEx();
