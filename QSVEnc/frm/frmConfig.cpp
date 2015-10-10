@@ -1050,6 +1050,8 @@ System::Void frmConfig::UpdateMfxLibDetection() {
 }
 
 System::Void frmConfig::InitForm() {
+    featuresHW = gcnew QSVFeatures(true);
+    featuresSW = gcnew QSVFeatures(false);
     //CPU情報の取得
     getCPUInfoDelegate = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
     getCPUInfoDelegate->BeginInvoke(nullptr, nullptr);

@@ -47,8 +47,6 @@ namespace QSVEnc {
         frmConfig(CONF_GUIEX *_conf, const SYSTEM_DATA *_sys_dat)
         {
             //ライブラリのチェック
-            featuresHW = gcnew QSVFeatures(true);
-            featuresSW = gcnew QSVFeatures(false);
             InitData(_conf, _sys_dat);
             cnf_stgSelected = (CONF_GUIEX *)calloc(1, sizeof(CONF_GUIEX));
             InitializeComponent();
@@ -69,8 +67,8 @@ namespace QSVEnc {
             }
             CloseBitrateCalc();
             if (cnf_stgSelected) free(cnf_stgSelected); cnf_stgSelected = NULL;
-            delete featuresHW;
-            delete featuresSW;
+            if (featuresHW != nullptr) delete featuresHW;
+            if (featuresSW != nullptr) delete featuresSW;
             if (nullptr != saveFileQSVFeautures)
                 delete saveFileQSVFeautures;
         }
@@ -1049,6 +1047,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBWeightB = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBWeightP = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBFixedFunc = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBWinBRCSizeAuto = (gcnew System::Windows::Forms::Label());
             this->fcgNUWinBRCSize = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1250,8 +1250,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcgCBWeightB = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgCBWeightP = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2154,6 +2152,28 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBWeightB
+            // 
+            this->fcgCBWeightB->AutoSize = true;
+            this->fcgCBWeightB->Location = System::Drawing::Point(195, 343);
+            this->fcgCBWeightB->Name = L"fcgCBWeightB";
+            this->fcgCBWeightB->Size = System::Drawing::Size(106, 18);
+            this->fcgCBWeightB->TabIndex = 156;
+            this->fcgCBWeightB->Tag = L"chValue";
+            this->fcgCBWeightB->Text = L"重み付きBフレーム";
+            this->fcgCBWeightB->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBWeightP
+            // 
+            this->fcgCBWeightP->AutoSize = true;
+            this->fcgCBWeightP->Location = System::Drawing::Point(39, 343);
+            this->fcgCBWeightP->Name = L"fcgCBWeightP";
+            this->fcgCBWeightP->Size = System::Drawing::Size(106, 18);
+            this->fcgCBWeightP->TabIndex = 155;
+            this->fcgCBWeightP->Tag = L"chValue";
+            this->fcgCBWeightP->Text = L"重み付きPフレーム";
+            this->fcgCBWeightP->UseVisualStyleBackColor = true;
             // 
             // fcgCBFixedFunc
             // 
@@ -4278,28 +4298,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
             // 
-            // fcgCBWeightB
-            // 
-            this->fcgCBWeightB->AutoSize = true;
-            this->fcgCBWeightB->Location = System::Drawing::Point(195, 343);
-            this->fcgCBWeightB->Name = L"fcgCBWeightB";
-            this->fcgCBWeightB->Size = System::Drawing::Size(106, 18);
-            this->fcgCBWeightB->TabIndex = 156;
-            this->fcgCBWeightB->Tag = L"chValue";
-            this->fcgCBWeightB->Text = L"重み付きBフレーム";
-            this->fcgCBWeightB->UseVisualStyleBackColor = true;
-            // 
-            // fcgCBWeightP
-            // 
-            this->fcgCBWeightP->AutoSize = true;
-            this->fcgCBWeightP->Location = System::Drawing::Point(39, 343);
-            this->fcgCBWeightP->Name = L"fcgCBWeightP";
-            this->fcgCBWeightP->Size = System::Drawing::Size(106, 18);
-            this->fcgCBWeightP->TabIndex = 155;
-            this->fcgCBWeightP->Tag = L"chValue";
-            this->fcgCBWeightP->Text = L"重み付きPフレーム";
-            this->fcgCBWeightP->UseVisualStyleBackColor = true;
-            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -4323,6 +4321,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             this->Name = L"frmConfig";
             this->ShowIcon = false;
             this->Text = L"Aviutl 出力 プラグイン";
+            this->FormClosed += gcnew System::Windows::Forms::FormClosedEventHandler(this, &frmConfig::frmConfig_FormClosed);
             this->Load += gcnew System::EventHandler(this, &frmConfig::frmConfig_Load);
             this->fcgtoolStripSettings->ResumeLayout(false);
             this->fcgtoolStripSettings->PerformLayout();
@@ -4509,6 +4508,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
         System::Void SetVideoBitrate(int bitrate);
         System::Void SetAudioBitrate(int bitrate);
         System::Void InformfbcClosed();
+    private:
+        System::Void frmConfig_FormClosed(System::Object^  sender, System::Windows::Forms::FormClosedEventArgs^  e) {
+            if (featuresHW != nullptr) {
+                delete featuresHW;
+                featuresHW = nullptr;
+            }
+            if (featuresSW != nullptr) {
+                delete featuresSW;
+                featuresSW = nullptr;
+            }
+        }
     private:
         System::Void fcgTSItem_MouseDown(System::Object^  sender, System::Windows::Forms::MouseEventArgs^  e) {
             EnableSettingsNoteChange(false);

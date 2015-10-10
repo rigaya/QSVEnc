@@ -197,6 +197,12 @@ namespace QSVEnc {
             thGetLibVersion->Start();
         }
         ~QSVFeatures() {
+            if (thGetLibVersion != nullptr && thGetLibVersion->IsAlive) {
+                thGetLibVersion->Join();
+            }
+            if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
+                thGetFeatures->Join();
+            }
             delete dataTableQsvCodecFeatures;
             delete availableFeatures;
         }
