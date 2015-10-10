@@ -1134,7 +1134,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBAdaptiveI->Checked     = cnf->qsv.bAdaptiveI != 0;
     fcgCBAdaptiveB->Checked     = cnf->qsv.bAdaptiveB != 0;
     fcgCBWeightP->Checked       = cnf->qsv.nWeightP == MFX_CODINGOPTION_ON;
-    fcgCBWeightB->Checked       = cnf->qsv.nWeightB != MFX_CODINGOPTION_ON;
+    fcgCBWeightB->Checked       = cnf->qsv.nWeightB == MFX_CODINGOPTION_ON;
     fcgCBBPyramid->Checked      = cnf->qsv.bBPyramid != 0;
     SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, cnf->qsv.nLookaheadDS));
     fcgCBMBBRC->Checked         = cnf->qsv.bMBBRC != 0;
