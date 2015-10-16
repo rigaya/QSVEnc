@@ -1,8 +1,10 @@
 
-.code
+section .code
     align 16
 
-;PUBLIC C read_sse
+section .text
+
+global read_sse@20
 
 ;void __stdcall read_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [rcx] PIXEL_YC       *src
@@ -10,7 +12,7 @@
 ;  [r8]  uint32_t        count_n
 ;)
 
-read_sse PROC
+read_sse:
         push rdi
         push rsi
         push rbx
@@ -20,12 +22,13 @@ read_sse PROC
         mov r9,  rcx
         mov eax, edx
         shr eax, 7
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov rbx, r9
         mov rdx, rbx
         add rdx, 64
         mov ecx, eax
-    INNER_LOOP:
+    .INNER_LOOP:
         movaps xmm0, [rbx];
         movaps xmm1, [rbx+16];
         movaps xmm2, [rbx+32];
@@ -37,10 +40,10 @@ read_sse PROC
         movaps xmm7, [rdx+48];
         add rdx, rdi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
         
         pop rbx
         pop rsi
@@ -48,11 +51,9 @@ read_sse PROC
 
         ret
 
-read_sse ENDP
 
 
-
-;PUBLIC C read_avx
+global read_avx@20
 
 ;void __stdcall read_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [rcx] PIXEL_YC       *src
@@ -60,7 +61,7 @@ read_sse ENDP
 ;  [r8]  uint32_t        count_n
 ;)
 
-read_avx PROC
+read_avx:
         push rdi
         push rsi
         push rbx
@@ -70,12 +71,13 @@ read_avx PROC
         mov r9,  rcx
         mov eax, edx
         shr eax, 8
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov rbx, r9
         mov rdx, rbx
         add rdx, 128
         mov ecx, eax
-    INNER_LOOP:
+    .INNER_LOOP:
         movaps xmm0, [rbx];
         movaps xmm1, [rbx+32];
         movaps xmm2, [rbx+64];
@@ -87,10 +89,10 @@ read_avx PROC
         movaps xmm7, [rdx+96];
         add rdx, rdi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
 
         vzeroupper
         
@@ -100,9 +102,7 @@ read_avx PROC
 
         ret
 
-read_avx ENDP
-
-;PUBLIC C _write_sse@20
+global _write_sse@20
 
 ;void __stdcall _write_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+08] PIXEL_YC       *src
@@ -110,7 +110,7 @@ read_avx ENDP
 ;  [esp+20] uint32_t        count_n
 ;)
 
-write_sse PROC
+write_sse:
         push rdi
         push rsi
         push rbx
@@ -120,12 +120,13 @@ write_sse PROC
         mov r9,  rcx
         mov eax, edx
         shr eax, 7
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov rbx, r9
         mov rdx, rbx
         add rdx, 64
         mov ecx, eax
-    INNER_LOOP:
+    .INNER_LOOP:
         movaps [rbx],    xmm0 
         movaps [rbx+16], xmm0 
         movaps [rbx+32], xmm0
@@ -137,10 +138,10 @@ write_sse PROC
         movaps [rdx+48], xmm0
         add rdx, rdi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
         
         pop rbx
         pop rsi
@@ -148,11 +149,10 @@ write_sse PROC
 
         ret
 
-write_sse ENDP
 
 
 
-;PUBLIC C _write_avx@20
+global _write_avx@20
 
 ;void __stdcall _write_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+08] PIXEL_YC       *src
@@ -160,7 +160,7 @@ write_sse ENDP
 ;  [esp+20] uint32_t        count_n
 ;)
 
-write_avx PROC
+write_avx:
         push rdi
         push rsi
         push rbx
@@ -170,12 +170,13 @@ write_avx PROC
         mov r9,  rcx
         mov eax, edx
         shr eax, 8
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov rbx, r9
         mov rdx, rbx
         add rdx, 128
         mov ecx, eax
-    INNER_LOOP:
+    .INNER_LOOP:
         vmovaps [rbx],    ymm0 
         vmovaps [rbx+32], ymm0 
         vmovaps [rbx+64], ymm0
@@ -187,10 +188,10 @@ write_avx PROC
         vmovaps [rdx+96], ymm0
         add rdx, rdi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
 
         vzeroupper
         
@@ -199,7 +200,3 @@ write_avx PROC
         pop rdi
 
         ret
-
-write_avx ENDP
-
-end

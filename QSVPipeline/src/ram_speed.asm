@@ -1,13 +1,9 @@
-
-
-.586   
-.xmm
-.model flat
-
-.code
+section .code
     align 16
 
-;PUBLIC C _read_sse@12
+section .text
+
+global _read_sse@12
 
 ;void __stdcall read_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -15,7 +11,7 @@
 ;  [esp+12] uint32_t        count_n
 ;)
 
-_read_sse@12 PROC
+    _read_sse@12:
         push ebp
         push edi
         push esi
@@ -27,12 +23,13 @@ _read_sse@12 PROC
         mov eax, [esp+16+04]; src
         mov ebp, [esp+16+08]; size
         shr ebp, 7
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov ebx, eax; src
         mov edx, ebx
         add edx, 64
         mov ecx, ebp
-    INNER_LOOP:
+    .INNER_LOOP:
         movaps xmm0, [ebx];
         movaps xmm1, [ebx+16];
         movaps xmm2, [ebx+32];
@@ -44,10 +41,10 @@ _read_sse@12 PROC
         movaps xmm7, [edx+48];
         add edx, edi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
 
         pop ebx
         pop esi
@@ -56,11 +53,10 @@ _read_sse@12 PROC
 
         ret 12
 
-_read_sse@12 ENDP
 
 
-
-;PUBLIC C _read_avx@12
+        
+global _read_avx@12
 
 ;void __stdcall read_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -68,7 +64,7 @@ _read_sse@12 ENDP
 ;  [esp+12] uint32_t        count_n
 ;)
 
-_read_avx@12 PROC
+    _read_avx@12:
         push ebp
         push edi
         push esi
@@ -80,12 +76,13 @@ _read_avx@12 PROC
         mov eax, [esp+16+04]; src
         mov ebp, [esp+16+08]; size
         shr ebp, 8
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov ebx, eax; src
         mov edx, ebx
         add edx, 128
         mov ecx, ebp
-    INNER_LOOP:
+    .INNER_LOOP:
         vmovaps ymm0, [ebx]
         vmovaps ymm1, [ebx+32]
         vmovaps ymm2, [ebx+64]
@@ -97,10 +94,10 @@ _read_avx@12 PROC
         vmovaps ymm7, [edx+96]
         add edx, edi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
 
         vzeroupper
 
@@ -111,10 +108,8 @@ _read_avx@12 PROC
 
         ret 12
 
-_read_avx@12 ENDP
 
-
-;PUBLIC C _write_sse@12
+global _write_sse@12
 
 ;void __stdcall write_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -122,7 +117,7 @@ _read_avx@12 ENDP
 ;  [esp+12] uint32_t        count_n
 ;)
 
-_write_sse@12 PROC
+    _write_sse@12:
         push ebp
         push edi
         push esi
@@ -134,12 +129,13 @@ _write_sse@12 PROC
         mov eax, [esp+16+04]; src
         mov ebp, [esp+16+08]; size
         shr ebp, 7
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov ebx, eax; src
         mov edx, ebx
         add edx, 64
         mov ecx, ebp
-    INNER_LOOP:
+    .INNER_LOOP:
         movaps [ebx],    xmm0 
         movaps [ebx+16], xmm0 
         movaps [ebx+32], xmm0
@@ -151,10 +147,10 @@ _write_sse@12 PROC
         movaps [edx+48], xmm0
         add edx, edi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
 
         pop ebx
         pop esi
@@ -163,11 +159,9 @@ _write_sse@12 PROC
 
         ret 12
 
-_write_sse@12 ENDP
 
 
-
-;PUBLIC C _write_avx@12
+global _write_avx@12
 
 ;void __stdcall write_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -175,7 +169,7 @@ _write_sse@12 ENDP
 ;  [esp+12] uint32_t        count_n
 ;)
 
-_write_avx@12 PROC
+_write_avx@12:
         push ebp
         push edi
         push esi
@@ -187,12 +181,13 @@ _write_avx@12 PROC
         mov eax, [esp+16+04]; src
         mov ebp, [esp+16+08]; size
         shr ebp, 8
-    OUTER_LOOP:
+        align 16
+    .OUTER_LOOP:
         mov ebx, eax; src
         mov edx, ebx
         add edx, 128
         mov ecx, ebp
-    INNER_LOOP:
+    .INNER_LOOP:
         vmovaps [ebx],    ymm0 
         vmovaps [ebx+32], ymm0 
         vmovaps [ebx+64], ymm0
@@ -204,10 +199,10 @@ _write_avx@12 PROC
         vmovaps [edx+96], ymm0
         add edx, edi
         dec ecx
-        jnz INNER_LOOP
+        jnz .INNER_LOOP
 
         dec esi
-        jnz OUTER_LOOP
+        jnz .OUTER_LOOP
 
         vzeroupper
 
@@ -218,6 +213,3 @@ _write_avx@12 PROC
 
         ret 12
 
-_write_avx@12 ENDP
-
-end
