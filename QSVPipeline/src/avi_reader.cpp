@@ -142,7 +142,7 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     AddMessage(QSV_LOG_DEBUG, mes);
     m_strInputInfo += mes;
-    m_tmLastUpdate = timeGetTime();
+    m_tmLastUpdate = std::chrono::system_clock::now();
 
     m_bInited = true;
     return MFX_ERR_NONE;
@@ -229,8 +229,8 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 
     m_pEncSatusInfo->m_nInputFrames++;
     // display update
-    mfxU32 tm = timeGetTime();
-    if (tm - m_tmLastUpdate > UPDATE_INTERVAL) {
+    auto tm = std::chrono::system_clock::now();
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
         m_tmLastUpdate = tm;
         m_pEncSatusInfo->UpdateDisplay(tm, 0);
     }

@@ -164,7 +164,7 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, cons
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     m_strInputInfo += mes;
 
-    m_tmLastUpdate = timeGetTime();
+    m_tmLastUpdate = std::chrono::system_clock::now();
     return MFX_ERR_NONE;
 }
 #pragma warning( pop )
@@ -255,9 +255,9 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     if (!(m_pEncSatusInfo->m_nInputFrames & 7))
         aud_parallel_task(oip, pe);
 
-    mfxU32 tm = timeGetTime();
+    auto tm = std::chrono::system_clock::now();
     //pSurface->Data.TimeStamp = m_pEncSatusInfo->m_nInputFrames * (mfxU64)m_pEncSatusInfo->m_nOutputFPSScale;
-    if (tm - m_tmLastUpdate > UPDATE_INTERVAL) {
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
         m_tmLastUpdate = tm;
         m_pEncSatusInfo->UpdateDisplay(tm, pe->drop_count);
         oip->func_rest_time_disp(m_pEncSatusInfo->m_nInputFrames + pe->drop_count, total_frames);

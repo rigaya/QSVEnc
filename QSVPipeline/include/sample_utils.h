@@ -239,7 +239,7 @@ protected:
     CEncodeStatusInfo *m_pEncSatusInfo;
     bool m_by4m;
     bool m_bInited;
-    mfxU32 m_tmLastUpdate;
+    std::chrono::system_clock::time_point m_tmLastUpdate;
     sInputCrop m_sInputCrop;
 
     mfxFrameInfo m_inputFrameInfo;

@@ -35,7 +35,6 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_sData.nIFrameSize = 0;
     m_sData.nPFrameSize = 0;
     m_sData.nBFrameSize = 0;
-    m_sData.tmStart = 0;
     m_sData.fEncodeFps = 0.0;
     m_sData.fBitrateKbps = 0.0;
     m_nInputFrames = 0;
@@ -44,6 +43,7 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_nOutputFPSScale = 0;
     m_pQSVLog = nullptr;
     m_bStdErrWriteToConsole = true;
+    m_tmStart = std::chrono::system_clock::now();
 }
 
 void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, CQSVLog *pQSVLog) {
@@ -56,7 +56,7 @@ void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32
 }
 
 void CEncodeStatusInfo::SetStart() {
-    m_sData.tmStart = timeGetTime();
+    m_tmStart = std::chrono::system_clock::now();
     GetProcessTime(GetCurrentProcess(), &m_sStartTime);
 }
 

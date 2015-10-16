@@ -20,12 +20,15 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <chrono>
 #include <intrin.h>
 #include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxjpeg.h"
 #include "sample_defs.h"
 #include "qsv_prm.h"
+
+using std::chrono::duration_cast;
 
 typedef struct {
     mfxFrameSurface1* pFrameSurface;
@@ -140,7 +143,6 @@ typedef struct sEncodeStatusData {
     mfxU64 nIFrameSize;
     mfxU64 nPFrameSize;
     mfxU64 nBFrameSize;
-    mfxU32 tmStart;
     mfxF64 fEncodeFps;
     mfxF64 fBitrateKbps;
     mfxF64 fCPUUsagePercent;
@@ -193,21 +195,22 @@ public:
         fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
     }
 #pragma warning(pop)
-    virtual void UpdateDisplay(mfxU32 tm, int drop_frames, double progressPercent = 0.0)
+    virtual void UpdateDisplay(std::chrono::system_clock::time_point tm, int drop_frames, double progressPercent = 0.0)
     {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
             return;
         }
         if (m_sData.nProcessedFramesNum + drop_frames) {
             TCHAR mes[256];
-            m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / (double)(tm - m_sData.tmStart);
+            double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
+            m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / elapsedTime;
             m_sData.fBitrateKbps = (mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames));
             if (m_nTotalOutFrames || progressPercent > 0.0) {
                 if (progressPercent == 0.0) {
                     progressPercent = (m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_nTotalOutFrames;
                 }
                 progressPercent = min(progressPercent, 100.0);
-                mfxU32 remaining_time = (mfxU32)((double)(tm - m_sData.tmStart) * (100.0 - progressPercent) / progressPercent + 0.5);
+                mfxU32 remaining_time = (mfxU32)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
                 int hh = remaining_time / (60*60*1000);
                 remaining_time -= hh * (60*60*1000);
                 int mm = remaining_time / (60*1000);
@@ -270,9 +273,9 @@ public:
     }
     virtual void WriteResults(sFrameTypeInfo *info)
     {
-        mfxU32 tm_result = timeGetTime();
-        mfxU32 time_elapsed = tm_result - m_sData.tmStart;
-        m_sData.fEncodeFps = m_sData.nProcessedFramesNum * 1000.0 / (double)time_elapsed;
+        auto tm_result = std::chrono::system_clock::now();
+        const auto time_elapsed64 = std::chrono::duration_cast<std::chrono::milliseconds>(tm_result - m_tmStart).count();
+        m_sData.fEncodeFps = m_sData.nProcessedFramesNum * 1000.0 / (double)time_elapsed64;
         m_sData.fBitrateKbps = (mfxF64)(m_sData.nWrittenBytes * 8) *  (m_nOutputFPSRate / (double)m_nOutputFPSScale) / (1000.0 * m_sData.nProcessedFramesNum);
 
         TCHAR mes[512] = { 0 };
@@ -288,8 +291,8 @@ public:
             );
         WriteLine(mes);
 
-        int hh = time_elapsed / (60*60*1000);
-        time_elapsed -= hh * (60*60*1000);
+        int hh = (int)(time_elapsed64 / (60*60*1000));
+        int time_elapsed = (int)(time_elapsed64 - hh * (60*60*1000));
         int mm = time_elapsed / (60*1000);
         time_elapsed -= mm * (60*1000);
         int ss = (time_elapsed + 500) / 1000;
@@ -310,6 +313,7 @@ public:
     mfxU32 m_nOutputFPSRate;
     mfxU32 m_nOutputFPSScale;
 protected:
+    std::chrono::system_clock::time_point m_tmStart;
     PROCESS_TIME m_sStartTime;
     sEncodeStatusData m_sData;
     CQSVLog *m_pQSVLog;
