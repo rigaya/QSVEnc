@@ -3114,16 +3114,12 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
     return sts;
 }
 
-unsigned int __stdcall CEncodingPipeline::RunEncThreadLauncher(void *pParam) {
+void CEncodingPipeline::RunEncThreadLauncher(void *pParam) {
     reinterpret_cast<CEncodingPipeline*>(pParam)->RunEncode();
-    _endthreadex(0);
-    return 0;
 }
 
-unsigned int __stdcall CEncodingPipeline::RunSubThreadLauncher(void *pParam) {
+void CEncodingPipeline::RunSubThreadLauncher(void *pParam) {
     reinterpret_cast<CEncodingPipeline*>(pParam)->CheckSceneChange();
-    _endthreadex(0);
-    return 0;
 }
 
 mfxStatus CEncodingPipeline::Run()
@@ -3134,10 +3130,10 @@ mfxStatus CEncodingPipeline::Run()
 mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
 {
     mfxStatus sts = MFX_ERR_NONE;
-    sts = m_EncThread.RunEncFuncbyThread(RunEncThreadLauncher, this, SubThreadAffinityMask);
+    sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to start encode thread."));
     if (m_SceneChange.isInitialized()) {
-        sts = m_EncThread.RunSubFuncbyThread(RunSubThreadLauncher, this, SubThreadAffinityMask);
+        sts = m_EncThread.RunSubFuncbyThread(&RunSubThreadLauncher, this, SubThreadAffinityMask);
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to start encode sub thread."));
     }
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
@@ -3155,13 +3151,13 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
         while (WAIT_TIMEOUT == WaitForSingleObject(pInputBuf->heInputStart, 10000)) {
             //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
             DWORD exit_code = 0;
-            if (0 == GetExitCodeThread(m_EncThread.GetHandleEncThread(), &exit_code) || exit_code != STILL_ACTIVE) {
+            if (0 == GetExitCodeThread(m_EncThread.GetHandleEncThread().native_handle(), &exit_code) || exit_code != STILL_ACTIVE) {
                 PrintMes(QSV_LOG_ERROR, _T("error at encode thread.\n"));
                 sts = MFX_ERR_INVALID_HANDLE;
                 break;
             }
             if (m_SceneChange.isInitialized()
-                && (0 == GetExitCodeThread(m_EncThread.GetHandleSubThread(), &exit_code) || exit_code != STILL_ACTIVE)) {
+                && (0 == GetExitCodeThread(m_EncThread.GetHandleSubThread().native_handle(), &exit_code) || exit_code != STILL_ACTIVE)) {
                     PrintMes(QSV_LOG_ERROR, _T("error at sub thread.\n"));
                     sts = MFX_ERR_INVALID_HANDLE;
                     break;

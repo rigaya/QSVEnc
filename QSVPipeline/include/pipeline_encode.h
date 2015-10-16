@@ -136,11 +136,11 @@ public:
     virtual void PrintMes(int log_level, const TCHAR *format, ...);
     unique_ptr<CQSVLog> m_pQSVLog;
 
-protected:
     virtual mfxStatus RunEncode();
     mfxStatus CheckSceneChange();
-    static unsigned int __stdcall RunEncThreadLauncher(void *pParam);
-    static unsigned int __stdcall RunSubThreadLauncher(void *pParam);
+    static void RunEncThreadLauncher(void *pParam);
+    static void RunSubThreadLauncher(void *pParam);
+protected:
     mfxVersion m_mfxVer;
     CEncodeStatusInfo *m_pEncSatusInfo;
     CEncodingThread m_EncThread;

@@ -17,11 +17,13 @@
 #include <tchar.h>
 #include <stdio.h>
 #include <math.h>
+#include <cstdint>
 #include <string>
 #include <sstream>
 #include <vector>
 #include <chrono>
 #include <atomic>
+#include <thread>
 #include <intrin.h>
 #include "mfxstructures.h"
 #include "mfxvideo.h"
@@ -30,6 +32,7 @@
 #include "qsv_prm.h"
 
 using std::chrono::duration_cast;
+class CEncodingPipeline;
 
 typedef struct {
     mfxFrameSurface1* pFrameSurface;
@@ -331,14 +334,13 @@ public:
     void Close();
     //終了を待機する
     mfxStatus WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog);
-    mfxU16    GetBufferSize();
-    mfxStatus RunEncFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask);
-    mfxStatus RunSubFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask);
+    mfxStatus RunEncFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask);
+    mfxStatus RunSubFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask);
 
-    HANDLE GetHandleEncThread() {
+    std::thread& GetHandleEncThread() {
         return m_thEncode;
     }
-    HANDLE GetHandleSubThread() {
+    std::thread& GetHandleSubThread() {
         return m_thSub;
     }
 
@@ -350,8 +352,8 @@ public:
     mfxStatus m_stsThread;
     mfxU16  m_nFrameBuffer;
 protected:
-    HANDLE m_thEncode;
-    HANDLE m_thSub;
+    std::thread m_thEncode;
+    std::thread m_thSub;
     bool m_bInit;
 };
 

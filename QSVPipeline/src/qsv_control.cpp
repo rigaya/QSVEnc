@@ -63,8 +63,6 @@ void CEncodeStatusInfo::SetStart() {
 CEncodingThread::CEncodingThread()
 {
     m_nFrameBuffer = 0;
-    m_thEncode = NULL;
-    m_thSub = NULL;
     m_bthForceAbort = FALSE;
     m_bthSubAbort = FALSE;
     m_nFrameSet = 0;
@@ -99,28 +97,24 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingThread::RunEncFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask) {
+mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
 
-    if (NULL == (m_thEncode = (HANDLE)_beginthreadex(NULL, NULL, func, pClass, FALSE, NULL))) {
-        return MFX_ERR_INVALID_HANDLE;
-    }
+    m_thEncode = std::thread(func, pipeline);
 
     if (threadAffinityMask)
-        SetThreadAffinityMask(m_thEncode, threadAffinityMask);
+        SetThreadAffinityMask(m_thEncode.native_handle(), threadAffinityMask);
 
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingThread::RunSubFuncbyThread(unsigned (__stdcall * func) (void *), void *pClass, DWORD_PTR threadAffinityMask) {
+mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
 
-    if (NULL == (m_thSub = (HANDLE)_beginthreadex(NULL, NULL, func, pClass, FALSE, NULL))) {
-        return MFX_ERR_INVALID_HANDLE;
-    }
+    m_thSub = std::thread(func, pipeline);
 
     if (threadAffinityMask)
-        SetThreadAffinityMask(m_thSub, threadAffinityMask);
+        SetThreadAffinityMask(m_thSub.native_handle(), threadAffinityMask);
 
     return MFX_ERR_NONE;
 }
@@ -128,7 +122,6 @@ mfxStatus CEncodingThread::RunSubFuncbyThread(unsigned (__stdcall * func) (void 
 //終了を待機する
 mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
-    MSDK_CHECK_POINTER(m_thEncode, MFX_ERR_INVALID_HANDLE);
     //最後のLoadNextFrameの結果をm_stsThreadにセットし、RunEncodeに知らせる
     m_stsThread = sts;
     //読み込み終了(MFX_ERR_MORE_DATA)ではなく、エラーや中断だった場合、
@@ -146,27 +139,21 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog) {
         }
     }
     //RunEncodeの終了を待つ
-    WaitForSingleObject(m_thEncode, INFINITE);
-    CloseHandle(m_thEncode);
-    m_thEncode = NULL;
+    m_thEncode.join();
     (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Encode thread shut down.\n"));
     return MFX_ERR_NONE;
 }
 
 void CEncodingThread::Close()
 {
-    if (m_thEncode) {
-        WaitForSingleObject(m_thEncode, INFINITE);
-        CloseHandle(m_thEncode);
-        m_thEncode = NULL;
+    if (m_thEncode.joinable()) {
+        m_thEncode.join();
     }
-    if (m_thSub) {
+    if (m_thSub.joinable()) {
         m_bthForceAbort++;
         for (mfxU32 i = 0; i < m_nFrameBuffer; i++)
             SetEvent(m_InputBuf[i].heSubStart);
-        WaitForSingleObject(m_thSub, INFINITE);
-        CloseHandle(m_thSub);
-        m_thSub = NULL;
+        m_thSub.join();
     }
     if (m_InputBuf) {
         for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
