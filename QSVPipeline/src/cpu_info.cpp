@@ -12,6 +12,10 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <thread>
+#include <mutex>
+#include <climits>
+#include <condition_variable>
 #include <intrin.h>
 #include <tchar.h>
 #include "cpu_info.h"
@@ -217,16 +221,26 @@ static UINT64 __fastcall repeatFunc(int *test) {
     return fin - start;
 }
 
-static unsigned int __stdcall getCPUClockMaxSubFunc(void *arg) {
-    UINT64 *prm = (UINT64 *)arg;
+typedef struct {
+    bool ready;
+    std::mutex mtx;
+    std::condition_variable cv;
+} THREAD_WAKE;
+
+
+static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thread_wk) {
     //渡されたスレッドIDからスレッドAffinityを決定
     //特定のコアにスレッドを縛り付ける
-    SetThreadAffinityMask(GetCurrentThread(), 1 << (int)*prm);
+    SetThreadAffinityMask(GetCurrentThread(), 1 << thread_id);
     //高優先度で実行
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
+    {
+        std::unique_lock<std::mutex> uniq_lk(thread_wk->mtx); // ここでロックされる
+        thread_wk->cv.wait(uniq_lk, [&thread_wk] { return thread_wk->ready; });
+    }
     int test = 0;
-    UINT64 result = MAXUINT64;
+    uint64_t result = ULLONG_MAX;
     
     for (int j = 0; j < 4; j++) {
         for (int i = 0; i < 800; i++) {
@@ -234,12 +248,10 @@ static unsigned int __stdcall getCPUClockMaxSubFunc(void *arg) {
             //何回か行って最速値を使用する
             result = min(result, repeatFunc(&test));
         }
-        Sleep(1); //一度スレッドを休ませて、仕切りなおす (Sleep(0)でもいいかも)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1)); //一度スレッドを休ませて、仕切りなおす (Sleep(0)でもいいかも)
     }
 
-    *prm = result;
-
-    return 0;
+    *ret = result;
 }
 
 //__rdtscが定格クロックに基づいた値を返すのを利用して、実際の動作周波数を得る
@@ -273,22 +285,21 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
     //上限は物理プロセッサ数、0なら自動的に物理プロセッサ数に設定
     num_thread = (0 == num_thread) ? max(1, cpu_info.physical_cores - (cpu_info.logical_cores == cpu_info.physical_cores)) : min(num_thread, cpu_info.physical_cores);
 
-    std::vector<HANDLE> list_of_threads(num_thread, NULL);
-    std::vector<UINT64> list_of_result(num_thread, 0);
-    DWORD thread_loaded = 0;
+    THREAD_WAKE thread_wake;
+    std::vector<std::thread> list_of_threads(num_thread);
+    std::vector<uint64_t> list_of_result(num_thread, 0);
+    uint32_t thread_loaded = 0;
     for ( ; thread_loaded < num_thread; thread_loaded++) {
-        list_of_result[thread_loaded] = thread_loaded * thread_id_multi; //スレッドIDを渡す
-        list_of_threads[thread_loaded] = (HANDLE)_beginthreadex(NULL, 0, getCPUClockMaxSubFunc, &list_of_result[thread_loaded], CREATE_SUSPENDED, NULL);
-        if (NULL == list_of_threads[thread_loaded]) {
-            break; //失敗したらBreak
-        }
+        list_of_threads[thread_loaded] = std::thread(getCPUClockMaxSubFunc, &list_of_result[thread_loaded], thread_loaded * thread_id_multi, &thread_wake);
     }
-    
-    if (thread_loaded) {
-        for (DWORD i_thread = 0; i_thread < thread_loaded; i_thread++) {
-            ResumeThread(list_of_threads[i_thread]);
-        }
-        WaitForMultipleObjects(thread_loaded, &list_of_threads[0], TRUE, INFINITE);
+
+    { //スレッドを起動
+        std::unique_lock<std::mutex> lock(thread_wake.mtx);
+        thread_wake.ready = true;
+        thread_wake.cv.notify_all();
+    }
+    for (uint32_t i = 0; i < list_of_threads.size(); i++) {
+        list_of_threads[i].join();
     }
 
     if (thread_loaded < num_thread) {
@@ -297,12 +308,6 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
         UINT64 min_result = *std::min_element(list_of_result.begin(), list_of_result.end());
         resultClock = (min_result) ? defaultClock * (double)(LOOP_COUNT * COUNT_OF_REPEAT * COUNT_OF_REPEAT * 2) / (double)min_result : defaultClock;
         resultClock = max(resultClock, defaultClock);
-    }
-
-    for (auto thread : list_of_threads) {
-        if (NULL != thread) {
-            CloseHandle(thread);
-        }
     }
 
     return resultClock;
