@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <cmath>
+#include <atomic>
 #include <intrin.h>
 #include <emmintrin.h> //SSE2
 #include <smmintrin.h> //SSE4.1
@@ -121,7 +122,7 @@ static BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_pro
 void CSceneChangeDetect::thread_close() {
     for (int i_th = 0; i_th < sub_thread_num; i_th++) {
         if (th_hist && th_hist[i_th].hnd) {
-            InterlockedIncrement((DWORD *)&th_hist[i_th].abort); //th_hist[i_th].abort = TRUE
+            th_hist[i_th].abort++; //th_hist[i_th].abort = TRUE
             SetEvent(th_hist[i_th].he_start);
             WaitForSingleObject(th_hist[i_th].hnd, INFINITE);
             if (th_hist[i_th].he_start)
@@ -337,7 +338,7 @@ static float estimate_next_1(float *data, int num) {
 }
 
 mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
-    InterlockedExchangePointer((void **)&target_frame, frame);
+    target_frame = frame;
 
     *qp_offset = 0;
 

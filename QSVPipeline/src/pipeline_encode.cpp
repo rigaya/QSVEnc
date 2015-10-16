@@ -3092,14 +3092,14 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
             int qp_offset[2] = { 0, 0 };
             mfxU32 frameFlag = m_SceneChange.Check(pInputBuf->pFrameSurface, qp_offset);
             frameFlag = m_frameTypeSim.GetFrameType(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I));
-            _InterlockedExchange((long *)&pInputBuf->frameFlag, (frameFlag & MFX_FRAMETYPE_I) ? frameFlag : 0x00); //frameFlagにはIDR,I,Ref以外は渡してはならない
+            pInputBuf->frameFlag.store((frameFlag & MFX_FRAMETYPE_I) ? frameFlag : 0x00); //frameFlagにはIDR,I,Ref以外は渡してはならない
             if (m_nExPrm & MFX_PRM_EX_VQP) {
-                _InterlockedExchange((long *)&pInputBuf->AQP[0], m_frameTypeSim.CurrentQP(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I), qp_offset[0]));
+                pInputBuf->AQP[0].store(m_frameTypeSim.CurrentQP(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I), qp_offset[0]));
             }
             m_frameTypeSim.ToNextFrame();
             if (m_nExPrm & MFX_PRM_EX_DEINT_BOB) {
                 if (m_nExPrm & MFX_PRM_EX_VQP)
-                    _InterlockedExchange((long *)&pInputBuf->AQP[1], m_frameTypeSim.CurrentQP(!!(frameFlag & MFX_FRAMETYPE_xI), qp_offset[1]));
+                    pInputBuf->AQP[1].store(m_frameTypeSim.CurrentQP(!!(frameFlag & MFX_FRAMETYPE_xI), qp_offset[1]));
                 m_frameTypeSim.ToNextFrame();
             }
             if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {

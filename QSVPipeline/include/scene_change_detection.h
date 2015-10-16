@@ -12,6 +12,7 @@
 
 #include <Windows.h>
 #include <stdio.h>
+#include <atomic>
 #include "mfxstructures.h"
 
 
@@ -31,12 +32,12 @@ typedef struct {
 typedef struct {
     alignas(32) hist_t hist_thread;
     int id;
-    BOOL abort;
+    std::atomic_int abort;
     void *ptr_csd;
     HANDLE hnd;
     HANDLE he_start;
     HANDLE he_fin;
-    mfxU8 reserved[128-(sizeof(hist_t)+sizeof(int)+sizeof(BOOL)+sizeof(void*)+sizeof(HANDLE)*3)];
+    mfxU8 reserved[128-(sizeof(hist_t)+sizeof(int)+sizeof(std::atomic_int)+sizeof(void*)+sizeof(HANDLE)*3)];
 } hist_thread_t;
 
 typedef void (*func_make_hist_simd)(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch);

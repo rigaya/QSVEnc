@@ -94,6 +94,8 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
         }
     }
     m_bInit = true;
+    m_bthForceAbort = FALSE;
+    m_bthSubAbort = FALSE;
     return MFX_ERR_NONE;
 }
 
@@ -133,8 +135,8 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog) {
     //直ちに終了する
     if (sts != MFX_ERR_MORE_DATA) {
         (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
-        InterlockedIncrement((DWORD*)&m_bthForceAbort); //m_bthForceAbort = TRUE;
-        InterlockedIncrement((DWORD*)&m_bthSubAbort); //m_bthSubAbort = TRUE;
+        m_bthForceAbort++; //m_bthForceAbort = TRUE;
+        m_bthSubAbort++;   //m_bthSubAbort = TRUE;
         if (m_InputBuf) {
             (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
             for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
@@ -159,7 +161,7 @@ void CEncodingThread::Close()
         m_thEncode = NULL;
     }
     if (m_thSub) {
-        InterlockedIncrement((DWORD*)&m_bthSubAbort);
+        m_bthForceAbort++;
         for (mfxU32 i = 0; i < m_nFrameBuffer; i++)
             SetEvent(m_InputBuf[i].heSubStart);
         WaitForSingleObject(m_thSub, INFINITE);

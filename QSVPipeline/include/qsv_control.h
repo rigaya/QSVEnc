@@ -21,6 +21,7 @@
 #include <sstream>
 #include <vector>
 #include <chrono>
+#include <atomic>
 #include <intrin.h>
 #include "mfxstructures.h"
 #include "mfxvideo.h"
@@ -35,9 +36,9 @@ typedef struct {
     HANDLE heInputStart;
     HANDLE heSubStart;
     HANDLE heInputDone;
-    mfxU32 frameFlag;
-    int    AQP[2];
-    mfxU8 reserved[64-(sizeof(mfxFrameSurface1*)+sizeof(HANDLE)*3+sizeof(mfxU32)+sizeof(int)*2)];
+    std::atomic_uint32_t frameFlag;
+    std::atomic_int AQP[2];
+    mfxU8 reserved[64-(sizeof(mfxFrameSurface1*)+sizeof(HANDLE)*3+sizeof(std::atomic_uint32_t)+sizeof(std::atomic_int)*2)];
 } sInputBufSys;
 
 typedef struct {
@@ -341,8 +342,8 @@ public:
         return m_thSub;
     }
 
-    BOOL m_bthForceAbort;
-    BOOL m_bthSubAbort;
+    std::atomic_int m_bthForceAbort;
+    std::atomic_int m_bthSubAbort;
     sInputBufSys *m_InputBuf;
     mfxU32 m_nFrameSet;
     mfxU32 m_nFrameGet;
