@@ -9,6 +9,7 @@
 #include <vector>
 #include <array>
 #include <string>
+#include <chrono>
 #include <type_traits>
 #include "vm/strings_defs.h"
 #include "mfxstructures.h"
@@ -442,7 +443,7 @@ static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
 static void __forceinline sleep_hybrid(int count) {
     _mm_pause();
     if ((count & 255) == 255) {
-         Sleep((count & 1023) == 1023);
+        std::this_thread::sleep_for(std::chrono::milliseconds((count & 1023) == 1023));
     }
 }
 
