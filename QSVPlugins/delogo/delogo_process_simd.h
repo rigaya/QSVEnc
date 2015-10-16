@@ -45,7 +45,7 @@ static inline __m128i select_by_mask(__m128i a, __m128i b, __m128i mask) {
 #define _mm_blendv_epi8_simd select_by_mask
 #endif
 
-static const __declspec(align(MEM_ALIGN)) USHORT MASK_16BIT[] = {
+alignas(MEM_ALIGN) static const USHORT MASK_16BIT[] = {
     0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000,
 #if USE_AVX2
     0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000
@@ -66,7 +66,7 @@ static const __declspec(align(MEM_ALIGN)) USHORT MASK_16BIT[] = {
 #define _mm256_slli256_si256(a, i) ((i<=16) ? _mm256_alignr_epi8(a, _mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(16-i)) : _mm256_bslli_epi128(_mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(i-16)))
 
 
-static const _declspec(align(MEM_ALIGN)) unsigned int ARRAY_0x00008000[8] = {
+alignas(MEM_ALIGN) static const unsigned int ARRAY_0x00008000[8] = {
     0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000,
 };
 static __forceinline __m256i cvtlo256_epi16_epi32(__m256i y0) {
@@ -100,7 +100,7 @@ static __forceinline __m256 _mm256_rcp_ps_hp(__m256 y0) {
 }
 
 #elif USE_SSE2
-static const _declspec(align(MEM_ALIGN)) unsigned int ARRAY_0x00008000[4] = {
+alignas(MEM_ALIGN) static const unsigned int ARRAY_0x00008000[4] = {
     0x00008000, 0x00008000, 0x00008000, 0x00008000,
 };
 static __forceinline __m128i _mm_neg_epi32(__m128i y) {
@@ -123,7 +123,7 @@ static __forceinline __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 #if USE_SSE41
     return _mm_packus_epi32(a, b);
 #else
-    static const _declspec(align(64)) DWORD VAL[2][4] = {
+    alignas(64) static const DWORD VAL[2][4] = {
         { 0x00008000, 0x00008000, 0x00008000, 0x00008000 },
         { 0x80008000, 0x80008000, 0x80008000, 0x80008000 }
     };

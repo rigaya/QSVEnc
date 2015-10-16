@@ -35,7 +35,7 @@ void make_hist_avx2(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_en
     __m256i y0, y1;
     __m256i yOne = _mm256_set1_epi8(1);
     __m256i yMask = _mm256_set1_epi8(0xff>>HIST_LEN_2N);
-    hist_t _declspec(align(32)) tmp;
+    alignas(32) hist_t tmp;
     _mm256_store_si256((__m256i*)((BYTE *)&tmp +  0), _mm256_setzero_si256());
     _mm256_store_si256((__m256i*)((BYTE *)&tmp + 32), _mm256_setzero_si256());
 
@@ -45,9 +45,9 @@ void make_hist_avx2(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_en
         __m256i yComp = _mm256_setzero_si256();
 #if _M_X64
         __m128i xStepBuf = _mm_setzero_si128();
-        struct hist16_t {
+        struct alignas(32) hist16_t {
             USHORT u[16];
-        } _declspec(align(32)) line_sum;
+        } line_sum;
         _mm256_store_si256((__m256i*)((BYTE *)&line_sum +  0), yComp);
 
         for ( ; ptr < ptr_fin; ptr += 32) {

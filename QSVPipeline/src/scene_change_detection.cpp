@@ -380,7 +380,7 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
         x4= _mm_add_epi32(x4, x5);
         const int frame_size = x4.m128i_i32[0] + x4.m128i_i32[1] + x4.m128i_i32[2] + x4.m128i_i32[3];
 
-        static const _declspec(align(16)) int MUL_ARRAY[16] = { 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 };
+        alignas(16) static const int MUL_ARRAY[16] = { 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 };
 
         x0 = _mm_mullo_epi32(x0, _mm_load_si128((__m128i*)((BYTE *)&MUL_ARRAY +  0)));
         x1 = _mm_mullo_epi32(x1, _mm_load_si128((__m128i*)((BYTE *)&MUL_ARRAY + 16)));
@@ -433,11 +433,11 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
 
         if (index >= HIST_COUNT - 1) {
 
-            hist_t _declspec(align(16)) estimate = { 0 };
-            hist_t _declspec(align(16)) fade_estimate = { 0 };
-            struct histf_t {
+            alignas(16) hist_t estimate = { 0 };
+            alignas(16) hist_t fade_estimate = { 0 };
+            struct alignas(16) histf_t {
                 float f[HIST_LEN];
-            } _declspec(align(16)) sigma = { 0 };
+            } sigma = { 0 };
 
             //////////////////     estimate 1      //////////////////////////////////
             

@@ -75,7 +75,7 @@ static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
 #define _mm256_srli256_si256(a, i) ((i<=16) ? _mm256_alignr_epi8(_mm256_permute2x128_si256(a, a, (0x08<<4) + 0x03), a, i) : _mm256_bsrli_epi128(_mm256_permute2x128_si256(a, a, (0x08<<4) + 0x03), MM_ABS(i-16)))
 #define _mm256_slli256_si256(a, i) ((i<=16) ? _mm256_alignr_epi8(a, _mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(16-i)) : _mm256_bslli_epi128(_mm256_permute2x128_si256(a, a, (0x00<<4) + 0x08), MM_ABS(i-16)))
 
-static const _declspec(align(32)) uint8_t  Array_INTERLACE_WEIGHT[2][32] = {
+alignas(32) static const uint8_t  Array_INTERLACE_WEIGHT[2][32] = {
     {1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},
     {3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1}
 };
@@ -269,7 +269,7 @@ void convert_rgb3_to_rgb4_avx2(void **dst, void **src, int width, int src_y_pitc
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     uint8_t *dstLine = (uint8_t *)dst[0];
-    const char __declspec(align(32)) MASK_RGB3_TO_RGB4[] = {
+    alignas(32) const char MASK_RGB3_TO_RGB4[] = {
         0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1,
         0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1
     };

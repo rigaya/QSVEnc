@@ -77,7 +77,7 @@ static __forceinline __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 #if USE_SSE41
     return _mm_packus_epi32(a, b);
 #else
-    static const _declspec(align(64)) uint32_t VAL[2][4] = {
+    alignas(64) static const uint32_t VAL[2][4] = {
         { 0x00008000, 0x00008000, 0x00008000, 0x00008000 },
         { 0x80008000, 0x80008000, 0x80008000, 0x80008000 }
     };
@@ -93,7 +93,7 @@ static __forceinline __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 }
 
 #if USE_SSSE3
-static const _declspec(align(32)) uint8_t  Array_INTERLACE_WEIGHT[2][32] = { 
+alignas(32) static const uint8_t  Array_INTERLACE_WEIGHT[2][32] = {
     {1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3},
     {3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1}
 };
@@ -316,7 +316,7 @@ static void __forceinline convert_rgb3_to_rgb4_simd(void **dst, void **src, int 
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     uint8_t *dstLine = (uint8_t *)dst[0];
-    const char __declspec(align(16)) MASK_RGB3_TO_RGB4[] = { 0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1 };
+    alignas(16) const char MASK_RGB3_TO_RGB4[] = { 0, 1, 2, -1, 3, 4, 5, -1, 6, 7, 8, -1, 9, 10, 11, -1 };
     __m128i xMask = _mm_load_si128((__m128i*)MASK_RGB3_TO_RGB4);
     for (int y = height - crop_up - 1; y >= crop_bottom; y--, dstLine += dst_y_pitch_byte) {
         uint8_t *ptr_src = (uint8_t *)src[0] + (src_y_pitch_byte * y) + crop_left * 3;

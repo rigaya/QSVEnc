@@ -29,7 +29,7 @@ typedef struct {
 } hist_t;
 
 typedef struct {
-    hist_t _declspec(align(32)) hist_thread;
+    alignas(32) hist_t hist_thread;
     int id;
     BOOL abort;
     void *ptr_csd;

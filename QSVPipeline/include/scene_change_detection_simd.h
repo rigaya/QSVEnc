@@ -62,7 +62,7 @@ static void __forceinline make_hist_simd(const BYTE *frame_Y, hist_t *hist_buf, 
     __m128i x0, x1, x2, x3;
     __m128i xOne = _mm_set1_epi8(1);
     __m128i xMask = _mm_set1_epi8(0xff>>HIST_LEN_2N);
-    hist_t _declspec(align(16)) tmp;
+    alignas(16) hist_t tmp;
     _mm_store_si128((__m128i*)((BYTE *)&tmp +  0), _mm_setzero_si128());
     _mm_store_si128((__m128i*)((BYTE *)&tmp + 16), _mm_setzero_si128());
     _mm_store_si128((__m128i*)((BYTE *)&tmp + 32), _mm_setzero_si128());
@@ -74,9 +74,9 @@ static void __forceinline make_hist_simd(const BYTE *frame_Y, hist_t *hist_buf, 
         __m128i xComp = _mm_setzero_si128();
 #if _M_X64 //よくわからんがx64ではMMXが使えないらしい
         __m128i xStepBuf = _mm_setzero_si128();
-        struct hist16_t {
+        struct alignas(16) hist16_t {
             USHORT u[16];
-        } _declspec(align(16)) line_sum;
+        } line_sum;
         _mm_store_si128((__m128i*)((BYTE *)&line_sum +  0), xComp);
         _mm_store_si128((__m128i*)((BYTE *)&line_sum + 16), xComp);
 
