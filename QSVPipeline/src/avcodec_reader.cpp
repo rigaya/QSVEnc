@@ -664,7 +664,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         }
     }
     //音声・字幕パケットもm_PreReadBufferに接続する
-    vector_cat(m_PreReadBuffer, streamBuffer);
+    //ここで、必ず音声パケットを先頭に挿入し、音声パケット->映像パケットになるようにする
+    //そうしないと、音声が相当遅れてくることになり、映像がブロック状に割れるなどの支障をきたす
+    m_PreReadBuffer.insert(m_PreReadBuffer.begin(), streamBuffer.begin(), streamBuffer.end());
     streamBuffer.clear();
     m_Demux.format.nPreReadBufferIdx = 0; //PreReadBufferからの読み込み優先にする
 
