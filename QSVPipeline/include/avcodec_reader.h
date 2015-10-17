@@ -13,6 +13,7 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
+#include <mutex>
 
 using std::vector;
 using std::pair;
@@ -47,8 +48,6 @@ typedef struct VideoFrameData {
     int num;              //frame配列で現在格納されているデータ数
     int capacity;         //frame配列を確保した数
     int64_t duration;     //合計の動画の長さ
-    CRITICAL_SECTION cs;  //frame配列アクセスへの排他制御用
-    bool cs_initialized;  //csが初期化されているかどうか
 } VideoFrameData;
 
 typedef struct AVDemuxFormat {
@@ -94,6 +93,7 @@ typedef struct AVDemuxer {
     AVDemuxVideo             video;
     vector<AVDemuxStream>    stream;
     vector<const AVChapter*> chapter;
+    std::mutex               mtx;     //frame配列アクセスへの排他制御用
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {

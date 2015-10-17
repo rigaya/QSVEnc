@@ -10,6 +10,7 @@
 #include <array>
 #include <string>
 #include <chrono>
+#include <mutex>
 #include <type_traits>
 #include "vm/strings_defs.h"
 #include "mfxstructures.h"
@@ -466,15 +467,13 @@ protected:
     int m_nLogLevel = QSV_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
     bool m_bHtml = false;
-    CRITICAL_SECTION cs;
+    std::mutex m_mtx;
     static const char *HTML_FOOTER;
 public:
     CQSVLog(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO) {
-        InitializeCriticalSection(&cs);
         init(pLogFile, log_level);
     };
     virtual ~CQSVLog() {
-        DeleteCriticalSection(&cs);
     };
     void init(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO);
     void writeHtmlHeader();

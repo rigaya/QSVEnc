@@ -4001,7 +4001,7 @@ void CQSVLog::operator()(int log_level, const TCHAR *format, ...) {
             buffer_ptr = &buffer_char[0];
         }
 #endif
-        EnterCriticalSection(&cs);
+        std::lock_guard<std::mutex> lock(m_mtx);
         if (m_pStrLog) {
             FILE *fp_log = NULL;
             //logはANSI(まあようはShift-JIS)で保存する
@@ -4025,7 +4025,6 @@ void CQSVLog::operator()(int log_level, const TCHAR *format, ...) {
         if (stderr_write_to_console) //出力先がコンソールならWCHARで
 #endif
             qsv_print_stderr(log_level, buffer.data(), hStdErr);
-        LeaveCriticalSection(&cs);
     }
     va_end(args);
 }

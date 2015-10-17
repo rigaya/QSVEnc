@@ -69,9 +69,6 @@ void CAvcodecReader::CloseVideo(AVDemuxVideo *pVideo) {
         av_free(pVideo->pExtradata);
     }
 
-    if (pVideo->frameData.cs_initialized) {
-        DeleteCriticalSection(&pVideo->frameData.cs);
-    }
     memset(pVideo, 0, sizeof(pVideo[0]));
     pVideo->nIndex = -1;
 }
@@ -156,9 +153,8 @@ void CAvcodecReader::sortVideoPtsList() {
 
 void CAvcodecReader::addVideoPtsToList(FramePos pos) {
     if (m_Demux.video.frameData.capacity <= m_Demux.video.frameData.num+1) {
-        EnterCriticalSection(&m_Demux.video.frameData.cs);
+        std::lock_guard<std::mutex> lock(m_Demux.mtx);
         extend_array_size(&m_Demux.video.frameData);
-        LeaveCriticalSection(&m_Demux.video.frameData.cs);
     }
     if (pos.pts == AV_NOPTS_VALUE && m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_HALF_INVALID) {
         //ptsがないのは音声抽出で、正常に抽出されない問題が生じる
@@ -841,8 +837,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 
     //動画ストリームを探す
     if (input_prm->bReadVideo) {
-        InitializeCriticalSection(&m_Demux.video.frameData.cs);
-        m_Demux.video.frameData.cs_initialized = true;
         auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
         if (videoStreams.size() == 0) {
             AddMessage(QSV_LOG_ERROR, _T("unable to find video stream.\n"));
@@ -1272,25 +1266,26 @@ vector<AVPacket> CAvcodecReader::GetStreamDataPackets() {
 
     //出力するパケットを選択する
     vector<AVPacket> packets;
-    EnterCriticalSection(&m_Demux.video.frameData.cs);
-    for (mfxU32 i = 0; i < m_StreamPacketsBufferL2.size(); i++) {
-        AVPacket *pkt = &m_StreamPacketsBufferL2[i];
-        AVDemuxStream *pStream = getPacketStreamData(pkt);
-        //音声のptsが映像の終わりのptsを行きすぎたらやめる
-        if (0 < av_compare_ts(pkt->pts, pStream->pCodecCtx->pkt_timebase, m_Demux.video.frameData.frame[m_Demux.video.frameData.fixed_num].pts, m_Demux.video.pCodecCtx->pkt_timebase)) {
-            break;
-        }
-        m_StreamPacketsBufferL2Used++;
-        if (checkStreamPacketToAdd(pkt, pStream)) {
-            pkt->flags = (pkt->flags & 0xffff) | (pStream->nTrackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
-            packets.push_back(*pkt); //Writer側に渡したパケットはWriter側で開放する
-        } else {
-            av_free_packet(pkt); //Writer側に渡さないパケットはここで開放する
-            pkt->data = NULL;
-            pkt->size = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_Demux.mtx);
+        for (mfxU32 i = 0; i < m_StreamPacketsBufferL2.size(); i++) {
+            AVPacket *pkt = &m_StreamPacketsBufferL2[i];
+            AVDemuxStream *pStream = getPacketStreamData(pkt);
+            //音声のptsが映像の終わりのptsを行きすぎたらやめる
+            if (0 < av_compare_ts(pkt->pts, pStream->pCodecCtx->pkt_timebase, m_Demux.video.frameData.frame[m_Demux.video.frameData.fixed_num].pts, m_Demux.video.pCodecCtx->pkt_timebase)) {
+                break;
+            }
+            m_StreamPacketsBufferL2Used++;
+            if (checkStreamPacketToAdd(pkt, pStream)) {
+                pkt->flags = (pkt->flags & 0xffff) | (pStream->nTrackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+                packets.push_back(*pkt); //Writer側に渡したパケットはWriter側で開放する
+            } else {
+                av_free_packet(pkt); //Writer側に渡さないパケットはここで開放する
+                pkt->data = NULL;
+                pkt->size = 0;
+            }
         }
     }
-    LeaveCriticalSection(&m_Demux.video.frameData.cs);
     return std::move(packets);
 }
 
