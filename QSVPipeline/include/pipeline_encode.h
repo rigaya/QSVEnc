@@ -13,11 +13,13 @@
 #ifndef __PIPELINE_ENCODE_H__
 #define __PIPELINE_ENCODE_H__
 
-#include <process.h>
-
 #include "qsv_version.h"
+#include "qsv_osdep.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
+#include "qsv_thread.h"
+#include "qsv_event.h"
+#include "qsv_log.h"
 
 #include "sample_defs.h"
 #include "hw_device.h"
@@ -116,7 +118,7 @@ public:
     virtual mfxStatus CheckParam(sInputParams *pParams);
     virtual mfxStatus Init(sInputParams *pParams);
     virtual mfxStatus Run();
-    virtual mfxStatus Run(DWORD_PTR SubThreadAffinityMask);
+    virtual mfxStatus Run(size_t SubThreadAffinityMask);
     virtual void Close();
     virtual mfxStatus ResetMFXComponents(sInputParams* pParams);
     virtual mfxStatus ResetDevice();

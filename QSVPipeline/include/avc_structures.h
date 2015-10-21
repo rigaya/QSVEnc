@@ -426,6 +426,10 @@ struct AVCSeqParamSetExtension
         Reset();
     }
 
+    virtual ~AVCSeqParamSetExtension() {
+    	Reset();
+    }
+
     virtual void Reset()
     {
         aux_format_idc = 0;

@@ -1,20 +1,21 @@
 ﻿#ifndef _QSV_UTIL_H_
 #define _QSV_UTIL_H_
 
-#include <Windows.h>
-#include <tchar.h>
-#include <shlwapi.h>
+#include "qsv_tchar.h"
 #include <emmintrin.h>
+#if defined(_WIN32) || defined(_WIN64)
+#include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
+#endif
 #include <vector>
 #include <array>
 #include <string>
 #include <chrono>
-#include <mutex>
 #include <type_traits>
+#include "qsv_osdep.h"
 #include "vm/strings_defs.h"
 #include "mfxstructures.h"
-#include "mfxSession.h"
+#include "mfxsession.h"
 #include "qsv_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
@@ -95,28 +96,36 @@ static inline T qsv_gcd(T a, T b) {
 typedef std::basic_string<TCHAR> tstring;
 typedef std::basic_stringstream<TCHAR> TStringStream;
 
-unsigned int wstring_to_string(const WCHAR *wstr, std::string& str, DWORD codepage = CP_THREAD_ACP);
-std::string wstring_to_string(const WCHAR *wstr, DWORD codepage = CP_THREAD_ACP);
-std::string wstring_to_string(const std::wstring& wstr, DWORD codepage = CP_THREAD_ACP);
-unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage = CP_THREAD_ACP);
-std::string tchar_to_string(const TCHAR *tstr, DWORD codepage = CP_THREAD_ACP);
-std::string tchar_to_string(const tstring& tstr, DWORD codepage = CP_THREAD_ACP);
-unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage = CP_THREAD_ACP);
-tstring char_to_tstring(const char *str, DWORD codepage = CP_THREAD_ACP);
-tstring char_to_tstring(const std::string& str, DWORD codepage = CP_THREAD_ACP);
-unsigned int char_to_wstring(std::wstring& wstr, const char *str, DWORD codepage = CP_THREAD_ACP);
-std::wstring char_to_wstring(const char *str, DWORD codepage = CP_THREAD_ACP);
-std::wstring char_to_wstring(const std::string& str, DWORD codepage = CP_THREAD_ACP);
-std::string strsprintf(const char* format, ...);
+unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
+std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage = CP_THREAD_ACP);
+std::string wstring_to_string(const std::wstring& wstr, uint32_t codepage = CP_THREAD_ACP);
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
+std::wstring char_to_wstring(const char *str, uint32_t = CP_THREAD_ACP);
+std::wstring char_to_wstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
+#if defined(_WIN32) || defined(_WIN64)
 std::wstring strsprintf(const WCHAR* format, ...);
+
+std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
+std::wstring GetFullPath(const WCHAR *path);
+bool qsv_get_filesize(const WCHAR *filepath, uint64_t *filesize);
+#endif
+
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
+std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
+std::string tchar_to_string(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage = CP_THREAD_ACP);
+tstring char_to_tstring(const char *str, uint32_t codepage = CP_THREAD_ACP);
+tstring char_to_tstring(const std::string& str, uint32_t codepage = CP_THREAD_ACP);
+std::string strsprintf(const char* format, ...);
 std::vector<tstring> split(const tstring &str, const tstring &delim);
 std::vector<std::string> split(const std::string &str, const std::string &delim);
+tstring lstrip(const tstring& string, const TCHAR* trim = _T(" \t\v\r\n"));
+tstring rstrip(const tstring& string, const TCHAR* trim = _T(" \t\v\r\n"));
+tstring trim(const tstring& string, const TCHAR* trim = _T(" \t\v\r\n"));
+
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
-std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
 std::string GetFullPath(const char *path);
-std::wstring GetFullPath(const WCHAR *path);
-bool qsv_get_filesize(const char *filepath, UINT64 *filesize);
-bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize);
+bool qsv_get_filesize(const char *filepath, uint64_t *filesize);
 
 tstring qsv_memtype_str(mfxU16 memtype);
 
@@ -169,12 +178,12 @@ static tstring fourccToStr(mfxU32 nFourCC) {
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
 
 typedef struct CX_DESC {
-    TCHAR *desc;
+    const TCHAR *desc;
     int value;
 } CX_DESC;
 
 typedef struct FEATURE_DESC {
-    TCHAR *desc;
+    const TCHAR *desc;
     uint64_t value;
 } FEATURE_DESC;
 
@@ -197,7 +206,7 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 13, 1 },
     { 15, 1 },
     { 16, 1 },
-    { NULL, NULL } 
+    { 0, 0 }
 };
 
 #define MFX_LIB_VERSION_0_0  LIB_VER_LIST[ 0]
@@ -381,18 +390,18 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
 tstring MakeVppFeatureStr(bool hardware);
 tstring MakeVppFeatureStr(bool hardware, FeatureListStrType outputType);
 
+#if defined(_WIN32) || defined(_WIN64)
 bool check_if_d3d11_necessary();
-
-const TCHAR *getOSVersion();
+#endif
+tstring getOSVersion();
 BOOL is_64bit_os();
-UINT64 getPhysicalRamSize(UINT64 *ramUsed);
+uint64_t getPhysicalRamSize(uint64_t *ramUsed);
 void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info = true);
-
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 
 //拡張子が一致するか確認する
 static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
-    return (_tcsicmp(PathFindExtension(filename), ext) == NULL) ? TRUE : FALSE;
+    return (_tcsicmp(PathFindExtension(filename), ext) == 0) ? TRUE : FALSE;
 }
 
 const TCHAR *get_vpp_image_stab_mode_str(int mode);
@@ -408,9 +417,9 @@ const TCHAR *get_low_power_str(mfxU16 LowPower);
 
 mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size);
 
-static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
-    BYTE *dst_fin = dst + size;
-    BYTE *dst_aligned_fin = (BYTE *)(((size_t)dst_fin & ~15) - 64);
+static void __forceinline sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
+    uint8_t *dst_fin = dst + size;
+    uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)dst_fin & ~15) - 64);
     __m128 x0, x1, x2, x3;
     const int start_align_diff = (int)((size_t)dst & 15);
     if (start_align_diff) {
@@ -429,7 +438,7 @@ static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
         _mm_store_ps((float*)(dst + 32), x2);
         _mm_store_ps((float*)(dst + 48), x3);
     }
-    BYTE *dst_tmp = dst_fin - 64;
+    uint8_t *dst_tmp = dst_fin - 64;
     src -= (dst - dst_tmp);
     x0 = _mm_loadu_ps((float*)(src +  0));
     x1 = _mm_loadu_ps((float*)(src + 16));
@@ -441,48 +450,8 @@ static void __forceinline sse_memcpy(BYTE *dst, const BYTE *src, int size) {
     _mm_storeu_ps((float*)(dst_tmp + 48), x3);
 }
 
-static void __forceinline sleep_hybrid(int count) {
-    _mm_pause();
-    if ((count & 255) == 255) {
-        std::this_thread::sleep_for(std::chrono::milliseconds((count & 1023) == 1023));
-    }
-}
-
-const int MAX_FILENAME_LEN = 1024;
-
-
-enum {
-    QSV_LOG_TRACE = -3,
-    QSV_LOG_DEBUG = -2,
-    QSV_LOG_MORE = -1,
-    QSV_LOG_INFO = 0,
-    QSV_LOG_WARN,
-    QSV_LOG_ERROR,
-};
-
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
-class CQSVLog {
-protected:
-    int m_nLogLevel = QSV_LOG_INFO;
-    const TCHAR *m_pStrLog = nullptr;
-    bool m_bHtml = false;
-    std::mutex m_mtx;
-    static const char *HTML_FOOTER;
-public:
-    CQSVLog(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO) {
-        init(pLogFile, log_level);
-    };
-    virtual ~CQSVLog() {
-    };
-    void init(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO);
-    void writeHtmlHeader();
-    void writeFileHeader(const TCHAR *pDstFilename);
-    void writeFileFooter();
-    int getLogLevel() {
-        return m_nLogLevel;
-    }
-    virtual void operator()(int log_level, const TCHAR *format, ...);
-};
+const int MAX_FILENAME_LEN = 1024;
 
 #endif //_QSV_UTIL_H_

@@ -27,6 +27,7 @@
 
 #include "auo.h"
 #include "auo_version.h"
+#include "qsv_util.h"
 
 #if (_MSC_VER >= 1600)
 #include <immintrin.h>

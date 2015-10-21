@@ -7,13 +7,11 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  ---------------------------------------------------------------------------------------
 
-#include <io.h>
 #include <fcntl.h>
 #include <algorithm>
 #include <cctype>
 #include <memory>
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
+#include "qsv_osdep.h"
 #include "qsv_util.h"
 #include "avcodec_writer.h"
 
@@ -687,7 +685,6 @@ mfxStatus CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
             AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
             return MFX_ERR_NULL_PTR;
         }
-        pMuxSub->pOutCodecEncodeCtx->side_data_only_packets = pInputSubtitle->src.pCodecCtx->side_data_only_packets;
         pMuxSub->pOutCodecEncodeCtx->time_base = av_make_q(1, 1000);
         copy_subtitle_header(pMuxSub->pOutCodecEncodeCtx, pInputSubtitle->src.pCodecCtx);
 
@@ -820,10 +817,12 @@ mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option,
 
     if (m_Mux.format.bIsPipe) {
         AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
+#if defined(_WIN32) || defined(_WIN64)
         if (_setmode(_fileno(stdout), _O_BINARY) < 0) {
             AddMessage(QSV_LOG_ERROR, _T("failed to switch stdout to binary mode.\n"));
             return MFX_ERR_UNKNOWN;
         }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         if (0 == strcmp(filename.c_str(), "-")) {
             m_bOutputIsStdout = true;
             filename = "pipe:1";
@@ -1505,7 +1504,6 @@ mfxStatus CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
         pktOut.stream_index = pMuxSub->pStream->index;
         pktOut.size = sub_out_size;
         pktOut.duration = (int)av_rescale_q(sub.end_display_time, av_make_q(1, 1000), pMuxSub->pStream->time_base);
-        pktOut.convergence_duration = pktOut.duration;
         pktOut.pts  = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), pMuxSub->pStream->time_base);
         if (pMuxSub->pOutCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
             pktOut.pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);

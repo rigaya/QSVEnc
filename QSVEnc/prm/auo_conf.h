@@ -12,8 +12,8 @@
 
 #include <Windows.h>
 #include "auo.h"
+#include "qsv_util.h"
 #include "qsv_prm.h"
-#include "pipeline_encode.h"
 
 const int CONF_INITIALIZED = 1;
 

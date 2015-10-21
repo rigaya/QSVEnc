@@ -111,7 +111,7 @@ typedef struct AvcodecReaderPrm {
     int            nAudioSelectCount;       //muxする音声のトラック数
     sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
-    int           *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
+    const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
 } AvcodecReaderPrm;
 
 

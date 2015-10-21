@@ -3,7 +3,6 @@
 *                                 ver 0.13
 * *********************************************************************/
 
-#include <Windows.h>
 #include <stdlib.h>
 #include <string.h>
 #include "logo.h"
@@ -39,11 +38,11 @@ void convert_logo_header_v1_to_v2(LOGO_HEADER *logo_header) {
 *-------------------------------------------------------------------*/
 #pragma warning (push)
 #pragma warning (disable: 4244) //C4244: '=' : 'int' から 'short' への変換です。データが失われる可能性があります。
-BOOL create_adj_exdata(LOGO_PIXEL *ex, LOGO_HEADER *adjdata, const LOGO_PIXEL *df, const LOGO_HEADER *data, int pos_x, int pos_y) {
+bool create_adj_exdata(LOGO_PIXEL *ex, LOGO_HEADER *adjdata, const LOGO_PIXEL *df, const LOGO_HEADER *data, int pos_x, int pos_y) {
     int i, j;
 
     if (data == NULL)
-        return FALSE;
+        return false;
 
     // ロゴ名コピー
     memcpy(adjdata->name, data->name, LOGO_MAX_NAME);
@@ -218,6 +217,6 @@ BOOL create_adj_exdata(LOGO_PIXEL *ex, LOGO_HEADER *adjdata, const LOGO_PIXEL *d
     ex[j*w+i].cb = df[(j-1)*data->w+i-1].cb;
     ex[j*w+i].cr = df[(j-1)*data->w+i-1].cr;
 
-    return TRUE;
+    return true;
 }
 #pragma warning (pop)

@@ -9,6 +9,7 @@
 #ifndef _CONVERT_CSP_SIMD_H_
 #define _CONVERT_CSP_SIMD_H_
 
+#include "qsv_simd.h"
 #include <cstdint>
 #include <cstring>
 #include <emmintrin.h> //イントリンシック命令 SSE2

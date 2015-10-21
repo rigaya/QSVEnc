@@ -10,13 +10,15 @@
 #include "mfx_samples_config.h"
 #define _CRT_SECURE_NO_WARNINGS
 #include <algorithm>
-#include <Shlwapi.h>
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 #include "sample_utils.h"
 #include "qsv_util.h"
 #include "plugin_delogo.h"
 #include "delogo_process.h"
 #include "qsv_simd.h"
+#include "qsv_osdep.h"
+#include "qsv_ini.h"
 
 // disable "unreferenced formal parameter" warning -
 // not all formal parameters of interface functions will be used by sample plugin

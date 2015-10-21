@@ -18,7 +18,13 @@
 #include <Windows.h>
 #include <VersionHelpers.h>
 #endif
-#include "mfxStructures.h"
+#ifndef _MSC_VER
+#include <sys/sysinfo.h>
+#include <sys/utsname.h>
+#include <sys/wait.h>
+#include <iconv.h>
+#endif
+#include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
 #include "mfxplugin.h"
@@ -30,10 +36,18 @@
 #include "qsv_prm.h"
 #include "ram_speed.h"
 
+#ifdef LIBVA_SUPPORT
+#include "hw_device.h"
+#include "vaapi_device.h"
+#include "vaapi_allocator.h"
+#include "sample_utils.h"
+#endif //#ifdef LIBVA_SUPPORT
+
 #pragma warning (push)
 #pragma warning (disable: 4100)
-unsigned int wstring_to_string(const WCHAR *wstr, std::string& str, DWORD codepage) {
-    DWORD flags = (codepage == CP_UTF8) ? 0 : WC_NO_BEST_FIT_CHARS;
+#if defined(_WIN32) || defined(_WIN64)
+unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage) {
+    uint32_t flags = (codepage == CP_UTF8) ? 0 : WC_NO_BEST_FIT_CHARS;
     int multibyte_length = WideCharToMultiByte(codepage, flags, wstr, -1, nullptr, 0, nullptr, nullptr);
     str.resize(multibyte_length, 0);
     if (0 == WideCharToMultiByte(codepage, flags, wstr, -1, &str[0], multibyte_length, nullptr, nullptr)) {
@@ -42,20 +56,31 @@ unsigned int wstring_to_string(const WCHAR *wstr, std::string& str, DWORD codepa
     }
     return multibyte_length;
 }
+#else
+unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage) {
+    auto ic = iconv_open("UTF-8", "wchar_t"); //to, from
+    auto input_len = wcslen(wstr);
+    auto output_len = input_len * 4;
+    str.resize(output_len, 0);
+    char *outbuf = &str[0];
+    iconv(ic, (char **)&wstr, &input_len, &outbuf, &output_len);
+    return output_len;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
-std::string wstring_to_string(const WCHAR *wstr, DWORD codepage) {
+std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage) {
     std::string str;
     wstring_to_string(wstr, str, codepage);
     return str;
 }
 
-std::string wstring_to_string(const std::wstring& wstr, DWORD codepage) {
+std::string wstring_to_string(const std::wstring& wstr, uint32_t codepage) {
     std::string str;
     wstring_to_string(wstr.c_str(), str, codepage);
     return str;
 }
 
-unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage) {
+unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage) {
 #if UNICODE
     return wstring_to_string(tstr, str, codepage);
 #else
@@ -64,19 +89,20 @@ unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, DWORD codepage
 #endif
 }
 
-std::string tchar_to_string(const TCHAR *tstr, DWORD codepage) {
+std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage) {
     std::string str;
     tchar_to_string(tstr, str, codepage);
     return str;
 }
 
-std::string tchar_to_string(const tstring& tstr, DWORD codepage) {
+std::string tchar_to_string(const tstring& tstr, uint32_t codepage) {
     std::string str;
     tchar_to_string(tstr.c_str(), str, codepage);
     return str;
 }
 
-unsigned int char_to_wstring(std::wstring& wstr, const char *str, DWORD codepage) {
+#if defined(_WIN32) || defined(_WIN64)
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
     int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
     wstr.resize(widechar_length, 0);
     if (0 == MultiByteToWideChar(codepage, 0, str, -1, &wstr[0], (int)wstr.size())) {
@@ -85,19 +111,32 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, DWORD codepage
     }
     return widechar_length;
 }
-
-std::wstring char_to_wstring(const char *str, DWORD codepage) {
+#else
+unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
+    auto ic = iconv_open("wchar_t", "UTF-8"); //to, from
+    auto input_len = strlen(str);
+    std::vector<char> buf(input_len + 1);
+    strcpy(buf.data(), str);
+    auto output_len = input_len;
+    wstr.resize(output_len, 0);
+    char *inbuf = buf.data();
+    char *outbuf = (char *)&wstr[0];
+    iconv(ic, &inbuf, &input_len, &outbuf, &output_len);
+    return output_len;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+std::wstring char_to_wstring(const char *str, uint32_t codepage) {
     std::wstring wstr;
     char_to_wstring(wstr, str, codepage);
     return wstr;
 }
-std::wstring char_to_wstring(const std::string& str, DWORD codepage) {
+std::wstring char_to_wstring(const std::string& str, uint32_t codepage) {
     std::wstring wstr;
     char_to_wstring(wstr, str.c_str(), codepage);
     return wstr;
 }
 
-unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
+unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage) {
 #if UNICODE
     return char_to_wstring(tstr, str, codepage);
 #else
@@ -106,12 +145,12 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, DWORD codepage) {
 #endif
 }
 
-tstring char_to_tstring(const char *str, DWORD codepage) {
+tstring char_to_tstring(const char *str, uint32_t codepage) {
     tstring tstr;
     char_to_tstring(tstr, str, codepage);
     return tstr;
 }
-tstring char_to_tstring(const std::string& str, DWORD codepage) {
+tstring char_to_tstring(const std::string& str, uint32_t codepage) {
     tstring tstr;
     char_to_tstring(tstr, str.c_str(), codepage);
     return tstr;
@@ -127,6 +166,7 @@ std::string strsprintf(const char* format, ...) {
     std::string retStr = std::string(buffer.data());
     return retStr;
 }
+#if defined(_WIN32) || defined(_WIN64)
 std::wstring strsprintf(const WCHAR* format, ...) {
     va_list args;
     va_start(args, format);
@@ -138,6 +178,7 @@ std::wstring strsprintf(const WCHAR* format, ...) {
     std::wstring retStr = std::wstring(buffer.data());
     return retStr;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::string str_replace(std::string str, const std::string& from, const std::string& to) {
     std::string::size_type pos = 0;
@@ -148,6 +189,7 @@ std::string str_replace(std::string str, const std::string& from, const std::str
     return std::move(str);
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to) {
     std::wstring::size_type pos = 0;
     while (pos = str.find(from, pos), pos != std::wstring::npos) {
@@ -156,9 +198,11 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
     }
     return std::move(str);
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 #pragma warning (pop)
 
+#if defined(_WIN32) || defined(_WIN64)
 std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim) {
     std::vector<std::wstring> res;
     size_t current = 0, found, delimlen = delim.size();
@@ -169,6 +213,7 @@ std::vector<std::wstring> split(const std::wstring &str, const std::wstring &del
     res.push_back(std::wstring(str, current, str.size() - current));
     return res;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::vector<std::string> split(const std::string &str, const std::string &delim) {
     std::vector<std::string> res;
@@ -181,14 +226,44 @@ std::vector<std::string> split(const std::string &str, const std::string &delim)
     return res;
 }
 
+tstring lstrip(const tstring& string, const TCHAR* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        result = string.substr(left, 0);
+    }
+    return result;
+}
+
+tstring rstrip(const tstring& string, const TCHAR* trim) {
+    auto result = string;
+    auto right = string.find_last_not_of(trim);
+    if (right != std::string::npos) {
+        result = string.substr(0, right);
+    }
+    return result;
+}
+
+tstring trim(const tstring& string, const TCHAR* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        auto right = string.find_last_not_of(trim);
+        result = string.substr(left, right - left + 1);
+    }
+    return result;
+}
+
 std::string GetFullPath(const char *path) {
+#if defined(_WIN32) || defined(_WIN64)
     if (PathIsRelativeA(path) == FALSE)
         return std::string(path);
-
+#endif //#if defined(_WIN32) || defined(_WIN64)
     std::vector<char> buffer(strlen(path) + 1024, 0);
     _fullpath(buffer.data(), path, buffer.size());
     return std::string(buffer.data());
 }
+#if defined(_WIN32) || defined(_WIN64)
 std::wstring GetFullPath(const WCHAR *path) {
     if (PathIsRelativeW(path) == FALSE)
         return std::wstring(path);
@@ -197,6 +272,7 @@ std::wstring GetFullPath(const WCHAR *path) {
     _wfullpath(buffer.data(), path, buffer.size());
     return std::wstring(buffer.data());
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) {
     const TCHAR *target = PathFindExtension(filename);
@@ -210,19 +286,35 @@ bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) 
     return false;
 }
 
-bool qsv_get_filesize(const char *filepath, UINT64 *filesize) {
+bool qsv_get_filesize(const char *filepath, uint64_t *filesize) {
+#if defined(_WIN32) || defined(_WIN64)
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExA(filepath, GetFileExInfoStandard, &fd)) ? true : false;
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
     return ret;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct stat stat;
+    FILE *fp = fopen(filepath, "rb");
+    if (fp == NULL || fstat(fileno(fp), &stat)) {
+        *filesize = 0;
+        return 1;
+    }
+    if (fp) {
+        fclose(fp);
+    }
+    *filesize = stat.st_size;
+    return 0;
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize) {
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd)) ? true : false;
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
     return ret;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 tstring qsv_memtype_str(mfxU16 memtype) {
     tstring str;
@@ -241,6 +333,7 @@ tstring qsv_memtype_str(mfxU16 memtype) {
 }
 
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
+#if defined(_WIN32) || defined(_WIN64)
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     static const WORD LOG_COLOR[] = {
         FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_BLUE, //水色
@@ -257,11 +350,14 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
         GetConsoleScreenBufferInfo(handle, &csbi);
         SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE] | (csbi.wAttributes & 0x00f0));
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     int ret = _ftprintf(stderr, mes);
     fflush(stderr);
+#if defined(_WIN32) || defined(_WIN64)
     if (handle && log_level != QSV_LOG_INFO) {
         SetConsoleTextAttribute(handle, csbi.wAttributes); //元に戻す
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     return ret;
 }
 
@@ -272,7 +368,7 @@ BOOL Check_HWUsed(mfxIMPL impl) {
         MFX_IMPL_HARDWARE2,
         MFX_IMPL_HARDWARE3,
         MFX_IMPL_HARDWARE4,
-        NULL
+        0
     };
     for (int i = 0; HW_list[i]; i++)
         if (HW_list[i] == (HW_list[i] & (int)impl))
@@ -536,6 +632,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
         buf.push_back((mfxExtBuffer *)&cop2);
     }
+#if ENABLE_FEATURE_COP3_AND_ABOVE
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
         buf.push_back((mfxExtBuffer *)&cop3);
     }
@@ -543,6 +640,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         && codecId == MFX_CODEC_HEVC) {
         buf.push_back((mfxExtBuffer *)&hevc);
     }
+#endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
 
     mfxVideoParam videoPrm;
     MSDK_ZERO_MEMORY(videoPrm);
@@ -623,6 +721,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
         bufOut.push_back((mfxExtBuffer *)&cop2Out);
     }
+#if ENABLE_FEATURE_COP3_AND_ABOVE
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
         bufOut.push_back((mfxExtBuffer *)&cop3Out);
     }
@@ -632,6 +731,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         hevc.PicHeightInLumaSamples = videoPrm.mfx.FrameInfo.CropH;
         bufOut.push_back((mfxExtBuffer*)&hevcOut);
     }
+#endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
     mfxVideoParam videoPrmOut;
     //In, Outのパラメータが同一となっているようにきちんとコピーする
     //そうしないとQueryが失敗する
@@ -716,6 +816,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         CHECK_FEATURE(cop2.DisableDeblockingIdc, cop2Out.DisableDeblockingIdc, ENC_FEATURE_NO_DEBLOCK,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_9);
         CHECK_FEATURE(cop2.MaxQPI,               cop2Out.MaxQPI,               ENC_FEATURE_QP_MINMAX,     48,                      MFX_LIB_VERSION_1_9);
         cop3.WinBRCMaxAvgKbps = 3000;
+#if defined(_WIN32) || defined(_WIN64)
         CHECK_FEATURE(cop3.WinBRCSize,           cop3Out.WinBRCSize,           ENC_FEATURE_WINBRC,        10,                      MFX_LIB_VERSION_1_11);
         cop3.WinBRCMaxAvgKbps = 0;
         CHECK_FEATURE(cop3.EnableMBQP,                 cop3Out.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
@@ -724,6 +825,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         CHECK_FEATURE(videoPrm.mfx.LowPower,     videoPrmOut.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
         CHECK_FEATURE(cop3.WeightedPred,         cop3Out.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.WeightedBiPred,       cop3Out.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_16);
+#endif //#if defined(_WIN32) || defined(_WIN64)
 #undef PICTYPE
 #pragma warning(pop)
         //付随オプション
@@ -862,6 +964,27 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
 
         mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
 
+#ifdef LIBVA_SUPPORT
+        //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
+        std::unique_ptr<CHWDevice> phwDevice;
+        if (ret == MFX_ERR_NONE) {
+            mfxIMPL impl;
+            MFXQueryIMPL(session, &impl);
+
+            if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
+                phwDevice.reset(CreateVAAPIDevice());
+
+                // provide device manager to MediaSDK
+                mfxHDL hdl = NULL;
+                if (phwDevice.get() != nullptr
+                   && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, 0, MSDKAdapter::GetNumber(session)))
+                   && MFX_ERR_NONE != (ret = phwDevice->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl))) {
+                    ret = MFXVideoCORE_SetHandle(session, MFX_HANDLE_VA_DISPLAY, hdl);
+                }
+            }
+        }
+#endif //#ifdef LIBVA_SUPPORT
+
         std::unique_ptr<MFXPlugin> m_pEncPlugin;
         if (codecId == MFX_CODEC_HEVC) {
             m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, session, MFX_PLUGINID_HEVCE_HW, 1));
@@ -872,6 +995,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
         
         m_pEncPlugin.reset();
         MFXClose(session);
+        phwDevice.reset();
     }
 
     return feature;
@@ -1026,7 +1150,7 @@ tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
 tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
     uint64_t features = CheckVppFeatures(hardware, ver);
-    TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
+    const TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
     tstring str;
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         str += _T("<table class=simpleOrange>");
@@ -1254,6 +1378,8 @@ mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info) {
     return MFX_ERR_NONE;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+
 #include <Windows.h>
 #include <process.h>
 
@@ -1278,8 +1404,10 @@ static int getRealWindowsVersion(DWORD *major, DWORD *minor) {
     }
     return ret;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 BOOL check_OS_Win8orLater() {
+#if defined(_WIN32) || defined(_WIN64)
 #if (_MSC_VER >= 1800)
     return IsWindows8OrGreater();
 #else
@@ -1287,10 +1415,14 @@ BOOL check_OS_Win8orLater() {
     osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
     GetVersionEx(&osvi);
     return ((osvi.dwPlatformId == VER_PLATFORM_WIN32_NT) && ((osvi.dwMajorVersion == 6 && osvi.dwMinorVersion >= 2) || osvi.dwMajorVersion > 6));
-#endif
+#endif //(_MSC_VER >= 1800)
+#else //#if defined(_WIN32) || defined(_WIN64)
+    return FALSE;
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-const TCHAR *getOSVersion() {
+tstring getOSVersion() {
+#if defined(_WIN32) || defined(_WIN64)
     const TCHAR *ptr = _T("Unknown");
     OSVERSIONINFO info = { 0 };
     info.dwOSVersionInfoSize = sizeof(info);
@@ -1359,26 +1491,77 @@ const TCHAR *getOSVersion() {
     default:
         break;
     }
-    return ptr;
+    return tstring(ptr);
+#else //#if defined(_WIN32) || defined(_WIN64)
+    std::string str = "";
+    FILE *fp = popen("/usr/bin/lsb_release -a", "r");
+    if (fp != NULL) {
+        char buffer[2048];
+        while (NULL != fgets(buffer, _countof(buffer), fp)) {
+            str += buffer;
+        }
+        pclose(fp);
+        if (str.length() > 0) {
+            auto sep = split(str, "\n");
+            for (auto line : sep) {
+                if (line.find("Description") != std::string::npos) {
+                    std::string::size_type pos = line.find(":");
+                    if (pos == std::string::npos) {
+                        pos = std::string("Description").length();
+                    }
+                    pos++;
+                    str = line.substr(pos);
+                    break;
+                }
+            }
+        }
+    }
+    if (str.length() == 0) {
+        struct utsname buf;
+        uname(&buf);
+        str += buf.sysname;
+        str += " ";
+        str += buf.release;
+    }
+    return char_to_tstring(trim(str));
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
 BOOL is_64bit_os() {
+#if defined(_WIN32) || defined(_WIN64)
     SYSTEM_INFO sinfo = { 0 };
     GetNativeSystemInfo(&sinfo);
     return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct utsname buf;
+    uname(&buf);
+    return NULL != strstr(buf.machine, "x64")
+        || NULL != strstr(buf.machine, "x86_64")
+        || NULL != strstr(buf.machine, "amd64");
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-UINT64 getPhysicalRamSize(UINT64 *ramUsed) {
+uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
+#if defined(_WIN32) || defined(_WIN64)
     MEMORYSTATUSEX msex ={ 0 };
     msex.dwLength = sizeof(msex);
     GlobalMemoryStatusEx(&msex);
-    if (NULL != ramUsed)
+    if (NULL != ramUsed) {
         *ramUsed = msex.ullTotalPhys - msex.ullAvailPhys;
+    }
     return msex.ullTotalPhys;
+#else //#if defined(_WIN32) || defined(_WIN64)
+    struct sysinfo info;
+    sysinfo(&info);
+    if (NULL != ramUsed) {
+        *ramUsed = info.totalram - info.freeram;
+    }
+    return info.totalram;
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
 void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) {
-    ZeroMemory(buf, sizeof(buf[0]) * buffer_size);
+    memset(buf, 0, sizeof(buf[0]) * buffer_size);
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
@@ -1386,24 +1569,24 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
     TCHAR gpu_info[1024] = { 0 };
     getGPUInfo("Intel", gpu_info, _countof(gpu_info));
 
-    UINT64 UsedRamSize = 0;
-    UINT64 totalRamsize = getPhysicalRamSize(&UsedRamSize);
+    uint64_t UsedRamSize = 0;
+    uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
 
     auto add_tchar_to_buf = [buf, buffer_size](const TCHAR *fmt, ...) {
         unsigned int buf_length = (unsigned int)_tcslen(buf);
-        va_list args = { 0 };
+        va_list args;
         va_start(args, fmt);
         _vstprintf_s(buf + buf_length, buffer_size - buf_length, fmt, args);
         va_end(args);
     };
 
     add_tchar_to_buf(_T("Environment Info\n"));
-    add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
+    add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
     add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
     if (add_ram_info) {
         cpu_info_t cpuinfo;
         get_cpu_info(&cpuinfo);
-        auto write_rw_speed = [&](TCHAR *type, int test_size) {
+        auto write_rw_speed = [&](const TCHAR *type, int test_size) {
             if (test_size) {
                 auto ram_read_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_READ);
                 auto ram_write_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_WRITE);
@@ -1417,14 +1600,14 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
         write_rw_speed(_T("L3 "), cpuinfo.caches[2].size / 1024 / 2);
         write_rw_speed(_T("RAM"), cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8);
     }
-    add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (UINT)(UsedRamSize >> 20), (UINT)(totalRamsize >> 20));
+    add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
     add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
 }
 
 mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size) {
     mfxStatus sts = MFX_ERR_NONE;
     if (data) {
-        const DWORD new_data_length = bitstream->DataLength + size;
+        const uint32_t new_data_length = bitstream->DataLength + size;
         if (bitstream->MaxLength < new_data_length)
             if (MFX_ERR_NONE != (sts = ExtendMfxBitstream(bitstream, new_data_length)))
                 return sts;

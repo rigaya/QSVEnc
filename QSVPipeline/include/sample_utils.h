@@ -30,6 +30,7 @@ Copyright(c) 2005-2015 Intel Corporation. All Rights Reserved.
 #include "sample_defs.h"
 #include "qsv_prm.h"
 #include "qsv_control.h"
+#include "qsv_event.h"
 #include "convert_csp.h"
 
 using std::vector;
@@ -933,7 +934,7 @@ template<size_t S>
     {
     #if defined(_WIN32) || defined(_WIN64)
         return (0 == _tcscpy_s(value, string))? MFX_ERR_NONE: MFX_ERR_UNKNOWN;
-    #else
+    #else //#if defined(_WIN32) || defined(_WIN64)
         if (strlen(string) < S) {
             strncpy(value, string, S);
             return MFX_ERR_NONE;

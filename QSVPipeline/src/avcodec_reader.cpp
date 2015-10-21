@@ -7,17 +7,24 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  ---------------------------------------------------------------------------------------
 
-#include <io.h>
 #include <fcntl.h>
 #include <algorithm>
 #include <numeric>
 #include <cctype>
+#include <climits>
 #include <memory>
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
 #include "plugin_utils.h"
 #include "plugin_loader.h"
 #include "avcodec_reader.h"
+
+#ifdef LIBVA_SUPPORT
+#include "hw_device.h"
+#include "vaapi_device.h"
+#include "vaapi_allocator.h"
+#include "sample_utils.h"
+#endif //#if LIBVA_SUPPORT
 
 #if ENABLE_AVCODEC_QSV_READER
 
@@ -156,7 +163,7 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
         std::lock_guard<std::mutex> lock(m_Demux.mtx);
         extend_array_size(&m_Demux.video.frameData);
     }
-    if (pos.pts == AV_NOPTS_VALUE && m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_HALF_INVALID) {
+    if (pos.pts == AV_NOPTS_VALUE && 0 != (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_HALF_INVALID)) {
         //ptsがないのは音声抽出で、正常に抽出されない問題が生じる
         //半分PTSがないPAFFのような動画については、前のフレームからの補完を行う
         const FramePos *lastFrame = &m_Demux.video.frameData.frame[m_Demux.video.frameData.num-1];
@@ -309,7 +316,6 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         AddMessage(QSV_LOG_ERROR, _T("failed to get required frame.\n"));
         return sts;
     }
-
     int numSurfaces = request.NumFrameSuggested;
     int surfaceWidth = MSDK_ALIGN32(request.Info.Width);
     int surfaceHeight = MSDK_ALIGN32(request.Info.Height);
@@ -350,7 +356,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         return (int)((double)diff * timebase + 0.5);
     };
 
-    m_Demux.format.nPreReadBufferIdx = UINT32_MAX; //PreReadBufferからの読み込みを禁止にする
+    m_Demux.format.nPreReadBufferIdx = UINT_MAX; //PreReadBufferからの読み込みを禁止にする
     clearStreamPacketList(m_PreReadBuffer);
     m_PreReadBuffer.reserve(maxCheckFrames);
 
@@ -728,10 +734,12 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
         }
     }
     if (0 == strcmp(filename_char.c_str(), "-")) {
+#if defined(_WIN32) || defined(_WIN64)
         if (_setmode(_fileno(stdin), _O_BINARY) < 0) {
             AddMessage(QSV_LOG_ERROR, _T("failed to switch stdin to binary mode.\n"));
             return MFX_ERR_UNKNOWN;
         }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         AddMessage(QSV_LOG_DEBUG, _T("input source set to stdin.\n"));
         filename_char = "pipe:0";
     }
@@ -910,6 +918,39 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
             }
         }
 
+#ifdef LIBVA_SUPPORT
+        //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
+        std::unique_ptr<CHWDevice> phwDevice;
+        mfxIMPL impl;
+        MFXQueryIMPL(session, &impl);
+
+        if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
+            phwDevice.reset(CreateVAAPIDevice());
+            if (phwDevice.get() == nullptr) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to create va api hw device.\n"));
+                return MFX_ERR_NULL_PTR;
+            }
+
+            mfxStatus hwSts = MFX_ERR_NONE;
+            if (MFX_ERR_NONE != (hwSts = phwDevice->Init(NULL, 0, MSDKAdapter::GetNumber(session)))) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to initialize hw device.\n"));
+                return hwSts;
+            }
+
+            // provide device manager to MediaSDK
+            mfxHDL hdl = NULL;
+            if (MFX_ERR_NONE != (hwSts = phwDevice->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl))) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to get device handle.\n"));
+                return hwSts;
+            }
+            if (MFX_ERR_NONE != (hwSts = MFXVideoCORE_SetHandle(session, MFX_HANDLE_VA_DISPLAY, hdl))) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to set device handle to session.\n"));
+                return hwSts;
+            }
+            AddMessage(QSV_LOG_DEBUG, _T("MFXVideoCORE_SetHandle: MFX_HANDLE_VA_DISPLAY.\n"));
+        }
+#endif //#ifdef LIBVA_SUPPORT
+
         memset(&m_sDecParam, 0, sizeof(m_sDecParam));
         m_sDecParam.mfx.CodecId = m_nInputCodec;
         m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
@@ -921,6 +962,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
         MFXVideoDECODE_Close(session);
         pPlugin.reset(); //必ずsessionをクローズする前に開放すること
         MFXClose(session);
+        phwDevice.reset();
         if (MFX_ERR_NONE != decHeaderSts) {
             AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv, please consider using other input method.\n"));
             return decHeaderSts;
@@ -961,10 +1003,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
         //もともとは16ないし32でアラインされた数字が入っている
         m_inputFrameInfo.Width          = m_inputFrameInfo.CropW;
         m_inputFrameInfo.Height         = m_inputFrameInfo.CropH;
-        m_inputFrameInfo.BitDepthLuma   = m_inputFrameInfo.BitDepthLuma;
-        m_inputFrameInfo.BitDepthChroma = m_inputFrameInfo.BitDepthChroma;
         //フレーム数は未定
-        *(DWORD*)&m_inputFrameInfo.FrameId = 0;
+        *(uint32_t *)&m_inputFrameInfo.FrameId = 0;
 
         tstring mes = strsprintf(_T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec).c_str(),
             m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
@@ -1007,7 +1047,7 @@ int64_t CAvcodecReader::GetVideoFirstPts() {
 }
 
 int CAvcodecReader::getVideoFrameIdx(mfxI64 pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
-    for (int i = max(0, iStart); i < framePosCount; i++) {
+    for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
         //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
         if (0 > av_compare_ts(pts, timebase, framePos[i].pts, m_Demux.video.pCodecCtx->pkt_timebase)) {
             return i - 1;
@@ -1089,7 +1129,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
             m_Demux.format.nPreReadBufferIdx++;
             if (m_Demux.format.nPreReadBufferIdx >= m_PreReadBuffer.size()) {
                 m_PreReadBuffer.clear();
-                m_Demux.format.nPreReadBufferIdx = UINT32_MAX;
+                m_Demux.format.nPreReadBufferIdx = UINT_MAX;
             }
             *fromPreReadBuffer = true;
             return 0;

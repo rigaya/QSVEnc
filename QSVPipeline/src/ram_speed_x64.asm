@@ -4,7 +4,7 @@ section .code
 
 section .text
 
-global read_sse@20
+global read_sse
 
 ;void __stdcall read_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [rcx] PIXEL_YC       *src
@@ -53,7 +53,7 @@ read_sse:
 
 
 
-global read_avx@20
+global read_avx
 
 ;void __stdcall read_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [rcx] PIXEL_YC       *src
@@ -102,7 +102,7 @@ read_avx:
 
         ret
 
-global _write_sse@20
+global write_sse
 
 ;void __stdcall _write_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+08] PIXEL_YC       *src
@@ -152,7 +152,7 @@ write_sse:
 
 
 
-global _write_avx@20
+global write_avx
 
 ;void __stdcall _write_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+08] PIXEL_YC       *src

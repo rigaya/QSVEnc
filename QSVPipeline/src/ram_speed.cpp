@@ -7,9 +7,6 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
 #include <stdio.h>
 #include <cstdint>
 #include <vector>
@@ -57,7 +54,7 @@ typedef void(__stdcall *func_ram_test)(uint8_t *dst, uint32_t size, uint32_t cou
 void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_wk) {
     const int TEST_COUNT = 4;
     uint32_t check_size_bytes = (thread_prm->check_size_bytes + 255) & ~255;
-    const uint32_t test_kilo_bytes   = (uint32_t)(((thread_prm->mode == RAM_SPEED_MODE_READ) ? 1 : 0.5) * thread_prm->physical_cores * 1024 * 1024 / std::max(1.0, log2(check_size_bytes / 1024.0)) + 0.5);
+    const uint32_t test_kilo_bytes   = (uint32_t)(((thread_prm->mode == RAM_SPEED_MODE_READ) ? 1 : 0.5) * thread_prm->physical_cores * 1024 * 1024 / (std::max)(1.0, log2(check_size_bytes / 1024.0)) + 0.5);
     const uint32_t warmup_kilo_bytes = test_kilo_bytes * 2;
     uint8_t *ptr = (uint8_t *)_aligned_malloc(check_size_bytes, 64);
     uint32_t count_n = (int)(test_kilo_bytes * 1024.0 / check_size_bytes + 0.5);
@@ -87,7 +84,7 @@ void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_
 
     int64_t time_min = LLONG_MAX;
     for (int i = 0; i < TEST_COUNT; i++)
-        time_min = std::min(time_min, result[i]);
+        time_min = (std::min)(time_min, result[i]);
 
     thread_prm->megabytes_per_sec = (check_size_bytes * (double)count_n / (1024.0 * 1024.0)) / (time_min * 0.000001);
 }

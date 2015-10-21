@@ -16,7 +16,7 @@
 // DeviceId.h
 //
 #pragma once
-
+#if _MSC_VER
 #define INITGUID
 #include <windows.h>
 
@@ -159,3 +159,5 @@ unsigned int checkDxExtensionVersion();
 #define GGF_E_UNSUPPORTED_HARDWARE    -2
 #define GGF_E_UNSUPPORTED_DRIVER    -3
 #define GGF_E_D3D_ERROR                -4
+
+#endif

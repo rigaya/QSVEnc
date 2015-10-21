@@ -8,7 +8,7 @@
 //  ---------------------------------------------------------------------------------------
 
 #include <cstdint>
-#include <tchar.h>
+#include "qsv_tchar.h"
 #include <vector>
 #include "mfxstructures.h"
 #include "qsv_simd.h"
@@ -72,7 +72,7 @@ static const ConvertCSP funcList[] = {
     { MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_avx,  convert_yuv42010_to_p101_avx  }, AVX },
     { MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_sse2, convert_yuv42010_to_p101_sse2 }, SSE2 },
 #endif
-    { 0, 0, 0, false, 0x0, 0 },
+    { 0, 0, false, 0x0, 0 },
 };
 
 const ConvertCSP* get_convert_csp_func(unsigned int csp_from, unsigned int csp_to, bool uv_only) {
@@ -98,7 +98,7 @@ const ConvertCSP* get_convert_csp_func(unsigned int csp_from, unsigned int csp_t
 }
 
 const TCHAR *get_simd_str(unsigned int simd) {
-    static std::vector<std::pair<uint32_t, TCHAR*>> simd_str_list = {
+    static std::vector<std::pair<uint32_t, const TCHAR*>> simd_str_list = {
         { AVX2,  _T("AVX2")   },
         { AVX,   _T("AVX")    },
         { SSE42, _T("SSE4.2") },

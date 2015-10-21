@@ -8,17 +8,16 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 
 **********************************************************************************/
 
-#include <tchar.h>
-#include <windows.h>
+#include "qsv_tchar.h"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <process.h>
 #include <sstream>
 #include <map>
 #include <algorithm>
 #include <cassert>
-
+#include <climits>
+#include "qsv_osdep.h"
 #include "mfx_samples_config.h"
 #include "pipeline_encode.h"
 #include "vpy_reader.h"
@@ -244,11 +243,12 @@ void CEncTaskPool::Close()
     m_nPoolSize = 0;
 }
 
-sTask::sTask()
-    : EncSyncP(0),
+sTask::sTask() :
+    mfxSurf(nullptr),
+    EncSyncP(0),
     pBsWriter(nullptr),
     pYUVWriter(nullptr),
-    mfxSurf(nullptr)
+    pmfxAllocator(nullptr)
 {
     MSDK_ZERO_MEMORY(mfxBS);
 }
@@ -717,7 +717,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         m_mfxEncParams.mfx.MaxKbps         = 0;
     } else {
         if (pInParams->nBitRate > USHRT_MAX) {
-            m_mfxEncParams.mfx.BRCParamMultiplier = (mfxU16)(max(pInParams->nBitRate, pInParams->nMaxBitrate) / USHRT_MAX) + 1;
+            m_mfxEncParams.mfx.BRCParamMultiplier = (mfxU16)((std::max)(pInParams->nBitRate, pInParams->nMaxBitrate) / USHRT_MAX) + 1;
             pInParams->nBitRate    /= m_mfxEncParams.mfx.BRCParamMultiplier;
             pInParams->nMaxBitrate /= m_mfxEncParams.mfx.BRCParamMultiplier;
         }
@@ -855,8 +855,8 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
         for (int i = 0; i < 3; i++) {
-            mfxU8 qpMin = min(pInParams->nQPMin[i], pInParams->nQPMax[i]);
-            mfxU8 qpMax = max(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+            mfxU8 qpMin = (std::min)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+            mfxU8 qpMax = (std::max)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
             pInParams->nQPMin[i] = (0 == pInParams->nQPMin[i]) ? 0 : qpMin;
             pInParams->nQPMax[i] = (0 == pInParams->nQPMax[i]) ? 0 : qpMax;
         }
@@ -917,19 +917,19 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         if (   m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CBR
             || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_VBR
             || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA) {
-                m_mfxEncParams.mfx.MaxKbps    = min(m_mfxEncParams.mfx.MaxKbps, 40000);
-                m_mfxEncParams.mfx.TargetKbps = min(m_mfxEncParams.mfx.TargetKbps, m_mfxEncParams.mfx.MaxKbps);
+                m_mfxEncParams.mfx.MaxKbps    = (std::min)(m_mfxEncParams.mfx.MaxKbps, (uint16_t)40000);
+                m_mfxEncParams.mfx.TargetKbps = (std::min)(m_mfxEncParams.mfx.TargetKbps, m_mfxEncParams.mfx.MaxKbps);
                 m_mfxEncParams.mfx.BufferSizeInKB = m_mfxEncParams.mfx.MaxKbps / 8;
                 m_mfxEncParams.mfx.InitialDelayInKB = m_mfxEncParams.mfx.BufferSizeInKB / 2;
         } else {
             m_mfxEncParams.mfx.BufferSizeInKB = 25000 / 8;
         }
-        m_mfxEncParams.mfx.CodecLevel = (m_mfxEncParams.mfx.CodecLevel == 0) ? MFX_LEVEL_AVC_41 : (min(m_mfxEncParams.mfx.CodecLevel, MFX_LEVEL_AVC_41));
-        m_mfxEncParams.mfx.NumSlice   = max(m_mfxEncParams.mfx.NumSlice, 4);
+        m_mfxEncParams.mfx.CodecLevel = (m_mfxEncParams.mfx.CodecLevel == 0) ? MFX_LEVEL_AVC_41 : ((std::min)(m_mfxEncParams.mfx.CodecLevel, (uint16_t)MFX_LEVEL_AVC_41));
+        m_mfxEncParams.mfx.NumSlice   = (std::max)(m_mfxEncParams.mfx.NumSlice, (uint16_t)4);
         m_mfxEncParams.mfx.GopOptFlag &= (~MFX_GOP_STRICT);
-        m_mfxEncParams.mfx.GopRefDist = min(m_mfxEncParams.mfx.GopRefDist, 3+1);
-        m_mfxEncParams.mfx.GopPicSize = (int)(min(m_mfxEncParams.mfx.GopPicSize, 30) / m_mfxEncParams.mfx.GopRefDist) * m_mfxEncParams.mfx.GopRefDist;
-        m_mfxEncParams.mfx.NumRefFrame = min(m_mfxEncParams.mfx.NumRefFrame, 6);
+        m_mfxEncParams.mfx.GopRefDist = (std::min)(m_mfxEncParams.mfx.GopRefDist, (uint16_t)(3+1));
+        m_mfxEncParams.mfx.GopPicSize = (int)((std::min)(m_mfxEncParams.mfx.GopPicSize, (uint16_t)30) / m_mfxEncParams.mfx.GopRefDist) * m_mfxEncParams.mfx.GopRefDist;
+        m_mfxEncParams.mfx.NumRefFrame = (std::min)(m_mfxEncParams.mfx.NumRefFrame, (uint16_t)6);
         m_CodingOption.MaxDecFrameBuffering = m_mfxEncParams.mfx.NumRefFrame;
         m_CodingOption.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
         m_CodingOption.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
@@ -1085,12 +1085,14 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
                 PrintMes(QSV_LOG_ERROR, _T("Deinterlace \"it-manual\" is not supported on this platform.\n"));
                 return MFX_ERR_INVALID_VIDEO_PARAM;
             }
+            break;
         case MFX_DEINTERLACE_AUTO_SINGLE:
         case MFX_DEINTERLACE_AUTO_DOUBLE:
             if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_AUTO)) {
                 PrintMes(QSV_LOG_ERROR, _T("Deinterlace \"auto\" is not supported on this platform.\n"));
                 return MFX_ERR_INVALID_VIDEO_PARAM;
             }
+            break;
         default:
             break;
         }
@@ -1173,7 +1175,7 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
         switch (pInParams->vpp.nDeinterlace) {
         case MFX_DEINTERLACE_NORMAL:
         case MFX_DEINTERLACE_AUTO_SINGLE:
-            m_ExtDeinterlacing.Mode = (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NORMAL) ? MFX_DEINTERLACING_30FPS_OUT : MFX_DEINTERLACE_AUTO_SINGLE;
+            m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NORMAL) ? MFX_DEINTERLACING_30FPS_OUT : MFX_DEINTERLACING_AUTO_SINGLE);
             m_nExPrm |= MFX_PRM_EX_DEINT_NORMAL;
             break;
         case MFX_DEINTERLACE_IT:
@@ -1188,7 +1190,7 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
             break;
         case MFX_DEINTERLACE_BOB:
         case MFX_DEINTERLACE_AUTO_DOUBLE:
-            m_ExtDeinterlacing.Mode = (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACE_AUTO_DOUBLE;
+            m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACING_AUTO_DOUBLE);
             m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
             m_nExPrm |= MFX_PRM_EX_DEINT_BOB;
             break;
@@ -1787,7 +1789,7 @@ mfxStatus CEncodingPipeline::CreateAllocator()
 {
     mfxStatus sts = MFX_ERR_NONE;
 
-    if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType) {
+    if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType) {
 #if D3D_SURFACES_SUPPORT
         sts = CreateHWDevice();
         if (sts < MFX_ERR_NONE) return sts;
@@ -2666,7 +2668,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
         // try searching on all display adapters
         impl = MFX_IMPL_HARDWARE_ANY;
         m_memType = (memType) ? D3D9_MEMORY : SYSTEM_MEMORY;
-
+#if MFX_D3D11_SUPPORT
         //Win7でD3D11のチェックをやると、
         //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
         //D3D11をWin8以降に限定
@@ -2680,7 +2682,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
             memType &= (~D3D11_MEMORY);
             PrintMes(QSV_LOG_DEBUG, _T("InitSession: d3d11 memory mode not required, switching to d3d9 memory mode.\n"));
         }
-
+#endif //#if MFX_D3D11_SUPPORT
         for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
             // if d3d11 surfaces are used ask the library to run acceleration through D3D11
             // feature may be unsupported due to OS or MSDK API version
@@ -2732,7 +2734,10 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         pParams->nAVMux = QSVENC_MUX_NONE;
         for (int i = 0; i < pParams->nAudioSelectCount; i++)
             MSDK_SAFE_FREE(pParams->ppAudioSelectList[i]);
-        pParams->pAVMuxOutputFormat = _T("raw");
+        static const TCHAR *RAW_FORMAT = _T("raw");
+        static const size_t RAW_FORMAT_LEN = _tcslen(RAW_FORMAT) + 1;
+        pParams->pAVMuxOutputFormat = (TCHAR *)realloc(pParams->pAVMuxOutputFormat, RAW_FORMAT_LEN * sizeof(RAW_FORMAT[0]));
+        _tcscpy_s(pParams->pAVMuxOutputFormat, RAW_FORMAT_LEN, RAW_FORMAT);
         PrintMes(QSV_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
 
@@ -2850,11 +2855,13 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         PrintMes(QSV_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
     }
 
+#if defined(_WIN32) || defined(_WIN64)
     if (!pParams->bDisableTimerPeriodTuning) {
         m_bTimerPeriodTuning = true;
         timeBeginPeriod(1);
         PrintMes(QSV_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
     sts = ResetMFXComponents(pParams);
     if (sts < MFX_ERR_NONE) return sts;
@@ -2925,11 +2932,13 @@ void CEncodingPipeline::Close()
         delete m_pFileReader;
         m_pFileReader = NULL;
     }
+#if defined(_WIN32) || defined(_WIN64)
     if (m_bTimerPeriodTuning) {
         timeEndPeriod(1);
         m_bTimerPeriodTuning = false;
         PrintMes(QSV_LOG_DEBUG, _T("timeEndPeriod(1)\n"));
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
@@ -3030,7 +3039,7 @@ mfxStatus CEncodingPipeline::AllocateSufficientBuffer(mfxBitstream* pBS)
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to get required output buffer size from encoder."));
 
     // reallocate bigger buffer for output
-    sts = ExtendMfxBitstream(pBS, par.mfx.BufferSizeInKB * 1000 * max(1, par.mfx.BRCParamMultiplier));
+    sts = ExtendMfxBitstream(pBS, par.mfx.BufferSizeInKB * 1000 * (std::max)(1, (int)par.mfx.BRCParamMultiplier));
     if (sts < MFX_ERR_NONE)
         PrintMes(QSV_LOG_ERROR, _T("Failed to allocate buffer for bitstream output.\n"));
     MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, WipeMfxBitstream(pBS));
@@ -3115,6 +3124,7 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
 }
 
 void CEncodingPipeline::RunEncThreadLauncher(void *pParam) {
+    _ftprintf(stderr, _T("Enc Thread: launching...\n"));
     reinterpret_cast<CEncodingPipeline*>(pParam)->RunEncode();
 }
 
@@ -3124,12 +3134,13 @@ void CEncodingPipeline::RunSubThreadLauncher(void *pParam) {
 
 mfxStatus CEncodingPipeline::Run()
 {
-    return Run(NULL);
+    return Run(0);
 }
 
-mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
+mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
 {
     mfxStatus sts = MFX_ERR_NONE;
+    PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
     sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to start encode thread."));
     if (m_SceneChange.isInitialized()) {
@@ -3150,14 +3161,13 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
         //空いているフレームがセットされるのを待機
         while (WAIT_TIMEOUT == WaitForSingleObject(pInputBuf->heInputStart, 10000)) {
             //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
-            DWORD exit_code = 0;
-            if (0 == GetExitCodeThread(m_EncThread.GetHandleEncThread().native_handle(), &exit_code) || exit_code != STILL_ACTIVE) {
+            if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
                 PrintMes(QSV_LOG_ERROR, _T("error at encode thread.\n"));
                 sts = MFX_ERR_INVALID_HANDLE;
                 break;
             }
             if (m_SceneChange.isInitialized()
-                && (0 == GetExitCodeThread(m_EncThread.GetHandleSubThread().native_handle(), &exit_code) || exit_code != STILL_ACTIVE)) {
+                && !CheckThreadAlive(m_EncThread.GetHandleSubThread())) {
                     PrintMes(QSV_LOG_ERROR, _T("error at sub thread.\n"));
                     sts = MFX_ERR_INVALID_HANDLE;
                     break;
@@ -3185,7 +3195,7 @@ mfxStatus CEncodingPipeline::Run(DWORD_PTR SubThreadAffinityMask)
         m_frameTypeSim.getFrameInfo(&info);
     m_pEncSatusInfo->WriteResults((m_nExPrm & MFX_PRM_EX_VQP) ? &info : NULL);
 
-    sts = min(sts, m_EncThread.m_stsThread);
+    sts = (std::min)(sts, m_EncThread.m_stsThread);
     MSDK_IGNORE_MFX_STS(sts, MFX_ERR_MORE_DATA);
 
     m_EncThread.Close();
@@ -3915,7 +3925,7 @@ void CQSVLog::writeFileHeader(const TCHAR *pDstFilename) {
     tstring fileHeader;
     int dstFilenameLen = (int)_tcslen(pDstFilename);
     static const TCHAR *const SEP5 = _T("-----");
-    int sep_count = max(16, dstFilenameLen / 5 + 1);
+    int sep_count = (std::max)(16, dstFilenameLen / 5 + 1);
     if (m_bHtml) {
         fileHeader += _T("<hr>");
     } else {
@@ -3938,7 +3948,7 @@ void CQSVLog::writeFileHeader(const TCHAR *pDstFilename) {
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
         (*this)(QSV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
-        (*this)(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
+        (*this)(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
         (*this)(QSV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
         (*this)(QSV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
     }
@@ -3977,8 +3987,12 @@ void CQSVLog::operator()(int log_level, const TCHAR *format, ...) {
     if (buffer.data() != nullptr) {
 
         _vstprintf_s(&buffer[0], len, format, args); // C4996
-        
+#if defined(_WIN32) || defined(_WIN64)
         HANDLE hStdErr = GetStdHandle(STD_ERROR_HANDLE);
+#else
+        HANDLE hStdErr = NULL;
+#endif //defined(_WIN32) || defined(_WIN64)
+
         std::string buffer_char;
 #ifdef UNICODE
         char *buffer_ptr = NULL;
@@ -4008,7 +4022,7 @@ void CQSVLog::operator()(int log_level, const TCHAR *format, ...) {
             if (0 == _tfopen_s(&fp_log, m_pStrLog, (m_bHtml) ? _T("rb+") : _T("a")) && fp_log) {
                 if (m_bHtml) {
                     _fseeki64(fp_log, 0, SEEK_END);
-                    __int64 pos = _ftelli64(fp_log);
+                    int64_t pos = _ftelli64(fp_log);
                     _fseeki64(fp_log, 0, SEEK_SET);
                     _fseeki64(fp_log, pos -1 * strlen(HTML_FOOTER), SEEK_CUR);
                 }
@@ -4140,7 +4154,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
     PRINT_INFO(    _T("QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample %s\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, MSDK_SAMPLE_VERSION);
-    PRINT_INFO(    _T("OS             %s (%s)\n"), getOSVersion(), is_64bit_os() ? _T("x64") : _T("x86"));
+    PRINT_INFO(    _T("OS             %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
     if (Check_HWUsed(impl)) {
         PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
@@ -4190,7 +4204,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     }
     if (m_pTrimParam != NULL && m_pTrimParam->list.size()
         && !(m_pTrimParam->list[0].start == 0 && m_pTrimParam->list[0].fin == TRIM_MAX)) {
-        PRINT_INFO(_T("Trim           "));
+        PRINT_INFO(_T("%s"), _T("Trim           "));
         for (auto trim : m_pTrimParam->list) {
             if (trim.fin == TRIM_MAX) {
                 PRINT_INFO(_T("%d-fin "), trim.start + m_pTrimParam->offset);
@@ -4246,12 +4260,12 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
             if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
                 PRINT_INFO(_T(", quality %s"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
             }
-            PRINT_INFO(_T("\n"));
+            PRINT_INFO(_T("%s"), _T("\n"));
             if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
                 if (cop3.WinBRCSize) {
                     PRINT_INFO(_T("Windowed RC    %d frames, Max %d kbps\n"), cop3.WinBRCSize, cop3.WinBRCMaxAvgKbps);
                 } else {
-                    PRINT_INFO(_T("Windowed RC    off\n"));
+                    PRINT_INFO(_T("%s"), _T("Windowed RC    off\n"));
                 }
             }
             if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
@@ -4260,13 +4274,13 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         } else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
             PRINT_INFO(_T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
         } else {
-            PRINT_INFO(_T("Bitrate        %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+            PRINT_INFO(_T("Bitrate        %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * (std::max)(m_mfxEncParams.mfx.BRCParamMultiplier, (uint16_t)1));
             if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
                 //PRINT_INFO(_T("AVBR Accuracy range\t%.01lf%%"), m_mfxEncParams.mfx.Accuracy / 10.0);
                 PRINT_INFO(_T("AVBR Converge  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
             } else {
-                PRINT_INFO(_T("Max Bitrate    "));
-                PRINT_INT_AUTO(_T("%d kbps\n"), (mfxU32)videoPrm.mfx.MaxKbps * max(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+                PRINT_INFO(_T("%s"), _T("Max Bitrate    "));
+                PRINT_INT_AUTO(_T("%d kbps\n"), (mfxU32)videoPrm.mfx.MaxKbps * (std::max)(m_mfxEncParams.mfx.BRCParamMultiplier, (uint16_t)1));
                 if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
                     PRINT_INFO(_T("QVBR Quality   %d\n"), cop3.QVBRQuality);
                 }
@@ -4282,7 +4296,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
                 for (int i = 0; i < 3; i++) {
                     buf += ((i) ? _T(":") : _T(""));
                     if (limit[i]) {
-                        buf += std::to_tstring(limit[i]);
+                        buf += strsprintf(_T("%s"), limit[i]);
                     } else {
                         buf += _T("-");
                     }
@@ -4307,13 +4321,13 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
             }
             PRINT_INFO(_T("min pred size  inter: %s   intra: %s\n"), list_pred_block_size[get_cx_index(list_pred_block_size, cop.InterPredBlockSize)].desc, list_pred_block_size[get_cx_index(list_pred_block_size, cop.IntraPredBlockSize)].desc);
         }
-        PRINT_INFO(_T("Ref frames     "));
+        PRINT_INFO(_T("%s"), _T("Ref frames     "));
         PRINT_INT_AUTO(_T("%d frames\n"), videoPrm.mfx.NumRefFrame);
 
-        PRINT_INFO(_T("Bframes        "));
+        PRINT_INFO(_T("%s"), _T("Bframes        "));
         switch (videoPrm.mfx.GopRefDist) {
-        case 0:  PRINT_INFO(_T("Auto\n")); break;
-        case 1:  PRINT_INFO(_T("none\n")); break;
+        case 0:  PRINT_INFO(_T("%s"), _T("Auto\n")); break;
+        case 1:  PRINT_INFO(_T("%s"), _T("none\n")); break;
         default: PRINT_INFO(_T("%d frame%s%s%s\n"),
             videoPrm.mfx.GopRefDist - 1, (videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
             check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? _T(", B-pyramid: ") : _T(""),
@@ -4321,8 +4335,8 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         }
 
         //PRINT_INFO(    _T("Idr Interval    %d\n"), videoPrm.mfx.IdrInterval);
-        PRINT_INFO(_T("Max GOP Length "));
-        PRINT_INT_AUTO(_T("%d frames\n"), min(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
+        PRINT_INFO(_T("%s"), _T("Max GOP Length "));
+        PRINT_INT_AUTO(_T("%d frames\n"), (std::min)(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
         PRINT_INFO(_T("Scene Change   %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
             //PRINT_INFO(    _T("GOP Structure           "));
@@ -4395,7 +4409,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 
     PrintMes(QSV_LOG_INFO, info);
     if (str && bufSize > 0) {
-        msdk_strcopy(str, bufSize, info);
+        _tcscpy_s(str, bufSize, info);
     }
 
     return MFX_ERR_NONE;
