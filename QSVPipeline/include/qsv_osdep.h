@@ -77,11 +77,10 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define _strnicmp strncasecmp
 
 static inline void __cpuid(int cpuInfo[4], int param) {
-    int eax, ebx, ecx, edx;
-    /* cpuid命令はeax(param)で指定した値に応じた情報を返す */
-    __asm__( "cpuid"
-             : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-             : "0" (param) );
+    int eax = 0, ebx = 0, ecx = 0, edx = 0;
+     __asm("xor %%ecx, %%ecx\n\t"
+           "cpuid" : "=a"(eax), "=b" (ebx), "=c"(ecx), "=d"(edx)
+                   : "0"(param));
     cpuInfo[0] = eax;
     cpuInfo[1] = ebx;
     cpuInfo[2] = ecx;
