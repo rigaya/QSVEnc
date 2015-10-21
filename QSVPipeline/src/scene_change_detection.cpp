@@ -20,6 +20,10 @@
 #include "cpu_info.h"
 #include "qsv_event.h"
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+
 const int SC_SKIP = 2;
 const int MAX_SUB_THREADS = 7;
 

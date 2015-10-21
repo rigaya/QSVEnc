@@ -243,7 +243,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
     m_inputFrameInfo.FrameRateExtN = (mfxU32)(vsvideoinfo->fpsNum / fps_gcd);
     m_inputFrameInfo.FrameRateExtD = (mfxU32)(vsvideoinfo->fpsDen / fps_gcd);
-    *(DWORD*)&m_inputFrameInfo.FrameId = vsvideoinfo->numFrames;
+    memcpy(&m_inputFrameInfo.FrameId, &vsvideoinfo->numFrames, sizeof(vsvideoinfo->numFrames));
     m_nAsyncFrames = vsvideoinfo->numFrames;
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo->numThreads);
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);

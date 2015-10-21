@@ -2573,7 +2573,8 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     }
     mfxU32 OutputFPSRate = pParams->nFPSRate;
     mfxU32 OutputFPSScale = pParams->nFPSScale;
-    mfxU32 outputFrames = *(mfxU32 *)&inputFrameInfo.FrameId;
+    mfxU32 outputFrames = 0;
+    memcpy(&outputFrames, &inputFrameInfo.FrameId, sizeof(outputFrames));
     if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         switch (pParams->vpp.nDeinterlace) {
         case MFX_DEINTERLACE_IT:

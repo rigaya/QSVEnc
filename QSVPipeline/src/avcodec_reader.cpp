@@ -1004,7 +1004,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
         m_inputFrameInfo.Width          = m_inputFrameInfo.CropW;
         m_inputFrameInfo.Height         = m_inputFrameInfo.CropH;
         //フレーム数は未定
-        *(uint32_t *)&m_inputFrameInfo.FrameId = 0;
+        uint32_t zero = 0;
+        memcpy(&m_inputFrameInfo.FrameId, &zero, sizeof(zero));
 
         tstring mes = strsprintf(_T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec).c_str(),
             m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);

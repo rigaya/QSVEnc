@@ -144,7 +144,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
     m_inputFrameInfo.FrameRateExtN = m_sAVSinfo->fps_numerator / fps_gcd;
     m_inputFrameInfo.FrameRateExtD = m_sAVSinfo->fps_denominator / fps_gcd;
-    *(DWORD*)&m_inputFrameInfo.FrameId = m_sAVSinfo->num_frames;
+    memcpy(&m_inputFrameInfo.FrameId, &m_sAVSinfo->num_frames, sizeof(m_sAVSinfo->num_frames));
     
     tstring avisynth_version;
     AVS_Value val_version = m_sAvisynth.invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(NULL, 0), NULL);

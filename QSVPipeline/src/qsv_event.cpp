@@ -97,7 +97,7 @@ uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t
     Event **pevent = (Event **)pev;
     int success = 0;
     bool bTimeout = false;
-    for (int i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         if (WAIT_TIMEOUT == WaitForSingleObject(pevent[i], (bTimeout) ? 0 : millisec)) {
             bTimeout = true;
         } else {

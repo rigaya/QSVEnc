@@ -567,7 +567,7 @@ static __forceinline void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitc
     CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
     CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
     CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
-    CONST_M c_offset           = SET_EPI32(*(uint32_t *)&data->offset);
+    CONST_M c_offset           = SET_EPI32(data->offset[0] | (data->offset[1] << 16));
 #if DEPTH_MUL_OPTIM
     CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
 #else //#if DEPTH_MUL_OPTIM
@@ -604,7 +604,7 @@ static __forceinline void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *
     CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
     CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
     CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
-    CONST_M c_offset           = SET_EPI32(*(uint32_t *)&data->offset);
+    CONST_M c_offset           = SET_EPI32(data->offset[0] | (data->offset[1] << 16));
 #if DEPTH_MUL_OPTIM
     CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
 #else //#if DEPTH_MUL_OPTIM

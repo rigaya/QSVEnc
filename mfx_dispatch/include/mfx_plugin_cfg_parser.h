@@ -39,6 +39,10 @@ File Name: mfx_plugin_cfg_parser.h
 #include <memory>
 #include <stdio.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 #pragma once
 
 namespace MFX
