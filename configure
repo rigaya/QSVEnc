@@ -33,7 +33,7 @@ cxx_check()
         echo "}" >> cxx_check.c
     fi 
     echo "int main(void){ $4; std::cout << \"Hello World!\" << std::endl; return 0;}" >> cxx_check.c
-    $CXX cxx_check.c $1 -o cxx_check 2> /dev/null
+    $CXX cxx_check.c $1 -o cxx_check 2>/dev/null
     ret=$?
     rm -f cxx_check*
     return $ret
@@ -148,13 +148,6 @@ if ! cxx_check "" ; then
 fi
 echo "OK"
 
-printf "checking for ${CXX} version..."
-if ! check_gxx_ver "$CXX" 4 8 0; then
-    echo "g++ version 4.8 or above is required."
-    exit 1
-fi
-echo "OK"
-
 CXXFLAGS="-Wno-attributes -Wno-literal-suffix -DLINUX -DLINUX64 -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -m64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline/include -I${SRCDIR}/QSVPlugins"
 LDFLAGS="-L. -lpthread -lmfx -ldl -lstdc++"
 ASFLAGS="-I. -DARCH_X86_64=1 -f elf64"
@@ -169,22 +162,74 @@ else
 fi
 echo "OK"
 
-printf "checking for c++1y/14 support..."
-if cxx_check "${CXXFLAGS} -std=c++1y ${LDFLAGS}" ; then
-    CXXFLAGS="$CXXFLAGS -std=c++1y"
-elif cxx_check "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
-    CXXFLAGS="$CXXFLAGS -std=c++14"
+printf "checking for c++11 support..."
+if cxx_check "${CXXFLAGS} -std=c++11 ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -std=c++11"
 else
     echo $CXX does not work with -std=c++1y/c++14
     exit 1
 fi
 echo "OK"
 
-printf "checking for libmfx..."
-if cxx_check "${CXXFLAGS} ${LDFLAGS} -lmfx -ldl" ; then
-    LDFLAGS="${LDFLAGS} -lmfx -ldl"
-else
-    echo "libmfx not installed." 
+printf "checking for <chrono>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "chrono" "" "auto start = std::chrono::system_clock::now();" ; then
+    echo "<chrono> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <thread>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "thread" "" "std::thread th;" ; then
+    echo "<thread> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <mutex>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "mutex" "" "std::mutex mtx;" ; then
+    echo "<mutex> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <atomic>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "atomic" "" "std::atomic<int> value(0);" ; then
+    echo "<atomic> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <type_traits>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "type_traits" "" "std::cout << std::is_integral<int>::value << std::endl;" ; then
+    echo "<type_traits> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for lambda..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto test = []() { std::cout << \"Hello C++11!!\" << std::endl; };" ; then
+    echo "lambda not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for nullptr..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto ptr = nullptr;" ; then
+    echo "nullptr not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for range based for..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "vector" "" "std::vector<int> v = { 1, 2, 3 }; for (auto i : v) { std::cout << i << std::endl; }" ; then
+    echo "range based for not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for alignas(n)..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "alignas(16) int value[8] = { 0 };" ; then
+    echo "alignas(n) not supported with this compiler." 
     exit 1
 fi
 echo "OK"
@@ -380,6 +425,8 @@ for src in $SRC_QSVENCC; do
     SRCS="$SRCS QSVEncC/src/$src"
 done
 
+echo ""
+echo "Creating config.mak, qsv_config.h..."
 echo "SRCS = $SRCS" >> config.mak
 echo "ASMS = $ASMS" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
