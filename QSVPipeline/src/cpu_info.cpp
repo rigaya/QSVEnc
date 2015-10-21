@@ -240,7 +240,7 @@ const int COUNT_OF_REPEAT = 4; //以下のようにCOUNT_OF_REPEAT分マクロ�
     instruction \
     instruction
 
-static uint64_t __fastcall repeatFunc(int *test) {
+static uint64_t __fastcall repeatFunc(uint32_t *test) {
     __m128i x0 = _mm_sub_epi32(_mm_setzero_si128(), _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
     __m128i x1 = _mm_add_epi32(x0, x0);
     //計算結果を強引に使うことで最適化による計算の削除を抑止する
@@ -251,17 +251,15 @@ static uint64_t __fastcall repeatFunc(int *test) {
     for (int i = LOOP_COUNT; i; i--) {
         //2重にマクロを使うことでCOUNT_OF_REPEATの2乗分ループ内で実行する
         //これでループカウンタの影響はほぼ無視できるはず
-        //ここでのPXORは依存関係により、1クロックあたり1回に限定される
+        //ここでのPADDD/PXORは依存関係により、1クロックあたり1回に限定される
         REPEAT4(REPEAT4(
         x0 = _mm_xor_si128(x0, x1);
-        x0 = _mm_xor_si128(x0, x2);))
+        x0 = _mm_add_epi32(x0, x2);))
     }
     
     uint64_t fin = __rdtscp(&dummy); //終了はrdtscpで受ける
     
     //計算結果を強引に使うことで最適化による計算の削除を抑止する
-    x0 = _mm_add_epi32(x0, x1);
-    x0 = _mm_add_epi32(x0, x2);
     *test = _mm_movemask_epi8(x0);
 
     return fin - start;
@@ -285,7 +283,7 @@ static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thr
         std::unique_lock<std::mutex> uniq_lk(thread_wk->mtx); // ここでロックされる
         thread_wk->cv.wait(uniq_lk, [&thread_wk] { return thread_wk->ready; });
     }
-    int test = 0;
+    uint32_t test = 0;
     uint64_t result = ULLONG_MAX;
     
     for (int j = 0; j < 4; j++) {
@@ -294,7 +292,9 @@ static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thr
             //何回か行って最速値を使用する
             result = (std::min)(result, repeatFunc(&test));
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1)); //一度スレッドを休ませて、仕切りなおす (Sleep(0)でもいいかも)
+        //一度スレッドを休ませて、仕切りなおす (Sleep(0)でもいいかも)
+        //testを無意味に使うのは、repeatFunc内の処理を最適化によって削除させないようにするため
+        std::this_thread::sleep_for(std::chrono::milliseconds((test>>31) + 1));
     }
 
     *ret = result;
@@ -352,6 +352,9 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
         resultClock = defaultClock;
     } else {
         uint64_t min_result = *std::min_element(list_of_result.begin(), list_of_result.end());
+        for (auto i : list_of_result) {
+            fprintf(stderr, "%d\n", (int)i);
+        }
         resultClock = (min_result) ? defaultClock * (double)(LOOP_COUNT * COUNT_OF_REPEAT * COUNT_OF_REPEAT * 2) / (double)min_result : defaultClock;
         resultClock = (std::max)(resultClock, defaultClock);
     }
