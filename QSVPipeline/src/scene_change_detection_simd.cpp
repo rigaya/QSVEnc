@@ -12,9 +12,20 @@
 #include "scene_change_detection.h"
 #include "scene_change_detection_simd.h"
 
+#if defined(_MSC_VER) || defined(__AVX2__)
+#define FUNC_AVX2(func) func
+#else
+#define FUNC_AVX2(func)
+#endif
+
+#if defined(_MSC_VER) || defined(__AVX__)
+#define FUNC_AVX(func) func,
+#else
+#define FUNC_AVX(func)
+#endif
 
 static const func_make_hist_simd FUNC_MAKE_HIST_LIST[] = {
-    make_hist_sse2, make_hist_sse41_popcnt, make_hist_avx, make_hist_avx2
+    make_hist_sse2, make_hist_sse41_popcnt, FUNC_AVX(make_hist_avx) FUNC_AVX2(make_hist_avx2)
 };
 func_make_hist_simd get_make_hist_func() {
     const uint32_t simd = get_availableSIMD();

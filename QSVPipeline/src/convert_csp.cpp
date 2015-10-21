@@ -50,27 +50,41 @@ void convert_yuv42010_to_p101_avx2(void **dst, void **src, int width, int src_y_
 void convert_yuv42010_to_p101_avx(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
 void convert_yuv42010_to_p101_sse2(void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
 
+#if defined(_MSC_VER) || defined(__AVX2__)
+#define FUNC_AVX2(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
+#else
+#define FUNC_AVX2(from, to, uv_only, funcp, funci, simd)
+#endif
+
+#if defined(_MSC_VER) || defined(__AVX__)
+#define FUNC_AVX(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
+#else
+#define FUNC_AVX(from, to, uv_only, funcp, funci, simd)
+#endif
+#define FUNC_SSE(from, to, uv_only, funcp, funci, simd) { from, to, uv_only, { funcp, funci }, simd },
+
+
 static const ConvertCSP funcList[] = {
-    { MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, { convert_yuy2_to_nv12_avx2,     convert_yuy2_to_nv12_i_avx2   }, AVX2|AVX },
-    { MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, { convert_yuy2_to_nv12_avx,      convert_yuy2_to_nv12_i_avx    }, AVX },
-    { MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, { convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_ssse3  }, SSSE3|SSE2 },
-    { MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, { convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_sse2   }, SSE2 },
+    FUNC_AVX2(MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, convert_yuy2_to_nv12_avx2,     convert_yuy2_to_nv12_i_avx2,   AVX2|AVX)
+    FUNC_AVX( MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, convert_yuy2_to_nv12_avx,      convert_yuy2_to_nv12_i_avx,    AVX )
+    FUNC_SSE( MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_ssse3,  SSSE3|SSE2 )
+    FUNC_SSE( MFX_FOURCC_YUY2, MFX_FOURCC_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_sse2,   SSE2 )
 #if !QSVENC_AUO
-    { MFX_FOURCC_YV12, MFX_FOURCC_NV12, false, { convert_yv12_to_nv12_avx2,     convert_yv12_to_nv12_avx2     }, AVX2|AVX },
-    { MFX_FOURCC_YV12, MFX_FOURCC_NV12, false, { convert_yv12_to_nv12_avx,      convert_yv12_to_nv12_avx      }, AVX },
-    { MFX_FOURCC_YV12, MFX_FOURCC_NV12, false, { convert_yv12_to_nv12_sse2,     convert_yv12_to_nv12_sse2     }, SSE2 },
-    { MFX_FOURCC_YV12, MFX_FOURCC_NV12, true,  { convert_uv_yv12_to_nv12_avx2,  convert_uv_yv12_to_nv12_avx2  }, AVX2|AVX },
-    { MFX_FOURCC_YV12, MFX_FOURCC_NV12, true,  { convert_uv_yv12_to_nv12_avx,   convert_uv_yv12_to_nv12_avx   }, AVX },
-    { MFX_FOURCC_YV12, MFX_FOURCC_NV12, true,  { convert_uv_yv12_to_nv12_sse2,  convert_uv_yv12_to_nv12_sse2  }, SSE2 },
-    { MFX_FOURCC_RGB3, MFX_FOURCC_RGB4, false, { convert_rgb3_to_rgb4_avx2,     convert_rgb3_to_rgb4_avx2     }, AVX2|AVX },
-    { MFX_FOURCC_RGB3, MFX_FOURCC_RGB4, false, { convert_rgb3_to_rgb4_avx,      convert_rgb3_to_rgb4_avx      }, AVX },
-    { MFX_FOURCC_RGB3, MFX_FOURCC_RGB4, false, { convert_rgb3_to_rgb4_ssse3,    convert_rgb3_to_rgb4_ssse3    }, SSSE3|SSE2 },
-    { MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, { convert_rgb4_to_rgb4_avx2,     convert_rgb4_to_rgb4_avx2     }, AVX2|AVX },
-    { MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, { convert_rgb4_to_rgb4_avx,      convert_rgb4_to_rgb4_avx      }, AVX },
-    { MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, { convert_rgb4_to_rgb4_sse2,     convert_rgb4_to_rgb4_sse2     }, SSE2 },
-    { MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_avx2, convert_yuv42010_to_p101_avx2 }, AVX2|AVX },
-    { MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_avx,  convert_yuv42010_to_p101_avx  }, AVX },
-    { MFX_FOURCC_YV12, MFX_FOURCC_P010, false, { convert_yuv42010_to_p101_sse2, convert_yuv42010_to_p101_sse2 }, SSE2 },
+    FUNC_AVX2(MFX_FOURCC_YV12, MFX_FOURCC_NV12, false, convert_yv12_to_nv12_avx2,     convert_yv12_to_nv12_avx2,     AVX2|AVX)
+    FUNC_AVX( MFX_FOURCC_YV12, MFX_FOURCC_NV12, false, convert_yv12_to_nv12_avx,      convert_yv12_to_nv12_avx,      AVX )
+    FUNC_SSE( MFX_FOURCC_YV12, MFX_FOURCC_NV12, false, convert_yv12_to_nv12_sse2,     convert_yv12_to_nv12_sse2,     SSE2 )
+    FUNC_AVX2(MFX_FOURCC_YV12, MFX_FOURCC_NV12, true,  convert_uv_yv12_to_nv12_avx2,  convert_uv_yv12_to_nv12_avx2,  AVX2|AVX )
+    FUNC_AVX( MFX_FOURCC_YV12, MFX_FOURCC_NV12, true,  convert_uv_yv12_to_nv12_avx,   convert_uv_yv12_to_nv12_avx,   AVX )
+    FUNC_SSE( MFX_FOURCC_YV12, MFX_FOURCC_NV12, true,  convert_uv_yv12_to_nv12_sse2,  convert_uv_yv12_to_nv12_sse2,  SSE2 )
+    FUNC_AVX2(MFX_FOURCC_RGB3, MFX_FOURCC_RGB4, false, convert_rgb3_to_rgb4_avx2,     convert_rgb3_to_rgb4_avx2,     AVX2|AVX )
+    FUNC_AVX( MFX_FOURCC_RGB3, MFX_FOURCC_RGB4, false, convert_rgb3_to_rgb4_avx,      convert_rgb3_to_rgb4_avx,      AVX )
+    FUNC_SSE( MFX_FOURCC_RGB3, MFX_FOURCC_RGB4, false, convert_rgb3_to_rgb4_ssse3,    convert_rgb3_to_rgb4_ssse3,    SSSE3|SSE2 )
+    FUNC_AVX2(MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, convert_rgb4_to_rgb4_avx2,     convert_rgb4_to_rgb4_avx2,     AVX2|AVX )
+    FUNC_AVX( MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, convert_rgb4_to_rgb4_avx,      convert_rgb4_to_rgb4_avx,      AVX )
+    FUNC_SSE( MFX_FOURCC_RGB4, MFX_FOURCC_RGB4, false, convert_rgb4_to_rgb4_sse2,     convert_rgb4_to_rgb4_sse2,     SSE2 )
+    FUNC_AVX2(MFX_FOURCC_YV12, MFX_FOURCC_P010, false, convert_yuv42010_to_p101_avx2, convert_yuv42010_to_p101_avx2, AVX2|AVX )
+    FUNC_AVX( MFX_FOURCC_YV12, MFX_FOURCC_P010, false, convert_yuv42010_to_p101_avx,  convert_yuv42010_to_p101_avx,  AVX )
+    FUNC_SSE( MFX_FOURCC_YV12, MFX_FOURCC_P010, false, convert_yuv42010_to_p101_sse2, convert_yuv42010_to_p101_sse2, SSE2 )
 #endif
     { 0, 0, false, 0x0, 0 },
 };

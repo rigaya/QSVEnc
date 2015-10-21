@@ -14,6 +14,7 @@
 #define USE_AVX2   1
 #define USE_FMA3   1
 #define USE_POPCNT 1
+#if defined(_MSC_VER) || defined(__AVX2__)
 #include "delogo_process_simd.h"
 #include "delogo_process.h"
 
@@ -88,3 +89,5 @@ mfxStatus DelogoProcessD3DAVX2::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 
     return UnlockFrame(m_pOut);
 }
+
+#endif //#if defined(_MSC_VER) || defined(__AVX__)

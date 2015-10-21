@@ -22,6 +22,8 @@
 static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
 #endif
 
+#if defined(_MSC_VER) || defined(__AVX2__)
+
 template<bool use_stream>
 static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
     if (size < 128) {
@@ -363,3 +365,5 @@ void convert_yuv42010_to_p101_avx2(void **dst, void **src, int width, int src_y_
     }
     _mm256_zeroupper();
 }
+
+#endif //#if defined(_MSC_VER) || defined(__AVX2__)

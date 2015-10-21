@@ -234,12 +234,24 @@ if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "alignas(16) int value[8] = { 0 };
 fi
 echo "OK"
 
+printf "checking for SSE4.2..."
+if cxx_check "${CXXFLAGS} -msse4.2 ${LDFLAGS}" ; then
+    if cxx_check "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
+    elif cxx_check "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -msse4.2 -mpopcnt"
+    else
+        CXXFLAGS="$CXXFLAGS -msse4.2"
+    fi
+else
+    echo "SSE4.2 not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
 if [ ! $ENABLE_DEBUG -eq 0 ]; then
     echo "configuring for debug..."
     CXXFLAGS="${CXXFLAGS} -O0 -g -D_DEBUG"
-    if cxx_check "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
-    fi
 else
     echo "configuring for speed..."
     CXXFLAGS="${CXXFLAGS} -O3 -DNDEBUG=1"
@@ -251,9 +263,6 @@ else
     fi
     if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -ffast-math"
-    fi
-    if cxx_check "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
     fi
     if cxx_check "${CXXFLAGS} -fomit-frame-pointer ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"

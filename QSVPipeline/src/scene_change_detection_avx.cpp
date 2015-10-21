@@ -15,6 +15,8 @@
 static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
 #endif
 
+#if defined(_MSC_VER) || defined(__AVX__)
+
 void make_hist_avx(const uint8_t *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch) {
     make_hist_simd(frame_Y, hist_buf, y_start, y_end, y_step, x_skip, width, pitch, AVX|POPCNT|SSE42|SSE41|SSSE3|SSE3|SSE2);
 }
@@ -198,3 +200,6 @@ void make_hist_avx2(const uint8_t *frame_Y, hist_t *hist_buf, int y_start, int y
     _mm_empty();
 #endif
 }
+
+#endif //#if defined(_MSC_VER) || defined(__AVX__)
+
