@@ -350,14 +350,22 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
         GetConsoleScreenBufferInfo(handle, &csbi);
         SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE] | (csbi.wAttributes & 0x00f0));
     }
-#endif //#if defined(_WIN32) || defined(_WIN64)
     int ret = _ftprintf(stderr, mes);
-    fflush(stderr);
-#if defined(_WIN32) || defined(_WIN64)
     if (handle && log_level != QSV_LOG_INFO) {
         SetConsoleTextAttribute(handle, csbi.wAttributes); //元に戻す
     }
+#else
+    static const char *const LOG_COLOR[] = {
+        "\x1b[36m", //水色
+        "\x1b[32m", //緑
+        "\x1b[39m", //デフォルト
+        "\x1b[39m", //デフォルト
+        "\x1b[33m", //黄色
+        "\x1b[31m", //赤
+    };
+    int ret = _ftprintf(stderr, "%s%s%s", LOG_COLOR[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE], mes, LOG_COLOR[QSV_LOG_INFO - QSV_LOG_TRACE]);
 #endif //#if defined(_WIN32) || defined(_WIN64)
+    fflush(stderr);
     return ret;
 }
 

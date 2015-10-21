@@ -3125,7 +3125,6 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
 }
 
 void CEncodingPipeline::RunEncThreadLauncher(void *pParam) {
-    _ftprintf(stderr, _T("Enc Thread: launching...\n"));
     reinterpret_cast<CEncodingPipeline*>(pParam)->RunEncode();
 }
 
