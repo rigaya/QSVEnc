@@ -40,7 +40,8 @@ tstring getAVQSVSupportedCodecList();
 static tstring GetQSVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
     tstring version;
-    version += strsprintf(_T("QSVEncC (%s) %s by rigaya, build %s %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
+    version += get_qsvenc_version();
+    version += _T("\n");
     version += strsprintf(_T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
     version += strsprintf(_T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
     version += strsprintf(_T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
@@ -2520,7 +2521,7 @@ int run(int argc, TCHAR *argv[]) {
         }
     }
 
-    pPipeline->Close();  
+    pPipeline->Close();
     pPipeline->PrintMes(QSV_LOG_INFO, _T("\nProcessing finished\n"));
 
     return sts;

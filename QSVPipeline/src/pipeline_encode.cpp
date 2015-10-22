@@ -4153,7 +4153,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
-    PRINT_INFO(    _T("QSVEnc %s (%s), based on Intel(R) Media SDK Encoding Sample %s\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR, MSDK_SAMPLE_VERSION);
+    PRINT_INFO(    _T("%s\n"), get_qsvenc_version());
     PRINT_INFO(    _T("OS             %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
     if (Check_HWUsed(impl)) {

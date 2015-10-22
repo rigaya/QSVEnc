@@ -28,6 +28,12 @@
 #define BUILD_ARCH_STR _T("x64")
 #endif
 
+#if _UNICODE
+const wchar_t *get_qsvenc_version();
+#else
+const char *get_qsvenc_version();
+#endif
+
 #if defined(_WIN32) || defined(_WIN64)
 
 #define ENABLE_FEATURE_COP3_AND_ABOVE 1
