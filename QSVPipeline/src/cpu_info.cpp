@@ -352,9 +352,6 @@ double getCPUMaxTurboClock(unsigned int num_thread) {
         resultClock = defaultClock;
     } else {
         uint64_t min_result = *std::min_element(list_of_result.begin(), list_of_result.end());
-        for (auto i : list_of_result) {
-            fprintf(stderr, "%d\n", (int)i);
-        }
         resultClock = (min_result) ? defaultClock * (double)(LOOP_COUNT * COUNT_OF_REPEAT * COUNT_OF_REPEAT * 2) / (double)min_result : defaultClock;
         resultClock = (std::max)(resultClock, defaultClock);
     }
