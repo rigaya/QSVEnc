@@ -1602,11 +1602,13 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
                 double max_write = *std::max_element(ram_write_speed_list.begin(), ram_write_speed_list.end()) * (1.0 / 1024.0);
                 add_tchar_to_buf(_T("%s: Read:%7.2fGB/s, Write:%7.2fGB/s\n"), type, max_read, max_write);
             }
+            return test_size > 0;
         };
-        write_rw_speed(_T("L1 "), cpuinfo.caches[0].size / 1024 / 8);
-        write_rw_speed(_T("L2 "), cpuinfo.caches[1].size / 1024 / 2);
-        write_rw_speed(_T("L3 "), cpuinfo.caches[2].size / 1024 / 2);
-        write_rw_speed(_T("RAM"), cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8);
+        add_ram_info = false;
+        add_ram_info |= write_rw_speed(_T("L1 "), cpuinfo.caches[0].size / 1024 / 8);
+        add_ram_info |= write_rw_speed(_T("L2 "), cpuinfo.caches[1].size / 1024 / 2);
+        add_ram_info |= write_rw_speed(_T("L3 "), cpuinfo.caches[2].size / 1024 / 2);
+        add_ram_info |= write_rw_speed(_T("RAM"), (cpuinfo.max_cache_level) ? cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8 : 0);
     }
     add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
     add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
