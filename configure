@@ -148,6 +148,12 @@ if ! cxx_check "" ; then
 fi
 echo "OK"
 
+if [ `echo | ${CXX} -E -dM - | egrep "WIN32|WIN64" | wc --lines` -ne 0 ]; then
+    echo "This script does not support Windows platform."
+    echo "For Windows, use Visual Studio."
+    exit 1 
+fi
+
 CXXFLAGS="-Wall -Wno-attributes -Wno-reorder -Wno-unknown-pragmas -Wno-unused -Wno-literal-suffix -DLINUX -DLINUX64 -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -m64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline/include -I${SRCDIR}/QSVPlugins"
 LDFLAGS="-L. -lpthread -lmfx -ldl -lstdc++"
 ASFLAGS="-I. -DARCH_X86_64=1 -f elf64"
