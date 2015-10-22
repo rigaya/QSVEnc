@@ -40,16 +40,16 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern void __stdcall read_sse(uint8_t *src, uint32_t size, uint32_t count_n);
-extern void __stdcall read_avx(uint8_t *src, uint32_t size, uint32_t count_n);
-extern void __stdcall write_sse(uint8_t *dst, uint32_t size, uint32_t count_n);
-extern void __stdcall write_avx(uint8_t *dst, uint32_t size, uint32_t count_n);
+extern void read_sse(uint8_t *src, uint32_t size, uint32_t count_n);
+extern void read_avx(uint8_t *src, uint32_t size, uint32_t count_n);
+extern void write_sse(uint8_t *dst, uint32_t size, uint32_t count_n);
+extern void write_avx(uint8_t *dst, uint32_t size, uint32_t count_n);
 #ifdef __cplusplus
 }
 #endif
 
 
-typedef void(__stdcall *func_ram_test)(uint8_t *dst, uint32_t size, uint32_t count_n);
+typedef void(*func_ram_test)(uint8_t *dst, uint32_t size, uint32_t count_n);
 
 void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_wk) {
     const int TEST_COUNT = 4;

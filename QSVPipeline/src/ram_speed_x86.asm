@@ -3,7 +3,7 @@ section .code
 
 section .text
 
-global _read_sse@12
+global _read_sse
 
 ;void __stdcall read_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -11,7 +11,7 @@ global _read_sse@12
 ;  [esp+12] uint32_t        count_n
 ;)
 
-    _read_sse@12:
+    _read_sse:
         push ebp
         push edi
         push esi
@@ -51,12 +51,12 @@ global _read_sse@12
         pop edi
         pop ebp
 
-        ret 12
+        ret
 
 
 
         
-global _read_avx@12
+global _read_avx
 
 ;void __stdcall read_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -64,7 +64,7 @@ global _read_avx@12
 ;  [esp+12] uint32_t        count_n
 ;)
 
-    _read_avx@12:
+    _read_avx:
         push ebp
         push edi
         push esi
@@ -106,10 +106,10 @@ global _read_avx@12
         pop edi
         pop ebp
 
-        ret 12
+        ret
 
 
-global _write_sse@12
+global _write_sse
 
 ;void __stdcall write_sse(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -117,7 +117,7 @@ global _write_sse@12
 ;  [esp+12] uint32_t        count_n
 ;)
 
-    _write_sse@12:
+    _write_sse:
         push ebp
         push edi
         push esi
@@ -157,11 +157,11 @@ global _write_sse@12
         pop edi
         pop ebp
 
-        ret 12
+        ret
 
 
 
-global _write_avx@12
+global _write_avx
 
 ;void __stdcall write_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
 ;  [esp+04] PIXEL_YC       *src
@@ -169,7 +169,7 @@ global _write_avx@12
 ;  [esp+12] uint32_t        count_n
 ;)
 
-_write_avx@12:
+_write_avx:
         push ebp
         push edi
         push esi
@@ -211,5 +211,5 @@ _write_avx@12:
         pop edi
         pop ebp
 
-        ret 12
+        ret
 
