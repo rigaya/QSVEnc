@@ -240,18 +240,25 @@ if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "alignas(16) int value[8] = { 0 };
 fi
 echo "OK"
 
-printf "checking for SSE4.2..."
-if cxx_check "${CXXFLAGS} -msse4.2 ${LDFLAGS}" ; then
+printf "checking for compiler SSE4.1 support..."
+if cxx_check "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
     if cxx_check "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
     elif cxx_check "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -msse4.2 -mpopcnt"
+        CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
     else
-        CXXFLAGS="$CXXFLAGS -msse4.2"
+        CXXFLAGS="$CXXFLAGS -msse4.1"
     fi
 else
-    echo "SSE4.2 not supported with this compiler." 
+    echo "SSE4.1 not supported with this compiler." 
     exit 1
+fi
+echo "OK"
+
+printf "checking for system SSE4.1 support..."
+if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
+    echo "System does not support SSE4.1."
+    exit 1 
 fi
 echo "OK"
 
