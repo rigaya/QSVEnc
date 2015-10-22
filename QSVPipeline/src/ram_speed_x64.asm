@@ -13,14 +13,20 @@ global read_sse
 ;)
 
 read_sse:
-        push rdi
-        push rsi
         push rbx
 
-        mov edi, 128
-        mov rsi, r8
+%ifdef LINUX
+        mov r9,  rdi
+        mov eax, esi
+        mov rsi, rdx
+%else
+        push rdi
+        push rsi
         mov r9,  rcx
         mov eax, edx
+        mov rsi, r8
+%endif
+        mov edi, 128
         shr eax, 7
         align 16
     .OUTER_LOOP:
@@ -45,9 +51,11 @@ read_sse:
         dec esi
         jnz .OUTER_LOOP
         
-        pop rbx
+%ifndef LINUX
         pop rsi
         pop rdi
+%endif
+        pop rbx
 
         ret
 
@@ -56,20 +64,27 @@ read_sse:
 global read_avx
 
 ;void __stdcall read_avx(uint8_t *src, uint32_t size, uint32_t count_n) (
-;  [rcx] PIXEL_YC       *src
-;  [rdx] uint32_t        size
-;  [r8]  uint32_t        count_n
+;  Win  Linux
+;  [rcx][rdi] PIXEL_YC       *src
+;  [rdx][rsi] uint32_t        size
+;  [r8] [rdx] uint32_t        count_n
 ;)
 
 read_avx:
-        push rdi
-        push rsi
         push rbx
 
-        mov edi, 256
-        mov rsi, r8
+%ifdef LINUX
+        mov r9,  rdi
+        mov eax, esi
+        mov rsi, rdx
+%else
+        push rdi
+        push rsi
         mov r9,  rcx
         mov eax, edx
+        mov rsi, r8
+%endif
+        mov edi, 256
         shr eax, 8
         align 16
     .OUTER_LOOP:
@@ -78,15 +93,15 @@ read_avx:
         add rdx, 128
         mov ecx, eax
     .INNER_LOOP:
-        movaps xmm0, [rbx];
-        movaps xmm1, [rbx+32];
-        movaps xmm2, [rbx+64];
-        movaps xmm3, [rbx+96];
+        vmovaps ymm0, [rbx];
+        vmovaps ymm1, [rbx+32];
+        vmovaps ymm2, [rbx+64];
+        vmovaps ymm3, [rbx+96];
         add rbx, rdi
-        movaps xmm4, [rdx];
-        movaps xmm5, [rdx+32];
-        movaps xmm6, [rdx+64];
-        movaps xmm7, [rdx+96];
+        vmovaps ymm4, [rdx];
+        vmovaps ymm5, [rdx+32];
+        vmovaps ymm6, [rdx+64];
+        vmovaps ymm7, [rdx+96];
         add rdx, rdi
         dec ecx
         jnz .INNER_LOOP
@@ -96,9 +111,11 @@ read_avx:
 
         vzeroupper
         
-        pop rbx
+%ifndef LINUX
         pop rsi
         pop rdi
+%endif
+        pop rbx
 
         ret
 
@@ -111,14 +128,20 @@ global write_sse
 ;)
 
 write_sse:
-        push rdi
-        push rsi
         push rbx
 
-        mov edi, 128
-        mov rsi, r8
+%ifdef LINUX
+        mov r9,  rdi
+        mov eax, esi
+        mov rsi, rdx
+%else
+        push rdi
+        push rsi
         mov r9,  rcx
         mov eax, edx
+        mov rsi, r8
+%endif
+        mov edi, 128
         shr eax, 7
         align 16
     .OUTER_LOOP:
@@ -143,10 +166,11 @@ write_sse:
         dec esi
         jnz .OUTER_LOOP
         
-        pop rbx
+%ifndef LINUX
         pop rsi
         pop rdi
-
+%endif
+        pop rbx
         ret
 
 
@@ -161,14 +185,20 @@ global write_avx
 ;)
 
 write_avx:
-        push rdi
-        push rsi
         push rbx
 
-        mov edi, 256
-        mov rsi, r8
+%ifdef LINUX
+        mov r9,  rdi
+        mov eax, esi
+        mov rsi, rdx
+%else
+        push rdi
+        push rsi
         mov r9,  rcx
         mov eax, edx
+        mov rsi, r8
+%endif
+        mov edi, 256
         shr eax, 8
         align 16
     .OUTER_LOOP:
@@ -196,7 +226,9 @@ write_avx:
         vzeroupper
         
         pop rbx
+%ifndef LINUX
         pop rsi
         pop rdi
+%endif
 
         ret
