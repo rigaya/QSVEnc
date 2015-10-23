@@ -16,23 +16,30 @@
 
 const TCHAR *get_qsvenc_version() {
     return _T("QSVEncC (") BUILD_ARCH_STR _T(") ") VER_STR_FILEVERSION_TCHAR
-        _T(" by rigaya, build ")  _T(__DATE__) _T(" ") _T(__TIME__)
+        _T(" by rigaya, ")  _T(__DATE__) _T(" ") _T(__TIME__)
 #if defined(_MSC_VER)
-        _T(" [VC ") _T(SSTRING(_MSC_VER))
+        _T(" (VC ") _T(SSTRING(_MSC_VER))
 #elif defined(__clang__)
-        _T(" [clang ") _T(SSTRING（__clang_major__) _T(".") _T(SSTRING(__clang_minor__)) _T(".") _T(SSTRING(__clang_patchlevel__))
+        _T(" (clang ") _T(SSTRING（__clang_major__) _T(".") _T(SSTRING(__clang_minor__)) _T(".") _T(SSTRING(__clang_patchlevel__))
 #elif defined(__GNUC__)
-        _T(" [gcc ") _T(SSTRING(__GNUC__)) _T(".") _T(SSTRING(__GNUC_MINOR__)) _T(".") _T(SSTRING(__GNUC_PATCHLEVEL__))
+        _T(" (gcc ") _T(SSTRING(__GNUC__)) _T(".") _T(SSTRING(__GNUC_MINOR__)) _T(".") _T(SSTRING(__GNUC_PATCHLEVEL__))
 #else
-        _T(" [unknown")
+        _T(" (unknown")
 #endif
-        _T("][")
+        _T("/")
 #ifdef _WIN32
-        _T("Win")
+        _T("Win/avx2")
 #elif  __linux
         _T("Linux")
+  #if defined(__AVX2__)
+        _T("/avx2")
+  #elif defined(__AVX__)
+        _T("/avx")
+  #else
+        _T("/sse4.2")
+  #endif
 #else
         _T("unknown")
 #endif
-        _T("]");
+        _T(")");
 }
