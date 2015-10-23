@@ -71,11 +71,7 @@ rm -f config.* .depend qsv_config.h
 PKGCONFIG="pkg-config"
 USE_PKGCONFIG=1
 
-CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat"
 ENABLE_DEBUG=0
-LIBVA_SUPPORT=1
-ENABLE_AVCODEC_QSV_READER=1
-ENABLE_VAPOURSYNTH=0
 CXX=g++
 LD=g++
 AS=yasm
@@ -85,10 +81,19 @@ EXTRACXXFLAGS=""
 EXTRALDFLAGS=""
 SRCS=""
 ASMS=""
-LIBAV_CFLAGS=""
-LIBAV_LIBS=""
 X86_64=1
 
+LIBVA_SUPPORT=1
+
+CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat"
+LIBAV_CFLAGS=""
+LIBAV_LIBS=""
+ENABLE_AVCODEC_QSV_READER=1
+
+CHECK_VAPOURSYNTH_NAMES="vapoursynth vapoursynth-script"
+ENABLE_VAPOURSYNTH=1
+VAPOURSYNTH_LIBS=""
+VAPOURSYNTH_CFLAGS=""
 
 SRCDIR=$(dirname "$0")
 if [ "${SRCDIR}" == "`pwd`" ]; then
@@ -327,16 +332,18 @@ if [ -n $EXTRALDFLAGS ]; then
     echo "OK"
 fi
 
-printf "checking libs by pkg-config..."
+printf "checking for pkg-config..."
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
 which $PKGCONFIG 2>/dev/null 1>/dev/null
 if [ $? -ne 0 ]; then
     echo "${PKGCONFIG} does not exist."
     USE_PKGCONFIG=0
 fi
+echo "OK"
 
 if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
     if [ $USE_PKGCONFIG -ne 0 ]; then
+        printf "checking libavcodec with pkg-config..."
         if ! ${PKGCONFIG} --exists $CHECK_LIBAV_NAMES ; then
             echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
         else
@@ -384,6 +391,39 @@ if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
         ENABLE_AVCODEC_QSV_READER=0
     else
         echo "yes"
+    fi
+    if [ $ENABLE_AVCODEC_QSV_READER -eq 0 ]; then
+        LIBAV_CFLAGS=""
+        LIBAV_LIBS=""
+    fi
+fi
+
+if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
+    printf "checking vapoursynth with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_VAPOURSYNTH_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        VAPOURSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_VAPOURSYNTH_NAMES}`
+        VAPOURSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_VAPOURSYNTH_NAMES}`
+    fi
+    printf "checking for VapourSynth.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VapourSynth.h" "" "" ; then
+        echo "no"
+        ENABLE_VAPOURSYNTH=0
+    else
+        echo "yes"
+    fi
+    printf "checking for VSScript.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VSScript.h" "" "vsscript_init();" ; then
+        echo "no"
+        ENABLE_VAPOURSYNTH=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_VAPOURSYNTH -eq 0 ]; then
+        VAPOURSYNTH_CFLAGS=""
+        VAPOURSYNTH_LIBS=""
     fi
 fi
 
@@ -472,8 +512,8 @@ write_config_mak "LD  = $LD"
 write_config_mak "AS  = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS"
-write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS"
+write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $VAPOURSYNTH_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
