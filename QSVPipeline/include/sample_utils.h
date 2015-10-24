@@ -120,6 +120,7 @@ public:
 
         //_ftprintf(stderr, "GetNextFrame: wait for %d\n", m_pEncThread->m_nFrameGet);
         //_ftprintf(stderr, "wait for heInputDone, %d\n", m_pEncThread->m_nFrameGet);
+        AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Wait Done %d.\n"), m_pEncThread->m_nFrameGet);
         WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
         //エラー・中断要求などでの終了
         if (m_pEncThread->m_bthForceAbort) {
@@ -161,6 +162,7 @@ public:
         //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_pEncThread->m_nFrameSet);
         pInputBuf->pFrameSurface = pSurface;
         SetEvent(pInputBuf->heInputStart);
+        AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_pEncThread->m_nFrameSet);
         m_pEncThread->m_nFrameSet++;
         return MFX_ERR_NONE;
     }

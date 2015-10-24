@@ -3159,6 +3159,7 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
         //PrintMes(QSV_LOG_INFO, _T("wait for heInputStart %d\n"), i);
 
         //空いているフレームがセットされるのを待機
+        PrintMes(QSV_LOG_TRACE, _T("Main Thread: Wait Start %d.\n"), i);
         while (WAIT_TIMEOUT == WaitForSingleObject(pInputBuf->heInputStart, 10000)) {
             //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
             if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
@@ -3176,6 +3177,7 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
         //PrintMes(QSV_LOG_INFO, _T("load next frame %d to %d\n"), i, pInputBuf->pFrameSurface);
 
         //フレームを読み込み
+        PrintMes(QSV_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
         if (!sts)
             sts = m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface);
         if (NULL != m_pAbortByUser && *m_pAbortByUser) {
@@ -3186,6 +3188,7 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
 
         //フレームの読み込み終了を通知
         SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
+        PrintMes(QSV_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
     }
     m_EncThread.WaitToFinish(sts, m_pQSVLog.get());
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
