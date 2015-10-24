@@ -851,6 +851,10 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
 
 mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId) {
     mfxU64 feature = 0x00;
+    //暫定的に、sw libのチェックを無効化する
+    if (!hardware) {
+        return feature;
+    }
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_0)) {
         ; //特にすることはない
     } else if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
