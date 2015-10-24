@@ -12,7 +12,7 @@
 
 #include "qsv_version.h"
 #if ENABLE_VAPOURSYNTH_READER
-#include <Windows.h>
+#include "qsv_osdep.h"
 #include "sample_utils.h"
 #include "VapourSynth.h"
 #include "VSScript.h"

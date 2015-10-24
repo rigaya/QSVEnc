@@ -22,10 +22,10 @@ CVSReader::CVSReader() {
     memset(m_pAsyncBuffer, 0, sizeof(m_pAsyncBuffer));
     memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
     memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
-    
+
     m_bAbortAsync = false;
     m_nCopyOfInputFrames = 0;
-    
+
     memset(&m_sVS, 0, sizeof(m_sVS));
     m_strReaderName = _T("vpy");
 }
@@ -35,17 +35,27 @@ CVSReader::~CVSReader() {
 }
 
 void CVSReader::release_vapoursynth() {
-    if (m_sVS.hVSScriptDLL)
+    if (m_sVS.hVSScriptDLL) {
+#if defined(_WIN32) || defined(_WIN64)
         FreeLibrary(m_sVS.hVSScriptDLL);
+#else
+        dlclose(m_sVS.hVSScriptDLL);
+#endif
+    }
 
     memset(&m_sVS, 0, sizeof(m_sVS));
 }
 
 int CVSReader::load_vapoursynth() {
     release_vapoursynth();
-    
-    if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(_T("vsscript.dll")))) {
-        AddMessage(QSV_LOG_ERROR, _T("Failed to load vsscript.dll.\n"));
+#if defined(_WIN32) || defined(_WIN64)
+    const TCHAR *vsscript_dll_name = _T("vsscript.dll");
+    if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(vsscript_dll_name))) {
+#else
+    const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
+    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY))) {
+#endif
+        AddMessage(QSV_LOG_ERROR, _T("Failed to load %s.\n"), vsscript_dll_name);
         return 1;
     }
 
@@ -63,7 +73,7 @@ int CVSReader::load_vapoursynth() {
     };
 
     for (auto vs_func : vs_func_list) {
-        if (NULL == (*(vs_func.first) = GetProcAddress(m_sVS.hVSScriptDLL, vs_func.second))) {
+        if (NULL == (*(vs_func.first) = QSV_GET_PROC_ADDRESS(m_sVS.hVSScriptDLL, vs_func.second))) {
             AddMessage(QSV_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
             return 1;
         }
@@ -87,9 +97,9 @@ void CVSReader::closeAsyncEvents() {
     }
     for (int i = 0; i < _countof(m_hAsyncEventFrameSetFin); i++) {
         if (m_hAsyncEventFrameSetFin[i])
-            CloseHandle(m_hAsyncEventFrameSetFin[i]);
+            CloseEvent(m_hAsyncEventFrameSetFin[i]);
         if (m_hAsyncEventFrameSetStart[i])
-            CloseHandle(m_hAsyncEventFrameSetStart[i]);
+            CloseEvent(m_hAsyncEventFrameSetStart[i]);
     }
     memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
     memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
@@ -108,7 +118,9 @@ void CVSReader::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
     SetEvent(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)]);
 
-    if (m_nAsyncFrames < *(int*)&m_inputFrameInfo.FrameId && !m_bAbortAsync) {
+    int nTotalFrame = 0;
+    memcpy(&nTotalFrame, &m_inputFrameInfo.FrameId, sizeof(nTotalFrame));
+    if (m_nAsyncFrames < nTotalFrame && !m_bAbortAsync) {
         m_sVSapi->getFrameAsync(m_nAsyncFrames, m_sVSnode, frameDoneCallback, this);
         m_nAsyncFrames++;
     }
@@ -135,7 +147,7 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
 #pragma warning(disable:4100)
 mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
     MSDK_CHECK_POINTER(strFileName, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_ERROR(_tclen(strFileName), 0, MFX_ERR_NULL_PTR);
+    MSDK_CHECK_ERROR(_tcslen(strFileName), 0, MFX_ERR_NULL_PTR);
 
     Close();
 
@@ -251,8 +263,9 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
         m_nAsyncFrames = 1;
     
     AddMessage(QSV_LOG_DEBUG, _T("VpyReader using %d async frames.\n"), m_nAsyncFrames);
-    for (int i = 0; i < m_nAsyncFrames; i++)
+    for (int i = 0; i < m_nAsyncFrames; i++) {
         m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
+    }
 
     tstring rev_info = _T("");
     tstring intputBitdepthStr = _T("");
@@ -316,7 +329,9 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxU16 CropRight = m_sInputCrop.right;
     mfxU16 CropBottom = m_sInputCrop.bottom;
 
-    if (m_pEncSatusInfo->m_nInputFrames >= *(DWORD*)&m_inputFrameInfo.FrameId)
+    uint32_t nTotalFrame = 0;
+    memcpy(&nTotalFrame, &m_inputFrameInfo.FrameId, sizeof(nTotalFrame));
+    if (m_pEncSatusInfo->m_nInputFrames >= nTotalFrame)
         return MFX_ERR_MORE_DATA;
 
     if (pInfo->CropH > 0 && pInfo->CropW > 0) {
