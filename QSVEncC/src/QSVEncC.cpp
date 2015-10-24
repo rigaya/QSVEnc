@@ -1564,22 +1564,25 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("d3d9"))) {
         pParams->memType = D3D9_MEMORY;
+        return MFX_ERR_NONE;
     }
 #if MFX_D3D11_SUPPORT
-    else if (0 == _tcscmp(option_name, _T("d3d11"))) {
+    if (0 == _tcscmp(option_name, _T("d3d11"))) {
         pParams->memType = D3D11_MEMORY;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("d3d"))) {
         pParams->memType = HW_MEMORY;
+        return MFX_ERR_NONE;
     }
 #else
-    else if (0 == _tcscmp(option_name, _T("d3d"))) {
+    if (0 == _tcscmp(option_name, _T("d3d"))) {
         pParams->memType = D3D9_MEMORY;
+        return MFX_ERR_NONE;
     }
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
-    else if (0 == _tcscmp(option_name, _T("async-depth"))) {
+    if (0 == _tcscmp(option_name, _T("async-depth"))) {
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_ASYNC_DEPTH_MAX < v) {
@@ -1587,9 +1590,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nAsyncDepth = (mfxU16)v;
+        return MFX_ERR_NONE;
     }
 #if ENABLE_SESSION_THREAD_CONFIG
-    else if (0 == _tcscmp(option_name, _T("session-threads"))) {
+    if (0 == _tcscmp(option_name, _T("session-threads"))) {
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_SESSION_THREAD_MAX < v) {
@@ -1609,9 +1613,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nSessionThreadPriority = (mfxU16)v;
+        return MFX_ERR_NONE;
     }
 #endif
-    else if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
+    if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDenoise)) {
             PrintHelp(strInput[0], _T("Unknown value"), option_name);
