@@ -70,19 +70,8 @@ uint32_t WaitForSingleObject(HANDLE ev, uint32_t millisec) {
         if (millisec == INFINITE) {
             event->cv.wait(uniq_lk, [&event]{ return event->bReady;});
         } else {
-            bool bTimeout = true;
-            auto tm = std::chrono::system_clock::now();
-            while (std::cv_status::timeout != event->cv.wait_for(uniq_lk, std::chrono::milliseconds(millisec))) {
-                if (event->bReady) {
-                    bTimeout = false;
-                    break;
-                }
-                auto tm_current = std::chrono::system_clock::now();
-                auto time_diff = (int)std::chrono::duration_cast<std::chrono::milliseconds>(tm_current - tm).count();
-                millisec -= (std::min)(time_diff, (int)millisec);
-                tm = tm_current;
-            }
-            if (bTimeout) {
+            event->cv.wait_for(uniq_lk, std::chrono::milliseconds(millisec), [&event]{ return event->bReady;});
+            if (!event->bReady) {
                 return WAIT_TIMEOUT;
             }
         }
