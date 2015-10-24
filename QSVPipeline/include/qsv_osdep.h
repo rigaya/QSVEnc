@@ -18,6 +18,8 @@
 #include <io.h>
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
+#define QSV_GET_PROC_ADDRESS GetProcAddress
+
 #else //#if defined(_WIN32) || defined(_WIN64)
 #include <sys/stat.h>
 #include <sys/times.h>
@@ -28,6 +30,7 @@
 #include <cstring>
 #include <pthread.h>
 #include <sched.h>
+#include <dlfcn.h>
 
 static inline void *_aligned_malloc(size_t size, size_t alignment) {
     void *p;
@@ -39,7 +42,10 @@ static inline void *_aligned_malloc(size_t size, size_t alignment) {
 typedef wchar_t WCHAR;
 typedef int BOOL;
 typedef void* HANDLE;
+typedef void* HMODULE;
 typedef int errno_t;
+
+#define QSV_GET_PROC_ADDRESS dlsym
 
 static uint32_t CP_THREAD_ACP = 0;
 static uint32_t CP_UTF8 = 0;
