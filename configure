@@ -140,7 +140,8 @@ for opt; do
             PKGCONFIG="$optarg"
             ;;
         *)
-            error_exit "unknown option $opt"
+            echo "unknown option $opt"
+            exit 1
             ;;
     esac
 done
