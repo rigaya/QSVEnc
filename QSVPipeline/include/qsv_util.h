@@ -417,7 +417,7 @@ const TCHAR *get_low_power_str(mfxU16 LowPower);
 
 mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size);
 
-static void __forceinline sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
+static void QSV_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
     uint8_t *dst_fin = dst + size;
     uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)dst_fin & ~15) - 64);
     __m128 x0, x1, x2, x3;

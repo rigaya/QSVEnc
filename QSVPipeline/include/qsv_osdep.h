@@ -11,6 +11,14 @@
 #define __QSV_OSDEP_H__
 
 #if defined(_WIN32) || defined(_WIN64)
+#define QSV_FORCEINLINE __forceinline
+#define QSV_NOINLINE __declspec(noinline)
+#else
+#define QSV_FORCEINLINE __attribute__((always_inline))
+#define QSV_NOINLINE __attribute__ ((noinline))
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
@@ -50,8 +58,6 @@ typedef int errno_t;
 static uint32_t CP_THREAD_ACP = 0;
 static uint32_t CP_UTF8 = 0;
 
-#define __forceinline __attribute__((always_inline))
-#define __declspec(noinline) __attribute__ ((noinline))
 #define __stdcall
 #define __fastcall
 
