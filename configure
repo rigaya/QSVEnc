@@ -113,7 +113,7 @@ for opt; do
         --asm=*)
             AS="$optarg"
             ;;
-        --extra-cflags=*)
+        --extra-cxxflags=*)
             EXTRACXXFLAGS="$optarg"
             ;;
         --extra-ldflags=*)
