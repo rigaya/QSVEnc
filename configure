@@ -165,7 +165,7 @@ if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
 fi
 
 CXXFLAGS="-Wall -Wno-attributes -Wno-reorder -Wno-unknown-pragmas -Wno-unused -Wno-literal-suffix -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline/include -I${SRCDIR}/QSVPlugins"
-LDFLAGS="-L. -lpthread -lmfx -ldl -lstdc++"
+LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
     ASFLAGS="${ASFLAGS} -f elf64 -DARCH_X86_64=1"
