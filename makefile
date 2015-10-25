@@ -32,8 +32,11 @@ distclean: clean
 	rm -f config.mak
 
 install:
+	install -d $(PREFIX)/bin
+	install -m 755 $(PROGRAM) $(PREFIX)/bin
 
 uninstall:
+	rm -f $(PREFIX)/bin/$(PROGRAM)
 
 config.mak:
 	./configure
