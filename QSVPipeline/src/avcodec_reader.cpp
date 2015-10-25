@@ -155,7 +155,7 @@ void CAvcodecReader::sortVideoPtsList() {
     FramePos *ptr = m_Demux.video.frameData.frame;
     std::sort(ptr + m_Demux.video.frameData.fixed_num, ptr + m_Demux.video.frameData.num,
         [](const FramePos& posA, const FramePos& posB) {
-        return (abs(posA.pts - posB.pts) < 0xFFFFFFFF) ? posA.pts < posB.pts : posB.pts < posA.pts; });
+        return ((uint32_t)std::abs(posA.pts - posB.pts) < 0xFFFFFFFF) ? posA.pts < posB.pts : posB.pts < posA.pts; });
 }
 
 void CAvcodecReader::addVideoPtsToList(FramePos pos) {
