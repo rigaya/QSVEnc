@@ -95,6 +95,30 @@ ENABLE_VAPOURSYNTH=1
 VAPOURSYNTH_LIBS=""
 VAPOURSYNTH_CFLAGS=""
 
+print_help()
+{
+cat << EOF
+Usage: ./configure [options]
+
+options:
+  -h, --help               print this message
+
+  --prefix=PREFIX          install qsvencc into PREFIX/bin [${PREFIX}]
+
+  --cxx=CXX                set C++ compiler path [${CXX}]
+  --asm=AS                 set assembler path [${AS}]
+  --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
+  --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
+
+  --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
+  --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
+
+  --disable-libva          disable libva support [auto]
+  --disable-libav          disable libav support [auto]
+  --disable-vapoursynth    disable vapoursynth support [auto]
+EOF
+}
+
 SRCDIR=$(dirname "$0")
 if [ "${SRCDIR}" == "`pwd`" ]; then
     SRCDIR=.
@@ -103,6 +127,14 @@ fi
 for opt; do
     optarg="${opt#*=}"
     case "$opt" in
+         -h)
+            print_help
+            exit 0
+            ;;
+         --help)
+            print_help
+            exit 0
+            ;;
         --prefix=*)
             PREFIX="$optarg"
             ;;
