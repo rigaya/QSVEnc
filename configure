@@ -191,7 +191,7 @@ printf "checking for c++11 support..."
 if cxx_check "${CXXFLAGS} -std=c++11 ${LDFLAGS}" ; then
     CXXFLAGS="$CXXFLAGS -std=c++11"
 else
-    echo $CXX does not work with -std=c++1y/c++14
+    echo $CXX does not work with -std=c++11
     exit 1
 fi
 echo "OK"
