@@ -187,7 +187,7 @@ protected:
     mfxVideoParam m_mfxEncParams;
     mfxVideoParam m_mfxVppParams;
     
-    std::auto_ptr<MFXVideoUSER>  m_pUserModule;
+    std::unique_ptr<MFXVideoUSER>  m_pUserModule;
 
     vector<mfxExtBuffer*> m_EncExtParams;
     vector<mfxExtBuffer*> m_VppExtParams;

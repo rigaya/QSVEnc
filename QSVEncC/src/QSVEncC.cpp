@@ -2182,7 +2182,7 @@ static int set_signal_handler() {
 int run_encode(sInputParams *params) {
     mfxStatus sts = MFX_ERR_NONE; // return value check
 
-    std::auto_ptr<CEncodingPipeline>  pPipeline; 
+    std::unique_ptr<CEncodingPipeline>  pPipeline;
     //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
     pPipeline.reset(new CEncodingPipeline);
     MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
