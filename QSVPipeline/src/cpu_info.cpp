@@ -76,7 +76,7 @@ static int getCPUName(char *buffer, size_t nSize) {
     if (0 < strlen(buffer)) {
         char *last_ptr = buffer + strlen(buffer) - 1;
         if (' ' == *last_ptr)
-            last_ptr = '\0';
+            *last_ptr = '\0';
     }
     return 0;
 }
