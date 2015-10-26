@@ -15,7 +15,7 @@
 #include <climits>
 #include <algorithm>
 #include <thread>
-#include <mutex>
+#include <atomic>
 #include <condition_variable>
 
 #include "cpu_info.h"
@@ -32,9 +32,8 @@ typedef struct {
 
 
 typedef struct {
-    bool ready;
-    std::mutex mtx;
-    std::condition_variable cv;
+    std::atomic<uint32_t> check_bit;
+    uint32_t check_bit_all;
 } RAM_SPEED_THREAD_WAKE;
 
 #ifdef __cplusplus
@@ -67,12 +66,11 @@ void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_
 
     const func_ram_test ram_test = RAM_TEST_LIST[avx][thread_prm->mode];
 
-    {
-        std::unique_lock<std::mutex> uniq_lk(thread_wk->mtx); // ここでロックされる
-        thread_wk->cv.wait(uniq_lk, [&thread_wk] { return thread_wk->ready; });
+    thread_wk->check_bit |= 1 << thread_prm->thread_id;
+    while (thread_wk->check_bit != thread_wk->check_bit_all) {
+        ram_test(ptr, check_size_bytes, (int)(warmup_kilo_bytes * 1024.0 / check_size_bytes + 0.5));
     }
 
-    ram_test(ptr, check_size_bytes, (int)(warmup_kilo_bytes * 1024.0 / check_size_bytes + 0.5));
     for (int i = 0; i < TEST_COUNT; i++) {
         auto start = std::chrono::high_resolution_clock::now();
         ram_test(ptr, check_size_bytes, count_n);
@@ -95,23 +93,23 @@ double ram_speed_mt(int check_size_kilobytes, int mode, int thread_n) {
     RAM_SPEED_THREAD_WAKE thread_wake;
     cpu_info_t cpu_info;
     get_cpu_info(&cpu_info);
+
+    thread_wake.check_bit = 0;
+    thread_wake.check_bit_all = 0;
+    for (uint32_t i = 0; i < threads.size(); i++) {
+        thread_wake.check_bit_all |= 1 << ram_speed_thread_id(i, cpu_info);
+    }
     for (uint32_t i = 0; i < threads.size(); i++) {
         thread_prm[i].physical_cores = cpu_info.physical_cores;
         thread_prm[i].mode = (mode == RAM_SPEED_MODE_RW) ? (i & 1) : mode;
         thread_prm[i].check_size_bytes = (check_size_kilobytes * 1024 / thread_n + 255) & ~255;
-        thread_prm[i].thread_id = (i % cpu_info.physical_cores) * (cpu_info.logical_cores / cpu_info.physical_cores) + (int)(i / cpu_info.physical_cores);
+        thread_prm[i].thread_id = ram_speed_thread_id(i, cpu_info);
         threads[i] = std::thread(ram_speed_func, &thread_prm[i], &thread_wake);
         //渡されたスレッドIDからスレッドAffinityを決定
         //特定のコアにスレッドを縛り付ける
         SetThreadAffinityMask(threads[i].native_handle(), 1 << (int)thread_prm[i].thread_id);
         //高優先度で実行
         SetThreadPriority(threads[i].native_handle(), THREAD_PRIORITY_HIGHEST);
-    }
-    
-    { //スレッドを起動
-        std::unique_lock<std::mutex> lock(thread_wake.mtx);
-        thread_wake.ready = true;
-        thread_wake.cv.notify_all();
     }
     for (uint32_t i = 0; i < threads.size(); i++) {
         threads[i].join();
