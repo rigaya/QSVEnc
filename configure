@@ -68,6 +68,10 @@ ENABLE_VAPOURSYNTH=1
 VAPOURSYNTH_LIBS=""
 VAPOURSYNTH_CFLAGS=""
 
+CHECK_AVXSYNTH_NAMES="avxsynth"
+ENABLE_AVXSYNTH=1
+AVXSYNTH_CFLAGS=""
+
 print_help()
 {
 cat << EOF
@@ -433,6 +437,29 @@ if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     fi
 fi
 
+
+if [ $ENABLE_AVXSYNTH -ne 0 ]; then
+    printf "checking avxsynth with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_AVXSYNTH_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        AVXSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_AVXSYNTH_NAMES}`
+        AVXSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_AVXSYNTH_NAMES}`
+    fi
+    printf "checking for avxsynth_c.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVXSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVXSYNTH_LIBS}" "" "avxsynth_c.h" "" ; then
+        echo "no"
+        ENABLE_AVXSYNTH=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_AVXSYNTH -eq 0 ]; then
+        AVXSYNTH_CFLAGS=""
+        AVXSYNTH_LIBS=""
+    fi
+fi
+
 SRC_MFX_DISPATCH=" \
 main.cpp                   mfx_critical_section.cpp  mfx_critical_section_linux.cpp \
 mfx_dispatcher.cpp         mfx_dispatcher_log.cpp    mfx_dxva2_device.cpp \
@@ -518,13 +545,13 @@ write_config_mak "LD  = $LD"
 write_config_mak "AS  = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
 write_qsv_config "#define ENABLE_AVI_READER             0"
-write_qsv_config "#define ENABLE_AVISYNTH_READER        0"
+write_qsv_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_qsv_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
 write_qsv_config "#define ENABLE_AVCODEC_QSV_READER     $ENABLE_AVCODEC_QSV_READER"
 write_qsv_config "#define ENABLE_CUSTOM_VPP             0"
