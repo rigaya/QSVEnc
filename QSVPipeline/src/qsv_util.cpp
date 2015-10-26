@@ -1568,8 +1568,8 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) {
-    memset(buf, 0, sizeof(buf[0]) * buffer_size);
+tstring getEnviromentInfo(bool add_ram_info) {
+    tstring buf;
 
     TCHAR cpu_info[1024] = { 0 };
     getCPUInfo(cpu_info, _countof(cpu_info));
@@ -1580,17 +1580,9 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
 
-    auto add_tchar_to_buf = [buf, buffer_size](const TCHAR *fmt, ...) {
-        unsigned int buf_length = (unsigned int)_tcslen(buf);
-        va_list args;
-        va_start(args, fmt);
-        _vstprintf_s(buf + buf_length, buffer_size - buf_length, fmt, args);
-        va_end(args);
-    };
-
-    add_tchar_to_buf(_T("Environment Info\n"));
-    add_tchar_to_buf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
-    add_tchar_to_buf(_T("CPU: %s\n"), cpu_info);
+    buf += _T("Environment Info\n");
+    buf += strsprintf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
+    buf += strsprintf(_T("CPU: %s\n"), cpu_info);
     if (add_ram_info) {
         cpu_info_t cpuinfo;
         get_cpu_info(&cpuinfo);
@@ -1600,7 +1592,7 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
                 auto ram_write_speed_list = ram_speed_mt_list(test_size, RAM_SPEED_MODE_WRITE);
                 double max_read  = *std::max_element(ram_read_speed_list.begin(), ram_read_speed_list.end())  * (1.0 / 1024.0);
                 double max_write = *std::max_element(ram_write_speed_list.begin(), ram_write_speed_list.end()) * (1.0 / 1024.0);
-                add_tchar_to_buf(_T("%s: Read:%7.2fGB/s, Write:%7.2fGB/s\n"), type, max_read, max_write);
+                buf += strsprintf(_T("%s: Read:%7.2fGB/s, Write:%7.2fGB/s\n"), type, max_read, max_write);
             }
             return test_size > 0;
         };
@@ -1610,8 +1602,9 @@ void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info) 
         add_ram_info |= write_rw_speed(_T("L3 "), cpuinfo.caches[2].size / 1024 / 2);
         add_ram_info |= write_rw_speed(_T("RAM"), (cpuinfo.max_cache_level) ? cpuinfo.caches[cpuinfo.max_cache_level-1].size / 1024 * 8 : 0);
     }
-    add_tchar_to_buf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
-    add_tchar_to_buf(_T("GPU: %s\n"), gpu_info);
+    buf += strsprintf(_T("%s Used %d MB, Total %d MB\n"), (add_ram_info) ? _T("    ") : _T("RAM:"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
+    buf += strsprintf(_T("GPU: %s\n"), gpu_info);
+    return buf;
 }
 
 mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size) {

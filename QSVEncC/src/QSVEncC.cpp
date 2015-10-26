@@ -600,9 +600,7 @@ static int writeFeatureList(tstring filename) {
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(_T("<hr>\n"), false);
     }
-    TCHAR buffer[4096];
-    getEnviromentInfo(buffer, _countof(buffer), false);
-    print_tstring(buffer, true);
+    print_tstring(getEnviromentInfo(false), true);
 
     mfxVersion test = { 0, 1 };
     for (int impl_type = 0; impl_type < 2; impl_type++) {
@@ -1962,10 +1960,7 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
         if (0 == _tcscmp(option_name, _T("check-environment")))
         {
             PrintVersion();
-
-            TCHAR buffer[4096];
-            getEnviromentInfo(buffer, _countof(buffer));
-            _ftprintf(stdout, buffer);
+            _ftprintf(stdout, getEnviromentInfo().c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-features")))
@@ -2264,8 +2259,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         mfxVersion ver;
         pPipeline->GetEncodeLibInfo(&ver, &hardware);
 
-        msdk_char enviroment_info[4096] = { 0 };
-        getEnviromentInfo(enviroment_info, _countof(enviroment_info));
+        auto enviroment_info = getEnviromentInfo();
 
         MemType memtype = pPipeline->GetMemType();
 

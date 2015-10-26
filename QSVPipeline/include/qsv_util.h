@@ -396,7 +396,7 @@ bool check_if_d3d11_necessary();
 tstring getOSVersion();
 BOOL is_64bit_os();
 uint64_t getPhysicalRamSize(uint64_t *ramUsed);
-void getEnviromentInfo(TCHAR *buf, unsigned int buffer_size, bool add_ram_info = true);
+tstring getEnviromentInfo(bool add_ram_info = true);
 void adjust_sar(int *sar_w, int *sar_h, int width, int height);
 
 //拡張子が一致するか確認する
