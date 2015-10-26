@@ -494,7 +494,7 @@ public:
 
     virtual mfxStatus InitDuplicate(const msdk_char *strFileName);
     virtual mfxStatus JoinDuplicate(CSmplBitstreamDuplicateWriter *pJoinee);
-    virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream, bool isPrint = true);
+    virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream);
     virtual void Close();
 protected:
     FILE*     m_fSourceDuplicate;

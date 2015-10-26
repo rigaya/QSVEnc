@@ -3919,8 +3919,8 @@ void CQSVLog::writeHtmlHeader() {
             L"</style>\n"
             L"</head>\n"
             L"<body>\n";
-        fprintf(fp, wstring_to_string(header, CP_UTF8).c_str());
-        fprintf(fp, HTML_FOOTER);
+        fprintf(fp, "%s", wstring_to_string(header, CP_UTF8).c_str());
+        fprintf(fp, "%s", HTML_FOOTER);
         fclose(fp);
     }
 }

@@ -576,16 +576,16 @@ static int writeFeatureList(tstring filename) {
 
     auto print_tstring = [&](tstring str, bool html_replace) {
         if (type == FEATURE_LIST_STR_TYPE_TXT) {
-            _ftprintf(fp, str.c_str());
+            _ftprintf(fp, _T("%s"), str.c_str());
         } else if (type == FEATURE_LIST_STR_TYPE_CSV) {
-            fprintf(fp, tchar_to_string(str, codepage).c_str());
+            fprintf(fp, _T("%s"), tchar_to_string(str, codepage).c_str());
         } else {
             if (html_replace) {
                 str = str_replace(str, _T("<"),  _T("&lt;"));
                 str = str_replace(str, _T(">"),  _T("&gt;"));
                 str = str_replace(str, _T("\n"), _T("<br>\n"));
             }
-            fprintf(fp, tchar_to_string(str, codepage).c_str());
+            fprintf(fp, _T("%s"), tchar_to_string(str, codepage).c_str());
         }
     };
 
@@ -1960,7 +1960,7 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
         if (0 == _tcscmp(option_name, _T("check-environment")))
         {
             PrintVersion();
-            _ftprintf(stdout, getEnviromentInfo().c_str());
+            _ftprintf(stdout, _T("%s"), getEnviromentInfo().c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-features")))
@@ -2274,7 +2274,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             fprintf(fp_bench, "Basic parameters of the benchmark\n"
                               " (Target Usage and output resolution will be changed)\n");
             fprintf(fp_bench, "%s\n\n", tchar_to_string(encode_info).c_str());
-            fprintf(fp_bench, tchar_to_string(enviroment_info).c_str());
+            fprintf(fp_bench, "%s", tchar_to_string(enviroment_info).c_str());
             fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n", 
                 VER_STR_FILEVERSION, tchar_to_string(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor, tchar_to_string(MemTypeToStr(memtype)).c_str());
             fprintf(fp_bench, "\n");
