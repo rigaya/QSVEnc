@@ -55,6 +55,7 @@ EXTRALDFLAGS=""
 SRCS=""
 ASMS=""
 X86_64=1
+NO_RDTSCP_INTRIN=0
 
 LIBVA_SUPPORT=1
 
@@ -290,6 +291,14 @@ if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
     exit 1 
 fi
 echo "OK"
+
+printf "checking for __rdtscp()..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
+    CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
+    echo "no"
+else
+    echo "yes"
+fi
 
 if [ ! $ENABLE_DEBUG -eq 0 ]; then
     echo "configuring for debug..."

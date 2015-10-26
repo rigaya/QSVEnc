@@ -19,6 +19,8 @@
 #include "qsv_tchar.h"
 #ifdef _MSC_VER
 #include <intrin.h>
+#else
+#include <x86intrin.h>
 #endif
 #include <emmintrin.h>
 #include "qsv_osdep.h"
