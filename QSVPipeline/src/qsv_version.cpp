@@ -20,7 +20,7 @@ const TCHAR *get_qsvenc_version() {
 #if defined(_MSC_VER)
         _T(" (VC ") _T(SSTRING(_MSC_VER))
 #elif defined(__clang__)
-        _T(" (clang ") _T(SSTRING（__clang_major__) _T(".") _T(SSTRING(__clang_minor__)) _T(".") _T(SSTRING(__clang_patchlevel__))
+        _T(" (clang ") _T(SSTRING(__clang_major__)) _T(".") _T(SSTRING(__clang_minor__)) _T(".") _T(SSTRING(__clang_patchlevel__))
 #elif defined(__GNUC__)
         _T(" (gcc ") _T(SSTRING(__GNUC__)) _T(".") _T(SSTRING(__GNUC_MINOR__)) _T(".") _T(SSTRING(__GNUC_PATCHLEVEL__))
 #else
