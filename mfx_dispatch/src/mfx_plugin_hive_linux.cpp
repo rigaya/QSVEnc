@@ -44,9 +44,9 @@ File Name: mfx_plugin_hive_linux.cpp
 #include <dlfcn.h>
 #include <sys/stat.h>
 
-#define TRACE_HIVE_ERROR(str, ...) DISPATCHER_LOG_ERROR((("[HIVE]: "str), __VA_ARGS__))
-#define TRACE_HIVE_INFO(str, ...) DISPATCHER_LOG_INFO((("[HIVE]: "str), __VA_ARGS__))
-#define TRACE_HIVE_WRN(str, ...) DISPATCHER_LOG_WRN((("[HIVE]: "str), __VA_ARGS__))
+#define TRACE_HIVE_ERROR(str, ...) DISPATCHER_LOG_ERROR((("[HIVE]: " str), __VA_ARGS__))
+#define TRACE_HIVE_INFO(str, ...) DISPATCHER_LOG_INFO((("[HIVE]: " str), __VA_ARGS__))
+#define TRACE_HIVE_WRN(str, ...) DISPATCHER_LOG_WRN((("[HIVE]: " str), __VA_ARGS__))
 
 namespace 
 {
@@ -101,49 +101,49 @@ static bool CheckPluginRecord(PluginDescriptionRecord & descriptionRecord, mfxU3
     {
         return false;
     }        
-    TRACE_HIVE_INFO(alignStr()" : %d\n", TypeKeyName, descriptionRecord.Type);
+    TRACE_HIVE_INFO(alignStr() " : %d\n", TypeKeyName, descriptionRecord.Type);
 
     if (isFieldMissed(foundFields, requiredFields, PluginConfigParser::PARSED_CODEC_ID)) 
     {
-        TRACE_HIVE_INFO(alignStr()" : "MFXFOURCCTYPE()" \n", CodecIDKeyName, MFXU32TOFOURCC(descriptionRecord.CodecId));
+        TRACE_HIVE_INFO(alignStr() " : " MFXFOURCCTYPE() " \n", CodecIDKeyName, MFXU32TOFOURCC(descriptionRecord.CodecId));
     }
     else
     {
-        TRACE_HIVE_INFO(alignStr()" : \n", CodecIDKeyName, "NOT REGISTERED");
+        TRACE_HIVE_INFO(alignStr() " : \n", CodecIDKeyName, "NOT REGISTERED");
     }
 
     if (isFieldMissed(foundFields, requiredFields, PluginConfigParser::PARSED_UID)) 
     {
         return false;
     }
-    TRACE_HIVE_INFO(alignStr()" : "MFXGUIDTYPE()"\n", GUIDKeyName, MFXGUIDTOHEX(&descriptionRecord.PluginUID));
+    TRACE_HIVE_INFO(alignStr() " : " MFXGUIDTYPE() "\n", GUIDKeyName, MFXGUIDTOHEX(&descriptionRecord.PluginUID));
 
     if (isFieldMissed(foundFields, requiredFields, PluginConfigParser::PARSED_PATH)) 
     {
         TRACE_HIVE_WRN("no value for : %s\n", PathKeyName);
         return false;
     }
-    TRACE_HIVE_INFO(alignStr()" : %s\n", PathKeyName, descriptionRecord.sPath);
+    TRACE_HIVE_INFO(alignStr() " : %s\n", PathKeyName, descriptionRecord.sPath);
 
     if (isFieldMissed(foundFields, requiredFields, PluginConfigParser::PARSED_DEFAULT)) 
     {
         return false;
     }
-    TRACE_HIVE_INFO(alignStr()" : %s\n", DefaultKeyName, descriptionRecord.Default ? "true" : "false");
+    TRACE_HIVE_INFO(alignStr() " : %s\n", DefaultKeyName, descriptionRecord.Default ? "true" : "false");
 
     if (isFieldMissed(foundFields, requiredFields, PluginConfigParser::PARSED_VERSION)) 
     {
-        TRACE_HIVE_ERROR(alignStr()" : %d, which is invalid\n", PlgVerKeyName, descriptionRecord.PluginVersion);
+        TRACE_HIVE_ERROR(alignStr() " : %d, which is invalid\n", PlgVerKeyName, descriptionRecord.PluginVersion);
         return false;
     } 
-    TRACE_HIVE_INFO(alignStr()" : %d\n", PlgVerKeyName, descriptionRecord.PluginVersion);
+    TRACE_HIVE_INFO(alignStr() " : %d\n", PlgVerKeyName, descriptionRecord.PluginVersion);
 
     if (isFieldMissed(foundFields, requiredFields, PluginConfigParser::PARSED_API_VERSION)) 
     {
-        TRACE_HIVE_ERROR(alignStr()" : %d.%d, which is invalid\n", APIVerKeyName, descriptionRecord.APIVersion.Major, descriptionRecord.APIVersion.Minor);
+        TRACE_HIVE_ERROR(alignStr() " : %d.%d, which is invalid\n", APIVerKeyName, descriptionRecord.APIVersion.Major, descriptionRecord.APIVersion.Minor);
         return false;
     }
-    TRACE_HIVE_INFO(alignStr()" : %d.%d\n", APIVerKeyName, descriptionRecord.APIVersion.Major, descriptionRecord.APIVersion.Minor);
+    TRACE_HIVE_INFO(alignStr() " : %d.%d\n", APIVerKeyName, descriptionRecord.APIVersion.Major, descriptionRecord.APIVersion.Minor);
 
     return true;
 }
