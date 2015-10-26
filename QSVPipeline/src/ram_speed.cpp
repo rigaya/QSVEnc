@@ -56,6 +56,8 @@ void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_
     const uint32_t test_kilo_bytes   = (uint32_t)(((thread_prm->mode == RAM_SPEED_MODE_READ) ? 1 : 0.5) * thread_prm->physical_cores * 1024 * 1024 / (std::max)(1.0, log2(check_size_bytes / 1024.0)) + 0.5);
     const uint32_t warmup_kilo_bytes = test_kilo_bytes * 2;
     uint8_t *ptr = (uint8_t *)_aligned_malloc(check_size_bytes, 64);
+    for (uint32_t i = 0; i < check_size_bytes; i++)
+        ptr[i] = 0;
     uint32_t count_n = (int)(test_kilo_bytes * 1024.0 / check_size_bytes + 0.5);
     int avx = 0 != (get_availableSIMD() & AVX);
     int64_t result[TEST_COUNT];
@@ -85,6 +87,10 @@ void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_
         time_min = (std::min)(time_min, result[i]);
 
     thread_prm->megabytes_per_sec = (check_size_bytes * (double)count_n / (1024.0 * 1024.0)) / (time_min * 0.000001);
+}
+
+int ram_speed_thread_id(int thread_index, const cpu_info_t& cpu_info) {
+    return (thread_index % cpu_info.physical_cores) * (cpu_info.logical_cores / cpu_info.physical_cores) + (int)(thread_index / cpu_info.physical_cores);
 }
 
 double ram_speed_mt(int check_size_kilobytes, int mode, int thread_n) {

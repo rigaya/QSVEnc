@@ -1960,7 +1960,7 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
         if (0 == _tcscmp(option_name, _T("check-environment")))
         {
             PrintVersion();
-            _ftprintf(stdout, _T("%s"), getEnviromentInfo().c_str());
+            _ftprintf(stdout, _T("%s"), getEnviromentInfo(true).c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-features")))
