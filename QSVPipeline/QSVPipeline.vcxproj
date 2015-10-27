@@ -344,6 +344,7 @@
     <ClCompile Include="src\qsv_prm.cpp" />
     <ClCompile Include="src\qsv_simd.cpp" />
     <ClCompile Include="src\qsv_util.cpp" />
+    <ClCompile Include="src\qsv_version.cpp" />
     <ClCompile Include="src\ram_speed.cpp" />
     <ClCompile Include="src\sample_utils.cpp" />
     <ClCompile Include="src\scene_change_detection.cpp" />
