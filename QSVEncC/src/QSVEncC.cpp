@@ -578,14 +578,14 @@ static int writeFeatureList(tstring filename) {
         if (type == FEATURE_LIST_STR_TYPE_TXT) {
             _ftprintf(fp, _T("%s"), str.c_str());
         } else if (type == FEATURE_LIST_STR_TYPE_CSV) {
-            fprintf(fp, _T("%s"), tchar_to_string(str, codepage).c_str());
+            fprintf(fp, "%s", tchar_to_string(str, codepage).c_str());
         } else {
             if (html_replace) {
                 str = str_replace(str, _T("<"),  _T("&lt;"));
                 str = str_replace(str, _T(">"),  _T("&gt;"));
                 str = str_replace(str, _T("\n"), _T("<br>\n"));
             }
-            fprintf(fp, _T("%s"), tchar_to_string(str, codepage).c_str());
+            fprintf(fp, "%s", tchar_to_string(str, codepage).c_str());
         }
     };
 
