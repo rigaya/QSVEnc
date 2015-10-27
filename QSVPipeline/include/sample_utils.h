@@ -30,6 +30,7 @@ Copyright(c) 2005-2015 Intel Corporation. All Rights Reserved.
 #include "sample_defs.h"
 #include "qsv_prm.h"
 #include "qsv_control.h"
+#include "qsv_event.h"
 #include "convert_csp.h"
 
 using std::vector;
@@ -119,6 +120,7 @@ public:
 
         //_ftprintf(stderr, "GetNextFrame: wait for %d\n", m_pEncThread->m_nFrameGet);
         //_ftprintf(stderr, "wait for heInputDone, %d\n", m_pEncThread->m_nFrameGet);
+        AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Wait Done %d.\n"), m_pEncThread->m_nFrameGet);
         WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
         //エラー・中断要求などでの終了
         if (m_pEncThread->m_bthForceAbort) {
@@ -160,6 +162,7 @@ public:
         //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_pEncThread->m_nFrameSet);
         pInputBuf->pFrameSurface = pSurface;
         SetEvent(pInputBuf->heInputStart);
+        AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_pEncThread->m_nFrameSet);
         m_pEncThread->m_nFrameSet++;
         return MFX_ERR_NONE;
     }
@@ -422,14 +425,14 @@ public:
 private:
     mfxBitstream *m_processedBS;
     // input bit stream
-    std::auto_ptr<mfxBitstream>  m_originalBS;
+    std::unique_ptr<mfxBitstream>  m_originalBS;
 
     mfxStatus PrepareNextFrame(mfxBitstream *in, mfxBitstream **out);
 
     // is stream ended
     bool m_isEndOfStream;
 
-    std::auto_ptr<AbstractSplitter> m_pNALSplitter;
+    std::unique_ptr<AbstractSplitter> m_pNALSplitter;
     FrameSplitterInfo *m_frame;
     mfxU8 *m_plainBuffer;
     mfxU32 m_plainBufferSize;
@@ -491,7 +494,7 @@ public:
 
     virtual mfxStatus InitDuplicate(const msdk_char *strFileName);
     virtual mfxStatus JoinDuplicate(CSmplBitstreamDuplicateWriter *pJoinee);
-    virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream, bool isPrint = true);
+    virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream);
     virtual void Close();
 protected:
     FILE*     m_fSourceDuplicate;
@@ -933,7 +936,7 @@ template<size_t S>
     {
     #if defined(_WIN32) || defined(_WIN64)
         return (0 == _tcscpy_s(value, string))? MFX_ERR_NONE: MFX_ERR_UNKNOWN;
-    #else
+    #else //#if defined(_WIN32) || defined(_WIN64)
         if (strlen(string) < S) {
             strncpy(value, string, S);
             return MFX_ERR_NONE;

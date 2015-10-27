@@ -155,7 +155,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -175,7 +175,7 @@
     </PreLinkEvent>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>..\QSVEnc\QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -203,7 +203,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -223,7 +223,7 @@
     </PreLinkEvent>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>..\QSVEnc\QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -254,7 +254,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -274,7 +274,7 @@
     </PreLinkEvent>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -302,7 +302,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -322,7 +322,7 @@
     </PreLinkEvent>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -352,7 +352,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -371,7 +371,7 @@
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>..\QSVEnc\QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -405,7 +405,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -424,7 +424,7 @@
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>..\QSVEnc\QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -461,7 +461,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -479,7 +479,7 @@
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -514,7 +514,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\Media SDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -532,7 +532,7 @@
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\Media SDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ModuleDefinitionFile>QSVEnc.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -640,6 +640,7 @@
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="QSVEnc.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>

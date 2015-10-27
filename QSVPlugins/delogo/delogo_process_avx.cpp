@@ -14,6 +14,7 @@
 #define USE_AVX2   0
 #define USE_FMA3   0
 #define USE_POPCNT 1
+#if defined(_MSC_VER) || defined(__AVX__)
 #include "delogo_process_simd.h"
 #include "delogo_process.h"
 
@@ -21,13 +22,13 @@
 static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
 #endif
 
-static __declspec(noinline) void process_delogo_frame_avx(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
+static QSV_NOINLINE void process_delogo_frame_avx(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
     mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
     process_delogo_frame(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
 }
 
 template<mfxU32 step>
-static __declspec(noinline) void process_delogo_avx(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
+static QSV_NOINLINE void process_delogo_avx(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
     process_delogo<step>(ptr, pitch, buffer, height_start, height_fin, data);
 }
 
@@ -87,3 +88,6 @@ mfxStatus DelogoProcessD3DAVX::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 
     return UnlockFrame(m_pOut);
 }
+
+#endif //#if defined(_MSC_VER) || defined(__AVX__)
+

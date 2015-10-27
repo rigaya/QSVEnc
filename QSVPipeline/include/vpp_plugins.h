@@ -7,6 +7,8 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 #pragma once
+#ifndef __VPP_PLUGINS_H__
+#define __VPP_PLUGINS_H__
 
 #include <memory>
 #include "sample_utils.h"
@@ -244,3 +246,6 @@ private:
     tstring                        m_message;             //このカスタムVPPからのメッセージ
     CQSVLog                       *m_pQSVLog;            //ログ出力用関数オブジェクト
 };
+
+#endif //__VPP_PLUGINS_H__
+

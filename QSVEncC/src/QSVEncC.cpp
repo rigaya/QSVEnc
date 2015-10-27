@@ -11,9 +11,9 @@
 //      modified from sample_encode.cpp by rigaya 
 //  -----------------------------------------------------------------------------------------
 
-#include <io.h>
+
 #include <fcntl.h>
-#include <Math.h>
+#include <math.h>
 #include <signal.h>
 #include <cassert>
 #include <fstream>
@@ -22,8 +22,11 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
-#include "shlwapi.h"
-#pragma comment(lib, "shlwapi.lib")
+#include <ctime>
+#include "qsv_osdep.h"
+#if defined(_WIN32) || defined(_WIN64)
+#include <shellapi.h>
+#endif
 
 #include "pipeline_encode.h"
 #include "qsv_prm.h"
@@ -37,7 +40,8 @@ tstring getAVQSVSupportedCodecList();
 static tstring GetQSVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
     tstring version;
-    version += strsprintf(_T("QSVEncC (%s) %s by rigaya, build %s %s\n"), BUILD_ARCH_STR, VER_STR_FILEVERSION_TCHAR, _T(__DATE__), _T(__TIME__));
+    version += get_qsvenc_version();
+    version += _T("\n");
     version += strsprintf(_T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
     version += strsprintf(_T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
     version += strsprintf(_T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
@@ -457,8 +461,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
         _ftprintf(stdout, _T("\n")
             _T("   --benchmark <string>         run in benchmark mode\n")
             _T("                                 and write result in txt file\n")
+#if defined(_WIN32) || defined(_WIN64)
             _T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
             _T("                                  default: enabled\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
             );
     }
 }
@@ -478,6 +484,9 @@ static int getFreeAudioTrack(const sInputParams* pParams) {
             return iTrack;
         }
     }
+#ifndef _MSC_VER
+    return -1;
+#endif //_MSC_VER
 }
 
 static int writeFeatureList(tstring filename) {
@@ -549,7 +558,7 @@ static int writeFeatureList(tstring filename) {
         _T("</head>\n")
         _T("<body>\n");
 
-    DWORD codepage = CP_THREAD_ACP;
+    uint32_t codepage = CP_THREAD_ACP;
     FeatureListStrType type = FEATURE_LIST_STR_TYPE_TXT;
     if (check_ext(filename.c_str(), { ".html", ".htm" })) {
         type = FEATURE_LIST_STR_TYPE_HTML;
@@ -567,16 +576,16 @@ static int writeFeatureList(tstring filename) {
 
     auto print_tstring = [&](tstring str, bool html_replace) {
         if (type == FEATURE_LIST_STR_TYPE_TXT) {
-            _ftprintf(fp, str.c_str());
+            _ftprintf(fp, _T("%s"), str.c_str());
         } else if (type == FEATURE_LIST_STR_TYPE_CSV) {
-            fprintf(fp, tchar_to_string(str, codepage).c_str());
+            fprintf(fp, "%s", tchar_to_string(str, codepage).c_str());
         } else {
             if (html_replace) {
                 str = str_replace(str, _T("<"),  _T("&lt;"));
                 str = str_replace(str, _T(">"),  _T("&gt;"));
                 str = str_replace(str, _T("\n"), _T("<br>\n"));
             }
-            fprintf(fp, tchar_to_string(str, codepage).c_str());
+            fprintf(fp, "%s", tchar_to_string(str, codepage).c_str());
         }
     };
 
@@ -591,9 +600,7 @@ static int writeFeatureList(tstring filename) {
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(_T("<hr>\n"), false);
     }
-    TCHAR buffer[4096];
-    getEnviromentInfo(buffer, _countof(buffer), false);
-    print_tstring(buffer, true);
+    print_tstring(getEnviromentInfo(false), true);
 
     mfxVersion test = { 0, 1 };
     for (int impl_type = 0; impl_type < 2; impl_type++) {
@@ -617,10 +624,12 @@ static int writeFeatureList(tstring filename) {
     }
     if (filename.length() && fp) {
         fclose(fp);
+#if defined(_WIN32) || defined(_WIN64)
         TCHAR exePath[1024] = { 0 };
         if (32 <= (size_t)FindExecutable(filename.c_str(), nullptr, exePath) && _tcslen(exePath) && PathFileExists(exePath)) {
             ShellExecute(NULL, _T("open"), filename.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     }
     return 0;
 }
@@ -634,7 +643,7 @@ struct sArgsData {
     mfxU32 nTmpInputBuf;
 };
 
-mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
+mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
     if (0 == _tcscmp(option_name, _T("output-res"))) {
         i++;
         if (   2 != _stscanf_s(strInput[i], _T("%hdx%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
@@ -777,7 +786,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("audio-file"))) {
         i++;
-        TCHAR *ptr = strInput[i];
+        const TCHAR *ptr = strInput[i];
         sAudioSelect *pAudioSelect = nullptr;
         int audioIdx = -1;
         int trackId = 0;
@@ -807,7 +816,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
             ptr = _tcschr(ptr, '?') + 1;
         }
         assert(pAudioSelect != nullptr);
-        TCHAR *qtr = _tcschr(ptr, ':');
+        const TCHAR *qtr = _tcschr(ptr, ':');
         if (qtr != NULL && !(ptr + 1 == qtr && qtr[1] == _T('\\'))) {
             pAudioSelect->pAudioExtractFormat = alloc_str(ptr, qtr - ptr);
             ptr = qtr + 1;
@@ -896,8 +905,8 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("audio-codec"))) {
         pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
         if (i+1 < nArgNum) {
-            TCHAR *ptr = nullptr;
-            TCHAR *ptrDelim = nullptr;
+            const TCHAR *ptr = nullptr;
+            const TCHAR *ptrDelim = nullptr;
             if (strInput[i+1][0] != _T('-')) {
                 i++;
                 ptrDelim = _tcschr(strInput[i], _T('?'));
@@ -911,8 +920,8 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
                     trackId = getFreeAudioTrack(pParams);
                 }
             } else {
-                *ptrDelim = _T('\0');
-                if (1 != _stscanf(strInput[i], _T("%d"), &trackId)) {
+                tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
                     PrintHelp(strInput[0], _T("Invalid value"), option_name);
                     return MFX_PRINT_OPTION_ERR;
                 }
@@ -944,7 +953,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("audio-bitrate"))) {
         if (i+1 < nArgNum) {
             i++;
-            TCHAR *ptr = _tcschr(strInput[i], _T('?'));
+            const TCHAR *ptr = _tcschr(strInput[i], _T('?'));
             int trackId = 1;
             if (ptr == nullptr) {
                 trackId = argData->nParsedAudioBitrate+1;
@@ -954,8 +963,8 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
                 }
                 ptr = strInput[i];
             } else {
-                *ptr = _T('\0');
-                if (1 != _stscanf(strInput[i], _T("%d"), &trackId)) {
+                tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
                     PrintHelp(strInput[0], _T("Invalid value"), option_name);
                     return MFX_PRINT_OPTION_ERR;
                 }
@@ -1510,13 +1519,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("fps"))) {
         i++;
-        if (     2 == _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nFPSRate, &pParams->nFPSScale))
-            ;
-        else if (2 == _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nFPSRate, &pParams->nFPSScale))
-            ;
-        else if (2 == _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nFPSRate, &pParams->nFPSScale))
-            ;
-        else {
+        if (   2 != _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nFPSRate, &pParams->nFPSScale)
+            && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nFPSRate, &pParams->nFPSScale)
+            && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nFPSRate, &pParams->nFPSScale)) {
             double d;
             if (1 == _stscanf_s(strInput[i], _T("%lf"), &d)) {
                 int rate = (int)(d * 1001.0 + 0.5);
@@ -1557,22 +1562,25 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("d3d9"))) {
         pParams->memType = D3D9_MEMORY;
+        return MFX_ERR_NONE;
     }
 #if MFX_D3D11_SUPPORT
-    else if (0 == _tcscmp(option_name, _T("d3d11"))) {
+    if (0 == _tcscmp(option_name, _T("d3d11"))) {
         pParams->memType = D3D11_MEMORY;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("d3d"))) {
         pParams->memType = HW_MEMORY;
+        return MFX_ERR_NONE;
     }
 #else
-    else if (0 == _tcscmp(option_name, _T("d3d"))) {
+    if (0 == _tcscmp(option_name, _T("d3d"))) {
         pParams->memType = D3D9_MEMORY;
+        return MFX_ERR_NONE;
     }
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
-    else if (0 == _tcscmp(option_name, _T("async-depth"))) {
+    if (0 == _tcscmp(option_name, _T("async-depth"))) {
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_ASYNC_DEPTH_MAX < v) {
@@ -1580,9 +1588,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nAsyncDepth = (mfxU16)v;
+        return MFX_ERR_NONE;
     }
 #if ENABLE_SESSION_THREAD_CONFIG
-    else if (0 == _tcscmp(option_name, _T("session-threads"))) {
+    if (0 == _tcscmp(option_name, _T("session-threads"))) {
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_SESSION_THREAD_MAX < v) {
@@ -1602,9 +1611,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nSessionThreadPriority = (mfxU16)v;
+        return MFX_ERR_NONE;
     }
 #endif
-    else if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
+    if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDenoise)) {
             PrintHelp(strInput[0], _T("Unknown value"), option_name);
@@ -1818,6 +1828,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
         _tcscpy_s(pParams->strDstFile, strInput[i]);
         return MFX_ERR_NONE;
     }
+#if defined(_WIN32) || defined(_WIN64)
     if (0 == _tcscmp(option_name, _T("timer-period-tuning"))) {
         pParams->bDisableTimerPeriodTuning = false;
         return MFX_ERR_NONE;
@@ -1826,15 +1837,16 @@ mfxStatus ParseOneOption(const TCHAR *option_name, TCHAR* strInput[], int& i, in
         pParams->bDisableTimerPeriodTuning = true;
         return MFX_ERR_NONE;
     }
+#endif
     tstring mes = _T("Unknown option: --");
     mes += option_name;
     PrintHelp(strInput[0], (TCHAR *)mes.c_str(), NULL);
     return MFX_PRINT_OPTION_ERR;
 }
 
-mfxStatus ParseInputString(TCHAR* strInput[], int nArgNum, sInputParams* pParams)
+mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* pParams)
 {
-    TCHAR* strArgument = _T("");
+    const TCHAR* strArgument = _T("");
 
     if (1 == nArgNum) {
         PrintHelp(strInput[0], NULL, NULL);
@@ -1948,10 +1960,7 @@ mfxStatus ParseInputString(TCHAR* strInput[], int nArgNum, sInputParams* pParams
         if (0 == _tcscmp(option_name, _T("check-environment")))
         {
             PrintVersion();
-
-            TCHAR buffer[4096];
-            getEnviromentInfo(buffer, _countof(buffer));
-            _ftprintf(stdout, buffer);
+            _ftprintf(stdout, _T("%s"), getEnviromentInfo(true).c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-features")))
@@ -1965,10 +1974,10 @@ mfxStatus ParseInputString(TCHAR* strInput[], int nArgNum, sInputParams* pParams
         {
             mfxVersion ver = { 0, 1 };
             if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
-                _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available"));
+                _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
                 return MFX_PRINT_OPTION_DONE;
             } else {
-                _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable"));
+                _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable\n"));
                 return MFX_PRINT_OPTION_ERR;
             }
         }
@@ -2147,10 +2156,12 @@ mfxStatus ParseInputString(TCHAR* strInput[], int nArgNum, sInputParams* pParams
     return MFX_ERR_NONE;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 bool check_locale_is_ja() {
     const WORD LangID_ja_JP = MAKELANGID(LANG_JAPANESE, SUBLANG_JAPANESE_JAPAN);
     return GetUserDefaultLangID() == LangID_ja_JP;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 //Ctrl + C ハンドラ
 static bool g_signal_abort = false;
@@ -2171,7 +2182,7 @@ static int set_signal_handler() {
 int run_encode(sInputParams *params) {
     mfxStatus sts = MFX_ERR_NONE; // return value check
 
-    std::auto_ptr<CEncodingPipeline>  pPipeline; 
+    std::unique_ptr<CEncodingPipeline>  pPipeline;
     //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
     pPipeline.reset(new CEncodingPipeline);
     MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
@@ -2227,7 +2238,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         params->nDstHeight = test_resolution[0].second;
         params->nTargetUsage = MFX_TARGETUSAGE_BEST_SPEED;
 
-        auto_ptr<CEncodingPipeline> pPipeline;
+        std::unique_ptr<CEncodingPipeline> pPipeline;
         pPipeline.reset(new CEncodingPipeline);
         MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
 
@@ -2236,9 +2247,8 @@ mfxStatus run_benchmark(sInputParams *params) {
 
         pPipeline->SetAbortFlagPointer(&g_signal_abort);
         set_signal_handler();
-
-        SYSTEMTIME sysTime = { 0 };
-        GetLocalTime(&sysTime);
+        time_t current_time = time(NULL);
+        struct tm *local_time = localtime(&current_time);
 
         msdk_char encode_info[4096] = { 0 };
         if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info)))) {
@@ -2249,8 +2259,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         mfxVersion ver;
         pPipeline->GetEncodeLibInfo(&ver, &hardware);
 
-        msdk_char enviroment_info[4096] = { 0 };
-        getEnviromentInfo(enviroment_info, _countof(enviroment_info));
+        auto enviroment_info = getEnviromentInfo();
 
         MemType memtype = pPipeline->GetMemType();
 
@@ -2261,11 +2270,11 @@ mfxStatus run_benchmark(sInputParams *params) {
             return MFX_ERR_INVALID_HANDLE;
         } else {
             fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
-                sysTime.wYear, sysTime.wMonth, sysTime.wDay, sysTime.wHour, sysTime.wMinute, sysTime.wSecond);
+                local_time->tm_year, local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
             fprintf(fp_bench, "Basic parameters of the benchmark\n"
                               " (Target Usage and output resolution will be changed)\n");
             fprintf(fp_bench, "%s\n\n", tchar_to_string(encode_info).c_str());
-            fprintf(fp_bench, tchar_to_string(enviroment_info).c_str());
+            fprintf(fp_bench, "%s", tchar_to_string(enviroment_info).c_str());
             fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n", 
                 VER_STR_FILEVERSION, tchar_to_string(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor, tchar_to_string(MemTypeToStr(memtype)).c_str());
             fprintf(fp_bench, "\n");
@@ -2320,7 +2329,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             params->nDstWidth = resolution.first;
             params->nDstHeight = resolution.second;
 
-            auto_ptr<CEncodingPipeline> pPipeline;
+            unique_ptr<CEncodingPipeline> pPipeline;
             pPipeline.reset(new CEncodingPipeline);
             MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
 
@@ -2446,13 +2455,14 @@ int run(int argc, TCHAR *argv[]) {
     mfxStatus sts = MFX_ERR_NONE;
     sInputParams Params = { 0 };
 
-    vector<TCHAR *> argvCopy(argv, argv + argc);
+    vector<const TCHAR *> argvCopy(argv, argv + argc);
     argvCopy.push_back(_T(""));
 
     sts = ParseInputString(argvCopy.data(), (mfxU8)argc, &Params);
     if (sts >= MFX_PRINT_OPTION_DONE)
         return 0;
 
+#if defined(_WIN32) || defined(_WIN64)
     //set stdin to binary mode when using pipe input
     if (_tcscmp(Params.strSrcFile, _T("-")) == NULL) {
         if (_setmode( _fileno( stdin ), _O_BINARY ) == 1) {
@@ -2472,12 +2482,13 @@ int run(int argc, TCHAR *argv[]) {
     if (check_locale_is_ja()) {
         _tsetlocale(LC_ALL, _T("Japanese"));
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
     if (Params.bBenchmark) {
         return run_benchmark(&Params);
     }
 
-    std::auto_ptr<CEncodingPipeline>  pPipeline; 
+    std::unique_ptr<CEncodingPipeline>  pPipeline;
     //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
     pPipeline.reset(new CEncodingPipeline);
     MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
@@ -2509,7 +2520,7 @@ int run(int argc, TCHAR *argv[]) {
         }
     }
 
-    pPipeline->Close();  
+    pPipeline->Close();
     pPipeline->PrintMes(QSV_LOG_INFO, _T("\nProcessing finished\n"));
 
     return sts;

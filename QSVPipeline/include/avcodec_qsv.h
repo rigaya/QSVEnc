@@ -12,7 +12,6 @@
 #include "qsv_version.h"
 
 #if ENABLE_AVCODEC_QSV_READER
-#include <Windows.h>
 #include <algorithm>
 
 #pragma warning (push)

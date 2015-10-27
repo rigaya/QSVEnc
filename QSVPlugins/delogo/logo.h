@@ -110,6 +110,6 @@ void convert_logo_header_v1_to_v2(LOGO_HEADER *logo_header);
 /*--------------------------------------------------------------------
 *    create_adj_exdata()        位置調整ロゴデータ作成
 *-------------------------------------------------------------------*/
-BOOL create_adj_exdata(LOGO_PIXEL *ex, LOGO_HEADER *adjdata, const LOGO_PIXEL *df, const LOGO_HEADER *data, int pos_x, int pos_y);
+bool create_adj_exdata(LOGO_PIXEL *ex, LOGO_HEADER *adjdata, const LOGO_PIXEL *df, const LOGO_HEADER *data, int pos_x, int pos_y);
 
 #endif

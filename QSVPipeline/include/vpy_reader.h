@@ -12,9 +12,9 @@
 
 #include "qsv_version.h"
 #if ENABLE_VAPOURSYNTH_READER
-#include <Windows.h>
+#include "qsv_osdep.h"
 #include "sample_utils.h"
-#include "vapoursynth.h"
+#include "VapourSynth.h"
 #include "VSScript.h"
 
 const int ASYNC_BUFFER_2N = 7;

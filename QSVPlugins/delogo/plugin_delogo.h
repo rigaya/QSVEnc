@@ -57,9 +57,9 @@ struct DelogoParam {
     DelogoParam() :
         pAllocator(nullptr),
         memType(SYSTEM_MEMORY),
+        inputFileName(nullptr),
         logoFilePath(nullptr),
         logoSelect(nullptr),
-        inputFileName(nullptr),
         posX(0), posY(0), depth(128),
         Y(0), Cb(0), Cr(0) {
     };

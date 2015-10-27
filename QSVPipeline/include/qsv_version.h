@@ -28,6 +28,16 @@
 #define BUILD_ARCH_STR _T("x64")
 #endif
 
+#if _UNICODE
+const wchar_t *get_qsvenc_version();
+#else
+const char *get_qsvenc_version();
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#define ENABLE_FEATURE_COP3_AND_ABOVE 1
+
 #define ENABLE_ADVANCED_DEINTERLACE 0
 
 #define ENABLE_MVC_ENCODING 0
@@ -51,4 +61,9 @@
 #define ENABLE_AVCODEC_QSV_READER 0
 #define ENABLE_CUSTOM_VPP         0
 #endif
+
+#else //_MSC_VER
+#include "qsv_config.h"
+#endif //_MSC_VER
+
 #endif //_QSV_VERSION_H_

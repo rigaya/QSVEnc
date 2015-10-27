@@ -7,11 +7,12 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#include <tchar.h>
+#include "qsv_version.h"
+#if ENABLE_OPENCL
+
+#include "qsv_tchar.h"
 #include <vector>
 #include "cl_func.h"
-
-#if ENABLE_OPENCL
 
 static inline const char *strichr(const char *str, int c) {
     c = tolower(c);

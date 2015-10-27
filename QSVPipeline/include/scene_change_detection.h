@@ -10,11 +10,10 @@
 #ifndef _SCENE_CHANGE_DETECTION_H_
 #define _SCENE_CHANGE_DETECTION_H_
 
-#include <Windows.h>
-#include <stdio.h>
+#include <thread>
 #include <atomic>
+#include "qsv_osdep.h"
 #include "mfxstructures.h"
-
 
 #pragma warning (push)
 #pragma warning (disable:4324)
@@ -34,13 +33,13 @@ typedef struct {
     int id;
     std::atomic_int abort;
     void *ptr_csd;
-    HANDLE hnd;
+    std::thread hnd;
     HANDLE he_start;
     HANDLE he_fin;
-    mfxU8 reserved[128-(sizeof(hist_t)+sizeof(int)+sizeof(std::atomic_int)+sizeof(void*)+sizeof(HANDLE)*3)];
+    mfxU8 reserved[128-(sizeof(hist_t)+sizeof(int)+sizeof(std::thread)+sizeof(std::atomic_int)+sizeof(void*)+sizeof(HANDLE)*2)];
 } hist_thread_t;
 
-typedef void (*func_make_hist_simd)(const BYTE *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch);
+typedef void (*func_make_hist_simd)(const uint8_t *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch);
 
 func_make_hist_simd get_make_hist_func();
 
@@ -51,9 +50,9 @@ public:
     CSceneChangeDetect();
     virtual ~CSceneChangeDetect();
 
-    mfxU16 Check(mfxFrameSurface1 *frame, int *qp_offset);
+    uint16_t Check(mfxFrameSurface1 *frame, int *qp_offset);
     //threshold 0-100 (デフォルト80, 小さいほうがシーンチェンジと判定しにくい)
-    int Init(int _threshold, mfxU32 _pic_struct, mfxU16 _vqp_strength, mfxU16 _vqp_sensitivity, mfxU16 _gop_len_min, mfxU16 _gop_len_max, bool _deint_normal);
+    int Init(int _threshold, uint32_t _pic_struct, uint16_t _vqp_strength, uint16_t _vqp_sensitivity, uint16_t _gop_len_min, uint16_t _gop_len_max, bool _deint_normal);
 
     bool isInitialized() {
         return initialized;
@@ -73,30 +72,30 @@ public:
     int GetSubThreadNum() {
         return sub_thread_num;
     }
-    mfxU16 getVQPStrength() {
+    uint16_t getVQPStrength() {
         return vqp_strength;
     }
-    mfxU16 getVQPSensitivity() {
+    uint16_t getVQPSensitivity() {
         return vqp_sensitivity;
     }
-    mfxU16 getMinGOPLen() {
+    uint16_t getMinGOPLen() {
         return gop_len_min;
     }
-    mfxU16 getMaxGOPLen() {
+    uint16_t getMaxGOPLen() {
         return (deint_normal) ? gop_len_max>>1 : gop_len_max;
     }
 private:
     bool initialized;
-    mfxU32 pic_struct;
+    uint32_t pic_struct;
     bool deint_normal;
     int threshold;
     int index;
     int current_gop_len;
-    mfxU16 gop_len_min;
-    mfxU16 gop_len_max;
+    uint16_t gop_len_min;
+    uint16_t gop_len_max;
 
-    mfxU16 vqp_strength;
-    mfxU16 vqp_sensitivity;
+    uint16_t vqp_strength;
+    uint16_t vqp_sensitivity;
 
     func_make_hist_simd mask_histgram;
 

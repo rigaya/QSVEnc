@@ -10,6 +10,12 @@
 #include "avs_reader.h"
 #if ENABLE_AVISYNTH_READER
 
+#if defined(_WIN32) || defined(_WIN64)
+static const TCHAR *avisynth_dll_name = _T("avisynth.dll");
+#else
+static const TCHAR *avisynth_dll_name = _T("libavxsynth.so");
+#endif
+
 CAVSReader::CAVSReader() {
     m_sAVSenv = NULL;
     m_sAVSclip = NULL;
@@ -25,7 +31,11 @@ CAVSReader::~CAVSReader() {
 
 void CAVSReader::release_avisynth() {
     if (m_sAvisynth.h_avisynth)
+#if defined(_WIN32) || defined(_WIN64)
         FreeLibrary(m_sAvisynth.h_avisynth);
+#else
+        dlclose(m_sAvisynth.h_avisynth);
+#endif
 
     memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
 }
@@ -33,17 +43,21 @@ void CAVSReader::release_avisynth() {
 mfxStatus CAVSReader::load_avisynth() {
     release_avisynth();
 
-    if (   NULL == (m_sAvisynth.h_avisynth = (HMODULE)LoadLibrary(_T("avisynth.dll")))
-        || NULL == (m_sAvisynth.invoke = (func_avs_invoke)GetProcAddress(m_sAvisynth.h_avisynth, "avs_invoke"))
-        || NULL == (m_sAvisynth.take_clip = (func_avs_take_clip)GetProcAddress(m_sAvisynth.h_avisynth, "avs_take_clip"))
-        || NULL == (m_sAvisynth.create_script_environment = (func_avs_create_script_environment)GetProcAddress(m_sAvisynth.h_avisynth, "avs_create_script_environment"))
-        || NULL == (m_sAvisynth.delete_script_environment = (func_avs_delete_script_environment)GetProcAddress(m_sAvisynth.h_avisynth, "avs_delete_script_environment"))
-        || NULL == (m_sAvisynth.get_frame = (func_avs_get_frame)GetProcAddress(m_sAvisynth.h_avisynth, "avs_get_frame"))
-        || NULL == (m_sAvisynth.get_version = (func_avs_get_version)GetProcAddress(m_sAvisynth.h_avisynth, "avs_get_version"))
-        || NULL == (m_sAvisynth.get_video_info = (func_avs_get_video_info)GetProcAddress(m_sAvisynth.h_avisynth, "avs_get_video_info"))
-        || NULL == (m_sAvisynth.release_clip = (func_avs_release_clip)GetProcAddress(m_sAvisynth.h_avisynth, "avs_release_clip"))
-        || NULL == (m_sAvisynth.release_value = (func_avs_release_value)GetProcAddress(m_sAvisynth.h_avisynth, "avs_release_value"))
-        || NULL == (m_sAvisynth.release_video_frame = (func_avs_release_video_frame)GetProcAddress(m_sAvisynth.h_avisynth, "avs_release_video_frame")))
+#if defined(_WIN32) || defined(_WIN64)
+    if (   NULL == (m_sAvisynth.h_avisynth = (HMODULE)LoadLibrary(avisynth_dll_name))
+#else
+    if (   NULL == (m_sAvisynth.h_avisynth = dlopen(avisynth_dll_name, RTLD_LAZY))
+#endif
+        || NULL == (m_sAvisynth.invoke = (func_avs_invoke)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_invoke"))
+        || NULL == (m_sAvisynth.take_clip = (func_avs_take_clip)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_take_clip"))
+        || NULL == (m_sAvisynth.create_script_environment = (func_avs_create_script_environment)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_create_script_environment"))
+        || NULL == (m_sAvisynth.delete_script_environment = (func_avs_delete_script_environment)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_delete_script_environment"))
+        || NULL == (m_sAvisynth.get_frame = (func_avs_get_frame)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_get_frame"))
+        || NULL == (m_sAvisynth.get_version = (func_avs_get_version)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_get_version"))
+        || NULL == (m_sAvisynth.get_video_info = (func_avs_get_video_info)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_get_video_info"))
+        || NULL == (m_sAvisynth.release_clip = (func_avs_release_clip)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_clip"))
+        || NULL == (m_sAvisynth.release_value = (func_avs_release_value)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_value"))
+        || NULL == (m_sAvisynth.release_video_frame = (func_avs_release_video_frame)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_video_frame")))
         return MFX_ERR_INVALID_HANDLE;
     return MFX_ERR_NONE;
 }
@@ -53,7 +67,7 @@ mfxStatus CAVSReader::load_avisynth() {
 mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
 
     MSDK_CHECK_POINTER(strFileName, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_ERROR(_tclen(strFileName), 0, MFX_ERR_NULL_PTR);
+    MSDK_CHECK_ERROR(_tcslen(strFileName), 0, MFX_ERR_NULL_PTR);
 
     Close();
 
@@ -67,7 +81,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
 
     if (MFX_ERR_NONE != load_avisynth()) {
-        AddMessage(QSV_LOG_ERROR,  _T("failed to load avisynth.dll.\n"));
+        AddMessage(QSV_LOG_ERROR,  _T("failed to load %s.\n"), avisynth_dll_name);
         return MFX_ERR_INVALID_HANDLE;
     }
 
@@ -144,7 +158,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
     m_inputFrameInfo.FrameRateExtN = m_sAVSinfo->fps_numerator / fps_gcd;
     m_inputFrameInfo.FrameRateExtD = m_sAVSinfo->fps_denominator / fps_gcd;
-    *(DWORD*)&m_inputFrameInfo.FrameId = m_sAVSinfo->num_frames;
+    memcpy(&m_inputFrameInfo.FrameId, &m_sAVSinfo->num_frames, sizeof(m_sAVSinfo->num_frames));
     
     tstring avisynth_version;
     AVS_Value val_version = m_sAvisynth.invoke(m_sAVSenv, "VersionNumber", avs_new_value_array(NULL, 0), NULL);
@@ -194,7 +208,9 @@ mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxU16 CropRight = m_sInputCrop.right;
     mfxU16 CropBottom = m_sInputCrop.bottom;
 
-    if (m_pEncSatusInfo->m_nInputFrames >= *(DWORD*)&m_inputFrameInfo.FrameId)
+    uint32_t nTotalFrame = 0;
+    memcpy(&nTotalFrame, &m_inputFrameInfo.FrameId, sizeof(nTotalFrame));
+    if (m_pEncSatusInfo->m_nInputFrames >= nTotalFrame)
         return MFX_ERR_MORE_DATA;
 
     if (pInfo->CropH > 0 && pInfo->CropW > 0) {
@@ -217,7 +233,7 @@ mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
     const void *src_ptr[3] = { avs_get_read_ptr_p(frame, AVS_PLANAR_Y), avs_get_read_ptr_p(frame, AVS_PLANAR_U), avs_get_read_ptr_p(frame, AVS_PLANAR_V) };
     if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
-        dst_ptr[0] = min(min(pData->R, pData->G), pData->B);
+        dst_ptr[0] = (std::min)((std::min)(pData->R, pData->G), pData->B);
     }
     m_sConvert->func[interlaced]((void **)dst_ptr, (void **)src_ptr, w, avs_get_pitch_p(frame, AVS_PLANAR_Y), avs_get_pitch_p(frame, AVS_PLANAR_U), pData->Pitch, h, crop);
     

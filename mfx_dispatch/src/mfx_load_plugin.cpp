@@ -32,8 +32,8 @@ File Name: mfx_load_plugin.h
 #include "mfx_load_dll.h"
 #include "mfx_dispatcher_log.h"
 
-#define TRACE_PLUGIN_ERROR(str, ...) DISPATCHER_LOG_ERROR((("[PLUGIN]: "str), __VA_ARGS__))
-#define TRACE_PLUGIN_INFO(str, ...) DISPATCHER_LOG_INFO((("[PLUGIN]: "str), __VA_ARGS__))
+#define TRACE_PLUGIN_ERROR(str, ...) DISPATCHER_LOG_ERROR((("[PLUGIN]: " str), __VA_ARGS__))
+#define TRACE_PLUGIN_INFO(str, ...) DISPATCHER_LOG_INFO((("[PLUGIN]: " str), __VA_ARGS__))
 
 #define CREATE_PLUGIN_FNC "CreatePlugin"
 
@@ -160,7 +160,7 @@ bool MFX::MFXPluginFactory::RunVerification( const mfxPlugin & plg, const Plugin
     {
         if (!dsc.onlyVersionRegistered && pluginParams.CodecId != dsc.CodecId) 
         {
-            TRACE_PLUGIN_ERROR("plg->GetPluginParam() returned CodecId="MFXFOURCCTYPE()", but registration has CodecId="MFXFOURCCTYPE()"\n"
+            TRACE_PLUGIN_ERROR("plg->GetPluginParam() returned CodecId=" MFXFOURCCTYPE() ", but registration has CodecId=" MFXFOURCCTYPE() "\n"
                 , MFXU32TOFOURCC(pluginParams.CodecId), MFXU32TOFOURCC(dsc.CodecId));
             return false;
         }
@@ -173,7 +173,7 @@ bool MFX::MFXPluginFactory::RunVerification( const mfxPlugin & plg, const Plugin
 
         if (pluginParams.PluginUID !=  dsc.PluginUID) 
         {
-            TRACE_PLUGIN_ERROR("plg->GetPluginParam() returned UID="MFXGUIDTYPE()", but registration has UID="MFXGUIDTYPE()"\n"
+            TRACE_PLUGIN_ERROR("plg->GetPluginParam() returned UID=" MFXGUIDTYPE() ", but registration has UID=" MFXGUIDTYPE() "\n"
                 , MFXGUIDTOHEX(&pluginParams.PluginUID), MFXGUIDTOHEX(&dsc.PluginUID));
             return false;
         }

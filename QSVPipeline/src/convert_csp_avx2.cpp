@@ -13,6 +13,7 @@
 #define USE_AVX   1
 #define USE_AVX2  1
 
+#include "qsv_simd.h"
 #include <stdint.h>
 #include <string.h>
 #include <immintrin.h>
@@ -20,6 +21,8 @@
 #if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
 static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
 #endif
+
+#if defined(_MSC_VER) || defined(__AVX2__)
 
 template<bool use_stream>
 static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
@@ -362,3 +365,5 @@ void convert_yuv42010_to_p101_avx2(void **dst, void **src, int width, int src_y_
     }
     _mm256_zeroupper();
 }
+
+#endif //#if defined(_MSC_VER) || defined(__AVX2__)

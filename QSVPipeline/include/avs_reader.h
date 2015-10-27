@@ -12,12 +12,16 @@
 
 #include "qsv_version.h"
 #if ENABLE_AVISYNTH_READER
-#include <Windows.h>
-#include "sample_utils.h"
 #pragma warning(push)
 #pragma warning(disable:4244)
 #pragma warning(disable:4456)
+#if defined(_WIN32) || defined(_WIN64)
 #include "avisynth_c.h" //Avisynth ver 2.5.8 (2.6.0の機能等は不要)
+#else
+#include "avxsynth_c.h"
+#endif
+#include "qsv_osdep.h"
+#include "sample_utils.h"
 #pragma warning(pop)
 
 typedef AVS_Value (__stdcall *func_avs_invoke)(AVS_ScriptEnvironment *scriptEnv, const char *name, AVS_Value args, const char** arg_names);

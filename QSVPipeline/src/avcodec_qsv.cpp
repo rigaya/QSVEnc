@@ -16,6 +16,7 @@
 
 //必要なavcodecのdllがそろっているかを確認
 bool check_avcodec_dll() {
+#if defined(_WIN32) || defined(_WIN64)
     std::vector<HMODULE> hDllList;
     bool check = true;
     for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
@@ -30,6 +31,9 @@ bool check_avcodec_dll() {
         FreeLibrary(hDll);
     }
     return check;
+#else
+    return true;
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
 //avcodecのdllが存在しない場合のエラーメッセージ

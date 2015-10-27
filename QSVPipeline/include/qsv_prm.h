@@ -10,14 +10,24 @@
 #ifndef _QSV_PRM_H_
 #define _QSV_PRM_H_
 
-#include <Windows.h>
+#include <climits>
+#include <vector>
 #include "sample_defs.h"
 #include "qsv_version.h"
 #include "qsv_util.h"
 #include "mfxcommon.h"
 #include "mfxvp8.h"
 
-typedef enum {
+enum {
+    QSV_LOG_TRACE = -3,
+    QSV_LOG_DEBUG = -2,
+    QSV_LOG_MORE = -1,
+    QSV_LOG_INFO = 0,
+    QSV_LOG_WARN,
+    QSV_LOG_ERROR,
+};
+
+enum {
     MFX_DEINTERLACE_NONE        = 0,
     MFX_DEINTERLACE_NORMAL      = 1,
     MFX_DEINTERLACE_IT          = 2, //inverse telecine, to 24fps
@@ -25,15 +35,15 @@ typedef enum {
     MFX_DEINTERLACE_IT_MANUAL   = 4, //inverse telecine, manual select
     MFX_DEINTERLACE_AUTO_SINGLE = 5,
     MFX_DEINTERLACE_AUTO_DOUBLE = 6,
-} mfxDeinterlace;
+};
 
-typedef enum {
+enum {
     MVC_DISABLED          = 0x0,
     MVC_ENABLED           = 0x1,
     MVC_VIEWOUTPUT        = 0x2,    // 2 output bitstreams
 };
 
-typedef enum {
+enum {
     INPUT_FMT_AUTO = 0,
     INPUT_FMT_RAW,
     INPUT_FMT_Y4M,
@@ -44,8 +54,9 @@ typedef enum {
     INPUT_FMT_AVCODEC_QSV,
 };
 
-typedef enum MemType {
+enum MemType {
     SYSTEM_MEMORY = 0x00,
+    VA_MEMORY     = 0x01,
     D3D9_MEMORY   = 0x01,
     D3D11_MEMORY  = 0x02,
     HW_MEMORY = D3D9_MEMORY | D3D11_MEMORY,
@@ -79,13 +90,13 @@ static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimL
     return false;
 }
 
-typedef enum {
+enum {
     FPS_CONVERT_NONE = 0,
     FPS_CONVERT_MUL2,
     FPS_CONVERT_MUL2_5,
 };
 
-typedef enum {
+enum {
     QSVENC_MUX_NONE  = 0x00,
     QSVENC_MUX_VIDEO = 0x01,
     QSVENC_MUX_AUDIO = 0x02,
@@ -134,11 +145,11 @@ typedef struct {
 } sVppParams;
 
 typedef struct sAudioSelect {
-    int       nAudioSelect;      //選択した音声トラックのリスト 1,2,...(1から連番で指定)
-    TCHAR    *pAVAudioEncodeCodec; //音声エンコードのコーデック
-    int       nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
-    TCHAR    *pAudioExtractFilename; //抽出する音声のファイル名のリスト
-    TCHAR    *pAudioExtractFormat; //抽出する音声ファイルのフォーマット
+    int    nAudioSelect;      //選択した音声トラックのリスト 1,2,...(1から連番で指定)
+    TCHAR *pAVAudioEncodeCodec; //音声エンコードのコーデック
+    int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
+    TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
+    TCHAR *pAudioExtractFormat; //抽出する音声ファイルのフォーマット
 } sAudioSelect;
 
 struct sInputParams
@@ -290,7 +301,7 @@ const CX_DESC list_codec[] = {
     { _T("vc-1"),     MFX_CODEC_VC1   },
     { _T("vp8"),      MFX_CODEC_VP8   },
     { _T("raw"),      MFX_CODEC_RAW   },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_avc_profile[] = {
@@ -298,7 +309,7 @@ const CX_DESC list_avc_profile[] = {
     { _T("Baseline"), MFX_PROFILE_AVC_BASELINE },
     { _T("Main"),     MFX_PROFILE_AVC_MAIN     },
     { _T("High"),     MFX_PROFILE_AVC_HIGH     },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_hevc_profile[] = {
@@ -306,7 +317,7 @@ const CX_DESC list_hevc_profile[] = {
     { _T("main"),     MFX_PROFILE_HEVC_MAIN   },
     //{ _T("main10"),   MFX_PROFILE_HEVC_MAIN10 },
     //{ _T("mainsp"),   MFX_PROFILE_HEVC_MAINSP },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_mpeg2_profile[] = {
@@ -314,7 +325,7 @@ const CX_DESC list_mpeg2_profile[] = {
     { _T("Simple"),   MFX_PROFILE_MPEG2_SIMPLE },
     { _T("Main"),     MFX_PROFILE_MPEG2_MAIN   },
     { _T("High"),     MFX_PROFILE_MPEG2_HIGH   },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vc1_profile[] = {
@@ -322,7 +333,7 @@ const CX_DESC list_vc1_profile[] = {
     { _T("Simple"),   MFX_PROFILE_VC1_SIMPLE   },
     { _T("Main"),     MFX_PROFILE_VC1_MAIN     },
     { _T("Advanced"), MFX_PROFILE_VC1_ADVANCED },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vp8_profile[] ={
@@ -331,14 +342,14 @@ const CX_DESC list_vp8_profile[] ={
     { _T("1"),        MFX_PROFILE_VP8_1 },
     { _T("2"),        MFX_PROFILE_VP8_2 },
     { _T("3"),        MFX_PROFILE_VP8_3 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_interlaced[] = {
     { _T("progressive"),     MFX_PICSTRUCT_PROGRESSIVE },
     { _T("interlaced(tff)"), MFX_PICSTRUCT_FIELD_TFF   },
     { _T("interlaced(bff)"), MFX_PICSTRUCT_FIELD_BFF   },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_deinterlace[] = {
@@ -351,7 +362,7 @@ const CX_DESC list_deinterlace[] = {
     { _T("auto"),      MFX_DEINTERLACE_AUTO_SINGLE },
     { _T("auto-bob"),  MFX_DEINTERLACE_AUTO_DOUBLE },
 #endif
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_telecine_patterns[] = {
@@ -359,7 +370,7 @@ const CX_DESC list_telecine_patterns[] = {
     { _T("2332"),   MFX_TELECINE_PATTERN_2332 },
     { _T("repeat"), MFX_TELECINE_PATTERN_FRAME_REPEAT },
     { _T("41"),     MFX_TELECINE_PATTERN_41 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_avc_level[] = { 
@@ -381,7 +392,7 @@ const CX_DESC list_avc_level[] = {
     { _T("5"),    MFX_LEVEL_AVC_5   },
     { _T("5.1"),  MFX_LEVEL_AVC_51  },
     { _T("5.2"),  MFX_LEVEL_AVC_52  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_hevc_level[] = { 
     { _T("auto"), 0                 },
@@ -398,7 +409,7 @@ const CX_DESC list_hevc_level[] = {
     { _T("6"),    MFX_LEVEL_HEVC_6   },
     { _T("6.1"),  MFX_LEVEL_HEVC_61  },
     { _T("6.2"),  MFX_LEVEL_HEVC_62  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_mpeg2_level[] = { 
     { _T("auto"),     0                        },
@@ -406,14 +417,14 @@ const CX_DESC list_mpeg2_level[] = {
     { _T("main"),     MFX_LEVEL_MPEG2_MAIN     },
     { _T("high"),     MFX_LEVEL_MPEG2_HIGH     },
     { _T("high1440"), MFX_LEVEL_MPEG2_HIGH1440 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_vc1_level[] = { 
     { _T("auto"),     0                    },
     { _T("low"),      MFX_LEVEL_VC1_LOW    },
     { _T("median"),   MFX_LEVEL_VC1_MEDIAN },
     { _T("high"),     MFX_LEVEL_VC1_HIGH   },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_vc1_level_adv[] = { 
     { _T("auto"),  0               },
@@ -422,7 +433,7 @@ const CX_DESC list_vc1_level_adv[] = {
     { _T("2"),     MFX_LEVEL_VC1_2 },
     { _T("3"),     MFX_LEVEL_VC1_3 },
     { _T("4"),     MFX_LEVEL_VC1_4 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_avc_trellis[] = {
     { _T("Auto"),           MFX_TRELLIS_UNKNOWN },
@@ -430,7 +441,7 @@ const CX_DESC list_avc_trellis[] = {
     { _T("for I frames"),   MFX_TRELLIS_I   },
     { _T("for I,P frames"), MFX_TRELLIS_I | MFX_TRELLIS_P },
     { _T("for All frames"), MFX_TRELLIS_I | MFX_TRELLIS_P | MFX_TRELLIS_B },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_avc_trellis_for_options[] = { 
     { _T("auto"), MFX_TRELLIS_UNKNOWN },
@@ -443,7 +454,7 @@ const CX_DESC list_avc_trellis_for_options[] = {
     { _T("p"),    MFX_TRELLIS_P },
     { _T("pb"),   MFX_TRELLIS_P | MFX_TRELLIS_B },
     { _T("b"),    MFX_TRELLIS_B },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_lookahead_ds[] = {
@@ -451,7 +462,7 @@ const CX_DESC list_lookahead_ds[] = {
     { _T("slow"),   MFX_LOOKAHEAD_DS_OFF     },
     { _T("medium"), MFX_LOOKAHEAD_DS_2x      },
     { _T("fast"),   MFX_LOOKAHEAD_DS_4x      },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_mv_cost_scaling[] = {
@@ -461,7 +472,7 @@ const CX_DESC list_mv_cost_scaling[] = {
     { _T("2"),        2 },
     { _T("3"),        3 },
     { _T("4"),        4 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_log_level[] = {
@@ -471,7 +482,7 @@ const CX_DESC list_log_level[] = {
     { _T("info"),  QSV_LOG_INFO  },
     { _T("warn"),  QSV_LOG_WARN  },
     { _T("error"), QSV_LOG_ERROR },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_priority[] = {
@@ -513,7 +524,7 @@ const CX_DESC list_colorprim[] = {
     { _T("bt470bg"),   5  },
     { _T("smpte240m"), 7  },
     { _T("film"),      8  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_transfer[] = {
     { _T("undef"),     2  },
@@ -526,7 +537,7 @@ const CX_DESC list_transfer[] = {
     { _T("linear"),    8  },
     { _T("log100"),    9  },
     { _T("log316"),    10 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_colormatrix[] = {
     { _T("undef"),     2  },
@@ -538,7 +549,7 @@ const CX_DESC list_colormatrix[] = {
     { _T("YCgCo"),     8  },
     { _T("fcc"),       4  },
     { _T("GBR"),       0  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_videoformat[] = {
     { _T("undef"),     5  },
@@ -547,7 +558,7 @@ const CX_DESC list_videoformat[] = {
     { _T("pal"),       1  },
     { _T("secam"),     3  },
     { _T("mac"),       4  },
-    { NULL, NULL } 
+    { NULL, 0 }
 };
 
 //表示用
@@ -559,7 +570,7 @@ const CX_DESC list_quality[] = {
     { _T(" 5 - fast"),         5                            },
     { _T(" 6 - faster"),       6                            },
     { _T(" 7 - fastest"),      MFX_TARGETUSAGE_BEST_SPEED   },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 //オプション用
@@ -571,7 +582,7 @@ const CX_DESC list_quality_for_option[] = {
     { _T("fast"),     5                            },
     { _T("faster"),   6                            },
     { _T("fastest"),  MFX_TARGETUSAGE_BEST_SPEED   },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_mv_presicion[] = {
@@ -579,7 +590,7 @@ const CX_DESC list_mv_presicion[] = {
     { _T("full-pel"), MFX_MVPRECISION_INTEGER    },
     { _T("half-pel"), MFX_MVPRECISION_HALFPEL    },
     { _T("Q-pel"),    MFX_MVPRECISION_QUARTERPEL },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_pred_block_size[] = {
@@ -587,21 +598,21 @@ const CX_DESC list_pred_block_size[] = {
     { _T("16x16"),         MFX_BLOCKSIZE_MIN_16X16  },
     { _T("8x8"),           MFX_BLOCKSIZE_MIN_8X8    },
     { _T("4x4"),           MFX_BLOCKSIZE_MIN_4X4    },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_image_stabilizer[] = {
     { _T("none"),    0 },
     { _T("upscale"), MFX_IMAGESTAB_MODE_UPSCALE },
     { _T("box"),     MFX_IMAGESTAB_MODE_BOXING  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_fps_conversion[] = {
     { _T("off"),  0 },
     { _T("x2"),   FPS_CONVERT_MUL2 },
     { _T("x2.5"), FPS_CONVERT_MUL2_5  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 static int get_cx_index(const CX_DESC * list, int v) {

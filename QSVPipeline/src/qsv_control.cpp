@@ -9,14 +9,11 @@
 //
 //
 */
-#include <tchar.h>
+#include "qsv_tchar.h"
 #include <math.h>
 #include <iostream>
-#include <windows.h>
-#include <process.h>
 #include <emmintrin.h>
-#include <mmsystem.h>
-#pragma comment(lib, "winmm.lib")
+#include "qsv_osdep.h"
 
 #include "sample_defs.h"
 #include "sample_utils.h"
@@ -46,18 +43,24 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_tmStart = std::chrono::system_clock::now();
 }
 
+CEncodeStatusInfo::~CEncodeStatusInfo() {
+    m_pQSVLog = nullptr;
+}
+
 void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, CQSVLog *pQSVLog) {
     m_nOutputFPSRate = outputFPSRate;
     m_nOutputFPSScale = outputFPSScale;
     m_nTotalOutFrames = totalOutputFrames;
     m_pQSVLog = pQSVLog;
+#if defined(_WIN32) || defined(_WIN64)
     DWORD mode = 0;
     m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
+#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
 void CEncodeStatusInfo::SetStart() {
     m_tmStart = std::chrono::system_clock::now();
-    GetProcessTime(GetCurrentProcess(), &m_sStartTime);
+    GetProcessTime(&m_sStartTime);
 }
 
 CEncodingThread::CEncodingThread()
@@ -158,11 +161,11 @@ void CEncodingThread::Close()
     if (m_InputBuf) {
         for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
             if (m_InputBuf[i].heInputDone)
-                CloseHandle(m_InputBuf[i].heInputDone);
+                CloseEvent(m_InputBuf[i].heInputDone);
             if (m_InputBuf[i].heSubStart)
-                CloseHandle(m_InputBuf[i].heSubStart);
+                CloseEvent(m_InputBuf[i].heSubStart);
             if (m_InputBuf[i].heInputStart)
-                CloseHandle(m_InputBuf[i].heInputStart);
+                CloseEvent(m_InputBuf[i].heInputStart);
         }
         _mm_free(m_InputBuf);
         m_InputBuf = NULL;

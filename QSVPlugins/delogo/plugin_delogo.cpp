@@ -10,13 +10,15 @@
 #include "mfx_samples_config.h"
 #define _CRT_SECURE_NO_WARNINGS
 #include <algorithm>
-#include <Shlwapi.h>
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 #include "sample_utils.h"
 #include "qsv_util.h"
 #include "plugin_delogo.h"
 #include "delogo_process.h"
 #include "qsv_simd.h"
+#include "qsv_osdep.h"
+#include "qsv_ini.h"
 
 // disable "unreferenced formal parameter" warning -
 // not all formal parameters of interface functions will be used by sample plugin
@@ -83,11 +85,17 @@ mfxStatus Delogo::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfx
 
     if (m_sTasks[ind].pProcessor.get() == nullptr) {
         bool d3dSurface = !!(m_DelogoParam.memType & D3D9_MEMORY);
+#if defined(_MSC_VER) || defined(__AVX2__)
         if ((m_nSimdAvail & (AVX2 | FMA3)) == (AVX2 | FMA3)) {
             m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX2) : new DelogoProcessAVX2);
-        } else if (m_nSimdAvail & AVX) {
+        } else
+#endif //#if defined(_MSC_VER) || defined(__AVX2__)
+#if defined(_MSC_VER) || defined(__AVX__)
+        if (m_nSimdAvail & AVX) {
             m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX) : new DelogoProcessAVX);
-        } else if (m_nSimdAvail & SSE41) {
+        } else
+#endif //#ifdefined(_MSC_VER) || defined(__AVX__)
+        if (m_nSimdAvail & SSE41) {
             m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DSSE41) : new DelogoProcessSSE41);
         } else {
             m_message += _T("vpp-delogo requires SSE4.1 support.\n");

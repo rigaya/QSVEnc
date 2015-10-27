@@ -116,7 +116,7 @@ void DXDevice::LoadDLLModule(const wchar_t *pModuleName)
     prevErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
     // load specified library
-	m_hModule = LoadLibraryExW(pModuleName, NULL, 0);
+    m_hModule = LoadLibraryExW(pModuleName, NULL, 0);
 
     // set the previous error mode
 #if (_WIN32_WINNT >= 0x0600) && !(__GNUC__) && !defined(WIN_TRESHOLD_MOBILE)

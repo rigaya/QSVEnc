@@ -153,7 +153,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;_DEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -168,7 +168,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -186,7 +186,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -206,7 +206,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -226,7 +226,7 @@
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -254,7 +254,7 @@
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -286,7 +286,7 @@
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -315,7 +315,7 @@
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)Media SDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)igfx_s3dcontrol\include;$(SolutionDir)QSVCommon\include;$(SolutionDir)QSVPipeline\include;$(INTELOCLSDKROOT)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_LIB;MFX_VA;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -341,17 +341,23 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\mfx_critical_section.cpp" />
+    <ClCompile Include="src\mfx_critical_section_linux.cpp" />
     <ClCompile Include="src\mfx_dispatcher.cpp" />
     <ClCompile Include="src\mfx_dispatcher_log.cpp" />
     <ClCompile Include="src\mfx_dxva2_device.cpp" />
     <ClCompile Include="src\mfx_function_table.cpp" />
     <ClCompile Include="src\mfx_library_iterator.cpp" />
+    <ClCompile Include="src\mfx_library_iterator_linux.cpp" />
     <ClCompile Include="src\mfx_load_dll.cpp" />
+    <ClCompile Include="src\mfx_load_dll_linux.cpp" />
     <ClCompile Include="src\mfx_load_plugin.cpp" />
+    <ClCompile Include="src\mfx_plugin_cfg_parser.cpp" />
     <ClCompile Include="src\mfx_plugin_hive.cpp" />
+    <ClCompile Include="src\mfx_plugin_hive_linux.cpp" />
     <ClCompile Include="src\mfx_win_reg_key.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\mfxaudio_exposed_functions_list.h" />
     <ClInclude Include="include\mfx_critical_section.h" />
     <ClInclude Include="include\mfx_dispatcher.h" />
     <ClInclude Include="include\mfx_dispatcher_defs.h" />
@@ -361,6 +367,7 @@
     <ClInclude Include="include\mfx_library_iterator.h" />
     <ClInclude Include="include\mfx_load_dll.h" />
     <ClInclude Include="include\mfx_load_plugin.h" />
+    <ClInclude Include="include\mfx_plugin_cfg_parser.h" />
     <ClInclude Include="include\mfx_plugin_hive.h" />
     <ClInclude Include="include\mfx_vector.h" />
     <ClInclude Include="include\mfx_win_reg_key.h" />

@@ -8,6 +8,7 @@
 //  -----------------------------------------------------------------------------------------
 
 #pragma once
+#include <cstdint>
 #include "mfxdefs.h"
 #include "plugin_delogo.h"
 #include <emmintrin.h> //SSE2
@@ -20,6 +21,7 @@
 #if USE_AVX
 #include <immintrin.h>
 #endif
+#include "qsv_simd.h"
 
 #if USE_AVX2
 #define MEM_ALIGN 32
@@ -45,7 +47,7 @@ static inline __m128i select_by_mask(__m128i a, __m128i b, __m128i mask) {
 #define _mm_blendv_epi8_simd select_by_mask
 #endif
 
-alignas(MEM_ALIGN) static const USHORT MASK_16BIT[] = {
+alignas(MEM_ALIGN) static const uint16_t MASK_16BIT[] = {
     0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000,
 #if USE_AVX2
     0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000
@@ -194,7 +196,7 @@ static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 
 #endif
     const bool use_avx2 = USE_AVX2 && (0 == ((size_t)src & 0x10));
     const mfxU32 align = ((use_avx2) ? 32 : 16);
-    const mfxU32 increment = min(step, ((use_avx2 || UNROLL_64BIT) ? 256 : 128));
+    const mfxU32 increment = (std::min)(step, ((use_avx2 || UNROLL_64BIT) ? 256u : 128u));
     mfxU8 *src_fin = src + ((increment == align || ignore_fraction) ? width : (width & ~(increment-1)));
     mfxU8 *src_ptr = src, *buf_ptr = buffer;
 #if USE_AVX2
@@ -282,7 +284,7 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
 #endif
     const bool use_avx = USE_AVX && (0 == ((size_t)dst & 0x10));
     const mfxU32 align = ((use_avx) ? 32 : 16);
-    const mfxU32 increment = min(step, ((use_avx) ? 256 : 128));
+    const mfxU32 increment = (std::min)(step, ((use_avx) ? 256u : 128u));
     mfxU8 *dst_fin = dst + ((increment == align || ignore_fraction) ? width : (width & ~(increment-1)));
     mfxU8 *dst_ptr = dst, *buf_ptr = buffer;
 #if USE_AVX
@@ -565,7 +567,7 @@ static __forceinline void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitc
     CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
     CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
     CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
-    CONST_M c_offset           = SET_EPI32(*(mfxI32 *)&data->offset);
+    CONST_M c_offset           = SET_EPI32(data->offset[0] | (data->offset[1] << 16));
 #if DEPTH_MUL_OPTIM
     CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
 #else //#if DEPTH_MUL_OPTIM
@@ -602,15 +604,15 @@ static __forceinline void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *
     CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
     CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
     CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
-    CONST_M c_offset           = SET_EPI32(*(mfxI32 *)&data->offset);
+    CONST_M c_offset           = SET_EPI32(data->offset[0] | (data->offset[1] << 16));
 #if DEPTH_MUL_OPTIM
     CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
 #else //#if DEPTH_MUL_OPTIM
     CONST_M c_depth_mul_fade        = SET_EPI32(data->depth * data->fade);
 #endif //#if DEPTH_MUL_OPTIM
 
-    height_start = max(height_start, logo_j_start);
-    height_fin   = min(height_fin, logo_j_start + logo_j_height);
+    height_start = (std::max)(height_start, logo_j_start);
+    height_fin   = (std::min)(height_fin, logo_j_start + logo_j_height);
 
     ptr_line += logo_j_start * pitch;
 

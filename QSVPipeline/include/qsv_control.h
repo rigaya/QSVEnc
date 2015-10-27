@@ -13,8 +13,7 @@
 #ifndef __QSV_CONTROL_H__
 #define __QSV_CONTROL_H__
 
-#include <Windows.h>
-#include <tchar.h>
+#include "qsv_tchar.h"
 #include <stdio.h>
 #include <math.h>
 #include <cstdint>
@@ -24,12 +23,14 @@
 #include <chrono>
 #include <atomic>
 #include <thread>
-#include <intrin.h>
 #include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxjpeg.h"
 #include "sample_defs.h"
 #include "qsv_prm.h"
+#include "qsv_util.h"
+#include "qsv_log.h"
+#include "cpu_info.h"
 
 using std::chrono::duration_cast;
 class CEncodingPipeline;
@@ -39,9 +40,9 @@ typedef struct {
     HANDLE heInputStart;
     HANDLE heSubStart;
     HANDLE heInputDone;
-    std::atomic_uint32_t frameFlag;
+    std::atomic<uint32_t> frameFlag;
     std::atomic_int AQP[2];
-    mfxU8 reserved[64-(sizeof(mfxFrameSurface1*)+sizeof(HANDLE)*3+sizeof(std::atomic_uint32_t)+sizeof(std::atomic_int)*2)];
+    mfxU8 reserved[64-(sizeof(mfxFrameSurface1*)+sizeof(HANDLE)*3+sizeof(std::atomic<uint32_t>)+sizeof(std::atomic_int)*2)];
 } sInputBufSys;
 
 typedef struct {
@@ -64,8 +65,8 @@ public:
         maxIdrInterval = 0;
     }
     void Init(int _GOPSize, int _BFrames, int _QPI, int _QPP, int _QPB, bool _openGOP, double frameRate) {
-        GOPSize = max(_GOPSize, 1);
-        BFrames = max(_BFrames, 0);
+        GOPSize = (std::max)(_GOPSize, 1);
+        BFrames = (std::max)(_BFrames, 0);
         QPI = _QPI;
         QPP = _QPP;
         QPB = _QPB;
@@ -156,6 +157,7 @@ class CEncodeStatusInfo
 {
 public:
     CEncodeStatusInfo();
+    virtual ~CEncodeStatusInfo();
     void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, CQSVLog *m_pQSVLog);
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
@@ -213,7 +215,7 @@ public:
                 if (progressPercent == 0.0) {
                     progressPercent = (m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_nTotalOutFrames;
                 }
-                progressPercent = min(progressPercent, 100.0);
+                progressPercent = (std::min)(progressPercent, 100.0);
                 mfxU32 remaining_time = (mfxU32)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
                 int hh = remaining_time / (60*60*1000);
                 remaining_time -= hh * (60*60*1000);
@@ -253,7 +255,7 @@ public:
             memcpy(mes, header, header_len * sizeof(mes[0]));
             mes_len += header_len;
 
-            for (int i = max(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++)
+            for (int i = (std::max)(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++)
                 mes[mes_len] = _T(' ');
             mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%u"), count);
 
@@ -266,7 +268,7 @@ public:
                 memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
                 mes_len += (int)_tcslen(TOTAL_SIZE);
 
-                for (int i = max(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++)
+                for (int i = (std::max)(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++)
                     mes[mes_len] = _T(' ');
 
                 mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%.2f MB"), (double)frameSize / (double)(1024 * 1024));
@@ -300,12 +302,12 @@ public:
         int mm = time_elapsed / (60*1000);
         time_elapsed -= mm * (60*1000);
         int ss = (time_elapsed + 500) / 1000;
-        m_sData.fCPUUsagePercent = GetProcessAvgCPUUsage(GetCurrentProcess(), &m_sStartTime);
+        m_sData.fCPUUsagePercent = GetProcessAvgCPUUsage(&m_sStartTime);
         _stprintf_s(mes, _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, m_sData.fCPUUsagePercent);
         WriteLine(mes);
 
-        mfxU32 maxCount = MAX3(m_sData.nICount, m_sData.nPCount, m_sData.nBCount);
-        mfxU64 maxFrameSize = MAX3(m_sData.nIFrameSize, m_sData.nPFrameSize, m_sData.nBFrameSize);
+        mfxU32 maxCount = (std::max)(m_sData.nICount, (std::max)(m_sData.nPCount, m_sData.nBCount));
+        mfxU64 maxFrameSize = (std::max)(m_sData.nIFrameSize, (std::max)(m_sData.nPFrameSize, m_sData.nBFrameSize));
 
         WriteFrameTypeResult(_T("frame type IDR "), m_sData.nIDRCount, maxCount,                   0, maxFrameSize, -1.0);
         WriteFrameTypeResult(_T("frame type I   "), m_sData.nICount,   maxCount, m_sData.nIFrameSize, maxFrameSize, (info) ? info->sumQPI / (double)info->frameCountI : -1);

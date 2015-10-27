@@ -10,6 +10,14 @@
 #ifndef _QSV_SIMD_H_
 #define _QSV_SIMD_H_
 
+#ifndef _MSC_VER
+#ifndef __forceinline
+#define __forceinline __attribute__((always_inline))
+#endif
+#define _mm256_set_m128i(/* __m128i */ hi, /* __m128i */ lo) \
+    _mm256_insertf128_si256(_mm256_castsi128_si256(lo), (hi), 0x1)
+#endif //#ifndef _MSC_VER
+
 enum {
     NONE   = 0x0000,
     SSE2   = 0x0001,

@@ -18,7 +18,9 @@
 #include "qsv_util.h"
 #include "d3d_allocator.h"
 
+#if D3D_SURFACES_SUPPORT
 #define D3D_CALL(x) { HRESULT hr = (x); if( FAILED(hr) ) { return MFX_ERR_UNDEFINED_BEHAVIOR; } }
+#endif
 
 using std::vector;
 using std::unique_ptr;
@@ -36,13 +38,18 @@ public:
         , m_pOut(nullptr)
         , m_pAlloc(nullptr)
         , m_hDevice(nullptr)
-        , m_pD3DDeviceManager(nullptr) {
+#if D3D_SURFACES_SUPPORT
+        , m_pD3DDeviceManager(nullptr)
+#endif
+	{
     }
     virtual ~Processor() {
+#if D3D_SURFACES_SUPPORT
         if (m_pD3DDeviceManager && m_hDevice) {
             m_pD3DDeviceManager->CloseDeviceHandle(m_hDevice);
             m_hDevice = nullptr;
         }
+#endif
     }
     virtual mfxStatus SetAllocator(mfxFrameAllocator *pAlloc) {
         m_pAlloc = pAlloc;
@@ -57,6 +64,7 @@ protected:
     //PluginのmfxCoreから取得したAllocatorではなく、
     //メインパイプラインから直接受け取ったAllocatorでなければならない
     mfxStatus CopyD3DFrameGPU(mfxFrameSurface1 *pFrameIn, mfxFrameSurface1 *pFrameOut) {
+#if D3D_SURFACES_SUPPORT
         if (m_pD3DDeviceManager == nullptr) {
             m_pD3DDeviceManager = ((D3DFrameAllocator*)m_pAlloc)->GetDeviceManager();
         }
@@ -70,6 +78,7 @@ protected:
             static_cast<directxMemId *>(pFrameOut->Data.MemId)->m_surface, NULL, D3DTEXF_NONE));
         D3D_CALL(pd3dDevice->Release());
         D3D_CALL(m_pD3DDeviceManager->UnlockDevice(m_hDevice, false));
+#endif //#if D3D_SURFACES_SUPPORT
         return MFX_ERR_NONE;
     }
 
@@ -107,8 +116,9 @@ protected:
 
     vector<mfxU8>      m_YIn, m_UVIn;
     vector<mfxU8>      m_YOut, m_UVOut;
-
+#if D3D_SURFACES_SUPPORT
     IDirect3DDeviceManager9 *m_pD3DDeviceManager;
+#endif //#if D3D_SURFACES_SUPPORT
     HANDLE                   m_hDevice;
 };
 
@@ -129,6 +139,7 @@ class QSVEncPlugin : public MFXGenericPlugin
 {
 public:
     QSVEncPlugin() :
+    	m_bInited(false),
         m_bIsInOpaque(false),
         m_bIsOutOpaque(false) {
         memset(&m_VideoParam, 0, sizeof(m_VideoParam));

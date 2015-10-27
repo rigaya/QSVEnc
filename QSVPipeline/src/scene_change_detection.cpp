@@ -7,18 +7,22 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#include <Windows.h>
-#include <tchar.h>
-#include <process.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "qsv_tchar.h"
 #include <cmath>
 #include <atomic>
-#include <intrin.h>
+#include <thread>
+#include <algorithm>
+#include <climits>
 #include <emmintrin.h> //SSE2
 #include <smmintrin.h> //SSE4.1
 #include <nmmintrin.h> //SSE4.2
 #include "scene_change_detection.h"
+#include "cpu_info.h"
+#include "qsv_event.h"
+
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 
 const int SC_SKIP = 2;
 const int MAX_SUB_THREADS = 7;
@@ -27,8 +31,7 @@ const int MAX_SUB_THREADS = 7;
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
 
-unsigned __stdcall func_make_hist(void *p) {
-    hist_thread_t *htt = (hist_thread_t *)p;
+void func_make_hist(hist_thread_t *htt) {
     const int thread_id = htt->id;
     CSceneChangeDetect *scd = (CSceneChangeDetect *)htt->ptr_csd;
     WaitForSingleObject(htt->he_start, INFINITE);
@@ -37,105 +40,23 @@ unsigned __stdcall func_make_hist(void *p) {
         SetEvent(htt->he_fin);
         WaitForSingleObject(htt->he_start, INFINITE);
     }
-    _endthreadex(0);
-    return 0;
-}
-
-typedef BOOL (WINAPI *LPFN_GLPI)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
-
-static DWORD CountSetBits(ULONG_PTR bitMask) {
-    DWORD LSHIFT = sizeof(ULONG_PTR)*8 - 1;
-    DWORD bitSetCount = 0;
-    for (ULONG_PTR bitTest = (ULONG_PTR)1 << LSHIFT; bitTest; bitTest >>= 1)
-        bitSetCount += ((bitMask & bitTest) != 0);
-
-    return bitSetCount;
-}
-
-static BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core) {
-    *physical_processor_core = 0;
-    *logical_processor_core = 0;
-
-    LPFN_GLPI glpi = (LPFN_GLPI)GetProcAddress(GetModuleHandle(_T("kernel32")), "GetLogicalProcessorInformation");
-    if (NULL == glpi)
-        return FALSE;
-
-    DWORD returnLength = 0;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
-    while (FALSE == glpi(buffer, &returnLength)) {
-        if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-            if (buffer) 
-                free(buffer);
-            if (NULL == (buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(returnLength)))
-                return FALSE;
-        }
-    }
-
-    DWORD logicalProcessorCount = 0;
-    DWORD numaNodeCount = 0;
-    DWORD processorCoreCount = 0;
-    DWORD processorL1CacheCount = 0;
-    DWORD processorL2CacheCount = 0;
-    DWORD processorL3CacheCount = 0;
-    DWORD processorPackageCount = 0;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = buffer;
-    for (DWORD byteOffset = 0; byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength;
-        byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)) {
-        switch (ptr->Relationship) {
-        case RelationNumaNode:
-            // Non-NUMA systems report a single record of this type.
-            numaNodeCount++;
-            break;
-        case RelationProcessorCore:
-            processorCoreCount++;
-            // A hyperthreaded core supplies more than one logical processor.
-            logicalProcessorCount += CountSetBits(ptr->ProcessorMask);
-            break;
-
-        case RelationCache:
-            {
-            // Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
-            PCACHE_DESCRIPTOR Cache = &ptr->Cache;
-            processorL1CacheCount += (Cache->Level == 1);
-            processorL2CacheCount += (Cache->Level == 2);
-            processorL3CacheCount += (Cache->Level == 3);
-            break;
-            }
-        case RelationProcessorPackage:
-            // Logical processors share a physical package.
-            processorPackageCount++;
-            break;
-
-        default:
-            //Unsupported LOGICAL_PROCESSOR_RELATIONSHIP value.
-            break;
-        }
-        ptr++;
-    }
-
-    *physical_processor_core = processorCoreCount;
-    *logical_processor_core = logicalProcessorCount;
-
-    return TRUE;
 }
 
 void CSceneChangeDetect::thread_close() {
     for (int i_th = 0; i_th < sub_thread_num; i_th++) {
-        if (th_hist && th_hist[i_th].hnd) {
+        if (th_hist && th_hist[i_th].hnd.joinable()) {
             th_hist[i_th].abort++; //th_hist[i_th].abort = TRUE
             SetEvent(th_hist[i_th].he_start);
-            WaitForSingleObject(th_hist[i_th].hnd, INFINITE);
+            th_hist[i_th].hnd.join();
             if (th_hist[i_th].he_start)
-                CloseHandle(th_hist[i_th].he_start);
+                CloseEvent(th_hist[i_th].he_start);
             if (th_hist[i_th].he_fin)
-                CloseHandle(th_hist[i_th].he_fin);
-            if (th_hist[i_th].hnd)
-                CloseHandle(th_hist[i_th].hnd);
+                CloseEvent(th_hist[i_th].he_fin);
         }
     }
     if (sub_thread_num) {
-        if (th_hist)          ZeroMemory(th_hist, sizeof(hist_thread_t) * sub_thread_num);
-        if (he_hist_fin_copy) ZeroMemory(he_hist_fin_copy, sizeof(HANDLE *) * sub_thread_num);
+        if (th_hist)          memset(th_hist, 0, sizeof(hist_thread_t) * sub_thread_num);
+        if (he_hist_fin_copy) memset(he_hist_fin_copy, 0, sizeof(HANDLE *) * sub_thread_num);
     }
 }
 
@@ -145,17 +66,17 @@ int CSceneChangeDetect::thread_start() {
     if (   NULL == th_hist
         || NULL == he_hist_fin_copy)
         return 1;
-    ZeroMemory(th_hist, sizeof(hist_thread_t) * sub_thread_num);
-    ZeroMemory(he_hist_fin_copy, sizeof(HANDLE *) * sub_thread_num);
+    memset(th_hist, 0, sizeof(hist_thread_t) * sub_thread_num);
+    memset(he_hist_fin_copy, 0, sizeof(HANDLE *) * sub_thread_num);
     for (int i_th = 0; i_th < sub_thread_num; i_th++) {
         th_hist[i_th].id = i_th;
         th_hist[i_th].ptr_csd = this;
         if (   NULL == (th_hist[i_th].he_start = CreateEvent(NULL, FALSE, FALSE, NULL))
-            || NULL == (th_hist[i_th].he_fin   = CreateEvent(NULL, FALSE, FALSE, NULL))
-            || NULL == (th_hist[i_th].hnd = (HANDLE)_beginthreadex(NULL, 0, func_make_hist, &th_hist[i_th], FALSE, NULL))) {
+            || NULL == (th_hist[i_th].he_fin   = CreateEvent(NULL, FALSE, FALSE, NULL))) {
             thread_close();
             return 1;
         }
+        th_hist[i_th].hnd = std::thread(func_make_hist, &th_hist[i_th]);
         he_hist_fin_copy[i_th] = th_hist[i_th].he_fin;
     }
     return 0;
@@ -170,19 +91,19 @@ CSceneChangeDetect::CSceneChangeDetect() {
     gop_len_min = 0;
     gop_len_max = USHRT_MAX;
     if (NULL != (hist = (hist_t*)_aligned_malloc(sizeof(hist_t) * HIST_COUNT, 64)))
-        ZeroMemory(hist, sizeof(hist_t) * HIST_COUNT);
+        memset(hist, 0, sizeof(hist_t) * HIST_COUNT);
     //スレッド関連
-    DWORD physical_cores = 0, logical_cores = 0;
-    if (!getProcessorCount(&physical_cores, &logical_cores) || physical_cores == 0)
-        physical_cores = 1;
+    cpu_info_t info;
+    get_cpu_info(&info);
+    info.physical_cores = (std::max)(info.physical_cores, 1u);
 #if _DEBUG
     sub_thread_num = 0;
 #else
-    sub_thread_num = max(0, min(MAX_SUB_THREADS, (physical_cores>>1)-1)); //自分も仕事をしてる分、1引いとく
+    sub_thread_num = (std::max)(0, (std::min)(MAX_SUB_THREADS, (int)(info.physical_cores>>1)-1)); //自分も仕事をしてる分、1引いとく
 #endif
     if (sub_thread_num) {
         if (NULL != (th_hist = (hist_thread_t *)_aligned_malloc(sizeof(hist_thread_t) * sub_thread_num, 64)))
-            ZeroMemory(th_hist, sizeof(hist_thread_t) * sub_thread_num);
+            memset(th_hist, 0, sizeof(hist_thread_t) * sub_thread_num);
         he_hist_fin_copy = (HANDLE *)calloc(sub_thread_num, sizeof(HANDLE *));
     } else {
         he_hist_fin_copy = NULL;
@@ -205,7 +126,7 @@ CSceneChangeDetect::~CSceneChangeDetect() {
     current_gop_len = 0;
 }
 
-int CSceneChangeDetect::Init(int _threshold, mfxU32 _pic_struct, mfxU16 _vqp_strength, mfxU16 _vqp_sensitivity, mfxU16 _gop_len_min, mfxU16 _gop_len_max, bool _deint_normal) {    
+int CSceneChangeDetect::Init(int _threshold, uint32_t _pic_struct, uint16_t _vqp_strength, uint16_t _vqp_sensitivity, uint16_t _gop_len_min, uint16_t _gop_len_max, bool _deint_normal) {    
     int ret = 0;
     if (hist
 #if SC_DEBUG
@@ -221,8 +142,8 @@ int CSceneChangeDetect::Init(int _threshold, mfxU32 _pic_struct, mfxU16 _vqp_str
         prev_fade = false;
         threshold = _threshold;
         current_gop_len = 0;
-        gop_len_min = max(_gop_len_min, 1);
-        gop_len_max = min(((deint_normal) ? _gop_len_max * 2 : _gop_len_max), (USHRT_MAX));
+        gop_len_min = (std::max)(_gop_len_min, (uint16_t)1);
+        gop_len_max = (uint16_t)(std::min)(((deint_normal) ? _gop_len_max * 2 : _gop_len_max), (USHRT_MAX));
         pic_struct = (_pic_struct) ? _pic_struct : MFX_PICSTRUCT_PROGRESSIVE;
     } else {
         ret = 1;
@@ -235,13 +156,13 @@ void CSceneChangeDetect::MakeHist(int thread_id, int thread_max, hist_t *hist_bu
     const int height = target_frame->Info.CropH;
     const int width = target_frame->Info.CropW;
     const int pitch = target_frame->Data.Pitch;
-    const mfxU8 *const frame_Y = target_frame->Data.Y;
+    const uint8_t *const frame_Y = target_frame->Data.Y;
 
     const int interlaced = (0 != (pic_struct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)));
-    const int x_skip = (min(32, width / 8)) & ~31; //32の倍数であること
-    const int y_skip = (min(32, height / 8)) & ~1; //2の倍数であること
+    const int x_skip = ((std::min)(32, width / 8)) & ~31; //32の倍数であること
+    const int y_skip = ((std::min)(32, height / 8)) & ~1; //2の倍数であること
     const int y_step = ((1 << SC_SKIP) + interlaced) & (~interlaced);
-    const int y_offset = y_skip + (i_field + (pic_struct == MFX_PICSTRUCT_FIELD_BFF)) & 0x01;
+    const int y_offset = y_skip + ((i_field + (pic_struct == MFX_PICSTRUCT_FIELD_BFF)) & 0x01);
     const int y_start = ((((height - y_skip * 2) * (thread_id + 0)) / thread_max) & (~((1<<(1+SC_SKIP))-1))) + y_offset;
     const int y_end   = ((((height - y_skip * 2) * (thread_id + 1)) / thread_max) & (~((1<<(1+SC_SKIP))-1))) + y_offset;
 
@@ -337,19 +258,26 @@ static float estimate_next_1(float *data, int num) {
     return A[0] * (num+1) + A[1];
 }
 
-mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
+uint16_t CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
     target_frame = frame;
 
     *qp_offset = 0;
 
-    const mfxU32 KEY_FRAMETYPE[2] = {
+    const uint32_t KEY_FRAMETYPE[2] = {
         MFX_FRAMETYPE_I  | MFX_FRAMETYPE_REF, //プログレッシブ と 第1フィールド用
         MFX_FRAMETYPE_xI | MFX_FRAMETYPE_xREF //第2フィールド用
     };
-    mfxU16 result = 0;
+    uint16_t result = 0;
 
     
     for (i_field = 0; i_field < 2; i_field += (1 + (pic_struct == MFX_PICSTRUCT_PROGRESSIVE))) {
+
+        alignas(16) union {
+            __m128i vi;
+            __m128 vf;
+            int i[4];
+            float f[4];
+        } xmmBuf;
 
         prev_max_match_point[index]  = 100.0f;
         prev_fade_match_point[index] = 100.0f;
@@ -359,40 +287,42 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
         MakeHist(sub_thread_num, sub_thread_num+1, &hist[index]);
         WaitForMultipleObjects(sub_thread_num, he_hist_fin_copy, TRUE, INFINITE);
 
-        __m128i x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] +  0));
-        __m128i x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 16));
-        __m128i x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 32));
-        __m128i x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 48));
+        __m128i x0 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] +  0));
+        __m128i x1 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 16));
+        __m128i x2 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 32));
+        __m128i x3 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 48));
 
         for (int i_th = 0; i_th < sub_thread_num; i_th++) {
-            x0 = _mm_add_epi32(x0, _mm_load_si128((__m128i*)((BYTE *)&th_hist[i_th].hist_thread +  0)));
-            x1 = _mm_add_epi32(x1, _mm_load_si128((__m128i*)((BYTE *)&th_hist[i_th].hist_thread + 16)));
-            x2 = _mm_add_epi32(x2, _mm_load_si128((__m128i*)((BYTE *)&th_hist[i_th].hist_thread + 32)));
-            x3 = _mm_add_epi32(x3, _mm_load_si128((__m128i*)((BYTE *)&th_hist[i_th].hist_thread + 48)));
+            x0 = _mm_add_epi32(x0, _mm_load_si128((__m128i*)((uint8_t *)&th_hist[i_th].hist_thread +  0)));
+            x1 = _mm_add_epi32(x1, _mm_load_si128((__m128i*)((uint8_t *)&th_hist[i_th].hist_thread + 16)));
+            x2 = _mm_add_epi32(x2, _mm_load_si128((__m128i*)((uint8_t *)&th_hist[i_th].hist_thread + 32)));
+            x3 = _mm_add_epi32(x3, _mm_load_si128((__m128i*)((uint8_t *)&th_hist[i_th].hist_thread + 48)));
         }
 
-        _mm_store_si128((__m128i*)((BYTE *)&hist[index] +  0), x0);
-        _mm_store_si128((__m128i*)((BYTE *)&hist[index] + 16), x1);
-        _mm_store_si128((__m128i*)((BYTE *)&hist[index] + 32), x2);
-        _mm_store_si128((__m128i*)((BYTE *)&hist[index] + 48), x3);
+        _mm_store_si128((__m128i*)((uint8_t *)&hist[index] +  0), x0);
+        _mm_store_si128((__m128i*)((uint8_t *)&hist[index] + 16), x1);
+        _mm_store_si128((__m128i*)((uint8_t *)&hist[index] + 32), x2);
+        _mm_store_si128((__m128i*)((uint8_t *)&hist[index] + 48), x3);
 
         __m128i x4 = _mm_add_epi32(x0, x2);
         __m128i x5 = _mm_add_epi32(x1, x3);
         x4= _mm_add_epi32(x4, x5);
-        const int frame_size = x4.m128i_i32[0] + x4.m128i_i32[1] + x4.m128i_i32[2] + x4.m128i_i32[3];
+        xmmBuf.vi = x4;
+        const int frame_size = xmmBuf.i[0] + xmmBuf.i[1] + xmmBuf.i[2] + xmmBuf.i[3];
 
         alignas(16) static const int MUL_ARRAY[16] = { 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 };
 
-        x0 = _mm_mullo_epi32(x0, _mm_load_si128((__m128i*)((BYTE *)&MUL_ARRAY +  0)));
-        x1 = _mm_mullo_epi32(x1, _mm_load_si128((__m128i*)((BYTE *)&MUL_ARRAY + 16)));
-        x2 = _mm_mullo_epi32(x2, _mm_load_si128((__m128i*)((BYTE *)&MUL_ARRAY + 32)));
-        x3 = _mm_mullo_epi32(x3, _mm_load_si128((__m128i*)((BYTE *)&MUL_ARRAY + 48)));
+        x0 = _mm_mullo_epi32(x0, _mm_load_si128((__m128i*)((uint8_t *)&MUL_ARRAY +  0)));
+        x1 = _mm_mullo_epi32(x1, _mm_load_si128((__m128i*)((uint8_t *)&MUL_ARRAY + 16)));
+        x2 = _mm_mullo_epi32(x2, _mm_load_si128((__m128i*)((uint8_t *)&MUL_ARRAY + 32)));
+        x3 = _mm_mullo_epi32(x3, _mm_load_si128((__m128i*)((uint8_t *)&MUL_ARRAY + 48)));
 
         x0 = _mm_add_epi32(x0, x2);
         x1 = _mm_add_epi32(x1, x3);
         x0 = _mm_add_epi32(x0, x1);
 
-        avg_luma[index] = (x0.m128i_i32[0] + x0.m128i_i32[1] + x0.m128i_i32[2] + x0.m128i_i32[3]) / (float)frame_size;
+        xmmBuf.vi = x0;
+        avg_luma[index] = (xmmBuf.i[0] + xmmBuf.i[1] + xmmBuf.i[2] + xmmBuf.i[3]) / (float)frame_size;
 
 #if SC_DEBUG
         fprintf(fp_sc_log, "%3d,", index);
@@ -400,27 +330,28 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
             fprintf(fp_sc_log, "%4d,", hist[index].v[i_hist]);
         fprintf(fp_sc_log, ",");
 #endif
-        mfxU32 flag = 0;
+        uint32_t flag = 0;
         float simple_match_point = 100.0f;
 
         if (index >= 1) {
 
-            x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] +  0));
-            x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 16));
-            x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 32));
-            x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 48));
+            x0 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] +  0));
+            x1 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 16));
+            x2 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 32));
+            x3 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 48));
 
-            x0 = _mm_min_epi32(x0, _mm_load_si128((__m128i*)((BYTE *)&hist[index-1] +  0)));
-            x1 = _mm_min_epi32(x1, _mm_load_si128((__m128i*)((BYTE *)&hist[index-1] + 16)));
-            x2 = _mm_min_epi32(x2, _mm_load_si128((__m128i*)((BYTE *)&hist[index-1] + 32)));
-            x3 = _mm_min_epi32(x3, _mm_load_si128((__m128i*)((BYTE *)&hist[index-1] + 48)));
+            x0 = _mm_min_epi32(x0, _mm_load_si128((__m128i*)((uint8_t *)&hist[index-1] +  0)));
+            x1 = _mm_min_epi32(x1, _mm_load_si128((__m128i*)((uint8_t *)&hist[index-1] + 16)));
+            x2 = _mm_min_epi32(x2, _mm_load_si128((__m128i*)((uint8_t *)&hist[index-1] + 32)));
+            x3 = _mm_min_epi32(x3, _mm_load_si128((__m128i*)((uint8_t *)&hist[index-1] + 48)));
 
             x0 = _mm_add_epi32(x0, x2);
             x1 = _mm_add_epi32(x1, x3);
 
             x0 = _mm_add_epi32(x0, x1);
 
-            const int count = x0.m128i_i32[0] + x0.m128i_i32[1] + x0.m128i_i32[2] + x0.m128i_i32[3];
+            xmmBuf.vi = x0;
+            const int count = xmmBuf.i[0] + xmmBuf.i[1] + xmmBuf.i[2] + xmmBuf.i[3];
 
             simple_match_point = count * 100 / (float)frame_size;
 
@@ -436,8 +367,8 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
 
             alignas(16) hist_t estimate = { 0 };
             alignas(16) hist_t fade_estimate = { 0 };
-            struct alignas(16) histf_t {
-                float f[HIST_LEN];
+            struct histf_t {
+                alignas(16) float f[HIST_LEN];
             } sigma = { 0 };
 
             //////////////////     estimate 1      //////////////////////////////////
@@ -455,25 +386,26 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
                     tmp += pow2(data_array[idx] - avg);
                 }
                 sigma.f[i_hist] = (sum) ? ((float)sqrt(tmp / (float)index) / (float)(frame_size >> HIST_LEN_2N)) : 0.0f;
-                estimate.v[i_hist] = max(0, (int)(estimate_next_2(data_array, index) + 0.5f));
+                estimate.v[i_hist] = (std::max)(0, (int)(estimate_next_2(data_array, index) + 0.5f));
             }
 
-            x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] +  0));
-            x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 16));
-            x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 32));
-            x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 48));
+            x0 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] +  0));
+            x1 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 16));
+            x2 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 32));
+            x3 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 48));
 
-            x0 = _mm_min_epi32(x0, _mm_load_si128((__m128i*)((BYTE *)&estimate +  0)));
-            x1 = _mm_min_epi32(x1, _mm_load_si128((__m128i*)((BYTE *)&estimate + 16)));
-            x2 = _mm_min_epi32(x2, _mm_load_si128((__m128i*)((BYTE *)&estimate + 32)));
-            x3 = _mm_min_epi32(x3, _mm_load_si128((__m128i*)((BYTE *)&estimate + 48)));
+            x0 = _mm_min_epi32(x0, _mm_load_si128((__m128i*)((uint8_t *)&estimate +  0)));
+            x1 = _mm_min_epi32(x1, _mm_load_si128((__m128i*)((uint8_t *)&estimate + 16)));
+            x2 = _mm_min_epi32(x2, _mm_load_si128((__m128i*)((uint8_t *)&estimate + 32)));
+            x3 = _mm_min_epi32(x3, _mm_load_si128((__m128i*)((uint8_t *)&estimate + 48)));
 
             x0 = _mm_add_epi32(x0, x2);
             x1 = _mm_add_epi32(x1, x3);
 
             x0 = _mm_add_epi32(x0, x1);
 
-            const int est_count = x0.m128i_i32[0] + x0.m128i_i32[1] + x0.m128i_i32[2] + x0.m128i_i32[3];
+            xmmBuf.vi = x0;
+            const int est_count = xmmBuf.i[0] + xmmBuf.i[1] + xmmBuf.i[2] + xmmBuf.i[3];
 
             const float esitimate_match_point = est_count * 100 / (float)frame_size;
 
@@ -496,46 +428,48 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
                     fade_estimate.v[clamp(i_next + 1, 0, HIST_LEN-1)] += (int)(hist[index-1].v[i_hist] * (f_next - (float)i_next)       + 0.5f);
                 }
 
-                x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] +  0));
-                x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 16));
-                x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 32));
-                x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 48));
+                x0 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] +  0));
+                x1 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 16));
+                x2 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 32));
+                x3 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 48));
 
-                x0 = _mm_min_epi32(x0, _mm_load_si128((__m128i*)((BYTE *)&fade_estimate +  0)));
-                x1 = _mm_min_epi32(x1, _mm_load_si128((__m128i*)((BYTE *)&fade_estimate + 16)));
-                x2 = _mm_min_epi32(x2, _mm_load_si128((__m128i*)((BYTE *)&fade_estimate + 32)));
-                x3 = _mm_min_epi32(x3, _mm_load_si128((__m128i*)((BYTE *)&fade_estimate + 48)));
+                x0 = _mm_min_epi32(x0, _mm_load_si128((__m128i*)((uint8_t *)&fade_estimate +  0)));
+                x1 = _mm_min_epi32(x1, _mm_load_si128((__m128i*)((uint8_t *)&fade_estimate + 16)));
+                x2 = _mm_min_epi32(x2, _mm_load_si128((__m128i*)((uint8_t *)&fade_estimate + 32)));
+                x3 = _mm_min_epi32(x3, _mm_load_si128((__m128i*)((uint8_t *)&fade_estimate + 48)));
 
                 x0 = _mm_add_epi32(x0, x2);
                 x1 = _mm_add_epi32(x1, x3);
 
                 x0 = _mm_add_epi32(x0, x1);
 
-                const int fade_est_count = x0.m128i_i32[0] + x0.m128i_i32[1] + x0.m128i_i32[2] + x0.m128i_i32[3];
+                xmmBuf.vi = x0;
+                const int fade_est_count = xmmBuf.i[0] + xmmBuf.i[1] + xmmBuf.i[2] + xmmBuf.i[3];
 
-                fade_esitimate_match_point = max(fade_esitimate_match_point, fade_est_count * 100 / (float)frame_size);
+                fade_esitimate_match_point = (std::max)(fade_esitimate_match_point, fade_est_count * 100 / (float)frame_size);
             }
 
 
             //////////////////     しきい値計算      //////////////////////////////////
 
-            __m128 xf0 = _mm_load_ps((float*)((BYTE *)&sigma +  0));
-            __m128 xf1 = _mm_load_ps((float*)((BYTE *)&sigma + 16));
-            __m128 xf2 = _mm_load_ps((float*)((BYTE *)&sigma + 32));
-            __m128 xf3 = _mm_load_ps((float*)((BYTE *)&sigma + 48));
+            __m128 xf0 = _mm_load_ps((float*)((uint8_t *)&sigma +  0));
+            __m128 xf1 = _mm_load_ps((float*)((uint8_t *)&sigma + 16));
+            __m128 xf2 = _mm_load_ps((float*)((uint8_t *)&sigma + 32));
+            __m128 xf3 = _mm_load_ps((float*)((uint8_t *)&sigma + 48));
 
             xf0 = _mm_add_ps(xf0, xf2);
             xf1 = _mm_add_ps(xf1, xf3);
 
             xf0 = _mm_add_ps(xf0, xf1);
 
-            const float sigma_avg = (xf0.m128_f32[0] + xf0.m128_f32[1] + xf0.m128_f32[2] + xf0.m128_f32[3]) * (1.0f / (float)HIST_LEN);
+            xmmBuf.vf = xf0;
+            const float sigma_avg = (xmmBuf.f[0] + xmmBuf.f[1] + xmmBuf.f[2] + xmmBuf.f[3]) * (1.0f / (float)HIST_LEN);
 
             const float threshold_internal = 100.0f - ((100.0f - threshold) * (1.0f + sqrt(sigma_avg)));
 
             //////////////////     判定      //////////////////////////////////
 
-            float max_match_point = max(simple_match_point, esitimate_match_point);
+            float max_match_point = (std::max)(simple_match_point, esitimate_match_point);
 
             bool is_fade = false;
             if (fade_esitimate_match_point - esitimate_match_point < (100.0f - threshold) * (prev_fade ? 2 : 1)) {
@@ -551,7 +485,7 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
                 }
             }
             if (is_fade)
-                max_match_point = max(max_match_point, fade_esitimate_match_point);
+                max_match_point = (std::max)(max_match_point, fade_esitimate_match_point);
 
             flag &= KEY_FRAMETYPE[i_field] * (max_match_point < threshold_internal);
 
@@ -598,7 +532,7 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
                 int point_count = 1;
                 float match_point_sum = prev_max_match_point[index];
                 for (int idx = 0; idx < index; idx++) {
-                    if (abs(prev_max_match_point[idx] - prev_max_match_point[index]) < prev_max_match_point_sigma) {
+                    if (std::abs(prev_max_match_point[idx] - prev_max_match_point[index]) < prev_max_match_point_sigma) {
                         match_point_sum += prev_max_match_point[idx];
                         point_count++;
                     }
@@ -630,14 +564,14 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
 
         if (result & KEY_FRAMETYPE[i_field]) {
             if (index) {
-                x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] +  0));
-                x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 16));
-                x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 32));
-                x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[index] + 48));
-                _mm_store_si128((__m128i*)((BYTE *)&hist[0] +  0), x0);
-                _mm_store_si128((__m128i*)((BYTE *)&hist[0] + 16), x1);
-                _mm_store_si128((__m128i*)((BYTE *)&hist[0] + 32), x2);
-                _mm_store_si128((__m128i*)((BYTE *)&hist[0] + 48), x3);
+                x0 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] +  0));
+                x1 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 16));
+                x2 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 32));
+                x3 = _mm_load_si128((__m128i*)((uint8_t *)&hist[index] + 48));
+                _mm_store_si128((__m128i*)((uint8_t *)&hist[0] +  0), x0);
+                _mm_store_si128((__m128i*)((uint8_t *)&hist[0] + 16), x1);
+                _mm_store_si128((__m128i*)((uint8_t *)&hist[0] + 32), x2);
+                _mm_store_si128((__m128i*)((uint8_t *)&hist[0] + 48), x3);
                 prev_max_match_point[0] = prev_max_match_point[index];
                 prev_fade_match_point[0] = prev_fade_match_point[index];
                 avg_luma[0] = avg_luma[index];
@@ -648,14 +582,14 @@ mfxU16 CSceneChangeDetect::Check(mfxFrameSurface1 *frame, int *qp_offset) {
         } else {
             if (index == HIST_COUNT - 1) {
                 for (int idx = 1; idx <= index; idx++) {
-                    x0 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] +  0));
-                    x1 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 16));
-                    x2 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 32));
-                    x3 = _mm_load_si128((__m128i*)((BYTE *)&hist[idx] + 48));
-                    _mm_store_si128((__m128i*)((BYTE *)&hist[idx-1] +  0), x0);
-                    _mm_store_si128((__m128i*)((BYTE *)&hist[idx-1] + 16), x1);
-                    _mm_store_si128((__m128i*)((BYTE *)&hist[idx-1] + 32), x2);
-                    _mm_store_si128((__m128i*)((BYTE *)&hist[idx-1] + 48), x3);
+                    x0 = _mm_load_si128((__m128i*)((uint8_t *)&hist[idx] +  0));
+                    x1 = _mm_load_si128((__m128i*)((uint8_t *)&hist[idx] + 16));
+                    x2 = _mm_load_si128((__m128i*)((uint8_t *)&hist[idx] + 32));
+                    x3 = _mm_load_si128((__m128i*)((uint8_t *)&hist[idx] + 48));
+                    _mm_store_si128((__m128i*)((uint8_t *)&hist[idx-1] +  0), x0);
+                    _mm_store_si128((__m128i*)((uint8_t *)&hist[idx-1] + 16), x1);
+                    _mm_store_si128((__m128i*)((uint8_t *)&hist[idx-1] + 32), x2);
+                    _mm_store_si128((__m128i*)((uint8_t *)&hist[idx-1] + 48), x3);
                     prev_max_match_point[idx-1] = prev_max_match_point[idx];
                     prev_fade_match_point[idx-1] = prev_fade_match_point[idx];
                     avg_luma[idx-1] = avg_luma[idx];

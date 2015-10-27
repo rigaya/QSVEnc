@@ -72,7 +72,8 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
             m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
             m_inputFrameInfo.FrameRateExtN = sinfo.dwRate / fps_gcd;
             m_inputFrameInfo.FrameRateExtD = sinfo.dwScale / fps_gcd;
-            *(DWORD*)&m_inputFrameInfo.FrameId = sinfo.dwLength - sinfo.dwStart;
+            DWORD frames = sinfo.dwLength - sinfo.dwStart;
+            memcpy(&m_inputFrameInfo.FrameId, &frames, sizeof(frames));
             m_ColorFormat = sinfo.fccHandler;
             strFcc = char_to_tstring((char *)sinfo.fccHandler);
             break;

@@ -1,0 +1,576 @@
+#!/bin/bash
+
+#-----------------------------------------------------------------------------------------
+#    QSVEnc by rigaya
+#  -----------------------------------------------------------------------------------------
+#   ソースコードについて
+#   ・無保証です。
+#   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+#   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+#  -----------------------------------------------------------------------------------------
+
+write_config_mak()
+{
+    echo $1
+    echo $1 >> config.mak
+}
+
+write_qsv_config()
+{
+    echo $1
+    echo $1 >> qsv_config.h
+}
+
+cxx_check()
+{
+    echo "#include <iostream>" > cxx_check.c
+    if [ -n "$2" ]; then
+        echo "#include <$2>" >> cxx_check.c
+    fi 
+    if [ -n "$3" ]; then
+        echo "extern \"C\" {" >> cxx_check.c
+        echo "#include <$3>" >> cxx_check.c
+        echo "}" >> cxx_check.c
+    fi 
+    echo "int main(void){ $4; std::cout << \"Hello World!\" << std::endl; return 0;}" >> cxx_check.c
+    $CXX cxx_check.c $1 -o cxx_check 2>/dev/null
+    ret=$?
+    rm -f cxx_check*
+    return $ret
+}
+
+rm -f config.* .depend qsv_config.h
+
+PKGCONFIG="pkg-config"
+USE_PKGCONFIG=1
+
+ENABLE_DEBUG=0
+CXX=g++
+LD=g++
+AS=yasm
+PROGRAM=qsvencc
+PREFIX="/usr/local"
+EXTRACXXFLAGS=""
+EXTRALDFLAGS=""
+SRCS=""
+ASMS=""
+X86_64=1
+NO_RDTSCP_INTRIN=0
+
+LIBVA_SUPPORT=1
+
+CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat"
+LIBAV_CFLAGS=""
+LIBAV_LIBS=""
+ENABLE_AVCODEC_QSV_READER=1
+
+CHECK_VAPOURSYNTH_NAMES="vapoursynth vapoursynth-script"
+ENABLE_VAPOURSYNTH=1
+VAPOURSYNTH_LIBS=""
+VAPOURSYNTH_CFLAGS=""
+
+CHECK_AVXSYNTH_NAMES="avxsynth"
+ENABLE_AVXSYNTH=1
+AVXSYNTH_CFLAGS=""
+
+print_help()
+{
+cat << EOF
+Usage: ./configure [options]
+
+options:
+  -h, --help               print this message
+
+  --prefix=PREFIX          install qsvencc into PREFIX/bin [${PREFIX}]
+
+  --cxx=CXX                set C++ compiler path [${CXX}]
+  --asm=AS                 set assembler path [${AS}]
+  --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
+  --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
+
+  --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
+  --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
+
+  --disable-libva          disable libva support [auto]
+  --disable-libav          disable libav support [auto]
+  --disable-vapoursynth    disable vapoursynth support [auto]
+EOF
+}
+
+SRCDIR=$(dirname "$0")
+if [ "${SRCDIR}" == "`pwd`" ]; then
+    SRCDIR=.
+fi
+
+for opt; do
+    optarg="${opt#*=}"
+    case "$opt" in
+         -h)
+            print_help
+            exit 0
+            ;;
+         --help)
+            print_help
+            exit 0
+            ;;
+        --prefix=*)
+            PREFIX="$optarg"
+            ;;
+        --cxx=*)
+            CXX="$optarg"
+            LD="$optarg"
+            ;;
+        --asm=*)
+            AS="$optarg"
+            ;;
+        --extra-cxxflags=*)
+            EXTRACXXFLAGS="$optarg"
+            ;;
+        --extra-ldflags=*)
+            EXTRALDFLAGS="$optarg"
+            ;;
+        --enable-debug)
+            ENABLE_DEBUG=1
+            ;;
+        --disable-libva)
+            LIBVA_SUPPORT=0
+            ;;
+        --disable-libav)
+            ENABLE_AVCODEC_QSV_READER=0
+            ;;
+        --disable-vapoursynth)
+            ENABLE_VAPOURSYNTH=0
+            ;;
+        --pkg-config=*)
+            PKGCONFIG="$optarg"
+            ;;
+        *)
+            echo "unknown option $opt"
+            exit 1
+            ;;
+    esac
+done
+
+for file in "${CXX}" "${LD}" "${AS}"; do
+    if [ ! `which $file 2> /dev/null` ]; then
+        echo $file not found
+        exit 1
+    fi
+done
+
+printf "checking for ${CXX}..."
+if ! cxx_check "" ; then
+    echo $CXX does not work
+    exit 1
+fi
+echo "OK"
+
+if [ `echo | ${CXX} -E -dM - | egrep "WIN32|WIN64" | wc --lines` -ne 0 ]; then
+    echo "This script does not support Windows platform."
+    echo "For Windows, use Visual Studio."
+    exit 1 
+fi
+
+if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
+    X86_64=0
+fi
+
+CXXFLAGS="-Wall -Wno-attributes -Wno-reorder -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline/include -I${SRCDIR}/QSVPlugins"
+LDFLAGS="-L. -ldl -lstdc++"
+ASFLAGS="-I. -DLINUX=1"
+if [ $X86_64 -ne 0 ]; then
+    ASFLAGS="${ASFLAGS} -f elf64 -DARCH_X86_64=1"
+    CXXFLAGS="${CXXFLAGS} -DLINUX64 -m64"
+    LDFLAGS="${LDFLAGS} -m64"
+else
+    ASFLAGS="${ASFLAGS} -f elf32"
+    CXXFLAGS="${CXXFLAGS} -DLINUX32 -m32"
+    LDFLAGS="${LDFLAGS} -m32"
+fi
+
+printf "checking for pthread..."
+if cxx_check "${CXXFLAGS} -pthread ${LDFLAGS} -lpthread" ; then
+    CXXFLAGS="$CXXFLAGS -pthread"
+    LDFLAGS="${LDFLAGS} -lpthread"
+else
+    echo "pthread not installed." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for c++11 support..."
+if cxx_check "${CXXFLAGS} -std=c++11 ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -std=c++11"
+else
+    echo $CXX does not work with -std=c++11
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <chrono>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "chrono" "" "auto start = std::chrono::system_clock::now();" ; then
+    echo "<chrono> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <thread>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "thread" "" "std::thread th;" ; then
+    echo "<thread> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <mutex>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "mutex" "" "std::mutex mtx;" ; then
+    echo "<mutex> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <atomic>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "atomic" "" "std::atomic<int> value(0);" ; then
+    echo "<atomic> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for <type_traits>..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "type_traits" "" "std::cout << std::is_integral<int>::value << std::endl;" ; then
+    echo "<type_traits> not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for lambda..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto test = []() { std::cout << \"Hello C++11!!\" << std::endl; };" ; then
+    echo "lambda not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for nullptr..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto ptr = nullptr;" ; then
+    echo "nullptr not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for range based for..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "vector" "" "std::vector<int> v = { 1, 2, 3 }; for (auto i : v) { std::cout << i << std::endl; }" ; then
+    echo "range based for not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for alignas(n)..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "alignas(16) int value[8] = { 0 };" ; then
+    echo "alignas(n) not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for compiler SSE4.1 support..."
+if cxx_check "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
+    if cxx_check "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
+    elif cxx_check "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
+    else
+        CXXFLAGS="$CXXFLAGS -msse4.1"
+    fi
+else
+    echo "SSE4.1 not supported with this compiler." 
+    exit 1
+fi
+echo "OK"
+
+printf "checking for system SSE4.1 support..."
+if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
+    echo "System does not support SSE4.1."
+    exit 1 
+fi
+echo "OK"
+
+printf "checking for __rdtscp()..."
+if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
+    CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
+    echo "no"
+else
+    echo "yes"
+fi
+
+if [ ! $ENABLE_DEBUG -eq 0 ]; then
+    echo "configuring for debug..."
+    CXXFLAGS="${CXXFLAGS} -O0 -g -D_DEBUG"
+else
+    echo "configuring for speed..."
+    CXXFLAGS="${CXXFLAGS} -O3 -DNDEBUG=1"
+    if cxx_check "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -mfpmath=sse"
+    fi
+    if cxx_check "${CXXFLAGS} -fexcess-precision=fast ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -fexcess-precision=fast"
+    fi
+    if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -ffast-math"
+    fi
+    if cxx_check "${CXXFLAGS} -fomit-frame-pointer ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"
+    fi
+    LDFLAGS="$LDFLAGS -Wl,-s"
+fi
+
+printf "checking for libva..."
+if [ $LIBVA_SUPPORT -ne 0 ]; then
+    if cxx_check "${CXXFLAGS} ${LDFLAGS} -lva-drm -ldrm -lva" ; then
+        LDFLAGS="$LDFLAGS -lva-drm -ldrm -lva"
+        CXXFLAGS="$CXXFLAGS -DLIBVA_SUPPORT -DLIBVA_DRM_SUPPORT"
+        echo "yes"
+    else
+        LIBVA_SUPPORT=0
+        echo "no"
+    fi
+fi
+
+if [ -n $EXTRACXXFLAGS ]; then
+    printf "checking --extra-cflags..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" ; then
+        echo --extra-cflags=${EXTRACXXFLAGS} does not work
+        exit 1
+    fi
+    echo "OK"
+fi
+
+if [ -n $EXTRALDFLAGS ]; then
+    printf "checking --extra-ldflags..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" ; then
+        echo --extra-ldflags=${EXTRALDFLAGS} does not work
+        exit 1
+    fi
+    echo "OK"
+fi
+
+printf "checking for pkg-config..."
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
+which $PKGCONFIG 2>/dev/null 1>/dev/null
+if [ $? -ne 0 ]; then
+    echo "${PKGCONFIG} does not exist."
+    USE_PKGCONFIG=0
+fi
+echo "OK"
+
+if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
+    if [ $USE_PKGCONFIG -ne 0 ]; then
+        printf "checking libavcodec with pkg-config..."
+        if ! ${PKGCONFIG} --exists $CHECK_LIBAV_NAMES ; then
+            echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+        else
+            echo "OK"
+            LIBAV_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBAV_NAMES}`
+            LIBAV_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBAV_NAMES}`
+        fi
+    fi
+    
+    if [ -z "$LIBAV_LIBS" ]; then
+        LIBAV_LIBS=""
+        for lib in $CHECK_LIB_NAMES; do
+            LIBAV_LIBS="${LIBAV_LIBS} -l${lib#lib}"
+        done
+        echo "lib settings might be inaqurate."
+    fi
+
+    printf "checking for libavutil.."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavutil/avutil.h" "avutil_version();" ; then
+        echo "no"
+        ENABLE_AVCODEC_QSV_READER=0
+    else
+        echo "yes"
+    fi
+    
+    printf "checking for libavcodec..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavcodec/avcodec.h" "avcodec_find_decoder((AVCodecID)0);" ; then
+        echo "no"
+        ENABLE_AVCODEC_QSV_READER=0
+    else
+        echo "yes"
+    fi
+    
+    printf "checking for libavformat..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavformat/avformat.h" "avformat_find_stream_info(0,0);" ; then
+        echo "no"
+        ENABLE_AVCODEC_QSV_READER=0
+    else
+        echo "yes"
+    fi
+    
+    printf "checking for libswresample..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libswresample/swresample.h" "swr_alloc();" ; then
+        echo "no"
+        ENABLE_AVCODEC_QSV_READER=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_AVCODEC_QSV_READER -eq 0 ]; then
+        LIBAV_CFLAGS=""
+        LIBAV_LIBS=""
+    fi
+fi
+
+if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
+    printf "checking vapoursynth with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_VAPOURSYNTH_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        VAPOURSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_VAPOURSYNTH_NAMES}`
+        VAPOURSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_VAPOURSYNTH_NAMES}`
+    fi
+    printf "checking for VapourSynth.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VapourSynth.h" "" "" ; then
+        echo "no"
+        ENABLE_VAPOURSYNTH=0
+    else
+        echo "yes"
+    fi
+    printf "checking for VSScript.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VAPOURSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${VAPOURSYNTH_LIBS}" "VSScript.h" "" "vsscript_init();" ; then
+        echo "no"
+        ENABLE_VAPOURSYNTH=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_VAPOURSYNTH -eq 0 ]; then
+        VAPOURSYNTH_CFLAGS=""
+        VAPOURSYNTH_LIBS=""
+    fi
+fi
+
+
+if [ $ENABLE_AVXSYNTH -ne 0 ]; then
+    printf "checking avxsynth with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_AVXSYNTH_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        AVXSYNTH_LIBS=`${PKGCONFIG} --libs ${CHECK_AVXSYNTH_NAMES}`
+        AVXSYNTH_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_AVXSYNTH_NAMES}`
+    fi
+    printf "checking for avxsynth_c.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${AVXSYNTH_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${AVXSYNTH_LIBS}" "" "avxsynth_c.h" "" ; then
+        echo "no"
+        ENABLE_AVXSYNTH=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_AVXSYNTH -eq 0 ]; then
+        AVXSYNTH_CFLAGS=""
+        AVXSYNTH_LIBS=""
+    fi
+fi
+
+SRC_MFX_DISPATCH=" \
+main.cpp                   mfx_critical_section.cpp  mfx_critical_section_linux.cpp \
+mfx_dispatcher.cpp         mfx_dispatcher_log.cpp    mfx_dxva2_device.cpp \
+mfx_function_table.cpp     mfx_library_iterator.cpp  mfx_library_iterator_linux.cpp \
+mfx_load_dll.cpp           mfx_load_dll_linux.cpp    mfx_load_plugin.cpp \
+mfx_plugin_cfg_parser.cpp  mfx_plugin_hive.cpp       mfx_plugin_hive_linux.cpp \
+mfx_win_reg_key.cpp \
+"
+
+SRC_QSVPIPELINE=" \
+vm/atomic.cpp                    vm/atomic.cpp \
+vm/shared_object.cpp             vm/shared_object_linux.cpp \
+vm/thread.cpp                    vm/thread_linux.cpp \
+vm/time.cpp                      vm/time_linux.cpp \
+DeviceId.cpp                     avc_bitstream.cpp \
+avc_nal_spl.cpp                  avc_spl.cpp \
+avcodec_qsv.cpp                  avcodec_reader.cpp \
+avcodec_writer.cpp               avi_reader.cpp \
+avs_reader.cpp                   base_allocator.cpp \
+cl_func.cpp                      convert_csp.cpp \
+convert_csp_avx.cpp              convert_csp_avx2.cpp \
+convert_csp_sse2.cpp             convert_csp_ssse3.cpp \
+cpu_info.cpp                     d3d11_allocator.cpp \
+d3d11_device.cpp                 d3d_allocator.cpp \
+d3d_device.cpp                   general_allocator.cpp \
+gpu_info.cpp                     mfx_buffering.cpp \
+pipeline_encode.cpp              plugin_utils.cpp \
+qsv_control.cpp                  qsv_event.cpp \
+qsv_ini.cpp                      qsv_prm.cpp \
+qsv_simd.cpp                     qsv_util.cpp \
+qsv_version.cpp \
+ram_speed.cpp                    sample_utils.cpp \
+scene_change_detection.cpp       scene_change_detection_avx.cpp \
+scene_change_detection_simd.cpp  sysmem_allocator.cpp \
+vaapi_allocator.cpp              vaapi_device.cpp \
+vaapi_utils.cpp                  vaapi_utils_drm.cpp \
+vaapi_utils_x11.cpp              vpp_ex.cpp \
+vpy_reader.cpp \
+"
+
+ASM_QSVPIPELINE="ram_speed_x64.asm"
+
+SRC_PLUGIN_DELOGO=" \
+delogo_process_avx.cpp    delogo_process_avx2.cpp \
+delogo_process_sse41.cpp  logo.cpp \
+plugin_delogo.cpp"
+
+SRC_PLUGIN_ROTATE="plugin_rotate.cpp"
+
+SRC_QSVENCC="QSVEncC.cpp"
+
+for src in $SRC_MFX_DISPATCH; do
+    SRCS="$SRCS mfx_dispatch/src/$src"
+done
+
+for src in $SRC_QSVPIPELINE; do
+    SRCS="$SRCS QSVPipeline/src/$src"
+done
+
+for asm in $ASM_QSVPIPELINE; do
+    ASMS="$ASMS QSVPipeline/src/$asm"
+done
+
+for src in $SRC_PLUGIN_ROTATE; do
+    SRCS="$SRCS QSVPlugins/rotate/$src"
+done
+
+for src in $SRC_PLUGIN_DELOGO; do
+    SRCS="$SRCS QSVPlugins/delogo/$src"
+done
+
+for src in $SRC_QSVENCC; do
+    SRCS="$SRCS QSVEncC/src/$src"
+done
+
+echo ""
+echo "Creating config.mak, qsv_config.h..."
+echo "SRCS = $SRCS" >> config.mak
+echo "ASMS = $ASMS" >> config.mak
+write_config_mak "SRCDIR = $SRCDIR"
+write_config_mak "CXX = $CXX"
+write_config_mak "LD  = $LD"
+write_config_mak "AS  = $AS"
+write_config_mak "PROGRAM = $PROGRAM"
+write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS"
+write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS"
+write_config_mak "ASFLAGS = $ASFLAGS"
+write_config_mak "PREFIX = $PREFIX"
+echo "X86_64 = ${X86_64}"
+write_qsv_config "#define ENABLE_AVI_READER             0"
+write_qsv_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
+write_qsv_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
+write_qsv_config "#define ENABLE_AVCODEC_QSV_READER     $ENABLE_AVCODEC_QSV_READER"
+write_qsv_config "#define ENABLE_CUSTOM_VPP             0"
+write_qsv_config "#define ENABLE_ADVANCED_DEINTERLACE   0"
+write_qsv_config "#define ENABLE_MVC_ENCODING           0"
+write_qsv_config "#define ENABLE_FPS_CONVERSION         0"
+write_qsv_config "#define ENABLE_OPENCL                 0"
+write_qsv_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
+write_qsv_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
+
+echo successfully generated config.mak, qsv_config.h
+
+

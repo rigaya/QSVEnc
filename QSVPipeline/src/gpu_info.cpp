@@ -7,7 +7,7 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#include <tchar.h>
+#include "qsv_tchar.h"
 #include <string>
 #include <vector>
 #include <random>
@@ -15,6 +15,8 @@
 #include <algorithm>
 #include "cl_func.h"
 #include "DeviceId.h"
+#include "qsv_osdep.h"
+#include "qsv_util.h"
 
 typedef struct IntelDeviceInfo {
     unsigned int GPUMemoryBytes;
@@ -175,6 +177,7 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, con
 
 #endif //ENABLE_OPENCL
 
+#if defined(_WIN32) || defined(_WIN64)
 int getIntelGPUInfo(IntelDeviceInfo *info) {
     memset(info, 0, sizeof(info[0]));
 
@@ -202,12 +205,34 @@ int getIntelGPUInfo(IntelDeviceInfo *info) {
     }
     return 0;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+#ifdef LIBVA_SUPPORT
+#if defined(LIBVA_DRM_SUPPORT)
+#include "vaapi_utils_drm.h"
+#elif defined(LIBVA_X11_SUPPORT)
+#include "vaapi_utils_x11.h"
+#endif
+
+tstring getGPUInfoVA() {
+#if defined(LIBVA_DRM_SUPPORT)
+    DRMLibVA va;
+#elif defined(LIBVA_X11_SUPPORT)
+    X11LibVA va;
+#endif
+    return char_to_tstring(vaQueryVendorString(va.GetVADisplay()));
+}
+#endif //#ifdef LIBVA_SUPPORT
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
 #if !ENABLE_OPENCL
+#ifdef LIBVA_SUPPORT
+    _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
+#else
     _stprintf_s(buffer, buffer_size, _T("Unknown (not compiled with OpenCL support)"));
+#endif
     return 0;
 #else
     int ret = CL_SUCCESS;
