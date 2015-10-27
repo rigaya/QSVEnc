@@ -262,6 +262,11 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --d3d                        use d3d9 surfaces\n"));
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
+#ifdef LIBVA_SUPPORT
+        _ftprintf(stdout, _T("")
+            _T("   --disable-va                 disable using va surfaces\n")
+            _T("   --va                         use va surfaces\n"));
+#endif //#ifdef LIBVA_SUPPORT
         _ftprintf(stdout, _T("\n")
             _T(" EncMode default: --cqp\n")
             _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
@@ -1580,6 +1585,16 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
+#ifdef LIBVA_SUPPORT
+    if (0 == _tcscmp(option_name, _T("va"))) {
+        pParams->memType = D3D9_MEMORY;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("disable-va"))) {
+        pParams->memType = SYSTEM_MEMORY;
+        return MFX_ERR_NONE;
+    }
+#endif //#ifdef LIBVA_SUPPORT
     if (0 == _tcscmp(option_name, _T("async-depth"))) {
         i++;
         int v;
