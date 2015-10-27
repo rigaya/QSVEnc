@@ -83,7 +83,7 @@ CEncTaskPool::~CEncTaskPool()
     Close();
 }
 
-mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, CSmplBitstreamWriter* pBitstreamWriter, CSmplYUVWriter *pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter)
+mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pOtherWriter)
 {
     MSDK_CHECK_POINTER(pmfxSession, MFX_ERR_NULL_PTR);
 
@@ -112,7 +112,7 @@ mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pm
         for (mfxU32 i = 0; i < m_nPoolSize; i+=2)
         {
             sts = m_pTasks[i+0].Init(nBufferSize, pBitstreamWriter, pYUVWriter, pmfxAllocator);
-            sts = m_pTasks[i+1].Init(nBufferSize, pOtherWriter);
+            sts = m_pTasks[i+1].Init(nBufferSize, pOtherWriter, nullptr);
             MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
         }
     }
@@ -246,14 +246,14 @@ void CEncTaskPool::Close()
 sTask::sTask() :
     mfxSurf(nullptr),
     EncSyncP(0),
-    pBsWriter(nullptr),
-    pYUVWriter(nullptr),
+    pBsWriter(),
+    pYUVWriter(),
     pmfxAllocator(nullptr)
 {
     MSDK_ZERO_MEMORY(mfxBS);
 }
 
-mfxStatus sTask::Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pBitstreamWriter, CSmplYUVWriter *pFrameWriter, MFXFrameAllocator *pAllocator)
+mfxStatus sTask::Init(mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pFrameWriter, MFXFrameAllocator *pAllocator)
 {
     Close();
 
@@ -262,7 +262,7 @@ mfxStatus sTask::Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pBitstreamWriter
     mfxStatus sts = Reset();
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    if (pBitstreamWriter) {
+    if (pBitstreamWriter.get()) {
         MSDK_CHECK_ERROR(nBufferSize, 0, MFX_ERR_UNDEFINED_BEHAVIOR);
         sts = InitMfxBitstream(&mfxBS, nBufferSize);
         MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, WipeMfxBitstream(&mfxBS));
@@ -281,8 +281,8 @@ mfxStatus sTask::Close()
 {
     WipeMfxBitstream(&mfxBS);
     EncSyncP = 0;
-    pBsWriter = nullptr;
-    pYUVWriter = nullptr;
+    pBsWriter.reset();
+    pYUVWriter.reset();
     pmfxAllocator = nullptr;
     mfxSurf = nullptr;
     DependentVppTasks.clear();
@@ -2058,7 +2058,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
             return MFX_ERR_UNSUPPORTED;
         }
         PrintMes(QSV_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
-        m_pFileWriter = new CAvcodecWriter();
+        m_pFileWriter = std::make_shared<CAvcodecWriter>();
         AvcodecWriterPrm writerPrm = { 0 };
         writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
         if (m_pTrimParam) {
@@ -2067,7 +2067,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
-        auto pAVCodecReader = dynamic_cast<CAvcodecReader *>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
             writerPrm.chapterList = pAVCodecReader->GetChapterList();
@@ -2076,7 +2076,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         }
         if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
             PrintMes(QSV_LOG_DEBUG, _T("Output: Audio muxing enabled.\n"));
-            pAVCodecReader = dynamic_cast<CAvcodecReader *>(m_pFileReader);
+            pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
             bool copyAll = false;
             for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
@@ -2089,7 +2089,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
             }
             for (const auto& audioReader : m_AudioReaders) {
                 if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecAudioReader = dynamic_cast<CAvcodecReader *>(audioReader.get());
+                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<CAvcodecReader>(audioReader);
                     if (pAVCodecAudioReader) {
                         vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
                     }
@@ -2148,7 +2148,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
             stdoutUsed = m_pFrameWriter->outputStdout();
             PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else {
-            m_pFileWriter = new CSmplBitstreamWriter();
+            m_pFileWriter = std::make_shared<CSmplBitstreamWriter>();
             m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
             bool bBenchmark = pParams->bBenchmark != 0;
             sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
@@ -2165,7 +2165,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     //音声の抽出
     if (pParams->nAudioSelectCount > audioTrackUsed.size()) {
         PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
-        auto pAVCodecReader = reinterpret_cast<CAvcodecReader *>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == nullptr) {
             PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return MFX_ERR_UNSUPPORTED;
@@ -2207,7 +2207,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.nVideoInputFirstPts = pAVCodecReader->GetVideoFirstPts();
                 writerAudioPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
 
-                auto pWriter = new CAvcodecWriter();
+                auto pWriter = std::make_shared<CAvcodecWriter>();
                 pWriter->SetQSVLogPtr(m_pQSVLog);
                 sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pEncSatusInfo);
                 if (sts < MFX_ERR_NONE) {
@@ -2311,12 +2311,12 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 #if ENABLE_VAPOURSYNTH_READER
             vsReaderPrm.use_mt = pParams->nInputFmt == INPUT_FMT_VPY_MT;
             input_options = &vsReaderPrm;
-            m_pFileReader = new CVSReader();
+            m_pFileReader = std::make_shared<CVSReader>();
             PrintMes(QSV_LOG_DEBUG, _T("Input: vpy reader selected.\n"));
 #endif
         } else {
 #if ENABLE_AVISYNTH_READER
-            m_pFileReader = new CAVSReader();
+            m_pFileReader = std::make_shared<CAVSReader>();
             PrintMes(QSV_LOG_DEBUG, _T("Input: avs reader selected.\n"));
 #endif
         }
@@ -2330,8 +2330,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
             if (sts == MFX_ERR_INVALID_COLOR_FORMAT) {
                 //if failed because of colorformat, switch to avi reader and retry.
                 PrintMes(QSV_LOG_WARN, m_pFileReader->GetInputMessage());
-                delete m_pFileReader;
-                m_pFileReader = NULL;
+                m_pFileReader.reset();
                 sts = MFX_ERR_NONE;
                 PrintMes(QSV_LOG_WARN, _T("Input: switching to avi reader.\n"));
                 pParams->nInputFmt = INPUT_FMT_AVI;
@@ -2352,7 +2351,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
         switch (pParams->nInputFmt) {
 #if ENABLE_AVI_READER
             case INPUT_FMT_AVI:
-                m_pFileReader = new CAVIReader();
+                m_pFileReader = std::make_shared<CAVIReader>();
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avi reader selected.\n"));
                 break;
 #endif
@@ -2362,7 +2361,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
                     PrintMes(QSV_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
                 }
-                m_pFileReader = new CAvcodecReader();
+                m_pFileReader = std::make_shared<CAvcodecReader>();
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.bReadVideo = true;
                 avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
@@ -2384,7 +2383,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
             case INPUT_FMT_RAW:
             default:
                 input_option = &bY4m;
-                m_pFileReader = new CSmplYUVReader();
+                m_pFileReader = std::make_shared<CSmplYUVReader>();
                 PrintMes(QSV_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (bY4m) ? _T("y4m") : _T("raw"));
                 break;
         }
@@ -2919,7 +2918,7 @@ void CEncodingPipeline::Close()
         if (pWriter) {
             if (pWriter != m_pFileWriter) {
                 pWriter->Close();
-                delete pWriter;
+                pWriter.reset();
             }
         }
     }
@@ -2927,14 +2926,12 @@ void CEncodingPipeline::Close()
 
     if (m_pFileWriter) {
         m_pFileWriter->Close();
-        delete m_pFileWriter;
-        m_pFileWriter = NULL;
+        m_pFileWriter.reset();
     }
 
     if (m_pFileReader) {
         m_pFileReader->Close();
-        delete m_pFileReader;
-        m_pFileReader = NULL;
+        m_pFileReader.reset();
     }
 #if defined(_WIN32) || defined(_WIN64)
     if (m_bTimerPeriodTuning) {
@@ -3023,7 +3020,7 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
 
     mfxU32 nEncodedDataBufferSize = m_mfxEncParams.mfx.FrameInfo.Width * m_mfxEncParams.mfx.FrameInfo.Height * 4;
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth, nEncodedDataBufferSize >> 10);
-    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator, m_pFileWriter, m_pFrameWriter.get(), m_nAsyncDepth, nEncodedDataBufferSize, NULL);
+    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator, m_pFileWriter, m_pFrameWriter, m_nAsyncDepth, nEncodedDataBufferSize, NULL);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize task pool for encoding."));
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Created task pool.\n"));
 
@@ -3244,9 +3241,9 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 #if ENABLE_AVCODEC_QSV_READER
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
-    std::map<int, CAvcodecWriter *> pWriterForAudioStreams;
+    std::map<int, shared_ptr<CAvcodecWriter>> pWriterForAudioStreams;
     for (auto pWriter : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = dynamic_cast<CAvcodecWriter *>(pWriter);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(pWriter);
         if (pAVCodecWriter) {
             auto trackIdList = pAVCodecWriter->GetStreamTrackIdList();
             for (auto trackID : trackIdList) {
@@ -3327,14 +3324,14 @@ mfxStatus CEncodingPipeline::RunEncode()
         mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_AVCODEC_QSV_READER
         if (m_pFileWriterListAudio.size()) {
-            auto pAVCodecReader = dynamic_cast<CAvcodecReader *>(m_pFileReader);
+            auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
             vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
                 packetList = pAVCodecReader->GetStreamDataPackets();
             }
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
-                auto pReader = dynamic_cast<CAvcodecReader *>(reader.get());
+                auto pReader = std::dynamic_pointer_cast<CAvcodecReader>(reader);
                 if (pReader != nullptr) {
                     vector_cat(packetList, pReader->GetStreamDataPackets());
                 }
@@ -3747,7 +3744,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 
 #if ENABLE_AVCODEC_QSV_READER
     for (const auto& writer : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = dynamic_cast<CAvcodecWriter *>(writer);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
         if (pAVCodecWriter != nullptr) {
             //エンコーダなどにキャッシュされたパケットを書き出す
             pAVCodecWriter->WriteNextPacket(nullptr);

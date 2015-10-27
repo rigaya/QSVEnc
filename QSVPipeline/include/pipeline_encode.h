@@ -63,14 +63,14 @@ struct sTask
     mfxFrameSurface1 *mfxSurf;
     mfxSyncPoint EncSyncP;
     std::list<mfxSyncPoint> DependentVppTasks;
-    CSmplBitstreamWriter *pBsWriter;
-    CSmplYUVWriter *pYUVWriter;
+    shared_ptr<CSmplBitstreamWriter> pBsWriter;
+    shared_ptr<CSmplYUVWriter> pYUVWriter;
     MFXFrameAllocator *pmfxAllocator;
 
     sTask();
     mfxStatus WriteBitstream();
     mfxStatus Reset();
-    mfxStatus Init(mfxU32 nBufferSize, CSmplBitstreamWriter *pBitstreamWriter = nullptr, CSmplYUVWriter *pFrameWriter = nullptr, MFXFrameAllocator *pAllocator = nullptr);
+    mfxStatus Init(mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pFrameWriter, MFXFrameAllocator *pAllocator = nullptr);
     mfxStatus Close();
 };
 
@@ -80,7 +80,7 @@ public:
     CEncTaskPool();
     virtual ~CEncTaskPool();
 
-    virtual mfxStatus Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, CSmplBitstreamWriter* pBitstreamWriter, CSmplYUVWriter *pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, CSmplBitstreamWriter *pOtherWriter = NULL);
+    virtual mfxStatus Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pOtherWriter);
 
     mfxStatus GetFreeTask(sTask **ppTask);
 
@@ -154,11 +154,11 @@ protected:
     mfxU32 m_nExPrm;
     CQSVFrameTypeSimulation m_frameTypeSim;
 
-    vector<CSmplBitstreamWriter *> m_pFileWriterListAudio;
-    CSmplBitstreamWriter *m_pFileWriter;
-    unique_ptr<CSmplYUVWriter> m_pFrameWriter;
-    vector<unique_ptr<CSmplYUVReader>> m_AudioReaders;
-    CSmplYUVReader *m_pFileReader;
+    vector<shared_ptr<CSmplBitstreamWriter>> m_pFileWriterListAudio;
+    shared_ptr<CSmplBitstreamWriter> m_pFileWriter;
+    shared_ptr<CSmplYUVWriter> m_pFrameWriter;
+    vector<shared_ptr<CSmplYUVReader>> m_AudioReaders;
+    shared_ptr<CSmplYUVReader> m_pFileReader;
 
     CEncTaskPool m_TaskPool;
     mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance
