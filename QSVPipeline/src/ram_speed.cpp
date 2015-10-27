@@ -58,7 +58,7 @@ void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_
     uint8_t *ptr = (uint8_t *)_aligned_malloc(check_size_bytes, 64);
     for (uint32_t i = 0; i < check_size_bytes; i++)
         ptr[i] = 0;
-    uint32_t count_n = (int)(test_kilo_bytes * 1024.0 / check_size_bytes + 0.5);
+    uint32_t count_n = std::max(1, (int)(test_kilo_bytes * 1024.0 / check_size_bytes + 0.5));
     int avx = 0 != (get_availableSIMD() & AVX);
     int64_t result[TEST_COUNT];
     static const func_ram_test RAM_TEST_LIST[][2] = {
@@ -69,8 +69,8 @@ void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_
     const func_ram_test ram_test = RAM_TEST_LIST[avx][thread_prm->mode];
 
     thread_wk->check_bit |= 1 << thread_prm->thread_id;
-    while (thread_wk->check_bit != thread_wk->check_bit_all) {
-        ram_test(ptr, check_size_bytes, (int)(warmup_kilo_bytes * 1024.0 / check_size_bytes + 0.5));
+    while (thread_wk->check_bit.load() != thread_wk->check_bit_all) {
+        ram_test(ptr, check_size_bytes, std::max(1, (int)(warmup_kilo_bytes * 1024.0 / check_size_bytes + 0.5)));
     }
 
     for (int i = 0; i < TEST_COUNT; i++) {
@@ -79,7 +79,7 @@ void ram_speed_func(RAM_SPEED_THREAD *thread_prm, RAM_SPEED_THREAD_WAKE *thread_
         auto fin = std::chrono::high_resolution_clock::now();
         result[i] = std::chrono::duration_cast<std::chrono::microseconds>(fin - start).count();
     }
-    ram_test(ptr, check_size_bytes, (int)(warmup_kilo_bytes * 1024.0 / check_size_bytes + 0.5));
+    ram_test(ptr, check_size_bytes, std::max(1, (int)(warmup_kilo_bytes * 1024.0 / check_size_bytes + 0.5)));
     _aligned_free(ptr);
 
     int64_t time_min = LLONG_MAX;
