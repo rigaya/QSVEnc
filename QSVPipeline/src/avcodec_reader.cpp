@@ -962,7 +962,9 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
         MFXVideoDECODE_Close(session);
         pPlugin.reset(); //必ずsessionをクローズする前に開放すること
         MFXClose(session);
+#ifdef LIBVA_SUPPORT
         phwDevice.reset();
+#endif //#ifdef LIBVA_SUPPORT
         if (MFX_ERR_NONE != decHeaderSts) {
             AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv, please consider using other input method.\n"));
             return decHeaderSts;

@@ -32,6 +32,7 @@
 #include "plugin_loader.h"
 #include "sample_defs.h"
 #include "sample_utils.h"
+#include "qsv_tchar.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "ram_speed.h"
@@ -1003,7 +1004,9 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
         
         m_pEncPlugin.reset();
         MFXClose(session);
+#ifdef LIBVA_SUPPORT
         phwDevice.reset();
+#endif //#ifdef LIBVA_SUPPORT
     }
 
     return feature;
