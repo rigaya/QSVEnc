@@ -38,16 +38,15 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_nTotalOutFrames = 0;
     m_nOutputFPSRate = 0;
     m_nOutputFPSScale = 0;
-    m_pQSVLog = nullptr;
     m_bStdErrWriteToConsole = true;
     m_tmStart = std::chrono::system_clock::now();
 }
 
 CEncodeStatusInfo::~CEncodeStatusInfo() {
-    m_pQSVLog = nullptr;
+    m_pQSVLog.reset();
 }
 
-void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, CQSVLog *pQSVLog) {
+void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog) {
     m_nOutputFPSRate = outputFPSRate;
     m_nOutputFPSScale = outputFPSScale;
     m_nTotalOutFrames = totalOutputFrames;
@@ -123,7 +122,7 @@ mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CEncodingP
 }
 
 //終了を待機する
-mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog) {
+mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVLog) {
     MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
     //最後のLoadNextFrameの結果をm_stsThreadにセットし、RunEncodeに知らせる
     m_stsThread = sts;

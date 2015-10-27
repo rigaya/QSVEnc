@@ -33,6 +33,7 @@
 #include "cpu_info.h"
 
 using std::chrono::duration_cast;
+using std::shared_ptr;
 class CEncodingPipeline;
 
 typedef struct {
@@ -158,7 +159,7 @@ class CEncodeStatusInfo
 public:
     CEncodeStatusInfo();
     virtual ~CEncodeStatusInfo();
-    void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, CQSVLog *m_pQSVLog);
+    void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog);
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
         if (NULL != data) {
@@ -322,7 +323,7 @@ protected:
     std::chrono::system_clock::time_point m_tmStart;
     PROCESS_TIME m_sStartTime;
     sEncodeStatusData m_sData;
-    CQSVLog *m_pQSVLog;
+    shared_ptr<CQSVLog> m_pQSVLog;
     bool m_bStdErrWriteToConsole;
 };
 
@@ -335,7 +336,7 @@ public:
     mfxStatus Init(mfxU16 bufferSize);
     void Close();
     //終了を待機する
-    mfxStatus WaitToFinish(mfxStatus sts, CQSVLog *pQSVLog);
+    mfxStatus WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVLog);
     mfxStatus RunEncFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask);
     mfxStatus RunSubFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask);
 

@@ -1371,7 +1371,7 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
         DelogoParam param(m_pMFXAllocator, m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
             pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
             pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset);
-        sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog.get());
+        sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts == MFX_ERR_ABORTED) {
             PrintMes(QSV_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
             sts = MFX_ERR_NONE;
@@ -1389,7 +1389,7 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
     if (pParams->vpp.bHalfTurn) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         RotateParam param(180);
-        sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog.get());
+        sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
             PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
         } else {
@@ -2119,7 +2119,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
                 }
             }
         }
-        m_pFileWriter->SetQSVLogPtr(m_pQSVLog.get());
+        m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
         sts = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
         if (sts < MFX_ERR_NONE) {
             PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
@@ -2136,7 +2136,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 #endif
         if (pParams->CodecId == MFX_CODEC_RAW) {
             m_pFrameWriter.reset(new CSmplYUVWriter());
-            m_pFrameWriter->SetQSVLogPtr(m_pQSVLog.get());
+            m_pFrameWriter->SetQSVLogPtr(m_pQSVLog);
             YUVWriterParam param;
             param.bY4m = true;
             param.memType = m_memType;
@@ -2149,7 +2149,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
             PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else {
             m_pFileWriter = new CSmplBitstreamWriter();
-            m_pFileWriter->SetQSVLogPtr(m_pQSVLog.get());
+            m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
             bool bBenchmark = pParams->bBenchmark != 0;
             sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
             if (sts < MFX_ERR_NONE) {
@@ -2208,7 +2208,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
 
                 auto pWriter = new CAvcodecWriter();
-                pWriter->SetQSVLogPtr(m_pQSVLog.get());
+                pWriter->SetQSVLogPtr(m_pQSVLog);
                 sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pEncSatusInfo);
                 if (sts < MFX_ERR_NONE) {
                     PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
@@ -2324,7 +2324,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
             //switch to avi reader and retry
             pParams->nInputFmt = INPUT_FMT_AVI;
         } else {
-            m_pFileReader->SetQSVLogPtr(m_pQSVLog.get());
+            m_pFileReader->SetQSVLogPtr(m_pQSVLog);
             sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_options,
                 &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
             if (sts == MFX_ERR_INVALID_COLOR_FORMAT) {
@@ -2388,7 +2388,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
                 PrintMes(QSV_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (bY4m) ? _T("y4m") : _T("raw"));
                 break;
         }
-        m_pFileReader->SetQSVLogPtr(m_pQSVLog.get());
+        m_pFileReader->SetQSVLogPtr(m_pQSVLog);
         sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_option,
             &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
     }
@@ -2422,7 +2422,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
 
             unique_ptr<CSmplYUVReader> audioReader(new CAvcodecReader());
-            audioReader->SetQSVLogPtr(m_pQSVLog.get());
+            audioReader->SetQSVLogPtr(m_pQSVLog);
             sts = audioReader->Init(pParams->ppAudioSourceList[i], 0, &avcodecReaderPrm, nullptr, nullptr, nullptr);
             if (sts < MFX_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, audioReader->GetInputMessage());
@@ -2607,7 +2607,7 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog.get());
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog);
     PrintMes(QSV_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
@@ -2654,6 +2654,9 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
         if (m_ThreadsParam.NumThread != 0 || m_ThreadsParam.Priority != get_value_from_chr(list_priority, _T("normal"))) {
             m_InitParam.Implementation = impl;
             m_InitParam.Version = MFX_LIB_VERSION_1_15;
+            if (useHWLib) {
+                m_InitParam.GPUCopy = MFX_GPUCOPY_ON;
+            }
             if (MFX_ERR_NONE == m_mfxSession.InitEx(m_InitParam)) {
                 return MFX_ERR_NONE;
             } else {
@@ -3190,7 +3193,7 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
         SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
         PrintMes(QSV_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
     }
-    m_EncThread.WaitToFinish(sts, m_pQSVLog.get());
+    m_EncThread.WaitToFinish(sts, m_pQSVLog);
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
 
     sFrameTypeInfo info = { 0 };

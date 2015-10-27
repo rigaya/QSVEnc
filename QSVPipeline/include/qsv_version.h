@@ -46,7 +46,7 @@ const char *get_qsvenc_version();
 
 #define ENABLE_OPENCL 1
 
-#define ENABLE_SESSION_THREAD_CONFIG 0
+#define ENABLE_SESSION_THREAD_CONFIG 1
 
 #ifndef QSVENC_AUO
 #define ENABLE_AVI_READER         1

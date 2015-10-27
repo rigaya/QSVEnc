@@ -103,7 +103,7 @@ public:
     CSmplYUVReader();
     virtual ~CSmplYUVReader();
     
-    virtual void SetQSVLogPtr(CQSVLog *pQSVLog) {
+    virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
     virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
@@ -257,7 +257,7 @@ protected:
 
     tstring m_strReaderName;
     tstring m_strInputInfo;
-    CQSVLog *m_pPrintMes;  //ログ出力
+    shared_ptr<CQSVLog> m_pPrintMes;  //ログ出力
 
     sTrimParam m_sTrimParam;
 };
@@ -269,7 +269,7 @@ public:
     CSmplBitstreamWriter();
     virtual ~CSmplBitstreamWriter();
 
-    virtual void SetQSVLogPtr(CQSVLog *pQSVLog) {
+    virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
     virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
@@ -321,7 +321,7 @@ protected:
     char*       m_pOutputBuffer;
     tstring     m_strWriterName;
     tstring     m_strOutputInfo;
-    CQSVLog    *m_pPrintMes;  //ログ出力
+    shared_ptr<CQSVLog> m_pPrintMes;  //ログ出力
 };
 
 struct YUVWriterParam {
@@ -336,7 +336,7 @@ public:
     CSmplYUVWriter();
     virtual ~CSmplYUVWriter();
 
-    virtual void SetQSVLogPtr(CQSVLog *pQSVLog) {
+    virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
 
@@ -388,7 +388,7 @@ protected:
     bool         m_bY4mHeaderWritten;
     tstring      m_strWriterName;
     tstring      m_strOutputInfo;
-    CQSVLog     *m_pPrintMes;  //ログ出力
+    shared_ptr<CQSVLog> m_pPrintMes;  //ログ出力
     std::unique_ptr<mfxU8, aligned_malloc_deleter> m_pReadBuffer;
     std::unique_ptr<mfxU8, aligned_malloc_deleter> m_pUVBuffer;
 };

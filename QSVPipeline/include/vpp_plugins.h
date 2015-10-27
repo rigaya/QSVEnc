@@ -36,7 +36,6 @@ class CVPPPlugin
 {
 public:
     CVPPPlugin() {
-        m_pQSVLog = nullptr;
         m_pPluginSurfaces = nullptr;
         m_nSurfNum = 0;
         m_memType = SYSTEM_MEMORY;
@@ -80,7 +79,7 @@ public:
 #endif
         m_message.clear();
         (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginClose[%s]: closed.\n"), pluginName.c_str());
-        m_pQSVLog = nullptr;
+        m_pQSVLog.reset();
     };
 
 public:
@@ -118,7 +117,7 @@ public:
 public:
     virtual mfxStatus Init(mfxVersion ver, const TCHAR *pluginName, void *pPluginParam, mfxU32 nPluginParamSize,
         bool useHWLib, MemType memType, CHWDevice *phwdev, MFXFrameAllocator* pAllocator,
-        mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, CQSVLog *pQSVLog) {
+        mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, shared_ptr<CQSVLog> pQSVLog) {
 
         MSDK_CHECK_POINTER(pluginName, MFX_ERR_NULL_PTR);
         MSDK_CHECK_POINTER(pPluginParam, MFX_ERR_NULL_PTR);
@@ -244,7 +243,7 @@ private:
     CHWDevice                     *m_hwdev;               //使用しているデバイス
 #endif
     tstring                        m_message;             //このカスタムVPPからのメッセージ
-    CQSVLog                       *m_pQSVLog;            //ログ出力用関数オブジェクト
+    shared_ptr<CQSVLog>            m_pQSVLog;            //ログ出力用関数オブジェクト
 };
 
 #endif //__VPP_PLUGINS_H__

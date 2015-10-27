@@ -55,6 +55,7 @@
 
 using std::vector;
 using std::unique_ptr;
+using std::shared_ptr;
 
 struct sTask
 {
@@ -136,7 +137,7 @@ public:
     virtual MemType GetMemType();
 
     virtual void PrintMes(int log_level, const TCHAR *format, ...);
-    unique_ptr<CQSVLog> m_pQSVLog;
+    shared_ptr<CQSVLog> m_pQSVLog;
 
     virtual mfxStatus RunEncode();
     mfxStatus CheckSceneChange();
