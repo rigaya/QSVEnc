@@ -1974,10 +1974,10 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
         {
             mfxVersion ver = { 0, 1 };
             if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
-                _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available"));
+                _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
                 return MFX_PRINT_OPTION_DONE;
             } else {
-                _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable"));
+                _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable\n"));
                 return MFX_PRINT_OPTION_ERR;
             }
         }
