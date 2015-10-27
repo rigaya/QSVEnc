@@ -303,8 +303,12 @@ public:
         int mm = time_elapsed / (60*1000);
         time_elapsed -= mm * (60*1000);
         int ss = (time_elapsed + 500) / 1000;
+#if defined(_WIN32) || defined(_WIN64)
         m_sData.fCPUUsagePercent = GetProcessAvgCPUUsage(&m_sStartTime);
         _stprintf_s(mes, _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, m_sData.fCPUUsagePercent);
+#else
+        _stprintf_s(mes, _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
+#endif
         WriteLine(mes);
 
         mfxU32 maxCount = (std::max)(m_sData.nICount, (std::max)(m_sData.nPCount, m_sData.nBCount));
