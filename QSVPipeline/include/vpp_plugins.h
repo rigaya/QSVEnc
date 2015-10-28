@@ -44,7 +44,7 @@ public:
         m_pmfxAllocatorParams = nullptr;
         m_pPluginSurfaces = nullptr;
 #if GPU_FILTER
-        m_hwdev = NULL;
+        m_hwdev.reset();
 #endif
         MSDK_ZERO_MEMORY(m_PluginResponse);
         MSDK_ZERO_MEMORY(m_pluginVideoParams);
@@ -75,7 +75,7 @@ public:
         m_nSurfNum = 0;
         m_memType = SYSTEM_MEMORY;
 #if GPU_FILTER
-        m_hwdev = NULL;
+        m_hwdev.reset();
 #endif
         m_message.clear();
         (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginClose[%s]: closed.\n"), pluginName.c_str());
@@ -116,12 +116,11 @@ public:
 
 public:
     virtual mfxStatus Init(mfxVersion ver, const TCHAR *pluginName, void *pPluginParam, mfxU32 nPluginParamSize,
-        bool useHWLib, MemType memType, CHWDevice *phwdev, MFXFrameAllocator* pAllocator,
+        bool useHWLib, MemType memType, shared_ptr<CHWDevice> phwdev, MFXFrameAllocator* pAllocator,
         mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, shared_ptr<CQSVLog> pQSVLog) {
 
         MSDK_CHECK_POINTER(pluginName, MFX_ERR_NULL_PTR);
         MSDK_CHECK_POINTER(pPluginParam, MFX_ERR_NULL_PTR);
-        MSDK_CHECK_POINTER(phwdev, MFX_ERR_NULL_PTR);
         
 #if GPU_FILTER
         m_hwdev = phwdev;
@@ -240,7 +239,7 @@ private:
     mfxVersion                     m_mfxVer;              //使用しているMediaSDKのバージョン
     unique_ptr<QSVEncPlugin>       m_pUsrPlugin;          //カスタムプラグインのインスタンス
 #if GPU_FILTER
-    CHWDevice                     *m_hwdev;               //使用しているデバイス
+    shared_ptr<CHWDevice>          m_hwdev;               //使用しているデバイス
 #endif
     tstring                        m_message;             //このカスタムVPPからのメッセージ
     shared_ptr<CQSVLog>            m_pQSVLog;            //ログ出力用関数オブジェクト

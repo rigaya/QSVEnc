@@ -231,7 +231,7 @@ protected:
     // for disabling VPP algorithms
     //mfxExtVPPDoNotUse m_VppDoNotUse;
 
-    CHWDevice *m_hwdev;
+    shared_ptr<CHWDevice> m_hwdev;
 
     virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 

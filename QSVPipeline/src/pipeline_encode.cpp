@@ -1433,12 +1433,18 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
     HWND window = WindowFromPoint(point);
-    m_hwdev = NULL;
+    m_hwdev.reset();
+
+    auto hwdev_deleter = [](CHWDevice *hwdev) {
+        if (hwdev) {
+            hwdev->Close();
+        }
+    };
 
     if (m_memType) {
 #if MFX_D3D11_SUPPORT
         if (m_memType == D3D11_MEMORY
-            && NULL != (m_hwdev = new CD3D11Device())) {
+            && (m_hwdev = std::shared_ptr<CD3D11Device>(new CD3D11Device(), hwdev_deleter))) {
             m_memType = D3D11_MEMORY;
             PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
@@ -1447,14 +1453,12 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
                 0,
                 MSDKAdapter::GetNumber(m_mfxSession));
             if (sts != MFX_ERR_NONE) {
-                m_hwdev->Close();
-                delete m_hwdev;
-                m_hwdev = NULL;
+                m_hwdev.reset();
                 PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
-        if (m_hwdev == NULL && NULL != (m_hwdev = new CD3D9Device())) {
+        if (!m_hwdev && (m_hwdev = std::shared_ptr<CD3D9Device>(new CD3D9Device(), hwdev_deleter))) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (m_memType != D3D9_MEMORY) {
@@ -1943,9 +1947,7 @@ void CEncodingPipeline::DeleteFrames()
 
 void CEncodingPipeline::DeleteHWDevice()
 {
-#if D3D_SURFACES_SUPPORT
-    MSDK_SAFE_DELETE(m_hwdev);
-#endif
+    m_hwdev.reset();
 }
 
 void CEncodingPipeline::DeleteAllocator()
@@ -1999,9 +2001,8 @@ CEncodingPipeline::CEncodingPipeline()
     INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,       MFX_EXTBUFF_HEVC_PARAM);
     INIT_MFX_EXT_BUFFER(m_ThreadsParam,       MFX_EXTBUFF_THREADS_PARAM);
 
-#if D3D_SURFACES_SUPPORT
-    m_hwdev = NULL;
-#endif
+    m_hwdev.reset();
+
     MSDK_ZERO_MEMORY(m_DecInputBitstream);
     
     MSDK_ZERO_MEMORY(m_InitParam);
