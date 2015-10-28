@@ -21,7 +21,7 @@ public :
     virtual ~AUO_YUVReader();
 
     virtual void Close() override;
-    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
     virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
 
 private:

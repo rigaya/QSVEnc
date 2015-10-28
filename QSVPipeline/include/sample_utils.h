@@ -106,7 +106,7 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+    virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop);
 
     //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
     mfxStatus GetNextFrame(mfxFrameSurface1** pSurface)
@@ -239,7 +239,7 @@ protected:
     mfxU32 m_numLoadedFiles;
 #endif
     CEncodingThread *m_pEncThread;
-    CEncodeStatusInfo *m_pEncSatusInfo;
+    shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
     bool m_by4m;
     bool m_bInited;
     std::chrono::system_clock::time_point m_tmLastUpdate;
@@ -272,7 +272,7 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
+    virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo);
 
     virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2);
 
@@ -313,7 +313,7 @@ public:
          AddMessage(log_level, buffer);
     }
 protected:
-    CEncodeStatusInfo *m_pEncSatusInfo;
+    shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
     FILE*       m_fSource;
     bool        m_bOutputIsStdout;
     bool        m_bInited;
@@ -341,7 +341,7 @@ public:
     }
 
     virtual void      Close();
-    virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, CEncodeStatusInfo *pEncSatusInfo);
+    virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo);
     virtual mfxStatus WriteNextFrame(mfxFrameSurface1 *pSurface);
 
     virtual bool outputStdout() {
@@ -379,7 +379,7 @@ public:
     }
 
 protected:
-    CEncodeStatusInfo *m_pEncSatusInfo;
+    shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
     bool         m_bInited;
     FILE        *m_fDest;
     bool         m_bOutputIsStdout;

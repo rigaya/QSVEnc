@@ -145,7 +145,7 @@ public:
     static void RunSubThreadLauncher(void *pParam);
 protected:
     mfxVersion m_mfxVer;
-    CEncodeStatusInfo *m_pEncSatusInfo;
+    shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
     CEncodingThread m_EncThread;
 
     bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する

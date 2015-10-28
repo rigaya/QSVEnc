@@ -2241,7 +2241,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
-    m_pEncSatusInfo = new CEncodeStatusInfo();
+    m_pEncSatusInfo = std::make_shared<CEncodeStatusInfo>();
 
     //Auto detection by input file extension
     if (pParams->nInputFmt == INPUT_FMT_AUTO) {
@@ -2877,7 +2877,7 @@ void CEncodingPipeline::Close()
     PrintMes(QSV_LOG_DEBUG, _T("Closing pipeline...\n"));
     //PrintMes(QSV_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
 
-    MSDK_SAFE_DELETE(m_pEncSatusInfo);
+    m_pEncSatusInfo.reset();
     m_EncThread.Close();
 
     m_pDecPlugin.reset();

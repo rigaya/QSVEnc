@@ -24,11 +24,11 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
     m_pQSVLog.reset(new CAuoLog(pParams->pStrLogFile, pParams->nLogLevel));
 
-    m_pEncSatusInfo = new AUO_EncodeStatusInfo();
+    m_pEncSatusInfo = std::make_shared<AUO_EncodeStatusInfo>();
 
     // prepare input file reader
-    m_pFileReader = new AUO_YUVReader();
-    m_pFileReader->SetQSVLogPtr(m_pQSVLog.get());
+    m_pFileReader = std::make_shared<AUO_YUVReader>();
+    m_pFileReader->SetQSVLogPtr(m_pQSVLog);
     sts = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
@@ -71,7 +71,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
 
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog.get());
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog);
 
     return sts;
 }
@@ -79,8 +79,8 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
 mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
 
-    m_pFileWriter = new CSmplBitstreamWriter();
-    m_pFileWriter->SetQSVLogPtr(m_pQSVLog.get());
+    m_pFileWriter = std::make_shared<CSmplBitstreamWriter>();
+    m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
     sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 

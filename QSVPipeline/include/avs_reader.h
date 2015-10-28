@@ -55,10 +55,10 @@ public:
     CAVSReader();
     virtual ~CAVSReader();
 
-    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop);
+    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
 
     virtual void Close();
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
+    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
 private:
     mfxStatus load_avisynth();
     void release_avisynth();

@@ -64,7 +64,7 @@ mfxStatus CAVSReader::load_avisynth() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
 
     MSDK_CHECK_POINTER(strFileName, MFX_ERR_NULL_PTR);
     MSDK_CHECK_ERROR(_tcslen(strFileName), 0, MFX_ERR_NULL_PTR);
@@ -74,7 +74,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     MSDK_CHECK_POINTER(pEncThread, MFX_ERR_NULL_PTR);
     m_pEncThread = pEncThread;
 
-    MSDK_CHECK_POINTER(pEncSatusInfo, MFX_ERR_NULL_PTR);
+    MSDK_CHECK_POINTER(pEncSatusInfo.get(), MFX_ERR_NULL_PTR);
     m_pEncSatusInfo = pEncSatusInfo;
 
     MSDK_CHECK_POINTER(pInputCrop, MFX_ERR_NULL_PTR);
@@ -192,6 +192,7 @@ void CAVSReader::Close() {
     m_sAVSclip = NULL;
     m_sAVSinfo = NULL;
     m_bInited = false;
+    m_pEncSatusInfo.reset();
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 

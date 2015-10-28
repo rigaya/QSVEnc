@@ -129,7 +129,7 @@ AUO_YUVReader::AUO_YUVReader() {
 
 #pragma warning( push )
 #pragma warning( disable: 4100 )
-mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, CEncodeStatusInfo *pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
     MSDK_CHECK_POINTER(oip, MFX_ERR_NULL_PTR);
 
     Close();
@@ -137,7 +137,7 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, cons
     MSDK_CHECK_POINTER(pEncThread, MFX_ERR_NULL_PTR);
     m_pEncThread = pEncThread;
 
-    MSDK_CHECK_POINTER(pEncSatusInfo, MFX_ERR_NULL_PTR);
+    MSDK_CHECK_POINTER(pEncSatusInfo.get(), MFX_ERR_NULL_PTR);
     m_pEncSatusInfo = pEncSatusInfo;
     m_bInited = true;
 
@@ -176,6 +176,7 @@ AUO_YUVReader::~AUO_YUVReader() {
 void AUO_YUVReader::Close() {
     disable_enc_control();
     pause = FALSE;
+    m_pEncSatusInfo.reset();
 }
 
 mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {

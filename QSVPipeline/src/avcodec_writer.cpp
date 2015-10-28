@@ -158,6 +158,7 @@ void CAvcodecWriter::Close() {
     m_Mux.sub.clear();
     CloseVideo(&m_Mux.video);
     m_strOutputInfo.clear();
+    m_pEncSatusInfo.reset();
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
@@ -778,7 +779,7 @@ mfxStatus CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterL
     return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option, CEncodeStatusInfo *pEncSatusInfo) {
+mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
     m_Mux.format.bStreamError = true;
     AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
 
