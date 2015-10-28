@@ -158,9 +158,9 @@ void CAVIReader::Close() {
         AVIStreamRelease(m_pAviStream);
     if (m_pAviFile)
         AVIFileRelease(m_pAviFile);
-    if (m_pBuffer)
-        _aligned_free(m_pBuffer);
     AVIFileExit();
+    m_pBuffer.reset();
+    m_nBufSize = 0;
 
     m_pAviFile = NULL;
     m_pAviStream = NULL;
@@ -168,8 +168,6 @@ void CAVIReader::Close() {
     m_pBitmapInfoHeader = NULL;
     m_bInited = false;
     m_nYPitchMultiplizer = 1;
-    m_nBufSize = 0;
-    m_pBuffer = NULL;
     m_pEncSatusInfo.reset();
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
@@ -208,16 +206,16 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     } else {
         mfxU32 required_bufsize = w * h * 3;
         if (m_nBufSize < required_bufsize) {
-            if (m_pBuffer)
-                _aligned_free(m_pBuffer);
-            if (NULL == (m_pBuffer = (mfxU8 *)_aligned_malloc(sizeof(mfxU8) * required_bufsize, 16)))
+            m_pBuffer.reset();
+            m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(required_bufsize, 16), aligned_malloc_deleter());
+            if (m_pBuffer.get())
                 return MFX_ERR_MEMORY_ALLOC;
             m_nBufSize = required_bufsize;
         }
         LONG sizeRead = 0;
-        if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, m_pBuffer, (LONG)m_nBufSize, &sizeRead, NULL))
+        if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
             return MFX_ERR_MORE_DATA;
-        ptr_src = m_pBuffer;
+        ptr_src = m_pBuffer.get();
     }
 
     BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));

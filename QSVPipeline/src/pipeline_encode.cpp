@@ -1975,7 +1975,7 @@ CEncodingPipeline::CEncodingPipeline()
 
     m_pAbortByUser = NULL;
 
-    m_pEncSatusInfo = NULL;
+    m_pEncSatusInfo.reset();
     m_pFileWriterListAudio.clear();
     m_pFileWriter = NULL;
     m_pFileReader = NULL;
