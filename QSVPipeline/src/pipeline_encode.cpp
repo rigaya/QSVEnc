@@ -2075,8 +2075,8 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
             writerPrm.nVideoInputFirstPts = pAVCodecReader->GetVideoFirstPts();
             writerPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
         }
-        if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
-            PrintMes(QSV_LOG_DEBUG, _T("Output: Audio muxing enabled.\n"));
+        if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
+            PrintMes(QSV_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
             pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
             bool copyAll = false;
             for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
@@ -2125,12 +2125,12 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
         if (sts < MFX_ERR_NONE) {
             PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
             return sts;
-        } else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
+        } else if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
             m_pFileWriterListAudio.push_back(m_pFileWriter);
         }
         stdoutUsed = m_pFileWriter->outputStdout();
         PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-    } else if (pParams->nAVMux & QSVENC_MUX_AUDIO) {
+    } else if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
         PrintMes(QSV_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
         return MFX_ERR_UNSUPPORTED;
     } else {

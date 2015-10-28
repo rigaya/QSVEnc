@@ -1011,6 +1011,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
+        pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_SUBTITLE);
         std::set<int> trackSet; //重複しないよう、setを使う
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;

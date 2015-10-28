@@ -97,9 +97,10 @@ enum {
 };
 
 enum {
-    QSVENC_MUX_NONE  = 0x00,
-    QSVENC_MUX_VIDEO = 0x01,
-    QSVENC_MUX_AUDIO = 0x02,
+    QSVENC_MUX_NONE     = 0x00,
+    QSVENC_MUX_VIDEO    = 0x01,
+    QSVENC_MUX_AUDIO    = 0x02,
+    QSVENC_MUX_SUBTITLE = 0x04,
 };
 
 typedef struct {
