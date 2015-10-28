@@ -361,6 +361,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     clearStreamPacketList(m_PreReadBuffer);
     m_PreReadBuffer.reserve(maxCheckFrames);
 
+    m_Demux.video.nStreamFirstPts = 0;
     int i_samples = 0;
     for (; i_samples < maxCheckFrames && getTotalDuration() < maxCheckSec && !getSample(&pkt); i_samples++) {
         int64_t pts = pkt.pts, dts = pkt.dts;
@@ -1047,7 +1048,7 @@ int CAvcodecReader::GetAudioTrackCount() {
 }
 
 int64_t CAvcodecReader::GetVideoFirstPts() {
-    return m_Demux.video.bGotFirstKeyframe ? m_Demux.video.nStreamFirstPts : 0;
+    return m_Demux.video.nStreamFirstPts;
 }
 
 int CAvcodecReader::getVideoFrameIdx(mfxI64 pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
