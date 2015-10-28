@@ -1518,14 +1518,18 @@ mfxStatus CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
 mfxStatus CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
     //字幕を処理する
     const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
-    int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstPts, m_Mux.video.pInputCodecCtx->pkt_timebase, pMuxSub->pStream->time_base);
+    int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstPts, m_Mux.video.pInputCodecCtx->pkt_timebase, pMuxSub->pCodecCtxIn->pkt_timebase);
     //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
     //Trimによりカットされたときのみ
-    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(pkt->pts - pts_adjust, pMuxSub->pStream->time_base, pMuxSub->pStream->time_base, false))) {
+    int64_t pts_orig = pkt->pts;
+    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts - pts_adjust), pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base, false))) {
         if (pMuxSub->pOutCodecEncodeCtx) {
             return SubtitleTranscode(pMuxSub, pkt);
         }
-        pkt->dts = pkt->pts;
+        //dts側にもpts側に加えたのと同じ分だけの補正をかける
+        pkt->dts = pkt->dts + (av_rescale_q(pkt->pts, pMuxSub->pStream->time_base, pMuxSub->pCodecCtxIn->pkt_timebase) - pts_orig);
+        //timescaleの変換を行い、負の値をとらないようにする
+        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base));
         pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
         pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base);
         pkt->stream_index = pMuxSub->pStream->index;
