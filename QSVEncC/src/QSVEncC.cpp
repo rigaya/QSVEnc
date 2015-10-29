@@ -1884,7 +1884,11 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
     pParams->nQPB              = QSV_DEFAULT_QPB;
     pParams->nRef              = QSV_DEFAULT_REF;
     pParams->bUseHWLib         = true;
+#if defined(_WIN32) || defined(_WIN64)
     pParams->memType           = HW_MEMORY;
+#else
+    pParams->memType           = SYSTEM_MEMORY;
+#endif
     pParams->nBframes          = QSV_BFRAMES_AUTO;
     pParams->bBPyramid         = getCPUGen() >= CPU_GEN_HASWELL;
     pParams->nGOPLength        = QSV_DEFAULT_GOP_LEN;
