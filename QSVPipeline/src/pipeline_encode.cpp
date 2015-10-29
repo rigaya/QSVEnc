@@ -2723,7 +2723,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
         PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized with system memory.\n"));
     }
     //使用できる最大のversionをチェック
-    m_mfxVer = get_mfx_lib_version(impl);
+    m_mfxSession.QueryVersion(&m_mfxVer);
     PrintMes(QSV_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     return sts;
 }
