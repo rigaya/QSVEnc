@@ -1430,16 +1430,17 @@ mfxStatus CEncodingPipeline::InitVppPostPlugins(sInputParams *pParams) {
 mfxStatus CEncodingPipeline::CreateHWDevice()
 {
     mfxStatus sts = MFX_ERR_NONE;
-#if D3D_SURFACES_SUPPORT
-    POINT point = {0, 0};
-    HWND window = WindowFromPoint(point);
-    m_hwdev.reset();
 
     auto hwdev_deleter = [](CHWDevice *hwdev) {
         if (hwdev) {
             hwdev->Close();
         }
     };
+
+#if D3D_SURFACES_SUPPORT
+    POINT point = {0, 0};
+    HWND window = WindowFromPoint(point);
+    m_hwdev.reset();
 
     if (m_memType) {
 #if MFX_D3D11_SUPPORT
@@ -1478,9 +1479,8 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
     PrintMes(QSV_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
     
 #elif LIBVA_SUPPORT
-    m_hwdev = CreateVAAPIDevice();
-    if (NULL == m_hwdev)
-    {
+    m_hwdev = std::shared_ptr<CHWDevice>(CreateVAAPIDevice(), hwdev_deleter);
+    if (!m_hwdev) {
         return MFX_ERR_MEMORY_ALLOC;
     }
     sts = m_hwdev->Init(NULL, 0, MSDKAdapter::GetNumber(m_mfxSession));
