@@ -2879,13 +2879,17 @@ void CEncodingPipeline::Close()
     //PrintMes(QSV_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
 
     m_pEncSatusInfo.reset();
+
+    PrintMes(QSV_LOG_DEBUG, _T("Closing m_EncThread...\n"));
     m_EncThread.Close();
 
+    PrintMes(QSV_LOG_DEBUG, _T("Closing Dec/Enc Plugins...\n"));
     m_pDecPlugin.reset();
     m_pEncPlugin.reset();
 
     m_pTrimParam = NULL;
 
+    PrintMes(QSV_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
     MSDK_SAFE_DELETE(m_pmfxDEC);
     MSDK_SAFE_DELETE(m_pmfxENC);
     MSDK_SAFE_DELETE(m_pmfxVPP);
@@ -2902,13 +2906,20 @@ void CEncodingPipeline::Close()
     m_VppDoUseList.clear();
     m_VppExtParams.clear();
     VppExtMes.clear();
+
+    PrintMes(QSV_LOG_DEBUG, _T("DeleteFrames...\n"));
     DeleteFrames();
+
+    PrintMes(QSV_LOG_DEBUG, _T("DeleteAllocator...\n"));
     // allocator if used as external for MediaSDK must be deleted after SDK components
     DeleteAllocator();
 
     WipeMfxBitstream(&m_DecInputBitstream);
 
+    PrintMes(QSV_LOG_DEBUG, _T("Closing TaskPool...\n"));
     m_TaskPool.Close();
+
+    PrintMes(QSV_LOG_DEBUG, _T("Closing mfxSession...\n"));
     m_mfxSession.Close();
 
     m_SceneChange.Close();
