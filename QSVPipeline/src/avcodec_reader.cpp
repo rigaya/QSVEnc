@@ -253,15 +253,15 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
     m_hevcMp42AnnexbBuffer.clear();
 }
 
-void CAvcodecReader::vc1FixHeader() {
+void CAvcodecReader::vc1FixHeader(int nLengthFix) {
     if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3) {
-        m_Demux.video.nExtradataSize--;
+        m_Demux.video.nExtradataSize += nLengthFix;
         mfxU32 datasize = m_Demux.video.nExtradataSize;
         vector<mfxU8> buffer(20 + datasize, 0);
         mfxU32 header = 0xC5000000;
         mfxU32 width = m_Demux.video.pCodecCtx->width;
         mfxU32 height = m_Demux.video.pCodecCtx->height;
-        mfxU8 *dataPtr = m_Demux.video.pExtradata+1;
+        mfxU8 *dataPtr = m_Demux.video.pExtradata - nLengthFix;
         memcpy(buffer.data() +  0, &header, sizeof(header));
         memcpy(buffer.data() +  4, &datasize, sizeof(datasize));
         memcpy(buffer.data() +  8, dataPtr, datasize);
@@ -271,8 +271,8 @@ void CAvcodecReader::vc1FixHeader() {
         m_Demux.video.nExtradataSize = (int)buffer.size();
         memcpy(m_Demux.video.pExtradata, buffer.data(), buffer.size());
     } else {
-        m_Demux.video.nExtradataSize--;
-        memmove(m_Demux.video.pExtradata, m_Demux.video.pExtradata + 1, m_Demux.video.nExtradataSize);
+        m_Demux.video.nExtradataSize += nLengthFix;
+        memmove(m_Demux.video.pExtradata, m_Demux.video.pExtradata - nLengthFix, m_Demux.video.nExtradataSize);
     }
 }
 
@@ -1364,7 +1364,8 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
             std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
             std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
         } else if (m_nInputCodec == MFX_CODEC_VC1) {
-            vc1FixHeader();
+            int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
+            vc1FixHeader(lengthFix);
         }
     }
     

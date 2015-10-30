@@ -212,7 +212,7 @@ private:
     void hevcMp42Annexb(AVPacket *pkt);
 
     //VC-1のヘッダの修正を行う
-    void vc1FixHeader();
+    void vc1FixHeader(int nLengthFix = -1);
 
     //VC-1のフレームヘッダを追加
     void vc1AddFrameHeader(AVPacket *pkt);
