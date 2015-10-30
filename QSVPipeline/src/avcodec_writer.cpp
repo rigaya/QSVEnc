@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <memory>
 #include "qsv_osdep.h"
 #include "qsv_util.h"
@@ -299,7 +300,7 @@ int CAvcodecWriter::AutoSelectSamplingRate(const int *pSamplingRateList, int nSr
     //相対誤差が最も小さいものを選択する
     vector<double> diffrate(i);
     for (i = 0; pSamplingRateList[i]; i++) {
-        diffrate[i] = abs(1 - pSamplingRateList[i] / (double)nSrcSamplingRate);
+        diffrate[i] = std::abs(1 - pSamplingRateList[i] / (double)nSrcSamplingRate);
     }
     return pSamplingRateList[std::distance(diffrate.begin(), std::min_element(diffrate.begin(), diffrate.end()))];
 }
@@ -1152,7 +1153,7 @@ tstring CAvcodecWriter::GetWriterMes() {
             if (iStream) {
                 mes += ", ";
             }
-            mes += strsprintf("sub#%d", abs(subtitleStream.nInTrackId));
+            mes += strsprintf("sub#%d", std::abs(subtitleStream.nInTrackId));
             iStream++;
         }
     }
@@ -1599,7 +1600,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
             if (0 < ptsDiff
                 && ptsDiff < av_rescale_q(1, av_inv_q(m_Mux.video.nFPS), samplerate)
                 && pMuxAudio->nLastPtsIn != AV_NOPTS_VALUE
-                && 1 < abs(ptsDiff - pkt->duration)) {
+                && 1 < std::abs(ptsDiff - pkt->duration)) {
                 //ptsの差分から計算しなおす
                 samples = (int)av_rescale_q(ptsDiff, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
             }

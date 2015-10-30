@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <numeric>
 #include <cctype>
+#include <cmath>
 #include <climits>
 #include <memory>
 #include "mfxplugin.h"
@@ -457,7 +458,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     //PAFFっぽさ (適当)
     const bool seemsLikePAFF =
         (framePosList.size() * 9 / 20 <= dts_pts_no_value_in_between)
-        || (abs(1.0 - moreDataCount / (double)gotFrameCount) <= 0.2);
+        || (std::abs(1.0 - moreDataCount / (double)gotFrameCount) <= 0.2);
     m_Demux.video.nStreamPtsInvalid |= (seemsLikePAFF) ? AVQSV_PTS_HALF_INVALID : 0;
 
     if (m_Demux.video.nStreamPtsInvalid & AVQSV_PTS_NONKEY_INVALID) {
@@ -542,14 +543,14 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
     } else {
         //avgFpsとtargetFpsが近いかどうか
-        auto fps_near = [](double avgFps, double targetFps) { return abs(1 - avgFps / targetFps) < 0.5; };
+        auto fps_near = [](double avgFps, double targetFps) { return std::abs(1 - avgFps / targetFps) < 0.5; };
         //durationの平均を求める (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
         //std::accumulateの初期値に"(mfxU64)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
         //大きすぎるtimebaseの時に必要
         double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), (mfxU64)0, [](const mfxU64 sum, const FramePos& pos) { return sum + pos.duration; }) / (double)(framePosList.size() - cutoff);
         double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->time_base.num);
         double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.01 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
-        if (mostPopularDuration.second / (double)(framePosList.size() - cutoff) > 0.95 && abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
+        if (mostPopularDuration.second / (double)(framePosList.size() - cutoff) > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
             avgDuration = mostPopularDuration.first;
             AddMessage(QSV_LOG_DEBUG, _T("using popular duration...\n"));
         }
@@ -577,13 +578,13 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
             double dFpsDecoder = fpsDecoder.num / (double)fpsDecoder.den;
             double dEstimatedAvgFps = estimatedAvgFps.num / (double)estimatedAvgFps.den;
             //2フレーム分程度がもたらす誤差があっても許容する
-            if (abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / framePosList.size())) {
+            if (std::abs(dFpsDecoder / dEstimatedAvgFps - 1.0) < (2.0 / framePosList.size())) {
                 AddMessage(QSV_LOG_DEBUG, _T("use decoder fps...\n"));
                 nAvgFramerate64 = fpsDecoder64;
             } else {
                 double dEstimatedAvgFpsCompare = estimatedAvgFps.num / (double)(estimatedAvgFps.den + ((dFpsDecoder < dEstimatedAvgFps) ? 1 : -1));
                 //durationから求めた平均fpsがデコーダの出したfpsの近似値と分かれば、デコーダの出したfpsを採用する
-                nAvgFramerate64 = (abs(dEstimatedAvgFps - dFpsDecoder) < abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder64 : estimatedAvgFps;
+                nAvgFramerate64 = (std::abs(dEstimatedAvgFps - dFpsDecoder) < std::abs(dEstimatedAvgFpsCompare - dFpsDecoder)) ? fpsDecoder64 : estimatedAvgFps;
             }
         }
     }
@@ -599,13 +600,13 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     double fps = m_Demux.video.nAvgFramerate.num / (double)m_Demux.video.nAvgFramerate.den;
     double fps_n = fps * 1001;
     int fps_n_int = (int)(fps + 0.5) * 1000;
-    if (abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
+    if (std::abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
         m_Demux.video.nAvgFramerate.num = fps_n_int;
         m_Demux.video.nAvgFramerate.den = 1001;
     } else {
         fps_n = fps * 1000;
         fps_n_int = (int)(fps + 0.5) * 1000;
-        if (abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
+        if (std::abs(fps_n / (double)fps_n_int - 1.0) < 1e-4) {
             m_Demux.video.nAvgFramerate.num = fps_n_int / 1000;
             m_Demux.video.nAvgFramerate.den = 1;
         }
