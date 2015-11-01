@@ -1989,8 +1989,8 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
             writeFeatureList(output);
             return MFX_PRINT_OPTION_DONE;
         }
-        if (0 == _tcscmp(option_name, _T("check-hw"))
-              || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
+        if (   0 == _tcscmp(option_name, _T("check-hw"))
+            || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
         {
             mfxVersion ver = { 0, 1 };
             if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {

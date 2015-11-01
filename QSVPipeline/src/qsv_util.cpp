@@ -386,6 +386,9 @@ BOOL Check_HWUsed(mfxIMPL impl) {
 }
 
 mfxVersion get_mfx_lib_version(mfxIMPL impl) {
+    if (impl == MFX_IMPL_SOFTWARE) {
+        return LIB_VER_LIST[0];
+    }
     int i;
     for (i = 1; LIB_VER_LIST[i].Major; i++) {
         auto session_deleter = [](MFXVideoSession *session) { session->Close(); };
