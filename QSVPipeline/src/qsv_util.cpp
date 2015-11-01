@@ -1642,7 +1642,7 @@ int getCPUGen() {
 
     __cpuid(CPUInfo, 0x07);
     bool bMPX      = !!(CPUInfo[1] & (1<<14));
-    bool bRDSeed   = !!(CPUInfo[1] & (1<<17));
+    bool bRDSeed   = !!(CPUInfo[1] & (1<<18));
     bool bFsgsbase = !!(CPUInfo[1] & (1));
 
     if (bMPX)                return CPU_GEN_SKYLAKE;
