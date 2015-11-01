@@ -66,6 +66,8 @@ typedef struct AVMuxAudio {
     AVCodecContext       *pOutCodecDecodeCtx;   //変換する元のCodecContext
     AVCodec              *pOutCodecEncode;      //変換先の音声のコーデック
     AVCodecContext       *pOutCodecEncodeCtx;   //変換先の音声のCodecContext
+    bool                  bDecodeError;         //デコード処理中にエラーが発生
+    bool                  bEncodeError;         //エンコード処理中にエラーが発生
     AVPacket              OutPacket;            //変換用の音声バッファ
     SwrContext           *pSwrContext;          //Sampleformatの変換用
     uint8_t             **pSwrBuffer;           //Sampleformatの変換用のバッファ
