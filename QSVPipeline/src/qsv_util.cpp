@@ -388,12 +388,11 @@ BOOL Check_HWUsed(mfxIMPL impl) {
 mfxVersion get_mfx_lib_version(mfxIMPL impl) {
     int i;
     for (i = 1; LIB_VER_LIST[i].Major; i++) {
-        MFXVideoSession *test = new MFXVideoSession();
+        auto session_deleter = [](MFXVideoSession *session) { session->Close(); };
+        std::unique_ptr<MFXVideoSession, decltype(session_deleter)> test(new MFXVideoSession(), session_deleter);
         mfxVersion ver;
         memcpy(&ver, &LIB_VER_LIST[i], sizeof(mfxVersion));
         mfxStatus sts = test->Init(impl, &ver);
-        test->Close();
-        delete test;
         if (sts != MFX_ERR_NONE)
             break;
     }
