@@ -3195,6 +3195,8 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
         if (NULL != m_pAbortByUser && *m_pAbortByUser) {
             PrintMes(QSV_LOG_INFO, _T("                                                                         \r"));
             sts = MFX_ERR_ABORTED;
+        } else if (sts == MFX_ERR_MORE_DATA) {
+            m_EncThread.m_stsThread = sts;
         }
         //PrintMes(QSV_LOG_INFO, _T("set for heInputDone %d\n"), i);
 
