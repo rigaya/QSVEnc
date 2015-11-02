@@ -225,10 +225,10 @@ write_avx:
 
         vzeroupper
         
-        pop rbx
 %ifndef LINUX
         pop rsi
         pop rdi
 %endif
+        pop rbx
 
         ret
