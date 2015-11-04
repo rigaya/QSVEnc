@@ -228,7 +228,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("\n")
             _T("   --slices <int>               number of slices, default 0 (auto)\n")
             _T("\n")
-            _T("   --sw                         use software encoding, instead of QSV (hw)\n")
+            //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
             _T("   --check-hw                   check if QuickSyncVideo is available\n")
             _T("   --check-lib                  check lib API version installed\n")
             _T("   --check-features [<string>]  check encode/vpp features\n")
