@@ -47,6 +47,7 @@
 
 #include "vpp_plugins.h"
 #include "scene_change_detection.h"
+#include "perf_monitor.h"
 
 #include <vector>
 #include <memory>
@@ -146,6 +147,7 @@ public:
 protected:
     mfxVersion m_mfxVer;
     shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
+    unique_ptr<CPerfMonitor> m_pPerfMonitor;
     CEncodingThread m_EncThread;
 
     bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する

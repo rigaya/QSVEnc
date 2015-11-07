@@ -319,6 +319,16 @@ public:
         WriteFrameTypeResult(_T("frame type P   "), m_sData.nPCount,   maxCount, m_sData.nPFrameSize, maxFrameSize, (info) ? info->sumQPP / (double)info->frameCountP : -1);
         WriteFrameTypeResult(_T("frame type B   "), m_sData.nBCount,   maxCount, m_sData.nBFrameSize, maxFrameSize, (info) ? info->sumQPB / (double)info->frameCountB : -1);
     }
+    virtual int64_t getStartTimeMicroSec() {
+#if defined(_WIN32) || defined(_WIN64)
+        return m_sStartTime.creation / 10;
+#else
+        return (int)(m_sStartTime.creation * (double)(1e6 / CLOCKS_PER_SEC) + 0.5);
+#endif
+    }
+    virtual bool getEncStarted() {
+        return m_bEncStarted;
+    }
     mfxU32 m_nInputFrames;
     mfxU32 m_nTotalOutFrames;
     mfxU32 m_nOutputFPSRate;
@@ -329,6 +339,7 @@ protected:
     sEncodeStatusData m_sData;
     shared_ptr<CQSVLog> m_pQSVLog;
     bool m_bStdErrWriteToConsole;
+    bool m_bEncStarted;
 };
 
 class CEncodingThread 

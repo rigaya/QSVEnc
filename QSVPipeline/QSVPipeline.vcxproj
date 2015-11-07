@@ -336,6 +336,7 @@
     <ClCompile Include="src\d3d_device.cpp" />
     <ClCompile Include="src\DeviceId.cpp" />
     <ClCompile Include="src\gpu_info.cpp" />
+    <ClCompile Include="src\perf_monitor.cpp" />
     <ClCompile Include="src\pipeline_encode.cpp" />
     <ClCompile Include="src\plugin_utils.cpp" />
     <ClCompile Include="src\qsv_control.cpp" />
@@ -378,6 +379,7 @@
     <ClInclude Include="include\DeviceId.h" />
     <ClInclude Include="include\gpu_info.h" />
     <ClInclude Include="include\hw_device.h" />
+    <ClInclude Include="include\perf_monitor.h" />
     <ClInclude Include="include\pipeline_encode.h" />
     <ClInclude Include="include\qsv_control.h" />
     <ClInclude Include="include\qsv_event.h" />

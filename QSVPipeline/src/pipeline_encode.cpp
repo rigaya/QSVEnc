@@ -2612,6 +2612,10 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
 
+    if (pParams->nPerfMonitorSelect) {
+        m_pPerfMonitor->SetEncStatus(m_pEncSatusInfo);
+    }
+
     //デコードを行う場合は、入力バッファサイズを常に1に設定する (そうしないと正常に動かない)
     //また、バッファサイズを拡大しても特に高速化しない
     if (m_pFileReader->getInputCodec()) {
@@ -2751,6 +2755,20 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         pParams->memType = SYSTEM_MEMORY;
     }
 
+    if (pParams->nPerfMonitorSelect) {
+        m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
+        tstring perfMonLog = tstring(pParams->strDstFile) + _T("_perf.csv");
+        if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->nPerfMonitorInterval, false, (int)pParams->nPerfMonitorSelect,
+#if defined(_WIN32) || defined(_WIN64)
+            std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()))) {
+#else
+            nullptr)) {
+#endif
+            PrintMes(QSV_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
+            m_pPerfMonitor.reset();
+        }
+    }
+
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
 
@@ -2878,6 +2896,7 @@ void CEncodingPipeline::Close()
     PrintMes(QSV_LOG_DEBUG, _T("Closing pipeline...\n"));
     //PrintMes(QSV_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
 
+    PrintMes(QSV_LOG_DEBUG, _T("Closing enc status...\n"));
     m_pEncSatusInfo.reset();
 
     PrintMes(QSV_LOG_DEBUG, _T("Closing m_EncThread...\n"));
@@ -2952,7 +2971,10 @@ void CEncodingPipeline::Close()
         PrintMes(QSV_LOG_DEBUG, _T("timeEndPeriod(1)\n"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-    
+
+    PrintMes(QSV_LOG_DEBUG, _T("Closing perf monitor...\n"));
+    m_pPerfMonitor.reset();
+
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
     PrintMes(QSV_LOG_DEBUG, _T("Closed pipeline.\n"));
@@ -3161,6 +3183,9 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
     }
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
 
+    if (m_pPerfMonitor) {
+        m_pPerfMonitor->SetEncThread((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()));
+    }
     const int bufferSize = m_EncThread.m_nFrameBuffer;
     sInputBufSys *pArrayInputBuf = m_EncThread.m_InputBuf;
     sInputBufSys *pInputBuf;

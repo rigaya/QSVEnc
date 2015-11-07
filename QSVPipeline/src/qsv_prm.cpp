@@ -46,6 +46,7 @@ void init_qsvp_prm(sInputParams *prm) {
 
     prm->nVQPStrength      = QSV_DEFAULT_VQP_STRENGTH;
     prm->nVQPSensitivity   = QSV_DEFAULT_VQP_SENSITIVITY;
+    prm->nPerfMonitorInterval = 200;
 
     prm->nDstWidth          = 1280;
     prm->nDstHeight         = 720;

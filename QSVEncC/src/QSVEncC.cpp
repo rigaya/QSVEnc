@@ -466,6 +466,29 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
         _ftprintf(stdout, _T("\n")
             _T("   --benchmark <string>         run in benchmark mode\n")
             _T("                                 and write result in txt file\n")
+            _T("   --pref-monitor [<string>][,<string>]...\n")
+            _T("                                check performance info of QSVEncC\n")
+            _T("                                 all(default)... monitor all info\n")
+#if defined(_WIN32) || defined(_WIN64)
+            _T("                                 cpu_total   ... cpu total usage (%%)\n")
+            _T("                                 cpu_kernel  ... cpu kernel usage (%%)\n")
+            _T("                                 cpu_main    ... cpu main thread usage (%%)\n")
+            _T("                                 cpu_enc     ... cpu encode thread usage (%%)\n")
+            _T("                                 cpu         ... monitor all cpu info\n")
+            _T("                                 mem_private ... private memory (MB)\n")
+            _T("                                 mem_virtual ... virtual memory (MB)\n")
+            _T("                                 mem         ... monitor all memory info\n")
+            _T("                                 io_read     ... io read  (MB/s)\n")
+            _T("                                 io_write    ... io write (MB/s)\n")
+            _T("                                 io          ... monitor all io info\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+            _T("                                 fps         ... encode speed (fps)\n")
+            _T("                                 fps_avg     ... encode avg. speed (fps)\n")
+            _T("                                 bitrate     ... encode bitrate (kbps)\n")
+            _T("                                 bitrate_avg ... encode avg. bitrate (kbps)\n")
+            _T("                                 frame_out   ... written_frames\n")
+            _T("   --pref-monitor-interval <int> set perf monitor check interval (millisec)\n")
+            _T("                                 default 200, must be 50 or more\n")
 #if defined(_WIN32) || defined(_WIN64)
             _T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
             _T("                                  default: enabled\n")
@@ -1844,6 +1867,33 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         _tcscpy_s(pParams->strDstFile, strInput[i]);
         return MFX_ERR_NONE;
     }
+    if (0 == _tcscmp(option_name, _T("perf-monitor"))) {
+        if (strInput[i+1][0] != _T('-')) {
+            pParams->nPerfMonitorSelect = (int)PERF_MONITOR_ALL;
+        } else {
+            i++;
+            auto items = split(strInput[i], _T(","));
+            for (const auto& item : items) {
+                int value = 0;
+                if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_pref_monitor, item.c_str()))) {
+                    PrintHelp(item.c_str(), _T("Unknown value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
+                pParams->nPerfMonitorSelect |= value;
+            }
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("perf-monitor-interval"))) {
+        i++;
+        mfxI32 v;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nPerfMonitorInterval = std::max(50, v);
+        return MFX_ERR_NONE;
+    }
 #if defined(_WIN32) || defined(_WIN64)
     if (0 == _tcscmp(option_name, _T("timer-period-tuning"))) {
         pParams->bDisableTimerPeriodTuning = false;
@@ -1900,6 +1950,7 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
     pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
+    pParams->nPerfMonitorInterval = 200;
 
     sArgsData argsData;
     argsData.nParsedAudioBitrate = 0;

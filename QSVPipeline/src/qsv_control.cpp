@@ -39,6 +39,7 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_nOutputFPSRate = 0;
     m_nOutputFPSScale = 0;
     m_bStdErrWriteToConsole = true;
+    m_bEncStarted = false;
     m_tmStart = std::chrono::system_clock::now();
 }
 
@@ -60,6 +61,7 @@ void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32
 void CEncodeStatusInfo::SetStart() {
     m_tmStart = std::chrono::system_clock::now();
     GetProcessTime(&m_sStartTime);
+    m_bEncStarted = true;
 }
 
 CEncodingThread::CEncodingThread()

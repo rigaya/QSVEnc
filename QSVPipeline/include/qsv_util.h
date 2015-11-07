@@ -76,6 +76,24 @@ struct aligned_malloc_deleter {
     }
 };
 
+struct fp_deleter {
+    void operator()(FILE* fp) const {
+        if (fp) {
+            fclose(fp);
+        }
+    }
+};
+
+struct handle_deleter {
+    void operator()(HANDLE handle) const {
+        if (handle) {
+#if defined(_WIN32) || defined(_WIN64)
+            CloseHandle(handle);
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        }
+    }
+};
+
 template<typename T>
 static inline T qsv_gcd(T a, T b) {
     static_assert(std::is_integral<T>::value, "qsv_gcd is defined only for integer.");
