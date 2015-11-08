@@ -213,6 +213,7 @@ if __name__ == "__main__":
                 nKeepLength = int(sys.argv[iargc])
             except:
                 nKeepLength = 30
+        iargc += 1
 
     monitor = PerfMonitor(nKeepLength)
 
