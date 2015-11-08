@@ -185,7 +185,7 @@ class PerfMonitor:
                     perfDataYAxis.ymin = min(perfDataYAxis.ymin, ymin)
 
                     #y軸のグラフの範囲を更新
-                    if perfDataYAxis.ymax < ymax:
+                    if perfDataYAxis.ymax < ymax or ymax * 2.0 < perfDataYAxis.ymax:
                         perfDataYAxis.ymax = ymax * 1.25
                         ax.set_ylim(perfDataYAxis.ymin, perfDataYAxis.ymax)
                         #data.ax.figure.canvas.draw()
