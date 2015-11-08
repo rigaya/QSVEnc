@@ -17,7 +17,6 @@
 #include "qsv_util.h"
 #include "mfxcommon.h"
 #include "mfxvp8.h"
-#include "perf_monitor.h"
 
 enum {
     QSV_LOG_TRACE = -3,
@@ -616,26 +615,6 @@ const CX_DESC list_vpp_fps_conversion[] = {
     { _T("off"),  0 },
     { _T("x2"),   FPS_CONVERT_MUL2 },
     { _T("x2.5"), FPS_CONVERT_MUL2_5  },
-    { NULL, 0 }
-};
-const CX_DESC list_pref_monitor[] = {
-    { _T("all"),         PERF_MONITOR_ALL },
-    { _T("cpu"),         PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC },
-    { _T("cpu_total"),   PERF_MONITOR_CPU },
-    { _T("cpu_kernel"),  PERF_MONITOR_CPU_KERNEL },
-    { _T("cpu_main"),    PERF_MONITOR_THREAD_MAIN },
-    { _T("cpu_enc"),     PERF_MONITOR_THREAD_ENC },
-    { _T("mem"),         PERF_MONITOR_MEM_PRIVATE | PERF_MONITOR_MEM_VIRTUAL },
-    { _T("mem_private"), PERF_MONITOR_MEM_PRIVATE },
-    { _T("mem_virtual"), PERF_MONITOR_MEM_VIRTUAL },
-    { _T("io"),          PERF_MONITOR_IO_READ | PERF_MONITOR_IO_WRITE },
-    { _T("io_read"),     PERF_MONITOR_IO_READ },
-    { _T("io_write"),    PERF_MONITOR_IO_WRITE },
-    { _T("fps"),         PERF_MONITOR_FPS },
-    { _T("fps_avg"),     PERF_MONITOR_FPS_AVG },
-    { _T("bitrate"),     PERF_MONITOR_BITRATE },
-    { _T("bitrate_avg"), PERF_MONITOR_BITRATE_AVG },
-    { _T("frame_out"),   PERF_MONITOR_FRAME_OUT },
     { NULL, 0 }
 };
 
