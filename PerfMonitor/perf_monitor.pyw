@@ -160,13 +160,13 @@ class PerfMonitor:
         xmin = min(self.aXdata)
         xmax = max(self.aXdata)
         #指定以上に範囲が長ければ削除
-        removeData = xmax - xmin > self.xkeepLength
+        removeData = xmax - xmin > self.xkeepLength + 3
         if removeData:
             self.aXdata.pop(0)
             xmin = min(self.aXdata)
         #x軸のグラフの範囲を更新
-        self.xmin = xmin
-        self.xmax = max(self.xmax, xmax + 2.0)
+        self.xmin = max(xmin, xmax - self.xkeepLength)
+        self.xmax = max(self.xmax, xmax + 1.0)
         self.aPerfData[0].ax.set_xlim(int(self.xmin), int(self.xmax))
 
         for data in self.aPerfData:
