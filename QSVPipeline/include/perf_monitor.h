@@ -16,6 +16,7 @@
 #include <memory>
 #include "cpu_info.h"
 #include "qsv_util.h"
+#include "qsv_pipe.h"
 #ifndef HANDLE
 typedef void * HANDLE;
 #endif
@@ -105,8 +106,8 @@ struct PerfOutputInfo {
 class CPerfMonitor {
 public:
     CPerfMonitor();
-    int init(tstring filename,
-        int interval, bool bUseMatplotLib, int nSelectOutputLog,
+    int init(tstring filename, const TCHAR *pPythonPath,
+        int interval, int nSelectOutputLog, int nSelectOutputMatplot,
         std::unique_ptr<void, handle_deleter> thMainThread);
     ~CPerfMonitor();
 
@@ -115,16 +116,23 @@ public:
 
     void clear();
 protected:
+#if defined(_WIN32) || defined(_WIN64)
+    int createPerfMpnitorPyw(const TCHAR *pywPath);
+#endif //#if defined(_WIN32) || defined(_WIN64)
     void check();
     void run();
-    void write();
+    void write_header(FILE *fp, int nSelect);
+    void write(FILE *fp, int nSelect);
 
     static void loader(void *prm);
 
     int m_nStep;
+    tstring m_sPywPath;
     PerfInfo m_info[2];
     std::thread m_thCheck;
     std::unique_ptr<void, handle_deleter> m_thMainThread;
+    std::unique_ptr<CPipeProcess> m_pProcess;
+    ProcessPipe m_pipes;
     HANDLE m_thEncThread;
     int m_nLogicalCPU;
     std::shared_ptr<CEncodeStatusInfo> m_pEncStatus;
@@ -137,8 +145,9 @@ protected:
     int m_nInterval;
     tstring m_sMonitorFilename;
     std::unique_ptr<FILE, fp_deleter> m_fpLog;
-    bool m_bUseMatplotLib;
+    int m_nSelectCheck;
     int m_nSelectOutputLog;
+    int m_nSelectOutputMatplot;
 };
 
 

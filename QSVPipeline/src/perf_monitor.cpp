@@ -25,6 +25,7 @@
 
 CPerfMonitor::CPerfMonitor() {
     memset(m_info, 0, sizeof(m_info));
+    memset(&m_pipes, 0, sizeof(m_pipes));
 
     cpu_info_t cpu_info;
     get_cpu_info(&cpu_info);
@@ -50,18 +51,100 @@ void CPerfMonitor::clear() {
         fprintf(m_fpLog.get(), "\n\n");
     }
     m_fpLog.reset();
+    if (m_pipes.f_stdin) {
+        fclose(m_pipes.f_stdin);
+        m_pipes.f_stdin = NULL;
+    }
+    m_pProcess.reset();
 }
 
-int CPerfMonitor::init(tstring filename,
-    int interval, bool bUseMatplotLib, int nSelectOutputLog,
+#if defined(_WIN32) || defined(_WIN64)
+int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
+    //リソースを取り出し
+    int ret = 0;
+    HRSRC hResource = NULL;
+    HGLOBAL hResourceData = NULL;
+    const char *pDataPtr = NULL;
+    DWORD resourceSize = 0;
+    FILE *fp = NULL;
+    HMODULE hModule = GetModuleHandleA(NULL);
+    if (   NULL == hModule
+        || NULL == (hResource = FindResource(hModule, _T("PERF_MONITOR_PYW"), _T("PERF_MONITOR_SRC")))
+        || NULL == (hResourceData = LoadResource(hModule, hResource))
+        || NULL == (pDataPtr = (const char *)LockResource(hResourceData))
+        || 0    == (resourceSize = SizeofResource(hModule, hResource))) {
+        ret = 1;
+    } else if (_tfopen_s(&fp, pywPath, _T("wb")) || NULL == fp) {
+        ret = 1;
+    } else if (resourceSize != fwrite(pDataPtr, 1, resourceSize, fp)) {
+        ret = 1;
+    }
+    if (fp)
+        fclose(fp);
+    return ret;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
+void CPerfMonitor::write_header(FILE *fp, int nSelect) {
+    std::string str;
+    if (nSelect & PERF_MONITOR_CPU) {
+        str += ",cpu (%)";
+    }
+    if (nSelect & PERF_MONITOR_CPU_KERNEL) {
+        str += ",cpu kernel (%)";
+    }
+    if (nSelect & PERF_MONITOR_THREAD_MAIN) {
+        str += ",cpu main thread (%)";
+    }
+    if (nSelect & PERF_MONITOR_THREAD_ENC) {
+        str += ",cpu enc thread (%)";
+    }
+    if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
+        str += ",mem private (MB)";
+    }
+    if (nSelect & PERF_MONITOR_MEM_VIRTUAL) {
+        str += ",mem virtual (MB)";
+    }
+    if (nSelect & PERF_MONITOR_FRAME_IN) {
+        str += ",frame in";
+    }
+    if (nSelect & PERF_MONITOR_FRAME_OUT) {
+        str += ",frame out";
+    }
+    if (nSelect & PERF_MONITOR_FPS) {
+        str += ",enc speed (fps)";
+    }
+    if (nSelect & PERF_MONITOR_FPS_AVG) {
+        str += ",enc speed avg (fps)";
+    }
+    if (nSelect & PERF_MONITOR_BITRATE) {
+        str += ",bitrate (kbps)";
+    }
+    if (nSelect & PERF_MONITOR_BITRATE_AVG) {
+        str += ",bitrate avg (kbps)";
+    }
+    if (nSelect & PERF_MONITOR_IO_READ) {
+        str += ",read (MB/s)";
+    }
+    if (nSelect & PERF_MONITOR_IO_WRITE) {
+        str += ",write (MB/s)";
+    }
+    str += "\n";
+    fwrite(str.c_str(), 1, str.length(), fp);
+    fflush(fp);
+}
+
+int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
+    int interval, int nSelectOutputLog, int nSelectOutputMatplot,
     std::unique_ptr<void, handle_deleter> thMainThread) {
     clear();
 
-    m_nCreateTime100ns = clock() * (1e7 / CLOCKS_PER_SEC);
+    m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
     m_sMonitorFilename = filename;
     m_nInterval = interval;
-    m_bUseMatplotLib = bUseMatplotLib;
+    m_nSelectOutputMatplot = nSelectOutputMatplot;
     m_nSelectOutputLog = nSelectOutputLog;
+    m_nSelectCheck = m_nSelectOutputLog | m_nSelectOutputMatplot;
     m_thMainThread = std::move(thMainThread);
 
     if (!m_fpLog) {
@@ -71,66 +154,46 @@ int CPerfMonitor::init(tstring filename,
         }
     }
 
+#if defined(_WIN32) || defined(_WIN64)
+    if (m_nSelectOutputMatplot) {
+        m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcess());
+        m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
+        TCHAR tempDir[1024];
+        TCHAR tempPath[1024];
+        GetModuleFileName(NULL, tempDir, _countof(tempDir));
+        PathRemoveFileSpec(tempDir);
+        PathCombine(tempPath, tempDir, strsprintf(_T("qsvencc_perf_monitor.pyw"), GetProcessId(GetCurrentProcess())).c_str());
+        m_sPywPath = tempPath;
+        createPerfMpnitorPyw(tempPath);
+        tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
+        tstring args = tstring(_T("\"")) + sPythonPath + tstring(_T("\" \"")) + m_sPywPath + tstring(_T("\" -i ")) + strsprintf("%d", std::max(interval * 4 / 5, interval - 10));
+        m_pProcess->run(args.c_str(), nullptr, &m_pipes, NORMAL_PRIORITY_CLASS, false, false);
+        WaitForInputIdle(m_pProcess->getProcessInfo().hProcess, INFINITE);
+    }
+#else
+    m_nSelectOutputMatplot = 0;
+#endif
+
     //未実装
-    m_nSelectOutputLog &= (~PERF_MONITOR_FRAME_IN);
+    m_nSelectCheck &= (~PERF_MONITOR_FRAME_IN);
 
     //未実装
 #if !(defined(_WIN32) || defined(_WIN64))
-    m_nSelectOutputLog &= (~PERF_MONITOR_CPU);
-    m_nSelectOutputLog &= (~PERF_MONITOR_CPU_KERNEL);
-    m_nSelectOutputLog &= (~PERF_MONITOR_THREAD_MAIN);
-    m_nSelectOutputLog &= (~PERF_MONITOR_THREAD_ENC);
-    m_nSelectOutputLog &= (~PERF_MONITOR_MEM_PRIVATE);
-    m_nSelectOutputLog &= (~PERF_MONITOR_MEM_VIRTUAL);
-    m_nSelectOutputLog &= (~PERF_MONITOR_IO_READ);
-    m_nSelectOutputLog &= (~PERF_MONITOR_IO_WRITE);
+    m_nSelectCheck &= (~PERF_MONITOR_CPU);
+    m_nSelectCheck &= (~PERF_MONITOR_CPU_KERNEL);
+    m_nSelectCheck &= (~PERF_MONITOR_THREAD_MAIN);
+    m_nSelectCheck &= (~PERF_MONITOR_THREAD_ENC);
+    m_nSelectCheck &= (~PERF_MONITOR_MEM_PRIVATE);
+    m_nSelectCheck &= (~PERF_MONITOR_MEM_VIRTUAL);
+    m_nSelectCheck &= (~PERF_MONITOR_IO_READ);
+    m_nSelectCheck &= (~PERF_MONITOR_IO_WRITE);
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-    std::string str;
-    if (m_nSelectOutputLog & PERF_MONITOR_CPU) {
-        str += ",cpu (%)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_CPU_KERNEL) {
-        str += ",cpu kernel (%)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_THREAD_MAIN) {
-        str += ",cpu main thread (%)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_THREAD_ENC) {
-        str += ",cpu enc thread (%)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_MEM_PRIVATE) {
-        str += ",mem private (MB)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_MEM_VIRTUAL) {
-        str += ",mem virtual (MB)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_FRAME_IN) {
-        str += ",frame in";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_FRAME_OUT) {
-        str += ",frame out";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_FPS) {
-        str += ",enc speed (fps)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_FPS_AVG) {
-        str += ",enc speed avg (fps)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_BITRATE) {
-        str += ",bitrate (kbps)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_BITRATE_AVG) {
-        str += ",bitrate avg (kbps)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_IO_READ) {
-        str += ",read (MB/s)";
-    }
-    if (m_nSelectOutputLog & PERF_MONITOR_IO_WRITE) {
-        str += ",write (MB/s)";
-    }
-    str += "\n";
-    fwrite(str.c_str(), 1, str.length(), m_fpLog.get());
+    m_nSelectOutputLog &= m_nSelectCheck;
+    m_nSelectOutputMatplot &= m_nSelectCheck;
+
+    write_header(m_fpLog.get(),   m_nSelectOutputLog);
+    write_header(m_pipes.f_stdin, m_nSelectOutputMatplot);
 
     m_thCheck = std::thread(loader, this);
     return 0;
@@ -255,53 +318,59 @@ void CPerfMonitor::check() {
     m_nStep++;
 }
 
-void CPerfMonitor::write() {
+void CPerfMonitor::write(FILE *fp, int nSelect) {
+    if (fp == NULL) {
+        return;
+    }
     const PerfInfo *pInfo = &m_info[m_nStep & 1];
     std::string str = strsprintf("%lf", pInfo->time_us * 1e-6);
-    if (m_nSelectOutputLog & PERF_MONITOR_CPU) {
+    if (nSelect & PERF_MONITOR_CPU) {
         str += strsprintf(",%lf", pInfo->cpu_percent);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_CPU_KERNEL) {
+    if (nSelect & PERF_MONITOR_CPU_KERNEL) {
         str += strsprintf(",%lf", pInfo->cpu_kernel_percent);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_THREAD_MAIN) {
+    if (nSelect & PERF_MONITOR_THREAD_MAIN) {
         str += strsprintf(",%lf", pInfo->main_thread_percent);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_THREAD_ENC) {
+    if (nSelect & PERF_MONITOR_THREAD_ENC) {
         str += strsprintf(",%lf", pInfo->enc_thread_percent);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_MEM_PRIVATE) {
+    if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
         str += strsprintf(",%.2lf", pInfo->mem_private / (double)(1024 * 1024));
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_MEM_VIRTUAL) {
+    if (nSelect & PERF_MONITOR_MEM_VIRTUAL) {
         str += strsprintf(",%.2lf", pInfo->mem_virtual / (double)(1024 * 1024));
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_FRAME_IN) {
+    if (nSelect & PERF_MONITOR_FRAME_IN) {
         str += strsprintf(",%d", pInfo->frames_in);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_FRAME_OUT) {
+    if (nSelect & PERF_MONITOR_FRAME_OUT) {
         str += strsprintf(",%d", pInfo->frames_out);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_FPS) {
+    if (nSelect & PERF_MONITOR_FPS) {
         str += strsprintf(",%lf", pInfo->fps);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_FPS_AVG) {
+    if (nSelect & PERF_MONITOR_FPS_AVG) {
         str += strsprintf(",%lf", pInfo->fps_avg);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_BITRATE) {
+    if (nSelect & PERF_MONITOR_BITRATE) {
         str += strsprintf(",%lf", pInfo->bitrate_kbps);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_BITRATE_AVG) {
+    if (nSelect & PERF_MONITOR_BITRATE_AVG) {
         str += strsprintf(",%lf", pInfo->bitrate_kbps_avg);
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_IO_READ) {
+    if (nSelect & PERF_MONITOR_IO_READ) {
         str += strsprintf(",%lf", pInfo->io_read_per_sec / (double)(1024 * 1024));
     }
-    if (m_nSelectOutputLog & PERF_MONITOR_IO_WRITE) {
+    if (nSelect & PERF_MONITOR_IO_WRITE) {
         str += strsprintf(",%lf", pInfo->io_write_per_sec / (double)(1024 * 1024));
     }
     str += "\n";
-    fwrite(str.c_str(), 1, str.length(), m_fpLog.get());
+    fwrite(str.c_str(), 1, str.length(), fp);
+    if (fp == m_pipes.f_stdin) {
+        fflush(fp);
+    }
 }
 
 void CPerfMonitor::loader(void *prm) {
@@ -311,9 +380,11 @@ void CPerfMonitor::loader(void *prm) {
 void CPerfMonitor::run() {
     while (!m_bAbort) {
         check();
-        write();
+        write(m_fpLog.get(),   m_nSelectOutputLog);
+        write(m_pipes.f_stdin, m_nSelectOutputMatplot);
         std::this_thread::sleep_for(std::chrono::milliseconds(m_nInterval));
     }
     check();
-    write();
+    write(m_fpLog.get(),   m_nSelectOutputLog);
+    write(m_pipes.f_stdin, m_nSelectOutputMatplot);
 }

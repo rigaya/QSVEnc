@@ -284,8 +284,10 @@ struct sInputParams
     mfxU16     nSubtitleSelectCount;
     int       *pSubtitleSelect;
     int64_t    nPerfMonitorSelect;
+    int64_t    nPerfMonitorSelectMatplot;
     int        nPerfMonitorInterval;
-    mfxU8      Reserved[1116];
+    TCHAR     *pPythonPath;
+    mfxU8      Reserved[1104];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

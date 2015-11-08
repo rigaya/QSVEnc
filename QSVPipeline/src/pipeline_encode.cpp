@@ -2758,7 +2758,8 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     if (pParams->nPerfMonitorSelect) {
         m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
         tstring perfMonLog = tstring(pParams->strDstFile) + _T("_perf.csv");
-        if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->nPerfMonitorInterval, false, (int)pParams->nPerfMonitorSelect,
+        if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->pPythonPath, pParams->nPerfMonitorInterval,
+            (int)pParams->nPerfMonitorSelect, (int)pParams->nPerfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)
             std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()))) {
 #else

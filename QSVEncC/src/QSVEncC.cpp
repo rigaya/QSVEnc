@@ -467,8 +467,16 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --benchmark <string>         run in benchmark mode\n")
             _T("                                 and write result in txt file\n")
             _T("   --pref-monitor [<string>][,<string>]...\n")
-            _T("                                check performance info of QSVEncC\n")
-            _T("                                 all(default)... monitor all info\n")
+            _T("       check performance info of QSVEncC and output to log file\n")
+            _T("       select counter from below, default = all\n")
+#if defined(_WIN32) || defined(_WIN64)
+            _T("   --pref-monitor-plot [<string>][,<string>]...\n")
+            _T("       plot perf monitor realtime (required python, mayplotlib)\n")
+            _T("       select counter from below, default = cpu,bitrate\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+            _T("                                 \n")
+            _T("     counters for pref-monitor, pref-monitor-plot\n")
+            _T("                                 all         ... monitor all info\n")
 #if defined(_WIN32) || defined(_WIN64)
             _T("                                 cpu_total   ... cpu total usage (%%)\n")
             _T("                                 cpu_kernel  ... cpu kernel usage (%%)\n")
@@ -487,6 +495,11 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 bitrate     ... encode bitrate (kbps)\n")
             _T("                                 bitrate_avg ... encode avg. bitrate (kbps)\n")
             _T("                                 frame_out   ... written_frames\n")
+            _T("                                 \n")
+#if defined(_WIN32) || defined(_WIN64)
+            _T("   --python <string>            set python path for --pref-monitor-plot\n")
+            _T("                                 default: python\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
             _T("   --pref-monitor-interval <int> set perf monitor check interval (millisec)\n")
             _T("                                 default 200, must be 50 or more\n")
 #if defined(_WIN32) || defined(_WIN64)
@@ -1868,7 +1881,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("perf-monitor"))) {
-        if (strInput[i+1][0] != _T('-')) {
+        if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelect = (int)PERF_MONITOR_ALL;
         } else {
             i++;
@@ -1895,6 +1908,31 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
 #if defined(_WIN32) || defined(_WIN64)
+    if (0 == _tcscmp(option_name, _T("perf-monitor-plot"))) {
+        if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
+            pParams->nPerfMonitorSelectMatplot =
+                (int)(PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
+                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC
+                    | PERF_MONITOR_BITRATE);
+        } else {
+            i++;
+            auto items = split(strInput[i], _T(","));
+            for (const auto& item : items) {
+                int value = 0;
+                if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_pref_monitor, item.c_str()))) {
+                    PrintHelp(item.c_str(), _T("Unknown value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
+                pParams->nPerfMonitorSelectMatplot |= value;
+            }
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("python"))) {
+        i++;
+        pParams->pPythonPath = alloc_str(strInput[i]);
+        return MFX_ERR_NONE;
+    }
     if (0 == _tcscmp(option_name, _T("timer-period-tuning"))) {
         pParams->bDisableTimerPeriodTuning = false;
         return MFX_ERR_NONE;

@@ -498,9 +498,9 @@ gpu_info.cpp                     mfx_buffering.cpp \
 perf_monitor.cpp \
 pipeline_encode.cpp              plugin_utils.cpp \
 qsv_control.cpp                  qsv_event.cpp \
-qsv_ini.cpp                      qsv_prm.cpp \
-qsv_simd.cpp                     qsv_util.cpp \
-qsv_version.cpp \
+qsv_ini.cpp                      qsv_pipe.cpp  \
+qsv_prm.cpp                      qsv_simd.cpp  \
+qsv_util.cpp                     qsv_version.cpp \
 ram_speed.cpp                    sample_utils.cpp \
 scene_change_detection.cpp       scene_change_detection_avx.cpp \
 scene_change_detection_simd.cpp  sysmem_allocator.cpp \
