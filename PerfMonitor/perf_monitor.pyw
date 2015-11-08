@@ -15,10 +15,7 @@ import matplotlib.animation as animation
 from mpl_toolkits.axes_grid.parasite_axes import SubplotHost
 import mpl_toolkits.axisartist as AA
 
-def perf_mon_log(str):
-    f = open("test.txt","a")
-    f.write(str + "\n")
-    f.close()
+nPlotInterval = 1600
 
 class PerfData:
     """
@@ -88,8 +85,10 @@ class PerfMonitor:
     xmax = 5
     xmin = 0
     xkeepLength = 30
+    nInputInterval = 100
 
-    def __init__(self, xkeepLength = 30):
+    def __init__(self, nInputInterval, xkeepLength = 30):
+        self.nInputInterval = nInputInterval
         self.xkeepLength = xkeepLength
 
     def addData(self, prefData):
@@ -154,15 +153,17 @@ class PerfMonitor:
             self.aPerfData[i-1].aData.append(value)
 
     def run(self, t):
-        line = sys.stdin.readline()
-        self.parse_input_line(line)
+        nReadCount = int(nPlotInterval / (self.nInputInterval - 10) * 1.2 + 0.5) + 1
+        for nRead in range(0, nReadCount):
+            line = sys.stdin.readline()
+            self.parse_input_line(line)
         #x軸の範囲を取得
         xmin = min(self.aXdata)
         xmax = max(self.aXdata)
         #指定以上に範囲が長ければ削除
         removeData = xmax - xmin > self.xkeepLength + 3
         if removeData:
-            self.aXdata.pop(0)
+            self.aXdata = self.aXdata[nReadCount:]
             xmin = min(self.aXdata)
         #x軸のグラフの範囲を更新
         self.xmin = max(xmin, xmax - self.xkeepLength)
@@ -172,7 +173,7 @@ class PerfMonitor:
         for data in self.aPerfData:
             assert isinstance(data, PerfData)
             if removeData:
-                data.aData.pop(0)
+                data.aData = data.aData[nReadCount:]
             
             if data.bShow:
                 #単位が"%"の場合は 0 - 100の固定でよい
@@ -195,7 +196,7 @@ class PerfMonitor:
         self.aPerfData[0].ax.figure.canvas.draw()
 
 if __name__ == "__main__":
-    nInterval = 100
+    nInterval = 200
     nKeepLength = 30
 
     #コマンドライン引数を受け取る
@@ -215,7 +216,7 @@ if __name__ == "__main__":
                 nKeepLength = 30
         iargc += 1
 
-    monitor = PerfMonitor(nKeepLength)
+    monitor = PerfMonitor(nInterval, nKeepLength)
 
     #ヘッダー行を読み込み
     line = sys.stdin.readline()
@@ -228,7 +229,7 @@ if __name__ == "__main__":
         m = r.search(counter)
         unit = "" if m == None else m.group(1)
         #データとして追加 (単位なしや平均は表示しない)
-        monitor.addData(PerfData(counter, unit, not (m == None or counter.find("avg") >= 0)))
+        monitor.addData(PerfData(counter, unit, m != None))
     
     #凡例を作成
     counter_names = []
@@ -244,5 +245,5 @@ if __name__ == "__main__":
         prop = {'size' : 10})          #フォントサイズの調整
 
     #アニメーションの開始
-    ani = animation.FuncAnimation(monitor.fig, monitor.run, blit=False, interval=nInterval)
+    ani = animation.FuncAnimation(monitor.fig, monitor.run, blit=False, interval=nPlotInterval)
     plt.show()

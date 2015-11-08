@@ -166,7 +166,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         m_sPywPath = tempPath;
         createPerfMpnitorPyw(tempPath);
         tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
-        tstring args = tstring(_T("\"")) + sPythonPath + tstring(_T("\" \"")) + m_sPywPath + tstring(_T("\" -i ")) + strsprintf("%d", std::max(interval * 4 / 5, interval - 10));
+        tstring args = tstring(_T("\"")) + sPythonPath + tstring(_T("\" \"")) + m_sPywPath + tstring(_T("\" -i ")) + strsprintf(_T("%d"), interval);
         m_pProcess->run(args.c_str(), nullptr, &m_pipes, NORMAL_PRIORITY_CLASS, false, false);
         WaitForInputIdle(m_pProcess->getProcessInfo().hProcess, INFINITE);
     }
