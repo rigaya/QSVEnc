@@ -4339,7 +4339,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
                 for (int i = 0; i < 3; i++) {
                     buf += ((i) ? _T(":") : _T(""));
                     if (limit[i]) {
-                        buf += strsprintf(_T("%s"), limit[i]);
+                        buf += strsprintf(_T("%d"), limit[i]);
                     } else {
                         buf += _T("-");
                     }
