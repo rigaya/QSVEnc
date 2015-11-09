@@ -158,17 +158,23 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     if (m_nSelectOutputMatplot) {
         m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcess());
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
-        TCHAR tempDir[1024];
-        TCHAR tempPath[1024];
+        TCHAR tempDir[1024] = { 0 };
+        TCHAR tempPath[1024] = { 0 };
         GetModuleFileName(NULL, tempDir, _countof(tempDir));
         PathRemoveFileSpec(tempDir);
         PathCombine(tempPath, tempDir, strsprintf(_T("qsvencc_perf_monitor.pyw"), GetProcessId(GetCurrentProcess())).c_str());
         m_sPywPath = tempPath;
-        createPerfMpnitorPyw(tempPath);
-        tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
-        tstring args = tstring(_T("\"")) + sPythonPath + tstring(_T("\" \"")) + m_sPywPath + tstring(_T("\" -i ")) + strsprintf(_T("%d"), interval);
-        m_pProcess->run(args.c_str(), nullptr, &m_pipes, NORMAL_PRIORITY_CLASS, false, false);
-        WaitForInputIdle(m_pProcess->getProcessInfo().hProcess, INFINITE);
+        if (createPerfMpnitorPyw(tempPath)) {
+            m_nSelectOutputMatplot = false;
+        } else {
+            tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
+            tstring args = tstring(_T("\"")) + sPythonPath + tstring(_T("\" \"")) + m_sPywPath + tstring(_T("\" -i ")) + strsprintf(_T("%d"), interval);
+            if (m_pProcess->run(args.c_str(), nullptr, &m_pipes, NORMAL_PRIORITY_CLASS, false, false)) {
+                m_nSelectOutputMatplot = false;
+            } else {
+                WaitForInputIdle(m_pProcess->getProcessInfo().hProcess, INFINITE);
+            }
+        }
     }
 #else
     m_nSelectOutputMatplot = 0;
@@ -221,7 +227,7 @@ void CPerfMonitor::check() {
     };
 
     //メモリ情報
-    PROCESS_MEMORY_COUNTERS mem_counters ={ 0 };
+    PROCESS_MEMORY_COUNTERS mem_counters = { 0 };
     mem_counters.cb = sizeof(PROCESS_MEMORY_COUNTERS);
     GetProcessMemoryInfo(hProcess, &mem_counters, sizeof(mem_counters));
     pInfoNew->mem_private = mem_counters.WorkingSetSize;
