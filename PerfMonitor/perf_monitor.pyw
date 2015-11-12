@@ -111,6 +111,9 @@ class PerfMonitor:
                 prefData.ax.set_ylabel(prefData.sUnit)
                 prefData.line.set_data(self.aXdata, prefData.aData)
             
+                if prefData.sUnit == "%":
+                    plt.yticks([0.0, 12.5, 25.0, 37.5, 50.0, 62.5, 75.0, 87.5, 100])
+            
                 self.fig.patch.set_facecolor('white') #背景色の設定
                 #prefData.ax.axis["left"].label.set_color(prefData.line.get_color())
                 self.dictYAxis[prefData.sUnit] = perfDataYAxis
