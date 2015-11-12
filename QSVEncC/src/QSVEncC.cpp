@@ -466,6 +466,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
         _ftprintf(stdout, _T("\n")
             _T("   --benchmark <string>         run in benchmark mode\n")
             _T("                                 and write result in txt file\n")
+            _T("   --bench-quality \"all\" or <int>[,<int>][,<int>]...\n")
+            _T("                                 default: 1,4,7\n")
+            _T("                                list of target quality to check on benchmark\n")
             _T("   --pref-monitor [<string>][,<string>]...\n")
             _T("       check performance info of QSVEncC and output to log file\n")
             _T("       select counter from below, default = all\n")
@@ -1880,6 +1883,26 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         _tcscpy_s(pParams->strDstFile, strInput[i]);
         return MFX_ERR_NONE;
     }
+    if (0 == _tcscmp(option_name, _T("bench-quality"))) {
+        i++;
+        pParams->bBenchmark = TRUE;
+        if (0 == _tcscmp(strInput[i], _T("all"))) {
+            pParams->nBenchQuality = 0xffffffff;
+        } else {
+            pParams->nBenchQuality = 0;
+            auto list = split(tstring(strInput[i]), _T(","));
+            for (const auto& str : list) {
+                int nQuality = 0;
+                if (1 == _stscanf(str.c_str(), _T("%d"), &nQuality)) {
+                    pParams->nBenchQuality |= 1 << nQuality;
+                } else {
+                    PrintHelp(strInput[i], _T("Unknown value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
+            }
+        }
+        return MFX_ERR_NONE;
+    }
     if (0 == _tcscmp(option_name, _T("perf-monitor"))) {
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelect = (int)PERF_MONITOR_ALL;
@@ -1989,6 +2012,7 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
     pParams->nPerfMonitorInterval = 200;
+    pParams->nBenchQuality     = QSV_DEFAULT_BENCH;
 
     sArgsData argsData;
     argsData.nParsedAudioBitrate = 0;
@@ -2427,12 +2451,23 @@ mfxStatus run_benchmark(sInputParams *params) {
         double cpuUsagePercent;
     } benchmark_t;
 
+    //対象
+    vector<CX_DESC> list_target_quality;
+    for (uint32_t i = 0; i < _countof(list_quality); i++) {
+        if (list_quality[i].desc) {
+            int test = 1 << list_quality[i].value;
+            if (params->nBenchQuality & test) {
+                list_target_quality.push_back(list_quality[i]);
+            }
+        }
+    }
+
     //解像度ごとに、target usageを変化させて測定
     vector<vector<benchmark_t>> benchmark_result;
-    benchmark_result.reserve(test_resolution.size() * (_countof(list_quality) - 1));
+    benchmark_result.reserve(test_resolution.size() * list_target_quality.size());
 
-    for (int i = 0; MFX_ERR_NONE == sts && !g_signal_abort && list_quality[i].desc; i++) {
-        params->nTargetUsage = (mfxU16)list_quality[i].value;
+    for (uint32_t i = 0; MFX_ERR_NONE == sts && !g_signal_abort && i < list_target_quality.size(); i++) {
+        params->nTargetUsage = (mfxU16)list_target_quality[i].value;
         vector<benchmark_t> benchmark_per_target_usage;
         for (const auto& resolution : test_resolution) {
             params->nDstWidth = resolution.first;
@@ -2474,7 +2509,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             benchmark_t result;
             result.resolution      = resolution;
-            result.targetUsage     = (mfxU16)list_quality[i].value;
+            result.targetUsage     = (mfxU16)list_target_quality[i].value;
             result.fps             = data.fEncodeFps;
             result.bitrate         = data.fBitrateKbps;
             result.cpuUsagePercent = data.fCPUUsagePercent;
@@ -2493,9 +2528,9 @@ mfxStatus run_benchmark(sInputParams *params) {
     if (MFX_ERR_NONE == sts && benchmark_result.size()) {
         basic_stringstream<msdk_char> ss;
 
-        mfxU32 maxLengthOfTargetUsageDesc = 0;
-        for (int i = 0; list_quality[i].desc; i++) {
-            maxLengthOfTargetUsageDesc = max(maxLengthOfTargetUsageDesc, (mfxU32)_tcslen(list_quality[i].desc));
+        uint32_t maxLengthOfTargetUsageDesc = 0;
+        for (uint32_t i = 0; i < list_target_quality.size(); i++) {
+            maxLengthOfTargetUsageDesc = max(maxLengthOfTargetUsageDesc, (uint32_t)_tcslen(list_target_quality[i].desc));
         }
 
         FILE *fp_bench = NULL;

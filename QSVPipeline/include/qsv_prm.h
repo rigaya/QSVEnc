@@ -187,8 +187,7 @@ struct sInputParams
     mfxU16 nHeight;       //height of input
     mfxU32 nFPSRate;      //fps rate of input
     mfxU32 nFPSScale;     //fps scale of input
-    mfxU16 __nBitRate;    //old field of target bitrate used in bitrate mode
-    mfxU16 __nMaxBitrate; //max bitrate
+    mfxU32 nBenchQuality; //ベンチマークの対象
     mfxI16 nLogLevel;     //ログレベル
 
     mfxU16 nDstWidth;     //output width 
@@ -661,6 +660,7 @@ const int QSV_INPUT_BUF_MAX = 16;
 const int QSV_DEFAULT_CONVERGENCE = 90;
 const int QSV_DEFAULT_ACCURACY = 500;
 const int QSV_DEFAULT_FORCE_GOP_LEN = 1;
+const uint32_t QSV_DEFAULT_BENCH = (1 << 1) | (1 << 4) | (1 << 7);
 
 const mfxU16 QSV_DEFAULT_VQP_STRENGTH = 10;
 const mfxU16 QSV_DEFAULT_VQP_SENSITIVITY = 50;
