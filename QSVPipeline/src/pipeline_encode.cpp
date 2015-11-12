@@ -3886,7 +3886,11 @@ mfxStatus CEncodingPipeline::RunEncode()
 }
 
 void CEncodingPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
-    if (m_pQSVLog.get() == nullptr || log_level < m_pQSVLog->getLogLevel()) {
+    if (m_pQSVLog.get() == nullptr) {
+        if (log_level <= QSV_LOG_INFO) {
+            return;
+        }
+    } else if (log_level < m_pQSVLog->getLogLevel()) {
         return;
     }
 
@@ -3898,7 +3902,11 @@ void CEncodingPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
     _vstprintf_s(buffer.data(), len, format, args);
     va_end(args);
 
-    (*m_pQSVLog)(log_level, buffer.data());
+    if (m_pQSVLog.get() != nullptr) {
+        (*m_pQSVLog)(log_level, buffer.data());
+    } else {
+        _ftprintf(stderr, _T("%s"), buffer.data());
+    }
 }
 
 const char *CQSVLog::HTML_FOOTER = "</body>\n</html>\n";
