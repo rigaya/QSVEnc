@@ -100,6 +100,8 @@ class PerfMonitor:
                 #データがひとつもないとき
                 #新しくfigureを作成する
                 self.fig = plt.figure(1)
+                #ウィンドウ枠のtitleをセット
+                self.fig.canvas.set_window_title('QSVEncC Performance Monitor')
                 #ホストとして作成
                 prefData.ax = SubplotHost(self.fig, 111)
                 self.fig.add_subplot(prefData.ax)
