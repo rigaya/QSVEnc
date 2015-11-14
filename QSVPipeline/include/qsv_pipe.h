@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <vector>
 #include "qsv_osdep.h"
 #include "qsv_tchar.h"
 
@@ -23,9 +24,15 @@ enum PipeMode {
 
 static const int QSV_PIPE_READ_BUF = 2048;
 
+#if defined(_WIN32) || defined(_WIN64)
+typedef HANDLE PIPE_HANDLE;
+#else
+typedef int PIPE_HANDLE;
+#endif
+
 typedef struct {
-    HANDLE h_read;
-    HANDLE h_write;
+    PIPE_HANDLE h_read;
+    PIPE_HANDLE h_write;
     PipeMode mode;
     uint32_t bufferSize;
 } PipeSet;
@@ -41,20 +48,42 @@ typedef struct {
 
 class CPipeProcess {
 public:
-    CPipeProcess();
-    ~CPipeProcess();
+    CPipeProcess() { };
+    virtual ~CPipeProcess() { };
 
-    void init();
-    int run(const TCHAR *args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized);
-    void close();
-#if defined(_WIN32) || defined(_WIN64)
-    const PROCESS_INFORMATION& getProcessInfo();
-#endif //#if defined(_WIN32) || defined(_WIN64)
+    virtual void init() = 0;
+    virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) = 0;
+    virtual void close() = 0;
 private:
-    int startPipes(ProcessPipe *pipes);
-#if defined(_WIN32) || defined(_WIN64)
-    PROCESS_INFORMATION m_pi;
-#endif //#if defined(_WIN32) || defined(_WIN64)
+    virtual int startPipes(ProcessPipe *pipes) = 0;
 };
+
+#if defined(_WIN32) || defined(_WIN64)
+class CPipeProcessWin : public CPipeProcess {
+public:
+    CPipeProcessWin();
+    virtual ~CPipeProcessWin();
+
+    virtual void init() override;
+    virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
+    virtual void close() override;
+    const PROCESS_INFORMATION& getProcessInfo();
+private:
+    virtual int startPipes(ProcessPipe *pipes) override;
+    PROCESS_INFORMATION m_pi;
+};
+#else
+class CPipeProcessLinux : public CPipeProcess {
+public:
+    CPipeProcessLinux();
+    virtual ~CPipeProcessLinux();
+
+    virtual void init() override;
+    virtual int run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) override;
+    virtual void close() override;
+private:
+    virtual int startPipes(ProcessPipe *pipes) override;
+};
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 #endif //_QSV_PIPE_H_

@@ -5,17 +5,22 @@ vpath %.asm $(SRCDIR)
 
 OBJS  = $(SRCS:%.cpp=%.o)
 OBJASMS = $(ASMS:%.asm=%.o)
+OBJPYWS = $(PYWS:%.pyw=%.o)
 
 all: $(PROGRAM)
 
-$(PROGRAM): .depend $(OBJS) $(OBJASMS)
-	$(LD) $(OBJS) $(OBJASMS) $(LDFLAGS) -o $(PROGRAM)
+$(PROGRAM): .depend $(OBJS) $(OBJASMS) $(OBJPYWS)
+	$(LD) $(OBJS) $(OBJASMS) $(OBJPYWS) $(LDFLAGS) -o $(PROGRAM)
 
 %.o: %.cpp .depend
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 
 %.o: %.asm
 	$(AS) $(ASFLAGS) -o $@ $<
+
+%.o: %.pyw
+	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
+	
 .depend: config.mak
 	@rm -f .depend
 	@echo 'generate .depend...'

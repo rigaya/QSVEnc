@@ -498,7 +498,8 @@ gpu_info.cpp                     mfx_buffering.cpp \
 perf_monitor.cpp \
 pipeline_encode.cpp              plugin_utils.cpp \
 qsv_control.cpp                  qsv_event.cpp \
-qsv_ini.cpp                      qsv_pipe.cpp  \
+qsv_ini.cpp \
+qsv_pipe.cpp                     qsv_pipe_linux.cpp \
 qsv_prm.cpp                      qsv_simd.cpp  \
 qsv_util.cpp                     qsv_version.cpp \
 ram_speed.cpp                    sample_utils.cpp \
@@ -511,6 +512,8 @@ vpy_reader.cpp \
 "
 
 ASM_QSVPIPELINE="ram_speed_x64.asm"
+
+PYW_PERF_MONITOR="perf_monitor.pyw"
 
 SRC_PLUGIN_DELOGO=" \
 delogo_process_avx.cpp    delogo_process_avx2.cpp \
@@ -533,6 +536,10 @@ for asm in $ASM_QSVPIPELINE; do
     ASMS="$ASMS QSVPipeline/src/$asm"
 done
 
+for pyw in $PYW_PERF_MONITOR; do
+    PYWS="$PYWS PerfMonitor/$pyw"
+done
+
 for src in $SRC_PLUGIN_ROTATE; do
     SRCS="$SRCS QSVPlugins/rotate/$src"
 done
@@ -549,6 +556,7 @@ echo ""
 echo "Creating config.mak, qsv_config.h..."
 echo "SRCS = $SRCS" >> config.mak
 echo "ASMS = $ASMS" >> config.mak
+echo "PYWS = $PYWS" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
 write_config_mak "CXX = $CXX"
 write_config_mak "LD  = $LD"

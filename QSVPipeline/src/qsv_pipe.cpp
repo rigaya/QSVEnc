@@ -11,28 +11,25 @@
 #include <Windows.h>
 #include <fcntl.h>
 #include <io.h>
-#endif //#if defined(_WIN32) || defined(_WIN64)
 #include <cstring>
 #include "qsv_pipe.h"
+#include "qsv_util.h"
 
-CPipeProcess::CPipeProcess() {
-#if defined(_WIN32) || defined(_WIN64)
+CPipeProcessWin::CPipeProcessWin() {
     memset(&m_pi, 0, sizeof(m_pi));
-#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-CPipeProcess::~CPipeProcess() {
+CPipeProcessWin::~CPipeProcessWin() {
 
 }
 
-void CPipeProcess::init() {
+void CPipeProcessWin::init() {
     close();
 }
 
 
-int CPipeProcess::startPipes(ProcessPipe *pipes) {
-#if defined(_WIN32) || defined(_WIN64)
-    SECURITY_ATTRIBUTES sa ={ sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
+int CPipeProcessWin::startPipes(ProcessPipe *pipes) {
+    SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
     if (pipes->stdOut.mode) {
         if (!CreatePipe(&pipes->stdOut.h_read, &pipes->stdOut.h_write, &sa, pipes->stdOut.bufferSize) ||
             !SetHandleInformation(pipes->stdOut.h_read, HANDLE_FLAG_INHERIT, 0))
@@ -51,12 +48,10 @@ int CPipeProcess::startPipes(ProcessPipe *pipes) {
             return 1;
         }
     }
-#endif //#if defined(_WIN32) || defined(_WIN64)
     return 0;
 }
 
-int CPipeProcess::run(const TCHAR *args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
-#if defined(_WIN32) || defined(_WIN64)
+int CPipeProcessWin::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
     BOOL Inherit = FALSE;
     DWORD flag = priority;
     STARTUPINFO si;
@@ -82,7 +77,14 @@ int CPipeProcess::run(const TCHAR *args, const TCHAR *exedir, ProcessPipe *pipes
     if (hidden)
         flag |= CREATE_NO_WINDOW;
 
-    int ret = (CreateProcess(NULL, (TCHAR *)args, NULL, NULL, Inherit, flag, NULL, exedir, &si, &m_pi)) ? 0 : 1;
+    tstring cmd_line;
+    for (auto arg : args) {
+        if (arg) {
+            cmd_line += tstring(arg) + _T(" ");
+        }
+    }
+
+    int ret = (CreateProcess(NULL, (TCHAR *)cmd_line.c_str(), NULL, NULL, Inherit, flag, NULL, exedir, &si, &m_pi)) ? 0 : 1;
 
     if (pipes->stdOut.mode) {
         CloseHandle(pipes->stdOut.h_write);
@@ -107,19 +109,13 @@ int CPipeProcess::run(const TCHAR *args, const TCHAR *exedir, ProcessPipe *pipes
         }
     }
     return ret;
-#else
-    return 0;
-#endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-#if defined(_WIN32) || defined(_WIN64)
-const PROCESS_INFORMATION& CPipeProcess::getProcessInfo() {
+const PROCESS_INFORMATION& CPipeProcessWin::getProcessInfo() {
     return m_pi;
 }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
-void CPipeProcess::close() {
-#if defined(_WIN32) || defined(_WIN64)
+void CPipeProcessWin::close() {
     if (m_pi.hProcess) {
         CloseHandle(m_pi.hProcess);
     }
@@ -127,5 +123,5 @@ void CPipeProcess::close() {
         CloseHandle(m_pi.hThread);
     }
     memset(&m_pi, 0, sizeof(m_pi));
-#endif //#if defined(_WIN32) || defined(_WIN64)
 }
+#endif //defined(_WIN32) || defined(_WIN64)

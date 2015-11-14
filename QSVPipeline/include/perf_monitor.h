@@ -116,9 +116,7 @@ public:
 
     void clear();
 protected:
-#if defined(_WIN32) || defined(_WIN64)
     int createPerfMpnitorPyw(const TCHAR *pywPath);
-#endif //#if defined(_WIN32) || defined(_WIN64)
     void check();
     void run();
     void write_header(FILE *fp, int nSelect);

@@ -21,6 +21,16 @@
 #include "qsv_util.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <psapi.h>
+#else
+#include <sys/time.h>
+#include <sys/resource.h>
+
+extern "C" {
+extern char _binary_PerfMonitor_perf_monitor_pyw_start;
+extern char _binary_PerfMonitor_perf_monitor_pyw_end;
+extern char _binary_PerfMonitor_perf_monitor_pyw_size;
+}
+
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 CPerfMonitor::CPerfMonitor() {
@@ -58,15 +68,15 @@ void CPerfMonitor::clear() {
     m_pProcess.reset();
 }
 
-#if defined(_WIN32) || defined(_WIN64)
 int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
     //リソースを取り出し
     int ret = 0;
+    uint32_t resourceSize = 0;
+    FILE *fp = NULL;
+    const char *pDataPtr = NULL;
+#if defined(_WIN32) || defined(_WIN64)
     HRSRC hResource = NULL;
     HGLOBAL hResourceData = NULL;
-    const char *pDataPtr = NULL;
-    DWORD resourceSize = 0;
-    FILE *fp = NULL;
     HMODULE hModule = GetModuleHandleA(NULL);
     if (   NULL == hModule
         || NULL == (hResource = FindResource(hModule, _T("PERF_MONITOR_PYW"), _T("PERF_MONITOR_SRC")))
@@ -74,7 +84,12 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
         || NULL == (pDataPtr = (const char *)LockResource(hResourceData))
         || 0    == (resourceSize = SizeofResource(hModule, hResource))) {
         ret = 1;
-    } else if (_tfopen_s(&fp, pywPath, _T("wb")) || NULL == fp) {
+    } else
+#else
+    pDataPtr = &_binary_PerfMonitor_perf_monitor_pyw_start;
+    resourceSize = (uint32_t)(size_t)&_binary_PerfMonitor_perf_monitor_pyw_size;
+#endif //#if defined(_WIN32) || defined(_WIN64)
+    if (_tfopen_s(&fp, pywPath, _T("wb")) || NULL == fp) {
         ret = 1;
     } else if (resourceSize != fwrite(pDataPtr, 1, resourceSize, fp)) {
         ret = 1;
@@ -83,7 +98,6 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
         fclose(fp);
     return ret;
 }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
 void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     if (fp == NULL) {
@@ -157,9 +171,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         }
     }
 
-#if defined(_WIN32) || defined(_WIN64)
     if (m_nSelectOutputMatplot) {
-        m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcess());
+#if defined(_WIN32) || defined(_WIN64)
+        m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcessWin());
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
         TCHAR tempDir[1024] = { 0 };
         TCHAR tempPath[1024] = { 0 };
@@ -167,35 +181,44 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         PathRemoveFileSpec(tempDir);
         PathCombine(tempPath, tempDir, strsprintf(_T("qsvencc_perf_monitor.pyw"), GetProcessId(GetCurrentProcess())).c_str());
         m_sPywPath = tempPath;
-        if (createPerfMpnitorPyw(tempPath)) {
+        uint32_t priority = NORMAL_PRIORITY_CLASS;
+#else
+        m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcessLinux());
+        m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
+        m_sPywPath = tstring(_T("/tmp/")) + strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), (int)getpid());
+        uint32_t priority = 0;
+#endif
+        if (createPerfMpnitorPyw(m_sPywPath.c_str())) {
             m_nSelectOutputMatplot = false;
         } else {
+            tstring sInterval = strsprintf(_T("%d"), interval);
             tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
-            tstring args = tstring(_T("\"")) + sPythonPath + tstring(_T("\" \"")) + m_sPywPath + tstring(_T("\" -i ")) + strsprintf(_T("%d"), interval);
-            if (m_pProcess->run(args.c_str(), nullptr, &m_pipes, NORMAL_PRIORITY_CLASS, false, false)) {
+            sPythonPath = tstring(_T("\"")) + sPythonPath + tstring(_T("\""));
+            m_sPywPath = tstring(_T("\"")) + m_sPywPath + tstring(_T("\""));
+            std::vector<const TCHAR *> args;
+            args.push_back(sPythonPath.c_str());
+            args.push_back(m_sPywPath.c_str());
+            args.push_back(_T("-i"));
+            args.push_back(sInterval.c_str());
+            args.push_back(nullptr);
+            if (m_pProcess->run(args, nullptr, &m_pipes, priority, false, false)) {
                 m_nSelectOutputMatplot = false;
+#if defined(_WIN32) || defined(_WIN64)
             } else {
-                WaitForInputIdle(m_pProcess->getProcessInfo().hProcess, INFINITE);
+                WaitForInputIdle(dynamic_cast<CPipeProcessWin *>(m_pProcess.get())->getProcessInfo().hProcess, INFINITE);
+#endif
             }
         }
     }
-#else
-    m_nSelectOutputMatplot = 0;
-#endif
 
     //未実装
     m_nSelectCheck &= (~PERF_MONITOR_FRAME_IN);
 
     //未実装
 #if !(defined(_WIN32) || defined(_WIN64))
-    m_nSelectCheck &= (~PERF_MONITOR_CPU);
-    m_nSelectCheck &= (~PERF_MONITOR_CPU_KERNEL);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_MAIN);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_ENC);
-    m_nSelectCheck &= (~PERF_MONITOR_MEM_PRIVATE);
-    m_nSelectCheck &= (~PERF_MONITOR_MEM_VIRTUAL);
-    m_nSelectCheck &= (~PERF_MONITOR_IO_READ);
-    m_nSelectCheck &= (~PERF_MONITOR_IO_WRITE);
+    m_nSelectOutputMatplot = 0;
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
     m_nSelectOutputLog &= m_nSelectCheck;
@@ -253,15 +276,79 @@ void CPerfMonitor::check() {
     GetProcessTimes(hProcess, (FILETIME *)&pt.creation, (FILETIME *)&pt.exit, (FILETIME *)&pt.kernel, (FILETIME *)&pt.user);
     pInfoNew->time_us = (current_time - pt.creation) / 10;
     const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
+#else
+    struct rusage usage = { 0 };
+    getrusage(RUSAGE_SELF, &usage);
+
+    //現在時間
+    uint64_t current_time = clock() * (1e7 / CLOCKS_PER_SEC);
+
+    std::string proc_dir = strsprintf("/proc/%d/", (int)getpid());
+    //メモリ情報
+    FILE *fp_mem = popen((std::string("cat ") + proc_dir + std::string("status")).c_str(), "r");
+    if (fp_mem) {
+        char buffer[2048] = { 0 };
+        while (NULL != fgets(buffer, _countof(buffer), fp_mem)) {
+            if (nullptr != strstr(buffer, "VmSize")) {
+                long long i = 0;
+                if (1 == sscanf(buffer, "VmSize: %lld kB", &i)) {
+                    pInfoNew->mem_virtual = i << 10;
+                }
+            } else if (nullptr != strstr(buffer, "VmRSS")) {
+                long long i = 0;
+                if (1 == sscanf(buffer, "VmRSS: %lld kB", &i)) {
+                    pInfoNew->mem_private = i << 10;
+                }
+            }
+        }
+        fclose(fp_mem);
+    }
+    //IO情報
+    FILE *fp_io = popen((std::string("cat ") + proc_dir + std::string("io")).c_str(), "r");
+    if (fp_io) {
+        char buffer[2048] = { 0 };
+        while (NULL != fgets(buffer, _countof(buffer), fp_io)) {
+            if (nullptr != strstr(buffer, "rchar:")) {
+                long long i = 0;
+                if (1 == sscanf(buffer, "rchar: %lld", &i)) {
+                    pInfoNew->io_total_read = i;
+                }
+            } else if (nullptr != strstr(buffer, "wchar")) {
+                long long i = 0;
+                if (1 == sscanf(buffer, "wchar: %lld", &i)) {
+                    pInfoNew->io_total_write = i;
+                }
+            }
+        }
+        fclose(fp_io);
+    }
+
+    //CPU情報
+    pInfoNew->time_us = (current_time - m_nCreateTime100ns) / 10;
+    const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
+#endif
+
     if (pInfoNew->time_us > pInfoOld->time_us) {
+#if defined(_WIN32) || defined(_WIN64)
         pInfoNew->cpu_total_us = (pt.user + pt.kernel) / 10;
         pInfoNew->cpu_total_kernel_us = pt.kernel / 10;
+#else
+        int64_t cpu_user_us = usage.ru_utime.tv_sec * 1000000 + usage.ru_utime.tv_usec;
+        int64_t cpu_kernel_us = usage.ru_stime.tv_sec * 1000000 + usage.ru_stime.tv_usec;
+        pInfoNew->cpu_total_us = cpu_user_us + cpu_kernel_us;
+        pInfoNew->cpu_total_kernel_us = cpu_kernel_us;
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
         //CPU使用率
         const double logical_cpu_inv       = 1.0 / m_nLogicalCPU;
         pInfoNew->cpu_percent        = (pInfoNew->cpu_total_us        - pInfoOld->cpu_total_us) * 100.0 * logical_cpu_inv * time_diff_inv;
         pInfoNew->cpu_kernel_percent = (pInfoNew->cpu_total_kernel_us - pInfoOld->cpu_total_kernel_us) * 100.0 * logical_cpu_inv * time_diff_inv;
 
+        //IO情報
+        pInfoNew->io_read_per_sec = (pInfoNew->io_total_read - pInfoOld->io_total_read) * time_diff_inv * 1e6;
+        pInfoNew->io_write_per_sec = (pInfoNew->io_total_write - pInfoOld->io_total_write) * time_diff_inv * 1e6;
+
+#if defined(_WIN32) || defined(_WIN64)
         //スレッドCPU使用率
         if (m_thMainThread) {
             getThreadTime(m_thMainThread.get(), &pt);
@@ -280,15 +367,8 @@ void CPerfMonitor::check() {
             }
         }
 
-        //IO情報
-        pInfoNew->io_read_per_sec = (pInfoNew->io_total_read - pInfoOld->io_total_read) * time_diff_inv * 1e6;
-        pInfoNew->io_write_per_sec = (pInfoNew->io_total_write - pInfoOld->io_total_write) * time_diff_inv * 1e6;
+#endif //defined(_WIN32) || defined(_WIN64)
     }
-#else
-    uint64_t current_time = clock() * (1e7 / CLOCKS_PER_SEC);
-    pInfoNew->time_us = (current_time - m_nCreateTime100ns) / 10;
-    const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
     if (!m_bEncStarted && m_pEncStatus) {
         m_bEncStarted = m_pEncStatus->getEncStarted();
