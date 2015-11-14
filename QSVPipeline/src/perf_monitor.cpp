@@ -86,6 +86,9 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 void CPerfMonitor::write_header(FILE *fp, int nSelect) {
+    if (fp == NULL) {
+        return;
+    }
     std::string str;
     if (nSelect & PERF_MONITOR_CPU) {
         str += ",cpu (%)";
