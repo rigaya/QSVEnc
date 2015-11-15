@@ -33,6 +33,24 @@ extern char _binary_PerfMonitor_perf_monitor_pyw_size;
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+tstring CPerfMonitor::SelectedCounters(int select) {
+    if (select == 0) {
+        return _T("none");
+    }
+    tstring str;
+    for (uint32_t i = 0; i < _countof(list_pref_monitor); i++) {
+        if (list_pref_monitor[i].desc &&
+            (select & list_pref_monitor[i].value) == list_pref_monitor[i].value) {
+            if (str.length()) {
+                str += _T(",");
+            }
+            str += list_pref_monitor[i].desc;
+            select &= ~(list_pref_monitor[i].value);
+        }
+    }
+    return str;
+}
+
 CPerfMonitor::CPerfMonitor() {
     memset(m_info, 0, sizeof(m_info));
     memset(&m_pipes, 0, sizeof(m_pipes));
@@ -153,7 +171,8 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
 
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputMatplot,
-    std::unique_ptr<void, handle_deleter> thMainThread) {
+    std::unique_ptr<void, handle_deleter> thMainThread,
+    std::shared_ptr<CQSVLog> pQSVLog) {
     clear();
 
     m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
@@ -167,6 +186,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     if (!m_fpLog) {
         m_fpLog = std::unique_ptr<FILE, fp_deleter>(_tfopen(m_sMonitorFilename.c_str(), _T("a")));
         if (!m_fpLog) {
+            (*pQSVLog)(QSV_LOG_WARN, _T("Failed to open performance monitor log file: %s\n"), m_sMonitorFilename.c_str());
+            (*pQSVLog)(QSV_LOG_WARN, _T("performance monitoring disabled.\n"));
             return 1;
         }
     }
@@ -189,7 +210,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         uint32_t priority = 0;
 #endif
         if (createPerfMpnitorPyw(m_sPywPath.c_str())) {
-            m_nSelectOutputMatplot = false;
+            (*pQSVLog)(QSV_LOG_WARN, _T("Failed to create file qsvencc_perf_monitor.pyw for performance monitor plot.\n"));
+            (*pQSVLog)(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
+            m_nSelectOutputMatplot = 0;
         } else {
             tstring sInterval = strsprintf(_T("%d"), interval);
             tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
@@ -202,7 +225,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             args.push_back(sInterval.c_str());
             args.push_back(nullptr);
             if (m_pProcess->run(args, nullptr, &m_pipes, priority, false, false)) {
-                m_nSelectOutputMatplot = false;
+                (*pQSVLog)(QSV_LOG_WARN, _T("Failed to run performance monitor plot.\n"));
+                (*pQSVLog)(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
+                m_nSelectOutputMatplot = 0;
 #if defined(_WIN32) || defined(_WIN64)
             } else {
                 WaitForInputIdle(dynamic_cast<CPipeProcessWin *>(m_pProcess.get())->getProcessInfo().hProcess, INFINITE);
@@ -223,6 +248,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 
     m_nSelectOutputLog &= m_nSelectCheck;
     m_nSelectOutputMatplot &= m_nSelectCheck;
+
+    (*pQSVLog)(QSV_LOG_DEBUG, _T("Performace Monitor: %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputLog).c_str());
+    (*pQSVLog)(QSV_LOG_DEBUG, _T("Performace Plot   : %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputMatplot).c_str());
 
     write_header(m_fpLog.get(),   m_nSelectOutputLog);
     write_header(m_pipes.f_stdin, m_nSelectOutputMatplot);

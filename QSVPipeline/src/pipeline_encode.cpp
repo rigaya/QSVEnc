@@ -2766,10 +2766,11 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->pPythonPath, pParams->nPerfMonitorInterval,
             (int)pParams->nPerfMonitorSelect, (int)pParams->nPerfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)
-            std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()))) {
+            std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
 #else
-            nullptr)) {
+            nullptr,
 #endif
+            m_pQSVLog)) {
             PrintMes(QSV_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
             m_pPerfMonitor.reset();
         }

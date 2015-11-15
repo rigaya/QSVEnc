@@ -108,7 +108,8 @@ public:
     CPerfMonitor();
     int init(tstring filename, const TCHAR *pPythonPath,
         int interval, int nSelectOutputLog, int nSelectOutputMatplot,
-        std::unique_ptr<void, handle_deleter> thMainThread);
+        std::unique_ptr<void, handle_deleter> thMainThread,
+        std::shared_ptr<CQSVLog> pQSVLog);
     ~CPerfMonitor();
 
     void SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus);
@@ -123,6 +124,8 @@ protected:
     void write(FILE *fp, int nSelect);
 
     static void loader(void *prm);
+
+    tstring SelectedCounters(int select);
 
     int m_nStep;
     tstring m_sPywPath;
