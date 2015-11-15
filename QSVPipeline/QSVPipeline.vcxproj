@@ -388,6 +388,7 @@
     <ClInclude Include="include\qsv_osdep.h" />
     <ClInclude Include="include\qsv_pipe.h" />
     <ClInclude Include="include\qsv_prm.h" />
+    <ClInclude Include="include\qsv_queue.h" />
     <ClInclude Include="include\qsv_simd.h" />
     <ClInclude Include="include\qsv_log.h" />
     <ClInclude Include="include\qsv_tchar.h" />

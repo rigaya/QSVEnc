@@ -146,8 +146,40 @@ void CAvcodecWriter::CloseFormat(AVMuxFormat *pMuxFormat) {
     AddMessage(QSV_LOG_DEBUG, _T("Closed format.\n"));
 }
 
+void CAvcodecWriter::CloseQueues() {
+#if ENABLE_AVCODEC_OUT_THREAD
+    m_Mux.thread.bAbort = true;
+    m_Mux.thread.qVideobitstream.clear();
+    m_Mux.thread.qVideobitstreamFreeI.clear([](mfxBitstream *bitstream) { WipeMfxBitstream(bitstream); });
+    m_Mux.thread.qVideobitstreamFreePB.clear([](mfxBitstream *bitstream) { WipeMfxBitstream(bitstream); });
+    m_Mux.thread.qAudioPacket.clear();
+#endif
+}
+
+void CAvcodecWriter::CloseThread() {
+#if ENABLE_AVCODEC_OUT_THREAD
+    m_Mux.thread.bAbort = true;
+    if (m_Mux.thread.thOutput.joinable()) {
+        //ここに来た時に、まだメインスレッドがループ中の可能性がある
+        //その場合、SetEvent(m_Mux.thread.heEventPktAdded)を一度やるだけだと、
+        //そのあとにResetEvent(m_Mux.thread.heEventPktAdded)が発生してしまい、
+        //ここでスレッドが停止してしまう。
+        //これを回避するため、m_Mux.thread.heEventClosingがセットされるまで、
+        //SetEvent(m_Mux.thread.heEventPktAdded)を実行し続ける必要がある。
+        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosing, 100)) {
+            SetEvent(m_Mux.thread.heEventPktAdded);
+        }
+        m_Mux.thread.thOutput.join();
+        CloseEvent(m_Mux.thread.heEventPktAdded);
+    }
+    CloseQueues();
+    m_Mux.thread.bAbort = false;
+#endif
+}
+
 void CAvcodecWriter::Close() {
     AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
+    CloseThread();
     CloseFormat(&m_Mux.format);
     for (int i = 0; i < (int)m_Mux.audio.size(); i++) {
         CloseAudio(&m_Mux.audio[i]);
@@ -1068,6 +1100,17 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
             AddMessage(QSV_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
         }
     }
+
+#if ENABLE_AVCODEC_OUT_THREAD
+    m_Mux.thread.bAbort = false;
+    m_Mux.thread.qAudioPacket.init(3000);
+    m_Mux.thread.qVideobitstream.init(1600, (size_t)(m_Mux.video.nFPS.num * 10.0 / m_Mux.video.nFPS.den + 0.5));
+    m_Mux.thread.qVideobitstreamFreeI.init(100);
+    m_Mux.thread.qVideobitstreamFreePB.init(1500);
+    m_Mux.thread.heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
+    m_Mux.thread.heEventClosing  = CreateEvent(NULL, TRUE, FALSE, NULL);
+    m_Mux.thread.thOutput = std::thread(&CAvcodecWriter::WriteThreadFunc, this);
+#endif
     return MFX_ERR_NONE;
 }
 
@@ -1183,6 +1226,45 @@ mfxU32 CAvcodecWriter::getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size) {
 }
 
 mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
+#if ENABLE_AVCODEC_OUT_THREAD
+    mfxBitstream copyStream = { 0 };
+    bool bFrameI = (pMfxBitstream->FrameType & MFX_FRAMETYPE_I) != 0;
+    bool bFrameP = (pMfxBitstream->FrameType & MFX_FRAMETYPE_P) != 0;
+    //IフレームかPBフレームかでサイズが大きく違うため、空きのmfxBistreamは異なるキューで管理する
+    auto& qVideoQueueFree = (bFrameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
+    //空いているmfxBistreamを取り出す
+    if (!qVideoQueueFree.front_copy_and_pop_no_lock(&copyStream) || copyStream.MaxLength < pMfxBitstream->DataLength) {
+        //空いているmfxBistreamがない、あるいはそのバッファサイズが小さい場合は、領域を取り直す
+        if (MFX_ERR_NONE != InitMfxBitstream(&copyStream, (bFrameI) ? pMfxBitstream->MaxLength : pMfxBitstream->DataLength * ((bFrameP) ? 2 : 6))) {
+            AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer.\n"));
+            m_Mux.format.bStreamError = true;
+            return MFX_ERR_MEMORY_ALLOC;
+        }
+    }
+    //必要な情報をコピー
+    copyStream.DataFlag = pMfxBitstream->DataFlag;
+    copyStream.TimeStamp = pMfxBitstream->TimeStamp;
+    copyStream.DecodeTimeStamp = pMfxBitstream->DecodeTimeStamp;
+    copyStream.FrameType = pMfxBitstream->FrameType;
+    copyStream.DataLength = pMfxBitstream->DataLength;
+    copyStream.DataOffset = 0;
+    memcpy(copyStream.Data, pMfxBitstream->Data + pMfxBitstream->DataOffset, copyStream.DataLength);
+    //キューに押し込む
+    if (!m_Mux.thread.qVideobitstream.push(copyStream)) {
+        AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for video bitstream queue.\n"));
+        m_Mux.format.bStreamError = true;
+    }
+    pMfxBitstream->DataLength = 0;
+    pMfxBitstream->DataOffset = 0;
+    SetEvent(m_Mux.thread.heEventPktAdded);
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+#else
+    int64_t dts = 0;
+    return WriteNextFrameInternal(pMfxBitstream, &dts);
+#endif
+}
+
+mfxStatus CAvcodecWriter::WriteNextFrameInternal(mfxBitstream *pMfxBitstream, int64_t *pWrittenDts) {
     if (!m_Mux.format.bFileHeaderWritten) {
         //HEVCエンコードでは、DecodeTimeStampが正しく設定されない
         if (pMfxBitstream->DecodeTimeStamp == MFX_TIMESTAMP_UNKNOWN) {
@@ -1215,14 +1297,21 @@ mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
             pkt.dts = av_rescale_q(m_Mux.video.nFpsBaseNextDts, fpsTimebase, streamTimebase);
             m_Mux.video.nFpsBaseNextDts++;
         }
+        *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, QSV_NATIVE_TIMEBASE);
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
 
         frameSize -= bytesToWrite;
         pMfxBitstream->DataOffset += bytesToWrite;
     }
     m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
+#if ENABLE_AVCODEC_OUT_THREAD
+    //確保したメモリ領域を使いまわすためにスタックに格納
+    auto& qVideoQueueFree = (pMfxBitstream->FrameType & MFX_FRAMETYPE_I) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
+    qVideoQueueFree.push(*pMfxBitstream);
+#else
     pMfxBitstream->DataLength = 0;
     pMfxBitstream->DataOffset = 0;
+#endif
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
@@ -1288,7 +1377,7 @@ void CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudi
     }
 }
 
-void CAvcodecWriter::WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples) {
+void CAvcodecWriter::WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts) {
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
     if (samples) {
         //durationについて、sample数から出力ストリームのtimebaseに変更する
@@ -1300,6 +1389,7 @@ void CAvcodecWriter::WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int s
         if (pkt->duration == 0)
             pkt->duration = (int)av_rescale_q(samples, samplerate, pMuxAudio->pStream->time_base);
         pMuxAudio->nLastPtsOut = pkt->pts;
+        *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStream->time_base, QSV_NATIVE_TIMEBASE);
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
         pMuxAudio->nOutputSamples += samples;
     } else {
@@ -1433,7 +1523,7 @@ int CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, c
     return samples;
 }
 
-void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
+void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts) {
     while (pMuxAudio->pOutCodecDecodeCtx && !pMuxAudio->bEncodeError) {
         int samples = 0;
         int got_result = 0;
@@ -1451,7 +1541,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
         if (decodedFrame != nullptr) {
             av_frame_free(&decodedFrame);
         }
-        WriteNextPacket(pMuxAudio, &pkt, samples);
+        WriteNextPacket(pMuxAudio, &pkt, samples, pWrittenDts);
     }
     while (pMuxAudio->pSwrContext && !pMuxAudio->bEncodeError) {
         int samples = 0;
@@ -1462,7 +1552,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
             break;
         }
         samples = AudioEncodeFrame(pMuxAudio, &pkt, decodedFrame, &got_result);
-        WriteNextPacket(pMuxAudio, &pkt, samples);
+        WriteNextPacket(pMuxAudio, &pkt, samples, pWrittenDts);
     }
     while (pMuxAudio->pOutCodecEncodeCtx) {
         int got_result = 0;
@@ -1470,7 +1560,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio) {
         int samples = AudioEncodeFrame(pMuxAudio, &pkt, nullptr, &got_result);
         if (samples == 0 || pMuxAudio->bDecodeError)
             break;
-        WriteNextPacket(pMuxAudio, &pkt, samples);
+        WriteNextPacket(pMuxAudio, &pkt, samples, pWrittenDts);
     }
 }
 
@@ -1548,6 +1638,22 @@ mfxStatus CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
 }
 
 mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
+#if ENABLE_AVCODEC_OUT_THREAD
+    //pkt = nullptrの代理として、pkt.buf == nullptrなパケットを投入
+    AVPacket zeroFilled = { 0 };
+    if (!m_Mux.thread.qAudioPacket.push((pkt == nullptr) ? zeroFilled : *pkt)) {
+        AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
+        m_Mux.format.bStreamError = true;
+    }
+    SetEvent(m_Mux.thread.heEventPktAdded);
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+#else
+    int64_t dts = 0;
+    return WriteNextPacketInternal(pkt, &dts);
+#endif
+}
+
+mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWrittenDts) {
     if (!m_Mux.format.bFileHeaderWritten) {
         //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
         m_AudPktBufFileHead.push_back(pkt);
@@ -1568,8 +1674,9 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
 
     if (pkt == nullptr) {
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            AudioFlushStream(&m_Mux.audio[i]);
+            AudioFlushStream(&m_Mux.audio[i], pWrittenDts);
         }
+        *pWrittenDts = INT64_MAX;
         AddMessage(QSV_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
     }
@@ -1613,7 +1720,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
             }
         }
         pMuxAudio->nLastPtsIn = pkt->pts;
-        WriteNextPacket(pMuxAudio, pkt, samples);
+        WriteNextPacket(pMuxAudio, pkt, samples, pWrittenDts);
     } else if (!pMuxAudio->bDecodeError && !pMuxAudio->bEncodeError) {
         int got_result = 0;
         AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, pkt, &got_result);
@@ -1626,7 +1733,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
                     //デコードの出力サンプル数とエンコーダのframe_sizeが一致していれば、そのままエンコードする
                     samples = AudioEncodeFrame(pMuxAudio, pkt, decodedFrame, &got_result);
                     if (got_result && samples) {
-                        WriteNextPacket(pMuxAudio, pkt, samples);
+                        WriteNextPacket(pMuxAudio, pkt, samples, pWrittenDts);
                     }
                 } else {
                     const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
@@ -1667,7 +1774,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
                         }
                         samples = AudioEncodeFrame(pMuxAudio, pkt, pCutFrame, &got_result);
                         if (got_result && samples) {
-                            WriteNextPacket(pMuxAudio, pkt, samples);
+                            WriteNextPacket(pMuxAudio, pkt, samples, pWrittenDts);
                         }
                     }
                     if (samplesRemain) {
@@ -1686,6 +1793,97 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
     }
 
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::WriteThreadFunc() {
+#if ENABLE_AVCODEC_OUT_THREAD
+    //映像と音声の同期をとる際に、それをあきらめるまでの閾値
+    const size_t videoPacketThreshold = std::min<size_t>(512, m_Mux.thread.qVideobitstream.capacity());
+    const size_t audioPacketThreshold = std::min<size_t>(2048, m_Mux.thread.qAudioPacket.capacity());
+    //現在のdts、"-1"は無視することを映像と音声の同期を行う必要がないことを意味する
+    int64_t audioDts = (m_Mux.audio.size()) ? -1 : INT64_MAX;
+    int64_t videoDts = (m_Mux.video.pCodecCtx) ? -1 : INT64_MAX;
+    //キューにデータが存在するか
+    bool bAudioExists = false;
+    bool bVideoExists = false;
+    const auto fpsTimebase = av_inv_q(m_Mux.video.nFPS);
+    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(8, fpsTimebase, QSV_NATIVE_TIMEBASE), QSV_TIMEBASE / 4);
+    WaitForSingleObject(m_Mux.thread.heEventPktAdded, INFINITE);
+    while (!m_Mux.thread.bAbort) {
+        do {
+            //映像・音声の同期待ちが必要な場合、falseとなってループから抜けるよう、ここでfalseに設定する
+            bAudioExists = false;
+            bVideoExists = false;
+            AVPacket pkt = { 0 };
+            while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
+                && false != (bAudioExists = m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pkt))) {
+                int64_t pktDts = 0;
+                //pkt.buf == nullptrはpkt = nullptrの代理として格納してあることに注意
+                WriteNextPacketInternal((pkt.buf == nullptr) ? nullptr : &pkt, &pktDts);
+                audioDts = (std::max)(audioDts, pktDts);
+            }
+            mfxBitstream bitstream = { 0 };
+            while ((audioDts < 0 || videoDts <= audioDts + dtsThreshold)
+                && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream))) {
+                WriteNextFrameInternal(&bitstream, &videoDts);
+            }
+            //一定以上の動画フレームがキューにたまっており、音声キューになにもなければ、
+            //音声を無視して動画フレームの処理を開始させる
+            if (m_Mux.thread.qAudioPacket.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
+                audioDts = -1;
+            }
+            //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
+            //動画を無視して音声フレームの処理を開始させる
+            if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.qAudioPacket.size() > audioPacketThreshold) {
+                videoDts = -1;
+            }
+        } while (bAudioExists || bVideoExists); //両方のキューがひとまず空になるか、映像・音声の同期待ちが必要になるまで回す
+                                                //次のフレーム・パケットが送られてくるまで待機する
+        ResetEvent(m_Mux.thread.heEventPktAdded);
+        WaitForSingleObject(m_Mux.thread.heEventPktAdded, INFINITE);
+    }
+    //メインループを抜けたことを通知する
+    SetEvent(m_Mux.thread.heEventClosing);
+    bAudioExists = !m_Mux.thread.qAudioPacket.empty();
+    bVideoExists = !m_Mux.thread.qVideobitstream.empty();
+    //まずは映像と音声の同期をとって出力するためのループ
+    while (bAudioExists && bVideoExists) {
+        AVPacket pkt = { 0 };
+        while (audioDts <= videoDts + dtsThreshold
+            && false != (bAudioExists = m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pkt))) {
+            int64_t pktDts = 0;
+            WriteNextPacketInternal((pkt.buf == nullptr) ? nullptr : &pkt, &pktDts);
+            audioDts = (std::max)(audioDts, pktDts);
+        }
+        mfxBitstream bitstream = { 0 };
+        while (videoDts <= audioDts + dtsThreshold
+            && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream))) {
+            WriteNextFrameInternal(&bitstream, &videoDts);
+        }
+    }
+    { //音声を書き出す
+        AVPacket pkt = { 0 };
+        while (m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pkt)) {
+            int64_t pktDts = 0;
+            WriteNextPacketInternal((pkt.buf == nullptr) ? nullptr : &pkt, &pktDts);
+        }
+    }
+    { //動画を書き出す
+        mfxBitstream bitstream = { 0 };
+        while (m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream)) {
+            WriteNextFrameInternal(&bitstream, &videoDts);
+        }
+    }
+#endif
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+}
+
+HANDLE CAvcodecWriter::getThreadHandle() {
+#if ENABLE_AVCODEC_OUT_THREAD
+    return (HANDLE)m_Mux.thread.thOutput.native_handle();
+#else
+    return NULL;
+#endif
 }
 
 #if USE_CUSTOM_IO

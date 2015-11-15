@@ -10,8 +10,12 @@
 #define _AVCODEC_WRITER_H_
 
 #include "sample_utils.h"
+#include "qsv_queue.h"
 
 #if ENABLE_AVCODEC_QSV_READER
+#include <thread>
+#include <atomic>
+#include "qsv_version.h"
 #include "avcodec_qsv.h"
 #include "avcodec_reader.h"
 
@@ -97,12 +101,28 @@ typedef struct AVMuxSub {
     uint8_t              *pBuf;                 //変換用のバッファ
 } AVMuxSub;
 
+#if ENABLE_AVCODEC_OUT_THREAD
+typedef struct AVMuxThread {
+    std::atomic<bool>            bAbort;                 //出力スレッドに停止を通知する
+    std::thread                  thOutput;               //出力スレッド
+    HANDLE                       heEventPktAdded;        //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                       heEventClosing;         //出力スレッドが停止処理を開始したことを通知する
+    CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreeI;   //映像 Iフレーム用に空いているデータ領域を格納する
+    CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreePB;  //映像 P/Bフレーム用に空いているデータ領域を格納する
+    CQueueSPSP<mfxBitstream, 64> qVideobitstream;        //映像パケットを出力スレッドに渡すためのキュー
+    CQueueSPSP<AVPacket, 64>     qAudioPacket;           //音声パケットを出力スレッドに渡すためのキュー
+} AVMuxThread;
+#endif
+
 typedef struct AVMux {
     AVMuxFormat         format;
     AVMuxVideo          video;
     vector<AVMuxAudio>  audio;
     vector<AVMuxSub>    sub;
     vector<sTrim>       trim;
+#if ENABLE_AVCODEC_OUT_THREAD
+    AVMuxThread         thread;
+#endif
 } AVMux;
 
 typedef struct AVOutputStreamPrm {
@@ -147,7 +167,18 @@ public:
     int writePacket(uint8_t *buf, int buf_size);
     int64_t seek(int64_t offset, int whence);
 #endif //USE_CUSTOM_IO
+    //出力スレッドのハンドルを取得する
+    HANDLE getThreadHandle();
 private:
+    //別のスレッドで実行する場合のスレッド関数
+    mfxStatus WriteThreadFunc();
+
+    //WriteNextFrameの本体
+    mfxStatus WriteNextFrameInternal(mfxBitstream *pMfxBitstream, int64_t *pWrittenDts);
+
+    //WriteNextPacketの本体
+    mfxStatus WriteNextPacketInternal(AVPacket *pkt, int64_t *pWrittenDts);
+
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);
 
@@ -200,7 +231,7 @@ private:
     int AutoSelectSamplingRate(const int *pSamplingRateList, int nSrcSamplingRate);
 
     //音声ストリームをすべて吐き出す
-    void AudioFlushStream(AVMuxAudio *pMuxAudio);
+    void AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDts);
 
     //音声をデコード
     AVFrame *AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket *pkt, int *got_result);
@@ -218,7 +249,7 @@ private:
     mfxStatus SubtitleWritePacket(AVPacket *pkt);
 
     //パケットを実際に書き出す
-    void WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples);
+    void WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts);
 
     //extradataに動画のヘッダーをセットする
     mfxStatus SetSPSPPSToExtraData(const mfxVideoParam *pMfxVideoPrm);
@@ -238,6 +269,8 @@ private:
     void CloseAudio(AVMuxAudio *pMuxAudio);
     void CloseVideo(AVMuxVideo *pMuxVideo);
     void CloseFormat(AVMuxFormat *pMuxFormat);
+    void CloseThread();
+    void CloseQueues();
 
     AVMux m_Mux;
     vector<AVPacket *> m_AudPktBufFileHead; //ファイルヘッダを書く前にやってきた音声パケットのバッファ

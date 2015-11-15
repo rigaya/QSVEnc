@@ -2745,8 +2745,23 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     
     if (pParams->bBenchmark) {
         pParams->nAVMux = QSVENC_MUX_NONE;
-        for (int i = 0; i < pParams->nAudioSelectCount; i++)
-            MSDK_SAFE_FREE(pParams->ppAudioSelectList[i]);
+        if (pParams->nAudioSelectCount) {
+            for (int i = 0; i < pParams->nAudioSelectCount; i++)
+                MSDK_SAFE_FREE(pParams->ppAudioSelectList[i]);
+            MSDK_SAFE_FREE(pParams->ppAudioSelectList);
+            pParams->nAudioSelectCount = 0;
+            PrintMes(QSV_LOG_WARN, _T("audio copy or audio encoding disabled on benchmark mode.\n"));
+        }
+        if (pParams->nSubtitleSelectCount) {
+            MSDK_SAFE_FREE(pParams->pSubtitleSelect);
+            pParams->nSubtitleSelectCount = 0;
+            PrintMes(QSV_LOG_WARN, _T("subtitle copy disabled on benchmark mode.\n"));
+        }
+        if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
+            pParams->nPerfMonitorSelect = 0;
+            pParams->nPerfMonitorSelectMatplot = 0;
+            PrintMes(QSV_LOG_WARN, _T("performance monitor disabled on benchmark mode.\n"));
+        }
         static const TCHAR *RAW_FORMAT = _T("raw");
         static const size_t RAW_FORMAT_LEN = _tcslen(RAW_FORMAT) + 1;
         pParams->pAVMuxOutputFormat = (TCHAR *)realloc(pParams->pAVMuxOutputFormat, RAW_FORMAT_LEN * sizeof(RAW_FORMAT[0]));
@@ -3190,9 +3205,16 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
     }
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
 
+#if ENABLE_AVCODEC_QSV_READER
     if (m_pPerfMonitor) {
-        m_pPerfMonitor->SetEncThread((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()));
+        HANDLE thOutput = NULL;
+        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(m_pFileWriter);
+        if (pAVCodecWriter != nullptr) {
+            thOutput = pAVCodecWriter->getThreadHandle();
+        }
+        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thOutput);
     }
+#endif //#if ENABLE_AVCODEC_QSV_READER
     const int bufferSize = m_EncThread.m_nFrameBuffer;
     sInputBufSys *pArrayInputBuf = m_EncThread.m_InputBuf;
     sInputBufSys *pInputBuf;

@@ -134,6 +134,9 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     if (nSelect & PERF_MONITOR_THREAD_ENC) {
         str += ",cpu enc thread (%)";
     }
+    if (nSelect & PERF_MONITOR_THREAD_OUT) {
+        str += ",cpu out thread (%)";
+    }
     if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
         str += ",mem private (MB)";
     }
@@ -243,6 +246,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #if !(defined(_WIN32) || defined(_WIN64))
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_MAIN);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_ENC);
+    m_nSelectCheck &= (~PERF_MONITOR_THREAD_OUT);
     m_nSelectOutputMatplot = 0;
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
@@ -267,8 +271,9 @@ void CPerfMonitor::SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus) {
     m_nOutputFPSRate = encStatus->m_nOutputFPSRate;
 }
 
-void CPerfMonitor::SetEncThread(HANDLE thEncThread) {
+void CPerfMonitor::SetThreadHandles(HANDLE thEncThread, HANDLE thOutThread) {
     m_thEncThread = thEncThread;
+    m_thOutThread = thOutThread;
 }
 
 void CPerfMonitor::check() {
@@ -397,6 +402,16 @@ void CPerfMonitor::check() {
             }
         }
 
+        if (m_thOutThread) {
+            DWORD exit_code = 0;
+            if (0 != GetExitCodeThread(m_thOutThread, &exit_code) && exit_code == STILL_ACTIVE) {
+                getThreadTime(m_thOutThread, &pt);
+                pInfoNew->out_thread_total_active_us = (pt.user + pt.kernel) / 10;
+                pInfoNew->out_thread_percent  = (pInfoNew->out_thread_total_active_us  - pInfoOld->out_thread_total_active_us) * 100.0 * logical_cpu_inv * time_diff_inv;
+            } else {
+                pInfoNew->out_thread_percent = 0.0;
+            }
+        }
 #endif //defined(_WIN32) || defined(_WIN64)
     }
 
@@ -454,6 +469,9 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_THREAD_ENC) {
         str += strsprintf(",%lf", pInfo->enc_thread_percent);
+    }
+    if (nSelect & PERF_MONITOR_THREAD_OUT) {
+        str += strsprintf(",%lf", pInfo->out_thread_percent);
     }
     if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
         str += strsprintf(",%.2lf", pInfo->mem_private / (double)(1024 * 1024));

@@ -269,6 +269,9 @@
     <ClInclude Include="include\qsv_pipe.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="include\qsv_queue.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="src\ram_speed_x86.asm">
