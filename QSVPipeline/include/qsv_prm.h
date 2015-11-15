@@ -187,7 +187,8 @@ struct sInputParams
     mfxU16 nHeight;       //height of input
     mfxU32 nFPSRate;      //fps rate of input
     mfxU32 nFPSScale;     //fps scale of input
-    mfxU32 nBenchQuality; //ベンチマークの対象
+    mfxU16 __nBitRate;
+    mfxU16 __nMaxBitrate;
     mfxI16 nLogLevel;     //ログレベル
 
     mfxU16 nDstWidth;     //output width 
@@ -286,7 +287,8 @@ struct sInputParams
     int64_t    nPerfMonitorSelectMatplot;
     int        nPerfMonitorInterval;
     TCHAR     *pPythonPath;
-    mfxU8      Reserved[1104];
+    mfxU32     nBenchQuality; //ベンチマークの対象
+    mfxU8      Reserved[1100];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
