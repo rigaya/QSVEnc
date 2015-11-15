@@ -2760,7 +2760,7 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         pParams->memType = SYSTEM_MEMORY;
     }
 
-    if (pParams->nPerfMonitorSelect) {
+    if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
         m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
         tstring perfMonLog = tstring(pParams->strDstFile) + _T("_perf.csv");
         if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->pPythonPath, pParams->nPerfMonitorInterval,
