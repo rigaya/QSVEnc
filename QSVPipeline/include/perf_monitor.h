@@ -17,6 +17,7 @@
 #include "cpu_info.h"
 #include "qsv_util.h"
 #include "qsv_pipe.h"
+#include "qsv_log.h"
 #ifndef HANDLE
 typedef void * HANDLE;
 #endif
