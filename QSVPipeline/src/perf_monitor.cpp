@@ -118,7 +118,7 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
 }
 
 void CPerfMonitor::write_header(FILE *fp, int nSelect) {
-    if (fp == NULL) {
+    if (fp == NULL || nSelect == 0) {
         return;
     }
     std::string str;
@@ -255,7 +255,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     write_header(m_fpLog.get(),   m_nSelectOutputLog);
     write_header(m_pipes.f_stdin, m_nSelectOutputMatplot);
 
-    m_thCheck = std::thread(loader, this);
+    if (m_nSelectOutputLog || m_nSelectOutputMatplot) {
+        m_thCheck = std::thread(loader, this);
+    }
     return 0;
 }
 
