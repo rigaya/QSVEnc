@@ -20,9 +20,13 @@ AuoPipeline::AuoPipeline() {
 AuoPipeline::~AuoPipeline() {
 }
 
+mfxStatus AuoPipeline::InitLog(sInputParams *pParams) {
+    m_pQSVLog.reset(new CAuoLog(pParams->pStrLogFile, pParams->nLogLevel));
+    return MFX_ERR_NONE;
+}
+
 mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
-    m_pQSVLog.reset(new CAuoLog(pParams->pStrLogFile, pParams->nLogLevel));
 
     m_pEncSatusInfo = std::make_shared<AUO_EncodeStatusInfo>();
 

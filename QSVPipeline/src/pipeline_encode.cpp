@@ -2233,12 +2233,6 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
 mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 {
     mfxStatus sts = MFX_ERR_NONE;
-    m_pQSVLog.reset(new CQSVLog(pParams->pStrLogFile, pParams->nLogLevel));
-
-    //prepare for LogFile
-    if (pParams->pStrLogFile) {
-        m_pQSVLog->writeFileHeader(pParams->strDstFile);
-    }
 
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
@@ -2732,9 +2726,20 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     return sts;
 }
 
+mfxStatus CEncodingPipeline::InitLog(sInputParams *pParams) {
+    //ログの初期化
+    m_pQSVLog.reset(new CQSVLog(pParams->pStrLogFile, pParams->nLogLevel));
+    if (pParams->pStrLogFile) {
+        m_pQSVLog->writeFileHeader(pParams->strDstFile);
+    }
+    return MFX_ERR_NONE;
+}
+
 mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 {
     MSDK_CHECK_POINTER(pParams, MFX_ERR_NULL_PTR);
+
+    InitLog(pParams);
 
     mfxStatus sts = MFX_ERR_NONE;
     

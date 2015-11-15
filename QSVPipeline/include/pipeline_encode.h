@@ -238,6 +238,7 @@ protected:
     virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
     virtual mfxStatus InitSessionInitParam(mfxU16 threads, mfxU16 priority);
+    virtual mfxStatus InitLog(sInputParams *pParams);
     virtual mfxStatus InitInput(sInputParams *pParams);
     virtual mfxStatus InitOutput(sInputParams *pParams);
     virtual mfxStatus InitMfxDecParams();

@@ -24,6 +24,7 @@ class AuoPipeline : public CEncodingPipeline
 public:
     AuoPipeline();
     virtual ~AuoPipeline();
+    virtual mfxStatus InitLog(sInputParams *pParams) override;
     virtual mfxStatus InitInput(sInputParams *pParams) override;
     virtual mfxStatus InitOutput(sInputParams *pParams) override;
 };
