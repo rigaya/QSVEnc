@@ -1641,11 +1641,11 @@ int getCPUGen() {
     bool bRDRand = !!(CPUInfo[2] & (1<<30));
 
     __cpuid(CPUInfo, 0x07);
-    bool bMPX      = !!(CPUInfo[1] & (1<<14));
-    bool bRDSeed   = !!(CPUInfo[1] & (1<<18));
-    bool bFsgsbase = !!(CPUInfo[1] & (1));
+    bool bClflushOpt = !!(CPUInfo[1] & (1<<23));
+    bool bRDSeed     = !!(CPUInfo[1] & (1<<18));
+    bool bFsgsbase   = !!(CPUInfo[1] & (1));
 
-    if (bMPX)                return CPU_GEN_SKYLAKE;
+    if (bClflushOpt)         return CPU_GEN_SKYLAKE;
     if (bRDSeed)             return CPU_GEN_BROADWELL;
     if (bMOVBE && bFsgsbase) return CPU_GEN_HASWELL;
 
