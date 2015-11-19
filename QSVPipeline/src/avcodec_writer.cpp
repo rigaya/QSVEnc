@@ -1385,9 +1385,9 @@ void CAvcodecWriter::WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int s
         pkt->flags        = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
         pkt->dts          = av_rescale_q(pMuxAudio->nOutputSamples + pMuxAudio->nDelaySamplesOfAudio, samplerate, pMuxAudio->pStream->time_base);
         pkt->pts          = pkt->dts;
-        pkt->duration     = (int)(pkt->pts - pMuxAudio->nLastPtsOut);
+        pkt->duration     = (int)av_rescale_q(samples, samplerate, pMuxAudio->pStream->time_base);
         if (pkt->duration == 0)
-            pkt->duration = (int)av_rescale_q(samples, samplerate, pMuxAudio->pStream->time_base);
+            pkt->duration = (int)(pkt->pts - pMuxAudio->nLastPtsOut);
         pMuxAudio->nLastPtsOut = pkt->pts;
         *pWrittenDts = av_rescale_q(pkt->dts, pMuxAudio->pStream->time_base, QSV_NATIVE_TIMEBASE);
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);
