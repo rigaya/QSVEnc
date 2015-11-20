@@ -280,7 +280,7 @@ struct sInputParams
 
     mfxU16     nWeightP;
     mfxU16     nWeightB;
-    mfxU16      __reserved3;
+    mfxU16     nFadeDetect;
     mfxU16     nSubtitleSelectCount;
     int       *pSubtitleSelect;
     int64_t    nPerfMonitorSelect;

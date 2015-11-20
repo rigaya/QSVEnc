@@ -891,6 +891,9 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
             m_CodingOption3.WeightedBiPred = pInParams->nWeightB;
             m_CodingOption3.WeightedPred   = pInParams->nWeightP;
         }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
+            m_CodingOption3.FadeDetection = pInParams->nFadeDetect;
+        }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
 
@@ -4470,6 +4473,11 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
             }
             if (cop3.WeightedBiPred == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("WeightB ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
+            if (cop3.FadeDetection == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("FadeDetect ");
             }
         }
         //if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {

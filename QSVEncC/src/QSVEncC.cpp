@@ -450,6 +450,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --(no-)weightb               enable weight prediction for B frame\n")
             );
         _ftprintf(stdout, _T("\n")
+            _T(" settings below are only supported with API v1.17\n")
+            _T("   --(no-)fade-detect           enable fade detection\n")
+            );
+        _ftprintf(stdout, _T("\n")
             _T(" Settings below are available only for software ecoding.\n")
             _T("   --cavlc                      use cavlc instead of cabac\n")
             _T("   --rdo                        use rate distortion optmization\n")
@@ -1217,6 +1221,14 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("no-weightp"))) {
+        pParams->nWeightP = MFX_CODINGOPTION_OFF;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("fade-detect"))) {
+        pParams->nWeightP = MFX_CODINGOPTION_ON;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("no-fade-detect"))) {
         pParams->nWeightP = MFX_CODINGOPTION_OFF;
         return MFX_ERR_NONE;
     }

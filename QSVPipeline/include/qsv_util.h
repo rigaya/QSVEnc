@@ -224,6 +224,7 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 13, 1 },
     { 15, 1 },
     { 16, 1 },
+    { 17, 1 },
     { 0, 0 }
 };
 
@@ -241,6 +242,7 @@ static const mfxVersion LIB_VER_LIST[] = {
 #define MFX_LIB_VERSION_1_13 LIB_VER_LIST[11]
 #define MFX_LIB_VERSION_1_15 LIB_VER_LIST[12]
 #define MFX_LIB_VERSION_1_16 LIB_VER_LIST[13]
+#define MFX_LIB_VERSION_1_17 LIB_VER_LIST[14]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 mfxVersion get_mfx_libhw_version();
@@ -316,6 +318,7 @@ enum : uint64_t {
     ENC_FEATURE_FIXED_FUNC             = 0x0000000100000000,
     ENC_FEATURE_WEIGHT_P               = 0x0000000200000000,
     ENC_FEATURE_WEIGHT_B               = 0x0000000400000000,
+    ENC_FEATURE_FADE_DETECT            = 0x0000000800000000,
 };
 
 enum : uint64_t {
@@ -361,6 +364,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("Adaptive_B   "), ENC_FEATURE_ADAPTIVE_B             },
     { _T("WeightP      "), ENC_FEATURE_WEIGHT_P               },
     { _T("WeightB      "), ENC_FEATURE_WEIGHT_B               },
+    { _T("FadeDetect   "), ENC_FEATURE_FADE_DETECT            },
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +Scenechange"), ENC_FEATURE_B_PYRAMID_AND_SC       },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },

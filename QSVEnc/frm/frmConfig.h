@@ -849,6 +849,7 @@ private: System::Windows::Forms::Label^  fcgLBAudioPriority;
 private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
 private: System::Windows::Forms::CheckBox^  fcgCBWeightB;
 private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
+private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
 
 
 
@@ -1250,6 +1251,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
+            this->fcgCBFadeDetect = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2081,6 +2083,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCBFadeDetect);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightB);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightP);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBFixedFunc);
@@ -4297,6 +4300,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
             this->fcgLBAudioPriority->Size = System::Drawing::Size(62, 14);
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
+            // 
+            // fcgCBFadeDetect
+            // 
+            this->fcgCBFadeDetect->AutoSize = true;
+            this->fcgCBFadeDetect->Location = System::Drawing::Point(39, 365);
+            this->fcgCBFadeDetect->Name = L"fcgCBFadeDetect";
+            this->fcgCBFadeDetect->Size = System::Drawing::Size(79, 18);
+            this->fcgCBFadeDetect->TabIndex = 157;
+            this->fcgCBFadeDetect->Tag = L"chValue";
+            this->fcgCBFadeDetect->Text = L"フェード検出";
+            this->fcgCBFadeDetect->UseVisualStyleBackColor = true;
             // 
             // frmConfig
             // 

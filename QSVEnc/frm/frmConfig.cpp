@@ -1137,6 +1137,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBAdaptiveB->Checked     = cnf->qsv.bAdaptiveB != 0;
     fcgCBWeightP->Checked       = cnf->qsv.nWeightP == MFX_CODINGOPTION_ON;
     fcgCBWeightB->Checked       = cnf->qsv.nWeightB == MFX_CODINGOPTION_ON;
+    fcgCBFadeDetect->Checked    = cnf->qsv.nFadeDetect == MFX_CODINGOPTION_ON;
     fcgCBBPyramid->Checked      = cnf->qsv.bBPyramid != 0;
     SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, cnf->qsv.nLookaheadDS));
     fcgCBMBBRC->Checked         = cnf->qsv.bMBBRC != 0;
@@ -1263,8 +1264,9 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.nPicStruct             = (mfxU16)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
     cnf->qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
     cnf->qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
-    cnf->qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
-    cnf->qsv.nWeightB               = (mfxU16)(fcgCBWeightB->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+    cnf->qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked    ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+    cnf->qsv.nWeightB               = (mfxU16)(fcgCBWeightB->Checked    ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+    cnf->qsv.nFadeDetect            = (mfxU16)(fcgCBFadeDetect->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     cnf->qsv.bBPyramid              = fcgCBBPyramid->Checked;
     cnf->qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
     cnf->qsv.bMBBRC                 = fcgCBMBBRC->Checked;
