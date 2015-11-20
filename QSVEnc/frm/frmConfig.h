@@ -850,6 +850,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
 private: System::Windows::Forms::CheckBox^  fcgCBWeightB;
 private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
 private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
+private: System::Windows::Forms::ComboBox^  fcgCXRotate;
+private: System::Windows::Forms::Label^  fcgLBRotate;
 
 
 
@@ -1048,6 +1050,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBFadeDetect = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightB = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightP = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBFixedFunc = (gcnew System::Windows::Forms::CheckBox());
@@ -1170,6 +1173,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
             this->fcgCBCABAC = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBUseVpp = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxVpp = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgCXRotate = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBRotate = (gcnew System::Windows::Forms::Label());
             this->fcgCXTelecinePatterns = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXImageStabilizer = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBImageStabilizer = (gcnew System::Windows::Forms::Label());
@@ -1251,7 +1256,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcgCBFadeDetect = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2155,6 +2159,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBFadeDetect
+            // 
+            this->fcgCBFadeDetect->AutoSize = true;
+            this->fcgCBFadeDetect->Location = System::Drawing::Point(39, 365);
+            this->fcgCBFadeDetect->Name = L"fcgCBFadeDetect";
+            this->fcgCBFadeDetect->Size = System::Drawing::Size(79, 18);
+            this->fcgCBFadeDetect->TabIndex = 157;
+            this->fcgCBFadeDetect->Tag = L"chValue";
+            this->fcgCBFadeDetect->Text = L"フェード検出";
+            this->fcgCBFadeDetect->UseVisualStyleBackColor = true;
             // 
             // fcgCBWeightB
             // 
@@ -3393,6 +3408,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
             // 
             // fcggroupBoxVpp
             // 
+            this->fcggroupBoxVpp->Controls->Add(this->fcgCXRotate);
+            this->fcggroupBoxVpp->Controls->Add(this->fcgLBRotate);
             this->fcggroupBoxVpp->Controls->Add(this->fcgCXTelecinePatterns);
             this->fcggroupBoxVpp->Controls->Add(this->fcgCXImageStabilizer);
             this->fcggroupBoxVpp->Controls->Add(this->fcgLBImageStabilizer);
@@ -3413,6 +3430,25 @@ private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
             this->fcggroupBoxVpp->TabIndex = 1;
             this->fcggroupBoxVpp->TabStop = false;
             this->fcggroupBoxVpp->Tag = L"";
+            // 
+            // fcgCXRotate
+            // 
+            this->fcgCXRotate->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXRotate->FormattingEnabled = true;
+            this->fcgCXRotate->Location = System::Drawing::Point(410, 175);
+            this->fcgCXRotate->Name = L"fcgCXRotate";
+            this->fcgCXRotate->Size = System::Drawing::Size(117, 22);
+            this->fcgCXRotate->TabIndex = 27;
+            this->fcgCXRotate->Tag = L"chValue";
+            // 
+            // fcgLBRotate
+            // 
+            this->fcgLBRotate->AutoSize = true;
+            this->fcgLBRotate->Location = System::Drawing::Point(359, 178);
+            this->fcgLBRotate->Name = L"fcgLBRotate";
+            this->fcgLBRotate->Size = System::Drawing::Size(29, 14);
+            this->fcgLBRotate->TabIndex = 26;
+            this->fcgLBRotate->Text = L"回転";
             // 
             // fcgCXTelecinePatterns
             // 
@@ -4300,17 +4336,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
             this->fcgLBAudioPriority->Size = System::Drawing::Size(62, 14);
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
-            // 
-            // fcgCBFadeDetect
-            // 
-            this->fcgCBFadeDetect->AutoSize = true;
-            this->fcgCBFadeDetect->Location = System::Drawing::Point(39, 365);
-            this->fcgCBFadeDetect->Name = L"fcgCBFadeDetect";
-            this->fcgCBFadeDetect->Size = System::Drawing::Size(79, 18);
-            this->fcgCBFadeDetect->TabIndex = 157;
-            this->fcgCBFadeDetect->Tag = L"chValue";
-            this->fcgCBFadeDetect->Text = L"フェード検出";
-            this->fcgCBFadeDetect->UseVisualStyleBackColor = true;
             // 
             // frmConfig
             // 

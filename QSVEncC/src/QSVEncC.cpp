@@ -379,6 +379,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
             _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
             _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+            _T("   --vpp-rotate <int>           rotate image\n")
+            _T("                                 90, 180, 270.\n")
             _T("   --vpp-half-turn              half turn video image\n")
             _T("                                 unoptimized and very slow.\n"),
             QSV_ASYNC_DEPTH_MAX,
@@ -1764,6 +1766,17 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("vpp-half-turn"))) {
         pParams->vpp.bHalfTurn = true;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-rotate"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_rotate_angle, strInput[i]))) {
+            pParams->vpp.nRotate = (mfxU16)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
         return MFX_ERR_NONE;
     }
     if (   0 == _tcscmp(option_name, _T("vpp-delogo"))

@@ -81,6 +81,14 @@ const CX_DESC list_encmode[] = {
     { NULL, NULL }
 };
 
+const CX_DESC list_rotate_angle_ja[] = {
+    { _T("0°"),     MFX_ANGLE_0    },
+    { _T("90°"),    MFX_ANGLE_90   },
+    { _T("180°"),   MFX_ANGLE_180  },
+    { _T("270°"),   MFX_ANGLE_270  },
+    { NULL, 0 }
+};
+
 const WCHAR * const audio_enc_timing_desc[] = {
     L"後",
     L"前",

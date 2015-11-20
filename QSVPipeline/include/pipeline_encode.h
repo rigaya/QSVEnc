@@ -202,6 +202,7 @@ protected:
     mfxExtVPPDetail m_ExtDetail;
     mfxExtVPPDeinterlacing m_ExtDeinterlacing;
     mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
+    mfxExtVPPRotation m_ExtRotate;
     mfxExtVPPVideoSignalInfo m_ExtVppVSI;
     mfxExtVPPImageStab m_ExtImageStab;
     vector<mfxU32> m_VppDoNotUseList;

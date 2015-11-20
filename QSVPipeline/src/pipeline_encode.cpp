@@ -1069,6 +1069,16 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
         pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
     }
 #else
+    if (pInParams->vpp.nRotate) {
+        if (!(availableFeaures & VPP_FEATURE_ROTATE)) {
+            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+        if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate is not supported with interlaced output.\n"));
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
+    }
     //現時点ではうまく動いてなさそうなので無効化
     if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion) {
         PrintMes(QSV_LOG_WARN, _T("FPS Conversion not supported on this build, disabled.\n"));
@@ -1279,6 +1289,20 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
         VppExtMes += str;
         PrintMes(QSV_LOG_DEBUG, _T("CreateVppExtBuffers: %s"), str.c_str());
     };
+    switch (pParams->vpp.nRotate) {
+    case MFX_ANGLE_90:
+    case MFX_ANGLE_180:
+    case MFX_ANGLE_270:
+        INIT_MFX_EXT_BUFFER(m_ExtRotate, MFX_EXTBUFF_VPP_ROTATION);
+        m_ExtRotate.Angle = pParams->vpp.nRotate;
+        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtRotate);
+
+        vppExtAddMes(strsprintf(_T("rotate %d\n"), pParams->vpp.nRotate));
+        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_ROTATION);
+        break;
+    default:
+        break;
+    }
 
     if (FPS_CONVERT_NONE != pParams->vpp.nFPSConversion) {
         INIT_MFX_EXT_BUFFER(m_ExtFrameRateConv, MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
@@ -2561,6 +2585,29 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     if (pParams->nDstHeight % h_mul != 0) {
         PrintMes(QSV_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
         return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (pParams->vpp.nRotate) {
+#if defined(_WIN32) || defined(_WIN64)
+        switch (pParams->vpp.nRotate) {
+        case MFX_ANGLE_0:
+        case MFX_ANGLE_180:
+            break;
+        case MFX_ANGLE_90:
+        case MFX_ANGLE_270:
+            std::swap(pParams->nDstWidth, pParams->nDstHeight);
+            break;
+        default:
+            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate of %d degree is not supported.\n"), (int)pParams->vpp.nRotate);
+            return MFX_ERR_UNSUPPORTED;
+        }
+        if (!(pParams->memType & D3D11_MEMORY) || (pParams->memType & D3D9_MEMORY)) {
+            PrintMes(QSV_LOG_WARN, _T("vpp-rotate requires d3d11 surface, forcing d3d11 surface.\n"));
+        }
+        pParams->memType = D3D11_MEMORY;
+#else
+        PrintMes(QSV_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
+        return MFX_ERR_UNSUPPORTED;
+#endif
     }
 
     //Cehck For Framerate

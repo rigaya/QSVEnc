@@ -333,6 +333,7 @@ enum : uint64_t {
     VPP_FEATURE_DEINTERLACE           = 0x00000100,
     VPP_FEATURE_DEINTERLACE_AUTO      = 0x00000200,
     VPP_FEATURE_DEINTERLACE_IT_MANUAL = 0x00000400,
+    VPP_FEATURE_ROTATE                = 0x00000800,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -384,6 +385,7 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { _T("Resize               "), VPP_FEATURE_RESIZE              },
     { _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
     { _T("Denoise              "), VPP_FEATURE_DENOISE             },
+    { _T("Rotate               "), VPP_FEATURE_ROTATE              },
     { _T("Detail Enhancement   "), VPP_FEATURE_DETAIL_ENHANCEMENT  },
     { _T("Proc Amp.            "), VPP_FEATURE_PROC_AMP            },
     { _T("Image Stabilization  "), VPP_FEATURE_IMAGE_STABILIZATION },

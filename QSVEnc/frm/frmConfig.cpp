@@ -660,6 +660,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXTelecinePatterns,list_telecine_patterns);
     setComboBox(fcgCXFPSConversion,   list_vpp_fps_conversion);
     setComboBox(fcgCXImageStabilizer, list_vpp_image_stabilizer);
+    setComboBox(fcgCXRotate,          list_rotate_angle_ja);
 
     setComboBox(fcgCXAudioEncTiming, audio_enc_timing_desc);
     setComboBox(fcgCXAudioDelayCut,  AUDIO_DELAY_CUT_MODE);
@@ -1191,6 +1192,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, cnf->qsv.vpp.nTelecinePattern));
     SetCXIndex(fcgCXImageStabilizer,         cnf->qsv.vpp.nImageStabilizer);
     SetCXIndex(fcgCXFPSConversion,           cnf->qsv.vpp.nFPSConversion);
+    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, cnf->qsv.vpp.nRotate));
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -1329,6 +1331,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.vpp.nTelecinePattern    = (mfxU16)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
     cnf->qsv.vpp.nImageStabilizer    = (mfxU16)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
     cnf->qsv.vpp.nFPSConversion      = (mfxU16)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
+    cnf->qsv.vpp.nRotate             = (mfxU16)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));

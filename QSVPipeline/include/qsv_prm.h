@@ -110,7 +110,7 @@ typedef struct {
 
     bool __unsed2;
     bool __unsed;
-    mfxU16 reserved;      
+    mfxU16 nRotate;      
     bool bUseProAmp;          //not supported
     bool bUseDenoise;         //use vpp denoise
     mfxU16 nDenoise;          // 0 - 100 Denoise Strength
@@ -497,6 +497,13 @@ const CX_DESC list_priority[] = {
     { _T("high"),   MFX_PRIORITY_HIGH   },
 };
 
+const CX_DESC list_rotate_angle[] = {
+    { _T("0"),     MFX_ANGLE_0    },
+    { _T("90"),    MFX_ANGLE_90   },
+    { _T("180"),   MFX_ANGLE_180  },
+    { _T("270"),   MFX_ANGLE_270  },
+    { NULL, 0 }
+};
 
 static inline const CX_DESC *get_level_list(int CodecID) {
     switch (CodecID) {
