@@ -111,7 +111,11 @@ enum {
     MFX_FOURCC_BGR4         = MFX_MAKEFOURCC('B','G','R','4'),   /* ABGR in that order, A channel is 8 MSBs */
     MFX_FOURCC_A2RGB10      = MFX_MAKEFOURCC('R','G','1','0'),   /* ARGB in that order, A channel is two MSBs */
     MFX_FOURCC_ARGB16       = MFX_MAKEFOURCC('R','G','1','6'),   /* ARGB in that order, 64 bits, A channel is 16 MSBs */
-    MFX_FOURCC_R16          = MFX_MAKEFOURCC('R','1','6','U') 
+    MFX_FOURCC_ABGR16       = MFX_MAKEFOURCC('B','G','1','6'),   /* ABGR in that order, 64 bits, A channel is 16 MSBs */
+    MFX_FOURCC_R16          = MFX_MAKEFOURCC('R','1','6','U'),
+    MFX_FOURCC_AYUV         = MFX_MAKEFOURCC('A','Y','U','V'),   /* YUV 4:4:4, AYUV in that order, A channel is 8 MSBs */
+    MFX_FOURCC_AYUV_RGB4    = MFX_MAKEFOURCC('A','V','U','Y'),   /* ARGB in that order, A channel is 8 MSBs stored in AYUV surface*/
+    MFX_FOURCC_UYVY         = MFX_MAKEFOURCC('U','Y','V','Y')
 };
 
 /* PicStruct */
@@ -297,7 +301,8 @@ typedef struct {
 } mfxInfoVPP;
 
 typedef struct {
-    mfxU32  reserved[3];
+    mfxU32  AllocId;
+    mfxU32  reserved[2];
     mfxU16  reserved3;
     mfxU16  AsyncDepth;
 
@@ -635,7 +640,8 @@ typedef struct {
     mfxU16      ContentInfo;
 
     mfxU16      PRefType;
-    mfxU16      reserved[226];
+    mfxU16      FadeDetection;            /* tri-state option */
+    mfxU16      reserved[225];
 } mfxExtCodingOption3;
 
 /* IntraPredBlockSize/InterPredBlockSize */
@@ -669,19 +675,19 @@ enum {
 
 /* Extended Buffer Ids */
 enum {
-    MFX_EXTBUFF_CODING_OPTION       =   MFX_MAKEFOURCC('C','D','O','P'),
-    MFX_EXTBUFF_CODING_OPTION_SPSPPS=   MFX_MAKEFOURCC('C','O','S','P'),
-    MFX_EXTBUFF_VPP_DONOTUSE        =   MFX_MAKEFOURCC('N','U','S','E'),
-    MFX_EXTBUFF_VPP_AUXDATA         =   MFX_MAKEFOURCC('A','U','X','D'),
-    MFX_EXTBUFF_VPP_DENOISE         =   MFX_MAKEFOURCC('D','N','I','S'),
-    MFX_EXTBUFF_VPP_SCENE_ANALYSIS  =   MFX_MAKEFOURCC('S','C','L','Y'),
-    MFX_EXTBUFF_VPP_SCENE_CHANGE    =   MFX_EXTBUFF_VPP_SCENE_ANALYSIS,
-    MFX_EXTBUFF_VPP_PROCAMP         =   MFX_MAKEFOURCC('P','A','M','P'),
-    MFX_EXTBUFF_VPP_DETAIL          =   MFX_MAKEFOURCC('D','E','T',' '),
-    MFX_EXTBUFF_VIDEO_SIGNAL_INFO   =   MFX_MAKEFOURCC('V','S','I','N'),
-    MFX_EXTBUFF_VPP_DOUSE           =   MFX_MAKEFOURCC('D','U','S','E'),
+    MFX_EXTBUFF_CODING_OPTION              = MFX_MAKEFOURCC('C','D','O','P'),
+    MFX_EXTBUFF_CODING_OPTION_SPSPPS       = MFX_MAKEFOURCC('C','O','S','P'),
+    MFX_EXTBUFF_VPP_DONOTUSE               = MFX_MAKEFOURCC('N','U','S','E'),
+    MFX_EXTBUFF_VPP_AUXDATA                = MFX_MAKEFOURCC('A','U','X','D'),
+    MFX_EXTBUFF_VPP_DENOISE                = MFX_MAKEFOURCC('D','N','I','S'),
+    MFX_EXTBUFF_VPP_SCENE_ANALYSIS         = MFX_MAKEFOURCC('S','C','L','Y'),
+    MFX_EXTBUFF_VPP_SCENE_CHANGE           = MFX_EXTBUFF_VPP_SCENE_ANALYSIS,
+    MFX_EXTBUFF_VPP_PROCAMP                = MFX_MAKEFOURCC('P','A','M','P'),
+    MFX_EXTBUFF_VPP_DETAIL                 = MFX_MAKEFOURCC('D','E','T',' '),
+    MFX_EXTBUFF_VIDEO_SIGNAL_INFO          = MFX_MAKEFOURCC('V','S','I','N'),
+    MFX_EXTBUFF_VPP_DOUSE                  = MFX_MAKEFOURCC('D','U','S','E'),
     MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION  = MFX_MAKEFOURCC('O','P','Q','S'),
-    MFX_EXTBUFF_AVC_REFLIST_CTRL       =   MFX_MAKEFOURCC('R','L','S','T'),
+    MFX_EXTBUFF_AVC_REFLIST_CTRL           = MFX_MAKEFOURCC('R','L','S','T'),
     MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION  = MFX_MAKEFOURCC('F','R','C',' '),
     MFX_EXTBUFF_PICTURE_TIMING_SEI         = MFX_MAKEFOURCC('P','T','S','E'),
     MFX_EXTBUFF_AVC_TEMPORAL_LAYERS        = MFX_MAKEFOURCC('A','T','M','L'),
@@ -708,7 +714,9 @@ enum {
     MFX_EXTBUFF_HEVC_REGION                = MFX_MAKEFOURCC('2','6','5','R'),
     MFX_EXTBUFF_PRED_WEIGHT_TABLE          = MFX_MAKEFOURCC('E','P','W','T'),
     MFX_EXTBUFF_DIRTY_RECTANGLES           = MFX_MAKEFOURCC('D','R','O','I'),
-    MFX_EXTBUFF_MOVING_RECTANGLES          = MFX_MAKEFOURCC('M','R','O','I')
+    MFX_EXTBUFF_MOVING_RECTANGLES          = MFX_MAKEFOURCC('M','R','O','I'),
+    MFX_EXTBUFF_CODING_OPTION_VPS          = MFX_MAKEFOURCC('C','O','V','P'),
+    MFX_EXTBUFF_VPP_ROTATION               = MFX_MAKEFOURCC('R','O','T',' ')
 };
 
 /* VPP Conf: Do not use certain algorithms  */
@@ -823,7 +831,10 @@ enum {
 
     MFX_MEMTYPE_INTERNAL_FRAME  = 0x0001,
     MFX_MEMTYPE_EXTERNAL_FRAME  = 0x0002,
-    MFX_MEMTYPE_OPAQUE_FRAME    = 0x0004
+    MFX_MEMTYPE_OPAQUE_FRAME    = 0x0004,
+    MFX_MEMTYPE_EXPORT_FRAME    = 0x0008,
+
+    MFX_MEMTYPE_RESERVED2       = 0x1000
 };
 
 typedef struct {
@@ -892,6 +903,19 @@ typedef struct {
     mfxU16          SPSId;
     mfxU16          PPSId;
 } mfxExtCodingOptionSPSPPS;
+
+typedef struct {
+    mfxExtBuffer    Header;
+
+    union {
+        mfxU8       *VPSBuffer;
+        mfxU64      reserved1;
+    };
+    mfxU16          VPSBufSize;
+    mfxU16          VPSId;
+
+    mfxU16          reserved[6];
+} mfxExtCodingOptionVPS;
 
 typedef struct {
     mfxExtBuffer    Header;
@@ -1129,7 +1153,8 @@ enum {
     MFX_DEINTERLACING_24FPS_OUT              =  7,
     MFX_DEINTERLACING_FIXED_TELECINE_PATTERN =  8,
     MFX_DEINTERLACING_30FPS_OUT              =  9,
-    MFX_DEINTERLACING_DETECT_INTERLACE       = 10
+    MFX_DEINTERLACING_DETECT_INTERLACE       = 10,
+    MFX_DEINTERLACING_ADVANCED_NOREF         = 11
 };
 
 /*TelecinePattern*/
@@ -1332,6 +1357,21 @@ typedef struct {
         mfxU16  reserved2[4];
     } Rect[256];
 } mfxExtMoveRect;
+
+/* Angle */
+enum {
+    MFX_ANGLE_0     =   0,
+    MFX_ANGLE_90    =  90,
+    MFX_ANGLE_180   = 180,
+    MFX_ANGLE_270   = 270
+};
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16 Angle;
+    mfxU16 reserved[11];
+} mfxExtVPPRotation;
 
 #ifdef __cplusplus
 } // extern "C"
