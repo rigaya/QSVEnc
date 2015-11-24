@@ -2664,14 +2664,14 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     //また、バッファサイズを拡大しても特に高速化しない
     if (m_pFileReader->getInputCodec()) {
         pParams->nInputBufSize = 1;
-        //HEVCデコーダを使用する場合はD3D11メモリを使用しないと正常に稼働しない (4080ドライバ)
-        //if (m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
-        //    if (pParams->memType & D3D9_MEMORY) {
-        //        pParams->memType &= ~D3D9_MEMORY;
-        //        pParams->memType |= D3D11_MEMORY;
-        //    }
-        //    PrintMes(QSV_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC encoding.\n"));
-        //}
+        //Haswell以前はHEVCデコーダを使用する場合はD3D11メモリを使用しないと正常に稼働しない (4080ドライバ)
+        if (getCPUGen() <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
+            if (pParams->memType & D3D9_MEMORY) {
+                pParams->memType &= ~D3D9_MEMORY;
+                pParams->memType |= D3D11_MEMORY;
+            }
+            PrintMes(QSV_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC decoding on Haswell.\n"));
+        }
     }
 
     return MFX_ERR_NONE;
