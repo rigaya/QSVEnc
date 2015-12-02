@@ -18,7 +18,7 @@
 using std::vector;
 using std::pair;
 
-static const mfxU32 AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
+static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 
 enum {
     AVQSV_AUDIO_NONE         = 0x00,
@@ -26,7 +26,7 @@ enum {
     AVQSV_AUDIO_COPY_TO_FILE = 0x02,
 };
 
-enum : mfxU32 {
+enum : uint32_t {
     AVQSV_PTS_SOMETIMES_INVALID = 0x01, //時折、無効なptsやdtsを得る
     AVQSV_PTS_HALF_INVALID      = 0x02, //PAFFなため、半分のフレームのptsやdtsが無効
     AVQSV_PTS_ALL_INVALID       = 0x04, //すべてのフレームのptsやdtsが無効
@@ -63,18 +63,18 @@ typedef struct AVDemuxVideo {
     AVCodecContext           *pCodecCtx;             //動画のcodecContext
     int                       nIndex;                //動画のストリームID
     int64_t                   nStreamFirstPts;       //動画ファイルの最初のpts
-    mfxU32                    nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
+    uint32_t                  nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
     bool                      bGotFirstKeyframe;     //動画の最初のキーフレームを取得済み
     VideoFrameData            frameData;             //動画フレームのptsのリスト
     AVBitStreamFilterContext *pH264Bsfc;             //必要なら使用するbitstreamfilter
-    mfxU8                    *pExtradata;            //動画のヘッダ情報
+    uint8_t                  *pExtradata;            //動画のヘッダ情報
     int                       nExtradataSize;        //動画のヘッダサイズ
     AVPacket                  packet[2];             //取得した動画ストリームの1フレーム分のデータ
     AVRational                nAvgFramerate;         //動画のフレームレート
     bool                      bUseHEVCmp42AnnexB;    //HEVCのmp4->AnnexB変換
 
-    mfxU32                    nSampleLoadCount;      //sampleをLoadNextFrameでロードした数
-    mfxU32                    nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
+    uint32_t                  nSampleLoadCount;      //sampleをLoadNextFrameでロードした数
+    uint32_t                  nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {
@@ -83,7 +83,7 @@ typedef struct AVDemuxStream {
     AVCodecContext           *pCodecCtx;              //音声・字幕のcodecContext
     AVStream                 *pStream;                //音声・字幕のストリーム
     int                       nLastVidIndex;          //音声の直前の相当する動画の位置
-    mfxI64                    nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
+    int64_t                   nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
     AVPacket                  pktSample;              //サンプル用の音声・字幕データ
     int                       nDelayOfStream;         //音声側の遅延 (pkt_timebase基準)
 } AVDemuxStream;
@@ -97,14 +97,14 @@ typedef struct AVDemuxer {
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {
-    mfxU8          memType;                 //使用するメモリの種類
+    uint8_t        memType;                 //使用するメモリの種類
     bool           bReadVideo;              //映像の読み込みを行うかどうか
-    mfxU32         nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
+    uint32_t       nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
     bool           bReadSubtitle;           //字幕の読み込みを行うかどうか
     bool           bReadChapter;            //チャプターの読み込みを行うかどうか
     pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート (映像のみ読み込ませるときに使用する)
-    mfxU16         nAnalyzeSec;             //入力ファイルを分析する秒数
-    mfxU16         nTrimCount;              //Trimする動画フレームの領域の数
+    uint16_t       nAnalyzeSec;             //入力ファイルを分析する秒数
+    uint16_t       nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
     int            nAudioTrackStart;        //音声のトラック番号の開始点
     int            nSubtitleTrackStart;     //字幕のトラック番号の開始点
@@ -121,7 +121,7 @@ public:
     CAvcodecReader();
     virtual ~CAvcodecReader();
 
-    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual mfxStatus Init(const TCHAR *strFileName, uint32_t ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
 
     virtual void Close();
 
@@ -165,13 +165,13 @@ public:
     int64_t GetVideoFirstPts();
 private:
     //avcodecのコーデックIDからIntel Media SDKのコーデックのFourccを取得
-    mfxU32 getQSVFourcc(mfxU32 id);
+    uint32_t getQSVFourcc(uint32_t id);
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
     vector<int> getStreamIndex(AVMediaType type);
 
     //VC-1のスタートコードの確認
-    bool vc1StartCodeExists(mfxU8 *ptr);
+    bool vc1StartCodeExists(uint8_t *ptr);
 
     //動画のptsをソートする
     void sortVideoPtsList();
@@ -203,10 +203,10 @@ private:
     mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount);
 
     //指定したptsとtimebaseから、該当する動画フレームを取得する
-    int getVideoFrameIdx(mfxI64 pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart);
+    int getVideoFrameIdx(int64_t pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart);
 
     //ptsを動画のtimebaseから音声のtimebaseに変換する
-    mfxI64 convertTimebaseVidToStream(mfxI64 pts, const AVDemuxStream *pStream);
+    int64_t convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream);
 
     //HEVCのmp4->AnnexB簡易変換
     void hevcMp42Annexb(AVPacket *pkt);
@@ -222,11 +222,11 @@ private:
     void CloseFormat(AVDemuxFormat *pFormat);
 
     AVDemuxer        m_Demux;                      //デコード用情報
-    vector<mfxU8>    m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
+    vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
     vector<AVPacket> m_PreReadBuffer;              //解析用に先行取得した映像パケット
     vector<AVPacket> m_StreamPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
     vector<AVPacket> m_StreamPacketsBufferL2;       //音声のAVPacketのバッファ
-    mfxU32           m_StreamPacketsBufferL2Used;   //m_StreamPacketsBufferL2のパケットのうち、すでに使用したもの
+    uint32_t         m_StreamPacketsBufferL2Used;   //m_StreamPacketsBufferL2のパケットのうち、すでに使用したもの
 };
 
 #endif //ENABLE_AVCODEC_QSV_READER

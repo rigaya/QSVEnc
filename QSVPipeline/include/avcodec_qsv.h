@@ -39,8 +39,8 @@ extern "C" {
 #endif
 
 typedef struct QSVCodec {
-    mfxU32 codec_id;   //avcodecのコーデックID
-    mfxU32 qsv_fourcc; //QSVのfourcc
+    uint32_t codec_id;   //avcodecのコーデックID
+    uint32_t qsv_fourcc; //QSVのfourcc
 } QSVCodec;
 
 //QSVでデコード可能なコーデックのリスト

@@ -38,9 +38,9 @@ static inline void extend_array_size(VideoFrameData *dataset) {
 }
 
 CAvcodecReader::CAvcodecReader() {
-    MSDK_ZERO_MEMORY(m_Demux.format);
-    MSDK_ZERO_MEMORY(m_Demux.video);
-    MSDK_ZERO_MEMORY(m_sDecParam);
+    memset(&m_Demux.format, 0, sizeof(m_Demux.format));
+    memset(&m_Demux.video,  0, sizeof(m_Demux.video));
+    memset(&m_sDecParam,    0, sizeof(m_sDecParam));
     m_StreamPacketsBufferL2Used = 0;
     m_strReaderName = _T("avqsv");
 }
@@ -50,7 +50,7 @@ CAvcodecReader::~CAvcodecReader() {
 }
 
 void CAvcodecReader::clearStreamPacketList(vector<AVPacket>& pktList) {
-    for (mfxU32 i_pkt = 0; i_pkt < pktList.size(); i_pkt++) {
+    for (uint32_t i_pkt = 0; i_pkt < pktList.size(); i_pkt++) {
         if (pktList[i_pkt].data) {
             av_free_packet(&pktList[i_pkt]);
         }
@@ -125,11 +125,11 @@ void CAvcodecReader::Close() {
     //}
     m_pEncSatusInfo.reset();
 
-    MSDK_ZERO_MEMORY(m_sDecParam);
+    memset(&m_sDecParam, 0, sizeof(m_sDecParam));
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
-mfxU32 CAvcodecReader::getQSVFourcc(mfxU32 id) {
+uint32_t CAvcodecReader::getQSVFourcc(uint32_t id) {
     for (int i = 0; i < _countof(QSV_DECODE_LIST); i++)
         if (QSV_DECODE_LIST[i].codec_id == id)
             return QSV_DECODE_LIST[i].qsv_fourcc;
@@ -147,8 +147,8 @@ vector<int> CAvcodecReader::getStreamIndex(AVMediaType type) {
     return std::move(streams);
 }
 
-bool CAvcodecReader::vc1StartCodeExists(mfxU8 *ptr) {
-    mfxU32 code = readUB32(ptr);
+bool CAvcodecReader::vc1StartCodeExists(uint8_t *ptr) {
+    uint32_t code = readUB32(ptr);
     return check_range_unsigned(code, 0x010A, 0x010F) || check_range_unsigned(code, 0x011B, 0x011F);
 }
 
@@ -199,8 +199,8 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
         if (duration < 0 || duration > 0xFFFFFFFF) {
             duration = 0;
             for (int i = 1; i < 16; i++) {
-                int64_t diff = MSDK_MAX(0, pos_fixed[i].pts - pos_fixed[i-1].pts);
-                int64_t last_frame_dur = MSDK_MAX(0, pos_fixed[i-1].duration);
+                int64_t diff = (std::max<int64_t>)(0, pos_fixed[i].pts - pos_fixed[i-1].pts);
+                int64_t last_frame_dur = (std::max<int64_t>)(0, pos_fixed[i-1].duration);
                 duration += (diff > 0xFFFFFFFF) ? last_frame_dur : diff;
             }
         }
@@ -210,8 +210,8 @@ void CAvcodecReader::addVideoPtsToList(FramePos pos) {
 }
 
 void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
-    static const mfxU8 SC[] = { 0, 0, 0, 1 };
-    const mfxU8 *ptr, *ptr_fin;
+    static const uint8_t SC[] = { 0, 0, 0, 1 };
+    const uint8_t *ptr, *ptr_fin;
     if (pkt == NULL) {
         m_hevcMp42AnnexbBuffer.reserve(m_Demux.video.nExtradataSize + 128);
         ptr = m_Demux.video.pExtradata;
@@ -229,7 +229,7 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
         ptr += !!numOfArrays;
         const int count = readUB16(ptr); ptr += 2;
         int units = (numOfArrays) ? count : 1;
-        for (int i = MSDK_MAX(1, units); i; i--) {
+        for (int i = (std::max)(1, units); i; i--) {
             uint32_t size = readUB16(ptr); ptr += 2;
             uint32_t uppper = count << 16;
             size += (numOfArrays) ? 0 : uppper;
@@ -247,7 +247,7 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
         if (m_Demux.video.pExtradata) {
             av_free(m_Demux.video.pExtradata);
         }
-        m_Demux.video.pExtradata = (mfxU8 *)av_malloc(m_hevcMp42AnnexbBuffer.size());
+        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_hevcMp42AnnexbBuffer.size());
         m_Demux.video.nExtradataSize = (int)m_hevcMp42AnnexbBuffer.size();
         memcpy(m_Demux.video.pExtradata, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
     }
@@ -257,18 +257,18 @@ void CAvcodecReader::hevcMp42Annexb(AVPacket *pkt) {
 void CAvcodecReader::vc1FixHeader(int nLengthFix) {
     if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3) {
         m_Demux.video.nExtradataSize += nLengthFix;
-        mfxU32 datasize = m_Demux.video.nExtradataSize;
-        vector<mfxU8> buffer(20 + datasize, 0);
-        mfxU32 header = 0xC5000000;
-        mfxU32 width = m_Demux.video.pCodecCtx->width;
-        mfxU32 height = m_Demux.video.pCodecCtx->height;
-        mfxU8 *dataPtr = m_Demux.video.pExtradata - nLengthFix;
+        uint32_t datasize = m_Demux.video.nExtradataSize;
+        vector<uint8_t> buffer(20 + datasize, 0);
+        uint32_t header = 0xC5000000;
+        uint32_t width = m_Demux.video.pCodecCtx->width;
+        uint32_t height = m_Demux.video.pCodecCtx->height;
+        uint8_t *dataPtr = m_Demux.video.pExtradata - nLengthFix;
         memcpy(buffer.data() +  0, &header, sizeof(header));
         memcpy(buffer.data() +  4, &datasize, sizeof(datasize));
         memcpy(buffer.data() +  8, dataPtr, datasize);
         memcpy(buffer.data() +  8 + datasize, &height, sizeof(height));
         memcpy(buffer.data() + 12 + datasize, &width, sizeof(width));
-        m_Demux.video.pExtradata = (mfxU8 *)av_realloc(m_Demux.video.pExtradata, sizeof(buffer) + FF_INPUT_BUFFER_PADDING_SIZE);
+        m_Demux.video.pExtradata = (uint8_t *)av_realloc(m_Demux.video.pExtradata, sizeof(buffer) + FF_INPUT_BUFFER_PADDING_SIZE);
         m_Demux.video.nExtradataSize = (int)buffer.size();
         memcpy(m_Demux.video.pExtradata, buffer.data(), buffer.size());
     } else {
@@ -278,14 +278,14 @@ void CAvcodecReader::vc1FixHeader(int nLengthFix) {
 }
 
 void CAvcodecReader::vc1AddFrameHeader(AVPacket *pkt) {
-    mfxU32 size = pkt->size;
+    uint32_t size = pkt->size;
     if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_WMV3) {
         av_grow_packet(pkt, 8);
         memmove(pkt->data + 8, pkt->data, size);
         memcpy(pkt->data, &size, sizeof(size));
         memset(pkt->data + 4, 0, 4);
     } else if (!vc1StartCodeExists(pkt->data)) {
-        mfxU32 startCode = 0x0D010000;
+        uint32_t startCode = 0x0D010000;
         av_grow_packet(pkt, sizeof(startCode));
         memmove(pkt->data + sizeof(startCode), pkt->data, size);
         memcpy(pkt->data, &startCode, sizeof(startCode));
@@ -322,15 +322,15 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     int surfaceWidth = MSDK_ALIGN32(request.Info.Width);
     int surfaceHeight = MSDK_ALIGN32(request.Info.Height);
     int surfaceSize = surfaceWidth * surfaceHeight * 3 / 2;
-    vector<mfxU8> surfaceBuffers(numSurfaces * surfaceSize);
+    vector<uint8_t> surfaceBuffers(numSurfaces * surfaceSize);
     std::unique_ptr<mfxFrameSurface1[]> pmfxSurfaces(new mfxFrameSurface1[numSurfaces]);
 
     for (int i = 0; i < numSurfaces; i++) {
-        MSDK_ZERO_MEMORY(pmfxSurfaces[i]);
-        MSDK_MEMCPY(&pmfxSurfaces[i].Info, &param.mfx.FrameInfo, sizeof(param.mfx.FrameInfo));
+        memset(&pmfxSurfaces[i], 0, sizeof(pmfxSurfaces[i]));
+        memcpy(&pmfxSurfaces[i].Info, &param.mfx.FrameInfo, sizeof(param.mfx.FrameInfo));
         pmfxSurfaces[i].Data.Y = surfaceBuffers.data() + i * surfaceSize;
         pmfxSurfaces[i].Data.UV = pmfxSurfaces[i].Data.Y + surfaceWidth * surfaceHeight;
-        pmfxSurfaces[i].Data.Pitch = (mfxU16)surfaceWidth;
+        pmfxSurfaces[i].Data.Pitch = (uint16_t)surfaceWidth;
     }
 
     if (MFX_ERR_NONE != (sts = MFXVideoDECODE_Init(session, &param))) {
@@ -422,11 +422,11 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     }
 
     //PAFFの場合、2フィールド目のpts, dtsが存在しないことがある
-    mfxU32 dts_pts_no_value_in_between = 0;
-    mfxU32 dts_pts_invalid_count = 0;
-    mfxU32 dts_pts_invalid_keyframe_count = 0;
-    mfxU32 keyframe_count = 0;
-    for (mfxU32 i = 0; i < framePosList.size(); i++) {
+    uint32_t dts_pts_no_value_in_between = 0;
+    uint32_t dts_pts_invalid_count = 0;
+    uint32_t dts_pts_invalid_keyframe_count = 0;
+    uint32_t keyframe_count = 0;
+    for (uint32_t i = 0; i < framePosList.size(); i++) {
         //自分のpts/dtsがともにAV_NOPTS_VALUEで、それが前後ともにAV_NOPTS_VALUEでない場合に修正する
         if (i > 0
             && framePosList[i].dts == AV_NOPTS_VALUE
@@ -452,8 +452,8 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     }
 
     //ほとんどのpts, dtsがあてにならない
-    m_Demux.video.nStreamPtsInvalid  = (dts_pts_invalid_count >= framePosList.size() - 5 && dts_pts_invalid_keyframe_count >= MSDK_MAX(1, keyframe_count-2)) ? AVQSV_PTS_ALL_INVALID : 0;
-    m_Demux.video.nStreamPtsInvalid |= (dts_pts_invalid_count >= (framePosList.size() - keyframe_count) - 5 && dts_pts_invalid_keyframe_count == 0)          ? AVQSV_PTS_NONKEY_INVALID : 0;
+    m_Demux.video.nStreamPtsInvalid  = (dts_pts_invalid_count >= framePosList.size() - 5 && dts_pts_invalid_keyframe_count >= (std::max)(1u, keyframe_count-2)) ? AVQSV_PTS_ALL_INVALID : 0u;
+    m_Demux.video.nStreamPtsInvalid |= (dts_pts_invalid_count >= (framePosList.size() - keyframe_count) - 5 && dts_pts_invalid_keyframe_count == 0)          ? AVQSV_PTS_NONKEY_INVALID : 0u;
 
     //PAFFっぽさ (適当)
     const bool seemsLikePAFF =
@@ -536,18 +536,18 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     }
 
     struct Rational64 {
-        mfxU64 num;
-        mfxU64 den;
-    } estimatedAvgFps = { 0 }, nAvgFramerate64 = { 0 }, fpsDecoder64 = { (mfxU64)fpsDecoder.num, (mfxU64)fpsDecoder.den };
+        uint64_t num;
+        uint64_t den;
+    } estimatedAvgFps = { 0 }, nAvgFramerate64 = { 0 }, fpsDecoder64 = { (uint64_t)fpsDecoder.num, (uint64_t)fpsDecoder.den };
     if (mostPopularDuration.first == 0) {
         m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
     } else {
         //avgFpsとtargetFpsが近いかどうか
         auto fps_near = [](double avgFps, double targetFps) { return std::abs(1 - avgFps / targetFps) < 0.5; };
         //durationの平均を求める (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
-        //std::accumulateの初期値に"(mfxU64)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
+        //std::accumulateの初期値に"(uint64_t)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
         //大きすぎるtimebaseの時に必要
-        double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), (mfxU64)0, [](const mfxU64 sum, const FramePos& pos) { return sum + pos.duration; }) / (double)(framePosList.size() - cutoff);
+        double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), (uint64_t)0, [](const uint64_t sum, const FramePos& pos) { return sum + pos.duration; }) / (double)(framePosList.size() - cutoff);
         double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->time_base.num);
         double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.01 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
         if (mostPopularDuration.second / (double)(framePosList.size() - cutoff) > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
@@ -557,9 +557,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         //入力フレームに対し、出力フレームが半分程度なら、フレームのdurationを倍と見積もる
         avgDuration *= (seemsLikePAFF) ? 2.0 : 1.0;
         //durationから求めた平均fpsを計算する
-        const mfxU64 mul = (mfxU64)ceil(1001.0 / m_Demux.video.pCodecCtx->time_base.num);
-        estimatedAvgFps.num = (mfxU64)(m_Demux.video.pCodecCtx->pkt_timebase.den / avgDuration * (double)m_Demux.video.pCodecCtx->time_base.num * mul + 0.5);
-        estimatedAvgFps.den = (mfxU64)m_Demux.video.pCodecCtx->time_base.num * mul;
+        const uint64_t mul = (uint64_t)ceil(1001.0 / m_Demux.video.pCodecCtx->time_base.num);
+        estimatedAvgFps.num = (uint64_t)(m_Demux.video.pCodecCtx->pkt_timebase.den / avgDuration * (double)m_Demux.video.pCodecCtx->time_base.num * mul + 0.5);
+        estimatedAvgFps.den = (uint64_t)m_Demux.video.pCodecCtx->time_base.num * mul;
         
         AddMessage(QSV_LOG_DEBUG, _T("fps mul:         %d\n"),    mul);
         AddMessage(QSV_LOG_DEBUG, _T("raw avgDuration: %lf\n"),   avgDuration);
@@ -590,7 +590,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     }
     AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (raw64): %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
 
-    const mfxU64 fps_gcd = qsv_gcd(nAvgFramerate64.num, nAvgFramerate64.den);
+    const uint64_t fps_gcd = qsv_gcd(nAvgFramerate64.num, nAvgFramerate64.den);
     nAvgFramerate64.num /= fps_gcd;
     nAvgFramerate64.den /= fps_gcd;
     m_Demux.video.nAvgFramerate = av_make_q((int)nAvgFramerate64.num, (int)nAvgFramerate64.den);
@@ -680,7 +680,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
+mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
 
     Close();
 
@@ -901,8 +901,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 
         if (m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) {
             //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
-            const mfxU32 IDR = 0x65010000;
-            AppendMfxBitstream(&bitstream, (mfxU8 *)&IDR, sizeof(IDR));
+            const uint32_t IDR = 0x65010000;
+            AppendMfxBitstream(&bitstream, (uint8_t *)&IDR, sizeof(IDR));
         }
 
         mfxSession session ={ 0 };
@@ -956,7 +956,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, con
 
         memset(&m_sDecParam, 0, sizeof(m_sDecParam));
         m_sDecParam.mfx.CodecId = m_nInputCodec;
-        m_sDecParam.IOPattern = (mfxU16)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
+        m_sDecParam.IOPattern = (uint16_t)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to decode header.\n"));
         } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ (int)m_sDecParam.mfx.FrameInfo.FrameRateExtN, (int)m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount))) {
@@ -1052,7 +1052,7 @@ int64_t CAvcodecReader::GetVideoFirstPts() {
     return m_Demux.video.nStreamFirstPts;
 }
 
-int CAvcodecReader::getVideoFrameIdx(mfxI64 pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
+int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
     for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
         //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
         if (0 > av_compare_ts(pts, timebase, framePos[i].pts, m_Demux.video.pCodecCtx->pkt_timebase)) {
@@ -1062,7 +1062,7 @@ int CAvcodecReader::getVideoFrameIdx(mfxI64 pts, AVRational timebase, const Fram
     return framePosCount;
 }
 
-mfxI64 CAvcodecReader::convertTimebaseVidToStream(mfxI64 pts, const AVDemuxStream *pStream) {
+int64_t CAvcodecReader::convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream) {
     return av_rescale_q(pts, m_Demux.video.pCodecCtx->pkt_timebase, pStream->pCodecCtx->pkt_timebase);
 }
 
@@ -1075,10 +1075,10 @@ bool CAvcodecReader::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *
     }
 
     const FramePos *vidFramePos = &m_Demux.video.frameData.frame[(std::max)(pStream->nLastVidIndex, 0)];
-    const mfxI64 vid_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
+    const int64_t vid_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
 
-    const mfxI64 aud_start = pkt->pts;
-    const mfxI64 aud_fin   = pkt->pts + pkt->duration;
+    const int64_t aud_start = pkt->pts;
+    const int64_t aud_fin   = pkt->pts + pkt->duration;
 
     const bool frame_is_in_range = frame_inside_range(pStream->nLastVidIndex,     m_sTrimParam.list);
     const bool next_is_in_range  = frame_inside_range(pStream->nLastVidIndex + 1, m_sTrimParam.list);
@@ -1148,7 +1148,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
         if (pkt->stream_index == m_Demux.video.nIndex) {
             if (!fromPreReadBuffer) {
                 if (m_Demux.video.pH264Bsfc) {
-                    mfxU8 *data = NULL;
+                    uint8_t *data = NULL;
                     int dataSize = 0;
                     std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
                     std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
@@ -1314,7 +1314,7 @@ vector<AVPacket> CAvcodecReader::GetStreamDataPackets() {
     vector<AVPacket> packets;
     {
         std::lock_guard<std::mutex> lock(m_Demux.mtx);
-        for (mfxU32 i = 0; i < m_StreamPacketsBufferL2.size(); i++) {
+        for (uint32_t i = 0; i < m_StreamPacketsBufferL2.size(); i++) {
             AVPacket *pkt = &m_StreamPacketsBufferL2[i];
             AVDemuxStream *pStream = getPacketStreamData(pkt);
             //音声のptsが映像の終わりのptsを行きすぎたらやめる
@@ -1349,7 +1349,7 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
     if (m_Demux.video.pExtradata == nullptr) {
         m_Demux.video.nExtradataSize = m_Demux.video.pCodecCtx->extradata_size;
         //ここでav_mallocを使用しないと正常に動作しない
-        m_Demux.video.pExtradata = (mfxU8 *)av_malloc(m_Demux.video.pCodecCtx->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
+        m_Demux.video.pExtradata = (uint8_t *)av_malloc(m_Demux.video.pCodecCtx->extradata_size + FF_INPUT_BUFFER_PADDING_SIZE);
         //ヘッダのデータをコピーしておく
         memcpy(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata, m_Demux.video.nExtradataSize);
         memset(m_Demux.video.pExtradata + m_Demux.video.nExtradataSize, 0, FF_INPUT_BUFFER_PADDING_SIZE);
@@ -1357,7 +1357,7 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
         if (m_Demux.video.bUseHEVCmp42AnnexB) {
             hevcMp42Annexb(NULL);
         } else if (m_Demux.video.pH264Bsfc && m_Demux.video.pExtradata[0] == 1) {
-            mfxU8 *dummy = NULL;
+            uint8_t *dummy = NULL;
             int dummy_size = 0;
             std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
             std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
