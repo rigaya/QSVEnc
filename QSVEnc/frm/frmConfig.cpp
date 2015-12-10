@@ -665,6 +665,8 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAudioEncTiming, audio_enc_timing_desc);
     setComboBox(fcgCXAudioDelayCut,  AUDIO_DELAY_CUT_MODE);
 
+    setComboBox(fcgCXAvqsvAudioEncoder, list_avqsv_aud_encoder);
+
     setMuxerCmdExNames(fcgCXMP4CmdEx, MUXER_MP4);
     setMuxerCmdExNames(fcgCXMKVCmdEx, MUXER_MKV);
 #ifdef HIDE_MPEG2
@@ -1050,6 +1052,37 @@ System::Void frmConfig::UpdateMfxLibDetection() {
         L"v" + ((mfxlib_sw>>16).ToString() + L"." + (mfxlib_sw & 0x0000ffff).ToString()) : L"-----";
 }
 
+System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
+    AUO_LINK_DATA link_data = { 0 };
+    if (!ENABLE_AUO_LINK || get_auo_link_data(&link_data)) {
+        memset(&cnf->oth.link_prm, 0, sizeof(cnf->oth.link_prm));
+    } else {
+        memcpy(&cnf->oth.link_prm, &link_data.prm, sizeof(link_data.prm));
+        memcpy(conf_link_prm, &link_data.prm, sizeof(link_data.prm));
+        strcpy(cnf->qsv.strSrcFile, link_data.input_file);
+        fcgTXAvqsvInputFile->Text = String(cnf->qsv.strSrcFile).ToString();
+
+        //ウィンドウ位置の修正
+        auto formSize = this->Size;
+        formSize.Height += fcggroupBoxAvqsv->Size.Height;
+        this->Size = formSize;
+
+        this->Size.Height += fcggroupBoxAvqsv->Size.Height;
+        Point point = fcgtabControlMux->Location;
+        point.Y += fcggroupBoxAvqsv->Size.Height;
+        fcgtabControlMux->Location = point;
+
+        point = fcgtabControlAudio->Location;
+        point.Y += fcggroupBoxAvqsv->Size.Height;
+        fcgtabControlAudio->Location = point;
+
+        point = fcgtabControlQSV->Location;
+        point.Y += fcggroupBoxAvqsv->Size.Height;
+        fcgtabControlQSV->Location = point;
+    }
+    fcgLBTrimInfo->Text = String(L"現在").ToString() + cnf->oth.link_prm.trim_count.ToString() + String(L"箇所選択されています。").ToString();
+}
+
 System::Void frmConfig::InitForm() {
     featuresHW = gcnew QSVFeatures(true);
     featuresSW = gcnew QSVFeatures(false);
@@ -1075,6 +1108,8 @@ System::Void frmConfig::InitForm() {
     fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
     //ツールチップ
     SetHelpToolTips();
+    //QSVLink
+    CheckQSVLink(conf);
     //HWエンコードの可否
     UpdateMfxLibDetection();
     UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
@@ -1087,8 +1122,10 @@ System::Void frmConfig::InitForm() {
     SetTXMaxLenAll(); //テキストボックスの最大文字数
     SetAllCheckChangedEvents(this); //変更の確認,ついでにNUのEnterEvent
 #ifdef HIDE_MPEG2
-    tabPageMpgMux = fcgtabControlMux->TabPages[2];
-    fcgtabControlMux->TabPages->RemoveAt(2);
+    if (fcgtabControlMux->TabPages->Count >= 3) {
+        tabPageMpgMux = fcgtabControlMux->TabPages[2];
+        fcgtabControlMux->TabPages->RemoveAt(2);
+    }
 #endif
     //表示位置の調整
     AdjustLocation();
@@ -1229,6 +1266,14 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXMPGCmdEx,            cnf->mux.mpg_mode);
         SetCXIndex(fcgCXMuxPriority,         cnf->mux.priority);
 
+        //QSVLink
+        fcgCBAvqsv->Checked                = cnf->oth.link_prm.active != 0;
+        fcgCBTrim->Checked                 = cnf->oth.link_prm.use_trim != 0;
+        SetCXIndex(fcgCXAvqsvAudioEncoder,   get_cx_index(list_avqsv_aud_encoder, conf->aud_avqsv.encoder));
+        SetNUValue(fcgNUAvqsvAudioBitrate,   conf->aud_avqsv.bitrate);
+        fcgCBCopyChapter->Checked          = cnf->qsv.bCopyChapter != 0;
+        fcgCBCopySubtitle->Checked         = cnf->qsv.nSubtitleSelectCount != 0;
+
         fcgCBRunBatBefore->Checked         =(cnf->oth.run_bat & RUN_BAT_BEFORE_PROCESS) != 0;
         fcgCBRunBatAfter->Checked          =(cnf->oth.run_bat & RUN_BAT_AFTER_PROCESS)  != 0;
         fcgCBWaitForBatBefore->Checked     =(cnf->oth.dont_wait_bat_fin & RUN_BAT_BEFORE_PROCESS) == 0;
@@ -1363,6 +1408,17 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->mux.disable_mpgext         = !fcgCBMPGMuxerExt->Checked;
     cnf->mux.mpg_mode               = fcgCXMPGCmdEx->SelectedIndex;
     cnf->mux.priority               = fcgCXMuxPriority->SelectedIndex;
+
+    //QSVLink
+    memcpy(&cnf->oth.link_prm, conf_link_prm, sizeof(cnf->oth.link_prm));
+    cnf->oth.link_prm.active        = fcgCBAvqsv->Checked;
+    cnf->oth.link_prm.use_trim      = fcgCBTrim->Checked;
+    conf->aud_avqsv.encoder         = list_avqsv_aud_encoder[fcgCXAvqsvAudioEncoder->SelectedIndex].value;
+    conf->aud_avqsv.bitrate         = (int)fcgNUAvqsvAudioBitrate->Value;
+    cnf->qsv.bCopyChapter           = fcgCBCopyChapter->Checked;
+    cnf->qsv.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
+
+    GetCHARfromString(cnf->qsv.strSrcFile, sizeof(cnf->qsv.strSrcFile), fcgTXAvqsvInputFile->Text);
     
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;
@@ -1425,6 +1481,55 @@ System::Void frmConfig::SetToolStripEvents(ToolStrip^ TS, System::Windows::Forms
     }
 }
 
+System::Void frmConfig::ChangeVisiableDirectEncPerControl(Control ^top, bool visible) {
+    //再帰を使用してすべてのコントロールのtagを調べ、NoDirect tagを持つものの表示非表示をセットする
+    for (int i = 0; i < top->Controls->Count; i++) {
+        if (top->Controls[i]->Tag != nullptr
+            && top->Controls[i]->Tag->ToString()->Contains(L"NoDirect"))
+            top->Controls[i]->Visible = visible;
+        ChangeVisiableDirectEncPerControl(top->Controls[i], visible);
+    }
+}
+
+System::Void frmConfig::fcgChangeVisibleDirectEnc(System::Object^  sender, System::EventArgs^  e) {
+    //CLIモードとの切り替え
+    //一度ウィンドウの再描画を完全に抑止する
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+    int tabPageCount = fcgtabControlAudio->TabPages->Count;
+    for (int i = 0; i < tabPageCount; i++) {
+        fcgtabControlAudio->TabPages->RemoveAt(0);
+    }
+    if (!fcgCBAvqsv->Checked) {
+        fcgtabControlAudio->TabPages->Insert(0, fcgtabPageAudioMain);
+        fcgtabControlAudio->TabPages->Insert(1, fcgtabPageAudioOther);
+    } else {
+        fcgtabControlAudio->TabPages->Insert(0, fcgtabPageAvqsvAudio);
+    }
+    fcgtabControlAudio->SelectedIndex = 0;
+
+    tabPageCount = fcgtabControlMux->TabPages->Count;
+    for (int i = 0; i < tabPageCount; i++) {
+        fcgtabControlMux->TabPages->RemoveAt(0);
+    }
+    if (!fcgCBAvqsv->Checked) {
+        fcgtabControlMux->TabPages->Insert(0, fcgtabPageMP4);
+        fcgtabControlMux->TabPages->Insert(1, fcgtabPageMKV);
+        fcgtabControlMux->TabPages->Insert(2, fcgtabPageMux);
+        fcgtabControlMux->TabPages->Insert(3, fcgtabPageBat);
+    } else {
+        fcgtabControlMux->TabPages->Insert(0, fcgtabPageMuxInternal);
+    }
+    fcgtabControlMux->SelectedIndex = 0;
+
+    fcggroupBoxAvqsv->Enabled  = fcgCBAvqsv->Checked;
+    fcgLBAvqsvEncWarn->Visible = fcgCBAvqsv->Checked;
+    ChangeVisiableDirectEncPerControl(this, !fcgCBAvqsv->Checked);
+
+    //一度ウィンドウの再描画を再開し、強制的に再描画させる
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+    this->Refresh();
+}
+
 System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {
     //再帰を使用してすべてのコントロールのtagを調べ、イベントをセットする
     for (int i = 0; i < top->Controls->Count; i++) {
@@ -1438,9 +1543,9 @@ System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {
             SetToolStripEvents((ToolStrip^)(top->Controls[i]), gcnew System::Windows::Forms::MouseEventHandler(this, &frmConfig::fcgTSItem_MouseDown));
         else if (top->Controls[i]->Tag == nullptr)
             SetAllCheckChangedEvents(top->Controls[i]);
-        else if (String::Equals(top->Controls[i]->Tag->ToString(), L"chValue"))
+        else if (top->Controls[i]->Tag->ToString()->Contains(L"chValue"))
             SetChangedEvent(top->Controls[i], gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges));
-        else
+        else 
             SetAllCheckChangedEvents(top->Controls[i]);
     }
 }

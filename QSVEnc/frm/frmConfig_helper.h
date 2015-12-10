@@ -144,6 +144,7 @@ namespace QSVEnc {
         String^ CustomMP4TmpDir;
         String^ LastAppDir;
         String^ LastBatDir;
+        String^ AuoLinkSrcPath;
 
         LocalSettings() {
             audEncName = gcnew List<String^>();

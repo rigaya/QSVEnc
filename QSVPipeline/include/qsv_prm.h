@@ -52,6 +52,7 @@ enum {
     INPUT_FMT_VPY,
     INPUT_FMT_VPY_MT,
     INPUT_FMT_AVCODEC_QSV,
+    INPUT_FMT_AUO,
 };
 
 enum MemType {
@@ -503,6 +504,31 @@ const CX_DESC list_rotate_angle[] = {
     { _T("180"),   MFX_ANGLE_180  },
     { _T("270"),   MFX_ANGLE_270  },
     { NULL, 0 }
+};
+
+enum {
+    QSV_AUD_ENC_NONE = -1,
+    QSV_AUD_ENC_COPY = 0,
+    QSV_AUD_ENC_AAC,
+    QSV_AUD_ENC_MP3,
+    QSV_AUD_ENC_MP2,
+    QSV_AUD_ENC_VORBIS,
+    QSV_AUD_ENC_WAV,
+    QSV_AUD_ENC_OPUS,
+    QSV_AUD_ENC_AC3,
+};
+
+const CX_DESC list_avqsv_aud_encoder[] = {
+    { _T("none"),       QSV_AUD_ENC_NONE },
+    { _T("copy"),       QSV_AUD_ENC_COPY },
+    { _T("aac"),        QSV_AUD_ENC_AAC },
+    { _T("libmp3lame"), QSV_AUD_ENC_MP3 },
+    { _T("libtwolame"), QSV_AUD_ENC_MP2 },
+    { _T("libvorbis"),  QSV_AUD_ENC_VORBIS },
+    { _T("pcm_s16le"),  QSV_AUD_ENC_WAV },
+    { _T("libopus"),    QSV_AUD_ENC_OPUS },
+    { _T("ac3"),        QSV_AUD_ENC_AC3 },
+    { NULL, NULL }
 };
 
 static inline const CX_DESC *get_level_list(int CodecID) {

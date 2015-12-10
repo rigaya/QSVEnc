@@ -159,7 +159,7 @@ class CEncodeStatusInfo
 public:
     CEncodeStatusInfo();
     virtual ~CEncodeStatusInfo();
-    void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog);
+    virtual void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog);
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
         if (NULL != data) {
@@ -180,7 +180,8 @@ public:
     }
 #pragma warning(push)
 #pragma warning(disable:4100)
-    virtual void UpdateDisplay(const TCHAR *mes, int drop_frames)
+    virtual void SetPrivData(void *pPrivateData) {};
+    virtual void UpdateDisplay(const TCHAR *mes, int drop_frames, double progressPercent)
     {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
             return;
@@ -202,45 +203,52 @@ public:
         fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
     }
 #pragma warning(pop)
-    virtual void UpdateDisplay(std::chrono::system_clock::time_point tm, int drop_frames, double progressPercent = 0.0)
+    virtual mfxStatus UpdateDisplay(int drop_frames, double progressPercent = 0.0)
     {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
-            return;
+            return MFX_ERR_NONE;
         }
-        if (m_sData.nProcessedFramesNum + drop_frames) {
-            TCHAR mes[256];
-            double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
-            m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / elapsedTime;
-            m_sData.fBitrateKbps = (mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames));
-            if (m_nTotalOutFrames || progressPercent > 0.0) {
-                if (progressPercent == 0.0) {
-                    progressPercent = (m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_nTotalOutFrames;
-                }
-                progressPercent = (std::min)(progressPercent, 100.0);
-                mfxU32 remaining_time = (mfxU32)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
-                int hh = remaining_time / (60*60*1000);
-                remaining_time -= hh * (60*60*1000);
-                int mm = remaining_time / (60*1000);
-                remaining_time -= mm * (60*1000);
-                int ss = (remaining_time + 500) / 1000;
-
-                int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
-                    progressPercent,
-                    m_sData.nProcessedFramesNum + drop_frames,
-                    m_sData.fEncodeFps,
-                    m_sData.fBitrateKbps,
-                    hh, mm, ss );
-                if (drop_frames)
-                    _stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
-            } else {
-                _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "), 
-                    (m_sData.nProcessedFramesNum + drop_frames),
-                    m_sData.fEncodeFps,
-                    m_sData.fBitrateKbps
-                    );
+        if (m_sData.nProcessedFramesNum + drop_frames <= 0) {
+            return MFX_ERR_NONE;
+        }
+        auto tm = std::chrono::system_clock::now();
+        if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() < UPDATE_INTERVAL) {
+            return MFX_ERR_NONE;
+        }
+        m_tmLastUpdate = tm;
+        TCHAR mes[256];
+        double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
+        m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / elapsedTime;
+        m_sData.fBitrateKbps = (mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames));
+        if (m_nTotalOutFrames || progressPercent > 0.0) {
+            if (progressPercent == 0.0) {
+                progressPercent = (m_sData.nProcessedFramesNum + drop_frames) * 100 / (mfxF64)m_nTotalOutFrames;
             }
-            UpdateDisplay(mes, drop_frames);
+            progressPercent = (std::min)(progressPercent, 100.0);
+            mfxU32 remaining_time = (mfxU32)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
+            int hh = remaining_time / (60*60*1000);
+            remaining_time -= hh * (60*60*1000);
+            int mm = remaining_time / (60*1000);
+            remaining_time -= mm * (60*1000);
+            int ss = (remaining_time + 500) / 1000;
+
+            int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
+                progressPercent,
+                m_sData.nProcessedFramesNum + drop_frames,
+                m_sData.fEncodeFps,
+                m_sData.fBitrateKbps,
+                hh, mm, ss );
+            if (drop_frames)
+                _stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
+        } else {
+            _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "), 
+                (m_sData.nProcessedFramesNum + drop_frames),
+                m_sData.fEncodeFps,
+                m_sData.fBitrateKbps
+                );
         }
+        UpdateDisplay(mes, drop_frames, progressPercent);
+        return MFX_ERR_NONE;
     }
     virtual void WriteLine(const TCHAR *mes) {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
@@ -329,12 +337,14 @@ public:
     virtual bool getEncStarted() {
         return m_bEncStarted;
     }
+    BOOL m_pause;
     mfxU32 m_nInputFrames;
     mfxU32 m_nTotalOutFrames;
     mfxU32 m_nOutputFPSRate;
     mfxU32 m_nOutputFPSScale;
 protected:
     std::chrono::system_clock::time_point m_tmStart;
+    std::chrono::system_clock::time_point m_tmLastUpdate;
     PROCESS_TIME m_sStartTime;
     sEncodeStatusData m_sData;
     shared_ptr<CQSVLog> m_pQSVLog;

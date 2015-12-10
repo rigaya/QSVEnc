@@ -2263,8 +2263,9 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
-    m_pEncSatusInfo = std::make_shared<CEncodeStatusInfo>();
-
+    if (!m_pEncSatusInfo) {
+        m_pEncSatusInfo = std::make_shared<CEncodeStatusInfo>();
+    }
     //Auto detection by input file extension
     if (pParams->nInputFmt == INPUT_FMT_AUTO) {
 #if ENABLE_AVISYNTH_READER

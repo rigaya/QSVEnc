@@ -179,6 +179,9 @@ private:
     //動画のptsをリストに加える
     void addVideoPtsToList(FramePos pos);
 
+    //trim listを参照し、動画の最大フレームインデックスを取得する
+    int getVideoTrimMaxFramIdx();
+
     //対象ストリームのパケットを取得
     int getSample(AVPacket *pkt);
 

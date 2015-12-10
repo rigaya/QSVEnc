@@ -29,6 +29,11 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
 
     m_pEncSatusInfo = std::make_shared<AUO_EncodeStatusInfo>();
+    m_pEncSatusInfo->SetPrivData(nullptr);
+
+    if (pParams->nInputFmt != INPUT_FMT_AUO) {
+        return CEncodingPipeline::InitInput(pParams);
+    }
 
     // prepare input file reader
     m_pFileReader = std::make_shared<AUO_YUVReader>();
@@ -82,10 +87,14 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
 
 mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
+    if (pParams->nInputFmt != INPUT_FMT_AUO) {
+        return CEncodingPipeline::InitOutput(pParams);
+    }
 
     m_pFileWriter = std::make_shared<CSmplBitstreamWriter>();
     m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
-    sts = m_pFileWriter->Init(pParams->strDstFile, pParams, m_pEncSatusInfo);
+    bool bDummy = false;
+    sts = m_pFileWriter->Init(pParams->strDstFile, &bDummy, m_pEncSatusInfo);
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
     return sts;

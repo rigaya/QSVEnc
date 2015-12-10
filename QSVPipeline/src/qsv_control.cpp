@@ -41,6 +41,8 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_bStdErrWriteToConsole = true;
     m_bEncStarted = false;
     m_tmStart = std::chrono::system_clock::now();
+    m_tmLastUpdate = m_tmStart;
+    m_pause = FALSE;
 }
 
 CEncodeStatusInfo::~CEncodeStatusInfo() {
@@ -48,6 +50,7 @@ CEncodeStatusInfo::~CEncodeStatusInfo() {
 }
 
 void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog) {
+    m_pause = FALSE;
     m_nOutputFPSRate = outputFPSRate;
     m_nOutputFPSScale = outputFPSScale;
     m_nTotalOutFrames = totalOutputFrames;
@@ -60,6 +63,7 @@ void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32
 
 void CEncodeStatusInfo::SetStart() {
     m_tmStart = std::chrono::system_clock::now();
+    m_tmLastUpdate = m_tmStart;
     GetProcessTime(&m_sStartTime);
     m_bEncStarted = true;
 }

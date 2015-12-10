@@ -213,7 +213,7 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     sys_dat->exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
     PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
 
-    if (pe->video_out_type != VIDEO_OUTPUT_DISABLED) {
+    if (pe->video_out_type != VIDEO_OUTPUT_DISABLED && !conf->oth.link_prm.active) {
         //H.264/ESで出力するので拡張子を変更
         //check_muxer_to_be_usedの前に拡張子を変更しないと音声なしのときにmuxされない
         change_ext(pe->temp_filename, _countof(pe->temp_filename), ".264");
@@ -571,6 +571,9 @@ BOOL check_output_has_chapter(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat
 }
 
 int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output) {
+    if (conf->oth.link_prm.active) {
+        return MUXER_DISABLED;
+    }
     int muxer_to_be_used = MUXER_DISABLED;
     if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
         muxer_to_be_used = (conf->vid.afs) ? MUXER_TC2MP4 : MUXER_MP4;

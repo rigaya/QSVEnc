@@ -242,7 +242,6 @@ protected:
     shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
     bool m_by4m;
     bool m_bInited;
-    std::chrono::system_clock::time_point m_tmLastUpdate;
     sInputCrop m_sInputCrop;
 
     mfxFrameInfo m_inputFrameInfo;

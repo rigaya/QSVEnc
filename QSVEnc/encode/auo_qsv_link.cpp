@@ -124,11 +124,10 @@ void clear_auo_yuvreader_g_data() {
 
 AUO_YUVReader::AUO_YUVReader() {
     m_ColorFormat = MFX_FOURCC_NV12; //AUO_YUVReaderはNV12専用
-    pause = FALSE;
 }
 
-#pragma warning( push )
-#pragma warning( disable: 4100 )
+#pragma warning(push)
+#pragma warning(disable: 4100)
 mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
     MSDK_CHECK_POINTER(oip, MFX_ERR_NULL_PTR);
 
@@ -157,17 +156,13 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, cons
 
     m_sConvert = get_convert_csp_func(m_ColorFormat, m_inputFrameInfo.FourCC, false);
 
-    enable_enc_control(&pause, pe->afs_init, FALSE, timeGetTime(), oip->n);
-
     char mes[256];
     sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     m_strInputInfo += mes;
-
-    m_tmLastUpdate = std::chrono::system_clock::now();
     return MFX_ERR_NONE;
 }
-#pragma warning( pop )
+#pragma warning(pop)
 
 AUO_YUVReader::~AUO_YUVReader() {
     Close();
@@ -175,7 +170,6 @@ AUO_YUVReader::~AUO_YUVReader() {
 
 void AUO_YUVReader::Close() {
     disable_enc_control();
-    pause = FALSE;
     m_pEncSatusInfo.reset();
 }
 
@@ -195,16 +189,6 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         oip->func_rest_time_disp(current_frame, total_frames);
         release_audio_parallel_events(pe);
         return MFX_ERR_MORE_DATA;
-    }
-
-    if (oip->func_is_abort())
-        return MFX_ERR_ABORTED;
-
-    while (pause) {
-        Sleep(LOG_UPDATE_INTERVAL);
-        if (oip->func_is_abort())
-            return MFX_ERR_ABORTED;
-        log_process_events();
     }
 
     mfxFrameInfo* pInfo = &pSurface->Info;
@@ -256,20 +240,23 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     if (!(m_pEncSatusInfo->m_nInputFrames & 7))
         aud_parallel_task(oip, pe);
 
-    auto tm = std::chrono::system_clock::now();
-    //pSurface->Data.TimeStamp = m_pEncSatusInfo->m_nInputFrames * (mfxU64)m_pEncSatusInfo->m_nOutputFPSScale;
-    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
-        m_tmLastUpdate = tm;
-        m_pEncSatusInfo->UpdateDisplay(tm, pe->drop_count);
-        oip->func_rest_time_disp(m_pEncSatusInfo->m_nInputFrames + pe->drop_count, total_frames);
-        oip->func_update_preview();
-    }
-    return MFX_ERR_NONE;    
+    return m_pEncSatusInfo->UpdateDisplay(pe->drop_count);    
 }
 
-AUO_EncodeStatusInfo::AUO_EncodeStatusInfo() { }
+AUO_EncodeStatusInfo::AUO_EncodeStatusInfo() {
+    m_tmLastLogUpdate = std::chrono::system_clock::now();
+    log_process_events();
+}
 
 AUO_EncodeStatusInfo::~AUO_EncodeStatusInfo() {     }
+
+#pragma warning(push)
+#pragma warning(disable: 4100)
+void AUO_EncodeStatusInfo::SetPrivData(void *pPrivateData) {
+    m_auoData.oip = oip;
+    enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
+};
+#pragma warning(pop)
 
 void AUO_EncodeStatusInfo::WriteLine(const TCHAR *mes) {
     const char *HEADER = "qsv [info]: ";
@@ -282,6 +269,32 @@ void AUO_EncodeStatusInfo::WriteLine(const TCHAR *mes) {
         free(buf);
     }
 }
-void AUO_EncodeStatusInfo::UpdateDisplay(const char *mes, int drop_frames) {
-    set_log_title_and_progress(mes, (m_sData.nProcessedFramesNum + drop_frames) / (mfxF64)m_nTotalOutFrames);
+
+#pragma warning(push)
+#pragma warning(disable: 4100)
+void AUO_EncodeStatusInfo::UpdateDisplay(const char *mes, int drop_frames, double progressPercent) {
+    set_log_title_and_progress(mes, progressPercent * 0.01);
+    m_auoData.oip->func_rest_time_disp(m_sData.nProcessedFramesNum, m_auoData.oip->n);
+    m_auoData.oip->func_update_preview();
+}
+#pragma warning(pop)
+
+mfxStatus AUO_EncodeStatusInfo::UpdateDisplay(int drop_frames, double progressPercent) {
+    auto tm = std::chrono::system_clock::now();
+
+    if (m_auoData.oip->func_is_abort())
+        return MFX_ERR_ABORTED;
+
+    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastLogUpdate).count() >= LOG_UPDATE_INTERVAL) {
+        log_process_events();
+
+        while (m_pause) {
+            Sleep(LOG_UPDATE_INTERVAL);
+            if (m_auoData.oip->func_is_abort())
+                return MFX_ERR_ABORTED;
+            log_process_events();
+        }
+        m_tmLastLogUpdate = tm;
+    }
+    return CEncodeStatusInfo::UpdateDisplay(drop_frames, progressPercent);
 }

@@ -284,7 +284,6 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     AddMessage(QSV_LOG_DEBUG, str);
     m_strInputInfo += str;
-    m_tmLastUpdate = std::chrono::system_clock::now();
 
     m_bInited = true;
     return MFX_ERR_NONE;
@@ -362,12 +361,7 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     m_nCopyOfInputFrames = m_pEncSatusInfo->m_nInputFrames;
 
     // display update
-    auto tm = std::chrono::system_clock::now();
-    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
-        m_tmLastUpdate = tm;
-        m_pEncSatusInfo->UpdateDisplay(tm, 0);
-    }
-    return MFX_ERR_NONE;
+    return m_pEncSatusInfo->UpdateDisplay(0);
 }
 
 #endif //ENABLE_VAPOURSYNTH_READER

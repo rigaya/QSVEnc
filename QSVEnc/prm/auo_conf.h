@@ -14,6 +14,7 @@
 #include "auo.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
+#include "auo_link.h"
 
 const int CONF_INITIALIZED = 1;
 
@@ -43,7 +44,7 @@ static const char *const CONF_NAME_OLD_3 = "QSVEnc ConfigFile v3";
 static const char *const CONF_NAME       = CONF_NAME_OLD_3;
 const int CONF_NAME_BLOCK_LEN            = 32;
 const int CONF_BLOCK_MAX                 = 32;
-const int CONF_BLOCK_COUNT               = 5; //最大 CONF_BLOCK_MAXまで
+const int CONF_BLOCK_COUNT               = 6; //最大 CONF_BLOCK_MAXまで
 const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
 
 enum {
@@ -104,6 +105,11 @@ typedef struct {
 } CONF_MUX; //muxer用設定
 
 typedef struct {
+    int  encoder;             //使用する音声エンコーダ
+    int  bitrate;             //ビットレート指定モード
+} CONF_AUDIO_DIRECT;
+
+typedef struct {
     //BOOL disable_guicmd;         //GUIによるコマンドライン生成を停止(CLIモード)
     int  temp_dir;               //一時ディレクトリ
     BOOL out_audio_only;         //音声のみ出力
@@ -119,6 +125,7 @@ typedef struct {
             char after_audio[512];    //音声エンコ後バッチファイルのパス
         } batfile;
     };
+    AUO_LINK_PARAM link_prm;
 } CONF_OTHER;
 
 typedef struct {
@@ -133,6 +140,7 @@ typedef struct {
     CONF_AUDIO  aud;                             //音声についての設定
     CONF_MUX    mux;                             //muxについての設定
     CONF_OTHER  oth;                             //その他の設定
+    CONF_AUDIO_DIRECT aud_avqsv;                 //音声についての設定
 } CONF_GUIEX;
 
 class guiEx_config {

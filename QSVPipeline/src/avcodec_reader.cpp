@@ -710,10 +710,19 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
     //}
 
     for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
-        AddMessage(QSV_LOG_DEBUG, _T("select audio track %s, codec %s, format %s, bitrate %d, filename \"%s\"\n"),
+        tstring audioLog = strsprintf(_T("select audio track %s, codec %s"),
             (input_prm->ppAudioSelect[i]->nAudioSelect) ? strsprintf(_T("#%d"), input_prm->ppAudioSelect[i]->nAudioSelect).c_str() : _T("all"),
-            input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, input_prm->ppAudioSelect[i]->pAudioExtractFormat,
-            input_prm->ppAudioSelect[i]->nAVAudioEncodeBitrate, input_prm->ppAudioSelect[i]->pAudioExtractFilename);
+            input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec);
+        if (input_prm->ppAudioSelect[i]->pAudioExtractFormat) {
+            audioLog += tstring(_T("format ")) + input_prm->ppAudioSelect[i]->pAudioExtractFormat;
+        }
+        if (0 != _tcscmp(input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, AVQSV_CODEC_COPY)) {
+            audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->nAVAudioEncodeBitrate);
+        }
+        if (input_prm->ppAudioSelect[i]->pAudioExtractFilename) {
+            audioLog += tstring(_T("filename \"")) + input_prm->ppAudioSelect[i]->pAudioExtractFilename + tstring(_T("\""));
+        }
+        AddMessage(QSV_LOG_DEBUG, audioLog);
     }
 
     av_register_all();
@@ -1030,8 +1039,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         }
         m_strInputInfo += _T("avcodec audio: ") + mes;
     }
-
-    m_tmLastUpdate = std::chrono::system_clock::now();
     return MFX_ERR_NONE;
 }
 #pragma warning(pop)
@@ -1050,6 +1057,13 @@ int CAvcodecReader::GetAudioTrackCount() {
 
 int64_t CAvcodecReader::GetVideoFirstPts() {
     return m_Demux.video.nStreamFirstPts;
+}
+
+int CAvcodecReader::getVideoTrimMaxFramIdx() {
+    if (m_sTrimParam.list.size() == 0) {
+        return INT_MAX;
+    }
+    return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
 }
 
 int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
@@ -1229,7 +1243,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
     addVideoPtsToList({ videoFinPts, videoFinPts, 0 });
     m_Demux.video.frameData.fixed_num = m_Demux.video.frameData.num - 1;
     m_Demux.video.frameData.duration = m_Demux.format.pFormatCtx->duration;
-    m_pEncSatusInfo->UpdateDisplay(std::chrono::system_clock::now(), 0, 100.0);
+    m_pEncSatusInfo->UpdateDisplay(0, 100.0);
     return 1;
 }
 
@@ -1386,7 +1400,10 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         pkt->data = nullptr;
         pkt->size = 0;
     }
-    if (getSample(pkt)) {
+    if (getSample(pkt)
+        //frameData.fixed_numがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+        //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
+        || getVideoTrimMaxFramIdx() < m_Demux.video.frameData.fixed_num - 128) {
         av_free_packet(pkt);
         pkt->data = nullptr;
         pkt->size = 0;
@@ -1394,16 +1411,11 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     }
     m_Demux.video.nSampleLoadCount++;
     m_pEncSatusInfo->m_nInputFrames++;
-    auto tm = std::chrono::system_clock::now();
-    if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() > UPDATE_INTERVAL) {
-        double progressPercent = 0.0;
-        if (m_Demux.format.pFormatCtx->duration) {
-            progressPercent = m_Demux.video.frameData.duration * (m_Demux.video.pCodecCtx->pkt_timebase.num / (double)m_Demux.video.pCodecCtx->pkt_timebase.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
-        }
-        m_tmLastUpdate = tm;
-        m_pEncSatusInfo->UpdateDisplay(tm, 0, progressPercent);
+    double progressPercent = 0.0;
+    if (m_Demux.format.pFormatCtx->duration) {
+        progressPercent = m_Demux.video.frameData.duration * (m_Demux.video.pCodecCtx->pkt_timebase.num / (double)m_Demux.video.pCodecCtx->pkt_timebase.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
     }
-    return MFX_ERR_NONE;
+    return m_pEncSatusInfo->UpdateDisplay(0, progressPercent);
 }
 #pragma warning(pop)
 

@@ -19,8 +19,8 @@
 #define MSDK_SAMPLE_VERSION MSDK_STRING(MFX_PRODUCT_VERSION)
 
 #define VER_FILEVERSION             0,2,23,0
-#define VER_STR_FILEVERSION          "2.23"
-#define VER_STR_FILEVERSION_TCHAR _T("2.23")
+#define VER_STR_FILEVERSION          "2.23 AuoLink版"
+#define VER_STR_FILEVERSION_TCHAR _T("2.23 AuoLink版")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -51,17 +51,19 @@ const char *get_qsvenc_version();
 #define ENABLE_AVCODEC_OUT_THREAD 1
 
 #ifndef QSVENC_AUO
+#define ENABLE_AUO_LINK           0
 #define ENABLE_AVI_READER         1
 #define ENABLE_AVISYNTH_READER    1
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVCODEC_QSV_READER 1
 #define ENABLE_CUSTOM_VPP         1
 #else
+#define ENABLE_AUO_LINK           1
 #define ENABLE_AVI_READER         0
 #define ENABLE_AVISYNTH_READER    0
 #define ENABLE_VAPOURSYNTH_READER 0
-#define ENABLE_AVCODEC_QSV_READER 0
-#define ENABLE_CUSTOM_VPP         0
+#define ENABLE_AVCODEC_QSV_READER 1
+#define ENABLE_CUSTOM_VPP         1
 #endif
 
 #else //_MSC_VER

@@ -38,6 +38,38 @@
 DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_ENC *_pe, int *jitter);
 void clear_auo_yuvreader_g_data();
 
+static int getLwiRealPath(char *path, size_t size) {
+    int ret = 1;
+    FILE *fp = fopen(path, "rb");
+    if (fp) {
+        char buffer[2048] = { 0 };
+        while (nullptr != fgets(buffer, _countof(buffer), fp)) {
+            static const char *TARGET = "InputFilePath";
+            auto ptr = strstr(buffer, TARGET);
+            auto qtr = strrstr(buffer, TARGET);
+            if (ptr != nullptr && qtr != nullptr) {
+                ptr = strchr(ptr + strlen(TARGET), '>');
+                while (*qtr != '<') {
+                    qtr--;
+                    if (ptr >= qtr) {
+                        qtr = nullptr;
+                        break;
+                    }
+                }
+                if (ptr != nullptr && qtr != nullptr) {
+                    ptr++;
+                    *qtr = '\0';
+                    strcpy_s(path, size, trim(ptr).c_str());
+                    ret = 0;
+                    break;
+                }
+            }
+        }
+        fclose(fp);
+    }
+    return ret;
+}
+
 DWORD tcfile_out(int *jitter, int frame_n, double fps, BOOL afs, const PRM_ENC *pe) {
     DWORD ret = AUO_RESULT_SUCCESS;
     char auotcfile[MAX_PATH_LEN];
@@ -156,7 +188,7 @@ static AUO_RESULT exit_audio_parallel_control(const OUTPUT_INFO *oip, PRM_ENC *p
     return vid_ret;
 }
 
-void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const PRM_ENC *pe, BOOL force_bluray, BOOL timer_period_tuning, int log_level) {
+static void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const PRM_ENC *pe, BOOL force_bluray, BOOL timer_period_tuning, int log_level) {
     prm->nHeight = (mfxU16)oip->h;
     prm->nWidth = (mfxU16)oip->w;
     prm->nFPSRate = oip->rate;
@@ -176,10 +208,80 @@ void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const PRM_ENC 
     prm->nInputBufSize = clamp(prm->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX);
     
     prm->nBluray += (prm->nBluray == 1 && force_bluray);
+    prm->nInputFmt = INPUT_FMT_AUO;
 
     prm->bDisableTimerPeriodTuning = !timer_period_tuning;
     prm->nLogLevel = (mfxI16)log_level;
     prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
+}
+
+struct AVQSV_PARM {
+    int nSubtitleCopyAll;
+    sAudioSelect audioSelect;
+    char audioCodec[128];
+    std::vector<sAudioSelect *> audioSelectList;
+};
+
+void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
+    avqsv_prm->nSubtitleCopyAll = 0;
+    memset(&avqsv_prm->audioSelect, 0, sizeof(avqsv_prm->audioSelect));
+    memset(&avqsv_prm->audioCodec,  0, sizeof(avqsv_prm->audioCodec));
+    avqsv_prm->audioSelectList.clear();
+}
+
+static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL force_bluray, BOOL timer_period_tuning, int log_level, AVQSV_PARM *avqsv_prm) {
+    init_avqsv_prm(avqsv_prm);
+
+    avqsv_prm->audioSelectList.push_back(&avqsv_prm->audioSelect);
+    switch (conf->aud_avqsv.encoder) {
+    case QSV_AUD_ENC_NONE:
+        break;
+    case QSV_AUD_ENC_COPY:
+        conf->qsv.nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+        avqsv_prm->audioSelect.nAudioSelect = 1;
+        avqsv_prm->audioSelect.pAVAudioEncodeCodec = avqsv_prm->audioCodec;
+        strcpy_s(avqsv_prm->audioCodec, AVQSV_CODEC_COPY);
+        conf->qsv.ppAudioSelectList = avqsv_prm->audioSelectList.data();
+        conf->qsv.nAudioSelectCount = 1;
+        break;
+    default:
+        conf->qsv.nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+        avqsv_prm->audioSelect.nAudioSelect = 1;
+        avqsv_prm->audioSelect.pAVAudioEncodeCodec = avqsv_prm->audioCodec;
+        strcpy_s(avqsv_prm->audioCodec, list_avqsv_aud_encoder[get_cx_index(list_avqsv_aud_encoder, conf->aud_avqsv.encoder)].desc);
+        avqsv_prm->audioSelect.nAVAudioEncodeBitrate = conf->aud_avqsv.bitrate;
+        conf->qsv.ppAudioSelectList = avqsv_prm->audioSelectList.data();
+        conf->qsv.nAudioSelectCount = 1;
+        break;
+    }
+    conf->qsv.nTrimCount = (uint16_t)conf->oth.link_prm.trim_count;
+    conf->qsv.pTrimList = (conf->qsv.nTrimCount) ? (sTrim *)conf->oth.link_prm.trim : nullptr;
+
+    if (conf->qsv.nSubtitleSelectCount) {
+        conf->qsv.nSubtitleSelectCount = 1;
+        conf->qsv.pSubtitleSelect = &avqsv_prm->nSubtitleCopyAll;
+    }
+    strcpy_s(conf->qsv.strDstFile, pe->temp_filename);
+
+    if (!conf->qsv.vpp.bEnable) {
+        //vppを無効化する
+        ZeroMemory(&conf->qsv.vpp, sizeof(conf->qsv.vpp));
+    }
+    if (!conf->qsv.vpp.bUseResize) {
+        conf->qsv.nDstWidth = 0;
+        conf->qsv.nDstHeight = 0;
+    }
+    if ((conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) == FALSE) {
+        conf->qsv.vpp.nDeinterlace = MFX_DEINTERLACE_NONE;
+    }
+    conf->qsv.nInputBufSize = clamp(conf->qsv.nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX);
+    conf->qsv.bDisableTimerPeriodTuning = !timer_period_tuning;
+
+    conf->qsv.nBluray += (conf->qsv.nBluray == 1 && force_bluray);
+    conf->qsv.nLogLevel = (mfxI16)log_level;
+    if (check_ext(conf->qsv.strSrcFile, { ".lwi" })) {
+        getLwiRealPath(conf->qsv.strSrcFile, sizeof(conf->qsv.strSrcFile));
+    }
 }
 
 static DWORD_PTR setThreadAffinityMaskforQSVEnc(DWORD_PTR *mainThreadAffinityMask, DWORD_PTR *subThreadAffinityMask) {
@@ -226,12 +328,20 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     if (pe->video_out_type == VIDEO_OUTPUT_DISABLED)
         return AUO_RESULT_SUCCESS;
 
+#if ENABLE_AUO_LINK
+    AVQSV_PARM avqsv_prm;
+    if (conf->oth.link_prm.active) {
+        set_conf_qsvp_avqsv_prm(conf, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level, &avqsv_prm);
+    } else
+#endif //#if ENABLE_AUO_LINK
+    {
 #if ENABLE_AVCODEC_QSV_READER
-    if (!check_avcodec_dll() || !conf->vid.afs)
+        if (!check_avcodec_dll() || !conf->vid.afs) {
+
+        }
 #endif //ENABLE_AVCODEC_QSV_READER
-
-    set_conf_qsvp_prm(&conf->qsv, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
-
+        set_conf_qsvp_prm(&conf->qsv, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
+    }
     std::auto_ptr<CEncodingPipeline> pPipeline;
 
     mfxStatus sts = MFX_ERR_NONE;
@@ -270,6 +380,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         DWORD tm_qsv = timeGetTime();
         const char * const encode_name = (conf->qsv.bUseHWLib) ? "QuickSyncVideoエンコード" : "IntelMediaSDKエンコード";
         set_window_title(encode_name, PROGRESSBAR_CONTINUOUS);
+        log_process_events();
 
         DWORD_PTR subThreadAffinityMask = 0x00;
         DWORD_PTR oldThreadAffinity = 0x00;

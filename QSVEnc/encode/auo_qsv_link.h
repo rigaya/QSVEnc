@@ -12,6 +12,7 @@
 
 #include "sample_utils.h"
 #include "auo_version.h"
+#include "output.h"
 
 class AUO_YUVReader : public CSmplYUVReader
 {
@@ -26,7 +27,10 @@ public :
 
 private:
     mfxU32 current_frame;
-    BOOL pause;
+};
+
+typedef struct AuoStatusData {
+    const OUTPUT_INFO *oip;
 };
 
 class AUO_EncodeStatusInfo : public CEncodeStatusInfo
@@ -34,9 +38,14 @@ class AUO_EncodeStatusInfo : public CEncodeStatusInfo
 public :
     AUO_EncodeStatusInfo();
     virtual ~AUO_EncodeStatusInfo();
+    virtual void SetPrivData(void *pPrivateData);
 private:
-    virtual void UpdateDisplay(const char *mes, int drop_frames) override;
+    virtual void UpdateDisplay(const char *mes, int drop_frames, double progressPercent) override;
+    virtual mfxStatus UpdateDisplay(int drop_frames, double progressPercent = 0.0) override;
     virtual void WriteLine(const TCHAR *mes) override;
+
+    AuoStatusData m_auoData;
+    std::chrono::system_clock::time_point m_tmLastLogUpdate;
 };
 
 #endif //_AUO_YUVREADER_H_
