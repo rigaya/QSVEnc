@@ -95,7 +95,11 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
 #if defined(_WIN32) || defined(_WIN64)
     HRSRC hResource = NULL;
     HGLOBAL hResourceData = NULL;
+#if QSVENC_AUO
+    HMODULE hModule = GetModuleHandleA(QSV_AUO_NAME);
+#else
     HMODULE hModule = GetModuleHandleA(NULL);
+#endif
     if (   NULL == hModule
         || NULL == (hResource = FindResource(hModule, _T("PERF_MONITOR_PYW"), _T("PERF_MONITOR_SRC")))
         || NULL == (hResourceData = LoadResource(hModule, hResource))
@@ -203,7 +207,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         TCHAR tempPath[1024] = { 0 };
         GetModuleFileName(NULL, tempDir, _countof(tempDir));
         PathRemoveFileSpec(tempDir);
-        PathCombine(tempPath, tempDir, strsprintf(_T("qsvencc_perf_monitor.pyw"), GetProcessId(GetCurrentProcess())).c_str());
+        PathCombine(tempPath, tempDir, strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), GetProcessId(GetCurrentProcess())).c_str());
         m_sPywPath = tempPath;
         uint32_t priority = NORMAL_PRIORITY_CLASS;
 #else

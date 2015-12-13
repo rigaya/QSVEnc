@@ -118,6 +118,8 @@ namespace QSVEnc {
     private: System::Windows::Forms::CheckBox^  fosCBWineCompat;
     private: System::Windows::Forms::ComboBox^  fosCXLogLevel;
     private: System::Windows::Forms::Label^  fosLBLogOut;
+    private: System::Windows::Forms::CheckBox^  fosCBPerfMonitorPlot;
+    private: System::Windows::Forms::CheckBox^  fosCBPerfMonitor;
 
 
 
@@ -177,6 +179,8 @@ namespace QSVEnc {
             this->fosBTStgDir = (gcnew System::Windows::Forms::Button());
             this->fosLBStgDir = (gcnew System::Windows::Forms::Label());
             this->fosTXStgDir = (gcnew System::Windows::Forms::TextBox());
+            this->fosCBPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
+            this->fosCBPerfMonitorPlot = (gcnew System::Windows::Forms::CheckBox());
             this->fosTabControl->SuspendLayout();
             this->fostabPageGeneral->SuspendLayout();
             this->fostabPageGUI->SuspendLayout();
@@ -186,7 +190,7 @@ namespace QSVEnc {
             // 
             this->fosCBCancel->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
             this->fosCBCancel->DialogResult = System::Windows::Forms::DialogResult::Cancel;
-            this->fosCBCancel->Location = System::Drawing::Point(171, 401);
+            this->fosCBCancel->Location = System::Drawing::Point(171, 420);
             this->fosCBCancel->Name = L"fosCBCancel";
             this->fosCBCancel->Size = System::Drawing::Size(84, 29);
             this->fosCBCancel->TabIndex = 1;
@@ -197,7 +201,7 @@ namespace QSVEnc {
             // fosCBOK
             // 
             this->fosCBOK->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Bottom | System::Windows::Forms::AnchorStyles::Right));
-            this->fosCBOK->Location = System::Drawing::Point(283, 401);
+            this->fosCBOK->Location = System::Drawing::Point(283, 420);
             this->fosCBOK->Name = L"fosCBOK";
             this->fosCBOK->Size = System::Drawing::Size(84, 29);
             this->fosCBOK->TabIndex = 2;
@@ -222,11 +226,13 @@ namespace QSVEnc {
             this->fosTabControl->Location = System::Drawing::Point(1, 0);
             this->fosTabControl->Name = L"fosTabControl";
             this->fosTabControl->SelectedIndex = 0;
-            this->fosTabControl->Size = System::Drawing::Size(391, 395);
+            this->fosTabControl->Size = System::Drawing::Size(391, 414);
             this->fosTabControl->TabIndex = 26;
             // 
             // fostabPageGeneral
             // 
+            this->fostabPageGeneral->Controls->Add(this->fosCBPerfMonitorPlot);
+            this->fostabPageGeneral->Controls->Add(this->fosCBPerfMonitor);
             this->fostabPageGeneral->Controls->Add(this->fosCXDefaultAudioEncoder);
             this->fostabPageGeneral->Controls->Add(this->fosLBDefaultAudioEncoder);
             this->fostabPageGeneral->Controls->Add(this->fosCBThreadTuning);
@@ -241,7 +247,7 @@ namespace QSVEnc {
             this->fostabPageGeneral->Location = System::Drawing::Point(4, 24);
             this->fostabPageGeneral->Name = L"fostabPageGeneral";
             this->fostabPageGeneral->Padding = System::Windows::Forms::Padding(3);
-            this->fostabPageGeneral->Size = System::Drawing::Size(383, 367);
+            this->fostabPageGeneral->Size = System::Drawing::Size(383, 386);
             this->fostabPageGeneral->TabIndex = 0;
             this->fostabPageGeneral->Text = L"エンコード設定";
             this->fostabPageGeneral->UseVisualStyleBackColor = true;
@@ -268,7 +274,7 @@ namespace QSVEnc {
             // 
             this->fosCBThreadTuning->AutoSize = true;
             this->fosCBThreadTuning->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
-            this->fosCBThreadTuning->Location = System::Drawing::Point(18, 313);
+            this->fosCBThreadTuning->Location = System::Drawing::Point(18, 361);
             this->fosCBThreadTuning->Name = L"fosCBThreadTuning";
             this->fosCBThreadTuning->Size = System::Drawing::Size(113, 19);
             this->fosCBThreadTuning->TabIndex = 31;
@@ -515,13 +521,33 @@ namespace QSVEnc {
             this->fosTXStgDir->Size = System::Drawing::Size(294, 23);
             this->fosTXStgDir->TabIndex = 6;
             // 
+            // fosCBPerfMonitor
+            // 
+            this->fosCBPerfMonitor->AutoSize = true;
+            this->fosCBPerfMonitor->Location = System::Drawing::Point(18, 314);
+            this->fosCBPerfMonitor->Name = L"fosCBPerfMonitor";
+            this->fosCBPerfMonitor->Size = System::Drawing::Size(169, 19);
+            this->fosCBPerfMonitor->TabIndex = 34;
+            this->fosCBPerfMonitor->Text = L"パフォーマンスモニタリングを行う";
+            this->fosCBPerfMonitor->UseVisualStyleBackColor = true;
+            // 
+            // fosCBPerfMonitorPlot
+            // 
+            this->fosCBPerfMonitorPlot->AutoSize = true;
+            this->fosCBPerfMonitorPlot->Location = System::Drawing::Point(41, 336);
+            this->fosCBPerfMonitorPlot->Name = L"fosCBPerfMonitorPlot";
+            this->fosCBPerfMonitorPlot->Size = System::Drawing::Size(257, 19);
+            this->fosCBPerfMonitorPlot->TabIndex = 35;
+            this->fosCBPerfMonitorPlot->Text = L"リアルタイム表示 (要 python3 + matplotlib)";
+            this->fosCBPerfMonitorPlot->UseVisualStyleBackColor = true;
+            // 
             // frmOtherSettings
             // 
             this->AcceptButton = this->fosCBOK;
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
             this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Dpi;
             this->CancelButton = this->fosCBCancel;
-            this->ClientSize = System::Drawing::Size(392, 439);
+            this->ClientSize = System::Drawing::Size(392, 458);
             this->Controls->Add(this->fosTabControl);
             this->Controls->Add(this->fosCBOK);
             this->Controls->Add(this->fosCBCancel);
@@ -568,6 +594,8 @@ namespace QSVEnc {
             fos_ex_stg->s_local.get_relative_path         = fosCBGetRelativePath->Checked;
             fos_ex_stg->s_local.default_output_ext        = fosCXDefaultOutExt->SelectedIndex;
             fos_ex_stg->s_local.default_audio_encoder     = fosCXDefaultAudioEncoder->SelectedIndex;
+            fos_ex_stg->s_local.perf_monitor              = fosCBPerfMonitor->Checked;
+            fos_ex_stg->s_local.perf_monitor_plot         = fosCBPerfMonitorPlot->Checked;
             fos_ex_stg->save_local();
             fos_ex_stg->save_log_win();
             this->Close();
@@ -615,6 +643,8 @@ namespace QSVEnc {
             fosCBGetRelativePath->Checked           = fos_ex_stg->s_local.get_relative_path != 0;
             fosCXDefaultOutExt->SelectedIndex       = fos_ex_stg->s_local.default_output_ext;
             fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder, 0, fosCXDefaultAudioEncoder->Items->Count);
+            fosCBPerfMonitor->Checked               = fos_ex_stg->s_local.perf_monitor != 0;
+            fosCBPerfMonitorPlot->Checked           = fos_ex_stg->s_local.perf_monitor_plot != 0;
             if (str_has_char(fos_ex_stg->s_local.conf_font.name))
                 SetFontFamilyToForm(this, gcnew FontFamily(String(fos_ex_stg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
         }

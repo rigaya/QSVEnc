@@ -342,6 +342,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 #endif //ENABLE_AVCODEC_QSV_READER
         set_conf_qsvp_prm(&conf->qsv, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
     }
+    conf->qsv.nPerfMonitorSelect        = (sys_dat->exstg->s_local.perf_monitor) ? PERF_MONITOR_ALL : 0;
+    conf->qsv.nPerfMonitorSelectMatplot = (sys_dat->exstg->s_local.perf_monitor_plot) ?
+        PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
+        | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
+        | PERF_MONITOR_FPS
+        : 0;
     std::auto_ptr<CEncodingPipeline> pPipeline;
 
     mfxStatus sts = MFX_ERR_NONE;

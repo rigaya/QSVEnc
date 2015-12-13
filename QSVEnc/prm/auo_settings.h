@@ -32,6 +32,8 @@ static const BOOL   DEFAULT_THREAD_TUNING         = 0;
 static const BOOL   DEFAULT_TIMER_PERIOD_TUNING   = 1;
 static const BOOL   DEFAULT_RUN_BAT_MINIMIZED     = 0;
 static const BOOL   DEFAULT_FORCE_BLURAY          = 0;
+static const BOOL   DEFAULT_PERF_MONITOR          = 0;
+static const BOOL   DEFAULT_PERF_MONITOR_PLOT     = 0;
 
 static const int    DEFAULT_LOG_LEVEL            = 0;
 static const BOOL   DEFAULT_LOG_WINE_COMPAT      = 0;
@@ -248,6 +250,8 @@ typedef struct {
     BOOL   timer_period_tuning;                 //timeBeginPeriodにより、エンコ中タイマ分解能を向上させる
     BOOL   run_bat_minimized;                   //エンコ前後バッチ処理を最小化で実行
     BOOL   force_bluray;                        //VBR,CBR以外でもBluray用出力を許可する
+    BOOL   perf_monitor;                        //パフォーマンスモニタリングを有効にする
+    BOOL   perf_monitor_plot;                   //パフォーマンスモニタリングをリアルタイム表示する
     char   custom_tmp_dir[MAX_PATH_LEN];        //一時フォルダ
     char   custom_audio_tmp_dir[MAX_PATH_LEN];  //音声用一時フォルダ
     char   custom_mp4box_tmp_dir[MAX_PATH_LEN]; //mp4box用一時フォルダ

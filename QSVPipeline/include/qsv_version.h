@@ -58,6 +58,7 @@ const char *get_qsvenc_version();
 #define ENABLE_AVCODEC_QSV_READER 1
 #define ENABLE_CUSTOM_VPP         1
 #else
+#define QSV_AUO_NAME              "QSVEnc.auo"
 #define ENABLE_AUO_LINK           1
 #define ENABLE_AVI_READER         0
 #define ENABLE_AVISYNTH_READER    0

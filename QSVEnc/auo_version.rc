@@ -11,6 +11,7 @@
 #include "auo_version.h"
 
 
+PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 //
 // Version Information
 //
