@@ -716,7 +716,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         if (input_prm->ppAudioSelect[i]->pAudioExtractFormat) {
             audioLog += tstring(_T("format ")) + input_prm->ppAudioSelect[i]->pAudioExtractFormat;
         }
-        if (0 != _tcscmp(input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, AVQSV_CODEC_COPY)) {
+        if (input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec != nullptr
+            && 0 != _tcscmp(input_prm->ppAudioSelect[i]->pAVAudioEncodeCodec, AVQSV_CODEC_COPY)) {
             audioLog += strsprintf(_T("bitrate %d"), input_prm->ppAudioSelect[i]->nAVAudioEncodeBitrate);
         }
         if (input_prm->ppAudioSelect[i]->pAudioExtractFilename) {
