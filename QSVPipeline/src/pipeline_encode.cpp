@@ -3789,6 +3789,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     // means that the input file has ended, need to go to buffering loops
     MSDK_IGNORE_MFX_STS(sts, MFX_ERR_MORE_DATA);
     // exit in case of other errors
+    m_EncThread.m_stsThread = sts;
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error in encoding pipeline."));
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished main loop.\n"));
 
@@ -3857,6 +3858,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         // indicates that there are no more buffered frames
         MSDK_IGNORE_MFX_STS(sts, MFX_ERR_MORE_DATA);
         // exit in case of other errors
+        m_EncThread.m_stsThread = sts;
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error in getting buffered frames from decoder."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
     }
@@ -3927,6 +3929,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         // indicates that there are no more buffered frames
         MSDK_IGNORE_MFX_STS(sts, MFX_ERR_MORE_DATA);
         // exit in case of other errors
+        m_EncThread.m_stsThread = sts;
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error in getting buffered frames from vpp."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from vpp.\n"));
     }
@@ -3946,6 +3949,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     // indicates that there are no more buffered frames
     MSDK_IGNORE_MFX_STS(sts, MFX_ERR_MORE_DATA);
     // exit in case of other errors
+    m_EncThread.m_stsThread = sts;
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error in getting buffered frames from encoder."));
 
     // synchronize all tasks that are left in task pool
@@ -3958,6 +3962,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     // EncodeFrameAsync and SyncOperation don't return this status
     MSDK_IGNORE_MFX_STS(sts, MFX_ERR_NOT_FOUND);
     // report any errors that occurred in asynchronous part
+    m_EncThread.m_stsThread = sts;
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Error in encoding pipeline, synchronizing pipeline."));
     
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished.\n"));
