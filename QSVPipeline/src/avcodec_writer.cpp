@@ -1364,7 +1364,9 @@ void CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudi
     pMuxAudio->pAACBsfc = av_bitstream_filter_init("aac_adtstoasc");
     if (0 > av_bitstream_filter_filter(pMuxAudio->pAACBsfc, pMuxAudio->pCodecCtxIn,
         nullptr, &data, &dataSize, pkt->data, pkt->size, 0)) {
-        m_Mux.format.bStreamError = (pMuxAudio->nPacketWritten > 1);
+        //最初のフレームとかでなければ、エラーを許容し、単に処理しないようにする
+        //多くの場合、ここでのエラーはtsなどの最終音声フレームが不完全なことで発生する
+        m_Mux.format.bStreamError = (pMuxAudio->nPacketWritten < 1);
         pkt->duration = 0; //書き込み処理が行われないように
     } else {
         if (pkt->buf->size < dataSize) {
@@ -1699,6 +1701,11 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWritt
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
     if (pMuxAudio->pAACBsfc) {
         applyBitstreamFilterAAC(pkt, pMuxAudio);
+        //pkt->durationの場合はなにもせず終了する
+        if (pkt->duration == 0) {
+            av_free_packet(pkt);
+            return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+        }
     }
     if (!pMuxAudio->pOutCodecDecodeCtx) {
         samples = (int)av_rescale_q(pkt->duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
