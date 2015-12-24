@@ -1007,6 +1007,11 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             AddMessage(QSV_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_sTrimParam.offset);
         }
 
+        //あらかじめfpsが指定されていればそれを採用する
+        if (input_prm->nVideoAvgFramerate.first * input_prm->nVideoAvgFramerate.second > 0) {
+            m_Demux.video.nAvgFramerate.num = input_prm->nVideoAvgFramerate.first;
+            m_Demux.video.nAvgFramerate.den = input_prm->nVideoAvgFramerate.second;
+        }
         //getFirstFramePosAndFrameRateをもとにfpsを決定
         m_sDecParam.mfx.FrameInfo.FrameRateExtN = m_Demux.video.nAvgFramerate.num;
         m_sDecParam.mfx.FrameInfo.FrameRateExtD = m_Demux.video.nAvgFramerate.den;

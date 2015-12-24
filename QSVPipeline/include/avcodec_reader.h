@@ -102,7 +102,7 @@ typedef struct AvcodecReaderPrm {
     uint32_t       nReadAudio;              //音声の読み込みを行うかどうか (AVQSV_AUDIO_xxx)
     bool           bReadSubtitle;           //字幕の読み込みを行うかどうか
     bool           bReadChapter;            //チャプターの読み込みを行うかどうか
-    pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート (映像のみ読み込ませるときに使用する)
+    pair<int,int>  nVideoAvgFramerate;      //動画のフレームレート
     uint16_t       nAnalyzeSec;             //入力ファイルを分析する秒数
     uint16_t       nTrimCount;              //Trimする動画フレームの領域の数
     sTrim         *pTrimList;               //Trimする動画フレームの領域のリスト
