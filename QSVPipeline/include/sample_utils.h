@@ -171,6 +171,10 @@ public:
     //virtual mfxStatus Init(const msdk_char *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<msdk_char*> srcFileBuff);
     virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface);
 
+    void SetTrimParam(const sTrimParam& trim) {
+        m_sTrimParam = trim;
+    }
+
     const sTrimParam *GetTrimParam() {
         return &m_sTrimParam;
     }
@@ -232,6 +236,14 @@ public:
     void SetMultiView() { m_bIsMultiView = true; }
 #endif
 protected:
+    //trim listを参照し、動画の最大フレームインデックスを取得する
+    int getVideoTrimMaxFramIdx() {
+        if (m_sTrimParam.list.size() == 0) {
+            return INT_MAX;
+        }
+        return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
+    }
+
     FILE *m_fSource;
 #if ENABLE_MVC_ENCODING
     FILE **m_fSourceMVC;

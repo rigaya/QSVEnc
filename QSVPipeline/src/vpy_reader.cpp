@@ -331,8 +331,12 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 
     uint32_t nTotalFrame = 0;
     memcpy(&nTotalFrame, &m_inputFrameInfo.FrameId, sizeof(nTotalFrame));
-    if (m_pEncSatusInfo->m_nInputFrames >= nTotalFrame)
+    if (m_pEncSatusInfo->m_nInputFrames >= nTotalFrame
+        //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+        //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
+        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
         return MFX_ERR_MORE_DATA;
+    }
 
     if (pInfo->CropH > 0 && pInfo->CropW > 0) {
         w = pInfo->CropW;

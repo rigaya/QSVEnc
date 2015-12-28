@@ -185,8 +185,12 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxU16 CropRight = m_sInputCrop.right;
     mfxU16 CropBottom = m_sInputCrop.bottom;
 
-    if (m_pEncSatusInfo->m_nInputFrames >= *(DWORD*)&m_inputFrameInfo.FrameId)
+    if (m_pEncSatusInfo->m_nInputFrames >= *(DWORD*)&m_inputFrameInfo.FrameId
+        //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
+        //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
+        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
         return MFX_ERR_MORE_DATA;
+    }
 
     if (pInfo->CropH > 0 && pInfo->CropW > 0) {
         w = pInfo->CropW;

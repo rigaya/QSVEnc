@@ -2121,6 +2121,11 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
                     if (pAVCodecAudioReader) {
                         vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
                     }
+                    //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
+                    if (pAVCodecReader == nullptr) {
+                        writerPrm.nVideoInputFirstPts = pAVCodecAudioReader->GetVideoFirstPts();
+                        writerPrm.pVideoInputCodecCtx = pAVCodecAudioReader->GetInputVideoCodecCtx();
+                    }
                 }
             }
 
@@ -2425,10 +2430,6 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
 
 #if ENABLE_AVCODEC_QSV_READER
     if (pParams->nAudioSourceCount && pParams->ppAudioSourceList) {
-        if (pParams->nTrimCount > 0) {
-            PrintMes(QSV_LOG_ERROR, _T("Input: audio source not supported with trim option.\n"));
-            return MFX_ERR_UNSUPPORTED;
-        }
         mfxFrameInfo videoInfo = { 0 };
         m_pFileReader->GetInputFrameInfo(&videoInfo);
 
@@ -2438,6 +2439,8 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
             avcodecReaderPrm.bReadVideo = false;
             avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
             avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
+            avcodecReaderPrm.pTrimList = pParams->pTrimList;
+            avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
             avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(videoInfo.FrameRateExtN, videoInfo.FrameRateExtD);
             avcodecReaderPrm.nAudioTrackStart = sourceAudioTrackIdStart;
             avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
@@ -2458,19 +2461,23 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
     }
 #endif
 
-    if (m_pFileReader->getInputCodec()) {
-        auto trimParam = m_pFileReader->GetTrimParam();
-        m_pTrimParam = (trimParam->list.size()) ? trimParam : NULL;
-        PrintMes(QSV_LOG_DEBUG, _T("Input: trim options set to reader\n"));
-        for (int i = 0; i < (int)trimParam->list.size(); i++) {
-            PrintMes(QSV_LOG_DEBUG, _T("%d-%d "), trimParam->list[i].start, trimParam->list[i].fin);
-        }
-        PrintMes(QSV_LOG_DEBUG, _T(" (offset: %d)\n"), trimParam->offset);
-    } else if (pParams->pTrimList) {
-        PrintMes(QSV_LOG_ERROR, _T("Input: Trim is only supported with transcoding (avqsv reader).\n"));
-        return MFX_ERR_UNSUPPORTED;
+    if (!m_pFileReader->getInputCodec()
+        && pParams->pTrimList && pParams->nTrimCount > 0) {
+        //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
+        sTrimParam trimParam;
+        trimParam.list = make_vector(pParams->pTrimList, pParams->nTrimCount);
+        trimParam.offset = 0;
+        m_pFileReader->SetTrimParam(trimParam);
     }
-
+    auto trimParam = m_pFileReader->GetTrimParam();
+    m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
+    if (m_pTrimParam) {
+        PrintMes(QSV_LOG_DEBUG, _T("Input: trim options\n"));
+        for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
+            PrintMes(QSV_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
+        }
+        PrintMes(QSV_LOG_DEBUG, _T(" (offset: %d)\n"), m_pTrimParam->offset);
+    }
     return sts;
 }
 
@@ -3351,7 +3358,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     bool bVppMultipleOutput = false;  // this flag is true if VPP produces more frames at output
                                       // than consumes at input. E.g. framerate conversion 30 fps -> 60 fps
 
-    int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)
+    int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)  Trimの反映に使用する
 
     mfxU16 nLastFrameFlag = 0;
     int nLastAQ = 0;
@@ -3524,6 +3531,10 @@ mfxStatus CEncodingPipeline::RunEncode()
             //次のステップのフレームをデコードの出力に設定
             pNextFrame = pSurfDecOut;
             nInputFrameCount += (pSurfDecOut != NULL);
+        } else {
+            //デコードがオンでなくても、フレームは入力してるはずなので加算する
+            //Trimの反映に使用する
+            nInputFrameCount++;
         }
         return dec_sts;
     };

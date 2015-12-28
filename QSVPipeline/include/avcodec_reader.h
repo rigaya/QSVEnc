@@ -60,7 +60,11 @@ typedef struct AVDemuxFormat {
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
-    AVCodecContext           *pCodecCtx;             //動画のcodecContext
+                                                     //動画は音声のみ抽出する場合でも同期のため参照することがあり、
+                                                     //pCodecCtxのチェックだけでは読み込むかどうか判定できないので、
+                                                     //実際に使用するかどうかはこのフラグをチェックする
+    bool                      bReadVideo;
+    AVCodecContext           *pCodecCtx;             //動画のcodecContext, 動画を読み込むかどうかの判定には使用しないこと (bReadVideoを使用)
     int                       nIndex;                //動画のストリームID
     int64_t                   nStreamFirstPts;       //動画ファイルの最初のpts
     uint32_t                  nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
@@ -178,9 +182,6 @@ private:
 
     //動画のptsをリストに加える
     void addVideoPtsToList(FramePos pos);
-
-    //trim listを参照し、動画の最大フレームインデックスを取得する
-    int getVideoTrimMaxFramIdx();
 
     //対象ストリームのパケットを取得
     int getSample(AVPacket *pkt);

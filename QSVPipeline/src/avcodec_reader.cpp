@@ -687,6 +687,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
     MSDK_CHECK_POINTER(option, MFX_ERR_NULL_PTR);
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
 
+    m_Demux.video.bReadVideo = input_prm->bReadVideo;
     if (input_prm->bReadVideo) {
         MSDK_CHECK_POINTER(pEncThread, MFX_ERR_NULL_PTR);
         m_pEncThread = pEncThread;
@@ -857,16 +858,21 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
     }
 
     //動画ストリームを探す
-    if (input_prm->bReadVideo) {
-        auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
-        if (videoStreams.size() == 0) {
-            AddMessage(QSV_LOG_ERROR, _T("unable to find video stream.\n"));
-            return MFX_ERR_NULL_PTR; // Didn't find a video stream
-        }
+    //動画ストリームは動画を処理しなかったとしても同期のため必要
+    auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
+    if (videoStreams.size()) {
         m_Demux.video.nIndex = videoStreams[0];
         AddMessage(QSV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
 
         m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
+    }
+
+    //動画処理の初期化を行う
+    if (input_prm->bReadVideo) {
+        if (m_Demux.video.pCodecCtx == nullptr) {
+            AddMessage(QSV_LOG_ERROR, _T("unable to find video stream.\n"));
+            return MFX_ERR_NULL_PTR;
+        }
 
         //QSVでデコード可能かチェック
         if (0 == (m_nInputCodec = getQSVFourcc(m_Demux.video.pCodecCtx->codec_id))) {
@@ -1033,7 +1039,32 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             m_inputFrameInfo.AspectRatioW, m_inputFrameInfo.AspectRatioH, m_inputFrameInfo.BitDepthLuma, m_inputFrameInfo.Shift);
         m_strInputInfo += mes;
     } else {
+        //音声との同期とかに使うので、動画の情報を格納する
         m_Demux.video.nAvgFramerate = av_make_q(input_prm->nVideoAvgFramerate.first, input_prm->nVideoAvgFramerate.second);
+
+        if (input_prm->nTrimCount) {
+            m_sTrimParam.list = vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
+        }
+    
+        if (m_Demux.video.pCodecCtx) {
+            //動画の最初のフレームを取得しておく
+            AVPacket pkt;
+            av_init_packet(&pkt);
+            if (!getSample(&pkt)) {
+                addVideoPtsToList({ pkt.pts, pkt.pts, (int)pkt.duration, pkt.flags });
+                //動画の最初のptsを格納する
+                //動画を処理するときと異なり、先頭のキーフレームである必要はない
+                m_Demux.video.nStreamFirstPts = pkt.pts;
+                //キーフレームを取得したことにしてしまう
+                m_Demux.video.bGotFirstKeyframe = true;
+
+                //音声フレームの処理 (PreReadBufferに置いておく)
+                auto& streamBuffer = m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_Demux.video.packet)];
+                m_PreReadBuffer.insert(m_PreReadBuffer.begin(), streamBuffer.begin(), streamBuffer.end());
+                streamBuffer.clear();
+                m_Demux.format.nPreReadBufferIdx = 0; //PreReadBufferからの読み込み優先にする
+            }
+        }
 
         tstring mes;
         for (const auto& stream : m_Demux.stream) {
@@ -1065,17 +1096,11 @@ int64_t CAvcodecReader::GetVideoFirstPts() {
     return m_Demux.video.nStreamFirstPts;
 }
 
-int CAvcodecReader::getVideoTrimMaxFramIdx() {
-    if (m_sTrimParam.list.size() == 0) {
-        return INT_MAX;
-    }
-    return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
-}
-
 int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
+    const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
     for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
         //pts < demux.videoFramePts[i]であるなら、その前のフレームを返す
-        if (0 > av_compare_ts(pts, timebase, framePos[i].pts, m_Demux.video.pCodecCtx->pkt_timebase)) {
+        if (0 > av_compare_ts(pts, timebase, framePos[i].pts, vid_pkt_timebase)) {
             return i - 1;
         }
     }
@@ -1083,7 +1108,8 @@ int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, const Fra
 }
 
 int64_t CAvcodecReader::convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream) {
-    return av_rescale_q(pts, m_Demux.video.pCodecCtx->pkt_timebase, pStream->pCodecCtx->pkt_timebase);
+    const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
+    return av_rescale_q(pts, vid_pkt_timebase, pStream->pCodecCtx->pkt_timebase);
 }
 
 bool CAvcodecReader::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *pStream) {
@@ -1249,7 +1275,10 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
     addVideoPtsToList({ videoFinPts, videoFinPts, 0 });
     m_Demux.video.frameData.fixed_num = m_Demux.video.frameData.num - 1;
     m_Demux.video.frameData.duration = m_Demux.format.pFormatCtx->duration;
-    m_pEncSatusInfo->UpdateDisplay(0, 100.0);
+    //音声のみ読み込みの場合はm_pEncSatusInfoはnullptrなので、nullチェックを行う
+    if (m_pEncSatusInfo) {
+        m_pEncSatusInfo->UpdateDisplay(0, 100.0);
+    }
     return 1;
 }
 
@@ -1279,30 +1308,47 @@ vector<AVPacket> CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
 
     const double vidEstDurationSec = m_Demux.video.nSampleGetCount * (double)m_Demux.video.nAvgFramerate.den / (double)m_Demux.video.nAvgFramerate.num; //1フレームの時間(秒)
 
-    //およそ1フレーム分のパケットを取得する
     AVPacket pkt;
     av_init_packet(&pkt);
-    while (av_read_frame(m_Demux.format.pFormatCtx, &pkt) >= 0) {
-        AVStream *pStream = m_Demux.format.pFormatCtx->streams[pkt.stream_index];
-        if (pStream->codec->codec_type != AVMEDIA_TYPE_AUDIO) {
+    if (m_Demux.video.pCodecCtx) {
+        //動画に映像がある場合、getSampleを呼んで1フレーム分の音声データをm_StreamPacketsBufferL1に取得する
+        //同時に映像フレームをロードし、ロードしたptsデータを突っ込む
+        m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_StreamPacketsBufferL1)].clear();
+        if (!getSample(&pkt)) {
+            //動画データ自体は不要なので解放
             av_free_packet(&pkt);
-        } else {
-            AVDemuxStream *pAudio = getPacketStreamData(&pkt);
-            pkt.flags = (pkt.flags & 0xffff) | (pAudio->nTrackId << 16);
-            packets.push_back(pkt); //音声ストリームなら、すべて格納してしまう
+        }
+        //getSampleによりm_StreamPacketsBufferL1にデータが入る
+        packets = m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_StreamPacketsBufferL1)];
+    } else {
+        //動画に映像がない場合、
+        //およそ1フレーム分のパケットを取得する
+        while (av_read_frame(m_Demux.format.pFormatCtx, &pkt) >= 0) {
+            AVStream *pStream = m_Demux.format.pFormatCtx->streams[pkt.stream_index];
+            if (pStream->codec->codec_type != AVMEDIA_TYPE_AUDIO) {
+                av_free_packet(&pkt);
+            } else {
+                AVDemuxStream *pAudio = getPacketStreamData(&pkt);
+                pkt.flags = (pkt.flags & 0xffff) | (pAudio->nTrackId << 16);
+                packets.push_back(pkt); //音声ストリームなら、すべて格納してしまう
 
-            //最初のパケットは参照用にコピーしておく
-            if (pAudio->pktSample.data == nullptr) {
-                av_copy_packet(&pAudio->pktSample, &pkt);
-            }
-            uint64_t pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
-            uint64_t pkt_dist = pktt - pAudio->pktSample.pts;
-            //1フレーム分のサンプルを取得したら終了
-            if (pkt_dist * (double)pAudio->pCodecCtx->pkt_timebase.num / (double)pAudio->pCodecCtx->pkt_timebase.den > vidEstDurationSec) {
-                break;
+                //最初のパケットは参照用にコピーしておく
+                if (pAudio->pktSample.data == nullptr) {
+                    av_copy_packet(&pAudio->pktSample, &pkt);
+                }
+                uint64_t pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
+                uint64_t pkt_dist = pktt - pAudio->pktSample.pts;
+                //1フレーム分のサンプルを取得したら終了
+                if (pkt_dist * (double)pAudio->pCodecCtx->pkt_timebase.num / (double)pAudio->pCodecCtx->pkt_timebase.den > vidEstDurationSec) {
+                    break;
+                }
             }
         }
+        //およそ1フレーム分のパケットを設定する
+        int64_t pts = m_Demux.video.nSampleLoadCount;
+        addVideoPtsToList({ pts, pts, 1, 0 });
     }
+    m_Demux.video.nSampleLoadCount++;
     return std::move(packets);
 }
 
@@ -1315,9 +1361,6 @@ const AVCodecContext *CAvcodecReader::GetInputVideoCodecCtx() {
 }
 
 vector<AVPacket> CAvcodecReader::GetStreamDataPackets() {
-    if (m_Demux.video.pCodecCtx == nullptr) {
-        return GetAudioDataPacketsWhenNoVideoRead();
-    }
     //すでに使用した音声バッファはクリアする
     if (m_StreamPacketsBufferL2Used) {
         //使用済みパケットを削除する
@@ -1326,19 +1369,24 @@ vector<AVPacket> CAvcodecReader::GetStreamDataPackets() {
     }
     m_StreamPacketsBufferL2Used = 0;
 
-    //別スレッドで使用されていないほうを連結する
-    const auto& packetsL1 = m_StreamPacketsBufferL1[m_Demux.video.nSampleGetCount % _countof(m_StreamPacketsBufferL1)];
-    vector_cat(m_StreamPacketsBufferL2, packetsL1);
+    if (!m_Demux.video.bReadVideo) {
+        vector_cat(m_StreamPacketsBufferL2, GetAudioDataPacketsWhenNoVideoRead());
+    } else {
+        //別スレッドで使用されていないほうを連結する
+        const auto& packetsL1 = m_StreamPacketsBufferL1[m_Demux.video.nSampleGetCount % _countof(m_StreamPacketsBufferL1)];
+        vector_cat(m_StreamPacketsBufferL2, packetsL1);
+    }
 
     //出力するパケットを選択する
     vector<AVPacket> packets;
     {
+        const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
         std::lock_guard<std::mutex> lock(m_Demux.mtx);
         for (uint32_t i = 0; i < m_StreamPacketsBufferL2.size(); i++) {
             AVPacket *pkt = &m_StreamPacketsBufferL2[i];
             AVDemuxStream *pStream = getPacketStreamData(pkt);
             //音声のptsが映像の終わりのptsを行きすぎたらやめる
-            if (0 < av_compare_ts(pkt->pts, pStream->pCodecCtx->pkt_timebase, m_Demux.video.frameData.frame[m_Demux.video.frameData.fixed_num].pts, m_Demux.video.pCodecCtx->pkt_timebase)) {
+            if (0 < av_compare_ts(pkt->pts, pStream->pCodecCtx->pkt_timebase, m_Demux.video.frameData.frame[m_Demux.video.frameData.fixed_num].pts, vid_pkt_timebase)) {
                 break;
             }
             m_StreamPacketsBufferL2Used++;
@@ -1409,7 +1457,7 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     if (getSample(pkt)
         //frameData.fixed_numがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < m_Demux.video.frameData.fixed_num - 128) {
+        || getVideoTrimMaxFramIdx() < m_Demux.video.frameData.fixed_num - TRIM_OVERREAD_FRAMES) {
         av_free_packet(pkt);
         pkt->data = nullptr;
         pkt->size = 0;

@@ -1618,10 +1618,11 @@ mfxStatus CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
 mfxStatus CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
     //字幕を処理する
     const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
-    int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstPts, m_Mux.video.pInputCodecCtx->pkt_timebase, pMuxSub->pCodecCtxIn->pkt_timebase);
+    const AVRational vid_pkt_timebase = (m_Mux.video.pInputCodecCtx) ? m_Mux.video.pInputCodecCtx->pkt_timebase : av_inv_q(m_Mux.video.nFPS);
+    const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstPts, vid_pkt_timebase, pMuxSub->pCodecCtxIn->pkt_timebase);
     //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
     //Trimによりカットされたときのみ
-    int64_t pts_orig = pkt->pts;
+    const int64_t pts_orig = pkt->pts;
     if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts - pts_adjust), pMuxSub->pCodecCtxIn->pkt_timebase, pMuxSub->pStream->time_base, false))) {
         if (pMuxSub->pOutCodecEncodeCtx) {
             return SubtitleTranscode(pMuxSub, pkt);

@@ -77,6 +77,7 @@ typedef struct {
 } sTrimParam;
 
 static const int TRIM_MAX = INT_MAX;
+static const int TRIM_OVERREAD_FRAMES = 128;
 
 static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
     if (trimList.size() == 0)
