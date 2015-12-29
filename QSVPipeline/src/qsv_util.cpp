@@ -351,7 +351,8 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
         GetConsoleScreenBufferInfo(handle, &csbi);
         SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE] | (csbi.wAttributes & 0x00f0));
     }
-    int ret = _ftprintf(stderr, mes);
+    //このfprintfで"%"が消えてしまわないよう置換する
+    int ret = _ftprintf(stderr, (nullptr == _tcschr(mes, _T('%'))) ? mes : str_replace(tstring(mes), _T("%"), _T("%%")).c_str());
     if (handle && log_level != QSV_LOG_INFO) {
         SetConsoleTextAttribute(handle, csbi.wAttributes); //元に戻す
     }
