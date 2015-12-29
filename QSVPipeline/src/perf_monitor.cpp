@@ -19,6 +19,7 @@
 #include "qsv_osdep.h"
 #include "qsv_control.h"
 #include "qsv_util.h"
+#include "gpuz_info.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <psapi.h>
 #else
@@ -140,6 +141,12 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_THREAD_OUT) {
         str += ",cpu out thread (%)";
+    }
+    if (nSelect & PERF_MONITOR_GPU_LOAD) {
+        str += ",gpu load (%)";
+    }
+    if (nSelect & PERF_MONITOR_GPU_CLOCK) {
+        str += ",gpu clock (MHz)";
     }
     if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
         str += ",mem private (MB)";
@@ -315,6 +322,17 @@ void CPerfMonitor::check() {
     GetProcessTimes(hProcess, (FILETIME *)&pt.creation, (FILETIME *)&pt.exit, (FILETIME *)&pt.kernel, (FILETIME *)&pt.user);
     pInfoNew->time_us = (current_time - pt.creation) / 10;
     const double time_diff_inv = 1.0 / (pInfoNew->time_us - pInfoOld->time_us);
+
+    //GPU情報
+    pInfoNew->gpu_info_valid = FALSE;
+    pInfoNew->gpu_clock = 0.0;
+    pInfoNew->gpu_load_percent = 0.0;
+    GPUZ_SH_MEM gpu_info = { 0 };
+    if (0 == get_gpuz_info(&gpu_info)) {
+        pInfoNew->gpu_info_valid = TRUE;
+        pInfoNew->gpu_load_percent = gpu_load(&gpu_info);
+        pInfoNew->gpu_clock = gpu_core_clock(&gpu_info);
+    }
 #else
     struct rusage usage = { 0 };
     getrusage(RUSAGE_SELF, &usage);
@@ -476,6 +494,12 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_THREAD_OUT) {
         str += strsprintf(",%lf", pInfo->out_thread_percent);
+    }
+    if (nSelect & PERF_MONITOR_GPU_LOAD) {
+        str += strsprintf(",%lf", pInfo->gpu_load_percent);
+    }
+    if (nSelect & PERF_MONITOR_GPU_CLOCK) {
+        str += strsprintf(",%lf", pInfo->gpu_clock);
     }
     if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
         str += strsprintf(",%.2lf", pInfo->mem_private / (double)(1024 * 1024));

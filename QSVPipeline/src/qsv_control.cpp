@@ -34,6 +34,10 @@ CEncodeStatusInfo::CEncodeStatusInfo()
     m_sData.nBFrameSize = 0;
     m_sData.fEncodeFps = 0.0;
     m_sData.fBitrateKbps = 0.0;
+    m_sData.fGPUClockTotal = 0.0;
+    m_sData.fGPULoadPercentTotal = 0.0;
+    m_sData.nGPUInfoCountFail = 0;
+    m_sData.nGPUInfoCountSuccess = 0;
     m_nInputFrames = 0;
     m_nTotalOutFrames = 0;
     m_nOutputFPSRate = 0;

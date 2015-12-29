@@ -31,6 +31,7 @@
 #include "qsv_util.h"
 #include "qsv_log.h"
 #include "cpu_info.h"
+#include "gpuz_info.h"
 
 using std::chrono::duration_cast;
 using std::shared_ptr;
@@ -140,18 +141,22 @@ private:
 };
 
 typedef struct sEncodeStatusData {
-    mfxU32 nProcessedFramesNum;
-    mfxU64 nWrittenBytes;
-    mfxU32 nIDRCount;
-    mfxU32 nICount;
-    mfxU32 nPCount;
-    mfxU32 nBCount;
-    mfxU64 nIFrameSize;
-    mfxU64 nPFrameSize;
-    mfxU64 nBFrameSize;
-    mfxF64 fEncodeFps;
-    mfxF64 fBitrateKbps;
-    mfxF64 fCPUUsagePercent;
+    uint32_t nProcessedFramesNum;
+    uint64_t nWrittenBytes;
+    uint32_t nIDRCount;
+    uint32_t nICount;
+    uint32_t nPCount;
+    uint32_t nBCount;
+    uint64_t nIFrameSize;
+    uint64_t nPFrameSize;
+    uint64_t nBFrameSize;
+    double   fEncodeFps;
+    double   fBitrateKbps;
+    double   fCPUUsagePercent;
+    int      nGPUInfoCountSuccess;
+    int      nGPUInfoCountFail;
+    double   fGPULoadPercentTotal;
+    double   fGPUClockTotal;
 } sEncodeStatusData;
 
 class CEncodeStatusInfo
@@ -247,6 +252,16 @@ public:
                 m_sData.fBitrateKbps
                 );
         }
+#if defined(_WIN32) || defined(_WIN64)
+        GPUZ_SH_MEM gpu_info = { 0 };
+        if (0 == get_gpuz_info(&gpu_info)) {
+            m_sData.nGPUInfoCountSuccess++;
+            m_sData.fGPULoadPercentTotal += gpu_load(&gpu_info);
+            m_sData.fGPUClockTotal += gpu_core_clock(&gpu_info);
+        } else {
+            m_sData.nGPUInfoCountFail++;
+        }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         UpdateDisplay(mes, drop_frames, progressPercent);
         return MFX_ERR_NONE;
     }
@@ -255,6 +270,12 @@ public:
             return;
         }
         (*m_pQSVLog)(QSV_LOG_INFO, _T("%s\n"), mes);
+    }
+    virtual void WriteLineDirect(TCHAR *mes) {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+            return;
+        }
+        m_pQSVLog->write_log(QSV_LOG_INFO, mes);
     }
     virtual void WriteFrameTypeResult(const TCHAR *header, mfxU32 count, mfxU32 maxCount, mfxU64 frameSize, mfxU64 maxFrameSize, double avgQP) {
         if (count) {
@@ -313,11 +334,17 @@ public:
         int ss = (time_elapsed + 500) / 1000;
 #if defined(_WIN32) || defined(_WIN64)
         m_sData.fCPUUsagePercent = GetProcessAvgCPUUsage(&m_sStartTime);
-        _stprintf_s(mes, _T("encode time %d:%02d:%02d / CPU Usage: %.2f%%\n"), hh, mm, ss, m_sData.fCPUUsagePercent);
+        if (m_sData.nGPUInfoCountSuccess > m_sData.nGPUInfoCountFail) {
+            double gpu_load = m_sData.fGPULoadPercentTotal / m_sData.nGPUInfoCountSuccess;
+            int gpu_clock_avg = (int)(m_sData.fGPUClockTotal / m_sData.nGPUInfoCountSuccess + 0.5);
+            _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.2f%%, GPULoad: %.2f%%, GPUClockAvg: %dMHz\n"), hh, mm, ss, m_sData.fCPUUsagePercent, gpu_load, gpu_clock_avg);
+        } else {
+            _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.2f%%\n"), hh, mm, ss, m_sData.fCPUUsagePercent);
+        }
 #else
         _stprintf_s(mes, _T("encode time %d:%02d:%02d\n"), hh, mm, ss);
 #endif
-        WriteLine(mes);
+        WriteLineDirect(mes);
 
         mfxU32 maxCount = (std::max)(m_sData.nICount, (std::max)(m_sData.nPCount, m_sData.nBCount));
         mfxU64 maxFrameSize = (std::max)(m_sData.nIFrameSize, (std::max)(m_sData.nPFrameSize, m_sData.nBFrameSize));

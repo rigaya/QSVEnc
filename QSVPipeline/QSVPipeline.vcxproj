@@ -335,6 +335,7 @@
     <ClCompile Include="src\d3d_allocator.cpp" />
     <ClCompile Include="src\d3d_device.cpp" />
     <ClCompile Include="src\DeviceId.cpp" />
+    <ClCompile Include="src\gpuz_info.cpp" />
     <ClCompile Include="src\gpu_info.cpp" />
     <ClCompile Include="src\perf_monitor.cpp" />
     <ClCompile Include="src\pipeline_encode.cpp" />
@@ -378,6 +379,7 @@
     <ClInclude Include="include\d3d_allocator.h" />
     <ClInclude Include="include\d3d_device.h" />
     <ClInclude Include="include\DeviceId.h" />
+    <ClInclude Include="include\gpuz_info.h" />
     <ClInclude Include="include\gpu_info.h" />
     <ClInclude Include="include\hw_device.h" />
     <ClInclude Include="include\perf_monitor.h" />

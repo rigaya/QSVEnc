@@ -40,6 +40,8 @@ enum : int {
     PERF_MONITOR_THREAD_OUT  = 0x00001000,
     PERF_MONITOR_FRAME_IN    = 0x00002000,
     PERF_MONITOR_FRAME_OUT   = 0x00004000,
+    PERF_MONITOR_GPU_LOAD    = 0x00008000,
+    PERF_MONITOR_GPU_CLOCK   = 0x00010000,
 
 
     PERF_MONITOR_ALL         = (int)UINT_MAX,
@@ -64,6 +66,9 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("bitrate"),     PERF_MONITOR_BITRATE },
     { _T("bitrate_avg"), PERF_MONITOR_BITRATE_AVG },
     { _T("frame_out"),   PERF_MONITOR_FRAME_OUT },
+    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_GPU_CLOCK },
+    { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
+    { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
     { nullptr, 0 }
 };
 
@@ -101,6 +106,10 @@ struct PerfInfo {
     double  main_thread_percent;
     double  enc_thread_percent;
     double  out_thread_percent;
+
+    BOOL    gpu_info_valid;
+    double  gpu_load_percent;
+    double  gpu_clock;
 };
 
 struct PerfOutputInfo {
