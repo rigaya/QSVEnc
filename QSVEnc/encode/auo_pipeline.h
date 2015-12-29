@@ -16,6 +16,8 @@
 class CAuoLog : public CQSVLog {
 public:
     CAuoLog(const TCHAR *pLogFile, int log_level) : CQSVLog(pLogFile, log_level) { };
+
+    virtual void write_log(int log_level, TCHAR *buffer) override;
     virtual void operator()(int log_level, const TCHAR *format, ...) override;
 };
 
