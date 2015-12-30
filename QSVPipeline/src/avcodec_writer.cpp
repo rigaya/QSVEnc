@@ -410,6 +410,8 @@ mfxStatus CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     m_Mux.video.pCodecCtx->slice_count             = prm->pVideoInfo->NumSlice;
     m_Mux.video.pCodecCtx->sample_aspect_ratio.num = prm->pVideoInfo->FrameInfo.AspectRatioW;
     m_Mux.video.pCodecCtx->sample_aspect_ratio.den = prm->pVideoInfo->FrameInfo.AspectRatioH;
+    m_Mux.video.pStream->sample_aspect_ratio.num   = prm->pVideoInfo->FrameInfo.AspectRatioW; //mkvではこちらの指定も必要
+    m_Mux.video.pStream->sample_aspect_ratio.den   = prm->pVideoInfo->FrameInfo.AspectRatioH;
     if (prm->pVideoSignalInfo->ColourDescriptionPresent) {
         m_Mux.video.pCodecCtx->colorspace          = (AVColorSpace)prm->pVideoSignalInfo->MatrixCoefficients;
         m_Mux.video.pCodecCtx->color_primaries     = (AVColorPrimaries)prm->pVideoSignalInfo->ColourPrimaries;
