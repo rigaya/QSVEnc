@@ -1479,7 +1479,7 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
             sts = m_hwdev->Init(
                 NULL,
                 0,
-                MSDKAdapter::GetNumber(m_mfxSession));
+                GetAdapterID(m_mfxSession));
             if (sts != MFX_ERR_NONE) {
                 m_hwdev.reset();
                 PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
@@ -1499,7 +1499,7 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
             sts = m_hwdev->Init(
                 window,
                 0,
-                MSDKAdapter::GetNumber(m_mfxSession));
+                GetAdapterID(m_mfxSession));
         }
     }
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize HW Device."));
@@ -4316,7 +4316,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     }
     if (Check_HWUsed(impl)) {
         static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
-        mfxU32 iGPUID = MSDKAdapter::GetNumber(m_mfxSession);
+        mfxU32 iGPUID = GetAdapterID(m_mfxSession);
         PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU, API v%d.%d\n"),
             get_low_power_str(videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
     } else {

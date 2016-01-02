@@ -245,6 +245,8 @@ static const mfxVersion LIB_VER_LIST[] = {
 #define MFX_LIB_VERSION_1_17 LIB_VER_LIST[14]
 
 BOOL Check_HWUsed(mfxIMPL impl);
+int GetAdapterID(mfxIMPL impl);
+int GetAdapterID(mfxSession session);
 mfxVersion get_mfx_libhw_version();
 mfxVersion get_mfx_libsw_version();
 mfxVersion get_mfx_lib_version(mfxIMPL impl);

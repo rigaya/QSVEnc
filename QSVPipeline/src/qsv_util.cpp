@@ -386,6 +386,16 @@ BOOL Check_HWUsed(mfxIMPL impl) {
     return FALSE;
 }
 
+int GetAdapterID(mfxIMPL impl) {
+    return (std::max)(0, MFX_IMPL_BASETYPE(impl) - MFX_IMPL_HARDWARE_ANY);
+}
+
+int GetAdapterID(mfxSession session) {
+    mfxIMPL impl;
+    MFXQueryIMPL(session, &impl);
+    return GetAdapterID(impl);
+}
+
 mfxVersion get_mfx_lib_version(mfxIMPL impl) {
     if (impl == MFX_IMPL_SOFTWARE) {
         return LIB_VER_LIST[0];

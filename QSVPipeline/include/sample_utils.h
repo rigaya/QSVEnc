@@ -835,62 +835,6 @@ bool skip(const Buf_t *&buf, Length_t &length, Length_t step)
     return true;
 }
 
-//do not link MediaSDK dispatched if class not used
-struct MSDKAdapter {
-    // returns the number of adapter associated with MSDK session, 0 for SW session
-    static mfxU32 GetNumber(mfxSession session = 0) {
-        mfxU32 adapterNum = 0; // default
-        mfxIMPL impl = MFX_IMPL_SOFTWARE; // default in case no HW IMPL is found
-
-        // we don't care for error codes in further code; if something goes wrong we fall back to the default adapter
-        if (session)
-        {
-            MFXQueryIMPL(session, &impl);
-        }
-        else
-        {
-            // an auxiliary session, internal for this function
-            mfxSession auxSession;
-            memset(&auxSession, 0, sizeof(auxSession));
-
-            mfxVersion ver = { {1, 1 }}; // minimum API version which supports multiple devices
-            MFXInit(MFX_IMPL_HARDWARE_ANY, &ver, &auxSession);
-            MFXQueryIMPL(auxSession, &impl);
-            MFXClose(auxSession);
-        }
-
-        // extract the base implementation type
-        mfxIMPL baseImpl = MFX_IMPL_BASETYPE(impl);
-
-        const struct
-        {
-            // actual implementation
-            mfxIMPL impl;
-            // adapter's number
-            mfxU32 adapterID;
-
-        } implTypes[] = {
-            { MFX_IMPL_HARDWARE,  0 },
-            { MFX_IMPL_SOFTWARE,  0 },
-            { MFX_IMPL_HARDWARE2, 1 },
-            { MFX_IMPL_HARDWARE3, 2 },
-            { MFX_IMPL_HARDWARE4, 3 }
-        };
-
-
-        // get corresponding adapter number
-        for (mfxU8 i = 0; i < sizeof(implTypes)/sizeof(*implTypes); i++)
-        {
-            if (implTypes[i].impl == baseImpl)
-            {
-                adapterNum = implTypes[i].adapterID;
-                break;
-            }
-        }
-
-        return adapterNum;
-    }
-};
 
 struct APIChangeFeatures {
     bool JpegDecode;
