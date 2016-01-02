@@ -784,9 +784,6 @@ private:
     DISALLOW_COPY_AND_ASSIGN(PartiallyLinearFNC);
 };
 
-// function for conversion of display aspect ratio to pixel aspect ratio
-mfxStatus DARtoPAR(mfxU32 darw, mfxU32 darh, mfxU32 w, mfxU32 h, mfxU16 *pparw, mfxU16 *pparh);
-
 // function for getting a pointer to a specific external buffer from the array
 mfxExtBuffer* GetExtBuffer(mfxExtBuffer** ebuffers, mfxU32 nbuffers, mfxU32 BufferId);
 
@@ -834,38 +831,6 @@ bool skip(const Buf_t *&buf, Length_t &length, Length_t step)
 
     return true;
 }
-
-
-struct APIChangeFeatures {
-    bool JpegDecode;
-    bool JpegEncode;
-    bool MVCDecode;
-    bool MVCEncode;
-    bool IntraRefresh;
-    bool LowLatency;
-    bool ViewOutput;
-    bool LookAheadBRC;
-    bool AudioDecode;
-    bool SupportCodecPluginAPI;
-};
-
-mfxVersion getMinimalRequiredVersion(const APIChangeFeatures &features);
-
-enum msdkAPIFeature {
-    MSDK_FEATURE_NONE,
-    MSDK_FEATURE_MVC,
-    MSDK_FEATURE_JPEG_DECODE,
-    MSDK_FEATURE_LOW_LATENCY,
-    MSDK_FEATURE_MVC_VIEWOUTPUT,
-    MSDK_FEATURE_JPEG_ENCODE,
-    MSDK_FEATURE_LOOK_AHEAD,
-    MSDK_FEATURE_PLUGIN_API
-};
-
-/* Returns true if feature is supported in the given API version */
-bool CheckVersion(mfxVersion* version, msdkAPIFeature feature);
-
-void ConfigureAspectRatioConversion(mfxInfoVPP* pVppInfo);
 
 enum MsdkTraceLevel {
     MSDK_TRACE_LEVEL_SILENT = -1,
