@@ -92,10 +92,6 @@ enum {
     CODEC_MVC = MFX_MAKEFOURCC('M','V','C',' '),
 };
 
-bool IsDecodeCodecSupported(mfxU32 codecFormat);
-bool IsEncodeCodecSupported(mfxU32 codecFormat);
-bool IsPluginCodecSupported(mfxU32 codecFormat);
-
 class CSmplYUVReader
 {
 public:
