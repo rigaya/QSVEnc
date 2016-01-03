@@ -832,45 +832,6 @@ bool skip(const Buf_t *&buf, Length_t &length, Length_t step)
     return true;
 }
 
-enum MsdkTraceLevel {
-    MSDK_TRACE_LEVEL_SILENT = -1,
-    MSDK_TRACE_LEVEL_CRITICAL = 0,
-    MSDK_TRACE_LEVEL_ERROR = 1,
-    MSDK_TRACE_LEVEL_WARNING = 2,
-    MSDK_TRACE_LEVEL_INFO = 3,
-    MSDK_TRACE_LEVEL_DEBUG = 4,
-};
-
-msdk_string NoFullPath(const msdk_string &);
-int  msdk_trace_get_level();
-void msdk_trace_set_level(int);
-bool msdk_trace_is_printable(int);
-
-msdk_ostream & operator <<(msdk_ostream & os, MsdkTraceLevel tt);
-
-template<typename T>
-    mfxStatus msdk_opt_read(const msdk_char* string, T& value);
-
-template<size_t S>
-    mfxStatus msdk_opt_read(const msdk_char* string, msdk_char (&value)[S])
-    {
-    #if defined(_WIN32) || defined(_WIN64)
-        return (0 == _tcscpy_s(value, string))? MFX_ERR_NONE: MFX_ERR_UNKNOWN;
-    #else //#if defined(_WIN32) || defined(_WIN64)
-        if (strlen(string) < S) {
-            strncpy(value, string, S);
-            return MFX_ERR_NONE;
-        }
-        return MFX_ERR_UNKNOWN;
-    #endif
-    }
-
-template<typename T>
-    inline mfxStatus msdk_opt_read(const msdk_string& string, T& value)
-    {
-        return msdk_opt_read(string.c_str(), value);
-    }
-
 mfxStatus StrFormatToCodecFormatFourCC(msdk_char* strInput, mfxU32 &codecFormat);
 
 #endif //__SAMPLE_UTILS_H__
