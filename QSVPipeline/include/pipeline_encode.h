@@ -48,6 +48,7 @@
 #include "vpp_plugins.h"
 #include "scene_change_detection.h"
 #include "perf_monitor.h"
+#include "qsv_plugin.h"
 
 #include <vector>
 #include <memory>
@@ -179,8 +180,8 @@ protected:
     MFXVideoDECODE* m_pmfxDEC;
     MFXVideoENCODE* m_pmfxENC;
     MFXVideoVPP* m_pmfxVPP;
-    unique_ptr<MFXPlugin> m_pDecPlugin;
-    unique_ptr<MFXPlugin> m_pEncPlugin;
+
+    unique_ptr<CSessionPlugins> m_SessionPlugins;
     vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
     vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
 

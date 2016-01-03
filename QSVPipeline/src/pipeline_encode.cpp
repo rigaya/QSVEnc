@@ -27,8 +27,6 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 #include "avcodec_writer.h"
 #include "sysmem_allocator.h"
 
-#include "plugin_loader.h"
-
 #if D3D_SURFACES_SUPPORT
 #include "d3d_allocator.h"
 #include "d3d11_allocator.h"
@@ -440,8 +438,7 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
 
         if (m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
             PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loading HEVC decoder plugin..."));
-            m_pDecPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, m_mfxSession, MFX_PLUGINID_HEVCD_HW, 1));
-            if (m_pDecPlugin.get() == NULL) {
+            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, MFX_PLUGINID_HEVCD_HW, 1)) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc decoder.\n"));
                 return MFX_ERR_UNSUPPORTED;
             }
@@ -1021,14 +1018,12 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     }
 
     if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
-        m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, m_mfxSession, MFX_PLUGINID_HEVCE_HW, 1));
-        if (m_pEncPlugin.get() == NULL) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1)) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     } else if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
-        m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, m_mfxSession, MFX_PLUGINID_VP8E_HW, 1));
-        if (m_pEncPlugin.get() == NULL) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1)) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
@@ -2703,6 +2698,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     // init session, and set memory type
     mfxIMPL impl = 0;
     mfxVersion verRequired = MFX_LIB_VERSION_1_1;
+    m_SessionPlugins.reset();
     m_mfxSession.Close();
     PrintMes(QSV_LOG_DEBUG, _T("InitSession: Start initilaizing...\n"));
 
@@ -2865,6 +2861,8 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     sts = InitSession(pParams->bUseHWLib, pParams->memType);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize encode session."));
 
+    m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));
+
     // create and init frame allocator
     sts = CreateAllocator();
     if (sts < MFX_ERR_NONE) return sts;
@@ -2983,9 +2981,8 @@ void CEncodingPipeline::Close()
     PrintMes(QSV_LOG_DEBUG, _T("Closing m_EncThread...\n"));
     m_EncThread.Close();
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing Dec/Enc Plugins...\n"));
-    m_pDecPlugin.reset();
-    m_pEncPlugin.reset();
+    PrintMes(QSV_LOG_DEBUG, _T("Closing Plugins...\n"));
+    m_SessionPlugins.reset();
 
     m_pTrimParam = NULL;
 

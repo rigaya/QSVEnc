@@ -14,10 +14,7 @@
 #include <cmath>
 #include <climits>
 #include <memory>
-#include "mfxplugin.h"
-#include "mfxplugin++.h"
-#include "plugin_utils.h"
-#include "plugin_loader.h"
+#include "qsv_plugin.h"
 #include "avcodec_reader.h"
 
 #ifdef LIBVA_SUPPORT
@@ -921,7 +918,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             AppendMfxBitstream(&bitstream, (uint8_t *)&IDR, sizeof(IDR));
         }
 
-        mfxSession session ={ 0 };
+        mfxSession session = { 0 };
         mfxVersion version = MFX_LIB_VERSION_1_1;
         if (MFX_ERR_NONE != (decHeaderSts = MFXInit(MFX_IMPL_HARDWARE_ANY, &version, &session))) {
             AddMessage(QSV_LOG_ERROR, _T("unable to init qsv decoder.\n"));
@@ -929,9 +926,9 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         }
 
         std::unique_ptr<MFXPlugin> pPlugin;
+        CSessionPlugins sessionPlugins(session);
         if (m_nInputCodec == MFX_CODEC_HEVC) {
-            pPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, session, MFX_PLUGINID_HEVCD_HW, 1));
-            if (pPlugin.get() == NULL) {
+            if (MFX_ERR_NONE != sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, MFX_PLUGINID_HEVCD_HW, 1)) {
                 AddMessage(QSV_LOG_ERROR, _T("failed to load hw hevc decoder.\n"));
                 return MFX_ERR_UNSUPPORTED;
             }

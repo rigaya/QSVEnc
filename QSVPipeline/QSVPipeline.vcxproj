@@ -339,11 +339,11 @@
     <ClCompile Include="src\gpu_info.cpp" />
     <ClCompile Include="src\perf_monitor.cpp" />
     <ClCompile Include="src\pipeline_encode.cpp" />
-    <ClCompile Include="src\plugin_utils.cpp" />
     <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_event.cpp" />
     <ClCompile Include="src\qsv_ini.cpp" />
     <ClCompile Include="src\qsv_pipe.cpp" />
+    <ClCompile Include="src\qsv_plugin.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
     <ClCompile Include="src\qsv_simd.cpp" />
     <ClCompile Include="src\qsv_util.cpp" />
@@ -389,6 +389,7 @@
     <ClInclude Include="include\qsv_ini.h" />
     <ClInclude Include="include\qsv_osdep.h" />
     <ClInclude Include="include\qsv_pipe.h" />
+    <ClInclude Include="include\qsv_plugin.h" />
     <ClInclude Include="include\qsv_prm.h" />
     <ClInclude Include="include\qsv_queue.h" />
     <ClInclude Include="include\qsv_simd.h" />

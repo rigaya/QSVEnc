@@ -29,12 +29,12 @@
 #include "mfxvideo++.h"
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
-#include "plugin_loader.h"
 #include "sample_defs.h"
 #include "sample_utils.h"
 #include "qsv_tchar.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
+#include "qsv_plugin.h"
 #include "ram_speed.h"
 
 #ifdef LIBVA_SUPPORT
@@ -1020,15 +1020,15 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
         }
 #endif //#ifdef LIBVA_SUPPORT
 
-        std::unique_ptr<MFXPlugin> m_pEncPlugin;
+        CSessionPlugins sessionPlugins(session);
         if (codecId == MFX_CODEC_HEVC) {
-            m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, session, MFX_PLUGINID_HEVCE_HW, 1));
+            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1);
         } else if (codecId == MFX_CODEC_VP8) {
-            m_pEncPlugin.reset(LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, session, MFX_PLUGINID_VP8E_HW, 1));
+            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1);
         }
         feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol, codecId) : 0x00;
         
-        m_pEncPlugin.reset();
+        sessionPlugins.UnloadPlugins();
         MFXClose(session);
 #ifdef LIBVA_SUPPORT
         phwDevice.reset();
