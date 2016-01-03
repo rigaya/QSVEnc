@@ -512,9 +512,6 @@ protected:
     bool      m_bJoined;
 };
 
-mfxStatus ConvertFrameRate(mfxF64 dFrameRate, mfxU32* pnFrameRateExtN, mfxU32* pnFrameRateExtD);
-mfxF64 CalculateFrameRate(mfxU32 nFrameRateExtN, mfxU32 nFrameRateExtD);
-
 static inline int GetFreeSurface(mfxFrameSurface1* pSurfacesPool, int nPoolSize) {
     static const int SleepInterval = 1; // milliseconds
     //wait if there's no free surface
@@ -551,8 +548,6 @@ mfxStatus MoveMfxBitstream(mfxBitstream *pTarget, mfxBitstream *pSrc, mfxU32 nBy
 mfxStatus ExtendMfxBitstream(mfxBitstream* pBitstream, mfxU32 nSize);
 void WipeMfxBitstream(mfxBitstream* pBitstream);
 
-mfxU16 CalculateDefaultBitrate(mfxU32 nCodecId, mfxU32 nTargetUsage, mfxU32 nWidth, mfxU32 nHeight, mfxF64 dFrameRate);
-
 //serialization fnc set
 std::basic_string<msdk_char> CodecIdToStr(mfxU32 nFourCC);
 mfxU16 StrToTargetUsage(msdk_char* strInput);
@@ -567,24 +562,6 @@ mfxStatus MJPEG_AVI_ParsePicStruct(mfxBitstream *bitstream);
 
 // For MVC encoding/decoding purposes
 std::basic_string<msdk_char> FormMVCFileName(const msdk_char *strFileName, const mfxU32 numView);
-
-//piecewise linear function for bitrate approximation
-class PartiallyLinearFNC
-{
-    mfxF64 *m_pX;
-    mfxF64 *m_pY;
-    mfxU32  m_nPoints;
-    mfxU32  m_nAllocated;
-
-public:
-    PartiallyLinearFNC();
-    ~PartiallyLinearFNC();
-
-    void AddPair(mfxF64 x, mfxF64 y);
-    mfxF64 at(mfxF64);
-private:
-    DISALLOW_COPY_AND_ASSIGN(PartiallyLinearFNC);
-};
 
 // function for getting a pointer to a specific external buffer from the array
 mfxExtBuffer* GetExtBuffer(mfxExtBuffer** ebuffers, mfxU32 nbuffers, mfxU32 BufferId);

@@ -2255,13 +2255,10 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
         return MFX_PRINT_OPTION_ERR;
     }
 
-    // set default values for optional parameters that were not set or were set incorrectly
     pParams->nTargetUsage = clamp(pParams->nTargetUsage, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED);
 
-    // calculate default bitrate based on the resolution (a parameter for encoder, so Dst resolution is used)
     if (pParams->nBitRate == 0) {
-        pParams->nBitRate = CalculateDefaultBitrate(pParams->CodecId, pParams->nTargetUsage, pParams->nDstWidth,
-            pParams->nDstHeight, pParams->nFPSRate / (double)pParams->nFPSScale);
+        PrintHelp(strInput[0], _T("Invalid bitrate"), NULL);
     }
 
     // if nv12 option isn't specified, input YUV file is expected to be in YUV420 color format
