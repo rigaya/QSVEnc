@@ -9,7 +9,7 @@
 #ifndef _AVCODEC_READER_H_
 #define _AVCODEC_READER_H_
 
-#include "sample_utils.h"
+#include "qsv_input.h"
 
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
@@ -119,7 +119,7 @@ typedef struct AvcodecReaderPrm {
 } AvcodecReaderPrm;
 
 
-class CAvcodecReader : public CSmplYUVReader
+class CAvcodecReader : public CQSVInput
 {
 public:
     CAvcodecReader();
@@ -131,7 +131,7 @@ public:
 
     //動画ストリームの1フレーム分のデータをm_sPacketに格納する
     //m_sPacketからの取得はGetNextBitstreamで行う
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual mfxStatus LoadNextFrame(mfxFrameSurface1 *pSurface) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する
     virtual mfxStatus GetNextBitstream(mfxBitstream *bitstream) override;

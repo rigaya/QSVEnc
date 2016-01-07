@@ -342,6 +342,8 @@
     <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_event.cpp" />
     <ClCompile Include="src\qsv_ini.cpp" />
+    <ClCompile Include="src\qsv_input.cpp" />
+    <ClCompile Include="src\qsv_output.cpp" />
     <ClCompile Include="src\qsv_pipe.cpp" />
     <ClCompile Include="src\qsv_plugin.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
@@ -387,7 +389,9 @@
     <ClInclude Include="include\qsv_control.h" />
     <ClInclude Include="include\qsv_event.h" />
     <ClInclude Include="include\qsv_ini.h" />
+    <ClInclude Include="include\qsv_input.h" />
     <ClInclude Include="include\qsv_osdep.h" />
+    <ClInclude Include="include\qsv_output.h" />
     <ClInclude Include="include\qsv_pipe.h" />
     <ClInclude Include="include\qsv_plugin.h" />
     <ClInclude Include="include\qsv_prm.h" />

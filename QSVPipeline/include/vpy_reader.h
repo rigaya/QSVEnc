@@ -13,7 +13,7 @@
 #include "qsv_version.h"
 #if ENABLE_VAPOURSYNTH_READER
 #include "qsv_osdep.h"
-#include "sample_utils.h"
+#include "qsv_input.h"
 #include "VapourSynth.h"
 #include "VSScript.h"
 
@@ -57,7 +57,7 @@ typedef struct VSReaderPrm {
     bool use_mt;
 } VSReaderPrm;
 
-class CVSReader : public CSmplYUVReader
+class CVSReader : public CQSVInput
 {
 public:
     CVSReader();

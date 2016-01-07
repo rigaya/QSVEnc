@@ -150,8 +150,8 @@ void CAvcodecWriter::CloseQueues() {
 #if ENABLE_AVCODEC_OUT_THREAD
     m_Mux.thread.bAbort = true;
     m_Mux.thread.qVideobitstream.clear();
-    m_Mux.thread.qVideobitstreamFreeI.clear([](mfxBitstream *bitstream) { WipeMfxBitstream(bitstream); });
-    m_Mux.thread.qVideobitstreamFreePB.clear([](mfxBitstream *bitstream) { WipeMfxBitstream(bitstream); });
+    m_Mux.thread.qVideobitstreamFreeI.clear([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
+    m_Mux.thread.qVideobitstreamFreePB.clear([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
     m_Mux.thread.qAudioPacket.clear();
 #endif
 }
@@ -1237,7 +1237,7 @@ mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
     //空いているmfxBistreamを取り出す
     if (!qVideoQueueFree.front_copy_and_pop_no_lock(&copyStream) || copyStream.MaxLength < pMfxBitstream->DataLength) {
         //空いているmfxBistreamがない、あるいはそのバッファサイズが小さい場合は、領域を取り直す
-        if (MFX_ERR_NONE != InitMfxBitstream(&copyStream, (bFrameI) ? pMfxBitstream->MaxLength : pMfxBitstream->DataLength * ((bFrameP) ? 2 : 6))) {
+        if (MFX_ERR_NONE != mfxBitstreamInit(&copyStream, (bFrameI) ? pMfxBitstream->MaxLength : pMfxBitstream->DataLength * ((bFrameP) ? 2 : 6))) {
             AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer.\n"));
             m_Mux.format.bStreamError = true;
             return MFX_ERR_MEMORY_ALLOC;
@@ -1316,6 +1316,13 @@ mfxStatus CAvcodecWriter::WriteNextFrameInternal(mfxBitstream *pMfxBitstream, in
 #endif
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
+
+#pragma warning(push)
+#pragma warning(disable: 4100)
+mfxStatus CAvcodecWriter::WriteNextFrame(mfxFrameSurface1 *pSurface) {
+    return MFX_ERR_UNSUPPORTED;
+}
+#pragma warning(pop)
 
 vector<int> CAvcodecWriter::GetStreamTrackIdList() {
     vector<int> streamTrackId;

@@ -377,7 +377,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         }
         ///キーフレーム取得済み
         if (gotFirstKeyframePos) {
-            AppendMfxBitstream(bitstream, pkt.data, pkt.size);
+            mfxBitstreamAppend(bitstream, pkt.data, pkt.size);
 
             mfxStatus decsts = MFX_ERR_MORE_SURFACE;
             while (MFX_ERR_MORE_SURFACE == decsts) {
@@ -906,7 +906,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         AddMessage(QSV_LOG_DEBUG, _T("start predecode.\n"));
 
         mfxStatus decHeaderSts = MFX_ERR_NONE;
-        mfxBitstream bitstream ={ 0 };
+        mfxBitstream bitstream = { 0 };
         if (MFX_ERR_NONE != (decHeaderSts = GetHeader(&bitstream))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to get header.\n"));
             return decHeaderSts;
@@ -915,7 +915,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         if (m_nInputCodec == MFX_CODEC_AVC || m_nInputCodec == MFX_CODEC_HEVC) {
             //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
             const uint32_t IDR = 0x65010000;
-            AppendMfxBitstream(&bitstream, (uint8_t *)&IDR, sizeof(IDR));
+            mfxBitstreamAppend(&bitstream, (uint8_t *)&IDR, sizeof(IDR));
         }
 
         mfxSession session = { 0 };
@@ -985,7 +985,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             AddMessage(QSV_LOG_ERROR, _T("unable to decode by qsv, please consider using other input method.\n"));
             return decHeaderSts;
         }
-        WipeMfxBitstream(&bitstream);
+        mfxBitstreamClear(&bitstream);
         AddMessage(QSV_LOG_DEBUG, _T("predecode success.\n"));
 
         m_sTrimParam.list = vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
@@ -1030,7 +1030,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         uint32_t zero = 0;
         memcpy(&m_inputFrameInfo.FrameId, &zero, sizeof(zero));
 
-        tstring mes = strsprintf(_T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec).c_str(),
+        tstring mes = strsprintf(_T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec),
             m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
         AddMessage(QSV_LOG_DEBUG, _T("%s, sar %d:%d, bitdepth %d, shift %d\n"), mes.c_str(),
             m_inputFrameInfo.AspectRatioW, m_inputFrameInfo.AspectRatioH, m_inputFrameInfo.BitDepthLuma, m_inputFrameInfo.Shift);
@@ -1282,7 +1282,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
 mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *pkt) {
     mfxStatus sts = MFX_ERR_NONE;
     if (pkt->data) {
-        sts = AppendMfxBitstream(bitstream, pkt->data, pkt->size);
+        sts = mfxBitstreamAppend(bitstream, pkt->data, pkt->size);
     } else {
         sts = MFX_ERR_MORE_DATA;
     }
@@ -1408,7 +1408,7 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
     if (bitstream == nullptr)
         return MFX_ERR_NULL_PTR;
     if (bitstream->Data == nullptr)
-        if (MFX_ERR_NONE != InitMfxBitstream(bitstream, AVCODEC_READER_INPUT_BUF_SIZE))
+        if (MFX_ERR_NONE != mfxBitstreamInit(bitstream, AVCODEC_READER_INPUT_BUF_SIZE))
             return MFX_ERR_NULL_PTR;
 
     if (m_Demux.video.pExtradata == nullptr) {

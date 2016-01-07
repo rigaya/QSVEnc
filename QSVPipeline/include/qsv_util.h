@@ -33,6 +33,9 @@ using std::vector;
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
 
+#define align16(x) (((x)+15)&(~15))
+#define align32(x) (((x)+31)&(~31))
+
 template<typename T, size_t size>
 std::vector<T> make_vector(T(&ptr)[size]) {
     return std::vector<T>(ptr, ptr + size);
@@ -76,9 +79,16 @@ struct aligned_malloc_deleter {
     }
 };
 
+struct malloc_deleter {
+    void operator()(void* ptr) const {
+        free(ptr);
+    }
+};
+
 struct fp_deleter {
     void operator()(FILE* fp) const {
         if (fp) {
+            fflush(fp);
             fclose(fp);
         }
     }
@@ -441,8 +451,6 @@ const TCHAR *get_err_mes(int sts);
 
 const TCHAR *get_low_power_str(mfxU16 LowPower);
 
-mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size);
-
 static void QSV_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
     uint8_t *dst_fin = dst + size;
     uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)dst_fin & ~15) - 64);
@@ -479,5 +487,13 @@ static void QSV_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int siz
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 const int MAX_FILENAME_LEN = 1024;
+
+const TCHAR *ColorFormatToStr(uint32_t format);
+const TCHAR *CodecIdToStr(uint32_t nFourCC);
+
+mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
+mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize);
+mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size);
+void mfxBitstreamClear(mfxBitstream *pBitstream);
 
 #endif //_QSV_UTIL_H_

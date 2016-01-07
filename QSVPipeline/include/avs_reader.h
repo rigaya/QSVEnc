@@ -21,7 +21,7 @@
 #include "avxsynth_c.h"
 #endif
 #include "qsv_osdep.h"
-#include "sample_utils.h"
+#include "qsv_input.h"
 #pragma warning(pop)
 
 typedef AVS_Value (__stdcall *func_avs_invoke)(AVS_ScriptEnvironment *scriptEnv, const char *name, AVS_Value args, const char** arg_names);
@@ -49,7 +49,7 @@ typedef struct {
     func_avs_get_version get_version;
 } avs_dll_t;
 
-class CAVSReader : public CSmplYUVReader
+class CAVSReader : public CQSVInput
 {
 public:
     CAVSReader();

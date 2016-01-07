@@ -20,6 +20,8 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 #include "qsv_osdep.h"
 #include "mfx_samples_config.h"
 #include "pipeline_encode.h"
+#include "qsv_input.h"
+#include "qsv_output.h"
 #include "vpy_reader.h"
 #include "avs_reader.h"
 #include "avi_reader.h"
@@ -68,21 +70,18 @@ msdk_tick time_get_frequency(void)
 } /* vm_tick vm_time_get_frequency(void) */
 #endif
 
-CEncTaskPool::CEncTaskPool()
-{
+CEncTaskPool::CEncTaskPool() {
     m_pTasks            = nullptr;
     m_pmfxSession       = nullptr;
     m_nTaskBufferStart  = 0;
     m_nPoolSize         = 0;
 }
 
-CEncTaskPool::~CEncTaskPool()
-{
+CEncTaskPool::~CEncTaskPool() {
     Close();
 }
 
-mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pOtherWriter)
-{
+mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CQSVOut> pOtherWriter) {
     MSDK_CHECK_POINTER(pmfxSession, MFX_ERR_NULL_PTR);
 
     MSDK_CHECK_ERROR(nPoolSize, 0, MFX_ERR_UNDEFINED_BEHAVIOR);
@@ -251,7 +250,7 @@ sTask::sTask() :
     MSDK_ZERO_MEMORY(mfxBS);
 }
 
-mfxStatus sTask::Init(mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pFrameWriter, MFXFrameAllocator *pAllocator)
+mfxStatus sTask::Init(mfxU32 nBufferSize, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pFrameWriter, MFXFrameAllocator *pAllocator)
 {
     Close();
 
@@ -262,8 +261,8 @@ mfxStatus sTask::Init(mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pBits
 
     if (pBitstreamWriter.get()) {
         MSDK_CHECK_ERROR(nBufferSize, 0, MFX_ERR_UNDEFINED_BEHAVIOR);
-        sts = InitMfxBitstream(&mfxBS, nBufferSize);
-        MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, WipeMfxBitstream(&mfxBS));
+        sts = mfxBitstreamInit(&mfxBS, nBufferSize);
+        MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, mfxBitstreamClear(&mfxBS));
     } else {
         //フレーム出力時には、Allocatorも必要
         MSDK_CHECK_POINTER(pFrameWriter, MFX_ERR_NULL_PTR);
@@ -277,7 +276,7 @@ mfxStatus sTask::Init(mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pBits
 
 mfxStatus sTask::Close()
 {
-    WipeMfxBitstream(&mfxBS);
+    mfxBitstreamClear(&mfxBS);
     EncSyncP = 0;
     pBsWriter.reset();
     pYUVWriter.reset();
@@ -415,14 +414,14 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
         PrintMes(QSV_LOG_DEBUG, _T("")
             _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")
             _T("InitMfxDecParams: Frame: %s, %dx%d%s [%d,%d,%d,%d] %d:%d, bitdepth %d, shift %d\n"),
-            CodecIdToStr(m_mfxDecParams.mfx.CodecId).c_str(), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
+            CodecIdToStr(m_mfxDecParams.mfx.CodecId), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
             ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.ChromaFormat), m_mfxDecParams.mfx.FrameInfo.Width, m_mfxDecParams.mfx.FrameInfo.Height,
             (m_mfxDecParams.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? _T("i") : _T("p"),
             m_mfxDecParams.mfx.FrameInfo.CropX, m_mfxDecParams.mfx.FrameInfo.CropY, m_mfxDecParams.mfx.FrameInfo.CropW, m_mfxDecParams.mfx.FrameInfo.CropH,
             m_mfxDecParams.mfx.FrameInfo.AspectRatioW, m_mfxDecParams.mfx.FrameInfo.AspectRatioH,
             m_mfxDecParams.mfx.FrameInfo.BitDepthLuma, m_mfxDecParams.mfx.FrameInfo.Shift);
 
-        InitMfxBitstream(&m_DecInputBitstream, AVCODEC_READER_INPUT_BUF_SIZE);
+        mfxBitstreamInit(&m_DecInputBitstream, AVCODEC_READER_INPUT_BUF_SIZE);
         //TimeStampはQSVに自動的に計算させる
         m_DecInputBitstream.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
@@ -467,7 +466,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
     PrintMes(QSV_LOG_DEBUG, _T("Detected avaliable features for %s API v%d.%d, %s, %s\n%s\n"),
         (pInParams->bUseHWLib) ? _T("hw") : _T("sw"), m_mfxVer.Major, m_mfxVer.Minor,
-        CodecIdToStr(pInParams->CodecId).c_str(), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
+        CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
         PrintMes(QSV_LOG_ERROR, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
@@ -2077,7 +2076,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     }
     if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
         if (pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_VP8) {
-            PrintMes(QSV_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId).c_str());
+            PrintMes(QSV_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
             return MFX_ERR_UNSUPPORTED;
         }
         PrintMes(QSV_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
@@ -2163,7 +2162,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     } else {
 #endif
         if (pParams->CodecId == MFX_CODEC_RAW) {
-            m_pFrameWriter.reset(new CSmplYUVWriter());
+            m_pFrameWriter.reset(new CQSVOutFrame());
             m_pFrameWriter->SetQSVLogPtr(m_pQSVLog);
             YUVWriterParam param;
             param.bY4m = true;
@@ -2176,10 +2175,12 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
             stdoutUsed = m_pFrameWriter->outputStdout();
             PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else {
-            m_pFileWriter = std::make_shared<CSmplBitstreamWriter>();
+            m_pFileWriter = std::make_shared<CQSVOutBitstream>();
             m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
-            bool bBenchmark = pParams->bBenchmark != 0;
-            sts = m_pFileWriter->Init(pParams->strDstFile, &bBenchmark, m_pEncSatusInfo);
+            CQSVOutRawPrm rawPrm = { 0 };
+            rawPrm.bBenchmark = pParams->bBenchmark != 0;
+            rawPrm.nBufSizeMB = QSV_DEFAULT_OUTPUT_BUF_MB;
+            sts = m_pFileWriter->Init(pParams->strDstFile, &rawPrm, m_pEncSatusInfo);
             if (sts < MFX_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
                 return sts;
@@ -2407,7 +2408,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
             case INPUT_FMT_RAW:
             default:
                 input_option = &bY4m;
-                m_pFileReader = std::make_shared<CSmplYUVReader>();
+                m_pFileReader = std::make_shared<CQSVInputRaw>();
                 PrintMes(QSV_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (bY4m) ? _T("y4m") : _T("raw"));
                 break;
         }
@@ -2442,7 +2443,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams)
             avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
 
-            unique_ptr<CSmplYUVReader> audioReader(new CAvcodecReader());
+            unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);
             sts = audioReader->Init(pParams->ppAudioSourceList[i], 0, &avcodecReaderPrm, nullptr, nullptr, nullptr);
             if (sts < MFX_ERR_NONE) {
@@ -3011,7 +3012,7 @@ void CEncodingPipeline::Close()
     // allocator if used as external for MediaSDK must be deleted after SDK components
     DeleteAllocator();
 
-    WipeMfxBitstream(&m_DecInputBitstream);
+    mfxBitstreamClear(&m_DecInputBitstream);
 
     PrintMes(QSV_LOG_DEBUG, _T("Closing TaskPool...\n"));
     m_TaskPool.Close();
@@ -3152,10 +3153,10 @@ mfxStatus CEncodingPipeline::AllocateSufficientBuffer(mfxBitstream* pBS)
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to get required output buffer size from encoder."));
 
     // reallocate bigger buffer for output
-    sts = ExtendMfxBitstream(pBS, par.mfx.BufferSizeInKB * 1000 * (std::max)(1, (int)par.mfx.BRCParamMultiplier));
+    sts = mfxBitstreamExtend(pBS, par.mfx.BufferSizeInKB * 1000 * (std::max)(1, (int)par.mfx.BRCParamMultiplier));
     if (sts < MFX_ERR_NONE)
         PrintMes(QSV_LOG_ERROR, _T("Failed to allocate buffer for bitstream output.\n"));
-    MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, WipeMfxBitstream(pBS));
+    MSDK_CHECK_RESULT_SAFE(sts, MFX_ERR_NONE, sts, mfxBitstreamClear(pBS));
 
     return MFX_ERR_NONE;
 }
@@ -4367,7 +4368,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
     }
     if (m_pmfxENC) {
-        PRINT_INFO(_T("Output         %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId).c_str(),
+        PRINT_INFO(_T("Output         %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId),
             get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
             get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
     }

@@ -12,6 +12,8 @@
 #define _AUO_PIPELINE_ENCODE_H_
 
 #include "pipeline_encode.h"
+#include "qsv_input.h"
+#include "qsv_output.h"
 
 class CAuoLog : public CQSVLog {
 public:

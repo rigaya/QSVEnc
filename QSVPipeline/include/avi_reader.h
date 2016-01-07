@@ -14,9 +14,9 @@
 #include <Windows.h>
 #include <vfw.h>
 #pragma comment(lib, "vfw32.lib")
-#include "sample_utils.h"
+#include "qsv_input.h"
 
-class CAVIReader : public CSmplYUVReader
+class CAVIReader : public CQSVInput
 {
 public:
     CAVIReader();

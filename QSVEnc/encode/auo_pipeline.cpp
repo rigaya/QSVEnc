@@ -91,7 +91,7 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
         return CEncodingPipeline::InitOutput(pParams);
     }
 
-    m_pFileWriter = std::make_shared<CSmplBitstreamWriter>();
+    m_pFileWriter = std::make_shared<CQSVOutBitstream>();
     m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
     bool bDummy = false;
     sts = m_pFileWriter->Init(pParams->strDstFile, &bDummy, m_pEncSatusInfo);

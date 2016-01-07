@@ -18,6 +18,7 @@
 #include "qsv_version.h"
 #include "avcodec_qsv.h"
 #include "avcodec_reader.h"
+#include "qsv_output.h"
 
 using std::vector;
 
@@ -144,7 +145,7 @@ typedef struct AvcodecWriterPrm {
     vector<const AVChapter *>    chapterList;             //チャプターリスト
 } AvcodecWriterPrm;
 
-class CAvcodecWriter : public CSmplBitstreamWriter
+class CAvcodecWriter : public CQSVOut
 {
 public:
     CAvcodecWriter();
@@ -155,6 +156,8 @@ public:
     virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
 
     virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) override;
+
+    virtual mfxStatus WriteNextFrame(mfxFrameSurface1 *pSurface) override;
 
     virtual mfxStatus WriteNextPacket(AVPacket *pkt);
 

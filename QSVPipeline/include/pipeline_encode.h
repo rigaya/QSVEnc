@@ -49,6 +49,8 @@
 #include "scene_change_detection.h"
 #include "perf_monitor.h"
 #include "qsv_plugin.h"
+#include "qsv_input.h"
+#include "qsv_output.h"
 
 #include <vector>
 #include <memory>
@@ -65,14 +67,14 @@ struct sTask
     mfxFrameSurface1 *mfxSurf;
     mfxSyncPoint EncSyncP;
     std::list<mfxSyncPoint> DependentVppTasks;
-    shared_ptr<CSmplBitstreamWriter> pBsWriter;
-    shared_ptr<CSmplYUVWriter> pYUVWriter;
+    shared_ptr<CQSVOut> pBsWriter;
+    shared_ptr<CQSVOut> pYUVWriter;
     MFXFrameAllocator *pmfxAllocator;
 
     sTask();
     mfxStatus WriteBitstream();
     mfxStatus Reset();
-    mfxStatus Init(mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pFrameWriter, MFXFrameAllocator *pAllocator = nullptr);
+    mfxStatus Init(mfxU32 nBufferSize, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pFrameWriter, MFXFrameAllocator *pAllocator = nullptr);
     mfxStatus Close();
 };
 
@@ -82,7 +84,7 @@ public:
     CEncTaskPool();
     virtual ~CEncTaskPool();
 
-    virtual mfxStatus Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CSmplBitstreamWriter> pBitstreamWriter, shared_ptr<CSmplYUVWriter> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CSmplBitstreamWriter> pOtherWriter);
+    virtual mfxStatus Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CQSVOut> pOtherWriter);
 
     mfxStatus GetFreeTask(sTask **ppTask);
 
@@ -157,11 +159,11 @@ protected:
     mfxU32 m_nExPrm;
     CQSVFrameTypeSimulation m_frameTypeSim;
 
-    vector<shared_ptr<CSmplBitstreamWriter>> m_pFileWriterListAudio;
-    shared_ptr<CSmplBitstreamWriter> m_pFileWriter;
-    shared_ptr<CSmplYUVWriter> m_pFrameWriter;
-    vector<shared_ptr<CSmplYUVReader>> m_AudioReaders;
-    shared_ptr<CSmplYUVReader> m_pFileReader;
+    vector<shared_ptr<CQSVOut>> m_pFileWriterListAudio;
+    shared_ptr<CQSVOut> m_pFileWriter;
+    shared_ptr<CQSVOut> m_pFrameWriter;
+    vector<shared_ptr<CQSVInput>> m_AudioReaders;
+    shared_ptr<CQSVInput> m_pFileReader;
 
     CEncTaskPool m_TaskPool;
     mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance

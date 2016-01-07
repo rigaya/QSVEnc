@@ -10,11 +10,11 @@
 #ifndef _AUO_YUVREADER_H_
 #define _AUO_YUVREADER_H_
 
-#include "sample_utils.h"
+#include "qsv_input.h"
 #include "auo_version.h"
 #include "output.h"
 
-class AUO_YUVReader : public CSmplYUVReader
+class AUO_YUVReader : public CQSVInput
 {
 public :
 

@@ -1111,7 +1111,7 @@ tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             str += _T("<b>");
         }
-        str += _T("Codec: ") + CodecIdToStr(codecLists[i_codec]) + _T("\n");
+        str += _T("Codec: ") + tstring(CodecIdToStr(codecLists[i_codec])) + _T("\n");
 
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             str += _T("</b><table class=simpleOrange>");
@@ -1636,20 +1636,61 @@ tstring getEnviromentInfo(bool add_ram_info) {
     return buf;
 }
 
-mfxStatus AppendMfxBitstream(mfxBitstream *bitstream, const mfxU8 *data, mfxU32 size) {
+mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize) {
+    mfxBitstreamClear(pBitstream);
+
+    if (nullptr == (pBitstream->Data = (uint8_t *)_aligned_malloc(nSize, 32))) {
+        return MFX_ERR_NULL_PTR;
+    }
+
+    pBitstream->MaxLength = nSize;
+    return MFX_ERR_NONE;
+}
+
+mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize) {
+    uint8_t *pData = (uint8_t *)_aligned_malloc(nSize, 32);
+    if (nullptr == pData) {
+        return MFX_ERR_NULL_PTR;
+    }
+
+    auto nDataLen = pBitstream->DataLength;
+    if (nDataLen) {
+        memmove(pData, pBitstream->Data + pBitstream->DataOffset, nDataLen);
+    }
+
+    mfxBitstreamClear(pBitstream);
+
+    pBitstream->Data       = pData;
+    pBitstream->DataOffset = 0;
+    pBitstream->DataLength = nDataLen;
+    pBitstream->MaxLength  = nSize;
+
+    return MFX_ERR_NONE;
+}
+
+void mfxBitstreamClear(mfxBitstream *pBitstream) {
+    if (pBitstream->Data) {
+        _aligned_free(pBitstream->Data);
+    }
+    memset(pBitstream, 0, sizeof(pBitstream[0]));
+}
+
+mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size) {
     mfxStatus sts = MFX_ERR_NONE;
     if (data) {
-        const uint32_t new_data_length = bitstream->DataLength + size;
-        if (bitstream->MaxLength < new_data_length)
-            if (MFX_ERR_NONE != (sts = ExtendMfxBitstream(bitstream, new_data_length)))
+        const uint32_t new_data_length = pBitstream->DataLength + size;
+        if (pBitstream->MaxLength < new_data_length) {
+            if (MFX_ERR_NONE != (sts = mfxBitstreamExtend(pBitstream, new_data_length))) {
                 return sts;
-
-        if (bitstream->MaxLength < new_data_length + bitstream->DataOffset) {
-            memmove(bitstream->Data, bitstream->Data + bitstream->DataOffset, bitstream->DataLength);
-            bitstream->DataOffset = 0;
+            }
         }
-        memcpy(bitstream->Data + bitstream->DataLength + bitstream->DataOffset, data, size);
-        bitstream->DataLength = new_data_length;
+
+        if (pBitstream->MaxLength < new_data_length + pBitstream->DataOffset) {
+            memmove(pBitstream->Data, pBitstream->Data + pBitstream->DataOffset, pBitstream->DataLength);
+            pBitstream->DataOffset = 0;
+        }
+        memcpy(pBitstream->Data + pBitstream->DataLength + pBitstream->DataOffset, data, size);
+        pBitstream->DataLength = new_data_length;
     }
     return sts;
 }
@@ -1675,4 +1716,48 @@ int getCPUGen() {
     if (bFsgsbase) return CPU_GEN_IVYBRIDGE;
     if (bRDRand)   return CPU_GEN_SILVERMONT;
     return CPU_GEN_SANDYBRIDGE;
+}
+
+const TCHAR *ColorFormatToStr(uint32_t format) {
+    switch (format) {
+    case MFX_FOURCC_NV12:
+        return MSDK_STRING("nv12");
+    case MFX_FOURCC_NV16:
+        return MSDK_STRING("nv16");
+    case MFX_FOURCC_YV12:
+        return MSDK_STRING("yv12");
+    case MFX_FOURCC_YUY2:
+        return MSDK_STRING("yuy2");
+    case MFX_FOURCC_RGB3:
+        return MSDK_STRING("rgb24");
+    case MFX_FOURCC_RGB4:
+        return MSDK_STRING("rgb32");
+    case MFX_FOURCC_BGR4:
+        return MSDK_STRING("bgr32");
+    case MFX_FOURCC_P010:
+        return MSDK_STRING("nv12(10bit)");
+    case MFX_FOURCC_P210:
+        return MSDK_STRING("nv16(10bit)");
+    default:
+        return MSDK_STRING("unsupported");
+    }
+}
+
+const TCHAR *CodecIdToStr(uint32_t nFourCC) {
+    switch (nFourCC) {
+    case MFX_CODEC_AVC:
+        return _T("H.264/AVC");
+    case MFX_CODEC_VC1:
+        return _T("VC-1");
+    case MFX_CODEC_HEVC:
+        return _T("HEVC");
+    case MFX_CODEC_MPEG2:
+        return _T("MPEG2");
+    case MFX_CODEC_VP8:
+        return _T("VP8");
+    case MFX_CODEC_JPEG:
+        return _T("JPEG");
+    default:
+        return _T("NOT_SUPPORTED");
+    }
 }
