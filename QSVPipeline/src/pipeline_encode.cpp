@@ -1574,7 +1574,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
     }
 
-    nInputSurfAdd = MSDK_MAX(m_EncThread.m_nFrameBuffer, 1);
+    nInputSurfAdd = (std::max<uint16_t>)(m_EncThread.m_nFrameBuffer, 1);
 
     nDecSurfAdd = DecRequest.NumFrameSuggested;
 
@@ -1599,7 +1599,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
             m_VppPrePlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
                 mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
-                m_VppPrePlugins[i]->m_nSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
+                m_VppPrePlugins[i]->m_nSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
             } else {
                 // If surfaces are shared by 2 components, c1 and c2. NumSurf = c1_out + c2_in - AsyncDepth + 1
                 mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
@@ -1633,7 +1633,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
 
     //Vpp
     if (m_pmfxVPP) {
-        nVppSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd - m_nAsyncDepth + 1);
+        nVppSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd - m_nAsyncDepth + 1);
 
         //VppRequest[0]の準備
         VppRequest[0].NumFrameMin = nVppSurfNum;
@@ -1658,7 +1658,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         nInputSurfAdd = 0;
         nDecSurfAdd = 0;
         nVppPreSurfAdd = 0;
-        nVppSurfAdd = MSDK_MAX(VppRequest[1].NumFrameSuggested, 1);
+        nVppSurfAdd = (std::max<uint16_t>)(VppRequest[1].NumFrameSuggested, 1);
         NextRequest = VppRequest[1];
         MSDK_MEMCPY_VAR(NextRequest.Info, &(m_mfxVppParams.vpp.Out), sizeof(mfxFrameInfo));
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
@@ -1674,7 +1674,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
             m_VppPostPlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
                 mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
-                m_VppPostPlugins[i]->m_nSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
+                m_VppPostPlugins[i]->m_nSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
             } else {
                 // If surfaces are shared by 2 components, c1 and c2. NumSurf = c1_out + c2_in - AsyncDepth + 1
                 mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
@@ -1711,7 +1711,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
 
     //Enc、エンコーダが有効でない場合は出力フレーム
     {
-        nEncSurfNum += MSDK_MAX(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
+        nEncSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
         if (m_pmfxENC == nullptr) {
             EncRequest = NextRequest;
             nEncSurfNum += (m_nAsyncDepth - 1);
