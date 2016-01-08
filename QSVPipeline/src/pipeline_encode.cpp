@@ -71,7 +71,6 @@ msdk_tick time_get_frequency(void)
 #endif
 
 CEncTaskPool::CEncTaskPool() {
-    m_pTasks            = nullptr;
     m_pmfxSession       = nullptr;
     m_nTaskBufferStart  = 0;
     m_nPoolSize         = 0;
@@ -99,8 +98,7 @@ mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pm
     m_pmfxSession = pmfxSession;
     m_nPoolSize = nPoolSize;
 
-    m_pTasks = new sTask [m_nPoolSize];
-    MSDK_CHECK_POINTER(m_pTasks, MFX_ERR_MEMORY_ALLOC);
+    m_pTasks.resize(m_nPoolSize);
 
     mfxStatus sts = MFX_ERR_NONE;
 
@@ -127,7 +125,6 @@ mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pm
 
 mfxStatus CEncTaskPool::SynchronizeFirstTask()
 {
-    MSDK_CHECK_POINTER(m_pTasks, MFX_ERR_NOT_INITIALIZED);
     MSDK_CHECK_POINTER(m_pmfxSession, MFX_ERR_NOT_INITIALIZED);
 
     mfxStatus sts  = MFX_ERR_NONE;
@@ -188,7 +185,7 @@ mfxU32 CEncTaskPool::GetFreeTaskIndex()
 {
     mfxU32 off = 0;
 
-    if (m_pTasks)
+    if (m_pTasks.size())
     {
         for (off = 0; off < m_nPoolSize; off++)
         {
@@ -208,7 +205,6 @@ mfxU32 CEncTaskPool::GetFreeTaskIndex()
 mfxStatus CEncTaskPool::GetFreeTask(sTask **ppTask)
 {
     MSDK_CHECK_POINTER(ppTask, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(m_pTasks, MFX_ERR_NOT_INITIALIZED);
 
     mfxU32 index = GetFreeTaskIndex();
 
@@ -225,15 +221,12 @@ mfxStatus CEncTaskPool::GetFreeTask(sTask **ppTask)
 
 void CEncTaskPool::Close()
 {
-    if (m_pTasks)
-    {
-        for (mfxU32 i = 0; i < m_nPoolSize; i++)
-        {
+    if (m_pTasks.size()) {
+        for (mfxU32 i = 0; i < m_nPoolSize; i++) {
             m_pTasks[i].Close();
         }
     }
-
-    MSDK_SAFE_DELETE_ARRAY(m_pTasks);
+    m_pTasks.clear();
 
     m_pmfxSession = NULL;
     m_nTaskBufferStart = 0;
@@ -399,9 +392,9 @@ void CEncodingPipeline::FreeVppDoNotUse()
 #if ENABLE_MVC_ENCODING
 void CEncodingPipeline::FreeMVCSeqDesc()
 {
-    MSDK_SAFE_DELETE_ARRAY(m_MVCSeqDesc.View);
-    MSDK_SAFE_DELETE_ARRAY(m_MVCSeqDesc.ViewId);
-    MSDK_SAFE_DELETE_ARRAY(m_MVCSeqDesc.OP);
+    qsv_delete_array(m_MVCSeqDesc.View);
+    qsv_delete_array(m_MVCSeqDesc.ViewId);
+    qsv_delete_array(m_MVCSeqDesc.OP);
 }
 #endif
 
@@ -432,7 +425,7 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("InitMfxDecParams: Failed to get stream header from reader."));
 
         //デコーダの作成
-        m_pmfxDEC = new MFXVideoDECODE(m_mfxSession);
+        m_pmfxDEC.reset(new MFXVideoDECODE(m_mfxSession));
         MSDK_CHECK_POINTER(m_pmfxDEC, MFX_ERR_MEMORY_ALLOC);
 
         if (m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
@@ -1389,10 +1382,10 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
     tstring vppPreMes = _T("");
     if (pParams->vpp.delogo.pFilePath) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
-        DelogoParam param(m_pMFXAllocator, m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
+        DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
             pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
             pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset);
-        sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
+        sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts == MFX_ERR_ABORTED) {
             PrintMes(QSV_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
             sts = MFX_ERR_NONE;
@@ -1410,7 +1403,7 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
     if (pParams->vpp.bHalfTurn) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         RotateParam param(180);
-        sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator, 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
+        sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
             PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
         } else {
@@ -1755,8 +1748,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     }
 
     // prepare mfxFrameSurface1 array for encoder or output
-    m_pEncSurfaces = new mfxFrameSurface1[m_EncResponse.NumFrameActual];
-    MSDK_CHECK_POINTER(m_pEncSurfaces, MFX_ERR_MEMORY_ALLOC);
+    m_pEncSurfaces.resize(m_EncResponse.NumFrameActual);
 
     for (int i = 0; i < m_EncResponse.NumFrameActual; i++) {
         memset(&(m_pEncSurfaces[i]), 0, sizeof(mfxFrameSurface1));
@@ -1773,8 +1765,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
 
     // prepare mfxFrameSurface1 array for vpp if vpp is enabled
     if (m_pmfxVPP) {
-        m_pVppSurfaces = new mfxFrameSurface1 [m_VppResponse.NumFrameActual];
-        MSDK_CHECK_POINTER(m_pVppSurfaces, MFX_ERR_MEMORY_ALLOC);
+        m_pVppSurfaces.resize(m_VppResponse.NumFrameActual);
 
         for (int i = 0; i < m_VppResponse.NumFrameActual; i++) {
             QSV_MEMSET_ZERO(m_pVppSurfaces[i]);
@@ -1790,7 +1781,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     }
 
     for (const auto& filter : m_VppPrePlugins) {
-        if (MFX_ERR_NONE != (sts = filter->AllocSurfaces(m_pMFXAllocator, m_bExternalAlloc))) {
+        if (MFX_ERR_NONE != (sts = filter->AllocSurfaces(m_pMFXAllocator.get(), m_bExternalAlloc))) {
             PrintMes(QSV_LOG_ERROR, _T("AllocFrames: Failed to alloc surface for %s\n"), filter->getFilterName().c_str());
             return sts;
         } else {
@@ -1799,7 +1790,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     }
 
     for (const auto& filter : m_VppPostPlugins) {
-        if (MFX_ERR_NONE != (sts = filter->AllocSurfaces(m_pMFXAllocator, m_bExternalAlloc))) {
+        if (MFX_ERR_NONE != (sts = filter->AllocSurfaces(m_pMFXAllocator.get(), m_bExternalAlloc))) {
             PrintMes(QSV_LOG_ERROR, _T("AllocFrames: Failed to alloc surface for %s\n"), filter->getFilterName().c_str());
             return sts;
         } else {
@@ -1841,7 +1832,7 @@ mfxStatus CEncodingPipeline::CreateAllocator()
 #if MFX_D3D11_SUPPORT
         if (D3D11_MEMORY == m_memType)
         {
-            m_pMFXAllocator = new D3D11FrameAllocator;
+            m_pMFXAllocator.reset(new D3D11FrameAllocator);
             MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
 
             D3D11AllocatorParams *pd3dAllocParams = new D3D11AllocatorParams;
@@ -1849,12 +1840,12 @@ mfxStatus CEncodingPipeline::CreateAllocator()
             pd3dAllocParams->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
             PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: d3d11...\n"));
 
-            m_pmfxAllocatorParams = pd3dAllocParams;
+            m_pmfxAllocatorParams.reset(pd3dAllocParams);
         }
         else
 #endif // #if MFX_D3D11_SUPPORT
         {
-            m_pMFXAllocator = new D3DFrameAllocator;
+            m_pMFXAllocator.reset(new D3DFrameAllocator);
             MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
 
             D3DAllocatorParams *pd3dAllocParams = new D3DAllocatorParams;
@@ -1862,13 +1853,13 @@ mfxStatus CEncodingPipeline::CreateAllocator()
             pd3dAllocParams->pManager = reinterpret_cast<IDirect3DDeviceManager9 *>(hdl);
             PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: d3d9...\n"));
 
-            m_pmfxAllocatorParams = pd3dAllocParams;
+            m_pmfxAllocatorParams.reset(pd3dAllocParams);
         }
 
         /* In case of video memory we must provide MediaSDK with external allocator
         thus we demonstrate "external allocator" usage model.
         Call SetAllocator to pass allocator to Media SDK */
-        sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator);
+        sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get());
         MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to set frame allocator to encode session."));
         PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
 
@@ -1926,7 +1917,7 @@ mfxStatus CEncodingPipeline::CreateAllocator()
 #endif
 
         // create system memory allocator
-        m_pMFXAllocator = new SysMemFrameAllocator;
+        m_pMFXAllocator.reset(new SysMemFrameAllocator);
         MSDK_CHECK_POINTER(m_pMFXAllocator, MFX_ERR_MEMORY_ALLOC);
         PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: sys mem allocator...\n"));
 
@@ -1936,7 +1927,7 @@ mfxStatus CEncodingPipeline::CreateAllocator()
     }
 
     // initialize memory allocator
-    sts = m_pMFXAllocator->Init(m_pmfxAllocatorParams);
+    sts = m_pMFXAllocator->Init(m_pmfxAllocatorParams.get());
     if (sts < MFX_ERR_NONE) {
         PrintMes(QSV_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(m_memType), get_err_mes(sts));
         return sts;
@@ -1946,16 +1937,12 @@ mfxStatus CEncodingPipeline::CreateAllocator()
     return MFX_ERR_NONE;
 }
 
-void CEncodingPipeline::DeleteFrames()
-{
-    // delete surfaces array
-    MSDK_SAFE_DELETE_ARRAY(m_pEncSurfaces);
-    MSDK_SAFE_DELETE_ARRAY(m_pVppSurfaces);
-    MSDK_SAFE_DELETE_ARRAY(m_pDecSurfaces);
+void CEncodingPipeline::DeleteFrames() {
+    m_pEncSurfaces.clear();
+    m_pVppSurfaces.clear();
+    m_pDecSurfaces.clear();
 
-    // delete frames
-    if (m_pMFXAllocator)
-    {
+    if (m_pMFXAllocator) {
         m_pMFXAllocator->Free(m_pMFXAllocator->pthis, &m_EncResponse);
         m_pMFXAllocator->Free(m_pMFXAllocator->pthis, &m_VppResponse);
         m_pMFXAllocator->Free(m_pMFXAllocator->pthis, &m_DecResponse);
@@ -1971,11 +1958,9 @@ void CEncodingPipeline::DeleteHWDevice()
     m_hwdev.reset();
 }
 
-void CEncodingPipeline::DeleteAllocator()
-{
-    // delete allocator
-    MSDK_SAFE_DELETE(m_pMFXAllocator);
-    MSDK_SAFE_DELETE(m_pmfxAllocatorParams);
+void CEncodingPipeline::DeleteAllocator() {
+    m_pMFXAllocator.reset();
+    m_pmfxAllocatorParams.reset();
 
     DeleteHWDevice();
 }
@@ -1989,9 +1974,6 @@ CEncodingPipeline::CEncodingPipeline()
     m_pmfxAllocatorParams = NULL;
     m_memType = SYSTEM_MEMORY;
     m_bExternalAlloc = false;
-    m_pEncSurfaces = NULL;
-    m_pVppSurfaces = NULL;
-    m_pDecSurfaces = NULL;
     m_nAsyncDepth = 0;
     m_nExPrm = 0x00;
     m_bTimerPeriodTuning = false;
@@ -2802,14 +2784,15 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
     if (pParams->bBenchmark) {
         pParams->nAVMux = QSVENC_MUX_NONE;
         if (pParams->nAudioSelectCount) {
-            for (int i = 0; i < pParams->nAudioSelectCount; i++)
-                MSDK_SAFE_FREE(pParams->ppAudioSelectList[i]);
-            MSDK_SAFE_FREE(pParams->ppAudioSelectList);
+            for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+                qsv_free(pParams->ppAudioSelectList[i]);
+            }
+            qsv_free(pParams->ppAudioSelectList);
             pParams->nAudioSelectCount = 0;
             PrintMes(QSV_LOG_WARN, _T("audio copy or audio encoding disabled on benchmark mode.\n"));
         }
         if (pParams->nSubtitleSelectCount) {
-            MSDK_SAFE_FREE(pParams->pSubtitleSelect);
+            qsv_free(pParams->pSubtitleSelect);
             pParams->nSubtitleSelectCount = 0;
             PrintMes(QSV_LOG_WARN, _T("subtitle copy disabled on benchmark mode.\n"));
         }
@@ -2913,7 +2896,7 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
 
     // create encoder
     if (pParams->CodecId != MFX_CODEC_RAW) {
-        m_pmfxENC = new MFXVideoENCODE(m_mfxSession);
+        m_pmfxENC.reset(new MFXVideoENCODE(m_mfxSession));
         MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_MEMORY_ALLOC);
     }
 
@@ -2928,7 +2911,7 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams)
         || pParams->vpp.nDeinterlace
         ) {
         PrintMes(QSV_LOG_DEBUG, _T("Vpp Enabled...\n"));
-        m_pmfxVPP = new MFXVideoVPP(m_mfxSession);
+        m_pmfxVPP.reset(new MFXVideoVPP(m_mfxSession));
         MSDK_CHECK_POINTER(m_pmfxVPP, MFX_ERR_MEMORY_ALLOC);
     }
     if (m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC) {
@@ -2988,9 +2971,9 @@ void CEncodingPipeline::Close()
     m_pTrimParam = NULL;
 
     PrintMes(QSV_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
-    MSDK_SAFE_DELETE(m_pmfxDEC);
-    MSDK_SAFE_DELETE(m_pmfxENC);
-    MSDK_SAFE_DELETE(m_pmfxVPP);
+    m_pmfxDEC.reset();
+    m_pmfxENC.reset();
+    m_pmfxVPP.reset();
     m_VppPrePlugins.clear();
     m_VppPostPlugins.clear();
 
@@ -3133,7 +3116,7 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams)
 
     mfxU32 nEncodedDataBufferSize = m_mfxEncParams.mfx.FrameInfo.Width * m_mfxEncParams.mfx.FrameInfo.Height * 4;
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth, nEncodedDataBufferSize >> 10);
-    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator, m_pFileWriter, m_pFrameWriter, m_nAsyncDepth, nEncodedDataBufferSize, NULL);
+    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator.get(), m_pFileWriter, m_pFrameWriter, m_nAsyncDepth, nEncodedDataBufferSize, NULL);
     MSDK_CHECK_RESULT_MES(sts, MFX_ERR_NONE, sts, _T("Failed to initialize task pool for encoding."));
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Created task pool.\n"));
 
@@ -3398,7 +3381,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         // if vpp is enabled find free surface for vpp input and point pSurf to vpp surface
         if (m_pmfxVPP) {
             //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
-            nVppSurfIdx = GetFreeSurface(m_pVppSurfaces, m_VppResponse.NumFrameActual);
+            nVppSurfIdx = GetFreeSurface(m_pVppSurfaces.data(), m_VppResponse.NumFrameActual);
             pSurfVppIn = &m_pVppSurfaces[nVppSurfIdx];
             MSDK_CHECK_ERROR(nVppSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
             pSurfInputBuf = pSurfVppIn;
@@ -3416,7 +3399,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     auto set_surface_to_input_buffer = [&]() {
         mfxStatus sts_set_buffer = MFX_ERR_NONE;
         for (int i = 0; i < m_EncThread.m_nFrameBuffer; i++) {
-            get_all_free_surface(&m_pEncSurfaces[GetFreeSurface(m_pEncSurfaces, m_EncResponse.NumFrameActual)]);
+            get_all_free_surface(&m_pEncSurfaces[GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual)]);
 
             if (m_bExternalAlloc) {
                 sts_set_buffer = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data));
@@ -3717,7 +3700,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 
         // find free surface for encoder input
         //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
-        nEncSurfIdx = GetFreeSurface(m_pEncSurfaces, m_EncResponse.NumFrameActual);
+        nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
         MSDK_CHECK_ERROR(nEncSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
 
         // point pSurf to encoder surface
@@ -3818,7 +3801,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 
             // find free surface for encoder input
             //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
-            nEncSurfIdx = GetFreeSurface(m_pEncSurfaces, m_EncResponse.NumFrameActual);
+            nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
             MSDK_CHECK_ERROR(nEncSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
 
             // point pSurf to encoder surface
@@ -3892,7 +3875,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         {
             pNextFrame = NULL;
             // find free surface for encoder input (vpp output)
-            nEncSurfIdx = GetFreeSurface(m_pEncSurfaces, m_EncResponse.NumFrameActual);
+            nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
             MSDK_CHECK_ERROR(nEncSurfIdx, MSDK_INVALID_SURF_IDX, MFX_ERR_MEMORY_ALLOC);
 
             pSurfEncIn = &m_pEncSurfaces[nEncSurfIdx];

@@ -16,6 +16,8 @@ Copyright(c) 2008-2013 Intel Corporation. All Rights Reserved.
 #include <functional>
 #include "mfxvideo.h"
 
+#define MSDK_SAFE_RELEASE(X) {if (X) { X->Release(); X = NULL; }}
+
 struct mfxAllocatorParams
 {
     virtual ~mfxAllocatorParams(){};

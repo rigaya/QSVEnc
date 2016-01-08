@@ -69,8 +69,8 @@ public:
 
         m_pUsrPlugin.reset();
         m_pPluginSurfaces.reset();
-        MSDK_SAFE_DELETE(m_pMFXAllocator);
-        MSDK_SAFE_DELETE(m_pmfxAllocatorParams);
+        //qsv_delete(m_pMFXAllocator);
+        //qsv_delete(m_pmfxAllocatorParams);
         m_bPluginFlushed = false;
         m_nSurfNum = 0;
         m_memType = SYSTEM_MEMORY;

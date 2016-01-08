@@ -92,7 +92,7 @@ public:
     virtual void Close();
 
 protected:
-    sTask* m_pTasks;
+    vector<sTask> m_pTasks;
     mfxU32 m_nPoolSize;
     mfxU32 m_nTaskBufferStart;
 
@@ -179,9 +179,9 @@ protected:
     mfxExtVP8CodingOption m_ExtVP8CodingOption;
     mfxExtHEVCParam m_ExtHEVCParam;
     MFXVideoSession m_mfxSession;
-    MFXVideoDECODE* m_pmfxDEC;
-    MFXVideoENCODE* m_pmfxENC;
-    MFXVideoVPP* m_pmfxVPP;
+    unique_ptr<MFXVideoDECODE> m_pmfxDEC;
+    unique_ptr<MFXVideoENCODE> m_pmfxENC;
+    unique_ptr<MFXVideoVPP>    m_pmfxVPP;
 
     unique_ptr<CSessionPlugins> m_SessionPlugins;
     vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
@@ -193,7 +193,7 @@ protected:
     mfxVideoParam m_mfxEncParams;
     mfxVideoParam m_mfxVppParams;
     
-    std::unique_ptr<MFXVideoUSER>  m_pUserModule;
+    unique_ptr<MFXVideoUSER>  m_pUserModule;
 
     vector<mfxExtBuffer*> m_EncExtParams;
     vector<mfxExtBuffer*> m_VppExtParams;
@@ -211,8 +211,8 @@ protected:
     vector<mfxU32> m_VppDoNotUseList;
     vector<mfxU32> m_VppDoUseList;
 
-    MFXFrameAllocator* m_pMFXAllocator;
-    mfxAllocatorParams* m_pmfxAllocatorParams;
+    unique_ptr<MFXFrameAllocator> m_pMFXAllocator;
+    unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;
     MemType m_memType;
     bool m_bd3dAlloc; // use d3d surfaces
     bool m_bExternalAlloc; // use memory allocator as external for Media SDK
@@ -221,9 +221,9 @@ protected:
 
     mfxBitstream m_DecInputBitstream;
 
-    mfxFrameSurface1* m_pEncSurfaces; // frames array for encoder input (vpp output, decoder output)
-    mfxFrameSurface1* m_pVppSurfaces; // frames array for vpp input (decoder output)
-    mfxFrameSurface1* m_pDecSurfaces; // work area for decoder
+    vector<mfxFrameSurface1> m_pEncSurfaces; // frames array for encoder input (vpp output, decoder output)
+    vector<mfxFrameSurface1> m_pVppSurfaces; // frames array for vpp input (decoder output)
+    vector<mfxFrameSurface1> m_pDecSurfaces; // work area for decoder
     mfxFrameAllocResponse m_EncResponse;  // memory allocation response for encoder
     mfxFrameAllocResponse m_VppResponse;  // memory allocation response for vpp
     mfxFrameAllocResponse m_DecResponse;  // memory allocation response for decoder

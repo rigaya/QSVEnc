@@ -12,6 +12,8 @@ Copyright(c) 2013 Intel Corporation. All Rights Reserved.
 
 #include "mfxvideo++.h"
 
+#define MSDK_SAFE_RELEASE(X) {if (X) { X->Release(); X = NULL; }}
+
 /// Base class for hw device
 class CHWDevice
 {

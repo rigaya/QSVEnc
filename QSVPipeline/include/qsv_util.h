@@ -75,6 +75,14 @@ void vector_cat(vector<T>& v1, const vector<T>& v2) {
         v1.insert(v1.end(), v2.begin(), v2.end());
     }
 }
+template<typename T>
+static void qsv_free(T& ptr) {
+    static_assert(std::is_pointer<T>::value == true, "T should be pointer");
+    if (ptr) {
+        free(ptr);
+        ptr = nullptr;
+    }
+}
 
 struct aligned_malloc_deleter {
     void operator()(void* ptr) const {
