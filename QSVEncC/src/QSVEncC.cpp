@@ -1136,7 +1136,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &value[0], &value[1])) {
-            MSDK_ZERO_MEMORY(pParams->nPAR);
+            QSV_MEMSET_ZERO(pParams->nPAR);
             PrintHelp(strInput[0], _T("Unknown value"), option_name);
             return MFX_PRINT_OPTION_ERR;
         }
@@ -2015,7 +2015,7 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
 
 
     MSDK_CHECK_POINTER(pParams, MFX_ERR_NULL_PTR);
-    MSDK_ZERO_MEMORY(*pParams);
+    QSV_MEMSET_ZERO(*pParams);
 
     pParams->CodecId           = MFX_CODEC_AVC;
     pParams->nTargetUsage      = QSV_DEFAULT_QUALITY;

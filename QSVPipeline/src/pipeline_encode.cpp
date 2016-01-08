@@ -247,7 +247,7 @@ sTask::sTask() :
     pYUVWriter(),
     pmfxAllocator(nullptr)
 {
-    MSDK_ZERO_MEMORY(mfxBS);
+    QSV_MEMSET_ZERO(mfxBS);
 }
 
 mfxStatus sTask::Init(mfxU32 nBufferSize, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pFrameWriter, MFXFrameAllocator *pAllocator)
@@ -344,7 +344,7 @@ mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
     MSDK_CHECK_POINTER(m_MVCSeqDesc.View, MFX_ERR_MEMORY_ALLOC);
     for (i = 0; i < m_MVCSeqDesc.NumViewAlloc; ++i)
     {
-        MSDK_ZERO_MEMORY(m_MVCSeqDesc.View[i]);
+        QSV_MEMSET_ZERO(m_MVCSeqDesc.View[i]);
         m_MVCSeqDesc.View[i].ViewId = (mfxU16) i; // set view number as view id
     }
 
@@ -372,7 +372,7 @@ mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
     MSDK_CHECK_POINTER(m_MVCSeqDesc.OP, MFX_ERR_MEMORY_ALLOC);
     for (i = 0; i < m_MVCSeqDesc.NumOPAlloc; ++i)
     {
-        MSDK_ZERO_MEMORY(m_MVCSeqDesc.OP[i]);
+        QSV_MEMSET_ZERO(m_MVCSeqDesc.OP[i]);
         m_MVCSeqDesc.OP[i].NumViews = (mfxU16) m_nNumView;
         m_MVCSeqDesc.OP[i].NumTargetViews = (mfxU16) m_nNumView;
         m_MVCSeqDesc.OP[i].TargetViewId = m_MVCSeqDesc.ViewId; // points to mfxExtMVCSeqDesc::ViewId
@@ -384,7 +384,7 @@ mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
 
 mfxStatus CEncodingPipeline::AllocAndInitVppDoNotUse()
 {
-    MSDK_ZERO_MEMORY(m_VppDoNotUse);
+    QSV_MEMSET_ZERO(m_VppDoNotUse);
     m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
     m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
     m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
@@ -800,7 +800,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     m_mfxEncParams.mfx.FrameInfo.AspectRatioW = (mfxU16)m_iSAR[0];
     m_mfxEncParams.mfx.FrameInfo.AspectRatioH = (mfxU16)m_iSAR[1];
 
-    MSDK_ZERO_MEMORY(m_CodingOption);
+    QSV_MEMSET_ZERO(m_CodingOption);
     m_CodingOption.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
     m_CodingOption.Header.BufferSz = sizeof(mfxExtCodingOption);
     if (!pInParams->bUseHWLib) {
@@ -1033,7 +1033,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
         m_mfxEncParams.mfx.Interleaved = 1;
         m_mfxEncParams.mfx.Quality = pInParams->nQuality;
         m_mfxEncParams.mfx.RestartInterval = 0;
-        MSDK_ZERO_MEMORY(m_mfxEncParams.mfx.reserved5);
+        QSV_MEMSET_ZERO(m_mfxEncParams.mfx.reserved5);
     }
 
     if (!m_EncExtParams.empty()) {
@@ -1535,17 +1535,17 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     mfxU16 nVppSurfAdd = 0;
     mfxU16 nVppPostSurfAdd = 0; // number of surfaces for vpp post
 
-    MSDK_ZERO_MEMORY(DecRequest);
-    MSDK_ZERO_MEMORY(EncRequest);
-    MSDK_ZERO_MEMORY(VppRequest[0]);
-    MSDK_ZERO_MEMORY(VppRequest[1]);
+    QSV_MEMSET_ZERO(DecRequest);
+    QSV_MEMSET_ZERO(EncRequest);
+    QSV_MEMSET_ZERO(VppRequest[0]);
+    QSV_MEMSET_ZERO(VppRequest[1]);
     for (const auto& filter : m_VppPrePlugins) {
-        MSDK_ZERO_MEMORY(filter->m_PluginResponse);
+        QSV_MEMSET_ZERO(filter->m_PluginResponse);
     }
     for (const auto& filter : m_VppPostPlugins) {
-        MSDK_ZERO_MEMORY(filter->m_PluginResponse);
+        QSV_MEMSET_ZERO(filter->m_PluginResponse);
     }
-    MSDK_ZERO_MEMORY(NextRequest);
+    QSV_MEMSET_ZERO(NextRequest);
     
     PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
 
@@ -1777,7 +1777,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         MSDK_CHECK_POINTER(m_pVppSurfaces, MFX_ERR_MEMORY_ALLOC);
 
         for (int i = 0; i < m_VppResponse.NumFrameActual; i++) {
-            MSDK_ZERO_MEMORY(m_pVppSurfaces[i]);
+            QSV_MEMSET_ZERO(m_pVppSurfaces[i]);
             MSDK_MEMCPY_VAR(m_pVppSurfaces[i].Info, &(VppRequest[0].Info), sizeof(mfxFrameInfo));
 
             if (m_bExternalAlloc) {
@@ -1961,9 +1961,9 @@ void CEncodingPipeline::DeleteFrames()
         m_pMFXAllocator->Free(m_pMFXAllocator->pthis, &m_DecResponse);
     }
 
-    MSDK_ZERO_MEMORY(m_EncResponse);
-    MSDK_ZERO_MEMORY(m_VppResponse);
-    MSDK_ZERO_MEMORY(m_DecResponse);
+    QSV_MEMSET_ZERO(m_EncResponse);
+    QSV_MEMSET_ZERO(m_VppResponse);
+    QSV_MEMSET_ZERO(m_DecResponse);
 }
 
 void CEncodingPipeline::DeleteHWDevice()
@@ -2009,7 +2009,7 @@ CEncodingPipeline::CEncodingPipeline()
     m_bIsMVC = false;
     m_MVCflags = MVC_DISABLED;
     m_nNumView = 0;
-    MSDK_ZERO_MEMORY(m_MVCSeqDesc);
+    QSV_MEMSET_ZERO(m_MVCSeqDesc);
     m_MVCSeqDesc.Header.BufferId = MFX_EXTBUFF_MVC_SEQ_DESC;
     m_MVCSeqDesc.Header.BufferSz = sizeof(m_MVCSeqDesc);
 #endif
@@ -2024,21 +2024,21 @@ CEncodingPipeline::CEncodingPipeline()
 
     m_hwdev.reset();
 
-    MSDK_ZERO_MEMORY(m_DecInputBitstream);
+    QSV_MEMSET_ZERO(m_DecInputBitstream);
     
-    MSDK_ZERO_MEMORY(m_InitParam);
-    MSDK_ZERO_MEMORY(m_mfxDecParams);
-    MSDK_ZERO_MEMORY(m_mfxEncParams);
-    MSDK_ZERO_MEMORY(m_mfxVppParams);
+    QSV_MEMSET_ZERO(m_InitParam);
+    QSV_MEMSET_ZERO(m_mfxDecParams);
+    QSV_MEMSET_ZERO(m_mfxEncParams);
+    QSV_MEMSET_ZERO(m_mfxVppParams);
     
-    MSDK_ZERO_MEMORY(m_VppDoNotUse);
-    MSDK_ZERO_MEMORY(m_VppDoUse);
-    MSDK_ZERO_MEMORY(m_ExtDenoise);
-    MSDK_ZERO_MEMORY(m_ExtDetail);
+    QSV_MEMSET_ZERO(m_VppDoNotUse);
+    QSV_MEMSET_ZERO(m_VppDoUse);
+    QSV_MEMSET_ZERO(m_ExtDenoise);
+    QSV_MEMSET_ZERO(m_ExtDetail);
 
-    MSDK_ZERO_MEMORY(m_EncResponse);
-    MSDK_ZERO_MEMORY(m_VppResponse);
-    MSDK_ZERO_MEMORY(m_DecResponse);
+    QSV_MEMSET_ZERO(m_EncResponse);
+    QSV_MEMSET_ZERO(m_VppResponse);
+    QSV_MEMSET_ZERO(m_DecResponse);
 }
 
 CEncodingPipeline::~CEncodingPipeline()
@@ -2688,7 +2688,7 @@ mfxStatus CEncodingPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priorit
     m_ThreadsParam.Priority = priority;
     m_pInitParamExtBuf[0] = &m_ThreadsParam.Header;
 
-    MSDK_ZERO_MEMORY(m_InitParam);
+    QSV_MEMSET_ZERO(m_InitParam);
     m_InitParam.ExtParam = m_pInitParamExtBuf;
     m_InitParam.NumExtParam = 1;
     return MFX_ERR_NONE;
@@ -3146,7 +3146,7 @@ mfxStatus CEncodingPipeline::AllocateSufficientBuffer(mfxBitstream* pBS)
     MSDK_CHECK_POINTER(m_pmfxENC, MFX_ERR_NOT_INITIALIZED);
 
     mfxVideoParam par;
-    MSDK_ZERO_MEMORY(par);
+    QSV_MEMSET_ZERO(par);
 
     // find out the required buffer size
     mfxStatus sts = m_pmfxENC->GetVideoParam(&par);
@@ -3195,7 +3195,7 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
     sInputBufSys *pInputBuf;
 
     mfxVideoParam videoPrm;
-    MSDK_ZERO_MEMORY(videoPrm);
+    QSV_MEMSET_ZERO(videoPrm);
     m_pmfxENC->GetVideoParam(&videoPrm);
 
     m_frameTypeSim.Init(videoPrm.mfx.GopPicSize, videoPrm.mfx.GopRefDist-1, videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB,
@@ -4265,7 +4265,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
     }
 
     mfxVideoParam videoPrm;
-    MSDK_ZERO_MEMORY(videoPrm);
+    QSV_MEMSET_ZERO(videoPrm);
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = &buf[0];
 
@@ -4275,7 +4275,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
     } else if (m_pmfxVPP) {
         mfxVideoParam videoPrmVpp;
-        MSDK_ZERO_MEMORY(videoPrmVpp);
+        QSV_MEMSET_ZERO(videoPrmVpp);
         sts = m_pmfxVPP->GetVideoParam(&videoPrmVpp);
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
         videoPrm.mfx.FrameInfo = videoPrmVpp.vpp.Out;

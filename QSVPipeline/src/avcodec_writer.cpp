@@ -33,8 +33,8 @@ static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
 #endif //USE_CUSTOM_IO
 
 CAvcodecWriter::CAvcodecWriter() {
-    MSDK_ZERO_MEMORY(m_Mux.format);
-    MSDK_ZERO_MEMORY(m_Mux.video);
+    QSV_MEMSET_ZERO(m_Mux.format);
+    QSV_MEMSET_ZERO(m_Mux.video);
     m_strWriterName = _T("avout");
 }
 

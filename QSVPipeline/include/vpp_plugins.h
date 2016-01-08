@@ -46,8 +46,8 @@ public:
 #if GPU_FILTER
         m_hwdev.reset();
 #endif
-        MSDK_ZERO_MEMORY(m_PluginResponse);
-        MSDK_ZERO_MEMORY(m_pluginVideoParams);
+        QSV_MEMSET_ZERO(m_PluginResponse);
+        QSV_MEMSET_ZERO(m_pluginVideoParams);
     };
 public:
     ~CVPPPlugin() {
@@ -100,7 +100,7 @@ public:
         MSDK_CHECK_POINTER(m_pPluginSurfaces, MFX_ERR_MEMORY_ALLOC);
 
         for (int i = 0; i < m_PluginResponse.NumFrameActual; i++) {
-            MSDK_ZERO_MEMORY(m_pPluginSurfaces[i]);
+            QSV_MEMSET_ZERO(m_pPluginSurfaces[i]);
             MSDK_MEMCPY_VAR(m_pPluginSurfaces[i].Info, &(m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
             if (m_bExternalAlloc) {
@@ -216,7 +216,7 @@ private:
     
 private:
     virtual mfxStatus InitMfxPluginParam(mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern) {
-        MSDK_ZERO_MEMORY(m_pluginVideoParams);
+        QSV_MEMSET_ZERO(m_pluginVideoParams);
 
         m_pluginVideoParams.AsyncDepth = nAsyncDepth;
         memcpy(&m_pluginVideoParams.vpp.In,  &frameIn, sizeof(frameIn));

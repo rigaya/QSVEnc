@@ -695,7 +695,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         MSDK_CHECK_POINTER(pInputCrop, MFX_ERR_NULL_PTR);
         memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
     } else {
-        MSDK_ZERO_MEMORY(m_sInputCrop);
+        QSV_MEMSET_ZERO(m_sInputCrop);
     }
 
     if (!check_avcodec_dll()) {

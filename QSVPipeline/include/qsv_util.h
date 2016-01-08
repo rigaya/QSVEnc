@@ -37,6 +37,8 @@ using std::vector;
 #define ALIGN16(x) (((x)+15)&(~15))
 #define ALIGN32(x) (((x)+31)&(~31))
 
+#define QSV_MEMSET_ZERO(x) { memset(&(x), 0, sizeof(x)); }
+
 template<typename T, size_t size>
 std::vector<T> make_vector(T(&ptr)[size]) {
     return std::vector<T>(ptr, ptr + size);
@@ -218,7 +220,7 @@ typedef struct FEATURE_DESC {
 
 static const int QSV_TIMEBASE = 90000;
 
-#define INIT_MFX_EXT_BUFFER(x, id) { MSDK_ZERO_MEMORY(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
+#define INIT_MFX_EXT_BUFFER(x, id) { QSV_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 
 static const mfxVersion LIB_VER_LIST[] = {
     {  0, 0 },

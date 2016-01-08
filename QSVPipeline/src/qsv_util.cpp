@@ -495,7 +495,7 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     buf.push_back((mfxExtBuffer *)nullptr);
 
     mfxVideoParam videoPrm;
-    MSDK_ZERO_MEMORY(videoPrm);
+    QSV_MEMSET_ZERO(videoPrm);
     
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
@@ -673,7 +673,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 #endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
 
     mfxVideoParam videoPrm;
-    MSDK_ZERO_MEMORY(videoPrm);
+    QSV_MEMSET_ZERO(videoPrm);
 
     auto set_default_quality_prm = [&videoPrm]() {
         if (   videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VBR
