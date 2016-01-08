@@ -33,8 +33,9 @@ using std::vector;
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
 
-#define align16(x) (((x)+15)&(~15))
-#define align32(x) (((x)+31)&(~31))
+#define ALIGN(x,align) (((x)+((align)-1))&(~((align)-1)))
+#define ALIGN16(x) (((x)+15)&(~15))
+#define ALIGN32(x) (((x)+31)&(~31))
 
 template<typename T, size_t size>
 std::vector<T> make_vector(T(&ptr)[size]) {

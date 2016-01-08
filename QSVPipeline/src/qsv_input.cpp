@@ -163,8 +163,8 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
     w += (CropLeft + CropRight);
     h += (CropUp + CropBottom);
     uint32_t required_bufsize = 0;
-    uint32_t uv_frames_size = align16((align16(w) * h)>>2);
-    required_bufsize += align16(w); //Yの1line分
+    uint32_t uv_frames_size = ALIGN16((ALIGN16(w) * h)>>2);
+    required_bufsize += ALIGN16(w); //Yの1line分
     required_bufsize += uv_frames_size * 2; //UVの各1フレーム分
     if (m_nBufSize < required_bufsize) {
         m_nBufSize = required_bufsize;
@@ -173,7 +173,7 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
         MSDK_CHECK_POINTER(m_pBuffer, MFX_ERR_NULL_PTR);
     }
     auto bufY = m_pBuffer.get();
-    auto bufU = bufY + align16(w);
+    auto bufU = bufY + ALIGN16(w);
     auto bufV = bufU + uv_frames_size;
 
     uint32_t pitch = pData->Pitch;

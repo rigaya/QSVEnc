@@ -316,8 +316,8 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
         return sts;
     }
     int numSurfaces = request.NumFrameSuggested;
-    int surfaceWidth = MSDK_ALIGN32(request.Info.Width);
-    int surfaceHeight = MSDK_ALIGN32(request.Info.Height);
+    int surfaceWidth = ALIGN32(request.Info.Width);
+    int surfaceHeight = ALIGN32(request.Info.Height);
     int surfaceSize = surfaceWidth * surfaceHeight * 3 / 2;
     vector<uint8_t> surfaceBuffers(numSurfaces * surfaceSize);
     std::unique_ptr<mfxFrameSurface1[]> pmfxSurfaces(new mfxFrameSurface1[numSurfaces]);

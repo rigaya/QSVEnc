@@ -258,7 +258,7 @@ mfxStatus CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
         uint32_t uvWidth = pInfo.CropW >> 1;
         //uint32_t nv12Width = pInfo.CropW;
         uint32_t uvHeight = pInfo.CropH >> 1;
-        uint32_t uvFrameOffset = align16(uvWidth * uvHeight + 16);
+        uint32_t uvFrameOffset = ALIGN16(uvWidth * uvHeight + 16);
         if (m_pUVBuffer.get() == nullptr) {
             m_pUVBuffer.reset((uint8_t *)_aligned_malloc(uvFrameOffset << 1, 32));
         }

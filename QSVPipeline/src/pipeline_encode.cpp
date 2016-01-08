@@ -973,9 +973,9 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     // set frame size and crops
     // width must be a multiple of 16
     // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
-    m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)MSDK_ALIGN(pInParams->nDstWidth, blocksz);
+    m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->nDstWidth, blocksz);
     m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct)?
-        MSDK_ALIGN(pInParams->nDstHeight, blocksz) : MSDK_ALIGN(pInParams->nDstHeight, blocksz * 2));
+        ALIGN(pInParams->nDstHeight, blocksz) : ALIGN(pInParams->nDstHeight, blocksz * 2));
 
     m_mfxEncParams.mfx.FrameInfo.CropX = 0;
     m_mfxEncParams.mfx.FrameInfo.CropY = 0;
@@ -1129,9 +1129,9 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 
         // width must be a multiple of 16
         // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
-        m_mfxVppParams.vpp.In.Width     = (mfxU16)MSDK_ALIGN(pInParams->nWidth, blocksz);
+        m_mfxVppParams.vpp.In.Width     = (mfxU16)ALIGN(pInParams->nWidth, blocksz);
         m_mfxVppParams.vpp.In.Height    = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.In.PicStruct)?
-            MSDK_ALIGN(pInParams->nHeight, blocksz) : MSDK_ALIGN(pInParams->nHeight, blocksz));
+            ALIGN(pInParams->nHeight, blocksz) : ALIGN(pInParams->nHeight, blocksz));
     } else {
         m_mfxVppParams.vpp.In.FourCC         = inputFrameInfo.FourCC;
         m_mfxVppParams.vpp.In.ChromaFormat   = inputFrameInfo.ChromaFormat;
@@ -1144,9 +1144,9 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
 
         // width must be a multiple of 16
         // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
-        m_mfxVppParams.vpp.In.Width     = (mfxU16)MSDK_ALIGN(inputFrameInfo.CropW, blocksz);
+        m_mfxVppParams.vpp.In.Width     = (mfxU16)ALIGN(inputFrameInfo.CropW, blocksz);
         m_mfxVppParams.vpp.In.Height    = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.In.PicStruct) ?
-            MSDK_ALIGN(inputFrameInfo.CropH, blocksz) : MSDK_ALIGN(inputFrameInfo.CropH, blocksz * 2));
+            ALIGN(inputFrameInfo.CropH, blocksz) : ALIGN(inputFrameInfo.CropH, blocksz * 2));
     }
 
     // set crops in input mfxFrameInfo for correct work of file reader
@@ -1238,9 +1238,9 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
     m_mfxVppParams.vpp.Out.CropY = 0;
     m_mfxVppParams.vpp.Out.CropW = pInParams->nDstWidth;
     m_mfxVppParams.vpp.Out.CropH = pInParams->nDstHeight;
-    m_mfxVppParams.vpp.Out.Width = (mfxU16)MSDK_ALIGN(pInParams->nDstWidth, blocksz);
+    m_mfxVppParams.vpp.Out.Width = (mfxU16)ALIGN(pInParams->nDstWidth, blocksz);
     m_mfxVppParams.vpp.Out.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.Out.PicStruct)?
-        MSDK_ALIGN(pInParams->nDstHeight, blocksz) : MSDK_ALIGN(pInParams->nDstHeight, blocksz));
+        ALIGN(pInParams->nDstHeight, blocksz) : ALIGN(pInParams->nDstHeight, blocksz));
     
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
         && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
