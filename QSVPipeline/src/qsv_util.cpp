@@ -1721,25 +1721,25 @@ int getCPUGen() {
 const TCHAR *ColorFormatToStr(uint32_t format) {
     switch (format) {
     case MFX_FOURCC_NV12:
-        return MSDK_STRING("nv12");
+        return _T("nv12");
     case MFX_FOURCC_NV16:
-        return MSDK_STRING("nv16");
+        return _T("nv16");
     case MFX_FOURCC_YV12:
-        return MSDK_STRING("yv12");
+        return _T("yv12");
     case MFX_FOURCC_YUY2:
-        return MSDK_STRING("yuy2");
+        return _T("yuy2");
     case MFX_FOURCC_RGB3:
-        return MSDK_STRING("rgb24");
+        return _T("rgb24");
     case MFX_FOURCC_RGB4:
-        return MSDK_STRING("rgb32");
+        return _T("rgb32");
     case MFX_FOURCC_BGR4:
-        return MSDK_STRING("bgr32");
+        return _T("bgr32");
     case MFX_FOURCC_P010:
-        return MSDK_STRING("nv12(10bit)");
+        return _T("nv12(10bit)");
     case MFX_FOURCC_P210:
-        return MSDK_STRING("nv16(10bit)");
+        return _T("nv16(10bit)");
     default:
-        return MSDK_STRING("unsupported");
+        return _T("unsupported");
     }
 }
 
@@ -1759,5 +1759,71 @@ const TCHAR *CodecIdToStr(uint32_t nFourCC) {
         return _T("JPEG");
     default:
         return _T("NOT_SUPPORTED");
+    }
+}
+
+const TCHAR *TargetUsageToStr(uint16_t tu) {
+    switch (tu) {
+    case MFX_TARGETUSAGE_BEST_QUALITY: return _T("1 - best");
+    case 2:                            return _T("2 - higher");
+    case 3:                            return _T("3 - high");
+    case MFX_TARGETUSAGE_BALANCED:     return _T("4 - balanced");
+    case 5:                            return _T("5 - fast");
+    case 6:                            return _T("6 - faster");
+    case MFX_TARGETUSAGE_BEST_SPEED:   return _T("7 - fastest");
+    case MFX_TARGETUSAGE_UNKNOWN:      return _T("unknown");
+    default:                           return _T("unsupported");
+    }
+}
+
+const TCHAR *EncmodeToStr(uint32_t enc_mode) {
+    switch (enc_mode) {
+    case MFX_RATECONTROL_CBR:
+        return _T("Bitrate Mode - CBR");
+    case MFX_RATECONTROL_VBR:
+        return _T("Bitrate Mode - VBR");
+    case MFX_RATECONTROL_AVBR:
+        return _T("Bitrate Mode - AVBR");
+    case MFX_RATECONTROL_CQP:
+        return _T("Constant QP (CQP)");
+    case MFX_RATECONTROL_LA:
+        return _T("Bitrate Mode - Lookahead");
+    case MFX_RATECONTROL_ICQ:
+        return _T("ICQ (Intelligent Const. Quality)");
+    case MFX_RATECONTROL_VCM:
+        return _T("VCM (Video Conference Mode)");
+    case MFX_RATECONTROL_LA_ICQ:
+        return _T("LA-ICQ (Intelligent Const. Quality with Lookahead)");
+    case MFX_RATECONTROL_LA_EXT:
+        return _T("LA-EXT (Extended Lookahead)");
+    case MFX_RATECONTROL_LA_HRD:
+        return _T("LA-HRD (HRD compliant Lookahead)");
+    case MFX_RATECONTROL_QVBR:
+        return _T("Quality VBR bitrate");
+    case MFX_RATECONTROL_VQP:
+        return _T("Variable QP (VQP)");
+    default:
+        return _T("unsupported");
+    }
+}
+
+const TCHAR *MemTypeToStr(uint32_t memType) {
+    switch (memType) {
+    case SYSTEM_MEMORY:
+        return _T("system");
+#if D3D_SURFACES_SUPPORT
+    case D3D9_MEMORY:
+        return _T("d3d9");
+#if MFX_D3D11_SUPPORT
+    case D3D11_MEMORY:
+        return _T("d3d11");
+#endif //#if MFX_D3D11_SUPPORT
+#endif //#if D3D_SURFACES_SUPPORT
+#ifdef LIBVA_SUPPORT
+    case VA_MEMORY:
+        return _T("va");
+#endif
+    default:
+        return _T("unsupported");
     }
 }

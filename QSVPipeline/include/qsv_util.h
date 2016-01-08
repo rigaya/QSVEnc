@@ -490,6 +490,9 @@ const int MAX_FILENAME_LEN = 1024;
 
 const TCHAR *ColorFormatToStr(uint32_t format);
 const TCHAR *CodecIdToStr(uint32_t nFourCC);
+const TCHAR *TargetUsageToStr(uint16_t tu);
+const TCHAR *EncmodeToStr(uint32_t enc_mode);
+const TCHAR *MemTypeToStr(uint32_t memType);
 
 mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
 mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize);

@@ -121,13 +121,6 @@ static inline mfxU16 GetFreeSurfaceIndex(mfxFrameSurface1* pSurfacesPool, mfxU16
     return MSDK_INVALID_SURF_IDX;
 }
 
-//serialization fnc set
-mfxU16 StrToTargetUsage(msdk_char* strInput);
-const msdk_char* TargetUsageToStr(mfxU16 tu);
-const msdk_char* MfxStatusToStr(mfxStatus sts);
-const msdk_char* EncmodeToStr(mfxU32 enc_mode);
-const msdk_char* MemTypeToStr(mfxU32 memType);
-
 // sets bitstream->PicStruct parsing first APP0 marker in bitstream
 mfxStatus MJPEG_AVI_ParsePicStruct(mfxBitstream *bitstream);
 
@@ -181,7 +174,5 @@ bool skip(const Buf_t *&buf, Length_t &length, Length_t step)
 
     return true;
 }
-
-mfxStatus StrFormatToCodecFormatFourCC(msdk_char* strInput, mfxU32 &codecFormat);
 
 #endif //__SAMPLE_UTILS_H__
