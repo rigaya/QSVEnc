@@ -92,8 +92,9 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
     Close();
 
     m_nFrameBuffer = bufferSize;
-    m_InputBuf = (sInputBufSys *)_mm_malloc(m_nFrameBuffer * sizeof(sInputBufSys), 64);
-    MSDK_CHECK_POINTER(m_InputBuf, MFX_ERR_NULL_PTR);
+    if (nullptr == (m_InputBuf = (sInputBufSys *)_mm_malloc(m_nFrameBuffer * sizeof(sInputBufSys), 64)))
+        return MFX_ERR_NULL_PTR;
+
     memset(m_InputBuf, 0, m_nFrameBuffer * sizeof(sInputBufSys));
 
     for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {

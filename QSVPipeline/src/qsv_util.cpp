@@ -1317,10 +1317,7 @@ const TCHAR *get_low_power_str(mfxU16 LowPower) {
 }
 
 mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info) {
-    MSDK_CHECK_POINTER(fp,   MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(info, MFX_ERR_NULL_PTR);
-
-    char buffer[256];
+    char buffer[256] = { 0 };
     char *ptr = buffer;
     mfxU32 len = 0;
     memcpy(ptr, "YUV4MPEG2 ", 10);

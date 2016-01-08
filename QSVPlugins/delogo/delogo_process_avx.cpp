@@ -39,7 +39,9 @@ DelogoProcessAVX::~DelogoProcessAVX() {
 }
 
 mfxStatus DelogoProcessAVX::Process(DataChunk *chunk, mfxU8 *pBuffer) {
-    MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
+    if (chunk == nullptr || pBuffer == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
 
     if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
         return MFX_ERR_UNSUPPORTED;
@@ -67,8 +69,9 @@ DelogoProcessD3DAVX::~DelogoProcessD3DAVX() {
 }
 
 mfxStatus DelogoProcessD3DAVX::Process(DataChunk *chunk, mfxU8 *pBuffer) {
-    MSDK_CHECK_POINTER(chunk, MFX_ERR_NULL_PTR);
-
+    if (chunk == nullptr || pBuffer == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
     if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
         return MFX_ERR_UNSUPPORTED;
     }

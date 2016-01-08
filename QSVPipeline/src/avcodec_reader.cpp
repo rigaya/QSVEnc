@@ -681,18 +681,12 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
 
     Close();
 
-    MSDK_CHECK_POINTER(option, MFX_ERR_NULL_PTR);
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
 
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
     if (input_prm->bReadVideo) {
-        MSDK_CHECK_POINTER(pEncThread, MFX_ERR_NULL_PTR);
         m_pEncThread = pEncThread;
-
-        MSDK_CHECK_POINTER(pEncSatusInfo.get(), MFX_ERR_NULL_PTR);
         m_pEncSatusInfo = pEncSatusInfo;
-
-        MSDK_CHECK_POINTER(pInputCrop, MFX_ERR_NULL_PTR);
         memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
     } else {
         QSV_MEMSET_ZERO(m_sInputCrop);

@@ -40,11 +40,9 @@ Delogo::~Delogo() {
 }
 
 mfxStatus Delogo::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfxU32 out_num, mfxThreadTask *task) {
-    MSDK_CHECK_POINTER(in, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(out, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(*in, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(*out, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(task, MFX_ERR_NULL_PTR);
+    if (in == nullptr || out == nullptr || *in == nullptr || *out == nullptr || task == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
     MSDK_CHECK_NOT_EQUAL(in_num, 1, MFX_ERR_UNSUPPORTED);
     MSDK_CHECK_NOT_EQUAL(out_num, 1, MFX_ERR_UNSUPPORTED);
     MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
@@ -259,7 +257,9 @@ int Delogo::selectLogo(const TCHAR *selectStr) {
 }
 
 mfxStatus Delogo::Init(mfxVideoParam *mfxParam) {
-    MSDK_CHECK_POINTER(mfxParam, MFX_ERR_NULL_PTR);
+    if (mfxParam == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
     mfxStatus sts = MFX_ERR_NONE;
     m_VideoParam = *mfxParam;
 
@@ -324,9 +324,11 @@ mfxStatus Delogo::Init(mfxVideoParam *mfxParam) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus Delogo::SetAuxParams(void* auxParam, int auxParamSize) {
+mfxStatus Delogo::SetAuxParams(void *auxParam, int auxParamSize) {
     DelogoParam *pDelogoPar = (DelogoParam *)auxParam;
-    MSDK_CHECK_POINTER(pDelogoPar, MFX_ERR_NULL_PTR);
+    if (pDelogoPar == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
 
     // check validity of parameters
     mfxStatus sts = CheckParam(&m_VideoParam);
@@ -518,15 +520,15 @@ mfxStatus Delogo::Close() {
 
     mfxStatus sts = MFX_ERR_NONE;
 
-    mfxExtOpaqueSurfaceAlloc* pluginOpaqueAlloc = NULL;
+    mfxExtOpaqueSurfaceAlloc *pluginOpaqueAlloc = nullptr;
 
     if (m_bIsInOpaque || m_bIsOutOpaque) {
-        pluginOpaqueAlloc = (mfxExtOpaqueSurfaceAlloc*)
-            GetExtBuffer(m_VideoParam.ExtParam, m_VideoParam.NumExtParam, MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION);
-        MSDK_CHECK_POINTER(pluginOpaqueAlloc, MFX_ERR_INVALID_VIDEO_PARAM);
+        if (nullptr == (pluginOpaqueAlloc = (mfxExtOpaqueSurfaceAlloc*)
+            GetExtBuffer(m_VideoParam.ExtParam, m_VideoParam.NumExtParam, MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION))) {
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
     }
 
-    // check existence of corresponding allocs
     if ((m_bIsInOpaque && !pluginOpaqueAlloc->In.Surfaces) || (m_bIsOutOpaque && !pluginOpaqueAlloc->Out.Surfaces))
         return MFX_ERR_INVALID_VIDEO_PARAM;
 
@@ -552,10 +554,10 @@ mfxStatus Delogo::Close() {
     return MFX_ERR_NONE;
 }
 
-/* Internal methods */
 mfxStatus ProcessorDelogo::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out, const void *data) {
-    MSDK_CHECK_POINTER(frame_in, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(frame_out, MFX_ERR_NULL_PTR);
+    if (frame_in == nullptr || frame_out == nullptr || data == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
 
     const ProcessDataDelogo *param = (const ProcessDataDelogo *)data;
 

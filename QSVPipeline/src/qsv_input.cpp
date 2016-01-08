@@ -75,7 +75,6 @@ mfxStatus CQSVInputRaw::Init(const msdk_char *strFileName, uint32_t ColorFormat,
     m_by4m = *(bool *)prm;
     m_strReaderName = (m_by4m) ? _T("y4m reader") : _T("yuv reader");
 
-    //open source YUV file
     bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
     if (use_stdin) {
         m_fSource = stdin;
@@ -139,8 +138,6 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
     int CropRight = m_sInputCrop.right;
     int CropBottom = m_sInputCrop.bottom;
 
-    // this reader supports only NV12 mfx surfaces for code transparency,
-    // other formats may be added if application requires such functionality
     uint32_t FourCCRequired = pInfo->FourCC;
     if (MFX_FOURCC_NV12 != FourCCRequired && MFX_FOURCC_YV12 != FourCCRequired) {
         return MFX_ERR_UNSUPPORTED;
@@ -170,7 +167,9 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
         m_nBufSize = required_bufsize;
         m_pBuffer.reset();
         m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(required_bufsize, 16), aligned_malloc_deleter());
-        MSDK_CHECK_POINTER(m_pBuffer, MFX_ERR_NULL_PTR);
+        if (!m_pBuffer) {
+            return MFX_ERR_NULL_PTR;
+        }
     }
     auto bufY = m_pBuffer.get();
     auto bufU = bufY + ALIGN16(w);
@@ -191,7 +190,7 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
             }
         }
     }
-    // read luminance plane
+    // 輝度成分を読み込み
     uint32_t nBytesRead = 0;
     for (int i = 0; i < CropUp; i++) {
         nBytesRead += (uint32_t)fread(bufY, 1, w, m_fSource);
@@ -214,7 +213,7 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
         return MFX_ERR_MORE_DATA;
     }
 
-    // read chroma planes
+    // 色差を読み込み
     nBytesRead  = (uint32_t)fread(bufU, 1, (w*h)>>2, m_fSource);
     nBytesRead += (uint32_t)fread(bufV, 1, (w*h)>>2, m_fSource);
     if (nBytesRead != (uint32_t)((w*h)>>1)) {
@@ -230,6 +229,5 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
     //pSurface->Data.TimeStamp = m_pEncSatusInfo->m_nInputFrames * (mfxU64)m_pEncSatusInfo->m_nOutputFPSScale;
     m_pEncSatusInfo->m_nInputFrames++;
 
-    // display update
     return m_pEncSatusInfo->UpdateDisplay(0);
 }

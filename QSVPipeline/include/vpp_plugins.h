@@ -28,6 +28,8 @@
 #include "rotate/plugin_rotate.h"
 #include "delogo/plugin_delogo.h"
 
+#include "qsv_log.h"
+
 #define GPU_FILTER 0
 
 using std::unique_ptr;
@@ -97,7 +99,9 @@ public:
         (*m_pQSVLog)(QSV_LOG_DEBUG, _T("CVPPPluginAlloc[%s]: allocated %d surfaces\n"), m_pUsrPlugin->GetPluginName().c_str(), m_PluginResponse.NumFrameActual);
 
         m_pPluginSurfaces.reset(new mfxFrameSurface1 [m_PluginResponse.NumFrameActual]);
-        MSDK_CHECK_POINTER(m_pPluginSurfaces, MFX_ERR_MEMORY_ALLOC);
+        if (!m_pPluginSurfaces) {
+            return MFX_ERR_MEMORY_ALLOC;
+        }
 
         for (int i = 0; i < m_PluginResponse.NumFrameActual; i++) {
             QSV_MEMSET_ZERO(m_pPluginSurfaces[i]);
@@ -119,8 +123,9 @@ public:
         bool useHWLib, MemType memType, shared_ptr<CHWDevice> phwdev, MFXFrameAllocator* pAllocator,
         mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, shared_ptr<CQSVLog> pQSVLog) {
 
-        MSDK_CHECK_POINTER(pluginName, MFX_ERR_NULL_PTR);
-        MSDK_CHECK_POINTER(pPluginParam, MFX_ERR_NULL_PTR);
+        if (pluginName == nullptr || pPluginParam == nullptr) {
+            return MFX_ERR_NULL_PTR;
+        }
         
 #if GPU_FILTER
         m_hwdev = phwdev;

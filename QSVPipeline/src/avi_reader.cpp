@@ -29,20 +29,10 @@ CAVIReader::~CAVIReader() {
 #pragma warning(push)
 #pragma warning(disable:4100)
 mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
-
-    MSDK_CHECK_POINTER(strFileName, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_ERROR(_tclen(strFileName), 0, MFX_ERR_NULL_PTR);
-
     Close();
 
-    MSDK_CHECK_POINTER(pEncThread, MFX_ERR_NULL_PTR);
     m_pEncThread = pEncThread;
-
-    MSDK_CHECK_POINTER(pEncSatusInfo.get(), MFX_ERR_NULL_PTR);
     m_pEncSatusInfo = pEncSatusInfo;
-
-    
-    MSDK_CHECK_POINTER(pInputCrop, MFX_ERR_NULL_PTR);
     memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
     
     AVIFileInit();
@@ -172,13 +162,8 @@ void CAVIReader::Close() {
 }
 
 mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
-#ifdef _DEBUG
-    MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
-#endif
-    int w, h;
-    mfxU8 *ptr_src;
-    mfxFrameInfo* pInfo = &pSurface->Info;
-    mfxFrameData* pData = &pSurface->Data;
+    mfxFrameInfo *pInfo = &pSurface->Info;
+    mfxFrameData *pData = &pSurface->Data;
 
     mfxU16 CropLeft = m_sInputCrop.left;
     mfxU16 CropUp = m_sInputCrop.up;
@@ -192,6 +177,7 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         return MFX_ERR_MORE_DATA;
     }
 
+    int w = 0, h = 0;
     if (pInfo->CropH > 0 && pInfo->CropW > 0) {
         w = pInfo->CropW;
         h = pInfo->CropH;
@@ -202,6 +188,7 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     w += (CropLeft + CropRight);
     h += (CropUp + CropBottom);
 
+    mfxU8 *ptr_src = nullptr;
     if (m_pGetFrame) {
         if (NULL == (ptr_src = (mfxU8 *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_nInputFrames)))
             return MFX_ERR_MORE_DATA;

@@ -2003,8 +2003,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     return MFX_PRINT_OPTION_ERR;
 }
 
-mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* pParams)
-{
+mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *pParams) {
     const TCHAR* strArgument = _T("");
 
     if (1 == nArgNum) {
@@ -2013,8 +2012,9 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
         return MFX_PRINT_OPTION_ERR;
     }
 
-
-    MSDK_CHECK_POINTER(pParams, MFX_ERR_NULL_PTR);
+    if (!pParams) {
+        return MFX_ERR_NONE;
+    }
     QSV_MEMSET_ZERO(*pParams);
 
     pParams->CodecId           = MFX_CODEC_AVC;
@@ -2055,9 +2055,11 @@ mfxStatus ParseInputString(const TCHAR* strInput[], int nArgNum, sInputParams* p
 
     // parse command line parameters
     for (int i = 1; i < nArgNum; i++) {
-        MSDK_CHECK_POINTER(strInput[i], MFX_ERR_NULL_PTR);
+        if (strInput[i] == nullptr) {
+            return MFX_ERR_NULL_PTR;
+        }
 
-        const TCHAR *option_name = NULL;
+        const TCHAR *option_name = nullptr;
 
         if (strInput[i][0] == _T('|')) {
             break;
@@ -2347,7 +2349,9 @@ int run_encode(sInputParams *params) {
     std::unique_ptr<CEncodingPipeline>  pPipeline;
     //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
     pPipeline.reset(new CEncodingPipeline);
-    MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+    if (!pPipeline) {
+        return MFX_ERR_MEMORY_ALLOC;
+    }
 
     sts = pPipeline->Init(params);
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
@@ -2402,7 +2406,9 @@ mfxStatus run_benchmark(sInputParams *params) {
 
         std::unique_ptr<CEncodingPipeline> pPipeline;
         pPipeline.reset(new CEncodingPipeline);
-        MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+        if (!pPipeline) {
+            return MFX_ERR_MEMORY_ALLOC;
+        }
 
         sts = pPipeline->Init(params);
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
@@ -2504,7 +2510,9 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             unique_ptr<CEncodingPipeline> pPipeline;
             pPipeline.reset(new CEncodingPipeline);
-            MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+            if (!pPipeline) {
+                return MFX_ERR_MEMORY_ALLOC;
+            }
 
             if (MFX_ERR_NONE != (sts = pPipeline->Init(params))) {
                 break;
@@ -2662,9 +2670,10 @@ int run(int argc, TCHAR *argv[]) {
     }
 
     std::unique_ptr<CEncodingPipeline>  pPipeline;
-    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
     pPipeline.reset(new CEncodingPipeline);
-    MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
+    if (!pPipeline) {
+        return MFX_ERR_MEMORY_ALLOC;
+    }
 
     sts = pPipeline->Init(&Params);
     if (sts < MFX_ERR_NONE) return 1;

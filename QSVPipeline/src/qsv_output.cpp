@@ -181,7 +181,9 @@ mfxStatus CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
     mfxFrameInfo &pInfo = pSurface->Info;
     mfxFrameData &pData = pSurface->Data;
 
-    MSDK_CHECK_POINTER(m_fDest.get(), MFX_ERR_NULL_PTR);
+    if (!m_fDest) {
+        return MFX_ERR_NULL_PTR;
+    }
 
     if (m_bSourceHWMem) {
         if (m_pReadBuffer.get() == nullptr) {

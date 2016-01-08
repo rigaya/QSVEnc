@@ -41,7 +41,7 @@ public:
 #if D3D_SURFACES_SUPPORT
         , m_pD3DDeviceManager(nullptr)
 #endif
-	{
+    {
     }
     virtual ~Processor() {
 #if D3D_SURFACES_SUPPORT
@@ -84,7 +84,6 @@ protected:
 
     //locks frame or report of an error
     mfxStatus LockFrame(mfxFrameSurface1 *frame) {
-        MSDK_CHECK_POINTER(frame, MFX_ERR_NULL_PTR);
         //double lock impossible
         if (frame->Data.Y != 0 && frame->Data.MemId !=0)
             return MFX_ERR_UNSUPPORTED;
@@ -97,7 +96,6 @@ protected:
         return sts;
     }
     mfxStatus UnlockFrame(mfxFrameSurface1 *frame) {
-        MSDK_CHECK_POINTER(frame, MFX_ERR_NULL_PTR);
         //unlock not possible, no allocator used
         if (frame->Data.Y != 0 && frame->Data.MemId ==0)
             return MFX_ERR_NONE;
@@ -139,7 +137,7 @@ class QSVEncPlugin : public MFXGenericPlugin
 {
 public:
     QSVEncPlugin() :
-    	m_bInited(false),
+        m_bInited(false),
         m_bIsInOpaque(false),
         m_bIsOutOpaque(false) {
         memset(&m_VideoParam, 0, sizeof(m_VideoParam));
@@ -155,7 +153,6 @@ public:
 
     // methods to be called by Media SDK
     virtual mfxStatus PluginInit(mfxCoreInterface *core) {
-        MSDK_CHECK_POINTER(core, MFX_ERR_NULL_PTR);
         m_mfxCore = MFXCoreInterface(*core);
         return MFX_ERR_NONE;
     }
@@ -163,8 +160,6 @@ public:
         return MFX_ERR_NONE;
     }
     virtual mfxStatus GetPluginParam(mfxPluginParam *par) override {
-        MSDK_CHECK_POINTER(par, MFX_ERR_NULL_PTR);
-
         *par = m_PluginParam;
 
         return MFX_ERR_NONE;
@@ -203,10 +198,6 @@ public:
     virtual void Release(){}
     // methods to be called by application
     virtual mfxStatus QueryIOSurf(mfxVideoParam *par, mfxFrameAllocRequest *in, mfxFrameAllocRequest *out) {
-        MSDK_CHECK_POINTER(par, MFX_ERR_NULL_PTR);
-        MSDK_CHECK_POINTER(in, MFX_ERR_NULL_PTR);
-        MSDK_CHECK_POINTER(out, MFX_ERR_NULL_PTR);
-
         in->Info = par->vpp.In;
         in->NumFrameSuggested = in->NumFrameMin = par->AsyncDepth + 1;
 
@@ -249,8 +240,6 @@ protected:
     vector<PluginTask> m_sTasks;
 
     mfxStatus CheckParam(mfxVideoParam *mfxParam) {
-        MSDK_CHECK_POINTER(mfxParam, MFX_ERR_NULL_PTR);
-
         mfxInfoVPP *pParam = &mfxParam->vpp;
 
         // only NV12 color format is supported
@@ -261,9 +250,6 @@ protected:
         return MFX_ERR_NONE;
     }
     mfxStatus CheckInOutFrameInfo(mfxFrameInfo *pIn, mfxFrameInfo *pOut) {
-        MSDK_CHECK_POINTER(pIn, MFX_ERR_NULL_PTR);
-        MSDK_CHECK_POINTER(pOut, MFX_ERR_NULL_PTR);
-
         if (pIn->CropW != m_VideoParam.vpp.In.CropW   || pIn->CropH != m_VideoParam.vpp.In.CropH ||
             pIn->FourCC != m_VideoParam.vpp.In.FourCC ||
             pOut->CropW != m_VideoParam.vpp.Out.CropW || pOut->CropH != m_VideoParam.vpp.Out.CropH ||
