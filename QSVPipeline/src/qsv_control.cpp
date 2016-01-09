@@ -15,7 +15,6 @@
 #include <emmintrin.h>
 #include "qsv_osdep.h"
 
-#include "sample_defs.h"
 #include "sample_utils.h"
 #include "mfxcommon.h"
 #include "qsv_control.h"

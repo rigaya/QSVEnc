@@ -36,6 +36,8 @@ const char *get_qsvenc_version();
 
 #if defined(_WIN32) || defined(_WIN64)
 
+#define D3D_SURFACES_SUPPORT 1
+
 #define ENABLE_FEATURE_COP3_AND_ABOVE 1
 
 #define ENABLE_ADVANCED_DEINTERLACE 0

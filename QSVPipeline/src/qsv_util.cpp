@@ -29,7 +29,6 @@
 #include "mfxvideo++.h"
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
-#include "sample_defs.h"
 #include "sample_utils.h"
 #include "qsv_tchar.h"
 #include "qsv_util.h"

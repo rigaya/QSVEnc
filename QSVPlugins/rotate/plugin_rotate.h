@@ -16,7 +16,6 @@
 
 #include "mfx_plugin_base.h"
 #include "../base/plugin_base.h"
-#include "sample_defs.h"
 
 class ProcessorRotate : public Processor
 {

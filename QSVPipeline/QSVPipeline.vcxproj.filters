@@ -170,9 +170,6 @@
     <ClInclude Include="include\qsv_version.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\sample_defs.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\sample_utils.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>

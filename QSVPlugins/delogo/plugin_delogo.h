@@ -16,7 +16,6 @@
 
 #include "qsv_prm.h"
 #include "mfx_plugin_base.h"
-#include "sample_defs.h"
 #include "../base/plugin_base.h"
 #include "logo.h"
 

@@ -12,7 +12,7 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 
 #if defined( _WIN32 ) || defined ( _WIN64 )
 
-#include "sample_defs.h" // defines MFX_D3D11_SUPPORT
+#include "sample_utils.h" // defines MFX_D3D11_SUPPORT
 
 #if MFX_D3D11_SUPPORT
 #include "hw_device.h"

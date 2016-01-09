@@ -21,7 +21,6 @@
 #include "qsv_event.h"
 #include "qsv_log.h"
 
-#include "sample_defs.h"
 #include "hw_device.h"
 
 #ifdef D3D_SURFACES_SUPPORT

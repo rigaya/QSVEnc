@@ -1435,8 +1435,7 @@ mfxStatus CEncodingPipeline::InitVppPostPlugins(sInputParams *pParams) {
 //    SAFE_DELETE_ARRAY(m_ppVppExtBuffers);
 //}
 
-mfxStatus CEncodingPipeline::CreateHWDevice()
-{
+mfxStatus CEncodingPipeline::CreateHWDevice() {
     mfxStatus sts = MFX_ERR_NONE;
 
     auto hwdev_deleter = [](CHWDevice *hwdev) {
@@ -1453,7 +1452,7 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
     if (m_memType) {
 #if MFX_D3D11_SUPPORT
         if (m_memType == D3D11_MEMORY
-            && (m_hwdev = std::shared_ptr<CD3D11Device>(new CD3D11Device(), hwdev_deleter))) {
+            && (m_hwdev = shared_ptr<CD3D11Device>(new CD3D11Device(), hwdev_deleter))) {
             m_memType = D3D11_MEMORY;
             PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
@@ -1467,7 +1466,7 @@ mfxStatus CEncodingPipeline::CreateHWDevice()
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
-        if (!m_hwdev && (m_hwdev = std::shared_ptr<CD3D9Device>(new CD3D9Device(), hwdev_deleter))) {
+        if (!m_hwdev && (m_hwdev = shared_ptr<CD3D9Device>(new CD3D9Device(), hwdev_deleter))) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (m_memType != D3D9_MEMORY) {

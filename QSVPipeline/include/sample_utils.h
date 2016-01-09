@@ -27,7 +27,6 @@ Copyright(c) 2005-2015 Intel Corporation. All Rights Reserved.
 #include "vm/atomic_defs.h"
 
 #include "sample_types.h"
-#include "sample_defs.h"
 #include "qsv_prm.h"
 #include "qsv_control.h"
 #include "qsv_event.h"
@@ -40,6 +39,33 @@ using std::vector;
 #include "avc_spl.h"
 #include "avc_headers.h"
 #include "avc_nal_spl.h"
+
+const mfxU32 MSDK_DEC_WAIT_INTERVAL = 60000;
+const mfxU32 MSDK_ENC_WAIT_INTERVAL = 10000;
+const mfxU32 MSDK_VPP_WAIT_INTERVAL = 60000;
+const mfxU32 MSDK_WAIT_INTERVAL = MSDK_DEC_WAIT_INTERVAL+3*MSDK_VPP_WAIT_INTERVAL+MSDK_ENC_WAIT_INTERVAL; // an estimate for the longest pipeline we have in samples
+
+const mfxU32 MSDK_INVALID_SURF_IDX = 0xFFFF;
+
+const mfxU32 MSDK_MAX_FILENAME_LEN = 1024;
+
+#if defined(WIN32) || defined(WIN64)
+#if defined(_WIN32) && !defined(MFX_D3D11_SUPPORT)
+#include <sdkddkver.h>
+#if (NTDDI_VERSION >= NTDDI_VERSION_FROM_WIN32_WINNT2(0x0602)) // >= _WIN32_WINNT_WIN8
+#define MFX_D3D11_SUPPORT 1 // Enable D3D11 support if SDK allows
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "dxgi.lib")
+#else
+#define MFX_D3D11_SUPPORT 0
+#endif
+#endif // #if defined(WIN32) && !defined(MFX_D3D11_SUPPORT)
+#endif // #if defined(WIN32) || defined(WIN64)
+
+enum {
+    MFX_HANDLE_GFXS3DCONTROL = 0x100, /* A handle to the IGFXS3DControl instance */
+    MFX_HANDLE_DEVICEWINDOW  = 0x101 /* A handle to the render window */
+}; //mfxHandleType
 
 // A macro to disallow the copy constructor and operator= functions
 // This should be used in the private: declarations for a class

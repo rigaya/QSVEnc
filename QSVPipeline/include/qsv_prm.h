@@ -12,7 +12,6 @@
 
 #include <climits>
 #include <vector>
-#include "sample_defs.h"
 #include "qsv_version.h"
 #include "qsv_util.h"
 #include "mfxcommon.h"

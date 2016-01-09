@@ -26,12 +26,13 @@
 #include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxjpeg.h"
-#include "sample_defs.h"
 #include "qsv_prm.h"
 #include "qsv_util.h"
 #include "qsv_log.h"
 #include "cpu_info.h"
 #include "gpuz_info.h"
+
+static const int UPDATE_INTERVAL = 800;
 
 using std::chrono::duration_cast;
 using std::shared_ptr;
