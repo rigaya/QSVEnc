@@ -12,8 +12,9 @@
 
 #include <memory>
 #include <mfxplugin++.h>
-#include "sample_utils.h"
+#include "qsv_log.h"
 #include "sysmem_allocator.h"
+#include "hw_device.h"
 #if D3D_SURFACES_SUPPORT
 #include "d3d_device.h"
 #include "d3d_allocator.h"
@@ -26,11 +27,7 @@
 #include "rotate/plugin_rotate.h"
 #include "delogo/plugin_delogo.h"
 
-#include "qsv_log.h"
-
 #define GPU_FILTER 0
-
-using std::unique_ptr;
 
 class CVPPPlugin
 {

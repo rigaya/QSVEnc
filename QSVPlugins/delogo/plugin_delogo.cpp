@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include "sample_utils.h"
 #include "qsv_util.h"
 #include "plugin_delogo.h"
 #include "delogo_process.h"

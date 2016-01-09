@@ -18,6 +18,11 @@
 #include "mfxvp8.h"
 
 enum {
+    CODEC_VP8 = MFX_MAKEFOURCC('V','P','8',' '),
+    CODEC_MVC = MFX_MAKEFOURCC('M','V','C',' '),
+};
+
+enum {
     QSV_LOG_TRACE = -3,
     QSV_LOG_DEBUG = -2,
     QSV_LOG_MORE = -1,

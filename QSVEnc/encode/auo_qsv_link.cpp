@@ -11,9 +11,7 @@
 #include <Process.h>
 #include <Math.h>
 #include <mmsystem.h>
-#pragma comment(lib, "winmm.lib") 
-
-#include "sample_utils.h"
+#pragma comment(lib, "winmm.lib")
 
 #include "output.h"
 #include "vphelp_client.h"

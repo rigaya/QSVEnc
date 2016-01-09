@@ -16,6 +16,7 @@
 #include <climits>
 #include <memory>
 #include "qsv_osdep.h"
+#include "qsv_event.h"
 
 template<typename Type, size_t align_byte = sizeof(Type)>
 class CQueueSPSP {

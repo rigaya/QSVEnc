@@ -31,7 +31,6 @@
 #pragma comment(lib, "dxva2.lib")
 #endif
 
-#include "sample_utils.h"
 #include "base_allocator.h"
 
 #include "mfxmvc.h"

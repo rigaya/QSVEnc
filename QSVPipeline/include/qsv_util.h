@@ -11,6 +11,7 @@
 #include <array>
 #include <string>
 #include <chrono>
+#include <memory>
 #include <type_traits>
 #include "qsv_osdep.h"
 #include "mfxstructures.h"
@@ -20,6 +21,8 @@
 #include "gpu_info.h"
 
 using std::vector;
+using std::unique_ptr;
+using std::shared_ptr;
 
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
@@ -509,6 +512,7 @@ mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize);
 mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size);
 void mfxBitstreamClear(mfxBitstream *pBitstream);
 
+mfxExtBuffer *GetExtBuffer(mfxExtBuffer **ppExtBuf, int nCount, uint32_t targetBufferId);
 
 const TCHAR *get_err_mes(int sts);
 static void print_err_mes(int sts) {

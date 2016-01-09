@@ -33,6 +33,12 @@
 #include "gpuz_info.h"
 
 static const int UPDATE_INTERVAL = 800;
+const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
+const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
+const uint32_t MSDK_VPP_WAIT_INTERVAL = 60000;
+const uint32_t MSDK_WAIT_INTERVAL = MSDK_DEC_WAIT_INTERVAL+3*MSDK_VPP_WAIT_INTERVAL+MSDK_ENC_WAIT_INTERVAL; // an estimate for the longest pipeline we have in samples
+
+const uint32_t MSDK_INVALID_SURF_IDX = 0xFFFF;
 
 using std::chrono::duration_cast;
 using std::shared_ptr;
@@ -412,5 +418,33 @@ protected:
     std::thread m_thSub;
     bool m_bInit;
 };
+
+static inline int GetFreeSurface(mfxFrameSurface1* pSurfacesPool, int nPoolSize) {
+    static const int SleepInterval = 1; // milliseconds
+                                        //wait if there's no free surface
+    for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j += SleepInterval) {
+        for (mfxU16 i = 0; i < nPoolSize; i++) {
+            if (0 == pSurfacesPool[i].Data.Locked)
+                return i;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(SleepInterval));
+    }
+    return MSDK_INVALID_SURF_IDX;
+}
+
+static inline mfxU16 GetFreeSurfaceIndex(mfxFrameSurface1* pSurfacesPool, mfxU16 nPoolSize, mfxU16 step) {
+    if (pSurfacesPool)
+    {
+        for (mfxU16 i = 0; i < nPoolSize; i = (mfxU16)(i + step), pSurfacesPool += step)
+        {
+            if (0 == pSurfacesPool[0].Data.Locked)
+            {
+                return i;
+            }
+        }
+    }
+
+    return MSDK_INVALID_SURF_IDX;
+}
 
 #endif //__QSV_CONTROL_H__

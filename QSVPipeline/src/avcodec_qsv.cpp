@@ -11,7 +11,6 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 
-#include "sample_utils.h"
 #include "avcodec_qsv.h"
 
 //必要なavcodecのdllがそろっているかを確認

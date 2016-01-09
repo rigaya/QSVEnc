@@ -29,7 +29,7 @@
 #include "mfxvideo++.h"
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
-#include "sample_utils.h"
+#include "mfxjpeg.h"
 #include "qsv_tchar.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
@@ -40,7 +40,6 @@
 #include "hw_device.h"
 #include "vaapi_device.h"
 #include "vaapi_allocator.h"
-#include "sample_utils.h"
 #endif //#ifdef LIBVA_SUPPORT
 
 #pragma warning (push)
@@ -1689,6 +1688,17 @@ mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint
         pBitstream->DataLength = new_data_length;
     }
     return sts;
+}
+
+mfxExtBuffer *GetExtBuffer(mfxExtBuffer **ppExtBuf, int nCount, uint32_t targetBufferId) {
+    if (ppExtBuf) {
+        for (int i = 0; i < nCount; i++) {
+            if (ppExtBuf[i] && ppExtBuf[i]->BufferId == targetBufferId) {
+                return ppExtBuf[i];
+            }
+        }
+    }
+    return nullptr;
 }
 
 int getCPUGen() {

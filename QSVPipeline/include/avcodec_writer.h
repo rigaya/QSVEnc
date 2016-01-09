@@ -9,7 +9,6 @@
 #ifndef _AVCODEC_WRITER_H_
 #define _AVCODEC_WRITER_H_
 
-#include "sample_utils.h"
 #include "qsv_queue.h"
 
 #if ENABLE_AVCODEC_QSV_READER

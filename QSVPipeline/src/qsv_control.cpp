@@ -14,8 +14,8 @@
 #include <iostream>
 #include <emmintrin.h>
 #include "qsv_osdep.h"
+#include "qsv_event.h"
 
-#include "sample_utils.h"
 #include "mfxcommon.h"
 #include "qsv_control.h"
 

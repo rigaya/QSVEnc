@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <stdio.h>
-#include "sample_utils.h"
 #include "plugin_rotate.h"
 
 #pragma warning(disable : 4100)
