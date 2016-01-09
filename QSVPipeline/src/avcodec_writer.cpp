@@ -14,6 +14,7 @@
 #include <memory>
 #include "qsv_osdep.h"
 #include "qsv_util.h"
+#include "qsv_control.h"
 #include "avcodec_writer.h"
 
 #if ENABLE_AVCODEC_QSV_READER

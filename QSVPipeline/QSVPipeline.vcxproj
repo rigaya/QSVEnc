@@ -345,6 +345,7 @@
     <ClCompile Include="src\qsv_plugin.cpp" />
     <ClCompile Include="src\qsv_prm.cpp" />
     <ClCompile Include="src\qsv_simd.cpp" />
+    <ClCompile Include="src\qsv_task.cpp" />
     <ClCompile Include="src\qsv_util.cpp" />
     <ClCompile Include="src\qsv_version.cpp" />
     <ClCompile Include="src\ram_speed.cpp" />
@@ -392,6 +393,7 @@
     <ClInclude Include="include\qsv_queue.h" />
     <ClInclude Include="include\qsv_simd.h" />
     <ClInclude Include="include\qsv_log.h" />
+    <ClInclude Include="include\qsv_task.h" />
     <ClInclude Include="include\qsv_tchar.h" />
     <ClInclude Include="include\qsv_thread.h" />
     <ClInclude Include="include\qsv_util.h" />

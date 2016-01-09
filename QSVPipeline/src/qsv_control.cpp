@@ -1,27 +1,28 @@
-﻿/* ////////////////////////////////////////////////////////////////////////////// */
-/*
-//
-//              INTEL CORPORATION PROPRIETARY INFORMATION
-//  This software is supplied under the terms of a license  agreement or
-//  nondisclosure agreement with Intel Corporation and may not be copied
-//  or disclosed except in  accordance  with the terms of that agreement.
-//        Copyright (c) 2005-2011 Intel Corporation. All Rights Reserved.
-//
-//
-*/
+﻿//  -----------------------------------------------------------------------------------------
+//    QSVEnc by rigaya
+//  -----------------------------------------------------------------------------------------
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+//  ---------------------------------------------------------------------------------------
+
 #include "qsv_tchar.h"
 #include <math.h>
 #include <iostream>
+#include <mfxvideo++.h>
 #include <emmintrin.h>
 #include "qsv_osdep.h"
 #include "qsv_event.h"
+#include "qsv_log.h"
+#include "qsv_output.h"
 
 #include "mfxcommon.h"
 #include "qsv_control.h"
+#include "base_allocator.h"
 
 #pragma warning( disable : 4748 )
-CEncodeStatusInfo::CEncodeStatusInfo()
-{
+CEncodeStatusInfo::CEncodeStatusInfo() {
     m_sData.nProcessedFramesNum = 0;
     m_sData.nWrittenBytes = 0;
     m_sData.nIDRCount = 0;
@@ -71,8 +72,7 @@ void CEncodeStatusInfo::SetStart() {
     m_bEncStarted = true;
 }
 
-CEncodingThread::CEncodingThread()
-{
+CEncodingThread::CEncodingThread() {
     m_nFrameBuffer = 0;
     m_bthForceAbort = FALSE;
     m_bthSubAbort = FALSE;
@@ -82,8 +82,7 @@ CEncodingThread::CEncodingThread()
     m_bInit = false;
 }
 
-CEncodingThread::~CEncodingThread()
-{
+CEncodingThread::~CEncodingThread() {
     Close();
 }
 
@@ -156,8 +155,7 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVL
     return MFX_ERR_NONE;
 }
 
-void CEncodingThread::Close()
-{
+void CEncodingThread::Close() {
     if (m_thEncode.joinable()) {
         m_thEncode.join();
     }

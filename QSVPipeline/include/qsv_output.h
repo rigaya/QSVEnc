@@ -22,6 +22,12 @@ using std::shared_ptr;
 
 static const int MAX_BUF_SIZE_MB = 128;
 
+enum OutputType {
+    OUT_TYPE_NONE = 0,
+    OUT_TYPE_BITSTREAM,
+    OUT_TYPE_SURFACE
+};
+
 class CQSVOut {
 public:
     CQSVOut();
@@ -40,6 +46,10 @@ public:
 
     virtual bool outputStdout() {
         return m_bOutputIsStdout;
+    }
+
+    virtual OutputType getOutType() {
+        return m_OutType;
     }
 
     const TCHAR *GetOutputMessage() {
@@ -77,6 +87,7 @@ protected:
     bool        m_bOutputIsStdout;
     bool        m_bInited;
     bool        m_bNoOutput;
+    OutputType  m_OutType;
     bool        m_bSourceHWMem;
     bool        m_bY4mHeaderWritten;
     tstring     m_strWriterName;
@@ -127,7 +138,4 @@ protected:
     bool m_bY4m;
 };
 
-
-
 #endif //__QSV_OUTPUT_H__
-

@@ -1,12 +1,11 @@
-﻿/*********************************************************************************
-
-INTEL CORPORATION PROPRIETARY INFORMATION
-This software is supplied under the terms of a license agreement or nondisclosure
-agreement with Intel Corporation and may not be copied or disclosed except in
-accordance with the terms of that agreement
-Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
-
-**********************************************************************************/
+﻿//  -----------------------------------------------------------------------------------------
+//    QSVEnc by rigaya
+//  -----------------------------------------------------------------------------------------
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+//  ---------------------------------------------------------------------------------------
 
 #include "qsv_tchar.h"
 #include <stdarg.h>
@@ -45,268 +44,6 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 
 #define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
 
-#if 0
-/* obtain the clock tick of an uninterrupted master clock */
-msdk_tick time_get_tick(void)
-{
-    return msdk_time_get_tick();/*
-    LARGE_INTEGER t1;
-
-    QueryPerformanceCounter(&t1);
-    return t1.QuadPart;*/
-
-} /* vm_tick vm_time_get_tick(void) */
-
-/* obtain the clock resolution */
-msdk_tick time_get_frequency(void)
-{
-    return msdk_time_get_frequency();/*
-    LARGE_INTEGER t1;
-
-    QueryPerformanceFrequency(&t1);
-    return t1.QuadPart;*/
-
-} /* vm_tick vm_time_get_frequency(void) */
-#endif
-
-CEncTaskPool::CEncTaskPool() {
-    m_pmfxSession       = nullptr;
-    m_nTaskBufferStart  = 0;
-    m_nPoolSize         = 0;
-}
-
-CEncTaskPool::~CEncTaskPool() {
-    Close();
-}
-
-mfxStatus CEncTaskPool::Init(MFXVideoSession *pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CQSVOut> pOtherWriter) {
-    if (nPoolSize == 0) {
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
-    }
-    if (pBitstreamWriter) {
-        if (nBufferSize == 0) {
-            return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
-        }
-    } else {
-        //フレーム出力時には、Allocatorも必要
-        if (pmfxAllocator == nullptr) {
-            return MFX_ERR_NULL_PTR;
-        }
-    }
-
-    // nPoolSize must be even in case of 2 output bitstreams
-    if (pOtherWriter && (0 != nPoolSize % 2))
-        return MFX_ERR_UNDEFINED_BEHAVIOR;
-
-    m_pmfxSession = pmfxSession;
-    m_nPoolSize = nPoolSize;
-
-    m_pTasks.resize(m_nPoolSize);
-
-    mfxStatus sts = MFX_ERR_NONE;
-
-    if (pOtherWriter) {// 2 bitstreams on output
-        for (mfxU32 i = 0; i < m_nPoolSize; i+=2) {
-            if (   MFX_ERR_NONE > (sts = m_pTasks[i+0].Init(nBufferSize, pBitstreamWriter, pYUVWriter, pmfxAllocator))
-                || MFX_ERR_NONE > (sts = m_pTasks[i+1].Init(nBufferSize, pOtherWriter, nullptr))) {
-                return sts;
-            }
-        }
-    } else {
-        for (mfxU32 i = 0; i < m_nPoolSize; i++) {
-            if (MFX_ERR_NONE > (sts = m_pTasks[i].Init(nBufferSize, pBitstreamWriter, pYUVWriter, pmfxAllocator))) {
-                return sts;
-            }
-        }
-    }
-
-    return MFX_ERR_NONE;
-}
-
-mfxStatus CEncTaskPool::SynchronizeFirstTask() {
-    mfxStatus sts  = MFX_ERR_NONE;
-
-    // non-null sync point indicates that task is in execution
-    if (NULL != m_pTasks[m_nTaskBufferStart].EncSyncP) {
-        sts = m_pmfxSession->SyncOperation(m_pTasks[m_nTaskBufferStart].EncSyncP, MSDK_WAIT_INTERVAL);
-
-        if (MFX_ERR_NONE == sts) {
-            if (MFX_ERR_NONE > (sts = m_pTasks[m_nTaskBufferStart].WriteBitstream())) {
-                return sts;
-            }
-
-            if (MFX_ERR_NONE > (sts = m_pTasks[m_nTaskBufferStart].Reset())) {
-                return sts;
-            }
-
-            // move task buffer start to the next executing task
-            // the first transform frame to the right with non zero sync point
-            for (mfxU32 i = 0; i < m_nPoolSize; i++) {
-                m_nTaskBufferStart = (m_nTaskBufferStart + 1) % m_nPoolSize;
-                if (nullptr != m_pTasks[m_nTaskBufferStart].EncSyncP) {
-                    break;
-                }
-            }
-        } else if (MFX_ERR_ABORTED == sts) {
-            while (!m_pTasks[m_nTaskBufferStart].DependentVppTasks.empty()) {
-                // find out if the error occurred in a VPP task to perform recovery procedure if applicable
-                sts = m_pmfxSession->SyncOperation(*m_pTasks[m_nTaskBufferStart].DependentVppTasks.begin(), 0);
-
-                if (MFX_ERR_NONE == sts) {
-                    m_pTasks[m_nTaskBufferStart].DependentVppTasks.pop_front();
-                    sts = MFX_ERR_ABORTED; // save the status of the encode task
-                    continue; // go to next vpp task
-                } else {
-                    break;
-                }
-            }
-        }
-        return sts;
-    } else {
-        return MFX_ERR_NOT_FOUND; // no tasks left in task buffer
-    }
-}
-
-mfxU32 CEncTaskPool::GetFreeTaskIndex() {
-    mfxU32 off = 0;
-
-    if (m_pTasks.size()) {
-        for (off = 0; off < m_nPoolSize; off++) {
-            if (NULL == m_pTasks[(m_nTaskBufferStart + off) % m_nPoolSize].EncSyncP) {
-                break;
-            }
-        }
-    }
-
-    if (off >= m_nPoolSize)
-        return m_nPoolSize;
-
-    return (m_nTaskBufferStart + off) % m_nPoolSize;
-}
-
-mfxStatus CEncTaskPool::GetFreeTask(sTask **ppTask) {
-    if (ppTask == nullptr) {
-        return MFX_ERR_NULL_PTR;
-    }
-
-    mfxU32 index = GetFreeTaskIndex();
-
-    if (index >= m_nPoolSize)
-    {
-        return MFX_ERR_NOT_FOUND;
-    }
-
-    // return the address of the task
-    *ppTask = &m_pTasks[index];
-
-    return MFX_ERR_NONE;
-}
-
-void CEncTaskPool::Close()
-{
-    if (m_pTasks.size()) {
-        for (mfxU32 i = 0; i < m_nPoolSize; i++) {
-            m_pTasks[i].Close();
-        }
-    }
-    m_pTasks.clear();
-
-    m_pmfxSession = NULL;
-    m_nTaskBufferStart = 0;
-    m_nPoolSize = 0;
-}
-
-sTask::sTask() :
-    mfxSurf(nullptr),
-    EncSyncP(0),
-    pBsWriter(),
-    pYUVWriter(),
-    pmfxAllocator(nullptr)
-{
-    QSV_MEMSET_ZERO(mfxBS);
-}
-
-mfxStatus sTask::Init(mfxU32 nBufferSize, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pFrameWriter, MFXFrameAllocator *pAllocator) {
-    Close();
-
-    pBsWriter = pBitstreamWriter;
-
-    mfxStatus sts = Reset();
-    if (sts < MFX_ERR_NONE) return sts;
-
-    if (pBitstreamWriter) {
-        if (nBufferSize == 0) {
-            return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
-        }
-        if (MFX_ERR_NONE != (sts = mfxBitstreamInit(&mfxBS, nBufferSize))) {
-            mfxBitstreamClear(&mfxBS);
-            return sts;
-        }
-    } else {
-        //フレーム出力時には、Allocatorも必要
-        if (pFrameWriter == nullptr || pAllocator == nullptr) {
-            return MFX_ERR_NULL_PTR;
-        }
-        pYUVWriter = pFrameWriter;
-        pmfxAllocator = pAllocator;
-    }
-
-    return sts;
-}
-
-mfxStatus sTask::Close() {
-    mfxBitstreamClear(&mfxBS);
-    EncSyncP = 0;
-    pBsWriter.reset();
-    pYUVWriter.reset();
-    pmfxAllocator = nullptr;
-    mfxSurf = nullptr;
-    DependentVppTasks.clear();
-
-    return MFX_ERR_NONE;
-}
-
-mfxStatus sTask::WriteBitstream() {
-    if (!pBsWriter && !pYUVWriter)
-        return MFX_ERR_NOT_INITIALIZED;
-    
-    mfxStatus sts = MFX_ERR_NONE;
-    if (pBsWriter) {
-        sts = pBsWriter->WriteNextFrame(&mfxBS);
-    } else {
-        if (mfxSurf->Data.MemId) {
-            sts = pmfxAllocator->Lock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
-            if (sts < MFX_ERR_NONE) {
-                return sts;
-            }
-        }
-
-        sts = pYUVWriter->WriteNextFrame(mfxSurf);
-
-        if (mfxSurf->Data.MemId) {
-            pmfxAllocator->Unlock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
-        }
-
-        //最終で加算したLockをここで減算する
-        mfxSurf->Data.Locked--;
-    }
-    return sts;
-}
-
-mfxStatus sTask::Reset()
-{
-    // mark sync point as free
-    EncSyncP = NULL;
-    mfxSurf = nullptr;
-
-    // prepare bit stream
-    mfxBS.DataOffset = 0;
-    mfxBS.DataLength = 0;
-
-    DependentVppTasks.clear();
-
-    return MFX_ERR_NONE;
-}
 
 #if ENABLE_MVC_ENCODING
 mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
@@ -2135,17 +1872,17 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     } else {
 #endif
         if (pParams->CodecId == MFX_CODEC_RAW) {
-            m_pFrameWriter.reset(new CQSVOutFrame());
-            m_pFrameWriter->SetQSVLogPtr(m_pQSVLog);
+            m_pFileWriter.reset(new CQSVOutFrame());
+            m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
             YUVWriterParam param;
             param.bY4m = true;
             param.memType = m_memType;
-            sts = m_pFrameWriter->Init(pParams->strDstFile, &param, m_pEncSatusInfo);
+            sts = m_pFileWriter->Init(pParams->strDstFile, &param, m_pEncSatusInfo);
             if (sts < MFX_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
                 return sts;
             }
-            stdoutUsed = m_pFrameWriter->outputStdout();
+            stdoutUsed = m_pFileWriter->outputStdout();
             PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else {
             m_pFileWriter = std::make_shared<CQSVOutBitstream>();
@@ -3119,7 +2856,7 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams) {
 
     mfxU32 nEncodedDataBufferSize = m_mfxEncParams.mfx.FrameInfo.Width * m_mfxEncParams.mfx.FrameInfo.Height * 4;
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth, nEncodedDataBufferSize >> 10);
-    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator.get(), m_pFileWriter, m_pFrameWriter, m_nAsyncDepth, nEncodedDataBufferSize, NULL);
+    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator.get(), m_pFileWriter, m_nAsyncDepth, nEncodedDataBufferSize);
     QSV_ERR_MES(sts, _T("Failed to initialize task pool for encoding."));
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Created task pool.\n"));
 
@@ -3145,7 +2882,7 @@ mfxStatus CEncodingPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::GetFreeTask(sTask **ppTask) {
+mfxStatus CEncodingPipeline::GetFreeTask(QSVTask **ppTask) {
     mfxStatus sts = MFX_ERR_NONE;
 
     sts = m_TaskPool.GetFreeTask(ppTask);
@@ -3331,7 +3068,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
     const double getTimeStampMul = m_mfxEncParams.mfx.FrameInfo.FrameRateExtD * (double)QSV_TIMEBASE / (double)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN; //TimeStamp計算用
 
-    sTask *pCurrentTask = NULL; // a pointer to the current task
+    QSVTask *pCurrentTask = nullptr; // a pointer to the current task
     int nEncSurfIdx = -1; // index of free surface for encoder input (vpp output)
     int nVppSurfIdx = -1; // index of free surface for vpp input
 
@@ -3553,7 +3290,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         // save the id of preceding vpp task which will produce input data for the encode task
         if (filterSyncPoint) {
             lastSyncP = filterSyncPoint;
-            //pCurrentTask->DependentVppTasks.push_back(filterSyncPoint);
+            //pCurrentTask->vppSyncPoint.push_back(filterSyncPoint);
             filterSyncPoint = NULL;
         }
         return filter_sts;
@@ -3602,7 +3339,7 @@ mfxStatus CEncodingPipeline::RunEncode()
 
             // save the id of preceding vpp task which will produce input data for the encode task
             if (VppSyncPoint) {
-                pCurrentTask->DependentVppTasks.push_back(VppSyncPoint);
+                pCurrentTask->vppSyncPoint.push_back(VppSyncPoint);
                 VppSyncPoint = NULL;
                 pNextFrame = pSurfVppOut;
             }
@@ -3614,7 +3351,7 @@ mfxStatus CEncodingPipeline::RunEncode()
         if (m_pmfxENC == nullptr) {
             //エンコードが有効でない場合、このフレームデータを出力する
             //パイプラインの最後のSyncPointをセットする
-            pCurrentTask->EncSyncP = lastSyncP;
+            pCurrentTask->encSyncPoint = lastSyncP;
             //フレームデータが出力されるまで空きフレームとして使われないようLockを加算しておく
             //TaskのWriteBitstreamで減算され、解放される
             pSurfEncIn->Data.Locked++;
@@ -3671,10 +3408,10 @@ mfxStatus CEncodingPipeline::RunEncode()
 
         bool bDeviceBusy = false;
         for (int i = 0; ; i++) {
-            enc_sts = m_pmfxENC->EncodeFrameAsync(ptrCtrl, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
+            enc_sts = m_pmfxENC->EncodeFrameAsync(ptrCtrl, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->encSyncPoint);
             bDeviceBusy = false;
 
-            if (MFX_ERR_NONE < enc_sts && !pCurrentTask->EncSyncP) { // repeat the call if warning and no output
+            if (MFX_ERR_NONE < enc_sts && !pCurrentTask->encSyncPoint) { // repeat the call if warning and no output
                 bDeviceBusy = true;
                 if (MFX_WRN_DEVICE_BUSY == enc_sts)
                 sleep_hybrid(i);
@@ -3682,7 +3419,7 @@ mfxStatus CEncodingPipeline::RunEncode()
                     PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                     return MFX_ERR_UNKNOWN;
                 }
-            } else if (MFX_ERR_NONE < enc_sts && pCurrentTask->EncSyncP) {
+            } else if (MFX_ERR_NONE < enc_sts && pCurrentTask->encSyncPoint) {
                 enc_sts = MFX_ERR_NONE; // ignore warnings if output is available
                 break;
             } else if (MFX_ERR_NOT_ENOUGH_BUFFER == enc_sts) {

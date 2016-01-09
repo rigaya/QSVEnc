@@ -21,6 +21,7 @@ CQSVOut::CQSVOut() :
     m_bOutputIsStdout(false),
     m_bInited(false),
     m_bNoOutput(false),
+    m_OutType(OUT_TYPE_BITSTREAM),
     m_bSourceHWMem(false),
     m_bY4mHeaderWritten(false),
     m_strWriterName(),
@@ -56,6 +57,7 @@ void CQSVOut::Close() {
 
 CQSVOutBitstream::CQSVOutBitstream() {
     m_strWriterName = _T("bitstream");
+    m_OutType = OUT_TYPE_BITSTREAM;
 }
 
 CQSVOutBitstream::~CQSVOutBitstream() {
@@ -134,6 +136,7 @@ mfxStatus CQSVOutBitstream::WriteNextFrame(mfxFrameSurface1 *pSurface) {
 
 CQSVOutFrame::CQSVOutFrame() : m_bY4m(true) {
     m_strWriterName = _T("yuv writer");
+    m_OutType = OUT_TYPE_SURFACE;
 };
 
 CQSVOutFrame::~CQSVOutFrame() {

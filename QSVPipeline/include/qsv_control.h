@@ -1,14 +1,11 @@
-﻿/* ////////////////////////////////////////////////////////////////////////////// */
-/*
-//
-//              INTEL CORPORATION PROPRIETARY INFORMATION
-//  This software is supplied under the terms of a license  agreement or
-//  nondisclosure agreement with Intel Corporation and may not be copied
-//  or disclosed except in  accordance  with the terms of that agreement.
-//        Copyright (c) 2005-2011 Intel Corporation. All Rights Reserved.
-//
-//
-*/
+﻿//  -----------------------------------------------------------------------------------------
+//    QSVEnc by rigaya
+//  -----------------------------------------------------------------------------------------
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+//  ---------------------------------------------------------------------------------------
 
 #ifndef __QSV_CONTROL_H__
 #define __QSV_CONTROL_H__
@@ -23,6 +20,7 @@
 #include <chrono>
 #include <atomic>
 #include <thread>
+#include <mfxvideo++.h>
 #include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxjpeg.h"
@@ -32,6 +30,10 @@
 #include "cpu_info.h"
 #include "gpuz_info.h"
 
+using std::chrono::duration_cast;
+using std::shared_ptr;
+class CEncodingPipeline;
+
 static const int UPDATE_INTERVAL = 800;
 const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
 const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
@@ -39,10 +41,6 @@ const uint32_t MSDK_VPP_WAIT_INTERVAL = 60000;
 const uint32_t MSDK_WAIT_INTERVAL = MSDK_DEC_WAIT_INTERVAL+3*MSDK_VPP_WAIT_INTERVAL+MSDK_ENC_WAIT_INTERVAL; // an estimate for the longest pipeline we have in samples
 
 const uint32_t MSDK_INVALID_SURF_IDX = 0xFFFF;
-
-using std::chrono::duration_cast;
-using std::shared_ptr;
-class CEncodingPipeline;
 
 typedef struct {
     mfxFrameSurface1* pFrameSurface;
@@ -166,8 +164,7 @@ typedef struct sEncodeStatusData {
     double   fGPUClockTotal;
 } sEncodeStatusData;
 
-class CEncodeStatusInfo
-{
+class CEncodeStatusInfo {
 public:
     CEncodeStatusInfo();
     virtual ~CEncodeStatusInfo();
@@ -178,8 +175,7 @@ public:
             memcpy(data, &m_sData, sizeof(sEncodeStatusData));
         }
     }
-    void SetOutputData(mfxU64 nBytesWritten, mfxU32 frameType)
-    {
+    void SetOutputData(mfxU64 nBytesWritten, mfxU32 frameType) {
         m_sData.nProcessedFramesNum++;
         m_sData.nWrittenBytes += nBytesWritten;
         m_sData.nIDRCount     += ((frameType & MFX_FRAMETYPE_IDR) >> 7);
@@ -193,8 +189,7 @@ public:
 #pragma warning(push)
 #pragma warning(disable:4100)
     virtual void SetPrivData(void *pPrivateData) {};
-    virtual void UpdateDisplay(const TCHAR *mes, int drop_frames, double progressPercent)
-    {
+    virtual void UpdateDisplay(const TCHAR *mes, int drop_frames, double progressPercent) {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
             return;
         }
@@ -215,8 +210,7 @@ public:
         fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
     }
 #pragma warning(pop)
-    virtual mfxStatus UpdateDisplay(int drop_frames, double progressPercent = 0.0)
-    {
+    virtual mfxStatus UpdateDisplay(int drop_frames, double progressPercent = 0.0) {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
             return MFX_ERR_NONE;
         }
@@ -314,8 +308,7 @@ public:
             WriteLine(mes);
         }
     }
-    virtual void WriteResults(sFrameTypeInfo *info)
-    {
+    virtual void WriteResults(sFrameTypeInfo *info) {
         auto tm_result = std::chrono::system_clock::now();
         const auto time_elapsed64 = std::chrono::duration_cast<std::chrono::milliseconds>(tm_result - m_tmStart).count();
         m_sData.fEncodeFps = m_sData.nProcessedFramesNum * 1000.0 / (double)time_elapsed64;
@@ -386,8 +379,7 @@ protected:
     bool m_bEncStarted;
 };
 
-class CEncodingThread 
-{
+class CEncodingThread {
 public:
     CEncodingThread();
     ~CEncodingThread();
@@ -418,33 +410,5 @@ protected:
     std::thread m_thSub;
     bool m_bInit;
 };
-
-static inline int GetFreeSurface(mfxFrameSurface1* pSurfacesPool, int nPoolSize) {
-    static const int SleepInterval = 1; // milliseconds
-                                        //wait if there's no free surface
-    for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j += SleepInterval) {
-        for (mfxU16 i = 0; i < nPoolSize; i++) {
-            if (0 == pSurfacesPool[i].Data.Locked)
-                return i;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(SleepInterval));
-    }
-    return MSDK_INVALID_SURF_IDX;
-}
-
-static inline mfxU16 GetFreeSurfaceIndex(mfxFrameSurface1* pSurfacesPool, mfxU16 nPoolSize, mfxU16 step) {
-    if (pSurfacesPool)
-    {
-        for (mfxU16 i = 0; i < nPoolSize; i = (mfxU16)(i + step), pSurfacesPool += step)
-        {
-            if (0 == pSurfacesPool[0].Data.Locked)
-            {
-                return i;
-            }
-        }
-    }
-
-    return MSDK_INVALID_SURF_IDX;
-}
 
 #endif //__QSV_CONTROL_H__

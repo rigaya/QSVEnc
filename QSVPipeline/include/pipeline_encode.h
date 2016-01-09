@@ -1,14 +1,11 @@
-﻿//* ////////////////////////////////////////////////////////////////////////////// */
-//*
-//
-//              INTEL CORPORATION PROPRIETARY INFORMATION
-//  This software is supplied under the terms of a license  agreement or
-//  nondisclosure agreement with Intel Corporation and may not be copied
-//  or disclosed except in  accordance  with the terms of that agreement.
-//        Copyright (c) 2005-2014 Intel Corporation. All Rights Reserved.
-//
-//
-//*/
+﻿//  -----------------------------------------------------------------------------------------
+//    QSVEnc by rigaya
+//  -----------------------------------------------------------------------------------------
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+//  ---------------------------------------------------------------------------------------
 
 #ifndef __PIPELINE_ENCODE_H__
 #define __PIPELINE_ENCODE_H__
@@ -49,55 +46,12 @@
 #include "qsv_plugin.h"
 #include "qsv_input.h"
 #include "qsv_output.h"
+#include "qsv_task.h"
 
 #include <vector>
 #include <memory>
 #include <string>
 #include <iostream>
-
-using std::vector;
-using std::unique_ptr;
-using std::shared_ptr;
-
-struct sTask
-{
-    mfxBitstream mfxBS;
-    mfxFrameSurface1 *mfxSurf;
-    mfxSyncPoint EncSyncP;
-    std::list<mfxSyncPoint> DependentVppTasks;
-    shared_ptr<CQSVOut> pBsWriter;
-    shared_ptr<CQSVOut> pYUVWriter;
-    MFXFrameAllocator *pmfxAllocator;
-
-    sTask();
-    mfxStatus WriteBitstream();
-    mfxStatus Reset();
-    mfxStatus Init(mfxU32 nBufferSize, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pFrameWriter, MFXFrameAllocator *pAllocator = nullptr);
-    mfxStatus Close();
-};
-
-class CEncTaskPool
-{
-public:
-    CEncTaskPool();
-    virtual ~CEncTaskPool();
-
-    virtual mfxStatus Init(MFXVideoSession* pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CQSVOut> pBitstreamWriter, shared_ptr<CQSVOut> pYUVWriter, mfxU32 nPoolSize, mfxU32 nBufferSize, shared_ptr<CQSVOut> pOtherWriter);
-
-    mfxStatus GetFreeTask(sTask **ppTask);
-
-    virtual mfxStatus SynchronizeFirstTask();
-    virtual void Close();
-
-protected:
-    vector<sTask> m_pTasks;
-    mfxU32 m_nPoolSize;
-    mfxU32 m_nTaskBufferStart;
-
-    MFXVideoSession* m_pmfxSession;
-
-    virtual mfxU32 GetFreeTaskIndex();
-};
 
 enum {
     MFX_PRM_EX_SCENE_CHANGE = 0x01,
@@ -111,7 +65,6 @@ enum {
     SC_FIELDFLAG_INVALID_HIGH = 0xffff0000,
 };
 
-/* This class implements a pipeline with 2 mfx components: vpp (video preprocessing) and encode */
 class CEncodingPipeline
 {
 public:
@@ -159,11 +112,10 @@ protected:
 
     vector<shared_ptr<CQSVOut>> m_pFileWriterListAudio;
     shared_ptr<CQSVOut> m_pFileWriter;
-    shared_ptr<CQSVOut> m_pFrameWriter;
     vector<shared_ptr<CQSVInput>> m_AudioReaders;
     shared_ptr<CQSVInput> m_pFileReader;
 
-    CEncTaskPool m_TaskPool;
+    CQSVTaskControl m_TaskPool;
     mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance
 
     mfxInitParam m_InitParam;
@@ -269,7 +221,7 @@ protected:
 
     virtual mfxStatus AllocateSufficientBuffer(mfxBitstream* pBS);
 
-    virtual mfxStatus GetFreeTask(sTask **ppTask);
+    virtual mfxStatus GetFreeTask(QSVTask **ppTask);
     virtual mfxStatus SynchronizeFirstTask();
 };
 
