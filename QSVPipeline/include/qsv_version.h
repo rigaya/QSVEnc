@@ -7,16 +7,8 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#include "current_date.h"
-
 #ifndef _QSV_VERSION_H_
 #define _QSV_VERSION_H_
-
-#ifndef MFX_PRODUCT_VERSION
-#define MFX_PRODUCT_VERSION "6.0.0.98947"
-#endif
-
-#define MSDK_SAMPLE_VERSION _T(MFX_PRODUCT_VERSION)
 
 #define VER_FILEVERSION             0,2,26,0
 #define VER_STR_FILEVERSION          "2.26"

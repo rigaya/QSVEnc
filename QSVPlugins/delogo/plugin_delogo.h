@@ -13,9 +13,9 @@
 
 #include <stdlib.h>
 #include <vector>
+#include <mfxplugin++.h>
 
 #include "qsv_prm.h"
-#include "mfx_plugin_base.h"
 #include "../base/plugin_base.h"
 #include "logo.h"
 

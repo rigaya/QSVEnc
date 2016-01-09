@@ -14,7 +14,7 @@
 #include <memory.h>
 #include <vector>
 
-#include "mfx_plugin_base.h"
+#include <mfxplugin++.h>
 #include "../base/plugin_base.h"
 
 class ProcessorRotate : public Processor

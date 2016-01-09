@@ -7,7 +7,6 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#include "mfx_samples_config.h"
 #define _CRT_SECURE_NO_WARNINGS
 #include <algorithm>
 #include <cstdio>

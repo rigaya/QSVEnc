@@ -11,9 +11,8 @@
 #define __VPP_PLUGINS_H__
 
 #include <memory>
+#include <mfxplugin++.h>
 #include "sample_utils.h"
-#include "mfx_plugin_base.h"
-#include "mfx_plugin_module.h"
 #include "sysmem_allocator.h"
 #if D3D_SURFACES_SUPPORT
 #include "d3d_device.h"

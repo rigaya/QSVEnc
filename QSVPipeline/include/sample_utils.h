@@ -29,12 +29,6 @@ Copyright(c) 2005-2015 Intel Corporation. All Rights Reserved.
 
 using std::vector;
 
-#include "abstract_splitter.h"
-#include "avc_bitstream.h"
-#include "avc_spl.h"
-#include "avc_headers.h"
-#include "avc_nal_spl.h"
-
 const mfxU32 MSDK_DEC_WAIT_INTERVAL = 60000;
 const mfxU32 MSDK_ENC_WAIT_INTERVAL = 10000;
 const mfxU32 MSDK_VPP_WAIT_INTERVAL = 60000;

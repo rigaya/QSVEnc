@@ -307,9 +307,6 @@
     <ClCompile Include="src\avcodec_qsv.cpp" />
     <ClCompile Include="src\avcodec_reader.cpp" />
     <ClCompile Include="src\avcodec_writer.cpp" />
-    <ClCompile Include="src\avc_bitstream.cpp" />
-    <ClCompile Include="src\avc_nal_spl.cpp" />
-    <ClCompile Include="src\avc_spl.cpp" />
     <ClCompile Include="src\avi_reader.cpp" />
     <ClCompile Include="src\avs_reader.cpp" />
     <ClCompile Include="src\base_allocator.cpp" />
@@ -361,7 +358,6 @@
     </ClCompile>
     <ClCompile Include="src\scene_change_detection_simd.cpp" />
     <ClCompile Include="src\sysmem_allocator.cpp" />
-    <ClCompile Include="src\vpp_ex.cpp" />
     <ClCompile Include="src\vpy_reader.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -405,10 +401,7 @@
     <ClInclude Include="include\sample_utils.h" />
     <ClInclude Include="include\scene_change_detection.h" />
     <ClInclude Include="include\scene_change_detection_simd.h" />
-    <ClInclude Include="include\shared_ptr.h" />
-    <ClInclude Include="include\surface_auto_lock.h" />
     <ClInclude Include="include\sysmem_allocator.h" />
-    <ClInclude Include="include\vpp_ex.h" />
     <ClInclude Include="include\vpp_plugins.h" />
     <ClInclude Include="include\vpy_reader.h" />
   </ItemGroup>

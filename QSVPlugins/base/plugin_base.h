@@ -12,8 +12,8 @@
 
 #include <memory>
 #include <vector>
+#include <mfxplugin++.h>
 #include "qsv_version.h"
-#include "mfx_plugin_base.h"
 #include "qsv_util.h"
 #include "d3d_allocator.h"
 
@@ -62,8 +62,6 @@ protected:
     //正常に実行するためには、m_pAllocは、
     //PluginのmfxCoreから取得したAllocatorではなく、
     //メインパイプラインから直接受け取ったAllocatorでなければならない
-#pragma warning(push)
-#pragma warning(disable: 4100)
     mfxStatus CopyD3DFrameGPU(mfxFrameSurface1 *pFrameIn, mfxFrameSurface1 *pFrameOut) {
 #if D3D_SURFACES_SUPPORT
         if (m_pD3DDeviceManager == nullptr) {
@@ -82,7 +80,6 @@ protected:
 #endif //#if D3D_SURFACES_SUPPORT
         return MFX_ERR_NONE;
     }
-#pragma warning(pop)
 
     //locks frame or report of an error
     mfxStatus LockFrame(mfxFrameSurface1 *frame) {

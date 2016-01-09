@@ -13,7 +13,6 @@
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib") 
 
-#include "sample_defs.h"
 #include "sample_utils.h"
 
 #include "output.h"

@@ -36,9 +36,6 @@
     <ClCompile Include="src\sysmem_allocator.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\vpp_ex.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\d3d_device.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -108,15 +105,6 @@
     <ClCompile Include="src\DeviceId.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\avc_bitstream.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\avc_nal_spl.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="src\avc_spl.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\avcodec_qsv.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -173,9 +161,6 @@
     <ClInclude Include="include\sysmem_allocator.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\vpp_ex.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\d3d_device.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -204,12 +189,6 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="include\qsv_control.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\shared_ptr.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="include\surface_auto_lock.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="include\cpu_info.h">

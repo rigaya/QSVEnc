@@ -1104,7 +1104,7 @@ System::Void frmConfig::InitForm() {
     //タイトル表示
     this->Text = String(AUO_FULL_NAME).ToString();
     //バージョン情報,コンパイル日時
-    fcgLBVersion->Text     = Path::GetFileNameWithoutExtension(String(AUO_NAME_W).ToString()) + L" " + String(AUO_VERSION_STR).ToString() + L"  based on Intel(R) Media SDK " + String(MSDK_SAMPLE_VERSION).ToString();
+    fcgLBVersion->Text     = Path::GetFileNameWithoutExtension(String(AUO_NAME_W).ToString()) + L" " + String(AUO_VERSION_STR).ToString();
     fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
     //ツールチップ
     SetHelpToolTips();

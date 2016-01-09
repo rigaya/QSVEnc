@@ -18,7 +18,6 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 #include <cassert>
 #include <climits>
 #include "qsv_osdep.h"
-#include "mfx_samples_config.h"
 #include "pipeline_encode.h"
 #include "qsv_input.h"
 #include "qsv_output.h"

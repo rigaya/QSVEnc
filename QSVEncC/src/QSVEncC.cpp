@@ -42,7 +42,6 @@ static tstring GetQSVEncVersion() {
     tstring version;
     version += get_qsvenc_version();
     version += _T("\n");
-    version += strsprintf(_T("based on Intel(R) Media SDK Encoding Sample %s\n"), MSDK_SAMPLE_VERSION);
     version += strsprintf(_T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
     version += strsprintf(_T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
     version += strsprintf(_T("  vpy reader:   %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
