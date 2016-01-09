@@ -17,7 +17,7 @@
 #include <cassert>
 #include <climits>
 #include "qsv_osdep.h"
-#include "pipeline_encode.h"
+#include "qsv_pipeline.h"
 #include "qsv_input.h"
 #include "qsv_output.h"
 #include "vpy_reader.h"
@@ -46,7 +46,7 @@
 
 
 #if ENABLE_MVC_ENCODING
-mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
+mfxStatus CQSVPipeline::AllocAndInitMVCSeqDesc()
 {
     // a simple example of mfxExtMVCSeqDesc structure filling
     // actually equal to the "Default dependency mode" - when the structure fields are left 0,
@@ -99,7 +99,7 @@ mfxStatus CEncodingPipeline::AllocAndInitMVCSeqDesc()
 }
 #endif
 
-mfxStatus CEncodingPipeline::AllocAndInitVppDoNotUse()
+mfxStatus CQSVPipeline::AllocAndInitVppDoNotUse()
 {
     QSV_MEMSET_ZERO(m_VppDoNotUse);
     m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
@@ -107,14 +107,14 @@ mfxStatus CEncodingPipeline::AllocAndInitVppDoNotUse()
     m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
     m_VppDoNotUse.AlgList = &m_VppDoNotUseList[0];
     return MFX_ERR_NONE;
-} // CEncodingPipeline::AllocAndInitVppDoNotUse()
+} // CQSVPipeline::AllocAndInitVppDoNotUse()
 
-void CEncodingPipeline::FreeVppDoNotUse()
+void CQSVPipeline::FreeVppDoNotUse()
 {
 }
 
 #if ENABLE_MVC_ENCODING
-void CEncodingPipeline::FreeMVCSeqDesc()
+void CQSVPipeline::FreeMVCSeqDesc()
 {
     qsv_delete_array(m_MVCSeqDesc.View);
     qsv_delete_array(m_MVCSeqDesc.ViewId);
@@ -122,7 +122,7 @@ void CEncodingPipeline::FreeMVCSeqDesc()
 }
 #endif
 
-mfxStatus CEncodingPipeline::InitMfxDecParams()
+mfxStatus CQSVPipeline::InitMfxDecParams()
 {
 #if ENABLE_AVCODEC_QSV_READER
     mfxStatus sts = MFX_ERR_NONE;
@@ -171,7 +171,7 @@ mfxStatus CEncodingPipeline::InitMfxDecParams()
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
+mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
 {
     if (pInParams->CodecId == MFX_CODEC_RAW) {
         PrintMes(QSV_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
@@ -772,7 +772,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sInputParams *pInParams)
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
+mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
 {
     const mfxU32 blocksz = (pInParams->CodecId == MFX_CODEC_HEVC) ? 32 : 16;
     mfxU64 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
@@ -997,7 +997,7 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sInputParams *pInParams)
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
+mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams)
 {
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
     auto vppExtAddMes = [this](tstring str) {
@@ -1104,7 +1104,7 @@ mfxStatus CEncodingPipeline::CreateVppExtBuffers(sInputParams *pParams)
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
+mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_CUSTOM_VPP
     tstring vppPreMes = _T("");
@@ -1150,12 +1150,12 @@ mfxStatus CEncodingPipeline::InitVppPrePlugins(sInputParams *pParams) {
     return sts;
 }
 
-mfxStatus CEncodingPipeline::InitVppPostPlugins(sInputParams *pParams) {
+mfxStatus CQSVPipeline::InitVppPostPlugins(sInputParams *pParams) {
     return MFX_ERR_NONE;
 }
 #pragma warning (pop)
 
-//void CEncodingPipeline::DeleteVppExtBuffers()
+//void CQSVPipeline::DeleteVppExtBuffers()
 //{
 //    //free external buffers
 //    if (m_ppVppExtBuffers)
@@ -1171,7 +1171,7 @@ mfxStatus CEncodingPipeline::InitVppPostPlugins(sInputParams *pParams) {
 //    SAFE_DELETE_ARRAY(m_ppVppExtBuffers);
 //}
 
-mfxStatus CEncodingPipeline::CreateHWDevice() {
+mfxStatus CQSVPipeline::CreateHWDevice() {
     mfxStatus sts = MFX_ERR_NONE;
 
     auto hwdev_deleter = [](CHWDevice *hwdev) {
@@ -1232,7 +1232,7 @@ mfxStatus CEncodingPipeline::CreateHWDevice() {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::ResetDevice()
+mfxStatus CQSVPipeline::ResetDevice()
 {
     if (m_memType & (D3D9_MEMORY | D3D11_MEMORY)) {
         PrintMes(QSV_LOG_DEBUG, _T("HWDevice: reset.\n"));
@@ -1241,7 +1241,7 @@ mfxStatus CEncodingPipeline::ResetDevice()
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::AllocFrames() {
+mfxStatus CQSVPipeline::AllocFrames() {
     mfxStatus sts = MFX_ERR_NONE;
     mfxFrameAllocRequest DecRequest;
     mfxFrameAllocRequest EncRequest;
@@ -1524,7 +1524,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::CreateAllocator() {
+mfxStatus CQSVPipeline::CreateAllocator() {
     mfxStatus sts = MFX_ERR_NONE;
     PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
 
@@ -1676,7 +1676,7 @@ mfxStatus CEncodingPipeline::CreateAllocator() {
     return MFX_ERR_NONE;
 }
 
-void CEncodingPipeline::DeleteFrames() {
+void CQSVPipeline::DeleteFrames() {
     m_pEncSurfaces.clear();
     m_pVppSurfaces.clear();
     m_pDecSurfaces.clear();
@@ -1692,18 +1692,18 @@ void CEncodingPipeline::DeleteFrames() {
     QSV_MEMSET_ZERO(m_DecResponse);
 }
 
-void CEncodingPipeline::DeleteHWDevice() {
+void CQSVPipeline::DeleteHWDevice() {
     m_hwdev.reset();
 }
 
-void CEncodingPipeline::DeleteAllocator() {
+void CQSVPipeline::DeleteAllocator() {
     m_pMFXAllocator.reset();
     m_pmfxAllocatorParams.reset();
 
     DeleteHWDevice();
 }
 
-CEncodingPipeline::CEncodingPipeline() {
+CQSVPipeline::CQSVPipeline() {
     m_memType = SYSTEM_MEMORY;
     m_bExternalAlloc = false;
     m_nAsyncDepth = 0;
@@ -1753,23 +1753,23 @@ CEncodingPipeline::CEncodingPipeline() {
     QSV_MEMSET_ZERO(m_DecResponse);
 }
 
-CEncodingPipeline::~CEncodingPipeline() {
+CQSVPipeline::~CQSVPipeline() {
     Close();
 }
 
-void CEncodingPipeline::SetAbortFlagPointer(bool *abortFlag) {
+void CQSVPipeline::SetAbortFlagPointer(bool *abortFlag) {
     m_pAbortByUser = abortFlag;
 }
 
 #if ENABLE_MVC_ENCODING
-void CEncodingPipeline::SetMultiView()
+void CQSVPipeline::SetMultiView()
 {
     m_pFileReader->SetMultiView();
     m_bIsMVC = true;
 }
 #endif
 
-mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
+mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
     bool stdoutUsed = false;
 #if ENABLE_AVCODEC_QSV_READER
@@ -1968,7 +1968,7 @@ mfxStatus CEncodingPipeline::InitOutput(sInputParams *pParams) {
     return sts;
 }
 
-mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams) {
+mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
 
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
@@ -2188,7 +2188,7 @@ mfxStatus CEncodingPipeline::InitInput(sInputParams *pParams) {
     return sts;
 }
 
-mfxStatus CEncodingPipeline::DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version) {
+mfxStatus CQSVPipeline::DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version) {
     version.Major = 1;
     version.Minor = 0;
 
@@ -2197,7 +2197,7 @@ mfxStatus CEncodingPipeline::DetermineMinimumRequiredVersion(const sInputParams 
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
+mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     mfxFrameInfo inputFrameInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
 
@@ -2398,7 +2398,7 @@ mfxStatus CEncodingPipeline::CheckParam(sInputParams *pParams) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priority) {
+mfxStatus CQSVPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priority) {
     INIT_MFX_EXT_BUFFER(m_ThreadsParam, MFX_EXTBUFF_THREADS_PARAM);
     m_ThreadsParam.NumThread = threads;
     m_ThreadsParam.Priority = priority;
@@ -2410,7 +2410,7 @@ mfxStatus CEncodingPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priorit
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
+mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     mfxStatus sts = MFX_ERR_NONE;
     m_SessionPlugins.reset();
     m_mfxSession.Close();
@@ -2497,7 +2497,7 @@ mfxStatus CEncodingPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     return sts;
 }
 
-mfxStatus CEncodingPipeline::InitLog(sInputParams *pParams) {
+mfxStatus CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
     m_pQSVLog.reset(new CQSVLog(pParams->pStrLogFile, pParams->nLogLevel));
     if (pParams->pStrLogFile) {
@@ -2506,7 +2506,7 @@ mfxStatus CEncodingPipeline::InitLog(sInputParams *pParams) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::Init(sInputParams *pParams) {
+mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     if (pParams == nullptr) {
         return MFX_ERR_NULL_PTR;
     }
@@ -2693,7 +2693,7 @@ mfxStatus CEncodingPipeline::Init(sInputParams *pParams) {
     return MFX_ERR_NONE;
 }
 
-void CEncodingPipeline::Close()
+void CQSVPipeline::Close()
 {
     PrintMes(QSV_LOG_DEBUG, _T("Closing pipeline...\n"));
     //PrintMes(QSV_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
@@ -2785,7 +2785,7 @@ void CEncodingPipeline::Close()
     }
 }
 
-mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams) {
+mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     if (!pParams) {
         return MFX_ERR_NULL_PTR;
     }
@@ -2863,7 +2863,7 @@ mfxStatus CEncodingPipeline::ResetMFXComponents(sInputParams* pParams) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
+mfxStatus CQSVPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
     if (!pBS) {
         return MFX_ERR_NULL_PTR;
     }
@@ -2882,7 +2882,7 @@ mfxStatus CEncodingPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingPipeline::GetFreeTask(QSVTask **ppTask) {
+mfxStatus CQSVPipeline::GetFreeTask(QSVTask **ppTask) {
     mfxStatus sts = MFX_ERR_NONE;
 
     sts = m_TaskPool.GetFreeTask(ppTask);
@@ -2897,14 +2897,14 @@ mfxStatus CEncodingPipeline::GetFreeTask(QSVTask **ppTask) {
     return sts;
 }
 
-mfxStatus CEncodingPipeline::SynchronizeFirstTask()
+mfxStatus CQSVPipeline::SynchronizeFirstTask()
 {
     mfxStatus sts = m_TaskPool.SynchronizeFirstTask();
 
     return sts;
 }
 
-mfxStatus CEncodingPipeline::CheckSceneChange()
+mfxStatus CQSVPipeline::CheckSceneChange()
 {
     PrintMes(QSV_LOG_DEBUG, _T("Starting Sub Thread...\n"));
     mfxStatus sts = MFX_ERR_NONE;
@@ -2956,20 +2956,20 @@ mfxStatus CEncodingPipeline::CheckSceneChange()
     return sts;
 }
 
-void CEncodingPipeline::RunEncThreadLauncher(void *pParam) {
-    reinterpret_cast<CEncodingPipeline*>(pParam)->RunEncode();
+void CQSVPipeline::RunEncThreadLauncher(void *pParam) {
+    reinterpret_cast<CQSVPipeline*>(pParam)->RunEncode();
 }
 
-void CEncodingPipeline::RunSubThreadLauncher(void *pParam) {
-    reinterpret_cast<CEncodingPipeline*>(pParam)->CheckSceneChange();
+void CQSVPipeline::RunSubThreadLauncher(void *pParam) {
+    reinterpret_cast<CQSVPipeline*>(pParam)->CheckSceneChange();
 }
 
-mfxStatus CEncodingPipeline::Run()
+mfxStatus CQSVPipeline::Run()
 {
     return Run(0);
 }
 
-mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
+mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask)
 {
     mfxStatus sts = MFX_ERR_NONE;
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
@@ -3051,7 +3051,7 @@ mfxStatus CEncodingPipeline::Run(size_t SubThreadAffinityMask)
     return sts;
 }
 
-mfxStatus CEncodingPipeline::RunEncode()
+mfxStatus CQSVPipeline::RunEncode()
 {
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: Starting Encode...\n"));
 
@@ -3721,7 +3721,7 @@ mfxStatus CEncodingPipeline::RunEncode()
     return sts;
 }
 
-void CEncodingPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
+void CQSVPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
     if (m_pQSVLog.get() == nullptr) {
         if (log_level <= QSV_LOG_INFO) {
             return;
@@ -3938,7 +3938,7 @@ void CQSVLog::operator()(int log_level, const TCHAR *format, ...) {
     va_end(args);
 }
 
-void CEncodingPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
+void CQSVPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
     if (NULL != ver && NULL != hardware) {
         mfxIMPL impl;
         m_mfxSession.QueryIMPL(&impl);
@@ -3948,11 +3948,11 @@ void CEncodingPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
 
 }
 
-MemType CEncodingPipeline::GetMemType() {
+MemType CQSVPipeline::GetMemType() {
     return m_memType;
 }
 
-mfxStatus CEncodingPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
+mfxStatus CQSVPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
     if (NULL == data)
         return MFX_ERR_NULL_PTR;
 
@@ -3963,11 +3963,11 @@ mfxStatus CEncodingPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
     return MFX_ERR_NONE;
 }
 
-const TCHAR *CEncodingPipeline::GetInputMessage() {
+const TCHAR *CQSVPipeline::GetInputMessage() {
     return m_pFileReader->GetInputMessage();
 }
 
-mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
+mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
 {
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);

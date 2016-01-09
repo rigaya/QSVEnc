@@ -11,7 +11,7 @@
 #ifndef _AUO_PIPELINE_ENCODE_H_
 #define _AUO_PIPELINE_ENCODE_H_
 
-#include "pipeline_encode.h"
+#include "qsv_pipeline.h"
 #include "qsv_input.h"
 #include "qsv_output.h"
 
@@ -23,7 +23,7 @@ public:
     virtual void operator()(int log_level, const TCHAR *format, ...) override;
 };
 
-class AuoPipeline : public CEncodingPipeline
+class AuoPipeline : public CQSVPipeline
 {
 public:
     AuoPipeline();

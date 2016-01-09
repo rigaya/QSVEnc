@@ -65,11 +65,11 @@ enum {
     SC_FIELDFLAG_INVALID_HIGH = 0xffff0000,
 };
 
-class CEncodingPipeline
+class CQSVPipeline
 {
 public:
-    CEncodingPipeline();
-    virtual ~CEncodingPipeline();
+    CQSVPipeline();
+    virtual ~CQSVPipeline();
 
     virtual mfxStatus CheckParam(sInputParams *pParams);
     virtual mfxStatus Init(sInputParams *pParams);

@@ -350,7 +350,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
         | PERF_MONITOR_FPS
         : 0;
-    std::auto_ptr<CEncodingPipeline> pPipeline;
+    std::auto_ptr<CQSVPipeline> pPipeline;
 
     mfxStatus sts = MFX_ERR_NONE;
     int *jitter = NULL;
@@ -358,7 +358,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     //sts = ParseInputString(argv, (mfxU8)argc, &Params);
     //MSDK_CHECK_PARSE_RESULT(sts, MFX_ERR_NONE, 1);
 
-    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline); 
+    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CQSVPipeline); 
     pPipeline.reset(new AuoPipeline);
     //MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
     if (!pPipeline.get()) {

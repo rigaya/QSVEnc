@@ -8,7 +8,7 @@
 //  -----------------------------------------------------------------------------------------
 
 #include "qsv_prm.h"
-#include "pipeline_encode.h"
+#include "qsv_pipeline.h"
 
 void init_qsvp_prm(sInputParams *prm) {
     memset(prm, 0, sizeof(sInputParams));

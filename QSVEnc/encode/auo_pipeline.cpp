@@ -32,7 +32,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     m_pEncSatusInfo->SetPrivData(nullptr);
 
     if (pParams->nInputFmt != INPUT_FMT_AUO) {
-        return CEncodingPipeline::InitInput(pParams);
+        return CQSVPipeline::InitInput(pParams);
     }
 
     // prepare input file reader
@@ -88,7 +88,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
 mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
     if (pParams->nInputFmt != INPUT_FMT_AUO) {
-        return CEncodingPipeline::InitOutput(pParams);
+        return CQSVPipeline::InitOutput(pParams);
     }
 
     m_pFileWriter = std::make_shared<CQSVOutBitstream>();

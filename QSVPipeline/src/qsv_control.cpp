@@ -108,7 +108,7 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask) {
+mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask) {
     if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
 
     m_thEncode = std::thread(func, pipeline);
@@ -119,7 +119,7 @@ mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CEncodingP
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask) {
+mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask) {
     if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
 
     m_thSub = std::thread(func, pipeline);

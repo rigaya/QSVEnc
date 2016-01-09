@@ -1,16 +1,11 @@
-﻿//
-//               INTEL CORPORATION PROPRIETARY INFORMATION
-//  This software is supplied under the terms of a license agreement or
-//  nondisclosure agreement with Intel Corporation and may not be copied
-//  or disclosed except in accordance with the terms of that agreement.
-//        Copyright (c) 2005-2010 Intel Corporation. All Rights Reserved.
-//
-
+﻿//  -----------------------------------------------------------------------------------------
+//    QSVEnc by rigaya
 //  -----------------------------------------------------------------------------------------
-//    QSVEncC
-//      modified from sample_encode.cpp by rigaya 
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
-
 
 #include <fcntl.h>
 #include <math.h>
@@ -28,7 +23,7 @@
 #include <shellapi.h>
 #endif
 
-#include "pipeline_encode.h"
+#include "qsv_pipeline.h"
 #include "qsv_prm.h"
 #include "qsv_version.h"
 #include "avcodec_qsv.h"
@@ -89,26 +84,30 @@ static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const T
     const int indent_len = (int)_tcslen(indent_space);
     const int max_len = 79;
     int print_len = _ftprintf(fp, _T("   %s "), option_name);
-    while (print_len < indent_len)
+    while (print_len < indent_len) {
         print_len += _ftprintf(fp, _T(" "));
+    }
     _ftprintf(fp, _T("%s\n"), option_desc);
     const auto data_name_max_len = indent_len + 4 + std::accumulate(listDatas.begin(), listDatas.end(), 0,
         [](const int max_len, const ListData data) { return (std::max)(max_len, (int)_tcslen(data.name)); });
 
     for (const auto& data : listDatas) {
         print_len = _ftprintf(fp, _T("%s- %s: "), indent_space, data.name);
-        while (print_len < data_name_max_len)
+        while (print_len < data_name_max_len) {
             print_len += _ftprintf(fp, _T(" "));
+        }
         for (int i = 0; data.list[i].desc; i++) {
             const int desc_len = (int)(_tcslen(data.list[i].desc) + _tcslen(_T(", ")) + ((i == data.default_index) ? _tcslen(_T("(default)")) : 0));
             if (print_len + desc_len >= max_len) {
                 _ftprintf(fp, _T("\n%s"), indent_space);
                 print_len = indent_len;
-                while (print_len < data_name_max_len)
+                while (print_len < data_name_max_len) {
                     print_len += _ftprintf(fp, _T(" "));
+                }
             } else {
-                if (i)
+                if (i) {
                     print_len += _ftprintf(fp, _T(", "));
+                }
             }
             print_len += _ftprintf(fp, _T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
         }
@@ -116,17 +115,14 @@ static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const T
     }
 }
 
-static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName)
-{
-    if (strErrorMessage)
-    {
-        if (strOptionName)
+static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName) {
+    if (strErrorMessage) {
+        if (strOptionName) {
             _ftprintf(stderr, _T("Error: %s for %s\n\n"), strErrorMessage, strOptionName);
-        else
+        } else {
             _ftprintf(stderr, _T("Error: %s\n\n"), strErrorMessage);
-    }
-    else
-    {
+        }
+    } else {
         PrintVersion();
 
         _ftprintf(stdout, _T("Usage: %s [Options] -i <filename> -o <filename>\n"), PathFindFileName(strAppName));
@@ -2147,8 +2143,8 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
                 return MFX_PRINT_OPTION_ERR;
             }
         }
-        if (0 == _tcscmp(option_name, _T("lib-check"))
-              || 0 == _tcscmp(option_name, _T("check-lib")))
+        if (   0 == _tcscmp(option_name, _T("lib-check"))
+            || 0 == _tcscmp(option_name, _T("check-lib")))
         {
             mfxVersion test = { 0, 1 };
             mfxVersion hwlib = get_mfx_libhw_version();
@@ -2295,8 +2291,9 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     }
 
     //set input buffer size
-    if (argsData.nTmpInputBuf == 0)
+    if (argsData.nTmpInputBuf == 0) {
         argsData.nTmpInputBuf = (pParams->bUseHWLib) ? QSV_DEFAULT_INPUT_BUF_HW : QSV_DEFAULT_INPUT_BUF_SW;
+    }
     pParams->nInputBufSize = (mfxU16)clamp(argsData.nTmpInputBuf, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX);
 
     if (pParams->nRotationAngle != 0 && pParams->nRotationAngle != 180) {
@@ -2345,9 +2342,7 @@ static int set_signal_handler() {
 int run_encode(sInputParams *params) {
     mfxStatus sts = MFX_ERR_NONE; // return value check
 
-    std::unique_ptr<CEncodingPipeline>  pPipeline;
-    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CEncodingPipeline);
-    pPipeline.reset(new CEncodingPipeline);
+    unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
     if (!pPipeline) {
         return MFX_ERR_MEMORY_ALLOC;
     }
@@ -2403,8 +2398,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         params->nDstHeight = test_resolution[0].second;
         params->nTargetUsage = MFX_TARGETUSAGE_BEST_SPEED;
 
-        std::unique_ptr<CEncodingPipeline> pPipeline;
-        pPipeline.reset(new CEncodingPipeline);
+        unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
         if (!pPipeline) {
             return MFX_ERR_MEMORY_ALLOC;
         }
@@ -2507,8 +2501,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             params->nDstWidth = resolution.first;
             params->nDstHeight = resolution.second;
 
-            unique_ptr<CEncodingPipeline> pPipeline;
-            pPipeline.reset(new CEncodingPipeline);
+            unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
             if (!pPipeline) {
                 return MFX_ERR_MEMORY_ALLOC;
             }
@@ -2668,8 +2661,7 @@ int run(int argc, TCHAR *argv[]) {
         return run_benchmark(&Params);
     }
 
-    std::unique_ptr<CEncodingPipeline>  pPipeline;
-    pPipeline.reset(new CEncodingPipeline);
+    unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
     if (!pPipeline) {
         return MFX_ERR_MEMORY_ALLOC;
     }

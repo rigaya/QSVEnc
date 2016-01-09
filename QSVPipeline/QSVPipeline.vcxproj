@@ -335,7 +335,7 @@
     <ClCompile Include="src\gpuz_info.cpp" />
     <ClCompile Include="src\gpu_info.cpp" />
     <ClCompile Include="src\perf_monitor.cpp" />
-    <ClCompile Include="src\pipeline_encode.cpp" />
+    <ClCompile Include="src\qsv_pipeline.cpp" />
     <ClCompile Include="src\qsv_control.cpp" />
     <ClCompile Include="src\qsv_event.cpp" />
     <ClCompile Include="src\qsv_ini.cpp" />
@@ -380,7 +380,7 @@
     <ClInclude Include="include\gpu_info.h" />
     <ClInclude Include="include\hw_device.h" />
     <ClInclude Include="include\perf_monitor.h" />
-    <ClInclude Include="include\pipeline_encode.h" />
+    <ClInclude Include="include\qsv_pipeline.h" />
     <ClInclude Include="include\qsv_control.h" />
     <ClInclude Include="include\qsv_event.h" />
     <ClInclude Include="include\qsv_ini.h" />

@@ -32,7 +32,7 @@
 
 using std::chrono::duration_cast;
 using std::shared_ptr;
-class CEncodingPipeline;
+class CQSVPipeline;
 
 static const int UPDATE_INTERVAL = 800;
 const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
@@ -388,8 +388,8 @@ public:
     void Close();
     //終了を待機する
     mfxStatus WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVLog);
-    mfxStatus RunEncFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask);
-    mfxStatus RunSubFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask);
+    mfxStatus RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
+    mfxStatus RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
 
     std::thread& GetHandleEncThread() {
         return m_thEncode;
