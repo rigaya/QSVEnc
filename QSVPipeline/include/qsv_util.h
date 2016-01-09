@@ -510,4 +510,11 @@ mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize);
 mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size);
 void mfxBitstreamClear(mfxBitstream *pBitstream);
 
+
+const TCHAR *get_err_mes(int sts);
+static void print_err_mes(int sts) {
+    _ftprintf(stderr, _T("%s"), get_err_mes(sts));
+}
+#define QSV_IGNORE_STS(sts, err)                { if ((err) == (sts)) {(sts) = MFX_ERR_NONE; } }
+
 #endif //_QSV_UTIL_H_

@@ -43,9 +43,10 @@ mfxStatus Delogo::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfx
     if (in == nullptr || out == nullptr || *in == nullptr || *out == nullptr || task == nullptr) {
         return MFX_ERR_NULL_PTR;
     }
-    MSDK_CHECK_NOT_EQUAL(in_num, 1, MFX_ERR_UNSUPPORTED);
-    MSDK_CHECK_NOT_EQUAL(out_num, 1, MFX_ERR_UNSUPPORTED);
-    MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
+    if (in_num != 1 || out_num != 1) {
+        return MFX_ERR_UNSUPPORTED;
+    }
+    if (!m_bInited) return MFX_ERR_NOT_INITIALIZED;
 
     mfxFrameSurface1 *surface_in = (mfxFrameSurface1 *)in[0];
     mfxFrameSurface1 *surface_out = (mfxFrameSurface1 *)out[0];
@@ -56,17 +57,17 @@ mfxStatus Delogo::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfx
 
     if (m_bIsInOpaque) {
         sts = m_mfxCore.GetRealSurface(surface_in, &real_surface_in);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
+        if (sts < MFX_ERR_NONE) return sts;
     }
 
     if (m_bIsOutOpaque) {
         sts = m_mfxCore.GetRealSurface(surface_out, &real_surface_out);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
+        if (sts < MFX_ERR_NONE) return sts;
     }
 
     // check validity of parameters
     sts = CheckInOutFrameInfo(&real_surface_in->Info, &real_surface_out->Info);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    if (sts < MFX_ERR_NONE) return sts;
 
     mfxU32 ind = FindFreeTaskIdx();
 
@@ -332,7 +333,7 @@ mfxStatus Delogo::SetAuxParams(void *auxParam, int auxParamSize) {
 
     // check validity of parameters
     mfxStatus sts = CheckParam(&m_VideoParam);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    if (sts < MFX_ERR_NONE) return sts;
 
     memcpy(&m_DelogoParam, pDelogoPar, sizeof(m_DelogoParam));
 
@@ -535,13 +536,13 @@ mfxStatus Delogo::Close() {
     if (m_bIsInOpaque) {
         sts = m_mfxCore.UnmapOpaqueSurface(pluginOpaqueAlloc->In.NumSurface,
             pluginOpaqueAlloc->In.Type, pluginOpaqueAlloc->In.Surfaces);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
+        if (sts < MFX_ERR_NONE) return sts;
     }
 
     if (m_bIsOutOpaque) {
         sts = m_mfxCore.UnmapOpaqueSurface(pluginOpaqueAlloc->Out.NumSurface,
             pluginOpaqueAlloc->Out.Type, pluginOpaqueAlloc->Out.Surfaces);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, MFX_ERR_MEMORY_ALLOC);
+        if (sts < MFX_ERR_NONE) return sts;
     }
 
     m_sLogoDataList.clear();

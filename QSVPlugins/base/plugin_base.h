@@ -91,9 +91,7 @@ protected:
         if (frame->Data.Y != 0)
             return MFX_ERR_NONE;
         //lock required
-        mfxStatus sts = m_pAlloc->Lock(m_pAlloc->pthis, frame->Data.MemId, &frame->Data);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-        return sts;
+        return m_pAlloc->Lock(m_pAlloc->pthis, frame->Data.MemId, &frame->Data);
     }
     mfxStatus UnlockFrame(mfxFrameSurface1 *frame) {
         //unlock not possible, no allocator used
@@ -103,9 +101,7 @@ protected:
         if (frame->Data.Y == 0)
             return MFX_ERR_NONE;
         //unlock required
-        mfxStatus sts = m_pAlloc->Unlock(m_pAlloc->pthis, frame->Data.MemId, &frame->Data);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-        return sts;
+        return m_pAlloc->Unlock(m_pAlloc->pthis, frame->Data.MemId, &frame->Data);
     }
 
     mfxFrameSurface1  *m_pIn;
@@ -165,7 +161,7 @@ public:
         return MFX_ERR_NONE;
     }
     virtual mfxStatus Execute(mfxThreadTask task, mfxU32 uid_p, mfxU32 uid_a) {
-        MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
+        if (!m_bInited) return MFX_ERR_NOT_INITIALIZED;
 
         mfxStatus sts = MFX_ERR_NONE;
         PluginTask *current_task = (PluginTask *)task;
@@ -174,7 +170,7 @@ public:
         if (uid_a < m_sChunks.size()) {
             // there's data to process
             sts = current_task->pProcessor->Process(&m_sChunks[uid_a], current_task->pBuffer.get());
-            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+            if (sts < MFX_ERR_NONE) return sts;
             // last call?
             sts = ((m_sChunks.size() - 1) == uid_a) ? MFX_TASK_DONE : MFX_TASK_WORKING;
         } else {
@@ -184,7 +180,7 @@ public:
         return sts;
     }
     virtual mfxStatus FreeResources(mfxThreadTask task, mfxStatus sts) {
-        MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
+        if (!m_bInited) return MFX_ERR_NOT_INITIALIZED;
 
         PluginTask *current_task = (PluginTask *)task;
 

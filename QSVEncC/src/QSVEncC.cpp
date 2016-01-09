@@ -2354,7 +2354,7 @@ int run_encode(sInputParams *params) {
     }
 
     sts = pPipeline->Init(params);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+    if (sts < MFX_ERR_NONE) return sts;
 
     if (params->pStrLogFile) {
         free(params->pStrLogFile);
@@ -2374,13 +2374,13 @@ int run_encode(sInputParams *params) {
         if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
             _ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
             sts = pPipeline->ResetDevice();
-            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+            if (sts < MFX_ERR_NONE) return sts;
 
             sts = pPipeline->ResetMFXComponents(params);
-            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+            if (sts < MFX_ERR_NONE) return sts;
             continue;
         } else {
-            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+            if (sts < MFX_ERR_NONE) return sts;
             break;
         }
     }
@@ -2411,7 +2411,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         }
 
         sts = pPipeline->Init(params);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+        if (sts < MFX_ERR_NONE) return sts;
 
         pPipeline->SetAbortFlagPointer(&g_signal_abort);
         set_signal_handler();
@@ -2465,9 +2465,9 @@ mfxStatus run_benchmark(sInputParams *params) {
                     || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
                     break;
             } else {
-                if (MFX_ERR_NONE != sts)
-                    MSDK_PRINT_RET_MSG(sts);
-                break;
+                if (MFX_ERR_NONE != sts) {
+                    return sts;
+                }
             }
         }
 
@@ -2533,9 +2533,9 @@ mfxStatus run_benchmark(sInputParams *params) {
                         || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
                         break;
                 } else {
-                    if (MFX_ERR_NONE != sts)
-                        MSDK_PRINT_RET_MSG(sts);
-                    break;
+                    if (MFX_ERR_NONE != sts) {
+                        return sts;
+                    }
                 }
             }
 
@@ -2691,10 +2691,10 @@ int run(int argc, TCHAR *argv[]) {
         if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
             pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
             sts = pPipeline->ResetDevice();
-            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+            if (sts < MFX_ERR_NONE) return sts;
 
             sts = pPipeline->ResetMFXComponents(&Params);
-            MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, 1);
+            if (sts < MFX_ERR_NONE) return sts;
             continue;
         } else {
             if (sts < MFX_ERR_NONE) return 1;

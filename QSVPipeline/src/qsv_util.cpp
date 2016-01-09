@@ -1814,6 +1814,8 @@ const TCHAR *MemTypeToStr(uint32_t memType) {
 #if MFX_D3D11_SUPPORT
     case D3D11_MEMORY:
         return _T("d3d11");
+    case HW_MEMORY:
+        return _T("d3d11+d3d9");
 #endif //#if MFX_D3D11_SUPPORT
 #endif //#if D3D_SURFACES_SUPPORT
 #ifdef LIBVA_SUPPORT

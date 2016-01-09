@@ -111,7 +111,7 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
 }
 
 mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask) {
-    MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
+    if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
 
     m_thEncode = std::thread(func, pipeline);
 
@@ -122,7 +122,7 @@ mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CEncodingP
 }
 
 mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CEncodingPipeline *pipeline, size_t threadAffinityMask) {
-    MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
+    if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
 
     m_thSub = std::thread(func, pipeline);
 
@@ -134,7 +134,7 @@ mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CEncodingP
 
 //終了を待機する
 mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVLog) {
-    MSDK_CHECK_ERROR(m_bInit, false, MFX_ERR_NOT_INITIALIZED);
+    if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
     //最後のLoadNextFrameの結果をm_stsThreadにセットし、RunEncodeに知らせる
     m_stsThread = sts;
     //読み込み終了(MFX_ERR_MORE_DATA)ではなく、エラーや中断だった場合、

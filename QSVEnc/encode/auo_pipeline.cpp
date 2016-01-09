@@ -39,7 +39,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     m_pFileReader = std::make_shared<AUO_YUVReader>();
     m_pFileReader->SetQSVLogPtr(m_pQSVLog);
     sts = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    if (sts < MFX_ERR_NONE) return sts;
 
     mfxFrameInfo inputFrameInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
@@ -95,7 +95,7 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
     bool bDummy = false;
     sts = m_pFileWriter->Init(pParams->strDstFile, &bDummy, m_pEncSatusInfo);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    if (sts < MFX_ERR_NONE) return sts;
 
     return sts;
 }
