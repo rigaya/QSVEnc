@@ -1589,7 +1589,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
             m_VppPrePlugins[i]->m_PluginRequest.Type = mem_type;
             m_VppPrePlugins[i]->m_PluginRequest.NumFrameMin = m_VppPrePlugins[i]->m_nSurfNum;
             m_VppPrePlugins[i]->m_PluginRequest.NumFrameSuggested = m_VppPrePlugins[i]->m_nSurfNum;
-            MSDK_MEMCPY_VAR(m_VppPrePlugins[i]->m_PluginRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+            memcpy(&m_VppPrePlugins[i]->m_PluginRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
             if (m_pmfxDEC && nDecSurfAdd) {
                 m_VppPrePlugins[i]->m_PluginRequest.Info.Width  = DecRequest.Info.Width;
                 m_VppPrePlugins[i]->m_PluginRequest.Info.Height = DecRequest.Info.Height;
@@ -1597,7 +1597,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
                 m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
             }
             NextRequest = m_VppPrePlugins[i]->m_PluginRequest;
-            MSDK_MEMCPY_VAR(NextRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
+            memcpy(&NextRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
             PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PrePlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
                 i, m_VppPrePlugins[i]->getFilterName().c_str(), qsv_memtype_str(mem_type).c_str(),
                 m_VppPrePlugins[i]->m_PluginRequest.Info.Width, m_VppPrePlugins[i]->m_PluginRequest.Info.Height,
@@ -1619,7 +1619,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         //VppRequest[0]の準備
         VppRequest[0].NumFrameMin = nVppSurfNum;
         VppRequest[0].NumFrameSuggested = nVppSurfNum;
-        MSDK_MEMCPY_VAR(VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+        memcpy(&VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
         if (m_pmfxDEC && nDecSurfAdd) {
             VppRequest[0].Type = DecRequest.Type;
             VppRequest[0].Info.Width  = DecRequest.Info.Width;
@@ -1641,7 +1641,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
         nVppPreSurfAdd = 0;
         nVppSurfAdd = (std::max<uint16_t>)(VppRequest[1].NumFrameSuggested, 1);
         NextRequest = VppRequest[1];
-        MSDK_MEMCPY_VAR(NextRequest.Info, &(m_mfxVppParams.vpp.Out), sizeof(mfxFrameInfo));
+        memcpy(&NextRequest.Info, &(m_mfxVppParams.vpp.Out), sizeof(mfxFrameInfo));
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
             qsv_memtype_str(VppRequest[0].Type).c_str(),
             VppRequest[0].Info.Width, VppRequest[0].Info.Height,
@@ -1664,7 +1664,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
             m_VppPostPlugins[i]->m_PluginRequest.Type = mem_type;
             m_VppPostPlugins[i]->m_PluginRequest.NumFrameMin = m_VppPostPlugins[i]->m_nSurfNum;
             m_VppPostPlugins[i]->m_PluginRequest.NumFrameSuggested = m_VppPostPlugins[i]->m_nSurfNum;
-            MSDK_MEMCPY_VAR(m_VppPostPlugins[i]->m_PluginRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+            memcpy(&m_VppPostPlugins[i]->m_PluginRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
             if (m_pmfxDEC && nDecSurfAdd) {
                 m_VppPostPlugins[i]->m_PluginRequest.Type = DecRequest.Type;
                 m_VppPostPlugins[i]->m_PluginRequest.Info.Width  = DecRequest.Info.Width;
@@ -1673,7 +1673,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
                 m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo.Height = DecRequest.Info.Height;
             }
             NextRequest = m_VppPostPlugins[i]->m_PluginRequest;
-            MSDK_MEMCPY_VAR(NextRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
+            memcpy(&NextRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
             PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PostPlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
                 i, m_VppPostPlugins[i]->getFilterName().c_str(), qsv_memtype_str(mem_type).c_str(),
                 m_VppPostPlugins[i]->m_PluginRequest.Info.Width, m_VppPostPlugins[i]->m_PluginRequest.Info.Height,
@@ -1697,7 +1697,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
             EncRequest = NextRequest;
             nEncSurfNum += (m_nAsyncDepth - 1);
         } else {
-            MSDK_MEMCPY_VAR(EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+            memcpy(&EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
         }
         EncRequest.NumFrameMin = nEncSurfNum;
         EncRequest.NumFrameSuggested = nEncSurfNum;
@@ -1740,7 +1740,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
 
     for (int i = 0; i < m_EncResponse.NumFrameActual; i++) {
         memset(&(m_pEncSurfaces[i]), 0, sizeof(mfxFrameSurface1));
-        MSDK_MEMCPY_VAR(m_pEncSurfaces[i].Info, &(EncRequest.Info), sizeof(mfxFrameInfo));
+        memcpy(&m_pEncSurfaces[i].Info, &(EncRequest.Info), sizeof(mfxFrameInfo));
 
         if (m_bExternalAlloc) {
             m_pEncSurfaces[i].Data.MemId = m_EncResponse.mids[i];
@@ -1756,7 +1756,7 @@ mfxStatus CEncodingPipeline::AllocFrames() {
 
         for (int i = 0; i < m_VppResponse.NumFrameActual; i++) {
             QSV_MEMSET_ZERO(m_pVppSurfaces[i]);
-            MSDK_MEMCPY_VAR(m_pVppSurfaces[i].Info, &(VppRequest[0].Info), sizeof(mfxFrameInfo));
+            memcpy(&m_pVppSurfaces[i].Info, &(VppRequest[0].Info), sizeof(mfxFrameInfo));
 
             if (m_bExternalAlloc) {
                 m_pVppSurfaces[i].Data.MemId = m_VppResponse.mids[i];
@@ -4227,7 +4227,7 @@ mfxStatus CEncodingPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
     return MFX_ERR_NONE;
 }
 
-const msdk_char *CEncodingPipeline::GetInputMessage() {
+const TCHAR *CEncodingPipeline::GetInputMessage() {
     return m_pFileReader->GetInputMessage();
 }
 
@@ -4449,7 +4449,7 @@ mfxStatus CEncodingPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
             auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {
                 mfxU8 limit[3] = { limitI, limitP, limitB };
                 if (0 == (limit[0] | limit[1] | limit[2]))
-                    return std::basic_string<msdk_char>(_T("none"));
+                    return std::basic_string<TCHAR>(_T("none"));
 
                 tstring buf;
                 for (int i = 0; i < 3; i++) {

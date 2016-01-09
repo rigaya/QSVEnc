@@ -13,7 +13,6 @@
 #include <chrono>
 #include <type_traits>
 #include "qsv_osdep.h"
-#include "vm/strings_defs.h"
 #include "mfxstructures.h"
 #include "mfxsession.h"
 #include "qsv_version.h"
@@ -209,7 +208,7 @@ static std::basic_string<type> repeatStr(std::basic_string<type> str, int count)
 static tstring fourccToStr(mfxU32 nFourCC) {
     tstring fcc;
     for (int i = 0; i < 4; i++) {
-        fcc.push_back((msdk_char)*(i + (char*)&nFourCC));
+        fcc.push_back((TCHAR)*(i + (char*)&nFourCC));
     }
     return fcc;
 }

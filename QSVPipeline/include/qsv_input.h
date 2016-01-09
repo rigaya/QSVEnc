@@ -28,7 +28,7 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) = 0;
+    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) = 0;
 
     //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
     mfxStatus GetNextFrame(mfxFrameSurface1** pSurface) {
@@ -88,7 +88,7 @@ public:
     }
 
     virtual void Close();
-    //virtual mfxStatus Init(const msdk_char *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<msdk_char*> srcFileBuff);
+    //virtual mfxStatus Init(const TCHAR *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<TCHAR*> srcFileBuff);
     virtual mfxStatus LoadNextFrame(mfxFrameSurface1 *pSurface) = 0;
 
     void SetTrimParam(const sTrimParam& trim) {
@@ -118,8 +118,8 @@ public:
     virtual int GetSubtitleTrackCount() {
         return 0;
     }
-    const msdk_char *GetInputMessage() {
-        const msdk_char *mes = m_strInputInfo.c_str();
+    const TCHAR *GetInputMessage() {
+        const TCHAR *mes = m_strInputInfo.c_str();
         return (mes) ? mes : _T("");
     }
     void AddMessage(int log_level, const tstring& str) {
@@ -189,7 +189,7 @@ public:
     CQSVInputRaw();
     ~CQSVInputRaw();
 protected:
-    virtual mfxStatus Init(const msdk_char *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
     virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
     bool m_by4m;
 };

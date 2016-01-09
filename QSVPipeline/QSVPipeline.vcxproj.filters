@@ -108,9 +108,6 @@
     <ClCompile Include="src\DeviceId.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\vm\shared_object.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\avc_bitstream.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>

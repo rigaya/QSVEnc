@@ -169,7 +169,7 @@ public:
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
         if (NULL != data) {
-            MSDK_MEMCPY(data, &m_sData, sizeof(sEncodeStatusData));
+            memcpy(data, &m_sData, sizeof(sEncodeStatusData));
         }
     }
     void SetOutputData(mfxU64 nBytesWritten, mfxU32 frameType)

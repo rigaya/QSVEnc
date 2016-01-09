@@ -240,7 +240,7 @@ mfxStatus Rotator180::Process(DataChunk *chunk, mfxU8 *pBuffer) {
         for (i = chunk->StartLine; i <= chunk->EndLine; i++) {
             cur_line = out_luma + (h-1-i) * out_pitch;
 
-            MSDK_MEMCPY_BUF(cur_line, 0, w, in_luma + i * in_pitch, w);
+            memcpy(cur_line, in_luma + i * in_pitch, w);
 
             for (j = 0; j < w / 2; j++) {
                 SWAP_BYTES(cur_line[j], cur_line[w-1-j]);
@@ -248,7 +248,7 @@ mfxStatus Rotator180::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 
             cur_line = out_chroma + (h/2-1-i/2) * out_pitch;
 
-            MSDK_MEMCPY_BUF(cur_line, 0, w, in_chroma + i/2 * in_pitch, w);
+            memcpy(cur_line, in_chroma + i/2 * in_pitch, w);
 
             for (j = 0; j < w/2 - 1; j = j + 2) {
                 SWAP_BYTES(cur_line[j], cur_line[w-1-j-1]); // 0 -> -1
@@ -261,8 +261,8 @@ mfxStatus Rotator180::Process(DataChunk *chunk, mfxU8 *pBuffer) {
     }
 
     if (sts < MFX_ERR_NONE) return sts;
-    MSDK_MEMCPY_BUF(m_pOut->Data.Y, chunk->StartLine * out_pitch, m_YOut.size(), &m_YOut.front(), m_YOut.size());
-    MSDK_MEMCPY_BUF(m_pOut->Data.UV, chunk->StartLine * out_pitch, m_UVOut.size(), &m_UVOut.front(), m_UVOut.size());
+    memcpy(m_pOut->Data.Y + chunk->StartLine * out_pitch, &m_YOut.front(), m_YOut.size());
+    memcpy(m_pOut->Data.UV + chunk->StartLine * out_pitch, &m_UVOut.front(), m_UVOut.size());
     sts = UnlockFrame(m_pIn);
     sts = UnlockFrame(m_pOut);
 

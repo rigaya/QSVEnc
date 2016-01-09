@@ -361,7 +361,6 @@
     </ClCompile>
     <ClCompile Include="src\scene_change_detection_simd.cpp" />
     <ClCompile Include="src\sysmem_allocator.cpp" />
-    <ClCompile Include="src\vm\shared_object.cpp" />
     <ClCompile Include="src\vpp_ex.cpp" />
     <ClCompile Include="src\vpy_reader.cpp" />
   </ItemGroup>

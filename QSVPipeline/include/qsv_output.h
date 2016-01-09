@@ -30,7 +30,7 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
+    virtual mfxStatus Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
 
     virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) = 0;
 
@@ -42,8 +42,8 @@ public:
         return m_bOutputIsStdout;
     }
 
-    const msdk_char *GetOutputMessage() {
-        const msdk_char *mes = m_strOutputInfo.c_str();
+    const TCHAR *GetOutputMessage() {
+        const TCHAR *mes = m_strOutputInfo.c_str();
         return (mes) ? mes : _T("");
     }
     void AddMessage(int log_level, const tstring& str) {
@@ -118,7 +118,7 @@ public:
     CQSVOutFrame();
     virtual ~CQSVOutFrame();
 
-    virtual mfxStatus Init(const msdk_char *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual mfxStatus Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
 
     virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
     virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) override;

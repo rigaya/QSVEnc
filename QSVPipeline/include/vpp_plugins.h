@@ -12,7 +12,6 @@
 
 #include <memory>
 #include "sample_utils.h"
-#include "vm/so_defs.h"
 #include "mfx_plugin_base.h"
 #include "mfx_plugin_module.h"
 #include "sysmem_allocator.h"
@@ -105,7 +104,7 @@ public:
 
         for (int i = 0; i < m_PluginResponse.NumFrameActual; i++) {
             QSV_MEMSET_ZERO(m_pPluginSurfaces[i]);
-            MSDK_MEMCPY_VAR(m_pPluginSurfaces[i].Info, &(m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
+            memcpy(&m_pPluginSurfaces[i].Info, &(m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
             if (m_bExternalAlloc) {
                 m_pPluginSurfaces[i].Data.MemId = m_PluginResponse.mids[i];

@@ -64,7 +64,7 @@ CQSVInputRaw::~CQSVInputRaw() {
     Close();
 }
 
-mfxStatus CQSVInputRaw::Init(const msdk_char *strFileName, uint32_t ColorFormat, const void *prm,
+mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, const void *prm,
     CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
     Close();
 

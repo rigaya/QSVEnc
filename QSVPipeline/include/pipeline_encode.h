@@ -136,7 +136,7 @@ public:
 
     virtual mfxStatus GetEncodeStatusData(sEncodeStatusData *data);
     virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
-    virtual const msdk_char *GetInputMessage();
+    virtual const TCHAR *GetInputMessage();
     virtual MemType GetMemType();
 
     virtual void PrintMes(int log_level, const TCHAR *format, ...);

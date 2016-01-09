@@ -151,7 +151,7 @@ public:
     CAvcodecWriter();
     virtual ~CAvcodecWriter();
 
-    virtual mfxStatus Init(const msdk_char *strFileName, const void *option, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual mfxStatus Init(const TCHAR *strFileName, const void *option, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
 
     virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
 

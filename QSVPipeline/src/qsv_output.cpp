@@ -141,7 +141,7 @@ CQSVOutFrame::~CQSVOutFrame() {
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-mfxStatus CQSVOutFrame::Init(const msdk_char *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+mfxStatus CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
     Close();
 
     if (_tcscmp(strFileName, _T("-")) == 0) {

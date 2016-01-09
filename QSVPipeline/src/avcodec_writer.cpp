@@ -814,7 +814,7 @@ mfxStatus CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterL
     return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::Init(const msdk_char *strFileName, const void *option, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
     m_Mux.format.bStreamError = true;
     AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
 

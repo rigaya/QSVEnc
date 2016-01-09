@@ -764,11 +764,11 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
     mfxVideoParam videoPrmOut;
     //In, Outのパラメータが同一となっているようにきちんとコピーする
     //そうしないとQueryが失敗する
-    MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop));
-    MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2));
-    MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3));
-    MSDK_MEMCPY(&hevcOut, &hevc, sizeof(hevc));
-    MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
+    memcpy(&copOut,  &cop,  sizeof(cop));
+    memcpy(&cop2Out, &cop2, sizeof(cop2));
+    memcpy(&cop3Out, &cop3, sizeof(cop3));
+    memcpy(&hevcOut, &hevc, sizeof(hevc));
+    memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
     videoPrm.NumExtParam = (mfxU16)bufOut.size();
     videoPrm.ExtParam = &bufOut[0];
 
@@ -783,11 +783,11 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
                 mfxU16 original_method = videoPrm.mfx.RateControlMethod;
                 videoPrm.mfx.RateControlMethod = mode;
                 set_default_quality_prm();
-                MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop));
-                MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2));
-                MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3));
-                MSDK_MEMCPY(&hevcOut, &hevc, sizeof(hevc));
-                MSDK_MEMCPY(&videoPrmOut, &videoPrm, sizeof(videoPrm));
+                memcpy(&copOut,  &cop,  sizeof(cop));
+                memcpy(&cop2Out, &cop2, sizeof(cop2));
+                memcpy(&cop3Out, &cop3, sizeof(cop3));
+                memcpy(&hevcOut, &hevc, sizeof(hevc));
+                memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
                 videoPrm.NumExtParam = (mfxU16)bufOut.size();
                 videoPrm.ExtParam = &bufOut[0];
                 if (MFX_ERR_NONE <= encode.Query(&videoPrm, &videoPrmOut) && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod)
@@ -807,10 +807,10 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         if (check_lib_version(mfxVer, (required_ver))) { \
             mfxU16 temp = (membersIn); \
             (membersIn) = (value); \
-            MSDK_MEMCPY(&copOut,  &cop,  sizeof(cop)); \
-            MSDK_MEMCPY(&cop2Out, &cop2, sizeof(cop2)); \
-            MSDK_MEMCPY(&cop3Out, &cop3, sizeof(cop3)); \
-            MSDK_MEMCPY(&hevcOut, &hevc, sizeof(hevc)); \
+            memcpy(&copOut,  &cop,  sizeof(cop)); \
+            memcpy(&cop2Out, &cop2, sizeof(cop2)); \
+            memcpy(&cop3Out, &cop3, sizeof(cop3)); \
+            memcpy(&hevcOut, &hevc, sizeof(hevc)); \
             if (MFX_ERR_NONE <= encode.Query(&videoPrm, &videoPrmOut) \
                 && (membersIn) == (membersOut) \
                 && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) \
@@ -1042,7 +1042,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId) {
     return CheckEncodeFeature(hardware, ver, ratecontrol, codecId);
 }
 
-const msdk_char *EncFeatureStr(mfxU64 enc_feature) {
+const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
     for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++)
         if (enc_feature == (mfxU64)ptr->value)
             return ptr->desc;

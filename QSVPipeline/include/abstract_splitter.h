@@ -14,7 +14,6 @@
 #define _ABSTRACT_SPL_H__
 
 #include "mfxstructures.h"
-#include "vm/strings_defs.h"
 
 enum SliceTypeCode {
     TYPE_I = 0,

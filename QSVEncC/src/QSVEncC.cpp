@@ -2393,7 +2393,7 @@ int run_encode(sInputParams *params) {
 mfxStatus run_benchmark(sInputParams *params) {
     using namespace std;
     mfxStatus sts = MFX_ERR_NONE;
-    basic_string<msdk_char> benchmarkLogFile = params->strDstFile;
+    basic_string<TCHAR> benchmarkLogFile = params->strDstFile;
 
     //テストする解像度
     const vector<pair<mfxU16, mfxU16>> test_resolution = { { 1920, 1080 }, { 1280, 720 } };
@@ -2418,7 +2418,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         time_t current_time = time(NULL);
         struct tm *local_time = localtime(&current_time);
 
-        msdk_char encode_info[4096] = { 0 };
+        TCHAR encode_info[4096] = { 0 };
         if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info)))) {
             return sts;
         }
@@ -2431,7 +2431,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
         MemType memtype = pPipeline->GetMemType();
 
-        basic_stringstream<msdk_char> ss;
+        basic_stringstream<TCHAR> ss;
         FILE *fp_bench = NULL;
         if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
             pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
@@ -2448,7 +2448,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             fprintf(fp_bench, "\n");
             fclose(fp_bench);
         }
-        basic_ofstream<msdk_char> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
+        basic_ofstream<TCHAR> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
         if (!benchmark_log_test_open.good()) {
             pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
             return MFX_ERR_INVALID_HANDLE;
@@ -2563,7 +2563,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
     //結果を出力
     if (MFX_ERR_NONE == sts && benchmark_result.size()) {
-        basic_stringstream<msdk_char> ss;
+        basic_stringstream<TCHAR> ss;
 
         uint32_t maxLengthOfTargetUsageDesc = 0;
         for (uint32_t i = 0; i < list_target_quality.size(); i++) {

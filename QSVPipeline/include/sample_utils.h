@@ -15,18 +15,13 @@ Copyright(c) 2005-2015 Intel Corporation. All Rights Reserved.
 #include <string>
 #include <sstream>
 #include <vector>
+#include <thread>
 
 #include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxjpeg.h"
 #include "mfxplugin.h"
 
-#include "vm/strings_defs.h"
-#include "vm/file_defs.h"
-#include "vm/time_defs.h"
-#include "vm/atomic_defs.h"
-
-#include "sample_types.h"
 #include "qsv_prm.h"
 #include "qsv_control.h"
 #include "qsv_event.h"
@@ -93,19 +88,6 @@ public:
     no_copy() {}
 };
 
-typedef std::basic_string<msdk_char> msdk_string;
-typedef std::basic_stringstream<msdk_char> msdk_stringstream;
-typedef std::basic_ostream<msdk_char, std::char_traits<msdk_char> > msdk_ostream;
-typedef std::basic_istream<msdk_char, std::char_traits<msdk_char> > msdk_istream;
-
-#ifdef UNICODE 
-#define msdk_cout std::wcout
-#define msdk_err std::wcerr
-#else
-#define msdk_cout std::cout
-#define msdk_err std::cerr
-#endif
-
 struct DeletePtr {
     template <class T> T* operator () (T* p) const {
         delete p;
@@ -126,7 +108,7 @@ static inline int GetFreeSurface(mfxFrameSurface1* pSurfacesPool, int nPoolSize)
             if (0 == pSurfacesPool[i].Data.Locked)
                 return i;
         }
-        MSDK_SLEEP(SleepInterval);
+        std::this_thread::sleep_for(std::chrono::milliseconds(SleepInterval));
     }
     return MSDK_INVALID_SURF_IDX;
 }
@@ -149,9 +131,6 @@ static inline mfxU16 GetFreeSurfaceIndex(mfxFrameSurface1* pSurfacesPool, mfxU16
 
 // sets bitstream->PicStruct parsing first APP0 marker in bitstream
 mfxStatus MJPEG_AVI_ParsePicStruct(mfxBitstream *bitstream);
-
-// For MVC encoding/decoding purposes
-std::basic_string<msdk_char> FormMVCFileName(const msdk_char *strFileName, const mfxU32 numView);
 
 // function for getting a pointer to a specific external buffer from the array
 mfxExtBuffer* GetExtBuffer(mfxExtBuffer** ebuffers, mfxU32 nbuffers, mfxU32 BufferId);
