@@ -32,10 +32,6 @@ public:
 
     //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
     mfxStatus GetNextFrame(mfxFrameSurface1** pSurface) {
-#ifdef _DEBUG
-        MSDK_CHECK_POINTER(pSurface, MFX_ERR_NULL_PTR);
-        MSDK_CHECK_POINTER(m_pEncThread, MFX_ERR_NULL_PTR);
-#endif
         const int inputBufIdx = m_pEncThread->m_nFrameGet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
 
@@ -71,10 +67,6 @@ public:
 #pragma warning (pop)
 
     mfxStatus SetNextSurface(mfxFrameSurface1 *pSurface) {
-#ifdef _DEBUG
-        MSDK_CHECK_POINTER(pSurface, MFX_ERR_NULL_PTR);
-        MSDK_CHECK_POINTER(m_pEncThread, MFX_ERR_NULL_PTR);
-#endif
         const int inputBufIdx = m_pEncThread->m_nFrameSet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
         //_ftprintf(stderr, "Set heInputStart: %d\n", m_pEncThread->m_nFrameSet);

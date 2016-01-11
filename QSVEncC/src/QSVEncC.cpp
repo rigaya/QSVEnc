@@ -2254,10 +2254,6 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
 
     pParams->nTargetUsage = clamp(pParams->nTargetUsage, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED);
 
-    if (pParams->nBitRate == 0) {
-        PrintHelp(strInput[0], _T("Invalid bitrate"), NULL);
-    }
-
     // if nv12 option isn't specified, input YUV file is expected to be in YUV420 color format
     if (!pParams->ColorFormat) {
         pParams->ColorFormat = MFX_FOURCC_YV12;

@@ -1,0 +1,363 @@
+﻿//  -----------------------------------------------------------------------------------------
+//    QSVEnc by rigaya
+//  -----------------------------------------------------------------------------------------
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+//  -----------------------------------------------------------------------------------------
+
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#include "qsv_tchar.h"
+#include "hw_device.h"
+
+#if MFX_D3D11_SUPPORT
+
+#include <objbase.h>
+#include <initguid.h>
+#include <assert.h>
+#include <algorithm>
+#include <functional>
+#include <iterator>
+#include "qsv_allocator_d3d11.h"
+#include "qsv_util.h"
+
+#define D3DFMT_NV12 (DXGI_FORMAT)MAKEFOURCC('N','V','1','2')
+#define D3DFMT_YV12 (DXGI_FORMAT)MAKEFOURCC('Y','V','1','2')
+
+static const std::map<mfxU32, DXGI_FORMAT> fourccToDXGIFormat = {
+    { MFX_FOURCC_NV12,       DXGI_FORMAT_NV12 },
+    { MFX_FOURCC_YUY2,       DXGI_FORMAT_YUY2 },
+    { MFX_FOURCC_RGB4,       DXGI_FORMAT_B8G8R8A8_UNORM },
+    { MFX_FOURCC_P8,         DXGI_FORMAT_P8 },
+    { MFX_FOURCC_P8_TEXTURE, DXGI_FORMAT_P8 },
+    { MFX_FOURCC_P010,       DXGI_FORMAT_P010 },
+    { MFX_FOURCC_A2RGB10,    DXGI_FORMAT_P8 },
+    { DXGI_FORMAT_AYUV,      DXGI_FORMAT_AYUV }
+};
+
+QSVAllocatorD3D11::QSVAllocatorD3D11() {
+    m_pDeviceContext = nullptr;
+}
+
+QSVAllocatorD3D11::~QSVAllocatorD3D11() {
+    Close();
+}
+
+QSVAllocatorD3D11::TextureSubResource QSVAllocatorD3D11::GetResourceFromMid(mfxMemId mid) {
+    size_t index = (size_t)MFXReadWriteMid(mid).raw() - 1;
+
+    if (m_memIdMap.size() <= index) {
+        return TextureSubResource();
+    }
+    TextureResource *p = &(*m_memIdMap[index]);
+    if (!p->bAlloc) {
+        return TextureSubResource();
+    }
+    return TextureSubResource(p, mid);
+}
+
+mfxStatus QSVAllocatorD3D11::Init(mfxAllocatorParams *pParams) {
+    QSVAllocatorParamsD3D11 *pd3d11Params = dynamic_cast<QSVAllocatorParamsD3D11 *>(pParams);
+    if (NULL == pd3d11Params ||
+        NULL == pd3d11Params->pDevice) {
+        return MFX_ERR_NOT_INITIALIZED;
+    }
+
+    m_initParams = *pd3d11Params;
+    IUnknownSafeRelease(m_pDeviceContext);
+    pd3d11Params->pDevice->GetImmediateContext(&m_pDeviceContext);
+
+    return MFX_ERR_NONE;
+}
+
+mfxStatus QSVAllocatorD3D11::Close() {
+    mfxStatus sts = QSVAllocator::Close();
+    for (auto it : m_resourcesByRequest) {
+        it.Release();
+    }
+    m_resourcesByRequest.clear();
+    m_memIdMap.clear();
+    IUnknownSafeRelease(m_pDeviceContext);
+    return sts;
+}
+
+mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
+    TextureSubResource sr = GetResourceFromMid(mid);
+    if (!sr.GetTexture()) {
+        return MFX_ERR_LOCK_MEMORY;
+    }
+
+    HRESULT hRes = S_OK;
+    D3D11_MAP mapType = D3D11_MAP_READ;
+    UINT mapFlags = D3D11_MAP_FLAG_DO_NOT_WAIT;
+    D3D11_TEXTURE2D_DESC desc = {0};
+    D3D11_MAPPED_SUBRESOURCE lockedRect = {0};
+    if (NULL == sr.GetStaging()) {
+        hRes = m_pDeviceContext->Map(sr.GetTexture(), sr.GetSubResource(), D3D11_MAP_READ, D3D11_MAP_FLAG_DO_NOT_WAIT, &lockedRect);
+        desc.Format = DXGI_FORMAT_P8;
+    } else {
+        sr.GetTexture()->GetDesc(&desc);
+        static const auto SUPPORTED_FORMATS = make_array<DXGI_FORMAT>(
+            DXGI_FORMAT_NV12,
+            DXGI_FORMAT_420_OPAQUE,
+            DXGI_FORMAT_YUY2,
+            DXGI_FORMAT_P8,
+            DXGI_FORMAT_B8G8R8A8_UNORM,
+            DXGI_FORMAT_R16_UINT,
+            DXGI_FORMAT_R16_UNORM,
+            DXGI_FORMAT_R10G10B10A2_UNORM,
+            DXGI_FORMAT_AYUV
+            );
+        if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), desc.Format) == SUPPORTED_FORMATS.end()) {
+            return MFX_ERR_LOCK_MEMORY;
+        }
+
+        if (MFXReadWriteMid(mid, MFXReadWriteMid::reuse).isRead()) {
+            m_pDeviceContext->CopySubresourceRegion(sr.GetStaging(), 0, 0, 0, 0, sr.GetTexture(), sr.GetSubResource(), NULL);
+        }
+
+        do {
+            hRes = m_pDeviceContext->Map(sr.GetStaging(), 0, mapType, mapFlags, &lockedRect);
+            if (S_OK != hRes && DXGI_ERROR_WAS_STILL_DRAWING != hRes) {
+                break;
+            }
+        } while (DXGI_ERROR_WAS_STILL_DRAWING == hRes);
+    }
+
+    if (FAILED(hRes)) {
+        return MFX_ERR_LOCK_MEMORY;
+    }
+
+    switch (desc.Format) {
+        case DXGI_FORMAT_NV12:
+            ptr->Pitch = (mfxU16)lockedRect.RowPitch;
+            ptr->Y = (mfxU8 *)lockedRect.pData;
+            ptr->U = (mfxU8 *)lockedRect.pData + desc.Height * lockedRect.RowPitch;
+            ptr->V = ptr->U + 1;
+            break;
+        case DXGI_FORMAT_420_OPAQUE:
+            ptr->Pitch = (mfxU16)lockedRect.RowPitch;
+            ptr->Y = (mfxU8 *)lockedRect.pData;
+            ptr->V = ptr->Y + desc.Height * lockedRect.RowPitch;
+            ptr->U = ptr->V + (desc.Height * lockedRect.RowPitch) / 4;
+            break;
+        case DXGI_FORMAT_YUY2:
+            ptr->Pitch = (mfxU16)lockedRect.RowPitch;
+            ptr->Y = (mfxU8 *)lockedRect.pData;
+            ptr->U = ptr->Y + 1;
+            ptr->V = ptr->Y + 3;
+            break;
+        case DXGI_FORMAT_P8 :
+            ptr->Pitch = (mfxU16)lockedRect.RowPitch;
+            ptr->Y = (mfxU8 *)lockedRect.pData;
+            ptr->U = 0;
+            ptr->V = 0;
+            break;
+        case DXGI_FORMAT_AYUV:
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+            ptr->Pitch = (mfxU16)lockedRect.RowPitch;
+            ptr->B = (mfxU8 *)lockedRect.pData;
+            ptr->G = ptr->B + 1;
+            ptr->R = ptr->B + 2;
+            ptr->A = ptr->B + 3;
+            break;
+        case DXGI_FORMAT_R10G10B10A2_UNORM :
+            ptr->Pitch = (mfxU16)lockedRect.RowPitch;
+            ptr->B = (mfxU8 *)lockedRect.pData;
+            ptr->G = ptr->B + 1;
+            ptr->R = ptr->B + 2;
+            ptr->A = ptr->B + 3;
+            break;
+        case DXGI_FORMAT_R16_UNORM :
+        case DXGI_FORMAT_R16_UINT :
+            ptr->Pitch = (mfxU16)lockedRect.RowPitch;
+            ptr->Y16 = (mfxU16 *)lockedRect.pData;
+            ptr->U16 = 0;
+            ptr->V16 = 0;
+            break;
+        default:
+            return MFX_ERR_LOCK_MEMORY;
+    }
+
+    return MFX_ERR_NONE;
+}
+
+mfxStatus QSVAllocatorD3D11::FrameUnlock(mfxMemId mid, mfxFrameData *ptr) {
+    TextureSubResource sr = GetResourceFromMid(mid);
+    if (!sr.GetTexture()) {
+        return MFX_ERR_LOCK_MEMORY;
+    }
+
+    if (NULL == sr.GetStaging()) {
+        m_pDeviceContext->Unmap(sr.GetTexture(), sr.GetSubResource());
+    } else {
+        m_pDeviceContext->Unmap(sr.GetStaging(), 0);
+        if (MFXReadWriteMid(mid, MFXReadWriteMid::reuse).isWrite()) {
+            m_pDeviceContext->CopySubresourceRegion(sr.GetTexture(), sr.GetSubResource(), 0, 0, 0, sr.GetStaging(), 0, NULL);
+        }
+    }
+
+    if (ptr) {
+        ptr->Pitch = 0;
+        ptr->Y     = nullptr;
+        ptr->U     = nullptr;
+        ptr->V     = nullptr;
+        ptr->A     = nullptr;
+        ptr->R     = nullptr;
+        ptr->G     = nullptr;
+        ptr->B     = nullptr;
+    }
+
+    return MFX_ERR_NONE;
+}
+
+
+mfxStatus QSVAllocatorD3D11::GetFrameHDL(mfxMemId mid, mfxHDL *handle) {
+    if (NULL == handle) {
+        return MFX_ERR_INVALID_HANDLE;
+    }
+
+    TextureSubResource sr = GetResourceFromMid(mid);
+    if (!sr.GetTexture()) {
+        return MFX_ERR_INVALID_HANDLE;
+    }
+
+    mfxHDLPair *pPair  = (mfxHDLPair*)handle;
+    pPair->first  = sr.GetTexture();
+    pPair->second = (mfxHDL)(UINT_PTR)sr.GetSubResource();
+
+    return MFX_ERR_NONE;
+}
+
+mfxStatus QSVAllocatorD3D11::CheckRequestType(mfxFrameAllocRequest *request) {
+    mfxStatus sts = QSVAllocator::CheckRequestType(request);
+    if (MFX_ERR_NONE != sts) {
+        return sts;
+    }
+
+    return ((request->Type & (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET)) != 0) ?
+        MFX_ERR_NONE : MFX_ERR_UNSUPPORTED;
+}
+
+mfxStatus QSVAllocatorD3D11::ReleaseResponse(mfxFrameAllocResponse *response) {
+    if (NULL == response) {
+        return MFX_ERR_NULL_PTR;
+    }
+
+    if (response->mids && 0 != response->NumFrameActual) {
+        TextureSubResource sr = GetResourceFromMid(response->mids[0]);
+        if (!sr.GetTexture()) {
+            return MFX_ERR_NULL_PTR;
+        }
+        sr.Release();
+
+        if (m_resourcesByRequest.end() == std::find_if(m_resourcesByRequest.begin(), m_resourcesByRequest.end(), TextureResource::isAllocated)) {
+            m_resourcesByRequest.clear();
+            m_memIdMap.clear();
+        }
+    }
+
+    return MFX_ERR_NONE;
+}
+mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllocResponse *response) {
+    if (fourccToDXGIFormat.find(request->Info.FourCC) == fourccToDXGIFormat.end()) {
+        return MFX_ERR_UNSUPPORTED;
+    }
+    const DXGI_FORMAT colorFormat = fourccToDXGIFormat.at(request->Info.FourCC);
+
+    TextureResource newTexture;
+    if (request->Info.FourCC == MFX_FOURCC_P8) {
+        D3D11_BUFFER_DESC desc ={ 0 };
+        desc.ByteWidth           = request->Info.Width * request->Info.Height;
+        desc.Usage               = D3D11_USAGE_STAGING;
+        desc.BindFlags           = 0;
+        desc.CPUAccessFlags      = D3D11_CPU_ACCESS_READ;
+        desc.MiscFlags           = 0;
+        desc.StructureByteStride = 0;
+
+        ID3D11Buffer *buffer = nullptr;
+        if (FAILED(m_initParams.pDevice->CreateBuffer(&desc, 0, &buffer))) {
+            return MFX_ERR_MEMORY_ALLOC;
+        }
+        newTexture.textures.push_back(reinterpret_cast<ID3D11Texture2D *>(buffer));
+    } else {
+        D3D11_TEXTURE2D_DESC desc = {0};
+        desc.Width = request->Info.Width;
+        desc.Height =  request->Info.Height;
+
+        desc.MipLevels = 1;
+        //number of subresources is 1 in case of not single texture
+        desc.ArraySize = m_initParams.bUseSingleTexture ? request->NumFrameSuggested : 1;
+        desc.Format = colorFormat;
+        desc.SampleDesc.Count = 1;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.MiscFlags = m_initParams.uncompressedResourceMiscFlags | D3D11_RESOURCE_MISC_SHARED;
+
+        desc.BindFlags = D3D11_BIND_DECODER;
+
+        if ( (MFX_MEMTYPE_FROM_VPPIN & request->Type) && (DXGI_FORMAT_YUY2 == desc.Format) ||
+             (DXGI_FORMAT_B8G8R8A8_UNORM == desc.Format) ||
+             (DXGI_FORMAT_R10G10B10A2_UNORM == desc.Format) ) {
+            desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+            if (desc.ArraySize > 2) {
+                return MFX_ERR_MEMORY_ALLOC;
+            }
+        }
+
+        if ( (MFX_MEMTYPE_FROM_VPPOUT & request->Type) ||
+             (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET & request->Type)) {
+            desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+            if (desc.ArraySize > 2) {
+                return MFX_ERR_MEMORY_ALLOC;
+            }
+        }
+
+        if (DXGI_FORMAT_P8 == desc.Format) {
+            desc.BindFlags = 0;
+        }
+
+        ID3D11Texture2D *pTexture2D = nullptr;
+
+        for (size_t i = 0; i < request->NumFrameSuggested / desc.ArraySize; i++) {
+            if (FAILED(m_initParams.pDevice->CreateTexture2D(&desc, NULL, &pTexture2D))) {
+                return MFX_ERR_MEMORY_ALLOC;
+            }
+            newTexture.textures.push_back(pTexture2D);
+        }
+
+        desc.ArraySize = 1;
+        desc.Usage = D3D11_USAGE_STAGING;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        desc.BindFlags = 0;
+        desc.MiscFlags = 0;
+
+        for (size_t i = 0; i < request->NumFrameSuggested; i++) {
+            if (FAILED(m_initParams.pDevice->CreateTexture2D(&desc, NULL, &pTexture2D))) {
+                return MFX_ERR_MEMORY_ALLOC;
+            }
+            newTexture.stagingTexture.push_back(pTexture2D);
+        }
+    }
+
+    mfxHDL curId = m_resourcesByRequest.empty() ? 0 :  m_resourcesByRequest.back().outerMids.back();
+    auto id_init = [&curId]() {
+        auto x = curId;
+        curId = (mfxHDL)((size_t)(curId)+1);
+        return x;
+    };
+    id_init();
+    std::generate_n(std::back_inserter(newTexture.outerMids), request->NumFrameSuggested, id_init);
+    m_resourcesByRequest.push_back(newTexture);
+    response->mids = &m_resourcesByRequest.back().outerMids.front();
+    response->NumFrameActual = request->NumFrameSuggested;
+    auto it_last = m_resourcesByRequest.end();
+    std::fill_n(std::back_inserter(m_memIdMap), request->NumFrameSuggested, --it_last);
+
+    return MFX_ERR_NONE;
+}
+
+#endif // #if MFX_D3D11_SUPPORT
+#endif // #if defined(_WIN32) || defined(_WIN64)

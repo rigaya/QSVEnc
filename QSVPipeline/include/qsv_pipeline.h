@@ -18,17 +18,9 @@
 #include "qsv_event.h"
 #include "qsv_log.h"
 
-#include "hw_device.h"
+#include "qsv_hw_device.h"
 
-#ifdef D3D_SURFACES_SUPPORT
-#pragma warning(disable : 4201)
-#include <d3d9.h>
-#include <dxva2api.h>
-#pragma comment(lib, "d3d9.lib")
-#pragma comment(lib, "dxva2.lib")
-#endif
-
-#include "base_allocator.h"
+#include "qsv_allocator.h"
 
 #include "mfxmvc.h"
 #include "mfxvideo.h"
@@ -161,7 +153,7 @@ protected:
     vector<mfxU32> m_VppDoNotUseList;
     vector<mfxU32> m_VppDoUseList;
 
-    unique_ptr<MFXFrameAllocator> m_pMFXAllocator;
+    unique_ptr<QSVAllocator> m_pMFXAllocator;
     unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;
     MemType m_memType;
     bool m_bd3dAlloc; // use d3d surfaces
@@ -187,7 +179,7 @@ protected:
     // for disabling VPP algorithms
     //mfxExtVPPDoNotUse m_VppDoNotUse;
 
-    shared_ptr<CHWDevice> m_hwdev;
+    shared_ptr<CQSVHWDevice> m_hwdev;
 
     virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 

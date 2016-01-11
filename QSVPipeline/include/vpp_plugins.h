@@ -13,16 +13,8 @@
 #include <memory>
 #include <mfxplugin++.h>
 #include "qsv_log.h"
-#include "sysmem_allocator.h"
-#include "hw_device.h"
-#if D3D_SURFACES_SUPPORT
-#include "d3d_device.h"
-#include "d3d_allocator.h"
-#if MFX_D3D11_SUPPORT
-#include "d3d11_device.h"
-#include "d3d11_allocator.h"
-#endif
-#endif
+#include "qsv_allocator.h"
+#include "qsv_hw_device.h"
 
 #include "rotate/plugin_rotate.h"
 #include "delogo/plugin_delogo.h"
@@ -80,7 +72,7 @@ public:
     };
 
 public:
-    virtual mfxStatus AllocSurfaces(MFXFrameAllocator *pMFXAllocator, bool m_bExternalAlloc) {
+    virtual mfxStatus AllocSurfaces(QSVAllocator *pMFXAllocator, bool m_bExternalAlloc) {
         //pMFXAllocator = m_pMFXAllocator;
         if (m_PluginRequest.NumFrameSuggested == 0) {
             return MFX_ERR_NOT_INITIALIZED;
@@ -115,7 +107,7 @@ public:
 
 public:
     virtual mfxStatus Init(mfxVersion ver, const TCHAR *pluginName, void *pPluginParam, mfxU32 nPluginParamSize,
-        bool useHWLib, MemType memType, shared_ptr<CHWDevice> phwdev, MFXFrameAllocator* pAllocator,
+        bool useHWLib, MemType memType, shared_ptr<CQSVHWDevice> phwdev, QSVAllocator* pAllocator,
         mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, shared_ptr<CQSVLog> pQSVLog) {
 
         if (pluginName == nullptr || pPluginParam == nullptr) {
@@ -231,7 +223,7 @@ public:
     mfxFrameAllocResponse          m_PluginResponse;      //AllocatorからのResponse
     unique_ptr<mfxFrameSurface1[]> m_pPluginSurfaces;     //保持しているSurface配列へのポインタ
     bool                           m_bPluginFlushed;      //使用していない
-    MFXFrameAllocator             *m_pMFXAllocator;       //使用していない
+    QSVAllocator                  *m_pMFXAllocator;       //使用していない
 private:
     mfxAllocatorParams            *m_pmfxAllocatorParams; //使用していない
     MFXVideoSession                m_mfxSession;          //カスタムVPP用のSession メインSessionにJoinして使用する
@@ -239,7 +231,7 @@ private:
     mfxVersion                     m_mfxVer;              //使用しているMediaSDKのバージョン
     unique_ptr<QSVEncPlugin>       m_pUsrPlugin;          //カスタムプラグインのインスタンス
 #if GPU_FILTER
-    shared_ptr<CHWDevice>          m_hwdev;               //使用しているデバイス
+    shared_ptr<CQSVHWDevice>       m_hwdev;               //使用しているデバイス
 #endif
     tstring                        m_message;             //このカスタムVPPからのメッセージ
     shared_ptr<CQSVLog>            m_pQSVLog;            //ログ出力用関数オブジェクト

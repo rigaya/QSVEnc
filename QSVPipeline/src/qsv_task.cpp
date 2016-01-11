@@ -18,7 +18,7 @@
 #include "qsv_output.h"
 
 #include "mfxcommon.h"
-#include "base_allocator.h"
+#include "qsv_allocator.h"
 #include "qsv_task.h"
 
 QSVTask::QSVTask() :
@@ -30,7 +30,7 @@ QSVTask::QSVTask() :
     QSV_MEMSET_ZERO(mfxBS);
 }
 
-mfxStatus QSVTask::Init(shared_ptr<CQSVOut> pTaskWriter, uint32_t nBufferSize, MFXFrameAllocator *pAllocator) {
+mfxStatus QSVTask::Init(shared_ptr<CQSVOut> pTaskWriter, uint32_t nBufferSize, QSVAllocator *pAllocator) {
     Close();
 
     pWriter = pTaskWriter;
@@ -79,14 +79,14 @@ CQSVTaskControl::~CQSVTaskControl() {
     Close();
 }
 
-mfxStatus CQSVTaskControl::Init(MFXVideoSession *pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CQSVOut> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize) {
+mfxStatus CQSVTaskControl::Init(MFXVideoSession *pmfxSession, QSVAllocator *pAllocator, shared_ptr<CQSVOut> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize) {
     if (nPoolSize == 0) {
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     auto outputType = pTaskWriter->getOutType();
     if (outputType == OUT_TYPE_SURFACE) {
         //フレーム出力時には、Allocatorも必要
-        if (pmfxAllocator == nullptr) {
+        if (pAllocator == nullptr) {
             return MFX_ERR_NULL_PTR;
         }
     } else if (outputType == OUT_TYPE_BITSTREAM) {
@@ -102,7 +102,7 @@ mfxStatus CQSVTaskControl::Init(MFXVideoSession *pmfxSession, MFXFrameAllocator 
     m_pTasks.resize(m_nPoolSize);
 
     for (uint32_t i = 0; i < m_nPoolSize; i++) {
-        mfxStatus sts = m_pTasks[i].Init(pTaskWriter, nBufferSize, pmfxAllocator);
+        mfxStatus sts = m_pTasks[i].Init(pTaskWriter, nBufferSize, pAllocator);
         if (sts < MFX_ERR_NONE) {
             return sts;
         }
@@ -112,7 +112,7 @@ mfxStatus CQSVTaskControl::Init(MFXVideoSession *pmfxSession, MFXFrameAllocator 
 }
 
 mfxStatus CQSVTaskControl::SynchronizeFirstTask() {
-    if (m_pTasks[m_nTaskBufferStart].encSyncPoint != NULL) {
+    if (m_pTasks[m_nTaskBufferStart].encSyncPoint == NULL) {
         return MFX_ERR_NOT_FOUND; //タスクバッファにもうタスクはない
     }
 

@@ -15,7 +15,7 @@
 #include <mfxplugin++.h>
 #include "qsv_version.h"
 #include "qsv_util.h"
-#include "d3d_allocator.h"
+#include "qsv_allocator_d3d9.h"
 
 #if D3D_SURFACES_SUPPORT
 #define D3D_CALL(x) { HRESULT hr = (x); if( FAILED(hr) ) { return MFX_ERR_UNDEFINED_BEHAVIOR; } }
@@ -65,7 +65,7 @@ protected:
     mfxStatus CopyD3DFrameGPU(mfxFrameSurface1 *pFrameIn, mfxFrameSurface1 *pFrameOut) {
 #if D3D_SURFACES_SUPPORT
         if (m_pD3DDeviceManager == nullptr) {
-            m_pD3DDeviceManager = ((D3DFrameAllocator*)m_pAlloc)->GetDeviceManager();
+            m_pD3DDeviceManager = ((QSVAllocatorD3D9*)m_pAlloc)->GetDeviceManager();
         }
         if (m_hDevice == NULL) {
             D3D_CALL(m_pD3DDeviceManager->OpenDeviceHandle(&m_hDevice));

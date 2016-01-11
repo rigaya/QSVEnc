@@ -30,11 +30,10 @@
 #include "qsv_output.h"
 #include "cpu_info.h"
 #include "gpuz_info.h"
-#include "base_allocator.h"
+#include "qsv_allocator.h"
 
 static inline int GetFreeSurface(mfxFrameSurface1 *pSurfacesPool, int nPoolSize) {
-    static const int SleepInterval = 1; // milliseconds
-                                        //wait if there's no free surface
+    static const int SleepInterval = 1;
     for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j += SleepInterval) {
         for (mfxU16 i = 0; i < nPoolSize; i++) {
             if (0 == pSurfacesPool[i].Data.Locked)
@@ -47,15 +46,12 @@ static inline int GetFreeSurface(mfxFrameSurface1 *pSurfacesPool, int nPoolSize)
 
 static inline mfxU16 GetFreeSurfaceIndex(mfxFrameSurface1 *pSurfacesPool, mfxU16 nPoolSize, mfxU16 step) {
     if (pSurfacesPool) {
-        for (mfxU16 i = 0; i < nPoolSize; i = (mfxU16)(i + step), pSurfacesPool += step)
-        {
-            if (0 == pSurfacesPool[0].Data.Locked)
-            {
+        for (mfxU16 i = 0; i < nPoolSize; i = (mfxU16)(i + step), pSurfacesPool += step) {
+            if (0 == pSurfacesPool[0].Data.Locked) {
                 return i;
             }
         }
     }
-
     return MSDK_INVALID_SURF_IDX;
 }
 
@@ -65,7 +61,7 @@ struct QSVTask {
     mfxSyncPoint encSyncPoint;
     vector<mfxSyncPoint> vppSyncPoint;
     shared_ptr<CQSVOut> pWriter;
-    MFXFrameAllocator *pmfxAllocator;
+    QSVAllocator *pmfxAllocator;
 
     QSVTask();
 
@@ -108,7 +104,7 @@ struct QSVTask {
 
         return MFX_ERR_NONE;
     }
-    mfxStatus Init(shared_ptr<CQSVOut> pTaskWriter, uint32_t nBufferSize, MFXFrameAllocator *pAllocator = nullptr);
+    mfxStatus Init(shared_ptr<CQSVOut> pTaskWriter, uint32_t nBufferSize, QSVAllocator *pAllocator = nullptr);
     mfxStatus Close();
 };
 
@@ -117,7 +113,7 @@ public:
     CQSVTaskControl();
     virtual ~CQSVTaskControl();
 
-    virtual mfxStatus Init(MFXVideoSession *pmfxSession, MFXFrameAllocator *pmfxAllocator, shared_ptr<CQSVOut> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize);
+    virtual mfxStatus Init(MFXVideoSession *pmfxSession, QSVAllocator *pAllocator, shared_ptr<CQSVOut> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize);
 
     mfxStatus GetFreeTask(QSVTask **ppTask) {
         if (ppTask == nullptr) {

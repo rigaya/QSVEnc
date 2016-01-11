@@ -1,46 +1,37 @@
-﻿/* ****************************************************************************** *\
+﻿//  -----------------------------------------------------------------------------------------
+//    QSVEnc by rigaya
+//  -----------------------------------------------------------------------------------------
+//   ソースコードについて
+//   ・無保証です。
+//   ・本ソースコードを使用したことによるいかなる損害・トラブルについてrigayaは責任を負いません。
+//   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
+//  ---------------------------------------------------------------------------------------
 
-INTEL CORPORATION PROPRIETARY INFORMATION
-This software is supplied under the terms of a license agreement or nondisclosure
-agreement with Intel Corporation and may not be copied or disclosed except in
-accordance with the terms of that agreement
-Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
+#ifndef __QSV_HW_D3D11_H__
+#define __QSV_HW_D3D11_H__
 
-\* ****************************************************************************** */
-
-#pragma once
-
-#if defined( _WIN32 ) || defined ( _WIN64 )
-
-#include "hw_device.h"
+#include "qsv_hw_device.h"
 
 #if MFX_D3D11_SUPPORT
-#include <windows.h>
+#if defined( _WIN32 ) || defined ( _WIN64 )
+#pragma warning(disable : 4201)
 #include <d3d11.h>
 #include <atlbase.h>
-
+#include <windows.h>
 #include <dxgi1_2.h>
+#include "qsv_util.h"
 
-class CD3D11Device: public CHWDevice
-{
+class CQSVD3D11Device : public CQSVHWDevice {
 public:
-    CD3D11Device();
-    virtual ~CD3D11Device();
-    virtual mfxStatus Init(
-        mfxHDL hWindow,
-        mfxU16 nViews,
-        mfxU32 nAdapterNum);
-    virtual mfxStatus Reset();
-    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl);
-    virtual mfxStatus SetHandle(mfxHandleType type, mfxHDL hdl);
-    virtual mfxStatus RenderFrame(mfxFrameSurface1 * pSurface, mfxFrameAllocator * pmfxAlloc);
-    virtual void      UpdateTitle(double /*fps*/) { }
-    virtual void      Close();
-            void      DefineFormat(bool isA2rgb10) { m_bIsA2rgb10 = (isA2rgb10) ? TRUE : FALSE; }
+    CQSVD3D11Device();
+    virtual ~CQSVD3D11Device();
+    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum) override;
+    virtual mfxStatus Reset() override;
+    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
+    virtual void      Close() override;
 protected:
-    virtual mfxStatus FillSCD(mfxHDL hWindow, DXGI_SWAP_CHAIN_DESC& scd);
-    virtual mfxStatus FillSCD1(DXGI_SWAP_CHAIN_DESC1& scd);
-    mfxStatus CreateVideoProcessor(mfxFrameSurface1 * pSrf);
+    void SetSCD1(DXGI_SWAP_CHAIN_DESC1& scd);
+    mfxStatus CreateVideoProcessor(mfxFrameSurface1 *pSurface);
 
     CComPtr<ID3D11Device>                   m_pD3D11Device;
     CComPtr<ID3D11DeviceContext>            m_pD3D11Ctx;
@@ -73,3 +64,4 @@ private:
 
 #endif //#if defined( _WIN32 ) || defined ( _WIN64 )
 #endif //#if MFX_D3D11_SUPPORT
+#endif //#ifndef __QSV_HW_D3D11_H__

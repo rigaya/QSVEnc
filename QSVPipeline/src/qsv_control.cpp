@@ -19,7 +19,7 @@
 
 #include "mfxcommon.h"
 #include "qsv_control.h"
-#include "base_allocator.h"
+#include "qsv_allocator.h"
 
 #pragma warning( disable : 4748 )
 CEncodeStatusInfo::CEncodeStatusInfo() {

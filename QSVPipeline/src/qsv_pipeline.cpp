@@ -25,19 +25,21 @@
 #include "avi_reader.h"
 #include "avcodec_reader.h"
 #include "avcodec_writer.h"
-#include "sysmem_allocator.h"
+#include "qsv_hw_device.h"
+#include "qsv_allocator.h"
+#include "qsv_allocator_sys.h"
 
 #if D3D_SURFACES_SUPPORT
-#include "d3d_allocator.h"
-#include "d3d11_allocator.h"
+#include "qsv_hw_d3d9.h"
+#include "qsv_hw_d3d11.h"
 
-#include "d3d_device.h"
-#include "d3d11_device.h"
+#include "qsv_allocator_d3d9.h"
+#include "qsv_allocator_d3d11.h"
 #endif
 
 #ifdef LIBVA_SUPPORT
-#include "vaapi_allocator.h"
-#include "vaapi_device.h"
+#include "qsv_hw_va.h"
+#include "qsv_allocator_va.h"
 #endif
 
 //#include "../../sample_user_modules/plugin_api/plugin_loader.h"
@@ -1174,12 +1176,6 @@ mfxStatus CQSVPipeline::InitVppPostPlugins(sInputParams *pParams) {
 mfxStatus CQSVPipeline::CreateHWDevice() {
     mfxStatus sts = MFX_ERR_NONE;
 
-    auto hwdev_deleter = [](CHWDevice *hwdev) {
-        if (hwdev) {
-            hwdev->Close();
-        }
-    };
-
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
     HWND window = WindowFromPoint(point);
@@ -1188,21 +1184,18 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     if (m_memType) {
 #if MFX_D3D11_SUPPORT
         if (m_memType == D3D11_MEMORY
-            && (m_hwdev = shared_ptr<CD3D11Device>(new CD3D11Device(), hwdev_deleter))) {
+            && (m_hwdev = std::make_shared<CQSVD3D11Device>())) {
             m_memType = D3D11_MEMORY;
             PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
-            sts = m_hwdev->Init(
-                NULL,
-                0,
-                GetAdapterID(m_mfxSession));
+            sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession));
             if (sts != MFX_ERR_NONE) {
                 m_hwdev.reset();
                 PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
-        if (!m_hwdev && (m_hwdev = shared_ptr<CD3D9Device>(new CD3D9Device(), hwdev_deleter))) {
+        if (!m_hwdev && (m_hwdev = std::make_shared<CQSVD3D9Device>())) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (m_memType != D3D9_MEMORY) {
@@ -1212,17 +1205,14 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
             }
 
             PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d9 - initializing...\n"));
-            sts = m_hwdev->Init(
-                window,
-                0,
-                GetAdapterID(m_mfxSession));
+            sts = m_hwdev->Init(window, GetAdapterID(m_mfxSession));
         }
     }
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
     PrintMes(QSV_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
     
 #elif LIBVA_SUPPORT
-    m_hwdev = std::shared_ptr<CHWDevice>(CreateVAAPIDevice(), hwdev_deleter);
+    m_hwdev = std::shared_ptr<CQSVHWDevice>(CreateVAAPIDevice());
     if (!m_hwdev) {
         return MFX_ERR_MEMORY_ALLOC;
     }
@@ -1557,13 +1547,13 @@ mfxStatus CQSVPipeline::CreateAllocator() {
 #if MFX_D3D11_SUPPORT
         if (D3D11_MEMORY == m_memType) {
             PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: Create d3d11 allocator.\n"));
-            m_pMFXAllocator.reset(new D3D11FrameAllocator);
+            m_pMFXAllocator.reset(new QSVAllocatorD3D11);
             if (!m_pMFXAllocator) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
-            D3D11AllocatorParams *pd3dAllocParams = new D3D11AllocatorParams;
+            QSVAllocatorParamsD3D11 *pd3dAllocParams = new QSVAllocatorParamsD3D11;
             if (!pd3dAllocParams) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for D3D11AllocatorParams.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
@@ -1576,13 +1566,13 @@ mfxStatus CQSVPipeline::CreateAllocator() {
 #endif // #if MFX_D3D11_SUPPORT
         {
             PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: Create d3d9 allocator.\n"));
-            m_pMFXAllocator.reset(new D3DFrameAllocator);
+            m_pMFXAllocator.reset(new QSVAllocatorD3D9);
             if (!m_pMFXAllocator) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
-            D3DAllocatorParams *pd3dAllocParams = new D3DAllocatorParams;
+            QSVAllocatorParamsD3D9 *pd3dAllocParams = new QSVAllocatorParamsD3D9;
             if (!pd3dAllocParams) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for pd3dAllocParams.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
@@ -1615,7 +1605,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         QSV_ERR_MES(sts, _T("Failed to set HW device handle to encode session."));
 
         //VAAPI allocatorを作成
-        m_pMFXAllocator = new vaapiFrameAllocator;
+        m_pMFXAllocator = new QSVAllocatorVA;
         if (!m_pMFXAllocator) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
             return MFX_ERR_MEMORY_ALLOC;
@@ -1659,7 +1649,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         }
 #endif
         //system memory allocatorを作成
-        m_pMFXAllocator.reset(new SysMemFrameAllocator);
+        m_pMFXAllocator.reset(new QSVAllocatorSys);
         if (!m_pMFXAllocator) {
             return MFX_ERR_MEMORY_ALLOC;
         }
@@ -2897,15 +2887,13 @@ mfxStatus CQSVPipeline::GetFreeTask(QSVTask **ppTask) {
     return sts;
 }
 
-mfxStatus CQSVPipeline::SynchronizeFirstTask()
-{
+mfxStatus CQSVPipeline::SynchronizeFirstTask() {
     mfxStatus sts = m_TaskPool.SynchronizeFirstTask();
 
     return sts;
 }
 
-mfxStatus CQSVPipeline::CheckSceneChange()
-{
+mfxStatus CQSVPipeline::CheckSceneChange() {
     PrintMes(QSV_LOG_DEBUG, _T("Starting Sub Thread...\n"));
     mfxStatus sts = MFX_ERR_NONE;
 
@@ -4028,7 +4016,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         DstPicInfo = videoPrm.mfx.FrameInfo;
     }
 
-    if (m_pFileWriter) {
+    if (m_pFileWriter && m_pFileWriter->getOutType() == OUT_TYPE_BITSTREAM) {
         if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm, &cop2))) {
             PrintMes(QSV_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
             return sts;
@@ -4036,14 +4024,14 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
         PrintMes(QSV_LOG_DEBUG, _T("CheckCurrentVideoParam: SetVideoParam to video file writer.\n"));
     }
 
-    TCHAR cpuInfo[256];
+    TCHAR cpuInfo[256] = { 0 };
     getCPUInfo(cpuInfo, _countof(cpuInfo));
 
     TCHAR gpu_info[1024] = { 0 };
     if (Check_HWUsed(impl)) {
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
     }
-    TCHAR info[4096];
+    TCHAR info[4096] = { 0 };
     mfxU32 info_len = 0;
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }

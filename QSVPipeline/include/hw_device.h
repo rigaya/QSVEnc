@@ -31,8 +31,6 @@ enum {
     MFX_HANDLE_DEVICEWINDOW  = 0x101 /* A handle to the render window */
 }; //mfxHandleType
 
-#define MSDK_SAFE_RELEASE(X) {if (X) { X->Release(); X = NULL; }}
-
 /// Base class for hw device
 class CHWDevice
 {
