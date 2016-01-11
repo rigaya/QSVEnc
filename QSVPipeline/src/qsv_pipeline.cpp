@@ -42,90 +42,22 @@
 #include "qsv_allocator_va.h"
 #endif
 
-//#include "../../sample_user_modules/plugin_api/plugin_loader.h"
-
 #define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
 
 
-#if ENABLE_MVC_ENCODING
-mfxStatus CQSVPipeline::AllocAndInitMVCSeqDesc()
-{
-    // a simple example of mfxExtMVCSeqDesc structure filling
-    // actually equal to the "Default dependency mode" - when the structure fields are left 0,
-    // but we show how to properly allocate and fill the fields
-
-    mfxU32 i;
-
-    // mfxMVCViewDependency array
-    m_MVCSeqDesc.NumView = m_nNumView;
-    m_MVCSeqDesc.NumViewAlloc = m_nNumView;
-    m_MVCSeqDesc.View = new mfxMVCViewDependency[m_MVCSeqDesc.NumViewAlloc];
-    MSDK_CHECK_POINTER(m_MVCSeqDesc.View, MFX_ERR_MEMORY_ALLOC);
-    for (i = 0; i < m_MVCSeqDesc.NumViewAlloc; ++i)
-    {
-        QSV_MEMSET_ZERO(m_MVCSeqDesc.View[i]);
-        m_MVCSeqDesc.View[i].ViewId = (mfxU16) i; // set view number as view id
-    }
-
-    // set up dependency for second view
-    m_MVCSeqDesc.View[1].NumAnchorRefsL0 = 1;
-    m_MVCSeqDesc.View[1].AnchorRefL0[0] = 0;     // ViewId 0 - base view
-
-    m_MVCSeqDesc.View[1].NumNonAnchorRefsL0 = 1;
-    m_MVCSeqDesc.View[1].NonAnchorRefL0[0] = 0;  // ViewId 0 - base view
-
-    // viewId array
-    m_MVCSeqDesc.NumViewId = m_nNumView;
-    m_MVCSeqDesc.NumViewIdAlloc = m_nNumView;
-    m_MVCSeqDesc.ViewId = new mfxU16[m_MVCSeqDesc.NumViewIdAlloc];
-    MSDK_CHECK_POINTER(m_MVCSeqDesc.ViewId, MFX_ERR_MEMORY_ALLOC);
-    for (i = 0; i < m_MVCSeqDesc.NumViewIdAlloc; ++i)
-    {
-        m_MVCSeqDesc.ViewId[i] = (mfxU16) i;
-    }
-
-    // create a single operation point containing all views
-    m_MVCSeqDesc.NumOP = 1;
-    m_MVCSeqDesc.NumOPAlloc = 1;
-    m_MVCSeqDesc.OP = new mfxMVCOperationPoint[m_MVCSeqDesc.NumOPAlloc];
-    MSDK_CHECK_POINTER(m_MVCSeqDesc.OP, MFX_ERR_MEMORY_ALLOC);
-    for (i = 0; i < m_MVCSeqDesc.NumOPAlloc; ++i)
-    {
-        QSV_MEMSET_ZERO(m_MVCSeqDesc.OP[i]);
-        m_MVCSeqDesc.OP[i].NumViews = (mfxU16) m_nNumView;
-        m_MVCSeqDesc.OP[i].NumTargetViews = (mfxU16) m_nNumView;
-        m_MVCSeqDesc.OP[i].TargetViewId = m_MVCSeqDesc.ViewId; // points to mfxExtMVCSeqDesc::ViewId
-    }
-
-    return MFX_ERR_NONE;
-}
-#endif
-
-mfxStatus CQSVPipeline::AllocAndInitVppDoNotUse()
-{
+mfxStatus CQSVPipeline::AllocAndInitVppDoNotUse() {
     QSV_MEMSET_ZERO(m_VppDoNotUse);
     m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
     m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
     m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
     m_VppDoNotUse.AlgList = &m_VppDoNotUseList[0];
     return MFX_ERR_NONE;
-} // CQSVPipeline::AllocAndInitVppDoNotUse()
-
-void CQSVPipeline::FreeVppDoNotUse()
-{
 }
 
-#if ENABLE_MVC_ENCODING
-void CQSVPipeline::FreeMVCSeqDesc()
-{
-    qsv_delete_array(m_MVCSeqDesc.View);
-    qsv_delete_array(m_MVCSeqDesc.ViewId);
-    qsv_delete_array(m_MVCSeqDesc.OP);
+void CQSVPipeline::FreeVppDoNotUse() {
 }
-#endif
 
-mfxStatus CQSVPipeline::InitMfxDecParams()
-{
+mfxStatus CQSVPipeline::InitMfxDecParams() {
 #if ENABLE_AVCODEC_QSV_READER
     mfxStatus sts = MFX_ERR_NONE;
     if (m_pFileReader->getInputCodec()) {
@@ -173,8 +105,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams()
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
-{
+mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     if (pInParams->CodecId == MFX_CODEC_RAW) {
         PrintMes(QSV_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
         return MFX_ERR_NONE;
@@ -492,7 +423,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
     }
     m_mfxEncParams.mfx.FrameInfo.FrameRateExtN = OutputFPSRate;
     m_mfxEncParams.mfx.FrameInfo.FrameRateExtD = OutputFPSScale;
-    m_mfxEncParams.mfx.EncodedOrder            = 0; // binary flag, 0 signals encoder to take frames in display order
+    m_mfxEncParams.mfx.EncodedOrder            = 0;
     m_mfxEncParams.mfx.NumSlice                = pInParams->nSlices;
 
     m_mfxEncParams.mfx.NumRefFrame             = pInParams->nRef;
@@ -688,12 +619,10 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
     }
 
     //シーンチェンジ検出をこちらで行う場合は、GOP長を最大に設定する
-    if (m_nExPrm & MFX_PRM_EX_SCENE_CHANGE)
+    if (m_nExPrm & MFX_PRM_EX_SCENE_CHANGE) {
         m_mfxEncParams.mfx.GopPicSize = USHRT_MAX;
+    }
 
-    // set frame size and crops
-    // width must be a multiple of 16
-    // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
     m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->nDstWidth, blocksz);
     m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct)?
         ALIGN(pInParams->nDstHeight, blocksz) : ALIGN(pInParams->nDstHeight, blocksz * 2));
@@ -702,23 +631,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
     m_mfxEncParams.mfx.FrameInfo.CropY = 0;
     m_mfxEncParams.mfx.FrameInfo.CropW = pInParams->nDstWidth;
     m_mfxEncParams.mfx.FrameInfo.CropH = pInParams->nDstHeight;
-#if ENABLE_MVC_ENCODING
-    // we don't specify profile and level and let the encoder choose those basing on parameters
-    // we must specify profile only for MVC codec
-    if (MVC_ENABLED & m_MVCflags)
-        m_mfxEncParams.mfx.CodecProfile = MFX_PROFILE_AVC_STEREO_HIGH;
-
-    // configure and attach external parameters
-    if (MVC_ENABLED & pInParams->MVC_flags)
-        m_EncExtParams.push_back((mfxExtBuffer *)&m_MVCSeqDesc);
-
-    if (MVC_VIEWOUTPUT & pInParams->MVC_flags)
-    {
-        // ViewOuput option requested
-        m_CodingOption.ViewOutput = MFX_CODINGOPTION_ON;
-        m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
-    }
-#endif
 
     // In case of HEVC when height and/or width divided with 8 but not divided with 16
     // add extended parameter to increase performance
@@ -749,7 +661,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
         }
     }
 
-    // JPEG encoder settings overlap with other encoders settings in mfxInfoMFX structure
     if (MFX_CODEC_JPEG == pInParams->CodecId) {
         m_mfxEncParams.mfx.Interleaved = 1;
         m_mfxEncParams.mfx.Quality = pInParams->nQuality;
@@ -758,7 +669,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
     }
 
     if (!m_EncExtParams.empty()) {
-        m_mfxEncParams.ExtParam = &m_EncExtParams[0]; // vector is stored linearly in memory
+        m_mfxEncParams.ExtParam = &m_EncExtParams[0];
         m_mfxEncParams.NumExtParam = (mfxU16)m_EncExtParams.size();
         for (const auto& extParam : m_EncExtParams) {
             PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: set ext param %s.\n"), fourccToStr(extParam->BufferId).c_str());
@@ -774,8 +685,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams)
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
-{
+mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     const mfxU32 blocksz = (pInParams->CodecId == MFX_CODEC_HEVC) ? 32 : 16;
     mfxU64 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
 #if ENABLE_FPS_CONVERSION
@@ -805,7 +715,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
         PrintMes(QSV_LOG_WARN, _T("Image Stabilizer not supported on this platform, disabled.\n"));
         pInParams->vpp.nImageStabilizer = 0;
     }
-    
+
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         switch (pInParams->vpp.nDeinterlace) {
         case MFX_DEINTERLACE_IT_MANUAL:
@@ -830,12 +740,9 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
         return MFX_ERR_MEMORY_ALLOC;
     }
 
-    // specify memory type
-    if (pInParams->memType != SYSTEM_MEMORY)
-        m_mfxVppParams.IOPattern = MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY;
-    else
-        m_mfxVppParams.IOPattern = MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
-
+    m_mfxVppParams.IOPattern = (pInParams->memType != SYSTEM_MEMORY) ?
+        MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY :
+        MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
 
     m_mfxVppParams.vpp.In.PicStruct = pInParams->nPicStruct;
     m_mfxVppParams.vpp.In.FrameRateExtN = pInParams->nFPSRate;
@@ -846,12 +753,8 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
     mfxFrameInfo inputFrameInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
     if (inputFrameInfo.FourCC == 0 || inputFrameInfo.FourCC == MFX_FOURCC_NV12) {
-        // input frame info
         m_mfxVppParams.vpp.In.FourCC       = MFX_FOURCC_NV12;
         m_mfxVppParams.vpp.In.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-
-        // width must be a multiple of 16
-        // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
         m_mfxVppParams.vpp.In.Width     = (mfxU16)ALIGN(pInParams->nWidth, blocksz);
         m_mfxVppParams.vpp.In.Height    = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.In.PicStruct)?
             ALIGN(pInParams->nHeight, blocksz) : ALIGN(pInParams->nHeight, blocksz));
@@ -864,16 +767,11 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
         if (m_pFileReader->getInputCodec()) {
             m_mfxVppParams.vpp.In.Shift      = inputFrameInfo.Shift;
         }
-
-        // width must be a multiple of 16
-        // height must be a multiple of 16 in case of frame picture and a multiple of 32 in case of field picture
         m_mfxVppParams.vpp.In.Width     = (mfxU16)ALIGN(inputFrameInfo.CropW, blocksz);
         m_mfxVppParams.vpp.In.Height    = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.In.PicStruct) ?
             ALIGN(inputFrameInfo.CropH, blocksz) : ALIGN(inputFrameInfo.CropH, blocksz * 2));
     }
 
-    // set crops in input mfxFrameInfo for correct work of file reader
-    // VPP itself ignores crops at initialization
     m_mfxVppParams.vpp.In.CropW = pInParams->nWidth;
     m_mfxVppParams.vpp.In.CropH = pInParams->nHeight;
 
@@ -890,10 +788,8 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
     PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp input color format %s, chroma %d, bitdepth %d, shift %d\n"),
         ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), m_mfxVppParams.vpp.In.ChromaFormat, m_mfxVppParams.vpp.In.BitDepthLuma, m_mfxVppParams.vpp.In.Shift);
 
-    // fill output frame info
     memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
 
-    // only resizing is supported
     m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
     m_mfxVppParams.vpp.Out.FourCC         = MFX_FOURCC_NV12;
     m_mfxVppParams.vpp.Out.BitDepthLuma   = 0;
@@ -987,20 +883,11 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams)
         m_mfxVppParams.vpp.Out.Width, m_mfxVppParams.vpp.Out.Height, m_mfxVppParams.vpp.Out.CropX, m_mfxVppParams.vpp.Out.CropY, m_mfxVppParams.vpp.Out.CropW, m_mfxVppParams.vpp.Out.CropH);
     PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp output color format %s, chroma %d, bitdepth %d, shift %d\n"),
         ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC), m_mfxVppParams.vpp.Out.ChromaFormat, m_mfxVppParams.vpp.Out.BitDepthLuma, m_mfxVppParams.vpp.Out.Shift);
-
-    // configure and attach external parameters
-    //AllocAndInitVppDoNotUse();
-    //m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoNotUse);
-#if ENABLE_MVC_ENCODING
-    if (pInParams->bIsMVC)
-        m_VppExtParams.push_back((mfxExtBuffer *)&m_MVCSeqDesc);
-#endif
     PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: set all vpp params.\n"));
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams)
-{
+mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
     auto vppExtAddMes = [this](tstring str) {
         VppExtMes += str;
@@ -1098,7 +985,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams)
         }
     }
 
-    m_mfxVppParams.ExtParam = &m_VppExtParams[0]; // vector is stored linearly in memory
+    m_mfxVppParams.ExtParam = &m_VppExtParams[0];
     m_mfxVppParams.NumExtParam = (mfxU16)m_VppExtParams.size();
 
     return MFX_ERR_NONE;
@@ -1157,22 +1044,6 @@ mfxStatus CQSVPipeline::InitVppPostPlugins(sInputParams *pParams) {
 }
 #pragma warning (pop)
 
-//void CQSVPipeline::DeleteVppExtBuffers()
-//{
-//    //free external buffers
-//    if (m_ppVppExtBuffers)
-//    {
-//        for (mfxU8 i = 0; i < m_nNumVppExtBuffers; i++)
-//        {
-//            mfxExtVPPDoNotUse* pExtDoNotUse = (mfxExtVPPDoNotUse* )(m_ppVppExtBuffers[i]);
-//            SAFE_DELETE_ARRAY(pExtDoNotUse->AlgList);
-//            SAFE_DELETE(m_ppVppExtBuffers[i]);
-//        }
-//    }
-//
-//    SAFE_DELETE_ARRAY(m_ppVppExtBuffers);
-//}
-
 mfxStatus CQSVPipeline::CreateHWDevice() {
     mfxStatus sts = MFX_ERR_NONE;
 
@@ -1222,8 +1093,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::ResetDevice()
-{
+mfxStatus CQSVPipeline::ResetDevice() {
     if (m_memType & (D3D9_MEMORY | D3D11_MEMORY)) {
         PrintMes(QSV_LOG_DEBUG, _T("HWDevice: reset.\n"));
         return m_hwdev->Reset();
@@ -1751,14 +1621,6 @@ void CQSVPipeline::SetAbortFlagPointer(bool *abortFlag) {
     m_pAbortByUser = abortFlag;
 }
 
-#if ENABLE_MVC_ENCODING
-void CQSVPipeline::SetMultiView()
-{
-    m_pFileReader->SetMultiView();
-    m_bIsMVC = true;
-}
-#endif
-
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
     bool stdoutUsed = false;
@@ -1966,7 +1828,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     if (!m_pEncSatusInfo) {
         m_pEncSatusInfo = std::make_shared<CEncodeStatusInfo>();
     }
-    //Auto detection by input file extension
+    //ファイル拡張子により自動的に設定
     if (pParams->nInputFmt == INPUT_FMT_AUTO) {
 #if ENABLE_AVISYNTH_READER
         if (check_ext(pParams->strSrcFile, { ".avs" }))
@@ -2178,15 +2040,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     return sts;
 }
 
-mfxStatus CQSVPipeline::DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version) {
-    version.Major = 1;
-    version.Minor = 0;
-
-    if (MVC_DISABLED != pParams.MVC_flags)
-        version.Minor = 3;
-    return MFX_ERR_NONE;
-}
-
 mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     mfxFrameInfo inputFrameInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
@@ -2232,8 +2085,9 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
     int h_mul = 2;
     bool output_interlaced = ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) != 0 && !pParams->vpp.nDeinterlace);
-    if (output_interlaced)
+    if (output_interlaced) {
         h_mul *= 2;
+    }
     //crop設定の確認
     if (pParams->sInCrop.left % 2 != 0 || pParams->sInCrop.right % 2 != 0) {
         PrintMes(QSV_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
@@ -2571,7 +2425,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
 
     m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));
 
-    // create and init frame allocator
     sts = CreateAllocator();
     if (sts < MFX_ERR_NONE) return sts;
 
@@ -2596,18 +2449,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOutput(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
-#if ENABLE_MVC_ENCODING
-    sts = AllocAndInitMVCSeqDesc();
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-
-    // MVC specific options
-    if (MVC_ENABLED & m_MVCflags)
-    {
-        sts = AllocAndInitMVCSeqDesc();
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-    }
-#endif
-
     // シーンチェンジ検出
     bool input_interlaced = 0 != (pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
     bool deinterlace_enabled = input_interlaced && (pParams->vpp.nDeinterlace != MFX_DEINTERLACE_NONE);
@@ -2619,7 +2460,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(QSV_LOG_DEBUG, _T("Initialized Scene change detection.\n"));
     }
 
-    // create encoder
+    //encの作成 (raw出力の場合はエンコードしないので不要)
     if (pParams->CodecId != MFX_CODEC_RAW) {
         m_pmfxENC.reset(new MFXVideoENCODE(m_mfxSession));
         if (!m_pmfxENC) {
@@ -2627,16 +2468,15 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         }
     }
 
-    // create preprocessor if resizing was requested from command line
-    // or if different FourCC is set in InitMfxVppParams
+
+    //必要な場合にはvppを作成する
     if (   pParams->nWidth  != pParams->nDstWidth
         || pParams->nHeight != pParams->nDstHeight
         || m_mfxVppParams.vpp.In.FourCC         != m_mfxVppParams.vpp.Out.FourCC
         || m_mfxVppParams.vpp.In.BitDepthLuma   != m_mfxVppParams.vpp.Out.BitDepthLuma
         || m_mfxVppParams.vpp.In.BitDepthChroma != m_mfxVppParams.vpp.Out.BitDepthChroma
         || m_mfxVppParams.NumExtParam > 1
-        || pParams->vpp.nDeinterlace
-        ) {
+        || pParams->vpp.nDeinterlace) {
         PrintMes(QSV_LOG_DEBUG, _T("Vpp Enabled...\n"));
         m_pmfxVPP.reset(new MFXVideoVPP(m_mfxSession));
         if (!m_pmfxVPP) {
@@ -2662,7 +2502,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     PrintMes(QSV_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
-    // this number can be tuned for better performance
     m_nAsyncDepth = pParams->nAsyncDepth;
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1) * 2, (int)QSV_ASYNC_DEPTH_MAX);
@@ -2952,13 +2791,11 @@ void CQSVPipeline::RunSubThreadLauncher(void *pParam) {
     reinterpret_cast<CQSVPipeline*>(pParam)->CheckSceneChange();
 }
 
-mfxStatus CQSVPipeline::Run()
-{
+mfxStatus CQSVPipeline::Run() {
     return Run(0);
 }
 
-mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask)
-{
+mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     mfxStatus sts = MFX_ERR_NONE;
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
     sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
@@ -2985,8 +2822,6 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask)
     //入力ループ
     for (int i = 0; sts == MFX_ERR_NONE; i++) {
         pInputBuf = &pArrayInputBuf[i % bufferSize];
-        //PrintMes(QSV_LOG_INFO, _T("run loop: wait for %d\n"), i);
-        //PrintMes(QSV_LOG_INFO, _T("wait for heInputStart %d\n"), i);
 
         //空いているフレームがセットされるのを待機
         PrintMes(QSV_LOG_TRACE, _T("Main Thread: Wait Start %d.\n"), i);
@@ -3004,7 +2839,6 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask)
                     break;
             }
         }
-        //PrintMes(QSV_LOG_INFO, _T("load next frame %d to %d\n"), i, pInputBuf->pFrameSurface);
 
         //フレームを読み込み
         PrintMes(QSV_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
@@ -3016,7 +2850,6 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask)
         } else if (sts == MFX_ERR_MORE_DATA) {
             m_EncThread.m_stsThread = sts;
         }
-        //PrintMes(QSV_LOG_INFO, _T("set for heInputDone %d\n"), i);
 
         //フレームの読み込み終了を通知
         SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
@@ -3026,8 +2859,9 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask)
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
 
     sFrameTypeInfo info = { 0 };
-    if (m_nExPrm & MFX_PRM_EX_VQP)
+    if (m_nExPrm & MFX_PRM_EX_VQP) {
         m_frameTypeSim.getFrameInfo(&info);
+    }
     m_pEncSatusInfo->WriteResults((m_nExPrm & MFX_PRM_EX_VQP) ? &info : NULL);
 
     sts = (std::min)(sts, m_EncThread.m_stsThread);
@@ -3039,26 +2873,25 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask)
     return sts;
 }
 
-mfxStatus CQSVPipeline::RunEncode()
-{
+mfxStatus CQSVPipeline::RunEncode() {
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: Starting Encode...\n"));
 
     mfxStatus sts = MFX_ERR_NONE;
 
-    mfxFrameSurface1 *pSurfInputBuf = NULL;
-    mfxFrameSurface1 *pSurfEncIn = NULL;
-    mfxFrameSurface1 *pSurfVppIn = NULL;
-    vector<mfxFrameSurface1 *>pSurfVppPreFilter(m_VppPrePlugins.size() + 1, NULL);
-    vector<mfxFrameSurface1 *>pSurfVppPostFilter(m_VppPostPlugins.size() + 1, NULL);
+    mfxFrameSurface1 *pSurfInputBuf = nullptr;
+    mfxFrameSurface1 *pSurfEncIn = nullptr;
+    mfxFrameSurface1 *pSurfVppIn = nullptr;
+    vector<mfxFrameSurface1 *>pSurfVppPreFilter(m_VppPrePlugins.size() + 1, nullptr);
+    vector<mfxFrameSurface1 *>pSurfVppPostFilter(m_VppPostPlugins.size() + 1, nullptr);
     mfxFrameSurface1 *pNextFrame;
     mfxSyncPoint lastSyncP = nullptr;
     bool bVppRequireMoreFrame = false;
     int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
     const double getTimeStampMul = m_mfxEncParams.mfx.FrameInfo.FrameRateExtD * (double)QSV_TIMEBASE / (double)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN; //TimeStamp計算用
 
-    QSVTask *pCurrentTask = nullptr; // a pointer to the current task
-    int nEncSurfIdx = -1; // index of free surface for encoder input (vpp output)
-    int nVppSurfIdx = -1; // index of free surface for vpp input
+    QSVTask *pCurrentTask = nullptr; //現在のタスクへのポインタ
+    int nEncSurfIdx = -1; //使用するフレームのインデックス encoder input (vpp output)
+    int nVppSurfIdx = -1; //使用するフレームのインデックス vpp input
 
     bool bVppMultipleOutput = false;  // this flag is true if VPP produces more frames at output
                                       // than consumes at input. E.g. framerate conversion 30 fps -> 60 fps
@@ -3085,12 +2918,6 @@ mfxStatus CQSVPipeline::RunEncode()
     }
 #endif
 
-#if ENABLE_MVC_ENCODING
-    // Since in sample we support just 2 views
-    // we will change this value between 0 and 1 in case of MVC
-    mfxU16 currViewNum = 0;
-#endif
-
     sts = MFX_ERR_NONE;
 
     auto get_all_free_surface =[&](mfxFrameSurface1 *pSurfEncInput) {
@@ -3106,7 +2933,7 @@ mfxStatus CQSVPipeline::RunEncode()
             pSurfVppPostFilter[i_filter] = &m_VppPostPlugins[i_filter]->m_pPluginSurfaces[freeSurfIdx];
             pSurfInputBuf = pSurfVppPostFilter[i_filter];
         }
-        // if vpp is enabled find free surface for vpp input and point pSurf to vpp surface
+        //vppが有効ならvpp用のフレームも用意する
         if (m_pmfxVPP) {
             //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
             nVppSurfIdx = GetFreeSurface(m_pVppSurfaces.data(), m_VppResponse.NumFrameActual);
@@ -3234,7 +3061,7 @@ mfxStatus CQSVPipeline::RunEncode()
                         return MFX_ERR_UNKNOWN;
                     }
                 } else if (MFX_ERR_NONE < dec_sts && DecSyncPoint) {
-                    dec_sts = MFX_ERR_NONE; // ignore warnings if output is available
+                    dec_sts = MFX_ERR_NONE; //出力があれば、警告は無視する
                     break;
                 } else if (dec_sts < MFX_ERR_NONE && (dec_sts != MFX_ERR_MORE_DATA && dec_sts != MFX_ERR_MORE_SURFACE)) {
                     PrintMes(QSV_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
@@ -3549,8 +3376,7 @@ mfxStatus CQSVPipeline::RunEncode()
             // point pSurf to encoder surface
             pSurfEncIn = &m_pEncSurfaces[nEncSurfIdx];
 
-            if (!bVppMultipleOutput)
-            {
+            if (!bVppMultipleOutput) {
                 get_all_free_surface(pSurfEncIn);
                 pNextFrame = pSurfInputBuf;
 

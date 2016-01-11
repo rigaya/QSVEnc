@@ -70,10 +70,6 @@ public:
     virtual void Close();
     virtual mfxStatus ResetMFXComponents(sInputParams* pParams);
     virtual mfxStatus ResetDevice();
-#if ENABLE_MVC_ENCODING
-    void SetMultiView();
-    void SetNumView(mfxU32 numViews) { m_nNumView = numViews; }
-#endif
     virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
     virtual void SetAbortFlagPointer(bool *abort);
@@ -108,7 +104,7 @@ protected:
     shared_ptr<CQSVInput> m_pFileReader;
 
     CQSVTaskControl m_TaskPool;
-    mfxU16 m_nAsyncDepth; // depth of asynchronous pipeline, this number can be tuned to achieve better performance
+    mfxU16 m_nAsyncDepth;
 
     mfxInitParam m_InitParam;
     mfxExtBuffer *m_pInitParamExtBuf[1];
@@ -156,32 +152,24 @@ protected:
     unique_ptr<QSVAllocator> m_pMFXAllocator;
     unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;
     MemType m_memType;
-    bool m_bd3dAlloc; // use d3d surfaces
-    bool m_bExternalAlloc; // use memory allocator as external for Media SDK
+    bool m_bd3dAlloc;
+    bool m_bExternalAlloc;
 
     bool *m_pAbortByUser;
 
     mfxBitstream m_DecInputBitstream;
 
-    vector<mfxFrameSurface1> m_pEncSurfaces; // frames array for encoder input (vpp output, decoder output)
-    vector<mfxFrameSurface1> m_pVppSurfaces; // frames array for vpp input (decoder output)
-    vector<mfxFrameSurface1> m_pDecSurfaces; // work area for decoder
-    mfxFrameAllocResponse m_EncResponse;  // memory allocation response for encoder
-    mfxFrameAllocResponse m_VppResponse;  // memory allocation response for vpp
-    mfxFrameAllocResponse m_DecResponse;  // memory allocation response for decoder
+    vector<mfxFrameSurface1> m_pEncSurfaces; //enc input用のフレーム (vpp output, decoder output)
+    vector<mfxFrameSurface1> m_pVppSurfaces; //vpp input用のフレーム (decoder output)
+    vector<mfxFrameSurface1> m_pDecSurfaces; //dec input用のフレーム
+    mfxFrameAllocResponse m_EncResponse;  //enc用 memory allocation response
+    mfxFrameAllocResponse m_VppResponse;  //vpp用 memory allocation response
+    mfxFrameAllocResponse m_DecResponse;  //dec用 memory allocation response
 
-#if ENABLE_MVC_ENCODING
-    mfxU16 m_MVCflags; // MVC codec is in use
-    mfxU32 m_nNumView;
-    // for MVC encoder and VPP configuration
-    mfxExtMVCSeqDesc m_MVCSeqDesc;
-#endif
     // for disabling VPP algorithms
     //mfxExtVPPDoNotUse m_VppDoNotUse;
 
     shared_ptr<CQSVHWDevice> m_hwdev;
-
-    virtual mfxStatus DetermineMinimumRequiredVersion(const sInputParams &pParams, mfxVersion &version);
 
     virtual mfxStatus InitSessionInitParam(mfxU16 threads, mfxU16 priority);
     virtual mfxStatus InitLog(sInputParams *pParams);
@@ -198,10 +186,7 @@ protected:
 
     virtual mfxStatus AllocAndInitVppDoNotUse();
     virtual void FreeVppDoNotUse();
-#if ENABLE_MVC_ENCODING
-    virtual mfxStatus AllocAndInitMVCSeqDesc();
-    virtual void FreeMVCSeqDesc();
-#endif
+
     virtual mfxStatus CreateAllocator();
     virtual void DeleteAllocator();
 
