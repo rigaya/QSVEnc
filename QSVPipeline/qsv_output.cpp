@@ -95,10 +95,12 @@ mfxStatus CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shar
             m_fDest.reset(fp);
             AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
 
-            const int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, MAX_BUF_SIZE_MB) * 1024 * 1024;
+            int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
             if (bufferSizeByte) {
-                m_pOutputBuffer.reset((char *)malloc(bufferSizeByte));
-                if (m_pOutputBuffer) {
+                void *ptr = nullptr;
+                bufferSizeByte = malloc_degeneracy(&ptr, bufferSizeByte, 1024 * 1024);
+                if (bufferSizeByte) {
+                    m_pOutputBuffer.reset((char*)ptr);
                     setvbuf(m_fDest.get(), m_pOutputBuffer.get(), _IOFBF, bufferSizeByte);
                     AddMessage(QSV_LOG_DEBUG, _T("Added %d MB output buffer.\n"), bufferSizeByte / (1024 * 1024));
                 }

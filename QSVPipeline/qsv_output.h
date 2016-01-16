@@ -20,8 +20,6 @@
 using std::unique_ptr;
 using std::shared_ptr;
 
-static const int MAX_BUF_SIZE_MB = 128;
-
 enum OutputType {
     OUT_TYPE_NONE = 0,
     OUT_TYPE_BITSTREAM,

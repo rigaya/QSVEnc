@@ -1273,6 +1273,25 @@ const TCHAR *get_vpp_image_stab_mode_str(int mode) {
     }
 }
 
+size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
+    *ptr = nullptr;
+    nMinSize = (std::max<size_t>)(nMinSize, 1);
+    //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
+    while (nSize >= nMinSize) {
+        void *qtr = malloc(nSize);
+        if (qtr != nullptr) {
+            *ptr = qtr;
+            return nSize;
+        }
+        size_t nNextSize = 0;
+        for (size_t i = nMinSize; i < nSize; i<<=1) {
+            nNextSize = i;
+        }
+        nSize = nNextSize;
+    }
+    return 0;
+}
+
 const TCHAR *get_err_mes(int sts) {
     switch (sts) {
         case MFX_ERR_NONE:                     return _T("no error.");

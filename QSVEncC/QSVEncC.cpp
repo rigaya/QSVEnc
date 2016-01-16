@@ -384,11 +384,16 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_VPP_DELOGO_DEPTH
             );
         _ftprintf(stdout, _T("\n")
-            _T("   --input-buf <int>            buffer size for input (%d-%d)\n")
+            _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
             _T("                                 default   hw: %d,  sw: %d\n")
             _T("                                 cannot be used with avqsv reader.\n"),
             QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX,
             QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
+            );
+        _ftprintf(stdout, _T("")
+            _T("   --output-buf <int>           buffer size for output in MByte\n")
+            _T("                                 default %d MB (0-%d)\n"),
+            QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
             );
         _ftprintf(stdout,
             _T("   --log <string>               output log to file (txt or html).\n")
@@ -1854,6 +1859,20 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
+    if (0 == _tcscmp(option_name, _T("output-buf"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (value < 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, QSV_OUTPUT_BUF_MB_MAX);
+        return MFX_ERR_NONE;
+    }
     if (0 == _tcscmp(option_name, _T("log"))) {
         i++;
         int filename_len = (int)_tcslen(strInput[i]);
@@ -2039,6 +2058,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
     pParams->nPerfMonitorInterval = 200;
+    pParams->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;
 
     sArgsData argsData;

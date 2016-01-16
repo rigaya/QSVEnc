@@ -235,7 +235,7 @@ struct sInputParams
 
     TCHAR     *pStrLogFile; //ログファイル名へのポインタ
     mfxU16     nAsyncDepth;
-    mfxU16     __unused;
+    mfxI16     nOutputBufSizeMB;
 
     mfxU16     bBPyramid;
     mfxU8      bAdaptiveI;
@@ -701,6 +701,7 @@ const int QSV_DEFAULT_CONVERGENCE = 90;
 const int QSV_DEFAULT_ACCURACY = 500;
 const int QSV_DEFAULT_FORCE_GOP_LEN = 1;
 const int QSV_DEFAULT_OUTPUT_BUF_MB = 64;
+const int QSV_OUTPUT_BUF_MB_MAX = 128;
 const uint32_t QSV_DEFAULT_BENCH = (1 << 1) | (1 << 4) | (1 << 7);
 
 const mfxU16 QSV_DEFAULT_VQP_STRENGTH = 10;

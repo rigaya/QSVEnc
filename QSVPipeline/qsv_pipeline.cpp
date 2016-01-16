@@ -1648,6 +1648,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
+        writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
@@ -1741,7 +1742,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
             CQSVOutRawPrm rawPrm = { 0 };
             rawPrm.bBenchmark = pParams->bBenchmark != 0;
-            rawPrm.nBufSizeMB = QSV_DEFAULT_OUTPUT_BUF_MB;
+            rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
             sts = m_pFileWriter->Init(pParams->strDstFile, &rawPrm, m_pEncSatusInfo);
             if (sts < MFX_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
@@ -1790,6 +1791,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
                 
                 AvcodecWriterPrm writerAudioPrm = { 0 };
+                writerAudioPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
                 writerAudioPrm.pOutputFormat = pAudioSelect->pAudioExtractFormat;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 if (m_pTrimParam) {

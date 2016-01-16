@@ -41,7 +41,8 @@ static inline int get_run_bat_idx(DWORD flag) {
 static const char *const CONF_NAME_OLD_1 = "QSVEnc ConfigFile";
 static const char *const CONF_NAME_OLD_2 = "QSVEnc ConfigFile v2";
 static const char *const CONF_NAME_OLD_3 = "QSVEnc ConfigFile v3";
-static const char *const CONF_NAME       = CONF_NAME_OLD_3;
+static const char *const CONF_NAME_OLD_4 = "QSVEnc ConfigFile v4";
+static const char *const CONF_NAME       = CONF_NAME_OLD_4;
 const int CONF_NAME_BLOCK_LEN            = 32;
 const int CONF_BLOCK_MAX                 = 32;
 const int CONF_BLOCK_COUNT               = 6; //最大 CONF_BLOCK_MAXまで
@@ -149,6 +150,7 @@ private:
     static const int conf_block_data[CONF_BLOCK_COUNT];
     static void convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf, int size);
     static void convert_qsvstgv2_to_stgv3(CONF_GUIEX *conf);
+    static void convert_qsvstgv3_to_stgv4(CONF_GUIEX *conf);
 public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX *conf);

@@ -497,6 +497,9 @@ static void QSV_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int siz
     _mm_storeu_ps((float*)(dst_tmp + 48), x3);
 }
 
+//確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
+size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
+
 int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 const int MAX_FILENAME_LEN = 1024;

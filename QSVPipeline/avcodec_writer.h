@@ -142,6 +142,7 @@ typedef struct AvcodecWriterPrm {
     const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
+    int                          nBufSizeMB;              //出力バッファサイズ
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut

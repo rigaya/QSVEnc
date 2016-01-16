@@ -877,11 +877,21 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
         }
         AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\".\n"), char_to_tstring(filename, CP_UTF8).c_str());
     } else {
-        m_Mux.format.nAVOutBufferSize = 1024 * 1024;
-        m_Mux.format.nOutputBufferSize = 16 * 1024 * 1024;
-        if (prm->pVideoInfo) {
-            m_Mux.format.nAVOutBufferSize *= 8;
-            m_Mux.format.nOutputBufferSize *= 4;
+        m_Mux.format.nOutputBufferSize = clamp(prm->nBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
+        if (m_Mux.format.nOutputBufferSize == 0) {
+            //出力バッファが0とされている場合、libavformat用の内部バッファも量を減らす
+            m_Mux.format.nAVOutBufferSize = 128 * 1024;
+            if (prm->pVideoInfo) {
+                m_Mux.format.nAVOutBufferSize *= 4;
+            }
+        } else {
+            m_Mux.format.nAVOutBufferSize = 1024 * 1024;
+            if (prm->pVideoInfo) {
+                m_Mux.format.nAVOutBufferSize *= 8;
+            } else {
+                //動画を出力しない(音声のみの場合)場合、バッファを減らす
+                m_Mux.format.nOutputBufferSize /= 4;
+            }
         }
 
         if (NULL == (m_Mux.format.pAVOutBuffer = (mfxU8 *)av_malloc(m_Mux.format.nAVOutBufferSize))) {
@@ -895,15 +905,9 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
             AddMessage(QSV_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->pVideoInfo) ? _T("") : _T("audio "), strFileName, _tcserror(error));
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
-        //確保できなかったら、サイズを小さくして再度確保を試みる (最終的に1MBも確保できなかったら諦める)
-        for (; m_Mux.format.nOutputBufferSize >= 1024 * 1024; m_Mux.format.nOutputBufferSize >>= 1) {
-            if (NULL != (m_Mux.format.pOutputBuffer = (char *)malloc(m_Mux.format.nOutputBufferSize))) {
-                setvbuf(m_Mux.format.fpOutput, m_Mux.format.pOutputBuffer, _IOFBF, m_Mux.format.nOutputBufferSize);
-                AddMessage(QSV_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Mux.format.nOutputBufferSize / (1024 * 1024));
-                break;
-            }
+        if (0 < (m_Mux.format.nOutputBufferSize = malloc_degeneracy((void **)&m_Mux.format.pOutputBuffer, m_Mux.format.nOutputBufferSize, 1024 * 1024))) {
+            AddMessage(QSV_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Mux.format.nOutputBufferSize / (1024 * 1024));
         }
-
         if (NULL == (m_Mux.format.pFormatCtx->pb = avio_alloc_context(m_Mux.format.pAVOutBuffer, m_Mux.format.nAVOutBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to alloc avio context.\n"));
             return MFX_ERR_NULL_PTR;
