@@ -395,6 +395,12 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 default %d MB (0-%d)\n"),
             QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
             );
+#if ENABLE_AVCODEC_OUT_THREAD
+        _ftprintf(stdout, _T("")
+            _T("   --no-output-thread           disable output thread for less memory usage\n")
+            _T("                                 this might cause lower performance!\n")
+            );
+#endif //#if ENABLE_AVCODEC_OUT_THREAD
         _ftprintf(stdout,
             _T("   --log <string>               output log to file (txt or html).\n")
             _T("   --log-level <string>         set output log level\n")
@@ -1871,6 +1877,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, QSV_OUTPUT_BUF_MB_MAX);
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
+        pParams->bNoOutputThread = TRUE;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("log"))) {

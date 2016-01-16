@@ -1648,6 +1648,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
+        writerPrm.bNoOutputThread = pParams->bNoOutputThread != 0;
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
@@ -1791,6 +1792,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
                 
                 AvcodecWriterPrm writerAudioPrm = { 0 };
+                writerAudioPrm.bNoOutputThread = pParams->bNoOutputThread != 0;
                 writerAudioPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
                 writerAudioPrm.pOutputFormat = pAudioSelect->pAudioExtractFormat;
                 writerAudioPrm.inputStreamList.push_back(prm);

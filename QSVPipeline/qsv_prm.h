@@ -279,7 +279,7 @@ struct sInputParams
     mfxU16     nSessionThreadPriority;
 
     mfxU8      bCopyChapter;
-    mfxU8      __reserved4;
+    mfxU8      bNoOutputThread;
     mfxU8      nVP8Sharpness;
     mfxU8      nAudioSourceCount;
     TCHAR      **ppAudioSourceList;

@@ -103,6 +103,7 @@ typedef struct AVMuxSub {
 
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
+    bool                         bNoOutputThread;        //出力バッファを使用しない
     std::atomic<bool>            bAbort;                 //出力スレッドに停止を通知する
     std::thread                  thOutput;               //出力スレッド
     HANDLE                       heEventPktAdded;        //キューのいずれかにデータが追加されたことを通知する
@@ -143,6 +144,7 @@ typedef struct AvcodecWriterPrm {
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
     int                          nBufSizeMB;              //出力バッファサイズ
+    bool                         bNoOutputThread;         //出力バッファを使用しない
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut
