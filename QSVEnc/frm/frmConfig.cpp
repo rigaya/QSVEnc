@@ -1139,6 +1139,7 @@ System::Void frmConfig::InitForm() {
     EnableSettingsNoteChange(false);
     UpdateFeatures();
     fcgChangeEnabled(nullptr, nullptr);
+    fcgChangeVisibleDirectEnc(nullptr, nullptr);
     fcgCBHWEncode->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBHWLibChanged);
 }
 
