@@ -1402,7 +1402,7 @@ void CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudi
     }
 }
 
-void CAvcodecWriter::WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts) {
+void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts) {
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
     if (samples) {
         //durationについて、sample数から出力ストリームのtimebaseに変更する
@@ -1567,7 +1567,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
         if (decodedFrame != nullptr) {
             av_frame_free(&decodedFrame);
         }
-        WriteNextPacket(pMuxAudio, &pkt, samples, pWrittenDts);
+        WriteNextPacketProcessed(pMuxAudio, &pkt, samples, pWrittenDts);
     }
     while (pMuxAudio->pSwrContext && !pMuxAudio->bEncodeError) {
         int samples = 0;
@@ -1578,7 +1578,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
             break;
         }
         samples = AudioEncodeFrame(pMuxAudio, &pkt, decodedFrame, &got_result);
-        WriteNextPacket(pMuxAudio, &pkt, samples, pWrittenDts);
+        WriteNextPacketProcessed(pMuxAudio, &pkt, samples, pWrittenDts);
     }
     while (pMuxAudio->pOutCodecEncodeCtx) {
         int got_result = 0;
@@ -1586,7 +1586,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
         int samples = AudioEncodeFrame(pMuxAudio, &pkt, nullptr, &got_result);
         if (samples == 0 || pMuxAudio->bDecodeError)
             break;
-        WriteNextPacket(pMuxAudio, &pkt, samples, pWrittenDts);
+        WriteNextPacketProcessed(pMuxAudio, &pkt, samples, pWrittenDts);
     }
 }
 
@@ -1753,7 +1753,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWritt
             }
         }
         pMuxAudio->nLastPtsIn = pkt->pts;
-        WriteNextPacket(pMuxAudio, pkt, samples, pWrittenDts);
+        WriteNextPacketProcessed(pMuxAudio, pkt, samples, pWrittenDts);
     } else if (!pMuxAudio->bDecodeError && !pMuxAudio->bEncodeError) {
         int got_result = 0;
         AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, pkt, &got_result);
@@ -1766,7 +1766,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWritt
                     //デコードの出力サンプル数とエンコーダのframe_sizeが一致していれば、そのままエンコードする
                     samples = AudioEncodeFrame(pMuxAudio, pkt, decodedFrame, &got_result);
                     if (got_result && samples) {
-                        WriteNextPacket(pMuxAudio, pkt, samples, pWrittenDts);
+                        WriteNextPacketProcessed(pMuxAudio, pkt, samples, pWrittenDts);
                     }
                 } else {
                     const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
@@ -1807,7 +1807,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWritt
                         }
                         samples = AudioEncodeFrame(pMuxAudio, pkt, pCutFrame, &got_result);
                         if (got_result && samples) {
-                            WriteNextPacket(pMuxAudio, pkt, samples, pWrittenDts);
+                            WriteNextPacketProcessed(pMuxAudio, pkt, samples, pWrittenDts);
                         }
                     }
                     if (samplesRemain) {

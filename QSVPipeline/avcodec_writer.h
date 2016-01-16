@@ -254,7 +254,7 @@ private:
     mfxStatus SubtitleWritePacket(AVPacket *pkt);
 
     //パケットを実際に書き出す
-    void WriteNextPacket(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts);
+    void WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts);
 
     //extradataに動画のヘッダーをセットする
     mfxStatus SetSPSPPSToExtraData(const mfxVideoParam *pMfxVideoPrm);
