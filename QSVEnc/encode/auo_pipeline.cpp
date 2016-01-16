@@ -112,7 +112,7 @@ void CAuoLog::write_log(int log_level, TCHAR *buffer) {
     }
 }
 
-void CAuoLog::operator()(int log_level, const TCHAR *format, ... ) {
+void CAuoLog::write(int log_level, const TCHAR *format, ... ) {
     if (log_level < m_nLogLevel) {
         return;
     }
