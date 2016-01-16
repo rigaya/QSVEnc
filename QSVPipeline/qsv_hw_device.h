@@ -11,7 +11,9 @@
 #define __QSV_HW_DEVICE_H__
 
 #include <cstdint>
+#include <memory>
 #include "mfxvideo++.h"
+#include "qsv_log.h"
 #include "qsv_version.h"
 
 #if defined(WIN32) || defined(WIN64)
@@ -32,10 +34,12 @@ class CQSVHWDevice {
 public:
     CQSVHWDevice() {};
     virtual ~CQSVHWDevice() { }
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum) = 0;
+    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<CQSVLog> pQSVLog) = 0;
     virtual mfxStatus Reset() = 0;
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) = 0;
     virtual void      Close() = 0;
+protected:
+    std::shared_ptr<CQSVLog> m_pQSVLog;
 };
 
 #endif //#ifndef __QSV_HW_DEVICE_H__

@@ -58,14 +58,19 @@ CQSVD3D9Device::CQSVD3D9Device() {
     m_bIsA2rgb10 = FALSE;
 }
 
-mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nAdapterNum) {
+mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<CQSVLog> pQSVLog) {
     mfxStatus sts = MFX_ERR_NONE;
+    pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: Init...\n"));
 
+    m_pQSVLog = pQSVLog;
+    HRESULT hr = 0;
     IDirect3D9Ex *pD3D9 = nullptr;
-    if (FAILED(Direct3DCreate9Ex(D3D_SDK_VERSION, &pD3D9))) {
+    if (FAILED(hr = Direct3DCreate9Ex(D3D_SDK_VERSION, &pD3D9))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed Direct3DCreate9Ex: %d.\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     }
     m_pD3D9.reset(pD3D9);
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: Direct3DCreate9Ex Success.\n"));
 
     ZeroMemory(&m_D3DPresentPrm, sizeof(m_D3DPresentPrm));
     m_D3DPresentPrm.Windowed = true;
@@ -83,6 +88,7 @@ mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nAdapterNum) {
         GetClientRect((HWND)hWindow, &r);
         m_D3DPresentPrm.BackBufferWidth  = (std::min<uint32_t>)(m_D3DPresentPrm.BackBufferWidth,  r.right - r.left);
         m_D3DPresentPrm.BackBufferHeight = (std::min<uint32_t>)(m_D3DPresentPrm.BackBufferHeight, r.bottom - r.top);
+        m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: Set Init() m_D3DPresentPrm.BackBuffer.\n"));
     }
     //
     // Mark the back buffer lockable if software DXVA2 could be used.
@@ -93,13 +99,15 @@ mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nAdapterNum) {
     m_D3DPresentPrm.SwapEffect = D3DSWAPEFFECT_DISCARD;
 
     IDirect3DDevice9Ex *pD3DD9 = nullptr;
-    if (FAILED(m_pD3D9->CreateDeviceEx(
+    if (FAILED(hr = m_pD3D9->CreateDeviceEx(
         nAdapterNum, D3DDEVTYPE_HAL, (HWND)hWindow,
         D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_MULTITHREADED | D3DCREATE_FPU_PRESERVE,
         &m_D3DPresentPrm, NULL, &pD3DD9))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed CreateDeviceEx: %d.\n"), hr);
         return MFX_ERR_NULL_PTR;
     }
     m_pD3DDevice9.reset(pD3DD9);
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: CreateDeviceEx Success.\n"));
 
     if (hWindow) {
         if (   FAILED(m_pD3DDevice9->ResetEx(&m_D3DPresentPrm, NULL))
@@ -110,13 +118,17 @@ mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nAdapterNum) {
     UINT resetToken = 0;
     IDirect3DDeviceManager9 *pDeviceManager9 = nullptr;
     if (FAILED(DXVA2CreateDirect3DDeviceManager9(&resetToken, &pDeviceManager9))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed DXVA2CreateDirect3DDeviceManager9: %d.\n"), hr);
         return MFX_ERR_NULL_PTR;
     }
     m_pD3DDeviceManager9.reset(pDeviceManager9);
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: DXVA2CreateDirect3DDeviceManager9 Success.\n"));
 
-    if (FAILED(m_pD3DDeviceManager9->ResetDevice(m_pD3DDevice9.get(), resetToken))) {
+    if (FAILED(hr = m_pD3DDeviceManager9->ResetDevice(m_pD3DDevice9.get(), resetToken))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed ResetDevice: %d.\n"), hr);
         return MFX_ERR_UNDEFINED_BEHAVIOR;
     }
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: ResetDevice Success.\n"));
 
     m_resetToken = resetToken;
 
@@ -131,14 +143,19 @@ mfxStatus CQSVD3D9Device::Reset() {
         GetClientRect((HWND)m_D3DPresentPrm.hDeviceWindow, &r);
         m_D3DPresentPrm.BackBufferWidth  = (std::min<uint32_t>)(m_D3DPresentPrm.BackBufferWidth,  r.right - r.left);
         m_D3DPresentPrm.BackBufferHeight = (std::min<uint32_t>)(m_D3DPresentPrm.BackBufferHeight, r.bottom - r.top);
+        m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: Set Reset() m_D3DPresentPrm.BackBuffer.\n"));
     }
 
+    HRESULT hr = 0;
     D3DPRESENT_PARAMETERS d3dpp = m_D3DPresentPrm;
-    if (   FAILED(m_pD3DDevice9->ResetEx(&d3dpp, NULL))
-        || FAILED(m_pD3DDeviceManager9->ResetDevice(m_pD3DDevice9.get(), m_resetToken))) {
+    if (FAILED(m_pD3DDevice9->ResetEx(&d3dpp, NULL))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed ResetEx: %d.\n"), hr);
+        return MFX_ERR_UNDEFINED_BEHAVIOR;
+    } else if (FAILED(m_pD3DDeviceManager9->ResetDevice(m_pD3DDevice9.get(), m_resetToken))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed ResetDevice: %d.\n"), hr);
         return MFX_ERR_UNDEFINED_BEHAVIOR;
     }
-
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: Reset Success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -149,6 +166,9 @@ void CQSVD3D9Device::Close() {
     m_pD3DDeviceManager9.reset();
     m_pD3DDevice9.reset();
     m_pD3D9.reset();
+
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: Closed.\n"));
+    m_pQSVLog.reset();
 }
 
 CQSVD3D9Device::~CQSVD3D9Device() {
@@ -166,6 +186,7 @@ mfxStatus CQSVD3D9Device::GetHandle(mfxHandleType type, mfxHDL *pHdl) {
 
 mfxStatus CQSVD3D9Device::CreateVideoProcessors() {
     m_pDXVAVProcessor.reset();
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: CreateVideoProcessors...\n"));
 
     ZeroMemory(&m_backBufferDesc, sizeof(m_backBufferDesc));
     IDirect3DSurface9 *backBufferTmp = nullptr;
@@ -175,15 +196,21 @@ mfxStatus CQSVD3D9Device::CreateVideoProcessors() {
         backBufferTmp->Release();
     }
     if (FAILED(hr)) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed GetBackBuffer: %d.\n"), hr);
         return MFX_ERR_UNDEFINED_BEHAVIOR;
     }
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: GetBackBuffer Success.\n"));
 
     IDirectXVideoProcessor *pDXVAVP = nullptr;
-    if (   FAILED(DXVA2CreateVideoService(m_pD3DDevice9.get(), IID_IDirectXVideoProcessorService, (void**)&m_pDXVAVProcessorService))
-        || FAILED(m_pDXVAVProcessorService->CreateVideoProcessor(DXVA2_VideoProcProgressiveDevice, &m_VideoDesc, m_D3DPresentPrm.BackBufferFormat, 1, &pDXVAVP))) {
+    if (FAILED(hr = DXVA2CreateVideoService(m_pD3DDevice9.get(), IID_IDirectXVideoProcessorService, (void**)&m_pDXVAVProcessorService))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed DXVA2CreateVideoService: %d.\n"), hr);
+        return MFX_ERR_DEVICE_FAILED;
+    } else if (FAILED(hr = m_pDXVAVProcessorService->CreateVideoProcessor(DXVA2_VideoProcProgressiveDevice, &m_VideoDesc, m_D3DPresentPrm.BackBufferFormat, 1, &pDXVAVP))) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D9Device: Failed CreateVideoProcessor: %d.\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     }
     m_pDXVAVProcessor.reset(pDXVAVP);
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D9Device: CreateVideoProcessor Success.\n"));
 
     return MFX_ERR_NONE;
 }

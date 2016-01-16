@@ -286,8 +286,9 @@ CQSVHWVADeviceX11::~CQSVHWVADeviceX11(void) {
     Close();
 }
 
-mfxStatus CQSVHWVADeviceX11::Init(mfxHDL hWindow, mfxU32 nAdapterNum) {
+mfxStatus CQSVHWVADeviceX11::Init(mfxHDL hWindow, mfxU32 nAdapterNum, shared_ptr<CQSVLog> pQSVLog) {
     mfxStatus mfx_res = MFX_ERR_NONE;
+    m_pQSVLog = pQSVLog;
     Window* window = NULL;
     return mfx_res;
 }
@@ -301,6 +302,7 @@ void CQSVHWVADeviceX11::Close() {
         free(m_window);
         m_window = NULL;
     }
+    m_pQSVLog.reset();
 }
 
 mfxStatus CQSVHWVADeviceX11::Reset() {

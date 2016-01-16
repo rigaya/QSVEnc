@@ -25,7 +25,7 @@ class CQSVD3D11Device : public CQSVHWDevice {
 public:
     CQSVD3D11Device();
     virtual ~CQSVD3D11Device();
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum) override;
+    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<CQSVLog> pQSVLog) override;
     virtual mfxStatus Reset() override;
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
     virtual void      Close() override;
