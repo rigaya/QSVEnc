@@ -208,21 +208,13 @@ int getIntelGPUInfo(IntelDeviceInfo *info) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 #ifdef LIBVA_SUPPORT
-#if defined(LIBVA_DRM_SUPPORT)
-#include "vaapi_utils_drm.h"
-#elif defined(LIBVA_X11_SUPPORT)
-#include "vaapi_utils_x11.h"
-#endif
+#include "qsv_hw_va.h"
 
 tstring getGPUInfoVA() {
-#if defined(LIBVA_DRM_SUPPORT)
-    DRMLibVA va;
-#elif defined(LIBVA_X11_SUPPORT)
-    X11LibVA va;
-#endif
-    return char_to_tstring(vaQueryVendorString(va.GetVADisplay()));
+    std::unique_ptr<CLibVA> va(CreateLibVA());
+    return char_to_tstring(vaQueryVendorString(va->GetVADisplay()));
 }
-#endif //#ifdef LIBVA_SUPPORT
+#endif
 
 #pragma warning (push)
 #pragma warning (disable: 4100)

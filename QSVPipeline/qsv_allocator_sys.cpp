@@ -27,7 +27,7 @@ mfxStatus QSVBufferAllocatorSys::BufAlloc(mfxU32 nbytes, mfxU16 type, mfxMemId *
         return MFX_ERR_UNSUPPORTED;
 
     mfxU32 header_size = ALIGN32(sizeof(sBuffer));
-    void *buffer_ptr = _aligned_malloc(header_size + nbytes, 1);
+    void *buffer_ptr = _aligned_malloc(header_size + nbytes, 32);
     if (!buffer_ptr) {
         return MFX_ERR_MEMORY_ALLOC;
     }
@@ -225,7 +225,7 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
         return MFX_ERR_UNSUPPORTED;
     }
 
-    auto mids = unique_ptr<mfxMemId[]>(new mfxMemId[request->NumFrameSuggested]);
+    unique_ptr<mfxMemId[]> mids(new mfxMemId[request->NumFrameSuggested]);
     if (!mids.get()) {
         return MFX_ERR_MEMORY_ALLOC;
     }
@@ -246,7 +246,10 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
 
         fs->id = ID_FRAME;
         fs->info = request->Info;
-        m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mids.get()[numAllocated]);
+        sts = m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mids.get()[numAllocated]);
+        if (sts != MFX_ERR_NONE) {
+            return MFX_ERR_MEMORY_ALLOC;
+        }
     }
 
     response->NumFrameActual = (mfxU16)numAllocated;
@@ -272,9 +275,8 @@ mfxStatus QSVAllocatorSys::ReleaseResponse(mfxFrameAllocResponse *response) {
                 if (MFX_ERR_NONE != sts) return sts;
             }
         }
+        delete [] response->mids;
     }
-
-    delete [] response->mids;
     response->mids = 0;
     return MFX_ERR_NONE;
 }

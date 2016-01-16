@@ -18,10 +18,8 @@
 #include "avcodec_reader.h"
 
 #ifdef LIBVA_SUPPORT
-#include "hw_device.h"
-#include "vaapi_device.h"
-#include "vaapi_allocator.h"
-#include "sample_utils.h"
+#include "qsv_hw_va.h"
+#include "qsv_allocator.h"
 #endif //#if LIBVA_SUPPORT
 
 #if ENABLE_AVCODEC_QSV_READER
@@ -930,7 +928,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
 
 #ifdef LIBVA_SUPPORT
         //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
-        std::unique_ptr<CHWDevice> phwDevice;
+        std::unique_ptr<CQSVHWDevice> phwDevice;
         mfxIMPL impl;
         MFXQueryIMPL(session, &impl);
 
@@ -942,7 +940,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             }
 
             mfxStatus hwSts = MFX_ERR_NONE;
-            if (MFX_ERR_NONE != (hwSts = phwDevice->Init(NULL, 0, MSDKAdapter::GetNumber(session)))) {
+            if (MFX_ERR_NONE != (hwSts = phwDevice->Init(nullptr, GetAdapterID(session)))) {
                 AddMessage(QSV_LOG_ERROR, _T("failed to initialize hw device.\n"));
                 return hwSts;
             }

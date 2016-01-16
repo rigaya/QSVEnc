@@ -102,16 +102,20 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
 
             it->m_refCount++;
             *response = (mfxFrameAllocResponse&)*it;
-        } else if (AllocImpl(request, response) == MFX_ERR_NONE) {
+        } else if (MFX_ERR_NONE == (sts = AllocImpl(request, response))) {
             m_ExtResponses.push_back(UniqueResponse(*response, request->Info.CropW, request->Info.CropH, request->Type & MEMTYPE_FROM_MASK));
+        } else {
+            return sts;
         }
     } else {
         //internal
         m_responses.push_back(mfxFrameAllocResponse());
-        if (AllocImpl(request, response) == MFX_ERR_NONE) {
+        sts = AllocImpl(request, response);
+        if (sts == MFX_ERR_NONE) {
             m_responses.back() = *response;
         } else {
             m_responses.pop_back();
+            return sts;
         }
     }
 

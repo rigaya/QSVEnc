@@ -12,9 +12,11 @@
 #if defined(LIBVA_SUPPORT)
 
 #include <map>
+#include <algorithm>
 #include <stdio.h>
 #include <assert.h>
 #include "qsv_util.h"
+#include "qsv_hw_va.h"
 
 enum {
     MFX_FOURCC_VP8_NV12    = MFX_MAKEFOURCC('V','P','8','N'),
@@ -43,7 +45,7 @@ QSVAllocatorVA::~QSVAllocatorVA() {
 }
 
 mfxStatus QSVAllocatorVA::Init(mfxAllocatorParams *pParams) {
-    vaapiAllocatorParams* p_vaapiParams = dynamic_cast<vaapiAllocatorParams*>(pParams);
+    QSVAllocatorParamsVA *p_vaapiParams = dynamic_cast<QSVAllocatorParamsVA *>(pParams);
     if ((NULL == p_vaapiParams) || (NULL == p_vaapiParams->m_dpy)) {
         return MFX_ERR_NOT_INITIALIZED;
     }
@@ -80,13 +82,13 @@ mfxStatus QSVAllocatorVA::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAlloc
     }
     mfxU32 va_fourcc = fourccToVAFormat.at(mfx_fourcc);
     static const auto SUPPORTED_FORMATS = make_array<uint32_t>(
-        VA_FOURCC_NV12,
-        VA_FOURCC_YV12,
-        VA_FOURCC_YUY2,
-        VA_FOURCC_ARGB,
-        VA_FOURCC_P208
+        (uint32_t)VA_FOURCC_NV12,
+        (uint32_t)VA_FOURCC_YV12,
+        (uint32_t)VA_FOURCC_YUY2,
+        (uint32_t)VA_FOURCC_ARGB,
+        (uint32_t)VA_FOURCC_P208
     );
-    if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), desc.Format) == SUPPORTED_FORMATS.end()) {
+    if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), va_fourcc) == SUPPORTED_FORMATS.end()) {
         return MFX_ERR_MEMORY_ALLOC;
     }
 
@@ -149,7 +151,6 @@ mfxStatus QSVAllocatorVA::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAlloc
                 surfaces[numAllocated] = coded_buf;
             }
         }
-
     }
     if (MFX_ERR_NONE == mfx_res) {
         for (mfxU32 i = 0; i < surfaces_num; ++i) {
@@ -168,7 +169,7 @@ mfxStatus QSVAllocatorVA::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAlloc
                 vaDestroySurfaces(m_dpy, surfaces, surfaces_num);
             }
         } else {
-            for (int i = 0; i < numAllocated; i++) {
+            for (mfxU32 i = 0; i < numAllocated; i++) {
                 vaDestroyBuffer(m_dpy, surfaces[i]);
             }
         }
@@ -216,7 +217,7 @@ mfxStatus QSVAllocatorVA::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
 
     if (!vaapi_mid || !(vaapi_mid->m_surface)) return MFX_ERR_INVALID_HANDLE;
 
-    mfxU32 mfx_fourcc = ConvertVP8FourccToMfxFourcc(vaapi_mid->m_fourcc);
+    mfxU32 mfx_fourcc = VP8fourccToMFXfourcc.at(vaapi_mid->m_fourcc);
 
     if (MFX_FOURCC_P8 == mfx_fourcc) {  // bitstream processing
         VACodedBufferSegment *coded_buffer_segment;

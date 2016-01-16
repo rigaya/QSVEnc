@@ -8,6 +8,7 @@
 //  -----------------------------------------------------------------------------------------
 
 #include "qsv_output.h"
+#include <smmintrin.h>
 
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \

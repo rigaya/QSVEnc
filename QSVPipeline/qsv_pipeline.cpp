@@ -66,7 +66,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams() {
             _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")
             _T("InitMfxDecParams: Frame: %s, %dx%d%s [%d,%d,%d,%d] %d:%d, bitdepth %d, shift %d\n"),
             CodecIdToStr(m_mfxDecParams.mfx.CodecId), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
-            ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.ChromaFormat), m_mfxDecParams.mfx.FrameInfo.Width, m_mfxDecParams.mfx.FrameInfo.Height,
+            ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.FourCC), m_mfxDecParams.mfx.FrameInfo.Width, m_mfxDecParams.mfx.FrameInfo.Height,
             (m_mfxDecParams.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? _T("i") : _T("p"),
             m_mfxDecParams.mfx.FrameInfo.CropX, m_mfxDecParams.mfx.FrameInfo.CropY, m_mfxDecParams.mfx.FrameInfo.CropW, m_mfxDecParams.mfx.FrameInfo.CropH,
             m_mfxDecParams.mfx.FrameInfo.AspectRatioW, m_mfxDecParams.mfx.FrameInfo.AspectRatioH,
@@ -1087,7 +1087,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     if (!m_hwdev) {
         return MFX_ERR_MEMORY_ALLOC;
     }
-    sts = m_hwdev->Init(NULL, 0, MSDKAdapter::GetNumber(m_mfxSession));
+    sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession));
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
 #endif
     return MFX_ERR_NONE;
@@ -1322,13 +1322,13 @@ mfxStatus CQSVPipeline::AllocFrames() {
     // エンコーダ用のメモリ確保
     sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &EncRequest, &m_EncResponse);
     QSV_ERR_MES(sts, _T("Failed to allocate frames for encoder."));
-    PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated EncRequest\n"));
+    PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated EncRequest %d\n"), m_EncResponse.NumFrameActual);
 
     // vppを使用するなら、vpp用のメモリを確保する
     if (m_pmfxVPP) {
         sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &(VppRequest[0]), &m_VppResponse);
         QSV_ERR_MES(sts, _T("Failed to allocate frames for vpp."));
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated VppRequest\n"));
+        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated VppRequest %d\n"), m_VppResponse.NumFrameActual);
     }
 
     //エンコーダ用のmfxFrameSurface1配列を作成する
@@ -1388,7 +1388,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
     mfxStatus sts = MFX_ERR_NONE;
     PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
 
-    if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType) {
+    if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType || HW_MEMORY == m_memType) {
 #if D3D_SURFACES_SUPPORT
         sts = CreateHWDevice();
         QSV_ERR_MES(sts, _T("Failed to CreateHWDevice."));
@@ -1468,27 +1468,27 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         mfxHDL hdl = NULL;
         sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
         QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
-        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
+        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
         //ハンドルを渡す
         sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
         QSV_ERR_MES(sts, _T("Failed to set HW device handle to encode session."));
 
         //VAAPI allocatorを作成
-        m_pMFXAllocator = new QSVAllocatorVA;
+        m_pMFXAllocator.reset(new QSVAllocatorVA());
         if (!m_pMFXAllocator) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
-        vaapiAllocatorParams *p_vaapiAllocParams = new vaapiAllocatorParams;
+        QSVAllocatorParamsVA *p_vaapiAllocParams = new QSVAllocatorParamsVA;
         if (!p_vaapiAllocParams) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for vaapiAllocatorParams.\n"));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
         p_vaapiAllocParams->m_dpy = (VADisplay)hdl;
-        m_pmfxAllocatorParams = p_vaapiAllocParams;
+        m_pmfxAllocatorParams.reset(p_vaapiAllocParams);
 
         //GPUメモリ使用時には external allocatorを使用する必要がある
         //mfxSessionにallocatorを渡してやる必要がある
@@ -1511,7 +1511,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
             mfxHDL hdl = NULL;
             sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
             QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
-            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
+            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
             //ハンドルを渡す
             sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
@@ -2522,8 +2522,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     return MFX_ERR_NONE;
 }
 
-void CQSVPipeline::Close()
-{
+void CQSVPipeline::Close() {
     PrintMes(QSV_LOG_DEBUG, _T("Closing pipeline...\n"));
     //PrintMes(QSV_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
 
@@ -2556,13 +2555,6 @@ void CQSVPipeline::Close()
     m_VppExtParams.clear();
     VppExtMes.clear();
 
-    PrintMes(QSV_LOG_DEBUG, _T("DeleteFrames...\n"));
-    DeleteFrames();
-
-    PrintMes(QSV_LOG_DEBUG, _T("DeleteAllocator...\n"));
-    // allocator if used as external for MediaSDK must be deleted after SDK components
-    DeleteAllocator();
-
     mfxBitstreamClear(&m_DecInputBitstream);
 
     PrintMes(QSV_LOG_DEBUG, _T("Closing TaskPool...\n"));
@@ -2571,8 +2563,16 @@ void CQSVPipeline::Close()
     PrintMes(QSV_LOG_DEBUG, _T("Closing mfxSession...\n"));
     m_mfxSession.Close();
 
+    PrintMes(QSV_LOG_DEBUG, _T("DeleteFrames...\n"));
+    DeleteFrames();
+
+    PrintMes(QSV_LOG_DEBUG, _T("DeleteAllocator...\n"));
+    // allocator if used as external for MediaSDK must be deleted after SDK components
+    DeleteAllocator();
+
     m_SceneChange.Close();
 
+    PrintMes(QSV_LOG_DEBUG, _T("Closing audio readers (if used)...\n"));
     m_AudioReaders.clear();
 
     for (auto pWriter : m_pFileWriterListAudio) {
@@ -2585,11 +2585,13 @@ void CQSVPipeline::Close()
     }
     m_pFileWriterListAudio.clear();
 
+    PrintMes(QSV_LOG_DEBUG, _T("Closing writer...\n"));
     if (m_pFileWriter) {
         m_pFileWriter->Close();
         m_pFileWriter.reset();
     }
 
+    PrintMes(QSV_LOG_DEBUG, _T("Closing reader...\n"));
     if (m_pFileReader) {
         m_pFileReader->Close();
         m_pFileReader.reset();
@@ -3781,8 +3783,7 @@ const TCHAR *CQSVPipeline::GetInputMessage() {
     return m_pFileReader->GetInputMessage();
 }
 
-mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize)
-{
+mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
 

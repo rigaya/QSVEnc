@@ -533,7 +533,7 @@ const CX_DESC list_avqsv_aud_encoder[] = {
     { _T("pcm_s16le"),  QSV_AUD_ENC_WAV },
     { _T("libopus"),    QSV_AUD_ENC_OPUS },
     { _T("ac3"),        QSV_AUD_ENC_AC3 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 static inline const CX_DESC *get_level_list(int CodecID) {

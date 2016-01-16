@@ -23,6 +23,8 @@
 #if defined(_WIN32) || defined(_WIN64)
 #include <psapi.h>
 #else
+#include <unistd.h>
+#include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 

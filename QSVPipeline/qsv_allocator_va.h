@@ -28,7 +28,7 @@ struct vaapiMemId {
     mfxU8       *m_va_buffer;
 };
 
-class vaapiAllocatorParams : public mfxAllocatorParams {
+class QSVAllocatorParamsVA : public mfxAllocatorParams {
 public:
     VADisplay m_dpy;
 };

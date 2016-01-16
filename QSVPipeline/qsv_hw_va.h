@@ -11,9 +11,42 @@
 #define __QSV_HW_VA_H__
 
 #include "qsv_hw_device.h"
-#include "vaapi_utils_drm.h"
+
+#if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT)
+#include "qsv_osdep.h"
+#include <va/va.h>
+
+class CLibVA {
+public:
+    CLibVA() : m_va_dpy(NULL) {}
+    virtual ~CLibVA() {};
+    VADisplay GetVADisplay() { return m_va_dpy; }
+
+protected:
+    VADisplay m_va_dpy;
+};
+
+mfxStatus va_to_mfx_status(VAStatus va_res);
+
+CLibVA *CreateLibVA();
+CQSVHWDevice* CreateVAAPIDevice(void);
+
+#endif //#if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT)
+
 
 #if defined(LIBVA_DRM_SUPPORT)
+
+#include <va/va_drm.h>
+
+class DRMLibVA : public CLibVA {
+public:
+    DRMLibVA(void);
+    virtual ~DRMLibVA(void);
+
+protected:
+    int m_fd;
+};
+
 class CQSVHWVADeviceDRM : public CQSVHWDevice {
 public:
     CQSVHWVADeviceDRM(){}
@@ -22,18 +55,15 @@ public:
     virtual mfxStatus Init(mfxHDL hWindow, mfxU32 nAdapterNum) override { return MFX_ERR_NONE;}
     virtual mfxStatus Reset(void) override { return MFX_ERR_NONE; }
     virtual void Close(void) override { }
-
-    virtual mfxStatus SetHandle(mfxHandleType type, mfxHDL hdl) override { return MFX_ERR_UNSUPPORTED; }
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override {
         if ((MFX_HANDLE_VA_DISPLAY == type) && (nullptr != pHdl)) {
             *pHdl = m_DRMLibVA.GetVADisplay();
-
             return MFX_ERR_NONE;
         }
         return MFX_ERR_UNSUPPORTED;
     }
 
-    virtual mfxStatus RenderFrame(mfxFrameSurface1 * pSurface, mfxFrameAllocator * pmfxAlloc) { return MFX_ERR_NONE; }
+    virtual mfxStatus RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAllocator *pmfxAlloc) { return MFX_ERR_NONE; }
     virtual void      UpdateTitle(double fps) { }
 
 protected:
@@ -41,6 +71,21 @@ protected:
 };
 
 #elif defined(LIBVA_X11_SUPPORT)
+
+#include <va/va_x11.h>
+
+class X11LibVA : public CLibVA {
+public:
+    X11LibVA(void);
+    virtual ~X11LibVA(void);
+
+    void *GetXDisplay(void) { return m_display;}
+
+protected:
+    Display* m_display;
+
+private:
+};
 
 class CQSVHWVADeviceX11 : public CQSVHWDevice {
 public:

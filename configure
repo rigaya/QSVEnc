@@ -175,7 +175,7 @@ if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
     X86_64=0
 fi
 
-CXXFLAGS="-Wall -Wno-attributes -Wno-reorder -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline/include -I${SRCDIR}/QSVPlugins"
+CXXFLAGS="-Wall -Wno-attributes -Wno-reorder -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins"
 LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
@@ -479,36 +479,21 @@ mfx_win_reg_key.cpp \
 "
 
 SRC_QSVPIPELINE=" \
-vm/atomic.cpp                    vm/atomic.cpp \
-vm/shared_object.cpp             vm/shared_object_linux.cpp \
-vm/thread.cpp                    vm/thread_linux.cpp \
-vm/time.cpp                      vm/time_linux.cpp \
-DeviceId.cpp                     avc_bitstream.cpp \
-avc_nal_spl.cpp                  avc_spl.cpp \
-avcodec_qsv.cpp                  avcodec_reader.cpp \
-avcodec_writer.cpp               avi_reader.cpp \
-avs_reader.cpp                   base_allocator.cpp \
-cl_func.cpp                      convert_csp.cpp \
-convert_csp_avx.cpp              convert_csp_avx2.cpp \
-convert_csp_sse2.cpp             convert_csp_ssse3.cpp \
-cpu_info.cpp                     d3d11_allocator.cpp \
-d3d11_device.cpp                 d3d_allocator.cpp \
-d3d_device.cpp                   general_allocator.cpp \
-gpu_info.cpp                     mfx_buffering.cpp \
-perf_monitor.cpp \
-pipeline_encode.cpp              plugin_utils.cpp \
-qsv_control.cpp                  qsv_event.cpp \
-qsv_ini.cpp \
-qsv_pipe.cpp                     qsv_pipe_linux.cpp \
-qsv_prm.cpp                      qsv_simd.cpp  \
-qsv_util.cpp                     qsv_version.cpp \
-ram_speed.cpp                    sample_utils.cpp \
-scene_change_detection.cpp       scene_change_detection_avx.cpp \
-scene_change_detection_simd.cpp  sysmem_allocator.cpp \
-vaapi_allocator.cpp              vaapi_device.cpp \
-vaapi_utils.cpp                  vaapi_utils_drm.cpp \
-vaapi_utils_x11.cpp              vpp_ex.cpp \
-vpy_reader.cpp \
+DeviceId.cpp                     avcodec_qsv.cpp             avcodec_reader.cpp \
+avcodec_writer.cpp               avi_reader.cpp              avs_reader.cpp \
+cl_func.cpp                      convert_csp.cpp             convert_csp_avx.cpp \
+convert_csp_avx2.cpp             convert_csp_sse2.cpp        convert_csp_ssse3.cpp \
+cpu_info.cpp                     gpu_info.cpp                gpuz_info.cpp \
+perf_monitor.cpp                 qsv_allocator.cpp           qsv_allocator_d3d11.cpp \
+qsv_allocator_d3d9.cpp           qsv_allocator_sys.cpp       qsv_allocator_va.cpp \
+qsv_control.cpp                  qsv_event.cpp               qsv_hw_d3d11.cpp \
+qsv_hw_d3d9.cpp                  qsv_hw_device.cpp           qsv_hw_va.cpp \
+qsv_ini.cpp                      qsv_input.cpp               qsv_output.cpp \
+qsv_pipe.cpp                     qsv_pipe_linux.cpp          qsv_pipeline.cpp \
+qsv_plugin.cpp                   qsv_prm.cpp                 qsv_simd.cpp \
+qsv_task.cpp                     qsv_util.cpp                qsv_version.cpp \
+ram_speed.cpp                    scene_change_detection.cpp  scene_change_detection_avx.cpp \
+scene_change_detection_simd.cpp  vpy_reader.cpp \
 "
 
 ASM_QSVPIPELINE="ram_speed_x64.asm"
@@ -529,11 +514,11 @@ for src in $SRC_MFX_DISPATCH; do
 done
 
 for src in $SRC_QSVPIPELINE; do
-    SRCS="$SRCS QSVPipeline/src/$src"
+    SRCS="$SRCS QSVPipeline/$src"
 done
 
 for asm in $ASM_QSVPIPELINE; do
-    ASMS="$ASMS QSVPipeline/src/$asm"
+    ASMS="$ASMS QSVPipeline/$asm"
 done
 
 for pyw in $PYW_PERF_MONITOR; do
@@ -549,7 +534,7 @@ for src in $SRC_PLUGIN_DELOGO; do
 done
 
 for src in $SRC_QSVENCC; do
-    SRCS="$SRCS QSVEncC/src/$src"
+    SRCS="$SRCS QSVEncC/$src"
 done
 
 echo ""

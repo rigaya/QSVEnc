@@ -37,9 +37,8 @@
 #include "ram_speed.h"
 
 #ifdef LIBVA_SUPPORT
-#include "hw_device.h"
-#include "vaapi_device.h"
-#include "vaapi_allocator.h"
+#include "qsv_hw_va.h"
+#include "qsv_allocator_va.h"
 #endif //#ifdef LIBVA_SUPPORT
 
 #pragma warning (push)
@@ -999,7 +998,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
 
 #ifdef LIBVA_SUPPORT
         //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
-        std::unique_ptr<CHWDevice> phwDevice;
+        unique_ptr<CQSVHWDevice> phwDevice;
         if (ret == MFX_ERR_NONE) {
             mfxIMPL impl;
             MFXQueryIMPL(session, &impl);
@@ -1010,7 +1009,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
                 // provide device manager to MediaSDK
                 mfxHDL hdl = NULL;
                 if (phwDevice.get() != nullptr
-                   && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, 0, MSDKAdapter::GetNumber(session)))
+                   && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, GetAdapterID(session)))
                    && MFX_ERR_NONE != (ret = phwDevice->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl))) {
                     ret = MFXVideoCORE_SetHandle(session, MFX_HANDLE_VA_DISPLAY, hdl);
                 }
@@ -1829,6 +1828,7 @@ const TCHAR *MemTypeToStr(uint32_t memType) {
 #endif //#if D3D_SURFACES_SUPPORT
 #ifdef LIBVA_SUPPORT
     case VA_MEMORY:
+    case HW_MEMORY:
         return _T("va");
 #endif
     default:
