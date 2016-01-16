@@ -138,11 +138,11 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVL
     //読み込み終了(MFX_ERR_MORE_DATA)ではなく、エラーや中断だった場合、
     //直ちに終了する
     if (sts != MFX_ERR_MORE_DATA) {
-        (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
+        pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
         m_bthForceAbort++; //m_bthForceAbort = TRUE;
         m_bthSubAbort++;   //m_bthSubAbort = TRUE;
         if (m_InputBuf) {
-            (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
+            pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
             for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
                 SetEvent(m_InputBuf[i].heInputDone);
                 SetEvent(m_InputBuf[i].heSubStart);
@@ -151,7 +151,7 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVL
     }
     //RunEncodeの終了を待つ
     m_thEncode.join();
-    (*pQSVLog)(QSV_LOG_DEBUG, _T("WaitToFinish: Encode thread shut down.\n"));
+    pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Encode thread shut down.\n"));
     return MFX_ERR_NONE;
 }
 

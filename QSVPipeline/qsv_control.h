@@ -270,7 +270,7 @@ public:
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
             return;
         }
-        (*m_pQSVLog)(QSV_LOG_INFO, _T("%s\n"), mes);
+        m_pQSVLog->write(QSV_LOG_INFO, _T("%s\n"), mes);
     }
     virtual void WriteLineDirect(TCHAR *mes) {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {

@@ -37,7 +37,7 @@ public:
         return m_nLogLevel;
     }
     virtual void write_log(int log_level, TCHAR *buffer);
-    virtual void operator()(int log_level, const TCHAR *format, ...);
+    virtual void write(int log_level, const TCHAR *format, ...);
 };
 
 

@@ -3559,7 +3559,7 @@ void CQSVPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
     va_end(args);
 
     if (m_pQSVLog.get() != nullptr) {
-        (*m_pQSVLog)(log_level, buffer.data());
+        m_pQSVLog->write(log_level, buffer.data());
     } else {
         _ftprintf(stderr, _T("%s"), buffer.data());
     }
@@ -3647,21 +3647,21 @@ void CQSVLog::writeFileHeader(const TCHAR *pDstFilename) {
             fileHeader += SEP5;
     }
     fileHeader += _T("\n");
-    (*this)(QSV_LOG_INFO, fileHeader.c_str());
+    write(QSV_LOG_INFO, fileHeader.c_str());
 
     if (m_nLogLevel == QSV_LOG_DEBUG) {
         TCHAR cpuInfo[256] = { 0 };
         TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-        (*this)(QSV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
-        (*this)(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
-        (*this)(QSV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
-        (*this)(QSV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+        write(QSV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
+        write(QSV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+        write(QSV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
     }
 }
 void CQSVLog::writeFileFooter() {
-    (*this)(QSV_LOG_INFO, _T("\n\n"));
+    write(QSV_LOG_INFO, _T("\n\n"));
 }
 
 
@@ -3741,7 +3741,7 @@ void CQSVLog::write_log(int log_level, TCHAR *buffer) {
         qsv_print_stderr(log_level, buffer, hStdErr);
 }
 
-void CQSVLog::operator()(int log_level, const TCHAR *format, ...) {
+void CQSVLog::write(int log_level, const TCHAR *format, ...) {
     if (log_level < m_nLogLevel) {
         return;
     }
