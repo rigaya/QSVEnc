@@ -134,7 +134,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -150,7 +150,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -169,7 +169,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -188,7 +188,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -210,7 +210,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -234,7 +234,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -262,7 +262,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -288,7 +288,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\igfx_s3dcontrol\include;..\QSVCommon\include;..\QSVPipeline\include;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -304,143 +304,143 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\avcodec_qsv.cpp" />
-    <ClCompile Include="src\avcodec_reader.cpp" />
-    <ClCompile Include="src\avcodec_writer.cpp" />
-    <ClCompile Include="src\avi_reader.cpp" />
-    <ClCompile Include="src\avs_reader.cpp" />
-    <ClCompile Include="src\cl_func.cpp" />
-    <ClCompile Include="src\convert_csp.cpp" />
-    <ClCompile Include="src\convert_csp_avx.cpp">
+    <ClCompile Include="avcodec_qsv.cpp" />
+    <ClCompile Include="avcodec_reader.cpp" />
+    <ClCompile Include="avcodec_writer.cpp" />
+    <ClCompile Include="avi_reader.cpp" />
+    <ClCompile Include="avs_reader.cpp" />
+    <ClCompile Include="cl_func.cpp" />
+    <ClCompile Include="convert_csp.cpp" />
+    <ClCompile Include="convert_csp_avx.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
-    <ClCompile Include="src\convert_csp_avx2.cpp">
+    <ClCompile Include="convert_csp_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
-    <ClCompile Include="src\convert_csp_sse2.cpp" />
-    <ClCompile Include="src\convert_csp_ssse3.cpp" />
-    <ClCompile Include="src\cpu_info.cpp" />
-    <ClCompile Include="src\DeviceId.cpp" />
-    <ClCompile Include="src\gpuz_info.cpp" />
-    <ClCompile Include="src\gpu_info.cpp" />
-    <ClCompile Include="src\perf_monitor.cpp" />
-    <ClCompile Include="src\qsv_allocator.cpp" />
-    <ClCompile Include="src\qsv_allocator_d3d11.cpp" />
-    <ClCompile Include="src\qsv_allocator_d3d9.cpp" />
-    <ClCompile Include="src\qsv_allocator_sys.cpp" />
-    <ClCompile Include="src\qsv_allocator_va.cpp" />
-    <ClCompile Include="src\qsv_hw_d3d11.cpp" />
-    <ClCompile Include="src\qsv_hw_d3d9.cpp" />
-    <ClCompile Include="src\qsv_hw_device.cpp" />
-    <ClCompile Include="src\qsv_hw_va.cpp" />
-    <ClCompile Include="src\qsv_pipeline.cpp" />
-    <ClCompile Include="src\qsv_control.cpp" />
-    <ClCompile Include="src\qsv_event.cpp" />
-    <ClCompile Include="src\qsv_ini.cpp" />
-    <ClCompile Include="src\qsv_input.cpp" />
-    <ClCompile Include="src\qsv_output.cpp" />
-    <ClCompile Include="src\qsv_pipe.cpp" />
-    <ClCompile Include="src\qsv_plugin.cpp" />
-    <ClCompile Include="src\qsv_prm.cpp" />
-    <ClCompile Include="src\qsv_simd.cpp" />
-    <ClCompile Include="src\qsv_task.cpp" />
-    <ClCompile Include="src\qsv_util.cpp" />
-    <ClCompile Include="src\qsv_version.cpp" />
-    <ClCompile Include="src\ram_speed.cpp" />
-    <ClCompile Include="src\scene_change_detection.cpp" />
-    <ClCompile Include="src\scene_change_detection_avx.cpp">
+    <ClCompile Include="convert_csp_sse2.cpp" />
+    <ClCompile Include="convert_csp_ssse3.cpp" />
+    <ClCompile Include="cpu_info.cpp" />
+    <ClCompile Include="DeviceId.cpp" />
+    <ClCompile Include="gpuz_info.cpp" />
+    <ClCompile Include="gpu_info.cpp" />
+    <ClCompile Include="perf_monitor.cpp" />
+    <ClCompile Include="qsv_allocator.cpp" />
+    <ClCompile Include="qsv_allocator_d3d11.cpp" />
+    <ClCompile Include="qsv_allocator_d3d9.cpp" />
+    <ClCompile Include="qsv_allocator_sys.cpp" />
+    <ClCompile Include="qsv_allocator_va.cpp" />
+    <ClCompile Include="qsv_hw_d3d11.cpp" />
+    <ClCompile Include="qsv_hw_d3d9.cpp" />
+    <ClCompile Include="qsv_hw_device.cpp" />
+    <ClCompile Include="qsv_hw_va.cpp" />
+    <ClCompile Include="qsv_pipeline.cpp" />
+    <ClCompile Include="qsv_control.cpp" />
+    <ClCompile Include="qsv_event.cpp" />
+    <ClCompile Include="qsv_ini.cpp" />
+    <ClCompile Include="qsv_input.cpp" />
+    <ClCompile Include="qsv_output.cpp" />
+    <ClCompile Include="qsv_pipe.cpp" />
+    <ClCompile Include="qsv_plugin.cpp" />
+    <ClCompile Include="qsv_prm.cpp" />
+    <ClCompile Include="qsv_simd.cpp" />
+    <ClCompile Include="qsv_task.cpp" />
+    <ClCompile Include="qsv_util.cpp" />
+    <ClCompile Include="qsv_version.cpp" />
+    <ClCompile Include="ram_speed.cpp" />
+    <ClCompile Include="scene_change_detection.cpp" />
+    <ClCompile Include="scene_change_detection_avx.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
-    <ClCompile Include="src\scene_change_detection_simd.cpp" />
-    <ClCompile Include="src\vpy_reader.cpp" />
+    <ClCompile Include="scene_change_detection_simd.cpp" />
+    <ClCompile Include="vpy_reader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\avcodec_qsv.h" />
-    <ClInclude Include="include\avcodec_reader.h" />
-    <ClInclude Include="include\avcodec_writer.h" />
-    <ClInclude Include="include\avi_reader.h" />
-    <ClInclude Include="include\avs_reader.h" />
-    <ClInclude Include="include\cl_func.h" />
-    <ClInclude Include="include\convert_csp.h" />
-    <ClInclude Include="include\convert_csp_simd.h" />
-    <ClInclude Include="include\cpu_info.h" />
-    <ClInclude Include="include\DeviceId.h" />
-    <ClInclude Include="include\gpuz_info.h" />
-    <ClInclude Include="include\gpu_info.h" />
-    <ClInclude Include="include\hw_device.h" />
-    <ClInclude Include="include\perf_monitor.h" />
-    <ClInclude Include="include\qsv_allocator.h" />
-    <ClInclude Include="include\qsv_allocator_d3d11.h" />
-    <ClInclude Include="include\qsv_allocator_d3d9.h" />
-    <ClInclude Include="include\qsv_allocator_sys.h" />
-    <ClInclude Include="include\qsv_allocator_va.h" />
-    <ClInclude Include="include\qsv_hw_d3d11.h" />
-    <ClInclude Include="include\qsv_hw_d3d9.h" />
-    <ClInclude Include="include\qsv_hw_device.h" />
-    <ClInclude Include="include\qsv_hw_va.h" />
-    <ClInclude Include="include\qsv_pipeline.h" />
-    <ClInclude Include="include\qsv_control.h" />
-    <ClInclude Include="include\qsv_event.h" />
-    <ClInclude Include="include\qsv_ini.h" />
-    <ClInclude Include="include\qsv_input.h" />
-    <ClInclude Include="include\qsv_osdep.h" />
-    <ClInclude Include="include\qsv_output.h" />
-    <ClInclude Include="include\qsv_pipe.h" />
-    <ClInclude Include="include\qsv_plugin.h" />
-    <ClInclude Include="include\qsv_prm.h" />
-    <ClInclude Include="include\qsv_queue.h" />
-    <ClInclude Include="include\qsv_simd.h" />
-    <ClInclude Include="include\qsv_log.h" />
-    <ClInclude Include="include\qsv_task.h" />
-    <ClInclude Include="include\qsv_tchar.h" />
-    <ClInclude Include="include\qsv_thread.h" />
-    <ClInclude Include="include\qsv_util.h" />
-    <ClInclude Include="include\qsv_version.h" />
-    <ClInclude Include="include\ram_speed.h" />
-    <ClInclude Include="include\scene_change_detection.h" />
-    <ClInclude Include="include\scene_change_detection_simd.h" />
-    <ClInclude Include="include\vpp_plugins.h" />
-    <ClInclude Include="include\vpy_reader.h" />
+    <ClInclude Include="avcodec_qsv.h" />
+    <ClInclude Include="avcodec_reader.h" />
+    <ClInclude Include="avcodec_writer.h" />
+    <ClInclude Include="avi_reader.h" />
+    <ClInclude Include="avs_reader.h" />
+    <ClInclude Include="cl_func.h" />
+    <ClInclude Include="convert_csp.h" />
+    <ClInclude Include="convert_csp_simd.h" />
+    <ClInclude Include="cpu_info.h" />
+    <ClInclude Include="DeviceId.h" />
+    <ClInclude Include="gpuz_info.h" />
+    <ClInclude Include="gpu_info.h" />
+    <ClInclude Include="hw_device.h" />
+    <ClInclude Include="perf_monitor.h" />
+    <ClInclude Include="qsv_allocator.h" />
+    <ClInclude Include="qsv_allocator_d3d11.h" />
+    <ClInclude Include="qsv_allocator_d3d9.h" />
+    <ClInclude Include="qsv_allocator_sys.h" />
+    <ClInclude Include="qsv_allocator_va.h" />
+    <ClInclude Include="qsv_hw_d3d11.h" />
+    <ClInclude Include="qsv_hw_d3d9.h" />
+    <ClInclude Include="qsv_hw_device.h" />
+    <ClInclude Include="qsv_hw_va.h" />
+    <ClInclude Include="qsv_pipeline.h" />
+    <ClInclude Include="qsv_control.h" />
+    <ClInclude Include="qsv_event.h" />
+    <ClInclude Include="qsv_ini.h" />
+    <ClInclude Include="qsv_input.h" />
+    <ClInclude Include="qsv_osdep.h" />
+    <ClInclude Include="qsv_output.h" />
+    <ClInclude Include="qsv_pipe.h" />
+    <ClInclude Include="qsv_plugin.h" />
+    <ClInclude Include="qsv_prm.h" />
+    <ClInclude Include="qsv_queue.h" />
+    <ClInclude Include="qsv_simd.h" />
+    <ClInclude Include="qsv_log.h" />
+    <ClInclude Include="qsv_task.h" />
+    <ClInclude Include="qsv_tchar.h" />
+    <ClInclude Include="qsv_thread.h" />
+    <ClInclude Include="qsv_util.h" />
+    <ClInclude Include="qsv_version.h" />
+    <ClInclude Include="ram_speed.h" />
+    <ClInclude Include="scene_change_detection.h" />
+    <ClInclude Include="scene_change_detection_simd.h" />
+    <ClInclude Include="vpp_plugins.h" />
+    <ClInclude Include="vpy_reader.h" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="src\ram_speed_x86.asm">
+    <CustomBuild Include="ram_speed_x86.asm">
       <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling asm...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)%(Filename).asm.obj</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">$(OutDir)%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">yasm -a x86 -f win32 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
     </CustomBuild>
-    <CustomBuild Include="src\ram_speed_x64.asm">
+    <CustomBuild Include="ram_speed_x64.asm">
       <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling asm...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\%(Filename).asm.obj" "%(FullPath)"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">yasm -a x86 -f win64 -p nasm -o "$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj" "%(FullPath)"</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">Compiling asm...</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">$(OutDir)obj\%(Filename).asm.obj</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">$(OutDir)obj\$(ProjectName)\%(Filename).asm.obj</Outputs>
     </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
