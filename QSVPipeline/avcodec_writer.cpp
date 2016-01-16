@@ -1536,6 +1536,7 @@ int CAvcodecWriter::AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame) {
 
 //音声をエンコード
 int CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, AVPacket *pEncPkt, const AVFrame *frame, int *got_result) {
+    memset(pEncPkt, 0, sizeof(pEncPkt[0])); //av_init_packetでsizeなどは初期化されないので0をセット
     av_init_packet(pEncPkt);
     int samples = 0;
     int ret = avcodec_encode_audio2(pMuxAudio->pOutCodecEncodeCtx, pEncPkt, frame, got_result);
