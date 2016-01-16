@@ -267,7 +267,7 @@ void AUO_EncodeStatusInfo::WriteLine(const TCHAR *mes) {
 #pragma warning(disable: 4100)
 void AUO_EncodeStatusInfo::UpdateDisplay(const char *mes, int drop_frames, double progressPercent) {
     set_log_title_and_progress(mes, progressPercent * 0.01);
-    m_auoData.oip->func_rest_time_disp(m_sData.nProcessedFramesNum, m_auoData.oip->n);
+    m_auoData.oip->func_rest_time_disp(m_sData.nProcessedFramesNum + drop_frames, m_auoData.oip->n);
     m_auoData.oip->func_update_preview();
 }
 #pragma warning(pop)
