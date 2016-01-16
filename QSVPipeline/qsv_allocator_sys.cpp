@@ -79,7 +79,8 @@ QSVAllocatorSys::~QSVAllocatorSys() {
     Close();
 }
 
-mfxStatus QSVAllocatorSys::Init(mfxAllocatorParams *pParams) {
+mfxStatus QSVAllocatorSys::Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) {
+    m_pQSVLog = pQSVLog;
     m_pBufferAllocator.reset(new QSVBufferAllocatorSys());
     return MFX_ERR_NONE;
 }
@@ -101,10 +102,12 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     sFrame *fs = 0;
     mfxStatus sts = m_pBufferAllocator->Lock(m_pBufferAllocator->pthis, mid, (mfxU8 **)&fs);
     if (MFX_ERR_NONE != sts) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorSys::FrameLock Failed to Lock frmame mid 0x%x: %s\n"), mid, get_err_mes(sts));
         return sts;
     }
     if (ID_FRAME != fs->id) {
         m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mid);
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorSys::FrameLock Invalid mem handle\n"), mid, get_err_mes(sts));
         return MFX_ERR_INVALID_HANDLE;
     }
 
@@ -152,7 +155,7 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     default:
         return MFX_ERR_UNSUPPORTED;
     }
-
+    m_pQSVLog->write(QSV_LOG_TRACE, _T("QSVAllocatorSys::FrameLock success mid 0x%x\n"), mid);
     return MFX_ERR_NONE;
 }
 
@@ -163,6 +166,7 @@ mfxStatus QSVAllocatorSys::FrameUnlock(mfxMemId mid, mfxFrameData *ptr) {
 
     mfxStatus sts = m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mid);
     if (MFX_ERR_NONE != sts) {
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorSys::FrameUnlock failed to unlock frame mid 0x%x: %s\n"), mid, get_err_mes(sts));
         return sts;
     }
 
@@ -172,7 +176,7 @@ mfxStatus QSVAllocatorSys::FrameUnlock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->U     = nullptr;
         ptr->V     = nullptr;
     }
-
+    m_pQSVLog->write(QSV_LOG_TRACE, _T("QSVAllocatorSys::FrameUnlock success mid 0x%x\n"), mid);
     return MFX_ERR_NONE;
 }
 
@@ -230,17 +234,20 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
         return MFX_ERR_MEMORY_ALLOC;
     }
 
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorSys::AllocImpl allocating %d frames...\n"), request->NumFrameSuggested);
     mfxU32 numAllocated = 0;
     for (numAllocated = 0; numAllocated < request->NumFrameSuggested; numAllocated++) {
         mfxStatus sts = m_pBufferAllocator->Alloc(m_pBufferAllocator->pthis,
             nbytes + ALIGN32(sizeof(sFrame)), request->Type, &(mids.get()[numAllocated]));
         if (sts != MFX_ERR_NONE) {
+            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorSys::AllocImpl failed to allocate frame #%d, size %d: %s\n"), numAllocated, nbytes + ALIGN32(sizeof(sFrame)), get_err_mes(sts));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
         sFrame *fs;
         sts = m_pBufferAllocator->Lock(m_pBufferAllocator->pthis, mids.get()[numAllocated], (mfxU8 **)&fs);
         if (sts != MFX_ERR_NONE) {
+            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorSys::AllocImpl failed to unlock frame mid 0x%x: %s\n"), mids.get()[numAllocated], get_err_mes(sts));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
@@ -248,13 +255,14 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
         fs->info = request->Info;
         sts = m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mids.get()[numAllocated]);
         if (sts != MFX_ERR_NONE) {
+            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorSys::AllocImpl failed to unlock frame mid 0x%x: %s\n"), mids.get()[numAllocated], get_err_mes(sts));
             return MFX_ERR_MEMORY_ALLOC;
         }
     }
 
     response->NumFrameActual = (mfxU16)numAllocated;
     response->mids = mids.release();
-
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorSys::AllocImpl Success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -278,5 +286,6 @@ mfxStatus QSVAllocatorSys::ReleaseResponse(mfxFrameAllocResponse *response) {
         delete [] response->mids;
     }
     response->mids = 0;
+    m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorSys::ReleaseResponse Success.\n"));
     return MFX_ERR_NONE;
 }

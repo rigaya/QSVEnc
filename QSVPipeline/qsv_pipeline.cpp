@@ -1527,7 +1527,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
     }
 
     //メモリallocatorの初期化
-    if (MFX_ERR_NONE > (sts = m_pMFXAllocator->Init(m_pmfxAllocatorParams.get()))) {
+    if (MFX_ERR_NONE > (sts = m_pMFXAllocator->Init(m_pmfxAllocatorParams.get(), m_pQSVLog))) {
         PrintMes(QSV_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(m_memType), get_err_mes(sts));
         return sts;
     }

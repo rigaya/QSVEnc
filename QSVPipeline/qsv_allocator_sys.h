@@ -40,7 +40,7 @@ public:
     QSVAllocatorSys();
     virtual ~QSVAllocatorSys();
 
-    virtual mfxStatus Init(mfxAllocatorParams *pParams) override;
+    virtual mfxStatus Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) override;
     virtual mfxStatus Close() override;
     virtual mfxStatus FrameLock(mfxMemId mid, mfxFrameData *ptr) override;
     virtual mfxStatus FrameUnlock(mfxMemId mid, mfxFrameData *ptr) override;

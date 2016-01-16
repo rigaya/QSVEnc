@@ -11,9 +11,11 @@
 #define __QSV_ALLOCATOR_H__
 
 #include <list>
-#include <string.h>
+#include <memory>
+#include <cstring>
 #include <functional>
 #include "mfxvideo.h"
+#include "qsv_log.h"
 
 class QSVBufferAllocator : public mfxBufferAllocator {
 public:
@@ -41,7 +43,7 @@ class QSVAllocator : public mfxFrameAllocator {
 public:
     QSVAllocator();
     virtual ~QSVAllocator();
-    virtual mfxStatus Init(mfxAllocatorParams *pParams) = 0;
+    virtual mfxStatus Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) = 0;
     virtual mfxStatus Close();
 
     virtual mfxStatus FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocResponse *response);
@@ -90,6 +92,7 @@ protected:
 
     std::list<mfxFrameAllocResponse> m_responses;
     std::list<UniqueResponse> m_ExtResponses;
+    shared_ptr<CQSVLog> m_pQSVLog;
 };
 
 #endif // __QSV_ALLOCATOR_H__

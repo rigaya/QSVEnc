@@ -38,7 +38,7 @@ public:
     QSVAllocatorVA();
     virtual ~QSVAllocatorVA();
 
-    virtual mfxStatus Init(mfxAllocatorParams *pParams) override;
+    virtual mfxStatus Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) override;
     virtual mfxStatus Close() override;
 
 protected:

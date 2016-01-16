@@ -49,7 +49,7 @@ mfxStatus QSVAllocatorVA::Init(mfxAllocatorParams *pParams) {
     if ((NULL == p_vaapiParams) || (NULL == p_vaapiParams->m_dpy)) {
         return MFX_ERR_NOT_INITIALIZED;
     }
-
+    m_pQSVLog = pQSVLog;
     m_dpy = p_vaapiParams->m_dpy;
     return MFX_ERR_NONE;
 }
