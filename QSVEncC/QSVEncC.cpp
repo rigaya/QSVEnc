@@ -399,6 +399,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
         _ftprintf(stdout, _T("")
             _T("   --no-output-thread           disable output thread for less memory usage\n")
             _T("                                 this might cause lower performance!\n")
+            _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
+            _T("                                 --no-output-thread -a 1 --input-buf 1 --output-buf 0\n")
+            _T("                                 this will cause lower performance!\n")
             );
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
         _ftprintf(stdout,
@@ -1881,6 +1884,13 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
         pParams->bNoOutputThread = TRUE;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("min-memory"))) {
+        pParams->bNoOutputThread = TRUE;
+        pParams->nAsyncDepth = 1;
+        argData->nTmpInputBuf = 1;
+        pParams->nOutputBufSizeMB = 0;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("log"))) {
