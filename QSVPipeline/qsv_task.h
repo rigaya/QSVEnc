@@ -31,15 +31,15 @@
 #include "cpu_info.h"
 #include "gpuz_info.h"
 #include "qsv_allocator.h"
+#include "qsv_thread.h"
 
 static inline int GetFreeSurface(mfxFrameSurface1 *pSurfacesPool, int nPoolSize) {
-    static const int SleepInterval = 1;
-    for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j += SleepInterval) {
+    for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j++) {
         for (mfxU16 i = 0; i < nPoolSize; i++) {
             if (0 == pSurfacesPool[i].Data.Locked)
                 return i;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(SleepInterval));
+        sleep_hybrid(j);
     }
     return MSDK_INVALID_SURF_IDX;
 }

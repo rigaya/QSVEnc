@@ -15,8 +15,8 @@
 
 static void QSV_FORCEINLINE sleep_hybrid(int count) {
     _mm_pause();
-    if ((count & 255) == 255) {
-        std::this_thread::sleep_for(std::chrono::milliseconds((count & 1023) == 1023));
+    if ((count & 4095) == 4095) {
+        std::this_thread::sleep_for(std::chrono::milliseconds((count & 65535) == 65535));
     }
 }
 
