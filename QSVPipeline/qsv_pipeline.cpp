@@ -1648,7 +1648,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
-        writerPrm.bNoOutputThread = pParams->bNoOutputThread != 0;
+        writerPrm.bNoOutputThread     = (pParams->bNoOutputThread & QSVENC_THREAD_OUTPUT) != 0;
+        writerPrm.bNoAudProcessThread = (pParams->bNoOutputThread & QSVENC_THREAD_AUDIO_PROCESS) != 0;
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
@@ -1792,7 +1793,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
                 
                 AvcodecWriterPrm writerAudioPrm = { 0 };
-                writerAudioPrm.bNoOutputThread = pParams->bNoOutputThread != 0;
+                writerAudioPrm.bNoOutputThread     = (pParams->bNoOutputThread & QSVENC_THREAD_OUTPUT) != 0;
+                writerAudioPrm.bNoAudProcessThread = (pParams->bNoOutputThread & QSVENC_THREAD_AUDIO_PROCESS) != 0;
                 writerAudioPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
                 writerAudioPrm.pOutputFormat = pAudioSelect->pAudioExtractFormat;
                 writerAudioPrm.inputStreamList.push_back(prm);
@@ -2815,11 +2817,13 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 #if ENABLE_AVCODEC_QSV_READER
     if (m_pPerfMonitor) {
         HANDLE thOutput = NULL;
+        HANDLE thAudProc = NULL;
         auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(m_pFileWriter);
         if (pAVCodecWriter != nullptr) {
-            thOutput = pAVCodecWriter->getThreadHandle();
+            thOutput = pAVCodecWriter->getThreadHandleOutput();
+            thAudProc = pAVCodecWriter->getThreadHandleAudProcess();
         }
-        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thOutput);
+        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thOutput, thAudProc);
     }
 #endif //#if ENABLE_AVCODEC_QSV_READER
     const int bufferSize = m_EncThread.m_nFrameBuffer;

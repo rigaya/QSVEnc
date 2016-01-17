@@ -110,15 +110,21 @@ typedef struct AVPktMuxData {
 
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
-    bool                         bNoOutputThread;        //出力バッファを使用しない
-    std::atomic<bool>            bAbortOutput;           //出力スレッドに停止を通知する
-    std::thread                  thOutput;               //出力スレッド
-    HANDLE                       heEventPktAddedOutput;  //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                       heEventClosingOutput;   //出力スレッドが停止処理を開始したことを通知する
-    CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreeI;   //映像 Iフレーム用に空いているデータ領域を格納する
-    CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreePB;  //映像 P/Bフレーム用に空いているデータ領域を格納する
-    CQueueSPSP<mfxBitstream, 64> qVideobitstream;        //映像パケットを出力スレッドに渡すためのキュー
-    CQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;        //音声パケットを出力スレッドに渡すためのキュー
+    bool                         bNoOutputThread;           //出力スレッドを使用しない
+    bool                         bNoAudProcessThread;       //音声処理スレッドを使用しない
+    std::atomic<bool>            bAbortOutput;              //出力スレッドに停止を通知する
+    std::thread                  thOutput;                  //出力スレッド
+    std::atomic<bool>            bThAudProcessAbort;        //音声処理スレッドに停止を通知する
+    std::thread                  thAudProcess;              //音声処理スレッド
+    HANDLE                       heEventPktAddedOutput;     //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                       heEventClosingOutput;      //出力スレッドが停止処理を開始したことを通知する
+    HANDLE                       heEventPktAddedAudProcess; //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                       heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
+    CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
+    CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
+    CQueueSPSP<mfxBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
+    CQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
+    CQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
 } AVMuxThread;
 #endif
 
@@ -151,7 +157,8 @@ typedef struct AvcodecWriterPrm {
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
     int                          nBufSizeMB;              //出力バッファサイズ
-    bool                         bNoOutputThread;         //出力バッファを使用しない
+    bool                         bNoOutputThread;         //出力スレッドを使用しない
+    bool                         bNoAudProcessThread;     //音声処理スレッドを使用しない
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut
@@ -180,10 +187,17 @@ public:
     int64_t seek(int64_t offset, int whence);
 #endif //USE_CUSTOM_IO
     //出力スレッドのハンドルを取得する
-    HANDLE getThreadHandle();
+    HANDLE getThreadHandleOutput();
+    HANDLE getThreadHandleAudProcess();
 private:
-    //別のスレッドで実行する場合のスレッド関数
+    //別のスレッドで実行する場合のスレッド関数 (出力)
     mfxStatus WriteThreadFunc();
+
+    //別のスレッドで実行する場合のスレッド関数 (音声処理)
+    mfxStatus ThreadFuncAudThread();
+
+    //音声出力キューに追加 (音声処理スレッドが有効な場合のみ有効)
+    mfxStatus AddAudOutputQueue(AVPktMuxData *pktData);
 
     //AVPktMuxDataを初期化する
     AVPktMuxData pktMuxData(const AVPacket *pkt);

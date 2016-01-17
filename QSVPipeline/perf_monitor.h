@@ -37,11 +37,12 @@ enum : int {
     PERF_MONITOR_IO_WRITE    = 0x00000200,
     PERF_MONITOR_THREAD_MAIN = 0x00000400,
     PERF_MONITOR_THREAD_ENC  = 0x00000800,
-    PERF_MONITOR_THREAD_OUT  = 0x00001000,
-    PERF_MONITOR_FRAME_IN    = 0x00002000,
-    PERF_MONITOR_FRAME_OUT   = 0x00004000,
-    PERF_MONITOR_GPU_LOAD    = 0x00008000,
-    PERF_MONITOR_GPU_CLOCK   = 0x00010000,
+    PERF_MONITOR_THREAD_AUD  = 0x00001000,
+    PERF_MONITOR_THREAD_OUT  = 0x00002000,
+    PERF_MONITOR_FRAME_IN    = 0x00004000,
+    PERF_MONITOR_FRAME_OUT   = 0x00008000,
+    PERF_MONITOR_GPU_LOAD    = 0x00010000,
+    PERF_MONITOR_GPU_CLOCK   = 0x00020000,
 
 
     PERF_MONITOR_ALL         = (int)UINT_MAX,
@@ -49,11 +50,12 @@ enum : int {
 
 static const CX_DESC list_pref_monitor[] = {
     { _T("all"),         PERF_MONITOR_ALL },
-    { _T("cpu"),         PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT },
+    { _T("cpu"),         PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_AUD | PERF_MONITOR_THREAD_OUT },
     { _T("cpu_total"),   PERF_MONITOR_CPU },
     { _T("cpu_kernel"),  PERF_MONITOR_CPU_KERNEL },
     { _T("cpu_main"),    PERF_MONITOR_THREAD_MAIN },
     { _T("cpu_enc"),     PERF_MONITOR_THREAD_ENC },
+    { _T("cpu_aud"),     PERF_MONITOR_THREAD_ENC },
     { _T("cpu_out"),     PERF_MONITOR_THREAD_OUT },
     { _T("mem"),         PERF_MONITOR_MEM_PRIVATE | PERF_MONITOR_MEM_VIRTUAL },
     { _T("mem_private"), PERF_MONITOR_MEM_PRIVATE },
@@ -79,6 +81,7 @@ struct PerfInfo {
 
     int64_t main_thread_total_active_us;
     int64_t enc_thread_total_active_us;
+    int64_t aud_thread_total_active_us;
     int64_t out_thread_total_active_us;
 
     int64_t mem_private;
@@ -105,6 +108,7 @@ struct PerfInfo {
 
     double  main_thread_percent;
     double  enc_thread_percent;
+    double  aud_thread_percent;
     double  out_thread_percent;
 
     BOOL    gpu_info_valid;
@@ -128,7 +132,7 @@ public:
     ~CPerfMonitor();
 
     void SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus);
-    void SetThreadHandles(HANDLE thEncThread, HANDLE thOutThread);
+    void SetThreadHandles(HANDLE thEncThread, HANDLE thOutThread, HANDLE thAudProcThread);
 
     void clear();
 protected:
@@ -151,6 +155,7 @@ protected:
     ProcessPipe m_pipes;
     HANDLE m_thEncThread;
     HANDLE m_thOutThread;
+    HANDLE m_thAudProcThread;
     int m_nLogicalCPU;
     std::shared_ptr<CEncodeStatusInfo> m_pEncStatus;
     int64_t m_nEncStartTime;

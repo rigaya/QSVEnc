@@ -10,9 +10,9 @@
 #ifndef _QSV_VERSION_H_
 #define _QSV_VERSION_H_
 
-#define VER_FILEVERSION             0,2,27,0
-#define VER_STR_FILEVERSION          "2.27"
-#define VER_STR_FILEVERSION_TCHAR _T("2.27")
+#define VER_FILEVERSION             0,2,28,0
+#define VER_STR_FILEVERSION          "2.28"
+#define VER_STR_FILEVERSION_TCHAR _T("2.28")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -43,6 +43,8 @@ const char *get_qsvenc_version();
 #define ENABLE_SESSION_THREAD_CONFIG 0
 
 #define ENABLE_AVCODEC_OUT_THREAD 1
+
+#define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 
 #ifndef QSVENC_AUO
 #define ENABLE_AUO_LINK           0

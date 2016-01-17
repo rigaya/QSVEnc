@@ -109,6 +109,12 @@ enum {
     QSVENC_MUX_SUBTITLE = 0x04,
 };
 
+enum {
+    QSVENC_THREAD_NONE          = 0x00,
+    QSVENC_THREAD_OUTPUT        = 0x01,
+    QSVENC_THREAD_AUDIO_PROCESS = 0x02,
+};
+
 typedef struct {
     bool bEnable;             //use vpp
 

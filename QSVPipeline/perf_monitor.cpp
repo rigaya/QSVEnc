@@ -61,6 +61,9 @@ CPerfMonitor::CPerfMonitor() {
     cpu_info_t cpu_info;
     get_cpu_info(&cpu_info);
     m_nLogicalCPU = cpu_info.logical_cores;
+    m_thAudProcThread = NULL;
+    m_thEncThread = NULL;
+    m_thOutThread = NULL;
 }
 
 CPerfMonitor::~CPerfMonitor() {
@@ -75,7 +78,9 @@ void CPerfMonitor::clear() {
     memset(m_info, 0, sizeof(m_info));
     m_nStep = 0;
     m_thMainThread.reset();
-    m_thEncThread = nullptr;
+    m_thAudProcThread = NULL;
+    m_thEncThread = NULL;
+    m_thOutThread = NULL;
     m_bAbort = false;
     m_bEncStarted = false;
     if (m_fpLog) {
@@ -140,6 +145,9 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_THREAD_ENC) {
         str += ",cpu enc thread (%)";
+    }
+    if (nSelect & PERF_MONITOR_THREAD_AUD) {
+        str += ",cpu aud thread (%)";
     }
     if (nSelect & PERF_MONITOR_THREAD_OUT) {
         str += ",cpu out thread (%)";
@@ -259,6 +267,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #if !(defined(_WIN32) || defined(_WIN64))
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_MAIN);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_ENC);
+    m_nSelectCheck &= (~PERF_MONITOR_THREAD_AUD);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_OUT);
     m_nSelectOutputMatplot = 0;
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -284,9 +293,10 @@ void CPerfMonitor::SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus) {
     m_nOutputFPSRate = encStatus->m_nOutputFPSRate;
 }
 
-void CPerfMonitor::SetThreadHandles(HANDLE thEncThread, HANDLE thOutThread) {
+void CPerfMonitor::SetThreadHandles(HANDLE thEncThread, HANDLE thOutThread, HANDLE thAudProcThread) {
     m_thEncThread = thEncThread;
     m_thOutThread = thOutThread;
+    m_thAudProcThread = thAudProcThread;
 }
 
 void CPerfMonitor::check() {
@@ -426,6 +436,17 @@ void CPerfMonitor::check() {
             }
         }
 
+        if (m_thAudProcThread) {
+            DWORD exit_code = 0;
+            if (0 != GetExitCodeThread(m_thAudProcThread, &exit_code) && exit_code == STILL_ACTIVE) {
+                getThreadTime(m_thAudProcThread, &pt);
+                pInfoNew->aud_thread_total_active_us = (pt.user + pt.kernel) / 10;
+                pInfoNew->aud_thread_percent  = (pInfoNew->aud_thread_total_active_us  - pInfoOld->aud_thread_total_active_us) * 100.0 * logical_cpu_inv * time_diff_inv;
+            } else {
+                pInfoNew->aud_thread_percent = 0.0;
+            }
+        }
+
         if (m_thOutThread) {
             DWORD exit_code = 0;
             if (0 != GetExitCodeThread(m_thOutThread, &exit_code) && exit_code == STILL_ACTIVE) {
@@ -493,6 +514,9 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_THREAD_ENC) {
         str += strsprintf(",%lf", pInfo->enc_thread_percent);
+    }
+    if (nSelect & PERF_MONITOR_THREAD_AUD) {
+        str += strsprintf(",%lf", pInfo->aud_thread_percent);
     }
     if (nSelect & PERF_MONITOR_THREAD_OUT) {
         str += strsprintf(",%lf", pInfo->out_thread_percent);

@@ -398,12 +398,15 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 #if ENABLE_AVCODEC_OUT_THREAD
         _ftprintf(stdout, _T("")
             _T("   --no-output-thread           disable output thread for less memory usage\n")
-            _T("                                 this might cause lower performance!\n")
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+            _T("   --no-audio-thread            disable audio process thread for less memory usage\n")
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+            _T("                                 these might cause lower performance!\n")
+#endif //#if ENABLE_AVCODEC_OUT_THREAD
             _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
             _T("                                 --no-output-thread -a 1 --input-buf 1 --output-buf 0\n")
             _T("                                 this will cause lower performance!\n")
             );
-#endif //#if ENABLE_AVCODEC_OUT_THREAD
         _ftprintf(stdout,
             _T("   --log <string>               output log to file (txt or html).\n")
             _T("   --log-level <string>         set output log level\n")
@@ -1883,7 +1886,12 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
-        pParams->bNoOutputThread = TRUE;
+        //出力スレッドを切ると音声処理スレッドも切ることになる
+        pParams->bNoOutputThread |= (QSVENC_THREAD_OUTPUT | QSVENC_THREAD_AUDIO_PROCESS);
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("no-audio-thread"))) {
+        pParams->bNoOutputThread |= QSVENC_THREAD_AUDIO_PROCESS;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("min-memory"))) {
@@ -2001,7 +2009,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelectMatplot =
                 (int)(PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
-                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
+                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_AUD | PERF_MONITOR_THREAD_OUT
                     | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_GPU_LOAD
                     | PERF_MONITOR_BITRATE);
         } else {
