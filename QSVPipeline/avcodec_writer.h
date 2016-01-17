@@ -101,6 +101,13 @@ typedef struct AVMuxSub {
     uint8_t              *pBuf;                 //変換用のバッファ
 } AVMuxSub;
 
+typedef struct AVPktMuxData {
+    AVPacket    pkt;
+    AVMuxAudio *pMuxAudio;
+    int64_t     dts;
+    int         samples;
+};
+
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
     bool                         bNoOutputThread;        //出力バッファを使用しない
@@ -111,7 +118,7 @@ typedef struct AVMuxThread {
     CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreeI;   //映像 Iフレーム用に空いているデータ領域を格納する
     CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreePB;  //映像 P/Bフレーム用に空いているデータ領域を格納する
     CQueueSPSP<mfxBitstream, 64> qVideobitstream;        //映像パケットを出力スレッドに渡すためのキュー
-    CQueueSPSP<AVPacket, 64>     qAudioPacket;           //音声パケットを出力スレッドに渡すためのキュー
+    CQueueSPSP<AVPktMuxData, 64> qAudioPacket;           //音声パケットを出力スレッドに渡すためのキュー
 } AVMuxThread;
 #endif
 
@@ -178,11 +185,17 @@ private:
     //別のスレッドで実行する場合のスレッド関数
     mfxStatus WriteThreadFunc();
 
+    //AVPktMuxDataを初期化する
+    AVPktMuxData pktMuxData(const AVPacket *pkt);
+
     //WriteNextFrameの本体
     mfxStatus WriteNextFrameInternal(mfxBitstream *pMfxBitstream, int64_t *pWrittenDts);
 
     //WriteNextPacketの本体
-    mfxStatus WriteNextPacketInternal(AVPacket *pkt, int64_t *pWrittenDts);
+    mfxStatus WriteNextPacketInternal(AVPktMuxData *pktData);
+
+    //WriteNextPacketの音声処理部分
+    mfxStatus WriteNextPacketAudio(AVPktMuxData *pktData);
 
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);
@@ -254,6 +267,9 @@ private:
     mfxStatus SubtitleWritePacket(AVPacket *pkt);
 
     //パケットを実際に書き出す
+    void WriteNextPacketProcessed(AVPktMuxData *pktData);
+
+    //パケットを実際に書き出す
     void WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts);
 
     //extradataに動画のヘッダーをセットする
@@ -278,7 +294,7 @@ private:
     void CloseQueues();
 
     AVMux m_Mux;
-    vector<AVPacket *> m_AudPktBufFileHead; //ファイルヘッダを書く前にやってきた音声パケットのバッファ
+    vector<AVPktMuxData> m_AudPktBufFileHead; //ファイルヘッダを書く前にやってきた音声パケットのバッファ
 };
 
 #endif //ENABLE_AVCODEC_QSV_READER

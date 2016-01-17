@@ -1402,6 +1402,11 @@ void CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudi
     }
 }
 
+//音声/字幕パケットを実際に書き出す
+// pMuxAudio ... [i]  pktに対応するストリーム情報
+// pkt       ... [io] 書き出す音声/字幕パケット この関数でデータはav_interleaved_write_frameに渡されるか解放される
+// samples   ... [i]  pktのsamples数 音声処理時のみ有効 / 字幕の際は0を渡すべき
+// dts       ... [o]  書き出したパケットの最終的なdtsをQSV_NATIVE_TIMEBASEで返す
 void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts) {
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
     if (samples) {
@@ -1422,6 +1427,15 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *p
         //それ以外は解放してやる必要がある
         av_free_packet(pkt);
     }
+}
+
+//音声/字幕パケットを実際に書き出す (構造体版)
+// pktData->pMuxAudio ... [i]  pktに対応するストリーム情報
+// &pktData->pkt      ... [io] 書き出す音声/字幕パケット この関数でデータはav_interleaved_write_frameに渡されるか解放される
+// pktData->samples   ... [i]  pktのsamples数 音声処理時のみ有効 / 字幕の際は0を渡すべき
+// &pktData->dts      ... [o]  書き出したパケットの最終的なdtsをQSV_NATIVE_TIMEBASEで返す
+void CAvcodecWriter::WriteNextPacketProcessed(AVPktMuxData *pktData) {
+    return WriteNextPacketProcessed(pktData->pMuxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
 }
 
 AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket *pkt, int *got_result) {
@@ -1664,12 +1678,22 @@ mfxStatus CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
+AVPktMuxData CAvcodecWriter::pktMuxData(const AVPacket *pkt) {
+    AVPktMuxData data = { 0 };
+    if (pkt) {
+        data.pkt = *pkt;
+        data.pMuxAudio = getAudioPacketStreamData(pkt);
+    }
+    return data;
+}
+
 mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
+    AVPktMuxData pktData = pktMuxData(pkt);
 #if ENABLE_AVCODEC_OUT_THREAD
     if (m_Mux.thread.thOutput.joinable()) {
         //pkt = nullptrの代理として、pkt.buf == nullptrなパケットを投入
-        AVPacket zeroFilled ={ 0 };
-        if (!m_Mux.thread.qAudioPacket.push((pkt == nullptr) ? zeroFilled : *pkt)) {
+        AVPktMuxData zeroFilled = { 0 };
+        if (!m_Mux.thread.qAudioPacket.push((pkt == nullptr) ? zeroFilled : pktData)) {
             AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
             m_Mux.format.bStreamError = true;
         }
@@ -1677,21 +1701,21 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
         return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
     }
 #endif
-    int64_t dts = 0;
-    return WriteNextPacketInternal(pkt, &dts);
+    return WriteNextPacketInternal(&pktData);
 }
 
-mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWrittenDts) {
+mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPktMuxData *pktData) {
     if (!m_Mux.format.bFileHeaderWritten) {
         //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
-        m_AudPktBufFileHead.push_back(pkt);
+        m_AudPktBufFileHead.push_back(*pktData);
         return MFX_ERR_NONE;
     }
     //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
-    if (m_AudPktBufFileHead.end() == std::find(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(), pkt)) {
+    if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
+        [pktData](const AVPktMuxData& data) { return pktData->pkt.buf == data.pkt.buf; })) {
         //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
         for (auto bufPkt : m_AudPktBufFileHead) {
-            mfxStatus sts = WriteNextPacket(bufPkt);
+            mfxStatus sts = WriteNextPacketInternal(&bufPkt);
             if (sts != MFX_ERR_NONE) {
                 return sts;
             }
@@ -1700,25 +1724,28 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWritt
         m_AudPktBufFileHead.clear();
     }
 
-    if (pkt == nullptr) {
+    if (pktData->pkt.data == nullptr) {
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            AudioFlushStream(&m_Mux.audio[i], pWrittenDts);
+            AudioFlushStream(&m_Mux.audio[i], &pktData->dts);
         }
-        *pWrittenDts = INT64_MAX;
+        pktData->dts = INT64_MAX;
         AddMessage(QSV_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
     }
 
-    if (((int16_t)(pkt->flags >> 16)) < 0) {
-        return SubtitleWritePacket(pkt);
+    if (((int16_t)(pktData->pkt.flags >> 16)) < 0) {
+        return SubtitleWritePacket(&pktData->pkt);
     }
+    WriteNextPacketAudio(pktData);
+}
 
-    int samples = 0;
-    AVMuxAudio *pMuxAudio = getAudioPacketStreamData(pkt);
+mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
+    pktData->samples = 0;
+    AVMuxAudio *pMuxAudio = pktData->pMuxAudio;
     if (pMuxAudio == NULL) {
         AddMessage(QSV_LOG_ERROR, _T("failed to get stream for input stream.\n"));
         m_Mux.format.bStreamError = true;
-        av_free_packet(pkt);
+        av_free_packet(&pktData->pkt);
         return MFX_ERR_NULL_PTR;
     }
 
@@ -1726,47 +1753,47 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWritt
     
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
     if (pMuxAudio->pAACBsfc) {
-        applyBitstreamFilterAAC(pkt, pMuxAudio);
-        //pkt->durationの場合はなにもせず終了する
-        if (pkt->duration == 0) {
-            av_free_packet(pkt);
+        applyBitstreamFilterAAC(&pktData->pkt, pMuxAudio);
+        //pktData->pkt.durationの場合はなにもせず終了する
+        if (pktData->pkt.duration == 0) {
+            av_free_packet(&pktData->pkt);
             return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
         }
     }
     if (!pMuxAudio->pOutCodecDecodeCtx) {
-        samples = (int)av_rescale_q(pkt->duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
+        pktData->samples = (int)av_rescale_q(pktData->pkt.duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
         // 1/1000 timebaseは信じるに値しないので、frame_sizeがあればその値を使用する
         if (0 == av_cmp_q(pMuxAudio->pCodecCtxIn->pkt_timebase, { 1, 1000 })
             && pMuxAudio->pCodecCtxIn->frame_size) {
-            samples = pMuxAudio->pCodecCtxIn->frame_size;
+            pktData->samples = pMuxAudio->pCodecCtxIn->frame_size;
         } else {
             //このdurationから計算したsampleが信頼できるか計算する
             //mkvではたまにptsの差分とdurationが一致しないことがある
             //ptsDiffが動画の1フレーム分より小さいときのみ対象とする (カット編集によるものを混同する可能性がある)
-            mfxI64 ptsDiff = pkt->pts - pMuxAudio->nLastPtsIn;
+            mfxI64 ptsDiff = pktData->pkt.pts - pMuxAudio->nLastPtsIn;
             if (0 < ptsDiff
                 && ptsDiff < av_rescale_q(1, av_inv_q(m_Mux.video.nFPS), samplerate)
                 && pMuxAudio->nLastPtsIn != AV_NOPTS_VALUE
-                && 1 < std::abs(ptsDiff - pkt->duration)) {
+                && 1 < std::abs(ptsDiff - pktData->pkt.duration)) {
                 //ptsの差分から計算しなおす
-                samples = (int)av_rescale_q(ptsDiff, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
+                pktData->samples = (int)av_rescale_q(ptsDiff, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
             }
         }
-        pMuxAudio->nLastPtsIn = pkt->pts;
-        WriteNextPacketProcessed(pMuxAudio, pkt, samples, pWrittenDts);
+        pMuxAudio->nLastPtsIn = pktData->pkt.pts;
+        WriteNextPacketProcessed(pktData);
     } else if (!pMuxAudio->bDecodeError && !pMuxAudio->bEncodeError) {
         int got_result = 0;
-        AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, pkt, &got_result);
-        if (pkt != nullptr) {
-            av_free_packet(pkt);
+        AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &got_result);
+        if (pktData->pkt.data != nullptr) {
+            av_free_packet(&pktData->pkt);
         }
         if (got_result && (pMuxAudio->bDecodeError || decodedFrame != nullptr)) {
             if (0 <= AudioResampleFrame(pMuxAudio, &decodedFrame)) {
                 if (pMuxAudio->pDecodedFrameCache == nullptr && (decodedFrame->nb_samples == pMuxAudio->pOutCodecEncodeCtx->frame_size || pMuxAudio->pOutCodecEncodeCtx->frame_size == 0)) {
                     //デコードの出力サンプル数とエンコーダのframe_sizeが一致していれば、そのままエンコードする
-                    samples = AudioEncodeFrame(pMuxAudio, pkt, decodedFrame, &got_result);
-                    if (got_result && samples) {
-                        WriteNextPacketProcessed(pMuxAudio, pkt, samples, pWrittenDts);
+                    pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, decodedFrame, &got_result);
+                    if (got_result && pktData->samples) {
+                        WriteNextPacketProcessed(pktData);
                     }
                 } else {
                     const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
@@ -1805,9 +1832,9 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPacket *pkt, int64_t *pWritt
                         for (int i = 0; i < channel_loop_count; i++) {
                             memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
                         }
-                        samples = AudioEncodeFrame(pMuxAudio, pkt, pCutFrame, &got_result);
-                        if (got_result && samples) {
-                            WriteNextPacketProcessed(pMuxAudio, pkt, samples, pWrittenDts);
+                        pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, pCutFrame, &got_result);
+                        if (got_result && pktData->samples) {
+                            WriteNextPacketProcessed(pktData);
                         }
                     }
                     if (samplesRemain) {
@@ -1844,16 +1871,18 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
     WaitForSingleObject(m_Mux.thread.heEventPktAdded, INFINITE);
     while (!m_Mux.thread.bAbort) {
         do {
+            if (!m_Mux.format.bFileHeaderWritten) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                break;
+            }
             //映像・音声の同期待ちが必要な場合、falseとなってループから抜けるよう、ここでfalseに設定する
             bAudioExists = false;
             bVideoExists = false;
-            AVPacket pkt = { 0 };
+            AVPktMuxData pktData = { 0 };
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
-                && false != (bAudioExists = m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pkt))) {
-                int64_t pktDts = 0;
-                //pkt.buf == nullptrはpkt = nullptrの代理として格納してあることに注意
-                WriteNextPacketInternal((pkt.buf == nullptr) ? nullptr : &pkt, &pktDts);
-                audioDts = (std::max)(audioDts, pktDts);
+                && false != (bAudioExists = m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pktData))) {
+                WriteNextPacketInternal(&pktData);
+                audioDts = (std::max)(audioDts, pktData.dts);
             }
             mfxBitstream bitstream = { 0 };
             while ((audioDts < 0 || videoDts <= audioDts + dtsThreshold)
@@ -1881,12 +1910,11 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
     bVideoExists = !m_Mux.thread.qVideobitstream.empty();
     //まずは映像と音声の同期をとって出力するためのループ
     while (bAudioExists && bVideoExists) {
-        AVPacket pkt = { 0 };
+        AVPktMuxData pktData = { 0 };
         while (audioDts <= videoDts + dtsThreshold
-            && false != (bAudioExists = m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pkt))) {
-            int64_t pktDts = 0;
-            WriteNextPacketInternal((pkt.buf == nullptr) ? nullptr : &pkt, &pktDts);
-            audioDts = (std::max)(audioDts, pktDts);
+            && false != (bAudioExists = m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pktData))) {
+            WriteNextPacketInternal(&pktData);
+            audioDts = (std::max)(audioDts, pktData.dts);
         }
         mfxBitstream bitstream = { 0 };
         while (videoDts <= audioDts + dtsThreshold
@@ -1895,10 +1923,9 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
         }
     }
     { //音声を書き出す
-        AVPacket pkt = { 0 };
-        while (m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pkt)) {
-            int64_t pktDts = 0;
-            WriteNextPacketInternal((pkt.buf == nullptr) ? nullptr : &pkt, &pktDts);
+        AVPktMuxData pktData = { 0 };
+        while (m_Mux.thread.qAudioPacket.front_copy_and_pop_no_lock(&pktData)) {
+            WriteNextPacketInternal(&pktData);
         }
     }
     { //動画を書き出す
