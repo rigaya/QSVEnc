@@ -111,14 +111,14 @@ typedef struct AVPktMuxData {
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
     bool                         bNoOutputThread;        //出力バッファを使用しない
-    std::atomic<bool>            bAbort;                 //出力スレッドに停止を通知する
+    std::atomic<bool>            bAbortOutput;           //出力スレッドに停止を通知する
     std::thread                  thOutput;               //出力スレッド
-    HANDLE                       heEventPktAdded;        //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                       heEventClosing;         //出力スレッドが停止処理を開始したことを通知する
+    HANDLE                       heEventPktAddedOutput;  //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                       heEventClosingOutput;   //出力スレッドが停止処理を開始したことを通知する
     CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreeI;   //映像 Iフレーム用に空いているデータ領域を格納する
     CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreePB;  //映像 P/Bフレーム用に空いているデータ領域を格納する
     CQueueSPSP<mfxBitstream, 64> qVideobitstream;        //映像パケットを出力スレッドに渡すためのキュー
-    CQueueSPSP<AVPktMuxData, 64> qAudioPacket;           //音声パケットを出力スレッドに渡すためのキュー
+    CQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;        //音声パケットを出力スレッドに渡すためのキュー
 } AVMuxThread;
 #endif
 
