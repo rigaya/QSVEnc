@@ -101,11 +101,20 @@ typedef struct AVMuxSub {
     uint8_t              *pBuf;                 //変換用のバッファ
 } AVMuxSub;
 
+enum {
+    MUX_DATA_TYPE_NONE   = 0,
+    MUX_DATA_TYPE_PACKET = 1,
+    MUX_DATA_TYPE_FRAME  = 2,
+};
+
 typedef struct AVPktMuxData {
+    int         type;
     AVPacket    pkt;
     AVMuxAudio *pMuxAudio;
     int64_t     dts;
     int         samples;
+    AVFrame    *pFrame;
+    int         got_result;
 };
 
 #if ENABLE_AVCODEC_OUT_THREAD
@@ -202,6 +211,9 @@ private:
     //AVPktMuxDataを初期化する
     AVPktMuxData pktMuxData(const AVPacket *pkt);
 
+    //AVPktMuxDataを初期化する
+    AVPktMuxData pktMuxData(AVFrame *pFrame);
+
     //WriteNextFrameの本体
     mfxStatus WriteNextFrameInternal(mfxBitstream *pMfxBitstream, int64_t *pWrittenDts);
 
@@ -210,6 +222,9 @@ private:
 
     //WriteNextPacketの音声処理部分
     mfxStatus WriteNextPacketAudio(AVPktMuxData *pktData);
+
+    //WriteNextPacketの音声処理部分(エンコード)
+    mfxStatus WriteNextPacketAudioFrame(AVPktMuxData *pktData);
 
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);

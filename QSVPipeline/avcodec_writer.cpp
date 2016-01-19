@@ -1718,10 +1718,18 @@ mfxStatus CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
 
 AVPktMuxData CAvcodecWriter::pktMuxData(const AVPacket *pkt) {
     AVPktMuxData data = { 0 };
+    data.type = MUX_DATA_TYPE_PACKET;
     if (pkt) {
         data.pkt = *pkt;
         data.pMuxAudio = getAudioPacketStreamData(pkt);
     }
+    return data;
+}
+
+AVPktMuxData CAvcodecWriter::pktMuxData(AVFrame *pFrame) {
+    AVPktMuxData data = { 0 };
+    data.type = MUX_DATA_TYPE_FRAME;
+    data.pFrame = pFrame;
     return data;
 }
 
@@ -1859,77 +1867,101 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         pMuxAudio->nLastPtsIn = pktData->pkt.pts;
         writeOrSetNextPacketAudioProcessed(pktData);
     } else if (!pMuxAudio->bDecodeError && !pMuxAudio->bEncodeError) {
-        int got_result = 0;
-        AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &got_result);
+        AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &pktData->got_result);
         if (pktData->pkt.data != nullptr) {
             av_free_packet(&pktData->pkt);
         }
-        if (got_result && (pMuxAudio->bDecodeError || decodedFrame != nullptr)) {
-            if (0 <= AudioResampleFrame(pMuxAudio, &decodedFrame)) {
-                if (pMuxAudio->pDecodedFrameCache == nullptr && (decodedFrame->nb_samples == pMuxAudio->pOutCodecEncodeCtx->frame_size || pMuxAudio->pOutCodecEncodeCtx->frame_size == 0)) {
-                    //デコードの出力サンプル数とエンコーダのframe_sizeが一致していれば、そのままエンコードする
-                    pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, decodedFrame, &got_result);
-                    if (got_result && pktData->samples) {
-                        writeOrSetNextPacketAudioProcessed(pktData);
-                    }
-                } else {
-                    const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
-                        * (av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? 1 : pMuxAudio->pOutCodecEncodeCtx->channels);
-                    const int channel_loop_count = av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? pMuxAudio->pOutCodecEncodeCtx->channels : 1;
-                    //それまでにたまっているキャッシュがあれば、それを結合する
-                    if (pMuxAudio->pDecodedFrameCache) {
-                        //pMuxAudio->pDecodedFrameCacheとdecodedFrameを結合
-                        AVFrame *pCombinedFrame = av_frame_alloc();
-                        pCombinedFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
-                        pCombinedFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
-                        pCombinedFrame->nb_samples = decodedFrame->nb_samples + pMuxAudio->pDecodedFrameCache->nb_samples;
-                        av_frame_get_buffer(pCombinedFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
-                        for (int i = 0; i < channel_loop_count; i++) {
-                            mfxU32 cachedBytes = pMuxAudio->pDecodedFrameCache->nb_samples * bytes_per_sample;
-                            memcpy(pCombinedFrame->data[i], pMuxAudio->pDecodedFrameCache->data[i], cachedBytes);
-                            memcpy(pCombinedFrame->data[i] + cachedBytes, decodedFrame->data[i], decodedFrame->nb_samples * bytes_per_sample);
-                        }
-                        //結合し終わっていらないものは破棄
-                        av_frame_free(&pMuxAudio->pDecodedFrameCache);
-                        av_frame_free(&decodedFrame);
-                        decodedFrame = pCombinedFrame;
-                    }
-                    //frameにエンコーダのframe_size分だけ切り出しながら、エンコードを進める
-                    AVFrame *pCutFrame = av_frame_alloc();
-                    pCutFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
-                    pCutFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
-                    pCutFrame->nb_samples = pMuxAudio->pOutCodecEncodeCtx->frame_size;
-                    av_frame_get_buffer(pCutFrame, 32);
-
-                    int samplesRemain = decodedFrame->nb_samples; //残りのサンプル数
-                    int samplesWritten = 0; //エンコーダに渡したサンプル数
-                    //残りサンプル数がframe_size未満になるまで回す
-                    for (; samplesRemain >= pMuxAudio->pOutCodecEncodeCtx->frame_size;
-                        samplesWritten += pMuxAudio->pOutCodecEncodeCtx->frame_size, samplesRemain -= pMuxAudio->pOutCodecEncodeCtx->frame_size) {
-                        for (int i = 0; i < channel_loop_count; i++) {
-                            memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
-                        }
-                        pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, pCutFrame, &got_result);
-                        if (got_result && pktData->samples) {
-                            writeOrSetNextPacketAudioProcessed(pktData);
-                        }
-                    }
-                    if (samplesRemain) {
-                        pCutFrame->nb_samples = samplesRemain;
-                        for (int i = 0; i < channel_loop_count; i++) {
-                            memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
-                        }
-                        pMuxAudio->pDecodedFrameCache = pCutFrame;
-                    }
-                }
-            }
-        }
-        if (decodedFrame != nullptr) {
-            av_frame_free(&decodedFrame);
-        }
+        pktData->type = MUX_DATA_TYPE_FRAME;
+        pktData->pFrame = decodedFrame;
+        WriteNextPacketAudioFrame(pktData);
     }
 
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::WriteNextPacketAudioFrame(AVPktMuxData *pktData) {
+    if (pktData->type != MUX_DATA_TYPE_FRAME) {
+        return MFX_ERR_UNSUPPORTED;
+    }
+    AVFrame *decodedFrame = pktData->pFrame;
+    AVMuxAudio *pMuxAudio = pktData->pMuxAudio;
+    pktData->pFrame = nullptr;
+    pktData->type = MUX_DATA_TYPE_PACKET;
+    auto writeOrSetNextPacketAudioProcessed = [this](AVPktMuxData *pktData) {
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+        if (m_Mux.thread.thAudProcess.joinable()) {
+            AddAudOutputQueue(pktData);
+        } else {
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+            WriteNextPacketProcessed(pktData);
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+        }
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    };
+    int got_result = pktData->got_result;
+    if (got_result && (pMuxAudio->bDecodeError || decodedFrame != nullptr)) {
+        if (0 <= AudioResampleFrame(pMuxAudio, &decodedFrame)) {
+            if (pMuxAudio->pDecodedFrameCache == nullptr && (decodedFrame->nb_samples == pMuxAudio->pOutCodecEncodeCtx->frame_size || pMuxAudio->pOutCodecEncodeCtx->frame_size == 0)) {
+                //デコードの出力サンプル数とエンコーダのframe_sizeが一致していれば、そのままエンコードする
+                pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, decodedFrame, &got_result);
+                if (got_result && pktData->samples) {
+                    writeOrSetNextPacketAudioProcessed(pktData);
+                }
+            } else {
+                const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
+                    * (av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? 1 : pMuxAudio->pOutCodecEncodeCtx->channels);
+                const int channel_loop_count = av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? pMuxAudio->pOutCodecEncodeCtx->channels : 1;
+                //それまでにたまっているキャッシュがあれば、それを結合する
+                if (pMuxAudio->pDecodedFrameCache) {
+                    //pMuxAudio->pDecodedFrameCacheとdecodedFrameを結合
+                    AVFrame *pCombinedFrame = av_frame_alloc();
+                    pCombinedFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
+                    pCombinedFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
+                    pCombinedFrame->nb_samples = decodedFrame->nb_samples + pMuxAudio->pDecodedFrameCache->nb_samples;
+                    av_frame_get_buffer(pCombinedFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+                    for (int i = 0; i < channel_loop_count; i++) {
+                        mfxU32 cachedBytes = pMuxAudio->pDecodedFrameCache->nb_samples * bytes_per_sample;
+                        memcpy(pCombinedFrame->data[i], pMuxAudio->pDecodedFrameCache->data[i], cachedBytes);
+                        memcpy(pCombinedFrame->data[i] + cachedBytes, decodedFrame->data[i], decodedFrame->nb_samples * bytes_per_sample);
+                    }
+                    //結合し終わっていらないものは破棄
+                    av_frame_free(&pMuxAudio->pDecodedFrameCache);
+                    av_frame_free(&decodedFrame);
+                    decodedFrame = pCombinedFrame;
+                }
+                //frameにエンコーダのframe_size分だけ切り出しながら、エンコードを進める
+                AVFrame *pCutFrame = av_frame_alloc();
+                pCutFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
+                pCutFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
+                pCutFrame->nb_samples = pMuxAudio->pOutCodecEncodeCtx->frame_size;
+                av_frame_get_buffer(pCutFrame, 32);
+
+                int samplesRemain = decodedFrame->nb_samples; //残りのサンプル数
+                int samplesWritten = 0; //エンコーダに渡したサンプル数
+                                        //残りサンプル数がframe_size未満になるまで回す
+                for (; samplesRemain >= pMuxAudio->pOutCodecEncodeCtx->frame_size;
+                samplesWritten += pMuxAudio->pOutCodecEncodeCtx->frame_size, samplesRemain -= pMuxAudio->pOutCodecEncodeCtx->frame_size) {
+                    for (int i = 0; i < channel_loop_count; i++) {
+                        memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
+                    }
+                    pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, pCutFrame, &got_result);
+                    if (got_result && pktData->samples) {
+                        writeOrSetNextPacketAudioProcessed(pktData);
+                    }
+                }
+                if (samplesRemain) {
+                    pCutFrame->nb_samples = samplesRemain;
+                    for (int i = 0; i < channel_loop_count; i++) {
+                        memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
+                    }
+                    pMuxAudio->pDecodedFrameCache = pCutFrame;
+                }
+            }
+        }
+    }
+    if (decodedFrame != nullptr) {
+        av_frame_free(&decodedFrame);
+    }
 }
 
 mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
