@@ -149,12 +149,14 @@ void CAvcodecWriter::CloseFormat(AVMuxFormat *pMuxFormat) {
 
 void CAvcodecWriter::CloseQueues() {
 #if ENABLE_AVCODEC_OUT_THREAD
+    m_Mux.thread.bThAudEncodeAbort = true;
     m_Mux.thread.bThAudProcessAbort = true;
     m_Mux.thread.bAbortOutput = true;
     m_Mux.thread.qVideobitstream.clear();
     m_Mux.thread.qVideobitstreamFreeI.clear([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
     m_Mux.thread.qVideobitstreamFreePB.clear([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
     m_Mux.thread.qAudioPacketOut.clear();
+    m_Mux.thread.qAudioFrameEncode.clear();
     m_Mux.thread.qAudioPacketProcess.clear();
     AddMessage(QSV_LOG_DEBUG, _T("closed queues...\n"));
 #endif
@@ -162,6 +164,18 @@ void CAvcodecWriter::CloseQueues() {
 
 void CAvcodecWriter::CloseThread() {
 #if ENABLE_AVCODEC_OUT_THREAD
+    m_Mux.thread.bThAudEncodeAbort = true;
+    if (m_Mux.thread.thAudEncode.joinable()) {
+        //下記同様に、m_Mux.thread.heEventThOutputClosingがセットされるまで、
+        //SetEvent(m_Mux.thread.heEventThOutputPktAdded)を実行し続ける必要がある。
+        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosingAudEncode, 100)) {
+            SetEvent(m_Mux.thread.heEventPktAddedAudEncode);
+        }
+        m_Mux.thread.thAudEncode.join();
+        CloseEvent(m_Mux.thread.heEventPktAddedAudEncode);
+        CloseEvent(m_Mux.thread.heEventClosingAudEncode);
+        AddMessage(QSV_LOG_DEBUG, _T("closed audio encode thread...\n"));
+    }
     m_Mux.thread.bThAudProcessAbort = true;
     if (m_Mux.thread.thAudProcess.joinable()) {
         //下記同様に、m_Mux.thread.heEventThOutputClosingがセットされるまで、
@@ -193,6 +207,7 @@ void CAvcodecWriter::CloseThread() {
     CloseQueues();
     m_Mux.thread.bAbortOutput = false;
     m_Mux.thread.bThAudProcessAbort = false;
+    m_Mux.thread.bThAudEncodeAbort = false;
 #endif
 }
 
@@ -1134,6 +1149,7 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
         AddMessage(QSV_LOG_DEBUG, _T("starting output thread...\n"));
         m_Mux.thread.bAbortOutput = false;
         m_Mux.thread.bThAudProcessAbort = false;
+        m_Mux.thread.bThAudEncodeAbort = false;
         m_Mux.thread.qAudioPacketOut.init(6144);
         m_Mux.thread.qVideobitstream.init(3200, (size_t)(m_Mux.video.nFPS.num * 60.0 / m_Mux.video.nFPS.den + 0.5));
         m_Mux.thread.qVideobitstreamFreeI.init(200);
@@ -1148,6 +1164,13 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
             m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.thAudProcess = std::thread(&CAvcodecWriter::ThreadFuncAudThread, this);
+            if (true) {
+                AddMessage(QSV_LOG_DEBUG, _T("starting audio encode thread...\n"));
+                m_Mux.thread.qAudioFrameEncode.init(6144);
+                m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.thAudEncode = std::thread(&CAvcodecWriter::ThreadFuncAudEncodeThread, this);
+            }
         }
     }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
@@ -1524,6 +1547,10 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
         }
         if (len < 0) {
             AddMessage(QSV_LOG_WARN, _T("avcodec writer: failed to decode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(len).c_str());
+            if (decodedFrame) {
+                av_frame_free(&decodedFrame);
+            }
+            decodedFrame = nullptr;
             pMuxAudio->bDecodeError = true;
             break;
         } else if (pktIn->size != len) {
@@ -1536,7 +1563,7 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
             break;
         }
     }
-    *got_result = decodedFrame->nb_samples > 0;
+    *got_result = decodedFrame && decodedFrame->nb_samples > 0;
     return decodedFrame;
 }
 
@@ -1752,20 +1779,26 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
     return WriteNextPacketInternal(&pktData);
 }
 
-mfxStatus CAvcodecWriter::AddAudOutputQueue(AVPktMuxData *pktData) {
+//指定された音声キューに追加する
+mfxStatus CAvcodecWriter::AddAudQueue(AVPktMuxData *pktData, int type) {
     if (m_Mux.thread.thAudProcess.joinable()) {
         //出力キューに追加する
-        if (!m_Mux.thread.qAudioPacketOut.push(*pktData)) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for audio packet output queue.\n"));
+        auto& qAudio       = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut       : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.qAudioPacketProcess       : m_Mux.thread.qAudioFrameEncode);
+        auto& heEventAdded = (type == AUD_QUEUE_OUT) ? m_Mux.thread.heEventPktAddedOutput : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.heEventPktAddedAudProcess : m_Mux.thread.heEventPktAddedAudEncode);
+        if (!qAudio.push(*pktData)) {
+            AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for audio queue.\n"));
             m_Mux.format.bStreamError = true;
         }
-        SetEvent(m_Mux.thread.heEventPktAddedOutput);
+        SetEvent(heEventAdded);
         return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
     } else {
         return MFX_ERR_NOT_INITIALIZED;
     }
 }
 
+//音声処理スレッドが存在する場合、この関数は音声処理スレッドによって処理される
+//音声処理スレッドがなく、出力スレッドがあれば、出力スレッドにより処理される
+//出力スレッドがなければメインエンコードスレッドが処理する
 mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPktMuxData *pktData) {
     if (!m_Mux.format.bFileHeaderWritten) {
         //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
@@ -1791,7 +1824,8 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPktMuxData *pktData) {
         if (m_Mux.thread.thAudProcess.joinable()) {
             //音声処理を別スレッドでやっている場合は、AddAudOutputQueueを後段の出力スレッドで行う必要がある
             //WriteNextPacketInternalでは音声キューに追加するだけにして、WriteNextPacketProcessedで対応する
-            return AddAudOutputQueue(pktData);
+            //ひとまず、ここでは処理せず、次のキューに回す
+            return AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
         for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
@@ -1805,7 +1839,9 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPktMuxData *pktData) {
     if (((int16_t)(pktData->pkt.flags >> 16)) < 0) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.thAudProcess.joinable()) {
-            return AddAudOutputQueue(pktData);
+            //音声処理を別スレッドでやっている場合は、字幕パケットもその流れに乗せてやる必要がある
+            //ひとまず、ここでは処理せず、次のキューに回す
+            return AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
         return SubtitleWritePacket(&pktData->pkt);
@@ -1813,6 +1849,9 @@ mfxStatus CAvcodecWriter::WriteNextPacketInternal(AVPktMuxData *pktData) {
     return WriteNextPacketAudio(pktData);
 }
 
+//音声処理スレッドが存在する場合、この関数は音声処理スレッドによって処理される
+//音声処理スレッドがなく、出力スレッドがあれば、出力スレッドにより処理される
+//出力スレッドがなければメインエンコードスレッドが処理する
 mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
     pktData->samples = 0;
     AVMuxAudio *pMuxAudio = pktData->pMuxAudio;
@@ -1837,7 +1876,8 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
     auto writeOrSetNextPacketAudioProcessed = [this](AVPktMuxData *pktData) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.thAudProcess.joinable()) {
-            AddAudOutputQueue(pktData);
+            //ひとまず、ここでは処理せず、次のキューに回す
+            AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         } else {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
             WriteNextPacketProcessed(pktData);
@@ -1880,88 +1920,145 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
 }
 
 mfxStatus CAvcodecWriter::WriteNextPacketAudioFrame(AVPktMuxData *pktData) {
-    if (pktData->type != MUX_DATA_TYPE_FRAME) {
-        return MFX_ERR_UNSUPPORTED;
-    }
-    AVFrame *decodedFrame = pktData->pFrame;
+    const bool bAudEncThread = m_Mux.thread.thAudEncode.joinable();
     AVMuxAudio *pMuxAudio = pktData->pMuxAudio;
-    pktData->pFrame = nullptr;
-    pktData->type = MUX_DATA_TYPE_PACKET;
-    auto writeOrSetNextPacketAudioProcessed = [this](AVPktMuxData *pktData) {
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
-            AddAudOutputQueue(pktData);
-        } else {
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-            WriteNextPacketProcessed(pktData);
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-    };
-    int got_result = pktData->got_result;
-    if (got_result && (pMuxAudio->bDecodeError || decodedFrame != nullptr)) {
-        if (0 <= AudioResampleFrame(pMuxAudio, &decodedFrame)) {
-            if (pMuxAudio->pDecodedFrameCache == nullptr && (decodedFrame->nb_samples == pMuxAudio->pOutCodecEncodeCtx->frame_size || pMuxAudio->pOutCodecEncodeCtx->frame_size == 0)) {
+    if (pktData->got_result && pktData->pFrame != nullptr) {
+        if (0 <= AudioResampleFrame(pMuxAudio, &pktData->pFrame)) {
+            const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
+                * (av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? 1 : pMuxAudio->pOutCodecEncodeCtx->channels);
+            const int channel_loop_count = av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? pMuxAudio->pOutCodecEncodeCtx->channels : 1;
+            if (pMuxAudio->pDecodedFrameCache == nullptr && (pktData->pFrame->nb_samples == pMuxAudio->pOutCodecEncodeCtx->frame_size || pMuxAudio->pOutCodecEncodeCtx->frame_size == 0)) {
                 //デコードの出力サンプル数とエンコーダのframe_sizeが一致していれば、そのままエンコードする
-                pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, decodedFrame, &got_result);
-                if (got_result && pktData->samples) {
-                    writeOrSetNextPacketAudioProcessed(pktData);
+                if (bAudEncThread) {
+                    //エンコードスレッド使用時はFrameをコピーして渡す
+                    AVFrame *pCutFrame = av_frame_alloc();
+                    pCutFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
+                    pCutFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
+                    pCutFrame->nb_samples = pMuxAudio->pOutCodecEncodeCtx->frame_size;
+                    av_frame_get_buffer(pCutFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+                    for (int i = 0; i < channel_loop_count; i++) {
+                        memcpy(pCutFrame->data[i], pktData->pFrame->data[i], pCutFrame->nb_samples * bytes_per_sample);
+                    }
+                    AVPktMuxData pktDataCopy = *pktData;
+                    pktDataCopy.pFrame = pCutFrame;
+                    AddAudQueue(&pktDataCopy, AUD_QUEUE_ENCODE);
+                } else {
+                    WriteNextAudioFrame(pktData);
                 }
             } else {
-                const int bytes_per_sample = av_get_bytes_per_sample(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)
-                    * (av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? 1 : pMuxAudio->pOutCodecEncodeCtx->channels);
-                const int channel_loop_count = av_sample_fmt_is_planar(pMuxAudio->pOutCodecEncodeCtx->sample_fmt) ? pMuxAudio->pOutCodecEncodeCtx->channels : 1;
                 //それまでにたまっているキャッシュがあれば、それを結合する
                 if (pMuxAudio->pDecodedFrameCache) {
                     //pMuxAudio->pDecodedFrameCacheとdecodedFrameを結合
                     AVFrame *pCombinedFrame = av_frame_alloc();
                     pCombinedFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
                     pCombinedFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
-                    pCombinedFrame->nb_samples = decodedFrame->nb_samples + pMuxAudio->pDecodedFrameCache->nb_samples;
+                    pCombinedFrame->nb_samples = pktData->pFrame->nb_samples + pMuxAudio->pDecodedFrameCache->nb_samples;
                     av_frame_get_buffer(pCombinedFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
                     for (int i = 0; i < channel_loop_count; i++) {
                         mfxU32 cachedBytes = pMuxAudio->pDecodedFrameCache->nb_samples * bytes_per_sample;
                         memcpy(pCombinedFrame->data[i], pMuxAudio->pDecodedFrameCache->data[i], cachedBytes);
-                        memcpy(pCombinedFrame->data[i] + cachedBytes, decodedFrame->data[i], decodedFrame->nb_samples * bytes_per_sample);
+                        memcpy(pCombinedFrame->data[i] + cachedBytes, pktData->pFrame->data[i], pktData->pFrame->nb_samples * bytes_per_sample);
                     }
                     //結合し終わっていらないものは破棄
                     av_frame_free(&pMuxAudio->pDecodedFrameCache);
-                    av_frame_free(&decodedFrame);
-                    decodedFrame = pCombinedFrame;
+                    av_frame_free(&pktData->pFrame);
+                    pktData->pFrame = pCombinedFrame;
                 }
-                //frameにエンコーダのframe_size分だけ切り出しながら、エンコードを進める
-                AVFrame *pCutFrame = av_frame_alloc();
-                pCutFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
-                pCutFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
-                pCutFrame->nb_samples = pMuxAudio->pOutCodecEncodeCtx->frame_size;
-                av_frame_get_buffer(pCutFrame, 32);
 
-                int samplesRemain = decodedFrame->nb_samples; //残りのサンプル数
+                int samplesRemain = pktData->pFrame->nb_samples; //残りのサンプル数
                 int samplesWritten = 0; //エンコーダに渡したサンプル数
                                         //残りサンプル数がframe_size未満になるまで回す
                 for (; samplesRemain >= pMuxAudio->pOutCodecEncodeCtx->frame_size;
                 samplesWritten += pMuxAudio->pOutCodecEncodeCtx->frame_size, samplesRemain -= pMuxAudio->pOutCodecEncodeCtx->frame_size) {
+                    //frameにエンコーダのframe_size分だけ切り出しながら、エンコードを進める
+                    AVFrame *pCutFrame = av_frame_alloc();
+                    pCutFrame->format = pMuxAudio->pOutCodecEncodeCtx->sample_fmt;
+                    pCutFrame->channel_layout = pMuxAudio->pOutCodecEncodeCtx->channel_layout;
+                    pCutFrame->nb_samples = pMuxAudio->pOutCodecEncodeCtx->frame_size;
+                    av_frame_get_buffer(pCutFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
                     for (int i = 0; i < channel_loop_count; i++) {
-                        memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
+                        memcpy(pCutFrame->data[i], pktData->pFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
                     }
-                    pktData->samples = AudioEncodeFrame(pMuxAudio, &pktData->pkt, pCutFrame, &got_result);
-                    if (got_result && pktData->samples) {
-                        writeOrSetNextPacketAudioProcessed(pktData);
-                    }
+                    AVPktMuxData pktDataPartial = *pktData;
+                    pktDataPartial.type = MUX_DATA_TYPE_FRAME;
+                    pktDataPartial.pFrame = pCutFrame;
+                    bAudEncThread ? AddAudQueue(&pktDataPartial, AUD_QUEUE_ENCODE) : WriteNextAudioFrame(&pktDataPartial);
                 }
                 if (samplesRemain) {
-                    pCutFrame->nb_samples = samplesRemain;
+                    pktData->pFrame->nb_samples = samplesRemain;
                     for (int i = 0; i < channel_loop_count; i++) {
-                        memcpy(pCutFrame->data[i], decodedFrame->data[i] + samplesWritten * bytes_per_sample, pCutFrame->nb_samples * bytes_per_sample);
+                        memcpy(pktData->pFrame->data[i], pktData->pFrame->data[i] + samplesWritten * bytes_per_sample, pktData->pFrame->nb_samples * bytes_per_sample);
                     }
-                    pMuxAudio->pDecodedFrameCache = pCutFrame;
+                    std::swap(pMuxAudio->pDecodedFrameCache, pktData->pFrame);
                 }
             }
         }
     }
-    if (decodedFrame != nullptr) {
-        av_frame_free(&decodedFrame);
+    if (pktData->pFrame != nullptr) {
+        av_frame_free(&pktData->pFrame);
     }
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+}
+
+//音声フレームをエンコード
+//音声エンコードスレッドが存在する場合、この関数は音声エンコードスレッドによって処理される
+//音声エンコードスレッドが存在せず、音声処理スレッドが存在する場合、この関数は音声処理スレッドによって処理される
+//音声処理スレッドが存在しない場合、この関数は出力スレッドによって処理される
+//出力スレッドがなければメインエンコードスレッドが処理する
+mfxStatus CAvcodecWriter::WriteNextAudioFrame(AVPktMuxData *pktData) {
+    if (pktData->type != MUX_DATA_TYPE_FRAME) {
+        if (m_Mux.thread.thAudEncode.joinable()) {
+            //音声エンコードスレッドがこの関数を処理
+            //AVPacketは字幕やnull終端パケットなどが流れてきたもの
+            //これはそのまま出力キューに追加する
+            AddAudQueue(pktData, AUD_QUEUE_OUT);
+        }
+        //音声エンコードスレッドが存在しない場合、ここにAVPacketは流れてこないはず
+        return MFX_ERR_UNSUPPORTED;
+    }
+    int got_result = 0;
+    pktData->samples = AudioEncodeFrame(pktData->pMuxAudio, &pktData->pkt, pktData->pFrame, &got_result);
+    av_frame_free(&pktData->pFrame);
+    pktData->type = MUX_DATA_TYPE_PACKET;
+    if (got_result && pktData->samples) {
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+        if (m_Mux.thread.thAudProcess.joinable()) {
+            AddAudQueue(pktData, AUD_QUEUE_OUT);
+        } else {
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+            WriteNextPacketProcessed(pktData);
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+        }
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    }
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+}
+
+mfxStatus CAvcodecWriter::ThreadFuncAudEncodeThread() {
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, INFINITE);
+    while (!m_Mux.thread.bThAudEncodeAbort) {
+        if (!m_Mux.format.bFileHeaderWritten) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            AVPktMuxData pktData = { 0 };
+            while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData)) {
+                //音声エンコードを実行、出力キューに追加する
+                WriteNextAudioFrame(&pktData);
+            }
+        }
+        ResetEvent(m_Mux.thread.heEventPktAddedAudEncode);
+        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, INFINITE);
+    }
+    {   //音声をすべてエンコード
+        AVPktMuxData pktData = { 0 };
+        while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData)) {
+            WriteNextAudioFrame(&pktData);
+        }
+    }
+    SetEvent(m_Mux.thread.heEventClosingAudEncode);
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
 }
 
 mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
@@ -2117,6 +2214,14 @@ HANDLE CAvcodecWriter::getThreadHandleOutput() {
 HANDLE CAvcodecWriter::getThreadHandleAudProcess() {
 #if ENABLE_AVCODEC_OUT_THREAD && ENABLE_AVCODEC_AUDPROCESS_THREAD
     return (HANDLE)m_Mux.thread.thAudProcess.native_handle();
+#else
+    return NULL;
+#endif
+}
+
+HANDLE CAvcodecWriter::getThreadHandleAudEncode() {
+#if ENABLE_AVCODEC_OUT_THREAD && ENABLE_AVCODEC_AUDPROCESS_THREAD
+    return (HANDLE)m_Mux.thread.thAudEncode.native_handle();
 #else
     return NULL;
 #endif

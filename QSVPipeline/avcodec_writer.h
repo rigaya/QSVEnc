@@ -103,36 +103,48 @@ typedef struct AVMuxSub {
 
 enum {
     MUX_DATA_TYPE_NONE   = 0,
-    MUX_DATA_TYPE_PACKET = 1,
-    MUX_DATA_TYPE_FRAME  = 2,
+    MUX_DATA_TYPE_PACKET = 1, //AVPktMuxDataに入っているデータがAVPacket
+    MUX_DATA_TYPE_FRAME  = 2, //AVPktMuxDataに入っているデータがAVFrame
 };
 
 typedef struct AVPktMuxData {
-    int         type;
-    AVPacket    pkt;
-    AVMuxAudio *pMuxAudio;
-    int64_t     dts;
-    int         samples;
-    AVFrame    *pFrame;
-    int         got_result;
+    int         type;        //MUX_DATA_TYPE_xxx
+    AVPacket    pkt;         //type == MUX_DATA_TYPE_PACKET 時有効
+    AVMuxAudio *pMuxAudio;   //type == MUX_DATA_TYPE_PACKET 時有効
+    int64_t     dts;         //type == MUX_DATA_TYPE_PACKET 時有効
+    int         samples;     //type == MUX_DATA_TYPE_PACKET 時有効
+    AVFrame    *pFrame;      //type == MUX_DATA_TYPE_FRAME 時有効
+    int         got_result;  //type == MUX_DATA_TYPE_FRAME 時有効
+};
+
+enum {
+    AUD_QUEUE_PROCESS = 0,
+    AUD_QUEUE_ENCODE  = 1,
+    AUD_QUEUE_OUT     = 2,
 };
 
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
     bool                         bNoOutputThread;           //出力スレッドを使用しない
     bool                         bNoAudProcessThread;       //音声処理スレッドを使用しない
+    bool                         bNoAudEncodeThread;        //音声エンコードスレッドを使用しない
     std::atomic<bool>            bAbortOutput;              //出力スレッドに停止を通知する
-    std::thread                  thOutput;                  //出力スレッド
+    std::thread                  thOutput;                  //出力スレッド(mux部分を担当)
     std::atomic<bool>            bThAudProcessAbort;        //音声処理スレッドに停止を通知する
-    std::thread                  thAudProcess;              //音声処理スレッド
+    std::thread                  thAudProcess;              //音声処理スレッド(デコード/thAudEncodeがなければエンコードも担当)
+    std::atomic<bool>            bThAudEncodeAbort;         //音声エンコードスレッドに停止を通知する
+    std::thread                  thAudEncode;               //音声エンコードスレッド(エンコードを担当)
     HANDLE                       heEventPktAddedOutput;     //キューのいずれかにデータが追加されたことを通知する
     HANDLE                       heEventClosingOutput;      //出力スレッドが停止処理を開始したことを通知する
     HANDLE                       heEventPktAddedAudProcess; //キューのいずれかにデータが追加されたことを通知する
     HANDLE                       heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
+    HANDLE                       heEventPktAddedAudEncode;  //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                       heEventClosingAudEncode;   //音声処理スレッドが停止処理を開始したことを通知する
     CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
     CQueueSPSP<mfxBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
     CQueueSPSP<mfxBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
     CQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
+    CQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
     CQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
 } AVMuxThread;
 #endif
@@ -198,6 +210,7 @@ public:
     //出力スレッドのハンドルを取得する
     HANDLE getThreadHandleOutput();
     HANDLE getThreadHandleAudProcess();
+    HANDLE getThreadHandleAudEncode();
 private:
     //別のスレッドで実行する場合のスレッド関数 (出力)
     mfxStatus WriteThreadFunc();
@@ -205,8 +218,11 @@ private:
     //別のスレッドで実行する場合のスレッド関数 (音声処理)
     mfxStatus ThreadFuncAudThread();
 
+    //別のスレッドで実行する場合のスレッド関数 (音声エンコード処理)
+    mfxStatus ThreadFuncAudEncodeThread();
+
     //音声出力キューに追加 (音声処理スレッドが有効な場合のみ有効)
-    mfxStatus AddAudOutputQueue(AVPktMuxData *pktData);
+    mfxStatus AddAudQueue(AVPktMuxData *pktData, int type);
 
     //AVPktMuxDataを初期化する
     AVPktMuxData pktMuxData(const AVPacket *pkt);
@@ -220,11 +236,14 @@ private:
     //WriteNextPacketの本体
     mfxStatus WriteNextPacketInternal(AVPktMuxData *pktData);
 
-    //WriteNextPacketの音声処理部分
+    //WriteNextPacketの音声処理部分(デコード/thAudEncodeがなければエンコードも担当)
     mfxStatus WriteNextPacketAudio(AVPktMuxData *pktData);
 
     //WriteNextPacketの音声処理部分(エンコード)
     mfxStatus WriteNextPacketAudioFrame(AVPktMuxData *pktData);
+
+    //音声フレームをエンコード
+    mfxStatus WriteNextAudioFrame(AVPktMuxData *pktData);
 
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);

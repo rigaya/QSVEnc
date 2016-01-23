@@ -2009,7 +2009,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelectMatplot =
                 (int)(PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
-                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_AUD | PERF_MONITOR_THREAD_OUT
+                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_AUDP | PERF_MONITOR_THREAD_AUDE | PERF_MONITOR_THREAD_OUT
                     | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_GPU_LOAD
                     | PERF_MONITOR_BITRATE);
         } else {
