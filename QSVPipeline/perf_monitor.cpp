@@ -197,7 +197,7 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
 }
 
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
-    int interval, int nSelectOutputLog, int nSelectOutputMatplot,
+    int interval, int nSelectOutputLog, int nSelectOutputPlot,
     std::unique_ptr<void, handle_deleter> thMainThread,
     std::shared_ptr<CQSVLog> pQSVLog) {
     clear();
@@ -205,9 +205,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
     m_sMonitorFilename = filename;
     m_nInterval = interval;
-    m_nSelectOutputMatplot = nSelectOutputMatplot;
+    m_nSelectOutputPlot = nSelectOutputPlot;
     m_nSelectOutputLog = nSelectOutputLog;
-    m_nSelectCheck = m_nSelectOutputLog | m_nSelectOutputMatplot;
+    m_nSelectCheck = m_nSelectOutputLog | m_nSelectOutputPlot;
     m_thMainThread = std::move(thMainThread);
 
     if (!m_fpLog) {
@@ -219,7 +219,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         }
     }
 
-    if (m_nSelectOutputMatplot) {
+    if (m_nSelectOutputPlot) {
 #if defined(_WIN32) || defined(_WIN64)
         m_pProcess = std::unique_ptr<CPipeProcess>(new CPipeProcessWin());
         m_pipes.stdIn.mode = PIPE_MODE_ENABLE;
@@ -239,7 +239,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         if (createPerfMpnitorPyw(m_sPywPath.c_str())) {
             pQSVLog->write(QSV_LOG_WARN, _T("Failed to create file qsvencc_perf_monitor.pyw for performance monitor plot.\n"));
             pQSVLog->write(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
-            m_nSelectOutputMatplot = 0;
+            m_nSelectOutputPlot = 0;
         } else {
             tstring sInterval = strsprintf(_T("%d"), interval);
             tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
@@ -254,7 +254,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             if (m_pProcess->run(args, nullptr, &m_pipes, priority, false, false)) {
                 pQSVLog->write(QSV_LOG_WARN, _T("Failed to run performance monitor plot.\n"));
                 pQSVLog->write(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
-                m_nSelectOutputMatplot = 0;
+                m_nSelectOutputPlot = 0;
 #if defined(_WIN32) || defined(_WIN64)
             } else {
                 WaitForInputIdle(dynamic_cast<CPipeProcessWin *>(m_pProcess.get())->getProcessInfo().hProcess, INFINITE);
@@ -272,19 +272,19 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_ENC);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_AUD);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_OUT);
-    m_nSelectOutputMatplot = 0;
+    m_nSelectOutputPlot = 0;
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
     m_nSelectOutputLog &= m_nSelectCheck;
-    m_nSelectOutputMatplot &= m_nSelectCheck;
+    m_nSelectOutputPlot &= m_nSelectCheck;
 
     pQSVLog->write(QSV_LOG_DEBUG, _T("Performace Monitor: %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputLog).c_str());
-    pQSVLog->write(QSV_LOG_DEBUG, _T("Performace Plot   : %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputMatplot).c_str());
+    pQSVLog->write(QSV_LOG_DEBUG, _T("Performace Plot   : %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputPlot).c_str());
 
     write_header(m_fpLog.get(),   m_nSelectOutputLog);
-    write_header(m_pipes.f_stdin, m_nSelectOutputMatplot);
+    write_header(m_pipes.f_stdin, m_nSelectOutputPlot);
 
-    if (m_nSelectOutputLog || m_nSelectOutputMatplot) {
+    if (m_nSelectOutputLog || m_nSelectOutputPlot) {
         m_thCheck = std::thread(loader, this);
     }
     return 0;
@@ -590,10 +590,10 @@ void CPerfMonitor::run() {
     while (!m_bAbort) {
         check();
         write(m_fpLog.get(),   m_nSelectOutputLog);
-        write(m_pipes.f_stdin, m_nSelectOutputMatplot);
+        write(m_pipes.f_stdin, m_nSelectOutputPlot);
         std::this_thread::sleep_for(std::chrono::milliseconds(m_nInterval));
     }
     check();
     write(m_fpLog.get(),   m_nSelectOutputLog);
-    write(m_pipes.f_stdin, m_nSelectOutputMatplot);
+    write(m_pipes.f_stdin, m_nSelectOutputPlot);
 }

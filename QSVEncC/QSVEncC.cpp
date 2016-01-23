@@ -491,22 +491,24 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("       select counter from below, default = all\n")
 #if defined(_WIN32) || defined(_WIN64)
             _T("   --perf-monitor-plot [<string>][,<string>]...\n")
-            _T("       plot perf monitor realtime (required python, mayplotlib)\n")
+            _T("       plot perf monitor realtime (required python, pyqtgraph)\n")
             _T("       select counter from below, default = cpu,bitrate\n")
             _T("                                 \n")
             _T("     counters for perf-monitor, perf-monitor-plot\n")
 #else
             _T("     counters for perf-monitor\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
-            _T("                                 all         ... monitor all info\n")
-            _T("                                 cpu_total   ... cpu total usage (%%)\n")
-            _T("                                 cpu_kernel  ... cpu kernel usage (%%)\n")
+            _T("                                 all          ... monitor all info\n")
+            _T("                                 cpu_total    ... cpu total usage (%%)\n")
+            _T("                                 cpu_kernel   ... cpu kernel usage (%%)\n")
 #if defined(_WIN32) || defined(_WIN64)
-            _T("                                 cpu_main    ... cpu main thread usage (%%)\n")
-            _T("                                 cpu_enc     ... cpu encode thread usage (%%)\n")
-            _T("                                 cpu_out     ... cpu output thread usage (%%)\n")
+            _T("                                 cpu_main     ... cpu main thread usage (%%)\n")
+            _T("                                 cpu_enc      ... cpu encode thread usage (%%)\n")
+            _T("                                 cpu_out      ... cpu output thread usage (%%)\n")
+            _T("                                 cpu_aud_proc ... cpu aud proc thread usage (%%)\n")
+            _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
-            _T("                                 cpu         ... monitor all cpu info\n")
+            _T("                                 cpu          ... monitor all cpu info\n")
 #if defined(_WIN32) || defined(_WIN64)
             _T("                                 gpu_load    ... gpu usage (%%)\n")
             _T("                                 gpu_clock   ... gpu avg clock (%%)\n")
@@ -529,7 +531,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 default: python\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
             _T("   --perf-monitor-interval <int> set perf monitor check interval (millisec)\n")
-            _T("                                 default 200, must be 50 or more\n")
+            _T("                                 default 250, must be 50 or more\n")
 #if defined(_WIN32) || defined(_WIN64)
             _T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
             _T("                                  default: enabled\n")
@@ -2011,7 +2013,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 (int)(PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
                     | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_AUDP | PERF_MONITOR_THREAD_AUDE | PERF_MONITOR_THREAD_OUT
                     | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_GPU_LOAD
-                    | PERF_MONITOR_BITRATE);
+                    | PERF_MONITOR_FPS);
         } else {
             i++;
             auto items = split(strInput[i], _T(","));
@@ -2086,7 +2088,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
-    pParams->nPerfMonitorInterval = 200;
+    pParams->nPerfMonitorInterval = 250;
     pParams->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;
 

@@ -175,7 +175,7 @@ protected:
     std::unique_ptr<FILE, fp_deleter> m_fpLog;
     int m_nSelectCheck;
     int m_nSelectOutputLog;
-    int m_nSelectOutputMatplot;
+    int m_nSelectOutputPlot;
 };
 
 
