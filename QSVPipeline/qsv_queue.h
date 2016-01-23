@@ -78,7 +78,7 @@ public:
     //キューのデータ量があらかじめ設定した上限に達した場合は、キューに空きができるまで待機する
     bool push(const Type& in) {
         //最初に決めた容量分までキューにデータがたまっていたら、キューに空きができるまで待機する
-        if (size() >= m_nMaxCapacity) {
+        while (size() >= m_nMaxCapacity) {
             ResetEvent(m_heEvent);
             WaitForSingleObject(m_heEvent, INFINITE);
         }
@@ -133,7 +133,7 @@ public:
         while ((ptr = m_pBufIn.load()) == nullptr) {
             _mm_pause();
         }
-        return m_pBufOut - ptr;
+        return ptr - m_pBufOut;
     }
     //キューが空ならtrueを返す
     bool empty() {
@@ -158,24 +158,29 @@ public:
     //キューが空ならなにもせずfalseを返す
     bool front_copy_and_pop_no_lock(Type *out) {
         m_bUsingData++;
-        bool bEmpty = empty();
-        if (!bEmpty) {
+        auto nSize = size();
+        if (nSize) {
             memcpy(out, m_pBufOut++, sizeof(Type));
-            SetEvent(m_heEvent);
+            if (nSize <= m_nMaxCapacity - m_nPushRestart) {
+                SetEvent(m_heEvent);
+            }
         }
         m_bUsingData--;
-        return !bEmpty;
+        return nSize != 0;
     }
     //キューの先頭のデータを取り除く
     //キューが空ならfalseを返す
     bool pop() {
         m_bUsingData++;
-        bool bEmpty = empty();
-        if (!bEmpty) {
+        auto nSize = size();
+        if (nSize) {
             m_pBufOut++;
+            if (nSize <= m_nMaxCapacity - m_nPushRestart) {
+                SetEvent(m_heEvent);
+            }
         }
         m_bUsingData--;
-        return true;
+        return nSize != 0;
     }
 protected:
     //bufSize分の内部領域を確保する
@@ -189,6 +194,7 @@ protected:
         m_pBufOut = m_pBufStart.get();
     }
 
+    int m_nPushRestart;
     HANDLE m_heEvent; //キューからデータを取り出したときセットする
     int m_nMallocAlign; //メモリのアライメント
     size_t m_nMaxCapacity; //キューに詰められる有効なデータの最大数
