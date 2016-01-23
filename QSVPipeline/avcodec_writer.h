@@ -32,10 +32,10 @@ typedef struct AVMuxFormat {
 
 #if USE_CUSTOM_IO
     mfxU8                *pAVOutBuffer;         //avio_alloc_context用のバッファ
-    mfxU32                nAVOutBufferSize;     //avio_alloc_context用のバッファサイズ
+    uint32_t              nAVOutBufferSize;     //avio_alloc_context用のバッファサイズ
     FILE                 *fpOutput;             //出力ファイルポインタ
     char                 *pOutputBuffer;        //出力ファイルポインタ用のバッファ
-    mfxU32                nOutputBufferSize;    //出力ファイルポインタ用のバッファサイズ
+    uint32_t              nOutputBufferSize;    //出力ファイルポインタ用のバッファサイズ
 #endif //USE_CUSTOM_IO
     bool                  bStreamError;         //エラーが発生
     bool                  bIsMatroska;          //mkvかどうか

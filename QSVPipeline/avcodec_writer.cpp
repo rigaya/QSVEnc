@@ -940,7 +940,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
             AddMessage(QSV_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->pVideoInfo) ? _T("") : _T("audio "), strFileName, _tcserror(error));
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
-        if (0 < (m_Mux.format.nOutputBufferSize = malloc_degeneracy((void **)&m_Mux.format.pOutputBuffer, m_Mux.format.nOutputBufferSize, 1024 * 1024))) {
+        if (0 < (m_Mux.format.nOutputBufferSize = (uint32_t)malloc_degeneracy((void **)&m_Mux.format.pOutputBuffer, m_Mux.format.nOutputBufferSize, 1024 * 1024))) {
             setvbuf(m_Mux.format.fpOutput, m_Mux.format.pOutputBuffer, _IOFBF, m_Mux.format.nOutputBufferSize);
             AddMessage(QSV_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Mux.format.nOutputBufferSize / (1024 * 1024));
         }

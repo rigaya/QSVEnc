@@ -98,7 +98,7 @@ mfxStatus CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shar
             int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
             if (bufferSizeByte) {
                 void *ptr = nullptr;
-                bufferSizeByte = malloc_degeneracy(&ptr, bufferSizeByte, 1024 * 1024);
+                bufferSizeByte = (int)malloc_degeneracy(&ptr, bufferSizeByte, 1024 * 1024);
                 if (bufferSizeByte) {
                     m_pOutputBuffer.reset((char*)ptr);
                     setvbuf(m_fDest.get(), m_pOutputBuffer.get(), _IOFBF, bufferSizeByte);
