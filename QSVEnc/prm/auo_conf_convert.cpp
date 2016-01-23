@@ -53,3 +53,13 @@ void guiEx_config::convert_qsvstgv3_to_stgv4(CONF_GUIEX *conf) {
     }
     strcpy_s(conf->conf_name, CONF_NAME_OLD_4);
 }
+
+void guiEx_config::convert_qsvstgv4_to_stgv5(CONF_GUIEX *conf) {
+    if (conf->qsv.nOutputThread == 0) {
+        conf->qsv.nOutputThread = QSV_OUTPUT_THREAD_AUTO;
+    }
+    if (conf->qsv.nAudioThread == 0) {
+        conf->qsv.nAudioThread = QSV_AUDIO_THREAD_AUTO;
+    }
+    strcpy_s(conf->conf_name, CONF_NAME_OLD_5);
+}

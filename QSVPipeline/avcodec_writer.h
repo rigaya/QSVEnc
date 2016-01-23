@@ -125,9 +125,9 @@ enum {
 
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
-    bool                         bNoOutputThread;           //出力スレッドを使用しない
-    bool                         bNoAudProcessThread;       //音声処理スレッドを使用しない
-    bool                         bNoAudEncodeThread;        //音声エンコードスレッドを使用しない
+    bool                         bEnableOutputThread;       //出力スレッドを使用する
+    bool                         bEnableAudProcessThread;   //音声処理スレッドを使用する
+    bool                         bEnableAudEncodeThread;    //音声エンコードスレッドを使用する
     std::atomic<bool>            bAbortOutput;              //出力スレッドに停止を通知する
     std::thread                  thOutput;                  //出力スレッド(mux部分を担当)
     std::atomic<bool>            bThAudProcessAbort;        //音声処理スレッドに停止を通知する
@@ -178,8 +178,8 @@ typedef struct AvcodecWriterPrm {
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
     int                          nBufSizeMB;              //出力バッファサイズ
-    bool                         bNoOutputThread;         //出力スレッドを使用しない
-    bool                         bNoAudProcessThread;     //音声処理スレッドを使用しない
+    int                          nOutputThread;           //出力スレッド数
+    int                          nAudioThread;            //音声処理スレッド数
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut

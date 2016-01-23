@@ -41,13 +41,15 @@ void init_qsvp_prm(sInputParams *prm) {
     prm->ColorMatrix       = (mfxU16)list_colormatrix[0].value;
     prm->Transfer          = (mfxU16)list_transfer[0].value;
     prm->VideoFormat       = (mfxU16)list_videoformat[0].value;
-    prm->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
     prm->bRDO              = false;
 
     prm->nVQPStrength      = QSV_DEFAULT_VQP_STRENGTH;
     prm->nVQPSensitivity   = QSV_DEFAULT_VQP_SENSITIVITY;
-    prm->nPerfMonitorInterval = 200;
+    prm->nPerfMonitorInterval = 250;
     prm->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
+    prm->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
+    prm->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
+    prm->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
 
     prm->nDstWidth          = 1280;
     prm->nDstHeight         = 720;

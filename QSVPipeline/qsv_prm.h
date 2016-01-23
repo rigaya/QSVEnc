@@ -67,6 +67,9 @@ enum MemType {
     HW_MEMORY = D3D9_MEMORY | D3D11_MEMORY,
 };
 
+static const int8_t QSV_OUTPUT_THREAD_AUTO = -1;
+static const int8_t QSV_AUDIO_THREAD_AUTO = -1;
+
 typedef struct {
     mfxU16 left, up, right, bottom;
 } sInputCrop;
@@ -107,12 +110,6 @@ enum {
     QSVENC_MUX_VIDEO    = 0x01,
     QSVENC_MUX_AUDIO    = 0x02,
     QSVENC_MUX_SUBTITLE = 0x04,
-};
-
-enum {
-    QSVENC_THREAD_NONE          = 0x00,
-    QSVENC_THREAD_OUTPUT        = 0x01,
-    QSVENC_THREAD_AUDIO_PROCESS = 0x02,
 };
 
 typedef struct {
@@ -285,7 +282,7 @@ struct sInputParams
     mfxU16     nSessionThreadPriority;
 
     mfxU8      bCopyChapter;
-    mfxU8      bNoOutputThread;
+    mfxU8      __unused;
     mfxU8      nVP8Sharpness;
     mfxU8      nAudioSourceCount;
     TCHAR      **ppAudioSourceList;
@@ -300,7 +297,9 @@ struct sInputParams
     int        nPerfMonitorInterval;
     TCHAR     *pPythonPath;
     mfxU32     nBenchQuality; //ベンチマークの対象
-    mfxU8      Reserved[1100];
+    int8_t     nOutputThread;
+    int8_t     nAudioThread;
+    int8_t     Reserved[1098];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

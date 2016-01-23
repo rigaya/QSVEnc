@@ -97,6 +97,10 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
             convert_qsvstgv3_to_stgv4((CONF_GUIEX *)old_data);
         }
 
+        if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_4)) {
+            convert_qsvstgv4_to_stgv5((CONF_GUIEX *)old_data);
+        }
+
         BYTE *dst = (BYTE *)conf_buf;
         BYTE *block = NULL;
         dst += CONF_HEAD_SIZE;
@@ -129,7 +133,9 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
     fread(&conf_name, sizeof(char), CONF_NAME_BLOCK_LEN, fp);
     if (   strcmp(CONF_NAME,       conf_name)
         && strcmp(CONF_NAME_OLD_1, conf_name)
-        && strcmp(CONF_NAME_OLD_2, conf_name)) {
+        && strcmp(CONF_NAME_OLD_2, conf_name)
+        && strcmp(CONF_NAME_OLD_3, conf_name)
+        && strcmp(CONF_NAME_OLD_4, conf_name)) {
         fclose(fp);
         return CONF_ERROR_FILE_OPEN;
     }
@@ -149,6 +155,9 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
     }
     if (0 == strcmp(CONF_NAME_OLD_3, conf_name)) {
         convert_qsvstgv3_to_stgv4((CONF_GUIEX *)dat);
+    }
+    if (0 == strcmp(CONF_NAME_OLD_4, conf_name)) {
+        convert_qsvstgv4_to_stgv5((CONF_GUIEX *)dat);
     }
 
     //ブロックサイズチェック

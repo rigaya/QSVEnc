@@ -884,8 +884,6 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     m_Mux.format.pFormatCtx->oformat = m_Mux.format.pOutputFmt;
     m_Mux.format.bIsMatroska = 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "matroska");
     m_Mux.format.bIsPipe = (0 == strcmp(filename.c_str(), "-")) || filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)");
-    m_Mux.thread.bNoOutputThread = prm->bNoOutputThread;
-    m_Mux.thread.bNoAudProcessThread = prm->bNoAudProcessThread;
 
     if (m_Mux.format.bIsPipe) {
         AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
@@ -1015,6 +1013,22 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     if (!m_Mux.video.pStream) {
         return SetVideoParam(NULL, NULL);
     }
+
+    //スレッドの使用数を設定
+    if (prm->nOutputThread == QSV_OUTPUT_THREAD_AUTO) {
+        prm->nOutputThread = 1;
+    }
+    if (prm->nAudioThread == QSV_AUDIO_THREAD_AUTO) {
+        prm->nAudioThread = 0;
+        for (const auto& audioStream : m_Mux.audio) {
+            if (audioStream.pOutCodecEncodeCtx) {
+                prm->nAudioThread = 2;
+            }
+        }
+    }
+    m_Mux.thread.bEnableOutputThread     = prm->nOutputThread > 0;
+    m_Mux.thread.bEnableAudProcessThread = prm->nOutputThread > 0 && prm->nAudioThread > 0;
+    m_Mux.thread.bEnableAudEncodeThread  = prm->nOutputThread > 0 && prm->nAudioThread > 1;
     return MFX_ERR_NONE;
 }
 
@@ -1145,7 +1159,7 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
     }
 
 #if ENABLE_AVCODEC_OUT_THREAD
-    if (!m_Mux.thread.bNoOutputThread) {
+    if (m_Mux.thread.bEnableOutputThread) {
         AddMessage(QSV_LOG_DEBUG, _T("starting output thread...\n"));
         m_Mux.thread.bAbortOutput = false;
         m_Mux.thread.bThAudProcessAbort = false;
@@ -1158,13 +1172,13 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
         m_Mux.thread.heEventClosingOutput  = CreateEvent(NULL, TRUE, FALSE, NULL);
         m_Mux.thread.thOutput = std::thread(&CAvcodecWriter::WriteThreadFunc, this);
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (!m_Mux.thread.bNoAudProcessThread) {
+        if (m_Mux.thread.bEnableAudProcessThread) {
             AddMessage(QSV_LOG_DEBUG, _T("starting audio process thread...\n"));
             m_Mux.thread.qAudioPacketProcess.init(6144);
             m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.thAudProcess = std::thread(&CAvcodecWriter::ThreadFuncAudThread, this);
-            if (true) {
+            if (m_Mux.thread.bEnableAudEncodeThread) {
                 AddMessage(QSV_LOG_DEBUG, _T("starting audio encode thread...\n"));
                 m_Mux.thread.qAudioFrameEncode.init(6144);
                 m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);

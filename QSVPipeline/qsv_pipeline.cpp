@@ -1648,8 +1648,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
-        writerPrm.bNoOutputThread     = (pParams->bNoOutputThread & QSVENC_THREAD_OUTPUT) != 0;
-        writerPrm.bNoAudProcessThread = (pParams->bNoOutputThread & QSVENC_THREAD_AUDIO_PROCESS) != 0;
+        writerPrm.nOutputThread = pParams->nOutputThread;
+        writerPrm.nAudioThread  = pParams->nAudioThread;
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
@@ -1793,9 +1793,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
                 
                 AvcodecWriterPrm writerAudioPrm = { 0 };
-                writerAudioPrm.bNoOutputThread     = (pParams->bNoOutputThread & QSVENC_THREAD_OUTPUT) != 0;
-                writerAudioPrm.bNoAudProcessThread = (pParams->bNoOutputThread & QSVENC_THREAD_AUDIO_PROCESS) != 0;
-                writerAudioPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
+                writerAudioPrm.nOutputThread = pParams->nOutputThread;
+                writerAudioPrm.nAudioThread  = pParams->nAudioThread;
+                writerAudioPrm.nBufSizeMB    = pParams->nOutputBufSizeMB;
                 writerAudioPrm.pOutputFormat = pAudioSelect->pAudioExtractFormat;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 if (m_pTrimParam) {

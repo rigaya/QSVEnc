@@ -397,14 +397,21 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             );
 #if ENABLE_AVCODEC_OUT_THREAD
         _ftprintf(stdout, _T("")
-            _T("   --no-output-thread           disable output thread for less memory usage\n")
+            _T("   --output-thread <int>        set output thread num\n")
+            _T("                                 -1: auto (= default)\n")
+            _T("                                  0: disable (slow, but less memory usage)\n")
+            _T("                                  1: use one thread\n")
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-            _T("   --no-audio-thread            disable audio process thread for less memory usage\n")
+            _T("   --audio-thread <int>         set audio thread num, available only with output thread\n")
+            _T("                                 -1: auto (= default)\n")
+            _T("                                  0: disable (slow, but less memory usage)\n")
+            _T("                                  1: use one thread\n")
+            _T("                                  2: use two thread\n")
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-            _T("                                 these might cause lower performance!\n")
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
             _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
-            _T("                                 --no-output-thread -a 1 --input-buf 1 --output-buf 0\n")
+            _T("                                 same as --output-thread 0 --audio-thread 0\n")
+            _T("                                         -a 1 --input-buf 1 --output-buf 0\n")
             _T("                                 this will cause lower performance!\n")
             );
         _ftprintf(stdout,
@@ -1888,16 +1895,40 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
-        //出力スレッドを切ると音声処理スレッドも切ることになる
-        pParams->bNoOutputThread |= (QSVENC_THREAD_OUTPUT | QSVENC_THREAD_AUDIO_PROCESS);
+        pParams->nOutputThread = 0;
         return MFX_ERR_NONE;
     }
-    if (0 == _tcscmp(option_name, _T("no-audio-thread"))) {
-        pParams->bNoOutputThread |= QSVENC_THREAD_AUDIO_PROCESS;
+    if (0 == _tcscmp(option_name, _T("output-thread"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (value < -1 || value >= 2) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nOutputThread = (int8_t)value;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-thread"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (value < -1 || value >= 3) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nAudioThread = (int8_t)value;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("min-memory"))) {
-        pParams->bNoOutputThread = TRUE;
+        pParams->nOutputThread = 0;
+        pParams->nAudioThread = 0;
         pParams->nAsyncDepth = 1;
         argData->nTmpInputBuf = 1;
         pParams->nOutputBufSizeMB = 0;
@@ -2090,6 +2121,8 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
     pParams->nPerfMonitorInterval = 250;
     pParams->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
+    pParams->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
+    pParams->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;
 
     sArgsData argsData;
