@@ -401,7 +401,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 -1: auto (= default)\n")
             _T("                                  0: disable (slow, but less memory usage)\n")
             _T("                                  1: use one thread\n")
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+#if 0
             _T("   --audio-thread <int>         set audio thread num, available only with output thread\n")
             _T("                                 -1: auto (= default)\n")
             _T("                                  0: disable (slow, but less memory usage)\n")
@@ -2042,7 +2042,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelectMatplot =
                 (int)(PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
-                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_AUDP | PERF_MONITOR_THREAD_AUDE | PERF_MONITOR_THREAD_OUT
+                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
                     | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_GPU_LOAD
                     | PERF_MONITOR_FPS);
         } else {

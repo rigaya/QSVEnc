@@ -1020,11 +1020,6 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     }
     if (prm->nAudioThread == QSV_AUDIO_THREAD_AUTO) {
         prm->nAudioThread = 0;
-        for (const auto& audioStream : m_Mux.audio) {
-            if (audioStream.pOutCodecEncodeCtx) {
-                prm->nAudioThread = 2;
-            }
-        }
     }
     m_Mux.thread.bEnableOutputThread     = prm->nOutputThread > 0;
     m_Mux.thread.bEnableAudProcessThread = prm->nOutputThread > 0 && prm->nAudioThread > 0;
