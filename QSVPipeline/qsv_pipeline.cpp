@@ -2227,7 +2227,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
 
-    if (pParams->nPerfMonitorSelect) {
+    if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
         m_pPerfMonitor->SetEncStatus(m_pEncSatusInfo);
     }
 
