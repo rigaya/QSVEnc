@@ -1164,8 +1164,8 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
         m_Mux.thread.bAbortOutput = false;
         m_Mux.thread.bThAudProcessAbort = false;
         m_Mux.thread.bThAudEncodeAbort = false;
-        m_Mux.thread.qAudioPacketOut.init(8192, 256);
-        m_Mux.thread.qVideobitstream.init(4096, 256);
+        m_Mux.thread.qAudioPacketOut.init(8192, 256, 2);
+        m_Mux.thread.qVideobitstream.init(4096, 512);
         m_Mux.thread.qVideobitstreamFreeI.init(256);
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
         m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -1174,13 +1174,13 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.bEnableAudProcessThread) {
             AddMessage(QSV_LOG_DEBUG, _T("starting audio process thread...\n"));
-            m_Mux.thread.qAudioPacketProcess.init(8192, 256);
+            m_Mux.thread.qAudioPacketProcess.init(8192, 512, 4);
             m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.thAudProcess = std::thread(&CAvcodecWriter::ThreadFuncAudThread, this);
             if (m_Mux.thread.bEnableAudEncodeThread) {
                 AddMessage(QSV_LOG_DEBUG, _T("starting audio encode thread...\n"));
-                m_Mux.thread.qAudioFrameEncode.init(8192, 256);
+                m_Mux.thread.qAudioFrameEncode.init(8192, 512, 4);
                 m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
                 m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
                 m_Mux.thread.thAudEncode = std::thread(&CAvcodecWriter::ThreadFuncAudEncodeThread, this);

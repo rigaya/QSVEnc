@@ -28,7 +28,7 @@ public:
     //並列で1つの押し込みと1つの取り出しが可能なキューを作成する
     //スレッド並列対応のため、データにはパディングをつけてアライメントをとることが可能 (align_byte)
     //どこまで効果があるかは不明だが、align_byte=64としてfalse sharingを回避できる
-    CQueueSPSP() : m_pBufStart(), m_heEvent(NULL), m_pBufFin(nullptr), m_pBufIn(nullptr), m_pBufOut(nullptr), m_bUsingData(false) {
+    CQueueSPSP() : m_nPushRestartExtra(0), m_pBufStart(), m_heEvent(NULL), m_pBufFin(nullptr), m_pBufIn(nullptr), m_pBufOut(nullptr), m_bUsingData(false) {
         static_assert(std::is_pod<Type>::value == true, "CQueueSPSP is only for POD type.");
         //実際のメモリのアライメントに適切な2の倍数であるか確認する
         //そうでない場合は32をデフォルトとして使用
@@ -48,10 +48,11 @@ public:
     //キューを初期化する
     //bufSizeはキューの内部データバッファサイズ maxCapacityを超えてもかまわない
     //maxCapacityはキューに格納できる最大のデータ数
-    void init(size_t bufSize = 1024, size_t maxCapacity = SIZE_MAX) {
+    void init(size_t bufSize = 1024, size_t maxCapacity = SIZE_MAX, int nPushRestart = 1) {
         clear();
         alloc(bufSize);
         m_nMaxCapacity = maxCapacity;
+        m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)maxCapacity - 4);
     }
     //キューのデータをクリアする
     void clear() {
@@ -161,7 +162,7 @@ public:
         auto nSize = size();
         if (nSize) {
             memcpy(out, m_pBufOut++, sizeof(Type));
-            if (nSize <= m_nMaxCapacity - m_nPushRestart) {
+            if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                 SetEvent(m_heEvent);
             }
         }
@@ -175,7 +176,7 @@ public:
         auto nSize = size();
         if (nSize) {
             m_pBufOut++;
-            if (nSize <= m_nMaxCapacity - m_nPushRestart) {
+            if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                 SetEvent(m_heEvent);
             }
         }
@@ -194,7 +195,7 @@ protected:
         m_pBufOut = m_pBufStart.get();
     }
 
-    int m_nPushRestart;
+    int m_nPushRestartExtra; //キューに空きがこのぶんだけ余剰にないと空き通知を行わない (0 = ひとつあけば通知を行う)
     HANDLE m_heEvent; //キューからデータを取り出したときセットする
     int m_nMallocAlign; //メモリのアライメント
     size_t m_nMaxCapacity; //キューに詰められる有効なデータの最大数
