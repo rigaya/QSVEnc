@@ -2057,7 +2057,7 @@ mfxStatus CAvcodecWriter::ThreadFuncAudEncodeThread() {
             }
         }
         ResetEvent(m_Mux.thread.heEventPktAddedAudEncode);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, INFINITE);
+        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, 16);
     }
     {   //音声をすべてエンコード
         AVPktMuxData pktData = { 0 };
@@ -2084,7 +2084,7 @@ mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
             }
         }
         ResetEvent(m_Mux.thread.heEventPktAddedAudProcess);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, INFINITE);
+        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, 16);
     }
     {   //音声をすべて書き出す
         AVPktMuxData pktData = { 0 };
@@ -2101,7 +2101,7 @@ mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
 mfxStatus CAvcodecWriter::WriteThreadFunc() {
 #if ENABLE_AVCODEC_OUT_THREAD
     //映像と音声の同期をとる際に、それをあきらめるまでの閾値
-    const int nWaitThreshold = 64;
+    const int nWaitThreshold = 32;
     const size_t videoPacketThreshold = std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()) - nWaitThreshold;
     const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.qAudioPacketOut.capacity()) - nWaitThreshold;
     //現在のdts、"-1"は無視することを映像と音声の同期を行う必要がないことを意味する
@@ -2123,9 +2123,9 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             WriteNextPacketProcessed(pktData);
         }
     };
+    int nWaitAudio = 0;
+    int nWaitVideo = 0;
     while (!m_Mux.thread.bAbortOutput) {
-        int nWaitAudio = 0;
-        int nWaitVideo = 0;
         do {
             if (!m_Mux.format.bFileHeaderWritten) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -2152,6 +2152,7 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             //音声を無視して動画フレームの処理を開始させる
             //音声が途中までしかなかったり、途中からしかなかったりする場合にこうした処理が必要
             if (m_Mux.thread.qAudioPacketOut.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
+                nWaitAudio++;
                 if (nWaitAudio <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
                     //なのである程度連続でパケットが来ていないときのみ無視するようにする
@@ -2163,7 +2164,8 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
             //動画を無視して音声フレームの処理を開始させる
             if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.qAudioPacketOut.size() > audioPacketThreshold) {
-                if (nWaitAudio <= nWaitThreshold) {
+                nWaitVideo++;
+                if (nWaitVideo <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
                     //なのである程度連続でパケットが来ていないときのみ無視するようにする
                     //このようにすることで適切に同期がとれる
@@ -2174,7 +2176,7 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
         } while (bAudioExists || bVideoExists); //両方のキューがひとまず空になるか、映像・音声の同期待ちが必要になるまで回す
                                                 //次のフレーム・パケットが送られてくるまで待機する
         ResetEvent(m_Mux.thread.heEventPktAddedOutput);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, INFINITE);
+        WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, 16);
     }
     //メインループを抜けたことを通知する
     SetEvent(m_Mux.thread.heEventClosingOutput);

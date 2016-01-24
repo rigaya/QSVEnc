@@ -40,7 +40,6 @@ public:
                 break;
             }
         }
-        m_heEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
     }
     ~CQueueSPSP() {
         clear();
@@ -51,6 +50,7 @@ public:
     void init(size_t bufSize = 1024, size_t maxCapacity = SIZE_MAX, int nPushRestart = 1) {
         clear();
         alloc(bufSize);
+        m_heEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
         m_nMaxCapacity = maxCapacity;
         m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)maxCapacity - 4);
     }
@@ -81,7 +81,7 @@ public:
         //最初に決めた容量分までキューにデータがたまっていたら、キューに空きができるまで待機する
         while (size() >= m_nMaxCapacity) {
             ResetEvent(m_heEvent);
-            WaitForSingleObject(m_heEvent, INFINITE);
+            WaitForSingleObject(m_heEvent, 16);
         }
         if (m_pBufIn >= m_pBufFin) {
             //現時点でのm_pBufOut (この後別スレッドによって書き換わるかもしれない)
