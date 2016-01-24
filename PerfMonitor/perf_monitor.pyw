@@ -249,7 +249,10 @@ class PerfMonitor:
                     ymedian = statistics.median(data.aData)
                     perfDataYAxis.ymin = min(perfDataYAxis.ymin, ymin)
                     if perfDataYAxis.ymax < ymax or ymax * 2.0 < perfDataYAxis.ymax:
-                        perfDataYAxis.ymax = min(ymax * 1.05, ymedian * 8)
+                        perfDataYAxis.ymax = ymax * 1.05
+                        #ある程度データがたまったら、medianにより上限を制限する
+                        if len(self.aXdata) >= 60:
+                            perfDataYAxis.ymax = min(perfDataYAxis.ymax, ymedian * 8)
                         data.plot.setYRange(perfDataYAxis.ymin, perfDataYAxis.ymax, 0, False)
 
                 #更新されたデータを設定、自動的に反映される
