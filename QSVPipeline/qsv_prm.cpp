@@ -45,7 +45,7 @@ void init_qsvp_prm(sInputParams *prm) {
 
     prm->nVQPStrength      = QSV_DEFAULT_VQP_STRENGTH;
     prm->nVQPSensitivity   = QSV_DEFAULT_VQP_SENSITIVITY;
-    prm->nPerfMonitorInterval = 250;
+    prm->nPerfMonitorInterval = QSV_DEFAULT_PERF_MONITOR_INTERVAL;
     prm->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
     prm->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
     prm->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;

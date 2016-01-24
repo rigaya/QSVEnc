@@ -722,6 +722,8 @@ const int QSV_LOOKAHEAD_DEPTH_MAX = 100;
 
 const mfxI16 QSV_DEFAULT_VPP_DELOGO_DEPTH = 128;
 
+const int QSV_DEFAULT_PERF_MONITOR_INTERVAL = 500;
+
 void init_qsvp_prm(sInputParams *prm);
 
 #endif //_QSV_PRM_H_

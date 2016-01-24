@@ -2119,7 +2119,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
     pParams->vpp.delogo.nDepth = QSV_DEFAULT_VPP_DELOGO_DEPTH;
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
-    pParams->nPerfMonitorInterval = 250;
+    pParams->nPerfMonitorInterval = QSV_DEFAULT_PERF_MONITOR_INTERVAL;
     pParams->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
     pParams->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
     pParams->nAudioThread      = QSV_AUDIO_THREAD_AUTO;

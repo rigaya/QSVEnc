@@ -14,17 +14,20 @@ import pyqtgraph as pg
 import time, re, threading
 import statistics
 
+DEFAULT_INTERVAL = 500
+DEFAULT_KEEP_LENGTH = 60
+
 tColorList = (
     (255,88,88),   #桃
     (255,255,255), #白
     (88,245,88),   #薄緑
     (254,46,247),  #薄ピンク
-    (0,64,255),    #青
-    (243,247,12),  #レモン
     (0,252,255),   #水色
     (116,223,0),   #若草
     (4,180,134),   #青～緑
     (254,154,46),  #橙
+    (0,64,255),    #青
+    (243,247,12),  #レモン
     (250,0,112),   #赤～ピンク
     (200,254,46),  #黄緑
     (104,138,8),   #若草(暗)
@@ -145,6 +148,7 @@ class PerfMonitor:
                 prefData.plot.addLegend() #凡例を表示(親の軸に追加されたデータは凡例に自動的に追加される)
                 prefData.plot.showGrid(x = True, y = True) #メモリ線をグラフ内に表示
                 prefData.curve = prefData.plot.plot(x=self.aXdata, y=prefData.aData, name=prefData.sName) #データを追加
+                prefData.plot.setXRange(0, 15, update=False)
                 prefData.plot.enableAutoRange('x', 0.95) #x軸は自動追従
                 prefData.plot.getAxis('left').enableAutoSIPrefix(False) #y軸のSI接頭辞の付加を禁止
 
@@ -262,8 +266,8 @@ if __name__ == "__main__":
     import sys
     pg.mkQApp()
 
-    nInterval = 200
-    nKeepLength = 30
+    nInterval = DEFAULT_INTERVAL
+    nKeepLength = DEFAULT_KEEP_LENGTH
 
     #コマンドライン引数を受け取る
     iargc = 1
@@ -273,13 +277,13 @@ if __name__ == "__main__":
             try:
                 nInterval = int(sys.argv[iargc])
             except:
-                nInterval = 200
+                nInterval = DEFAULT_INTERVAL
         if sys.argv[iargc] == "-xrange":
             iargc += 1
             try:
                 nKeepLength = int(sys.argv[iargc])
             except:
-                nKeepLength = 30
+                nKeepLength = DEFAULT_KEEP_LENGTH
         iargc += 1
 
     monitor = PerfMonitor(nInterval, nKeepLength)
