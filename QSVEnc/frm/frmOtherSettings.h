@@ -538,7 +538,7 @@ namespace QSVEnc {
             this->fosCBPerfMonitorPlot->Name = L"fosCBPerfMonitorPlot";
             this->fosCBPerfMonitorPlot->Size = System::Drawing::Size(257, 19);
             this->fosCBPerfMonitorPlot->TabIndex = 35;
-            this->fosCBPerfMonitorPlot->Text = L"リアルタイム表示 (要 python3 + matplotlib)";
+            this->fosCBPerfMonitorPlot->Text = L"リアルタイム表示 (要 python3.4以降 + pyqtgraph)";
             this->fosCBPerfMonitorPlot->UseVisualStyleBackColor = true;
             // 
             // frmOtherSettings
