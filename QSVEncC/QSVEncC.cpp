@@ -29,6 +29,9 @@
 #include "avcodec_qsv.h"
 
 #if ENABLE_AVCODEC_QSV_READER
+extern "C" {
+#include <libavutil/channel_layout.h>
+}
 tstring getAVQSVSupportedCodecList();
 #endif
 
@@ -198,6 +201,12 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --audio-bitrate [<int>?]<int>\n")
             _T("                                set encode bitrate for audio (kbps).\n")
             _T("                                  in [<int>?], specify track number to set bitrate.\n")
+#if ENABLE_AVCODEC_QSV_READER
+            _T("   --audio-stream [<int>?][<string>[,<string>][...]]\n")
+            _T("                                set audio streams in channels.\n")
+            _T("                                  in [<int>?], specify track number to split.\n")
+            _T("                                  in <string>, set channels from source stream into each stream.\n")
+#endif //#if ENABLE_AVCODEC_QSV_READER
             _T("   --chapter-copy               copy chapter to output file.\n")
             _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
             _T("                                 these could be only used with\n")
@@ -714,11 +723,12 @@ static int writeFeatureList(tstring filename) {
 
 struct sArgsData {
     tstring cachedlevel, cachedprofile;
-    mfxU32 nParsedAudioFile;
-    mfxU32 nParsedAudioEncode;
-    mfxU32 nParsedAudioCopy;
-    mfxU32 nParsedAudioBitrate;
-    mfxU32 nTmpInputBuf;
+    uint32_t nParsedAudioFile = 0;
+    uint32_t nParsedAudioEncode = 0;
+    uint32_t nParsedAudioCopy = 0;
+    uint32_t nParsedAudioBitrate = 0;
+    uint32_t nParsedAudioSplit = 0;
+    uint32_t nTmpInputBuf = 0;
 };
 
 mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
@@ -1051,7 +1061,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             sAudioSelect *pAudioSelect = nullptr;
             int audioIdx = getAudioTrackIdx(pParams, trackId);
             if (audioIdx < 0) {
-                pAudioSelect = new sAudioSelect();
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
                 pAudioSelect->nAudioSelect = trackId;
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
@@ -1077,6 +1087,62 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
+#if ENABLE_AVCODEC_QSV_READER
+    if (0 == _tcscmp(option_name, _T("audio-stream"))) {
+        int trackId = -1;
+        const TCHAR *ptr = nullptr;
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            ptr = _tcschr(strInput[i], _T('?'));
+            if (ptr != nullptr) {
+                tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
+                ptr++;
+            } else {
+                ptr = strInput[i];
+            }
+        }
+        if (trackId < 0) {
+            trackId = argData->nParsedAudioSplit+1;
+            int idx = getAudioTrackIdx(pParams, trackId);
+            if (idx >= 0 && pParams->ppAudioSelectList[idx]->nAVAudioEncodeBitrate > 0) {
+                trackId = getFreeAudioTrack(pParams);
+            }
+        }
+        sAudioSelect *pAudioSelect = nullptr;
+        int audioIdx = getAudioTrackIdx(pParams, trackId);
+        if (audioIdx < 0) {
+            pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+            pAudioSelect->nAudioSelect = trackId;
+        } else {
+            pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+        }
+        if (ptr == nullptr) {
+            setSplitChannelAuto(pAudioSelect->pnStreamChannels);
+        } else {
+            auto streamSelectList = split(tchar_to_string(ptr), ",");
+            if (streamSelectList.size() > _countof(pAudioSelect->pnStreamChannels)) {
+                PrintHelp(strInput[0], _T("Too much streams splitted"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            for (uint32_t j = 0; j < streamSelectList.size(); j++) {
+                pAudioSelect->pnStreamChannels[j] = av_get_channel_layout(streamSelectList[j].c_str());
+            }
+        }
+        if (audioIdx < 0) {
+            audioIdx = pParams->nAudioSelectCount;
+            //新たに要素を追加
+            pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+            pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+            pParams->nAudioSelectCount++;
+        }
+        argData->nParsedAudioSplit++;
+        return MFX_ERR_NONE;
+    }
+#endif //#if ENABLE_AVCODEC_QSV_READER
     if (   0 == _tcscmp(option_name, _T("chapter-copy"))
         || 0 == _tcscmp(option_name, _T("copy-chapter"))) {
         pParams->bCopyChapter = TRUE;
@@ -2126,11 +2192,6 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;
 
     sArgsData argsData;
-    argsData.nParsedAudioBitrate = 0;
-    argsData.nParsedAudioCopy = 0;
-    argsData.nParsedAudioEncode = 0;
-    argsData.nParsedAudioFile = 0;
-    argsData.nTmpInputBuf = 0;
 
     // parse command line parameters
     for (int i = 1; i < nArgNum; i++) {

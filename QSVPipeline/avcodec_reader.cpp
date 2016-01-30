@@ -759,6 +759,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             AddMessage(QSV_LOG_DEBUG, _T("set analyzeduration: %d sec\n"), m_Demux.format.nAnalyzeSec);
         }
     }
+
     if (avformat_find_stream_info(m_Demux.format.pFormatCtx, nullptr) < 0) {
         AddMessage(QSV_LOG_ERROR, _T("error finding stream information.\n"));
         return MFX_ERR_NULL_PTR; // Couldn't find stream information
@@ -791,6 +792,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         for (int iTrack = 0; iTrack < (int)mediaStreams.size(); iTrack++) {
             const AVCodecID codecId = m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codec->codec_id;
             bool useStream = false;
+            sAudioSelect *pAudioSelect = nullptr; //トラックに対応するsAudioSelect (字幕ストリームの場合はnullptrのまま)
             if (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId)) {
                 //字幕の場合
                 for (int i = 0; !useStream && i < input_prm->nSubtitleSelectCount; i++) {
@@ -805,22 +807,45 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                     if (input_prm->ppAudioSelect[i]->nAudioSelect == 0 //特に指定なし = 全指定かどうか
                         || input_prm->ppAudioSelect[i]->nAudioSelect == (iTrack + input_prm->nAudioTrackStart)) {
                         useStream = true;
+                        pAudioSelect = input_prm->ppAudioSelect[i];
                     }
                 }
             }
             if (useStream) {
-                AVDemuxStream stream = { 0 };
-                stream.nTrackId = (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId))
-                    ? -(iTrack - m_Demux.format.nAudioTracks + 1 + input_prm->nSubtitleTrackStart) //字幕は -1, -2, -3
-                    : iTrack + input_prm->nAudioTrackStart; //音声は1, 2, 3
-                stream.nIndex = mediaStreams[iTrack];
-                stream.pCodecCtx = m_Demux.format.pFormatCtx->streams[stream.nIndex]->codec;
-                stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
-                m_Demux.stream.push_back(stream);
-                AddMessage(QSV_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d, %s, frame_size %d, timebase %d/%d\n"),
-                    get_media_type_string(codecId).c_str(),
-                    stream.nIndex, stream.nTrackId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
-                    stream.pCodecCtx->frame_size, stream.pCodecCtx->pkt_timebase.num, stream.pCodecCtx->pkt_timebase.den);
+                //存在するチャンネルまでのchannel_layoutのマスクを作成する
+                //特に引数を指定せず--audio-channel-layoutを指定したときには、
+                //pnStreamChannelsはchannelの存在しない不要なビットまで立っているのをここで修正
+                if (pAudioSelect //字幕ストリームの場合は無視
+                    && isSplitChannelAuto(pAudioSelect->pnStreamChannels)) {
+                    const uint64_t channel_layout_mask = UINT64_MAX >> (sizeof(channel_layout_mask) * 8 - m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codec->channels);
+                    for (int iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
+                        pAudioSelect->pnStreamChannels[iSubStream] &= channel_layout_mask;
+                    }
+                }
+                
+                //必要であれば、サブストリームを追加する
+                for (int iSubStream = 0; iSubStream == 0 || //初回は字幕・音声含め、かならず登録する必要がある
+                    (iSubStream < MAX_SPLIT_CHANNELS //最大サブストリームの上限
+                        && pAudioSelect != nullptr //字幕ではない
+                        && pAudioSelect->pnStreamChannels[iSubStream]); //audio-splitが指定されている
+                    iSubStream++) {
+                    AVDemuxStream stream = { 0 };
+                    stream.nTrackId = (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId))
+                        ? -(iTrack - m_Demux.format.nAudioTracks + 1 + input_prm->nSubtitleTrackStart) //字幕は -1, -2, -3
+                        : iTrack + input_prm->nAudioTrackStart; //音声は1, 2, 3
+                    stream.nIndex = mediaStreams[iTrack];
+                    stream.nSubStreamId = iSubStream;
+                    stream.pCodecCtx = m_Demux.format.pFormatCtx->streams[stream.nIndex]->codec;
+                    stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
+                    if (pAudioSelect) {
+                        memcpy(stream.pnStreamChannels, pAudioSelect->pnStreamChannels, sizeof(stream.pnStreamChannels));
+                    }
+                    m_Demux.stream.push_back(stream);
+                    AddMessage(QSV_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d\n"),
+                        get_media_type_string(codecId).c_str(),
+                        stream.nIndex, stream.nTrackId, stream.nSubStreamId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
+                        stream.pCodecCtx->frame_size, stream.pCodecCtx->pkt_timebase.num, stream.pCodecCtx->pkt_timebase.den);
+                }
             }
         }
         //指定されたすべての音声トラックが発見されたかを確認する

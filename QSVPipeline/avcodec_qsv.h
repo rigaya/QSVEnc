@@ -103,6 +103,9 @@ tstring getAVCodecs(AVQSVCodecType flag);
 //利用可能なフォーマットを表示
 tstring getAVFormats(AVQSVFormatType flag);
 
+//チャンネルレイアウトを表示
+tstring getChannelLayoutString(int channels, uint64_t channel_layout);
+
 #endif //ENABLE_AVCODEC_QSV_READER
 
 #endif //_AVCODEC_QSV_H_

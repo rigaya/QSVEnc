@@ -112,6 +112,33 @@ enum {
     QSVENC_MUX_SUBTITLE = 0x04,
 };
 
+static const uint32_t MAX_SPLIT_CHANNELS = 32;
+
+template <uint32_t size>
+static bool bSplitChannelsEnabled(uint64_t (&pnStreamChannels)[size]) {
+    bool bEnabled = false;
+    for (uint32_t i = 0; i < size; i++) {
+        bEnabled |= pnStreamChannels[i] != 0;
+    }
+    return bEnabled;
+}
+
+template <uint32_t size>
+static void setSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
+    for (uint32_t i = 0; i < size; i++) {
+        pnStreamChannels[i] = ((uint64_t)1) << i;
+    }
+}
+
+template <uint32_t size>
+static bool isSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
+    bool isAuto = true;
+    for (uint32_t i = 0; isAuto && i < size; i++) {
+        isAuto &= (pnStreamChannels[i] == (((uint64_t)1) << i));
+    }
+    return isAuto;
+}
+
 typedef struct {
     bool bEnable;             //use vpp
 
@@ -160,6 +187,7 @@ typedef struct sAudioSelect {
     int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
     TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
     TCHAR *pAudioExtractFormat; //抽出する音声ファイルのフォーマット
+    uint64_t pnStreamChannels[MAX_SPLIT_CHANNELS]; //音声のチャンネルをストリームに分離する
 } sAudioSelect;
 
 struct sInputParams

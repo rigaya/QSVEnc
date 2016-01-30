@@ -59,6 +59,7 @@ typedef struct AVMuxVideo {
 
 typedef struct AVMuxAudio {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
+    int                   nInSubStream;         //ソースファイルの入力サブストリーム番号
     AVCodecContext       *pCodecCtxIn;          //入力音声のCodecContextのコピー
     int                   nStreamIndexIn;       //入力音声のStreamのindex
     int                   nDelaySamplesOfAudio; //入力音声の遅延 (pkt_timebase基準)
@@ -73,11 +74,20 @@ typedef struct AVMuxAudio {
     bool                  bDecodeError;         //デコード処理中にエラーが発生
     bool                  bEncodeError;         //エンコード処理中にエラーが発生
     AVPacket              OutPacket;            //変換用の音声バッファ
+
+    //現在の音声のフォーマット
+    int                   nChannels;            //現在のchannel数 (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    uint64_t              nChannelLayout;       //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nSampleRate;          //現在のsampling rate (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    AVSampleFormat        sampleFmt;            //現在のSampleformat (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    
+    //resampler
     SwrContext           *pSwrContext;          //Sampleformatの変換用
     uint8_t             **pSwrBuffer;           //Sampleformatの変換用のバッファ
     uint32_t              nSwrBufferSize;       //Sampleformatの変換用のバッファのサイズ
     int                   nSwrBufferLinesize;   //Sampleformatの変換用
     AVFrame              *pDecodedFrameCache;   //デコードされたデータのキャッシュされたもの
+    uint64_t              pnStreamChannels[MAX_SPLIT_CHANNELS]; //音声のチャンネル分離
     //AACの変換用
     AVBitStreamFilterContext *pAACBsfc;         //必要なら使用するbitstreamfilter
 
@@ -270,6 +280,9 @@ private:
     mfxStatus InitVideo(const AvcodecWriterPrm *prm);
 
     //音声の初期化
+    mfxStatus InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+
+    //音声の初期化
     mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio);
 
     //字幕の初期化
@@ -283,6 +296,9 @@ private:
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVMuxAudio *getAudioPacketStreamData(const AVPacket *pkt);
+
+    //対象のパケットの必要な対象のストリーム情報へのポインタ
+    AVMuxAudio *getAudioStreamData(int nTrackId, int nSubStreamId = 0);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVMuxSub *getSubPacketStreamData(const AVPacket *pkt);
