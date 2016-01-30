@@ -88,6 +88,7 @@ typedef struct AVMuxAudio {
     uint32_t              nSwrBufferSize;       //Sampleformatの変換用のバッファのサイズ
     int                   nSwrBufferLinesize;   //Sampleformatの変換用
     AVFrame              *pDecodedFrameCache;   //デコードされたデータのキャッシュされたもの
+    int                   channelMapping[MAX_SPLIT_CHANNELS];   //resamplerで使用するチャンネル割り当て(入力チャンネルの選択)
     uint64_t              pnStreamChannels[MAX_SPLIT_CHANNELS]; //音声のチャンネル分離
     //AACの変換用
     AVBitStreamFilterContext *pAACBsfc;         //必要なら使用するbitstreamfilter

@@ -525,44 +525,33 @@ mfxStatus CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels
         if (bSplitChannelsEnabled(pMuxAudio->pnStreamChannels)
             && pMuxAudio->pOutCodecEncodeCtx->channel_layout != channel_layout
             && pMuxAudio->pOutCodecEncodeCtx->channels < channels) {
-            int ret = 0;
-            //channel_matrix[出力音声のチャンネル][入力音声のチャンネル]の行列を作成する
-            vector<double> channel_matrix(pMuxAudio->pOutCodecEncodeCtx->channels * channels, 0.0);
+            //初期化
+            for (int inChannel = 0; inChannel < _countof(pMuxAudio->channelMapping); inChannel++) {
+                pMuxAudio->channelMapping[inChannel] = -1;
+            }
             //オプションによって指定されている、入力音声から抽出するべき音声レイアウト
             const auto select_channel_layout = pMuxAudio->pnStreamChannels[pMuxAudio->nInSubStream];
-            //出力音声のチャンネルのループ
-            for (int index = 0; index < pMuxAudio->pOutCodecEncodeCtx->channels; index++) {
+            const int select_channel_count = av_get_channel_layout_nb_channels(select_channel_layout);
+            for (int inChannel = 0; inChannel < select_channel_count; inChannel++) {
                 //オプションによって指定されているチャンネルレイアウトから、抽出する音声のチャンネルを順に取得する
                 //実際には、「オプションによって指定されているチャンネルレイアウト」が入力音声に存在しない場合がある
-                auto select_channel = av_channel_layout_extract_channel(select_channel_layout, index);
+                auto select_channel = av_channel_layout_extract_channel(select_channel_layout, inChannel);
                 //対象のチャンネルのインデックスを取得する
                 auto select_channel_index = av_get_channel_layout_channel_index(pMuxAudio->pOutCodecDecodeCtx->channel_layout, select_channel);
                 if (select_channel_index < 0) {
                     //対応するチャンネルがもともとの入力音声ストリームにはない場合
-                    const auto nChannels = (std::min)(index, av_get_channel_layout_nb_channels(pMuxAudio->pOutCodecDecodeCtx->channel_layout));
+                    const auto nChannels = (std::min)(inChannel, av_get_channel_layout_nb_channels(pMuxAudio->pOutCodecDecodeCtx->channel_layout));
                     //入力音声のストリームから、抽出する音声のチャンネルを順に取得する
                     select_channel = av_channel_layout_extract_channel(pMuxAudio->pOutCodecDecodeCtx->channel_layout, nChannels);
                     //対象のチャンネルのインデックスを取得する
                     select_channel_index = av_get_channel_layout_channel_index(pMuxAudio->pOutCodecDecodeCtx->channel_layout, select_channel);
                 }
-                for (int j = 0; j < channels; j++) {
-                    channel_matrix[index * channels + j] = (j == select_channel_index) ? 1.0 : 0.0;
-                }
+                pMuxAudio->channelMapping[select_channel_index] = select_channel_index;
             }
-            if (0 > (ret = swr_set_matrix(pMuxAudio->pSwrContext, channel_matrix.data(), channels))) {
-                AddMessage(QSV_LOG_ERROR, _T("Failed to set channel matrix to the resampling context: %s\n"), qsv_av_err2str(ret).c_str());
+            int ret = swr_set_channel_mapping(pMuxAudio->pSwrContext, pMuxAudio->channelMapping);
+            if (ret < 0) {
+                AddMessage(QSV_LOG_ERROR, _T("Failed to set channel mapping to the resampling context: %s\n"), qsv_av_err2str(ret).c_str());
                 return MFX_ERR_UNKNOWN;
-            }
-            //メッセージ出力
-            if (QSV_LOG_DEBUG < m_pPrintMes->getLogLevel()) {
-                tstring str_resample_matrix = strsprintf(_T("audio resampler custom matrix for track %d.%d:\n"), pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
-                for (int index = 0; index < pMuxAudio->pOutCodecEncodeCtx->channels; index++) {
-                    for (int j = 0; j < channels; j++) {
-                        str_resample_matrix += strsprintf(_T("%7.2f"), channel_matrix[index * channels + j]);
-                    }
-                    str_resample_matrix += _T("\n");
-                }
-                AddMessage(QSV_LOG_DEBUG, str_resample_matrix.c_str());
             }
         }
 
