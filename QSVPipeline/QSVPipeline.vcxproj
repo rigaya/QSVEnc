@@ -146,6 +146,13 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
@@ -162,6 +169,13 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -181,6 +195,13 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
     <Midl>
@@ -200,6 +221,13 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -224,6 +252,13 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">
     <ClCompile>
@@ -249,6 +284,13 @@
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -275,6 +317,13 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
     <Midl>
@@ -302,6 +351,13 @@
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
+    <PreBuildEvent>
+      <Command>for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
+echo #pragma once &gt; qsv_tmp.h
+echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_tmp.h
+fc qsv_tmp.h qsv_config.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h ) &gt; nul 2&gt;&amp;1</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="avcodec_qsv.cpp" />

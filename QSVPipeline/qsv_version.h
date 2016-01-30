@@ -63,8 +63,8 @@ const char *get_qsvenc_version();
 #define ENABLE_CUSTOM_VPP         1
 #endif
 
-#else //_MSC_VER
+#endif
+
 #include "qsv_config.h"
-#endif //_MSC_VER
 
 #endif //_QSV_VERSION_H_

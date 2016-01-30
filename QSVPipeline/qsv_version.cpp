@@ -21,7 +21,7 @@ const TCHAR *get_qsvenc_version() {
 #else
         _T("QSVEncC (")
 #endif
-        BUILD_ARCH_STR _T(") ") VER_STR_FILEVERSION_TCHAR _T(" by rigaya, ")  _T(__DATE__) _T(" ") _T(__TIME__)
+        BUILD_ARCH_STR _T(") ") VER_STR_FILEVERSION_TCHAR _T(" (r") QSVENC_REV _T(") by rigaya, ")  _T(__DATE__) _T(" ") _T(__TIME__)
 #if defined(_MSC_VER)
         _T(" (VC ") _T(SSTRING(_MSC_VER))
 #elif defined(__clang__)
