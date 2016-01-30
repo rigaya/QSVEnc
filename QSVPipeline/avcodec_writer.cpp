@@ -16,6 +16,7 @@
 #include "qsv_util.h"
 #include "qsv_control.h"
 #include "avcodec_writer.h"
+#include "avcodec_qsv_log.h"
 
 #if ENABLE_AVCODEC_QSV_READER
 #if USE_CUSTOM_IO
@@ -962,6 +963,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     av_register_all();
     avcodec_register_all();
     av_log_set_level((m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
+    av_qsv_log_set(m_pPrintMes);
 
     if (prm->pOutputFormat != nullptr) {
         AddMessage(QSV_LOG_DEBUG, _T("output format specified: %s\n"), prm->pOutputFormat);

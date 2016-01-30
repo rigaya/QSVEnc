@@ -361,6 +361,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="avcodec_qsv.cpp" />
+    <ClCompile Include="avcodec_qsv_log.cpp" />
     <ClCompile Include="avcodec_reader.cpp" />
     <ClCompile Include="avcodec_writer.cpp" />
     <ClCompile Include="avi_reader.cpp" />
@@ -421,6 +422,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="avcodec_qsv.h" />
+    <ClInclude Include="avcodec_qsv_log.h" />
     <ClInclude Include="avcodec_reader.h" />
     <ClInclude Include="avcodec_writer.h" />
     <ClInclude Include="avi_reader.h" />

@@ -28,6 +28,7 @@
 #include "qsv_hw_device.h"
 #include "qsv_allocator.h"
 #include "qsv_allocator_sys.h"
+#include "avcodec_qsv_log.h"
 
 #if D3D_SURFACES_SUPPORT
 #include "qsv_hw_d3d9.h"
@@ -2615,6 +2616,9 @@ void CQSVPipeline::Close() {
 
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
+#if ENABLE_AVCODEC_QSV_READER
+    av_qsv_log_free();
+#endif //#if ENABLE_AVCODEC_QSV_READER
     PrintMes(QSV_LOG_DEBUG, _T("Closed pipeline.\n"));
     if (m_pQSVLog.get() != nullptr) {
         m_pQSVLog->writeFileFooter();

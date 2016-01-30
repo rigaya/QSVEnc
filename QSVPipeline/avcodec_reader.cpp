@@ -16,6 +16,7 @@
 #include <memory>
 #include "qsv_plugin.h"
 #include "avcodec_reader.h"
+#include "avcodec_qsv_log.h"
 
 #ifdef LIBVA_SUPPORT
 #include "qsv_hw_va.h"
@@ -719,6 +720,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
     av_register_all();
     avcodec_register_all();
     av_log_set_level((m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
+    av_qsv_log_set(m_pPrintMes);
 
     int ret = 0;
     std::string filename_char;
