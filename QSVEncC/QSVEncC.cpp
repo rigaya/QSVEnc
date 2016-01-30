@@ -201,6 +201,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --audio-bitrate [<int>?]<int>\n")
             _T("                                set encode bitrate for audio (kbps).\n")
             _T("                                  in [<int>?], specify track number to set bitrate.\n")
+            _T("   --audio-samplerate [<int>?]<int>\n")
+            _T("                                set sampling rate for audio (Hz).\n")
+            _T("                                  in [<int>?], specify track number to set sampling rate.\n")
 #if ENABLE_AVCODEC_QSV_READER
             _T("   --audio-stream [<int>?][<string>[,<string>][...]]\n")
             _T("                                set audio streams in channels.\n")
@@ -727,6 +730,7 @@ struct sArgsData {
     uint32_t nParsedAudioEncode = 0;
     uint32_t nParsedAudioCopy = 0;
     uint32_t nParsedAudioBitrate = 0;
+    uint32_t nParsedAudioSamplerate = 0;
     uint32_t nParsedAudioSplit = 0;
     uint32_t nTmpInputBuf = 0;
 };
@@ -1081,6 +1085,55 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 pParams->nAudioSelectCount++;
             }
             argData->nParsedAudioBitrate++;
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {
+        if (i+1 < nArgNum) {
+            i++;
+            const TCHAR *ptr = _tcschr(strInput[i], _T('?'));
+            int trackId = 1;
+            if (ptr == nullptr) {
+                trackId = argData->nParsedAudioSamplerate+1;
+                int idx = getAudioTrackIdx(pParams, trackId);
+                if (idx >= 0 && pParams->ppAudioSelectList[idx]->nAudioSamplingRate > 0) {
+                    trackId = getFreeAudioTrack(pParams);
+                }
+                ptr = strInput[i];
+            } else {
+                tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
+                ptr++;
+            }
+            sAudioSelect *pAudioSelect = nullptr;
+            int audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0) {
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+            int bitrate = 0;
+            if (1 != _stscanf(ptr, _T("%d"), &bitrate)) {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            pAudioSelect->nAudioSamplingRate = bitrate;
+
+            if (audioIdx < 0) {
+                audioIdx = pParams->nAudioSelectCount;
+                //新たに要素を追加
+                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                pParams->nAudioSelectCount++;
+            }
+            argData->nParsedAudioSamplerate++;
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return MFX_PRINT_OPTION_ERR;

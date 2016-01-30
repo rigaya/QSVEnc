@@ -185,6 +185,7 @@ typedef struct sAudioSelect {
     int    nAudioSelect;      //選択した音声トラックのリスト 1,2,...(1から連番で指定)
     TCHAR *pAVAudioEncodeCodec; //音声エンコードのコーデック
     int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
+    int    nAudioSamplingRate;    //サンプリング周波数
     TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
     TCHAR *pAudioExtractFormat; //抽出する音声ファイルのフォーマット
     uint64_t pnStreamChannels[MAX_SPLIT_CHANNELS]; //音声のチャンネルをストリームに分離する

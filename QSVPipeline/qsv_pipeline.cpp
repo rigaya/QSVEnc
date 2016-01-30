@@ -1704,6 +1704,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     prm.src = stream;
                     //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
                     prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
+                    prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
                     prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
                     PrintMes(QSV_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
@@ -1792,6 +1793,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 //pAudioSelect == nullptrは "copyAll" によるもの
                 prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
+                prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
                 
                 AvcodecWriterPrm writerAudioPrm = { 0 };
                 writerAudioPrm.nOutputThread = pParams->nOutputThread;

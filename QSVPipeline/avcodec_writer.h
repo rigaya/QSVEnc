@@ -171,9 +171,10 @@ typedef struct AVMux {
 } AVMux;
 
 typedef struct AVOutputStreamPrm {
-    AVDemuxStream src;          //入力音声・字幕の情報
-    const TCHAR  *pEncodeCodec; //音声をエンコードするコーデック
-    int           nBitrate;     //ビットレートの指定
+    AVDemuxStream src;           //入力音声・字幕の情報
+    const TCHAR  *pEncodeCodec;  //音声をエンコードするコーデック
+    int           nBitrate;      //ビットレートの指定
+    int           nSamplingRate; //サンプリング周波数の指定
 } AVOutputStreamPrm;
 
 typedef struct AvcodecWriterPrm {

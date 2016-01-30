@@ -677,9 +677,10 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
             auto channels = av_get_channel_layout_nb_channels(pInputAudio->src.pnStreamChannels[pInputAudio->src.nSubStreamId]);
             enc_channel_layout = av_get_default_channel_layout(channels);
         }
+        int enc_sample_rate = (pInputAudio->nSamplingRate) ? pInputAudio->nSamplingRate : pMuxAudio->pOutCodecDecodeCtx->sample_rate;
         //select samplefmt
         pMuxAudio->pOutCodecEncodeCtx->sample_fmt          = AutoSelectSampleFmt(pMuxAudio->pOutCodecEncode->sample_fmts, pMuxAudio->pOutCodecDecodeCtx);
-        pMuxAudio->pOutCodecEncodeCtx->sample_rate         = AutoSelectSamplingRate(pMuxAudio->pOutCodecEncode->supported_samplerates, pMuxAudio->pOutCodecDecodeCtx->sample_rate);
+        pMuxAudio->pOutCodecEncodeCtx->sample_rate         = AutoSelectSamplingRate(pMuxAudio->pOutCodecEncode->supported_samplerates, enc_sample_rate);
         pMuxAudio->pOutCodecEncodeCtx->channel_layout      = enc_channel_layout;
         pMuxAudio->pOutCodecEncodeCtx->channels            = av_get_channel_layout_nb_channels(pMuxAudio->pOutCodecEncodeCtx->channel_layout);
         pMuxAudio->pOutCodecEncodeCtx->bits_per_raw_sample = pMuxAudio->pOutCodecDecodeCtx->bits_per_raw_sample;
@@ -1600,7 +1601,7 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *p
         AddMessage(QSV_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return;
     }
-    AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
+    AVRational samplerate = { 1, (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx->sample_rate : pMuxAudio->pCodecCtxIn->sample_rate };
     if (samples) {
         //durationについて、sample数から出力ストリームのtimebaseに変更する
         pkt->stream_index = pMuxAudio->pStream->index;
