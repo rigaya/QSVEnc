@@ -82,6 +82,7 @@ typedef struct AVMuxAudio {
     AVSampleFormat        sampleFmt;            //現在のSampleformat (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     
     //resampler
+    int                   nAudioResampler;      //resamplerの選択
     SwrContext           *pSwrContext;          //Sampleformatの変換用
     uint8_t             **pSwrBuffer;           //Sampleformatの変換用のバッファ
     uint32_t              nSwrBufferSize;       //Sampleformatの変換用のバッファのサイズ
@@ -188,6 +189,7 @@ typedef struct AvcodecWriterPrm {
     const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
+    int                          nAudioResampler;         //音声のresamplerの選択
     int                          nBufSizeMB;              //出力バッファサイズ
     int                          nOutputThread;           //出力スレッド数
     int                          nAudioThread;            //音声処理スレッド数

@@ -204,6 +204,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --audio-samplerate [<int>?]<int>\n")
             _T("                                set sampling rate for audio (Hz).\n")
             _T("                                  in [<int>?], specify track number to set sampling rate.\n")
+            _T("   --audio-resampler <string>   set audio resampler.\n")
+            _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
 #if ENABLE_AVCODEC_QSV_READER
             _T("   --audio-stream [<int>?][<string>[,<string>][...]]\n")
             _T("                                set audio streams in channels.\n")
@@ -1136,6 +1138,19 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             argData->nParsedAudioSamplerate++;
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-resampler"))) {
+        i++;
+        mfxI32 v;
+        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_resampler, strInput[i]))) {
+            pParams->nAudioResampler = (mfxU8)v;
+        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_resampler) - 1) {
+            pParams->nAudioResampler = (mfxU8)v;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;

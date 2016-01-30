@@ -506,9 +506,12 @@ mfxStatus CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels
         av_opt_set_int       (pMuxAudio->pSwrContext, "out_channel_layout", pMuxAudio->pOutCodecEncodeCtx->channel_layout, 0);
         av_opt_set_int       (pMuxAudio->pSwrContext, "out_sample_rate",    pMuxAudio->pOutCodecEncodeCtx->sample_rate,    0);
         av_opt_set_sample_fmt(pMuxAudio->pSwrContext, "out_sample_fmt",     pMuxAudio->pOutCodecEncodeCtx->sample_fmt,     0);
-        //av_opt_set           (pMuxAudio->pSwrContext, "resampler",          "sox",                                         0);
+        if (pMuxAudio->nAudioResampler == QSV_RESAMPLER_SOXR) {
+            av_opt_set       (pMuxAudio->pSwrContext, "resampler",          "soxr",                                        0);
+        }
 
-        AddMessage(QSV_LOG_DEBUG, _T("Creating audio resampler for track %d.%d: %s, %dch [%s], %.1fkHz -> %s, %dch [%s], %.1fkHz\n"),
+        AddMessage(QSV_LOG_DEBUG, _T("Creating audio resampler [%s] for track %d.%d: %s, %dch [%s], %.1fkHz -> %s, %dch [%s], %.1fkHz\n"),
+            get_chr_from_value(list_resampler, pMuxAudio->nAudioResampler),
             pMuxAudio->nInTrackId, pMuxAudio->nInSubStream,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt)).c_str(),
             pMuxAudio->pOutCodecDecodeCtx->channels,
@@ -1062,6 +1065,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
         m_Mux.audio.resize(audioStreamCount, { 0 });
         int iAudioIdx = 0;
         for (int iStream = 0; iStream < (int)prm->inputStreamList.size(); iStream++) {
+            m_Mux.audio[iAudioIdx].nAudioResampler = prm->nAudioResampler;
             if (prm->inputStreamList[iStream].src.nTrackId > 0) {
                 //サブストリームの場合は、デコーダ情報は親ストリームのものをコピーする
                 if (prm->inputStreamList[iStream].src.nSubStreamId > 0) {

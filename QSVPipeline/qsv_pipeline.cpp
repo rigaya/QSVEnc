@@ -1654,6 +1654,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
+        writerPrm.nAudioResampler = pParams->nAudioResampler;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
@@ -1796,10 +1797,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
                 
                 AvcodecWriterPrm writerAudioPrm = { 0 };
-                writerAudioPrm.nOutputThread = pParams->nOutputThread;
-                writerAudioPrm.nAudioThread  = pParams->nAudioThread;
-                writerAudioPrm.nBufSizeMB    = pParams->nOutputBufSizeMB;
-                writerAudioPrm.pOutputFormat = pAudioSelect->pAudioExtractFormat;
+                writerAudioPrm.nOutputThread   = pParams->nOutputThread;
+                writerAudioPrm.nAudioThread    = pParams->nAudioThread;
+                writerAudioPrm.nBufSizeMB      = pParams->nOutputBufSizeMB;
+                writerAudioPrm.pOutputFormat   = pAudioSelect->pAudioExtractFormat;
+                writerAudioPrm.nAudioResampler = pParams->nAudioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 if (m_pTrimParam) {
                     writerAudioPrm.trimList = m_pTrimParam->list;

@@ -32,6 +32,11 @@ enum {
 };
 
 enum {
+    QSV_RESAMPLER_SWR,
+    QSV_RESAMPLER_SOXR,
+};
+
+enum {
     MFX_DEINTERLACE_NONE        = 0,
     MFX_DEINTERLACE_NORMAL      = 1,
     MFX_DEINTERLACE_IT          = 2, //inverse telecine, to 24fps
@@ -311,7 +316,7 @@ struct sInputParams
     mfxU16     nSessionThreadPriority;
 
     mfxU8      bCopyChapter;
-    mfxU8      __unused;
+    mfxU8      nAudioResampler;
     mfxU8      nVP8Sharpness;
     mfxU8      nAudioSourceCount;
     TCHAR      **ppAudioSourceList;
@@ -545,6 +550,12 @@ const CX_DESC list_rotate_angle[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_resampler[] = {
+    { _T("swr"),  QSV_RESAMPLER_SWR  },
+    { _T("soxr"), QSV_RESAMPLER_SOXR },
+    { NULL, 0 }
+};
+
 enum {
     QSV_AUD_ENC_NONE = -1,
     QSV_AUD_ENC_COPY = 0,
@@ -713,6 +724,12 @@ static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
         if (0 == _tcsicmp(list[i].desc, chr))
             return list[i].value;
     return PARSE_ERROR_FLAG;
+}
+static const TCHAR *get_chr_from_value(const CX_DESC *list, int v) {
+    for (int i = 0; list[i].desc; i++)
+        if (list[i].value == v)
+            return list[i].desc;
+    return _T("unknown");
 }
 
 //define defaults
