@@ -3671,7 +3671,7 @@ void CQSVLog::writeFileFooter() {
 }
 
 
-void CQSVLog::write_log(int log_level, TCHAR *buffer) {
+void CQSVLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     if (log_level < m_nLogLevel) {
         return;
     }
@@ -3739,12 +3739,14 @@ void CQSVLog::write_log(int log_level, TCHAR *buffer) {
             fclose(fp_log);
         }
     }
+    if (!file_only) {
 #ifdef UNICODE
-    if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
-        fprintf(stderr, buffer_ptr);
-    if (stderr_write_to_console) //出力先がコンソールならWCHARで
+        if (!stderr_write_to_console) //出力先がリダイレクトされるならANSIで
+            fprintf(stderr, buffer_ptr);
+        if (stderr_write_to_console) //出力先がコンソールならWCHARで
 #endif
-        qsv_print_stderr(log_level, buffer, hStdErr);
+            qsv_print_stderr(log_level, buffer, hStdErr);
+    }
 }
 
 void CQSVLog::write(int log_level, const TCHAR *format, ...) {
