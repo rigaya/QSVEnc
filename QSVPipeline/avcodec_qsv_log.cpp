@@ -21,7 +21,7 @@ static int print_prefix = 1;
 static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
     if (auto pQSVLog = g_pQSVLog.lock()) {
         const int qsv_log_level = log_level_av2qsv(level);
-        if (qsv_log_level >= pQSVLog->getLogLevel()) {
+        if (qsv_log_level >= pQSVLog->getLogLevel() && pQSVLog->logFileAvail()) {
             char mes[4096];
             av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
             pQSVLog->write_log(qsv_log_level, char_to_tstring(mes).c_str(), true);

@@ -31,6 +31,7 @@ extern "C" {
 #pragma warning (pop)
 
 #include "qsv_util.h"
+#include "qsv_prm.h"
 
 #if _DEBUG
 #define QSV_AV_LOG_LEVEL AV_LOG_WARNING
