@@ -100,11 +100,13 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     return sts;
 }
 
-void CAuoLog::write_log(int log_level, TCHAR *buffer) {
-    int len = _tcslen(buffer) + 1;
-    TCHAR *buffer_line = buffer + len;
+void CAuoLog::write_log(int log_level, const TCHAR *mes, bool file_only) {
+    int len = _tcslen(mes) + 1;
+    std::vector<TCHAR> buffer(len * 2 + 64, 0);
+    memcpy(buffer.data(), mes, sizeof(buffer[0]) * len);
+    TCHAR *buffer_line = buffer.data() + len;
     TCHAR *q = NULL;
-    for (TCHAR *p = buffer; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
+    for (TCHAR *p = buffer.data(); (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
         static const TCHAR *const LOG_STRING[] = { _T("trace"),  _T("debug"), _T("info"), _T("info"), _T("warn"), _T("error") };
         _stprintf_s(buffer_line, len + 64, "qsv [%s]: %s", LOG_STRING[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE], p);
         write_log_line(log_level, buffer_line);
