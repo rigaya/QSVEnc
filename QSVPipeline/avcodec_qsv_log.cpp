@@ -24,7 +24,7 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
         if (qsv_log_level >= pQSVLog->getLogLevel() && pQSVLog->logFileAvail()) {
             char mes[4096];
             av_log_format_line(ptr, level, fmt, vl, mes, sizeof(mes), &print_prefix);
-            pQSVLog->write_log(qsv_log_level, char_to_tstring(mes).c_str(), true);
+            pQSVLog->write_log(qsv_log_level, char_to_tstring(mes, CP_UTF8).c_str(), true);
         }
     }
     av_log_default_callback(ptr, level, fmt, vl);
