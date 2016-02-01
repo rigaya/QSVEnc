@@ -246,11 +246,14 @@ tstring getAVFormats(AVQSVFormatType flag) {
     return char_to_tstring(formatstr);
 }
 
-
-tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
+std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
     char string[1024] = { 0 };
     av_get_channel_layout_string(string, _countof(string), channels, channel_layout);
-    return char_to_tstring(string);
+    return string;
+}
+
+tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
+    return char_to_tstring(getChannelLayoutChar(channels, channel_layout));
 }
 
 #endif //ENABLE_AVCODEC_QSV_READER

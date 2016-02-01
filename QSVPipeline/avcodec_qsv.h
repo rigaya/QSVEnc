@@ -119,6 +119,7 @@ tstring getAVCodecs(AVQSVCodecType flag);
 tstring getAVFormats(AVQSVFormatType flag);
 
 //チャンネルレイアウトを表示
+std::string getChannelLayoutChar(int channels, uint64_t channel_layout);
 tstring getChannelLayoutString(int channels, uint64_t channel_layout);
 
 #endif //ENABLE_AVCODEC_QSV_READER

@@ -1378,15 +1378,23 @@ tstring CAvcodecWriter::GetWriterMes() {
     for (const auto& audioStream : m_Mux.audio) {
         if (audioStream.pStream) {
             if (iStream) {
-                mes += ", ";
+                mes += "\n";
             }
             if (audioStream.pOutCodecEncodeCtx) {
-                mes += strsprintf("(%s -> %s", audioStream.pOutCodecDecode->name, audioStream.pOutCodecEncode->name);
+                //入力情報
+                mes += strsprintf("%s, %s",
+                    audioStream.pOutCodecDecode->name,
+                    getChannelLayoutChar(audioStream.pOutCodecDecodeCtx->channels, audioStream.pOutCodecDecodeCtx->channel_layout).c_str());
+                if (audioStream.pnStreamChannelSelect[audioStream.nInSubStream] != 0) {
+                    mes += strsprintf(":%s", getChannelLayoutChar(av_get_channel_layout_nb_channels(audioStream.pnStreamChannelSelect[audioStream.nInSubStream]), audioStream.pnStreamChannelSelect[audioStream.nInSubStream]).c_str());
+                }
+                //エンコード情報
+                mes += strsprintf(" -> %s, %s, %dkbps)",
+                    audioStream.pOutCodecEncode->name,
+                    getChannelLayoutChar(audioStream.pOutCodecEncodeCtx->channels, audioStream.pOutCodecEncodeCtx->channel_layout).c_str(),
+                    audioStream.pOutCodecEncodeCtx->bit_rate / 1000);
             } else {
                 mes += strsprintf("%s", avcodec_get_name(audioStream.pStream->codec->codec_id));
-            }
-            if (audioStream.pOutCodecEncodeCtx) {
-                mes += strsprintf(", %dkbps)", audioStream.pOutCodecEncodeCtx->bit_rate / 1000);
             }
             iStream++;
         }
@@ -1394,17 +1402,28 @@ tstring CAvcodecWriter::GetWriterMes() {
     for (const auto& subtitleStream : m_Mux.sub) {
         if (subtitleStream.pStream) {
             if (iStream) {
-                mes += ", ";
+                mes += "\n";
+                iStream = 0;
             }
             mes += strsprintf("sub#%d", std::abs(subtitleStream.nInTrackId));
-            iStream++;
         }
     }
     if (m_Mux.format.pFormatCtx->nb_chapters > 0) {
+        if (iStream) {
+            mes += "\n";
+            iStream = 0;
+        }
         mes += ", chap";
+    }
+    if (iStream) {
+        mes += "\n ";
+        iStream = 0;
     }
     mes += " -> ";
     mes += m_Mux.format.pFormatCtx->oformat->name;
+    if (m_Mux.format.nOutputBufferSize) {
+        mes += strsprintf(" (%dMB buf)", m_Mux.format.nOutputBufferSize / (1024 * 1024));
+    }
     return char_to_tstring(mes.c_str());
 }
 
