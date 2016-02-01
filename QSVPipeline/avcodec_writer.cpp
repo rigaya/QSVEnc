@@ -993,30 +993,34 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
         }
         return MFX_ERR_NULL_PTR;
     }
-    m_Mux.format.pFormatCtx = avformat_alloc_context();
-    m_Mux.format.pFormatCtx->oformat = m_Mux.format.pOutputFmt;
+    int err = avformat_alloc_output_context2(&m_Mux.format.pFormatCtx, m_Mux.format.pOutputFmt, nullptr, filename.c_str());
+    if (m_Mux.format.pFormatCtx == nullptr) {
+        AddMessage(QSV_LOG_ERROR, _T("failed to allocate format context: %s.\n"), qsv_av_err2str(err).c_str());
+        return MFX_ERR_NULL_PTR;
+    }
     m_Mux.format.bIsMatroska = 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "matroska");
     m_Mux.format.bIsPipe = (0 == strcmp(filename.c_str(), "-")) || filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)");
 
-    if (m_Mux.format.bIsPipe) {
-        AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
+    if (m_Mux.format.bIsPipe || (m_Mux.format.pFormatCtx->flags & AVFMT_NEEDNUMBER)) {
+        if (m_Mux.format.bIsPipe) {
+            AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
 #if defined(_WIN32) || defined(_WIN64)
-        if (_setmode(_fileno(stdout), _O_BINARY) < 0) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to switch stdout to binary mode.\n"));
-            return MFX_ERR_UNKNOWN;
-        }
+            if (_setmode(_fileno(stdout), _O_BINARY) < 0) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to switch stdout to binary mode.\n"));
+                return MFX_ERR_UNKNOWN;
+            }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-        if (0 == strcmp(filename.c_str(), "-")) {
-            m_bOutputIsStdout = true;
-            filename = "pipe:1";
-            AddMessage(QSV_LOG_DEBUG, _T("output is set to stdout\n"));
-        } else if (m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) {
-            AddMessage(QSV_LOG_DEBUG, _T("file name is %sunc path.\n"), (PathIsUNC(strFileName)) ? _T("") : _T("not "));
-            if (PathFileExists(strFileName)) {
-                AddMessage(QSV_LOG_DEBUG, _T("file already exists and will overwrite.\n"));
+            if (0 == strcmp(filename.c_str(), "-")) {
+                m_bOutputIsStdout = true;
+                filename = "pipe:1";
+                AddMessage(QSV_LOG_DEBUG, _T("output is set to stdout\n"));
+            } else if (m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) {
+                AddMessage(QSV_LOG_DEBUG, _T("file name is %sunc path.\n"), (PathIsUNC(strFileName)) ? _T("") : _T("not "));
+                if (PathFileExists(strFileName)) {
+                    AddMessage(QSV_LOG_DEBUG, _T("file already exists and will overwrite.\n"));
+                }
             }
         }
-        int err;
         if (0 > (err = avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to avio_open2 file \"%s\": %s\n"), char_to_tstring(filename, CP_UTF8).c_str(), qsv_av_err2str(err).c_str());
             return MFX_ERR_NULL_PTR; // Couldn't open file
