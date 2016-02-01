@@ -76,20 +76,22 @@ typedef struct AVMuxAudio {
     AVPacket              OutPacket;            //変換用の音声バッファ
 
     //現在の音声のフォーマット
-    int                   nChannels;            //現在のchannel数 (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nChannels;            //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     uint64_t              nChannelLayout;       //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    int                   nSampleRate;          //現在のsampling rate (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    AVSampleFormat        sampleFmt;            //現在のSampleformat (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nSampleRate;          //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    AVSampleFormat        sampleFmt;            //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     
     //resampler
-    int                   nAudioResampler;      //resamplerの選択
+    int                   nAudioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
     SwrContext           *pSwrContext;          //Sampleformatの変換用
     uint8_t             **pSwrBuffer;           //Sampleformatの変換用のバッファ
     uint32_t              nSwrBufferSize;       //Sampleformatの変換用のバッファのサイズ
     int                   nSwrBufferLinesize;   //Sampleformatの変換用
     AVFrame              *pDecodedFrameCache;   //デコードされたデータのキャッシュされたもの
-    int                   channelMapping[MAX_SPLIT_CHANNELS];   //resamplerで使用するチャンネル割り当て(入力チャンネルの選択)
-    uint64_t              pnStreamChannels[MAX_SPLIT_CHANNELS]; //音声のチャンネル分離
+    int                   channelMapping[MAX_SPLIT_CHANNELS];        //resamplerで使用するチャンネル割り当て(入力チャンネルの選択)
+    uint64_t              pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t              pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+
     //AACの変換用
     AVBitStreamFilterContext *pAACBsfc;         //必要なら使用するbitstreamfilter
 

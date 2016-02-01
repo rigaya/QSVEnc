@@ -3720,7 +3720,7 @@ void CQSVLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
         buffer_ptr = &buffer_char[0];
     }
 #else
-    char *buffer_ptr = &buffer[0];
+    const char *buffer_ptr = &buffer[0];
     if (m_bHtml) {
         buffer_char = wstring_to_string(char_to_wstring(buffer_ptr), CP_UTF8);
         if (m_bHtml) {

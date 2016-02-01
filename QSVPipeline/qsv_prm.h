@@ -118,6 +118,7 @@ enum {
 };
 
 static const uint32_t MAX_SPLIT_CHANNELS = 32;
+static const uint64_t QSV_CHANNEL_AUTO = UINT64_MAX;
 
 template <uint32_t size>
 static bool bSplitChannelsEnabled(uint64_t (&pnStreamChannels)[size]) {
@@ -193,7 +194,8 @@ typedef struct sAudioSelect {
     int    nAudioSamplingRate;    //サンプリング周波数
     TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
     TCHAR *pAudioExtractFormat; //抽出する音声ファイルのフォーマット
-    uint64_t pnStreamChannels[MAX_SPLIT_CHANNELS]; //音声のチャンネルをストリームに分離する
+    uint64_t pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
 } sAudioSelect;
 
 struct sInputParams

@@ -522,31 +522,39 @@ mfxStatus CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels
             getChannelLayoutString(pMuxAudio->pOutCodecEncodeCtx->channels, pMuxAudio->pOutCodecEncodeCtx->channel_layout).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->sample_rate * 0.001);
 
-        if (bSplitChannelsEnabled(pMuxAudio->pnStreamChannels)
-            && pMuxAudio->pOutCodecEncodeCtx->channel_layout != channel_layout
-            && pMuxAudio->pOutCodecEncodeCtx->channels < channels) {
+        if (bSplitChannelsEnabled(pMuxAudio->pnStreamChannelSelect)
+            && pMuxAudio->pnStreamChannelSelect[pMuxAudio->nInSubStream] != channel_layout
+            && av_get_channel_layout_nb_channels(pMuxAudio->pnStreamChannelSelect[pMuxAudio->nInSubStream]) < channels) {
             //初期化
             for (int inChannel = 0; inChannel < _countof(pMuxAudio->channelMapping); inChannel++) {
                 pMuxAudio->channelMapping[inChannel] = -1;
             }
             //オプションによって指定されている、入力音声から抽出するべき音声レイアウト
-            const auto select_channel_layout = pMuxAudio->pnStreamChannels[pMuxAudio->nInSubStream];
+            const auto select_channel_layout = pMuxAudio->pnStreamChannelSelect[pMuxAudio->nInSubStream];
             const int select_channel_count = av_get_channel_layout_nb_channels(select_channel_layout);
-            for (int inChannel = 0; inChannel < select_channel_count; inChannel++) {
+            for (int inChannel = 0; inChannel < channels; inChannel++) {
                 //オプションによって指定されているチャンネルレイアウトから、抽出する音声のチャンネルを順に取得する
                 //実際には、「オプションによって指定されているチャンネルレイアウト」が入力音声に存在しない場合がある
-                auto select_channel = av_channel_layout_extract_channel(select_channel_layout, inChannel);
+                auto select_channel = av_channel_layout_extract_channel(select_channel_layout, std::min(inChannel, select_channel_count-1));
                 //対象のチャンネルのインデックスを取得する
                 auto select_channel_index = av_get_channel_layout_channel_index(pMuxAudio->pOutCodecDecodeCtx->channel_layout, select_channel);
                 if (select_channel_index < 0) {
                     //対応するチャンネルがもともとの入力音声ストリームにはない場合
-                    const auto nChannels = (std::min)(inChannel, av_get_channel_layout_nb_channels(pMuxAudio->pOutCodecDecodeCtx->channel_layout));
+                    const auto nChannels = (std::min)(inChannel, av_get_channel_layout_nb_channels(pMuxAudio->pOutCodecDecodeCtx->channel_layout)-1);
                     //入力音声のストリームから、抽出する音声のチャンネルを順に取得する
                     select_channel = av_channel_layout_extract_channel(pMuxAudio->pOutCodecDecodeCtx->channel_layout, nChannels);
                     //対象のチャンネルのインデックスを取得する
                     select_channel_index = av_get_channel_layout_channel_index(pMuxAudio->pOutCodecDecodeCtx->channel_layout, select_channel);
                 }
-                pMuxAudio->channelMapping[select_channel_index] = select_channel_index;
+                pMuxAudio->channelMapping[inChannel] = select_channel_index;
+            }
+            if (QSV_LOG_DEBUG >= m_pPrintMes->getLogLevel()) {
+                tstring channel_layout_str = strsprintf(_T("channel layout for track %d.%d:\n["), pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
+                for (int inChannel = 0; inChannel < channels; inChannel++) {
+                    channel_layout_str += strsprintf(_T("%4d"), pMuxAudio->channelMapping[inChannel]);
+                }
+                channel_layout_str += _T("]\n");
+                AddMessage(QSV_LOG_DEBUG, channel_layout_str.c_str());
             }
             int ret = swr_set_channel_mapping(pMuxAudio->pSwrContext, pMuxAudio->channelMapping);
             if (ret < 0) {
@@ -576,7 +584,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     pMuxAudio->pCodecCtxIn = avcodec_alloc_context3(NULL);
     avcodec_copy_context(pMuxAudio->pCodecCtxIn, pInputAudio->src.pCodecCtx);
     AddMessage(QSV_LOG_DEBUG, _T("start initializing audio ouput...\n"));
-    AddMessage(QSV_LOG_DEBUG, _T("output stream index %d, trackId %d, delay %d, \n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pMuxAudio->nDelaySamplesOfAudio);
+    AddMessage(QSV_LOG_DEBUG, _T("output stream index %d, trackId %d.%d, delay %d, \n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId, pMuxAudio->nDelaySamplesOfAudio);
     AddMessage(QSV_LOG_DEBUG, _T("samplerate %d, stream pkt_timebase %d/%d\n"), pMuxAudio->pCodecCtxIn->sample_rate, pMuxAudio->pCodecCtxIn->pkt_timebase.num, pMuxAudio->pCodecCtxIn->pkt_timebase.den);
 
     if (NULL == (pMuxAudio->pStream = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
@@ -587,7 +595,8 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     pMuxAudio->nInSubStream = pInputAudio->src.nSubStreamId;
     pMuxAudio->nStreamIndexIn = pInputAudio->src.nIndex;
     pMuxAudio->nLastPtsIn = AV_NOPTS_VALUE;
-    memcpy(pMuxAudio->pnStreamChannels, pInputAudio->src.pnStreamChannels, sizeof(pInputAudio->src.pnStreamChannels));
+    memcpy(pMuxAudio->pnStreamChannelSelect, pInputAudio->src.pnStreamChannelSelect, sizeof(pInputAudio->src.pnStreamChannelSelect));
+    memcpy(pMuxAudio->pnStreamChannelOut,    pInputAudio->src.pnStreamChannelOut,    sizeof(pInputAudio->src.pnStreamChannelOut));
 
     //音声がwavの場合、フォーマット変換が必要な場合がある
     AVCodecID codecId = AV_CODEC_ID_NONE;
@@ -663,18 +672,30 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
             return MFX_ERR_NULL_PTR;
         }
 
+        //チャンネル選択の自動設定を反映
+        for (int i = 0; i < _countof(pMuxAudio->pnStreamChannelSelect); i++) {
+            if (pMuxAudio->pnStreamChannelSelect[i] == QSV_CHANNEL_AUTO) {
+                pMuxAudio->pnStreamChannelSelect[i] = (pMuxAudio->pOutCodecDecodeCtx->channel_layout)
+                    ? pMuxAudio->pOutCodecDecodeCtx->channel_layout
+                    : av_get_default_channel_layout(pMuxAudio->pOutCodecDecodeCtx->channels);
+            }
+        }
+
         auto enc_channel_layout = AutoSelectChannelLayout(pMuxAudio->pOutCodecEncode->channel_layouts, pMuxAudio->pOutCodecDecodeCtx);
         //もしチャンネルの分離・変更があれば、それを反映してエンコーダの入力とする
-        if (bSplitChannelsEnabled(pInputAudio->src.pnStreamChannels)) {
-            auto channels = av_get_channel_layout_nb_channels(pInputAudio->src.pnStreamChannels[pInputAudio->src.nSubStreamId]);
-            enc_channel_layout = av_get_default_channel_layout(channels);
+        if (bSplitChannelsEnabled(pMuxAudio->pnStreamChannelOut)) {
+            enc_channel_layout = pMuxAudio->pnStreamChannelOut[pMuxAudio->nInSubStream];
+            if (enc_channel_layout == QSV_CHANNEL_AUTO) {
+                auto channels = av_get_channel_layout_nb_channels(pMuxAudio->pnStreamChannelSelect[pMuxAudio->nInSubStream]);
+                enc_channel_layout = av_get_default_channel_layout(channels);
+            }
         }
         int enc_sample_rate = (pInputAudio->nSamplingRate) ? pInputAudio->nSamplingRate : pMuxAudio->pOutCodecDecodeCtx->sample_rate;
         //select samplefmt
         pMuxAudio->pOutCodecEncodeCtx->sample_fmt          = AutoSelectSampleFmt(pMuxAudio->pOutCodecEncode->sample_fmts, pMuxAudio->pOutCodecDecodeCtx);
         pMuxAudio->pOutCodecEncodeCtx->sample_rate         = AutoSelectSamplingRate(pMuxAudio->pOutCodecEncode->supported_samplerates, enc_sample_rate);
         pMuxAudio->pOutCodecEncodeCtx->channel_layout      = enc_channel_layout;
-        pMuxAudio->pOutCodecEncodeCtx->channels            = av_get_channel_layout_nb_channels(pMuxAudio->pOutCodecEncodeCtx->channel_layout);
+        pMuxAudio->pOutCodecEncodeCtx->channels            = av_get_channel_layout_nb_channels(enc_channel_layout);
         pMuxAudio->pOutCodecEncodeCtx->bits_per_raw_sample = pMuxAudio->pOutCodecDecodeCtx->bits_per_raw_sample;
         pMuxAudio->pOutCodecEncodeCtx->pkt_timebase        = av_make_q(1, pMuxAudio->pOutCodecDecodeCtx->sample_rate);
         if (!avcodecIsCopy(pInputAudio->pEncodeCodec)) {
@@ -700,7 +721,8 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
             && pMuxAudio->pOutCodecEncodeCtx->sample_fmt  != pMuxAudio->pOutCodecDecodeCtx->sample_fmt)
             || pMuxAudio->pOutCodecEncodeCtx->sample_rate != pMuxAudio->pOutCodecDecodeCtx->sample_rate
             || pMuxAudio->pOutCodecEncodeCtx->channels    != pMuxAudio->pOutCodecDecodeCtx->channels
-            || bSplitChannelsEnabled(pMuxAudio->pnStreamChannels)) {
+            || bSplitChannelsEnabled(pMuxAudio->pnStreamChannelSelect)
+            || bSplitChannelsEnabled(pMuxAudio->pnStreamChannelOut)) {
             auto sts = InitAudioResampler(pMuxAudio,pMuxAudio->pOutCodecDecodeCtx->channels, pMuxAudio->pOutCodecDecodeCtx->channel_layout, pMuxAudio->pOutCodecDecodeCtx->sample_rate, pMuxAudio->pOutCodecDecodeCtx->sample_fmt);
             if (sts != MFX_ERR_NONE) return sts;
         }

@@ -207,10 +207,40 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --audio-resampler <string>   set audio resampler.\n")
             _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
 #if ENABLE_AVCODEC_QSV_READER
-            _T("   --audio-stream [<int>?][<string>[,<string>][...]]\n")
+            _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][...]\n")
             _T("                                set audio streams in channels.\n")
             _T("                                  in [<int>?], specify track number to split.\n")
-            _T("                                  in <string>, set channels from source stream into each stream.\n")
+            _T("                                  in <string1>, set input channels to use from source stream.\n")
+            _T("                                    if unset, all input channels will be used.\n")
+            _T("                                  in <string2>, set output channels to mix.\n")
+            _T("                                    if unset, all input channels will be copied without mixing.\n")
+            _T("                                example1: --audio-stream FL,FR\n")
+            _T("                                  splitting dual mono audio to each stream.\n")
+            _T("                                example2: --audio-stream :stereo\n")
+            _T("                                  mixing input channels to stereo.\n")
+            _T("                                example3: --audio-stream 5.1,5.1:stereo\n")
+            _T("                                  keeping 5.1ch audio and also adding downmixed stereo stream.\n")
+            _T("                                usable simbols\n")
+            _T("                                  mono       = FC\n")
+            _T("                                  stereo     = FL + FR\n")
+            _T("                                  2.1        = FL + FR + LFE\n")
+            _T("                                  3.0        = FL + FR + FC\n")
+            _T("                                  3.0(back)  = FL + FR + BC\n")
+            _T("                                  3.1        = FL + FR + FC + LFE\n")
+            _T("                                  4.0        = FL + FR + FC + BC\n")
+            _T("                                  quad       = FL + FR + BL + BR\n")
+            _T("                                  quad(side) = FL + FR + SL + SR\n")
+            _T("                                  5.0        = FL + FR + FC + SL + SR\n")
+            _T("                                  5.1        = FL + FR + FC + LFE + SL + SR\n")
+            _T("                                  6.0        = FL + FR + FC + BC + SL + SR\n")
+            _T("                                  6.0(front) = FL + FR + FLC + FRC + SL + SR\n")
+            _T("                                  hexagonal  = FL + FR + FC + BL + BR + BC\n")
+            _T("                                  6.1        = FL + FR + FC + LFE + BC + SL + SR\n")
+            _T("                                  6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR\n")
+            _T("                                  7.0        = FL + FR + FC + BL + BR + SL + SR\n")
+            _T("                                  7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
+            _T("                                  7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
+            _T("                                  7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
 #endif //#if ENABLE_AVCODEC_QSV_READER
             _T("   --chapter-copy               copy chapter to output file.\n")
             _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
@@ -1189,15 +1219,29 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pAudioSelect = pParams->ppAudioSelectList[audioIdx];
         }
         if (ptr == nullptr) {
-            setSplitChannelAuto(pAudioSelect->pnStreamChannels);
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
         } else {
             auto streamSelectList = split(tchar_to_string(ptr), ",");
-            if (streamSelectList.size() > _countof(pAudioSelect->pnStreamChannels)) {
+            if (streamSelectList.size() > _countof(pAudioSelect->pnStreamChannelSelect)) {
                 PrintHelp(strInput[0], _T("Too much streams splitted"), option_name);
                 return MFX_PRINT_OPTION_ERR;
             }
+            static const char *DELIM = ":";
             for (uint32_t j = 0; j < streamSelectList.size(); j++) {
-                pAudioSelect->pnStreamChannels[j] = av_get_channel_layout(streamSelectList[j].c_str());
+                auto selectPtr = streamSelectList[j].c_str();
+                auto selectDelimPos = strstr(selectPtr, DELIM);
+                if (selectDelimPos == nullptr) {
+                    auto channelLayout = av_get_channel_layout(selectPtr);
+                    pAudioSelect->pnStreamChannelSelect[j] = channelLayout;
+                    pAudioSelect->pnStreamChannelOut[j]    = QSV_CHANNEL_AUTO; //自動
+                } else if (selectPtr == selectDelimPos) {
+                    pAudioSelect->pnStreamChannelSelect[j] = QSV_CHANNEL_AUTO;
+                    pAudioSelect->pnStreamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
+                } else {
+                    pAudioSelect->pnStreamChannelSelect[j] = av_get_channel_layout(streamSelectList[j].substr(0, selectDelimPos - selectPtr).c_str());
+                    pAudioSelect->pnStreamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
+                }
             }
         }
         if (audioIdx < 0) {

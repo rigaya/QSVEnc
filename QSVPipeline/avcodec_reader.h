@@ -91,7 +91,8 @@ typedef struct AVDemuxStream {
     int64_t                   nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
     AVPacket                  pktSample;              //サンプル用の音声・字幕データ
     int                       nDelayOfStream;         //音声側の遅延 (pkt_timebase基準)
-    uint64_t                  pnStreamChannels[MAX_SPLIT_CHANNELS]; //音声のチャンネル分離
+    uint64_t                  pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t                  pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
 } AVDemuxStream;
 
 typedef struct AVDemuxer {

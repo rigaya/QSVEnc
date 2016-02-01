@@ -818,10 +818,13 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                 //特に引数を指定せず--audio-channel-layoutを指定したときには、
                 //pnStreamChannelsはchannelの存在しない不要なビットまで立っているのをここで修正
                 if (pAudioSelect //字幕ストリームの場合は無視
-                    && isSplitChannelAuto(pAudioSelect->pnStreamChannels)) {
+                    && isSplitChannelAuto(pAudioSelect->pnStreamChannelSelect)) {
                     const uint64_t channel_layout_mask = UINT64_MAX >> (sizeof(channel_layout_mask) * 8 - m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codec->channels);
                     for (int iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
-                        pAudioSelect->pnStreamChannels[iSubStream] &= channel_layout_mask;
+                        pAudioSelect->pnStreamChannelSelect[iSubStream] &= channel_layout_mask;
+                    }
+                    for (int iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
+                        pAudioSelect->pnStreamChannelOut[iSubStream] &= channel_layout_mask;
                     }
                 }
                 
@@ -829,7 +832,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                 for (int iSubStream = 0; iSubStream == 0 || //初回は字幕・音声含め、かならず登録する必要がある
                     (iSubStream < MAX_SPLIT_CHANNELS //最大サブストリームの上限
                         && pAudioSelect != nullptr //字幕ではない
-                        && pAudioSelect->pnStreamChannels[iSubStream]); //audio-splitが指定されている
+                        && pAudioSelect->pnStreamChannelSelect[iSubStream]); //audio-splitが指定されている
                     iSubStream++) {
                     AVDemuxStream stream = { 0 };
                     stream.nTrackId = (AVMEDIA_TYPE_SUBTITLE == avcodec_get_type(codecId))
@@ -840,7 +843,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                     stream.pCodecCtx = m_Demux.format.pFormatCtx->streams[stream.nIndex]->codec;
                     stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
                     if (pAudioSelect) {
-                        memcpy(stream.pnStreamChannels, pAudioSelect->pnStreamChannels, sizeof(stream.pnStreamChannels));
+                        memcpy(stream.pnStreamChannelSelect, pAudioSelect->pnStreamChannelSelect, sizeof(stream.pnStreamChannelSelect));
+                        memcpy(stream.pnStreamChannelOut,    pAudioSelect->pnStreamChannelOut,    sizeof(stream.pnStreamChannelOut));
                     }
                     m_Demux.stream.push_back(stream);
                     AddMessage(QSV_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d\n"),
