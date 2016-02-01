@@ -248,6 +248,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 avqsv reader and avcodec muxer.\n")
             _T("                                 below are optional,\n")
             _T("                                  in [<int>?], specify track number to copy.\n")
+            _T("   --mux-option [<string1>:<string2>]\n")
+            _T("                                set muxer option name and value.\n")
+            _T("                                 these could be only used with\n")
+            _T("                                 avqsv reader and avcodec muxer.\n")
 #endif
             _T("\n")
             _T("   --nv12                       set raw input as NV12 color format,\n")
@@ -1291,6 +1295,25 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int iTrack = 0;
         for (auto it = trackSet.begin(); it != trackSet.end(); it++, iTrack++) {
             pParams->pSubtitleSelect[iTrack] = *it;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("mux-option"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            auto ptr = _tcschr(strInput[i], ':');
+            if (ptr == nullptr) {
+                PrintHelp(strInput[0], _T("invalid value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            } else {
+                if (pParams->pMuxOpt == nullptr) {
+                    pParams->pMuxOpt = new muxOptList();
+                }
+                pParams->pMuxOpt->push_back(std::make_pair<tstring, tstring>(tstring(strInput[i]).substr(0, ptr - strInput[i]), tstring(ptr+1)));
+            }
+        } else {
+            PrintHelp(strInput[0], _T("invalid option"), option_name);
+            return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
     }

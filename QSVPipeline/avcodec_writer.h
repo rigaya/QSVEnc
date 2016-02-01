@@ -41,6 +41,7 @@ typedef struct AVMuxFormat {
     bool                  bIsMatroska;          //mkvかどうか
     bool                  bIsPipe;              //パイプ出力かどうか
     bool                  bFileHeaderWritten;   //ファイルヘッダを出力したかどうか
+    AVDictionary         *pHeaderOptions;       //ヘッダオプション
 } AVMuxFormat;
 
 typedef struct AVMuxVideo {
@@ -196,6 +197,7 @@ typedef struct AvcodecWriterPrm {
     int                          nBufSizeMB;              //出力バッファサイズ
     int                          nOutputThread;           //出力スレッド数
     int                          nAudioThread;            //音声処理スレッド数
+    muxOptList                   vMuxOpt;                 //mux時に使用するオプション
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut

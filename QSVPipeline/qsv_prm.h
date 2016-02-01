@@ -88,6 +88,8 @@ typedef struct {
     int offset;
 } sTrimParam;
 
+typedef  std::vector<std::pair<tstring, tstring>> muxOptList;
+
 static const int TRIM_MAX = INT_MAX;
 static const int TRIM_OVERREAD_FRAMES = 128;
 
@@ -335,7 +337,9 @@ struct sInputParams
     mfxU32     nBenchQuality; //ベンチマークの対象
     int8_t     nOutputThread;
     int8_t     nAudioThread;
-    int8_t     Reserved[1098];
+
+    muxOptList *pMuxOpt;
+    int8_t     Reserved[1094];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

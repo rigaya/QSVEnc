@@ -1656,6 +1656,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.nAudioResampler = pParams->nAudioResampler;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
+        if (pParams->pMuxOpt) {
+            writerPrm.vMuxOpt = *pParams->pMuxOpt;
+        }
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();

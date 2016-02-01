@@ -1139,6 +1139,16 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
         av_dict_set(&m_Mux.format.pFormatCtx->metadata, "creation_time", NULL, 0);
     }
 
+    for (const auto& muxOpt : prm->vMuxOpt) {
+        std::string optName = tchar_to_string(muxOpt.first);
+        std::string optValue = tchar_to_string(muxOpt.second);
+        if (0 > (err = av_dict_set(&m_Mux.format.pHeaderOptions, optName.c_str(), optValue.c_str(), 0))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to set mux opt: %s = %s.\n"), muxOpt.first.c_str(), muxOpt.second.c_str());
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
+        AddMessage(QSV_LOG_DEBUG, _T("set mux opt: %s = %s.\n"), muxOpt.first.c_str(), muxOpt.second.c_str());
+    }
+
     m_pEncSatusInfo = pEncSatusInfo;
     //音声のみの出力を行う場合、SetVideoParamは呼ばれないので、ここで最後まで初期化をすませてしまう
     if (!m_Mux.video.pStream) {
@@ -1236,26 +1246,25 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
     //mp4のmajor_brandをisonからmp42に変更
     //これはmetadataではなく、avformat_write_headerのoptionsに渡す
     //この差ははっきり言って謎
-    AVDictionary *avdict = NULL;
     if (m_Mux.video.pStream && 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")) {
-        av_dict_set(&avdict, "brand", "mp42", 0);
+        av_dict_set(&m_Mux.format.pHeaderOptions, "brand", "mp42", 0);
         AddMessage(QSV_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
     }
 
     //なんらかの問題があると、ここでよく死ぬ
     int ret = 0;
-    if (0 > (ret = avformat_write_header(m_Mux.format.pFormatCtx, &avdict))) {
+    if (0 > (ret = avformat_write_header(m_Mux.format.pFormatCtx, &m_Mux.format.pHeaderOptions))) {
         AddMessage(QSV_LOG_ERROR, _T("failed to write header for output file: %s\n"), qsv_av_err2str(ret).c_str());
-        if (avdict) av_dict_free(&avdict);
+        if (m_Mux.format.pHeaderOptions) av_dict_free(&m_Mux.format.pHeaderOptions);
         return MFX_ERR_UNKNOWN;
     }
     //不正なオプションを渡していないかチェック
-    for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(avdict, "", t, AV_DICT_IGNORE_SUFFIX));) {
+    for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Mux.format.pHeaderOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
         AddMessage(QSV_LOG_ERROR, _T("Unknown option to muxer: ") + char_to_tstring(t->key) + _T("\n"));
         return MFX_ERR_UNKNOWN;
     }
-    if (avdict) {
-        av_dict_free(&avdict);
+    if (m_Mux.format.pHeaderOptions) {
+        av_dict_free(&m_Mux.format.pHeaderOptions);
     }
     m_Mux.format.bFileHeaderWritten = true;
 
