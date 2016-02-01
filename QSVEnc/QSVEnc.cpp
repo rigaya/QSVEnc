@@ -61,8 +61,7 @@ OUTPUT_PLUGIN_TABLE output_plugin_table = {
 //---------------------------------------------------------------------
 //        出力プラグイン構造体のポインタを渡す関数
 //---------------------------------------------------------------------
-EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTable( void )
-{
+EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTable( void ) {
     init_SYSTEM_DATA(&g_sys_dat);
     make_file_filter(NULL, 0, g_sys_dat.exstg->s_local.default_output_ext);
     output_plugin_table.filefilter = g_auo_filefilter;
@@ -125,19 +124,16 @@ EXTERN_C OUTPUT_PLUGIN_TABLE __declspec(dllexport) * __stdcall GetOutputPluginTa
     //                        //    戻り値    : データへのポインタ
     //                        //              画像データポインタの内容は次に外部関数を使うかメインに処理を戻すまで有効
 
-BOOL func_init() 
-{
+BOOL func_init() {
     return TRUE;
 }
 
-BOOL func_exit() 
-{
+BOOL func_exit() {
     delete_SYSTEM_DATA(&g_sys_dat);
     return TRUE;
 }
 
-BOOL func_output( OUTPUT_INFO *oip ) 
-{
+BOOL func_output( OUTPUT_INFO *oip ) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     static const encode_task task[3][2] = { { video_output, audio_output }, { audio_output, video_output }, { audio_output_parallel, video_output }  };
     PRM_ENC pe = { 0 };
@@ -196,8 +192,7 @@ BOOL func_output( OUTPUT_INFO *oip )
 //C4100 : 引数は関数の本体部で 1 度も参照されません。
 #pragma warning( push )
 #pragma warning( disable: 4100 )
-BOOL func_config(HWND hwnd, HINSTANCE dll_hinst)
-{
+BOOL func_config(HWND hwnd, HINSTANCE dll_hinst) {
     init_SYSTEM_DATA(&g_sys_dat);
     overwrite_aviutl_ini_name();
     if (g_sys_dat.exstg->get_init_success())
@@ -206,18 +201,19 @@ BOOL func_config(HWND hwnd, HINSTANCE dll_hinst)
 }
 #pragma warning( pop )
 
-int func_config_get( void *data, int size )
-{
-    if (data && size == sizeof(CONF_GUIEX))
+int func_config_get( void *data, int size ) {
+    if (data && size == sizeof(CONF_GUIEX)) {
         memcpy(data, &g_conf, sizeof(g_conf));
+    }
+
     return sizeof(g_conf);
 }
 
-int func_config_set( void *data,int size )
-{
+int func_config_set( void *data,int size ) {
     init_SYSTEM_DATA(&g_sys_dat);
-    if (!g_sys_dat.exstg->get_init_success(TRUE))
+    if (!g_sys_dat.exstg->get_init_success(TRUE)) {
         return NULL;
+    }
     init_CONF_GUIEX(&g_conf, FALSE);
     return (guiEx_config::adjust_conf_size(&g_conf, data, size)) ? size : NULL;
 }

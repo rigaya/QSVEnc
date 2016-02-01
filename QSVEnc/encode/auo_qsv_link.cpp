@@ -167,15 +167,8 @@ void AUO_YUVReader::Close() {
 }
 
 mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
-#ifdef _DEBUG
-    MSDK_CHECK_POINTER(pSurface, MFX_ERR_NULL_PTR);
-    MSDK_CHECK_POINTER(m_pEncThread, MFX_ERR_NULL_PTR);
-#endif
-    int total_frames = oip->n;
+    const int total_frames = oip->n;
 
-    // check if reader is initialized
-    //MSDK_CHECK_ERROR(m_bInited, false, MFX_ERR_NOT_INITIALIZED);
-    //MSDK_CHECK_POINTER(pSurface, MFX_ERR_NULL_PTR);
     int nFrame = m_pEncSatusInfo->m_nInputFrames + pe->drop_count;
 
     if (nFrame >= total_frames) {
@@ -184,17 +177,14 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         return MFX_ERR_MORE_DATA;
     }
 
-    mfxFrameInfo* pInfo = &pSurface->Info;
-    mfxFrameData* pData = &pSurface->Data;
+    mfxFrameInfo *pInfo = &pSurface->Info;
+    mfxFrameData *pData = &pSurface->Data;
     
-    int w, h;
-    if (pInfo->CropH > 0 && pInfo->CropW > 0) 
-    {
+    int w = 0, h = 0;
+    if (pInfo->CropH > 0 && pInfo->CropW > 0) {
         w = pInfo->CropW;
         h = pInfo->CropH;
-    } 
-    else 
-    {
+    } else {
         w = pInfo->Width;
         h = pInfo->Height;
     }
