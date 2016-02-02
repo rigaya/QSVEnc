@@ -1021,9 +1021,11 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
                 }
             }
         }
-        if (0 > (err = avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to avio_open2 file \"%s\": %s\n"), char_to_tstring(filename, CP_UTF8).c_str(), qsv_av_err2str(err).c_str());
-            return MFX_ERR_NULL_PTR; // Couldn't open file
+        if (!(m_Mux.format.pFormatCtx->flags & AVFMT_NOFILE)) {
+            if (0 > (err = avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL))) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to avio_open2 file \"%s\": %s\n"), char_to_tstring(filename, CP_UTF8).c_str(), qsv_av_err2str(err).c_str());
+                return MFX_ERR_NULL_PTR; // Couldn't open file
+            }
         }
         AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\".\n"), char_to_tstring(filename, CP_UTF8).c_str());
     } else {
