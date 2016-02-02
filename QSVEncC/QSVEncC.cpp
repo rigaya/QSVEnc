@@ -2989,5 +2989,8 @@ int _tmain(int argc, TCHAR *argv[]) {
     if (0 != (ret = run(argc, argv))) {
         qsv_print_stderr(QSV_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
     }
+#if ENABLE_AVCODEC_QSV_READER
+    avformatNetworkDeinit();
+#endif //#if ENABLE_AVCODEC_QSV_READER
     return ret;
 }

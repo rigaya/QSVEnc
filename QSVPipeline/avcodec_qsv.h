@@ -131,6 +131,12 @@ tstring getAVProtocols();
 //protocolを使用
 bool usingAVProtocols(std::string filename, int bOutput);
 
+//avformatのネットワークを初期化する
+bool avformatNetworkInit();
+
+//avformatのネットワークを閉じる
+void avformatNetworkDeinit();
+
 #endif //ENABLE_AVCODEC_QSV_READER
 
 #endif //_AVCODEC_QSV_H_

@@ -326,4 +326,22 @@ bool usingAVProtocols(std::string filename, int bOutput) {
     return false;
 }
 
+static bool avformat_network_initialized = false;
+
+bool avformatNetworkInit() {
+    if (avformat_network_initialized) {
+        return false;
+    }
+    avformat_network_initialized = true;
+    avformat_network_init();
+    return true;
+}
+
+void avformatNetworkDeinit() {
+    if (avformat_network_initialized) {
+        avformat_network_initialized = false;
+        avformat_network_deinit();
+    }
+}
+
 #endif //ENABLE_AVCODEC_QSV_READER

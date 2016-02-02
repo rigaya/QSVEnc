@@ -719,6 +719,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
 
     av_register_all();
     avcodec_register_all();
+    avformatNetworkInit();
     av_log_set_level((m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
 
