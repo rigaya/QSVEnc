@@ -313,8 +313,8 @@ tstring getAVProtocols() {
     return char_to_tstring(mes);
 }
 
-bool usingAVProtocols(std::string filename) {
-    const auto protocolList = getAVProtocolList(1);
+bool usingAVProtocols(std::string filename, int bOutput) {
+    const auto protocolList = getAVProtocolList(bOutput);
     const auto pos = filename.find_first_of(':');
     if (pos != std::string::npos) {
         std::string check = filename.substr(0, pos);

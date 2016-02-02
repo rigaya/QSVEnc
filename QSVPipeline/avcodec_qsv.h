@@ -129,7 +129,7 @@ vector<std::string> getAVProtocolList(int bOutput);
 tstring getAVProtocols();
 
 //protocolを使用
-bool usingAVProtocols(std::string filename);
+bool usingAVProtocols(std::string filename, int bOutput);
 
 #endif //ENABLE_AVCODEC_QSV_READER
 
