@@ -1001,7 +1001,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     m_Mux.format.bIsMatroska = 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "matroska");
     m_Mux.format.bIsPipe = (0 == strcmp(filename.c_str(), "-")) || filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)");
 
-    if (m_Mux.format.bIsPipe || (m_Mux.format.pFormatCtx->flags & AVFMT_NEEDNUMBER)) {
+    if (m_Mux.format.bIsPipe || usingAVProtocols(filename) || (m_Mux.format.pFormatCtx->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
         if (m_Mux.format.bIsPipe) {
             AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
 #if defined(_WIN32) || defined(_WIN64)
