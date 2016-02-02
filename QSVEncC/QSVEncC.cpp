@@ -282,6 +282,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 of the output file.\n")
             _T("   --check-environment          check environment info\n")
 #if ENABLE_AVCODEC_QSV_READER
+            _T("   --check-avversion            show dll version")
             _T("   --check-codecs               show codecs available\n")
             _T("   --check-encoders             show audio encoders available\n")
             _T("   --check-decoders             show audio decoders available\n")
@@ -2450,6 +2451,11 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
             return MFX_PRINT_OPTION_DONE;
         }
 #if ENABLE_AVCODEC_QSV_READER
+        if (0 == _tcscmp(option_name, _T("check-avversion")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVVersions().c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
         if (0 == _tcscmp(option_name, _T("check-codecs")))
         {
             _ftprintf(stdout, _T("%s\n"), getAVCodecs((AVQSVCodecType)(AVQSV_CODEC_DEC | AVQSV_CODEC_ENC)).c_str());

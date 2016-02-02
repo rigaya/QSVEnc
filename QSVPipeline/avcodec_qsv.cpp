@@ -326,9 +326,29 @@ bool usingAVProtocols(std::string filename, int bOutput) {
     return false;
 }
 
+tstring getAVVersions() {
+    if (!check_avcodec_dll()) {
+        return error_mes_avcodec_dll_not_found();
+    }
+    const uint32_t ver = avutil_version();
+    auto ver2str = [](uint32_t ver) {
+        return strsprintf("%3d.%3d.%4d", (ver >> 16) & 0xff, (ver >> 8) & 0xff, ver & 0xff);
+    };
+    std::string mes;
+    mes  = std::string("ffmpeg     version: ") + std::string(av_version_info()) + "\n";
+    mes += std::string("avutil     version: ") + ver2str(avutil_version()) + "\n";
+    mes += std::string("avcodec    version: ") + ver2str(avcodec_version()) + "\n";
+    mes += std::string("avformat   version: ") + ver2str(avformat_version()) + "\n";
+    mes += std::string("swresample version: ") + ver2str(swresample_version()) + "\n";
+    return char_to_tstring(mes);
+}
+
 static bool avformat_network_initialized = false;
 
 bool avformatNetworkInit() {
+    if (!check_avcodec_dll()) {
+        return false;
+    }
     if (avformat_network_initialized) {
         return false;
     }

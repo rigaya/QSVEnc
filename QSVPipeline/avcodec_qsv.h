@@ -137,6 +137,9 @@ bool avformatNetworkInit();
 //avformatのネットワークを閉じる
 void avformatNetworkDeinit();
 
+//バージョン情報の取得
+tstring getAVVersions();
+
 #endif //ENABLE_AVCODEC_QSV_READER
 
 #endif //_AVCODEC_QSV_H_
