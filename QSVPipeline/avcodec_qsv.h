@@ -122,6 +122,12 @@ tstring getAVFormats(AVQSVFormatType flag);
 std::string getChannelLayoutChar(int channels, uint64_t channel_layout);
 tstring getChannelLayoutString(int channels, uint64_t channel_layout);
 
+//利用可能なプロトコル情報のリストを取得
+vector<std::string> getAVProtocolList(int bOutput);
+
+//利用可能なプロトコル情報を取得
+tstring getAVProtocols();
+
 #endif //ENABLE_AVCODEC_QSV_READER
 
 #endif //_AVCODEC_QSV_H_

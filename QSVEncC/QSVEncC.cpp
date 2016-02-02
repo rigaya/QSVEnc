@@ -286,6 +286,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --check-encoders             show audio encoders available\n")
             _T("   --check-decoders             show audio decoders available\n")
             _T("   --check-formats              show in/out formats available\n")
+            _T("   --check-protocols            show in/out protocols available\n")
 #endif
             ,
             (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
@@ -2462,6 +2463,11 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
         if (0 == _tcscmp(option_name, _T("check-decoders")))
         {
             _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_DEC).c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-protocols")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVProtocols().c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-formats")))

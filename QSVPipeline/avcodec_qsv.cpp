@@ -7,6 +7,7 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  ---------------------------------------------------------------------------------------
 
+#include <numeric>
 #include "qsv_version.h"
 
 #if ENABLE_AVCODEC_QSV_READER
@@ -254,6 +255,60 @@ std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
 
 tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
     return char_to_tstring(getChannelLayoutChar(channels, channel_layout));
+}
+
+vector<std::string> getAVProtocolList(int bOutput) {
+    vector<std::string> protocols;
+
+    void *opaque = nullptr;
+    const char *name = nullptr;
+    while ((name = avio_enum_protocols(&opaque, bOutput))) {
+        protocols.push_back(name);
+    }
+    return protocols;
+}
+
+tstring getAVProtocols() {
+    if (!check_avcodec_dll()) {
+        return error_mes_avcodec_dll_not_found();
+    }
+    av_register_all();
+    avcodec_register_all();
+
+    const auto inputProtocols  = getAVProtocolList(0);
+    const auto outputProtocols = getAVProtocolList(1);
+
+    auto max_len = std::accumulate(inputProtocols.begin(),  inputProtocols.end(), (size_t)0, [](const size_t max_len, const auto& str) { return (std::max)(max_len, str.length()); });
+    max_len      = std::accumulate(outputProtocols.begin(), outputProtocols.end(), max_len,  [](const size_t max_len, const auto& str) { return (std::max)(max_len, str.length()); });
+    max_len += 2;
+
+    std::string mes = "input protocols:\n";
+    size_t len = 0;
+    for (const auto& protocols : inputProtocols) {
+        mes += protocols;
+        for (auto i = protocols.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    mes += "\n\noutput protocols:\n";
+    len = 0;
+    for (const auto& protocols : outputProtocols) {
+        mes += protocols;
+        for (auto i = protocols.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    return char_to_tstring(mes);
 }
 
 #endif //ENABLE_AVCODEC_QSV_READER
