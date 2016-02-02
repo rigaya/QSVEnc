@@ -248,7 +248,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 avqsv reader and avcodec muxer.\n")
             _T("                                 below are optional,\n")
             _T("                                  in [<int>?], specify track number to copy.\n")
-            _T("   --mux-option [<string1>:<string2>]\n")
+            _T("-m,--mux-option [<string1>:<string2>]\n")
             _T("                                set muxer option name and value.\n")
             _T("                                 these could be only used with\n")
             _T("                                 avqsv reader and avcodec muxer.\n")
@@ -2364,6 +2364,9 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
                 case _T('o'):
                     option_name = _T("output-file");
                     _tcscpy_s(pParams->strDstFile, strArgument);
+                    break;
+                case _T('m'):
+                    option_name = _T("mux-option");
                     break;
                 case _T('v'):
                     option_name = _T("version");
