@@ -280,7 +280,7 @@ tstring getAVProtocols() {
 
     auto max_len = std::accumulate(inputProtocols.begin(),  inputProtocols.end(), (size_t)0, [](const size_t max_len, const auto& str) { return (std::max)(max_len, str.length()); });
     max_len      = std::accumulate(outputProtocols.begin(), outputProtocols.end(), max_len,  [](const size_t max_len, const auto& str) { return (std::max)(max_len, str.length()); });
-    max_len += 2;
+    max_len += 1;
 
     std::string mes = "input protocols:\n";
     size_t len = 0;
@@ -290,7 +290,7 @@ tstring getAVProtocols() {
             mes += " ";
         }
         len += max_len;
-        if (len >= 79) {
+        if (len >= 79 - max_len) {
             mes += "\n";
             len = 0;
         }
@@ -303,7 +303,7 @@ tstring getAVProtocols() {
             mes += " ";
         }
         len += max_len;
-        if (len >= 79) {
+        if (len >= 79 - max_len) {
             mes += "\n";
             len = 0;
         }
