@@ -250,6 +250,15 @@ tstring getAVFormats(AVQSVFormatType flag) {
 std::string getChannelLayoutChar(int channels, uint64_t channel_layout) {
     char string[1024] = { 0 };
     av_get_channel_layout_string(string, _countof(string), channels, channel_layout);
+    if (auto ptr = strstr(string, " channel")) {
+        strcpy(ptr, "ch");
+    }
+    if (auto ptr = strstr(string, "channel")) {
+        strcpy(ptr, "ch");
+    }
+    if (0 == _stricmp(string, "stereo")) {
+        return "2ch";
+    }
     return string;
 }
 
