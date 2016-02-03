@@ -1083,8 +1083,8 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
         m_Mux.audio.resize(audioStreamCount, { 0 });
         int iAudioIdx = 0;
         for (int iStream = 0; iStream < (int)prm->inputStreamList.size(); iStream++) {
-            m_Mux.audio[iAudioIdx].nAudioResampler = prm->nAudioResampler;
             if (prm->inputStreamList[iStream].src.nTrackId > 0) {
+                m_Mux.audio[iAudioIdx].nAudioResampler = prm->nAudioResampler;
                 //サブストリームの場合は、デコーダ情報は親ストリームのものをコピーする
                 if (prm->inputStreamList[iStream].src.nSubStreamId > 0) {
                     auto pAudioMuxStream = getAudioStreamData(prm->inputStreamList[iStream].src.nTrackId, 0);
