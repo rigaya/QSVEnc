@@ -1303,7 +1303,7 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
         m_Mux.thread.bThAudProcessAbort = false;
         m_Mux.thread.bThAudEncodeAbort = false;
         m_Mux.thread.qAudioPacketOut.init(8192, 256, 2);
-        m_Mux.thread.qVideobitstream.init(4096, (std::max)(64, m_Mux.video.nFPS.num * 4 / m_Mux.video.nFPS.den));
+        m_Mux.thread.qVideobitstream.init(4096, (std::max)(64, (m_Mux.video.nFPS.den) ? m_Mux.video.nFPS.num * 4 / m_Mux.video.nFPS.den : 0));
         m_Mux.thread.qVideobitstreamFreeI.init(256);
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
         m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);
