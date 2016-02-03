@@ -1385,61 +1385,58 @@ int64_t CAvcodecWriter::AdjustTimestampTrimmed(int64_t nTimeIn, AVRational times
 }
 
 tstring CAvcodecWriter::GetWriterMes() {
-    int iStream = 0;
-    std::string mes = "avcodec writer: ";
+    std::string mes = "avwriter: ";
+    int i_stream = 0;
+    auto add_mes = [&mes](std::string str) {
+        if (mes.length() - mes.find_last_of("\n") + str.length() >= 65) {
+            mes += "\n";
+        }
+        mes += str;
+    };
+
     if (m_Mux.video.pStream) {
-        mes += strsprintf("%s", avcodec_get_name(m_Mux.video.pStream->codec->codec_id), m_Mux.video.pStream->codec->width, m_Mux.video.pStream->codec->height);
-        iStream++;
+        add_mes(strsprintf("%s", avcodec_get_name(m_Mux.video.pStream->codec->codec_id), m_Mux.video.pStream->codec->width, m_Mux.video.pStream->codec->height));
+        i_stream++;
     }
     for (const auto& audioStream : m_Mux.audio) {
         if (audioStream.pStream) {
-            if (iStream) {
-                mes += "\n";
-            }
+            std::string audiostr = (i_stream) ? ", " : "";
             if (audioStream.pOutCodecEncodeCtx) {
                 //入力情報
-                mes += strsprintf("%s, %s",
+                audiostr += strsprintf("%s/%s",
                     audioStream.pOutCodecDecode->name,
                     getChannelLayoutChar(audioStream.pOutCodecDecodeCtx->channels, audioStream.pOutCodecDecodeCtx->channel_layout).c_str());
                 if (audioStream.pnStreamChannelSelect[audioStream.nInSubStream] != 0) {
-                    mes += strsprintf(":%s", getChannelLayoutChar(av_get_channel_layout_nb_channels(audioStream.pnStreamChannelSelect[audioStream.nInSubStream]), audioStream.pnStreamChannelSelect[audioStream.nInSubStream]).c_str());
+                    audiostr += strsprintf(":%s", getChannelLayoutChar(av_get_channel_layout_nb_channels(audioStream.pnStreamChannelSelect[audioStream.nInSubStream]), audioStream.pnStreamChannelSelect[audioStream.nInSubStream]).c_str());
                 }
                 //エンコード情報
-                mes += strsprintf(" -> %s, %s, %dkbps)",
+                audiostr += strsprintf(" -> %s/%s/%dkbps",
                     audioStream.pOutCodecEncode->name,
                     getChannelLayoutChar(audioStream.pOutCodecEncodeCtx->channels, audioStream.pOutCodecEncodeCtx->channel_layout).c_str(),
                     audioStream.pOutCodecEncodeCtx->bit_rate / 1000);
             } else {
-                mes += strsprintf("%s", avcodec_get_name(audioStream.pStream->codec->codec_id));
+                audiostr += strsprintf("%s", avcodec_get_name(audioStream.pStream->codec->codec_id));
             }
-            iStream++;
+            add_mes(audiostr);
+            i_stream++;
         }
     }
     for (const auto& subtitleStream : m_Mux.sub) {
         if (subtitleStream.pStream) {
-            if (iStream) {
-                mes += "\n";
-                iStream = 0;
-            }
-            mes += strsprintf("sub#%d", std::abs(subtitleStream.nInTrackId));
+            add_mes(std::string((i_stream) ? ", " : "") + strsprintf("sub#%d,", std::abs(subtitleStream.nInTrackId)));
+            i_stream++;
         }
     }
     if (m_Mux.format.pFormatCtx->nb_chapters > 0) {
-        if (iStream) {
-            mes += "\n";
-            iStream = 0;
-        }
-        mes += ", chap";
+        add_mes(std::string((i_stream) ? ", " : "") + "chap");
+        i_stream++;
     }
-    if (iStream) {
-        mes += "\n ";
-        iStream = 0;
-    }
-    mes += " -> ";
-    mes += m_Mux.format.pFormatCtx->oformat->name;
-    if (m_Mux.format.nOutputBufferSize) {
-        mes += strsprintf(" (%dMB buf)", m_Mux.format.nOutputBufferSize / (1024 * 1024));
-    }
+    std::string output = " => ";
+    output += m_Mux.format.pFormatCtx->oformat->name;
+    //if (m_Mux.format.nOutputBufferSize) {
+    //    output += strsprintf(" (%dMB buf)", m_Mux.format.nOutputBufferSize / (1024 * 1024));
+    //}
+    add_mes(output);
     return char_to_tstring(mes.c_str());
 }
 
