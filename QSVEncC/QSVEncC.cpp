@@ -206,7 +206,6 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                  in [<int>?], specify track number to set sampling rate.\n")
             _T("   --audio-resampler <string>   set audio resampler.\n")
             _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
-#if ENABLE_AVCODEC_QSV_READER
             _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][...]\n")
             _T("       set audio streams in channels.\n")
             _T("         in [<int>?], specify track number to split.\n")
@@ -241,7 +240,6 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("         7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
             _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
             _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
-#endif //#if ENABLE_AVCODEC_QSV_READER
             _T("   --chapter-copy               copy chapter to output file.\n")
             _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
             _T("                                 these could be only used with\n")
@@ -989,6 +987,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
+#if ENABLE_AVCODEC_QSV_READER
     if (   0 == _tcscmp(option_name, _T("audio-copy"))
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
         pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
@@ -1191,7 +1190,6 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
-#if ENABLE_AVCODEC_QSV_READER
     if (0 == _tcscmp(option_name, _T("audio-stream"))) {
         int trackId = -1;
         const TCHAR *ptr = nullptr;
