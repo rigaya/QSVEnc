@@ -1002,7 +1002,9 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     m_Mux.format.bIsMatroska = 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "matroska");
     m_Mux.format.bIsPipe = (0 == strcmp(filename.c_str(), "-")) || filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)");
 
+#if USE_CUSTOM_IO
     if (m_Mux.format.bIsPipe || usingAVProtocols(filename, 1) || (m_Mux.format.pFormatCtx->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
+#endif //#if USE_CUSTOM_IO
         if (m_Mux.format.bIsPipe) {
             AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
 #if defined(_WIN32) || defined(_WIN64)
@@ -1029,6 +1031,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
             }
         }
         AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\".\n"), char_to_tstring(filename, CP_UTF8).c_str());
+#if USE_CUSTOM_IO
     } else {
         m_Mux.format.nOutputBufferSize = clamp(prm->nBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
         if (m_Mux.format.nOutputBufferSize == 0) {
@@ -1067,6 +1070,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
             return MFX_ERR_NULL_PTR;
         }
     }
+#endif //#if USE_CUSTOM_IO
 
     m_Mux.trim = prm->trimList;
 
