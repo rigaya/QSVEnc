@@ -30,6 +30,8 @@ const char *get_qsvenc_version();
 
 #define D3D_SURFACES_SUPPORT 1
 
+#define MFX_D3D11_SUPPORT 1
+
 #define ENABLE_FEATURE_COP3_AND_ABOVE 1
 
 #define ENABLE_ADVANCED_DEINTERLACE 0
@@ -63,7 +65,9 @@ const char *get_qsvenc_version();
 #define ENABLE_CUSTOM_VPP         1
 #endif
 
-#endif
+#else //#if defined(WIN32) || defined(WIN64)
+#define MFX_D3D11_SUPPORT 0
+#endif // #if defined(WIN32) || defined(WIN64)
 
 #include "qsv_config.h"
 
