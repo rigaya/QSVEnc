@@ -99,6 +99,27 @@ std::string tchar_to_string(const tstring& tstr, uint32_t codepage) {
     return str;
 }
 
+unsigned int wstring_to_tstring(const WCHAR *wstr, tstring& tstr, uint32_t codepage) {
+#if UNICODE
+    tstr = std::wstring(wstr);
+#else
+    return wstring_to_string(wstr, tstr, codepage);
+#endif
+    return (unsigned int)tstr.length();
+}
+
+tstring wstring_to_tstring(const WCHAR *wstr, uint32_t codepage) {
+    tstring tstr;
+    wstring_to_tstring(wstr, tstr, codepage);
+    return tstr;
+}
+
+tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage) {
+    tstring tstr;
+    wstring_to_tstring(wstr.c_str(), tstr, codepage);
+    return tstr;
+}
+
 #if defined(_WIN32) || defined(_WIN64)
 unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
     int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
