@@ -100,6 +100,8 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     return sts;
 }
 
+#pragma warning(push)
+#pragma warning(disable:4100)
 void CAuoLog::write_log(int log_level, const TCHAR *mes, bool file_only) {
     int len = _tcslen(mes) + 1;
     std::vector<TCHAR> buffer(len * 2 + 64, 0);
@@ -113,6 +115,7 @@ void CAuoLog::write_log(int log_level, const TCHAR *mes, bool file_only) {
         p = NULL;
     }
 }
+#pragma warning(pop)
 
 void CAuoLog::write(int log_level, const TCHAR *format, ... ) {
     if (log_level < m_nLogLevel) {
@@ -131,4 +134,3 @@ void CAuoLog::write(int log_level, const TCHAR *format, ... ) {
     free(buffer);
 }
 
-#pragma warning( pop )
