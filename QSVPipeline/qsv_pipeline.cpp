@@ -661,6 +661,11 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
+    } else if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP9) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1)) {
+            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
     }
 
     if (MFX_CODEC_JPEG == pInParams->CodecId) {
@@ -1670,7 +1675,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         pParams->nAVMux &= ~QSVENC_MUX_VIDEO;
     }
     if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
-        if (pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_VP8) {
+        if (pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
             PrintMes(QSV_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
             return MFX_ERR_UNSUPPORTED;
         }

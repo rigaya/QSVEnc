@@ -34,6 +34,7 @@
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "qsv_plugin.h"
+#include "qsv_osdep.h"
 #include "ram_speed.h"
 
 #ifdef LIBVA_SUPPORT
@@ -732,6 +733,11 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         videoPrm.mfx.CodecLevel          = MFX_LEVEL_HEVC_4;
         videoPrm.mfx.CodecProfile        = MFX_PROFILE_HEVC_MAIN;
         break;
+    case MFX_CODEC_VP8:
+        break;
+    case MFX_CODEC_VP9:
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_VP9_0;
+        break;
     default:
     case MFX_CODEC_AVC:
         videoPrm.mfx.CodecLevel          = MFX_LEVEL_AVC_41;
@@ -1043,6 +1049,8 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
             sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1);
         } else if (codecId == MFX_CODEC_VP8) {
             sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1);
+        } else if (codecId == MFX_CODEC_VP9) {
+            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
         }
         feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol, codecId) : 0x00;
         
@@ -1113,7 +1121,7 @@ tstring MakeFeatureListStr(mfxU64 feature) {
 }
 
 tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
-    const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8 };
+    const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8, MFX_CODEC_VP9 };
     auto featurePerCodec = MakeFeatureListPerCodec(hardware, make_vector(list_rate_control_ry), codecLists);
     
     tstring str;

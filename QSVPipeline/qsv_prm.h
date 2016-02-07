@@ -16,11 +16,7 @@
 #include "qsv_util.h"
 #include "mfxcommon.h"
 #include "mfxvp8.h"
-
-enum {
-    CODEC_VP8 = MFX_MAKEFOURCC('V','P','8',' '),
-    CODEC_MVC = MFX_MAKEFOURCC('M','V','C',' '),
-};
+#include "mfxvp9.h"
 
 enum {
     QSV_LOG_TRACE = -3,
