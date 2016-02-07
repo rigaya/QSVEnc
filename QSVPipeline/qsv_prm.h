@@ -339,7 +339,8 @@ struct sInputParams
     int8_t     nAudioThread;
 
     muxOptList *pMuxOpt;
-    int8_t     Reserved[1094];
+    TCHAR     *pChapterFile;
+    int8_t     Reserved[1090];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

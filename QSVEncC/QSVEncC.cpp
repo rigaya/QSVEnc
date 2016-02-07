@@ -241,6 +241,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
             _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
             _T("   --chapter-copy               copy chapter to output file.\n")
+            _T("   --chapter <string>           set chapter from file specified.\n")
             _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
             _T("                                 these could be only used with\n")
             _T("                                 avqsv reader and avcodec muxer.\n")
@@ -1262,6 +1263,16 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (   0 == _tcscmp(option_name, _T("chapter-copy"))
         || 0 == _tcscmp(option_name, _T("copy-chapter"))) {
         pParams->bCopyChapter = TRUE;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("chapter"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            pParams->pChapterFile = alloc_str(strInput[i]);
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
         return MFX_ERR_NONE;
     }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
@@ -2577,6 +2588,11 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     //don't use d3d memory with software encoding
     if (!pParams->bUseHWLib) {
         pParams->memType = SYSTEM_MEMORY;
+    }
+
+    if (pParams->pChapterFile && pParams->bCopyChapter) {
+        PrintHelp(strInput[0], _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time."), NULL);
+        return MFX_PRINT_OPTION_ERR;
     }
 
     //set input buffer size

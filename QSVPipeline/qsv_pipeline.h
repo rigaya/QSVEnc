@@ -45,6 +45,8 @@
 #include <string>
 #include <iostream>
 
+struct AVChapter;
+
 enum {
     MFX_PRM_EX_SCENE_CHANGE = 0x01,
     MFX_PRM_EX_VQP          = 0x02,
@@ -148,6 +150,7 @@ protected:
     mfxExtVPPImageStab m_ExtImageStab;
     vector<mfxU32> m_VppDoNotUseList;
     vector<mfxU32> m_VppDoUseList;
+    vector<unique_ptr<AVChapter>> m_AVChapterFromFile;
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;
     unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;
@@ -183,6 +186,8 @@ protected:
     virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);
     //virtual void InitVppExtParam();
     virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
+
+    virtual mfxStatus readChapterFile(tstring chapfile);
 
     virtual mfxStatus AllocAndInitVppDoNotUse();
     virtual void FreeVppDoNotUse();

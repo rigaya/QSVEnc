@@ -29,6 +29,7 @@
 #include "qsv_allocator.h"
 #include "qsv_allocator_sys.h"
 #include "avcodec_qsv_log.h"
+#include "chapter_rw.h"
 
 #if D3D_SURFACES_SUPPORT
 #include "qsv_hw_d3d9.h"
@@ -1622,6 +1623,37 @@ void CQSVPipeline::SetAbortFlagPointer(bool *abortFlag) {
     m_pAbortByUser = abortFlag;
 }
 
+mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
+    ChapterRW chapter;
+    auto err = chapter.read_file(chapfile.c_str(), CODE_PAGE_UNSET, 0.0);
+    if (err != AUO_CHAP_ERR_NONE) {
+        PrintMes(QSV_LOG_ERROR, _T("failed to %s chapter file: \"%s\".\n"), (err == AUO_CHAP_ERR_FILE_OPEN) ? _T("open") : _T("read"), chapfile.c_str());
+        return MFX_ERR_UNKNOWN;
+    }
+    if (chapter.chapterlist().size() == 0) {
+        PrintMes(QSV_LOG_ERROR, _T("no chapter found from chapter file: \"%s\".\n"), chapfile.c_str());
+        return MFX_ERR_UNKNOWN;
+    }
+    m_AVChapterFromFile.clear();
+    const auto& chapter_list = chapter.chapterlist();
+    tstring chap_log;
+    for (int i = 0; i < chapter_list.size(); i++) {
+        unique_ptr<AVChapter> avchap(new AVChapter);
+        avchap->time_base = av_make_q(1, 1000);
+        avchap->start = chapter_list[i]->get_ms();
+        avchap->end = (i < chapter_list.size()-1) ? chapter_list[i+1]->get_ms() : avchap->start + 1;
+        avchap->id = (int)m_AVChapterFromFile.size();
+        avchap->metadata = nullptr;
+        av_dict_set(&avchap->metadata, "title", wstring_to_string(chapter_list[i]->name, CP_UTF8).c_str(), 0);
+        chap_log += strsprintf(_T("chapter #%02d [%d.%02d.%02d.%03d]: %s.\n"),
+            avchap->id, chapter_list[i]->h, chapter_list[i]->m, chapter_list[i]->s, chapter_list[i]->ms,
+            wstring_to_tstring(chapter_list[i]->name).c_str());
+        m_AVChapterFromFile.push_back(std::move(avchap));
+    }
+    PrintMes(QSV_LOG_DEBUG, _T("%s"), chap_log.c_str());
+    return MFX_ERR_NONE;
+}
+
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
     bool stdoutUsed = false;
@@ -1662,7 +1694,19 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
-            writerPrm.chapterList = pAVCodecReader->GetChapterList();
+            if (pParams->pChapterFile) {
+                //チャプターファイルを読み込む
+                if (MFX_ERR_NONE != readChapterFile(pParams->pChapterFile)) {
+                    return MFX_ERR_UNKNOWN;
+                }
+                writerPrm.chapterList.clear();
+                for (uint32_t i = 0; i < m_AVChapterFromFile.size(); i++) {
+                    writerPrm.chapterList.push_back(m_AVChapterFromFile[i].get());
+                }
+            } else {
+                //入力ファイルのチャプターをコピーする
+                writerPrm.chapterList = pAVCodecReader->GetChapterList();
+            }
             writerPrm.nVideoInputFirstPts = pAVCodecReader->GetVideoFirstPts();
             writerPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
         }

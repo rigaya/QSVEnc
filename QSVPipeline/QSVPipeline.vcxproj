@@ -134,7 +134,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -157,7 +157,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -183,7 +183,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -209,7 +209,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -238,7 +238,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -269,7 +269,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -304,7 +304,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -337,7 +337,7 @@ if not %errorlevel% == 0 ( move /y qsv_tmp.h qsv_config.h ) else ( del qsv_tmp.h
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>

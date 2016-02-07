@@ -146,7 +146,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -183,7 +183,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -223,7 +223,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -264,7 +264,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -307,7 +307,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -354,7 +354,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -404,7 +404,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -454,7 +454,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -497,6 +497,9 @@
     <ClCompile Include="QSVEncC.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ChapterRW\ChapterRW.vcxproj">
+      <Project>{6a9832b8-fe45-415c-a162-7d07e5e4fa2b}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\QSVPipeline\QSVPipeline.vcxproj">
       <Project>{a63ce263-8735-4405-8860-011a12a80def}</Project>
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
@@ -510,6 +513,9 @@
     </ProjectReference>
     <ProjectReference Include="..\QSVPlugins\rotate\rotate.vcxproj">
       <Project>{d5ccf0c0-32f6-4777-aa6c-6a249016db26}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\tinyxml2\tinyxml2.vcxproj">
+      <Project>{a34ca86d-6c2b-482f-984e-2687459e65e9}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
