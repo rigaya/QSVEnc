@@ -1642,7 +1642,7 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
     m_AVChapterFromFile.clear();
     const auto& chapter_list = chapter.chapterlist();
     tstring chap_log;
-    for (int i = 0; i < chapter_list.size(); i++) {
+    for (size_t i = 0; i < chapter_list.size(); i++) {
         unique_ptr<AVChapter> avchap(new AVChapter);
         avchap->time_base = av_make_q(1, 1000);
         avchap->start = chapter_list[i]->get_ms();
