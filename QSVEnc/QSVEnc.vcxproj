@@ -1070,6 +1070,9 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ChapterRW\ChapterRW.vcxproj">
+      <Project>{6a9832b8-fe45-415c-a162-7d07e5e4fa2b}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\mfx_dispatch\libmfx.vcxproj">
       <Project>{9e7b3527-11aa-46ba-a82f-c58761f9b56f}</Project>
     </ProjectReference>
@@ -1086,6 +1089,9 @@
     </ProjectReference>
     <ProjectReference Include="..\QSVPlugins\rotate\rotate.vcxproj">
       <Project>{d5ccf0c0-32f6-4777-aa6c-6a249016db26}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\tinyxml2\tinyxml2.vcxproj">
+      <Project>{a34ca86d-6c2b-482f-984e-2687459e65e9}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
