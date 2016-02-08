@@ -1003,7 +1003,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     m_Mux.format.bIsPipe = (0 == strcmp(filename.c_str(), "-")) || filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)");
 
 #if USE_CUSTOM_IO
-    if (m_Mux.format.bIsPipe || usingAVProtocols(filename, 1) || (m_Mux.format.pFormatCtx->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
+    if (m_Mux.format.bIsPipe || usingAVProtocols(filename, 1) || (m_Mux.format.pFormatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
 #endif //#if USE_CUSTOM_IO
         if (m_Mux.format.bIsPipe) {
             AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
@@ -1024,7 +1024,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
                 }
             }
         }
-        if (!(m_Mux.format.pFormatCtx->flags & AVFMT_NOFILE)) {
+        if (!(m_Mux.format.pFormatCtx->oformat->flags & AVFMT_NOFILE)) {
             if (0 > (err = avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL))) {
                 AddMessage(QSV_LOG_ERROR, _T("failed to avio_open2 file \"%s\": %s\n"), char_to_tstring(filename, CP_UTF8).c_str(), qsv_av_err2str(err).c_str());
                 return MFX_ERR_NULL_PTR; // Couldn't open file
