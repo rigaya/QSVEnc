@@ -270,7 +270,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #if !(defined(_WIN32) || defined(_WIN64))
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_MAIN);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_ENC);
-    m_nSelectCheck &= (~PERF_MONITOR_THREAD_AUD);
+    m_nSelectCheck &= (~PERF_MONITOR_THREAD_AUDP);
+    m_nSelectCheck &= (~PERF_MONITOR_THREAD_AUDE);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_OUT);
     m_nSelectOutputPlot = 0;
 #endif //#if defined(_WIN32) || defined(_WIN64)
