@@ -972,7 +972,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             }
 
             mfxStatus hwSts = MFX_ERR_NONE;
-            if (MFX_ERR_NONE != (hwSts = phwDevice->Init(nullptr, GetAdapterID(session)))) {
+            if (MFX_ERR_NONE != (hwSts = phwDevice->Init(nullptr, GetAdapterID(session), m_pPrintMes))) {
                 AddMessage(QSV_LOG_ERROR, _T("failed to initialize hw device.\n"));
                 return hwSts;
             }

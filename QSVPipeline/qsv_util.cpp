@@ -1036,7 +1036,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
                 // provide device manager to MediaSDK
                 mfxHDL hdl = NULL;
                 if (phwDevice.get() != nullptr
-                   && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, GetAdapterID(session)))
+                   && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, GetAdapterID(session), nullptr))
                    && MFX_ERR_NONE != (ret = phwDevice->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl))) {
                     ret = MFXVideoCORE_SetHandle(session, MFX_HANDLE_VA_DISPLAY, hdl);
                 }
