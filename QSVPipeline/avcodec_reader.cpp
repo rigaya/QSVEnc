@@ -821,16 +821,16 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                 if (pAudioSelect //字幕ストリームの場合は無視
                     && isSplitChannelAuto(pAudioSelect->pnStreamChannelSelect)) {
                     const uint64_t channel_layout_mask = UINT64_MAX >> (sizeof(channel_layout_mask) * 8 - m_Demux.format.pFormatCtx->streams[mediaStreams[iTrack]]->codec->channels);
-                    for (int iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
+                    for (uint32_t iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
                         pAudioSelect->pnStreamChannelSelect[iSubStream] &= channel_layout_mask;
                     }
-                    for (int iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
+                    for (uint32_t iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
                         pAudioSelect->pnStreamChannelOut[iSubStream] &= channel_layout_mask;
                     }
                 }
                 
                 //必要であれば、サブストリームを追加する
-                for (int iSubStream = 0; iSubStream == 0 || //初回は字幕・音声含め、かならず登録する必要がある
+                for (uint32_t iSubStream = 0; iSubStream == 0 || //初回は字幕・音声含め、かならず登録する必要がある
                     (iSubStream < MAX_SPLIT_CHANNELS //最大サブストリームの上限
                         && pAudioSelect != nullptr //字幕ではない
                         && pAudioSelect->pnStreamChannelSelect[iSubStream]); //audio-splitが指定されている
