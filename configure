@@ -537,6 +537,8 @@ for src in $SRC_QSVENCC; do
     SRCS="$SRCS QSVEncC/$src"
 done
 
+QSVENC_REV=`git rev-list HEAD | wc --lines`
+
 echo ""
 echo "Creating config.mak, qsv_config.h..."
 echo "SRCS = $SRCS" >> config.mak
@@ -553,6 +555,7 @@ write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
+write_qsv_config "#define QSVENC_REV                  \"$QSVENC_REV\""
 write_qsv_config "#define ENABLE_AVI_READER             0"
 write_qsv_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_qsv_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
