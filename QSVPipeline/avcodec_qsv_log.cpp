@@ -11,12 +11,13 @@
 #include "qsv_version.h"
 
 #if ENABLE_AVCODEC_QSV_READER
-
+#include <atomic>
 #include "qsv_log.h"
 #include "avcodec_qsv_log.h"
 
 static std::weak_ptr<CQSVLog> g_pQSVLog;
 static int print_prefix = 1;
+static std::atomic<bool> g_bSetCustomLog = false;
 
 static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
     if (auto pQSVLog = g_pQSVLog.lock()) {
@@ -32,12 +33,16 @@ static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list v
 
 void av_qsv_log_set(std::shared_ptr<CQSVLog>& pQSVLog) {
     g_pQSVLog = pQSVLog;
+    g_bSetCustomLog = true;
     av_log_set_callback(av_qsv_log_callback);
 }
 
 void av_qsv_log_free() {
-    av_log_set_callback(av_log_default_callback);
-    g_pQSVLog.reset();
+    if (g_bSetCustomLog) {
+        g_bSetCustomLog = false;
+        av_log_set_callback(av_log_default_callback);
+        g_pQSVLog.reset();
+    }
 }
 
 #endif //ENABLE_AVCODEC_QSV_READER
