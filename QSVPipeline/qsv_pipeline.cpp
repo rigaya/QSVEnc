@@ -1090,7 +1090,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     PrintMes(QSV_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
     
 #elif LIBVA_SUPPORT
-    m_hwdev = std::make_shared<CQSVHWDevice>(CreateVAAPIDevice());
+    m_hwdev.reset(CreateVAAPIDevice());
     if (!m_hwdev) {
         return MFX_ERR_MEMORY_ALLOC;
     }
