@@ -289,8 +289,8 @@ tstring getAVProtocols() {
     const auto inputProtocols  = getAVProtocolList(0);
     const auto outputProtocols = getAVProtocolList(1);
 
-    auto max_len = std::accumulate(inputProtocols.begin(),  inputProtocols.end(), (size_t)0, [](const size_t max_len, const auto& str) { return (std::max)(max_len, str.length()); });
-    max_len      = std::accumulate(outputProtocols.begin(), outputProtocols.end(), max_len,  [](const size_t max_len, const auto& str) { return (std::max)(max_len, str.length()); });
+    auto max_len = std::accumulate(inputProtocols.begin(),  inputProtocols.end(), (size_t)0, [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
+    max_len      = std::accumulate(outputProtocols.begin(), outputProtocols.end(), max_len,  [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
     max_len += 1;
 
     std::string mes = "input protocols:\n";
