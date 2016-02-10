@@ -479,7 +479,7 @@ mfx_win_reg_key.cpp \
 "
 
 SRC_QSVPIPELINE=" \
-DeviceId.cpp                     avcodec_qsv.cpp             avcodec_reader.cpp \
+DeviceId.cpp                     avcodec_qsv.cpp             avcodec_qsv_log.cpp       avcodec_reader.cpp \
 avcodec_writer.cpp               avi_reader.cpp              avs_reader.cpp \
 cl_func.cpp                      convert_csp.cpp             convert_csp_avx.cpp \
 convert_csp_avx2.cpp             convert_csp_sse2.cpp        convert_csp_ssse3.cpp \
