@@ -1629,6 +1629,7 @@ void CQSVPipeline::SetAbortFlagPointer(bool *abortFlag) {
 }
 
 mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
+#if ENABLE_AVCODEC_QSV_READER
     ChapterRW chapter;
     auto err = chapter.read_file(chapfile.c_str(), CODE_PAGE_UNSET, 0.0);
     if (err != AUO_CHAP_ERR_NONE) {
@@ -1657,6 +1658,10 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
     }
     PrintMes(QSV_LOG_DEBUG, _T("%s"), chap_log.c_str());
     return MFX_ERR_NONE;
+#else
+    PrintMes(QSV_LOG_ERROR, _T("chater reading unsupportted in this build"));
+    return MFX_ERR_UNKNOWN;
+#endif //#if ENABLE_AVCODEC_QSV_READER
 }
 
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
