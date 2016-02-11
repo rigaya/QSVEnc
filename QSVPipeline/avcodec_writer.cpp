@@ -1161,17 +1161,20 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     if (!m_Mux.video.pStream) {
         return SetVideoParam(NULL, NULL);
     }
-
+#if ENABLE_AVCODEC_OUT_THREAD
     //スレッドの使用数を設定
     if (prm->nOutputThread == QSV_OUTPUT_THREAD_AUTO) {
         prm->nOutputThread = 1;
     }
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     if (prm->nAudioThread == QSV_AUDIO_THREAD_AUTO) {
         prm->nAudioThread = 0;
     }
-    m_Mux.thread.bEnableOutputThread     = prm->nOutputThread > 0;
     m_Mux.thread.bEnableAudProcessThread = prm->nOutputThread > 0 && prm->nAudioThread > 0;
     m_Mux.thread.bEnableAudEncodeThread  = prm->nOutputThread > 0 && prm->nAudioThread > 1;
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    m_Mux.thread.bEnableOutputThread     = prm->nOutputThread > 0;
+#endif //#if ENABLE_AVCODEC_OUT_THREAD
     return MFX_ERR_NONE;
 }
 
@@ -1972,6 +1975,7 @@ mfxStatus CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
 
 //指定された音声キューに追加する
 mfxStatus CAvcodecWriter::AddAudQueue(AVPktMuxData *pktData, int type) {
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     if (m_Mux.thread.thAudProcess.joinable()) {
         //出力キューに追加する
         auto& qAudio       = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut       : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.qAudioPacketProcess       : m_Mux.thread.qAudioFrameEncode);
@@ -1982,7 +1986,9 @@ mfxStatus CAvcodecWriter::AddAudQueue(AVPktMuxData *pktData, int type) {
         }
         SetEvent(heEventAdded);
         return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
-    } else {
+    } else
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    {
         return MFX_ERR_NOT_INITIALIZED;
     }
 }
@@ -2121,7 +2127,11 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
 }
 
 mfxStatus CAvcodecWriter::WriteNextPacketAudioFrame(AVPktMuxData *pktData) {
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     const bool bAudEncThread = m_Mux.thread.thAudEncode.joinable();
+#else
+    const bool bAudEncThread = false;
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     AVMuxAudio *pMuxAudio = pktData->pMuxAudio;
     if (pktData->got_result) {
         if (0 <= AudioResampleFrame(pMuxAudio, &pktData->pFrame) && pktData->pFrame) {
@@ -2208,12 +2218,14 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudioFrame(AVPktMuxData *pktData) {
 //出力スレッドがなければメインエンコードスレッドが処理する
 mfxStatus CAvcodecWriter::WriteNextAudioFrame(AVPktMuxData *pktData) {
     if (pktData->type != MUX_DATA_TYPE_FRAME) {
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.thAudEncode.joinable()) {
             //音声エンコードスレッドがこの関数を処理
             //AVPacketは字幕やnull終端パケットなどが流れてきたもの
             //これはそのまま出力キューに追加する
             AddAudQueue(pktData, AUD_QUEUE_OUT);
         }
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
         //音声エンコードスレッドが存在しない場合、ここにAVPacketは流れてこないはず
         return MFX_ERR_UNSUPPORTED;
     }
@@ -2258,8 +2270,8 @@ mfxStatus CAvcodecWriter::ThreadFuncAudEncodeThread() {
         }
     }
     SetEvent(m_Mux.thread.heEventClosingAudEncode);
-    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
 mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
@@ -2286,8 +2298,8 @@ mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
         }
     }
     SetEvent(m_Mux.thread.heEventClosingAudProcess);
-    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+    return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
 mfxStatus CAvcodecWriter::WriteThreadFunc() {

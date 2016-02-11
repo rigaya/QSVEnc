@@ -130,7 +130,7 @@ typedef struct AVPktMuxData {
     int         samples;     //type == MUX_DATA_TYPE_PACKET 時有効
     AVFrame    *pFrame;      //type == MUX_DATA_TYPE_FRAME 時有効
     int         got_result;  //type == MUX_DATA_TYPE_FRAME 時有効
-};
+} AVPktMuxData;
 
 enum {
     AUD_QUEUE_PROCESS = 0,

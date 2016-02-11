@@ -444,8 +444,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 default %d MB (0-%d)\n"),
             QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
             );
-#if ENABLE_AVCODEC_OUT_THREAD
         _ftprintf(stdout, _T("")
+#if ENABLE_AVCODEC_OUT_THREAD
             _T("   --output-thread <int>        set output thread num\n")
             _T("                                 -1: auto (= default)\n")
             _T("                                  0: disable (slow, but less memory usage)\n")
