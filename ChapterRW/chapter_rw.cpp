@@ -20,16 +20,10 @@
 #include <shlwapi.h>
 #pragma comment (lib, "shlwapi.lib")
 #else
+#include "qsv_osdep.h"
 #include <sys/types.h>
 #include <sys/stat.h>
-
-#define vsprintf_s(buf, size, fmt, va)  vsprintf(buf, fmt, va)
-#define vswprintf_s(buf, size, fmt, va) vswprintf(buf, fmt, va)
-
-bool PathFileExists(const char *filepath) {
-    struct stat st;
-    return 0 == stat(filepath, &st);
-}
+#include <iconv.h>
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 #ifdef _UNICODE
@@ -55,12 +49,14 @@ using std::string;
 using std::wstring;
 using std::unique_ptr;
 
+#if defined(_WIN32) || defined(_WIN64)
 struct iunknown_deleter {
     void operator()(IUnknown *ptr) const {
         ptr->Release();
         CoUninitialize();
     }
 };
+#endif //#if defined(_WIN32) || defined(_WIN64)
 struct fp_deleter {
     void operator()(FILE *fp) const {
         fclose(fp);
@@ -125,7 +121,7 @@ static BOOL isASCII(const void *str, uint32_t size_in_byte) {
     return TRUE;
 }
 
-static int jpn_check(const void *str, uint32_t size_in_byte) {
+static uint32_t jpn_check(const void *str, uint32_t size_in_byte) {
     int score_sjis = 0;
     int score_euc = 0;
     int score_utf8 = 0;
@@ -172,7 +168,7 @@ static int jpn_check(const void *str, uint32_t size_in_byte) {
 }
 
 static uint32_t get_code_page(const void *str, uint32_t size_in_byte) {
-    int ret = CODE_PAGE_UNSET;
+	uint32_t ret = CODE_PAGE_UNSET;
     if ((ret = check_bom(str)) != CODE_PAGE_UNSET)
         return ret;
 
@@ -278,7 +274,7 @@ static std::string strsprintf(const char* format, ...) {
     std::string retStr = std::string(buffer.data());
     return retStr;
 }
-#if defined(_WIN32) || defined(_WIN64)
+
 static std::wstring strsprintf(const WCHAR* format, ...) {
     va_list args;
     va_start(args, format);
@@ -290,7 +286,6 @@ static std::wstring strsprintf(const WCHAR* format, ...) {
     std::wstring retStr = std::wstring(buffer.data());
     return retStr;
 }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
 static std::string str_replace(std::string str, const std::string& from, const std::string& to) {
     std::string::size_type pos = 0;
@@ -314,7 +309,6 @@ static std::wstring str_replace(std::wstring str, const std::wstring& from, cons
 
 #pragma warning (pop)
 
-#if defined(_WIN32) || defined(_WIN64)
 static std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim) {
     std::vector<std::wstring> res;
     size_t current = 0, found, delimlen = delim.size();
@@ -325,7 +319,6 @@ static std::vector<std::wstring> split(const std::wstring &str, const std::wstri
     res.push_back(std::wstring(str, current, str.size() - current));
     return res;
 }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
 static std::vector<std::string> split(const std::string &str, const std::string &delim) {
     std::vector<std::string> res;
@@ -412,7 +405,7 @@ int ChapterRW::write_chapter_apple_foot(std::ostream& ostream) {
             (duration_ms % (60*60*1000)) / (60*1000),
             (duration_ms % (60*1000)) / 1000,
             duration_ms % 1000
-            ), CP_UTF8);
+            ), CODE_PAGE_UTF8);
     }
     return sts;
 }
@@ -427,7 +420,7 @@ int ChapterRW::write_chapter_apple(const TCHAR *out_filepath) {
         for (const auto& chap : chapters) {
             ostream << wstring_to_string(strsprintf(
                 L"<TextSample sampleTime=\"%02d:%02d:%02d.%03d\">%s</TextSample>\r\n",
-                chap->h, chap->m, chap->s, chap->ms, chap->name.c_str()  ), CP_UTF8);
+                chap->h, chap->m, chap->s, chap->ms, chap->name.c_str()  ), CODE_PAGE_UTF8);
         }
         write_chapter_apple_foot(ostream);
         ostream.close();
@@ -484,6 +477,12 @@ int ChapterRW::overwrite_file(ChapType out_chapter_type, bool nero_in_utf8) {
     }
     return sts;
 }
+
+#if !(defined(_WIN32) || defined(_WIN64))
+typedef struct DetectEncodingInfo {
+	uint32_t nCodePage;
+} DetectEncodingInfo;
+#endif
 
 uint32_t ChapterRW::check_code_page(vector<char>& src, uint32_t orig_code_page) {
     DetectEncodingInfo dEnc = { 0 };

@@ -36,6 +36,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include <cwchar>
 #include <pthread.h>
 #include <sched.h>
 #include <dlfcn.h>
@@ -86,6 +87,9 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
     return vsprintf(buffer, format, argptr);
 }
 #define sscanf_s sscanf
+#define swscanf_s swscanf
+#define vsprintf_s(buf, size, fmt, va)  vsprintf(buf, fmt, va)
+#define vswprintf_s vswprintf
 #define _strnicmp strncasecmp
 
 static inline void __cpuid(int cpuInfo[4], int param) {
@@ -128,7 +132,16 @@ static inline int _vscprintf(const char * format, va_list pargs) {
     retval = vsnprintf(NULL, 0, format, argcopy);
     va_end(argcopy);
     return retval;
- }
+}
+
+static inline int _vscwprintf(const WCHAR * format, va_list pargs) {
+    int retval;
+    va_list argcopy;
+    va_copy(argcopy, pargs);
+    retval = vswprintf(NULL, 0, format, argcopy);
+    va_end(argcopy);
+    return retval;
+}
 
 static inline int sprintf_s(char *dst, const char* format, ...) {
     va_list args;

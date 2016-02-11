@@ -175,7 +175,7 @@ if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
     X86_64=0
 fi
 
-CXXFLAGS="-Wall -Wno-attributes -Wno-reorder -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins"
+CXXFLAGS="-Wall -Wno-attributes -Wno-reorder -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW"
 LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
@@ -496,6 +496,10 @@ ram_speed.cpp                    scene_change_detection.cpp  scene_change_detect
 scene_change_detection_simd.cpp  vpy_reader.cpp \
 "
 
+SRC_TINYXML2="tinyxml2.cpp"
+
+SRC_CHAPTER_RW="chapter_rw.cpp"
+
 ASM_QSVPIPELINE="ram_speed_x64.asm"
 
 PYW_PERF_MONITOR="perf_monitor.pyw"
@@ -523,6 +527,14 @@ done
 
 for pyw in $PYW_PERF_MONITOR; do
     PYWS="$PYWS PerfMonitor/$pyw"
+done
+
+for src in $SRC_TINYXML2; do
+    SRCS="$SRCS tinyxml2/$src"
+done
+
+for src in $SRC_CHAPTER_RW; do
+    SRCS="$SRCS ChapterRW/$src"
 done
 
 for src in $SRC_PLUGIN_ROTATE; do
