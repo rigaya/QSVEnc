@@ -18,7 +18,7 @@ write_config_mak()
 write_qsv_config()
 {
     echo $1
-    echo $1 >> qsv_config.h
+    echo $1 >> QSVPipeline/qsv_config.h
 }
 
 cxx_check()
@@ -39,7 +39,7 @@ cxx_check()
     return $ret
 }
 
-rm -f config.* .depend qsv_config.h
+rm -f config.* .depend QSVPipeline/qsv_config.h
 
 PKGCONFIG="pkg-config"
 USE_PKGCONFIG=1

@@ -34,7 +34,7 @@ clean:
 	rm -f $(OBJS) $(OBJASMS) $(PROGRAM) .depend
 
 distclean: clean
-	rm -f config.mak
+	rm -f config.mak QSVPipeline/qsv_config.h
 
 install:
 	install -d $(PREFIX)/bin
