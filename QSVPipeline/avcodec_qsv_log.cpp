@@ -17,7 +17,7 @@
 
 static std::weak_ptr<CQSVLog> g_pQSVLog;
 static int print_prefix = 1;
-static std::atomic<bool> g_bSetCustomLog = false;
+static std::atomic<bool> g_bSetCustomLog(false);
 
 static void av_qsv_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
     if (auto pQSVLog = g_pQSVLog.lock()) {
