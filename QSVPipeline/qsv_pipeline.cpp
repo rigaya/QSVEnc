@@ -2727,8 +2727,22 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     if (sts < MFX_ERR_NONE) return sts;
     PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Frames allocated.\n"));
 
+    //MediaSDK内のエラーをQSV_LOG_DEBUG以下の時以外には一時的に無視するようにする。
+    //QSV_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
+    auto logIgnoreMFXLibraryInternalErrors = [this]() {
+        const auto log_level = m_pQSVLog->getLogLevel();
+        if (log_level < QSV_LOG_MORE) {
+            m_pQSVLog->setLogLevel(QSV_LOG_QUIET); //一時的にエラーを無視
+        } else {
+            PrintMes(QSV_LOG_INFO, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
+        }
+        return log_level;
+    };
+
     if (m_pmfxENC) {
+        const auto log_level = logIgnoreMFXLibraryInternalErrors();
         sts = m_pmfxENC->Init(&m_mfxEncParams);
+        m_pQSVLog->setLogLevel(log_level);
         if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
             PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on Encoding.\n"));
             QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
@@ -2738,7 +2752,14 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     }
 
     if (m_pmfxVPP) {
+        //ここでの内部エラーは最終的にはmfxライブラリ内部で解決される場合もあり、これをログ上は無視するようにする。
+        //具体的にはSandybridgeでd3dメモリでVPPを使用する際、m_pmfxVPP->Init()実行時に
+        //"QSVAllocator: Failed CheckRequestType: undeveloped feature"と表示されるが、
+        //m_pmfxVPP->Initの戻り値自体はMFX_ERR_NONEであるので、内部で解決されたものと思われる。
+        //もちろん、m_pmfxVPP->Init自体がエラーを返した時にはきちんとログに残す。
+        const auto log_level = logIgnoreMFXLibraryInternalErrors();
         sts = m_pmfxVPP->Init(&m_mfxVppParams);
+        m_pQSVLog->setLogLevel(log_level);
         if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
             PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on vpp.\n"));
             QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
@@ -2748,7 +2769,9 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     }
 
     if (m_pmfxDEC) {
+        const auto log_level = logIgnoreMFXLibraryInternalErrors();
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
+        m_pQSVLog->setLogLevel(log_level);
         if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
             PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on decoding.\n"));
             QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);

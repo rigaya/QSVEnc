@@ -25,6 +25,7 @@ enum {
     QSV_LOG_INFO = 0,
     QSV_LOG_WARN,
     QSV_LOG_ERROR,
+    QSV_LOG_QUIET,
 };
 
 enum {

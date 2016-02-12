@@ -36,6 +36,11 @@ public:
     int getLogLevel() {
         return m_nLogLevel;
     }
+    int setLogLevel(int newLogLevel) {
+        int prevLogLevel = m_nLogLevel;
+        m_nLogLevel = newLogLevel;
+        return prevLogLevel;
+    }
     bool logFileAvail() {
         return m_pStrLog != nullptr;
     }
