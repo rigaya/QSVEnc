@@ -87,7 +87,7 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
     mfxStatus sts = MFX_ERR_NONE;
     m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocator: FrameAlloc: %s, %d frames.\n"), qsv_memtype_str(request->Type).c_str(), request->NumFrameSuggested);
     if (MFX_ERR_NONE != (sts = CheckRequestType(request))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocator: Failed CheckRequestType: %d\n"), get_err_mes(sts));
+        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocator: Failed CheckRequestType: %s\n"), get_err_mes(sts));
         return MFX_ERR_UNSUPPORTED;
     }
 
@@ -108,7 +108,7 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
         } else if (MFX_ERR_NONE == (sts = AllocImpl(request, response))) {
             m_ExtResponses.push_back(UniqueResponse(*response, request->Info.CropW, request->Info.CropH, request->Type & MEMTYPE_FROM_MASK));
         } else {
-            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocator: Failed Allocate type external: %d\n"), get_err_mes(sts));
+            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocator: Failed Allocate type external: %s\n"), get_err_mes(sts));
             return sts;
         }
     } else {
@@ -120,7 +120,7 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
             m_responses.back() = *response;
         } else {
             m_responses.pop_back();
-            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocator: Failed Allocate type internal: %d\n"), get_err_mes(sts));
+            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocator: Failed Allocate type internal: %s\n"), get_err_mes(sts));
             return sts;
         }
     }
