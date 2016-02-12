@@ -359,6 +359,22 @@ const CX_DESC list_codec[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_rc_mode[] = {
+    { _T("CBR"),     MFX_RATECONTROL_CBR    },
+    { _T("VBR"),     MFX_RATECONTROL_VBR    },
+    { _T("CQP"),     MFX_RATECONTROL_CQP    },
+    { _T("VQP"),     MFX_RATECONTROL_VQP    },
+    { _T("AVBR"),    MFX_RATECONTROL_AVBR   },
+    { _T("LA"),      MFX_RATECONTROL_LA     },
+    { _T("LA-EXT"),  MFX_RATECONTROL_LA_EXT },
+    { _T("LA-HRD"),  MFX_RATECONTROL_LA_HRD },
+    { _T("LA-ICQ"),  MFX_RATECONTROL_LA_ICQ },
+    { _T("ICQ"),     MFX_RATECONTROL_ICQ    },
+    { _T("QVBR"),    MFX_RATECONTROL_QVBR   },
+    { _T("VCM"),     MFX_RATECONTROL_VCM    },
+    { NULL, 0 }
+};
+
 const CX_DESC list_avc_profile[] = {
     { _T("auto"),     0                        },
     { _T("Baseline"), MFX_PROFILE_AVC_BASELINE },

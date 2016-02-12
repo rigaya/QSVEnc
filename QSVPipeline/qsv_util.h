@@ -187,6 +187,16 @@ static inline mfxU32 check_range_unsigned(mfxU32 value, mfxU32 min, mfxU32 max) 
     return (value - min) <= (max - min);
 }
 
+static inline uint16_t check_coding_option(uint16_t value) {
+    if (   value == MFX_CODINGOPTION_UNKNOWN
+        || value == MFX_CODINGOPTION_ON
+        || value == MFX_CODINGOPTION_OFF
+        || value == MFX_CODINGOPTION_ADAPTIVE) {
+        return value;
+    }
+    return MFX_CODINGOPTION_UNKNOWN;
+}
+
 static int popcnt32(mfxU32 bits) {
     bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
     bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);

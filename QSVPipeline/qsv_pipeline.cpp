@@ -45,7 +45,16 @@
 #endif
 
 #define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
+#define CHECK_RANGE_LIST(value, list, name)    { if (CheckParamList((value), (list), (name)) != MFX_ERR_NONE) { return MFX_ERR_INVALID_VIDEO_PARAM; } }
 
+//範囲チェック
+mfxStatus CQSVPipeline::CheckParamList(int value, const CX_DESC *list, const char *param_name) {
+    for (int i = 0; list[i].desc; i++)
+        if (list[i].value == value)
+            return MFX_ERR_NONE;
+    PrintMes(QSV_LOG_ERROR, _T("%s=%d, is not valid param.\n"), param_name, value);
+    return MFX_ERR_INVALID_VIDEO_PARAM;
+};
 
 mfxStatus CQSVPipeline::AllocAndInitVppDoNotUse() {
     QSV_MEMSET_ZERO(m_VppDoNotUse);
@@ -350,20 +359,24 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         pInParams->nBframes = 0;
         pInParams->bCAVLC = true;
     }
-    if (pInParams->bCAVLC)
+    if (pInParams->bCAVLC) {
         pInParams->bRDO = false;
+    }
+
+    CHECK_RANGE_LIST(pInParams->CodecId,  list_codec,   "codec");
+    CHECK_RANGE_LIST(pInParams->nEncMode, list_rc_mode, "rc mode");
 
     //設定開始
     m_mfxEncParams.mfx.CodecId                 = pInParams->CodecId;
     m_mfxEncParams.mfx.RateControlMethod       =(pInParams->nEncMode == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : pInParams->nEncMode;
     if (MFX_RATECONTROL_CQP == m_mfxEncParams.mfx.RateControlMethod) {
         //CQP
-        m_mfxEncParams.mfx.QPI             = pInParams->nQPI;
-        m_mfxEncParams.mfx.QPP             = pInParams->nQPP;
-        m_mfxEncParams.mfx.QPB             = pInParams->nQPB;
+        m_mfxEncParams.mfx.QPI             = (mfxU16)clamp(pInParams->nQPI, 0, 51);
+        m_mfxEncParams.mfx.QPP             = (mfxU16)clamp(pInParams->nQPP, 0, 51);
+        m_mfxEncParams.mfx.QPB             = (mfxU16)clamp(pInParams->nQPB, 0, 51);
     } else if (MFX_RATECONTROL_ICQ    == m_mfxEncParams.mfx.RateControlMethod
             || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-        m_mfxEncParams.mfx.ICQQuality      = pInParams->nICQQuality;
+        m_mfxEncParams.mfx.ICQQuality      = (mfxU16)clamp(pInParams->nICQQuality, 1, 51);
         m_mfxEncParams.mfx.MaxKbps         = 0;
     } else {
         if (pInParams->nBitRate > USHRT_MAX) {
@@ -385,7 +398,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
         m_mfxEncParams.mfx.LowPower = (mfxU16)((pInParams->bUseFixedFunc) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     }
-    m_mfxEncParams.mfx.TargetUsage             = pInParams->nTargetUsage; // trade-off between quality and speed
+    m_mfxEncParams.mfx.TargetUsage             = (mfxU16)clamp(pInParams->nTargetUsage, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED); // trade-off between quality and speed
 
     mfxU32 OutputFPSRate = pInParams->nFPSRate;
     mfxU32 OutputFPSScale = pInParams->nFPSScale;
@@ -428,7 +441,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.EncodedOrder            = 0;
     m_mfxEncParams.mfx.NumSlice                = pInParams->nSlices;
 
-    m_mfxEncParams.mfx.NumRefFrame             = pInParams->nRef;
+    m_mfxEncParams.mfx.NumRefFrame             = (mfxU16)clamp(pInParams->nRef, 0, 16);
     m_mfxEncParams.mfx.CodecLevel              = pInParams->CodecLevel;
     m_mfxEncParams.mfx.CodecProfile            = pInParams->CodecProfile;
     m_mfxEncParams.mfx.GopOptFlag              = 0;
@@ -484,10 +497,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
             m_CodingOption2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
             m_CodingOption2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
+
+            CHECK_RANGE_LIST(pInParams->nLookaheadDS, list_lookahead_ds, "la-quality");
             m_CodingOption2.LookAheadDS = pInParams->nLookaheadDS;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
             m_CodingOption2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX);
+
+            CHECK_RANGE_LIST(pInParams->nTrellis, list_avc_trellis_for_options, "trellis");
             m_CodingOption2.Trellis = pInParams->nTrellis;
         }
         if (pInParams->bMBBRC) {
@@ -505,6 +522,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
         for (int i = 0; i < 3; i++) {
+            pInParams->nQPMin[i] = clamp(pInParams->nQPMin[i], 0, 51);
+            pInParams->nQPMax[i] = clamp(pInParams->nQPMax[i], 0, 51);
             mfxU8 qpMin = (std::min)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
             mfxU8 qpMax = (std::max)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
             pInParams->nQPMin[i] = (0 == pInParams->nQPMin[i]) ? 0 : qpMin;
@@ -523,7 +542,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
         INIT_MFX_EXT_BUFFER(m_CodingOption3, MFX_EXTBUFF_CODING_OPTION3);
         if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
-            m_CodingOption3.QVBRQuality = pInParams->nQVBRQuality;
+            m_CodingOption3.QVBRQuality = (mfxU16)clamp(pInParams->nQVBRQuality, 1, 51);
         }
         if (0 != pInParams->nMaxBitrate) {
             m_CodingOption3.WinBRCSize = (0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale);
@@ -534,15 +553,17 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
             m_CodingOption3.DirectBiasAdjustment       = (mfxU16)((pInParams->bDirectBiasAdjust)   ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
             m_CodingOption3.GlobalMotionBiasAdjustment = (mfxU16)((pInParams->bGlobalMotionAdjust) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
-            if (pInParams->bGlobalMotionAdjust)
+            if (pInParams->bGlobalMotionAdjust) {
+                CHECK_RANGE_LIST(pInParams->nMVCostScaling, list_mv_cost_scaling, "mv-scaling");
                 m_CodingOption3.MVCostScalingFactor    = pInParams->nMVCostScaling;
+            }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
-            m_CodingOption3.WeightedBiPred = pInParams->nWeightB;
-            m_CodingOption3.WeightedPred   = pInParams->nWeightP;
+            m_CodingOption3.WeightedBiPred = check_coding_option(pInParams->nWeightB);
+            m_CodingOption3.WeightedPred   = check_coding_option(pInParams->nWeightP);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
-            m_CodingOption3.FadeDetection = pInParams->nFadeDetect;
+            m_CodingOption3.FadeDetection = check_coding_option(pInParams->nFadeDetect);
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
@@ -609,6 +630,11 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         ) ) {
 #define GET_COLOR_PRM(v, list) (mfxU16)((v == MFX_COLOR_VALUE_AUTO) ? ((pInParams->nDstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
             //色設定 (for API v1.3)
+            CHECK_RANGE_LIST(pInParams->VideoFormat,    list_videoformat, "videoformat");
+            CHECK_RANGE_LIST(pInParams->ColorPrim,      list_colorprim,   "colorprim");
+            CHECK_RANGE_LIST(pInParams->Transfer,       list_transfer,    "transfer");
+            CHECK_RANGE_LIST(pInParams->ColorMatrix,    list_colormatrix, "colormatrix");
+
             INIT_MFX_EXT_BUFFER(m_VideoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
             m_VideoSignalInfo.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
             m_VideoSignalInfo.VideoFormat              = pInParams->VideoFormat;
@@ -647,7 +673,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
         INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
-        m_ExtVP8CodingOption.SharpnessLevel = pInParams->nVP8Sharpness;
+        m_ExtVP8CodingOption.SharpnessLevel = (mfxU16)clamp(pInParams->nVP8Sharpness, 0, 8);
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP8CodingOption);
     }
 
@@ -926,7 +952,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
 
     if (pParams->vpp.bUseDenoise) {
         INIT_MFX_EXT_BUFFER(m_ExtDenoise, MFX_EXTBUFF_VPP_DENOISE);
-        m_ExtDenoise.DenoiseFactor  = pParams->vpp.nDenoise;
+        m_ExtDenoise.DenoiseFactor = (mfxU16)clamp(pParams->vpp.nDenoise, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX);
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise);
 
         vppExtAddMes(strsprintf(_T("Denoise, strength %d\n"), m_ExtDenoise.DenoiseFactor));
@@ -936,6 +962,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
     }
 
     if (pParams->vpp.nImageStabilizer) {
+        CHECK_RANGE_LIST(pParams->vpp.nImageStabilizer, list_vpp_image_stabilizer, "vpp-image-stab");
         INIT_MFX_EXT_BUFFER(m_ExtImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
         m_ExtImageStab.Mode = pParams->vpp.nImageStabilizer;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtImageStab);
@@ -946,7 +973,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
 
     if (pParams->vpp.bUseDetailEnhance) {
         INIT_MFX_EXT_BUFFER(m_ExtDetail, MFX_EXTBUFF_VPP_DETAIL);
-        m_ExtDetail.DetailFactor = pParams->vpp.nDetailEnhance;
+        m_ExtDetail.DetailFactor = (mfxU16)clamp(pParams->vpp.nDetailEnhance, QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX);
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDetail);
         
         vppExtAddMes(strsprintf(_T("Detail Enhancer, strength %d\n"), m_ExtDetail.DetailFactor));

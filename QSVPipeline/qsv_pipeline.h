@@ -205,6 +205,8 @@ protected:
 
     virtual mfxStatus GetFreeTask(QSVTask **ppTask);
     virtual mfxStatus SynchronizeFirstTask();
+
+    mfxStatus CheckParamList(int value, const CX_DESC *list, const char *param_name);
 };
 
 #endif // __PIPELINE_ENCODE_H__
