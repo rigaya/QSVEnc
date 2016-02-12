@@ -1458,11 +1458,11 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("fade-detect"))) {
-        pParams->nWeightP = MFX_CODINGOPTION_ON;
+        pParams->nFadeDetect = MFX_CODINGOPTION_ON;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("no-fade-detect"))) {
-        pParams->nWeightP = MFX_CODINGOPTION_OFF;
+        pParams->nFadeDetect = MFX_CODINGOPTION_OFF;
         return MFX_ERR_NONE;
     }
     if (   0 == _tcscmp(option_name, _T("lookahead-ds"))
