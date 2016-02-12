@@ -130,10 +130,14 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 
         _ftprintf(stdout, _T("Usage: %s [Options] -i <filename> -o <filename>\n"), PathFindFileName(strAppName));
         _ftprintf(stdout, _T("\n")
-            _T("input can be %s%s%sraw YUV or YUV4MPEG2(y4m) format.\n")
+#if ENABLE_AVCODEC_QSV_READER
+            _T("When video codec could be decoded by QSV, any format or protocol supported\n")
+            _T("by ffmpeg library could be used as a input.\n")
+#endif
+            _T("%s input can be %s%s%sraw YUV or YUV4MPEG2(y4m) format.\n")
             _T("when raw(default), fps, input-res are also necessary.\n")
             _T("\n")
-            _T("output format will be raw H.264/AVC ES.\n")
+            _T("output format will be automatically set by the output extension.\n")
             _T("when output filename is set to \"-\", H.264/AVC ES output is thrown to stdout.\n")
             _T("\n")
             _T("Example:\n")
@@ -142,11 +146,37 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("\n")
             _T("Example for Benchmark:\n")
             _T("  QSVEncC -i \"<avsfilename>\" --benchmark \"<benchmark_result.txt>\"\n")
-            _T("\n")
-            _T("Options: \n")
+            ,
+            (ENABLE_AVCODEC_QSV_READER) ? _T("Also, ") : _T(""),
+            (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
+            (ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
+            (ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
+        _ftprintf(stdout, _T("\n")
+            _T("Information Options: \n")
             _T("-h,-? --help                    show help\n")
             _T("-v,--version                    show version info\n")
-            _T("\n")
+            _T("   --check-hw                   check if QuickSyncVideo is available\n")
+            _T("   --check-lib                  check lib API version installed\n")
+            _T("   --check-features [<string>]  check encode/vpp features\n")
+            _T("                                 with no option value, result will on stdout,\n")
+            _T("                                 otherwise, it is written to file path set\n")
+            _T("                                 and opened by default application.\n")
+            _T("                                 when writing to file, txt/html/csv format\n")
+            _T("                                 is available, chosen by the extension\n")
+            _T("                                 of the output file.\n")
+            _T("   --check-environment          check environment info\n")
+#if ENABLE_AVCODEC_QSV_READER
+            _T("   --check-avversion            show dll version\n")
+            _T("   --check-codecs               show codecs available\n")
+            _T("   --check-encoders             show audio encoders available\n")
+            _T("   --check-decoders             show audio decoders available\n")
+            _T("   --check-formats              show in/out formats available\n")
+            _T("   --check-protocols            show in/out protocols available\n")
+#endif
+            _T("\n"));
+
+        _ftprintf(stdout, _T("\n")
+            _T("Basic Encoding Options: \n")
             _T("-c,--codec <string>             set encode codec\n")
             _T("                                 - h264(default), hevc, mpeg2\n")
             _T("-i,--input-file <filename>      set input file name\n")
@@ -171,8 +201,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 #endif
 #if ENABLE_AVCODEC_QSV_READER
             _T("   --avqsv                      set input to use avcodec + qsv\n")
-            _T("   --avqsv-analyze <int>        set time in sec which reader analyze input file.\n")
-            _T("                                 default: 5.\n")
+            _T("   --avqsv-analyze <int>        set time (sec) which reader analyze input file.\n")
+            _T("                                 default: 5 (seconds).\n")
             _T("                                 could be only used with avqsv reader.\n")
             _T("                                 use if reader fails to detect audio stream.\n")
             _T("   --audio-source <string>      input extra audio file\n")
@@ -200,13 +230,13 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                  in [<int>?], specify track number to encode.\n")
             _T("   --audio-bitrate [<int>?]<int>\n")
             _T("                                set encode bitrate for audio (kbps).\n")
-            _T("                                  in [<int>?], specify track number to set bitrate.\n")
+            _T("                                  in [<int>?], specify track number of audio.\n")
             _T("   --audio-samplerate [<int>?]<int>\n")
             _T("                                set sampling rate for audio (Hz).\n")
-            _T("                                  in [<int>?], specify track number to set sampling rate.\n")
+            _T("                                  in [<int>?], specify track number of audio.\n")
             _T("   --audio-resampler <string>   set audio resampler.\n")
             _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
-            _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][...]\n")
+            _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
             _T("       set audio streams in channels.\n")
             _T("         in [<int>?], specify track number to split.\n")
             _T("         in <string1>, set input channels to use from source stream.\n")
@@ -247,7 +277,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 avqsv reader and avcodec muxer.\n")
             _T("                                 below are optional,\n")
             _T("                                  in [<int>?], specify track number to copy.\n")
-            _T("-m,--mux-option [<string1>:<string2>]\n")
+            _T("\n")
+            _T("-m,--mux-option <string1>:<string2>\n")
             _T("                                set muxer option name and value.\n")
             _T("                                 these could be only used with\n")
             _T("                                 avqsv reader and avcodec muxer.\n")
@@ -264,53 +295,35 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                if different from input, uses vpp resizing\n")
             _T("                                if not set, output resolution will be same\n")
             _T("                                as input (no resize will be done).\n")
-            _T("   --crop <int>,<int>,<int>,<int>\n")
-            _T("                                set crop pixels of left, up, right, bottom.\n")
-            _T("\n")
-            _T("   --slices <int>               number of slices, default 0 (auto)\n")
-            _T("\n")
-            //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
-            _T("   --check-hw                   check if QuickSyncVideo is available\n")
-            _T("   --check-lib                  check lib API version installed\n")
-            _T("   --check-features [<string>]  check encode/vpp features\n")
-            _T("                                 with no option value, result will on stdout,\n")
-            _T("                                 otherwise, it is written to file path set\n")
-            _T("                                 and opened by default application.\n")
-            _T("                                 when writing to file, txt/html/csv format\n")
-            _T("                                 is available, chosen by the extension\n")
-            _T("                                 of the output file.\n")
-            _T("   --check-environment          check environment info\n")
-#if ENABLE_AVCODEC_QSV_READER
-            _T("   --check-avversion            show dll version")
-            _T("   --check-codecs               show codecs available\n")
-            _T("   --check-encoders             show audio encoders available\n")
-            _T("   --check-decoders             show audio decoders available\n")
-            _T("   --check-formats              show in/out formats available\n")
-            _T("   --check-protocols            show in/out protocols available\n")
-#endif
-            ,
-            (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
-            (ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
-            (ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
+            _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
+            _T("\n"));
+        _ftprintf(stdout, _T("Frame buffer Options:\n")
+            _T(" frame buffers are selected automatically by default.\n")
 #ifdef D3D_SURFACES_SUPPORT
-        _ftprintf(stdout, _T("")
+            _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
+            _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
+            _T(" On particular cases, sush as runnning on a system with dGPU, or running\n")
+            _T(" vpp-rotate, will require the uses of d3d11 surface.\n")
+            _T(" Options below will change this default behavior.\n")
+            _T("\n")
             _T("   --disable-d3d                disable using d3d surfaces\n"));
 #if MFX_D3D11_SUPPORT
         _ftprintf(stdout, _T("")
             _T("   --d3d                        use d3d9/d3d11 surfaces\n")
             _T("   --d3d9                       use d3d9 surfaces\n")
-            _T("   --d3d11                      use d3d11 surfaces\n"));
+            _T("   --d3d11                      use d3d11 surfaces\n")
 #else
         _ftprintf(stdout, _T("")
-            _T("   --d3d                        use d3d9 surfaces\n"));
+            _T("   --d3d                        use d3d9 surfaces\n")
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
 #ifdef LIBVA_SUPPORT
         _ftprintf(stdout, _T("")
             _T("   --disable-va                 disable using va surfaces\n")
-            _T("   --va                         use va surfaces\n"));
+            _T("   --va                         use va surfaces\n")
 #endif //#ifdef LIBVA_SUPPORT
-        _ftprintf(stdout, _T("\n")
+            _T("\n"));
+        _ftprintf(stdout, _T("Encode Mode Options:\n")
             _T(" EncMode default: --cqp\n")
             _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
             _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
@@ -328,40 +341,67 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 AVBR mode is only supported with API v1.3\n")
             _T("   --avbr-unitsize <int>        avbr calculation period in x100 frames\n")
             _T("                                 default %d (= unit size %d00 frames)\n")
+            //_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
+            //_T("                                   in percentage, defalut %.1f(%%)\n)"
             _T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
             _T("                                 requires --qvbr-q option to be set as well\n")
             _T("   --qvbr-q <int>  or           set quality used in qvbr mode. default: %d\n")
             _T("   --qvbr-quality <int>          QVBR mode is only supported with API v1.11\n")
             _T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
-            //_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
-            //_T("                                   in percentage, defalut %.1f(%%)\n)"
-            _T("\n")
-            _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
-            _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
-            _T("                                  and set the window size in frames.\n")
-            _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
-            _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
-            _T("-u,--quality <string>           encode quality\n")
-            _T("                                  - best, higher, high, balanced(default)\n")
-            _T("                                    fast, faster, fastest\n")
-            _T("\n")
-            _T("   --ref <int>                  reference frames for sw encoding\n")
-            _T("                                  default %d (auto)\n")
-            _T("-b,--bframes <int>              number of sequential b frames\n")
-            _T("                                  default %d(HEVC) / %d(others)\n")
-            _T("\n")
-            _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
-            _T("                                  when auto, fps x 10 will be set.\n")
-            _T("   --(no-)open-gop              enables open gop (default:off)\n")
-            _T("   --strict-gop                 force gop structure\n")
-            _T("   --(no-)scenechange           enables scene change detection\n")
-            _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
             _T("\n"),
             QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
             QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
             QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
             QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
-            QSV_DEFAULT_QVBR,
+            QSV_DEFAULT_QVBR);
+        _ftprintf(stdout, _T("Other Encode Options:\n")
+            _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
+            _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
+            _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
+            _T("   --qpmin <int> or             set min QP, default 0 (= unset)\n")
+            _T("           <int>:<int>:<int>\n")
+            _T("   --qpmax <int> or             set max QP, default 0 (= unset)\n")
+            _T("           <int>:<int>:<int>\n")
+            _T("-u,--quality <string>           encode quality\n")
+            _T("                                  - best, higher, high, balanced(default)\n")
+            _T("                                    fast, faster, fastest\n")
+            _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
+            _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
+            _T("                                  and set the window size in frames.\n")
+            _T("   --la-quality <string>        set lookahead quality.\n")
+            _T("                                 - auto(default), fast, medium, slow\n")
+            _T("   --(no-)mbbrc                 enables per macro block rate control\n")
+            _T("                                 default: auto\n")
+            _T("   --(no-)extbrc                enables extended rate control\n")
+            _T("                                 default: auto\n")
+            _T("   --ref <int>                  reference frames for sw encoding\n")
+            _T("                                  default %d (auto)\n")
+            _T("-b,--bframes <int>              number of sequential b frames\n")
+            _T("                                  default %d(HEVC) / %d(others)\n")
+            _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
+            _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
+            _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
+            _T("                                  when auto, fps x 10 will be set.\n")
+            _T("   --(no-)scenechange           enables scene change detection\n")
+            _T("   --(no-)open-gop              enables open gop (default:off)\n")
+            _T("   --strict-gop                 force gop structure\n")
+            _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
+            _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
+            _T("   --(no-)weightp               enable weight prediction for P frame\n")
+            _T("   --(no-)weightb               enable weight prediction for B frame\n")
+            _T("   --(no-)fade-detect           enable fade detection\n")
+            _T("   --trellis <string>           set trellis mode used in encoding\n")
+            _T("                                 - auto(default), off, i, ip, all\n")
+            _T("   --mv-scaling                 set mv cost scaling\n")
+            _T("                                 - 0  set MV cost to be 0\n")
+            _T("                                 - 1  set MV cost 1/2 of default\n")
+            _T("                                 - 2  set MV cost 1/4 of default\n")
+            _T("                                 - 3  set MV cost 1/8 of default\n")
+            _T("   --slices <int>               number of slices, default 0 (auto)\n")
+            _T("   --no-deblock                 disables H.264 deblock feature\n")
+            _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
+            _T("\n"),
+            QSV_ASYNC_DEPTH_MAX,
             QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
             QSV_DEFAULT_REF,
             QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
@@ -382,57 +422,16 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
             _T("   --bluray                     for H.264 bluray encoding\n")
             _T("\n")
-            _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
-            _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
-#if ENABLE_SESSION_THREAD_CONFIG
-            _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
-            _T("                                 default: 0 (=auto)\n")
-            _T("   --session-thread-priority    set thread priority for QSV session.\n")
-            _T("                                  - low, normal(default), high\n")
-#endif
+            _T("   --crop <int>,<int>,<int>,<int>\n")
+            _T("                                set crop pixels of left, up, right, bottom.\n")
             _T("\n")
-            _T("   --vpp-denoise <int>          use vpp denoise, set strength\n")
-            _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength\n")
-            _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
-            _T("                                enabled only when set --tff or --bff\n")
-            _T("                                 - none     disable deinterlace\n")
-            _T("                                 - normal   normal deinterlace\n")
-            _T("                                 - it       inverse telecine\n")
-#if ENABLE_ADVANCED_DEINTERLACE
-            _T("                                 - it-manual <string>\n")
-            _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
-#endif
-            _T("                                 - bob      double framerate\n")
-#if ENABLE_ADVANCED_DEINTERLACE
-            _T("                                 - auto     auto deinterlace\n")
-            _T("                                 - auto-bob auto bob deinterlace\n")
-#endif
-#if ENABLE_FPS_CONVERSION
-            _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
-            _T("                                enabled only when input is progressive\n")
-            _T("                                 - none, x2, x2.5\n")
-#endif
-            _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-            _T("                                 - none, upscale, box\n")
-            _T("   --vpp-delogo <string>        set delogo file path\n")
-            _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
-            _T("                                 or logo index starting from 1.\n")
-            _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
-            _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
-            _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
-            _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
-            _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
-            _T("   --vpp-rotate <int>           rotate image\n")
-            _T("                                 90, 180, 270.\n")
-            _T("   --vpp-half-turn              half turn video image\n")
-            _T("                                 unoptimized and very slow.\n"),
-            QSV_ASYNC_DEPTH_MAX,
-#if ENABLE_SESSION_THREAD_CONFIG
-            QSV_SESSION_THREAD_MAX,
-#endif
-            QSV_DEFAULT_VPP_DELOGO_DEPTH
-            );
+            _T("   --fullrange                  set stream as fullrange yuv\n"));
+        PrintListOptions(stdout, _T("--videoformat <string>"), list_videoformat, 0);
+        PrintListOptions(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
+        PrintListOptions(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
+        PrintListOptions(stdout, _T("--transfer <string>"),    list_transfer,    0);
         _ftprintf(stdout, _T("\n")
+            //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
             _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
             _T("                                 default   hw: %d,  sw: %d\n")
             _T("                                 cannot be used with avqsv reader.\n"),
@@ -467,75 +466,14 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --log <string>               output log to file (txt or html).\n")
             _T("   --log-level <string>         set output log level\n")
             _T("                                 info(default), warn, error, debug\n"));
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.3\n")
-            _T("   --fullrange                  set stream as fullrange yuv\n")
-            );
-        PrintListOptions(stdout, _T("--videoformat <string>"), list_videoformat, 0);
-        PrintListOptions(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
-        PrintListOptions(stdout, _T("--colorprim <string>"), list_colorprim, 0);
-        PrintListOptions(stdout, _T("--transfer <string>"), list_transfer, 0);
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.6\n")
-            _T("   --(no-)mbbrc                 enables per macro block rate control\n")
-            _T("                                 default: off\n")
-            _T("   --(no-)extbrc                enables extended rate control\n")
-            _T("                                 default: off\n")
-            );
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.7\n")
-            _T("   --trellis <string>           set trellis mode used in encoding\n")
-            _T("                                 - auto(default), off, i, ip, all\n")
-            );
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.8\n")
-            _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
-            _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
-            _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
-            _T("   --la-quality <string>        set lookahead quality.\n")
-            _T("                                 - auto(default), fast, medium, slow\n")
-            );
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.9\n")
-            _T("   --(no-)intra-refresh         enables adaptive I frame insert\n")
-            _T("   --no-deblock                 disables H.264 deblock feature\n")
-            _T("   --qpmin <int> or             set min QP, default 0 (= unset)\n")
-            _T("           <int>:<int>:<int>\n")
-            _T("   --qpmax <int> or             set max QP, default 0 (= unset)\n")
-            _T("           <int>:<int>:<int>\n")
-            );
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.13\n")
-            _T("   --mv-scaling                 set mv cost scaling\n")
-            _T("                                 - 0  set MV cost to be 0\n")
-            _T("                                 - 1  set MV cost 1/2 of default\n")
-            _T("                                 - 2  set MV cost 1/4 of default\n")
-            _T("                                 - 3  set MV cost 1/8 of default\n")
-            _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
-            );
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.16\n")
-            _T("   --(no-)weightp               enable weight prediction for P frame\n")
-            _T("   --(no-)weightb               enable weight prediction for B frame\n")
-            );
-        _ftprintf(stdout, _T("\n")
-            _T(" settings below are only supported with API v1.17\n")
-            _T("   --(no-)fade-detect           enable fade detection\n")
-            );
-        _ftprintf(stdout, _T("\n")
-            _T(" Settings below are available only for software ecoding.\n")
-            _T("   --cavlc                      use cavlc instead of cabac\n")
-            _T("   --rdo                        use rate distortion optmization\n")
-            _T("   --inter-pred <int>           set minimum block size used for\n")
-            _T("   --intra-pred <int>           inter/intra prediction\n")
-            _T("                                  0: auto(default)   1: 16x16\n")
-            _T("                                  2: 8x8             3: 4x4\n")
-            _T("   --mv-search <int>            set window size for mv search\n")
-            _T("                                  default: 0 (auto)\n")
-            _T("   --mv-precision <int>         set precision of mv search\n")
-            _T("                                  0: auto(default)   1: full-pell\n")
-            _T("                                  2: half-pell       3: quater-pell\n")
-            );
+#if ENABLE_SESSION_THREAD_CONFIG
+        _ftprintf(stdout, _T("")
+            _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
+            _T("                                 default: 0 (=auto)\n")
+            _T("   --session-thread-priority    set thread priority for QSV session.\n")
+            _T("                                  - low, normal(default), high\n"),
+                QSV_SESSION_THREAD_MAX);
+#endif
         _ftprintf(stdout, _T("\n")
             _T("   --benchmark <string>         run in benchmark mode\n")
             _T("                                 and write result in txt file\n")
@@ -592,6 +530,60 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
             _T("                                  default: enabled\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
+            );
+#if 0
+        _ftprintf(stdout, _T("\n")
+            _T(" Settings below are available only for software ecoding.\n")
+            _T("   --cavlc                      use cavlc instead of cabac\n")
+            _T("   --rdo                        use rate distortion optmization\n")
+            _T("   --inter-pred <int>           set minimum block size used for\n")
+            _T("   --intra-pred <int>           inter/intra prediction\n")
+            _T("                                  0: auto(default)   1: 16x16\n")
+            _T("                                  2: 8x8             3: 4x4\n")
+            _T("   --mv-search <int>            set window size for mv search\n")
+            _T("                                  default: 0 (auto)\n")
+            _T("   --mv-precision <int>         set precision of mv search\n")
+            _T("                                  0: auto(default)   1: full-pell\n")
+            _T("                                  2: half-pell       3: quater-pell\n")
+            );
+#endif
+        _ftprintf(stdout, _T("\nVPP Options:")
+            _T("   --vpp-denoise <int>          use vpp denoise, set strength\n")
+            _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength\n")
+            _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
+            _T("                                enabled only when set --tff or --bff\n")
+            _T("                                 - none     disable deinterlace\n")
+            _T("                                 - normal   normal deinterlace\n")
+            _T("                                 - it       inverse telecine\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+            _T("                                 - it-manual <string>\n")
+            _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
+#endif
+            _T("                                 - bob      double framerate\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+            _T("                                 - auto     auto deinterlace\n")
+            _T("                                 - auto-bob auto bob deinterlace\n")
+#endif
+#if ENABLE_FPS_CONVERSION
+            _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
+            _T("                                enabled only when input is progressive\n")
+            _T("                                 - none, x2, x2.5\n")
+#endif
+            _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
+            _T("                                 - none, upscale, box\n")
+            _T("   --vpp-delogo <string>        set delogo file path\n")
+            _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
+            _T("                                 or logo index starting from 1.\n")
+            _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
+            _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
+            _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
+            _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
+            _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+            _T("   --vpp-rotate <int>           rotate image\n")
+            _T("                                 90, 180, 270.\n")
+            _T("   --vpp-half-turn              half turn video image\n")
+            _T("                                 unoptimized and very slow.\n"),
+            QSV_DEFAULT_VPP_DELOGO_DEPTH
             );
     }
 }
