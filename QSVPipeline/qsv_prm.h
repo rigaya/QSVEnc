@@ -774,6 +774,11 @@ const mfxI16 QSV_DEFAULT_VPP_DELOGO_DEPTH = 128;
 
 const int QSV_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 
+const int QSV_VPP_DENOISE_MIN = 0;
+const int QSV_VPP_DENOISE_MAX = 100;
+const int QSV_VPP_DETAIL_ENHANCE_MIN = 0;
+const int QSV_VPP_DETAIL_ENHANCE_MAX = 100;
+
 void init_qsvp_prm(sInputParams *prm);
 
 #endif //_QSV_PRM_H_

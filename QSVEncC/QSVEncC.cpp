@@ -548,8 +548,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             );
 #endif
         _ftprintf(stdout, _T("\nVPP Options:")
-            _T("   --vpp-denoise <int>          use vpp denoise, set strength\n")
-            _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength\n")
+            _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
+            _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
             _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
             _T("                                enabled only when set --tff or --bff\n")
             _T("                                 - none     disable deinterlace\n")
@@ -583,6 +583,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 90, 180, 270.\n")
             _T("   --vpp-half-turn              half turn video image\n")
             _T("                                 unoptimized and very slow.\n"),
+            QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
+            QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX,
             QSV_DEFAULT_VPP_DELOGO_DEPTH
             );
     }
