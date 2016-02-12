@@ -149,6 +149,11 @@ std::wstring strsprintf(const WCHAR* format, ...);
 std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
 std::wstring GetFullPath(const WCHAR *path);
 bool qsv_get_filesize(const WCHAR *filepath, uint64_t *filesize);
+
+std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
+std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
+bool CreateDirectoryRecursive(const char *dir);
+bool CreateDirectoryRecursive(const WCHAR *dir);
 #endif
 
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);

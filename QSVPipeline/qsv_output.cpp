@@ -86,6 +86,9 @@ mfxStatus CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shar
             m_bOutputIsStdout = true;
             AddMessage(QSV_LOG_DEBUG, _T("using stdout\n"));
         } else {
+#if defined(_WIN32) || defined(_WIN64)
+            CreateDirectoryRecursive(PathRemoveFileSpecFixed(strFileName).second.c_str());
+#endif //#if defined(_WIN32) || defined(_WIN64)
             FILE *fp = NULL;
             int error = _tfopen_s(&fp, strFileName, _T("wb+"));
             if (error != 0 || fp == NULL) {

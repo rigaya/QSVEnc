@@ -292,6 +292,84 @@ std::wstring GetFullPath(const WCHAR *path) {
     _wfullpath(buffer.data(), path, buffer.size());
     return std::wstring(buffer.data());
 }
+//ルートディレクトリを取得
+std::string PathGetRoot(const char *path) {
+    auto fullpath = GetFullPath(path);
+    std::vector<char> buffer(fullpath.length() + 1, 0);
+    memcpy(buffer.data(), fullpath.c_str(), fullpath.length() * sizeof(fullpath[0]));
+    PathStripToRootA(buffer.data());
+    return buffer.data();
+}
+std::wstring PathGetRoot(const WCHAR *path) {
+    auto fullpath = GetFullPath(path);
+    std::vector<WCHAR> buffer(fullpath.length() + 1, 0);
+    memcpy(buffer.data(), fullpath.c_str(), fullpath.length() * sizeof(fullpath[0]));
+    PathStripToRootW(buffer.data());
+    return buffer.data();
+}
+
+//パスのルートが存在するかどうか
+static bool PathRootExists(const char *path) {
+    if (path == nullptr)
+        return false;
+    return PathIsDirectoryA(PathGetRoot(path).c_str()) != 0;
+}
+static bool PathRootExists(const WCHAR *path) {
+    if (path == nullptr)
+        return false;
+    return PathIsDirectoryW(PathGetRoot(path).c_str()) != 0;
+}
+std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path) {
+    const char *ptr = path.c_str();
+    char *qtr = PathFindFileNameA(ptr);
+    if (qtr == ptr) {
+        return std::make_pair(0, path);
+    }
+    std::string newPath = path.substr(0, qtr - ptr - 1);
+    return std::make_pair(path.length() - newPath.length(), newPath);
+}
+std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
+    const WCHAR *ptr = path.c_str();
+    WCHAR *qtr = PathFindFileNameW(ptr);
+    if (qtr == ptr) {
+        return std::make_pair(0, path);
+    }
+    std::wstring newPath = path.substr(0, qtr - ptr - 1);
+    return std::make_pair(path.length() - newPath.length(), newPath);
+}
+//フォルダがあればOK、なければ作成する
+bool CreateDirectoryRecursive(const char *dir) {
+    if (PathIsDirectoryA(dir)) {
+        return true;
+    }
+    if (!PathRootExists(dir)) {
+        return false;
+    }
+    auto ret = PathRemoveFileSpecFixed(dir);
+    if (ret.first == 0) {
+        return false;
+    }
+    if (!CreateDirectoryRecursive(ret.second.c_str())) {
+        return false;
+    }
+    return CreateDirectoryA(dir, NULL) != 0;
+}
+bool CreateDirectoryRecursive(const WCHAR *dir) {
+    if (PathIsDirectoryW(dir)) {
+        return true;
+    }
+    if (!PathRootExists(dir)) {
+        return false;
+    }
+    auto ret = PathRemoveFileSpecFixed(dir);
+    if (ret.first == 0) {
+        return false;
+    }
+    if (!CreateDirectoryRecursive(ret.second.c_str())) {
+        return false;
+    }
+    return CreateDirectoryW(dir, NULL) != 0;
+}
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) {
