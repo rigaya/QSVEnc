@@ -1207,7 +1207,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (trackId < 0) {
             trackId = argData->nParsedAudioSplit+1;
             int idx = getAudioTrackIdx(pParams, trackId);
-            if (idx >= 0 && pParams->ppAudioSelectList[idx]->nAVAudioEncodeBitrate > 0) {
+            if (idx >= 0 && bSplitChannelsEnabled(pParams->ppAudioSelectList[idx]->pnStreamChannelSelect)) {
                 trackId = getFreeAudioTrack(pParams);
             }
         }
