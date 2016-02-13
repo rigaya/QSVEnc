@@ -72,7 +72,7 @@ void close_afsvideo(PRM_ENC *pe) {
 //邪道っぽいが静的グローバル変数
 static const OUTPUT_INFO *oip = NULL;
 static PRM_ENC *pe = NULL;
-static int total_out_frames = NULL;
+static int g_total_out_frames = NULL;
 static int *jitter = NULL;
 static BOOL g_interlaced = FALSE;
 
@@ -83,15 +83,15 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
     jitter = _jitter;
     g_interlaced = (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? TRUE : FALSE;
     if (g_interlaced) {
-        total_out_frames = oip->n;
+        g_total_out_frames = oip->n;
         switch (conf->qsv.vpp.nDeinterlace) {
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
-            total_out_frames = (total_out_frames * 4) / 5;
+            g_total_out_frames = (g_total_out_frames * 4) / 5;
             break;
         case MFX_DEINTERLACE_BOB:
         case MFX_DEINTERLACE_AUTO_DOUBLE:
-            total_out_frames *= 2;
+            g_total_out_frames *= 2;
             break;
         default:
             break;
@@ -99,10 +99,10 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
     }
     switch (conf->qsv.vpp.nFPSConversion) {
     case FPS_CONVERT_MUL2:
-        total_out_frames *= 2;
+        g_total_out_frames *= 2;
         break;
     case FPS_CONVERT_MUL2_5:
-        total_out_frames = total_out_frames * 5 / 2;
+        g_total_out_frames = g_total_out_frames * 5 / 2;
         break;
     default:
         break;
@@ -112,7 +112,7 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
 
 //静的グローバル変数使用終了
 void clear_auo_yuvreader_g_data() {
-    total_out_frames = 0;
+    g_total_out_frames = 0;
     oip = NULL;
     pe = NULL;
     jitter = NULL;
@@ -237,7 +237,7 @@ AUO_EncodeStatusInfo::~AUO_EncodeStatusInfo() {     }
 #pragma warning(disable: 4100)
 void AUO_EncodeStatusInfo::SetPrivData(void *pPrivateData) {
     m_auoData.oip = oip;
-    enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
+    enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), g_total_out_frames);
 };
 #pragma warning(pop)
 
@@ -257,7 +257,7 @@ void AUO_EncodeStatusInfo::WriteLine(const TCHAR *mes) {
 #pragma warning(disable: 4100)
 void AUO_EncodeStatusInfo::UpdateDisplay(const char *mes, int drop_frames, double progressPercent) {
     set_log_title_and_progress(mes, progressPercent * 0.01);
-    m_auoData.oip->func_rest_time_disp(m_sData.nProcessedFramesNum + drop_frames, m_auoData.oip->n);
+    m_auoData.oip->func_rest_time_disp(m_sData.nProcessedFramesNum + drop_frames, g_total_out_frames);
     m_auoData.oip->func_update_preview();
 }
 #pragma warning(pop)
