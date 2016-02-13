@@ -327,7 +327,7 @@ std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path) {
         return std::make_pair(0, path);
     }
     std::string newPath = path.substr(0, qtr - ptr - 1);
-    return std::make_pair(path.length() - newPath.length(), newPath);
+    return std::make_pair((int)(path.length() - newPath.length()), newPath);
 }
 #if defined(_WIN32) || defined(_WIN64)
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
@@ -337,7 +337,7 @@ std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
         return std::make_pair(0, path);
     }
     std::wstring newPath = path.substr(0, qtr - ptr - 1);
-    return std::make_pair(path.length() - newPath.length(), newPath);
+    return std::make_pair((int)(path.length() - newPath.length()), newPath);
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 //フォルダがあればOK、なければ作成する
