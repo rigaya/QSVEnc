@@ -2342,8 +2342,8 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
 mfxStatus CQSVPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priority) {
     INIT_MFX_EXT_BUFFER(m_ThreadsParam, MFX_EXTBUFF_THREADS_PARAM);
-    m_ThreadsParam.NumThread = threads;
-    m_ThreadsParam.Priority = priority;
+    m_ThreadsParam.NumThread = (mfxU16)clamp(threads, 0, QSV_SESSION_THREAD_MAX);
+    m_ThreadsParam.Priority = (mfxU16)clamp(priority, MFX_PRIORITY_LOW, MFX_PRIORITY_HIGH);
     m_pInitParamExtBuf[0] = &m_ThreadsParam.Header;
 
     QSV_MEMSET_ZERO(m_InitParam);
@@ -2600,7 +2600,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     PrintMes(QSV_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
-    m_nAsyncDepth = pParams->nAsyncDepth;
+    m_nAsyncDepth = (mfxU16)clamp(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX);
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1) * 2, (int)QSV_ASYNC_DEPTH_MAX);
         PrintMes(QSV_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
