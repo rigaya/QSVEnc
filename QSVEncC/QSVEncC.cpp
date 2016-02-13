@@ -1184,6 +1184,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("audio-stream"))) {
+        if (!check_avcodec_dll()) {
+            _ftprintf(stderr, _T("%s\n--audio-stream could not be used.\n"), error_mes_avcodec_dll_not_found().c_str());
+            return MFX_PRINT_OPTION_ERR;
+        }
         int trackId = -1;
         const TCHAR *ptr = nullptr;
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
