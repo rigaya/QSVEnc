@@ -4132,8 +4132,12 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
             auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {
                 mfxU8 limit[3] = { limitI, limitP, limitB };
-                if (0 == (limit[0] | limit[1] | limit[2]))
-                    return std::basic_string<TCHAR>(_T("none"));
+                if (0 == (limit[0] | limit[1] | limit[2])) {
+                    return tstring(_T("none"));
+                }
+                if (limit[0] == limit[1] && limit[0] == limit[2]) {
+                    return strsprintf(_T("%d"), limit[0]);
+                }
 
                 tstring buf;
                 for (int i = 0; i < 3; i++) {
