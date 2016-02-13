@@ -308,7 +308,6 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("\n")
             _T("   --disable-d3d                disable using d3d surfaces\n")
 #if MFX_D3D11_SUPPORT
-        _ftprintf(stdout, _T("")
             _T("   --d3d                        use d3d9/d3d11 surfaces\n")
             _T("   --d3d9                       use d3d9 surfaces\n")
             _T("   --d3d11                      use d3d11 surfaces\n")
