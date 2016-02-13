@@ -2493,13 +2493,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
 
     //parse cached profile and level
     if (argsData.cachedlevel.length() > 0) {
-        const CX_DESC *desc = nullptr;
-        switch (pParams->CodecId) {
-        case MFX_CODEC_AVC: desc = list_avc_level; break;
-        case MFX_CODEC_HEVC: desc = list_hevc_level; break;
-        case MFX_CODEC_MPEG2: desc = list_mpeg2_level; break;
-        default: break;
-        }
+        const auto desc = get_level_list(pParams->CodecId);
         int value = 0;
         bool bParsed = false;
         if (desc != nullptr) {
@@ -2523,13 +2517,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
         }
     }
     if (argsData.cachedprofile.length() > 0) {
-        const CX_DESC *desc = nullptr;
-        switch (pParams->CodecId) {
-        case MFX_CODEC_AVC: desc = list_avc_profile; break;
-        case MFX_CODEC_HEVC: desc = list_hevc_profile; break;
-        case MFX_CODEC_MPEG2: desc = list_mpeg2_profile; break;
-        default: break;
-        }
+        const auto desc = get_profile_list(pParams->CodecId);
         int value = 0;
         if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, argsData.cachedprofile.c_str()))) {
             pParams->CodecProfile = (mfxU16)value;

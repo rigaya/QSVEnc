@@ -363,8 +363,10 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         pInParams->bRDO = false;
     }
 
-    CHECK_RANGE_LIST(pInParams->CodecId,  list_codec,   "codec");
-    CHECK_RANGE_LIST(pInParams->nEncMode, list_rc_mode, "rc mode");
+    CHECK_RANGE_LIST(pInParams->CodecId,      list_codec,   "codec");
+    CHECK_RANGE_LIST(pInParams->CodecLevel,   get_level_list(pInParams->CodecId),   "level");
+    CHECK_RANGE_LIST(pInParams->CodecProfile, get_profile_list(pInParams->CodecId), "profile");
+    CHECK_RANGE_LIST(pInParams->nEncMode,     list_rc_mode, "rc mode");
 
     //設定開始
     m_mfxEncParams.mfx.CodecId                 = pInParams->CodecId;

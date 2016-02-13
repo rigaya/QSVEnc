@@ -349,6 +349,9 @@ struct sInputParams
 
 const int MFX_COLOR_VALUE_AUTO = 0x0000ffff; //max of 16bit-integer (unsigned)
 
+const CX_DESC list_empty[] = { 
+    { NULL, 0 }
+};
 const CX_DESC list_codec[] = {
     { _T("h264"),     MFX_CODEC_AVC   },
     { _T("hevc"),     MFX_CODEC_HEVC  },
@@ -407,12 +410,18 @@ const CX_DESC list_vc1_profile[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_vp8_profile[] ={
+const CX_DESC list_vp8_profile[] = {
     { _T("auto"),     0 },
     { _T("0"),        MFX_PROFILE_VP8_0 },
     { _T("1"),        MFX_PROFILE_VP8_1 },
     { _T("2"),        MFX_PROFILE_VP8_2 },
     { _T("3"),        MFX_PROFILE_VP8_3 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vp9_profile[] = {
+    { _T("auto"),     0 },
+    { _T("0"),        MFX_PROFILE_VP9_0 },
     { NULL, 0 }
 };
 
@@ -504,6 +513,14 @@ const CX_DESC list_vc1_level_adv[] = {
     { _T("2"),     MFX_LEVEL_VC1_2 },
     { _T("3"),     MFX_LEVEL_VC1_3 },
     { _T("4"),     MFX_LEVEL_VC1_4 },
+    { NULL, 0 }
+};
+const CX_DESC list_vp8_level[] = { 
+    { _T("auto"),     0                    },
+    { NULL, 0 }
+};
+const CX_DESC list_vp9_level[] = { 
+    { _T("auto"),     0                    },
     { NULL, 0 }
 };
 const CX_DESC list_avc_trellis[] = {
@@ -603,21 +620,29 @@ const CX_DESC list_avqsv_aud_encoder[] = {
 
 static inline const CX_DESC *get_level_list(int CodecID) {
     switch (CodecID) {
-        case MFX_CODEC_MPEG2: return list_mpeg2_level;
-        case MFX_CODEC_VC1:   return list_vc1_level;
-        case MFX_CODEC_HEVC:  return list_hevc_level;
-        case MFX_CODEC_AVC:
-        default:              return list_avc_level;
+        case MFX_CODEC_AVC:     return list_avc_level;
+        case MFX_CODEC_MPEG2:   return list_mpeg2_level;
+        case MFX_CODEC_VC1:     return list_vc1_level;
+        case MFX_CODEC_HEVC:    return list_hevc_level;
+        case MFX_CODEC_VP8:     return list_vp8_level;
+        case MFX_CODEC_VP9:     return list_vp9_level;
+        case MFX_CODEC_RAW:     return list_empty;
+        case MFX_CODEC_CAPTURE: return list_empty;
+        default:                return list_empty;
     }
 }
 
 static inline const CX_DESC *get_profile_list(int CodecID) {
     switch (CodecID) {
-        case MFX_CODEC_MPEG2: return list_mpeg2_profile;
-        case MFX_CODEC_VC1:   return list_vc1_profile;
-        case MFX_CODEC_HEVC:  return list_hevc_profile;
-        case MFX_CODEC_AVC:
-        default:              return list_avc_profile;
+        case MFX_CODEC_AVC:     return list_avc_profile;
+        case MFX_CODEC_MPEG2:   return list_mpeg2_profile;
+        case MFX_CODEC_VC1:     return list_vc1_profile;
+        case MFX_CODEC_HEVC:    return list_hevc_profile;
+        case MFX_CODEC_VP8:     return list_vp8_profile;
+        case MFX_CODEC_VP9:     return list_vp9_profile;
+        case MFX_CODEC_RAW:     return list_empty;
+        case MFX_CODEC_CAPTURE: return list_empty;
+        default:                return list_empty;
     }
 }
 
