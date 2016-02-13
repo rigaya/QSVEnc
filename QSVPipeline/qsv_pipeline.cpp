@@ -2760,10 +2760,10 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     //QSV_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
     auto logIgnoreMFXLibraryInternalErrors = [this]() {
         const auto log_level = m_pQSVLog->getLogLevel();
-        if (log_level < QSV_LOG_MORE) {
+        if (log_level >= QSV_LOG_MORE) {
             m_pQSVLog->setLogLevel(QSV_LOG_QUIET); //一時的にエラーを無視
         } else {
-            PrintMes(QSV_LOG_INFO, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
+            PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
         }
         return log_level;
     };
