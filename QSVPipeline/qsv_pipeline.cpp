@@ -2283,6 +2283,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     mfxU32 outputFrames = 0;
     memcpy(&outputFrames, &inputFrameInfo.FrameId, sizeof(outputFrames));
     if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+        CHECK_RANGE_LIST(pParams->vpp.nDeinterlace, list_deinterlace, "vpp-deinterlace");
         switch (pParams->vpp.nDeinterlace) {
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
@@ -2336,6 +2337,9 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
             PrintMes(QSV_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC decoding on Haswell.\n"));
         }
     }
+
+    //入力バッファサイズの範囲チェック
+    pParams->nInputBufSize = clamp(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX);
 
     return MFX_ERR_NONE;
 }
