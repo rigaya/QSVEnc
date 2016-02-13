@@ -407,7 +407,7 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
     //%{fps_rate}
     int fps_rate = oip->rate;
     int fps_scale = oip->scale;
-#ifdef MSDK_SAMPLE_VERSION
+#ifdef QSVENC_AUO
 #if ENABLE_ADVANCED_DEINTERLACE
     switch (conf->qsv.vpp.nFPSConversion) {
     case MFX_DEINTERLACE_IT:
