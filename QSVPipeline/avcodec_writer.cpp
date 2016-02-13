@@ -1055,9 +1055,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
             return MFX_ERR_NULL_PTR;
         }
         AddMessage(QSV_LOG_DEBUG, _T("allocated internal buffer %d MB.\n"), m_Mux.format.nAVOutBufferSize / (1024 * 1024));
-#if defined(_WIN32) || defined(_WIN64)
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(strFileName).second.c_str());
-#endif //#if defined(_WIN32) || defined(_WIN64)
         errno_t error;
         if (0 != (error = _tfopen_s(&m_Mux.format.fpOutput, strFileName, _T("wb"))) || m_Mux.format.fpOutput == NULL) {
             AddMessage(QSV_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->pVideoInfo) ? _T("") : _T("audio "), strFileName, _tcserror(error));

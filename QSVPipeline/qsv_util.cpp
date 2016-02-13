@@ -319,15 +319,17 @@ static bool PathRootExists(const WCHAR *path) {
         return false;
     return PathIsDirectoryW(PathGetRoot(path).c_str()) != 0;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path) {
     const char *ptr = path.c_str();
-    char *qtr = PathFindFileNameA(ptr);
+    const char *qtr = PathFindFileNameA(ptr);
     if (qtr == ptr) {
         return std::make_pair(0, path);
     }
     std::string newPath = path.substr(0, qtr - ptr - 1);
     return std::make_pair(path.length() - newPath.length(), newPath);
 }
+#if defined(_WIN32) || defined(_WIN64)
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
     const WCHAR *ptr = path.c_str();
     WCHAR *qtr = PathFindFileNameW(ptr);
@@ -337,14 +339,17 @@ std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
     std::wstring newPath = path.substr(0, qtr - ptr - 1);
     return std::make_pair(path.length() - newPath.length(), newPath);
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 //フォルダがあればOK、なければ作成する
 bool CreateDirectoryRecursive(const char *dir) {
     if (PathIsDirectoryA(dir)) {
         return true;
     }
+#if defined(_WIN32) || defined(_WIN64)
     if (!PathRootExists(dir)) {
         return false;
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     auto ret = PathRemoveFileSpecFixed(dir);
     if (ret.first == 0) {
         return false;
@@ -354,6 +359,7 @@ bool CreateDirectoryRecursive(const char *dir) {
     }
     return CreateDirectoryA(dir, NULL) != 0;
 }
+#if defined(_WIN32) || defined(_WIN64)
 bool CreateDirectoryRecursive(const WCHAR *dir) {
     if (PathIsDirectoryW(dir)) {
         return true;

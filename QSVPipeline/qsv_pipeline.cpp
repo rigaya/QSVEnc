@@ -3695,9 +3695,7 @@ void CQSVLog::init(const TCHAR *pLogFile, int log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
     if (pLogFile != nullptr) {
-#if defined(_WIN32) || defined(_WIN64)
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(pLogFile).second.c_str());
-#endif //#if defined(_WIN32) || defined(_WIN64)
         FILE *fp = NULL;
         if (_tfopen_s(&fp, pLogFile, _T("a+")) || fp == NULL) {
             fprintf(stderr, "failed to open log file, log writing disabled.\n");
