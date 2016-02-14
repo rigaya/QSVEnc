@@ -82,8 +82,8 @@ DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_EN
     pe = _pe;
     jitter = _jitter;
     g_interlaced = (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? TRUE : FALSE;
+    g_total_out_frames = oip->n;
     if (g_interlaced) {
-        g_total_out_frames = oip->n;
         switch (conf->qsv.vpp.nDeinterlace) {
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
