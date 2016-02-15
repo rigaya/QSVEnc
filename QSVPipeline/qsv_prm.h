@@ -337,7 +337,8 @@ struct sInputParams
 
     muxOptList *pMuxOpt;
     TCHAR     *pChapterFile;
-    int8_t     Reserved[1090];
+    uint32_t   nAudioIgnoreDecodeError;
+    int8_t     Reserved[1086];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -810,6 +811,8 @@ const mfxU16 QSV_SESSION_THREAD_MAX = 64;
 
 const int QSV_LOOKAHEAD_DEPTH_MIN = 10;
 const int QSV_LOOKAHEAD_DEPTH_MAX = 100;
+
+const uint32_t QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR = 10;
 
 const mfxI16 QSV_DEFAULT_VPP_DELOGO_DEPTH = 128;
 

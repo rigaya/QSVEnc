@@ -1726,6 +1726,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.nAudioResampler = pParams->nAudioResampler;
+        writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         if (pParams->pMuxOpt) {
             writerPrm.vMuxOpt = *pParams->pMuxOpt;
@@ -1887,6 +1888,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.nAudioThread    = pParams->nAudioThread;
                 writerAudioPrm.nBufSizeMB      = pParams->nOutputBufSizeMB;
                 writerAudioPrm.pOutputFormat   = pAudioSelect->pAudioExtractFormat;
+                writerAudioPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
                 writerAudioPrm.nAudioResampler = pParams->nAudioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 if (m_pTrimParam) {

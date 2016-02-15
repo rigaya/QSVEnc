@@ -72,7 +72,8 @@ typedef struct AVMuxAudio {
     AVCodecContext       *pOutCodecDecodeCtx;   //変換する元のCodecContext
     AVCodec              *pOutCodecEncode;      //変換先の音声のコーデック
     AVCodecContext       *pOutCodecEncodeCtx;   //変換先の音声のCodecContext
-    bool                  bDecodeError;         //デコード処理中にエラーが発生
+    uint32_t              nIgnoreDecodeError;   //デコード時に連続して発生したエラー回数がこの閾値を以下なら無視し、無音に置き換える
+    uint32_t              nDecodeError;         //デコード処理中に連続してエラーが発生した回数
     bool                  bEncodeError;         //エンコード処理中にエラーが発生
     AVPacket              OutPacket;            //変換用の音声バッファ
 
@@ -194,6 +195,7 @@ typedef struct AvcodecWriterPrm {
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
     int                          nAudioResampler;         //音声のresamplerの選択
+    uint32_t                     nAudioIgnoreDecodeError; //音声デコード時に発生したエラーを無視して、無音に置き換える
     int                          nBufSizeMB;              //出力バッファサイズ
     int                          nOutputThread;           //出力スレッド数
     int                          nAudioThread;            //音声処理スレッド数
@@ -291,7 +293,7 @@ private:
     mfxStatus InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio);
+    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError);
 
     //字幕の初期化
     mfxStatus InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);

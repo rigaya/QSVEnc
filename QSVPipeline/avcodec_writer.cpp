@@ -580,7 +580,7 @@ mfxStatus CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels
     return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio) {
+mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError) {
     pMuxAudio->pCodecCtxIn = avcodec_alloc_context3(NULL);
     avcodec_copy_context(pMuxAudio->pCodecCtxIn, pInputAudio->src.pCodecCtx);
     AddMessage(QSV_LOG_DEBUG, _T("start initializing audio ouput...\n"));
@@ -591,6 +591,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         AddMessage(QSV_LOG_ERROR, _T("failed to create new stream for audio.\n"));
         return MFX_ERR_NULL_PTR;
     }
+    pMuxAudio->nIgnoreDecodeError = nAudioIgnoreDecodeError;
     pMuxAudio->nInTrackId = pInputAudio->src.nTrackId;
     pMuxAudio->nInSubStream = pInputAudio->src.nSubStreamId;
     pMuxAudio->nStreamIndexIn = pInputAudio->src.nIndex;
@@ -1101,7 +1102,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
                         return MFX_ERR_UNDEFINED_BEHAVIOR;
                     }
                 }
-                mfxStatus sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream]);
+                mfxStatus sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->nAudioIgnoreDecodeError);
                 if (sts != MFX_ERR_NONE) {
                     return sts;
                 }
@@ -1687,7 +1688,7 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVPktMuxData *pktData) {
 
 AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket *pkt, int *got_result) {
     *got_result = FALSE;
-    if (pMuxAudio->bDecodeError) {
+    if (pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError) {
         return nullptr;
     }
     const AVPacket *pktIn = pkt;
@@ -1705,6 +1706,38 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
     while (!(*got_result) || pktIn->size > 0) {
         AVFrame *decodedData = av_frame_alloc();
         int len = avcodec_decode_audio4(pMuxAudio->pOutCodecDecodeCtx, decodedData, got_result, pktIn);
+        if (len < 0) {
+            pMuxAudio->nDecodeError++;
+            AddMessage(QSV_LOG_WARN, _T("avcodec writer: failed to decode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(len).c_str());
+            if (decodedData) {
+                av_frame_free(&decodedData);
+            }
+            decodedData = nullptr;
+            if (pMuxAudio->nDecodeError <= pMuxAudio->nIgnoreDecodeError) {
+                //デコードエラーを無視する場合、入力パケットのサイズ分、無音を挿入する
+                AVRational samplerate = { 1, pMuxAudio->nSampleRate };
+                decodedData                 = av_frame_alloc();
+                decodedData->nb_samples     = (int)av_rescale_q(pktIn->duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
+                decodedData->channels       = pMuxAudio->nChannels;
+                decodedData->channel_layout = pMuxAudio->nChannelLayout;
+                decodedData->sample_rate    = pMuxAudio->nSampleRate;
+                decodedData->format         = pMuxAudio->sampleFmt;
+                av_frame_get_buffer(decodedData, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+                av_samples_set_silence((uint8_t **)decodedData->data, 0, decodedData->nb_samples, decodedData->channels, (AVSampleFormat)decodedData->format);
+
+                len = pktIn->size;
+            } else {
+                AddMessage(QSV_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d for %d times.\n"), pMuxAudio->nInTrackId, pMuxAudio->nDecodeError);
+                if (decodedFrame) {
+                    av_frame_free(&decodedFrame);
+                }
+                decodedFrame = nullptr;
+                m_Mux.format.bStreamError = true;
+                break;
+            }
+        } else {
+            pMuxAudio->nDecodeError = 0;
+        }
         if (decodedFrame->nb_samples && decodedData->nb_samples) {
             AVFrame *decodedFrameNew        = av_frame_alloc();
             decodedFrameNew->nb_samples     = decodedFrame->nb_samples + decodedData->nb_samples;
@@ -1731,15 +1764,7 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, const AVPacket
             av_frame_free(&decodedFrame);
             decodedFrame = decodedData;
         }
-        if (len < 0) {
-            AddMessage(QSV_LOG_WARN, _T("avcodec writer: failed to decode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(len).c_str());
-            if (decodedFrame) {
-                av_frame_free(&decodedFrame);
-            }
-            decodedFrame = nullptr;
-            pMuxAudio->bDecodeError = true;
-            break;
-        } else if (pktIn->size != len) {
+        if (pktIn->size != len) {
             int newLen = pktIn->size - len;
             memmove(pMuxAudio->OutPacket.data, pktIn->data + len, newLen);
             pMuxAudio->OutPacket.size = newLen;
@@ -1828,7 +1853,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
         int got_result = 0;
         AVPacket pkt = { 0 };
         AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pkt, &got_result);
-        if (!got_result && (decodedFrame != nullptr || pMuxAudio->bDecodeError)) {
+        if (!got_result && (decodedFrame != nullptr || pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError)) {
             if (decodedFrame != nullptr) {
                 av_frame_free(&decodedFrame);
             }
@@ -1857,7 +1882,7 @@ void CAvcodecWriter::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWrittenDt
         int got_result = 0;
         AVPacket pkt = { 0 };
         int samples = AudioEncodeFrame(pMuxAudio, &pkt, nullptr, &got_result);
-        if (samples == 0 || pMuxAudio->bDecodeError)
+        if (samples == 0 || pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError)
             break;
         WriteNextPacketProcessed(pMuxAudio, &pkt, samples, pWrittenDts);
     }
@@ -2103,7 +2128,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         }
         pMuxAudio->nLastPtsIn = pktData->pkt.pts;
         writeOrSetNextPacketAudioProcessed(pktData);
-    } else if (!pMuxAudio->bDecodeError && !pMuxAudio->bEncodeError) {
+    } else if (!(pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError) && !pMuxAudio->bEncodeError) {
         AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &pktData->got_result);
         if (pktData->pkt.data != nullptr) {
             av_free_packet(&pktData->pkt);

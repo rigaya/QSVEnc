@@ -231,6 +231,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --audio-bitrate [<int>?]<int>\n")
             _T("                                set encode bitrate for audio (kbps).\n")
             _T("                                  in [<int>?], specify track number of audio.\n")
+            _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
+            _T("                                set numbers of continuous packets of audio decode\n")
+            _T("                                 error to ignore, replaced by silence.\n")
             _T("   --audio-samplerate [<int>?]<int>\n")
             _T("                                set sampling rate for audio (Hz).\n")
             _T("                                  in [<int>?], specify track number of audio.\n")
@@ -281,9 +284,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("-m,--mux-option <string1>:<string2>\n")
             _T("                                set muxer option name and value.\n")
             _T("                                 these could be only used with\n")
-            _T("                                 avqsv reader and avcodec muxer.\n")
+            _T("                                 avqsv reader and avcodec muxer.\n"),
+                QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR);
 #endif
-            _T("\n")
+        _ftprintf(stdout, _T("\n")
             _T("   --nv12                       set raw input as NV12 color format,\n")
             _T("                                if not specified YV12 is expected\n")
             _T("   --tff                        set as interlaced, top field first\n")
@@ -1119,6 +1123,16 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return MFX_PRINT_OPTION_ERR;
         }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-ignore-decode-error"))) {
+        i++;
+        uint32_t value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nAudioIgnoreDecodeError = value;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {
@@ -2332,6 +2346,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
     pParams->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;
+    pParams->nAudioIgnoreDecodeError = QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR;
 
     sArgsData argsData;
 

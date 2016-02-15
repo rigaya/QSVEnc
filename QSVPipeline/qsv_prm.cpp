@@ -50,6 +50,7 @@ void init_qsvp_prm(sInputParams *prm) {
     prm->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
     prm->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
     prm->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
+    prm->nAudioIgnoreDecodeError = QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR;
 
     prm->nDstWidth          = 1280;
     prm->nDstHeight         = 720;
