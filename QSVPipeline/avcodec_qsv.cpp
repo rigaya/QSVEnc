@@ -323,6 +323,9 @@ tstring getAVProtocols() {
 }
 
 bool usingAVProtocols(std::string filename, int bOutput) {
+    if (!check_avcodec_dll()) {
+        return false;
+    }
     const auto protocolList = getAVProtocolList(bOutput);
     const auto pos = filename.find_first_of(':');
     if (pos != std::string::npos) {
