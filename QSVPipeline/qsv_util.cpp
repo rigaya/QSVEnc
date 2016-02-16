@@ -1773,6 +1773,19 @@ mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize) {
     return MFX_ERR_NONE;
 }
 
+mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream) {
+    memcpy(pBitstreamCopy, pBitstream, sizeof(pBitstreamCopy[0]));
+    pBitstreamCopy->Data = nullptr;
+    pBitstreamCopy->DataLength = 0;
+    pBitstreamCopy->DataOffset = 0;
+    pBitstreamCopy->MaxLength = 0;
+    auto sts = mfxBitstreamInit(pBitstreamCopy, pBitstream->MaxLength);
+    if (sts == MFX_ERR_NONE) {
+        memcpy(pBitstreamCopy->Data, pBitstream->Data, pBitstreamCopy->DataLength);
+    }
+    return sts;
+}
+
 mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize) {
     uint8_t *pData = (uint8_t *)_aligned_malloc(nSize, 32);
     if (nullptr == pData) {

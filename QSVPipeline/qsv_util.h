@@ -528,6 +528,7 @@ const TCHAR *EncmodeToStr(uint32_t enc_mode);
 const TCHAR *MemTypeToStr(uint32_t memType);
 
 mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
+mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream);
 mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize);
 mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size);
 void mfxBitstreamClear(mfxBitstream *pBitstream);
