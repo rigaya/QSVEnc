@@ -108,6 +108,12 @@ mfxStatus CQSVPipeline::InitMfxDecParams() {
             PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded HEVC decoder plugin.\n"));
         }
 
+        //必要はなくてもDecodeHeaderを行わないと、QSV Decoderによる正常なTimestampの算出が行われないことに注意する
+        m_DecInputBitstream.DataFlag |= MFX_BITSTREAM_COMPLETE_FRAME;
+        sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream, &m_mfxDecParams);
+        QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
+        m_DecInputBitstream.DataFlag &= ~MFX_BITSTREAM_COMPLETE_FRAME;
+
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to initialize QSV decoder."));
         PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Initialized QSVDec.\n"));
