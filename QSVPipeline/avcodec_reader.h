@@ -170,6 +170,9 @@ public:
 
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstPts();
+
+    //フレームの情報のコピーを取得する
+    FramePos GetFrameInfo(int64_t pts);
 private:
     //avcodecのコーデックIDからIntel Media SDKのコーデックのFourccを取得
     uint32_t getQSVFourcc(uint32_t id);

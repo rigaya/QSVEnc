@@ -1117,6 +1117,19 @@ int64_t CAvcodecReader::GetVideoFirstPts() {
     return m_Demux.video.nStreamFirstPts;
 }
 
+//フレームの情報のコピーを取得する
+FramePos CAvcodecReader::GetFrameInfo(int64_t pts) {
+    std::lock_guard<std::mutex> lock(m_Demux.mtx);
+    const FramePos *pFrame = m_Demux.video.frameData.frame;
+    const int nCount = m_Demux.video.frameData.num;
+    auto ret = std::find_if(pFrame, pFrame + nCount, [pts](const FramePos& pos) { return pos.pts == pts; });
+    FramePos copyFramePos = { 0 };
+    if (ret != pFrame + nCount) {
+        copyFramePos = *ret;
+    }
+    return copyFramePos;
+}
+
 int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart) {
     const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
     for (int i = (std::max)(0, iStart); i < framePosCount; i++) {
