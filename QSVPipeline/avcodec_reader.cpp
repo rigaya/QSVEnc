@@ -523,7 +523,20 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
     //durationが0でなく、最も頻繁に出てきたもの
     auto& mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
-    
+    //RFFの可能性がないか検証する
+    auto durationRFF = [mostPopularDuration](const std::pair<int, int>& sample, int estimateForShort) {
+        int estimatedRFFDurationLong  = mostPopularDuration.first * 3 / 2;
+        int estimatedRFFDurationShort = mostPopularDuration.first * 2 / 3;
+        return std::abs(sample.first - ((estimateForShort > 0) ? estimatedRFFDurationShort : estimatedRFFDurationLong)) <= 1;
+    };
+    if (mostPopularDuration.first != 0) {
+        auto rffDurationCountLong  = std::accumulate(durationHistgram.begin(), durationHistgram.end(), 0, [durationRFF](const int sum, const std::pair<int, int>& sample) { return sum + (durationRFF(sample, 0) ? sample.second : 0); });
+        auto rffDurationCountShort = std::accumulate(durationHistgram.begin(), durationHistgram.end(), 0, [durationRFF](const int sum, const std::pair<int, int>& sample) { return sum + (durationRFF(sample, 1) ? sample.second : 0); });
+        m_Demux.video.nRFFEstimate = rffDurationCountLong  >= mostPopularDuration.second / 16 ? -1 : m_Demux.video.nRFFEstimate;
+        m_Demux.video.nRFFEstimate = rffDurationCountShort >= mostPopularDuration.second / 16 ?  1 : m_Demux.video.nRFFEstimate;
+    }
+
+    AddMessage(QSV_LOG_DEBUG, _T("bRFFEstimate    %s\n"), (m_Demux.video.nRFFEstimate) ? _T("yes") : _T("no"));
     AddMessage(QSV_LOG_DEBUG, _T("stream timebase %d/%d\n"), m_Demux.video.pCodecCtx->time_base.num, m_Demux.video.pCodecCtx->time_base.den);
     AddMessage(QSV_LOG_DEBUG, _T("decoder fps     %d/%d\n"), fpsDecoder.num, fpsDecoder.den);
     AddMessage(QSV_LOG_DEBUG, _T("duration histgram of %d frames\n"), framePosList.size() - cutoff);
@@ -538,12 +551,20 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     if (mostPopularDuration.first == 0) {
         m_Demux.video.nStreamPtsInvalid |= AVQSV_PTS_ALL_INVALID;
     } else {
+        //m_Demux.video.nRFFEstimateに応じ、もしRFFフレームならdurationを補正する
+        auto fixRffDuration = [this, mostPopularDuration](int duration) {
+            if (m_Demux.video.nRFFEstimate == 0) return duration;
+            int estimatedRFFDurationLong  = mostPopularDuration.first * 3 / 2;
+            int estimatedRFFDurationShort = mostPopularDuration.first * 2 / 3;
+            int estimatedRFFDuration      = (m_Demux.video.nRFFEstimate < 0) ? estimatedRFFDurationLong : estimatedRFFDurationShort;
+            return (std::abs(duration - estimatedRFFDuration)) <= 1 ? mostPopularDuration.first : duration;
+        };
         //avgFpsとtargetFpsが近いかどうか
         auto fps_near = [](double avgFps, double targetFps) { return std::abs(1 - avgFps / targetFps) < 0.5; };
         //durationの平均を求める (ただし、先頭は信頼ならないので、cutoff分は計算に含めない)
         //std::accumulateの初期値に"(uint64_t)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
         //大きすぎるtimebaseの時に必要
-        double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), (uint64_t)0, [](const uint64_t sum, const FramePos& pos) { return sum + pos.duration; }) / (double)(framePosList.size() - cutoff);
+        double avgDuration = std::accumulate(framePosList.begin() + cutoff, framePosList.end(), (uint64_t)0, [this, fixRffDuration](const uint64_t sum, const FramePos& pos) { return sum + fixRffDuration(pos.duration); }) / (double)(framePosList.size() - cutoff);
         double avgFps = m_Demux.video.pCodecCtx->pkt_timebase.den / (double)(avgDuration * m_Demux.video.pCodecCtx->time_base.num);
         double torrelance = (fps_near(avgFps, 25.0) || fps_near(avgFps, 50.0)) ? 0.01 : 0.0008; //25fps, 50fps近辺は基準が甘くてよい
         if (mostPopularDuration.second / (double)(framePosList.size() - cutoff) > 0.95 && std::abs(1 - mostPopularDuration.first / avgDuration) < torrelance) {
