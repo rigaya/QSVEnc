@@ -281,6 +281,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 below are optional,\n")
             _T("                                  in [<int>?], specify track number to copy.\n")
             _T("\n")
+            _T("   --avsync <string>            method for AV sync (default: through)\n")
+            _T("                                 through  ... assume cfr, no check but fast\n")
+            _T("                                 forcecfr ... check timestamp and force cfr.\n")
             _T("-m,--mux-option <string1>:<string2>\n")
             _T("                                set muxer option name and value.\n")
             _T("                                 these could be only used with\n")
@@ -1316,6 +1319,17 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int iTrack = 0;
         for (auto it = trackSet.begin(); it != trackSet.end(); it++, iTrack++) {
             pParams->pSubtitleSelect[iTrack] = *it;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("avsync"))) {
+        int value = 0;
+        i++;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avsync, strInput[i]))) {
+            pParams->nAVSyncMode = (QSVAVSync)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
     }

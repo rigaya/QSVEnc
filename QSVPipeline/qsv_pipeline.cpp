@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cassert>
 #include <climits>
+#include <deque>
 #include "qsv_osdep.h"
 #include "qsv_pipeline.h"
 #include "qsv_input.h"
@@ -1191,6 +1192,12 @@ mfxStatus CQSVPipeline::AllocFrames() {
     if (m_pmfxDEC) {
         sts = m_pmfxDEC->QueryIOSurf(&m_mfxDecParams, &DecRequest);
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for decoder."));
+        if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
+            //ptsチェック用に使うフレームを追加する
+            const uint32_t ptsSortFrames = QSV_PTS_SORT_SIZE + std::max(1, m_nAsyncDepth / 2);
+            DecRequest.NumFrameMin       += (uint16_t)ptsSortFrames;
+            DecRequest.NumFrameSuggested += (uint16_t)ptsSortFrames;
+        }
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
     }
 
@@ -1610,6 +1617,7 @@ CQSVPipeline::CQSVPipeline() {
     m_bExternalAlloc = false;
     m_nAsyncDepth = 0;
     m_nExPrm = 0x00;
+    m_nAVSyncMode = QSV_AVSYNC_THROUGH;
     m_bTimerPeriodTuning = false;
 
     m_pAbortByUser = NULL;
@@ -2612,6 +2620,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     PrintMes(QSV_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
+    m_nAVSyncMode = pParams->nAVSyncMode;
     m_nAsyncDepth = (mfxU16)clamp(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX);
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1) * 2, (int)QSV_ASYNC_DEPTH_MAX);
@@ -2719,6 +2728,7 @@ void CQSVPipeline::Close() {
 
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
+    m_nAVSyncMode = QSV_AVSYNC_THROUGH;
 #if ENABLE_AVCODEC_QSV_READER
     av_qsv_log_free();
 #endif //#if ENABLE_AVCODEC_QSV_READER
@@ -3023,6 +3033,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     mfxFrameSurface1 *pSurfInputBuf = nullptr;
     mfxFrameSurface1 *pSurfEncIn = nullptr;
     mfxFrameSurface1 *pSurfVppIn = nullptr;
+    mfxFrameSurface1 *pSurfCheckPts = nullptr; //checkptsから出てきて、他の要素に投入するフレーム / 投入後、ロックを解除する必要がある
     vector<mfxFrameSurface1 *>pSurfVppPreFilter(m_VppPrePlugins.size() + 1, nullptr);
     vector<mfxFrameSurface1 *>pSurfVppPostFilter(m_VppPostPlugins.size() + 1, nullptr);
     mfxFrameSurface1 *pNextFrame;
@@ -3035,10 +3046,27 @@ mfxStatus CQSVPipeline::RunEncode() {
     int nEncSurfIdx = -1; //使用するフレームのインデックス encoder input (vpp output)
     int nVppSurfIdx = -1; //使用するフレームのインデックス vpp input
 
-    bool bVppMultipleOutput = false;  // this flag is true if VPP produces more frames at output
-                                      // than consumes at input. E.g. framerate conversion 30 fps -> 60 fps
+    bool bVppMultipleOutput = false;  //bob化などの際にvppが余分にフレームを出力するフラグ
+    bool bCheckPtsMultipleOutput = false; //dorcecfrなどにともなって、checkptsが余分にフレームを出力するフラグ
 
     int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)  Trimの反映に使用する
+
+    std::deque<int64_t> qDecodePtsList; //デコードされて出てきたptsを格納するキュー
+    std::deque<std::pair<mfxSyncPoint, mfxFrameSurface1 *>> qDecodeFrames; //デコードされて出てきたsyncpとframeのペア
+#if ENABLE_AVCODEC_QSV_READER
+    int64_t nEstimatedPts = AV_NOPTS_VALUE;
+    int nFrameDuration = 0;
+    auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+    vector<AVPacket> packetList;
+    if (pAVCodecReader != nullptr) {
+        auto pVideoCtx = pAVCodecReader->GetInputVideoCodecCtx();
+        AVRational decFpsTimebase = { (int)m_mfxDecParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxDecParams.mfx.FrameInfo.FrameRateExtN };
+        nFrameDuration = (int)av_rescale_q(1, decFpsTimebase, pVideoCtx->pkt_timebase);
+        nEstimatedPts = pAVCodecReader->GetVideoFirstPts();
+    } else {
+        m_nAVSyncMode = QSV_AVSYNC_THROUGH;
+    }
+#endif
 
     mfxU16 nLastFrameFlag = 0;
     int nLastAQ = 0;
@@ -3189,6 +3217,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
             //デコード前には、デコード用のパラメータでFrameInfoを更新
             copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
+            pSurfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
 
             for (int i = 0; ; i++) {
                 mfxSyncPoint DecSyncPoint = NULL;
@@ -3224,7 +3253,65 @@ mfxStatus CQSVPipeline::RunEncode() {
         return dec_sts;
     };
 
-    auto filter_one_frame = [&](const unique_ptr<CVPPPlugin>& filter, mfxFrameSurface1** ppSurfIn, mfxFrameSurface1** ppSurfOut) {
+    auto check_pts = [&](bool flush) {
+#if ENABLE_AVCODEC_QSV_READER
+        if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
+            if (!bCheckPtsMultipleOutput) {
+                //ひとまずデコード結果をキューに格納
+                if (pNextFrame) {
+                    //ここでロックしないとキューにためているフレームが勝手に使われてしまう
+                    pNextFrame->Data.Locked++;
+                    qDecodePtsList.push_back(pNextFrame->Data.TimeStamp);
+                    qDecodeFrames.push_back(std::make_pair(lastSyncP, pNextFrame));
+                }
+                //AsyncDepthの半分だけ、デコードの非同期実行を許可する
+                const uint32_t nCheckPtsAsync = std::max<uint32_t>(1, m_nAsyncDepth / 2);
+                //nCheckPtsAsync以上フレームがキューにたまっていたら、Syncでフレーム情報を確定させる
+                if (qDecodeFrames.size() >= nCheckPtsAsync) {
+                    const auto& pFrame = qDecodeFrames[qDecodeFrames.size() - nCheckPtsAsync];
+                    m_mfxSession.SyncOperation(pFrame.first, 60 * 1000);
+                }
+                //queueに17フレーム以上たまるまで次に進まない
+                if (!flush && qDecodeFrames.size() <= QSV_PTS_SORT_SIZE + nCheckPtsAsync) {
+                    return MFX_ERR_MORE_SURFACE;
+                }
+                //queueが空になったら終了
+                if (qDecodePtsList.size() == 0) {
+                    return MFX_ERR_MORE_DATA;
+                }
+            }
+            std::sort(qDecodePtsList.begin(), qDecodePtsList.begin() + std::min(QSV_PTS_SORT_SIZE, qDecodePtsList.size()),
+                [](const int64_t& posA, const int64_t& posB) {
+                return ((uint32_t)std::abs(posA - posB) < 0x1FFFFFFF) ? posA < posB : posB < posA; });
+            auto queueFirstFrame = qDecodeFrames.front();
+            auto queueFirstPts = qDecodePtsList.front();
+
+            auto ptsDiff = queueFirstPts - nEstimatedPts;
+            if (ptsDiff >= nFrameDuration) {
+                //水増しが必要 -> 何も(pop)しない
+                bCheckPtsMultipleOutput = true;
+                queueFirstFrame.second->Data.Locked++;
+            } else {
+                bCheckPtsMultipleOutput = false;
+                qDecodePtsList.pop_front();
+                qDecodeFrames.pop_front();
+                if (ptsDiff <= -1 * nFrameDuration) {
+                    //間引きが必要 -> フレームを後段に渡さず破棄
+                    queueFirstFrame.second->Data.Locked--;
+                    pSurfCheckPts = nullptr;
+                    return MFX_ERR_MORE_SURFACE;
+                }
+            }
+            lastSyncP = queueFirstFrame.first;
+            pNextFrame    = queueFirstFrame.second;
+            pSurfCheckPts = queueFirstFrame.second;
+            nEstimatedPts += nFrameDuration;
+        }
+#endif //#if ENABLE_AVCODEC_QSV_READER
+        return MFX_ERR_NONE;
+    };
+
+    auto filter_one_frame = [&](const unique_ptr<CVPPPlugin>& filter, mfxFrameSurface1 **ppSurfIn, mfxFrameSurface1 **ppSurfOut) {
         mfxStatus filter_sts = MFX_ERR_NONE;
         mfxSyncPoint filterSyncPoint = NULL;
 
@@ -3396,6 +3483,12 @@ mfxStatus CQSVPipeline::RunEncode() {
 
     //メインループ
     while (MFX_ERR_NONE <= sts || MFX_ERR_MORE_DATA == sts || MFX_ERR_MORE_SURFACE == sts) {
+        if (pSurfCheckPts) {
+            //pSurfCheckPtsはcheckptsから出てきて、他の要素に投入するフレーム
+            //投入後、ロックを解除する必要がある
+            pSurfCheckPts->Data.Locked--;
+            pSurfCheckPts = nullptr;
+        }
         //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
@@ -3413,43 +3506,48 @@ mfxStatus CQSVPipeline::RunEncode() {
 
         if (!bVppMultipleOutput) {
             get_all_free_surface(pSurfEncIn);
-            //if (m_VppPrePlugins.size()) {
-            //    pSurfInputBuf = pSurfVppPreFilter[0];
-            //    //ppNextFrame = &;
-            //} else if (m_pmfxVPP) {
-            //    pSurfInputBuf = &m_pVppSurfaces[nVppSurfIdx];
-            //    //ppNextFrame = &pSurfVppIn;
-            //} else if (m_VppPostPlugins.size()) {
-            //    pSurfInputBuf = &pSurfVppPostFilter[0];
-            //    //ppNextFrame = &;
-            //} else {
-            //    pSurfInputBuf = pSurfEncIn;
-            //    //ppNextFrame = &pSurfEncIn;
-            //}
-            //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
-            //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-            if (MFX_ERR_NONE != (sts = m_pFileReader->GetNextFrame(&pNextFrame)))
-                break;
-
-            if (m_bExternalAlloc) {
-                if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))
+            if (!bCheckPtsMultipleOutput) {
+                //if (m_VppPrePlugins.size()) {
+                //    pSurfInputBuf = pSurfVppPreFilter[0];
+                //    //ppNextFrame = &;
+                //} else if (m_pmfxVPP) {
+                //    pSurfInputBuf = &m_pVppSurfaces[nVppSurfIdx];
+                //    //ppNextFrame = &pSurfVppIn;
+                //} else if (m_VppPostPlugins.size()) {
+                //    pSurfInputBuf = &pSurfVppPostFilter[0];
+                //    //ppNextFrame = &;
+                //} else {
+                //    pSurfInputBuf = pSurfEncIn;
+                //    //ppNextFrame = &pSurfEncIn;
+                //}
+                //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
+                //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
+                if (MFX_ERR_NONE != (sts = m_pFileReader->GetNextFrame(&pNextFrame)))
                     break;
 
-                if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data))))
+                if (m_bExternalAlloc) {
+                    if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))
+                        break;
+
+                    if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data))))
+                        break;
+                }
+
+                //空いているフレームを読み込み側に渡す
+                m_pFileReader->SetNextSurface(pSurfInputBuf);
+
+                if (MFX_ERR_NONE != (sts = extract_audio()))
+                    break;
+
+                sts = decode_one_frame(true);
+                if (sts == MFX_ERR_MORE_DATA || sts == MFX_ERR_MORE_SURFACE)
+                    continue;
+                if (sts != MFX_ERR_NONE)
                     break;
             }
 
-            //空いているフレームを読み込み側に渡す
-            m_pFileReader->SetNextSurface(pSurfInputBuf);
-#if ENABLE_MVC_ENCODING
-            pSurfInputBuf->Info.FrameId.ViewId = currViewNum;
-            if (m_bIsMVC) currViewNum ^= 1; // Flip between 0 and 1 for ViewId
-#endif
-            if (MFX_ERR_NONE != (sts = extract_audio()))
-                break;
-
-            sts = decode_one_frame(true);
-            if (sts == MFX_ERR_MORE_DATA || sts == MFX_ERR_MORE_SURFACE)
+            sts = check_pts(false);
+            if (sts == MFX_ERR_MORE_SURFACE)
                 continue;
             if (sts != MFX_ERR_NONE)
                 break;
@@ -3501,6 +3599,12 @@ mfxStatus CQSVPipeline::RunEncode() {
         pNextFrame = NULL;
 
         while (MFX_ERR_NONE <= sts || sts == MFX_ERR_MORE_SURFACE) {
+            if (pSurfCheckPts) {
+                //pSurfCheckPtsはcheckptsから出てきて、他の要素に投入するフレーム
+                //投入後、ロックを解除する必要がある
+                pSurfCheckPts->Data.Locked--;
+                pSurfCheckPts = nullptr;
+            }
             //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
                 break;
@@ -3518,7 +3622,15 @@ mfxStatus CQSVPipeline::RunEncode() {
                 get_all_free_surface(pSurfEncIn);
                 pNextFrame = pSurfInputBuf;
 
-                sts = decode_one_frame(false);
+                if (!bCheckPtsMultipleOutput) {
+                    sts = decode_one_frame(false);
+                    if (sts == MFX_ERR_MORE_SURFACE)
+                        continue;
+                    if (sts != MFX_ERR_NONE)
+                        break;
+                }
+
+                sts = check_pts(false);
                 if (sts == MFX_ERR_MORE_SURFACE)
                     continue;
                 if (sts != MFX_ERR_NONE)
@@ -3566,6 +3678,85 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
 
 #if ENABLE_AVCODEC_QSV_READER
+    if (m_pmfxDEC && (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS)) {
+
+        sts = extract_audio();
+        QSV_ERR_MES(sts, _T("Error on extracting audio."));
+
+        pNextFrame = NULL;
+
+        while (MFX_ERR_NONE <= sts || sts == MFX_ERR_MORE_SURFACE) {
+            if (pSurfCheckPts) {
+                //pSurfCheckPtsはcheckptsから出てきて、他の要素に投入するフレーム
+                //投入後、ロックを解除する必要がある
+                pSurfCheckPts->Data.Locked--;
+                pSurfCheckPts = nullptr;
+            }
+            //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
+            if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
+                break;
+
+            //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
+            nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
+            if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
+                PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
+                return MFX_ERR_MEMORY_ALLOC;
+            }
+
+            pSurfEncIn = &m_pEncSurfaces[nEncSurfIdx];
+
+            if (!bVppMultipleOutput) {
+                get_all_free_surface(pSurfEncIn);
+                pNextFrame = nullptr;
+                lastSyncP = nullptr;
+
+                sts = check_pts(true);
+                if (sts == MFX_ERR_MORE_SURFACE)
+                    continue;
+                if (sts != MFX_ERR_NONE)
+                    break;
+
+                for (int i_filter = 0; i_filter < (int)m_VppPrePlugins.size(); i_filter++) {
+                    mfxFrameSurface1 *pSurfFilterOut = pSurfVppPreFilter[i_filter + 1];
+                    if (MFX_ERR_NONE != (sts = filter_one_frame(m_VppPrePlugins[i_filter], &pNextFrame, &pSurfFilterOut)))
+                        break;
+                    pNextFrame = pSurfFilterOut;
+                }
+                if (sts != MFX_ERR_NONE)
+                    break;
+
+                pSurfVppIn = pNextFrame;
+            }
+
+            if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
+                continue;
+
+            sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
+            if (bVppRequireMoreFrame)
+                continue;
+            if (sts != MFX_ERR_NONE)
+                break;
+
+            for (int i_filter = 0; i_filter < (int)m_VppPostPlugins.size(); i_filter++) {
+                mfxFrameSurface1 *pSurfFilterOut = pSurfVppPostFilter[i_filter + 1];
+                if (MFX_ERR_NONE != (sts = filter_one_frame(m_VppPostPlugins[i_filter], &pNextFrame, &pSurfFilterOut)))
+                    break;
+                pNextFrame = pSurfFilterOut;
+            }
+            if (sts != MFX_ERR_NONE)
+                break;
+
+            sts = encode_one_frame(pNextFrame);
+        }
+
+        //MFX_ERR_MORE_DATAはcheck_ptsにもうflushするべきフレームがないことを示す
+        QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
+        // exit in case of other errors
+        m_EncThread.m_stsThread = sts;
+        QSV_ERR_MES(sts, _T("Error in getting buffered frames from avsync buffer."));
+        PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from avsync buffer.\n"));
+    }
+
     for (const auto& writer : m_pFileWriterListAudio) {
         auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
         if (pAVCodecWriter != nullptr) {
@@ -3580,6 +3771,12 @@ mfxStatus CQSVPipeline::RunEncode() {
         while (MFX_ERR_NONE <= sts || MFX_ERR_MORE_DATA == sts || MFX_ERR_MORE_SURFACE == sts) {
             // MFX_ERR_MORE_SURFACE can be returned only by RunFrameVPPAsync
             // MFX_ERR_MORE_DATA is accepted only from EncodeFrameAsync
+            if (pSurfCheckPts) {
+                //pSurfCheckPtsはcheckptsから出てきて、他の要素に投入するフレーム
+                //投入後、ロックを解除する必要がある
+                pSurfCheckPts->Data.Locked--;
+                pSurfCheckPts = nullptr;
+            }
             pNextFrame = nullptr;
 
             nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
@@ -3639,7 +3836,10 @@ mfxStatus CQSVPipeline::RunEncode() {
 
     //encのフレームをflush
     while (MFX_ERR_NONE <= sts && m_pmfxENC) {
-        // get a free task (bit stream and sync point for encoder)
+        if (pSurfCheckPts) {
+            pSurfCheckPts->Data.Locked--;
+            pSurfCheckPts = nullptr;
+        }
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
 

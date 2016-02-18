@@ -109,6 +109,14 @@ enum {
     FPS_CONVERT_MUL2_5,
 };
 
+enum QSVAVSync : uint32_t {
+    QSV_AVSYNC_THROUGH   = 0x00,
+    QSV_AVSYNC_INIT      = 0x01,
+    QSV_AVSYNC_CHECK_PTS = 0x02,
+    QSV_AVSYNC_VFR       = 0x02,
+    QSV_AVSYNC_FORCE_CFR = 0x04 | QSV_AVSYNC_CHECK_PTS,
+};
+
 enum {
     QSVENC_MUX_NONE     = 0x00,
     QSVENC_MUX_VIDEO    = 0x01,
@@ -338,7 +346,8 @@ struct sInputParams
     muxOptList *pMuxOpt;
     TCHAR     *pChapterFile;
     uint32_t   nAudioIgnoreDecodeError;
-    int8_t     Reserved[1086];
+    QSVAVSync  nAVSyncMode;     //avsyncの方法 (QSV_AVSYNC_xxx)
+    int8_t     Reserved[1082];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -571,6 +580,12 @@ const CX_DESC list_log_level[] = {
     { _T("info"),  QSV_LOG_INFO  },
     { _T("warn"),  QSV_LOG_WARN  },
     { _T("error"), QSV_LOG_ERROR },
+    { NULL, 0 }
+};
+
+const CX_DESC list_avsync[] = {
+    { _T("through"),  QSV_AVSYNC_THROUGH   },
+    { _T("forcecfr"), QSV_AVSYNC_FORCE_CFR },
     { NULL, 0 }
 };
 

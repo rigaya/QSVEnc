@@ -1341,6 +1341,7 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
     mfxStatus sts = MFX_ERR_NONE;
     if (pkt->data) {
         sts = mfxBitstreamAppend(bitstream, pkt->data, pkt->size);
+        bitstream->TimeStamp = pkt->pts;
     } else {
         sts = MFX_ERR_MORE_DATA;
     }

@@ -59,6 +59,8 @@ enum {
     SC_FIELDFLAG_INVALID_HIGH = 0xffff0000,
 };
 
+const uint32_t QSV_PTS_SORT_SIZE = 16u;
+
 class CQSVPipeline
 {
 public:
@@ -107,6 +109,7 @@ protected:
 
     CQSVTaskControl m_TaskPool;
     mfxU16 m_nAsyncDepth;
+    QSVAVSync m_nAVSyncMode;
 
     mfxInitParam m_InitParam;
     mfxExtBuffer *m_pInitParamExtBuf[1];
