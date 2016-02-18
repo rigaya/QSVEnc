@@ -3394,9 +3394,8 @@ mfxStatus CQSVPipeline::RunEncode() {
         return enc_sts;
     };
 
-    // main loop, preprocessing and encoding
+    //メインループ
     while (MFX_ERR_NONE <= sts || MFX_ERR_MORE_DATA == sts || MFX_ERR_MORE_SURFACE == sts) {
-        // get a pointer to a free task (bit stream and sync point for encoder)
         //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
@@ -3488,9 +3487,9 @@ mfxStatus CQSVPipeline::RunEncode() {
         sts = encode_one_frame(pNextFrame);
     }
     
-    // means that the input file has ended, need to go to buffering loops
+    //MFX_ERR_MORE_DATAは入力が終了したことを示す
     QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
-    // exit in case of other errors
+    //エラーチェック
     m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in encoding pipeline."));
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished main loop.\n"));
@@ -3502,12 +3501,10 @@ mfxStatus CQSVPipeline::RunEncode() {
         pNextFrame = NULL;
 
         while (MFX_ERR_NONE <= sts || sts == MFX_ERR_MORE_SURFACE) {
-            // get a pointer to a free task (bit stream and sync point for encoder)
             //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
                 break;
 
-            // find free surface for encoder input
             //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
             nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
             if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
@@ -3515,7 +3512,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
-            // point pSurf to encoder surface
             pSurfEncIn = &m_pEncSurfaces[nEncSurfIdx];
 
             if (!bVppMultipleOutput) {
@@ -3561,10 +3557,9 @@ mfxStatus CQSVPipeline::RunEncode() {
             sts = encode_one_frame(pNextFrame);
         }
 
-        // MFX_ERR_MORE_DATA is the correct status to exit buffering loop with
-        // indicates that there are no more buffered frames
+        //MFX_ERR_MORE_DATAはデコーダにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
-        // exit in case of other errors
+        //エラーチェック
         m_EncThread.m_stsThread = sts;
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from decoder."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
@@ -3581,12 +3576,12 @@ mfxStatus CQSVPipeline::RunEncode() {
 #endif //ENABLE_AVCODEC_QSV_READER
 
     if (m_pmfxVPP) {
-        // loop to get buffered frames from vpp
+        //vppのフレームをflush
         while (MFX_ERR_NONE <= sts || MFX_ERR_MORE_DATA == sts || MFX_ERR_MORE_SURFACE == sts) {
             // MFX_ERR_MORE_SURFACE can be returned only by RunFrameVPPAsync
             // MFX_ERR_MORE_DATA is accepted only from EncodeFrameAsync
             pNextFrame = nullptr;
-            // find free surface for encoder input (vpp output)
+
             nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
             if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
                 PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
@@ -3595,7 +3590,6 @@ mfxStatus CQSVPipeline::RunEncode() {
 
             pSurfEncIn = &m_pEncSurfaces[nEncSurfIdx];
 
-            // get a free task (bit stream and sync point for encoder)
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
                 break;
             
@@ -3618,7 +3612,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
             sts = vpp_one_frame(pNextFrame, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
             if (bVppRequireMoreFrame) {
-                break; // MFX_ERR_MORE_DATA is the correct status to exit vpp buffering loop
+                break;
             }
             if (sts != MFX_ERR_NONE)
                 break;
@@ -3635,16 +3629,15 @@ mfxStatus CQSVPipeline::RunEncode() {
             sts = encode_one_frame(pNextFrame);
         }
 
-        // MFX_ERR_MORE_DATA is the correct status to exit buffering loop with
-        // indicates that there are no more buffered frames
+        //MFX_ERR_MORE_DATAはvppにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
-        // exit in case of other errors
+        //エラーチェック
         m_EncThread.m_stsThread = sts;
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from vpp."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from vpp.\n"));
     }
 
-    // loop to get buffered frames from encoder
+    //encのフレームをflush
     while (MFX_ERR_NONE <= sts && m_pmfxENC) {
         // get a free task (bit stream and sync point for encoder)
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
@@ -3654,22 +3647,20 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from encoder.\n"));
 
-    // MFX_ERR_MORE_DATA is the correct status to exit buffering loop with
-    // indicates that there are no more buffered frames
+    //MFX_ERR_MORE_DATAはencにもうflushするべきフレームがないことを示す
     QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
-    // exit in case of other errors
+    //エラーチェック
     m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in getting buffered frames from encoder."));
 
-    // synchronize all tasks that are left in task pool
+    //タスクプールのすべてのタスクの終了を確認
     while (MFX_ERR_NONE == sts) {
         sts = m_TaskPool.SynchronizeFirstTask();
     }
 
-    // MFX_ERR_NOT_FOUND is the correct status to exit the loop with
-    // EncodeFrameAsync and SyncOperation don't return this status
+    // MFX_ERR_NOT_FOUNDは、正しい終了ステータス
     QSV_IGNORE_STS(sts, MFX_ERR_NOT_FOUND);
-    // report any errors that occurred in asynchronous part
+    //エラーチェック
     m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in encoding pipeline, synchronizing pipeline."));
     
