@@ -1618,6 +1618,7 @@ CQSVPipeline::CQSVPipeline() {
     m_nAsyncDepth = 0;
     m_nExPrm = 0x00;
     m_nAVSyncMode = QSV_AVSYNC_THROUGH;
+    m_nProcSpeedLimit = 0;
     m_bTimerPeriodTuning = false;
 
     m_pAbortByUser = NULL;
@@ -2076,6 +2077,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
                 avcodecReaderPrm.pSubtitleSelect = pParams->pSubtitleSelect;
                 avcodecReaderPrm.nSubtitleSelectCount = pParams->nSubtitleSelectCount;
+                avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
@@ -2118,6 +2120,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
             avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
+            avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);
@@ -2620,6 +2623,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     PrintMes(QSV_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
+    m_nProcSpeedLimit = pParams->nProcSpeedLimit;
     m_nAVSyncMode = pParams->nAVSyncMode;
     m_nAsyncDepth = (mfxU16)clamp(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX);
     if (m_nAsyncDepth == 0) {
@@ -2729,6 +2733,7 @@ void CQSVPipeline::Close() {
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
     m_nAVSyncMode = QSV_AVSYNC_THROUGH;
+    m_nProcSpeedLimit = 0;
 #if ENABLE_AVCODEC_QSV_READER
     av_qsv_log_free();
 #endif //#if ENABLE_AVCODEC_QSV_READER
@@ -3071,6 +3076,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     mfxU16 nLastFrameFlag = 0;
     int nLastAQ = 0;
     bool bVppDeintBobFirstFeild = true;
+    CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
 
     m_pEncSatusInfo->SetStart();
 
@@ -3489,6 +3495,8 @@ mfxStatus CQSVPipeline::RunEncode() {
             pSurfCheckPts->Data.Locked--;
             pSurfCheckPts = nullptr;
         }
+        speedCtrl.wait();
+
         //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
@@ -3605,6 +3613,8 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfCheckPts->Data.Locked--;
                 pSurfCheckPts = nullptr;
             }
+            speedCtrl.wait();
+
             //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
                 break;
@@ -3692,6 +3702,8 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfCheckPts->Data.Locked--;
                 pSurfCheckPts = nullptr;
             }
+            speedCtrl.wait();
+
             //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
                 break;
@@ -3777,6 +3789,8 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfCheckPts->Data.Locked--;
                 pSurfCheckPts = nullptr;
             }
+            speedCtrl.wait();
+
             pNextFrame = nullptr;
 
             nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
@@ -3840,6 +3854,8 @@ mfxStatus CQSVPipeline::RunEncode() {
             pSurfCheckPts->Data.Locked--;
             pSurfCheckPts = nullptr;
         }
+        speedCtrl.wait();
+
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
 

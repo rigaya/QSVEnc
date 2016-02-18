@@ -288,7 +288,7 @@ void CAvcodecReader::vc1AddFrameHeader(AVPacket *pkt) {
     }
 }
 
-mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount) {
+mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount, int nProcSpeedLimit) {
     mfxStatus sts = MFX_ERR_NONE;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
     const int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? 256 : 18000;
@@ -297,6 +297,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     framePosList.reserve(maxCheckFrames);
     AddMessage(QSV_LOG_DEBUG, _T("fps decoder invalid: %s\n"), fpsDecoderInvalid ? _T("true") : _T("false"));
 
+    CProcSpeedControl speedCtrl(nProcSpeedLimit);
     mfxVideoParam param = { 0 };
     param.mfx.CodecId = m_nInputCodec;
     //よくわからないが、ここは1としないほうがよい模様
@@ -361,6 +362,8 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     m_Demux.video.nStreamFirstPts = 0;
     int i_samples = 0;
     for (; i_samples < maxCheckFrames && getTotalDuration() < maxCheckSec && !getSample(&pkt); i_samples++) {
+        speedCtrl.wait();
+
         int64_t pts = pkt.pts, dts = pkt.dts;
         FramePos pos = { (pts == AV_NOPTS_VALUE) ? dts : pts, dts, (int)pkt.duration, pkt.flags };
         framePosList.push_back(pos);
@@ -1017,7 +1020,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         m_sDecParam.IOPattern = (uint16_t)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to decode header.\n"));
-        } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ (int)m_sDecParam.mfx.FrameInfo.FrameRateExtN, (int)m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount))) {
+        } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ (int)m_sDecParam.mfx.FrameInfo.FrameRateExtN, (int)m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount, input_prm->nProcSpeedLimit))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to get first frame position.\n"));
         }
         MFXVideoDECODE_Close(session);

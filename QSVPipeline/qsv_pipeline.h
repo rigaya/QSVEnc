@@ -160,6 +160,7 @@ protected:
     MemType m_memType;
     bool m_bd3dAlloc;
     bool m_bExternalAlloc;
+    uint32_t m_nProcSpeedLimit;
 
     bool *m_pAbortByUser;
 

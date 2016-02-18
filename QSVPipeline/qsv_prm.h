@@ -347,6 +347,7 @@ struct sInputParams
     TCHAR     *pChapterFile;
     uint32_t   nAudioIgnoreDecodeError;
     QSVAVSync  nAVSyncMode;     //avsyncの方法 (QSV_AVSYNC_xxx)
+    uint16_t   nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
     int8_t     Reserved[1082];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];

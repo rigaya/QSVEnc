@@ -466,6 +466,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 same as --output-thread 0 --audio-thread 0\n")
             _T("                                         -a 1 --input-buf 1 --output-buf 0\n")
             _T("                                 this will cause lower performance!\n")
+            _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
+            _T("                                 default:0 (no limit)\n")
             );
         _ftprintf(stdout,
             _T("   --log <string>               output log to file (txt or html).\n")
@@ -2168,6 +2170,20 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->nAsyncDepth = 1;
         argData->nTmpInputBuf = 1;
         pParams->nOutputBufSizeMB = 0;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("max-procfps"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (value < 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nProcSpeedLimit = (uint16_t)(std::min)(value, (int)UINT16_MAX);
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("log"))) {

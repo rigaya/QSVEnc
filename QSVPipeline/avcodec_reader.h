@@ -120,6 +120,7 @@ typedef struct AvcodecReaderPrm {
     sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
+    int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
 } AvcodecReaderPrm;
 
 
@@ -211,7 +212,7 @@ private:
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する
     //fpsDecoderはdecoderの推定したfps
-    mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount);
+    mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount, int nProcSpeedLimit);
 
     //指定したptsとtimebaseから、該当する動画フレームを取得する
     int getVideoFrameIdx(int64_t pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart);
