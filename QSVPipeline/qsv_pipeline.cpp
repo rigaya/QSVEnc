@@ -3288,7 +3288,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     return MFX_ERR_MORE_DATA;
                 }
             }
-            std::sort(qDecodePtsList.begin(), qDecodePtsList.begin() + std::min(QSV_PTS_SORT_SIZE, qDecodePtsList.size()),
+            std::sort(qDecodePtsList.begin(), qDecodePtsList.begin() + std::min(QSV_PTS_SORT_SIZE, (uint32_t)qDecodePtsList.size()),
                 [](const int64_t& posA, const int64_t& posB) {
                 return ((uint32_t)std::abs(posA - posB) < 0x1FFFFFFF) ? posA < posB : posB < posA; });
             auto queueFirstFrame = qDecodeFrames.front();
