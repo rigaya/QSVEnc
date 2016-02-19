@@ -190,7 +190,7 @@ private:
     uint32_t m_nCheckInterval;
     bool m_bEnable;
     std::chrono::microseconds m_tmThreshold;
-    std::chrono::steady_clock::time_point m_tmLastCheck;
+    std::chrono::high_resolution_clock::time_point m_tmLastCheck;
 };
 
 typedef struct sEncodeStatusData {
