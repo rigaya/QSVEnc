@@ -3293,6 +3293,10 @@ mfxStatus CQSVPipeline::RunEncode() {
                 return ((uint32_t)std::abs(posA - posB) < 0x1FFFFFFF) ? posA < posB : posB < posA; });
             auto queueFirstFrame = qDecodeFrames.front();
             auto queueFirstPts = qDecodePtsList.front();
+            if (queueFirstPts == AV_NOPTS_VALUE) {
+                PrintMes(QSV_LOG_ERROR, _T("Invalid timestamp provided from input.\n"));
+                return MFX_ERR_UNSUPPORTED;
+            }
 
             auto ptsDiff = queueFirstPts - nEstimatedPts;
             if (ptsDiff >= nFrameDuration) {
