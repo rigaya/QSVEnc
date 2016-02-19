@@ -175,6 +175,8 @@ bool qsv_get_filesize(const char *filepath, uint64_t *filesize);
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
 bool CreateDirectoryRecursive(const char *dir);
 
+tstring print_time(double time);
+
 tstring qsv_memtype_str(mfxU16 memtype);
 
 static inline mfxU16 readUB16(const void *ptr) {

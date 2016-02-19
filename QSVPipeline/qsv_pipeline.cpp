@@ -2078,6 +2078,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pSubtitleSelect = pParams->pSubtitleSelect;
                 avcodecReaderPrm.nSubtitleSelectCount = pParams->nSubtitleSelectCount;
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
+                avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
@@ -2121,6 +2122,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
+            avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);

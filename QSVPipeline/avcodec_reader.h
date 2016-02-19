@@ -121,6 +121,7 @@ typedef struct AvcodecReaderPrm {
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
+    float          fSeekSec;                //指定された秒数分先頭を飛ばす
 } AvcodecReaderPrm;
 
 

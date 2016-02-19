@@ -1015,6 +1015,15 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         }
 #endif //#ifdef LIBVA_SUPPORT
 
+        if (input_prm->fSeekSec > 0.0f) {
+            const int seekStreamIdx = m_Demux.video.nIndex;
+            const auto pCodecCtx = m_Demux.format.pFormatCtx->streams[seekStreamIdx]->codec;
+            if (0 > av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, av_rescale_q(1, av_d2q((double)input_prm->fSeekSec, 1<<24), pCodecCtx->pkt_timebase), 0)) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->fSeekSec).c_str());
+                return MFX_ERR_UNSUPPORTED;
+            }
+        }
+
         memset(&m_sDecParam, 0, sizeof(m_sDecParam));
         m_sDecParam.mfx.CodecId = m_nInputCodec;
         m_sDecParam.IOPattern = (uint16_t)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
@@ -1080,6 +1089,9 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
 
         tstring mes = strsprintf(_T("avcodec video: %s, %dx%d, %d/%d fps"), CodecIdToStr(m_nInputCodec),
             m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
+        if (input_prm->fSeekSec > 0.0f) {
+            mes += strsprintf(_T("\n               seek: %s"), print_time(input_prm->fSeekSec).c_str());
+        }
         AddMessage(QSV_LOG_DEBUG, _T("%s, sar %d:%d, bitdepth %d, shift %d\n"), mes.c_str(),
             m_inputFrameInfo.AspectRatioW, m_inputFrameInfo.AspectRatioH, m_inputFrameInfo.BitDepthLuma, m_inputFrameInfo.Shift);
         m_strInputInfo += mes;
@@ -1344,7 +1356,7 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
     mfxStatus sts = MFX_ERR_NONE;
     if (pkt->data) {
         sts = mfxBitstreamAppend(bitstream, pkt->data, pkt->size);
-        bitstream->TimeStamp = pkt->pts;
+        bitstream->TimeStamp = (m_Demux.video.nStreamPtsInvalid & (AVQSV_PTS_ALL_INVALID | AVQSV_PTS_NONKEY_INVALID)) ? MFX_TIMESTAMP_UNKNOWN : pkt->pts;
     } else {
         sts = MFX_ERR_MORE_DATA;
     }

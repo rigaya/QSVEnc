@@ -215,6 +215,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --trim <int>:<int>[,<int>:<int>]...\n")
             _T("                                trim video for the frame range specified.\n")
             _T("                                 frame range should not overwrap each other.\n")
+            _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+            _T("                                skip video for the time specified,\n")
+            _T("                                 seek will be inaccurate but fast.\n")
             _T("-f,--format <string>            set output format of output file.\n")
             _T("                                 if format is not specified, output format will\n")
             _T("                                 be guessed from output file extension.\n")
@@ -902,6 +905,39 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
             memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
         }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("seek"))) {
+        i++;
+        int ret = 0;
+        int hh = 0, mm = 0;
+        float sec = 0.0f;
+        if (   3 != (ret = _stscanf_s(strInput[i], _T("%d:%d:%f"),    &hh, &mm, &sec))
+            && 2 != (ret = _stscanf_s(strInput[i],    _T("%d:%f"),         &mm, &sec))
+            && 1 != (ret = _stscanf_s(strInput[i],       _T("%f"),              &sec))) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (ret <= 2) {
+            hh = 0;
+        }
+        if (ret <= 1) {
+            mm = 0;
+        }
+        if (hh < 0 || mm < 0 || sec < 0) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (hh > 0 && mm >= 60) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        mm += hh * 60;
+        if (mm > 0 && sec >= 60.0f) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->fSeekSec = sec + mm * 60;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("audio-source"))) {

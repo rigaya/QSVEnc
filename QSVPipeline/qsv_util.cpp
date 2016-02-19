@@ -420,6 +420,17 @@ bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize) {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+tstring print_time(double time) {
+    int sec = (int)time;
+    time -= sec;
+    int miniute = (int)(sec / 60);
+    sec -= miniute * 60;
+    int hour = miniute / 60;
+    miniute -= hour * 60;
+    tstring frac = strsprintf(_T("%.3f"), time);
+    return strsprintf(_T("%d:%02d:%02d%s"), hour, miniute, sec, frac.substr(frac.find_first_of(_T("."))).c_str());
+}
+
 tstring qsv_memtype_str(mfxU16 memtype) {
     tstring str;
     if (memtype & MFX_MEMTYPE_INTERNAL_FRAME)         str += _T("internal,");
