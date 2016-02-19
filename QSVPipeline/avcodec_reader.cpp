@@ -610,6 +610,23 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     }
     AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (raw64): %I64u/%I64u\n"), estimatedAvgFps.num, estimatedAvgFps.den);
 
+    //フレームレートが2000fpsを超えることは考えにくいので、誤判定
+    //ほかのなにか使えそうな値で代用する
+    if (nAvgFramerate64.num / (double)nAvgFramerate64.den > 2000.0) {
+        if (fpsDecoder.den > 0 && fpsDecoder.num > 0) {
+            nAvgFramerate64.num = fpsDecoder.num;
+            nAvgFramerate64.den = fpsDecoder.den;
+        } else if (m_Demux.video.pCodecCtx->framerate.den > 0
+                && m_Demux.video.pCodecCtx->framerate.num > 0) {
+            nAvgFramerate64.num = m_Demux.video.pCodecCtx->framerate.num;
+            nAvgFramerate64.den = m_Demux.video.pCodecCtx->framerate.den;
+        } else if (m_Demux.video.pCodecCtx->pkt_timebase.den > 0
+                && m_Demux.video.pCodecCtx->pkt_timebase.num > 0) {
+            nAvgFramerate64.num = m_Demux.video.pCodecCtx->pkt_timebase.den * m_Demux.video.pCodecCtx->ticks_per_frame;
+            nAvgFramerate64.den = m_Demux.video.pCodecCtx->pkt_timebase.num;
+        }
+    }
+
     const uint64_t fps_gcd = qsv_gcd(nAvgFramerate64.num, nAvgFramerate64.den);
     nAvgFramerate64.num /= fps_gcd;
     nAvgFramerate64.den /= fps_gcd;
