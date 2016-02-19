@@ -1019,7 +1019,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         m_sDecParam.mfx.CodecId = m_nInputCodec;
         m_sDecParam.IOPattern = (uint16_t)((input_prm->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         if (MFX_ERR_NONE != (decHeaderSts = MFXVideoDECODE_DecodeHeader(session, &bitstream, &m_sDecParam))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to decode header.\n"));
+            AddMessage(QSV_LOG_ERROR, (decHeaderSts == MFX_ERR_MORE_DATA) ? _T("failed to find header.\n") : _T("failed to decode header.\n"));
         } else if (MFX_ERR_NONE != (decHeaderSts = getFirstFramePosAndFrameRate({ (int)m_sDecParam.mfx.FrameInfo.FrameRateExtN, (int)m_sDecParam.mfx.FrameInfo.FrameRateExtD }, session, &bitstream, input_prm->pTrimList, input_prm->nTrimCount, input_prm->nProcSpeedLimit))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to get first frame position.\n"));
         }
