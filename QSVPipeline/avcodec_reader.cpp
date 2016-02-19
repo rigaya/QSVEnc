@@ -48,7 +48,7 @@ CAvcodecReader::~CAvcodecReader() {
 void CAvcodecReader::clearStreamPacketList(vector<AVPacket>& pktList) {
     for (uint32_t i_pkt = 0; i_pkt < pktList.size(); i_pkt++) {
         if (pktList[i_pkt].data) {
-            av_free_packet(&pktList[i_pkt]);
+            av_packet_unref(&pktList[i_pkt]);
         }
     }
     pktList.clear();
@@ -79,7 +79,7 @@ void CAvcodecReader::CloseVideo(AVDemuxVideo *pVideo) {
 
 void CAvcodecReader::CloseStream(AVDemuxStream *pStream) {
     if (pStream->pktSample.data) {
-        av_free_packet(&pStream->pktSample);
+        av_packet_unref(&pStream->pktSample);
     }
     memset(pStream, 0, sizeof(pStream[0]));
     pStream->nIndex = -1;
@@ -93,7 +93,7 @@ void CAvcodecReader::Close() {
     }
     if (m_StreamPacketsBufferL2Used) {
         //使用済みパケットを削除する
-        //これらのパケットはすでにWriter側に渡っているか、解放されているので、av_free_packetは不要
+        //これらのパケットはすでにWriter側に渡っているか、解放されているので、av_packet_unrefは不要
         m_StreamPacketsBufferL2.erase(m_StreamPacketsBufferL2.begin(), m_StreamPacketsBufferL2.begin() + m_StreamPacketsBufferL2Used);
     }
     clearStreamPacketList(m_StreamPacketsBufferL2);
@@ -1272,7 +1272,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
                         &data, &dataSize, pkt->data, pkt->size, 0);
                     std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
                     std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
-                    av_free_packet(pkt); //メモリ解放を忘れない
+                    av_packet_unref(pkt); //メモリ解放を忘れない
                     av_packet_from_data(pkt, data, dataSize);
                 }
                 if (m_Demux.video.bUseHEVCmp42AnnexB) {
@@ -1286,7 +1286,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
             if (m_Demux.video.frameData.num) {
                 //最初のキーフレームを取得するまではスキップする
                 if (!m_Demux.video.bGotFirstKeyframe && !(pkt->flags & AV_PKT_FLAG_KEY)) {
-                    av_free_packet(pkt);
+                    av_packet_unref(pkt);
                     continue;
                 } else {
                     m_Demux.video.bGotFirstKeyframe = true;
@@ -1316,7 +1316,7 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
             //音声/字幕パケットはひとまずすべてバッファに格納する
             m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_Demux.video.packet)].push_back(*pkt);
         } else {
-            av_free_packet(pkt);
+            av_packet_unref(pkt);
         }
     }
     //ファイルの終わりに到達
@@ -1387,7 +1387,7 @@ vector<AVPacket> CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
         m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_StreamPacketsBufferL1)].clear();
         if (!getSample(&pkt)) {
             //動画データ自体は不要なので解放
-            av_free_packet(&pkt);
+            av_packet_unref(&pkt);
         }
         //getSampleによりm_StreamPacketsBufferL1にデータが入る
         packets = m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_StreamPacketsBufferL1)];
@@ -1397,7 +1397,7 @@ vector<AVPacket> CAvcodecReader::GetAudioDataPacketsWhenNoVideoRead() {
         while (av_read_frame(m_Demux.format.pFormatCtx, &pkt) >= 0) {
             AVStream *pStream = m_Demux.format.pFormatCtx->streams[pkt.stream_index];
             if (pStream->codec->codec_type != AVMEDIA_TYPE_AUDIO) {
-                av_free_packet(&pkt);
+                av_packet_unref(&pkt);
             } else {
                 AVDemuxStream *pAudio = getPacketStreamData(&pkt);
                 pkt.flags = (pkt.flags & 0xffff) | (pAudio->nTrackId << 16);
@@ -1435,7 +1435,7 @@ vector<AVPacket> CAvcodecReader::GetStreamDataPackets() {
     //すでに使用した音声バッファはクリアする
     if (m_StreamPacketsBufferL2Used) {
         //使用済みパケットを削除する
-        //これらのパケットはすでにWriter側に渡っているか、解放されているので、av_free_packetは不要
+        //これらのパケットはすでにWriter側に渡っているか、解放されているので、av_packet_unrefは不要
         m_StreamPacketsBufferL2.erase(m_StreamPacketsBufferL2.begin(), m_StreamPacketsBufferL2.begin() + m_StreamPacketsBufferL2Used);
     }
     m_StreamPacketsBufferL2Used = 0;
@@ -1465,7 +1465,7 @@ vector<AVPacket> CAvcodecReader::GetStreamDataPackets() {
                 pkt->flags = (pkt->flags & 0xffff) | (pStream->nTrackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
                 packets.push_back(*pkt); //Writer側に渡したパケットはWriter側で開放する
             } else {
-                av_free_packet(pkt); //Writer側に渡さないパケットはここで開放する
+                av_packet_unref(pkt); //Writer側に渡さないパケットはここで開放する
                 pkt->data = NULL;
                 pkt->size = 0;
             }
@@ -1521,7 +1521,7 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_StreamPacketsBufferL1)].clear();
 
     if (pkt->data) {
-        av_free_packet(pkt);
+        av_packet_unref(pkt);
         pkt->data = nullptr;
         pkt->size = 0;
     }
@@ -1529,7 +1529,7 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         //frameData.fixed_numがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
         || getVideoTrimMaxFramIdx() < m_Demux.video.frameData.fixed_num - TRIM_OVERREAD_FRAMES) {
-        av_free_packet(pkt);
+        av_packet_unref(pkt);
         pkt->data = nullptr;
         pkt->size = 0;
         return MFX_ERR_MORE_DATA; //ファイルの終わりに到達

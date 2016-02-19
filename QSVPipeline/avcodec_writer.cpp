@@ -96,7 +96,7 @@ void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
 
     //free packet
     if (pMuxAudio->OutPacket.data) {
-        av_free_packet(&pMuxAudio->OutPacket);
+        av_packet_unref(&pMuxAudio->OutPacket);
     }
     if (pMuxAudio->pAACBsfc) {
         av_bitstream_filter_close(pMuxAudio->pAACBsfc);
@@ -1673,7 +1673,7 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *p
     } else {
         //av_interleaved_write_frameに渡ったパケットは開放する必要がないが、
         //それ以外は解放してやる必要がある
-        av_free_packet(pkt);
+        av_packet_unref(pkt);
     }
 }
 
@@ -1899,7 +1899,7 @@ mfxStatus CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
         AddMessage(QSV_LOG_ERROR, _T("No buffer for encoding subtitle.\n"));
         m_Mux.format.bStreamError = true;
     }
-    av_free_packet(pkt);
+    av_packet_unref(pkt);
     if (m_Mux.format.bStreamError)
         return MFX_ERR_UNKNOWN;
     if (!got_sub || sub.num_rects == 0)
@@ -2080,7 +2080,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
     if (pMuxAudio == NULL) {
         AddMessage(QSV_LOG_ERROR, _T("failed to get stream for input stream.\n"));
         m_Mux.format.bStreamError = true;
-        av_free_packet(&pktData->pkt);
+        av_packet_unref(&pktData->pkt);
         return MFX_ERR_NULL_PTR;
     }
 
@@ -2091,7 +2091,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         applyBitstreamFilterAAC(&pktData->pkt, pMuxAudio);
         //pktData->pkt.durationの場合はなにもせず終了する
         if (pktData->pkt.duration == 0) {
-            av_free_packet(&pktData->pkt);
+            av_packet_unref(&pktData->pkt);
             return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
         }
     }
@@ -2131,7 +2131,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
     } else if (!(pMuxAudio->nDecodeError > pMuxAudio->nIgnoreDecodeError) && !pMuxAudio->bEncodeError) {
         AVFrame *decodedFrame = AudioDecodePacket(pMuxAudio, &pktData->pkt, &pktData->got_result);
         if (pktData->pkt.data != nullptr) {
-            av_free_packet(&pktData->pkt);
+            av_packet_unref(&pktData->pkt);
         }
         pktData->type = MUX_DATA_TYPE_FRAME;
         pktData->pFrame = decodedFrame;
