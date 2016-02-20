@@ -118,10 +118,14 @@ static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const T
     }
 }
 
-static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName) {
+static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName, const TCHAR *strErrorValue = nullptr) {
     if (strErrorMessage) {
         if (strOptionName) {
-            _ftprintf(stderr, _T("Error: %s for %s\n\n"), strErrorMessage, strOptionName);
+            if (strErrorValue) {
+                _ftprintf(stderr, _T("Error: %s \"%s\" for --%s\n\n"), strErrorMessage, strErrorValue, strOptionName);
+            } else {
+                _ftprintf(stderr, _T("Error: %s for --%s\n\n"), strErrorMessage, strOptionName);
+            }
         } else {
             _ftprintf(stderr, _T("Error: %s\n\n"), strErrorMessage);
         }
@@ -783,7 +787,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%hd,%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
             && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
             && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nDstWidth, &pParams->nDstHeight)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -794,7 +798,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%hd,%hd"), &pParams->nWidth, &pParams->nHeight)
             && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nWidth, &pParams->nHeight)
             && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nWidth, &pParams->nHeight)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -803,7 +807,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         if (   4 != _stscanf_s(strInput[i], _T("%hd,%hd,%hd,%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom)
             && 4 != _stscanf_s(strInput[i], _T("%hd:%hd:%hd:%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -818,7 +822,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             }
         }
         if (list_codec[j].desc == nullptr) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -855,7 +859,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         } else if (value < 0) {
             PrintHelp(strInput[0], _T("avqsv-analyze requires non-negative value."), option_name);
@@ -915,7 +919,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (   3 != (ret = _stscanf_s(strInput[i], _T("%d:%d:%f"),    &hh, &mm, &sec))
             && 2 != (ret = _stscanf_s(strInput[i],    _T("%d:%f"),         &mm, &sec))
             && 1 != (ret = _stscanf_s(strInput[i],       _T("%f"),              &sec))) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         if (ret <= 2) {
@@ -1036,7 +1040,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             for (auto str : trackListStr) {
                 int iTrack = 0;
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                     return MFX_PRINT_OPTION_ERR;
                 } else {
                     trackSet.insert(iTrack);
@@ -1170,7 +1174,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         uint32_t value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nAudioIgnoreDecodeError = value;
@@ -1233,7 +1237,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_resampler) - 1) {
             pParams->nAudioResampler = (mfxU8)v;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1336,7 +1340,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             for (auto str : trackListStr) {
                 int iTrack = 0;
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                    PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                     return MFX_PRINT_OPTION_ERR;
                 } else {
                     trackSet.insert(iTrack);
@@ -1366,7 +1370,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avsync, strInput[i]))) {
             pParams->nAVSyncMode = (QSVAVSync)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1398,7 +1402,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_quality_for_option, strInput[i]))) {
             pParams->nTargetUsage = (mfxU16)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1432,7 +1436,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &value[0], &value[1])) {
             QSV_MEMSET_ZERO(pParams->nPAR);
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         if (0 == _tcscmp(option_name, _T("dar"))) {
@@ -1450,7 +1454,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("slices"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nSlices)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1460,7 +1464,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (0 == _tcsnccmp(strInput[i], _T("auto"), _tcslen(_T("auto")))) {
             pParams->nGOPLength = 0;
         } else if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nGOPLength)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1540,7 +1544,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_lookahead_ds, strInput[i]))) {
             pParams->nLookaheadDS = (mfxU16)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1551,7 +1555,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avc_trellis_for_options, strInput[i]))) {
             pParams->nTrellis = (mfxU16)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1575,7 +1579,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("la"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA;
@@ -1584,7 +1588,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("icq"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_ICQ;
@@ -1593,7 +1597,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("la-icq"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA_ICQ;
@@ -1602,7 +1606,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("la-hrd"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA_HRD;
@@ -1611,7 +1615,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("vcm"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_VCM;
@@ -1620,7 +1624,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("vbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_VBR;
@@ -1629,7 +1633,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("cbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_CBR;
@@ -1638,7 +1642,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("avbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_AVBR;
@@ -1647,7 +1651,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("qvbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_QVBR;
@@ -1657,7 +1661,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         || 0 == _tcscmp(option_name, _T("qvbr-quality"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nQVBRQuality)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_QVBR;
@@ -1668,7 +1672,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nMaxBitrate)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1676,7 +1680,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("la-depth"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nLookaheadDepth)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1684,7 +1688,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("la-window-size"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nWinBRCSize)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1698,7 +1702,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 pParams->nQPP = pParams->nQPI;
                 pParams->nQPB = pParams->nQPI;
             } else {
-                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return MFX_PRINT_OPTION_ERR;
             }
         }
@@ -1708,7 +1712,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("avbr-unitsize"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nAVBRConvergence)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1717,7 +1721,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     //{
     //    double accuracy;
     //    if (1 != _stscanf_s(strArgument, _T("%f"), &accuracy)) {
-    //        PrintHelp(strInput[0], _T("Unknown value"), option_name);
+    //        PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
     //        return MFX_PRINT_OPTION_ERR;
     //    }
     //    pParams->nAVBRAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
@@ -1734,7 +1738,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("ref"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nRef)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1742,7 +1746,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("bframes"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBframes)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1793,7 +1797,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 qpLimit[1] = qpLimit[0];
                 qpLimit[2] = qpLimit[0];
             } else {
-                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return MFX_PRINT_OPTION_ERR;
             }
         }
@@ -1810,7 +1814,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->bGlobalMotionAdjust = true;
             pParams->nMVCostScaling = (mfxU8)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1831,7 +1835,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nInterPred = (mfxU16)list_pred_block_size[v].value;
@@ -1841,7 +1845,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nIntraPred = (mfxU16)list_pred_block_size[v].value;
@@ -1851,7 +1855,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_mv_presicion) - 1) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nMVPrecision = (mfxU16)list_mv_presicion[v].value;
@@ -1861,7 +1865,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->MVSearchWindow.x = (mfxU16)clamp(v, 0, 128);
@@ -1872,7 +1876,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < 8) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nVP8Sharpness = (mfxU8)v;
@@ -1897,7 +1901,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                     pParams->nFPSRate  /= gcd;
                 }
             } else {
-                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return MFX_PRINT_OPTION_ERR;
             }
         }
@@ -1911,7 +1915,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_log_level) - 1) {
             pParams->nLogLevel = (mfxI16)v;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -1955,7 +1959,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_ASYNC_DEPTH_MAX < v) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nAsyncDepth = (mfxU16)v;
@@ -1966,7 +1970,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_SESSION_THREAD_MAX < v) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nSessionThreads = (mfxU16)v;
@@ -1978,7 +1982,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         mfxI32 v;
         if (PARSE_ERROR_FLAG == (v = get_value_from_chr(list_priority, strInput[i]))
             && 1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_log_level) - 1) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nSessionThreadPriority = (mfxU16)v;
@@ -1988,7 +1992,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDenoise)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.bEnable = true;
@@ -2004,7 +2008,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("vpp-detail-enhance"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDetailEnhance)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.bEnable = true;
@@ -2021,7 +2025,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int value = get_value_from_chr(list_deinterlace, strInput[i]);
         if (PARSE_ERROR_FLAG == value) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.bEnable = true;
@@ -2029,7 +2033,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
             i++;
             if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
-                PrintHelp(strInput[0], _T("Unknown value"), option_name);
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return MFX_PRINT_OPTION_ERR;
             } else {
                 pParams->vpp.nTelecinePattern = (mfxU16)value;
@@ -2045,7 +2049,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_image_stabilizer, strInput[i]))) {
             pParams->vpp.nImageStabilizer = (mfxU16)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -2058,7 +2062,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_fps_conversion, strInput[i]))) {
             pParams->vpp.nFPSConversion = (mfxU16)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -2073,7 +2077,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_rotate_angle, strInput[i]))) {
             pParams->vpp.nRotate = (mfxU16)value;
         } else {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -2100,7 +2104,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%hd,%hd"), &posOffset.x, &posOffset.y)
             && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &posOffset.x, &posOffset.y)
             && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &posOffset.x, &posOffset.y)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.delogo.nPosOffset = posOffset;
@@ -2110,7 +2114,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI16 depth;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &depth)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.delogo.nDepth = depth;
@@ -2120,7 +2124,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI16 value;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.delogo.nYOffset = value;
@@ -2130,7 +2134,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI16 value;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.delogo.nCbOffset = value;
@@ -2140,7 +2144,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI16 value;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.delogo.nCrOffset = value;
@@ -2149,7 +2153,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("input-buf"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &argData->nTmpInputBuf)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -2158,7 +2162,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         if (value < 0) {
@@ -2176,7 +2180,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         if (value < -1 || value >= 2) {
@@ -2190,7 +2194,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         if (value < -1 || value >= 3) {
@@ -2212,7 +2216,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         if (value < 0) {
@@ -2267,7 +2271,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &pParams->nPAR[0], &pParams->nPAR[1])
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1])
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1])) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
@@ -2319,7 +2323,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
-            PrintHelp(strInput[0], _T("Unknown value"), option_name);
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nPerfMonitorInterval = std::max(50, v);
