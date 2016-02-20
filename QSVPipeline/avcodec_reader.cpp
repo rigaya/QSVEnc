@@ -1289,7 +1289,10 @@ int CAvcodecReader::getSample(AVPacket *pkt) {
                         &data, &dataSize, pkt->data, pkt->size, 0);
                     std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
                     std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
+                    AVPacket pktProp = { 0 };
+                    av_packet_copy_props(&pktProp, pkt);
                     av_packet_unref(pkt); //メモリ解放を忘れない
+                    av_packet_copy_props(pkt, &pktProp);
                     av_packet_from_data(pkt, data, dataSize);
                 }
                 if (m_Demux.video.bUseHEVCmp42AnnexB) {
