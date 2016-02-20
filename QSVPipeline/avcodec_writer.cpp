@@ -2404,8 +2404,15 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             }
         } while (bAudioExists || bVideoExists); //両方のキューがひとまず空になるか、映像・音声の同期待ちが必要になるまで回す
                                                 //次のフレーム・パケットが送られてくるまで待機する
-        ResetEvent(m_Mux.thread.heEventPktAddedOutput);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, 16);
+        //キューの容量が両方とも半分以下なら、すこし待ってみる
+        //一方、どちらかのキューが半分以上使われていれば、なるべく早く処理する必要がある
+        if (   m_Mux.thread.qVideobitstream.size() / (double)m_Mux.thread.qVideobitstream.capacity() < 0.5
+            && m_Mux.thread.qAudioPacketOut.size() / (double)m_Mux.thread.qAudioPacketOut.capacity() < 0.5) {
+            ResetEvent(m_Mux.thread.heEventPktAddedOutput);
+            WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, 16);
+        } else {
+            std::this_thread::yield();
+        }
     }
     //メインループを抜けたことを通知する
     SetEvent(m_Mux.thread.heEventClosingOutput);
