@@ -3696,9 +3696,6 @@ mfxStatus CQSVPipeline::RunEncode() {
 #if ENABLE_AVCODEC_QSV_READER
     if (m_pmfxDEC && (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS)) {
 
-        sts = extract_audio();
-        QSV_ERR_MES(sts, _T("Error on extracting audio."));
-
         pNextFrame = NULL;
 
         while (MFX_ERR_NONE <= sts || sts == MFX_ERR_MORE_SURFACE) {
