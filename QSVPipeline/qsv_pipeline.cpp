@@ -3299,7 +3299,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             }
 
             auto ptsDiff = queueFirstPts - nEstimatedPts;
-            if (ptsDiff >= nFrameDuration) {
+            if (ptsDiff >= nFrameDuration * 3 / 4) {
                 //水増しが必要 -> 何も(pop)しない
                 bCheckPtsMultipleOutput = true;
                 queueFirstFrame.second->Data.Locked++;
@@ -3307,7 +3307,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 bCheckPtsMultipleOutput = false;
                 qDecodePtsList.pop_front();
                 qDecodeFrames.pop_front();
-                if (ptsDiff <= -1 * nFrameDuration) {
+                if (ptsDiff <= -1 * nFrameDuration * 3 / 4) {
                     //間引きが必要 -> フレームを後段に渡さず破棄
                     queueFirstFrame.second->Data.Locked--;
                     pSurfCheckPts = nullptr;
