@@ -118,11 +118,55 @@ static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const T
     }
 }
 
+static const TCHAR *short_opt_to_long(TCHAR short_opt) {
+    const TCHAR *option_name = nullptr;
+    switch (short_opt) {
+    case _T('a'):
+        option_name = _T("async-depth");
+        break;
+    case _T('b'):
+        option_name = _T("bframes");
+        break;
+    case _T('c'):
+        option_name = _T("codec");
+        break;
+    case _T('u'):
+        option_name = _T("quality");
+        break;
+    case _T('f'):
+        option_name = _T("format");
+        break;
+    case _T('i'):
+        option_name = _T("input-file");
+        break;
+    case _T('o'):
+        option_name = _T("output-file");
+        break;
+    case _T('m'):
+        option_name = _T("mux-option");
+        break;
+    case _T('v'):
+        option_name = _T("version");
+        break;
+    case _T('h'):
+    case _T('?'):
+        option_name = _T("help");
+        break;
+    default:
+        break;
+    }
+    return option_name;
+}
+
 static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName, const TCHAR *strErrorValue = nullptr) {
     if (strErrorMessage) {
         if (strOptionName) {
             if (strErrorValue) {
-                _ftprintf(stderr, _T("Error: %s \"%s\" for --%s\n\n"), strErrorMessage, strErrorValue, strOptionName);
+                _ftprintf(stderr, _T("Error: %s \"%s\" for \"--%s\"\n"), strErrorMessage, strErrorValue, strOptionName);
+                if (0 == _tcsnccmp(strErrorValue, _T("--"), _tcslen(_T("--")))
+                    || (strErrorValue[0] == _T('-') && strErrorValue[2] == _T('\0') && short_opt_to_long(strErrorValue[1]) != nullptr)) {
+                    _ftprintf(stderr, _T("       \"--%s\" requires value.\n\n"), strOptionName);
+                }
             } else {
                 _ftprintf(stderr, _T("Error: %s for --%s\n\n"), strErrorMessage, strOptionName);
             }
@@ -2372,8 +2416,6 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
 }
 
 mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *pParams) {
-    const TCHAR* strArgument = _T("");
-
     if (1 == nArgNum) {
         PrintHelp(strInput[0], NULL, NULL);
         PrintHelp(strInput[0], _T("options needed."), NULL);
@@ -2434,40 +2476,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
             if (strInput[i][1] == _T('-')) {
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
-                switch (strInput[i][1]) {
-                case _T('a'):
-                    option_name = _T("async-depth");
-                    break;
-                case _T('b'):
-                    option_name = _T("bframes");
-                    break;
-                case _T('c'):
-                    option_name = _T("codec");
-                    break;
-                case _T('u'):
-                    option_name = _T("quality");
-                    break;
-                case _T('f'):
-                    option_name = _T("format");
-                    break;
-                case _T('i'):
-                    option_name = _T("input-file");
-                    break;
-                case _T('o'):
-                    option_name = _T("output-file");
-                    _tcscpy_s(pParams->strDstFile, strArgument);
-                    break;
-                case _T('m'):
-                    option_name = _T("mux-option");
-                    break;
-                case _T('v'):
-                    option_name = _T("version");
-                    break;
-                case _T('h'):
-                case _T('?'):
-                    option_name = _T("help");
-                    break;
-                default:
+                if (nullptr == (option_name = short_opt_to_long(strInput[i][1]))) {
                     PrintHelp(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), NULL);
                     return MFX_PRINT_OPTION_ERR;
                 }
