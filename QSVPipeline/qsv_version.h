@@ -67,8 +67,7 @@ const char *get_qsvenc_version();
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define MFX_D3D11_SUPPORT 0
-#endif // #if defined(WIN32) || defined(WIN64)
-
 #include "qsv_config.h"
+#endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //_QSV_VERSION_H_

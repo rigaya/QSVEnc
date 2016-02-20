@@ -3,6 +3,7 @@
 
 ffmpeg_lgpl/
 .depend
+qsv_rev.h
 qsv_config.h
 config.mak
 .project
