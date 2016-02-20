@@ -1378,7 +1378,15 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
     mfxStatus sts = MFX_ERR_NONE;
     if (pkt->data) {
         sts = mfxBitstreamAppend(bitstream, pkt->data, pkt->size);
-        bitstream->TimeStamp = (m_Demux.video.nStreamPtsInvalid & (AVQSV_PTS_ALL_INVALID | AVQSV_PTS_NONKEY_INVALID)) ? MFX_TIMESTAMP_UNKNOWN : pkt->pts;
+        if (m_Demux.video.nStreamPtsInvalid & (AVQSV_PTS_ALL_INVALID | AVQSV_PTS_NONKEY_INVALID)) {
+            //ptsはMediaSDKに計算させる
+            bitstream->DataFlag  = 0;
+            bitstream->TimeStamp = (uint64_t)(int64_t)MFX_TIMESTAMP_UNKNOWN;
+        } else {
+            //このフラグを設定しないと適切にptsがフレームに伝わらないことがある
+            bitstream->DataFlag  = MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+            bitstream->TimeStamp = pkt->pts;
+        }
     } else {
         sts = MFX_ERR_MORE_DATA;
     }
