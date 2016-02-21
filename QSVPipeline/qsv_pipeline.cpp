@@ -3270,22 +3270,22 @@ mfxStatus CQSVPipeline::RunEncode() {
                 if (pNextFrame) {
                     //ここでロックしないとキューにためているフレームが勝手に使われてしまう
                     pNextFrame->Data.Locked++;
-                    qDecodePtsList.push_back(pNextFrame->Data.TimeStamp);
                     qDecodeFrames.push_back(std::make_pair(lastSyncP, pNextFrame));
                 }
                 //AsyncDepthの半分だけ、デコードの非同期実行を許可する
                 const uint32_t nCheckPtsAsync = std::max<uint32_t>(1, m_nAsyncDepth / 2);
                 //nCheckPtsAsync以上フレームがキューにたまっていたら、Syncでフレーム情報を確定させる
-                if (qDecodeFrames.size() >= nCheckPtsAsync) {
+                if (qDecodeFrames.size() >= nCheckPtsAsync && qDecodeFrames.size() > qDecodePtsList.size()) {
                     const auto& pFrame = qDecodeFrames[qDecodeFrames.size() - nCheckPtsAsync];
                     m_mfxSession.SyncOperation(pFrame.first, 60 * 1000);
+                    qDecodePtsList.push_back(pFrame.second->Data.TimeStamp);
                 }
                 //queueに17フレーム以上たまるまで次に進まない
-                if (!flush && qDecodeFrames.size() <= QSV_PTS_SORT_SIZE + nCheckPtsAsync) {
+                if (!flush && qDecodePtsList.size() <= QSV_PTS_SORT_SIZE) {
                     return MFX_ERR_MORE_SURFACE;
                 }
                 //queueが空になったら終了
-                if (qDecodePtsList.size() == 0) {
+                if (qDecodeFrames.size() == 0 && qDecodePtsList.size() == 0) {
                     return MFX_ERR_MORE_DATA;
                 }
             }
