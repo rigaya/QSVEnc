@@ -953,6 +953,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             return MFX_ERR_NULL_PTR;
         }
 
+        m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
+
         //必要ならbitstream filterを初期化
         if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
             if (m_nInputCodec == MFX_CODEC_AVC) {
@@ -1378,15 +1380,9 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
     mfxStatus sts = MFX_ERR_NONE;
     if (pkt->data) {
         sts = mfxBitstreamAppend(bitstream, pkt->data, pkt->size);
-        if (m_Demux.video.nStreamPtsInvalid & (AVQSV_PTS_ALL_INVALID | AVQSV_PTS_NONKEY_INVALID)) {
-            //ptsはMediaSDKに計算させる
-            bitstream->DataFlag  = 0;
-            bitstream->TimeStamp = (uint64_t)(int64_t)MFX_TIMESTAMP_UNKNOWN;
-        } else {
-            //このフラグを設定しないと適切にptsがフレームに伝わらないことがある
-            bitstream->DataFlag  = MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-            bitstream->TimeStamp = pkt->pts;
-        }
+        auto pts = pkt->pts;
+        bitstream->TimeStamp = (m_Demux.format.nAVSyncMode & QSV_AVSYNC_CHECK_PTS) ? pts : 0;
+        bitstream->DataFlag  = 0;
     } else {
         sts = MFX_ERR_MORE_DATA;
     }

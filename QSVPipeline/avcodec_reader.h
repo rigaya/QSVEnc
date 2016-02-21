@@ -57,6 +57,7 @@ typedef struct AVDemuxFormat {
     uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
     int                       nAudioTracks;          //存在する音声のトラック数
     int                       nSubtitleTracks;       //存在する字幕のトラック数
+    QSVAVSync                 nAVSyncMode;           //音声・映像同期モード
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
@@ -121,6 +122,7 @@ typedef struct AvcodecReaderPrm {
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
+    QSVAVSync      nAVSyncMode;             //音声・映像同期モード
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
 } AvcodecReaderPrm;
 
