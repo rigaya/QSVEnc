@@ -3071,7 +3071,6 @@ mfxStatus CQSVPipeline::RunEncode() {
         auto pVideoCtx = pAVCodecReader->GetInputVideoCodecCtx();
         AVRational decFpsTimebase = { (int)m_mfxDecParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxDecParams.mfx.FrameInfo.FrameRateExtN };
         nFrameDuration = (int)av_rescale_q(1, decFpsTimebase, pVideoCtx->pkt_timebase);
-        nEstimatedPts = pAVCodecReader->GetVideoFirstPts();
     } else {
         m_nAVSyncMode = QSV_AVSYNC_THROUGH;
     }
@@ -3300,6 +3299,9 @@ mfxStatus CQSVPipeline::RunEncode() {
                 return MFX_ERR_UNSUPPORTED;
             }
 
+            if (nEstimatedPts == AV_NOPTS_VALUE) {
+                nEstimatedPts = queueFirstPts;
+            }
             auto ptsDiff = queueFirstPts - nEstimatedPts;
             if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
                 //水増しが必要 -> 何も(pop)しない
