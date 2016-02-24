@@ -1036,9 +1036,21 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
 #endif //#ifdef LIBVA_SUPPORT
 
         if (input_prm->fSeekSec > 0.0f) {
-            const int seekStreamIdx = m_Demux.video.nIndex;
-            const auto pCodecCtx = m_Demux.format.pFormatCtx->streams[seekStreamIdx]->codec;
-            if (0 > av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, av_rescale_q(1, av_d2q((double)input_prm->fSeekSec, 1<<24), pCodecCtx->pkt_timebase), 0)) {
+            AVPacket firstpkt;
+            getSample(&firstpkt); //現在のtimestampを取得する
+            const auto pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
+            const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->fSeekSec, 1<<24), pCodecCtx->pkt_timebase);
+            int seek_ret = av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, firstpkt.pts + seek_time, 0);
+            if (0 > seek_ret) {
+                seek_ret = av_seek_frame(m_Demux.format.pFormatCtx, m_Demux.video.nIndex, firstpkt.pts + seek_time, AVSEEK_FLAG_ANY);
+            }
+            av_packet_unref(&firstpkt);
+            auto& audioBuf = m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_Demux.video.packet)];
+            for (auto audioPkt : audioBuf) {
+                av_packet_unref(&audioPkt);
+            }
+            audioBuf.clear();
+            if (0 > seek_ret) {
                 AddMessage(QSV_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->fSeekSec).c_str());
                 return MFX_ERR_UNSUPPORTED;
             }
