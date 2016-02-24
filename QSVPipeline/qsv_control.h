@@ -284,7 +284,7 @@ public:
             remaining_time -= hh * (60*60*1000);
             int mm = remaining_time / (60*1000);
             remaining_time -= mm * (60*1000);
-            int ss = (remaining_time + 500) / 1000;
+            int ss = remaining_time / 1000;
 
             int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
                 progressPercent,
