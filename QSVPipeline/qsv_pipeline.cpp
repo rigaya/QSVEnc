@@ -2365,8 +2365,8 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     pParams->nInputBufSize = clamp(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX);
 
     if (m_pFileReader->getInputCodec() != MFX_CODEC_MPEG2 && pParams->nAVSyncMode) {
-        PrintMes(QSV_LOG_ERROR, _T("Currently avsync is supportted only with mpeg2 decoding.\n"));
-        return MFX_ERR_UNSUPPORTED;
+        PrintMes(QSV_LOG_WARN, _T("Currently avsync is supportted only with mpeg2 decoding, disabled.\n"));
+        pParams->nAVSyncMode = QSV_AVSYNC_THROUGH;
     }
 
     return MFX_ERR_NONE;
