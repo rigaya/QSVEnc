@@ -18,6 +18,10 @@
 #include "qsv_osdep.h"
 #include "qsv_event.h"
 
+#ifndef clamp
+#define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
+#endif
+
 template<typename Type, size_t align_byte = sizeof(Type)>
 class CQueueSPSP {
     union queueData {
@@ -52,7 +56,7 @@ public:
         alloc(bufSize);
         m_heEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
         m_nMaxCapacity = maxCapacity;
-        m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)maxCapacity - 4);
+        m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)std::min<size_t>(INT_MAX, maxCapacity) - 4);
     }
     //キューのデータをクリアする
     void clear() {
