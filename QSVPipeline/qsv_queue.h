@@ -48,6 +48,21 @@ public:
     ~CQueueSPSP() {
         clear();
     }
+    //indexの位置への参照を返す
+    // !! push側のスレッドからのみ有効 !!
+    queueData& operator[](uint32_t index) {
+        return m_pBufOut[index];
+    }
+    //データの先頭へのポインタを返す
+    // !! push側のスレッドからのみ有効 !!
+    queueData *get() {
+        return m_pBufOut;
+    }
+    //indexの位置へのポインタを返す
+    // !! push側のスレッドからのみ有効 !!
+    queueData *get(uint32_t index) {
+        return m_pBufOut + index;
+    }
     //キューを初期化する
     //bufSizeはキューの内部データバッファサイズ maxCapacityを超えてもかまわない
     //maxCapacityはキューに格納できる最大のデータ数
@@ -132,7 +147,7 @@ public:
         return true;
     }
     //キューのsizeを取得する
-    size_t size() {
+    size_t size() const {
         if (!m_pBufStart)
             return 0;
         //バッファはあるが、m_pBufInがnullptrの場合は、
@@ -144,12 +159,27 @@ public:
         return ptr - m_pBufOut;
     }
     //キューが空ならtrueを返す
-    bool empty() {
+    bool empty() const {
         return size() == 0;
     }
     //キューの最大サイズを取得する
-    size_t capacity() {
+    size_t capacity() const {
         return m_nMaxCapacity;
+    }
+    //indexの位置のコピーを取得する
+    bool copy(Type *out, uint32_t index) {
+        int bUsingDataExpected = 0;
+        int bUsingDataNew = 1;
+        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
+            bUsingDataExpected = 0;
+        }
+        auto nSize = size();
+        bool bCopy = index < nSize;
+        if (bCopy) {
+            memcpy(out, m_pBufOut + index, sizeof(Type));
+        }
+        m_bUsingData = 0;
+        return bCopy;
     }
     //キューの先頭のデータを取り出す (outにコピーする)
     //キューが空ならなにもせずfalseを返す
