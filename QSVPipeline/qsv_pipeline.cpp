@@ -1225,7 +1225,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
             m_VppPrePlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
                 mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
-                m_VppPrePlugins[i]->m_nSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
+                m_VppPrePlugins[i]->m_nSurfNum += (uint16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
             } else {
                 //surfaceが2つの要素c1とc2に共有されるとき、NumSurf = c1_out + c2_in - AsyncDepth + 1
                 mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
@@ -1259,7 +1259,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
     //Vpp
     if (m_pmfxVPP) {
-        nVppSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd - m_nAsyncDepth + 1);
+        nVppSurfNum += (int16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd - m_nAsyncDepth + 1);
 
         //VppRequest[0]の準備
         VppRequest[0].NumFrameMin = nVppSurfNum;
@@ -1300,7 +1300,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
             m_VppPostPlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
                 mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
-                m_VppPostPlugins[i]->m_nSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
+                m_VppPostPlugins[i]->m_nSurfNum += (uint16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
             } else {
                 //surfaceが2つの要素c1とc2に共有されるとき、NumSurf = c1_out + c2_in - AsyncDepth + 1
                 mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
@@ -1337,7 +1337,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
     //Enc、エンコーダが有効でない場合は出力フレーム
     {
-        nEncSurfNum += (std::max<uint16_t>)(1, nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
+        nEncSurfNum += (uint16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
         if (m_pmfxENC == nullptr) {
             EncRequest = NextRequest;
             nEncSurfNum += (m_nAsyncDepth - 1);
