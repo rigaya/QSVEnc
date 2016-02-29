@@ -114,11 +114,14 @@ public:
             //一度falseになったことが確認できれば、
             //その次の取り出しは新しいバッファから行われていることになるので、
             //古いバッファは破棄してよい
-            while (m_bUsingData.load()) {
-                _mm_pause();
+            int bUsingDataExpected = 0;
+            int bUsingDataNew = 1;
+            while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
+                bUsingDataExpected = 0;
             }
             //古いバッファを破棄
             m_pBufStart = std::move(newBuf);
+            m_bUsingData = 0;
         }
         memcpy(m_pBufIn.load(), &in, sizeof(Type));
         m_pBufIn++;
@@ -147,18 +150,26 @@ public:
     //キューの先頭のデータを取り出す (outにコピーする)
     //キューが空ならなにもせずfalseを返す
     bool front_copy_no_lock(Type *out) {
-        m_bUsingData++;
+        int bUsingDataExpected = 0;
+        int bUsingDataNew = 1;
+        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
+            bUsingDataExpected = 0;
+        }
         bool bEmpty = empty();
         if (!bEmpty) {
             memcpy(out, m_pBufOut.load(), sizeof(Type));
         }
-        m_bUsingData--;
+        m_bUsingData = 0;
         return !bEmpty;
     }
     //キューの先頭のデータを取り出しながら(outにコピーする)、キューから取り除く
     //キューが空ならなにもせずfalseを返す
     bool front_copy_and_pop_no_lock(Type *out) {
-        m_bUsingData++;
+        int bUsingDataExpected = 0;
+        int bUsingDataNew = 1;
+        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
+            bUsingDataExpected = 0;
+        }
         auto nSize = size();
         if (nSize) {
             memcpy(out, m_pBufOut++, sizeof(Type));
@@ -166,13 +177,17 @@ public:
                 SetEvent(m_heEvent);
             }
         }
-        m_bUsingData--;
+        m_bUsingData = 0;
         return nSize != 0;
     }
     //キューの先頭のデータを取り除く
     //キューが空ならfalseを返す
     bool pop() {
-        m_bUsingData++;
+        int bUsingDataExpected = 0;
+        int bUsingDataNew = 1;
+        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
+            bUsingDataExpected = 0;
+        }
         auto nSize = size();
         if (nSize) {
             m_pBufOut++;
@@ -180,7 +195,7 @@ public:
                 SetEvent(m_heEvent);
             }
         }
-        m_bUsingData--;
+        m_bUsingData = 0;
         return nSize != 0;
     }
 protected:
