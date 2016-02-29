@@ -111,7 +111,7 @@ public:
         return m_list[index].data;
     }
     void clear() {
-        m_list.clear();
+        m_list.close();
         m_nNextFixNumIndex = 0;
         m_bInputFin = false;
         m_nDuration = 0;

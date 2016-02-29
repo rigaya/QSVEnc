@@ -46,7 +46,7 @@ public:
         }
     }
     ~CQueueSPSP() {
-        clear();
+        close();
     }
     //indexの位置への参照を返す
     // !! push側のスレッドからのみ有効 !!
@@ -67,14 +67,14 @@ public:
     //bufSizeはキューの内部データバッファサイズ maxCapacityを超えてもかまわない
     //maxCapacityはキューに格納できる最大のデータ数
     void init(size_t bufSize = 1024, size_t maxCapacity = SIZE_MAX, int nPushRestart = 1) {
-        clear();
+        close();
         alloc(bufSize);
         m_heEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
         m_nMaxCapacity = maxCapacity;
         m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)std::min<size_t>(INT_MAX, maxCapacity) - 4);
     }
     //キューのデータをクリアする
-    void clear() {
+    void close() {
         if (m_heEvent) {
             CloseEvent(m_heEvent);
             m_heEvent = NULL;
@@ -87,12 +87,12 @@ public:
     }
     //キューのデータをクリアする際に、指定した関数で内部データを開放してから、データ領域を解放する
     template<typename Func>
-    void clear(Func deleter) {
+    void close(Func deleter) {
         queueData *ptrFin = m_pBufIn;
         for (queueData *ptr = m_pBufOut; ptr < ptrFin; ptr++) {
             deleter(&ptr->data);
         }
-        clear();
+        close();
     }
     //データをキューにコピーし押し込む
     //キューのデータ量があらかじめ設定した上限に達した場合は、キューに空きができるまで待機する

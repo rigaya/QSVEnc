@@ -154,12 +154,12 @@ void CAvcodecWriter::CloseQueues() {
     m_Mux.thread.bThAudEncodeAbort = true;
     m_Mux.thread.bThAudProcessAbort = true;
     m_Mux.thread.bAbortOutput = true;
-    m_Mux.thread.qVideobitstream.clear();
-    m_Mux.thread.qVideobitstreamFreeI.clear([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
-    m_Mux.thread.qVideobitstreamFreePB.clear([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
-    m_Mux.thread.qAudioPacketOut.clear();
-    m_Mux.thread.qAudioFrameEncode.clear();
-    m_Mux.thread.qAudioPacketProcess.clear();
+    m_Mux.thread.qVideobitstream.close();
+    m_Mux.thread.qVideobitstreamFreeI.close([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
+    m_Mux.thread.qVideobitstreamFreePB.close([](mfxBitstream *bitstream) { mfxBitstreamClear(bitstream); });
+    m_Mux.thread.qAudioPacketOut.close();
+    m_Mux.thread.qAudioFrameEncode.close();
+    m_Mux.thread.qAudioPacketProcess.close();
     AddMessage(QSV_LOG_DEBUG, _T("closed queues...\n"));
 #endif
 }
