@@ -651,7 +651,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(AVRational fpsDecoder, mf
     }
     AddMessage(QSV_LOG_DEBUG, _T("final AvgFps (round): %d/%d\n\n"), m_Demux.video.nAvgFramerate.num, m_Demux.video.nAvgFramerate.den);
 
-    auto trimList = vector<sTrim>(pTrimList, pTrimList + nTrimCount);
+    auto trimList = make_vector(pTrimList, nTrimCount);
     //出力時の音声・字幕解析用に1パケットコピーしておく
     auto& streamBuffer = m_StreamPacketsBufferL1[m_Demux.video.nSampleLoadCount % _countof(m_Demux.video.packet)];
     if (streamBuffer.size()) {
@@ -1077,7 +1077,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         mfxBitstreamClear(&bitstream);
         AddMessage(QSV_LOG_DEBUG, _T("predecode success.\n"));
 
-        m_sTrimParam.list = vector<sTrim>(input_prm->pTrimList, input_prm->pTrimList + input_prm->nTrimCount);
+        m_sTrimParam.list = make_vector(input_prm->pTrimList, input_prm->nTrimCount);
         //キーフレームに到達するまでQSVではフレームが出てこない
         //そのぶんのずれを記録しておき、Trim値などに補正をかける
         if (m_sTrimParam.offset) {

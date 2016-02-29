@@ -52,12 +52,12 @@ std::vector<T> make_vector(const T(&ptr)[size]) {
 template<typename T0, typename T1>
 std::vector<T0> make_vector(const T0 *ptr, T1 size) {
     static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
-    return std::vector<T0>(ptr, ptr + size);
+    return (ptr && size) ? std::vector<T0>(ptr, ptr + size) : std::vector<T0>();
 }
 template<typename T0, typename T1>
 std::vector<T0> make_vector(T0 *ptr, T1 size) {
     static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
-    return std::vector<T0>(ptr, ptr + size);
+    return (ptr && size) ? std::vector<T0>(ptr, ptr + size) : std::vector<T0>();
 }
 template<typename T, typename ...Args>
 constexpr std::array<T, sizeof...(Args)> make_array(Args&&... args) {
