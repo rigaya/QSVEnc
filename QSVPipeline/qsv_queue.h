@@ -134,7 +134,7 @@ public:
     //キューのsizeを取得する
     size_t size() {
         if (!m_pBufStart)
-            return true;
+            return 0;
         //バッファはあるが、m_pBufInがnullptrの場合は、
         //押し込み処理で書き換え中なので待機する
         queueData *ptr = nullptr;
