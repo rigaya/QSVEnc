@@ -350,7 +350,8 @@ struct sInputParams
     uint16_t   nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
     uint16_t   __reserved3;
     float      fSeekSec; //指定された秒数分先頭を飛ばす
-    int8_t     Reserved[1074];
+    TCHAR     *pFramePosListLog;
+    int8_t     Reserved[1070];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

@@ -523,7 +523,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
         _ftprintf(stdout,
             _T("   --log <string>               output log to file (txt or html).\n")
             _T("   --log-level <string>         set output log level\n")
-            _T("                                 info(default), warn, error, debug\n"));
+            _T("                                 info(default), warn, error, debug\n")
+            _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n"));
 #if ENABLE_SESSION_THREAD_CONFIG
         _ftprintf(stdout, _T("")
             _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
@@ -2275,6 +2276,13 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int filename_len = (int)_tcslen(strInput[i]);
         pParams->pStrLogFile = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pStrLogFile[0]));
         memcpy(pParams->pStrLogFile, strInput[i], sizeof(pParams->pStrLogFile[0]) * filename_len);
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("log-framelist"))) {
+        i++;
+        int filename_len = (int)_tcslen(strInput[i]);
+        pParams->pFramePosListLog = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pFramePosListLog[0]));
+        memcpy(pParams->pFramePosListLog, strInput[i], sizeof(pParams->pFramePosListLog[0]) * filename_len);
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("colormatrix"))) {

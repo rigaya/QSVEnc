@@ -2080,6 +2080,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
                 avcodecReaderPrm.nAVSyncMode = pParams->nAVSyncMode;
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
+                avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;

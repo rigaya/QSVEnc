@@ -13,12 +13,15 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
-#include <mutex>
+#include "qsv_queue.h"
+#include <cassert>
 
 using std::vector;
 using std::pair;
 
 static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
+static const uint32_t AVQSV_FRAME_MAX_REORDER = 16;
+static const uint32_t AVQSV_POC_INVALID = UINT32_MAX;
 
 enum {
     AVQSV_AUDIO_NONE         = 0x00,
@@ -37,9 +40,253 @@ enum : uint32_t {
 typedef struct FramePos {
     int64_t pts;  //pts
     int64_t dts;  //dts
-    int duration; //該当フレームの表示時間
-    int flags;    //flags
+    int duration;  //該当フレーム/フィールドの表示時間
+    int duration2; //ペアフィールドの表示時間
+    uint32_t poc; //
+    uint8_t flags;    //flags
+    uint8_t pic_struct;
+    uint8_t repeat_pict;
+    uint8_t pict_type;
 } FramePos;
+
+static FramePos framePos(int64_t pts, int64_t dts,
+    int duration, int duration2 = 0,
+    uint32_t poc = AVQSV_POC_INVALID,
+    uint8_t flags = 0, uint8_t pic_struct = 0, uint8_t repeat_pict = 0, uint8_t pict_type = 0) {
+    FramePos pos;
+    pos.pts = pts;
+    pos.dts = dts;
+    pos.duration = duration;
+    pos.duration2 = duration2;
+    pos.poc = poc;
+    pos.flags = flags;
+    pos.pic_struct = pic_struct;
+    pos.repeat_pict = repeat_pict;
+    pos.pict_type = pict_type;
+    return pos;
+}
+
+class FramePosList {
+public:
+    FramePosList() :
+        m_list(),
+        m_nNextFixNumIndex(0),
+        m_bInputFin(false),
+        m_nDuration(0),
+        m_nDurationNum(0),
+        m_nStreamPtsInvalid(0),
+        m_nLastPoc(0),
+        m_nFirstKeyframePts(AV_NOPTS_VALUE) {
+        m_list.init();
+    };
+    virtual ~FramePosList() {
+        clear();
+    }
+    int printList(const TCHAR *filename) {
+        const uint32_t nList = (uint32_t)m_list.size();
+        if (nList == 0) {
+            return 0;
+        }
+        if (filename == nullptr) {
+            return 1;
+        }
+        FILE *fp = NULL;
+        if (0 != _tfopen_s(&fp, filename, _T("wb"))) {
+            return 1;
+        }
+        fprintf(fp, "pts,dts,duration,duration2,poc,flags,pic_struct,repeat_pict,pict_type\r\n");
+        for (uint32_t i = 0; i < nList; i++) {
+            fprintf(fp, "%I64d,%I64d,%d,%d,%d,%d,%d,%d,%d\r\n",
+                m_list[i].data.pts, m_list[i].data.dts,
+                m_list[i].data.duration, m_list[i].data.duration2,
+                m_list[i].data.poc,
+                (int)m_list[i].data.flags, (int)m_list[i].data.pic_struct, (int)m_list[i].data.repeat_pict, (int)m_list[i].data.pict_type);
+        }
+        fclose(fp);
+        return 0;
+    }
+    //indexの位置への参照を返す
+    // !! push側のスレッドからのみ有効 !!
+    FramePos& list(uint32_t index) {
+        return m_list[index].data;
+    }
+    void clear() {
+        m_list.clear();
+        m_nNextFixNumIndex = 0;
+        m_bInputFin = false;
+        m_nDuration = 0;
+        m_nDurationNum = 0;
+        m_nStreamPtsInvalid = 0;
+        m_nLastPoc = 0;
+        m_nFirstKeyframePts = AV_NOPTS_VALUE;
+        m_list.init();
+    }
+    void setStreamPtsCondition(uint32_t nStreamPtsInvalid) {
+        m_nStreamPtsInvalid = nStreamPtsInvalid;
+    }
+    //ここまで計算したdurationを返す
+    int64_t duration() const {
+        return m_nDuration;
+    }
+    //登録された(ptsの確定していないものを含む)フレーム数を返す
+    uint32_t frameNum() const {
+        return (uint32_t)m_list.size();
+    }
+    //ptsが確定したフレーム数を返す
+    uint32_t fixedNum() const {
+        return m_nNextFixNumIndex;
+    }
+    //FramePosを追加し、内部状態を変更する
+    void add(const FramePos& pos) {
+        m_list.push(pos);
+        const int nListSize = m_list.size();
+        //自分のフレームのインデックス
+        const uint32_t nIndex = nListSize-1;
+        //ptsの補正
+        if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
+            if (m_nStreamPtsInvalid & AVQSV_PTS_NONKEY_INVALID) {
+                //AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
+                int duration = m_list[0].data.duration;
+                m_list[nIndex].data.pts = nIndex * (int64_t)duration;
+                m_list[nIndex].data.dts = m_list[nIndex].data.pts;
+            } else if (m_nStreamPtsInvalid & AVQSV_PTS_NONKEY_INVALID) {
+                //キーフレーム以外のptsとdtsが無効な場合は、適当に推定する
+                int duration = m_list[nIndex-1].data.duration;
+                m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + duration;
+                m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + duration;
+            } else if (m_nStreamPtsInvalid & AVQSV_PTS_HALF_INVALID) {
+                //ptsがないのは音声抽出で、正常に抽出されない問題が生じる
+                //半分PTSがないPAFFのような動画については、前のフレームからの補完を行う
+                if (m_list[nIndex].data.dts == AV_NOPTS_VALUE) {
+                    m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + m_list[nIndex-1].data.duration;
+                }
+                m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + m_list[nIndex-1].data.duration;
+            }
+        }
+        //最初のキーフレームの位置を記憶しておく
+        if (m_nFirstKeyframePts == AV_NOPTS_VALUE && (pos.flags & AV_PKT_FLAG_KEY) && nIndex == 0) {
+            m_nFirstKeyframePts = m_list[nIndex].data.pts;
+        }
+        if (m_bInputFin || nListSize - m_nNextFixNumIndex > AVQSV_FRAME_MAX_REORDER) {
+            //ソートの前にptsなどが設定されていない場合など適当に調整する
+            adjustInfo();
+            //ptsでソート
+            sortPts(m_nNextFixNumIndex, std::min<uint32_t>(nListSize - m_nNextFixNumIndex, AVQSV_FRAME_MAX_REORDER));
+
+            if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts) {
+                //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
+                //これはフレームリストから取り除く
+                m_list.pop();
+            } else {
+                //ソートにより確定したptsに対して、pocを設定する
+                setPoc(m_nNextFixNumIndex);
+                m_nNextFixNumIndex++;
+            }
+        }
+        calcDuration();
+    };
+    //pocの一致するフレームの情報のコピーを返す
+    FramePos copy(uint32_t poc, uint32_t *lastIndex) {
+        assert(lastIndex != nullptr);
+        for (uint32_t index = *lastIndex + 1; ; index++) {
+            FramePos pos;
+            if (!m_list.copy(&pos, index)) {
+                break;
+            }
+            if (pos.poc == poc) {
+                return pos;
+            }
+        }
+        //エラー
+        FramePos pos = { 0 };
+        pos.poc = AVQSV_POC_INVALID;
+        return pos;
+    }
+    //入力が終了した際に使用し、内部状態を変更する
+    void fin(const FramePos& pos, int64_t total_duration) {
+        m_bInputFin = true;
+        const int nFrame = m_list.size();
+        adjustInfo();
+        sortPts(m_nNextFixNumIndex, nFrame - m_nNextFixNumIndex);
+        for (int i = m_nNextFixNumIndex; i < nFrame; i++) {
+            setPoc(i);
+        }
+        m_nNextFixNumIndex = nFrame;
+        add(pos);
+        m_nDuration = total_duration;
+        m_nDurationNum = m_nNextFixNumIndex;
+    }
+protected:
+    //ptsでソート
+    void sortPts(uint32_t index, uint32_t len) {
+        std::sort(m_list.get(index), m_list.get(index + len), [](const auto& posA, const auto& posB) {
+            return ((uint32_t)std::abs(posA.data.pts - posB.data.pts) < 0xFFFFFFFF) ? posA.data.pts < posB.data.pts : posB.data.pts < posA.data.pts; });
+    }
+    //ソートの前にptsなどが設定されていない場合など適当に調整する
+    void adjustInfo() {
+        const int nListSize = m_list.size();
+        if (m_nStreamPtsInvalid & AVQSV_PTS_SOMETIMES_INVALID) {
+            //ptsがあてにならない時は、dtsから適当に生成する
+            for (int i = m_nNextFixNumIndex; i < nListSize; i++) {
+                if (m_list[i].data.dts == AV_NOPTS_VALUE) {
+                    //まずdtsがない場合は、前のフレームからコピーする
+                    m_list[i].data.dts = m_list[i-1].data.dts;
+                }
+            }
+            int64_t firstFramePtsDtsDiff = m_list[0].data.pts - m_list[0].data.dts;
+            for (int i = m_nNextFixNumIndex; i < nListSize; i++) {
+                m_list[i].data.pts = m_list[i].data.dts + firstFramePtsDtsDiff;
+            }
+        } else {
+            for (int i = m_nNextFixNumIndex; i < nListSize; i++) {
+                if (i > 0 && m_list[i].data.pts == AV_NOPTS_VALUE) {
+                    m_list[i].data.pts = m_list[i-1].data.pts + m_list[i-1].data.duration;
+                }
+            }
+        }
+    }
+    //ソートにより確定したptsに対して、pocを設定する
+    void setPoc(int index) {
+        if (m_list[index].data.pic_struct) {
+            if (index > 0 && (m_list[index-1].data.poc != AVQSV_POC_INVALID && m_list[index-1].data.pic_struct)) {
+                m_list[index].data.poc = AVQSV_POC_INVALID;
+                m_list[index-1].data.duration2 = m_list[index].data.duration;
+            } else {
+                m_list[index].data.poc = m_nLastPoc++;
+            }
+        } else {
+            m_list[index].data.poc = m_nLastPoc++;
+        }
+    }
+    void calcDuration() {
+        //進捗表示用のdurationの計算を行う
+        //これは16フレームに1回行う
+        int nNonDurationCalculatedFrames = m_nNextFixNumIndex - m_nDurationNum;
+        if (nNonDurationCalculatedFrames >= 16) {
+            const auto *pos_fixed = m_list.get(m_nDurationNum);
+            int64_t duration = pos_fixed[nNonDurationCalculatedFrames-1].data.pts - pos_fixed[0].data.pts;
+            if (duration < 0 || duration > 0xFFFFFFFF) {
+                duration = 0;
+                for (int i = 1; i < nNonDurationCalculatedFrames; i++) {
+                    int64_t diff = (std::max<int64_t>)(0, pos_fixed[i].data.pts - pos_fixed[i-1].data.pts);
+                    int64_t last_frame_dur = (std::max<int64_t>)(0, pos_fixed[i-1].data.duration);
+                    duration += (diff > 0xFFFFFFFF) ? last_frame_dur : diff;
+                }
+            }
+            m_nDuration += duration;
+            m_nDurationNum += nNonDurationCalculatedFrames;
+        }
+    }
+protected:
+    CQueueSPSP<FramePos, 1> m_list; //内部データサイズとFramePosのデータサイズを一致させるため、alignを1に設定
+    int m_nNextFixNumIndex; //次にptsを確定させるフレームのインデックス
+    bool m_bInputFin; //入力が終了したことを示すフラグ
+    int64_t m_nDuration; //m_nDurationNumのフレーム数分のdurationの総和
+    int m_nDurationNum; //durationを計算したフレーム数
+    uint32_t m_nStreamPtsInvalid; //入力から提供されるptsの状態 (AVQSV_PTS_xxx)
+    uint32_t m_nLastPoc; //ptsが確定したフレームのうち、直近のpoc
+    int64_t m_nFirstKeyframePts; //最初のキーフレームのpts
+};
 
 //動画フレームのデータ
 typedef struct VideoFrameData {
@@ -71,7 +318,6 @@ typedef struct AVDemuxVideo {
     uint32_t                  nStreamPtsInvalid;     //動画ファイルのptsが無効 (H.264/ES, 等)
     int                       nRFFEstimate;          //動画がRFFの可能性がある
     bool                      bGotFirstKeyframe;     //動画の最初のキーフレームを取得済み
-    VideoFrameData            frameData;             //動画フレームのptsのリスト
     AVBitStreamFilterContext *pH264Bsfc;             //必要なら使用するbitstreamfilter
     uint8_t                  *pExtradata;            //動画のヘッダ情報
     int                       nExtradataSize;        //動画のヘッダサイズ
@@ -81,6 +327,8 @@ typedef struct AVDemuxVideo {
 
     uint32_t                  nSampleLoadCount;      //sampleをLoadNextFrameでロードした数
     uint32_t                  nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
+
+    AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {
@@ -100,9 +348,9 @@ typedef struct AVDemuxStream {
 typedef struct AVDemuxer {
     AVDemuxFormat            format;
     AVDemuxVideo             video;
+    FramePosList             frames;
     vector<AVDemuxStream>    stream;
     vector<const AVChapter*> chapter;
-    std::mutex               mtx;     //frame配列アクセスへの排他制御用
 } AVDemuxer;
 
 typedef struct AvcodecReaderPrm {
@@ -124,6 +372,7 @@ typedef struct AvcodecReaderPrm {
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
     QSVAVSync      nAVSyncMode;             //音声・映像同期モード
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
+    const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
 } AvcodecReaderPrm;
 
 
@@ -175,9 +424,6 @@ public:
 
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstPts();
-
-    //フレームの情報のコピーを取得する
-    FramePos GetFrameInfo(int64_t pts);
 private:
     //avcodecのコーデックIDからIntel Media SDKのコーデックのFourccを取得
     uint32_t getQSVFourcc(uint32_t id);
@@ -187,12 +433,6 @@ private:
 
     //VC-1のスタートコードの確認
     bool vc1StartCodeExists(uint8_t *ptr);
-
-    //動画のptsをソートする
-    void sortVideoPtsList();
-
-    //動画のptsをリストに加える
-    void addVideoPtsToList(FramePos pos);
 
     //対象ストリームのパケットを取得
     int getSample(AVPacket *pkt);
@@ -218,7 +458,7 @@ private:
     mfxStatus getFirstFramePosAndFrameRate(AVRational fpsDecoder, mfxSession session, mfxBitstream *bitstream, const sTrim *pTrimList, int nTrimCount, int nProcSpeedLimit);
 
     //指定したptsとtimebaseから、該当する動画フレームを取得する
-    int getVideoFrameIdx(int64_t pts, AVRational timebase, const FramePos *framePos, int framePosCount, int iStart);
+    int getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart);
 
     //ptsを動画のtimebaseから音声のtimebaseに変換する
     int64_t convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream);
@@ -237,6 +477,7 @@ private:
     void CloseFormat(AVDemuxFormat *pFormat);
 
     AVDemuxer        m_Demux;                      //デコード用情報
+    tstring          m_sFramePosListLog;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
     vector<AVPacket> m_PreReadBuffer;              //解析用に先行取得した映像パケット
     vector<AVPacket> m_StreamPacketsBufferL1[2];    //音声のAVPacketのバッファ (マルチスレッドで追加されてくることに注意する)
