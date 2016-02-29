@@ -32,11 +32,16 @@ public:
     //並列で1つの押し込みと1つの取り出しが可能なキューを作成する
     //スレッド並列対応のため、データにはパディングをつけてアライメントをとることが可能 (align_byte)
     //どこまで効果があるかは不明だが、align_byte=64としてfalse sharingを回避できる
-    CQueueSPSP() : m_nPushRestartExtra(0), m_pBufStart(), m_heEvent(NULL), m_pBufFin(nullptr), m_pBufIn(nullptr), m_pBufOut(nullptr), m_bUsingData(false) {
+    CQueueSPSP() :
+        m_nPushRestartExtra(0),
+        m_heEvent(NULL),
+        m_nMallocAlign(32),
+        m_nMaxCapacity(SIZE_MAX),
+        m_nKeepLength(0),
+        m_pBufStart(), m_pBufFin(nullptr), m_pBufIn(nullptr), m_pBufOut(nullptr), m_bUsingData(false) {
         static_assert(std::is_pod<Type>::value == true, "CQueueSPSP is only for POD type.");
         //実際のメモリのアライメントに適切な2の倍数であるか確認する
         //そうでない場合は32をデフォルトとして使用
-        m_nMallocAlign = 32;
         for (int i = 0; i < sizeof(i) * 8; i++) {
             int test = 1 << i;
             if (test == align_byte) {
@@ -63,6 +68,10 @@ public:
     queueData *get(uint32_t index) {
         return m_pBufOut + index;
     }
+    //キューが一定の長さに達しないとfront_copy/popできないように設定する
+    void set_keep_length(size_t keepLength) {
+        m_nKeepLength = keepLength;
+    }
     //キューを初期化する
     //bufSizeはキューの内部データバッファサイズ maxCapacityを超えてもかまわない
     //maxCapacityはキューに格納できる最大のデータ数
@@ -71,6 +80,7 @@ public:
         alloc(bufSize);
         m_heEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
         m_nMaxCapacity = maxCapacity;
+        m_nKeepLength = 0;
         m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)std::min<size_t>(INT_MAX, maxCapacity) - 4);
     }
     //キューのデータをクリアする
@@ -189,12 +199,13 @@ public:
         while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
             bUsingDataExpected = 0;
         }
-        bool bEmpty = empty();
-        if (!bEmpty) {
+        auto nSize = size();
+        bool bCopy = nSize > m_nKeepLength;
+        if (bCopy) {
             memcpy(out, m_pBufOut.load(), sizeof(Type));
         }
         m_bUsingData = 0;
-        return !bEmpty;
+        return bCopy;
     }
     //キューの先頭のデータを取り出しながら(outにコピーする)、キューから取り除く
     //キューが空ならなにもせずfalseを返す
@@ -205,14 +216,15 @@ public:
             bUsingDataExpected = 0;
         }
         auto nSize = size();
-        if (nSize) {
+        bool bCopy = nSize > m_nKeepLength;
+        if (bCopy) {
             memcpy(out, m_pBufOut++, sizeof(Type));
             if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                 SetEvent(m_heEvent);
             }
         }
         m_bUsingData = 0;
-        return nSize != 0;
+        return bCopy;
     }
     //キューの先頭のデータを取り除く
     //キューが空ならfalseを返す
@@ -223,14 +235,15 @@ public:
             bUsingDataExpected = 0;
         }
         auto nSize = size();
-        if (nSize) {
+        bool bCopy = nSize > m_nKeepLength;
+        if (bCopy) {
             m_pBufOut++;
             if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
                 SetEvent(m_heEvent);
             }
         }
         m_bUsingData = 0;
-        return nSize != 0;
+        return bCopy;
     }
 protected:
     //bufSize分の内部領域を確保する
@@ -248,6 +261,7 @@ protected:
     HANDLE m_heEvent; //キューからデータを取り出したときセットする
     int m_nMallocAlign; //メモリのアライメント
     size_t m_nMaxCapacity; //キューに詰められる有効なデータの最大数
+    size_t m_nKeepLength; //ある一定の長さを常にキュー内に保持するようにする
     std::unique_ptr<queueData, aligned_malloc_deleter> m_pBufStart; //確保しているメモリ領域の先頭へのポインタ
     queueData *m_pBufFin; //確保しているメモリ領域の終端
     std::atomic<queueData*> m_pBufIn; //キューにデータを格納する位置へのポインタ
