@@ -84,6 +84,22 @@ public:
         m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)std::min<size_t>(INT_MAX, maxCapacity) - 4);
     }
     //キューのデータをクリアする
+    void clear() {
+        const size_t bufSize = m_pBufFin - m_pBufStart;
+        m_pBufFin = m_pBufStart.get() + bufSize;
+        m_pBufIn  = m_pBufStart.get();
+        m_pBufOut = m_pBufStart.get();
+    }
+    //キューのデータをクリアする際に、指定した関数で内部データを開放してから、データをクリアする
+    template<typename Func>
+    void clear(Func deleter) {
+        queueData *ptrFin = m_pBufIn;
+        for (queueData *ptr = m_pBufOut; ptr < ptrFin; ptr++) {
+            deleter(&ptr->data);
+        }
+        clear();
+    }
+    //キューのデータをクリアし、リソースを破棄する
     void close() {
         if (m_heEvent) {
             CloseEvent(m_heEvent);
@@ -95,13 +111,10 @@ public:
         m_pBufOut = nullptr;
         m_bUsingData = false;
     }
-    //キューのデータをクリアする際に、指定した関数で内部データを開放してから、データ領域を解放する
+    //キューのデータをクリアする際に、指定した関数で内部データを開放してから、リソースを破棄する
     template<typename Func>
     void close(Func deleter) {
-        queueData *ptrFin = m_pBufIn;
-        for (queueData *ptr = m_pBufOut; ptr < ptrFin; ptr++) {
-            deleter(&ptr->data);
-        }
+        clear(deleter);
         close();
     }
     //データをキューにコピーし押し込む
