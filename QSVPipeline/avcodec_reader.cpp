@@ -60,6 +60,9 @@ void CAvcodecReader::CloseFormat(AVDemuxFormat *pFormat) {
         avformat_close_input(&pFormat->pFormatCtx);
         AddMessage(QSV_LOG_DEBUG, _T("Closed avformat context.\n"));
     }
+    if (m_Demux.format.pFormatOptions) {
+        av_dict_free(&m_Demux.format.pFormatOptions);
+    }
     memset(pFormat, 0, sizeof(pFormat[0]));
 }
 
@@ -791,7 +794,10 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         AddMessage(QSV_LOG_DEBUG, _T("input source set to stdin.\n"));
         filename_char = "pipe:0";
     }
-    if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), nullptr, nullptr)) {
+    //ts向けの設定
+    av_dict_set(&m_Demux.format.pFormatOptions, "scan_all_pmts", "1", 0);
+    //ファイルのオープン
+    if (avformat_open_input(&(m_Demux.format.pFormatCtx), filename_char.c_str(), nullptr, &m_Demux.format.pFormatOptions)) {
         AddMessage(QSV_LOG_ERROR, _T("error opening file: \"%s\"\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
         return MFX_ERR_NULL_PTR; // Couldn't open file
     }

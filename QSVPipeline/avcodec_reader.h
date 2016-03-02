@@ -58,6 +58,7 @@ typedef struct AVDemuxFormat {
     int                       nAudioTracks;          //存在する音声のトラック数
     int                       nSubtitleTracks;       //存在する字幕のトラック数
     QSVAVSync                 nAVSyncMode;           //音声・映像同期モード
+    AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション       
 } AVDemuxFormat;
 
 typedef struct AVDemuxVideo {
