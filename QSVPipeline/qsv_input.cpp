@@ -22,7 +22,6 @@ CQSVInput::CQSVInput() {
     m_sConvert = nullptr;
     memset(&m_sInputCrop,     0, sizeof(m_sInputCrop));
     memset(&m_inputFrameInfo, 0, sizeof(m_inputFrameInfo));
-    memset(&m_sDecParam,      0, sizeof(m_sDecParam));
     m_strInputInfo.empty();
     m_sTrimParam.offset = 0;
     m_strReaderName = _T("unknown");

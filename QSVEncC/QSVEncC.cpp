@@ -500,6 +500,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
             );
         _ftprintf(stdout, _T("")
+            _T("   --input-thread <int>        set input thread num\n")
+            _T("                                  0: disable (slow, but less cpu usage)\n")
+            _T("                                  1: use one thread\n")
 #if ENABLE_AVCODEC_OUT_THREAD
             _T("   --output-thread <int>        set output thread num\n")
             _T("                                 -1: auto (= default)\n")
@@ -2217,6 +2220,20 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, QSV_OUTPUT_BUF_MB_MAX);
         return MFX_ERR_NONE;
     }
+    if (0 == _tcscmp(option_name, _T("input-thread"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (value < -1 || value >= 2) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nInputThread = (int8_t)value;
+        return MFX_ERR_NONE;
+    }
     if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
         pParams->nOutputThread = 0;
         return MFX_ERR_NONE;
@@ -2463,6 +2480,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
     pParams->nPerfMonitorInterval = QSV_DEFAULT_PERF_MONITOR_INTERVAL;
     pParams->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
+    pParams->nInputThread      = QSV_INPUT_THREAD_AUTO;
     pParams->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
     pParams->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;

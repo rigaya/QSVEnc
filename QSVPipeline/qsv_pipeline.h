@@ -182,7 +182,7 @@ protected:
     virtual mfxStatus InitLog(sInputParams *pParams);
     virtual mfxStatus InitInput(sInputParams *pParams);
     virtual mfxStatus InitOutput(sInputParams *pParams);
-    virtual mfxStatus InitMfxDecParams();
+    virtual mfxStatus InitMfxDecParams(sInputParams *pInParams);
     virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
     virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
     virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);

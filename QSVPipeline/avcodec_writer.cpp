@@ -469,9 +469,9 @@ mfxStatus CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     m_Mux.video.pStream->codec->framerate    = m_Mux.video.nFPS;
     m_Mux.video.pStream->start_time          = 0;
 
-    m_Mux.video.bDtsUnavailable = prm->bVideoDtsUnavailable;
-    m_Mux.video.nInputFirstPts  = prm->nVideoInputFirstPts;
-    m_Mux.video.pInputCodecCtx  = prm->pVideoInputCodecCtx;
+    m_Mux.video.bDtsUnavailable   = prm->bVideoDtsUnavailable;
+    m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
+    m_Mux.video.pInputCodecCtx    = prm->pVideoInputCodecCtx;
 
     AddMessage(QSV_LOG_DEBUG, _T("output video stream timebase: %d/%d\n"), m_Mux.video.pStream->time_base.num, m_Mux.video.pStream->time_base.den);
     AddMessage(QSV_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
@@ -1941,7 +1941,7 @@ mfxStatus CAvcodecWriter::SubtitleWritePacket(AVPacket *pkt) {
     //字幕を処理する
     const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
     const AVRational vid_pkt_timebase = (m_Mux.video.pInputCodecCtx) ? m_Mux.video.pInputCodecCtx->pkt_timebase : av_inv_q(m_Mux.video.nFPS);
-    const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstPts, vid_pkt_timebase, pMuxSub->pCodecCtxIn->pkt_timebase);
+    const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxSub->pCodecCtxIn->pkt_timebase);
     //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
     //Trimによりカットされたときのみ
     const int64_t pts_orig = pkt->pts;
