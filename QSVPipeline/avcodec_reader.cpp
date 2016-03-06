@@ -1375,6 +1375,10 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1 *pSurface) {
 }
 #pragma warning(pop)
 
+HANDLE CAvcodecReader::getThreadHandleInput() {
+    return m_Demux.thread.thInput.native_handle();
+}
+
 mfxStatus CAvcodecReader::ThreadFuncRead() {
     while (!m_Demux.thread.bAbortInput) {
         AVPacket pkt;

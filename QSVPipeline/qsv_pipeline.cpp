@@ -2975,15 +2975,20 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 #if ENABLE_AVCODEC_QSV_READER
     if (m_pPerfMonitor) {
         HANDLE thOutput = NULL;
+        HANDLE thInput = NULL;
         HANDLE thAudProc = NULL;
         HANDLE thAudEnc = NULL;
+        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            thInput = pAVCodecReader->getThreadHandleInput();
+        }
         auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(m_pFileWriter);
         if (pAVCodecWriter != nullptr) {
             thOutput = pAVCodecWriter->getThreadHandleOutput();
             thAudProc = pAVCodecWriter->getThreadHandleAudProcess();
             thAudEnc = pAVCodecWriter->getThreadHandleAudEncode();
         }
-        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thOutput, thAudProc, thAudEnc);
+        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
 #endif //#if ENABLE_AVCODEC_QSV_READER
     const int bufferSize = m_EncThread.m_nFrameBuffer;

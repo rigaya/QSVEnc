@@ -581,6 +581,9 @@ public:
 
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstKeyPts();
+
+    //入力スレッドのハンドルを取得する
+    HANDLE getThreadHandleInput();
 private:
     //avcodecのコーデックIDからIntel Media SDKのコーデックのFourccを取得
     uint32_t getQSVFourcc(uint32_t id);

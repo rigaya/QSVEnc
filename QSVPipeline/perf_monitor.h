@@ -40,10 +40,11 @@ enum : int {
     PERF_MONITOR_THREAD_AUDP = 0x00001000,
     PERF_MONITOR_THREAD_AUDE = 0x00002000,
     PERF_MONITOR_THREAD_OUT  = 0x00004000,
-    PERF_MONITOR_FRAME_IN    = 0x00008000,
-    PERF_MONITOR_FRAME_OUT   = 0x00010000,
-    PERF_MONITOR_GPU_LOAD    = 0x00020000,
-    PERF_MONITOR_GPU_CLOCK   = 0x00040000,
+    PERF_MONITOR_THREAD_IN   = 0x00008000,
+    PERF_MONITOR_FRAME_IN    = 0x00010000,
+    PERF_MONITOR_FRAME_OUT   = 0x00020000,
+    PERF_MONITOR_GPU_LOAD    = 0x00040000,
+    PERF_MONITOR_GPU_CLOCK   = 0x00080000,
 
 
     PERF_MONITOR_ALL         = (int)UINT_MAX,
@@ -51,11 +52,12 @@ enum : int {
 
 static const CX_DESC list_pref_monitor[] = {
     { _T("all"),         PERF_MONITOR_ALL },
-    { _T("cpu"),         PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT },
+    { _T("cpu"),         PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT | PERF_MONITOR_THREAD_IN },
     { _T("cpu_total"),   PERF_MONITOR_CPU },
     { _T("cpu_kernel"),  PERF_MONITOR_CPU_KERNEL },
     { _T("cpu_main"),    PERF_MONITOR_THREAD_MAIN },
     { _T("cpu_enc"),     PERF_MONITOR_THREAD_ENC },
+    { _T("cpu_in"),      PERF_MONITOR_THREAD_IN },
     { _T("cpu_aud"),     PERF_MONITOR_THREAD_AUDP | PERF_MONITOR_THREAD_AUDE },
     { _T("cpu_aud_proc"),PERF_MONITOR_THREAD_AUDP },
     { _T("cpu_aud_enc"), PERF_MONITOR_THREAD_AUDE },
@@ -87,6 +89,7 @@ struct PerfInfo {
     int64_t aud_proc_thread_total_active_us;
     int64_t aud_enc_thread_total_active_us;
     int64_t out_thread_total_active_us;
+    int64_t in_thread_total_active_us;
 
     int64_t mem_private;
     int64_t mem_virtual;
@@ -115,6 +118,7 @@ struct PerfInfo {
     double  aud_proc_thread_percent;
     double  aud_enc_thread_percent;
     double  out_thread_percent;
+    double  in_thread_percent;
 
     BOOL    gpu_info_valid;
     double  gpu_load_percent;
@@ -137,7 +141,7 @@ public:
     ~CPerfMonitor();
 
     void SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus);
-    void SetThreadHandles(HANDLE thEncThread, HANDLE thOutThread, HANDLE thAudProcThread, HANDLE thAudEncThread);
+    void SetThreadHandles(HANDLE thEncThread, HANDLE thInThread, HANDLE thOutThread, HANDLE thAudProcThread, HANDLE thAudEncThread);
 
     void clear();
 protected:
@@ -159,6 +163,7 @@ protected:
     std::unique_ptr<CPipeProcess> m_pProcess;
     ProcessPipe m_pipes;
     HANDLE m_thEncThread;
+    HANDLE m_thInThread;
     HANDLE m_thOutThread;
     HANDLE m_thAudProcThread;
     HANDLE m_thAudEncThread;

@@ -560,6 +560,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 #if defined(_WIN32) || defined(_WIN64)
             _T("                                 cpu_main     ... cpu main thread usage (%%)\n")
             _T("                                 cpu_enc      ... cpu encode thread usage (%%)\n")
+            _T("                                 cpu_in       ... cpu input thread usage (%%)\n")
             _T("                                 cpu_out      ... cpu output thread usage (%%)\n")
             _T("                                 cpu_aud_proc ... cpu aud proc thread usage (%%)\n")
             _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
@@ -2403,7 +2404,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelectMatplot =
                 (int)(PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
-                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
+                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT | PERF_MONITOR_THREAD_IN
                     | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_GPU_LOAD
                     | PERF_MONITOR_FPS);
         } else {
