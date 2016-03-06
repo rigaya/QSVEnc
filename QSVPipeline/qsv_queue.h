@@ -189,6 +189,10 @@ public:
     size_t capacity() const {
         return m_nMaxCapacity;
     }
+    //キューの最大サイズを設定する
+    void set_capacity(size_t capacity) {
+        m_nMaxCapacity = capacity;
+    }
     //indexの位置のコピーを取得する
     bool copy(Type *out, uint32_t index) {
         int bUsingDataExpected = 0;
