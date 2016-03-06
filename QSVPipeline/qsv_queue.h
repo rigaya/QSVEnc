@@ -72,6 +72,9 @@ public:
     void set_keep_length(size_t keepLength) {
         m_nKeepLength = keepLength;
     }
+    size_t get_keep_length() {
+        return m_nKeepLength;
+    }
     //キューを初期化する
     //bufSizeはキューの内部データバッファサイズ maxCapacityを超えてもかまわない
     //maxCapacityはキューに格納できる最大のデータ数
