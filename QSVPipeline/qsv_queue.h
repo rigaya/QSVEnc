@@ -85,7 +85,7 @@ public:
     }
     //キューのデータをクリアする
     void clear() {
-        const size_t bufSize = m_pBufFin - m_pBufStart;
+        const auto bufSize = m_pBufFin - m_pBufStart.get();
         m_pBufFin = m_pBufStart.get() + bufSize;
         m_pBufIn  = m_pBufStart.get();
         m_pBufOut = m_pBufStart.get();
