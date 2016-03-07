@@ -133,8 +133,25 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     auto print_feature_warnings = [this](int log_level, const TCHAR *feature_name) {
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
+
+    if (pInParams->CodecId == MFX_CODEC_HEVC) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1)) {
+            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+    } else if (pInParams->CodecId == MFX_CODEC_VP8) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1)) {
+            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+    } else if (pInParams->CodecId == MFX_CODEC_VP9) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1)) {
+            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+    }
     //エンコードモードのチェック
-    mfxU64 availableFeaures = CheckEncodeFeature(pInParams->bUseHWLib, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
+    mfxU64 availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
     PrintMes(QSV_LOG_DEBUG, _T("Detected avaliable features for %s API v%d.%d, %s, %s\n%s\n"),
         (pInParams->bUseHWLib) ? _T("hw") : _T("sw"), m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
@@ -685,23 +702,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
         m_ExtVP8CodingOption.SharpnessLevel = (mfxU16)clamp(pInParams->nVP8Sharpness, 0, 8);
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP8CodingOption);
-    }
-
-    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
-        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1)) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
-            return MFX_ERR_UNSUPPORTED;
-        }
-    } else if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
-        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1)) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
-            return MFX_ERR_UNSUPPORTED;
-        }
-    } else if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP9) {
-        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1)) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
-            return MFX_ERR_UNSUPPORTED;
-        }
     }
 
     if (MFX_CODEC_JPEG == pInParams->CodecId) {
