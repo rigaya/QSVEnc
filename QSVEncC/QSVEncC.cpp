@@ -500,6 +500,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
             );
         _ftprintf(stdout, _T("")
+            _T("   --input-thread <int>        set input thread num\n")
+            _T("                                  0: disable (slow, but less cpu usage)\n")
+            _T("                                  1: use one thread\n")
 #if ENABLE_AVCODEC_OUT_THREAD
             _T("   --output-thread <int>        set output thread num\n")
             _T("                                 -1: auto (= default)\n")
@@ -523,7 +526,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
         _ftprintf(stdout,
             _T("   --log <string>               output log to file (txt or html).\n")
             _T("   --log-level <string>         set output log level\n")
-            _T("                                 info(default), warn, error, debug\n"));
+            _T("                                 info(default), warn, error, debug\n")
+            _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n"));
 #if ENABLE_SESSION_THREAD_CONFIG
         _ftprintf(stdout, _T("")
             _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
@@ -556,6 +560,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
 #if defined(_WIN32) || defined(_WIN64)
             _T("                                 cpu_main     ... cpu main thread usage (%%)\n")
             _T("                                 cpu_enc      ... cpu encode thread usage (%%)\n")
+            _T("                                 cpu_in       ... cpu input thread usage (%%)\n")
             _T("                                 cpu_out      ... cpu output thread usage (%%)\n")
             _T("                                 cpu_aud_proc ... cpu aud proc thread usage (%%)\n")
             _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
@@ -2216,6 +2221,20 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, QSV_OUTPUT_BUF_MB_MAX);
         return MFX_ERR_NONE;
     }
+    if (0 == _tcscmp(option_name, _T("input-thread"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (value < -1 || value >= 2) {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        pParams->nInputThread = (int8_t)value;
+        return MFX_ERR_NONE;
+    }
     if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
         pParams->nOutputThread = 0;
         return MFX_ERR_NONE;
@@ -2275,6 +2294,13 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int filename_len = (int)_tcslen(strInput[i]);
         pParams->pStrLogFile = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pStrLogFile[0]));
         memcpy(pParams->pStrLogFile, strInput[i], sizeof(pParams->pStrLogFile[0]) * filename_len);
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("log-framelist"))) {
+        i++;
+        int filename_len = (int)_tcslen(strInput[i]);
+        pParams->pFramePosListLog = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pFramePosListLog[0]));
+        memcpy(pParams->pFramePosListLog, strInput[i], sizeof(pParams->pFramePosListLog[0]) * filename_len);
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("colormatrix"))) {
@@ -2378,7 +2404,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelectMatplot =
                 (int)(PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
-                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
+                    | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT | PERF_MONITOR_THREAD_IN
                     | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_GPU_LOAD
                     | PERF_MONITOR_FPS);
         } else {
@@ -2455,6 +2481,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
     pParams->nPerfMonitorInterval = QSV_DEFAULT_PERF_MONITOR_INTERVAL;
     pParams->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
+    pParams->nInputThread      = QSV_INPUT_THREAD_AUTO;
     pParams->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
     pParams->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;

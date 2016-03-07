@@ -49,10 +49,13 @@ public:
             AddMessage(QSV_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
             return m_pEncThread->m_stsThread;
         }
-        *pSurface = pInputBuf->pFrameSurface;
-        (*pSurface)->Data.TimeStamp = inputBufIdx;
-        (*pSurface)->Data.Locked = FALSE;
-        m_pEncThread->m_nFrameGet++;
+        //フレーム読み込みでない場合は、フレーム関連の処理は行わない
+        if (!getInputCodec()) {
+            *pSurface = pInputBuf->pFrameSurface;
+            (*pSurface)->Data.TimeStamp = inputBufIdx;
+            (*pSurface)->Data.Locked = FALSE;
+            m_pEncThread->m_nFrameGet++;
+        }
         return MFX_ERR_NONE;
     }
 
@@ -69,10 +72,13 @@ public:
     mfxStatus SetNextSurface(mfxFrameSurface1 *pSurface) {
         const int inputBufIdx = m_pEncThread->m_nFrameSet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
-        //_ftprintf(stderr, "Set heInputStart: %d\n", m_pEncThread->m_nFrameSet);
-        pSurface->Data.Locked = TRUE;
-        //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_pEncThread->m_nFrameSet);
-        pInputBuf->pFrameSurface = pSurface;
+        //フレーム読み込みでない場合は、フレーム関連の処理は行わない
+        if (!getInputCodec()) {
+            //_ftprintf(stderr, "Set heInputStart: %d\n", m_pEncThread->m_nFrameSet);
+            pSurface->Data.Locked = TRUE;
+            //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_pEncThread->m_nFrameSet);
+            pInputBuf->pFrameSurface = pSurface;
+        }
         SetEvent(pInputBuf->heInputStart);
         AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_pEncThread->m_nFrameSet);
         m_pEncThread->m_nFrameSet++;
@@ -96,9 +102,6 @@ public:
     }
     void GetInputFrameInfo(mfxFrameInfo *inputFrameInfo) {
         memcpy(inputFrameInfo, &m_inputFrameInfo, sizeof(m_inputFrameInfo));
-    }
-    void GetDecParam(mfxVideoParam *decParam) {
-        memcpy(decParam, &m_sDecParam, sizeof(m_sDecParam));
     }
 
     //入力ファイルに存在する音声のトラック数を返す
@@ -160,7 +163,6 @@ protected:
     sInputCrop m_sInputCrop;
 
     mfxFrameInfo m_inputFrameInfo;
-    mfxVideoParam m_sDecParam;
 
     const ConvertCSP *m_sConvert;
 

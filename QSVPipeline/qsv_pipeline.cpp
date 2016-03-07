@@ -69,27 +69,13 @@ mfxStatus CQSVPipeline::AllocAndInitVppDoNotUse() {
 void CQSVPipeline::FreeVppDoNotUse() {
 }
 
-mfxStatus CQSVPipeline::InitMfxDecParams() {
+mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 #if ENABLE_AVCODEC_QSV_READER
     mfxStatus sts = MFX_ERR_NONE;
     if (m_pFileReader->getInputCodec()) {
-        m_pFileReader->GetDecParam(&m_mfxDecParams);
-        PrintMes(QSV_LOG_DEBUG, _T("")
-            _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")
-            _T("InitMfxDecParams: Frame: %s, %dx%d%s [%d,%d,%d,%d] %d:%d, bitdepth %d, shift %d\n"),
-            CodecIdToStr(m_mfxDecParams.mfx.CodecId), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
-            ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.FourCC), m_mfxDecParams.mfx.FrameInfo.Width, m_mfxDecParams.mfx.FrameInfo.Height,
-            (m_mfxDecParams.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? _T("i") : _T("p"),
-            m_mfxDecParams.mfx.FrameInfo.CropX, m_mfxDecParams.mfx.FrameInfo.CropY, m_mfxDecParams.mfx.FrameInfo.CropW, m_mfxDecParams.mfx.FrameInfo.CropH,
-            m_mfxDecParams.mfx.FrameInfo.AspectRatioW, m_mfxDecParams.mfx.FrameInfo.AspectRatioH,
-            m_mfxDecParams.mfx.FrameInfo.BitDepthLuma, m_mfxDecParams.mfx.FrameInfo.Shift);
-
         mfxBitstreamInit(&m_DecInputBitstream, AVCODEC_READER_INPUT_BUF_SIZE);
         //TimeStampはQSVに自動的に計算させる
         m_DecInputBitstream.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
-            m_DecInputBitstream.DecodeTimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-        }
 
         sts = m_pFileReader->GetHeader(&m_DecInputBitstream);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to get stream header from reader."));
@@ -109,11 +95,26 @@ mfxStatus CQSVPipeline::InitMfxDecParams() {
             PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded HEVC decoder plugin.\n"));
         }
 
-        //必要はなくてもDecodeHeaderを行わないと、QSV Decoderによる正常なTimestampの算出が行われないことに注意する
-        m_DecInputBitstream.DataFlag |= MFX_BITSTREAM_COMPLETE_FRAME;
+        if (m_pFileReader->getInputCodec() == MFX_CODEC_AVC || m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
+            //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
+            const uint32_t IDR = 0x65010000;
+            mfxBitstreamAppend(&m_DecInputBitstream, (uint8_t *)&IDR, sizeof(IDR));
+        }
+        memset(&m_mfxDecParams, 0, sizeof(m_mfxDecParams));
+        m_mfxDecParams.mfx.CodecId = m_pFileReader->getInputCodec();
+        m_mfxDecParams.IOPattern = (uint16_t)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream, &m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
-        m_DecInputBitstream.DataFlag &= ~MFX_BITSTREAM_COMPLETE_FRAME;
+
+        PrintMes(QSV_LOG_DEBUG, _T("")
+            _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")
+            _T("InitMfxDecParams: Frame: %s, %dx%d%s [%d,%d,%d,%d] %d:%d, bitdepth %d, shift %d\n"),
+            CodecIdToStr(m_mfxDecParams.mfx.CodecId), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
+            ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.FourCC), m_mfxDecParams.mfx.FrameInfo.Width, m_mfxDecParams.mfx.FrameInfo.Height,
+            (m_mfxDecParams.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? _T("i") : _T("p"),
+            m_mfxDecParams.mfx.FrameInfo.CropX, m_mfxDecParams.mfx.FrameInfo.CropY, m_mfxDecParams.mfx.FrameInfo.CropW, m_mfxDecParams.mfx.FrameInfo.CropH,
+            m_mfxDecParams.mfx.FrameInfo.AspectRatioW, m_mfxDecParams.mfx.FrameInfo.AspectRatioH,
+            m_mfxDecParams.mfx.FrameInfo.BitDepthLuma, m_mfxDecParams.mfx.FrameInfo.Shift);
 
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to initialize QSV decoder."));
@@ -1762,7 +1763,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 //入力ファイルのチャプターをコピーする
                 writerPrm.chapterList = pAVCodecReader->GetChapterList();
             }
-            writerPrm.nVideoInputFirstPts = pAVCodecReader->GetVideoFirstPts();
+            writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
             writerPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
         }
         if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
@@ -1786,7 +1787,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     }
                     //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
                     if (pAVCodecReader == nullptr) {
-                        writerPrm.nVideoInputFirstPts = pAVCodecAudioReader->GetVideoFirstPts();
+                        writerPrm.nVideoInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
                         writerPrm.pVideoInputCodecCtx = pAVCodecAudioReader->GetInputVideoCodecCtx();
                     }
                 }
@@ -1909,7 +1910,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 if (m_pTrimParam) {
                     writerAudioPrm.trimList = m_pTrimParam->list;
                 }
-                writerAudioPrm.nVideoInputFirstPts = pAVCodecReader->GetVideoFirstPts();
+                writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
 
                 auto pWriter = std::make_shared<CAvcodecWriter>();
@@ -2080,6 +2081,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
                 avcodecReaderPrm.nAVSyncMode = pParams->nAVSyncMode;
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
+                avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
+                avcodecReaderPrm.nInputThread = pParams->nInputThread;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
@@ -2125,6 +2128,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
             avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
             avcodecReaderPrm.nAVSyncMode = QSV_AVSYNC_THROUGH;
+            avcodecReaderPrm.nInputThread = 0;
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);
@@ -2573,7 +2577,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitVppPostPlugins(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
-    sts = InitMfxDecParams();
+    sts = InitMfxDecParams(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
     sts = InitOutput(pParams);
@@ -2971,15 +2975,20 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 #if ENABLE_AVCODEC_QSV_READER
     if (m_pPerfMonitor) {
         HANDLE thOutput = NULL;
+        HANDLE thInput = NULL;
         HANDLE thAudProc = NULL;
         HANDLE thAudEnc = NULL;
+        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            thInput = pAVCodecReader->getThreadHandleInput();
+        }
         auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(m_pFileWriter);
         if (pAVCodecWriter != nullptr) {
             thOutput = pAVCodecWriter->getThreadHandleOutput();
             thAudProc = pAVCodecWriter->getThreadHandleAudProcess();
             thAudEnc = pAVCodecWriter->getThreadHandleAudEncode();
         }
-        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thOutput, thAudProc, thAudEnc);
+        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
 #endif //#if ENABLE_AVCODEC_QSV_READER
     const int bufferSize = m_EncThread.m_nFrameBuffer;
@@ -3147,17 +3156,14 @@ mfxStatus CQSVPipeline::RunEncode() {
         for (int i = 0; i < m_EncThread.m_nFrameBuffer; i++) {
             get_all_free_surface(&m_pEncSurfaces[GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual)]);
 
-            if (m_bExternalAlloc) {
+            //フレーム読み込みでない場合には、ここでロックする必要はない
+            if (m_bExternalAlloc && !m_pFileReader->getInputCodec()) {
                 if (MFX_ERR_NONE != (sts_set_buffer = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data))))
                     break;
-            }
-            //空いているフレームを読み込み側に渡し、該当フレームの読み込み開始イベントをSetする(pInputBuf->heInputStart)
-            m_pFileReader->SetNextSurface(pSurfInputBuf);
-#if ENABLE_MVC_ENCODING
-            m_pEncSurfaces[nEncSurfIdx].Info.FrameId.ViewId = currViewNum;
-            if (m_bIsMVC) currViewNum ^= 1; // Flip between 0 and 1 for ViewId
-#endif
         }
+        //空いているフレームを読み込み側に渡し、該当フレームの読み込み開始イベントをSetする(pInputBuf->heInputStart)
+        m_pFileReader->SetNextSurface(pSurfInputBuf);
+    }
         return sts_set_buffer;
     };
     
@@ -3218,7 +3224,9 @@ mfxStatus CQSVPipeline::RunEncode() {
             if (getNextBitstream) {
                 //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
                 dec_sts = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
-                QSV_IGNORE_STS(dec_sts, MFX_ERR_MORE_DATA);
+                if (dec_sts == MFX_ERR_MORE_BITSTREAM) {
+                    return dec_sts; //入力ビットストリームは終了
+                }
                 QSV_ERR_MES(dec_sts, _T("Error on getting video bitstream."));
             }
 
@@ -3548,12 +3556,19 @@ mfxStatus CQSVPipeline::RunEncode() {
                 if (MFX_ERR_NONE != (sts = m_pFileReader->GetNextFrame(&pNextFrame)))
                     break;
 
-                if (m_bExternalAlloc) {
-                    if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))
-                        break;
+                
+                if (!m_pFileReader->getInputCodec()) {
+                    //フレーム読み込みの場合には、必要ならここでロックする
+                    if (m_bExternalAlloc) {
+                        if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))
+                            break;
 
-                    if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data))))
-                        break;
+                        if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data))))
+                            break;
+                    }
+                } else {
+                    //フレーム読み込みでない場合には、フレームバッファをm_pFileReaderを通さずに直接渡す
+                    pNextFrame = pSurfInputBuf;
                 }
 
                 //空いているフレームを読み込み側に渡す
@@ -3562,6 +3577,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 if (MFX_ERR_NONE != (sts = extract_audio()))
                     break;
 
+                //この関数がMFX_ERR_MORE_BITSTREAMを返せば、入力は終了
                 sts = decode_one_frame(true);
                 if (sts == MFX_ERR_MORE_DATA || sts == MFX_ERR_MORE_SURFACE)
                     continue;
@@ -3608,8 +3624,8 @@ mfxStatus CQSVPipeline::RunEncode() {
         sts = encode_one_frame(pNextFrame);
     }
     
-    //MFX_ERR_MORE_DATAは入力が終了したことを示す
-    QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
+    //MFX_ERR_MORE_DATA/MFX_ERR_MORE_BITSTREAMは入力が終了したことを示す
+    QSV_IGNORE_STS(sts, (m_pFileReader->getInputCodec()) ? MFX_ERR_MORE_BITSTREAM : MFX_ERR_MORE_DATA);
     //エラーチェック
     m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in encoding pipeline."));

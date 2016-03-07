@@ -71,6 +71,7 @@ enum MemType {
 
 static const int8_t QSV_OUTPUT_THREAD_AUTO = -1;
 static const int8_t QSV_AUDIO_THREAD_AUTO = -1;
+static const int8_t QSV_INPUT_THREAD_AUTO = -1;
 
 typedef struct {
     mfxU16 left, up, right, bottom;
@@ -348,9 +349,11 @@ struct sInputParams
     uint32_t   nAudioIgnoreDecodeError;
     QSVAVSync  nAVSyncMode;     //avsyncの方法 (QSV_AVSYNC_xxx)
     uint16_t   nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
-    uint16_t   __reserved3;
+    int8_t     nInputThread;
+    int8_t     __reserved3;
     float      fSeekSec; //指定された秒数分先頭を飛ばす
-    int8_t     Reserved[1074];
+    TCHAR     *pFramePosListLog;
+    int8_t     Reserved[1070];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
