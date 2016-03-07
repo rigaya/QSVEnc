@@ -2311,6 +2311,15 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     memcpy(&outputFrames, &inputFrameInfo.FrameId, sizeof(outputFrames));
     if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         CHECK_RANGE_LIST(pParams->vpp.nDeinterlace, list_deinterlace, "vpp-deinterlace");
+        if (pParams->nAVSyncMode == QSV_AVSYNC_FORCE_CFR
+            && (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT
+             || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL
+             || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB
+             || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
+            PrintMes(QSV_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, pParams->vpp.nDeinterlace));
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
+
         switch (pParams->vpp.nDeinterlace) {
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
