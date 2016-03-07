@@ -875,10 +875,10 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
             }
 #endif
             VppExtMes += _T("Deinterlace (");
-            VppExtMes += list_deinterlace[get_cx_index(list_deinterlace, pInParams->vpp.nDeinterlace)].desc;
+            VppExtMes += get_chr_from_value(list_deinterlace, pInParams->vpp.nDeinterlace);
             if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
                 VppExtMes += _T(", ");
-                VppExtMes += list_telecine_patterns[get_cx_index(list_telecine_patterns, pInParams->vpp.nTelecinePattern)].desc;
+                VppExtMes += get_chr_from_value(list_telecine_patterns, pInParams->vpp.nTelecinePattern);
             }
             VppExtMes += _T(")\n");
             PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp deinterlace enabled.\n"));
