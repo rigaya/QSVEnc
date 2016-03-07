@@ -146,25 +146,36 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     if (pInParams->CodecId == MFX_CODEC_HEVC) {
         if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1)) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
+            PrintMes(QSV_LOG_ERROR, _T("hevc encoding is not supported on current platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     } else if (pInParams->CodecId == MFX_CODEC_VP8) {
         if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1)) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
+            PrintMes(QSV_LOG_ERROR, _T("vp8 encoding is not supported on current platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     } else if (pInParams->CodecId == MFX_CODEC_VP9) {
         if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1)) {
             PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
+            PrintMes(QSV_LOG_ERROR, _T("vp9 encoding is not supported on current platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     }
     //エンコードモードのチェック
-    mfxU64 availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
+    const auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
     PrintMes(QSV_LOG_DEBUG, _T("Detected avaliable features for %s API v%d.%d, %s, %s\n%s\n"),
         (pInParams->bUseHWLib) ? _T("hw") : _T("sw"), m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
+        //このコーデックがサポートされているかどうか確認する
+        if (   pInParams->nEncMode == MFX_RATECONTROL_CQP
+            || pInParams->nEncMode == MFX_RATECONTROL_VBR
+            || pInParams->nEncMode == MFX_RATECONTROL_CBR
+            || !(CheckEncodeFeature(m_mfxSession, m_mfxVer, MFX_RATECONTROL_CQP, pInParams->CodecId) & ENC_FEATURE_CURRENT_RC)) {
+            PrintMes(QSV_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
         PrintMes(QSV_LOG_ERROR, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
