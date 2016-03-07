@@ -411,6 +411,8 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
             QSV_DEFAULT_QVBR);
         _ftprintf(stdout, _T("Other Encode Options:\n")
+            _T("   --fallback-rc                enable fallback of ratecontrol mode, when platform\n")
+            _T("                                 does not support new ratecontrol modes.\n")
             _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
             _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
             _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
@@ -1714,6 +1716,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nEncMode = MFX_RATECONTROL_QVBR;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("fallback-rc"))) {
+        pParams->nFallback = 1;
         return MFX_ERR_NONE;
     }
     if (   0 == _tcscmp(option_name, _T("max-bitrate"))

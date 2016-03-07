@@ -163,7 +163,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
     }
     //エンコードモードのチェック
-    const auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
+    auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
     PrintMes(QSV_LOG_DEBUG, _T("Detected avaliable features for %s API v%d.%d, %s, %s\n%s\n"),
         (pInParams->bUseHWLib) ? _T("hw") : _T("sw"), m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
@@ -176,27 +176,93 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             PrintMes(QSV_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
-        PrintMes(QSV_LOG_ERROR, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
+        const int rc_error_log_level = (pInParams->nFallback) ? QSV_LOG_WARN : QSV_LOG_ERROR;
+        PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-                PrintMes(QSV_LOG_ERROR, _T("Lookahead mode is only supported by API v1.7 or later.\n"));
+                PrintMes(rc_error_log_level, _T("Lookahead mode is only supported by API v1.7 or later.\n"));
             }
         }
         if (   MFX_RATECONTROL_ICQ    == pInParams->nEncMode
             || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode
             || MFX_RATECONTROL_VCM    == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-                PrintMes(QSV_LOG_ERROR, _T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(pInParams->nEncMode));
+                PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(pInParams->nEncMode));
             }
         }
         if (   MFX_RATECONTROL_LA_EXT == pInParams->nEncMode
             || MFX_RATECONTROL_LA_HRD == pInParams->nEncMode
             || MFX_RATECONTROL_QVBR   == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
-                PrintMes(QSV_LOG_ERROR, _T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(pInParams->nEncMode));
+                PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(pInParams->nEncMode));
             }
         }
-        return MFX_ERR_INVALID_VIDEO_PARAM;
+        if (!pInParams->nFallback) {
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
+        //fallback
+        const int RC_BITRATE[] = { MFX_RATECONTROL_CBR, MFX_RATECONTROL_VBR, MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VCM, MFX_RATECONTROL_LA, MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_LA_EXT, MFX_RATECONTROL_QVBR };
+        //ビットレート指定モードかどうか
+        bool bSelectedRCBitrate = std::find(RC_BITRATE, RC_BITRATE + _countof(RC_BITRATE), pInParams->nEncMode) != (RC_BITRATE + _countof(RC_BITRATE));
+        //fallbackの候補リスト、優先度の高い順にセットする
+        vector<int> check_rc_list;
+        //現在のレート制御モードは使用できないので、それ以外を確認する
+        auto check_rc_add = [pInParams, &check_rc_list](int rc_mode) {
+            if (pInParams->nEncMode != rc_mode) {
+                check_rc_list.push_back(rc_mode);
+            }
+        };
+
+        //品質指定系の場合、若干補正をかけた値を設定する
+        int nAdjustedQP[3] = { QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB };
+        if (bSelectedRCBitrate) {
+            //ビットレートモードなら、QVBR->VBRをチェックする
+            check_rc_add(MFX_RATECONTROL_QVBR);
+            check_rc_add(MFX_RATECONTROL_VBR);
+        } else {
+            //固定品質モードなら、ICQ->CQPをチェックする
+            check_rc_add(MFX_RATECONTROL_ICQ);
+            check_rc_add(MFX_RATECONTROL_CQP);
+            //品質指定系の場合、若干補正をかけた値を設定する
+            if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
+                nAdjustedQP[0] = pInParams->nICQQuality - 8;
+                nAdjustedQP[1] = pInParams->nICQQuality - 6;
+                nAdjustedQP[2] = pInParams->nICQQuality - 3;
+            } else if (pInParams->nEncMode == MFX_RATECONTROL_ICQ) {
+                nAdjustedQP[0] = pInParams->nICQQuality - 1;
+                nAdjustedQP[1] = pInParams->nICQQuality + 1;
+                nAdjustedQP[2] = pInParams->nICQQuality + 4;
+            } else if (pInParams->nEncMode == MFX_RATECONTROL_VQP || pInParams->nEncMode == MFX_RATECONTROL_CQP) {
+                nAdjustedQP[0] = pInParams->nQPI;
+                nAdjustedQP[1] = pInParams->nQPP;
+                nAdjustedQP[2] = pInParams->nQPB;
+            }
+        }
+        //check_rc_listに設定したfallbackの候補リストをチェックする
+        bool bFallbackSuccess = false;
+        for (uint32_t i = 0; i < (uint32_t)check_rc_list.size(); i++) {
+            auto availRCFeatures = CheckEncodeFeature(m_mfxSession, m_mfxVer, (uint16_t)check_rc_list[i], pInParams->CodecId);
+            if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
+                pInParams->nEncMode = (uint16_t)check_rc_list[i];
+                if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
+                    pInParams->nICQQuality = (uint16_t)clamp(nAdjustedQP[1] + 6, 1, 51);
+                } else if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
+                    pInParams->nICQQuality = (uint16_t)clamp(nAdjustedQP[1], 1, 51);
+                } else if (pInParams->nEncMode == MFX_RATECONTROL_CQP) {
+                    pInParams->nQPI = (uint16_t)clamp(nAdjustedQP[0], 0, 51);
+                    pInParams->nQPP = (uint16_t)clamp(nAdjustedQP[1], 0, 51);
+                    pInParams->nQPB = (uint16_t)clamp(nAdjustedQP[2], 0, 51);
+                }
+                bFallbackSuccess = true;
+                availableFeaures = availRCFeatures;
+                PrintMes(rc_error_log_level, _T("Falling back to %s mode.\n"), EncmodeToStr(pInParams->nEncMode));
+                break;
+            }
+        }
+        //なんらかの理由でフォールバックできなかったらエラー終了
+        if (!bFallbackSuccess) {
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
     }
     if (MFX_RATECONTROL_VQP == pInParams->nEncMode && m_pFileReader->getInputCodec()) {
         PrintMes(QSV_LOG_ERROR, _T("%s mode cannot be used with avqsv reader.\n"), EncmodeToStr(pInParams->nEncMode));
