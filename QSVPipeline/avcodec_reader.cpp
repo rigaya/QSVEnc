@@ -243,7 +243,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
     AVRational fpsDecoder = m_Demux.video.pCodecCtx->framerate;
     const bool fpsDecoderInvalid = (fpsDecoder.den == 0 || fpsDecoder.num == 0);
     //timebaseが60で割り切れない場合には、ptsが完全には割り切れない値である場合があり、より多くのフレーム数を解析する必要がある
-    int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? ((m_Demux.video.pCodecCtx->pkt_timebase.den >= 1000 && m_Demux.video.pCodecCtx->pkt_timebase.den % 60) ? 256 : 96) : 7200;
+    int maxCheckFrames = (m_Demux.format.nAnalyzeSec == 0) ? ((m_Demux.video.pCodecCtx->pkt_timebase.den >= 1000 && m_Demux.video.pCodecCtx->pkt_timebase.den % 60) ? 128 : 48) : 7200;
     int maxCheckSec = (m_Demux.format.nAnalyzeSec == 0) ? INT_MAX : m_Demux.format.nAnalyzeSec;
     AddMessage(QSV_LOG_DEBUG, _T("fps decoder invalid: %s\n"), fpsDecoderInvalid ? _T("true") : _T("false"));
 
@@ -257,7 +257,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
     std::vector<int> frameDurationList;
     vector<std::pair<int, int>> durationHistgram;
 
-    for (int i_retry = 0; i_retry < 4; i_retry++) {
+    for (int i_retry = 0; i_retry < 5; i_retry++) {
         if (i_retry) {
             //フレームレート推定がうまくいかなそうだった場合、もう少しフレームを解析してみる
             maxCheckFrames <<= 1;
@@ -337,7 +337,12 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
         }
 
         //ここでやめてよいか判定する
-        if (   durationHistgram.size() <= 1 //唯一のdurationが得られている
+        if (i_retry == 0) {
+            //初回は、唯一のdurationが得られている場合を除き再解析する
+            if (durationHistgram.size() <= 1) {
+                break;
+            }
+        } else if (durationHistgram.size() <= 1 //唯一のdurationが得られている
             || durationHistgram[0].second / (double)frameDurationList.size() > 0.95 //大半がひとつのdurationである
             || std::abs(durationHistgram[0].first - durationHistgram[1].first) <= 1) { //durationのブレが貧弱なtimebaseによる丸めによるもの(mkvなど)
             break;
