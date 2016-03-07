@@ -211,6 +211,7 @@ protected:
     virtual mfxStatus SynchronizeFirstTask();
 
     mfxStatus CheckParamList(int value, const CX_DESC *list, const char *param_name);
+    int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
 };
 
 #endif // __PIPELINE_ENCODE_H__
