@@ -1018,8 +1018,11 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
 //サポートする機能のチェックをAPIバージョンのみで行う
 //API v1.6以降はCheckEncodeFeatureを使うべき
 //同一のAPIバージョンでも環境により異なることが多くなるため
-static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol) {
+static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
     mfxU64 feature = 0x00;
+    if (codecId != MFX_CODEC_AVC && codecId != MFX_CODEC_MPEG2) {
+        return feature;
+    }
     //まずレート制御モードをチェック
     BOOL rate_control_supported = false;
     switch (ratecontrol) {
@@ -1112,7 +1115,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
     } else if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
         //API v1.6未満で実際にチェックする必要は殆ど無いので、
         //コードで決められた値を返すようにする
-        feature = CheckEncodeFeatureStatic(ver, ratecontrol);
+        feature = CheckEncodeFeatureStatic(ver, ratecontrol, codecId);
     } else {
         mfxSession session = NULL;
 
