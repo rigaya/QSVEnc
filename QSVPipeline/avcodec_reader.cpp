@@ -1117,14 +1117,14 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
                 pos.poc = AVQSV_POC_INVALID;
                 pos.flags = (uint8_t)pkt->flags;
                 if (m_Demux.video.pParserCtx) {
-                    if (m_Demux.video.pH264Bsfc) {
+                    if (m_Demux.video.pH264Bsfc || m_Demux.video.bUseHEVCmp42AnnexB) {
                         std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
                         std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
                     }
                     uint8_t *dummy = nullptr;
                     int dummy_size = 0;
                     av_parser_parse2(m_Demux.video.pParserCtx, m_Demux.video.pCodecCtx, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos);
-                    if (m_Demux.video.pH264Bsfc) {
+                    if (m_Demux.video.pH264Bsfc || m_Demux.video.bUseHEVCmp42AnnexB) {
                         std::swap(m_Demux.video.pExtradata, m_Demux.video.pCodecCtx->extradata);
                         std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
                     }
