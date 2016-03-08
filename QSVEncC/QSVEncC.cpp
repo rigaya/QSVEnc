@@ -285,6 +285,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
             _T("                                set numbers of continuous packets of audio decode\n")
             _T("                                 error to ignore, replaced by silence.\n")
+            _T("   --audio-ignore-notrack-error ignore error when audio track is unfound.\n")
             _T("   --audio-samplerate [<int>?]<int>\n")
             _T("                                set sampling rate for audio (Hz).\n")
             _T("                                  in [<int>?], specify track number of audio.\n")
@@ -1229,6 +1230,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->nAudioIgnoreDecodeError = value;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-ignore-notrack-error"))) {
+        pParams->bAudioIgnoreNoTrackError = 1;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {

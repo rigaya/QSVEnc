@@ -536,6 +536,7 @@ typedef struct AvcodecReaderPrm {
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
     int8_t         nInputThread;            //入力スレッドを有効にする
+    int8_t         bAudioIgnoreNoTrackError; //音声が見つからなかった場合のエラーを無視する
 } AvcodecReaderPrm;
 
 

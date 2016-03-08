@@ -703,8 +703,10 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                     }
                 }
                 if (!audioFound) {
-                    AddMessage(QSV_LOG_ERROR, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
-                    return MFX_ERR_INVALID_AUDIO_PARAM;
+                    AddMessage(input_prm->bAudioIgnoreNoTrackError ? QSV_LOG_WARN : QSV_LOG_ERROR, _T("could not find audio track #%d\n"), input_prm->ppAudioSelect[i]->nAudioSelect);
+                    if (!input_prm->bAudioIgnoreNoTrackError) {
+                        return MFX_ERR_INVALID_AUDIO_PARAM;
+                    }
                 }
             }
         }

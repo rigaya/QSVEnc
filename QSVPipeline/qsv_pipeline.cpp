@@ -2169,6 +2169,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 avcodecReaderPrm.nInputThread = pParams->nInputThread;
+                avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
@@ -2214,6 +2215,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
             avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
             avcodecReaderPrm.nAVSyncMode = QSV_AVSYNC_THROUGH;
+            avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
             avcodecReaderPrm.nInputThread = 0;
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
