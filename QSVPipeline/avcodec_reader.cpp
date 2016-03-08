@@ -926,7 +926,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         m_Demux.thread.bAbortInput = false;
         m_Demux.thread.nInputThread = input_prm->nInputThread;
         if (m_Demux.thread.nInputThread == QSV_INPUT_THREAD_AUTO) {
-            m_Demux.thread.nInputThread = 1;
+            m_Demux.thread.nInputThread = 0;
         }
         if (m_Demux.thread.nInputThread) {
             m_Demux.thread.thInput = std::thread(&CAvcodecReader::ThreadFuncRead, this);
