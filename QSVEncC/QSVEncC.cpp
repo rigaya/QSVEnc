@@ -2525,7 +2525,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
         }
 
         if (option_name == NULL) {
-            PrintHelp(strInput[0], _T("Invalid options"), NULL);
+            PrintHelp(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), NULL);
             return MFX_PRINT_OPTION_ERR;
         }
 
