@@ -125,8 +125,8 @@ mfxStatus CQSVOutBitstream::WriteNextFrame(mfxBitstream *pMfxBitstream) {
         WRITE_CHECK(nBytesWritten, pMfxBitstream->DataLength);
     }
 
+    m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
     pMfxBitstream->DataLength = 0;
-    m_pEncSatusInfo->SetOutputData(nBytesWritten, pMfxBitstream->FrameType);
 
     return MFX_ERR_NONE;
 }
