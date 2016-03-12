@@ -920,8 +920,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             m_inputFrameInfo.AspectRatioW, m_inputFrameInfo.AspectRatioH, m_inputFrameInfo.BitDepthLuma, m_inputFrameInfo.Shift);
         m_strInputInfo += mes;
 
-        //はじめcapacityを無限大にセットしたので、この段階で制限をかける
-        m_Demux.qVideoPkt.set_capacity(256);
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
         m_Demux.thread.nInputThread = input_prm->nInputThread;
@@ -930,6 +928,9 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         }
         if (m_Demux.thread.nInputThread) {
             m_Demux.thread.thInput = std::thread(&CAvcodecReader::ThreadFuncRead, this);
+            //はじめcapacityを無限大にセットしたので、この段階で制限をかける
+            //入力をスレッド化しない場合には、自動的に同期が保たれるので、ここでの制限は必要ない
+            m_Demux.qVideoPkt.set_capacity(256);
         }
     } else {
         //音声との同期とかに使うので、動画の情報を格納する
