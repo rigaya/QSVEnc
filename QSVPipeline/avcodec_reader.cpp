@@ -486,8 +486,8 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
                     }
                 } else {
                     //音声の最初のサンプルを取得できていない
-                    streamInfo = m_Demux.stream.erase(streamInfo) - 1;
                     AddMessage(QSV_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->nIndex);
+                    streamInfo = m_Demux.stream.erase(streamInfo) - 1;
                 }
             }
         }
