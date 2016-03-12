@@ -1310,7 +1310,7 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
         m_Mux.thread.bAbortOutput = false;
         m_Mux.thread.bThAudProcessAbort = false;
         m_Mux.thread.bThAudEncodeAbort = false;
-        m_Mux.thread.qAudioPacketOut.init(8192, 256, 2);
+        m_Mux.thread.qAudioPacketOut.init(8192, 256 * std::max<uint32_t>(1, m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
         m_Mux.thread.qVideobitstream.init(4096, (std::max)(64, (m_Mux.video.nFPS.den) ? m_Mux.video.nFPS.num * 4 / m_Mux.video.nFPS.den : 0));
         m_Mux.thread.qVideobitstreamFreeI.init(256);
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
@@ -2352,6 +2352,7 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             WriteNextPacketProcessed(pktData);
         }
     };
+    int audPacketsPerSec = 64;
     int nWaitAudio = 0;
     int nWaitVideo = 0;
     while (!m_Mux.thread.bAbortOutput) {
@@ -2366,6 +2367,12 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             AVPktMuxData pktData = { 0 };
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
                 && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData))) {
+                if (pktData.pMuxAudio && pktData.pMuxAudio->pCodecCtxIn) {
+                    audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.pMuxAudio->pCodecCtxIn->pkt_timebase) * pktData.pkt.duration) + 0.5));
+                    if ((int)m_Mux.thread.qAudioPacketOut.capacity() < audPacketsPerSec * 4) {
+                        m_Mux.thread.qAudioPacketOut.set_capacity(audPacketsPerSec * 4);
+                    }
+                }
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
                 (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData);
                 audioDts = (std::max)(audioDts, pktData.dts);
