@@ -2879,9 +2879,7 @@ mfxStatus run_benchmark(sInputParams *params) {
                     || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
                     break;
             } else {
-                if (MFX_ERR_NONE != sts) {
-                    return sts;
-                }
+                break;
             }
         }
 
@@ -2946,9 +2944,7 @@ mfxStatus run_benchmark(sInputParams *params) {
                         || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
                         break;
                 } else {
-                    if (MFX_ERR_NONE != sts) {
-                        return sts;
-                    }
+                    break;
                 }
             }
 
