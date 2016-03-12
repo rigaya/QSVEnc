@@ -242,7 +242,7 @@ AVCodecID CAvcodecWriter::getAVCodecId(mfxU32 QSVFourcc) {
     return AV_CODEC_ID_NONE;
 }
 bool CAvcodecWriter::codecIDIsPCM(AVCodecID targetCodec) {
-    const std::vector<AVCodecID> pcmCodecs = {
+    static const auto pcmCodecs = make_array<AVCodecID>(
         AV_CODEC_ID_FIRST_AUDIO,
         AV_CODEC_ID_PCM_S16LE,
         AV_CODEC_ID_PCM_S16BE,
@@ -275,7 +275,7 @@ bool CAvcodecWriter::codecIDIsPCM(AVCodecID targetCodec) {
         AV_CODEC_ID_PCM_S24LE_PLANAR,
         AV_CODEC_ID_PCM_S32LE_PLANAR,
         AV_CODEC_ID_PCM_S16BE_PLANAR
-    };
+    );
     return (pcmCodecs.end() != std::find(pcmCodecs.begin(), pcmCodecs.end(), targetCodec));
 }
 
@@ -386,18 +386,18 @@ AVSampleFormat CAvcodecWriter::AutoSelectSampleFmt(const AVSampleFormat *pSample
             return pSamplefmtList[i];
         }
     }
-    vector<std::pair<AVSampleFormat, int>> sampleFmtLevel = {
-        { AV_SAMPLE_FMT_DBLP, 8 },
-        { AV_SAMPLE_FMT_DBL,  8 },
-        { AV_SAMPLE_FMT_FLTP, 6 },
-        { AV_SAMPLE_FMT_FLT,  6 },
-        { AV_SAMPLE_FMT_S32P, 4 },
-        { AV_SAMPLE_FMT_S32,  4 },
-        { AV_SAMPLE_FMT_S16P, 2 },
-        { AV_SAMPLE_FMT_S16,  2 },
-        { AV_SAMPLE_FMT_U8P,  1 },
-        { AV_SAMPLE_FMT_U8,   1 },
-    };
+    static const auto sampleFmtLevel = make_array<std::pair<AVSampleFormat, int>>(
+        std::make_pair(AV_SAMPLE_FMT_DBLP, 8),
+        std::make_pair(AV_SAMPLE_FMT_DBL,  8),
+        std::make_pair(AV_SAMPLE_FMT_FLTP, 6),
+        std::make_pair(AV_SAMPLE_FMT_FLT,  6),
+        std::make_pair(AV_SAMPLE_FMT_S32P, 4),
+        std::make_pair(AV_SAMPLE_FMT_S32,  4),
+        std::make_pair(AV_SAMPLE_FMT_S16P, 2),
+        std::make_pair(AV_SAMPLE_FMT_S16,  2),
+        std::make_pair(AV_SAMPLE_FMT_U8P,  1),
+        std::make_pair(AV_SAMPLE_FMT_U8,   1)
+    );
     int srcFormatLevel = std::find_if(sampleFmtLevel.begin(), sampleFmtLevel.end(),
         [srcFormat](const std::pair<AVSampleFormat, int>& targetFormat) { return targetFormat.first == srcFormat;})->second;
     auto foundFormat = std::find_if(sampleFmtLevel.begin(), sampleFmtLevel.end(),
