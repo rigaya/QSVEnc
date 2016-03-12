@@ -3130,16 +3130,19 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     m_EncThread.WaitToFinish(sts, m_pQSVLog);
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
 
+    sts = (std::min)(sts, m_EncThread.m_stsThread);
+    QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
+
+    m_EncThread.Close();
+
+    //ここでファイル出力の完了を確認してから、結果表示(m_pEncSatusInfo->WriteResults)を行う
+    m_pFileWriter->WaitFin();
+
     sFrameTypeInfo info = { 0 };
     if (m_nExPrm & MFX_PRM_EX_VQP) {
         m_frameTypeSim.getFrameInfo(&info);
     }
     m_pEncSatusInfo->WriteResults((m_nExPrm & MFX_PRM_EX_VQP) ? &info : NULL);
-
-    sts = (std::min)(sts, m_EncThread.m_stsThread);
-    QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
-
-    m_EncThread.Close();
     
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: finished.\n"));
     return sts;

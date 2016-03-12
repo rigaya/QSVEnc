@@ -220,6 +220,8 @@ public:
 
     virtual vector<int> GetStreamTrackIdList();
 
+    virtual void WaitFin() override;
+
     virtual void Close();
 
 #if USE_CUSTOM_IO

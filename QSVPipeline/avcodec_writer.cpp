@@ -2457,6 +2457,10 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
+void CAvcodecWriter::WaitFin() {
+    CloseThread();
+}
+
 HANDLE CAvcodecWriter::getThreadHandleOutput() {
 #if ENABLE_AVCODEC_OUT_THREAD
     return (HANDLE)m_Mux.thread.thOutput.native_handle();

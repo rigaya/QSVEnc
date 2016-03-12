@@ -49,6 +49,9 @@ public:
     virtual OutputType getOutType() {
         return m_OutType;
     }
+    virtual void WaitFin() {
+        return;
+    }
 
     const TCHAR *GetOutputMessage() {
         const TCHAR *mes = m_strOutputInfo.c_str();
