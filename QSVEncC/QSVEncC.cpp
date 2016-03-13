@@ -2852,7 +2852,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             return MFX_ERR_INVALID_HANDLE;
         } else {
             fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
-                local_time->tm_year, local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
+                1900 + local_time->tm_year, local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
             fprintf(fp_bench, "Basic parameters of the benchmark\n"
                               " (Target Usage and output resolution will be changed)\n");
             fprintf(fp_bench, "%s\n\n", tchar_to_string(encode_info).c_str());
