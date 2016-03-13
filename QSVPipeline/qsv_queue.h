@@ -159,10 +159,8 @@ public:
             //一度falseになったことが確認できれば、
             //その次の取り出しは新しいバッファから行われていることになるので、
             //古いバッファは破棄してよい
-            int bUsingDataExpected = 0;
-            int bUsingDataNew = 1;
-            while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
-                bUsingDataExpected = 0;
+            while (m_bUsingData.load()) {
+                _mm_pause();
             }
             //古いバッファを破棄
             m_pBufStart = std::move(newBuf);
@@ -199,43 +197,31 @@ public:
     }
     //indexの位置のコピーを取得する
     bool copy(Type *out, uint32_t index) {
-        int bUsingDataExpected = 0;
-        int bUsingDataNew = 1;
-        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
-            bUsingDataExpected = 0;
-        }
+        m_bUsingData++;
         auto nSize = size();
         bool bCopy = index < nSize;
         if (bCopy) {
             memcpy(out, m_pBufOut + index, sizeof(Type));
         }
-        m_bUsingData = 0;
+        m_bUsingData--;
         return bCopy;
     }
     //キューの先頭のデータを取り出す (outにコピーする)
     //キューが空ならなにもせずfalseを返す
     bool front_copy_no_lock(Type *out) {
-        int bUsingDataExpected = 0;
-        int bUsingDataNew = 1;
-        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
-            bUsingDataExpected = 0;
-        }
+        m_bUsingData++;
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
         if (bCopy) {
             memcpy(out, m_pBufOut.load(), sizeof(Type));
         }
-        m_bUsingData = 0;
+        m_bUsingData--;
         return bCopy;
     }
     //キューの先頭のデータを取り出しながら(outにコピーする)、キューから取り除く
     //キューが空ならなにもせずfalseを返す
     bool front_copy_and_pop_no_lock(Type *out) {
-        int bUsingDataExpected = 0;
-        int bUsingDataNew = 1;
-        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
-            bUsingDataExpected = 0;
-        }
+        m_bUsingData++;
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
         if (bCopy) {
@@ -244,17 +230,13 @@ public:
                 SetEvent(m_heEvent);
             }
         }
-        m_bUsingData = 0;
+        m_bUsingData--;
         return bCopy;
     }
     //キューの先頭のデータを取り除く
     //キューが空ならfalseを返す
     bool pop() {
-        int bUsingDataExpected = 0;
-        int bUsingDataNew = 1;
-        while (!std::atomic_compare_exchange_weak(&m_bUsingData, &bUsingDataExpected, bUsingDataNew)) {
-            bUsingDataExpected = 0;
-        }
+        m_bUsingData++;
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
         if (bCopy) {
@@ -263,7 +245,7 @@ public:
                 SetEvent(m_heEvent);
             }
         }
-        m_bUsingData = 0;
+        m_bUsingData--;
         return bCopy;
     }
 protected:
