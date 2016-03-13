@@ -195,6 +195,7 @@ public:
     //キューの最大サイズを設定する
     void set_capacity(size_t capacity) {
         m_nMaxCapacity = capacity;
+        m_nPushRestartExtra = (std::min)(m_nPushRestartExtra, (int)std::min<size_t>(INT_MAX, m_nMaxCapacity) - 1);
     }
     //indexの位置のコピーを取得する
     bool copy(Type *out, uint32_t index) {
