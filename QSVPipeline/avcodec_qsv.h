@@ -58,6 +58,10 @@ static const TCHAR *AVQSV_CODEC_COPY = _T("copy");
 
 static const int AVQSV_DEFAULT_AUDIO_BITRATE = 192;
 
+static inline bool av_isvalid_q(AVRational q) {
+    return q.den * q.num != 0;
+}
+
 static inline bool avcodecIsCopy(const TCHAR *codec) {
     return codec == nullptr || 0 == _tcsicmp(codec, AVQSV_CODEC_COPY);
 }

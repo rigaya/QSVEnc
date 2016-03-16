@@ -292,7 +292,11 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
         }
 #endif
         //ここまで集めたデータでpts, pocを確定させる
-        m_Demux.frames.checkPtsStatus((int)av_rescale_q(1, av_inv_q(fpsDecoder), m_Demux.video.pCodecCtx->pkt_timebase));
+        double dEstFrameDurationByFpsDecoder = 0.0;
+        if (av_isvalid_q(fpsDecoder) && av_isvalid_q(m_Demux.video.pCodecCtx->pkt_timebase)) {
+            dEstFrameDurationByFpsDecoder = av_q2d(av_inv_q(fpsDecoder)) * av_q2d(av_inv_q(m_Demux.video.pCodecCtx->pkt_timebase));
+        }
+        m_Demux.frames.checkPtsStatus(dEstFrameDurationByFpsDecoder);
 
         const int nFramesToCheck = m_Demux.frames.fixedNum();
         AddMessage(QSV_LOG_DEBUG, _T("read %d packets.\n"), m_Demux.frames.frameNum());
