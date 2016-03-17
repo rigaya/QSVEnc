@@ -25,28 +25,30 @@ typedef void * HANDLE;
 class CEncodeStatusInfo;
 
 enum : int {
-    PERF_MONITOR_CPU         = 0x00000001,
-    PERF_MONITOR_CPU_KERNEL  = 0x00000002,
-    PERF_MONITOR_MEM_PRIVATE = 0x00000004,
-    PERF_MONITOR_MEM_VIRTUAL = 0x00000008,
-    PERF_MONITOR_FPS         = 0x00000010,
-    PERF_MONITOR_FPS_AVG     = 0x00000020,
-    PERF_MONITOR_BITRATE     = 0x00000040,
-    PERF_MONITOR_BITRATE_AVG = 0x00000080,
-    PERF_MONITOR_IO_READ     = 0x00000100,
-    PERF_MONITOR_IO_WRITE    = 0x00000200,
-    PERF_MONITOR_THREAD_MAIN = 0x00000400,
-    PERF_MONITOR_THREAD_ENC  = 0x00000800,
-    PERF_MONITOR_THREAD_AUDP = 0x00001000,
-    PERF_MONITOR_THREAD_AUDE = 0x00002000,
-    PERF_MONITOR_THREAD_OUT  = 0x00004000,
-    PERF_MONITOR_THREAD_IN   = 0x00008000,
-    PERF_MONITOR_FRAME_IN    = 0x00010000,
-    PERF_MONITOR_FRAME_OUT   = 0x00020000,
-    PERF_MONITOR_GPU_LOAD    = 0x00040000,
-    PERF_MONITOR_GPU_CLOCK   = 0x00080000,
-
-
+    PERF_MONITOR_CPU           = 0x00000001,
+    PERF_MONITOR_CPU_KERNEL    = 0x00000002,
+    PERF_MONITOR_MEM_PRIVATE   = 0x00000004,
+    PERF_MONITOR_MEM_VIRTUAL   = 0x00000008,
+    PERF_MONITOR_FPS           = 0x00000010,
+    PERF_MONITOR_FPS_AVG       = 0x00000020,
+    PERF_MONITOR_BITRATE       = 0x00000040,
+    PERF_MONITOR_BITRATE_AVG   = 0x00000080,
+    PERF_MONITOR_IO_READ       = 0x00000100,
+    PERF_MONITOR_IO_WRITE      = 0x00000200,
+    PERF_MONITOR_THREAD_MAIN   = 0x00000400,
+    PERF_MONITOR_THREAD_ENC    = 0x00000800,
+    PERF_MONITOR_THREAD_AUDP   = 0x00001000,
+    PERF_MONITOR_THREAD_AUDE   = 0x00002000,
+    PERF_MONITOR_THREAD_OUT    = 0x00004000,
+    PERF_MONITOR_THREAD_IN     = 0x00008000,
+    PERF_MONITOR_FRAME_IN      = 0x00010000,
+    PERF_MONITOR_FRAME_OUT     = 0x00020000,
+    PERF_MONITOR_GPU_LOAD      = 0x00040000,
+    PERF_MONITOR_GPU_CLOCK     = 0x00080000,
+    PERF_MONITOR_QUEUE_VID_IN  = 0x00100000,
+    PERF_MONITOR_QUEUE_VID_OUT = 0x00200000,
+    PERF_MONITOR_QUEUE_AUD_IN  = 0x00400000,
+    PERF_MONITOR_QUEUE_AUD_OUT = 0x00800000,
     PERF_MONITOR_ALL         = (int)UINT_MAX,
 };
 
@@ -76,6 +78,7 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_GPU_CLOCK },
     { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
     { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
+    { _T("queue"),       PERF_MONITOR_QUEUE_VID_IN | PERF_MONITOR_QUEUE_VID_OUT | PERF_MONITOR_QUEUE_AUD_IN | PERF_MONITOR_QUEUE_AUD_OUT },
     { nullptr, 0 }
 };
 
@@ -131,6 +134,15 @@ struct PerfOutputInfo {
     ptrdiff_t offset;
 };
 
+struct PerfQueueInfo {
+    size_t usage_vid_in;
+    size_t usage_aud_in;
+    size_t usage_vid_out;
+    size_t usage_aud_out;
+    size_t usage_aud_enc;
+    size_t usage_aud_proc;
+};
+
 class CPerfMonitor {
 public:
     CPerfMonitor();
@@ -142,6 +154,9 @@ public:
 
     void SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus);
     void SetThreadHandles(HANDLE thEncThread, HANDLE thInThread, HANDLE thOutThread, HANDLE thAudProcThread, HANDLE thAudEncThread);
+    PerfQueueInfo *GetQueueInfoPtr() {
+        return &m_QueueInfo;
+    }
 
     void clear();
 protected:
@@ -181,6 +196,7 @@ protected:
     int m_nSelectCheck;
     int m_nSelectOutputLog;
     int m_nSelectOutputPlot;
+    PerfQueueInfo m_QueueInfo;
 };
 
 

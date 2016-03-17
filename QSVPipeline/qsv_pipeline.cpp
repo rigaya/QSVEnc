@@ -1830,6 +1830,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.nAudioResampler = pParams->nAudioResampler;
         writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
+        writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         if (pParams->pMuxOpt) {
             writerPrm.vMuxOpt = *pParams->pMuxOpt;
         }
@@ -1993,6 +1994,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
                 writerAudioPrm.nAudioResampler = pParams->nAudioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
+                writerAudioPrm.pQueueInfo = nullptr;
                 if (m_pTrimParam) {
                     writerAudioPrm.trimList = m_pTrimParam->list;
                 }
@@ -2170,6 +2172,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 avcodecReaderPrm.nInputThread = pParams->nInputThread;
                 avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
+                avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 input_option = &avcodecReaderPrm;
                 PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
@@ -2217,6 +2220,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nAVSyncMode = QSV_AVSYNC_THROUGH;
             avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
             avcodecReaderPrm.nInputThread = 0;
+            avcodecReaderPrm.pQueueInfo = nullptr;
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);

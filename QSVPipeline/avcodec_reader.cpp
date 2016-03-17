@@ -527,6 +527,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
 
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
+    m_Demux.thread.pQueueInfo = input_prm->pQueueInfo;
     if (input_prm->bReadVideo) {
         m_pEncThread = pEncThread;
         m_pEncSatusInfo = pEncSatusInfo;
@@ -1234,7 +1235,7 @@ mfxStatus CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
     }
 
     bool bGetPacket = false;
-    for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_and_pop_no_lock(&pkt)) && m_Demux.qVideoPkt.size() > 0; i++) {
+    for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_and_pop_no_lock(&pkt, (m_Demux.thread.pQueueInfo) ? &m_Demux.thread.pQueueInfo->usage_vid_in : nullptr)) && m_Demux.qVideoPkt.size() > 0; i++) {
         sleep_hybrid(i);
     }
     mfxStatus sts = MFX_ERR_MORE_BITSTREAM;
@@ -1343,7 +1344,7 @@ vector<AVPacket> CAvcodecReader::GetStreamDataPackets() {
     //出力するパケットを選択する
     vector<AVPacket> packets;
     AVPacket pkt;
-    while (m_Demux.qStreamPktL2.front_copy_and_pop_no_lock(&pkt)) {
+    while (m_Demux.qStreamPktL2.front_copy_and_pop_no_lock(&pkt, (m_Demux.thread.pQueueInfo) ? &m_Demux.thread.pQueueInfo->usage_aud_in : nullptr)) {
         packets.push_back(pkt);
     }
     return std::move(packets);

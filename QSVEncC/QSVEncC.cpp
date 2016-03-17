@@ -574,6 +574,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 gpu_clock   ... gpu avg clock (%%)\n")
             _T("                                 gpu         ... monitor all gpu info\n")
 #endif //#if defined(_WIN32) || defined(_WIN64)
+            _T("                                 queue       ... queue usage\n")
             _T("                                 mem_private ... private memory (MB)\n")
             _T("                                 mem_virtual ... virtual memory (MB)\n")
             _T("                                 mem         ... monitor all memory info\n")

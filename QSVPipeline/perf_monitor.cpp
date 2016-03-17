@@ -57,6 +57,7 @@ tstring CPerfMonitor::SelectedCounters(int select) {
 CPerfMonitor::CPerfMonitor() {
     memset(m_info, 0, sizeof(m_info));
     memset(&m_pipes, 0, sizeof(m_pipes));
+    memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
 
     cpu_info_t cpu_info;
     get_cpu_info(&cpu_info);
@@ -76,6 +77,7 @@ void CPerfMonitor::clear() {
         m_thCheck.join();
     }
     memset(m_info, 0, sizeof(m_info));
+    memset(&m_QueueInfo, 0, sizeof(m_QueueInfo));
     m_nStep = 0;
     m_thMainThread.reset();
     m_thAudProcThread = NULL;
@@ -163,6 +165,18 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_GPU_CLOCK) {
         str += ",gpu clock (MHz)";
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
+        str += ",queue vid in";
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_AUD_IN) {
+        str += ",queue aud in";
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_VID_OUT) {
+        str += ",queue vid out";
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_AUD_OUT) {
+        str += ",queue aud out";
     }
     if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
         str += ",mem private (MB)";
@@ -564,6 +578,18 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_GPU_CLOCK) {
         str += strsprintf(",%lf", pInfo->gpu_clock);
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
+        str += strsprintf(",%d", (int)m_QueueInfo.usage_vid_in);
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_AUD_IN) {
+        str += strsprintf(",%d", (int)m_QueueInfo.usage_aud_in);
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_VID_OUT) {
+        str += strsprintf(",%d", (int)m_QueueInfo.usage_vid_out);
+    }
+    if (nSelect & PERF_MONITOR_QUEUE_AUD_OUT) {
+        str += strsprintf(",%d", (int)m_QueueInfo.usage_aud_out);
     }
     if (nSelect & PERF_MONITOR_MEM_PRIVATE) {
         str += strsprintf(",%.2lf", pInfo->mem_private / (double)(1024 * 1024));

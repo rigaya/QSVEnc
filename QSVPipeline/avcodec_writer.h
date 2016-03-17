@@ -18,6 +18,7 @@
 #include "avcodec_qsv.h"
 #include "avcodec_reader.h"
 #include "qsv_output.h"
+#include "perf_monitor.h"
 
 using std::vector;
 
@@ -162,6 +163,7 @@ typedef struct AVMuxThread {
     CQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
     CQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
     CQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
+    PerfQueueInfo               *pQueueInfo;                //キューの情報を格納する構造体
 } AVMuxThread;
 #endif
 
@@ -200,6 +202,7 @@ typedef struct AvcodecWriterPrm {
     int                          nOutputThread;           //出力スレッド数
     int                          nAudioThread;            //音声処理スレッド数
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
+    PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut

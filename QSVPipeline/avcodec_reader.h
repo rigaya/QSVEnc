@@ -14,6 +14,7 @@
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
 #include "qsv_queue.h"
+#include "perf_monitor.h"
 #include <deque>
 #include <atomic>
 #include <thread>
@@ -521,6 +522,7 @@ typedef struct AVDemuxThread {
     int8_t                       nInputThread;       //入力スレッドを使用する
     std::atomic<bool>            bAbortInput;        //読み込みスレッドに停止を通知する
     std::thread                  thInput;            //読み込みスレッド
+    PerfQueueInfo               *pQueueInfo;         //キューの情報を格納する構造体
 } AVDemuxThread;
 
 typedef struct AVDemuxer {
@@ -557,6 +559,7 @@ typedef struct AvcodecReaderPrm {
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
     int8_t         nInputThread;            //入力スレッドを有効にする
     int8_t         bAudioIgnoreNoTrackError; //音声が見つからなかった場合のエラーを無視する
+    PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
 } AvcodecReaderPrm;
 
 

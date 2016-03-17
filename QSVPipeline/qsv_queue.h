@@ -196,7 +196,7 @@ public:
         m_nPushRestartExtra = (std::min)(m_nPushRestartExtra, (int)std::min<size_t>(INT_MAX, m_nMaxCapacity) - 1);
     }
     //indexの位置のコピーを取得する
-    bool copy(Type *out, uint32_t index) {
+    bool copy(Type *out, uint32_t index, size_t *pnSize = nullptr) {
         m_bUsingData++;
         auto nSize = size();
         bool bCopy = index < nSize;
@@ -204,11 +204,14 @@ public:
             memcpy(out, m_pBufOut + index, sizeof(Type));
         }
         m_bUsingData--;
+        if (pnSize) {
+            *pnSize = nSize;
+        }
         return bCopy;
     }
     //キューの先頭のデータを取り出す (outにコピーする)
     //キューが空ならなにもせずfalseを返す
-    bool front_copy_no_lock(Type *out) {
+    bool front_copy_no_lock(Type *out, size_t *pnSize = nullptr) {
         m_bUsingData++;
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
@@ -216,11 +219,14 @@ public:
             memcpy(out, m_pBufOut.load(), sizeof(Type));
         }
         m_bUsingData--;
+        if (pnSize) {
+            *pnSize = nSize;
+        }
         return bCopy;
     }
     //キューの先頭のデータを取り出しながら(outにコピーする)、キューから取り除く
     //キューが空ならなにもせずfalseを返す
-    bool front_copy_and_pop_no_lock(Type *out) {
+    bool front_copy_and_pop_no_lock(Type *out, size_t *pnSize = nullptr) {
         m_bUsingData++;
         auto nSize = size();
         bool bCopy = nSize > m_nKeepLength;
@@ -231,6 +237,9 @@ public:
             }
         }
         m_bUsingData--;
+        if (pnSize) {
+            *pnSize = nSize;
+        }
         return bCopy;
     }
     //キューの先頭のデータを取り除く

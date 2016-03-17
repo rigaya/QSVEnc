@@ -1162,6 +1162,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     if (!m_Mux.video.pStream) {
         return SetVideoParam(NULL, NULL);
     }
+    m_Mux.thread.pQueueInfo = prm->pQueueInfo;
 #if ENABLE_AVCODEC_OUT_THREAD
     //スレッドの使用数を設定
     if (prm->nOutputThread == QSV_OUTPUT_THREAD_AUTO) {
@@ -2280,7 +2281,7 @@ mfxStatus CAvcodecWriter::ThreadFuncAudEncodeThread() {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
             AVPktMuxData pktData = { 0 };
-            while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData)) {
+            while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_aud_enc : nullptr)) {
                 //音声エンコードを実行、出力キューに追加する
                 WriteNextAudioFrame(&pktData);
             }
@@ -2290,7 +2291,7 @@ mfxStatus CAvcodecWriter::ThreadFuncAudEncodeThread() {
     }
     {   //音声をすべてエンコード
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData)) {
+        while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_aud_enc : nullptr)) {
             WriteNextAudioFrame(&pktData);
         }
     }
@@ -2307,7 +2308,7 @@ mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
             AVPktMuxData pktData = { 0 };
-            while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData)) {
+            while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_aud_proc : nullptr)) {
                 //音声処理を実行、出力キューに追加する
                 WriteNextPacketInternal(&pktData);
             }
@@ -2317,7 +2318,7 @@ mfxStatus CAvcodecWriter::ThreadFuncAudThread() {
     }
     {   //音声をすべて書き出す
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData)) {
+        while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_aud_proc : nullptr)) {
             //音声処理を実行、出力キューに追加する
             WriteNextPacketInternal(&pktData);
         }
@@ -2366,7 +2367,7 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             bVideoExists = false;
             AVPktMuxData pktData = { 0 };
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
-                && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData))) {
+                && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_aud_out : nullptr))) {
                 if (pktData.pMuxAudio && pktData.pMuxAudio->pCodecCtxIn) {
                     audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.pMuxAudio->pCodecCtxIn->pkt_timebase) * pktData.pkt.duration) + 0.5));
                     if ((int)m_Mux.thread.qAudioPacketOut.capacity() < audPacketsPerSec * 4) {
@@ -2380,7 +2381,7 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
             }
             mfxBitstream bitstream = { 0 };
             while ((audioDts < 0 || videoDts <= audioDts + dtsThreshold)
-                && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream))) {
+                && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_vid_out : nullptr))) {
                 WriteNextFrameInternal(&bitstream, &videoDts);
                 nWaitVideo = 0;
             }
@@ -2429,27 +2430,27 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
     while (bAudioExists && bVideoExists) {
         AVPktMuxData pktData = { 0 };
         while (audioDts <= videoDts + dtsThreshold
-            && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData))) {
+            && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_aud_out : nullptr))) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData);
             audioDts = (std::max)(audioDts, pktData.dts);
         }
         mfxBitstream bitstream = { 0 };
         while (videoDts <= audioDts + dtsThreshold
-            && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream))) {
+            && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_vid_out : nullptr))) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }
     }
     { //音声を書き出す
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData)) {
+        while (m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_aud_out : nullptr)) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData);
         }
     }
     { //動画を書き出す
         mfxBitstream bitstream = { 0 };
-        while (m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream)) {
+        while (m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.pQueueInfo) ? &m_Mux.thread.pQueueInfo->usage_vid_out : nullptr)) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }
     }
