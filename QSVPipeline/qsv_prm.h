@@ -819,7 +819,7 @@ const int QSV_INPUT_BUF_MAX = 16;
 const int QSV_DEFAULT_CONVERGENCE = 90;
 const int QSV_DEFAULT_ACCURACY = 500;
 const int QSV_DEFAULT_FORCE_GOP_LEN = 1;
-const int QSV_DEFAULT_OUTPUT_BUF_MB = 64;
+const int QSV_DEFAULT_OUTPUT_BUF_MB = 8;
 const int QSV_OUTPUT_BUF_MB_MAX = 128;
 const uint32_t QSV_DEFAULT_BENCH = (1 << 1) | (1 << 4) | (1 << 7);
 
