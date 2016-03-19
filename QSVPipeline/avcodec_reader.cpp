@@ -351,6 +351,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
             || std::abs(durationHistgram[0].first - durationHistgram[1].first) <= 1) { //durationのブレが貧弱なtimebaseによる丸めによるもの(mkvなど)
             break;
         }
+
+        //再度解析を行う場合は、音声がL2キューに入らないよう、一度fixedNumを0に戻す
+        m_Demux.frames.clearPtsStatus();
     }
 
     //durationが0でなく、最も頻繁に出てきたもの
@@ -449,32 +452,24 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
 
     auto trimList = make_vector(pTrimList, nTrimCount);
     //出力時の音声・字幕解析用に1パケットコピーしておく
-    if (m_Demux.qStreamPktL1.size() + m_Demux.qStreamPktL2.size()) { //この時点ではまだすべての音声パケットがL1にある
+    if (m_Demux.qStreamPktL1.size()) { //この時点ではまだすべての音声パケットがL1にある
+        if (m_Demux.qStreamPktL2.size() > 0) {
+            AddMessage(QSV_LOG_ERROR, _T("qStreamPktL2 > 0, this is internal error.\n"));
+            return MFX_ERR_UNDEFINED_BEHAVIOR;
+        }
         for (auto streamInfo = m_Demux.stream.begin(); streamInfo != m_Demux.stream.end(); streamInfo++) {
             if (avcodec_get_type(streamInfo->pCodecCtx->codec_id) == AVMEDIA_TYPE_AUDIO) {
                 AddMessage(QSV_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->nIndex);
                 const AVPacket *pkt1 = nullptr; //最初のパケット
                 const AVPacket *pkt2 = nullptr; //2番目のパケット
-                //まずはL2キューを検索する
-                for (int j = 0; j < (int)m_Demux.qStreamPktL2.size(); j++) {
-                    if (m_Demux.qStreamPktL2[j].data.stream_index == streamInfo->nIndex) {
+                //それで見つからなかったら、L1キューを探す
+                for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
+                    if (m_Demux.qStreamPktL1[j].stream_index == streamInfo->nIndex) {
                         if (pkt1) {
-                            pkt2 = &m_Demux.qStreamPktL2[j].data;
+                            pkt2 = &m_Demux.qStreamPktL1[j];
                             break;
                         }
-                        pkt1 = &m_Demux.qStreamPktL2[j].data;
-                    }
-                }
-                if (pkt2 == nullptr) {
-                    //それで見つからなかったら、L1キューを探す
-                    for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
-                        if (m_Demux.qStreamPktL1[j].stream_index == streamInfo->nIndex) {
-                            if (pkt1) {
-                                pkt2 = &m_Demux.qStreamPktL1[j];
-                                break;
-                            }
-                            pkt1 = &m_Demux.qStreamPktL1[j];
-                        }
+                        pkt1 = &m_Demux.qStreamPktL1[j];
                     }
                 }
                 if (pkt1 != NULL) {

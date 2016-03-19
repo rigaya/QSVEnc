@@ -191,6 +191,10 @@ public:
     int fixedNum() const {
         return m_nNextFixNumIndex;
     }
+    void clearPtsStatus() {
+        m_nNextFixNumIndex = 0;
+        m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
+    }
     AVQSVPtsStatus getStreamPtsStatus() const {
         return m_nStreamPtsStatus;
     }
