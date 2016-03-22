@@ -433,7 +433,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 default: auto\n")
             _T("   --(no-)extbrc                enables extended rate control\n")
             _T("                                 default: auto\n")
-            _T("   --ref <int>                  reference frames for sw encoding\n")
+            _T("   --ref <int>                  reference frames\n")
             _T("                                  default %d (auto)\n")
             _T("-b,--bframes <int>              number of sequential b frames\n")
             _T("                                  default %d(HEVC) / %d(others)\n")
