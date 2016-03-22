@@ -591,6 +591,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         AddMessage(QSV_LOG_ERROR, _T("failed to create new stream for audio.\n"));
         return MFX_ERR_NULL_PTR;
     }
+    pMuxAudio->pDecodedFrameCache = nullptr;
     pMuxAudio->nIgnoreDecodeError = nAudioIgnoreDecodeError;
     pMuxAudio->nInTrackId = pInputAudio->src.nTrackId;
     pMuxAudio->nInSubStream = pInputAudio->src.nSubStreamId;
