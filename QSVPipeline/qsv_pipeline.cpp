@@ -1799,7 +1799,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
     bool stdoutUsed = false;
 #if ENABLE_AVCODEC_QSV_READER
-    vector<int> audioTrackUsed; //使用した音声のトラックIDを保存する
+    vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
         ((pParams->pAVMuxOutputFormat && 0 == _tcscmp(pParams->pAVMuxOutputFormat, _T("raw")))) //--formatにrawが指定されている
         || (PathFindExtension(pParams->strDstFile) == nullptr || PathFindExtension(pParams->strDstFile)[0] != '.') //拡張子がしない
@@ -1890,7 +1890,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     }
                 }
                 if (pAudioSelect != nullptr || copyAll || bStreamIsSubtitle) {
-                    audioTrackUsed.push_back(stream.nTrackId);
+                    streamTrackUsed.push_back(stream.nTrackId);
                     AVOutputStreamPrm prm;
                     prm.src = stream;
                     //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
@@ -1950,7 +1950,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     } //ENABLE_AVCODEC_QSV_READER
 
     //音声の抽出
-    if (pParams->nAudioSelectCount > audioTrackUsed.size()) {
+    if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV || pAVCodecReader == nullptr) {
@@ -1959,11 +1959,16 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
             for (auto& audioTrack : inutAudioInfoList) {
-                for (auto usedTrack : audioTrackUsed) {
+                bool bTrackAlreadyUsed = false;
+                for (auto usedTrack : streamTrackUsed) {
                     if (usedTrack == audioTrack.nTrackId) {
-                        PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), audioTrack.nTrackId);
-                        return MFX_ERR_INVALID_AUDIO_PARAM;
+                        bTrackAlreadyUsed = true;
+                        PrintMes(QSV_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), audioTrack.nTrackId);
+                        break;
                     }
+                }
+                if (bTrackAlreadyUsed) {
+                    continue;
                 }
                 const sAudioSelect *pAudioSelect = nullptr;
                 for (int i = 0; i < pParams->nAudioSelectCount; i++) {
