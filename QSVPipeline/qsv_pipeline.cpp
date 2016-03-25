@@ -1811,7 +1811,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         pParams->nAVMux &= ~QSVENC_MUX_VIDEO;
     }
     if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
-        if (pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
+        if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
             PrintMes(QSV_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
             return MFX_ERR_UNSUPPORTED;
         }

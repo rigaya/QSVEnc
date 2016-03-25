@@ -41,7 +41,7 @@ CAvcodecWriter::CAvcodecWriter() {
 }
 
 CAvcodecWriter::~CAvcodecWriter() {
-
+    Close();
 }
 
 void CAvcodecWriter::CloseSubtitle(AVMuxSub *pMuxSub) {
@@ -1177,7 +1177,36 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     m_Mux.thread.bEnableAudEncodeThread  = prm->nOutputThread > 0 && prm->nAudioThread > 1;
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     m_Mux.thread.bEnableOutputThread     = prm->nOutputThread > 0;
-#endif //#if ENABLE_AVCODEC_OUT_THREAD
+    if (m_Mux.thread.bEnableOutputThread) {
+        AddMessage(QSV_LOG_DEBUG, _T("starting output thread...\n"));
+        m_Mux.thread.bAbortOutput = false;
+        m_Mux.thread.bThAudProcessAbort = false;
+        m_Mux.thread.bThAudEncodeAbort = false;
+        m_Mux.thread.qAudioPacketOut.init(8192, 256 * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
+        m_Mux.thread.qVideobitstream.init(4096, (std::max)(64, (m_Mux.video.nFPS.den) ? m_Mux.video.nFPS.num * 4 / m_Mux.video.nFPS.den : 0));
+        m_Mux.thread.qVideobitstreamFreeI.init(256);
+        m_Mux.thread.qVideobitstreamFreePB.init(3840);
+        m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);
+        m_Mux.thread.heEventClosingOutput  = CreateEvent(NULL, TRUE, FALSE, NULL);
+        m_Mux.thread.thOutput = std::thread(&CAvcodecWriter::WriteThreadFunc, this);
+#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+        if (m_Mux.thread.bEnableAudProcessThread) {
+            AddMessage(QSV_LOG_DEBUG, _T("starting audio process thread...\n"));
+            m_Mux.thread.qAudioPacketProcess.init(8192, 512, 4);
+            m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
+            m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
+            m_Mux.thread.thAudProcess = std::thread(&CAvcodecWriter::ThreadFuncAudThread, this);
+            if (m_Mux.thread.bEnableAudEncodeThread) {
+                AddMessage(QSV_LOG_DEBUG, _T("starting audio encode thread...\n"));
+                m_Mux.thread.qAudioFrameEncode.init(8192, 512, 4);
+                m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.thAudEncode = std::thread(&CAvcodecWriter::ThreadFuncAudEncodeThread, this);
+            }
+        }
+#endif
+    }
+#endif
     return MFX_ERR_NONE;
 }
 
@@ -1279,7 +1308,6 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
     if (m_Mux.format.pHeaderOptions) {
         av_dict_free(&m_Mux.format.pHeaderOptions);
     }
-    m_Mux.format.bFileHeaderWritten = true;
 
     av_dump_format(m_Mux.format.pFormatCtx, 0, m_Mux.format.pFormatCtx->filename, 1);
 
@@ -1305,38 +1333,6 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
             AddMessage(QSV_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
         }
     }
-
-#if ENABLE_AVCODEC_OUT_THREAD
-    if (m_Mux.thread.bEnableOutputThread) {
-        AddMessage(QSV_LOG_DEBUG, _T("starting output thread...\n"));
-        m_Mux.thread.bAbortOutput = false;
-        m_Mux.thread.bThAudProcessAbort = false;
-        m_Mux.thread.bThAudEncodeAbort = false;
-        m_Mux.thread.qAudioPacketOut.init(8192, 256 * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
-        m_Mux.thread.qVideobitstream.init(4096, (std::max)(64, (m_Mux.video.nFPS.den) ? m_Mux.video.nFPS.num * 4 / m_Mux.video.nFPS.den : 0));
-        m_Mux.thread.qVideobitstreamFreeI.init(256);
-        m_Mux.thread.qVideobitstreamFreePB.init(3840);
-        m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);
-        m_Mux.thread.heEventClosingOutput  = CreateEvent(NULL, TRUE, FALSE, NULL);
-        m_Mux.thread.thOutput = std::thread(&CAvcodecWriter::WriteThreadFunc, this);
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.bEnableAudProcessThread) {
-            AddMessage(QSV_LOG_DEBUG, _T("starting audio process thread...\n"));
-            m_Mux.thread.qAudioPacketProcess.init(8192, 512, 4);
-            m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
-            m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
-            m_Mux.thread.thAudProcess = std::thread(&CAvcodecWriter::ThreadFuncAudThread, this);
-            if (m_Mux.thread.bEnableAudEncodeThread) {
-                AddMessage(QSV_LOG_DEBUG, _T("starting audio encode thread...\n"));
-                m_Mux.thread.qAudioFrameEncode.init(8192, 512, 4);
-                m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
-                m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
-                m_Mux.thread.thAudEncode = std::thread(&CAvcodecWriter::ThreadFuncAudEncodeThread, this);
-            }
-        }
-    }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-#endif //#if ENABLE_AVCODEC_OUT_THREAD
     return MFX_ERR_NONE;
 }
 
@@ -1353,6 +1349,7 @@ mfxStatus CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
         if (MFX_ERR_NONE != (sts = WriteFileHeader(pMfxVideoPrm, cop2, nullptr))) {
             return sts;
         }
+        m_Mux.format.bFileHeaderWritten = true;
     }
 
     tstring mes = GetWriterMes();
@@ -1469,7 +1466,9 @@ mfxU32 CAvcodecWriter::getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size) {
 
 mfxStatus CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
 #if ENABLE_AVCODEC_OUT_THREAD
-    if (m_Mux.thread.thOutput.joinable()) {
+    //最初のヘッダーを書いたパケットは出力スレッドでなくエンコードスレッドが出力する
+    //出力スレッドは、このパケットがヘッダーを書き終わり、m_Mux.format.bFileHeaderWrittenフラグが立った時点で動き出す
+    if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {
         mfxBitstream copyStream = { 0 };
         bool bFrameI = (pMfxBitstream->FrameType & MFX_FRAMETYPE_I) != 0;
         bool bFrameP = (pMfxBitstream->FrameType & MFX_FRAMETYPE_P) != 0;
@@ -1548,7 +1547,8 @@ mfxStatus CAvcodecWriter::WriteNextFrameInternal(mfxBitstream *pMfxBitstream, in
     }
     m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
 #if ENABLE_AVCODEC_OUT_THREAD
-    if (m_Mux.thread.thOutput.joinable()) {
+    //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
+    if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {
         //確保したメモリ領域を使いまわすためにスタックに格納
         auto& qVideoQueueFree = (pMfxBitstream->FrameType & MFX_FRAMETYPE_I) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
         qVideoQueueFree.push(*pMfxBitstream);
@@ -1559,6 +1559,9 @@ mfxStatus CAvcodecWriter::WriteNextFrameInternal(mfxBitstream *pMfxBitstream, in
 #if ENABLE_AVCODEC_OUT_THREAD
     }
 #endif
+    //最初のヘッダーを書いたパケットが書き終わってからフラグを立てる
+    //このタイミングで立てないと出力スレッドが先に動作してしまうことがある
+    m_Mux.format.bFileHeaderWritten = true;
     return (m_Mux.format.bStreamError) ? MFX_ERR_UNKNOWN : MFX_ERR_NONE;
 }
 
