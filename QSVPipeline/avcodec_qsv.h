@@ -23,11 +23,15 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 }
 #pragma comment (lib, "avcodec.lib")
 #pragma comment (lib, "avformat.lib")
 #pragma comment (lib, "avutil.lib")
 #pragma comment (lib, "swresample.lib")
+#pragma comment (lib, "avfilter.lib")
 #pragma warning (pop)
 
 #include "qsv_util.h"
@@ -85,7 +89,7 @@ static inline int log_level_qsv2av(int level) {
 
 static const AVRational QSV_NATIVE_TIMEBASE = { 1, QSV_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
-    _T("avcodec-57.dll"), _T("avformat-57.dll"), _T("avutil-55.dll"), _T("swresample-2.dll")
+    _T("avcodec-57.dll"), _T("avformat-57.dll"), _T("avutil-55.dll"), _T("avfilter-6.dll"), _T("swresample-2.dll")
 };
 
 enum AVQSVCodecType : uint32_t {
@@ -121,6 +125,9 @@ tstring getAVCodecs(AVQSVCodecType flag);
 
 //利用可能なフォーマットを表示
 tstring getAVFormats(AVQSVFormatType flag);
+
+//利用可能なフィルターを表示
+tstring getAVFilters();
 
 //チャンネルレイアウトを表示
 std::string getChannelLayoutChar(int channels, uint64_t channel_layout);

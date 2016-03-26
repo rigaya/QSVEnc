@@ -220,6 +220,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --check-decoders             show audio decoders available\n")
             _T("   --check-formats              show in/out formats available\n")
             _T("   --check-protocols            show in/out protocols available\n")
+            _T("   --check-filters              show filters available\n")
 #endif
             _T("\n"));
 
@@ -2612,6 +2613,11 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
         if (0 == _tcscmp(option_name, _T("check-protocols")))
         {
             _ftprintf(stdout, _T("%s\n"), getAVProtocols().c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-filters")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVFilters().c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-formats")))
