@@ -321,9 +321,10 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         PrintMes(QSV_LOG_ERROR, _T("Interlaced encoding is not supported on current rate control mode.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
-    if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
-        PrintMes(QSV_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
-    }
+    //最近のドライバでは問題ない模様
+    //if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
+    //    PrintMes(QSV_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
+    //}
     if (pInParams->bBPyramid && !pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_B_PYRAMID_AND_SC)) {
         PrintMes(QSV_LOG_WARN, _T("B pyramid with scenechange is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
