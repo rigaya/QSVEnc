@@ -2478,6 +2478,10 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         PrintMes(QSV_LOG_WARN, _T("Currently avsync is supportted only with mpeg2 decoding, disabled.\n"));
         pParams->nAVSyncMode = QSV_AVSYNC_THROUGH;
     }
+    if (pParams->nAVSyncMode && pParams->nTrimCount > 0) {
+        PrintMes(QSV_LOG_ERROR, _T("avsync forcecfr + trim is not supported.\n"));
+        return MFX_ERR_UNSUPPORTED;
+    }
 
     return MFX_ERR_NONE;
 }
