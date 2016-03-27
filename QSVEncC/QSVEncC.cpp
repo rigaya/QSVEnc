@@ -220,6 +220,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("   --check-decoders             show audio decoders available\n")
             _T("   --check-formats              show in/out formats available\n")
             _T("   --check-protocols            show in/out protocols available\n")
+            _T("   --check-filters              show filters available\n")
 #endif
             _T("\n"));
 
@@ -325,6 +326,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("         7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
             _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
             _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
+            _T("   --audio-filter <string>      set audio filter.\n")
             _T("   --chapter-copy               copy chapter to output file.\n")
             _T("   --chapter <string>           set chapter from file specified.\n")
             _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
@@ -1369,6 +1371,16 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nAudioSelectCount++;
         }
         argData->nParsedAudioSplit++;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("audio-filter"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            pParams->pAudioFilter = _tcsdup(strInput[i]);
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
         return MFX_ERR_NONE;
     }
 #endif //#if ENABLE_AVCODEC_QSV_READER
@@ -2612,6 +2624,11 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
         if (0 == _tcscmp(option_name, _T("check-protocols")))
         {
             _ftprintf(stdout, _T("%s\n"), getAVProtocols().c_str());
+            return MFX_PRINT_OPTION_DONE;
+        }
+        if (0 == _tcscmp(option_name, _T("check-filters")))
+        {
+            _ftprintf(stdout, _T("%s\n"), getAVFilters().c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-formats")))

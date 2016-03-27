@@ -78,11 +78,22 @@ typedef struct AVMuxAudio {
     bool                  bEncodeError;         //エンコード処理中にエラーが発生
     AVPacket              OutPacket;            //変換用の音声バッファ
 
+    //filter
+    int                   nFilterInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    uint64_t              nFilterInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nFilterInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    AVSampleFormat        FilterInSampleFmt;      //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    const TCHAR          *pFilter;
+    AVFilterContext      *pFilterBufferSrcCtx;
+    AVFilterContext      *pFilterBufferSinkCtx;
+    AVFilterContext      *pFilterAudioFormat;
+    AVFilterGraph        *pFilterGraph;
+
     //現在の音声のフォーマット
-    int                   nChannels;            //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    uint64_t              nChannelLayout;       //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    int                   nSampleRate;          //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
-    AVSampleFormat        sampleFmt;            //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nResamplerInChannels;      //現在のchannel数      (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    uint64_t              nResamplerInChannelLayout; //現在のchannel_layout (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    int                   nResamplerInSampleRate;    //現在のsampling rate  (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
+    AVSampleFormat        ResamplerInSampleFmt;      //現在のSampleformat   (pSwrContext == nullptrなら、encoderの入力、そうでないならresamplerの入力)
     
     //resampler
     int                   nAudioResampler;      //resamplerの選択 (QSV_RESAMPLER_xxx)
@@ -203,6 +214,7 @@ typedef struct AvcodecWriterPrm {
     int                          nAudioThread;            //音声処理スレッド数
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
+    const TCHAR                 *pAudioFilter;            //音声フィルタリング
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut
@@ -267,8 +279,14 @@ private:
     //WriteNextPacketの音声処理部分(エンコード)
     mfxStatus WriteNextPacketAudioFrame(AVPktMuxData *pktData);
 
+    //フィルタリング後のパケットをサブトラックに分配する
+    mfxStatus WriteNextPacketToAudioSubtracks(AVPktMuxData *pktData);
+
     //音声フレームをエンコード
     mfxStatus WriteNextAudioFrame(AVPktMuxData *pktData);
+
+    //音声のフィルタリングを実行
+    mfxStatus AudioFilterFrame(AVPktMuxData *pktData);
 
     //CodecIDがPCM系かどうか判定
     bool codecIDIsPCM(AVCodecID targetCodec);
@@ -294,11 +312,14 @@ private:
     //映像の初期化
     mfxStatus InitVideo(const AvcodecWriterPrm *prm);
 
-    //音声の初期化
+    //音声フィルタの初期化
+    mfxStatus InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
+
+    //音声リサンプラの初期化
     mfxStatus InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError);
+    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError, const TCHAR *pAudioFilter);
 
     //字幕の初期化
     mfxStatus InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
