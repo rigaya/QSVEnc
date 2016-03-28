@@ -339,6 +339,16 @@ std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
     std::wstring newPath = path.substr(0, qtr - ptr - 1);
     return std::make_pair((int)(path.length() - newPath.length()), newPath);
 }
+std::string PathCombineS(const std::string& dir, const std::string& filename) {
+    std::vector<char> buffer(dir.length() + filename.length() + 128, '\0');
+    PathCombineA(buffer.data(), dir.c_str(), filename.c_str());
+    return std::string(buffer.data());
+}
+std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename) {
+    std::vector<WCHAR> buffer(dir.length() + filename.length() + 128, '\0');
+    PathCombineW(buffer.data(), dir.c_str(), filename.c_str());
+    return std::wstring(buffer.data());
+}
 #endif //#if defined(_WIN32) || defined(_WIN64)
 //フォルダがあればOK、なければ作成する
 bool CreateDirectoryRecursive(const char *dir) {

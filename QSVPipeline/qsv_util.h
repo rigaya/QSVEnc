@@ -150,6 +150,7 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
 std::wstring GetFullPath(const WCHAR *path);
 bool qsv_get_filesize(const WCHAR *filepath, uint64_t *filesize);
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
+std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
 #endif
 
@@ -173,6 +174,7 @@ std::string str_replace(std::string str, const std::string& from, const std::str
 std::string GetFullPath(const char *path);
 bool qsv_get_filesize(const char *filepath, uint64_t *filesize);
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
+std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const char *dir);
 
 tstring print_time(double time);
@@ -440,6 +442,7 @@ static const FEATURE_DESC list_vpp_feature[] = {
 };
 
 enum FeatureListStrType {
+    FEATURE_LIST_STR_TYPE_UNKNOWN,
     FEATURE_LIST_STR_TYPE_TXT,
     FEATURE_LIST_STR_TYPE_CSV,
     FEATURE_LIST_STR_TYPE_HTML,
