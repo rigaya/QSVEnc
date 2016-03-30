@@ -55,6 +55,7 @@ const char *get_qsvenc_version();
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVCODEC_QSV_READER 1
 #define ENABLE_CUSTOM_VPP         1
+#define ENABLE_METRIC_FRAMEWORK   1
 #else
 #define QSV_AUO_NAME              "QSVEnc.auo"
 #define ENABLE_AUO_LINK           1
@@ -63,10 +64,12 @@ const char *get_qsvenc_version();
 #define ENABLE_VAPOURSYNTH_READER 0
 #define ENABLE_AVCODEC_QSV_READER 1
 #define ENABLE_CUSTOM_VPP         1
+#define ENABLE_METRIC_FRAMEWORK   0
 #endif
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define MFX_D3D11_SUPPORT 0
+#define ENABLE_METRIC_FRAMEWORK 0
 #include "qsv_config.h"
 #endif // #if defined(WIN32) || defined(WIN64)
 

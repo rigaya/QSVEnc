@@ -14,10 +14,21 @@
 #include <cstdint>
 #include <climits>
 #include <memory>
+#include <map>
 #include "cpu_info.h"
 #include "qsv_util.h"
 #include "qsv_pipe.h"
 #include "qsv_log.h"
+
+#if ENABLE_METRIC_FRAMEWORK
+#pragma warning(push)
+#pragma warning(disable: 4456)
+#pragma warning(disable: 4819)
+#include <observation/gmframework.h>
+#include <observation/building_blocks.h>
+#pragma warning(pop)
+#endif //#if ENABLE_METRIC_FRAMEWORK
+
 #ifndef HANDLE
 typedef void * HANDLE;
 #endif
@@ -49,6 +60,7 @@ enum : int {
     PERF_MONITOR_QUEUE_VID_OUT = 0x00200000,
     PERF_MONITOR_QUEUE_AUD_IN  = 0x00400000,
     PERF_MONITOR_QUEUE_AUD_OUT = 0x00800000,
+    PERF_MONITOR_MFX_LOAD      = 0x01000000,
     PERF_MONITOR_ALL         = (int)UINT_MAX,
 };
 
@@ -78,6 +90,9 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_GPU_CLOCK },
     { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
     { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
+#if ENABLE_METRIC_FRAMEWORK
+    { _T("mfx"),         PERF_MONITOR_MFX_LOAD },
+#endif
     { _T("queue"),       PERF_MONITOR_QUEUE_VID_IN | PERF_MONITOR_QUEUE_VID_OUT | PERF_MONITOR_QUEUE_AUD_IN | PERF_MONITOR_QUEUE_AUD_OUT },
     { nullptr, 0 }
 };
@@ -126,6 +141,8 @@ struct PerfInfo {
     BOOL    gpu_info_valid;
     double  gpu_load_percent;
     double  gpu_clock;
+
+    double  mfx_load_percent;
 };
 
 struct PerfOutputInfo {
@@ -142,6 +159,40 @@ struct PerfQueueInfo {
     size_t usage_aud_enc;
     size_t usage_aud_proc;
 };
+
+#if ENABLE_METRIC_FRAMEWORK
+
+struct QSVGPUInfo {
+    double dMFXLoad;
+    double dEULoad;
+    double dGPUFreq;
+};
+
+class CQSVConsumer : public IConsumer {
+public:
+    CQSVConsumer() : m_QSVInfo(), m_MetricsUsed() {
+        m_QSVInfo.dMFXLoad = 0.0;
+        m_QSVInfo.dEULoad  = 0.0;
+        m_QSVInfo.dGPUFreq = 0.0;
+    };
+    virtual void OnMetricUpdated(uint32_t count, MetricHandle * metrics, const uint64_t * types, const void ** buffers, uint64_t * sizes) override;
+
+    void AddMetrics(const std::map<MetricHandle, std::string>& metrics);
+
+    QSVGPUInfo getMFXLoad() {
+        return m_QSVInfo;
+    }
+    const std::map<MetricHandle, std::string>& getMetricUsed() {
+        return m_MetricsUsed;
+    }
+private:
+    void SetValue(const std::string& metricName, double value);
+
+    QSVGPUInfo m_QSVInfo;
+    std::map<MetricHandle, std::string> m_MetricsUsed;
+};
+#endif //#if ENABLE_METRIC_FRAMEWORK
+
 
 class CPerfMonitor {
 public:
@@ -197,6 +248,12 @@ protected:
     int m_nSelectOutputLog;
     int m_nSelectOutputPlot;
     PerfQueueInfo m_QueueInfo;
+
+#if ENABLE_METRIC_FRAMEWORK
+    IExtensionLoader *m_pLoader;
+    std::unique_ptr<IClientManager> m_pManager;
+    CQSVConsumer m_Consumer;
+#endif //#if ENABLE_METRIC_FRAMEWORK
 };
 
 
