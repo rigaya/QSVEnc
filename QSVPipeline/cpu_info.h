@@ -32,6 +32,7 @@ typedef struct {
 } cpu_info_t;
 
 
+int getCPUName(char *buffer, size_t nSize);
 bool get_cpu_info(cpu_info_t *cpu_info);
 
 int getCPUInfo(TCHAR *buffer, size_t nSize);
