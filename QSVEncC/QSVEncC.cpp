@@ -35,6 +35,13 @@ extern "C" {
 tstring getAVQSVSupportedCodecList();
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
+static bool check_locale_is_ja() {
+    const WORD LangID_ja_JP = MAKELANGID(LANG_JAPANESE, SUBLANG_JAPANESE_JAPAN);
+    return GetUserDefaultLangID() == LangID_ja_JP;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
 static tstring GetQSVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
     tstring version;
@@ -210,6 +217,10 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("                                 when writing to file, txt/html/csv format\n")
             _T("                                 is available, chosen by the extension\n")
             _T("                                 of the output file.\n")
+            _T("   --check-features-html [<string>]")
+            _T("                                check encode/vpp features and write html report to.\n")
+            _T("                                 specified path. With no option, \"qsv_check.html\"\n")
+            _T("                                 will be created to current directory.\n")
             _T("   --check-environment          check environment info\n")
 #if ENABLE_AVCODEC_QSV_READER
             _T("   --check-avversion            show dll version\n")
@@ -677,82 +688,143 @@ static int getFreeAudioTrack(const sInputParams* pParams) {
 #endif //_MSC_VER
 }
 
-static int writeFeatureList(tstring filename) {
-    static const tstring header =
-        _T("<!DOCTYPE html>\n")
-        _T("<html lang = \"ja\">\n")
-        _T("<head>\n")
-        _T("<meta charset = \"UTF-8\">\n")
-        _T("<title>QSVEncC Check Features</title>\n")
-        _T("<style type=text/css>\n")
-        _T("   body { \n")
-        _T("        font-family: \"Segoe UI\",\"Meiryo UI\", \"ＭＳ ゴシック\", sans-serif;\n")
-        _T("        background: #eeeeee;\n")
-        _T("        margin: 0px 20px 20px;\n")
-        _T("        padding: 0px;\n")
-        _T("        color: #223377;\n")
-        _T("   }\n")
-        _T("   div {\n")
-        _T("       background-color: #ffffff;\n")
-        _T("       border: 1px solid #aaaaaa;\n")
-        _T("       padding: 15px;\n")
-        _T("   }\n")
-        _T("   h1 {\n")
-        _T("       text-shadow: 0 0 6px #000;\n")
-        _T("       color: #CEF6F5;\n")
-        _T("       background: #0B173B;\n")
-        _T("       background: -moz-linear-gradient(top,  #0b173b 0%%, #2167b2 50%%, #155287 52%%, #2d7d91 100%%);\n")
-        _T("       background: -webkit-linear-gradient(top,  #0b173b 0%%,#2167b2 50%%,#155287 52%%,#2d7d91 100%%);\n")
-        _T("       background: -ms-linear-gradient(top,  #0b173b 0%%,#2167b2 50%%,#155287 52%%,#2d7d91 100%%);\n")
-        _T("       background: linear-gradient(to bottom,  #0b173b 0%%,#2167b2 50%%,#155287 52%%,#2d7d91 100%%);\n")
-        _T("       border-collapse: collapse;\n")
-        _T("       border: 0px;\n")
-        _T("       margin: 0px;\n")
-        _T("       padding: 10px;\n")
-        _T("       border-spacing: 0px;\n")
-        _T("       font-family: \"Segoe UI\", \"Meiryo UI\", \"ＭＳ ゴシック\", sans-serif;\n")
-        _T("   }\n")
-        _T("    table.simpleOrange {\n")
-        _T("        background-color: #ff9951;\n")
-        _T("        border-collapse: collapse;\n")
-        _T("        border: 0px;\n")
-        _T("        border-spacing: 0px;\n")
-        _T("    }\n")
-        _T("    table.simpleOrange th,\n")
-        _T("    table.simpleOrange td {\n")
-        _T("        background-color: #ffffff;\n")
-        _T("        padding: 2px 10px;\n")
-        _T("        border: 1px solid #ff9951;\n")
-        _T("        color: #223377;\n")
-        _T("        margin: 10px;\n")
-        _T("        font-size: small;\n")
-        _T("        font-family: \"Segoe UI\",\"Meiryo UI\",\"ＭＳ ゴシック\",sans-serif;\n")
-        _T("    }\n")
-        _T("    table.simpleOrange td.ok {\n")
-        _T("        background-color: #A9F5A9;\n")
-        _T("        border: 1px solid #ff9951;\n")
-        _T("        tex-align: center;\n")
-        _T("        color: #223377;\n")
-        _T("        font-size: small;\n")
-        _T("    }\n")
-        _T("    table.simpleOrange td.fail {\n")
-        _T("        background-color: #F5A9A9;\n")
-        _T("        border: 1px solid #ff9951;\n")
-        _T("        tex-align: center;\n")
-        _T("        color: #223377;\n")
-        _T("        font-size: small;\n")
-        _T("    }\n")
-        _T("</style>\n")
-        _T("</head>\n")
-        _T("<body>\n");
+static int writeFeatureList(tstring filename, FeatureListStrType type = FEATURE_LIST_STR_TYPE_UNKNOWN) {
+    static const tstring header = _T(R"(
+<!DOCTYPE html>
+<html lang = "ja">
+<head>
+<meta charset = "UTF-8">
+<title>QSVEncC Check Features</title>
+<style type=text/css>
+   body { 
+        font-family: "Segoe UI","Meiryo UI", "ＭＳ ゴシック", sans-serif;
+        background: #eeeeee;
+        margin: 0px 20px 20px;
+        padding: 0px;
+        color: #223377;
+   }
+   div.page_top {
+       background-color: #ffffff;
+       border: 1px solid #aaaaaa;
+       padding: 15px;
+   }
+   div.table_block {
+       margin: 0px;
+       padding: 0px;
+   }
+   p.table_block {
+       margin: 0px;
+       padding: 0px;
+   }
+   h1 {
+       text-shadow: 0 0 6px #ccc;
+       color: #CEF6F5;
+       background: #0B173B;
+       background: -moz-linear-gradient(top,  #0b173b 0%, #2167b2 50%, #155287 52%, #2d7d91 100%);
+       background: -webkit-linear-gradient(top,  #0b173b 0%,#2167b2 50%,#155287 52%,#2d7d91 100%);
+       background: -ms-linear-gradient(top,  #0b173b 0%,#2167b2 50%,#155287 52%,#2d7d91 100%);
+       background: linear-gradient(to bottom,  #0b173b 0%,#2167b2 50%,#155287 52%,#2d7d91 100%);
+       border-collapse: collapse;
+       border: 0px;
+       margin: 0px;
+       padding: 10px;
+       border-spacing: 0px;
+       font-family: "Segoe UI", "Meiryo UI", "ＭＳ ゴシック", sans-serif;
+   }
+    a.table_block:link {
+        color: #7991F1;
+        font-size: small;
+    }
+    a.table_block:visited {
+        color: #7991F1;
+        font-size: small;
+    }
+    a.vpp_table_block:link {
+        color: #223377;
+    }
+    a.cpp_table_block:visited {
+        color: #223377;
+    }
+    hr {
+        margin: 4px;
+        padding: 0px;
+    }
+    li {
+        padding: 5px 4px;
+    }
+    img {
+        padding: 4px 0px;
+    }
+    table.simpleOrange {
+        background-color: #ff9951;
+        border-collapse: collapse;
+        border: 0px;
+        border-spacing: 0px;
+    }
+    table.simpleOrange th,
+    table.simpleOrange td {
+        background-color: #ffffff;
+        padding: 2px 10px;
+        border: 1px solid #ff9951;
+        color: #223377;
+        margin: 10px;
+        font-size: small;
+        font-family: "Segoe UI","Meiryo UI","ＭＳ ゴシック",sans-serif;
+    }
+    table.simpleOrange td.ok {
+        background-color: #A9F5A9;
+        border: 1px solid #ff9951;
+        tex-align: center;
+        color: #223377;
+        font-size: small;
+    }
+    table.simpleOrange td.fail {
+        background-color: #F5A9A9;
+        border: 1px solid #ff9951;
+        tex-align: center;
+        color: #223377;
+        font-size: small;
+    }
+</style>
+<script type="text/javascript">
+<!--
+function showTable(idno) {
+    tc = ('TableClose' + (idno));
+    to = ('TableOpen' + (idno));
+    if( document.getElementById(tc).style.display == "none" ) {
+        document.getElementById(tc).style.display = "block";
+        document.getElementById(to).style.display = "none";
+    } else {
+        document.getElementById(tc).style.display = "none";
+        document.getElementById(to).style.display = "block";
+    }
+}
+//-->
+</script>
+</head>
+<body>
+)");
 
     uint32_t codepage = CP_THREAD_ACP;
-    FeatureListStrType type = FEATURE_LIST_STR_TYPE_TXT;
-    if (check_ext(filename.c_str(), { ".html", ".htm" })) {
-        type = FEATURE_LIST_STR_TYPE_HTML;
+    if (type == FEATURE_LIST_STR_TYPE_UNKNOWN) {
+        if (check_ext(filename.c_str(), { ".html", ".htm" })) {
+            type = FEATURE_LIST_STR_TYPE_HTML;
+        } else if (check_ext(filename.c_str(), { ".csv" })) {
+            type = FEATURE_LIST_STR_TYPE_CSV;
+        } else {
+            type = FEATURE_LIST_STR_TYPE_TXT;
+        }
+    }
+    if (filename.length() == 0 && type == FEATURE_LIST_STR_TYPE_HTML) {
+        filename = _T("qsv_check.html");
+    }
+
+    bool bUseJapanese = false;
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
         codepage = CP_UTF8;
-    } else if (check_ext(filename.c_str(), { ".csv" })) {
-        type = FEATURE_LIST_STR_TYPE_CSV;
+#if defined(_WIN32) || defined(_WIN64)
+        bUseJapanese = check_locale_is_ja();
+#endif
     }
 
     FILE *fp = stdout;
@@ -762,7 +834,7 @@ static int writeFeatureList(tstring filename) {
         }
     }
 
-    auto print_tstring = [&](tstring str, bool html_replace) {
+    auto print_tstring = [&](tstring str, bool html_replace, tstring html_block_begin = _T(""), tstring html_block_end = _T("")) {
         if (type == FEATURE_LIST_STR_TYPE_TXT) {
             _ftprintf(fp, _T("%s"), str.c_str());
         } else if (type == FEATURE_LIST_STR_TYPE_CSV) {
@@ -773,38 +845,189 @@ static int writeFeatureList(tstring filename) {
                 str = str_replace(str, _T(">"),  _T("&gt;"));
                 str = str_replace(str, _T("\n"), _T("<br>\n"));
             }
-            fprintf(fp, "%s", tchar_to_string(str, codepage).c_str());
+            fprintf(fp, "%s%s%s", tchar_to_string(html_block_begin).c_str(), tchar_to_string(str, codepage).c_str(), tchar_to_string(html_block_end).c_str());
         }
     };
 
+    fprintf(stderr, (bUseJapanese) ? "QSVの情報を取得しています...\n" : "Checking for QSV...\n");
 
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(header, false);
-        print_tstring(_T("<h1>QSVEncC Check Features</h1>\n<div>\n"), false);
+        print_tstring(_T("<h1>QSVEncC ") + tstring((bUseJapanese) ? _T("情報") : _T("Check Features")) + _T("</h1>\n<div class=page_top>\n"), false);
     }
-
-    print_tstring(GetQSVEncVersion(), true);
+    print_tstring(GetQSVEncVersion(), true, _T("<span style=font-size:small>"), _T("</span>"));
 
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(_T("<hr>\n"), false);
     }
-    print_tstring(getEnviromentInfo(false), true);
+    tstring environmentInfo = getEnviromentInfo(false);
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        environmentInfo = str_replace(environmentInfo, _T("Environment Info\n"), _T(""));
+    }
+    print_tstring(environmentInfo + ((type == FEATURE_LIST_STR_TYPE_HTML) ? _T("") : _T("\n")), true, _T("<span style=font-size:small>"), _T("</span>"));
+
+    OSVERSIONINFOEXW osver;
+    tstring osversion = getOSVersion(&osver);
+    bool bOSSupportsQSV = true;
+    bOSSupportsQSV &= osver.dwPlatformId == VER_PLATFORM_WIN32_NT;
+    bOSSupportsQSV &= (osver.dwMajorVersion >= 7 || osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 1);
+    bOSSupportsQSV &= osver.wProductType == VER_NT_WORKSTATION;
 
     mfxVersion test = { 0, 1 };
-    for (int impl_type = 0; impl_type < 2; impl_type++) {
+    for (int impl_type = 0; impl_type < 1; impl_type++) {
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             print_tstring(_T("<hr>\n"), false);
         }
         mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
         const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
-        if (!check_lib_version(lib, test)) {
-            print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
+        if (true || !check_lib_version(lib, test)) {
+            if (impl_type == 0) {
+                print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b>") : _T("<b>QSV unavailable.</b>"), false);
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    char buffer[1024] = { 0 };
+                    getCPUName(buffer, _countof(buffer));
+                    tstring cpuname = char_to_tstring(buffer);
+                    cpuname = cpuname.substr(cpuname.find(_T("Intel ") + _tcslen(_T("Intel "))));
+                    cpuname = cpuname.substr(0, cpuname.find(_T(" @")));
+                    
+                    if (bUseJapanese) {
+                        print_tstring(_T("以下の項目を確認してみてください。"), true);
+                        print_tstring(_T("<ol>\n"), false);
+                        if (!bOSSupportsQSV) {
+                            print_tstring(tstring(_T("<li>お使いのOS (") + osversion + _T(")はQSVに対応していません。<br>")
+                                _T("QSVに対応しているOSはWindows7 / Windows8 / Windows8.1 / Windows10 のいずれかです。<br></li><br>\n")), false);
+                        } else {
+                            print_tstring(tstring(_T("<li>お使いのCPU (") + cpuname + _T(")がQSVに対応しているか、確認してみてください。<br>\n")
+                                _T("<a target=\"_blank\" href=\"http://ark.intel.com/ja/search?q=") + cpuname + _T("\">こちら</a>から") +
+                                _T("「グラフィックスの仕様」のところの「インテル クイック・シンク・ビデオ」が「Yes」になっているかで確認できます。<br>\n")
+                                _T("<img src=\"setup/intel_ark_qsv.png\" alt=\"intel_ark_qsv\" border=\"0\" width=\"480\"/></li><br>\n")), false);
+                            print_tstring(tstring(_T("<li>QSV利用に必要なIntel GPUがPCで認識されているか確認してください。<br>\n")
+                                _T("同梱の「デバイスマネージャを開く」をダブルクリックし、<br>\n")
+                                _T("<img src=\"setup/intel_gpu_device_manager_open.png\" alt=\"intel_gpu_device_manager_open\" border=\"0\" width=\"240\"/><br>\n")
+                                _T("デバイスマネージャの画面の「ディスプレイアダプタ」をクリックして")
+                                _T("「Intel HD Graphics ～～」などとIntelのGPUが表示されていれば問題ありません。<br>\n")
+                                _T("<img src=\"setup/intel_gpu_device_manager.png\" alt=\"intel_gpu_device_manager\" border=\"0\" width=\"280\"/><br>\n")
+                                _T("Intel GPU以外にGPUが搭載されている場合、ここでIntel GPUが表示されない場合があります。\n")
+                                _T("この場合、BIOS(UEFI)の「CPU Graphics Multi-Monitor」を有効(Enable)にする必要があります。<br>\n")
+                                _T("<a target=\"_blank\" href=\"setup/intel_gpu_uefi_setting.jpg\"><img src=\"setup/intel_gpu_uefi_settings.jpg\" alt=\"intel_gpu_uefi_settings\" border=\"0\" width=\"400\"/></a><span style=font-size:x-small>(クリックして拡大)</span><br\n>")
+                                _T("</li><br>\n")), false);
+                            print_tstring(tstring(_T("<li>Intel GPUのドライバがWindows Update経由でインストールされた場合など、Intel ドライバのインストールが不完全な場合に正しく動作しないことがあります。<br>\n")
+                                _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/ja/search?keyword=") + cpuname + tstring(_T("\">こちら</a>から")) +
+                                getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。<br>\n")
+                                _T("<img src=\"setup/intel_driver_select.png\" alt=\"intel_driver_select\" border=\"0\" width=\"360\"/></li><br>\n")), false);
+                            print_tstring(_T("</ol>\n"), false);
+                        }
+                    } else {
+                        print_tstring(_T(" Please check the items below."), true);
+                        print_tstring(_T("<ol>\n"), false);
+                        if (!bOSSupportsQSV) {
+                            print_tstring(tstring(_T("<li>Your OS (") + osversion + _T(")does not support QSV.<br>")
+                                _T("QSV is supported on Windows7 / Windows8 / Windows8.1 / Windows10.<br></li><br>\n")), false);
+                        } else {
+                            print_tstring(tstring(_T("<li>Please check wether your CPU (") + cpuname + _T(") supports QSV.<br>\n")
+                                _T("<a target=\"_blank\" href=\"http://ark.intel.com/search?q=") + cpuname + _T("\">Check from here</a>") +
+                                _T(" whether \"Intel Quick Sync Video\" in \"Graphics Specifications\" says \"Yes\".<br>\n")
+                                _T("<img src=\"setup/intel_ark_qsv_en.png\" alt=\"intel_ark_qsv_en\" border=\"0\" width=\"480\"/></li><br>\n")), false);
+                            print_tstring(tstring(_T("<li>Please check for device manager if Intel GPU is recognized under \"Display Adapter\".<br>\n")
+                                _T("If you have discrete GPU on your PC, Intel GPU might not be shown.\n")
+                                _T("For that case, you need yto enable \"CPU Graphics Multi-Monitor\" in your BIOS(UEFI).<br>\n")
+                                _T("<a target=\"_blank\" href=\"setup/intel_gpu_uefi_setting.jpg\"><img src=\"setup/intel_gpu_uefi_settings.jpg\" alt=\"intel_gpu_uefi_settings\" border=\"0\" width=\"400\"/></a><span style=font-size:x-small>(Click ot enlarge)</span><br\n>")
+                                _T("</li><br>\n")), false);
+                            print_tstring(tstring(_T("<li>Sometimes Intel GPU driver is not installed properlly, especially when it is installed from Windows Update.<br>\n")
+                                _T("Please install Intel GPU driver for") + getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T(" ")
+                                _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/search?keyword=") + cpuname + tstring(_T("\">from here</a>")) +
+                                _T(" and reinstall the driver.<br>\n")
+                                _T("<img src=\"setup/intel_driver_select_en.png\" alt=\"intel_driver_select_en\" border=\"0\" width=\"320\"/></li><br>\n")), false);
+                            print_tstring(_T("</ol>\n"), false);
+                        }
+                    }
+                }
+            } else {
+                print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
+            }
         } else {
-            print_tstring(strsprintf(_T("Media SDK %s API v%d.%d\n"), impl_str, lib.Major, lib.Minor), true);
-            print_tstring(_T("Supported Enc features:\n"), true);
-            print_tstring(strsprintf(_T("%s\n\n"), MakeFeatureListStr(0 == impl_type, type).c_str()), false);
-            print_tstring(_T("Supported Vpp features:\n"), true);
-            print_tstring(strsprintf(_T("%s\n\n"), MakeVppFeatureStr(0 == impl_type, type).c_str()), false);
+            const auto codec_feature_list = MakeFeatureListStr(0 == impl_type, type);
+            if (codec_feature_list.size() == 0) {
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b><br>") : _T("<b>QSV unavailable.</b><br>"), false);
+
+                    char buffer[1024] = { 0 };
+                    getCPUName(buffer, _countof(buffer));
+                    tstring cpuname = char_to_tstring(buffer);
+                    cpuname = cpuname.substr(cpuname.find(_T("Intel ") + _tcslen(_T("Intel "))));
+                    cpuname = cpuname.substr(0, cpuname.find(_T(" @")));
+
+                    if (bUseJapanese) {
+                        print_tstring(_T("以下の項目を確認してみてください。\n"), true);
+                        print_tstring(_T("<ul>\n"), false);
+                        print_tstring(tstring(_T("<li>Windows Update経由でインストールされた場合など、Intel ドライバのインストールが不完全な場合に正しく動作しないことがあります。<br>")
+                            _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/ja/search?keyword=") + cpuname + tstring(_T("\">こちら</a>から")) +
+                            getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。</li>\n")), false);
+                        print_tstring(_T("</ul>\n"), false);
+                    }
+                } else {
+                    print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
+                }
+            } else {
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    print_tstring((bUseJapanese) ? _T("<b>QSVが使用できます。</b><br>") : _T("<b>QSV available.</b><br>"), false);
+                }
+                print_tstring(strsprintf((bUseJapanese) ? _T("使用可能なMediaSDK: ") : _T("Media SDK Version: ")), false);
+                print_tstring(strsprintf(_T("%s API v%d.%d\n\n"), impl_str, lib.Major, lib.Minor), true);
+                auto codecHeader = (bUseJapanese) ? _T("エンコードに使用可能なコーデックとオプション:\n") : _T("Supported Enc features:\n");
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    print_tstring(tstring(codecHeader) + _T("<br>"), false);
+                } else {
+                    print_tstring(codecHeader, false);
+                }
+                uint32_t i = 0;
+                for (; i < codec_feature_list.size(); i++) {
+                    auto codec_feature = codec_feature_list[i].second;
+                    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                        auto codec_name = codec_feature.substr(0, codec_feature.find_first_of('\n'));
+                        codec_feature = codec_feature.substr(codec_feature.find_first_of('\n'));
+                        if (bUseJapanese) {
+                            codec_name = str_replace(codec_name, _T("Codec"), _T("コーデック"));
+                        }
+                        tstring optionHeader = (bUseJapanese) ? _T("利用可能なオプション") : _T("Available Options");
+                        tstring str = codec_name;
+                        str += strsprintf(_T("<div class=table_block id=\"TableOpen%d\">\n"), i);
+                        str += _T("<p class=table_block>\n");
+                        str += strsprintf(_T("<a class=table_block href=\"#\" title=\"%s▼\" onclick=\"showTable(%d);return false;\">%s▼</a>"), optionHeader.c_str(), i, optionHeader.c_str());
+                        str += _T("</p>\n");
+                        str += _T("</div>\n");
+                        str += strsprintf(_T("<div class=table_block id=\"TableClose%d\" style=\"display: none\">\n"), i);
+                        str += _T("<p class=table_block>\n");
+                        str += strsprintf(_T("<a class=table_block href=\"#\" title=\"%s▲\" onclick=\"showTable(%d);return false;\">%s▲</a>\n"), optionHeader.c_str(), i, optionHeader.c_str());
+                        str += _T("</p>\n");
+                        str += codec_feature;
+                        str += _T("</div><br>\n");
+                        print_tstring(str, false);
+                    } else {
+                        print_tstring(strsprintf(_T("%s\n\n"), codec_feature.c_str()), false);
+                    }
+                }
+                const auto vppHeader = tstring((bUseJapanese) ? _T("利用可能なVPP") : _T("Supported Vpp features:\n"));
+                const auto vppFeatures = MakeVppFeatureStr(0 == impl_type, type);
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    tstring str;
+                    str += strsprintf(_T("<div class=table_block id=\"TableOpen%d\">\n"), i);
+                    str += _T("<p class=table_block>\n");
+                    str += strsprintf(_T("<a class=vpp_table_block href=\"#\" title=\"%s▼\" onclick=\"showTable(%d);return false;\">%s▼</a>"), vppHeader.c_str(), i, vppHeader.c_str());
+                    str += _T("</p>\n");
+                    str += _T("</div>\n");
+                    str += strsprintf(_T("<div class=table_block id=\"TableClose%d\" style=\"display: none\">\n"), i);
+                    str += _T("<p class=table_block>\n");
+                    str += strsprintf(_T("<a class=vpp_table_block href=\"#\" title=\"%s▲\" onclick=\"showTable(%d);return false;\">%s▲</a>\n"), vppHeader.c_str(), i, vppHeader.c_str());
+                    str += _T("</p>\n");
+                    str += vppFeatures;
+                    str += _T("</div><br>\n");
+                    print_tstring(str, false);
+                } else {
+                    print_tstring(vppHeader + _T("\n"), true);
+                    print_tstring(strsprintf(_T("%s\n\n"), vppFeatures.c_str()), false);
+                }
+            }
         }
     }
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
@@ -2564,6 +2787,12 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
             writeFeatureList(output);
             return MFX_PRINT_OPTION_DONE;
         }
+        if (0 == _tcscmp(option_name, _T("check-features-html")))
+        {
+            tstring output = (strInput[i+1][0] != _T('-')) ? strInput[i+1] : _T("");
+            writeFeatureList(output, FEATURE_LIST_STR_TYPE_HTML);
+            return MFX_PRINT_OPTION_DONE;
+        }
         if (   0 == _tcscmp(option_name, _T("check-hw"))
             || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
         {
@@ -2752,13 +2981,6 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
 
     return MFX_ERR_NONE;
 }
-
-#if defined(_WIN32) || defined(_WIN64)
-bool check_locale_is_ja() {
-    const WORD LangID_ja_JP = MAKELANGID(LANG_JAPANESE, SUBLANG_JAPANESE_JAPAN);
-    return GetUserDefaultLangID() == LangID_ja_JP;
-}
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
 //Ctrl + C ハンドラ
 static bool g_signal_abort = false;

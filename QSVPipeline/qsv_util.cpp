@@ -1228,13 +1228,14 @@ tstring MakeFeatureListStr(mfxU64 feature) {
     return str;
 }
 
-tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
+vector<std::pair<vector<uint64_t>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType type) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8, MFX_CODEC_VP9 };
     auto featurePerCodec = MakeFeatureListPerCodec(hardware, make_vector(list_rate_control_ry), codecLists);
     
-    tstring str;
+    vector<std::pair<vector<uint64_t>, tstring>> strPerCodec;
     
     for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
+        tstring str;
         auto& availableFeatureForEachRC = featurePerCodec[i_codec];
         //H.264以外で、ひとつもフラグが立っていなかったら、スキップする
         if (codecLists[i_codec] != MFX_CODEC_AVC
@@ -1242,13 +1243,10 @@ tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
             [](mfxU32 sum, mfxU64 value) { return sum | (mfxU32)(value & 0xffffffff) | (mfxU32)(value >> 32); })) {
             continue;
         }
-        if (type == FEATURE_LIST_STR_TYPE_HTML) {
-            str += _T("<b>");
-        }
         str += _T("Codec: ") + tstring(CodecIdToStr(codecLists[i_codec])) + _T("\n");
 
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
-            str += _T("</b><table class=simpleOrange>");
+            str += _T("<table class=simpleOrange>");
         }
 
         switch (type) {
@@ -1314,8 +1312,9 @@ tstring MakeFeatureListStr(bool hardware, FeatureListStrType type) {
             str += _T("</table><br>");
         }
         str += _T("\n");
+        strPerCodec.push_back(std::make_pair(availableFeatureForEachRC, str));
     }
-    return str;
+    return strPerCodec;
 }
 
 tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {

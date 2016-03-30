@@ -455,7 +455,7 @@ vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<CX_DE
 vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 tstring MakeFeatureListStr(mfxU64 feature);
-tstring MakeFeatureListStr(bool hardware, FeatureListStrType outputType);
+vector<std::pair<vector<uint64_t>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType outputType);
 
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
 tstring MakeVppFeatureStr(bool hardware);
@@ -464,7 +464,7 @@ tstring MakeVppFeatureStr(bool hardware, FeatureListStrType outputType);
 #if defined(_WIN32) || defined(_WIN64)
 bool check_if_d3d11_necessary();
 #endif
-tstring getOSVersion();
+tstring getOSVersion(OSVERSIONINFOEXW *osinfo = nullptr);
 BOOL is_64bit_os();
 uint64_t getPhysicalRamSize(uint64_t *ramUsed);
 tstring getEnviromentInfo(bool add_ram_info = true);
