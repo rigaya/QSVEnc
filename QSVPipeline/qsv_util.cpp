@@ -1572,18 +1572,16 @@ mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info) {
 
 typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
 
-static int getRealWindowsVersion(DWORD *major, DWORD *minor) {
-    *major = 0;
-    *minor = 0;
-    OSVERSIONINFOEXW osver;
+static int getRealWindowsVersion(OSVERSIONINFOEXW *osinfo) {
+    OSVERSIONINFOEXW osver = { 0 };
+    osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
     HMODULE hModule = NULL;
     RtlGetVersion_FUNC func = NULL;
     int ret = 1;
     if (   NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
         && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
         func(&osver);
-        *major = osver.dwMajorVersion;
-        *minor = osver.dwMinorVersion;
+        memcpy(osinfo, &osver, sizeof(osver));
         ret = 0;
     }
     if (hModule) {
@@ -1608,12 +1606,14 @@ BOOL check_OS_Win8orLater() {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-tstring getOSVersion() {
+tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
 #if defined(_WIN32) || defined(_WIN64)
     const TCHAR *ptr = _T("Unknown");
-    OSVERSIONINFO info = { 0 };
+    OSVERSIONINFOW info = { 0 };
+    OSVERSIONINFOEXW infoex = { 0 };
     info.dwOSVersionInfoSize = sizeof(info);
-    GetVersionEx(&info);
+    infoex.dwOSVersionInfoSize = sizeof(infoex);
+    GetVersionExW(&info);
     switch (info.dwPlatformId) {
     case VER_PLATFORM_WIN32_WINDOWS:
         if (4 <= info.dwMajorVersion) {
@@ -1626,12 +1626,20 @@ tstring getOSVersion() {
         }
         break;
     case VER_PLATFORM_WIN32_NT:
-        if (info.dwMajorVersion == 6) {
-            getRealWindowsVersion(&info.dwMajorVersion, &info.dwMinorVersion);
+        if (info.dwMajorVersion >= 6 || (info.dwMajorVersion == 5 && info.dwMinorVersion >= 2)) {
+            GetVersionExW((OSVERSIONINFOW *)&infoex);
+        } else {
+            memcpy(&infoex, &info, sizeof(info));
         }
-        switch (info.dwMajorVersion) {
+        if (info.dwMajorVersion == 6) {
+            getRealWindowsVersion(&infoex);
+        }
+        if (osinfo) {
+            memcpy(osinfo, &infoex, sizeof(infoex));
+        }
+        switch (infoex.dwMajorVersion) {
         case 3:
-            switch (info.dwMinorVersion) {
+            switch (infoex.dwMinorVersion) {
             case 0:  ptr = _T("Windows NT 3"); break;
             case 1:  ptr = _T("Windows NT 3.1"); break;
             case 5:  ptr = _T("Windows NT 3.5"); break;
@@ -1640,11 +1648,11 @@ tstring getOSVersion() {
             }
             break;
         case 4:
-            if (0 == info.dwMinorVersion)
+            if (0 == infoex.dwMinorVersion)
                 ptr = _T("Windows NT 4.0");
             break;
         case 5:
-            switch (info.dwMinorVersion) {
+            switch (infoex.dwMinorVersion) {
             case 0:  ptr = _T("Windows 2000"); break;
             case 1:  ptr = _T("Windows XP"); break;
             case 2:  ptr = _T("Windows Server 2003"); break;
@@ -1652,24 +1660,23 @@ tstring getOSVersion() {
             }
             break;
         case 6:
-            switch (info.dwMinorVersion) {
-            case 0:  ptr = _T("Windows Vista"); break;
-            case 1:  ptr = _T("Windows 7"); break;
-            case 2:  ptr = _T("Windows 8"); break;
-            case 3:  ptr = _T("Windows 8.1"); break;
-            case 4:  ptr = _T("Windows 10"); break;
+            switch (infoex.dwMinorVersion) {
+            case 0:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows Vista") : _T("Windows Server 2008");    break;
+            case 1:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 7")     : _T("Windows Server 2008 R2"); break;
+            case 2:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 8")     : _T("Windows Server 2012");    break;
+            case 3:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 8.1")   : _T("Windows Server 2012 R2"); break;
+            case 4:  ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 10")    : _T("Windows Server 2016");    break;
             default:
-                if (5 <= info.dwMinorVersion) {
+                if (5 <= infoex.dwMinorVersion) {
                     ptr = _T("Later than Windows 10");
                 }
                 break;
             }
             break;
         case 10:
-            ptr = _T("Windows 10");
-            break;
+            ptr = (infoex.wProductType == VER_NT_WORKSTATION) ? _T("Windows 10") : _T("Windows Server 2016"); break;
         default:
-            if (10 <= info.dwMajorVersion) {
+            if (10 <= infoex.dwMajorVersion) {
                 ptr = _T("Later than Windows 10");
             }
             break;
