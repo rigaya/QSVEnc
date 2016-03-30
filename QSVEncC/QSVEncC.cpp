@@ -40,14 +40,12 @@ static tstring GetQSVEncVersion() {
     tstring version;
     version += get_qsvenc_version();
     version += _T("\n");
-    version += strsprintf(_T("  avi reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVI_READER]);
-    version += strsprintf(_T("  avs reader:   %s\n"), ENABLED_INFO[!!ENABLE_AVISYNTH_READER]);
-    version += strsprintf(_T("  vpy reader:   %s\n"), ENABLED_INFO[!!ENABLE_VAPOURSYNTH_READER]);
-    version += strsprintf(_T("  avqsv reader: %s"), ENABLED_INFO[!!ENABLE_AVCODEC_QSV_READER]);
-#if ENABLE_AVCODEC_QSV_READER
-    version += strsprintf(_T(" [%s]"), getAVQSVSupportedCodecList().c_str());
-#endif
-    version += _T("\n\n");
+    version += _T("reader: raw");
+    if (ENABLE_AVI_READER)         version += _T(", avi");
+    if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
+    if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
+    if (ENABLE_AVCODEC_QSV_READER) version += strsprintf(_T(", avqsv [%s]"), getAVQSVSupportedCodecList().c_str());
+    version += _T("\n");
     return version;
 }
 
