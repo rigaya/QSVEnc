@@ -202,6 +202,7 @@ typedef struct sAudioSelect {
     int    nAudioSamplingRate;    //サンプリング周波数
     TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
     TCHAR *pAudioExtractFormat; //抽出する音声ファイルのフォーマット
+    TCHAR *pAudioFilter; //音声フィルタ
     uint64_t pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
 } sAudioSelect;
@@ -354,8 +355,7 @@ struct sInputParams
     float      fSeekSec; //指定された秒数分先頭を飛ばす
     TCHAR     *pFramePosListLog;
     uint32_t   nFallback;
-    TCHAR     *pAudioFilter;
-    int8_t     Reserved[1062];
+    int8_t     Reserved[1066];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

@@ -687,7 +687,7 @@ mfxStatus CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels
     return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError, const TCHAR *pAudioFilter) {
+mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError) {
     pMuxAudio->pCodecCtxIn = avcodec_alloc_context3(NULL);
     avcodec_copy_context(pMuxAudio->pCodecCtxIn, pInputAudio->src.pCodecCtx);
     AddMessage(QSV_LOG_DEBUG, _T("start initializing audio ouput...\n"));
@@ -704,7 +704,7 @@ mfxStatus CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     pMuxAudio->nInSubStream = pInputAudio->src.nSubStreamId;
     pMuxAudio->nStreamIndexIn = pInputAudio->src.nIndex;
     pMuxAudio->nLastPtsIn = AV_NOPTS_VALUE;
-    pMuxAudio->pFilter = pAudioFilter;
+    pMuxAudio->pFilter = pInputAudio->pFilter;
     memcpy(pMuxAudio->pnStreamChannelSelect, pInputAudio->src.pnStreamChannelSelect, sizeof(pInputAudio->src.pnStreamChannelSelect));
     memcpy(pMuxAudio->pnStreamChannelOut,    pInputAudio->src.pnStreamChannelOut,    sizeof(pInputAudio->src.pnStreamChannelOut));
 
@@ -1111,8 +1111,11 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     avformatNetworkInit();
     av_log_set_level((m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
-    if (prm->pAudioFilter) {
-        avfilter_register_all();
+    for (const auto& stream : prm->inputStreamList) {
+        if (stream.pFilter) {
+            avfilter_register_all();
+            break;
+        }
     }
 
     if (prm->pOutputFormat != nullptr) {
@@ -1240,7 +1243,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
                         return MFX_ERR_UNDEFINED_BEHAVIOR;
                     }
                 }
-                mfxStatus sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->nAudioIgnoreDecodeError, prm->pAudioFilter);
+                mfxStatus sts = InitAudio(&m_Mux.audio[iAudioIdx], &prm->inputStreamList[iStream], prm->nAudioIgnoreDecodeError);
                 if (sts != MFX_ERR_NONE) {
                     return sts;
                 }

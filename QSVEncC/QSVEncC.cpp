@@ -335,7 +335,9 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             _T("         7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
             _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
             _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
-            _T("   --audio-filter <string>      set audio filter.\n")
+            _T("   --audio-filter [<int>?]<string>\n")
+            _T("                                set audio filter.\n")
+            _T("                                  in [<int>?], specify track number of audio.\n")
             _T("   --chapter-copy               copy chapter to output file.\n")
             _T("   --chapter <string>           set chapter from file specified.\n")
             _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
@@ -1053,6 +1055,7 @@ struct sArgsData {
     uint32_t nParsedAudioBitrate = 0;
     uint32_t nParsedAudioSamplerate = 0;
     uint32_t nParsedAudioSplit = 0;
+    uint32_t nParsedAudioFilter = 0;
     uint32_t nTmpInputBuf = 0;
 };
 
@@ -1595,9 +1598,52 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("audio-filter"))) {
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
-            i++;
-            pParams->pAudioFilter = _tcsdup(strInput[i]);
+        if (i+1 < nArgNum) {
+            const TCHAR *ptr = nullptr;
+            const TCHAR *ptrDelim = nullptr;
+            if (strInput[i+1][0] != _T('-')) {
+                i++;
+                ptrDelim = _tcschr(strInput[i], _T('?'));
+                ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
+            } else {
+                PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            int trackId = 1;
+            if (ptrDelim == nullptr) {
+                trackId = argData->nParsedAudioFilter+1;
+                int idx = getAudioTrackIdx(pParams, trackId);
+                if (idx >= 0 && pParams->ppAudioSelectList[idx]->pAudioFilter != nullptr) {
+                    trackId = getFreeAudioTrack(pParams);
+                }
+            } else {
+                tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
+                if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
+                    PrintHelp(strInput[0], _T("Invalid value"), option_name);
+                    return MFX_PRINT_OPTION_ERR;
+                }
+            }
+            sAudioSelect *pAudioSelect = nullptr;
+            int audioIdx = getAudioTrackIdx(pParams, trackId);
+            if (audioIdx < 0) {
+                pAudioSelect = (sAudioSelect *)calloc(1, sizeof(pAudioSelect[0]));
+                pAudioSelect->nAudioSelect = trackId;
+            } else {
+                pAudioSelect = pParams->ppAudioSelectList[audioIdx];
+            }
+            if (pAudioSelect->pAudioFilter) {
+                free(pAudioSelect->pAudioFilter);
+            }
+            pAudioSelect->pAudioFilter = _tcsdup(ptr);
+
+            if (audioIdx < 0) {
+                audioIdx = pParams->nAudioSelectCount;
+                //新たに要素を追加
+                pParams->ppAudioSelectList = (sAudioSelect **)realloc(pParams->ppAudioSelectList, sizeof(pParams->ppAudioSelectList[0]) * (pParams->nAudioSelectCount + 1));
+                pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
+                pParams->nAudioSelectCount++;
+            }
+            argData->nParsedAudioFilter++;
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return MFX_PRINT_OPTION_ERR;

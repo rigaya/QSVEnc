@@ -1829,7 +1829,6 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
         writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.nAudioResampler = pParams->nAudioResampler;
-        writerPrm.pAudioFilter = pParams->pAudioFilter;
         writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
@@ -1899,6 +1898,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
                     prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
                     prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
+                    prm.pFilter = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAudioFilter;
                     PrintMes(QSV_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
                         stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec);
@@ -1990,6 +1990,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.src = audioTrack;
                 //pAudioSelect == nullptrは "copyAll" によるもの
                 prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
+                prm.pFilter = pAudioSelect->pAudioFilter;
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
                 prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
                 
@@ -1999,7 +2000,6 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.nBufSizeMB      = pParams->nOutputBufSizeMB;
                 writerAudioPrm.pOutputFormat   = pAudioSelect->pAudioExtractFormat;
                 writerAudioPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
-                writerAudioPrm.pAudioFilter = pParams->pAudioFilter;
                 writerAudioPrm.nAudioResampler = pParams->nAudioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 writerAudioPrm.pQueueInfo = nullptr;

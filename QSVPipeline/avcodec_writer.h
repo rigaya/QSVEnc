@@ -194,6 +194,7 @@ typedef struct AVOutputStreamPrm {
     const TCHAR  *pEncodeCodec;  //音声をエンコードするコーデック
     int           nBitrate;      //ビットレートの指定
     int           nSamplingRate; //サンプリング周波数の指定
+    const TCHAR  *pFilter;       //音声をエンコードするコーデック
 } AVOutputStreamPrm;
 
 typedef struct AvcodecWriterPrm {
@@ -214,7 +215,6 @@ typedef struct AvcodecWriterPrm {
     int                          nAudioThread;            //音声処理スレッド数
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
-    const TCHAR                 *pAudioFilter;            //音声フィルタリング
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut
@@ -319,7 +319,7 @@ private:
     mfxStatus InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
 
     //音声の初期化
-    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError, const TCHAR *pAudioFilter);
+    mfxStatus InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError);
 
     //字幕の初期化
     mfxStatus InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
