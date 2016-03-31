@@ -1557,7 +1557,8 @@ tstring CAvcodecWriter::GetWriterMes() {
             std::string audiostr = (i_stream) ? ", " : "";
             if (audioStream.pOutCodecEncodeCtx) {
                 //入力情報
-                audiostr += strsprintf("%s/%s",
+                audiostr += strsprintf("#%d:%s/%s",
+                    audioStream.nInTrackId,
                     audioStream.pOutCodecDecode->name,
                     getChannelLayoutChar(audioStream.pOutCodecDecodeCtx->channels, audioStream.pOutCodecDecodeCtx->channel_layout).c_str());
                 if (audioStream.pnStreamChannelSelect[audioStream.nInSubStream] != 0) {
