@@ -918,6 +918,9 @@ function showTable(idno) {
                                 getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。<br>\n")
                                 _T("<img src=\"setup/intel_driver_select.png\" alt=\"intel_driver_select\" border=\"0\" width=\"360\"/></li><br>\n")), false);
                             print_tstring(_T("</ol>\n"), false);
+                            print_tstring(_T("<hr>\n"), false);
+                            print_tstring(_T("導入方法等については、<a target=\"_blank\" href=\"http://rigaya34589.blog135.fc2.com/blog-entry-704.html\">こちら</a>もご覧ください。<br>\n"), false);
+                            print_tstring(_T("<hr>\n"), false);
                         }
                     } else {
                         print_tstring(_T(" Please check the items below."), true);
@@ -972,6 +975,11 @@ function showTable(idno) {
                 }
             } else {
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    if (bUseJapanese) {
+                        print_tstring(_T("<a target=\"_blank\" href=\"http://rigaya34589.blog135.fc2.com/blog-entry-337.html\">オプション一覧</a><br>\n"), false);
+                        print_tstring(_T("<a target=\"_blank\" href=\"http://rigaya34589.blog135.fc2.com/blog-entry-704.html\">導入方法等について</a><br>\n"), false);
+                        print_tstring(_T("<hr>\n"), false);
+                    }
                     print_tstring((bUseJapanese) ? _T("<b>QSVが使用できます。</b><br>") : _T("<b>QSV available.</b><br>"), false);
                 }
                 print_tstring(strsprintf((bUseJapanese) ? _T("使用可能なMediaSDK: ") : _T("Media SDK Version: ")), false);
