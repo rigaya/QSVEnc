@@ -1543,7 +1543,12 @@ tstring CAvcodecWriter::GetWriterMes() {
     int i_stream = 0;
     auto add_mes = [&mes](std::string str) {
         if (mes.length() - mes.find_last_of("\n") + str.length() >= 65) {
-            mes += "\n";
+            if (0 == str.find_first_of(',')) {
+                str = str.substr(1);
+                mes += ",\n";
+            } else {
+                mes += "\n";
+            }
         }
         mes += str;
     };
@@ -1593,7 +1598,7 @@ tstring CAvcodecWriter::GetWriterMes() {
     }
     for (const auto& subtitleStream : m_Mux.sub) {
         if (subtitleStream.pStream) {
-            add_mes(std::string((i_stream) ? ", " : "") + strsprintf("sub#%d,", std::abs(subtitleStream.nInTrackId)));
+            add_mes(std::string((i_stream) ? ", " : "") + strsprintf("sub#%d", std::abs(subtitleStream.nInTrackId)));
             i_stream++;
         }
     }
