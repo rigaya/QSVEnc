@@ -909,6 +909,7 @@ function showTable(idno) {
                     tstring cpuname = char_to_tstring(buffer);
                     cpuname = cpuname.substr(cpuname.find(_T("Intel ") + _tcslen(_T("Intel "))));
                     cpuname = cpuname.substr(0, cpuname.find(_T(" @")));
+                    cpuname = str_replace(cpuname, _T("Core2"), _T("Core 2"));
                     
                     if (bUseJapanese) {
                         print_tstring(_T("以下の項目を確認してみてください。"), true);
