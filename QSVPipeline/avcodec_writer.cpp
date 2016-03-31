@@ -523,7 +523,7 @@ mfxStatus CAvcodecWriter::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, u
             AddMessage(QSV_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\"\n"), qsv_av_err2str(ret).c_str(), pMuxAudio->pFilter);
             return MFX_ERR_UNSUPPORTED;
         }
-        AddMessage(QSV_LOG_INFO, _T("Parsed filter: %s\n"), pMuxAudio->pFilter);
+        AddMessage(QSV_LOG_DEBUG, _T("Parsed filter: %s\n"), pMuxAudio->pFilter);
 
         const int nOutputCount = !!outputs + (outputs && outputs->next);
         const int nInputCount = !!inputs  + (inputs  && inputs->next);
@@ -554,7 +554,7 @@ mfxStatus CAvcodecWriter::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, u
             return MFX_ERR_UNKNOWN;
         }
         avfilter_inout_free(&inputs);
-        AddMessage(QSV_LOG_INFO, _T("filter linked with src buffer.\n"));
+        AddMessage(QSV_LOG_DEBUG, _T("filter linked with src buffer.\n"));
 
         const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
         const auto outName = strsprintf("out_track_%d.%d", pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
@@ -573,14 +573,14 @@ mfxStatus CAvcodecWriter::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, u
             avfilter_inout_free(&outputs);
             return MFX_ERR_UNKNOWN;
         }
-        AddMessage(QSV_LOG_INFO, _T("filter linked with sink buffer.\n"));
+        AddMessage(QSV_LOG_DEBUG, _T("filter linked with sink buffer.\n"));
 
         avfilter_inout_free(&outputs);
         if (0 > (ret = avfilter_graph_config(pMuxAudio->pFilterGraph, nullptr))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to configure filter graph: %s.\n"), qsv_av_err2str(ret).c_str());
             return MFX_ERR_UNKNOWN;
         }
-        AddMessage(QSV_LOG_INFO, _T("filter config done, filter ready.\n"));
+        AddMessage(QSV_LOG_DEBUG, _T("filter config done, filter ready.\n"));
     }
     return MFX_ERR_NONE;
 }
