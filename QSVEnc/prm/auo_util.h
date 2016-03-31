@@ -1008,6 +1008,6 @@ BOOL SetThreadAffinityForModule(DWORD TargetProcessId, const char *TargetModule,
 
 BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core);
 
-int getCPUName(char *buf, size_t nSize);
+int getCPUNameAuo(char *buf, size_t nSize);
 
 #endif //_AUO_UTIL_H_

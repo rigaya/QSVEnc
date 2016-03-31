@@ -393,7 +393,7 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
 }
 #endif
 
-int getCPUName(char *buf, size_t nSize) {
+int getCPUNameAuo(char *buf, size_t nSize) {
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x80000000);
     unsigned int nExIds = CPUInfo[0];
