@@ -515,6 +515,7 @@ mfxStatus CAvcodecWriter::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, u
 
         int ret = 0;
         pMuxAudio->pFilterGraph = avfilter_graph_alloc();
+        av_opt_set_int(pMuxAudio->pFilterGraph, "threads", 1, 0);
 
         AVFilterInOut *inputs = nullptr;
         AVFilterInOut *outputs = nullptr;
