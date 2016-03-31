@@ -882,7 +882,7 @@ function showTable(idno) {
         }
         mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
         const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
-        if (true || !check_lib_version(lib, test)) {
+        if (!check_lib_version(lib, test)) {
             if (impl_type == 0) {
                 print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b>") : _T("<b>QSV unavailable.</b>"), false);
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
