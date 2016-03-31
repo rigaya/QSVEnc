@@ -1563,6 +1563,21 @@ tstring CAvcodecWriter::GetWriterMes() {
                 if (audioStream.pnStreamChannelSelect[audioStream.nInSubStream] != 0) {
                     audiostr += strsprintf(":%s", getChannelLayoutChar(av_get_channel_layout_nb_channels(audioStream.pnStreamChannelSelect[audioStream.nInSubStream]), audioStream.pnStreamChannelSelect[audioStream.nInSubStream]).c_str());
                 }
+                //フィルタ情報
+                if (audioStream.pFilter) {
+                    audiostr += ":";
+                    std::string filter_str;
+                    auto filters = split(tchar_to_string(audioStream.pFilter, CP_UTF8), ",");
+                    for (auto filter : filters) {
+                        size_t pos = 0;
+                        if ((pos = filter.find_first_of('=')) != std::string::npos) {
+                            filter = filter.substr(0, pos);
+                        }
+                        if (filter_str.length()) filter_str += "+";
+                        filter_str += filter;
+                    }
+                    audiostr += filter_str;
+                }
                 //エンコード情報
                 audiostr += strsprintf(" -> %s/%s/%dkbps",
                     audioStream.pOutCodecEncode->name,
