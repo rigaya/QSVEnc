@@ -757,6 +757,24 @@ static int writeFeatureList(tstring filename, FeatureListStrType type = FEATURE_
     img {
         padding: 4px 0px;
     }
+    table.simpleBlue {
+        background-color: #ff9951;
+        border-collapse: collapse;
+        border: 0px;
+        border-spacing: 0px;
+        margin: 5px;
+    }
+    table.simpleBlue th,
+    table.simpleBlue td {
+        background-color: #ffffff;
+        padding: 2px 10px;
+        border: 1px solid #81BEF7;
+        color: #223377;
+        margin: 5px;
+        text-align: center;
+        font-size: small;
+        font-family: "Segoe UI","Meiryo UI","ＭＳ ゴシック",sans-serif;
+    }
     table.simpleOrange {
         background-color: #ff9951;
         border-collapse: collapse;
@@ -900,9 +918,13 @@ function showTable(idno) {
                                 _T("QSVに対応しているOSはWindows7 / Windows8 / Windows8.1 / Windows10 のいずれかです。<br></li><br>\n")), false);
                         } else {
                             print_tstring(tstring(_T("<li>お使いのCPU (") + cpuname + _T(")がQSVに対応しているか、確認してみてください。<br>\n")
-                                _T("<a target=\"_blank\" href=\"http://ark.intel.com/ja/search?q=") + cpuname + _T("\">こちら</a>から") +
+                                _T("<a target=\"_blank\" href=\"http://ark.intel.com/ja/search?q=") + cpuname + _T("\">こちらのリンク</a>から") +
                                 _T("「グラフィックスの仕様」のところの「インテル クイック・シンク・ビデオ」が「Yes」になっているかで確認できます。<br>\n")
-                                _T("<img src=\"setup/intel_ark_qsv.png\" alt=\"intel_ark_qsv\" border=\"0\" width=\"480\"/></li><br>\n")), false);
+                                _T("<table class=simpleBlue><tr><td>QSVが使用できる例</td><td>QSVが使用できない例</td></tr>\n")
+                                _T("<tr><td rowspan=2><img src=\"setup/intel_ark_qsv.png\" alt=\"intel_ark_qsv\" border=\"0\" width=\"480\"/><br>QSVが使用可能</td>\n")
+                                _T("    <td><img src=\"setup/intel_ark_noqsv.png\" alt=\"intel_ark_noqsv\" border=\"0\" width=\"400\"/><br>GPUが搭載されていない場合</td></tr>\n")
+                                _T("<tr><td><img src=\"setup/intel_ark_noqsv2.png\" alt=\"intel_ark_noqsv2\" border=\"0\" width=\"400\"/><br>QSVが使用できない場合</td></tr>\n")
+                                _T("</tr></table></li><br>\n")), false);
                             print_tstring(tstring(_T("<li>QSV利用に必要なIntel GPUがPCで認識されているか確認してください。<br>\n")
                                 _T("同梱の「デバイスマネージャを開く」をダブルクリックし、<br>\n")
                                 _T("<img src=\"setup/intel_gpu_device_manager_open.png\" alt=\"intel_gpu_device_manager_open\" border=\"0\" width=\"240\"/><br>\n")
@@ -914,13 +936,13 @@ function showTable(idno) {
                                 _T("<a target=\"_blank\" href=\"setup/intel_gpu_uefi_setting.jpg\"><img src=\"setup/intel_gpu_uefi_settings.jpg\" alt=\"intel_gpu_uefi_settings\" border=\"0\" width=\"400\"/></a><span style=font-size:x-small>(クリックして拡大)</span><br\n>")
                                 _T("</li><br>\n")), false);
                             print_tstring(tstring(_T("<li>Intel GPUのドライバがWindows Update経由でインストールされた場合など、Intel ドライバのインストールが不完全な場合に正しく動作しないことがあります。<br>\n")
-                                _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/ja/search?keyword=") + cpuname + tstring(_T("\">こちら</a>から")) +
+                                _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/ja/search?keyword=") + cpuname + tstring(_T("\">こちらのリンク</a>から")) +
                                 getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。<br>\n")
                                 _T("<img src=\"setup/intel_driver_select.png\" alt=\"intel_driver_select\" border=\"0\" width=\"360\"/></li><br>\n")), false);
                             print_tstring(_T("</ol>\n"), false);
-                            print_tstring(_T("<hr>\n"), false);
+                            print_tstring(_T("<hr><br><br>\n"), false);
                             print_tstring(_T("導入方法等については、<a target=\"_blank\" href=\"http://rigaya34589.blog135.fc2.com/blog-entry-704.html\">こちら</a>もご覧ください。<br>\n"), false);
-                            print_tstring(_T("<hr>\n"), false);
+                            print_tstring(_T("<br><br><hr>\n"), false);
                         }
                     } else {
                         print_tstring(_T(" Please check the items below."), true);
@@ -932,7 +954,11 @@ function showTable(idno) {
                             print_tstring(tstring(_T("<li>Please check wether your CPU (") + cpuname + _T(") supports QSV.<br>\n")
                                 _T("<a target=\"_blank\" href=\"http://ark.intel.com/search?q=") + cpuname + _T("\">Check from here</a>") +
                                 _T(" whether \"Intel Quick Sync Video\" in \"Graphics Specifications\" says \"Yes\".<br>\n")
-                                _T("<img src=\"setup/intel_ark_qsv_en.png\" alt=\"intel_ark_qsv_en\" border=\"0\" width=\"480\"/></li><br>\n")), false);
+                                _T("<table class=simpleBlue><tr><td>QSV available</td><td>QSV unavailable</td></tr>\n")
+                                _T("<tr><td rowspan=2><img src=\"setup/intel_ark_qsv_en.png\" alt=\"intel_ark_qsv_en\" border=\"0\" width=\"480\"/></td>\n")
+                                _T("    <td><img src=\"setup/intel_ark_noqsv_en.png\" alt=\"intel_ark_noqsv_en\" border=\"0\" width=\"400\"/><br>example1</td></tr>\n")
+                                _T("<tr><td><img src=\"setup/intel_ark_noqsv2_en.png\" alt=\"intel_ark_noqsv2_en\" border=\"0\" width=\"400\"/><br>example2</td></tr>\n")
+                                _T("</tr></table></li><br>\n")), false);
                             print_tstring(tstring(_T("<li>Please check for device manager if Intel GPU is recognized under \"Display Adapter\".<br>\n")
                                 _T("If you have discrete GPU on your PC, Intel GPU might not be shown.\n")
                                 _T("For that case, you need yto enable \"CPU Graphics Multi-Monitor\" in your BIOS(UEFI).<br>\n")
