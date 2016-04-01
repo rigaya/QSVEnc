@@ -34,7 +34,8 @@ public:
     //どこまで効果があるかは不明だが、align_byte=64としてfalse sharingを回避できる
     CQueueSPSP() :
         m_nPushRestartExtra(0),
-        m_heEvent(NULL),
+        m_heEventPoped(NULL),
+        m_heEventPushed(NULL),
         m_nMallocAlign(32),
         m_nMaxCapacity(SIZE_MAX),
         m_nKeepLength(0),
@@ -81,7 +82,8 @@ public:
     void init(size_t bufSize = 1024, size_t maxCapacity = SIZE_MAX, int nPushRestart = 1) {
         close();
         alloc(bufSize);
-        m_heEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
+        m_heEventPoped = CreateEvent(NULL, TRUE, TRUE, NULL);
+        m_heEventPushed = CreateEvent(NULL, TRUE, TRUE, NULL);
         m_nMaxCapacity = maxCapacity;
         m_nKeepLength = 0;
         m_nPushRestartExtra = clamp(nPushRestart - 1, 0, (int)std::min<size_t>(INT_MAX, maxCapacity) - 4);
@@ -104,9 +106,9 @@ public:
     }
     //キューのデータをクリアし、リソースを破棄する
     void close() {
-        if (m_heEvent) {
-            CloseEvent(m_heEvent);
-            m_heEvent = NULL;
+        if (m_heEventPoped) {
+            CloseEvent(m_heEventPoped);
+            m_heEventPoped = NULL;
         }
         m_pBufStart.reset();
         m_pBufFin = nullptr;
@@ -125,8 +127,8 @@ public:
     bool push(const Type& in) {
         //最初に決めた容量分までキューにデータがたまっていたら、キューに空きができるまで待機する
         while (size() >= m_nMaxCapacity) {
-            ResetEvent(m_heEvent);
-            WaitForSingleObject(m_heEvent, 16);
+            ResetEvent(m_heEventPoped);
+            WaitForSingleObject(m_heEventPoped, 16);
         }
         if (m_pBufIn >= m_pBufFin) {
             //現時点でのm_pBufOut (この後別スレッドによって書き換わるかもしれない)
@@ -168,6 +170,7 @@ public:
         }
         memcpy(m_pBufIn.load(), &in, sizeof(Type));
         m_pBufIn++;
+        SetEvent(m_heEventPushed);
         return true;
     }
     //キューのsizeを取得する
@@ -204,6 +207,9 @@ public:
             memcpy(out, m_pBufOut + index, sizeof(Type));
         }
         m_bUsingData--;
+        if (!bCopy) {
+            ResetEvent(m_heEventPushed);
+        }
         if (pnSize) {
             *pnSize = nSize;
         }
@@ -219,6 +225,9 @@ public:
             memcpy(out, m_pBufOut.load(), sizeof(Type));
         }
         m_bUsingData--;
+        if (!bCopy) {
+            ResetEvent(m_heEventPushed);
+        }
         if (pnSize) {
             *pnSize = nSize;
         }
@@ -233,10 +242,13 @@ public:
         if (bCopy) {
             memcpy(out, m_pBufOut++, sizeof(Type));
             if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
-                SetEvent(m_heEvent);
+                SetEvent(m_heEventPoped);
             }
         }
         m_bUsingData--;
+        if (!bCopy) {
+            ResetEvent(m_heEventPushed);
+        }
         if (pnSize) {
             *pnSize = nSize;
         }
@@ -251,11 +263,22 @@ public:
         if (bCopy) {
             m_pBufOut++;
             if (nSize <= m_nMaxCapacity - m_nPushRestartExtra) {
-                SetEvent(m_heEvent);
+                SetEvent(m_heEventPoped);
             }
         }
         m_bUsingData--;
+        if (!bCopy) {
+            ResetEvent(m_heEventPushed);
+        }
         return bCopy;
+    }
+    //要素が追加されるまで待機する
+    void wait_for_push() {
+        WaitForSingleObject(m_heEventPushed, 16);
+    }
+    //要素が追加されるまで待機するイベントを取得
+    HANDLE get_push_event() {
+        return m_heEventPushed;
     }
 protected:
     //bufSize分の内部領域を確保する
@@ -270,7 +293,8 @@ protected:
     }
 
     int m_nPushRestartExtra; //キューに空きがこのぶんだけ余剰にないと空き通知を行わない (0 = ひとつあけば通知を行う)
-    HANDLE m_heEvent; //キューからデータを取り出したときセットする
+    HANDLE m_heEventPoped; //キューからデータを取り出したときセットする
+    HANDLE m_heEventPushed; //キューにデータが追加されたときセットする
     int m_nMallocAlign; //メモリのアライメント
     size_t m_nMaxCapacity; //キューに詰められる有効なデータの最大数
     size_t m_nKeepLength; //ある一定の長さを常にキュー内に保持するようにする
