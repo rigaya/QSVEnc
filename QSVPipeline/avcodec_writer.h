@@ -194,7 +194,7 @@ typedef struct AVOutputStreamPrm {
     const TCHAR  *pEncodeCodec;  //音声をエンコードするコーデック
     int           nBitrate;      //ビットレートの指定
     int           nSamplingRate; //サンプリング周波数の指定
-    const TCHAR  *pFilter;       //音声をエンコードするコーデック
+    const TCHAR  *pFilter;       //音声フィルタ
 } AVOutputStreamPrm;
 
 typedef struct AvcodecWriterPrm {
