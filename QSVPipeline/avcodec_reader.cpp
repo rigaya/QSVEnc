@@ -1231,7 +1231,7 @@ mfxStatus CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
 
     bool bGetPacket = false;
     for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_and_pop_no_lock(&pkt, (m_Demux.thread.pQueueInfo) ? &m_Demux.thread.pQueueInfo->usage_vid_in : nullptr)) && m_Demux.qVideoPkt.size() > 0; i++) {
-        sleep_hybrid(i);
+        m_Demux.qVideoPkt.wait_for_push();
     }
     mfxStatus sts = MFX_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
