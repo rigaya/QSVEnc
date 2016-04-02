@@ -365,6 +365,15 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
                 }
             }
             m_Consumer.AddMetrics(subscribedMetrics);
+            if (subscribedMetrics.size() != _countof(METRIC_NAMES)) {
+                if (m_pManager) {
+                    const auto metricsUsed = m_Consumer.getMetricUsed();
+                    for (auto metric = metricsUsed.cbegin(); metric != metricsUsed.cend(); metric++) {
+                        m_pManager->UnsubscribeMetric(m_Consumer, metric->first);
+                    }
+                }
+                m_pManager.reset();
+            }
         }
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
