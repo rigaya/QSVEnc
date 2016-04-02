@@ -36,6 +36,7 @@ CEncodeStatusInfo::CEncodeStatusInfo() {
     m_sData.fBitrateKbps = 0.0;
     m_sData.fGPUClockTotal = 0.0;
     m_sData.fGPULoadPercentTotal = 0.0;
+    m_sData.fMFXLoadPercentTotal = 0.0;
     m_sData.nGPUInfoCountFail = 0;
     m_sData.nGPUInfoCountSuccess = 0;
     m_nInputFrames = 0;
@@ -50,15 +51,17 @@ CEncodeStatusInfo::CEncodeStatusInfo() {
 }
 
 CEncodeStatusInfo::~CEncodeStatusInfo() {
+    m_pPerfMonitor.reset();
     m_pQSVLog.reset();
 }
 
-void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog) {
+void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
     m_pause = FALSE;
     m_nOutputFPSRate = outputFPSRate;
     m_nOutputFPSScale = outputFPSScale;
     m_nTotalOutFrames = totalOutputFrames;
     m_pQSVLog = pQSVLog;
+    m_pPerfMonitor = pPerfMonitor;
 #if defined(_WIN32) || defined(_WIN64)
     DWORD mode = 0;
     m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか

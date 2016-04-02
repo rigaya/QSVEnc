@@ -313,11 +313,11 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_sMonitorFilename = filename;
     m_nInterval = interval;
     m_nSelectOutputPlot = nSelectOutputPlot;
-    m_nSelectOutputLog = nSelectOutputLog | PERF_MONITOR_MFX_LOAD;
+    m_nSelectOutputLog = nSelectOutputLog;
     m_nSelectCheck = m_nSelectOutputLog | m_nSelectOutputPlot;
     m_thMainThread = std::move(thMainThread);
 
-    if (!m_fpLog) {
+    if (!m_fpLog && m_sMonitorFilename.length() > 0) {
         m_fpLog = std::unique_ptr<FILE, fp_deleter>(_tfopen(m_sMonitorFilename.c_str(), _T("a")));
         if (!m_fpLog) {
             pQSVLog->write(QSV_LOG_WARN, _T("Failed to open performance monitor log file: %s\n"), m_sMonitorFilename.c_str());
@@ -445,7 +445,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     write_header(m_fpLog.get(),   m_nSelectOutputLog);
     write_header(m_pipes.f_stdin, m_nSelectOutputPlot);
 
-    if (m_nSelectOutputLog || m_nSelectOutputPlot) {
+    if ((m_nSelectOutputLog || m_nSelectOutputPlot) && (m_fpLog || m_pipes.f_stdin)) {
         m_thCheck = std::thread(loader, this);
     }
     return 0;
@@ -504,9 +504,9 @@ void CPerfMonitor::check() {
     //GPU情報
     pInfoNew->gpu_info_valid = FALSE;
 #if ENABLE_METRIC_FRAMEWORK
-    if (m_pManager) {
+    QSVGPUInfo qsvinfo = { 0 };
+    if (m_Consumer.getMFXLoad(&qsvinfo)) {
         pInfoNew->gpu_info_valid = TRUE;
-        auto qsvinfo = m_Consumer.getMFXLoad();
         pInfoNew->mfx_load_percent = qsvinfo.dMFXLoad;
         pInfoNew->gpu_load_percent = qsvinfo.dEULoad;
         pInfoNew->gpu_clock = qsvinfo.dGPUFreq;

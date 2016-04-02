@@ -2451,7 +2451,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog);
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog, m_pPerfMonitor);
     PrintMes(QSV_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
@@ -2639,9 +2639,12 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         pParams->memType = SYSTEM_MEMORY;
     }
 
-    if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
+    if (true) {
         m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
-        tstring perfMonLog = tstring(pParams->strDstFile) + _T("_perf.csv");
+        tstring perfMonLog;
+        if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
+            perfMonLog = tstring(pParams->strDstFile) + _T("_perf.csv");
+        }
         if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->pPythonPath, pParams->nPerfMonitorInterval,
             (int)pParams->nPerfMonitorSelect, (int)pParams->nPerfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)

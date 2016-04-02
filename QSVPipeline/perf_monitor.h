@@ -179,8 +179,11 @@ public:
 
     void AddMetrics(const std::map<MetricHandle, std::string>& metrics);
 
-    QSVGPUInfo getMFXLoad() {
-        return m_QSVInfo;
+    bool getMFXLoad(QSVGPUInfo *info) {
+        if (!m_bInfoValid)
+            return false;
+        memcpy(info, &m_QSVInfo, sizeof(m_QSVInfo));
+        return true;
     }
     const std::map<MetricHandle, std::string>& getMetricUsed() {
         return m_MetricsUsed;
@@ -209,6 +212,11 @@ public:
     PerfQueueInfo *GetQueueInfoPtr() {
         return &m_QueueInfo;
     }
+#if ENABLE_METRIC_FRAMEWORK
+    bool CPerfMonitor::GetQSVInfo(QSVGPUInfo *info) {
+        return m_Consumer.getMFXLoad(info);
+    }
+#endif //#if ENABLE_METRIC_FRAMEWORK
 
     void clear();
 protected:
