@@ -57,6 +57,7 @@ void CQSVConsumer::SetValue(const std::string& metricName, double value) {
 #pragma warning(push)
 #pragma warning(disable: 4100)
 void CQSVConsumer::OnMetricUpdated(uint32_t count, MetricHandle * metrics, const uint64_t * types, const void ** buffers, uint64_t * sizes) {
+    m_bInfoValid = true;
     for (uint32_t i = 0; i < count; i++) {
         const auto& metricName = m_MetricsUsed[metrics[i]];
         switch (types[i]) {

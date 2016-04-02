@@ -170,7 +170,7 @@ struct QSVGPUInfo {
 
 class CQSVConsumer : public IConsumer {
 public:
-    CQSVConsumer() : m_QSVInfo(), m_MetricsUsed() {
+    CQSVConsumer() : m_bInfoValid(false), m_QSVInfo(), m_MetricsUsed() {
         m_QSVInfo.dMFXLoad = 0.0;
         m_QSVInfo.dEULoad  = 0.0;
         m_QSVInfo.dGPUFreq = 0.0;
@@ -188,6 +188,7 @@ public:
 private:
     void SetValue(const std::string& metricName, double value);
 
+    bool m_bInfoValid;
     QSVGPUInfo m_QSVInfo;
     std::map<MetricHandle, std::string> m_MetricsUsed;
 };
