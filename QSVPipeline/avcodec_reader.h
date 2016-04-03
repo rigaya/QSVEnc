@@ -139,6 +139,7 @@ public:
     }
     //filenameに情報をcsv形式で出力する
     int printList(const TCHAR *filename) {
+#if !defined(__GNUC__)
         const int nList = (int)m_list.size();
         if (nList == 0) {
             return 0;
@@ -159,6 +160,7 @@ public:
                 (int)m_list[i].data.flags, (int)m_list[i].data.pic_struct, (int)m_list[i].data.repeat_pict, (int)m_list[i].data.pict_type);
         }
         fclose(fp);
+#endif
         return 0;
     }
     //indexの位置への参照を返す

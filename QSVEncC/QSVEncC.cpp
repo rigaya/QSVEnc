@@ -563,7 +563,10 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --log <string>               output log to file (txt or html).\n")
         _T("   --log-level <string>         set output log level\n")
         _T("                                 info(default), warn, error, debug\n")
-        _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n"));
+#if !defined(__GNUC__)
+        _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n")
+#endif //!defined(__GNUC__)
+        );
 #if ENABLE_SESSION_THREAD_CONFIG
     str += strsprintf(_T("")
         _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
