@@ -1280,11 +1280,11 @@ tstring MakeFeatureListStr(mfxU64 feature) {
     return str;
 }
 
-vector<std::pair<vector<uint64_t>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType type) {
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType type) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8, MFX_CODEC_VP9 };
     auto featurePerCodec = MakeFeatureListPerCodec(hardware, make_vector(list_rate_control_ry), codecLists);
     
-    vector<std::pair<vector<uint64_t>, tstring>> strPerCodec;
+    vector<std::pair<vector<mfxU64>, tstring>> strPerCodec;
     
     for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
         tstring str;
