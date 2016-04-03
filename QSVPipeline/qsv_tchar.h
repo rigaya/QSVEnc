@@ -29,6 +29,7 @@ typedef char TCHAR;
 #define _tcschr strchr
 #define _tcsstr strstr
 #define _tcstol strtol
+#define _tcsdup strdup
 #define _tfopen fopen
 #define _tfopen_s fopen_s
 #define _stprintf_s sprintf_s

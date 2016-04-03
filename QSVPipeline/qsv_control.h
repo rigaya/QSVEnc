@@ -272,11 +272,11 @@ public:
             return MFX_ERR_NONE;
         }
         m_tmLastUpdate = tm;
-#if defined(_WIN32) || defined(_WIN64)
         bool bMFXUsage = false;
         bool bGPUUsage = false;
         int mfxusage = 0;
         int gpuusage = 0;
+#if defined(_WIN32) || defined(_WIN64)
 #if ENABLE_METRIC_FRAMEWORK
         QSVGPUInfo info = { 0 };
         bMFXUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
@@ -302,6 +302,7 @@ public:
 #if ENABLE_METRIC_FRAMEWORK
         }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#endif //#if defined(_WIN32) || defined(_WIN64)
         TCHAR mes[256];
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
         m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / elapsedTime;
@@ -347,7 +348,6 @@ public:
                 }
             }
         }
-#endif //#if defined(_WIN32) || defined(_WIN64)
         UpdateDisplay(mes, drop_frames, progressPercent);
         return MFX_ERR_NONE;
     }

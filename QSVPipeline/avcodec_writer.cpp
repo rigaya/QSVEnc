@@ -1310,8 +1310,8 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
     if (!m_Mux.video.pStream) {
         return SetVideoParam(NULL, NULL);
     }
-    m_Mux.thread.pQueueInfo = prm->pQueueInfo;
 #if ENABLE_AVCODEC_OUT_THREAD
+    m_Mux.thread.pQueueInfo = prm->pQueueInfo;
     //スレッドの使用数を設定
     if (prm->nOutputThread == QSV_OUTPUT_THREAD_AUTO) {
         prm->nOutputThread = 1;
