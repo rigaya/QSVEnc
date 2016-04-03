@@ -16,6 +16,7 @@
 #include <set>
 #include <vector>
 #include <numeric>
+#include <regex>
 #include <algorithm>
 #include <ctime>
 #include "qsv_osdep.h"
@@ -27,6 +28,8 @@
 #include "qsv_prm.h"
 #include "qsv_version.h"
 #include "avcodec_qsv.h"
+
+#include "../dtl/dtl/dtl.hpp"
 
 #if ENABLE_AVCODEC_QSV_READER
 extern "C" {
@@ -61,25 +64,56 @@ static void PrintVersion() {
 }
 
 //適当に改行しながら表示する
-static void PrintListOptions(FILE *fp, const TCHAR *option_name, const CX_DESC *list, int default_index) {
+static tstring PrintListOptions(const TCHAR *option_name, const CX_DESC *list, int default_index) {
     const TCHAR *indent_space = _T("                                ");
     const int indent_len = (int)_tcslen(indent_space);
     const int max_len = 77;
-    int print_len = _ftprintf(fp, _T("   %s "), option_name);
-    while (print_len < indent_len)
-         print_len += _ftprintf(stdout, _T(" "));
+    tstring str = strsprintf(_T("   %s "), option_name);
+    while ((int)str.length() < indent_len)
+        str += _T(" ");
+    int line_len = (int)str.length();
     for (int i = 0; list[i].desc; i++) {
-        if (print_len + _tcslen(list[i].desc) + _tcslen(_T(", ")) >= max_len) {
-            _ftprintf(fp, _T("\n%s"), indent_space);
-            print_len = indent_len;
+        if (line_len + _tcslen(list[i].desc) + _tcslen(_T(", ")) >= max_len) {
+            str += strsprintf(_T("\n%s"), indent_space);
+            line_len = indent_len;
         } else {
-            if (i)
-                print_len += _ftprintf(fp, _T(", "));
+            if (i) {
+                str += strsprintf(_T(", "));
+                line_len += 2;
+            }
         }
-        print_len += _ftprintf(fp, _T("%s"), list[i].desc);
+        str += strsprintf(_T("%s"), list[i].desc);
+        line_len += (int)_tcslen(list[i].desc);
     }
-    _ftprintf(fp, _T("\n%s default: %s\n"), indent_space, list[default_index].desc);
+    str += strsprintf(_T("\n%s default: %s\n"), indent_space, list[default_index].desc);
+    return str;
 }
+
+class CombinationGenerator {
+public:
+    CombinationGenerator(int i) : m_nCombination(i) {
+
+    }
+    void create(vector<int> used) {
+        if ((int)used.size() == m_nCombination) {
+            m_nCombinationList.push_back(used);
+        }
+        for (int i = 0; i < m_nCombination; i++) {
+            if (std::find(used.begin(), used.end(), i) == used.end()) {
+                vector<int> u = used;
+                u.push_back(i);
+                create(u);
+            }
+        }
+    }
+    vector<vector<int>> generate() {
+        vector<int> used;
+        create(used);
+        return m_nCombinationList;
+    };
+    int m_nCombination;
+    vector<vector<int>> m_nCombinationList;
+};
 
 typedef struct ListData {
     const TCHAR *name;
@@ -87,40 +121,42 @@ typedef struct ListData {
     int default_index;
 } ListData;
 
-static void PrintMultipleListOptions(FILE *fp, const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
+static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
+    tstring str;
     const TCHAR *indent_space = _T("                                ");
     const int indent_len = (int)_tcslen(indent_space);
     const int max_len = 79;
-    int print_len = _ftprintf(fp, _T("   %s "), option_name);
-    while (print_len < indent_len) {
-        print_len += _ftprintf(fp, _T(" "));
+    str += strsprintf(_T("   %s "), option_name);
+    while ((int)str.length() < indent_len) {
+        str += _T(" ");
     }
-    _ftprintf(fp, _T("%s\n"), option_desc);
+    str += strsprintf(_T("%s\n"), option_desc);
     const auto data_name_max_len = indent_len + 4 + std::accumulate(listDatas.begin(), listDatas.end(), 0,
         [](const int max_len, const ListData data) { return (std::max)(max_len, (int)_tcslen(data.name)); });
 
     for (const auto& data : listDatas) {
-        print_len = _ftprintf(fp, _T("%s- %s: "), indent_space, data.name);
-        while (print_len < data_name_max_len) {
-            print_len += _ftprintf(fp, _T(" "));
+        tstring line = strsprintf(_T("%s- %s: "), indent_space, data.name);
+        while ((int)line.length() < data_name_max_len) {
+            line += strsprintf(_T(" "));
         }
         for (int i = 0; data.list[i].desc; i++) {
             const int desc_len = (int)(_tcslen(data.list[i].desc) + _tcslen(_T(", ")) + ((i == data.default_index) ? _tcslen(_T("(default)")) : 0));
-            if (print_len + desc_len >= max_len) {
-                _ftprintf(fp, _T("\n%s"), indent_space);
-                print_len = indent_len;
-                while (print_len < data_name_max_len) {
-                    print_len += _ftprintf(fp, _T(" "));
+            if (line.length() + desc_len >= max_len) {
+                str += line + _T("\n");
+                line = indent_space;
+                while ((int)line.length() < data_name_max_len) {
+                    line += strsprintf(_T(" "));
                 }
             } else {
                 if (i) {
-                    print_len += _ftprintf(fp, _T(", "));
+                    line += strsprintf(_T(", "));
                 }
             }
-            print_len += _ftprintf(fp, _T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
+            line += strsprintf(_T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
         }
-        _ftprintf(fp, _T("\n"));
+        str += line + _T("\n");
     }
+    return str;
 }
 
 static const TCHAR *short_opt_to_long(TCHAR short_opt) {
@@ -163,6 +199,516 @@ static const TCHAR *short_opt_to_long(TCHAR short_opt) {
     return option_name;
 }
 
+static tstring help(const TCHAR *strAppName = nullptr) {
+    tstring str;
+    str += strsprintf(_T("Usage: %s [Options] -i <filename> -o <filename>\n"), (strAppName) ? PathFindFileName(strAppName) : _T("QSVEncC"));
+    str += strsprintf(_T("\n")
+#if ENABLE_AVCODEC_QSV_READER
+        _T("When video codec could be decoded by QSV, any format or protocol supported\n")
+        _T("by ffmpeg library could be used as a input.\n")
+#endif
+        _T("%s input can be %s%s%sraw YUV or YUV4MPEG2(y4m) format.\n")
+        _T("when raw(default), fps, input-res are also necessary.\n")
+        _T("\n")
+        _T("output format will be automatically set by the output extension.\n")
+        _T("when output filename is set to \"-\", H.264/AVC ES output is thrown to stdout.\n")
+        _T("\n")
+        _T("Example:\n")
+        _T("  QSVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
+        _T("  avs2pipemod -y4mp \"<avsfile>\" | QSVEncC --y4m -i - -o \"<outfilename>\"\n")
+        _T("\n")
+        _T("Example for Benchmark:\n")
+        _T("  QSVEncC -i \"<avsfilename>\" --benchmark \"<benchmark_result.txt>\"\n")
+        ,
+        (ENABLE_AVCODEC_QSV_READER) ? _T("Also, ") : _T(""),
+        (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
+        (ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
+        (ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
+    str += strsprintf(_T("\n")
+        _T("Information Options: \n")
+        _T("-h,-? --help                    show help\n")
+        _T("-v,--version                    show version info\n")
+        _T("   --check-hw                   check if QuickSyncVideo is available\n")
+        _T("   --check-lib                  check lib API version installed\n")
+        _T("   --check-features [<string>]  check encode/vpp features\n")
+        _T("                                 with no option value, result will on stdout,\n")
+        _T("                                 otherwise, it is written to file path set\n")
+        _T("                                 and opened by default application.\n")
+        _T("                                 when writing to file, txt/html/csv format\n")
+        _T("                                 is available, chosen by the extension\n")
+        _T("                                 of the output file.\n")
+        _T("   --check-features-html [<string>]\n")
+        _T("                                check encode/vpp features and write html report to\n")
+        _T("                                 specified path. With no value, \"qsv_check.html\"\n")
+        _T("                                 will be created to current directory.\n")
+        _T("   --check-environment          check environment info\n")
+#if ENABLE_AVCODEC_QSV_READER
+        _T("   --check-avversion            show dll version\n")
+        _T("   --check-codecs               show codecs available\n")
+        _T("   --check-encoders             show audio encoders available\n")
+        _T("   --check-decoders             show audio decoders available\n")
+        _T("   --check-formats              show in/out formats available\n")
+        _T("   --check-protocols            show in/out protocols available\n")
+        _T("   --check-filters              show filters available\n")
+#endif
+        _T("\n"));
+
+    str += strsprintf(_T("\n")
+        _T("Basic Encoding Options: \n")
+        _T("-c,--codec <string>             set encode codec\n")
+        _T("                                 - h264(default), hevc, mpeg2\n")
+        _T("-i,--input-file <filename>      set input file name\n")
+        _T("-o,--output-file <filename>     set ouput file name\n")
+#if ENABLE_AVCODEC_QSV_READER
+        _T("                                 for extension mp4/mkv/mov,\n")
+        _T("                                 avcodec muxer will be used.\n")
+#endif
+        _T("\n")
+        _T(" Input formats (will be estimated from extension if not set.)\n")
+        _T("   --raw                        set input as raw format\n")
+        _T("   --y4m                        set input as y4m format\n")
+#if ENABLE_AVI_READER
+        _T("   --avi                        set input as avi format\n")
+#endif
+#if ENABLE_AVISYNTH_READER
+        _T("   --avs                        set input as avs format\n")
+#endif
+#if ENABLE_VAPOURSYNTH_READER
+        _T("   --vpy                        set input as vpy format\n")
+        _T("   --vpy-mt                     set input as vpy format in multi-thread\n")
+#endif
+#if ENABLE_AVCODEC_QSV_READER
+        _T("   --avqsv                      set input to use avcodec + qsv\n")
+        _T("   --avqsv-analyze <int>        set time (sec) which reader analyze input file.\n")
+        _T("                                 default: 5 (seconds).\n")
+        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 use if reader fails to detect audio stream.\n")
+        _T("   --audio-source <string>      input extra audio file\n")
+        _T("   --audio-file [<int>?][<string>:]<string>\n")
+        _T("                                extract audio into file.\n")
+        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 below are optional,\n")
+        _T("                                  in [<int>?], specify track number to extract.\n")
+        _T("                                  in [<string>?], specify output format.\n")
+        _T("   --trim <int>:<int>[,<int>:<int>]...\n")
+        _T("                                trim video for the frame range specified.\n")
+        _T("                                 frame range should not overwrap each other.\n")
+        _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+        _T("                                skip video for the time specified,\n")
+        _T("                                 seek will be inaccurate but fast.\n")
+        _T("-f,--format <string>            set output format of output file.\n")
+        _T("                                 if format is not specified, output format will\n")
+        _T("                                 be guessed from output file extension.\n")
+        _T("                                 set \"raw\" for H.264/ES output.\n")
+        _T("   --audio-copy [<int>[,...]]   mux audio with video during output.\n")
+        _T("                                 could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 by default copies all audio tracks.\n")
+        _T("                                 \"--audio-copy 1,2\" will extract\n")
+        _T("                                 audio track #1 and #2.\n")
+        _T("   --audio-codec [<int>?]<string>\n")
+        _T("                                encode audio to specified format.\n")
+        _T("                                  in [<int>?], specify track number to encode.\n")
+        _T("   --audio-bitrate [<int>?]<int>\n")
+        _T("                                set encode bitrate for audio (kbps).\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
+        _T("                                set numbers of continuous packets of audio\n")
+        _T("                                 decode error to ignore, replaced by silence.\n")
+        _T("   --audio-ignore-notrack-error ignore error when audio track is unfound.\n")
+        _T("   --audio-samplerate [<int>?]<int>\n")
+        _T("                                set sampling rate for audio (Hz).\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-resampler <string>   set audio resampler.\n")
+        _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
+        _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
+        _T("       set audio streams in channels.\n")
+        _T("         in [<int>?], specify track number to split.\n")
+        _T("         in <string1>, set input channels to use from source stream.\n")
+        _T("           if unset, all input channels will be used.\n")
+        _T("         in <string2>, set output channels to mix.\n")
+        _T("           if unset, all input channels will be copied without mixing.\n")
+        _T("       example1: --audio-stream FL,FR\n")
+        _T("         splitting dual mono audio to each stream.\n")
+        _T("       example2: --audio-stream :stereo\n")
+        _T("         mixing input channels to stereo.\n")
+        _T("       example3: --audio-stream 5.1,5.1:stereo\n")
+        _T("         keeping 5.1ch audio and also adding downmixed stereo stream.\n")
+        _T("       usable simbols\n")
+        _T("         mono       = FC\n")
+        _T("         stereo     = FL + FR\n")
+        _T("         2.1        = FL + FR + LFE\n")
+        _T("         3.0        = FL + FR + FC\n")
+        _T("         3.0(back)  = FL + FR + BC\n")
+        _T("         3.1        = FL + FR + FC + LFE\n")
+        _T("         4.0        = FL + FR + FC + BC\n")
+        _T("         quad       = FL + FR + BL + BR\n")
+        _T("         quad(side) = FL + FR + SL + SR\n")
+        _T("         5.0        = FL + FR + FC + SL + SR\n")
+        _T("         5.1        = FL + FR + FC + LFE + SL + SR\n")
+        _T("         6.0        = FL + FR + FC + BC + SL + SR\n")
+        _T("         6.0(front) = FL + FR + FLC + FRC + SL + SR\n")
+        _T("         hexagonal  = FL + FR + FC + BL + BR + BC\n")
+        _T("         6.1        = FL + FR + FC + LFE + BC + SL + SR\n")
+        _T("         6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR\n")
+        _T("         7.0        = FL + FR + FC + BL + BR + SL + SR\n")
+        _T("         7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
+        _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
+        _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
+        _T("   --audio-filter [<int>?]<string>\n")
+        _T("                                set audio filter.\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --chapter-copy               copy chapter to output file.\n")
+        _T("   --chapter <string>           set chapter from file specified.\n")
+        _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
+        _T("                                 these could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 below are optional,\n")
+        _T("                                  in [<int>?], specify track number to copy.\n")
+        _T("\n")
+        _T("   --avsync <string>            method for AV sync (default: through)\n")
+        _T("                                 through  ... assume cfr, no check but fast\n")
+        _T("                                 forcecfr ... check timestamp and force cfr.\n")
+        _T("-m,--mux-option <string1>:<string2>\n")
+        _T("                                set muxer option name and value.\n")
+        _T("                                 these could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n"),
+        QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR);
+#endif
+    str += strsprintf(_T("\n")
+        _T("   --nv12                       set raw input as NV12 color format,\n")
+        _T("                                if not specified YV12 is expected\n")
+        _T("   --tff                        set as interlaced, top field first\n")
+        _T("   --bff                        set as interlaced, bottom field first\n")
+        _T("   --fps <int>/<int> or <float> video frame rate (frames per second)\n")
+        _T("\n")
+        _T("   --input-res <int>x<int>      input resolution\n")
+        _T("   --output-res <int>x<int>     output resolution\n")
+        _T("                                if different from input, uses vpp resizing\n")
+        _T("                                if not set, output resolution will be same\n")
+        _T("                                as input (no resize will be done).\n")
+        _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
+        _T("\n"));
+    str += strsprintf(_T("Frame buffer Options:\n")
+        _T(" frame buffers are selected automatically by default.\n")
+#ifdef D3D_SURFACES_SUPPORT
+        _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
+        _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
+        _T(" On particular cases, sush as runnning on a system with dGPU, or running\n")
+        _T(" vpp-rotate, will require the uses of d3d11 surface.\n")
+        _T(" Options below will change this default behavior.\n")
+        _T("\n")
+        _T("   --disable-d3d                disable using d3d surfaces\n")
+#if MFX_D3D11_SUPPORT
+        _T("   --d3d                        use d3d9/d3d11 surfaces\n")
+        _T("   --d3d9                       use d3d9 surfaces\n")
+        _T("   --d3d11                      use d3d11 surfaces\n")
+#else
+        str += strsprintf(_T("")
+            _T("   --d3d                        use d3d9 surfaces\n")
+#endif //MFX_D3D11_SUPPORT
+#endif //D3D_SURFACES_SUPPORT
+#ifdef LIBVA_SUPPORT
+            _T("   --disable-va                 disable using va surfaces\n")
+            _T("   --va                         use va surfaces\n")
+#endif //#ifdef LIBVA_SUPPORT
+            _T("\n"));
+    str += strsprintf(_T("Encode Mode Options:\n")
+        _T(" EncMode default: --cqp\n")
+        _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
+        _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
+        _T("   --vqp <int> or               encode in Variable QP, default %d:%d:%d\n")
+        _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
+        _T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
+        _T("   --la-hrd <int>               set bitrate in HRD-Lookahead mode (kbps)\n")
+        _T("   --icq <int>                  encode in Intelligent Const. Quality mode\n")
+        _T("                                  default value: %d\n")
+        _T("   --la-icq <int>               encode in ICQ mode with Lookahead\n")
+        _T("                                  default value: %d\n")
+        _T("   --cbr <int>                  set bitrate in CBR mode (kbps)\n")
+        _T("   --vbr <int>                  set bitrate in VBR mode (kbps)\n")
+        _T("   --avbr <int>                 set bitrate in AVBR mode (kbps)\n")
+        _T("                                 AVBR mode is only supported with API v1.3\n")
+        _T("   --avbr-unitsize <int>        avbr calculation period in x100 frames\n")
+        _T("                                 default %d (= unit size %d00 frames)\n")
+        //_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
+        //_T("                                   in percentage, defalut %.1f(%%)\n)"
+        _T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
+        _T("                                 requires --qvbr-q option to be set as well\n")
+        _T("   --qvbr-q <int>  or           set quality used in qvbr mode. default: %d\n")
+        _T("   --qvbr-quality <int>          QVBR mode is only supported with API v1.11\n")
+        _T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
+        _T("\n"),
+        QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
+        QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
+        QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
+        QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
+        QSV_DEFAULT_QVBR);
+    str += strsprintf(_T("Other Encode Options:\n")
+        _T("   --fallback-rc                enable fallback of ratecontrol mode, when\n")
+        _T("                                 platform does not support new ratecontrol modes.\n")
+        _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
+        _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
+        _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
+        _T("   --qpmin <int> or             set min QP, default 0 (= unset)\n")
+        _T("           <int>:<int>:<int>\n")
+        _T("   --qpmax <int> or             set max QP, default 0 (= unset)\n")
+        _T("           <int>:<int>:<int>\n")
+        _T("-u,--quality <string>           encode quality\n")
+        _T("                                  - best, higher, high, balanced(default)\n")
+        _T("                                    fast, faster, fastest\n")
+        _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
+        _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
+        _T("                                  and set the window size in frames.\n")
+        _T("   --la-quality <string>        set lookahead quality.\n")
+        _T("                                 - auto(default), fast, medium, slow\n")
+        _T("   --(no-)mbbrc                 enables per macro block rate control\n")
+        _T("                                 default: auto\n")
+        _T("   --(no-)extbrc                enables extended rate control\n")
+        _T("                                 default: auto\n")
+        _T("   --ref <int>                  reference frames\n")
+        _T("                                  default %d (auto)\n")
+        _T("-b,--bframes <int>              number of sequential b frames\n")
+        _T("                                  default %d(HEVC) / %d(others)\n")
+        _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
+        _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
+        _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
+        _T("                                  when auto, fps x 10 will be set.\n")
+        _T("   --(no-)scenechange           enables scene change detection\n")
+        _T("   --(no-)open-gop              enables open gop (default:off)\n")
+        _T("   --strict-gop                 force gop structure\n")
+        _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
+        _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
+        _T("   --(no-)weightp               enable weight prediction for P frame\n")
+        _T("   --(no-)weightb               enable weight prediction for B frame\n")
+        _T("   --(no-)fade-detect           enable fade detection\n")
+        _T("   --trellis <string>           set trellis mode used in encoding\n")
+        _T("                                 - auto(default), off, i, ip, all\n")
+        _T("   --mv-scaling                 set mv cost scaling\n")
+        _T("                                 - 0  set MV cost to be 0\n")
+        _T("                                 - 1  set MV cost 1/2 of default\n")
+        _T("                                 - 2  set MV cost 1/4 of default\n")
+        _T("                                 - 3  set MV cost 1/8 of default\n")
+        _T("   --slices <int>               number of slices, default 0 (auto)\n")
+        _T("   --no-deblock                 disables H.264 deblock feature\n")
+        _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
+        _T("\n"),
+        QSV_ASYNC_DEPTH_MAX,
+        QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
+        QSV_DEFAULT_REF,
+        QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
+        QSV_DEFAULT_GOP_LEN);
+    str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
+        { { _T("H.264"), list_avc_level,   0 },
+          { _T("HEVC"),  list_hevc_level,  0 },
+          { _T("MPEG2"), list_mpeg2_level, 0 }
+        });
+    str += PrintMultipleListOptions(_T("--profile <string>"), _T("set codec profile"),
+        { { _T("H.264"), list_avc_profile,   0 },
+          { _T("HEVC"),  list_hevc_profile,  0 },
+          { _T("MPEG2"), list_mpeg2_profile, 0 }
+        });
+
+    str += strsprintf(_T("\n")
+        _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
+        _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
+        _T("   --bluray                     for H.264 bluray encoding\n")
+        _T("\n")
+        _T("   --crop <int>,<int>,<int>,<int>\n")
+        _T("                                set crop pixels of left, up, right, bottom.\n")
+        _T("\n")
+        _T("   --fullrange                  set stream as fullrange yuv\n"));
+    str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
+    str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
+    str += PrintListOptions(_T("--colorprim <string>"),   list_colorprim,   0);
+    str += PrintListOptions(_T("--transfer <string>"),    list_transfer,    0);
+    str += strsprintf(_T("\n")
+        //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
+        _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
+        _T("                                 default   hw: %d,  sw: %d\n")
+        _T("                                 cannot be used with avqsv reader.\n"),
+        QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX,
+        QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
+        );
+    str += strsprintf(_T("")
+        _T("   --output-buf <int>           buffer size for output in MByte\n")
+        _T("                                 default %d MB (0-%d)\n"),
+        QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
+        );
+    str += strsprintf(_T("")
+        _T("   --input-thread <int>        set input thread num\n")
+        _T("                                  0: disable (slow, but less cpu usage)\n")
+        _T("                                  1: use one thread\n")
+#if ENABLE_AVCODEC_OUT_THREAD
+        _T("   --output-thread <int>        set output thread num\n")
+        _T("                                 -1: auto (= default)\n")
+        _T("                                  0: disable (slow, but less memory usage)\n")
+        _T("                                  1: use one thread\n")
+#if 0
+        _T("   --audio-thread <int>         set audio thread num, available only with output thread\n")
+        _T("                                 -1: auto (= default)\n")
+        _T("                                  0: disable (slow, but less memory usage)\n")
+        _T("                                  1: use one thread\n")
+        _T("                                  2: use two thread\n")
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+#endif //#if ENABLE_AVCODEC_OUT_THREAD
+        _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
+        _T("                                 same as --output-thread 0 --audio-thread 0\n")
+        _T("                                         -a 1 --input-buf 1 --output-buf 0\n")
+        _T("                                 this will cause lower performance!\n")
+        _T("   --max-procfps <int>         limit processing speed to lower resource usage.\n")
+        _T("                                 default:0 (no limit)\n")
+        );
+    str += strsprintf(
+        _T("   --log <string>               output log to file (txt or html).\n")
+        _T("   --log-level <string>         set output log level\n")
+        _T("                                 info(default), warn, error, debug\n")
+        _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n"));
+#if ENABLE_SESSION_THREAD_CONFIG
+    str += strsprintf(_T("")
+        _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
+        _T("                                 default: 0 (=auto)\n")
+        _T("   --session-thread-priority    set thread priority for QSV session.\n")
+        _T("                                  - low, normal(default), high\n"),
+        QSV_SESSION_THREAD_MAX);
+#endif
+    str += strsprintf(_T("\n")
+        _T("   --benchmark <string>         run in benchmark mode\n")
+        _T("                                 and write result in txt file\n")
+        _T("   --bench-quality \"all\" or <int>[,<int>][,<int>]...\n")
+        _T("                                 default: 1,4,7\n")
+        _T("                                list of target quality to check on benchmark\n")
+        _T("   --perf-monitor [<string>][,<string>]...\n")
+        _T("       check performance info of QSVEncC and output to log file\n")
+        _T("       select counter from below, default = all\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("   --perf-monitor-plot [<string>][,<string>]...\n")
+        _T("       plot perf monitor realtime (required python, pyqtgraph)\n")
+        _T("       select counter from below, default = cpu,bitrate\n")
+        _T("                                 \n")
+        _T("     counters for perf-monitor, perf-monitor-plot\n")
+#else
+        _T("     counters for perf-monitor\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 all          ... monitor all info\n")
+        _T("                                 cpu_total    ... cpu total usage (%%)\n")
+        _T("                                 cpu_kernel   ... cpu kernel usage (%%)\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 cpu_main     ... cpu main thread usage (%%)\n")
+        _T("                                 cpu_enc      ... cpu encode thread usage (%%)\n")
+        _T("                                 cpu_in       ... cpu input thread usage (%%)\n")
+        _T("                                 cpu_out      ... cpu output thread usage (%%)\n")
+        _T("                                 cpu_aud_proc ... cpu aud proc thread usage (%%)\n")
+        _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 cpu          ... monitor all cpu info\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 gpu_load    ... gpu usage (%%)\n")
+        _T("                                 gpu_clock   ... gpu avg clock (%%)\n")
+        _T("                                 gpu         ... monitor all gpu info\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 queue       ... queue usage\n")
+        _T("                                 mem_private ... private memory (MB)\n")
+        _T("                                 mem_virtual ... virtual memory (MB)\n")
+        _T("                                 mem         ... monitor all memory info\n")
+        _T("                                 io_read     ... io read  (MB/s)\n")
+        _T("                                 io_write    ... io write (MB/s)\n")
+        _T("                                 io          ... monitor all io info\n")
+        _T("                                 fps         ... encode speed (fps)\n")
+        _T("                                 fps_avg     ... encode avg. speed (fps)\n")
+        _T("                                 bitrate     ... encode bitrate (kbps)\n")
+        _T("                                 bitrate_avg ... encode avg. bitrate (kbps)\n")
+        _T("                                 frame_out   ... written_frames\n")
+        _T("                                 \n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("   --python <string>            set python path for --perf-monitor-plot\n")
+        _T("                                 default: python\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("   --perf-monitor-interval <int> set perf monitor check interval (millisec)\n")
+        _T("                                 default 250, must be 50 or more\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
+        _T("                                  default: enabled\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        );
+#if 0
+    str += strsprintf(_T("\n")
+        _T(" Settings below are available only for software ecoding.\n")
+        _T("   --cavlc                      use cavlc instead of cabac\n")
+        _T("   --rdo                        use rate distortion optmization\n")
+        _T("   --inter-pred <int>           set minimum block size used for\n")
+        _T("   --intra-pred <int>           inter/intra prediction\n")
+        _T("                                  0: auto(default)   1: 16x16\n")
+        _T("                                  2: 8x8             3: 4x4\n")
+        _T("   --mv-search <int>            set window size for mv search\n")
+        _T("                                  default: 0 (auto)\n")
+        _T("   --mv-precision <int>         set precision of mv search\n")
+        _T("                                  0: auto(default)   1: full-pell\n")
+        _T("                                  2: half-pell       3: quater-pell\n")
+        );
+#endif
+    str += strsprintf(_T("\nVPP Options:\n")
+        _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
+        _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
+        _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
+        _T("                                enabled only when set --tff or --bff\n")
+        _T("                                 - none     disable deinterlace\n")
+        _T("                                 - normal   normal deinterlace\n")
+        _T("                                 - it       inverse telecine\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+        _T("                                 - it-manual <string>\n")
+        _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
+#endif
+        _T("                                 - bob      double framerate\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+        _T("                                 - auto     auto deinterlace\n")
+        _T("                                 - auto-bob auto bob deinterlace\n")
+#endif
+#if ENABLE_FPS_CONVERSION
+        _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
+        _T("                                enabled only when input is progressive\n")
+        _T("                                 - none, x2, x2.5\n")
+#endif
+        _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
+        _T("                                 - none, upscale, box\n")
+        _T("   --vpp-delogo <string>        set delogo file path\n")
+        _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
+        _T("                                 or logo index starting from 1.\n")
+        _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
+        _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
+        _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
+        _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
+        _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+        _T("   --vpp-rotate <int>           rotate image\n")
+        _T("                                 90, 180, 270.\n")
+        _T("   --vpp-half-turn              half turn video image\n")
+        _T("                                 unoptimized and very slow.\n"),
+        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
+        QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX,
+        QSV_DEFAULT_VPP_DELOGO_DEPTH
+        );
+    return str;
+}
+
+static vector<std::string> createOptionList() {
+    vector<std::string> optionList;
+    auto helpLines = split(tchar_to_string(help()), "\n");
+    std::regex re1(R"(^\s{2,6}--([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");
+    std::regex re2(R"(^\s{0,3}-[A-Za-z0-9],--([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");
+    std::regex re3(R"(^\s{0,3}--\(no-\)([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");
+    for (const auto& line : helpLines) {
+        std::smatch match;
+        if (std::regex_match(line, match, re1) && match.size() == 2) {
+            optionList.push_back(match[1]);
+        } else if (std::regex_match(line, match, re2) && match.size() == 2) {
+            optionList.push_back(match[1]);
+        } else if (std::regex_match(line, match, re3) && match.size() == 2) {
+            optionList.push_back(match[1]);
+        }
+    }
+    return optionList;
+}
+
 static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName, const TCHAR *strErrorValue = nullptr) {
     if (strErrorMessage) {
         if (strOptionName) {
@@ -177,496 +723,48 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             }
         } else {
             _ftprintf(stderr, _T("Error: %s\n\n"), strErrorMessage);
+            if (strErrorValue) {
+                //どのオプション名に近いか検証する
+                auto optList = createOptionList();
+                const auto invalid_opt = tchar_to_string(strErrorValue);
+                //入力文字列を"-"で区切り、その組み合わせをすべて試す
+                const auto invalid_opt_words = split(invalid_opt, "-", true);
+                CombinationGenerator generator((int)invalid_opt_words.size());
+                const auto combinationList = generator.generate();
+                vector<std::pair<std::string, int>> editDistList;
+                for (const auto& opt : optList) {
+                    int nMinEditDist = INT_MAX;
+                    for (const auto& combination : combinationList) {
+                        std::string check_key;
+                        for (auto i : combination) {
+                            if (check_key.length() > 0) {
+                                check_key += "-";
+                            }
+                            check_key += invalid_opt_words[i];
+                        }
+                        dtl::Diff<char, std::string> diff(check_key, opt);
+                        diff.onOnlyEditDistance();
+                        diff.compose();
+                        nMinEditDist = (std::min)(nMinEditDist, (int)diff.getEditDistance());
+                    }
+                    editDistList.push_back(std::make_pair(opt, nMinEditDist));
+                }
+                std::sort(editDistList.begin(), editDistList.end(), [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) {
+                    return b.second > a.second;
+                });
+                const int nMinEditDist = editDistList[0].second;
+                _ftprintf(stderr, _T("Did you mean option(s) below?\n"));
+                for (const auto& editDist : editDistList) {
+                    if (editDist.second != nMinEditDist) {
+                        break;
+                    }
+                    _ftprintf(stderr, _T("  --%s\n"), char_to_tstring(editDist.first).c_str());
+                }
+            }
         }
     } else {
         PrintVersion();
-
-        _ftprintf(stdout, _T("Usage: %s [Options] -i <filename> -o <filename>\n"), PathFindFileName(strAppName));
-        _ftprintf(stdout, _T("\n")
-#if ENABLE_AVCODEC_QSV_READER
-            _T("When video codec could be decoded by QSV, any format or protocol supported\n")
-            _T("by ffmpeg library could be used as a input.\n")
-#endif
-            _T("%s input can be %s%s%sraw YUV or YUV4MPEG2(y4m) format.\n")
-            _T("when raw(default), fps, input-res are also necessary.\n")
-            _T("\n")
-            _T("output format will be automatically set by the output extension.\n")
-            _T("when output filename is set to \"-\", H.264/AVC ES output is thrown to stdout.\n")
-            _T("\n")
-            _T("Example:\n")
-            _T("  QSVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
-            _T("  avs2pipemod -y4mp \"<avsfile>\" | QSVEncC --y4m -i - -o \"<outfilename>\"\n")
-            _T("\n")
-            _T("Example for Benchmark:\n")
-            _T("  QSVEncC -i \"<avsfilename>\" --benchmark \"<benchmark_result.txt>\"\n")
-            ,
-            (ENABLE_AVCODEC_QSV_READER) ? _T("Also, ") : _T(""),
-            (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
-            (ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
-            (ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
-        _ftprintf(stdout, _T("\n")
-            _T("Information Options: \n")
-            _T("-h,-? --help                    show help\n")
-            _T("-v,--version                    show version info\n")
-            _T("   --check-hw                   check if QuickSyncVideo is available\n")
-            _T("   --check-lib                  check lib API version installed\n")
-            _T("   --check-features [<string>]  check encode/vpp features\n")
-            _T("                                 with no option value, result will on stdout,\n")
-            _T("                                 otherwise, it is written to file path set\n")
-            _T("                                 and opened by default application.\n")
-            _T("                                 when writing to file, txt/html/csv format\n")
-            _T("                                 is available, chosen by the extension\n")
-            _T("                                 of the output file.\n")
-            _T("   --check-features-html [<string>]")
-            _T("                                check encode/vpp features and write html report to.\n")
-            _T("                                 specified path. With no option, \"qsv_check.html\"\n")
-            _T("                                 will be created to current directory.\n")
-            _T("   --check-environment          check environment info\n")
-#if ENABLE_AVCODEC_QSV_READER
-            _T("   --check-avversion            show dll version\n")
-            _T("   --check-codecs               show codecs available\n")
-            _T("   --check-encoders             show audio encoders available\n")
-            _T("   --check-decoders             show audio decoders available\n")
-            _T("   --check-formats              show in/out formats available\n")
-            _T("   --check-protocols            show in/out protocols available\n")
-            _T("   --check-filters              show filters available\n")
-#endif
-            _T("\n"));
-
-        _ftprintf(stdout, _T("\n")
-            _T("Basic Encoding Options: \n")
-            _T("-c,--codec <string>             set encode codec\n")
-            _T("                                 - h264(default), hevc, mpeg2\n")
-            _T("-i,--input-file <filename>      set input file name\n")
-            _T("-o,--output-file <filename>     set ouput file name\n")
-#if ENABLE_AVCODEC_QSV_READER
-            _T("                                 for extension mp4/mkv/mov,\n")
-            _T("                                 avcodec muxer will be used.\n")
-#endif
-            _T("\n")
-            _T(" Input formats (will be estimated from extension if not set.)\n")
-            _T("   --raw                        set input as raw format\n")
-            _T("   --y4m                        set input as y4m format\n")
-#if ENABLE_AVI_READER
-            _T("   --avi                        set input as avi format\n")
-#endif
-#if ENABLE_AVISYNTH_READER
-            _T("   --avs                        set input as avs format\n")
-#endif
-#if ENABLE_VAPOURSYNTH_READER
-            _T("   --vpy                        set input as vpy format\n")
-            _T("   --vpy-mt                     set input as vpy format in multi-thread\n")
-#endif
-#if ENABLE_AVCODEC_QSV_READER
-            _T("   --avqsv                      set input to use avcodec + qsv\n")
-            _T("   --avqsv-analyze <int>        set time (sec) which reader analyze input file.\n")
-            _T("                                 default: 5 (seconds).\n")
-            _T("                                 could be only used with avqsv reader.\n")
-            _T("                                 use if reader fails to detect audio stream.\n")
-            _T("   --audio-source <string>      input extra audio file\n")
-            _T("   --audio-file [<int>?][<string>:]<string>\n")
-            _T("                                extract audio into file.\n")
-            _T("                                 could be only used with avqsv reader.\n")
-            _T("                                 below are optional,\n")
-            _T("                                  in [<int>?], specify track number to extract.\n")
-            _T("                                  in [<string>?], specify output format.\n")
-            _T("   --trim <int>:<int>[,<int>:<int>]...\n")
-            _T("                                trim video for the frame range specified.\n")
-            _T("                                 frame range should not overwrap each other.\n")
-            _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
-            _T("                                skip video for the time specified,\n")
-            _T("                                 seek will be inaccurate but fast.\n")
-            _T("-f,--format <string>            set output format of output file.\n")
-            _T("                                 if format is not specified, output format will\n")
-            _T("                                 be guessed from output file extension.\n")
-            _T("                                 set \"raw\" for H.264/ES output.\n")
-            _T("   --audio-copy [<int>[,...]]   mux audio with video during output.\n")
-            _T("                                 could be only used with\n")
-            _T("                                 avqsv reader and avcodec muxer.\n")
-            _T("                                 by default copies all audio tracks.\n")
-            _T("                                 \"--audio-copy 1,2\" will extract\n")
-            _T("                                 audio track #1 and #2.\n")
-            _T("   --audio-codec [<int>?]<string>\n")
-            _T("                                encode audio to specified format.\n")
-            _T("                                  in [<int>?], specify track number to encode.\n")
-            _T("   --audio-bitrate [<int>?]<int>\n")
-            _T("                                set encode bitrate for audio (kbps).\n")
-            _T("                                  in [<int>?], specify track number of audio.\n")
-            _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
-            _T("                                set numbers of continuous packets of audio decode\n")
-            _T("                                 error to ignore, replaced by silence.\n")
-            _T("   --audio-ignore-notrack-error ignore error when audio track is unfound.\n")
-            _T("   --audio-samplerate [<int>?]<int>\n")
-            _T("                                set sampling rate for audio (Hz).\n")
-            _T("                                  in [<int>?], specify track number of audio.\n")
-            _T("   --audio-resampler <string>   set audio resampler.\n")
-            _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
-            _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
-            _T("       set audio streams in channels.\n")
-            _T("         in [<int>?], specify track number to split.\n")
-            _T("         in <string1>, set input channels to use from source stream.\n")
-            _T("           if unset, all input channels will be used.\n")
-            _T("         in <string2>, set output channels to mix.\n")
-            _T("           if unset, all input channels will be copied without mixing.\n")
-            _T("       example1: --audio-stream FL,FR\n")
-            _T("         splitting dual mono audio to each stream.\n")
-            _T("       example2: --audio-stream :stereo\n")
-            _T("         mixing input channels to stereo.\n")
-            _T("       example3: --audio-stream 5.1,5.1:stereo\n")
-            _T("         keeping 5.1ch audio and also adding downmixed stereo stream.\n")
-            _T("       usable simbols\n")
-            _T("         mono       = FC\n")
-            _T("         stereo     = FL + FR\n")
-            _T("         2.1        = FL + FR + LFE\n")
-            _T("         3.0        = FL + FR + FC\n")
-            _T("         3.0(back)  = FL + FR + BC\n")
-            _T("         3.1        = FL + FR + FC + LFE\n")
-            _T("         4.0        = FL + FR + FC + BC\n")
-            _T("         quad       = FL + FR + BL + BR\n")
-            _T("         quad(side) = FL + FR + SL + SR\n")
-            _T("         5.0        = FL + FR + FC + SL + SR\n")
-            _T("         5.1        = FL + FR + FC + LFE + SL + SR\n")
-            _T("         6.0        = FL + FR + FC + BC + SL + SR\n")
-            _T("         6.0(front) = FL + FR + FLC + FRC + SL + SR\n")
-            _T("         hexagonal  = FL + FR + FC + BL + BR + BC\n")
-            _T("         6.1        = FL + FR + FC + LFE + BC + SL + SR\n")
-            _T("         6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR\n")
-            _T("         7.0        = FL + FR + FC + BL + BR + SL + SR\n")
-            _T("         7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
-            _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
-            _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
-            _T("   --audio-filter [<int>?]<string>\n")
-            _T("                                set audio filter.\n")
-            _T("                                  in [<int>?], specify track number of audio.\n")
-            _T("   --chapter-copy               copy chapter to output file.\n")
-            _T("   --chapter <string>           set chapter from file specified.\n")
-            _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
-            _T("                                 these could be only used with\n")
-            _T("                                 avqsv reader and avcodec muxer.\n")
-            _T("                                 below are optional,\n")
-            _T("                                  in [<int>?], specify track number to copy.\n")
-            _T("\n")
-            _T("   --avsync <string>            method for AV sync (default: through)\n")
-            _T("                                 through  ... assume cfr, no check but fast\n")
-            _T("                                 forcecfr ... check timestamp and force cfr.\n")
-            _T("-m,--mux-option <string1>:<string2>\n")
-            _T("                                set muxer option name and value.\n")
-            _T("                                 these could be only used with\n")
-            _T("                                 avqsv reader and avcodec muxer.\n"),
-                QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR);
-#endif
-        _ftprintf(stdout, _T("\n")
-            _T("   --nv12                       set raw input as NV12 color format,\n")
-            _T("                                if not specified YV12 is expected\n")
-            _T("   --tff                        set as interlaced, top field first\n")
-            _T("   --bff                        set as interlaced, bottom field first\n")
-            _T("   --fps <int>/<int> or <float> video frame rate (frames per second)\n")
-            _T("\n")
-            _T("   --input-res <int>x<int>      input resolution\n")
-            _T("   --output-res <int>x<int>     output resolution\n")
-            _T("                                if different from input, uses vpp resizing\n")
-            _T("                                if not set, output resolution will be same\n")
-            _T("                                as input (no resize will be done).\n")
-            _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
-            _T("\n"));
-        _ftprintf(stdout, _T("Frame buffer Options:\n")
-            _T(" frame buffers are selected automatically by default.\n")
-#ifdef D3D_SURFACES_SUPPORT
-            _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
-            _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
-            _T(" On particular cases, sush as runnning on a system with dGPU, or running\n")
-            _T(" vpp-rotate, will require the uses of d3d11 surface.\n")
-            _T(" Options below will change this default behavior.\n")
-            _T("\n")
-            _T("   --disable-d3d                disable using d3d surfaces\n")
-#if MFX_D3D11_SUPPORT
-            _T("   --d3d                        use d3d9/d3d11 surfaces\n")
-            _T("   --d3d9                       use d3d9 surfaces\n")
-            _T("   --d3d11                      use d3d11 surfaces\n")
-#else
-        _ftprintf(stdout, _T("")
-            _T("   --d3d                        use d3d9 surfaces\n")
-#endif //MFX_D3D11_SUPPORT
-#endif //D3D_SURFACES_SUPPORT
-#ifdef LIBVA_SUPPORT
-            _T("   --disable-va                 disable using va surfaces\n")
-            _T("   --va                         use va surfaces\n")
-#endif //#ifdef LIBVA_SUPPORT
-            _T("\n"));
-        _ftprintf(stdout, _T("Encode Mode Options:\n")
-            _T(" EncMode default: --cqp\n")
-            _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
-            _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
-            _T("   --vqp <int> or               encode in Variable QP, default %d:%d:%d\n")
-            _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
-            _T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
-            _T("   --la-hrd <int>               set bitrate in HRD-Lookahead mode (kbps)\n")
-            _T("   --icq <int>                  encode in Intelligent Const. Quality mode\n")
-            _T("                                  default value: %d\n")
-            _T("   --la-icq <int>               encode in ICQ mode with Lookahead\n")
-            _T("                                  default value: %d\n")
-            _T("   --cbr <int>                  set bitrate in CBR mode (kbps)\n")
-            _T("   --vbr <int>                  set bitrate in VBR mode (kbps)\n")
-            _T("   --avbr <int>                 set bitrate in AVBR mode (kbps)\n")
-            _T("                                 AVBR mode is only supported with API v1.3\n")
-            _T("   --avbr-unitsize <int>        avbr calculation period in x100 frames\n")
-            _T("                                 default %d (= unit size %d00 frames)\n")
-            //_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
-            //_T("                                   in percentage, defalut %.1f(%%)\n)"
-            _T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
-            _T("                                 requires --qvbr-q option to be set as well\n")
-            _T("   --qvbr-q <int>  or           set quality used in qvbr mode. default: %d\n")
-            _T("   --qvbr-quality <int>          QVBR mode is only supported with API v1.11\n")
-            _T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
-            _T("\n"),
-            QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
-            QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
-            QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
-            QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
-            QSV_DEFAULT_QVBR);
-        _ftprintf(stdout, _T("Other Encode Options:\n")
-            _T("   --fallback-rc                enable fallback of ratecontrol mode, when platform\n")
-            _T("                                 does not support new ratecontrol modes.\n")
-            _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
-            _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
-            _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
-            _T("   --qpmin <int> or             set min QP, default 0 (= unset)\n")
-            _T("           <int>:<int>:<int>\n")
-            _T("   --qpmax <int> or             set max QP, default 0 (= unset)\n")
-            _T("           <int>:<int>:<int>\n")
-            _T("-u,--quality <string>           encode quality\n")
-            _T("                                  - best, higher, high, balanced(default)\n")
-            _T("                                    fast, faster, fastest\n")
-            _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
-            _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
-            _T("                                  and set the window size in frames.\n")
-            _T("   --la-quality <string>        set lookahead quality.\n")
-            _T("                                 - auto(default), fast, medium, slow\n")
-            _T("   --(no-)mbbrc                 enables per macro block rate control\n")
-            _T("                                 default: auto\n")
-            _T("   --(no-)extbrc                enables extended rate control\n")
-            _T("                                 default: auto\n")
-            _T("   --ref <int>                  reference frames\n")
-            _T("                                  default %d (auto)\n")
-            _T("-b,--bframes <int>              number of sequential b frames\n")
-            _T("                                  default %d(HEVC) / %d(others)\n")
-            _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
-            _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
-            _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
-            _T("                                  when auto, fps x 10 will be set.\n")
-            _T("   --(no-)scenechange           enables scene change detection\n")
-            _T("   --(no-)open-gop              enables open gop (default:off)\n")
-            _T("   --strict-gop                 force gop structure\n")
-            _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
-            _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
-            _T("   --(no-)weightp               enable weight prediction for P frame\n")
-            _T("   --(no-)weightb               enable weight prediction for B frame\n")
-            _T("   --(no-)fade-detect           enable fade detection\n")
-            _T("   --trellis <string>           set trellis mode used in encoding\n")
-            _T("                                 - auto(default), off, i, ip, all\n")
-            _T("   --mv-scaling                 set mv cost scaling\n")
-            _T("                                 - 0  set MV cost to be 0\n")
-            _T("                                 - 1  set MV cost 1/2 of default\n")
-            _T("                                 - 2  set MV cost 1/4 of default\n")
-            _T("                                 - 3  set MV cost 1/8 of default\n")
-            _T("   --slices <int>               number of slices, default 0 (auto)\n")
-            _T("   --no-deblock                 disables H.264 deblock feature\n")
-            _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
-            _T("\n"),
-            QSV_ASYNC_DEPTH_MAX,
-            QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
-            QSV_DEFAULT_REF,
-            QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
-            QSV_DEFAULT_GOP_LEN);
-        PrintMultipleListOptions(stdout, _T("--level <string>"), _T("set codec level"),
-            { { _T("H.264"), list_avc_level,   0 },
-              { _T("HEVC"),  list_hevc_level,  0 },
-              { _T("MPEG2"), list_mpeg2_level, 0 }
-        });
-        PrintMultipleListOptions(stdout, _T("--profile <string>"), _T("set codec profile"),
-            { { _T("H.264"), list_avc_profile,   0 },
-              { _T("HEVC"),  list_hevc_profile,  0 },
-              { _T("MPEG2"), list_mpeg2_profile, 0 }
-        });
-
-        _ftprintf(stdout, _T("\n")
-            _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
-            _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
-            _T("   --bluray                     for H.264 bluray encoding\n")
-            _T("\n")
-            _T("   --crop <int>,<int>,<int>,<int>\n")
-            _T("                                set crop pixels of left, up, right, bottom.\n")
-            _T("\n")
-            _T("   --fullrange                  set stream as fullrange yuv\n"));
-        PrintListOptions(stdout, _T("--videoformat <string>"), list_videoformat, 0);
-        PrintListOptions(stdout, _T("--colormatrix <string>"), list_colormatrix, 0);
-        PrintListOptions(stdout, _T("--colorprim <string>"),   list_colorprim,   0);
-        PrintListOptions(stdout, _T("--transfer <string>"),    list_transfer,    0);
-        _ftprintf(stdout, _T("\n")
-            //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
-            _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
-            _T("                                 default   hw: %d,  sw: %d\n")
-            _T("                                 cannot be used with avqsv reader.\n"),
-            QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX,
-            QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
-            );
-        _ftprintf(stdout, _T("")
-            _T("   --output-buf <int>           buffer size for output in MByte\n")
-            _T("                                 default %d MB (0-%d)\n"),
-            QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
-            );
-        _ftprintf(stdout, _T("")
-            _T("   --input-thread <int>        set input thread num\n")
-            _T("                                  0: disable (slow, but less cpu usage)\n")
-            _T("                                  1: use one thread\n")
-#if ENABLE_AVCODEC_OUT_THREAD
-            _T("   --output-thread <int>        set output thread num\n")
-            _T("                                 -1: auto (= default)\n")
-            _T("                                  0: disable (slow, but less memory usage)\n")
-            _T("                                  1: use one thread\n")
-#if 0
-            _T("   --audio-thread <int>         set audio thread num, available only with output thread\n")
-            _T("                                 -1: auto (= default)\n")
-            _T("                                  0: disable (slow, but less memory usage)\n")
-            _T("                                  1: use one thread\n")
-            _T("                                  2: use two thread\n")
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-#endif //#if ENABLE_AVCODEC_OUT_THREAD
-            _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
-            _T("                                 same as --output-thread 0 --audio-thread 0\n")
-            _T("                                         -a 1 --input-buf 1 --output-buf 0\n")
-            _T("                                 this will cause lower performance!\n")
-            _T("   --max-procfps <int>         limit encoding performance to lower resource usage.\n")
-            _T("                                 default:0 (no limit)\n")
-            );
-        _ftprintf(stdout,
-            _T("   --log <string>               output log to file (txt or html).\n")
-            _T("   --log-level <string>         set output log level\n")
-            _T("                                 info(default), warn, error, debug\n")
-            _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n"));
-#if ENABLE_SESSION_THREAD_CONFIG
-        _ftprintf(stdout, _T("")
-            _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
-            _T("                                 default: 0 (=auto)\n")
-            _T("   --session-thread-priority    set thread priority for QSV session.\n")
-            _T("                                  - low, normal(default), high\n"),
-                QSV_SESSION_THREAD_MAX);
-#endif
-        _ftprintf(stdout, _T("\n")
-            _T("   --benchmark <string>         run in benchmark mode\n")
-            _T("                                 and write result in txt file\n")
-            _T("   --bench-quality \"all\" or <int>[,<int>][,<int>]...\n")
-            _T("                                 default: 1,4,7\n")
-            _T("                                list of target quality to check on benchmark\n")
-            _T("   --perf-monitor [<string>][,<string>]...\n")
-            _T("       check performance info of QSVEncC and output to log file\n")
-            _T("       select counter from below, default = all\n")
-#if defined(_WIN32) || defined(_WIN64)
-            _T("   --perf-monitor-plot [<string>][,<string>]...\n")
-            _T("       plot perf monitor realtime (required python, pyqtgraph)\n")
-            _T("       select counter from below, default = cpu,bitrate\n")
-            _T("                                 \n")
-            _T("     counters for perf-monitor, perf-monitor-plot\n")
-#else
-            _T("     counters for perf-monitor\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
-            _T("                                 all          ... monitor all info\n")
-            _T("                                 cpu_total    ... cpu total usage (%%)\n")
-            _T("                                 cpu_kernel   ... cpu kernel usage (%%)\n")
-#if defined(_WIN32) || defined(_WIN64)
-            _T("                                 cpu_main     ... cpu main thread usage (%%)\n")
-            _T("                                 cpu_enc      ... cpu encode thread usage (%%)\n")
-            _T("                                 cpu_in       ... cpu input thread usage (%%)\n")
-            _T("                                 cpu_out      ... cpu output thread usage (%%)\n")
-            _T("                                 cpu_aud_proc ... cpu aud proc thread usage (%%)\n")
-            _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
-            _T("                                 cpu          ... monitor all cpu info\n")
-#if defined(_WIN32) || defined(_WIN64)
-            _T("                                 gpu_load    ... gpu usage (%%)\n")
-            _T("                                 gpu_clock   ... gpu avg clock (%%)\n")
-            _T("                                 gpu         ... monitor all gpu info\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
-            _T("                                 queue       ... queue usage\n")
-            _T("                                 mem_private ... private memory (MB)\n")
-            _T("                                 mem_virtual ... virtual memory (MB)\n")
-            _T("                                 mem         ... monitor all memory info\n")
-            _T("                                 io_read     ... io read  (MB/s)\n")
-            _T("                                 io_write    ... io write (MB/s)\n")
-            _T("                                 io          ... monitor all io info\n")
-            _T("                                 fps         ... encode speed (fps)\n")
-            _T("                                 fps_avg     ... encode avg. speed (fps)\n")
-            _T("                                 bitrate     ... encode bitrate (kbps)\n")
-            _T("                                 bitrate_avg ... encode avg. bitrate (kbps)\n")
-            _T("                                 frame_out   ... written_frames\n")
-            _T("                                 \n")
-#if defined(_WIN32) || defined(_WIN64)
-            _T("   --python <string>            set python path for --perf-monitor-plot\n")
-            _T("                                 default: python\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
-            _T("   --perf-monitor-interval <int> set perf monitor check interval (millisec)\n")
-            _T("                                 default 250, must be 50 or more\n")
-#if defined(_WIN32) || defined(_WIN64)
-            _T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
-            _T("                                  default: enabled\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
-            );
-#if 0
-        _ftprintf(stdout, _T("\n")
-            _T(" Settings below are available only for software ecoding.\n")
-            _T("   --cavlc                      use cavlc instead of cabac\n")
-            _T("   --rdo                        use rate distortion optmization\n")
-            _T("   --inter-pred <int>           set minimum block size used for\n")
-            _T("   --intra-pred <int>           inter/intra prediction\n")
-            _T("                                  0: auto(default)   1: 16x16\n")
-            _T("                                  2: 8x8             3: 4x4\n")
-            _T("   --mv-search <int>            set window size for mv search\n")
-            _T("                                  default: 0 (auto)\n")
-            _T("   --mv-precision <int>         set precision of mv search\n")
-            _T("                                  0: auto(default)   1: full-pell\n")
-            _T("                                  2: half-pell       3: quater-pell\n")
-            );
-#endif
-        _ftprintf(stdout, _T("\nVPP Options:")
-            _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
-            _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
-            _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
-            _T("                                enabled only when set --tff or --bff\n")
-            _T("                                 - none     disable deinterlace\n")
-            _T("                                 - normal   normal deinterlace\n")
-            _T("                                 - it       inverse telecine\n")
-#if ENABLE_ADVANCED_DEINTERLACE
-            _T("                                 - it-manual <string>\n")
-            _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
-#endif
-            _T("                                 - bob      double framerate\n")
-#if ENABLE_ADVANCED_DEINTERLACE
-            _T("                                 - auto     auto deinterlace\n")
-            _T("                                 - auto-bob auto bob deinterlace\n")
-#endif
-#if ENABLE_FPS_CONVERSION
-            _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
-            _T("                                enabled only when input is progressive\n")
-            _T("                                 - none, x2, x2.5\n")
-#endif
-            _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-            _T("                                 - none, upscale, box\n")
-            _T("   --vpp-delogo <string>        set delogo file path\n")
-            _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
-            _T("                                 or logo index starting from 1.\n")
-            _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
-            _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
-            _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
-            _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
-            _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
-            _T("   --vpp-rotate <int>           rotate image\n")
-            _T("                                 90, 180, 270.\n")
-            _T("   --vpp-half-turn              half turn video image\n")
-            _T("                                 unoptimized and very slow.\n"),
-            QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
-            QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX,
-            QSV_DEFAULT_VPP_DELOGO_DEPTH
-            );
+        _ftprintf(stdout, _T("%s\n"), help(strAppName).c_str());
     }
 }
 
@@ -2763,7 +2861,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
 #endif
     tstring mes = _T("Unknown option: --");
     mes += option_name;
-    PrintHelp(strInput[0], (TCHAR *)mes.c_str(), NULL);
+    PrintHelp(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
     return MFX_PRINT_OPTION_ERR;
 }
 
@@ -2830,17 +2928,17 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
                 if (nullptr == (option_name = short_opt_to_long(strInput[i][1]))) {
-                    PrintHelp(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), NULL);
+                    PrintHelp(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), NULL, NULL);
                     return MFX_PRINT_OPTION_ERR;
                 }
             } else {
-                PrintHelp(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), NULL);
+                PrintHelp(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), NULL, NULL);
                 return MFX_PRINT_OPTION_ERR;
             }
         }
 
         if (option_name == NULL) {
-            PrintHelp(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), NULL);
+            PrintHelp(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), NULL, NULL);
             return MFX_PRINT_OPTION_ERR;
         }
 

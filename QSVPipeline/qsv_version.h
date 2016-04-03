@@ -10,9 +10,9 @@
 #ifndef _QSV_VERSION_H_
 #define _QSV_VERSION_H_
 
-#define VER_FILEVERSION             0,2,43,0
-#define VER_STR_FILEVERSION          "2.43"
-#define VER_STR_FILEVERSION_TCHAR _T("2.43")
+#define VER_FILEVERSION             0,2,44,0
+#define VER_STR_FILEVERSION          "2.44"
+#define VER_STR_FILEVERSION_TCHAR _T("2.44")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
