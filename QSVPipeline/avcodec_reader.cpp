@@ -1403,7 +1403,11 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1 *pSurface) {
 #pragma warning(pop)
 
 HANDLE CAvcodecReader::getThreadHandleInput() {
+#if defined(WIN32) || defined(WIN64)
     return m_Demux.thread.thInput.native_handle();
+#else
+    return NULL;
+#endif //#if defined(WIN32) || defined(WIN64)
 }
 
 mfxStatus CAvcodecReader::ThreadFuncRead() {
