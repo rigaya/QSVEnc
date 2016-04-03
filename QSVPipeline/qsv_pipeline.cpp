@@ -2800,8 +2800,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(QSV_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
         pParams->memType = SYSTEM_MEMORY;
     }
-
-    if (false) {
+    if (true) {
         m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
         tstring perfMonLog;
         if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
