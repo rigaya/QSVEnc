@@ -286,7 +286,7 @@ protected:
     //基本的には大きいほうがパフォーマンスは向上する
     void alloc(size_t bufSize) {
         m_pBufStart = std::unique_ptr<queueData, aligned_malloc_deleter>(
-            (queueData *)_aligned_malloc(sizeof(queueData) * bufSize, m_nMallocAlign), aligned_malloc_deleter());
+            (queueData *)_aligned_malloc(sizeof(queueData) * bufSize, (std::max)(16, m_nMallocAlign)), aligned_malloc_deleter());
         m_pBufFin = m_pBufStart.get() + bufSize;
         m_pBufIn  = m_pBufStart.get();
         m_pBufOut = m_pBufStart.get();
