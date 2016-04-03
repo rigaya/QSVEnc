@@ -59,6 +59,14 @@ enum {
     SC_FIELDFLAG_INVALID_HIGH = 0xffff0000,
 };
 
+struct mfxParamSet {
+    mfxVideoParam vidprm;
+    mfxExtCodingOption cop;
+    mfxExtCodingOption2 cop2;
+    mfxExtCodingOption3 cop3;
+    mfxExtHEVCParam hevc;
+};
+
 const uint32_t QSV_PTS_SORT_SIZE = 16u;
 
 class CQSVPipeline
@@ -90,6 +98,7 @@ public:
     mfxStatus CheckSceneChange();
     static void RunEncThreadLauncher(void *pParam);
     static void RunSubThreadLauncher(void *pParam);
+    bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
 protected:
     mfxVersion m_mfxVer;
     shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
@@ -135,6 +144,8 @@ protected:
     mfxVideoParam m_mfxDecParams;
     mfxVideoParam m_mfxEncParams;
     mfxVideoParam m_mfxVppParams;
+
+    mfxParamSet m_prmSetIn;
     
     unique_ptr<MFXVideoUSER>  m_pUserModule;
 

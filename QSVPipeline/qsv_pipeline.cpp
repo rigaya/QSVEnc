@@ -57,6 +57,160 @@ int CQSVPipeline::clamp_param_int(int value, int low, int high, const TCHAR *par
     return value;
 }
 
+bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prmOut) {
+    bool ret = false;
+#define COMPARE_INT(member, ignoreIfInput) { \
+    if (prmIn.member != prmOut.member) { \
+        ret = true;\
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %d -> %d\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
+    }}
+#define TRI_STATE(x) ((x == 0) ? _T("auto") : ((x == 16) ? _T("on") : _T("off")))
+#define COMPARE_TRI(member, ignoreIfInput) { \
+    if (prmIn.member != prmOut.member) { \
+        ret = true;\
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s\n"), _T(#member), TRI_STATE(prmIn.member), TRI_STATE(prmOut.member)); \
+    }}
+#define COMPARE_HEX(member, ignoreIfInput) { \
+    if (prmIn.member != prmOut.member) { \
+        ret = true;\
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed 0x%x -> 0x%x\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
+    }}
+#define COMPARE_DBL(member, ignoreIfInput) { \
+    if (prmIn.member != prmOut.member) { \
+        ret = true;\
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %lf -> %lf\n"), _T(#member), (double)prmIn.member, (double)prmOut.member); \
+    }}
+#define COMPARE_STR(member, ignoreIfInput, printMethod) { \
+    if (prmIn.member != prmOut.member) { \
+        ret = true;\
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s\n"), _T(#member), printMethod(prmIn.member), printMethod(prmOut.member)); \
+    }}
+#define COMPARE_LST(member, ignoreIfInput, list) { \
+    if (prmIn.member != prmOut.member) { \
+        ret = true;\
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s\n"), _T(#member), get_chr_from_value(list, prmIn.member), get_chr_from_value(list, prmOut.member)); \
+    }}
+    COMPARE_INT(vidprm.AsyncDepth,             0);
+    COMPARE_HEX(vidprm.IOPattern,              0);
+    COMPARE_INT(vidprm.mfx.NumThread,          0);
+    COMPARE_INT(vidprm.mfx.BRCParamMultiplier, 0);
+    COMPARE_INT(vidprm.mfx.LowPower,           0);
+    COMPARE_STR(vidprm.mfx.CodecId,            0, CodecIdToStr);
+    COMPARE_LST(vidprm.mfx.CodecProfile,       0, get_profile_list(prmIn.vidprm.mfx.CodecId));
+    COMPARE_LST(vidprm.mfx.CodecLevel,         0, get_level_list(prmIn.vidprm.mfx.CodecId));
+    COMPARE_INT(vidprm.mfx.NumThread,          0);
+    COMPARE_INT(vidprm.mfx.TargetUsage,       -1);
+    COMPARE_INT(vidprm.mfx.GopPicSize,         0);
+    COMPARE_INT(vidprm.mfx.GopRefDist,         0);
+    COMPARE_INT(vidprm.mfx.GopOptFlag,         0);
+    COMPARE_INT(vidprm.mfx.IdrInterval,        0);
+    COMPARE_STR(vidprm.mfx.RateControlMethod,  0, EncmodeToStr);
+    if (prmIn.vidprm.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
+        COMPARE_INT(vidprm.mfx.QPI, -1);
+        COMPARE_INT(vidprm.mfx.QPP, -1);
+        COMPARE_INT(vidprm.mfx.QPB, -1);
+    } else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
+        COMPARE_INT(cop2.LookAheadDepth, -1);
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+            COMPARE_LST(cop2.LookAheadDS, -1, list_lookahead_ds);
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+            COMPARE_INT(cop3.WinBRCSize,       0);
+            COMPARE_INT(cop3.WinBRCMaxAvgKbps, 0);
+        }
+        if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+            COMPARE_INT(vidprm.mfx.ICQQuality, -1);
+        }
+    } else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+        COMPARE_INT(vidprm.mfx.ICQQuality, -1);
+    } else {
+        COMPARE_INT(vidprm.mfx.TargetKbps, -1);
+        if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
+            COMPARE_INT(vidprm.mfx.TargetKbps, -1);
+        } else {
+            COMPARE_INT(vidprm.mfx.MaxKbps, -1);
+            if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
+                COMPARE_INT(cop3.QVBRQuality, -1);
+            }
+        }
+    }
+    COMPARE_INT(vidprm.mfx.NumSlice,             0);
+    COMPARE_INT(vidprm.mfx.NumRefFrame,          0);
+    COMPARE_INT(vidprm.mfx.EncodedOrder,         0);
+    COMPARE_INT(vidprm.mfx.ExtendedPicStruct,    0);
+    COMPARE_INT(vidprm.mfx.TimeStampCalc,        0);
+    COMPARE_INT(vidprm.mfx.SliceGroupsPresent,   0);
+    COMPARE_INT(vidprm.mfx.MaxDecFrameBuffering, 0);
+
+    COMPARE_TRI(cop.RateDistortionOpt,    0);
+    COMPARE_INT(cop.MECostType,           0);
+    COMPARE_INT(cop.MESearchType,         0);
+    COMPARE_TRI(cop.EndOfSequence,        0);
+    COMPARE_TRI(cop.FramePicture,         0);
+    COMPARE_TRI(cop.CAVLC,                0);
+    COMPARE_TRI(cop.RecoveryPointSEI,     0);
+    COMPARE_TRI(cop.ViewOutput,           0);
+    COMPARE_TRI(cop.NalHrdConformance,    0);
+    COMPARE_TRI(cop.SingleSeiNalUnit,     0);
+    COMPARE_TRI(cop.VuiVclHrdParameters,  0);
+    COMPARE_TRI(cop.RefPicListReordering, 0);
+    COMPARE_TRI(cop.ResetRefList,         0);
+    COMPARE_TRI(cop.RefPicMarkRep,        0);
+    COMPARE_TRI(cop.FieldOutput,          0);
+    COMPARE_INT(cop.MaxDecFrameBuffering, 0);
+    COMPARE_TRI(cop.AUDelimiter,          0);
+    COMPARE_TRI(cop.EndOfStream,          0);
+    COMPARE_TRI(cop.PicTimingSEI,         0);
+    COMPARE_TRI(cop.VuiNalHrdParameters,  0);
+
+    COMPARE_INT(cop2.MaxFrameSize,        0);
+    COMPARE_INT(cop2.MaxSliceSize,        0);
+    COMPARE_TRI(cop2.BitrateLimit,        0);
+    COMPARE_TRI(cop2.MBBRC,               0);
+    COMPARE_TRI(cop2.ExtBRC,              0);
+    COMPARE_INT(cop2.LookAheadDepth,      0);
+    COMPARE_INT(cop2.Trellis,             0);
+    COMPARE_TRI(cop2.RepeatPPS,           0);
+    COMPARE_INT(cop2.BRefType,            0);
+    COMPARE_TRI(cop2.AdaptiveI,           0);
+    COMPARE_TRI(cop2.AdaptiveB,           0);
+    COMPARE_INT(cop2.SkipFrame,           0);
+    COMPARE_INT(cop2.MinQPI,              0);
+    COMPARE_INT(cop2.MaxQPI,              0);
+    COMPARE_INT(cop2.MinQPP,              0);
+    COMPARE_INT(cop2.MaxQPP,              0);
+    COMPARE_INT(cop2.MinQPB,              0);
+    COMPARE_INT(cop2.MaxQPB,              0);
+    COMPARE_TRI(cop2.FixedFrameRate,      0);
+    COMPARE_INT(cop2.DisableDeblockingIdc,0);
+    COMPARE_INT(cop2.DisableVUI,          0);
+    COMPARE_INT(cop2.BufferingPeriodSEI,  0);
+    COMPARE_TRI(cop2.EnableMAD,           0);
+    COMPARE_TRI(cop2.UseRawRef,           0);
+
+    COMPARE_INT(cop3.NumSliceI,                  0);
+    COMPARE_INT(cop3.NumSliceP,                  0);
+    COMPARE_INT(cop3.NumSliceB,                  0);
+    COMPARE_INT(cop3.WinBRCMaxAvgKbps,           0);
+    COMPARE_INT(cop3.WinBRCSize,                 0);
+    COMPARE_TRI(cop3.EnableMBQP,                 0);
+    COMPARE_INT(cop3.IntRefCycleDist,            0);
+    COMPARE_TRI(cop3.DirectBiasAdjustment,       0);
+    COMPARE_TRI(cop3.GlobalMotionBiasAdjustment, 0);
+    COMPARE_INT(cop3.MVCostScalingFactor,        0);
+    COMPARE_TRI(cop3.MBDisableSkipMap,           0);
+    COMPARE_INT(cop3.WeightedPred,               0);
+    COMPARE_INT(cop3.WeightedBiPred,             0);
+    COMPARE_TRI(cop3.AspectRatioInfoPresent,     0);
+    COMPARE_TRI(cop3.OverscanInfoPresent,        0);
+    COMPARE_TRI(cop3.OverscanAppropriate,        0);
+    COMPARE_TRI(cop3.TimingInfoPresent,          0);
+    COMPARE_TRI(cop3.BitstreamRestriction,       0);
+    COMPARE_INT(cop3.PRefType,                   0);
+    COMPARE_TRI(cop3.FadeDetection,              0);
+    return ret;
+}
+
 //範囲チェック
 mfxStatus CQSVPipeline::CheckParamList(int value, const CX_DESC *list, const char *param_name) {
     for (int i = 0; list[i].desc; i++)
@@ -2923,6 +3077,11 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
 
     if (m_pmfxENC) {
         const auto log_level = logIgnoreMFXLibraryInternalErrors();
+        m_prmSetIn.vidprm = m_mfxEncParams;
+        m_prmSetIn.cop    = m_CodingOption;
+        m_prmSetIn.cop2   = m_CodingOption2;
+        m_prmSetIn.cop3   = m_CodingOption3;
+        m_prmSetIn.hevc   = m_ExtHEVCParam;
         sts = m_pmfxENC->Init(&m_mfxEncParams);
         m_pQSVLog->setLogLevel(log_level);
         if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
@@ -4336,6 +4495,14 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         QSV_ERR_MES(sts, _T("Failed to get video param from decoder."));
         DstPicInfo = videoPrm.mfx.FrameInfo;
     }
+
+    mfxParamSet prmSetOut;
+    prmSetOut.vidprm = videoPrm;
+    prmSetOut.cop    = cop;
+    prmSetOut.cop2   = cop2;
+    prmSetOut.cop3   = cop3;
+
+    CompareParam(m_prmSetIn, prmSetOut);
 
     if (m_pFileWriter && m_pFileWriter->getOutType() == OUT_TYPE_BITSTREAM) {
         if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm, &cop2))) {
