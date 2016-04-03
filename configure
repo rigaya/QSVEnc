@@ -13,7 +13,7 @@ write_config_mak()
 {
     echo $1
     echo $1 >> config.mak
-
+}
 
 write_qsv_config()
 {
