@@ -10,6 +10,7 @@
 #define _AVCODEC_READER_H_
 
 #include "qsv_input.h"
+#include "qsv_version.h"
 
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
@@ -120,6 +121,12 @@ static FramePos framePos(int64_t pts, int64_t dts,
     return pos;
 }
 
+static int cmp_frame_pos(const void *a, const void *b) {
+    FramePos *posA = (FramePos *)a;
+    FramePos *posB = (FramePos *)b;
+    return ((uint32_t)std::abs(posA->pts - posB->pts) < 0xFFFFFFFF) ? posA->pts < posB->pts : posB->pts < posA->pts;
+}
+
 class FramePosList {
 public:
     FramePosList() :
@@ -133,6 +140,7 @@ public:
         m_nLastPoc(0),
         m_nFirstKeyframePts(AV_NOPTS_VALUE) {
         m_list.init();
+        static_assert(sizeof(m_list.get()[0]) == sizeof(m_list.get()->data), "FramePos must not have padding.");
     };
     virtual ~FramePosList() {
         clear();
@@ -349,8 +357,12 @@ public:
 protected:
     //ptsでソート
     void sortPts(uint32_t index, uint32_t len) {
+#if !defined(_MSC_VER) && __cplusplus <= 201103
+        std::qsort(m_list.get(index), len, sizeof(FramePos), cmp_frame_pos);
+#else
         std::sort(m_list.get(index), m_list.get(index + len), [](const auto& posA, const auto& posB) {
             return ((uint32_t)std::abs(posA.data.pts - posB.data.pts) < 0xFFFFFFFF) ? posA.data.pts < posB.data.pts : posB.data.pts < posA.data.pts; });
+#endif
     }
     //ptsの補正
     void adjustFrameInfo(uint32_t nIndex) {
