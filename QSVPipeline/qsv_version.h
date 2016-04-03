@@ -55,7 +55,11 @@ const char *get_qsvenc_version();
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVCODEC_QSV_READER 1
 #define ENABLE_CUSTOM_VPP         1
+#ifdef _M_IX86
+#define ENABLE_METRIC_FRAMEWORK   0
+#else
 #define ENABLE_METRIC_FRAMEWORK   1
+#endif
 #else
 #define QSV_AUO_NAME              "QSVEnc.auo"
 #define ENABLE_AUO_LINK           1
