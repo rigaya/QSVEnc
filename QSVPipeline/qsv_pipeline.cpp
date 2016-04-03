@@ -1174,6 +1174,8 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
 }
 
 mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
+    m_VppExtParams.clear();
+    m_VppDoUseList.clear();
     m_VppDoNotUseList.clear();
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
     auto vppExtAddMes = [this](tstring str) {
@@ -1187,6 +1189,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDetail);
 
         vppExtAddMes(strsprintf(_T("Detail Enhancer, strength %d\n"), m_ExtDetail.DetailFactor));
+        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DETAIL);
     } else {
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DETAIL);
     }
@@ -1260,13 +1263,14 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppDoUse.NumAlg = (mfxU32)m_VppDoUseList.size();
         m_VppDoUse.AlgList = &m_VppDoUseList[0];
 
-        m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoUse);
+        m_VppExtParams.insert(m_VppExtParams.begin(), (mfxExtBuffer *)&m_VppDoUse);
         for (const auto& extParam : m_VppDoUseList) {
             PrintMes(QSV_LOG_DEBUG, _T("CreateVppExtBuffers: set DoUse %s.\n"), fourccToStr(extParam).c_str());
         }
     }
 
-    if (m_VppDoNotUseList.size()) {
+    //Haswell以降では、DONOTUSEをセットするとdetail enhancerの効きが固定になるなど、よくわからない挙動を示す。
+    if (m_VppDoNotUseList.size() && getCPUGen() < CPU_GEN_HASWELL) {
         AllocAndInitVppDoNotUse();
         m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoNotUse);
         for (const auto& extParam : m_VppDoNotUseList) {
