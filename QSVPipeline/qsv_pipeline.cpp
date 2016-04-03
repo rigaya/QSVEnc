@@ -3302,7 +3302,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
         if (!sts)
             sts = m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface);
         if (NULL != m_pAbortByUser && *m_pAbortByUser) {
-            PrintMes(QSV_LOG_INFO, _T("                                                                         \r"));
+            PrintMes(QSV_LOG_INFO, _T("                                                                              \r"));
             sts = MFX_ERR_ABORTED;
         } else if (sts == MFX_ERR_MORE_DATA) {
             m_EncThread.m_stsThread = sts;

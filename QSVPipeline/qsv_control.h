@@ -303,7 +303,7 @@ public:
         }
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #endif //#if defined(_WIN32) || defined(_WIN64)
-        TCHAR mes[256];
+        TCHAR mes[256] = { 0 };
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
         m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / elapsedTime;
         m_sData.fBitrateKbps = (mfxF64)m_sData.nWrittenBytes * (m_nOutputFPSRate / (mfxF64)m_nOutputFPSScale) / ((1000 / 8) * (m_sData.nProcessedFramesNum + drop_frames));
@@ -319,34 +319,40 @@ public:
             remaining_time -= mm * (60*1000);
             int ss = remaining_time / 1000;
 
-            int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0d kb/s, remain %d:%02d:%02d  "),
+            int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0d kb/s, remain %d:%02d:%02d"),
                 progressPercent,
                 m_sData.nProcessedFramesNum + drop_frames,
                 m_sData.fEncodeFps,
                 (int)(m_sData.fBitrateKbps + 0.5),
                 hh, mm, ss );
-            len -= 2;
             if (drop_frames) {
-                _stprintf_s(mes + len, _countof(mes) - len, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
+                len += _stprintf_s(mes + len, _countof(mes) - len, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
             } else if (bGPUUsage) {
                 len += _stprintf_s(mes + len, _countof(mes) - len, _T(", EU %d%%"), gpuusage);
                 if (bMFXUsage) {
                     len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
                 }
             }
+            for (; len < 79; len++) {
+                mes[len] = _T(' ');
+            }
+            mes[len] = _T('\0');
         } else {
-            int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %d kbps  "), 
+            int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %d kbps"), 
                 (m_sData.nProcessedFramesNum + drop_frames),
                 m_sData.fEncodeFps,
                 (int)(m_sData.fBitrateKbps + 0.5)
                 );
-            len -= 2;
             if (bGPUUsage) {
                 len += _stprintf_s(mes + len, _countof(mes) - len, _T(", EU %d%%"), gpuusage);
                 if (bMFXUsage) {
                     len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
                 }
             }
+            for (; len < 79; len++) {
+                mes[len] = _T(' ');
+            }
+            mes[len] = _T('\0');
         }
         UpdateDisplay(mes, drop_frames, progressPercent);
         return MFX_ERR_NONE;
