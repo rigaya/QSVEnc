@@ -124,11 +124,11 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     } else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
         COMPARE_INT(vidprm.mfx.ICQQuality, -1);
     } else {
-        COMPARE_INT(vidprm.mfx.TargetKbps, -1);
+        COMPARE_INT(vidprm.mfx.TargetKbps, 0);
         if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
-            COMPARE_INT(vidprm.mfx.TargetKbps, -1);
+            COMPARE_INT(vidprm.mfx.TargetKbps, 0);
         } else {
-            COMPARE_INT(vidprm.mfx.MaxKbps, -1);
+            COMPARE_INT(vidprm.mfx.MaxKbps, 0);
             if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
                 COMPARE_INT(cop3.QVBRQuality, -1);
             }
@@ -191,8 +191,10 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     COMPARE_INT(cop3.NumSliceI,                  0);
     COMPARE_INT(cop3.NumSliceP,                  0);
     COMPARE_INT(cop3.NumSliceB,                  0);
-    COMPARE_INT(cop3.WinBRCMaxAvgKbps,           0);
-    COMPARE_INT(cop3.WinBRCSize,                 0);
+    if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
+        COMPARE_INT(cop3.WinBRCMaxAvgKbps,       0);
+        COMPARE_INT(cop3.WinBRCSize,             0);
+    }
     COMPARE_TRI(cop3.EnableMBQP,                 0);
     COMPARE_INT(cop3.IntRefCycleDist,            0);
     COMPARE_TRI(cop3.DirectBiasAdjustment,       0);
@@ -1172,11 +1174,23 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
 }
 
 mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
+    m_VppDoNotUseList.clear();
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
     auto vppExtAddMes = [this](tstring str) {
         VppExtMes += str;
         PrintMes(QSV_LOG_DEBUG, _T("CreateVppExtBuffers: %s"), str.c_str());
     };
+
+    if (pParams->vpp.bUseDetailEnhance) {
+        INIT_MFX_EXT_BUFFER(m_ExtDetail, MFX_EXTBUFF_VPP_DETAIL);
+        m_ExtDetail.DetailFactor = (mfxU16)clamp_param_int(pParams->vpp.nDetailEnhance, QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX, _T("vpp-detail-enhance"));
+        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDetail);
+
+        vppExtAddMes(strsprintf(_T("Detail Enhancer, strength %d\n"), m_ExtDetail.DetailFactor));
+    } else {
+        m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DETAIL);
+    }
+
     switch (pParams->vpp.nRotate) {
     case MFX_ANGLE_90:
     case MFX_ANGLE_180:
@@ -1220,16 +1234,6 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         
         vppExtAddMes(strsprintf(_T("Stabilizer, mode %s\n"), get_vpp_image_stab_mode_str(m_ExtImageStab.Mode)));
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
-    }
-
-    if (pParams->vpp.bUseDetailEnhance) {
-        INIT_MFX_EXT_BUFFER(m_ExtDetail, MFX_EXTBUFF_VPP_DETAIL);
-        m_ExtDetail.DetailFactor = (mfxU16)clamp_param_int(pParams->vpp.nDetailEnhance, QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX, _T("vpp-detail-enhance"));
-        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDetail);
-        
-        vppExtAddMes(strsprintf(_T("Detail Enhancer, strength %d\n"), m_ExtDetail.DetailFactor));
-    } else {
-        m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DETAIL);
     }
 
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_SCENE_ANALYSIS);
@@ -2793,7 +2797,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         pParams->memType = SYSTEM_MEMORY;
     }
 
-    if (true) {
+    if (false) {
         m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
         tstring perfMonLog;
         if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
