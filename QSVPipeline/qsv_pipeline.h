@@ -102,7 +102,7 @@ public:
 protected:
     mfxVersion m_mfxVer;
     shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
-    unique_ptr<CPerfMonitor> m_pPerfMonitor;
+    shared_ptr<CPerfMonitor> m_pPerfMonitor;
     CEncodingThread m_EncThread;
 
     bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する

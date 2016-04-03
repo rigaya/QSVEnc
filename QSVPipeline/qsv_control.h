@@ -29,6 +29,7 @@
 #include "qsv_log.h"
 #include "cpu_info.h"
 #include "gpuz_info.h"
+#include "perf_monitor.h"
 
 using std::chrono::duration_cast;
 using std::shared_ptr;
@@ -209,6 +210,7 @@ typedef struct sEncodeStatusData {
     int      nGPUInfoCountSuccess;
     int      nGPUInfoCountFail;
     double   fGPULoadPercentTotal;
+    double   fMFXLoadPercentTotal;
     double   fGPUClockTotal;
 } sEncodeStatusData;
 
@@ -216,7 +218,7 @@ class CEncodeStatusInfo {
 public:
     CEncodeStatusInfo();
     virtual ~CEncodeStatusInfo();
-    virtual void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog);
+    virtual void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog, shared_ptr<CPerfMonitor> pPerfMonitor);
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
         if (NULL != data) {
@@ -270,6 +272,36 @@ public:
             return MFX_ERR_NONE;
         }
         m_tmLastUpdate = tm;
+#if defined(_WIN32) || defined(_WIN64)
+        bool bMFXUsage = false;
+        bool bGPUUsage = false;
+        int mfxusage = 0;
+        int gpuusage = 0;
+#if ENABLE_METRIC_FRAMEWORK
+        QSVGPUInfo info = { 0 };
+        bMFXUsage = m_pPerfMonitor && m_pPerfMonitor->GetQSVInfo(&info);
+        bGPUUsage = bMFXUsage;
+        if (bMFXUsage) {
+            m_sData.nGPUInfoCountSuccess++;
+            m_sData.fGPULoadPercentTotal += info.dEULoad;
+            m_sData.fMFXLoadPercentTotal += info.dMFXLoad;
+            gpuusage = (int)info.dEULoad;
+            mfxusage = (int)info.dMFXLoad;
+        } else {
+#endif //#if ENABLE_METRIC_FRAMEWORK
+            GPUZ_SH_MEM gpu_info = { 0 };
+            if (0 == get_gpuz_info(&gpu_info)) {
+                bGPUUsage = true;
+                m_sData.nGPUInfoCountSuccess++;
+                m_sData.fGPULoadPercentTotal += gpu_load(&gpu_info);
+                m_sData.fGPUClockTotal += gpu_core_clock(&gpu_info);
+                gpuusage = (int)gpu_load(&gpu_info);
+            } else {
+                m_sData.nGPUInfoCountFail++;
+            }
+#if ENABLE_METRIC_FRAMEWORK
+        }
+#endif //#if ENABLE_METRIC_FRAMEWORK
         TCHAR mes[256];
         double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
         m_sData.fEncodeFps = (m_sData.nProcessedFramesNum + drop_frames) * 1000.0 / elapsedTime;
@@ -286,29 +318,34 @@ public:
             remaining_time -= mm * (60*1000);
             int ss = remaining_time / 1000;
 
-            int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0.2lf kb/s, remain %d:%02d:%02d  "),
+            int len = _stprintf_s(mes, _countof(mes), _T("[%.1lf%%] %d frames: %.2lf fps, %0d kb/s, remain %d:%02d:%02d  "),
                 progressPercent,
                 m_sData.nProcessedFramesNum + drop_frames,
                 m_sData.fEncodeFps,
-                m_sData.fBitrateKbps,
+                (int)(m_sData.fBitrateKbps + 0.5),
                 hh, mm, ss );
-            if (drop_frames)
-                _stprintf_s(mes + len - 2, _countof(mes) - len + 2, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
+            len -= 2;
+            if (drop_frames) {
+                _stprintf_s(mes + len, _countof(mes) - len, _T(", afs drop %d/%d  "), drop_frames, (m_sData.nProcessedFramesNum + drop_frames));
+            } else if (bGPUUsage) {
+                len += _stprintf_s(mes + len, _countof(mes) - len, _T(", EU %d%%"), gpuusage);
+                if (bMFXUsage) {
+                    len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
+                }
+            }
         } else {
-            _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %0.2lf kbps  "), 
+            int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %d kbps  "), 
                 (m_sData.nProcessedFramesNum + drop_frames),
                 m_sData.fEncodeFps,
-                m_sData.fBitrateKbps
+                (int)(m_sData.fBitrateKbps + 0.5)
                 );
-        }
-#if defined(_WIN32) || defined(_WIN64)
-        GPUZ_SH_MEM gpu_info = { 0 };
-        if (0 == get_gpuz_info(&gpu_info)) {
-            m_sData.nGPUInfoCountSuccess++;
-            m_sData.fGPULoadPercentTotal += gpu_load(&gpu_info);
-            m_sData.fGPUClockTotal += gpu_core_clock(&gpu_info);
-        } else {
-            m_sData.nGPUInfoCountFail++;
+            len -= 2;
+            if (bGPUUsage) {
+                len += _stprintf_s(mes + len, _countof(mes) - len, _T(", EU %d%%"), gpuusage);
+                if (bMFXUsage) {
+                    len += _stprintf_s(mes + len, _countof(mes) - len, _T(", MFX %d%%"), mfxusage);
+                }
+            }
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
         UpdateDisplay(mes, drop_frames, progressPercent);
@@ -384,8 +421,13 @@ public:
         m_sData.fCPUUsagePercent = GetProcessAvgCPUUsage(&m_sStartTime);
         if (m_sData.nGPUInfoCountSuccess > m_sData.nGPUInfoCountFail) {
             double gpu_load = m_sData.fGPULoadPercentTotal / m_sData.nGPUInfoCountSuccess;
-            int gpu_clock_avg = (int)(m_sData.fGPUClockTotal / m_sData.nGPUInfoCountSuccess + 0.5);
-            _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.2f%%, GPULoad: %.2f%%, GPUClockAvg: %dMHz\n"), hh, mm, ss, m_sData.fCPUUsagePercent, gpu_load, gpu_clock_avg);
+            if (m_sData.fMFXLoadPercentTotal > 0) {
+                double mfx_load = m_sData.fMFXLoadPercentTotal / m_sData.nGPUInfoCountSuccess;
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.2f%%, EU: %.2f%%, MFX: %.2f%%\n"), hh, mm, ss, m_sData.fCPUUsagePercent, gpu_load, mfx_load);
+            } else {
+                int gpu_clock_avg = (int)(m_sData.fGPUClockTotal / m_sData.nGPUInfoCountSuccess + 0.5);
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.2f%%, EU: %.2f%%, GPUClockAvg: %dMHz\n"), hh, mm, ss, m_sData.fCPUUsagePercent, gpu_load, gpu_clock_avg);
+            }
         } else {
             _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.2f%%\n"), hh, mm, ss, m_sData.fCPUUsagePercent);
         }
@@ -423,6 +465,7 @@ protected:
     PROCESS_TIME m_sStartTime;
     sEncodeStatusData m_sData;
     shared_ptr<CQSVLog> m_pQSVLog;
+    shared_ptr<CPerfMonitor> m_pPerfMonitor;
     bool m_bStdErrWriteToConsole;
     bool m_bEncStarted;
 };
