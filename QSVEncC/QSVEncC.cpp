@@ -983,13 +983,16 @@ function showTable(idno) {
         environmentInfo = str_replace(environmentInfo, _T("Environment Info\n"), _T(""));
     }
     print_tstring(environmentInfo + ((type == FEATURE_LIST_STR_TYPE_HTML) ? _T("") : _T("\n")), true, _T("<span style=font-size:small>"), _T("</span>"));
-
+    bool bOSSupportsQSV = true;
+#if defined(_WIN32) || defined(_WIN64)
     OSVERSIONINFOEXW osver;
     tstring osversion = getOSVersion(&osver);
-    bool bOSSupportsQSV = true;
     bOSSupportsQSV &= osver.dwPlatformId == VER_PLATFORM_WIN32_NT;
     bOSSupportsQSV &= (osver.dwMajorVersion >= 7 || osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 1);
     bOSSupportsQSV &= osver.wProductType == VER_NT_WORKSTATION;
+#else
+    tstring osversion = getOSVersion();
+#endif
 
     mfxVersion test = { 0, 1 };
     for (int impl_type = 0; impl_type < 1; impl_type++) {

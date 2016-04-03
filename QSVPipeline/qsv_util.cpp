@@ -1657,8 +1657,8 @@ BOOL check_OS_Win8orLater() {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
 #if defined(_WIN32) || defined(_WIN64)
+tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
     const TCHAR *ptr = _T("Unknown");
     OSVERSIONINFOW info = { 0 };
     OSVERSIONINFOEXW infoex = { 0 };
@@ -1738,6 +1738,7 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
     }
     return tstring(ptr);
 #else //#if defined(_WIN32) || defined(_WIN64)
+tstring getOSVersion() {
     std::string str = "";
     FILE *fp = popen("/usr/bin/lsb_release -a", "r");
     if (fp != NULL) {
