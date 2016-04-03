@@ -270,7 +270,7 @@ std::vector<std::string> split(const std::string &str, const std::string &delim,
     return res;
 }
 
-tstring lstrip(const tstring& string, const TCHAR* trim) {
+std::string lstrip(const std::string& string, const char* trim) {
     auto result = string;
     auto left = string.find_first_not_of(trim);
     if (left != std::string::npos) {
@@ -279,7 +279,7 @@ tstring lstrip(const tstring& string, const TCHAR* trim) {
     return result;
 }
 
-tstring rstrip(const tstring& string, const TCHAR* trim) {
+std::string rstrip(const std::string& string, const char* trim) {
     auto result = string;
     auto right = string.find_last_not_of(trim);
     if (right != std::string::npos) {
@@ -288,7 +288,35 @@ tstring rstrip(const tstring& string, const TCHAR* trim) {
     return result;
 }
 
-tstring trim(const tstring& string, const TCHAR* trim) {
+std::string trim(const std::string& string, const char* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        auto right = string.find_last_not_of(trim);
+        result = string.substr(left, right - left + 1);
+    }
+    return result;
+}
+
+std::wstring lstrip(const std::wstring& string, const WCHAR* trim) {
+    auto result = string;
+    auto left = string.find_first_not_of(trim);
+    if (left != std::string::npos) {
+        result = string.substr(left, 0);
+    }
+    return result;
+}
+
+std::wstring rstrip(const std::wstring& string, const WCHAR* trim) {
+    auto result = string;
+    auto right = string.find_last_not_of(trim);
+    if (right != std::string::npos) {
+        result = string.substr(0, right);
+    }
+    return result;
+}
+
+std::wstring trim(const std::wstring& string, const WCHAR* trim) {
     auto result = string;
     auto left = string.find_first_not_of(trim);
     if (left != std::string::npos) {
