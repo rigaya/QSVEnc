@@ -211,7 +211,7 @@ public:
             m_nFirstKeyframePts = m_list[nIndex].data.pts;
         }
         //m_nStreamPtsStatusがAVQSV_PTS_UNKNOWNの場合には、ソートなどは行わない
-        if (m_bInputFin || (m_nStreamPtsStatus && nListSize - m_nNextFixNumIndex > AVQSV_FRAME_MAX_REORDER)) {
+        if (m_bInputFin || (m_nStreamPtsStatus && nListSize - m_nNextFixNumIndex > (int)AVQSV_FRAME_MAX_REORDER)) {
             //ptsでソート
             sortPts(m_nNextFixNumIndex, nListSize - m_nNextFixNumIndex);
             setPocAndFix(nListSize);

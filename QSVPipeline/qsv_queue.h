@@ -43,7 +43,7 @@ public:
         static_assert(std::is_pod<Type>::value == true, "CQueueSPSP is only for POD type.");
         //実際のメモリのアライメントに適切な2の倍数であるか確認する
         //そうでない場合は32をデフォルトとして使用
-        for (int i = 0; i < sizeof(i) * 8; i++) {
+        for (uint32_t i = 4; i < sizeof(i) * 8; i++) {
             int test = 1 << i;
             if (test == align_byte) {
                 m_nMallocAlign = test;
