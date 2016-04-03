@@ -3766,7 +3766,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 bDeviceBusy = true;
                 if (MFX_WRN_DEVICE_BUSY == enc_sts)
                 sleep_hybrid(i);
-                if (i > 1024 * 1024 * 30) {
+                if (i > 65536 * 1024 * 30) {
                     PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                     return MFX_ERR_UNKNOWN;
                 }
