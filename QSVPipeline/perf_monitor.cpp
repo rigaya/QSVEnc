@@ -330,16 +330,25 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     //putenv("GM_EXTENSION_LIB_SKIP_LIST=SEPPublisher,PVRPublisher,CPUInfoPublisher,RenderPerfPublisher");
     m_pLoader = ExtensionLoader::Create();
     //m_pLoader->AddSearchPath(loadPath.c_str());
-    if (m_pLoader->Load("DefaultManager") > 0
-        //&& m_pLoader->Load("LogPublisher") > 0
-        //&& m_pLoader->CommitExtensions() > 0
-        //下記のようにLoadAllでもよいが非常に重い
-        //&& m_pLoader->LoadAll() > 0
-        //mfxの使用率をとるには下記の2つが必要
-        && m_pLoader->Load("MediaPerfPublisher") > 0 && m_pLoader->Load("RenderPerfPublisher") > 0
-        //以下でGPU平均使用率などがとれるはずだが・・・
-        //&& m_pLoader->Load("GfxDrvSampledPublisher") > 0
-        && m_pLoader->CommitExtensions() > 0) {
+    if (m_pLoader->Load("DefaultManager") == 0) {
+        pQSVLog->write(QSV_LOG_DEBUG, _T("PerfMonitor: Failed to load DefaultManager\n"));
+    } else if (m_pLoader->CommitExtensions() == 0) {
+    //} else if (m_pLoader->Load("LogPublisher") == 0) {
+        //pQSVLog->write(QSV_LOG_DEBUG, _T("PerfMonitor: Failed to load LogPublisher\n"));
+    //下記のようにLoadAllでもよいが非常に重い
+    //} else if (m_pLoader->LoadAll() == 0) {
+        //pQSVLog->write(QSV_LOG_DEBUG, _T("PerfMonitor: Failed to load Metric dlls\n"));
+    //mfxの使用率をとるには下記の2つが必要
+    } else if (m_pLoader->Load("MediaPerfPublisher") == 0) {
+        pQSVLog->write(QSV_LOG_DEBUG, _T("PerfMonitor: Failed to load MediaPerfPublisher\n"));
+    } else if (m_pLoader->Load("RenderPerfPublisher") == 0) {
+        pQSVLog->write(QSV_LOG_DEBUG, _T("PerfMonitor: Failed to load RenderPerfPublisher\n"));
+    //以下でGPU平均使用率などがとれるはずだが・・・
+    //} else if (m_pLoader->Load("GfxDrvSampledPublisher") == 0) {
+        //pQSVLog->write(QSV_LOG_DEBUG, _T("PerfMonitor: Failed to load GfxDrvSampledPublisher\n"));
+    } else if (m_pLoader->CommitExtensions() == 0) {
+        //pQSVLog->write(QSV_LOG_DEBUG, _T("PerfMonitor: Failed to CommitExtensions\n"));
+    } else {
         //定義した情報の受け取り口を登録
         m_pLoader->AddExtension("CQSVConsumer", &m_Consumer);
         m_pManager.reset(GM_GET_DEFAULT_CLIENT_MANAGER(m_pLoader));
@@ -366,6 +375,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             }
             m_Consumer.AddMetrics(subscribedMetrics);
             if (subscribedMetrics.size() != _countof(METRIC_NAMES)) {
+                pQSVLog->write(QSV_LOG_DEBUG, _T("metrics was not fully load, disable metric framework features.\n"));
                 if (m_pManager) {
                     const auto metricsUsed = m_Consumer.getMetricUsed();
                     for (auto metric = metricsUsed.cbegin(); metric != metricsUsed.cend(); metric++) {
