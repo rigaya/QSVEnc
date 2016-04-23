@@ -67,7 +67,7 @@ SubBurn::SubBurn() :
     m_nCpuGen(getCPUGen()),
     m_nSimdAvail(get_availableSIMD()),
     m_SubBurnParam(),
-    m_sProcessData() {
+    m_vProcessData() {
     m_pluginName = _T("subburn");
 }
 
@@ -146,7 +146,7 @@ mfxStatus SubBurn::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mf
         //メインパイプラインから直接受け取ったAllocatorでなければならない
         m_sTasks[ind].pProcessor->SetAllocator((m_SubBurnParam.pAllocator) ? m_SubBurnParam.pAllocator : &m_mfxCore.FrameAllocator());
     }
-    m_sTasks[ind].pProcessor->Init(real_surface_in, real_surface_out, &m_sProcessData);
+    m_sTasks[ind].pProcessor->Init(real_surface_in, real_surface_out, &m_vProcessData[ind]);
 
     *task = (mfxThreadTask)&m_sTasks[ind];
 
@@ -200,7 +200,7 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
         }
     }
 
-    m_sTasks.resize(1);
+    m_sTasks.resize((std::max)(1, (int)m_VideoParam.AsyncDepth));
     m_sChunks.resize(m_PluginParam.MaxThreadNum);
 
     // divide frame into data chunks
@@ -447,23 +447,6 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
     mfxStatus sts = CheckParam(&m_VideoParam);
     if (sts < MFX_ERR_NONE) return sts;
 
-    memcpy(&m_SubBurnParam, pSubBurnPar, sizeof(m_SubBurnParam));
-    m_sProcessData.pFilePath = m_SubBurnParam.pFilePath;
-    m_sProcessData.sCharEnc = tchar_to_string(m_SubBurnParam.pCharEnc);
-    m_sProcessData.sCrop = m_SubBurnParam.sCrop;
-    m_sProcessData.frameInfo = m_SubBurnParam.frameInfo;
-    m_sProcessData.nInTrackId = m_SubBurnParam.src.nTrackId;
-    m_sProcessData.nStreamIndexIn = (m_SubBurnParam.src.pStream) ? m_SubBurnParam.src.pStream->index : -1;
-    m_sProcessData.nVideoInputFirstKeyPts = m_SubBurnParam.nVideoInputFirstKeyPts;
-    m_sProcessData.pAssLibrary = nullptr;
-    m_sProcessData.pAssRenderer = nullptr;
-    m_sProcessData.pAssTrack = nullptr;
-    m_sProcessData.pBuf = nullptr;
-    m_sProcessData.pCodecCtxIn = m_SubBurnParam.src.pCodecCtx;
-    m_sProcessData.pVideoInputCodecCtx = m_SubBurnParam.pVideoInputCodecCtx;
-    m_sProcessData.nSimdAvail = m_nSimdAvail;
-    m_sProcessData.qSubPackets.init();
-
     if ((m_nSimdAvail & AVX2) == AVX2) {
         m_pluginName = _T("SubBurn[AVX2]");
     } else if (m_nSimdAvail & AVX) {
@@ -478,35 +461,59 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_pluginName = _T("SubBurn[C]");
         return MFX_ERR_UNSUPPORTED;
     }
-    if (m_sProcessData.nInTrackId != 0) {
-        m_pluginName += strsprintf(_T(" track #%d"), std::abs(m_sProcessData.nInTrackId));
+
+    memcpy(&m_SubBurnParam, pSubBurnPar, sizeof(m_SubBurnParam));
+    if (m_SubBurnParam.src.nTrackId != 0) {
+        m_pluginName += strsprintf(_T(" track #%d"), std::abs(m_SubBurnParam.src.nTrackId));
     } else {
-        m_pluginName += strsprintf(_T(" : %s"), PathFindFileName(m_sProcessData.pFilePath));
+        m_pluginName += strsprintf(_T(" : %s"), PathFindFileName(m_SubBurnParam.pFilePath));
     }
 
-    if (MFX_ERR_NONE != (sts = InitAvcodec(&m_sProcessData))) {
-        return sts;
-    }
+    m_vProcessData = std::vector<ProcessDataSubBurn>(m_sTasks.size());
+    for (uint32_t i = 0; i < m_sTasks.size(); i++) {
+        m_vProcessData[i].pFilePath = m_SubBurnParam.pFilePath;
+        m_vProcessData[i].sCharEnc = tchar_to_string(m_SubBurnParam.pCharEnc);
+        m_vProcessData[i].sCrop = m_SubBurnParam.sCrop;
+        m_vProcessData[i].frameInfo = m_SubBurnParam.frameInfo;
+        m_vProcessData[i].nInTrackId = m_SubBurnParam.src.nTrackId;
+        m_vProcessData[i].nStreamIndexIn = (m_SubBurnParam.src.pStream) ? m_SubBurnParam.src.pStream->index : -1;
+        m_vProcessData[i].nVideoInputFirstKeyPts = m_SubBurnParam.nVideoInputFirstKeyPts;
+        m_vProcessData[i].pAssLibrary = nullptr;
+        m_vProcessData[i].pAssRenderer = nullptr;
+        m_vProcessData[i].pAssTrack = nullptr;
+        m_vProcessData[i].pBuf = nullptr;
+        m_vProcessData[i].pCodecCtxIn = m_SubBurnParam.src.pCodecCtx;
+        m_vProcessData[i].pVideoInputCodecCtx = m_SubBurnParam.pVideoInputCodecCtx;
+        m_vProcessData[i].nSimdAvail = m_nSimdAvail;
+        m_vProcessData[i].qSubPackets.init();
 
-    if (MFX_ERR_NONE != (sts = InitLibAss(&m_sProcessData))) {
-        return sts;
-    }
-    if (m_sProcessData.pFormatCtx) {
-        if (MFX_ERR_NONE != (sts = ProcSub(&m_sProcessData))) {
+        if (MFX_ERR_NONE != (sts = InitAvcodec(&m_vProcessData[i]))) {
             return sts;
         }
-    }
 
+        if (MFX_ERR_NONE != (sts = InitLibAss(&m_vProcessData[i]))) {
+            return sts;
+        }
+        if (m_vProcessData[i].pFormatCtx) {
+            if (MFX_ERR_NONE != (sts = ProcSub(&m_vProcessData[i]))) {
+                return sts;
+            }
+        }
+    }
     return MFX_ERR_NONE;
 }
 
 mfxStatus SubBurn::SendData(int nType, void *pData) {
     if (nType == PLUGIN_SEND_DATA_AVPACKET) {
-        if (m_sProcessData.pAssTrack == nullptr) {
-            AddMessage(QSV_LOG_ERROR, _T("ass track not initialized.\n"));
-            return MFX_ERR_NULL_PTR;
-        } 
-        m_sProcessData.qSubPackets.push(*(AVPacket *)pData);
+        for (uint32_t i = 1; i < m_sTasks.size(); i++) {
+            if (m_vProcessData[i].pAssTrack == nullptr) {
+                AddMessage(QSV_LOG_ERROR, _T("ass track not initialized.\n"));
+                return MFX_ERR_NULL_PTR;
+            }
+            AVPacket *pktCopy = av_packet_clone((AVPacket *)pData);
+            m_vProcessData[i].qSubPackets.push(*pktCopy);
+        }
+        m_vProcessData[0].qSubPackets.push(*(AVPacket *)pData);
         AddMessage(QSV_LOG_TRACE, _T("Add subtitle packet\n"));
         return MFX_ERR_NONE;
     } else {
@@ -522,50 +529,53 @@ mfxStatus SubBurn::Close() {
 
     memset(&m_SubBurnParam, 0, sizeof(m_SubBurnParam));
 
-    m_sTasks.clear();
-    m_sChunks.clear();
-
     mfxStatus sts = MFX_ERR_NONE;
 
 
-    //close decoder
-    if (m_sProcessData.pOutCodecDecodeCtx) {
-        avcodec_close(m_sProcessData.pOutCodecDecodeCtx);
-        av_free(m_sProcessData.pOutCodecDecodeCtx);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
-    }
+    for (uint32_t i = 0; i < m_sTasks.size(); i++) {
+        //close decoder
+        if (m_vProcessData[i].pOutCodecDecodeCtx) {
+            avcodec_close(m_vProcessData[i].pOutCodecDecodeCtx);
+            av_free(m_vProcessData[i].pOutCodecDecodeCtx);
+            AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
+        }
 
-    //close encoder
-    if (m_sProcessData.pOutCodecEncodeCtx) {
-        avcodec_close(m_sProcessData.pOutCodecEncodeCtx);
-        av_free(m_sProcessData.pOutCodecEncodeCtx);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
-    }
+        //close encoder
+        if (m_vProcessData[i].pOutCodecEncodeCtx) {
+            avcodec_close(m_vProcessData[i].pOutCodecEncodeCtx);
+            av_free(m_vProcessData[i].pOutCodecEncodeCtx);
+            AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
+        }
 
-    if (m_sProcessData.pBuf) {
-        av_free(m_sProcessData.pBuf);
-        m_sProcessData.pBuf = nullptr;
-    }
+        if (m_vProcessData[i].pBuf) {
+            av_free(m_vProcessData[i].pBuf);
+            m_vProcessData[i].pBuf = nullptr;
+        }
 
-    //close format
-    if (m_sProcessData.pFormatCtx) {
-        avformat_close_input(&m_sProcessData.pFormatCtx);
-        m_sProcessData.pFormatCtx = nullptr;
-    }
+        //close format
+        if (m_vProcessData[i].pFormatCtx) {
+            avformat_close_input(&m_vProcessData[i].pFormatCtx);
+            m_vProcessData[i].pFormatCtx = nullptr;
+        }
 
-    //libass関連の開放
-    if (m_sProcessData.pAssTrack) {
-        ass_free_track(m_sProcessData.pAssTrack);
-        m_sProcessData.pAssTrack = nullptr;
+        //libass関連の開放
+        if (m_vProcessData[i].pAssTrack) {
+            ass_free_track(m_vProcessData[i].pAssTrack);
+            m_vProcessData[i].pAssTrack = nullptr;
+        }
+        if (m_vProcessData[i].pAssRenderer) {
+            ass_renderer_done(m_vProcessData[i].pAssRenderer);
+            m_vProcessData[i].pAssRenderer = nullptr;
+        }
+        if (m_vProcessData[i].pAssLibrary) {
+            ass_library_done(m_vProcessData[i].pAssLibrary);
+            m_vProcessData[i].pAssLibrary = nullptr;
+        }
     }
-    if (m_sProcessData.pAssRenderer) {
-        ass_renderer_done(m_sProcessData.pAssRenderer);
-        m_sProcessData.pAssRenderer = nullptr;
-    }
-    if (m_sProcessData.pAssLibrary) {
-        ass_library_done(m_sProcessData.pAssLibrary);
-        m_sProcessData.pAssLibrary = nullptr;
-    }
+    m_vProcessData.clear();
+
+    m_sTasks.clear();
+    m_sChunks.clear();
 
     mfxExtOpaqueSurfaceAlloc *pluginOpaqueAlloc = nullptr;
 

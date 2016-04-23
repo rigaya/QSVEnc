@@ -150,7 +150,7 @@ public:
     virtual mfxStatus Close();
 
     virtual int getTargetTrack() override {
-        return m_sProcessData.nInTrackId;
+        return m_vProcessData[0].nInTrackId;
     }
 
 protected:
@@ -163,7 +163,7 @@ protected:
     int m_nCpuGen;
     uint32_t m_nSimdAvail;
     SubBurnParam m_SubBurnParam;
-    ProcessDataSubBurn m_sProcessData;
+    vector<ProcessDataSubBurn> m_vProcessData;
 };
 #endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
 
