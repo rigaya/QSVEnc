@@ -7,8 +7,8 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
-#ifndef __SAMPLE_PLUGIN_H__
-#define __SAMPLE_PLUGIN_H__
+#ifndef __DELOGO_PROCESS_H__
+#define __DELOGO_PROCESS_H__
 
 #include "plugin_delogo.h"
 
@@ -66,4 +66,4 @@ public:
     virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
-#endif // __SAMPLE_PLUGIN_H__
+#endif // __DELOGO_PROCESS_H__
