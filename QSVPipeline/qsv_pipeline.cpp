@@ -3568,7 +3568,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         return dec_sts;
     };
 
-    auto check_pts = [&](bool flush) {
+    auto check_pts = [&]() {
         int64_t timestamp = AV_NOPTS_VALUE;
 #if ENABLE_AVCODEC_QSV_READER
         if (framePosList) {
@@ -3876,7 +3876,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     break;
             }
 
-            sts = check_pts(false);
+            sts = check_pts();
             if (sts == MFX_ERR_MORE_SURFACE)
                 continue;
             if (sts != MFX_ERR_NONE)
@@ -3962,7 +3962,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                         break;
                 }
 
-                sts = check_pts(false);
+                sts = check_pts();
                 if (sts == MFX_ERR_MORE_SURFACE)
                     continue;
                 if (sts != MFX_ERR_NONE)
@@ -4041,7 +4041,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pNextFrame = nullptr;
                 lastSyncP = nullptr;
 
-                sts = check_pts(true);
+                sts = check_pts();
                 if (sts == MFX_ERR_MORE_SURFACE)
                     continue;
                 if (sts != MFX_ERR_NONE)
