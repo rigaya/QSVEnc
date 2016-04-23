@@ -1444,6 +1444,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             if (0 != _tcsicmp(pParams->pAVMuxOutputFormat, _T("raw"))) {
                 pParams->nAVMux |= QSVENC_MUX_VIDEO;
             }
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
     }
@@ -1452,7 +1455,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
         pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
         std::set<int> trackSet; //重複しないよう、setを使う
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
@@ -1496,7 +1499,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (i+1 < nArgNum) {
             const TCHAR *ptr = nullptr;
             const TCHAR *ptrDelim = nullptr;
-            if (strInput[i+1][0] != _T('-')) {
+            if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
                 i++;
                 ptrDelim = _tcschr(strInput[i], _T('?'));
                 ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
@@ -1809,7 +1812,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_SUBTITLE);
         std::set<int> trackSet; //重複しないよう、setを使う
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
