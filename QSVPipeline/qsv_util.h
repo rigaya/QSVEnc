@@ -551,4 +551,6 @@ static void print_err_mes(int sts) {
 }
 #define QSV_IGNORE_STS(sts, err)                { if ((err) == (sts)) {(sts) = MFX_ERR_NONE; } }
 
+int qsv_avx_dummy_if_avail(int bAVXAvail);
+
 #endif //_QSV_UTIL_H_
