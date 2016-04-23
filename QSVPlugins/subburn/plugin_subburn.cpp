@@ -41,7 +41,7 @@ static bool check_libass_dll() {
 //MSGL_ERR   1 - QSV_LOG_ERROR  2
 //MSGL_WARN  2 - QSV_LOG_WARN   1
 //           3 - QSV_LOG_WARN   1
-//MSGL_INFO  4 - QSV_LOG_INFO   0
+//MSGL_INFO  4 - QSV_LOG_MORE  -1 (いろいろ情報が出すぎるので)
 //           5 - QSV_LOG_MORE  -1
 //MSGL_V     6 - QSV_LOG_DEBUG -2
 //MSGL_DBG2  7 - QSV_LOG_TRACE -3
@@ -51,7 +51,7 @@ static inline int log_level_ass2qsv(int level) {
         QSV_LOG_ERROR,
         QSV_LOG_WARN,
         QSV_LOG_WARN,
-        QSV_LOG_INFO,
+        QSV_LOG_MORE,
         QSV_LOG_MORE,
         QSV_LOG_DEBUG,
         QSV_LOG_TRACE
@@ -233,7 +233,7 @@ mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
     }
     ass_set_message_cb(pProcData->pAssLibrary, ass_log, m_pPrintMes.get());
 
-    ass_set_extract_fonts(pProcData->pAssLibrary, 1 );
+    ass_set_extract_fonts(pProcData->pAssLibrary, 1);
     ass_set_style_overrides(pProcData->pAssLibrary, nullptr);
 
     if (nullptr == (pProcData->pAssRenderer = ass_renderer_init(pProcData->pAssLibrary))) {
