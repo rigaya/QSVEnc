@@ -10,9 +10,9 @@
 #ifndef _QSV_VERSION_H_
 #define _QSV_VERSION_H_
 
-#define VER_FILEVERSION             0,2,44,0
-#define VER_STR_FILEVERSION          "2.44"
-#define VER_STR_FILEVERSION_TCHAR _T("2.44")
+#define VER_FILEVERSION             0,2,46,0
+#define VER_STR_FILEVERSION          "2.46"
+#define VER_STR_FILEVERSION_TCHAR _T("2.46")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -54,6 +54,7 @@ const char *get_qsvenc_version();
 #define ENABLE_AVISYNTH_READER    1
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVCODEC_QSV_READER 1
+#define ENABLE_LIBASS_SUBBURN     1
 #define ENABLE_CUSTOM_VPP         1
 #ifdef _M_IX86
 #define ENABLE_METRIC_FRAMEWORK   0
@@ -68,6 +69,7 @@ const char *get_qsvenc_version();
 #define ENABLE_VAPOURSYNTH_READER 0
 #define ENABLE_AVCODEC_QSV_READER 1
 #define ENABLE_CUSTOM_VPP         1
+#define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_METRIC_FRAMEWORK   0
 #endif
 

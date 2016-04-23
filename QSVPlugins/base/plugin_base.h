@@ -15,6 +15,7 @@
 #include <mfxplugin++.h>
 #include "qsv_version.h"
 #include "qsv_util.h"
+#include "qsv_log.h"
 #include "qsv_allocator_d3d9.h"
 
 #if D3D_SURFACES_SUPPORT
@@ -25,21 +26,23 @@ using std::vector;
 using std::unique_ptr;
 
 typedef struct {
-    mfxU32 StartLine;
-    mfxU32 EndLine;
+    uint32_t StartLine;
+    uint32_t EndLine;
 } DataChunk;
 
 class Processor
 {
 public:
     Processor()
-        : m_pIn(nullptr)
+        : m_ProcessorName()
+        , m_pIn(nullptr)
         , m_pOut(nullptr)
         , m_pAlloc(nullptr)
         , m_hDevice(nullptr)
 #if D3D_SURFACES_SUPPORT
         , m_pD3DDeviceManager(nullptr)
 #endif
+        , m_pPrintMes()
     {
     }
     virtual ~Processor() {
@@ -49,13 +52,17 @@ public:
             m_hDevice = nullptr;
         }
 #endif
+        m_pPrintMes.reset();
     }
     virtual mfxStatus SetAllocator(mfxFrameAllocator *pAlloc) {
         m_pAlloc = pAlloc;
         return MFX_ERR_NONE;
     }
     virtual mfxStatus Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out, const void *data) = 0;
-    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) = 0;
+    virtual mfxStatus Process(DataChunk *chunk, uint8_t *pBuffer) = 0;
+    void SetLog(shared_ptr<CQSVLog> pLog) {
+        m_pPrintMes = pLog;
+    }
 protected:
     //D3DバッファをGPUでコピーする
     //CPUでmovntdqa(_mm_stream_load_si128)を駆使するよりは高速
@@ -102,17 +109,44 @@ protected:
         //unlock required
         return m_pAlloc->Unlock(m_pAlloc->pthis, frame->Data.MemId, &frame->Data);
     }
+    void AddMessage(int log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto& line : lines) {
+            if (line[0] != _T('\0')) {
+                m_pPrintMes->write(log_level, (m_ProcessorName + _T(": ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
 
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
+    }
+
+    tstring m_ProcessorName;
     mfxFrameSurface1  *m_pIn;
     mfxFrameSurface1  *m_pOut;
     mfxFrameAllocator *m_pAlloc;
 
-    vector<mfxU8>      m_YIn, m_UVIn;
-    vector<mfxU8>      m_YOut, m_UVOut;
+    vector<uint8_t>      m_YIn, m_UVIn;
+    vector<uint8_t>      m_YOut, m_UVOut;
 #if D3D_SURFACES_SUPPORT
     IDirect3DDeviceManager9 *m_pD3DDeviceManager;
 #endif //#if D3D_SURFACES_SUPPORT
     HANDLE                   m_hDevice;
+    shared_ptr<CQSVLog>      m_pPrintMes; //ログ出力用オブジェクト
 };
 
 #pragma warning (push)
@@ -122,11 +156,16 @@ typedef struct PluginTask {
     mfxFrameSurface1 *Out = nullptr;
     bool bBusy = false;
     unique_ptr<Processor> pProcessor;
-    unique_ptr<mfxU8, aligned_malloc_deleter> pBuffer;
+    unique_ptr<uint8_t, aligned_malloc_deleter> pBuffer;
     PluginTask() {};
     PluginTask(const PluginTask& o) {
     }
 } DelogoTask;
+
+enum {
+    PLUGIN_SEND_DATA_UNKNOWN = 0,
+    PLUGIN_SEND_DATA_AVPACKET,
+};
 
 class QSVEncPlugin : public MFXGenericPlugin
 {
@@ -134,7 +173,8 @@ public:
     QSVEncPlugin() :
         m_bInited(false),
         m_bIsInOpaque(false),
-        m_bIsOutOpaque(false) {
+        m_bIsOutOpaque(false),
+        m_pPrintMes() {
         memset(&m_VideoParam, 0, sizeof(m_VideoParam));
 
         memset(&m_PluginParam, 0, sizeof(m_PluginParam));
@@ -143,7 +183,11 @@ public:
     }
 
     virtual ~QSVEncPlugin() {
+        m_pPrintMes.reset();
+    }
 
+    virtual void SetLog(shared_ptr<CQSVLog> pPrintMes) {
+        m_pPrintMes = pPrintMes;
     }
 
     // methods to be called by Media SDK
@@ -152,6 +196,7 @@ public:
         return MFX_ERR_NONE;
     }
     virtual mfxStatus PluginClose() {
+        m_pPrintMes.reset();
         return MFX_ERR_NONE;
     }
     virtual mfxStatus GetPluginParam(mfxPluginParam *par) override {
@@ -202,6 +247,10 @@ public:
         return MFX_ERR_NONE;
     }
 
+    virtual mfxStatus SendData(int nType, void *pData) {
+        return MFX_ERR_NONE;
+    }
+
     virtual tstring GetPluginName() {
         return m_pluginName;
     }
@@ -209,20 +258,50 @@ public:
     virtual tstring GetPluginMessage() {
         return m_message;
     }
+
+    virtual int getTargetTrack() {
+        return -1;
+    }
+
     virtual void SetMfxVer(mfxVersion ver) {
         m_PluginParam.APIVersion = ver;
     }
 
 protected:
-    mfxU32 FindFreeTaskIdx() {
-        mfxU32 i;
-        const mfxU32 maxTasks = (mfxU32)m_sTasks.size();
+    uint32_t FindFreeTaskIdx() {
+        uint32_t i;
+        const uint32_t maxTasks = (uint32_t)m_sTasks.size();
         for (i = 0; i < maxTasks; i++) {
             if (false == m_sTasks[i].bBusy) {
                 break;
             }
         }
         return i;
+    }
+    void AddMessage(int log_level, const tstring& str) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto& line : lines) {
+            if (line[0] != _T('\0')) {
+                m_pPrintMes->write(log_level, (m_pluginName + _T(": ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(int log_level, const TCHAR *format, ... ) {
+        if (m_pPrintMes == nullptr || log_level < m_pPrintMes->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
     }
     bool m_bInited;
 
@@ -261,6 +340,7 @@ protected:
     
     tstring m_pluginName;
     tstring m_message;
+    shared_ptr<CQSVLog> m_pPrintMes; //ログ出力用オブジェクト
 };
 #pragma warning (pop)
 

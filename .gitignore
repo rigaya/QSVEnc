@@ -3,6 +3,7 @@
 
 ffmpeg_lgpl/
 dtl/
+libass/
 .depend
 qsv_rev.h
 qsv_config.h

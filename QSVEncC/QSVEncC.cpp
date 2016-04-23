@@ -674,6 +674,13 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n")
+
+#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+        _T("   --vpp-sub-burn [<int>] or [<string>]\n")
+        _T("                                burn in subtitle into frame\n")
+        _T("                                set sub track number in input file by integer\n")
+        _T("                                or set external sub file path by string.\n")
+#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
@@ -2564,6 +2571,25 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
+#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+    if (0 == _tcscmp(option_name, _T("vpp-sub-burn"))) {
+        if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
+            i++;
+            TCHAR *endPtr = nullptr;
+            int nSubTrack = _tcstol(strInput[i], &endPtr, 10);
+            if (0 < nSubTrack && (endPtr == nullptr || *endPtr == _T('\0'))) {
+                pParams->vpp.subburn.nTrack = nSubTrack;
+                pParams->vpp.subburn.pFilePath = nullptr;
+            } else {
+                pParams->vpp.subburn.nTrack = 0;
+                pParams->vpp.subburn.pFilePath = _tcsdup(strInput[i]);
+            }
+        } else {
+            pParams->vpp.subburn.nTrack = 1;
+        }
+        return MFX_ERR_NONE;
+    }
+#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
     if (   0 == _tcscmp(option_name, _T("vpp-delogo"))
         || 0 == _tcscmp(option_name, _T("vpp-delogo-file"))) {
         i++;

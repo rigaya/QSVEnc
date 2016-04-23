@@ -165,6 +165,7 @@ typedef struct {
     bool bUseDenoise;         //use vpp denoise
     mfxU16 nDenoise;          // 0 - 100 Denoise Strength
     bool bUseDetailEnhance;   //use vpp detail enhancer
+    bool __unsed4;
     mfxU16 nDetailEnhance;    // 0 - 100 
     mfxU16 nDeinterlace;      //set deinterlace mode
 
@@ -174,17 +175,11 @@ typedef struct {
     mfxU16 nTelecinePattern;
 
     bool bHalfTurn;
+    bool __unsed3;
 
     struct {
         TCHAR     *pFilePath; //ロゴファイル名へのポインタ
-#ifdef _M_IX86
-        mfxU32     paddPtr1;
-#endif
-
         TCHAR     *pSelect; //選択するロゴ
-#ifdef _M_IX86
-        mfxU32     paddPtr2;
-#endif
         mfxI16Pair nPosOffset;
         mfxI16     nDepth;
         mfxI16     nYOffset;
@@ -192,7 +187,12 @@ typedef struct {
         mfxI16     nCrOffset;
     } delogo;
 
-    mfxU8 Reserved[95];
+    struct {
+        int nTrack;
+        TCHAR *pFilePath;
+    } subburn;
+
+    mfxU8 Reserved[96];
 } sVppParams;
 
 typedef struct sAudioSelect {

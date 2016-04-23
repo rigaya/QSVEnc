@@ -1290,6 +1290,54 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_CUSTOM_VPP
     tstring vppPreMes = _T("");
+#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+    if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
+        int nCrop[4] = { 0 };
+        AVDemuxStream targetSubStream = { 0 };
+        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        if (pParams->vpp.subburn.nTrack) {
+            if (pAVCodecReader == nullptr) {
+                PrintMes(QSV_LOG_ERROR, _T("--vpp-sub-burn from track required --avqsv reader.\n"));
+                return MFX_ERR_UNSUPPORTED;
+            }
+            for (const auto& stream : pAVCodecReader->GetInputStreamInfo()) {
+                if (stream.nTrackId == -1 * pParams->vpp.subburn.nTrack) {
+                    targetSubStream = stream;
+                    break;
+                }
+            }
+            if (targetSubStream.pCodecCtx == nullptr) {
+                PrintMes(QSV_LOG_ERROR, _T("--vpp-sub-burn: subtitile track #%d not found.\n"), pParams->vpp.subburn.nTrack);
+                return MFX_ERR_UNSUPPORTED;
+            }
+        }
+        mfxFrameInfo frameInfo = { 0 };
+        m_pFileReader->GetInputFrameInfo(&frameInfo);
+        unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
+        SubBurnParam param(m_pMFXAllocator.get(), m_memType,
+            pParams->vpp.subburn.pFilePath,
+            frameInfo,
+            (pAVCodecReader) ? pAVCodecReader->GetInputVideoCodecCtx() : nullptr,
+            //ファイルからの読み込みの時は最初のpts分の補正が必要
+            //トラックからの読み込みなら不要
+            (pAVCodecReader && !pParams->vpp.subburn.nTrack) ? pAVCodecReader->GetVideoFirstKeyPts() : 0,
+            targetSubStream,
+            //avqsvリーダー使用時以外はcropは読み込み段階ですでに行われている
+            (pAVCodecReader) ? &(pParams->sInCrop) : nullptr);
+        sts = filter->Init(m_mfxVer, _T("subburn"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
+        if (sts != MFX_ERR_NONE) {
+            PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
+            return sts;
+        } else {
+            sts = MFXJoinSession(m_mfxSession, filter->getSession());
+            QSV_ERR_MES(sts, _T("Failed to join vpp pre filter session."));
+            tstring mes = filter->getMessage();
+            PrintMes(QSV_LOG_DEBUG, _T("InitVppPrePlugins: add filter: %s\n"), mes.c_str());
+            vppPreMes += mes;
+            m_VppPrePlugins.push_back(std::move(filter));
+        }
+    }
+#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
     if (pParams->vpp.delogo.pFilePath) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
@@ -2324,7 +2372,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.bReadVideo = true;
                 avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
-                avcodecReaderPrm.bReadSubtitle = pParams->nSubtitleSelectCount > 0;
+                avcodecReaderPrm.bReadSubtitle = pParams->nSubtitleSelectCount + pParams->vpp.subburn.nTrack > 0;
                 avcodecReaderPrm.pTrimList = pParams->pTrimList;
                 avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
                 avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0; 
@@ -2333,8 +2381,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nAudioTrackStart = (mfxU8)sourceAudioTrackIdStart;
                 avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
-                avcodecReaderPrm.pSubtitleSelect = pParams->pSubtitleSelect;
-                avcodecReaderPrm.nSubtitleSelectCount = pParams->nSubtitleSelectCount;
+                avcodecReaderPrm.pSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &pParams->vpp.subburn.nTrack : pParams->pSubtitleSelect;
+                avcodecReaderPrm.nSubtitleSelectCount = (pParams->vpp.subburn.nTrack) ? 1 : pParams->nSubtitleSelectCount;
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
@@ -2557,6 +2605,18 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         PrintMes(QSV_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
         return MFX_ERR_UNSUPPORTED;
 #endif
+    }
+    if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
+        if (pParams->memType != SYSTEM_MEMORY) {
+            PrintMes(QSV_LOG_WARN, _T("vpp-sub-burn requires system surface, forcing system surface.\n"));
+        }
+        //d3d11を要求するvpp-rotateとsystem memを必要とするvpp-sub-burnは競合する
+        if (pParams->vpp.nRotate) {
+            PrintMes(QSV_LOG_ERROR, _T("vpp-sub-burn could not be used with vpp-rotate.\n"));
+            PrintMes(QSV_LOG_ERROR, _T("vpp-sub-burn requires system surface, but vpp-rotate requires d3d11 surface.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+        pParams->memType = SYSTEM_MEMORY;
     }
 
     //フレームレートのチェック
@@ -3402,6 +3462,20 @@ mfxStatus CQSVPipeline::RunEncode() {
             }
         }
     }
+    //streamのtrackIdからパケットを送信するvppフィルタへのポインタを返すテーブルを作成
+    std::map<int, shared_ptr<QSVEncPlugin>> pFilterForStreams;
+    for (const auto& pPlugins : m_VppPrePlugins) {
+        const int trackId = pPlugins->getTargetTrack();
+        if (trackId != 0) {
+            pFilterForStreams[trackId] = pPlugins->getPluginHandle();
+        }
+    }
+    for (const auto& pPlugins : m_VppPostPlugins) {
+        const int trackId = pPlugins->getTargetTrack();
+        if (trackId != 0) {
+            pFilterForStreams[trackId] = pPlugins->getPluginHandle();
+        }
+    }
 #endif
 
     sts = MFX_ERR_NONE;
@@ -3476,7 +3550,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     auto extract_audio =[&]() {
         mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_AVCODEC_QSV_READER
-        if (m_pFileWriterListAudio.size()) {
+        if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
             auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
             vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
@@ -3490,19 +3564,28 @@ mfxStatus CQSVPipeline::RunEncode() {
                 }
             }
             //パケットを各Writerに分配する
-            for (mfxU32 i = 0; i < packetList.size(); i++) {
+            for (uint32_t i = 0; i < packetList.size(); i++) {
                 const int nTrackId = (int16_t)(packetList[i].flags >> 16);
                 if (pWriterForAudioStreams.count(nTrackId)) {
                     auto pWriter = pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
-                        PrintMes(QSV_LOG_ERROR, _T("Invalid writer found for audio track %d\n"), nTrackId);
+                        PrintMes(QSV_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
                         return MFX_ERR_NULL_PTR;
                     }
                     if (MFX_ERR_NONE != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
                         return sts;
                     }
+                } else if (pFilterForStreams.count(nTrackId)) {
+                    auto pFilter = pFilterForStreams[nTrackId];
+                    if (pFilter == nullptr) {
+                        PrintMes(QSV_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
+                        return MFX_ERR_NULL_PTR;
+                    }
+                    if (MFX_ERR_NONE != (sts = pFilter->SendData(PLUGIN_SEND_DATA_AVPACKET, &packetList[i]))) {
+                        return sts;
+                    }
                 } else {
-                    PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for audio track %d\n"), nTrackId);
+                    PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
                     return MFX_ERR_NULL_PTR;
                 }
             }
@@ -4412,10 +4495,10 @@ void CQSVLog::write(int log_level, const WCHAR *format, va_list args) {
     }
 
     int len = _vscwprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    std::vector<TCHAR> buffer(len, 0);
+    std::vector<WCHAR> buffer(len, 0);
     if (buffer.data() != nullptr) {
         vswprintf_s(buffer.data(), len, format, args); // C4996
-        write_log(log_level, buffer.data());
+        write_log(log_level, wstring_to_tstring(buffer.data()).c_str());
     }
     va_end(args);
 }
