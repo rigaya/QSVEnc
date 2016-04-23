@@ -188,11 +188,12 @@ typedef struct {
     } delogo;
 
     struct {
-        int nTrack;
-        TCHAR *pFilePath;
+        int    nTrack;    //動画ファイルから字幕を抽出する場合の字幕トラック (0で無効)
+        TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
+        TCHAR *pCharEnc;  //字幕の文字コード
     } subburn;
 
-    mfxU8 Reserved[96];
+    mfxU8 Reserved[92];
 } sVppParams;
 
 typedef struct sAudioSelect {

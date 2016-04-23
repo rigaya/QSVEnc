@@ -356,6 +356,10 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
 
     int ret;
     AVDictionary *pCodecOpts = NULL;
+    if (0 > (ret = av_dict_set(&pCodecOpts, "sub_charenc", pProcData->sCharEnc.c_str(), 0))) {
+        AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_charenc\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
+        return MFX_ERR_NULL_PTR;
+    }
     if (0 > (ret = av_dict_set(&pCodecOpts, "sub_text_format", "ass", 0))) {
         AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
         return MFX_ERR_NULL_PTR;
@@ -445,6 +449,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
 
     memcpy(&m_SubBurnParam, pSubBurnPar, sizeof(m_SubBurnParam));
     m_sProcessData.pFilePath = m_SubBurnParam.pFilePath;
+    m_sProcessData.sCharEnc = tchar_to_string(m_SubBurnParam.pCharEnc);
     m_sProcessData.sCrop = m_SubBurnParam.sCrop;
     m_sProcessData.frameInfo = m_SubBurnParam.frameInfo;
     m_sProcessData.nInTrackId = m_SubBurnParam.src.nTrackId;

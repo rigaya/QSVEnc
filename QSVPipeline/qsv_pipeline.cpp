@@ -1316,6 +1316,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         SubBurnParam param(m_pMFXAllocator.get(), m_memType,
             pParams->vpp.subburn.pFilePath,
+            pParams->vpp.subburn.pCharEnc,
             frameInfo,
             (pAVCodecReader) ? pAVCodecReader->GetInputVideoCodecCtx() : nullptr,
             //ファイルからの読み込みの時は最初のpts分の補正が必要

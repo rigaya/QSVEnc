@@ -680,6 +680,8 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                burn in subtitle into frame\n")
         _T("                                set sub track number in input file by integer\n")
         _T("                                or set external sub file path by string.\n")
+        _T("   --vpp-sub-burn-charset [<string>]\n")
+        _T("                                set subtitle char set\n")
 #endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
@@ -2577,6 +2579,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             i++;
             TCHAR *endPtr = nullptr;
             int nSubTrack = _tcstol(strInput[i], &endPtr, 10);
+            if (pParams->vpp.subburn.pFilePath) {
+                free(pParams->vpp.subburn.pFilePath);
+            }
             if (0 < nSubTrack && (endPtr == nullptr || *endPtr == _T('\0'))) {
                 pParams->vpp.subburn.nTrack = nSubTrack;
                 pParams->vpp.subburn.pFilePath = nullptr;
@@ -2586,6 +2591,19 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             }
         } else {
             pParams->vpp.subburn.nTrack = 1;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-sub-burn-charset"))) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
+            i++;
+            if (pParams->vpp.subburn.pCharEnc) {
+                free(pParams->vpp.subburn.pCharEnc);
+            }
+            pParams->vpp.subburn.pCharEnc = _tcsdup(strInput[i]);
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
     }
