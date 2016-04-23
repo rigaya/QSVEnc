@@ -257,7 +257,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
     std::vector<int> frameDurationList;
     vector<std::pair<int, int>> durationHistgram;
 
-    for (int i_retry = 0; i_retry < 5; i_retry++) {
+    for (int i_retry = 0; ; i_retry++) {
         if (i_retry) {
             //フレームレート推定がうまくいかなそうだった場合、もう少しフレームを解析してみる
             maxCheckFrames <<= 1;
@@ -351,7 +351,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
             || std::abs(durationHistgram[0].first - durationHistgram[1].first) <= 1) { //durationのブレが貧弱なtimebaseによる丸めによるもの(mkvなど)
             break;
         }
-
+        if (i_retry >= 4) {
+            break;
+        }
         //再度解析を行う場合は、音声がL2キューに入らないよう、一度fixedNumを0に戻す
         m_Demux.frames.clearPtsStatus();
     }
