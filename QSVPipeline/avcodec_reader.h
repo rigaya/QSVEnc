@@ -238,6 +238,7 @@ public:
                 break;
             }
             if (pos.poc == poc) {
+                *lastIndex = index;
                 return pos;
             }
         }

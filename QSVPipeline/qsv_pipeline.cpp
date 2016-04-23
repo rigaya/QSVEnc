@@ -3695,6 +3695,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //水増しが必要 -> 何も(pop)しない
                 bCheckPtsMultipleOutput = true;
                 queueFirstFrame.pSurface->Data.Locked++;
+                framePosListIndex--;
             } else {
                 bCheckPtsMultipleOutput = false;
                 qDecodeFrames.pop_front();
