@@ -136,7 +136,7 @@ public:
             //現在キューにあるデータサイズ
             const size_t dataSize = m_pBufFin - pBufOutOld;
             //新たに確保するバッファのデータサイズ
-            const size_t bufSize = std::max((size_t)(m_pBufFin - m_pBufStart.get()), dataSize * 2);
+            const size_t bufSize = (std::max)((size_t)(m_pBufFin - m_pBufStart.get()), dataSize * 2);
             //新たなバッファ
             auto newBuf = std::unique_ptr<queueData, aligned_malloc_deleter>(
                 (queueData *)_aligned_malloc(sizeof(queueData) * bufSize, m_nMallocAlign), aligned_malloc_deleter());
