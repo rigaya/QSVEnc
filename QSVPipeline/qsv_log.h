@@ -46,6 +46,9 @@ public:
     }
     virtual void write_log(int log_level, const TCHAR *buffer, bool file_only = false);
     virtual void write(int log_level, const TCHAR *format, ...);
+    virtual void write(int log_level, const WCHAR *format, va_list args);
+    virtual void write(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP);
+    virtual void write_line(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP);
 };
 
 

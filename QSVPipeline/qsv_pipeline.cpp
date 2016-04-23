@@ -4400,6 +4400,49 @@ void CQSVLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     }
 }
 
+void CQSVLog::write(int log_level, const WCHAR *format, va_list args) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
+    int len = _vscwprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    std::vector<TCHAR> buffer(len, 0);
+    if (buffer.data() != nullptr) {
+        vswprintf_s(buffer.data(), len, format, args); // C4996
+        write_log(log_level, buffer.data());
+    }
+    va_end(args);
+}
+
+void CQSVLog::write(int log_level, const char *format, va_list args, uint32_t codepage) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
+    int len = _vscprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    std::vector<char> buffer(len, 0);
+    if (buffer.data() != nullptr) {
+        vsprintf_s(buffer.data(), len, format, args); // C4996
+        write_log(log_level, char_to_tstring(buffer.data(), codepage).c_str());
+    }
+    va_end(args);
+}
+
+void CQSVLog::write_line(int log_level, const char *format, va_list args, uint32_t codepage) {
+    if (log_level < m_nLogLevel) {
+        return;
+    }
+
+    int len = _vscprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    std::vector<char> buffer(len, 0);
+    if (buffer.data() != nullptr) {
+        vsprintf_s(buffer.data(), len, format, args); // C4996
+        tstring str = char_to_tstring(buffer.data(), codepage) + tstring(_T("\n"));
+        write_log(log_level, str.c_str());
+    }
+    va_end(args);
+}
+
 void CQSVLog::write(int log_level, const TCHAR *format, ...) {
     if (log_level < m_nLogLevel) {
         return;
@@ -4409,10 +4452,10 @@ void CQSVLog::write(int log_level, const TCHAR *format, ...) {
     va_start(args, format);
 
     int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
-    tstring buffer(len, 0);
+    std::vector<TCHAR> buffer(len, 0);
     if (buffer.data() != nullptr) {
-        _vstprintf_s(&buffer[0], len, format, args); // C4996
-        write_log(log_level, &buffer[0]);
+        _vstprintf_s(buffer.data(), len, format, args); // C4996
+        write_log(log_level, buffer.data());
     }
     va_end(args);
 }
