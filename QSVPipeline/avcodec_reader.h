@@ -202,6 +202,7 @@ public:
         return m_nNextFixNumIndex;
     }
     void clearPtsStatus() {
+        m_nLastPoc = 0;
         m_nNextFixNumIndex = 0;
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
     }
