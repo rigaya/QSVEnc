@@ -1444,9 +1444,8 @@ mfxStatus CQSVPipeline::AllocFrames() {
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for decoder."));
         if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
             //ptsチェック用に使うフレームを追加する
-            const uint32_t ptsSortFrames = QSV_PTS_SORT_SIZE + std::max(1, m_nAsyncDepth / 2);
-            DecRequest.NumFrameMin       += (uint16_t)ptsSortFrames;
-            DecRequest.NumFrameSuggested += (uint16_t)ptsSortFrames;
+            DecRequest.NumFrameMin       += 4;
+            DecRequest.NumFrameSuggested += 4;
         }
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
     }
@@ -2337,7 +2336,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pSubtitleSelect = pParams->pSubtitleSelect;
                 avcodecReaderPrm.nSubtitleSelectCount = pParams->nSubtitleSelectCount;
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
-                avcodecReaderPrm.nAVSyncMode = pParams->nAVSyncMode;
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 avcodecReaderPrm.nInputThread = pParams->nInputThread;
@@ -2387,7 +2385,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
             avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
-            avcodecReaderPrm.nAVSyncMode = QSV_AVSYNC_THROUGH;
             avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
             avcodecReaderPrm.nInputThread = 0;
             avcodecReaderPrm.pQueueInfo = nullptr;
@@ -2639,8 +2636,8 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     //入力バッファサイズの範囲チェック
     pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
 
-    if (m_pFileReader->getInputCodec() != MFX_CODEC_MPEG2 && pParams->nAVSyncMode) {
-        PrintMes(QSV_LOG_WARN, _T("Currently avsync is supportted only with mpeg2 decoding, disabled.\n"));
+    if (pParams->nAVSyncMode && std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader) == nullptr) {
+        PrintMes(QSV_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
         pParams->nAVSyncMode = QSV_AVSYNC_THROUGH;
     }
     if (pParams->nAVSyncMode && pParams->nTrimCount > 0) {
@@ -3344,7 +3341,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     mfxFrameSurface1 *pSurfCheckPts = nullptr; //checkptsから出てきて、他の要素に投入するフレーム / 投入後、ロックを解除する必要がある
     vector<mfxFrameSurface1 *>pSurfVppPreFilter(m_VppPrePlugins.size() + 1, nullptr);
     vector<mfxFrameSurface1 *>pSurfVppPostFilter(m_VppPostPlugins.size() + 1, nullptr);
-    mfxFrameSurface1 *pNextFrame;
+    mfxFrameSurface1 *pNextFrame = nullptr;
     mfxSyncPoint lastSyncP = nullptr;
     bool bVppRequireMoreFrame = false;
     int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
@@ -3359,20 +3356,31 @@ mfxStatus CQSVPipeline::RunEncode() {
 
     int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)  Trimの反映に使用する
 
-    std::deque<int64_t> qDecodePtsList; //デコードされて出てきたptsを格納するキュー
-    std::deque<std::pair<mfxSyncPoint, mfxFrameSurface1 *>> qDecodeFrames; //デコードされて出てきたsyncpとframeのペア
+    struct frameData {
+        mfxSyncPoint syncp;
+        mfxFrameSurface1 *pSurface;
+        int64_t timestamp;
+    };
+    std::deque<frameData> qDecodeFrames; //デコードされて出てきたsyncpとframe, timestamp
+
 #if ENABLE_AVCODEC_QSV_READER
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
-    int nFrameDuration = 0;
+    mfxFrameInfo inputFrmaeInfo = { 0 };
+    m_pFileReader->GetInputFrameInfo(&inputFrmaeInfo);
+    const AVRational inputFpsTimebase = { (int)inputFrmaeInfo.FrameRateExtD, (int)inputFrmaeInfo.FrameRateExtN };
+
     auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+    const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoCodecCtx()->pkt_timebase : QSV_NATIVE_TIMEBASE;
+    FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
+    uint32_t framePosListIndex = (uint32_t)-1;
+    const int nFrameDuration = (int)av_rescale_q(1, inputFpsTimebase, pktTimebase);
     vector<AVPacket> packetList;
-    if (pAVCodecReader != nullptr) {
-        auto pVideoCtx = pAVCodecReader->GetInputVideoCodecCtx();
-        AVRational decFpsTimebase = { (int)m_mfxDecParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxDecParams.mfx.FrameInfo.FrameRateExtN };
-        nFrameDuration = (int)av_rescale_q(1, decFpsTimebase, pVideoCtx->pkt_timebase);
-    } else {
+    if (pAVCodecReader == nullptr) {
         m_nAVSyncMode = QSV_AVSYNC_THROUGH;
     }
+#else
+    const std::pair<int, int> pktTimebase = QSV_NATIVE_TIMEBASE;
+    m_nAVSyncMode = QSV_AVSYNC_THROUGH;
 #endif
 
     mfxU16 nLastFrameFlag = 0;
@@ -3561,37 +3569,34 @@ mfxStatus CQSVPipeline::RunEncode() {
     };
 
     auto check_pts = [&](bool flush) {
+        int64_t timestamp = AV_NOPTS_VALUE;
 #if ENABLE_AVCODEC_QSV_READER
+        if (framePosList) {
+            auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
+            if (pos.poc == AVQSV_POC_INVALID) {
+                return MFX_ERR_UNKNOWN;
+            }
+            timestamp = pos.pts;
+        } else {
+#endif //#if ENABLE_AVCODEC_QSV_READER
+            timestamp = av_rescale_q(nInputFrameCount,inputFpsTimebase, pktTimebase);
+#if ENABLE_AVCODEC_QSV_READER
+        }
         if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
             if (!bCheckPtsMultipleOutput) {
                 //ひとまずデコード結果をキューに格納
                 if (pNextFrame) {
                     //ここでロックしないとキューにためているフレームが勝手に使われてしまう
                     pNextFrame->Data.Locked++;
-                    qDecodeFrames.push_back(std::make_pair(lastSyncP, pNextFrame));
-                }
-                //AsyncDepthの半分だけ、デコードの非同期実行を許可する
-                const uint32_t nCheckPtsAsync = std::max<uint32_t>(1, m_nAsyncDepth / 2);
-                //nCheckPtsAsync以上フレームがキューにたまっていたら、Syncでフレーム情報を確定させる
-                if (qDecodeFrames.size() >= nCheckPtsAsync && qDecodeFrames.size() > qDecodePtsList.size()) {
-                    const auto& pFrame = qDecodeFrames[qDecodeFrames.size() - nCheckPtsAsync];
-                    m_mfxSession.SyncOperation(pFrame.first, 60 * 1000);
-                    qDecodePtsList.push_back(pFrame.second->Data.TimeStamp);
-                }
-                //queueに17フレーム以上たまるまで次に進まない
-                if (!flush && qDecodePtsList.size() <= QSV_PTS_SORT_SIZE) {
-                    return MFX_ERR_MORE_SURFACE;
+                    qDecodeFrames.push_back({ lastSyncP, pNextFrame, timestamp });
                 }
                 //queueが空になったら終了
-                if (qDecodeFrames.size() == 0 && qDecodePtsList.size() == 0) {
+                if (qDecodeFrames.size() == 0) {
                     return MFX_ERR_MORE_DATA;
                 }
             }
-            std::sort(qDecodePtsList.begin(), qDecodePtsList.begin() + std::min(QSV_PTS_SORT_SIZE, (uint32_t)qDecodePtsList.size()),
-                [](const int64_t& posA, const int64_t& posB) {
-                return ((uint32_t)std::abs(posA - posB) < 0x1FFFFFFF) ? posA < posB : posB < posA; });
             auto queueFirstFrame = qDecodeFrames.front();
-            auto queueFirstPts = qDecodePtsList.front();
+            auto queueFirstPts = queueFirstFrame.timestamp;
             if (queueFirstPts == AV_NOPTS_VALUE) {
                 PrintMes(QSV_LOG_ERROR, _T("Invalid timestamp provided from input.\n"));
                 return MFX_ERR_UNSUPPORTED;
@@ -3604,24 +3609,25 @@ mfxStatus CQSVPipeline::RunEncode() {
             if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
                 //水増しが必要 -> 何も(pop)しない
                 bCheckPtsMultipleOutput = true;
-                queueFirstFrame.second->Data.Locked++;
+                queueFirstFrame.pSurface->Data.Locked++;
             } else {
                 bCheckPtsMultipleOutput = false;
-                qDecodePtsList.pop_front();
                 qDecodeFrames.pop_front();
                 if (ptsDiff <= std::min(-1, -1 * nFrameDuration * 3 / 4)) {
                     //間引きが必要 -> フレームを後段に渡さず破棄
-                    queueFirstFrame.second->Data.Locked--;
+                    queueFirstFrame.pSurface->Data.Locked--;
                     pSurfCheckPts = nullptr;
                     return MFX_ERR_MORE_SURFACE;
                 }
             }
-            lastSyncP = queueFirstFrame.first;
-            pNextFrame    = queueFirstFrame.second;
-            pSurfCheckPts = queueFirstFrame.second;
+            lastSyncP = queueFirstFrame.syncp;
+            pNextFrame    = queueFirstFrame.pSurface;
+            pSurfCheckPts = queueFirstFrame.pSurface;
             nEstimatedPts += nFrameDuration;
+            timestamp = nEstimatedPts;
         }
 #endif //#if ENABLE_AVCODEC_QSV_READER
+        pNextFrame->Data.TimeStamp = timestamp;
         return MFX_ERR_NONE;
     };
 

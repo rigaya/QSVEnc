@@ -769,8 +769,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             return MFX_ERR_NULL_PTR;
         }
 
-        m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
-
         //必要ならbitstream filterを初期化
         if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
             if (m_nInputCodec == MFX_CODEC_AVC) {
@@ -997,6 +995,10 @@ int64_t CAvcodecReader::GetVideoFirstKeyPts() {
     return m_Demux.video.nStreamFirstKeyPts;
 }
 
+FramePosList *CAvcodecReader::GetFramePosList() {
+    return &m_Demux.frames;
+}
+
 int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart) {
     const int framePosCount = m_Demux.frames.frameNum();
     const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
@@ -1211,8 +1213,7 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
     mfxStatus sts = MFX_ERR_NONE;
     if (pkt->data) {
         sts = mfxBitstreamAppend(bitstream, pkt->data, pkt->size);
-        auto pts = pkt->pts;
-        bitstream->TimeStamp = (m_Demux.format.nAVSyncMode & QSV_AVSYNC_CHECK_PTS) ? pts : 0;
+        bitstream->TimeStamp = 0;
         bitstream->DataFlag  = 0;
     } else {
         sts = MFX_ERR_MORE_BITSTREAM;
