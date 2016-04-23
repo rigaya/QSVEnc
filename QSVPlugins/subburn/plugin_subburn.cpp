@@ -267,7 +267,7 @@ mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
     }
     ass_set_aspect_ratio(pProcData->pAssRenderer, 1, par);
 
-    if (pProcData->pOutCodecDecodeCtx->subtitle_header && pProcData->pOutCodecDecodeCtx->subtitle_header_size > 0) {
+    if (pProcData->pOutCodecDecodeCtx && pProcData->pOutCodecDecodeCtx->subtitle_header && pProcData->pOutCodecDecodeCtx->subtitle_header_size > 0) {
         ass_process_codec_private(pProcData->pAssTrack, (char *)pProcData->pOutCodecDecodeCtx->subtitle_header, pProcData->pOutCodecDecodeCtx->subtitle_header_size);
     }
     return MFX_ERR_NONE;
@@ -516,6 +516,10 @@ mfxStatus SubBurn::SendData(int nType, void *pData) {
         for (uint32_t i = 1; i < m_sTasks.size(); i++) {
             if (m_vProcessData[i].pAssTrack == nullptr) {
                 AddMessage(QSV_LOG_ERROR, _T("ass track not initialized.\n"));
+                return MFX_ERR_NULL_PTR;
+            }
+            if (m_vProcessData[i].pOutCodecDecodeCtx) {
+                AddMessage(QSV_LOG_ERROR, _T("sub decoder not initialized.\n"));
                 return MFX_ERR_NULL_PTR;
             }
             AVPacket *pktCopy = av_packet_clone((AVPacket *)pData);
