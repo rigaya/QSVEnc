@@ -3656,7 +3656,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     auto check_pts = [&]() {
         int64_t timestamp = AV_NOPTS_VALUE;
 #if ENABLE_AVCODEC_QSV_READER
-        if (framePosList) {
+        if (framePosList && pNextFrame) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
             if (pos.poc == AVQSV_POC_INVALID) {
                 return MFX_ERR_UNKNOWN;
