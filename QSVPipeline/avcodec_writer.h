@@ -307,7 +307,8 @@ private:
     mfxU32 getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size);
 
     //extradataをコピーする
-    void SetExtraData(AVCodecContext *codecCtx, const mfxU8 *data, mfxU32 size);
+    void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
+    void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
     
     //映像の初期化
     mfxStatus InitVideo(const AvcodecWriterPrm *prm);
