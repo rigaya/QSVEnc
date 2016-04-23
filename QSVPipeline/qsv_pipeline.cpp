@@ -2103,6 +2103,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 }
                 if (pAudioSelect != nullptr || copyAll || bStreamIsSubtitle) {
                     streamTrackUsed.push_back(stream.nTrackId);
+                    if (bStreamIsSubtitle && pParams->vpp.subburn.nTrack != 0) {
+                        continue;
+                    }
                     AVOutputStreamPrm prm;
                     prm.src = stream;
                     //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
