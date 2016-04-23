@@ -418,7 +418,7 @@ mfxStatus SubBurn::ProcSub(ProcessDataSubBurn *pProcData) {
     while (av_read_frame(pProcData->pFormatCtx, &pkt) >= 0) {
         if (pkt.stream_index == pProcData->nSubtitleStreamIndex) {
             int got_sub = 0;
-            AVSubtitle sub ={ 0 };
+            AVSubtitle sub = { 0 };
             if (0 > avcodec_decode_subtitle2(pProcData->pOutCodecDecodeCtx, &sub, &got_sub, &pkt)) {
                 AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
                 return MFX_ERR_UNKNOWN;
@@ -451,32 +451,44 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
     mfxStatus sts = CheckParam(&m_VideoParam);
     if (sts < MFX_ERR_NONE) return sts;
 
+    std::map<int, ASS_ShapingLevel> mShapingLevel = {
+        { QSV_VPP_SUB_SIMPLE,  ASS_SHAPING_SIMPLE  },
+        { QSV_VPP_SUB_COMPLEX, ASS_SHAPING_COMPLEX },
+    };
+    if (mShapingLevel.find(pSubBurnPar->nShaping) == mShapingLevel.end()) {
+        AddMessage(QSV_LOG_ERROR, _T("unknown shaping mode for sub burning.\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+
     if ((m_nSimdAvail & AVX2) == AVX2) {
-        m_pluginName = _T("SubBurn[AVX2]");
+        m_pluginName = _T("sub[avx2]");
     } else if (m_nSimdAvail & AVX) {
-        m_pluginName = _T("SubBurn[AVX]");
+        m_pluginName = _T("sub[avx]");
     } else if (m_nSimdAvail & SSE41) {
         if (m_nCpuGen == CPU_GEN_AIRMONT || m_nCpuGen == CPU_GEN_SILVERMONT) {
-            m_pluginName = _T("SubBurn[SSE4.1(pshufb slow)]");
+            m_pluginName = _T("sub[sse4.1(pshufb slow)]");
         } else {
-            m_pluginName = _T("SubBurn[SSE4.1]");
+            m_pluginName = _T("sub[sse4.1]");
         }
     } else {
-        m_pluginName = _T("SubBurn[C]");
+        m_pluginName = _T("sub[c]");
         return MFX_ERR_UNSUPPORTED;
+    }
+    m_pluginName += tstring(_T(" ")) + get_chr_from_value(list_vpp_sub_shaping, pSubBurnPar->nShaping);
+    if (m_SubBurnParam.pCharEnc) {
+        m_pluginName += tstring(_T(" ")) + tstring(m_SubBurnParam.pCharEnc);
     }
 
     memcpy(&m_SubBurnParam, pSubBurnPar, sizeof(m_SubBurnParam));
     if (m_SubBurnParam.src.nTrackId != 0) {
         m_pluginName += strsprintf(_T(" track #%d"), std::abs(m_SubBurnParam.src.nTrackId));
     } else {
-        m_pluginName += strsprintf(_T(" : %s"), PathFindFileName(m_SubBurnParam.pFilePath));
+        tstring sFilename = PathFindFileName(m_SubBurnParam.pFilePath);
+        if (sFilename.length() > 23) {
+            sFilename = sFilename.substr(0, 20) + _T("...");
+        }
+        m_pluginName += tstring(_T(" : ")) + sFilename.c_str();
     }
-
-    std::map<int, ASS_ShapingLevel> mShapingLevel = {
-        { QSV_VPP_SUB_SIMPLE,  ASS_SHAPING_SIMPLE },
-        { QSV_VPP_SUB_COMPLEX, ASS_SHAPING_COMPLEX },
-    };
 
     m_vProcessData = std::vector<ProcessDataSubBurn>(m_sTasks.size());
     for (uint32_t i = 0; i < m_sTasks.size(); i++) {
