@@ -676,12 +676,11 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                 - none, upscale, box\n")
 
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
-        _T("   --vpp-sub-burn [<int>] or [<string>]\n")
+        _T("   --vpp-sub [<int>] or [<string>]\n")
         _T("                                burn in subtitle into frame\n")
         _T("                                set sub track number in input file by integer\n")
         _T("                                or set external sub file path by string.\n")
-        _T("   --vpp-sub-burn-charset [<string>]\n")
-        _T("                                set subtitle char set\n")
+        _T("   --vpp-sub-charset [<string>] set subtitle char set\n")
 #endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
@@ -2574,7 +2573,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
-    if (0 == _tcscmp(option_name, _T("vpp-sub-burn"))) {
+    if (0 == _tcscmp(option_name, _T("vpp-sub"))) {
         if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
             i++;
             TCHAR *endPtr = nullptr;
@@ -2594,7 +2593,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
-    if (0 == _tcscmp(option_name, _T("vpp-sub-burn-charset"))) {
+    if (0 == _tcscmp(option_name, _T("vpp-sub-charset"))) {
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             if (pParams->vpp.subburn.pCharEnc) {
