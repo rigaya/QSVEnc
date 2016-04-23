@@ -138,7 +138,8 @@ public:
         m_nDurationNum(0),
         m_nStreamPtsStatus(AVQSV_PTS_UNKNOWN),
         m_nLastPoc(0),
-        m_nFirstKeyframePts(AV_NOPTS_VALUE) {
+        m_nFirstKeyframePts(AV_NOPTS_VALUE),
+        m_nPAFFRewind(0) {
         m_list.init();
         static_assert(sizeof(m_list.get()[0]) == sizeof(m_list.get()->data), "FramePos must not have padding.");
     };
@@ -187,6 +188,7 @@ public:
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
         m_nLastPoc = 0;
         m_nFirstKeyframePts = AV_NOPTS_VALUE;
+        m_nPAFFRewind = 0;
         m_list.init();
     }
     //ここまで計算したdurationを返す
@@ -205,6 +207,7 @@ public:
         m_nLastPoc = 0;
         m_nNextFixNumIndex = 0;
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
+        m_nPAFFRewind = 0;
     }
     AVQSVPtsStatus getStreamPtsStatus() const {
         return m_nStreamPtsStatus;
@@ -255,12 +258,15 @@ public:
         }
         const int nFrame = (int)m_list.size();
         sortPts(m_nNextFixNumIndex, nFrame - m_nNextFixNumIndex);
+        m_nNextFixNumIndex += m_nPAFFRewind;
         for (int i = m_nNextFixNumIndex; i < nFrame; i++) {
             adjustDurationAfterSort(m_nNextFixNumIndex);
             setPoc(i);
         }
         m_nNextFixNumIndex = nFrame;
         add(pos);
+        m_nNextFixNumIndex += m_nPAFFRewind;
+        m_nPAFFRewind = 0;
         m_nDuration = total_duration;
         m_nDurationNum = m_nNextFixNumIndex;
     }
@@ -449,6 +455,7 @@ protected:
         //ソートによりptsが確定している範囲
         //本来はnSortedSize - (int)AVQSV_FRAME_MAX_REORDERでよいが、durationを確定させるためにはさらにもう一枚必要になる
         int nSortFixedSize = nSortedSize - (int)AVQSV_FRAME_MAX_REORDER - 1;
+        m_nNextFixNumIndex += m_nPAFFRewind;
         for (; m_nNextFixNumIndex < nSortFixedSize; m_nNextFixNumIndex++) {
             if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts) {
                 //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
@@ -462,12 +469,14 @@ protected:
                 setPoc(m_nNextFixNumIndex);
             }
         }
+        m_nPAFFRewind = 0;
         //もし、現在のインデックスがフィールドデータの片割れなら、次のフィールドがくるまでdurationは確定しない
         //setPocでduration2が埋まるのを待つ必要がある
         if (m_nNextFixNumIndex > 0
             && (m_list[m_nNextFixNumIndex-1].data.pic_struct & AVQSV_PICSTRUCT_FIELD)
             && m_list[m_nNextFixNumIndex-1].data.poc != AVQSV_POC_INVALID) {
             m_nNextFixNumIndex--;
+            m_nPAFFRewind = 1;
         }
     }
 protected:
@@ -480,6 +489,7 @@ protected:
     AVQSVPtsStatus m_nStreamPtsStatus; //入力から提供されるptsの状態 (AVQSV_PTS_xxx)
     uint32_t m_nLastPoc; //ptsが確定したフレームのうち、直近のpoc
     int64_t m_nFirstKeyframePts; //最初のキーフレームのpts
+    int m_nPAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
 };
 
 //動画フレームのデータ
