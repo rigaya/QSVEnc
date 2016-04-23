@@ -1326,7 +1326,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
             targetSubStream,
             //avqsvリーダー使用時以外はcropは読み込み段階ですでに行われている
             (pAVCodecReader) ? &(pParams->sInCrop) : nullptr);
-        sts = filter->Init(m_mfxVer, _T("subburn"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
+        sts = filter->Init(m_mfxVer, _T("subburn"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 2, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
             PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
             return sts;
