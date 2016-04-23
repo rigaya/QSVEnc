@@ -49,6 +49,7 @@ static uint32_t __forceinline get_count(__m128i x0, __m128i x1, __m128i xComp, c
     return (simd & POPCNT) ? _mm_popcnt_u32(count) : popcnt32(count);
 }
 
+#if !defined(_M_X64)
 #pragma warning (push)
 #pragma warning (disable: 4799)
 static __m128i __forceinline set_m64x2_to_m128i(__m64 hi, __m64 lo) {
@@ -57,6 +58,7 @@ static __m128i __forceinline set_m64x2_to_m128i(__m64 hi, __m64 lo) {
     return _mm_or_si128(x0, _mm_slli_si128(x1, 8));
 }
 #pragma warning (pop)
+#endif
 
 static void __forceinline make_hist_simd(const uint8_t *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch, const uint32_t simd) {
     __m128i x0, x1, x2, x3;
