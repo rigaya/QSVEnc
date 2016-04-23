@@ -698,7 +698,7 @@ mfxStatus SubBurn::SendData(int nType, void *pData) {
                 AddMessage(QSV_LOG_ERROR, _T("ass track not initialized.\n"));
                 return MFX_ERR_NULL_PTR;
             }
-            if (m_vProcessData[i].pOutCodecDecodeCtx) {
+            if (m_vProcessData[i].pOutCodecDecodeCtx == nullptr) {
                 AddMessage(QSV_LOG_ERROR, _T("sub decoder not initialized.\n"));
                 return MFX_ERR_NULL_PTR;
             }
