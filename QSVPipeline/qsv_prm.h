@@ -125,6 +125,11 @@ enum {
     QSVENC_MUX_SUBTITLE = 0x04,
 };
 
+enum {
+    QSV_VPP_SUB_SIMPLE = 0,
+    QSV_VPP_SUB_COMPLEX,
+};
+
 static const uint32_t MAX_SPLIT_CHANNELS = 32;
 static const uint64_t QSV_CHANNEL_AUTO = UINT64_MAX;
 
@@ -191,9 +196,10 @@ typedef struct {
         int    nTrack;    //動画ファイルから字幕を抽出する場合の字幕トラック (0で無効)
         TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
         TCHAR *pCharEnc;  //字幕の文字コード
+        int    nShaping;  //字幕を焼きこむときのモード
     } subburn;
 
-    mfxU8 Reserved[92];
+    mfxU8 Reserved[88];
 } sVppParams;
 
 typedef struct sAudioSelect {
@@ -774,6 +780,11 @@ const CX_DESC list_vpp_fps_conversion[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vpp_sub_shaping[] = {
+    { _T("simple"),  QSV_VPP_SUB_SIMPLE  },
+    { _T("complex"), QSV_VPP_SUB_COMPLEX },
+    { NULL, 0 }
+};
 
 static int get_cx_index(const CX_DESC * list, int v) {
     for (int i = 0; list[i].desc; i++)

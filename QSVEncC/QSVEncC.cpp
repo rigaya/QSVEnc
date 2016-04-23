@@ -681,6 +681,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                set sub track number in input file by integer\n")
         _T("                                or set external sub file path by string.\n")
         _T("   --vpp-sub-charset [<string>] set subtitle char set\n")
+        _T("   --vpp-sub-shaping <string>   simple(default), complex\n")
 #endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
@@ -2602,6 +2603,19 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.subburn.pCharEnc = _tcsdup(strInput[i]);
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-sub-shaping"))) {
+        i++;
+        int v;
+        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_vpp_sub_shaping, strInput[i]))) {
+            pParams->vpp.subburn.nShaping = v;
+        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_vpp_sub_shaping) - 1) {
+            pParams->vpp.subburn.nShaping = v;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;

@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include "qsv_util.h"
 #include "qsv_simd.h"
 #include "qsv_osdep.h"
@@ -244,6 +245,7 @@ mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
     ass_set_hinting(pProcData->pAssRenderer, ASS_HINTING_LIGHT);
     ass_set_font_scale(pProcData->pAssRenderer, 1.0);
     ass_set_line_spacing(pProcData->pAssRenderer, 1.0);
+    ass_set_shaper(pProcData->pAssRenderer, pProcData->nAssShaping);
 
     const char *font = nullptr;
     const char *family = "Arial";
@@ -469,11 +471,17 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_pluginName += strsprintf(_T(" : %s"), PathFindFileName(m_SubBurnParam.pFilePath));
     }
 
+    std::map<int, ASS_ShapingLevel> mShapingLevel = {
+        { QSV_VPP_SUB_SIMPLE,  ASS_SHAPING_SIMPLE },
+        { QSV_VPP_SUB_COMPLEX, ASS_SHAPING_COMPLEX },
+    };
+
     m_vProcessData = std::vector<ProcessDataSubBurn>(m_sTasks.size());
     for (uint32_t i = 0; i < m_sTasks.size(); i++) {
         m_vProcessData[i].pFilePath = m_SubBurnParam.pFilePath;
         m_vProcessData[i].sCharEnc = tchar_to_string(m_SubBurnParam.pCharEnc);
         m_vProcessData[i].sCrop = m_SubBurnParam.sCrop;
+        m_vProcessData[i].nAssShaping = mShapingLevel[m_SubBurnParam.nShaping];
         m_vProcessData[i].frameInfo = m_SubBurnParam.frameInfo;
         m_vProcessData[i].nInTrackId = m_SubBurnParam.src.nTrackId;
         m_vProcessData[i].nStreamIndexIn = (m_SubBurnParam.src.pStream) ? m_SubBurnParam.src.pStream->index : -1;
