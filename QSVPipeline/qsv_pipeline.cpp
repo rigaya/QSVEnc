@@ -1278,7 +1278,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         }
     }
 
-    m_mfxVppParams.ExtParam = &m_VppExtParams[0];
+    m_mfxVppParams.ExtParam = (m_VppExtParams.size()) ? &m_VppExtParams[0] : nullptr;
     m_mfxVppParams.NumExtParam = (mfxU16)m_VppExtParams.size();
 
     return MFX_ERR_NONE;
