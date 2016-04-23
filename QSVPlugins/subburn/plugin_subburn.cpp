@@ -354,6 +354,8 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
         SetExtraData(pProcData->pOutCodecDecodeCtx, pProcData->pCodecCtxIn->extradata, pProcData->pCodecCtxIn->extradata_size);
     } else {
         pProcData->pOutCodecDecodeCtx->pkt_timebase = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->time_base;
+        auto *pCodecCtx = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codec;
+        SetExtraData(pProcData->pOutCodecDecodeCtx, pCodecCtx->extradata, pCodecCtx->extradata_size);
     }
 
     int ret;
