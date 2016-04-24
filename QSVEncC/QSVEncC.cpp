@@ -674,7 +674,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n")
-
+#if ENABLE_CUSTOM_VPP
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-sub [<int>] or [<string>]\n")
         _T("                                burn in subtitle into frame\n")
@@ -691,6 +691,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
         _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
         _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+#endif //#if ENABLE_CUSTOM_VPP
         _T("   --vpp-rotate <int>           rotate image\n")
         _T("                                 90, 180, 270.\n")
         _T("   --vpp-half-turn              half turn video image\n")
@@ -2573,6 +2574,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
+#if ENABLE_CUSTOM_VPP
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
     if (0 == _tcscmp(option_name, _T("vpp-sub"))) {
         if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
@@ -2689,6 +2691,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->vpp.delogo.nCrOffset = value;
         return MFX_ERR_NONE;
     }
+#endif //#if ENABLE_CUSTOM_VPP
     if (0 == _tcscmp(option_name, _T("input-buf"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &argData->nTmpInputBuf)) {
