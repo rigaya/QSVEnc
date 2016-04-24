@@ -121,11 +121,15 @@ static FramePos framePos(int64_t pts, int64_t dts,
     return pos;
 }
 
-static int cmp_frame_pos(const void *a, const void *b) {
-    FramePos *posA = (FramePos *)a;
-    FramePos *posB = (FramePos *)b;
-    return ((uint32_t)std::abs(posA->pts - posB->pts) < 0xFFFFFFFF) ? posA->pts < posB->pts : posB->pts < posA->pts;
-}
+class CompareFramePos {
+public:
+    uint32_t threshold;
+    CompareFramePos() : threshold(0xFFFFFFFF) {
+    }
+    bool operator() (const FramePos& posA, const FramePos& posB) const {
+        return ((uint32_t)std::abs(posA.pts - posB.pts) < threshold) ? posA.pts < posB.pts : posB.pts < posA.pts;
+    }
+};
 
 class FramePosList {
 public:
@@ -139,7 +143,8 @@ public:
         m_nStreamPtsStatus(AVQSV_PTS_UNKNOWN),
         m_nLastPoc(0),
         m_nFirstKeyframePts(AV_NOPTS_VALUE),
-        m_nPAFFRewind(0) {
+        m_nPAFFRewind(0),
+        m_nPtsWrapArroundThreshold(0xFFFFFFFF) {
         m_list.init();
         static_assert(sizeof(m_list.get()[0]) == sizeof(m_list.get()->data), "FramePos must not have padding.");
     };
@@ -189,6 +194,7 @@ public:
         m_nLastPoc = 0;
         m_nFirstKeyframePts = AV_NOPTS_VALUE;
         m_nPAFFRewind = 0;
+        m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
         m_list.init();
     }
     //ここまで計算したdurationを返す
@@ -208,6 +214,7 @@ public:
         m_nNextFixNumIndex = 0;
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
         m_nPAFFRewind = 0;
+        m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
     }
     AVQSVPtsStatus getStreamPtsStatus() const {
         return m_nStreamPtsStatus;
@@ -344,6 +351,12 @@ public:
                 m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
             }
         }
+        if (m_dFrameDuration <= 0.0) {
+            m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
+        }
+        if (m_dFrameDuration > 0.0) {
+            m_nPtsWrapArroundThreshold = clamp((uint32_t)(m_dFrameDuration * 240.0 + 0.5), 240, 0xFFFFFFFF);
+        }
         for (int i = m_nNextFixNumIndex; i < nInputPacketCount; i++) {
             adjustFrameInfo(i);
         }
@@ -366,10 +379,13 @@ protected:
     //ptsでソート
     void sortPts(uint32_t index, uint32_t len) {
 #if !defined(_MSC_VER) && __cplusplus <= 201103
-        std::qsort(m_list.get(index), len, sizeof(FramePos), cmp_frame_pos);
+        FramePos *pStart = (FramePos *)m_list.get(index);
+        FramePos *pEnd = (FramePos *)m_list.get(index + len);
+        std::sort(pStart, pEnd, CompareFramePos());
 #else
-        std::sort(m_list.get(index), m_list.get(index + len), [](const auto& posA, const auto& posB) {
-            return ((uint32_t)std::abs(posA.data.pts - posB.data.pts) < 0xFFFFFFFF) ? posA.data.pts < posB.data.pts : posB.data.pts < posA.data.pts; });
+        const auto nPtsWrapArroundThreshold = m_nPtsWrapArroundThreshold;
+        std::sort(m_list.get(index), m_list.get(index + len), [nPtsWrapArroundThreshold](const auto& posA, const auto& posB) {
+            return ((uint32_t)(std::abs(posA.data.pts - posB.data.pts)) < nPtsWrapArroundThreshold) ? posA.data.pts < posB.data.pts : posB.data.pts < posA.data.pts; });
 #endif
     }
     //ptsの補正
@@ -438,12 +454,12 @@ protected:
         if (nNonDurationCalculatedFrames >= 16) {
             const auto *pos_fixed = m_list.get(m_nDurationNum);
             int64_t duration = pos_fixed[nNonDurationCalculatedFrames-1].data.pts - pos_fixed[0].data.pts;
-            if (duration < 0 || duration > 0xFFFFFFFF) {
+            if (duration < 0 || duration > m_nPtsWrapArroundThreshold) {
                 duration = 0;
                 for (int i = 1; i < nNonDurationCalculatedFrames; i++) {
                     int64_t diff = (std::max<int64_t>)(0, pos_fixed[i].data.pts - pos_fixed[i-1].data.pts);
                     int64_t last_frame_dur = (std::max<int64_t>)(0, pos_fixed[i-1].data.duration);
-                    duration += (diff > 0xFFFFFFFF) ? last_frame_dur : diff;
+                    duration += (diff > m_nPtsWrapArroundThreshold) ? last_frame_dur : diff;
                 }
             }
             m_nDuration += duration;
@@ -490,6 +506,7 @@ protected:
     uint32_t m_nLastPoc; //ptsが確定したフレームのうち、直近のpoc
     int64_t m_nFirstKeyframePts; //最初のキーフレームのpts
     int m_nPAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
+    uint32_t m_nPtsWrapArroundThreshold; //wrap arroundを判定する閾値
 };
 
 //動画フレームのデータ
