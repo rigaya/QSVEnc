@@ -3429,6 +3429,8 @@ mfxStatus CQSVPipeline::RunEncode() {
     std::deque<frameData> qDecodeFrames; //デコードされて出てきたsyncpとframe, timestamp
 
 #if ENABLE_AVCODEC_QSV_READER
+    const bool bAVutilDll = check_avcodec_dll();
+#define QSV_RESCALE(v, a, b) ((bAVutilDll) ? (int)av_rescale_q(1, inputFpsTimebase, pktTimebase) : (int)(v * (double)a.num * (double)b.den / ((double)a.den * b.num) + 0.5))
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
     mfxFrameInfo inputFrmaeInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrmaeInfo);
@@ -3438,7 +3440,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoCodecCtx()->pkt_timebase : QSV_NATIVE_TIMEBASE;
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
-    const int nFrameDuration = (int)av_rescale_q(1, inputFpsTimebase, pktTimebase);
+    const int nFrameDuration = QSV_RESCALE(1, inputFpsTimebase, pktTimebase);
     vector<AVPacket> packetList;
     if (pAVCodecReader == nullptr) {
         m_nAVSyncMode = QSV_AVSYNC_THROUGH;
@@ -3668,7 +3670,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             timestamp = pos.pts;
         } else {
 #endif //#if ENABLE_AVCODEC_QSV_READER
-            timestamp = av_rescale_q(nInputFrameCount,inputFpsTimebase, pktTimebase);
+            timestamp = QSV_RESCALE(nInputFrameCount,inputFpsTimebase, pktTimebase);
 #if ENABLE_AVCODEC_QSV_READER
         }
         if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
