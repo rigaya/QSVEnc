@@ -3662,6 +3662,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         if (framePosList && pNextFrame) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
             if (pos.poc == AVQSV_POC_INVALID) {
+                PrintMes(QSV_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
                 return MFX_ERR_UNKNOWN;
             }
             timestamp = pos.pts;
