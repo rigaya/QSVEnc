@@ -473,8 +473,8 @@ protected:
         int nSortFixedSize = nSortedSize - (int)AVQSV_FRAME_MAX_REORDER - 1;
         m_nNextFixNumIndex += m_nPAFFRewind;
         for (; m_nNextFixNumIndex < nSortFixedSize; m_nNextFixNumIndex++) {
-            if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts) {
-                //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
+            if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
+                && m_nNextFixNumIndex <= 16) { //wrap arroundの場合は除く
                 //これはフレームリストから取り除く
                 m_list.pop();
                 m_nNextFixNumIndex--;
