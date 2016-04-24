@@ -1016,8 +1016,8 @@ function showTable(idno) {
         const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
         if (!check_lib_version(lib, test)) {
             if (impl_type == 0) {
-                print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b>") : _T("<b>QSV unavailable.</b>"), false);
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b>") : _T("<b>QSV unavailable.</b>"), false);
                     char buffer[1024] = { 0 };
                     getCPUName(buffer, _countof(buffer));
                     tstring cpuname = char_to_tstring(buffer);
@@ -1087,6 +1087,8 @@ function showTable(idno) {
                             print_tstring(_T("</ol>\n"), false);
                         }
                     }
+                } else {
+                    print_tstring(_T("QSV unavailable.\n"), false);
                 }
             } else {
                 print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
