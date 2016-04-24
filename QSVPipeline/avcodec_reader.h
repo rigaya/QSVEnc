@@ -351,17 +351,16 @@ public:
                 m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
             }
         }
-        if (m_dFrameDuration <= 0.0) {
-            m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
-        }
-        if (m_dFrameDuration > 0.0) {
-            m_nPtsWrapArroundThreshold = clamp((uint32_t)(m_dFrameDuration * 240.0 + 0.5), 240, 0xFFFFFFFF);
-        }
         for (int i = m_nNextFixNumIndex; i < nInputPacketCount; i++) {
             adjustFrameInfo(i);
         }
         sortPts(m_nNextFixNumIndex, nInputPacketCount - m_nNextFixNumIndex);
         setPocAndFix(nInputPacketCount);
+        if (m_nNextFixNumIndex > 1) {
+            int64_t pts0 = m_list[0].data.pts;
+            int64_t pts1 = m_list[1 + (m_list[0].data.poc == -1)].data.pts;
+            m_nPtsWrapArroundThreshold = (uint32_t)clamp((int64_t)(std::max)((uint32_t)(pts1 - pts0), (uint32_t)(m_dFrameDuration + 0.5)) * 360, 360, (int64_t)0xFFFFFFFF);
+        }
     }
     //mfxのpicstructを返す
     int getMfxPicStruct() {
