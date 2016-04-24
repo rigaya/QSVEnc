@@ -125,6 +125,11 @@ enum {
     QSVENC_MUX_SUBTITLE = 0x04,
 };
 
+enum {
+    QSV_VPP_SUB_SIMPLE = 0,
+    QSV_VPP_SUB_COMPLEX,
+};
+
 static const uint32_t MAX_SPLIT_CHANNELS = 32;
 static const uint64_t QSV_CHANNEL_AUTO = UINT64_MAX;
 
@@ -165,6 +170,7 @@ typedef struct {
     bool bUseDenoise;         //use vpp denoise
     mfxU16 nDenoise;          // 0 - 100 Denoise Strength
     bool bUseDetailEnhance;   //use vpp detail enhancer
+    bool __unsed4;
     mfxU16 nDetailEnhance;    // 0 - 100 
     mfxU16 nDeinterlace;      //set deinterlace mode
 
@@ -174,17 +180,11 @@ typedef struct {
     mfxU16 nTelecinePattern;
 
     bool bHalfTurn;
+    bool __unsed3;
 
     struct {
         TCHAR     *pFilePath; //ロゴファイル名へのポインタ
-#ifdef _M_IX86
-        mfxU32     paddPtr1;
-#endif
-
         TCHAR     *pSelect; //選択するロゴ
-#ifdef _M_IX86
-        mfxU32     paddPtr2;
-#endif
         mfxI16Pair nPosOffset;
         mfxI16     nDepth;
         mfxI16     nYOffset;
@@ -192,7 +192,14 @@ typedef struct {
         mfxI16     nCrOffset;
     } delogo;
 
-    mfxU8 Reserved[95];
+    struct {
+        int    nTrack;    //動画ファイルから字幕を抽出する場合の字幕トラック (0で無効)
+        TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
+        TCHAR *pCharEnc;  //字幕の文字コード
+        int    nShaping;  //字幕を焼きこむときのモード
+    } subburn;
+
+    mfxU8 Reserved[88];
 } sVppParams;
 
 typedef struct sAudioSelect {
@@ -773,6 +780,11 @@ const CX_DESC list_vpp_fps_conversion[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vpp_sub_shaping[] = {
+    { _T("simple"),  QSV_VPP_SUB_SIMPLE  },
+    { _T("complex"), QSV_VPP_SUB_COMPLEX },
+    { NULL, 0 }
+};
 
 static int get_cx_index(const CX_DESC * list, int v) {
     for (int i = 0; list[i].desc; i++)

@@ -18,6 +18,7 @@
 
 #include "rotate/plugin_rotate.h"
 #include "delogo/plugin_delogo.h"
+#include "subburn/plugin_subburn.h"
 
 #define GPU_FILTER 0
 
@@ -131,7 +132,12 @@ public:
             m_pUsrPlugin.reset(new Rotate());
         } else if (0 == _tcsicmp(pluginName, _T("delogo"))) {
             m_pUsrPlugin.reset(new Delogo());
+        } else
+#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+        if (0 == _tcsicmp(pluginName, _T("subburn"))) {
+            m_pUsrPlugin.reset(new SubBurn());
         }
+#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
         if (m_pUsrPlugin.get() == nullptr) {
             m_pQSVLog->write(QSV_LOG_ERROR, _T("CVPPPluginInit: plugin name \"%s\" could not be found."), pluginName);
             return MFX_ERR_NOT_FOUND;
@@ -149,6 +155,7 @@ public:
         }
         m_pQSVLog->write(QSV_LOG_DEBUG, _T("CVPPPluginInit: registered plugin to plugin session.\n"));
 
+        m_pUsrPlugin->SetLog(pQSVLog);
         if (sts == MFX_ERR_NONE) sts = m_pUsrPlugin->Init(&m_pluginVideoParams);
         if (sts == MFX_ERR_NONE) sts = m_pUsrPlugin->SetAuxParams(pPluginParam, nPluginParamSize);
         m_message = strsprintf(_T("%s, %s\n"), m_pUsrPlugin->GetPluginName().c_str(), m_pUsrPlugin->GetPluginMessage().c_str());
@@ -165,6 +172,14 @@ public:
             return _T("");
         }
         return m_pUsrPlugin->GetPluginName();
+    }
+public:
+    virtual shared_ptr<QSVEncPlugin> getPluginHandle() {
+        return m_pUsrPlugin;
+    }
+public:
+    virtual int getTargetTrack() {
+        return m_pUsrPlugin->getTargetTrack();
     }
 public:
     virtual mfxSession getSession() {
@@ -229,7 +244,7 @@ private:
     MFXVideoSession                m_mfxSession;          //カスタムVPP用のSession メインSessionにJoinして使用する
     MemType                        m_memType;             //パイプラインのSurfaceのメモリType
     mfxVersion                     m_mfxVer;              //使用しているMediaSDKのバージョン
-    unique_ptr<QSVEncPlugin>       m_pUsrPlugin;          //カスタムプラグインのインスタンス
+    shared_ptr<QSVEncPlugin>       m_pUsrPlugin;          //カスタムプラグインのインスタンス
 #if GPU_FILTER
     shared_ptr<CQSVHWDevice>       m_hwdev;               //使用しているデバイス
 #endif

@@ -674,6 +674,15 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n")
+#if ENABLE_CUSTOM_VPP
+#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+        _T("   --vpp-sub [<int>] or [<string>]\n")
+        _T("                                burn in subtitle into frame\n")
+        _T("                                set sub track number in input file by integer\n")
+        _T("                                or set external sub file path by string.\n")
+        _T("   --vpp-sub-charset [<string>] set subtitle char set\n")
+        _T("   --vpp-sub-shaping <string>   simple(default), complex\n")
+#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
@@ -682,6 +691,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
         _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
         _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+#endif //#if ENABLE_CUSTOM_VPP
         _T("   --vpp-rotate <int>           rotate image\n")
         _T("                                 90, 180, 270.\n")
         _T("   --vpp-half-turn              half turn video image\n")
@@ -1444,6 +1454,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             if (0 != _tcsicmp(pParams->pAVMuxOutputFormat, _T("raw"))) {
                 pParams->nAVMux |= QSVENC_MUX_VIDEO;
             }
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
         }
         return MFX_ERR_NONE;
     }
@@ -1452,7 +1465,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
         pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
         std::set<int> trackSet; //重複しないよう、setを使う
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
@@ -1496,7 +1509,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (i+1 < nArgNum) {
             const TCHAR *ptr = nullptr;
             const TCHAR *ptrDelim = nullptr;
-            if (strInput[i+1][0] != _T('-')) {
+            if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
                 i++;
                 ptrDelim = _tcschr(strInput[i], _T('?'));
                 ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
@@ -1809,7 +1822,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
         pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_SUBTITLE);
         std::set<int> trackSet; //重複しないよう、setを使う
-        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
@@ -2561,6 +2574,55 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
+#if ENABLE_CUSTOM_VPP
+#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+    if (0 == _tcscmp(option_name, _T("vpp-sub"))) {
+        if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
+            i++;
+            TCHAR *endPtr = nullptr;
+            int nSubTrack = _tcstol(strInput[i], &endPtr, 10);
+            if (pParams->vpp.subburn.pFilePath) {
+                free(pParams->vpp.subburn.pFilePath);
+            }
+            if (0 < nSubTrack && (endPtr == nullptr || *endPtr == _T('\0'))) {
+                pParams->vpp.subburn.nTrack = nSubTrack;
+                pParams->vpp.subburn.pFilePath = nullptr;
+            } else {
+                pParams->vpp.subburn.nTrack = 0;
+                pParams->vpp.subburn.pFilePath = _tcsdup(strInput[i]);
+            }
+        } else {
+            pParams->vpp.subburn.nTrack = 1;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-sub-charset"))) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
+            i++;
+            if (pParams->vpp.subburn.pCharEnc) {
+                free(pParams->vpp.subburn.pCharEnc);
+            }
+            pParams->vpp.subburn.pCharEnc = _tcsdup(strInput[i]);
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-sub-shaping"))) {
+        i++;
+        int v;
+        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_vpp_sub_shaping, strInput[i]))) {
+            pParams->vpp.subburn.nShaping = v;
+        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_vpp_sub_shaping) - 1) {
+            pParams->vpp.subburn.nShaping = v;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
     if (   0 == _tcscmp(option_name, _T("vpp-delogo"))
         || 0 == _tcscmp(option_name, _T("vpp-delogo-file"))) {
         i++;
@@ -2629,6 +2691,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->vpp.delogo.nCrOffset = value;
         return MFX_ERR_NONE;
     }
+#endif //#if ENABLE_CUSTOM_VPP
     if (0 == _tcscmp(option_name, _T("input-buf"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &argData->nTmpInputBuf)) {

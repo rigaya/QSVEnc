@@ -257,7 +257,7 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
     std::vector<int> frameDurationList;
     vector<std::pair<int, int>> durationHistgram;
 
-    for (int i_retry = 0; i_retry < 5; i_retry++) {
+    for (int i_retry = 0; ; i_retry++) {
         if (i_retry) {
             //フレームレート推定がうまくいかなそうだった場合、もう少しフレームを解析してみる
             maxCheckFrames <<= 1;
@@ -351,7 +351,9 @@ mfxStatus CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, i
             || std::abs(durationHistgram[0].first - durationHistgram[1].first) <= 1) { //durationのブレが貧弱なtimebaseによる丸めによるもの(mkvなど)
             break;
         }
-
+        if (i_retry >= 4) {
+            break;
+        }
         //再度解析を行う場合は、音声がL2キューに入らないよう、一度fixedNumを0に戻す
         m_Demux.frames.clearPtsStatus();
     }
@@ -769,8 +771,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             return MFX_ERR_NULL_PTR;
         }
 
-        m_Demux.format.nAVSyncMode = input_prm->nAVSyncMode;
-
         //必要ならbitstream filterを初期化
         if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
             if (m_nInputCodec == MFX_CODEC_AVC) {
@@ -997,6 +997,10 @@ int64_t CAvcodecReader::GetVideoFirstKeyPts() {
     return m_Demux.video.nStreamFirstKeyPts;
 }
 
+FramePosList *CAvcodecReader::GetFramePosList() {
+    return &m_Demux.frames;
+}
+
 int CAvcodecReader::getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart) {
     const int framePosCount = m_Demux.frames.frameNum();
     const AVRational vid_pkt_timebase = (m_Demux.video.pCodecCtx) ? m_Demux.video.pCodecCtx->pkt_timebase : av_inv_q(m_Demux.video.nAvgFramerate);
@@ -1211,8 +1215,7 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
     mfxStatus sts = MFX_ERR_NONE;
     if (pkt->data) {
         sts = mfxBitstreamAppend(bitstream, pkt->data, pkt->size);
-        auto pts = pkt->pts;
-        bitstream->TimeStamp = (m_Demux.format.nAVSyncMode & QSV_AVSYNC_CHECK_PTS) ? pts : 0;
+        bitstream->TimeStamp = 0;
         bitstream->DataFlag  = 0;
     } else {
         sts = MFX_ERR_MORE_BITSTREAM;
@@ -1374,6 +1377,12 @@ mfxStatus CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
             av_bitstream_filter_filter(m_Demux.video.pH264Bsfc, m_Demux.video.pCodecCtx, nullptr, &dummy, &dummy_size, nullptr, 0, 0);
             std::swap(m_Demux.video.pExtradata,     m_Demux.video.pCodecCtx->extradata);
             std::swap(m_Demux.video.nExtradataSize, m_Demux.video.pCodecCtx->extradata_size);
+            av_bitstream_filter_close(m_Demux.video.pH264Bsfc);
+            if (NULL == (m_Demux.video.pH264Bsfc = av_bitstream_filter_init("h264_mp4toannexb"))) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to init h264_mp4toannexb.\n"));
+                return MFX_ERR_NULL_PTR;
+            }
+            AddMessage(QSV_LOG_DEBUG, _T("initialized h264_mp4toannexb filter.\n"));
         } else if (m_nInputCodec == MFX_CODEC_VC1) {
             int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
             vc1FixHeader(lengthFix);

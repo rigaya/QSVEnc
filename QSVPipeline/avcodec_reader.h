@@ -121,11 +121,15 @@ static FramePos framePos(int64_t pts, int64_t dts,
     return pos;
 }
 
-static int cmp_frame_pos(const void *a, const void *b) {
-    FramePos *posA = (FramePos *)a;
-    FramePos *posB = (FramePos *)b;
-    return ((uint32_t)std::abs(posA->pts - posB->pts) < 0xFFFFFFFF) ? posA->pts < posB->pts : posB->pts < posA->pts;
-}
+class CompareFramePos {
+public:
+    uint32_t threshold;
+    CompareFramePos() : threshold(0xFFFFFFFF) {
+    }
+    bool operator() (const FramePos& posA, const FramePos& posB) const {
+        return ((uint32_t)std::abs(posA.pts - posB.pts) < threshold) ? posA.pts < posB.pts : posB.pts < posA.pts;
+    }
+};
 
 class FramePosList {
 public:
@@ -138,7 +142,9 @@ public:
         m_nDurationNum(0),
         m_nStreamPtsStatus(AVQSV_PTS_UNKNOWN),
         m_nLastPoc(0),
-        m_nFirstKeyframePts(AV_NOPTS_VALUE) {
+        m_nFirstKeyframePts(AV_NOPTS_VALUE),
+        m_nPAFFRewind(0),
+        m_nPtsWrapArroundThreshold(0xFFFFFFFF) {
         m_list.init();
         static_assert(sizeof(m_list.get()[0]) == sizeof(m_list.get()->data), "FramePos must not have padding.");
     };
@@ -187,6 +193,8 @@ public:
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
         m_nLastPoc = 0;
         m_nFirstKeyframePts = AV_NOPTS_VALUE;
+        m_nPAFFRewind = 0;
+        m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
         m_list.init();
     }
     //ここまで計算したdurationを返す
@@ -202,8 +210,11 @@ public:
         return m_nNextFixNumIndex;
     }
     void clearPtsStatus() {
+        m_nLastPoc = 0;
         m_nNextFixNumIndex = 0;
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
+        m_nPAFFRewind = 0;
+        m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
     }
     AVQSVPtsStatus getStreamPtsStatus() const {
         return m_nStreamPtsStatus;
@@ -237,6 +248,7 @@ public:
                 break;
             }
             if (pos.poc == poc) {
+                *lastIndex = index;
                 return pos;
             }
         }
@@ -253,12 +265,15 @@ public:
         }
         const int nFrame = (int)m_list.size();
         sortPts(m_nNextFixNumIndex, nFrame - m_nNextFixNumIndex);
+        m_nNextFixNumIndex += m_nPAFFRewind;
         for (int i = m_nNextFixNumIndex; i < nFrame; i++) {
             adjustDurationAfterSort(m_nNextFixNumIndex);
             setPoc(i);
         }
         m_nNextFixNumIndex = nFrame;
         add(pos);
+        m_nNextFixNumIndex += m_nPAFFRewind;
+        m_nPAFFRewind = 0;
         m_nDuration = total_duration;
         m_nDurationNum = m_nNextFixNumIndex;
     }
@@ -336,6 +351,12 @@ public:
                 m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
             }
         }
+        if (m_dFrameDuration <= 0.0) {
+            m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
+        }
+        if (m_dFrameDuration > 0.0) {
+            m_nPtsWrapArroundThreshold = clamp((uint32_t)(m_dFrameDuration * 240.0 + 0.5), 240, 0xFFFFFFFF);
+        }
         for (int i = m_nNextFixNumIndex; i < nInputPacketCount; i++) {
             adjustFrameInfo(i);
         }
@@ -358,10 +379,13 @@ protected:
     //ptsでソート
     void sortPts(uint32_t index, uint32_t len) {
 #if !defined(_MSC_VER) && __cplusplus <= 201103
-        std::qsort(m_list.get(index), len, sizeof(FramePos), cmp_frame_pos);
+        FramePos *pStart = (FramePos *)m_list.get(index);
+        FramePos *pEnd = (FramePos *)m_list.get(index + len);
+        std::sort(pStart, pEnd, CompareFramePos());
 #else
-        std::sort(m_list.get(index), m_list.get(index + len), [](const auto& posA, const auto& posB) {
-            return ((uint32_t)std::abs(posA.data.pts - posB.data.pts) < 0xFFFFFFFF) ? posA.data.pts < posB.data.pts : posB.data.pts < posA.data.pts; });
+        const auto nPtsWrapArroundThreshold = m_nPtsWrapArroundThreshold;
+        std::sort(m_list.get(index), m_list.get(index + len), [nPtsWrapArroundThreshold](const auto& posA, const auto& posB) {
+            return ((uint32_t)(std::abs(posA.data.pts - posB.data.pts)) < nPtsWrapArroundThreshold) ? posA.data.pts < posB.data.pts : posB.data.pts < posA.data.pts; });
 #endif
     }
     //ptsの補正
@@ -430,12 +454,12 @@ protected:
         if (nNonDurationCalculatedFrames >= 16) {
             const auto *pos_fixed = m_list.get(m_nDurationNum);
             int64_t duration = pos_fixed[nNonDurationCalculatedFrames-1].data.pts - pos_fixed[0].data.pts;
-            if (duration < 0 || duration > 0xFFFFFFFF) {
+            if (duration < 0 || duration > m_nPtsWrapArroundThreshold) {
                 duration = 0;
                 for (int i = 1; i < nNonDurationCalculatedFrames; i++) {
                     int64_t diff = (std::max<int64_t>)(0, pos_fixed[i].data.pts - pos_fixed[i-1].data.pts);
                     int64_t last_frame_dur = (std::max<int64_t>)(0, pos_fixed[i-1].data.duration);
-                    duration += (diff > 0xFFFFFFFF) ? last_frame_dur : diff;
+                    duration += (diff > m_nPtsWrapArroundThreshold) ? last_frame_dur : diff;
                 }
             }
             m_nDuration += duration;
@@ -447,9 +471,10 @@ protected:
         //ソートによりptsが確定している範囲
         //本来はnSortedSize - (int)AVQSV_FRAME_MAX_REORDERでよいが、durationを確定させるためにはさらにもう一枚必要になる
         int nSortFixedSize = nSortedSize - (int)AVQSV_FRAME_MAX_REORDER - 1;
+        m_nNextFixNumIndex += m_nPAFFRewind;
         for (; m_nNextFixNumIndex < nSortFixedSize; m_nNextFixNumIndex++) {
-            if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts) {
-                //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
+            if (m_list[m_nNextFixNumIndex].data.pts < m_nFirstKeyframePts //ソートの先頭のptsが塚下キーフレームの先頭のptsよりも小さいことがある(opengop)
+                && m_nNextFixNumIndex <= 16) { //wrap arroundの場合は除く
                 //これはフレームリストから取り除く
                 m_list.pop();
                 m_nNextFixNumIndex--;
@@ -460,12 +485,14 @@ protected:
                 setPoc(m_nNextFixNumIndex);
             }
         }
+        m_nPAFFRewind = 0;
         //もし、現在のインデックスがフィールドデータの片割れなら、次のフィールドがくるまでdurationは確定しない
         //setPocでduration2が埋まるのを待つ必要がある
         if (m_nNextFixNumIndex > 0
             && (m_list[m_nNextFixNumIndex-1].data.pic_struct & AVQSV_PICSTRUCT_FIELD)
             && m_list[m_nNextFixNumIndex-1].data.poc != AVQSV_POC_INVALID) {
             m_nNextFixNumIndex--;
+            m_nPAFFRewind = 1;
         }
     }
 protected:
@@ -478,6 +505,8 @@ protected:
     AVQSVPtsStatus m_nStreamPtsStatus; //入力から提供されるptsの状態 (AVQSV_PTS_xxx)
     uint32_t m_nLastPoc; //ptsが確定したフレームのうち、直近のpoc
     int64_t m_nFirstKeyframePts; //最初のキーフレームのpts
+    int m_nPAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
+    uint32_t m_nPtsWrapArroundThreshold; //wrap arroundを判定する閾値
 };
 
 //動画フレームのデータ
@@ -496,7 +525,6 @@ typedef struct AVDemuxFormat {
     uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
     int                       nAudioTracks;          //存在する音声のトラック数
     int                       nSubtitleTracks;       //存在する字幕のトラック数
-    QSVAVSync                 nAVSyncMode;           //音声・映像同期モード
     AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション       
 } AVDemuxFormat;
 
@@ -572,7 +600,6 @@ typedef struct AvcodecReaderPrm {
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
-    QSVAVSync      nAVSyncMode;             //音声・映像同期モード
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
     int8_t         nInputThread;            //入力スレッドを有効にする
@@ -615,6 +642,9 @@ public:
 
     //チャプターリストを取得する
     vector<const AVChapter *> GetChapterList();
+
+    //フレーム情報構造へのポインタを返す
+    FramePosList *GetFramePosList();
 
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
