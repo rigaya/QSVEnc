@@ -251,6 +251,27 @@ public:
                 *lastIndex = index;
                 return pos;
             }
+            if (m_bInputFin && pos.poc == -1) {
+                //もう読み込みは終了しているが、さらなるフレーム情報の要求が来ている
+                //予想より出力が過剰になっているということで、tsなどで最初がopengopの場合に起こりうる
+                //なにかおかしなことが起こっており、異常なのだが、最後の最後でエラーとしてしまうのもあほらしい
+                //とりあえず、ptsを推定して返してしまう
+                pos.poc = poc;
+                FramePos pos_tmp;
+                m_list.copy(&pos_tmp, index-1);
+                int nLastPoc = pos_tmp.poc;
+                int64_t nLastPts = pos_tmp.pts;
+                m_list.copy(&pos_tmp, 0);
+                int64_t pts0 = pos_tmp.pts;
+                m_list.copy(&pos_tmp, 1);
+                if (pos_tmp.poc == -1) {
+                    m_list.copy(&pos_tmp, 2);
+                }
+                int64_t pts1 = pos_tmp.pts;
+                int nFrameDuration = (int)(pts1 - pts0);
+                pos.pts = nLastPts + (poc - nLastPoc) * nFrameDuration;
+                return pos;
+            }
         }
         //エラー
         FramePos pos = { 0 };
