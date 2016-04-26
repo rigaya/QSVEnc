@@ -2612,16 +2612,23 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 #endif
     }
     if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
-        if (pParams->memType != SYSTEM_MEMORY) {
-            PrintMes(QSV_LOG_WARN, _T("vpp-sub-burn requires system surface, forcing system surface.\n"));
+        uint8_t memType = pParams->memType;
+        //d3d11モードはWin8以降
+        if (!check_OS_Win8orLater()) {
+            memType &= (~D3D11_MEMORY);
         }
-        //d3d11を要求するvpp-rotateとsystem memを必要とするvpp-sub-burnは競合する
-        if (pParams->vpp.nRotate) {
-            PrintMes(QSV_LOG_ERROR, _T("vpp-sub-burn could not be used with vpp-rotate.\n"));
-            PrintMes(QSV_LOG_ERROR, _T("vpp-sub-burn requires system surface, but vpp-rotate requires d3d11 surface.\n"));
+        //d3d11モードが必要なら、vpp-subは実行できない
+        if (HW_MEMORY == (memType & HW_MEMORY) && check_if_d3d11_necessary()) {
+            memType &= (~D3D11_MEMORY);
+            PrintMes(QSV_LOG_DEBUG, _T("d3d11 mode required on this system, but vpp-sub does not support d3d11 mode.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
-        pParams->memType = SYSTEM_MEMORY;
+        //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-subは競合する
+        if (pParams->vpp.nRotate) {
+            PrintMes(QSV_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
+            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
     }
 
     //フレームレートのチェック

@@ -180,6 +180,168 @@ static QSV_FORCEINLINE __m128i blendv_epi8_simd(__m128i a, __m128i b, __m128i ma
 }
 #endif
 
+
+template<uint32_t step, bool ignore_fraction>
+static __forceinline void load_line_to_buffer(uint8_t *buffer, uint8_t *src, uint32_t width) {
+#if USE_AVX
+    static_assert(step % 32 == 0, "step should be mod32.");
+#else
+    static_assert(step % 16 == 0, "step should be mod16.");
+#endif
+#ifdef _M_IX86
+#define UNROLL_64BIT (0)
+#else
+#define UNROLL_64BIT (1)
+#endif
+    const bool use_avx2 = USE_AVX2 && (0 == ((size_t)src & 0x10));
+    const uint32_t align = ((use_avx2) ? 32 : 16);
+    const uint32_t increment = (std::min)(step, ((use_avx2 || UNROLL_64BIT) ? 256u : 128u));
+    uint8_t *src_fin = src + ((increment == align || ignore_fraction) ? width : (width & ~(increment-1)));
+    uint8_t *src_ptr = src, *buf_ptr = buffer;
+#if USE_AVX2
+    if (!use_avx2) {
+#endif
+        for (; src_ptr < src_fin; src_ptr += increment, buf_ptr += increment) {
+            __m128i x0, x1, x2, x3, x4, x5, x6, x7;
+            if (step >=  16) x0  = _mm_stream_load_si128((__m128i *)(src_ptr +   0));
+            if (step >=  32) x1  = _mm_stream_load_si128((__m128i *)(src_ptr +  16));
+            if (step >=  48) x2  = _mm_stream_load_si128((__m128i *)(src_ptr +  32));
+            if (step >=  64) x3  = _mm_stream_load_si128((__m128i *)(src_ptr +  48));
+            if (step >=  80) x4  = _mm_stream_load_si128((__m128i *)(src_ptr +  64));
+            if (step >=  96) x5  = _mm_stream_load_si128((__m128i *)(src_ptr +  80));
+            if (step >= 112) x6  = _mm_stream_load_si128((__m128i *)(src_ptr +  96));
+            if (step >= 128) x7  = _mm_stream_load_si128((__m128i *)(src_ptr + 112));
+#if UNROLL_64BIT
+            __m128i x8, x9, x10, x11, x12, x13, x14, x15;
+            if (step >= 144) x8  = _mm_stream_load_si128((__m128i *)(src_ptr + 128));
+            if (step >= 160) x9  = _mm_stream_load_si128((__m128i *)(src_ptr + 144));
+            if (step >= 176) x10 = _mm_stream_load_si128((__m128i *)(src_ptr + 160));
+            if (step >= 192) x11 = _mm_stream_load_si128((__m128i *)(src_ptr + 176));
+            if (step >= 208) x12 = _mm_stream_load_si128((__m128i *)(src_ptr + 192));
+            if (step >= 224) x13 = _mm_stream_load_si128((__m128i *)(src_ptr + 208));
+            if (step >= 240) x14 = _mm_stream_load_si128((__m128i *)(src_ptr + 224));
+            if (step >= 256) x15 = _mm_stream_load_si128((__m128i *)(src_ptr + 240));
+#endif //UNROLL_64BIT
+            if (step >=  16) _mm_store_si128((__m128i *)(buf_ptr +   0), x0);
+            if (step >=  32) _mm_store_si128((__m128i *)(buf_ptr +  16), x1);
+            if (step >=  48) _mm_store_si128((__m128i *)(buf_ptr +  32), x2);
+            if (step >=  64) _mm_store_si128((__m128i *)(buf_ptr +  48), x3);
+            if (step >=  80) _mm_store_si128((__m128i *)(buf_ptr +  64), x4);
+            if (step >=  96) _mm_store_si128((__m128i *)(buf_ptr +  80), x5);
+            if (step >= 112) _mm_store_si128((__m128i *)(buf_ptr +  96), x6);
+            if (step >= 128) _mm_store_si128((__m128i *)(buf_ptr + 112), x7);
+#if UNROLL_64BIT
+            if (step >= 128) _mm_store_si128((__m128i *)(buf_ptr + 128), x8);
+            if (step >= 144) _mm_store_si128((__m128i *)(buf_ptr + 144), x9);
+            if (step >= 160) _mm_store_si128((__m128i *)(buf_ptr + 160), x10);
+            if (step >= 176) _mm_store_si128((__m128i *)(buf_ptr + 176), x11);
+            if (step >= 192) _mm_store_si128((__m128i *)(buf_ptr + 192), x12);
+            if (step >= 208) _mm_store_si128((__m128i *)(buf_ptr + 208), x13);
+            if (step >= 224) _mm_store_si128((__m128i *)(buf_ptr + 224), x14);
+            if (step >= 240) _mm_store_si128((__m128i *)(buf_ptr + 240), x15);
+#endif //UNROLL_64BIT
+        }
+#if USE_AVX2
+    } else {
+        for (; src_ptr < src_fin; src_ptr += increment, buf_ptr += increment) {
+            __m256i y0, y1, y2, y3, y4, y5, y6, y7;
+            if (step >=  32) y0 = _mm256_stream_load_si256((__m256i *)(src_ptr +   0));
+            if (step >=  64) y1 = _mm256_stream_load_si256((__m256i *)(src_ptr +  32));
+            if (step >=  96) y2 = _mm256_stream_load_si256((__m256i *)(src_ptr +  64));
+            if (step >= 128) y3 = _mm256_stream_load_si256((__m256i *)(src_ptr +  96));
+            if (step >= 160) y4 = _mm256_stream_load_si256((__m256i *)(src_ptr + 128));
+            if (step >= 192) y5 = _mm256_stream_load_si256((__m256i *)(src_ptr + 160));
+            if (step >= 224) y6 = _mm256_stream_load_si256((__m256i *)(src_ptr + 192));
+            if (step >= 256) y7 = _mm256_stream_load_si256((__m256i *)(src_ptr + 224));
+            if (step >=  32) _mm256_store_si256((__m256i *)(buf_ptr +   0), y0);
+            if (step >=  64) _mm256_store_si256((__m256i *)(buf_ptr +  32), y1);
+            if (step >=  96) _mm256_store_si256((__m256i *)(buf_ptr +  64), y2);
+            if (step >= 128) _mm256_store_si256((__m256i *)(buf_ptr +  96), y3);
+            if (step >= 160) _mm256_store_si256((__m256i *)(buf_ptr + 128), y4);
+            if (step >= 192) _mm256_store_si256((__m256i *)(buf_ptr + 160), y5);
+            if (step >= 224) _mm256_store_si256((__m256i *)(buf_ptr + 192), y6);
+            if (step >= 256) _mm256_store_si256((__m256i *)(buf_ptr + 224), y7);
+        }
+    }
+#endif
+
+    if (!(ignore_fraction || increment == align)) {
+        src_fin += width & (increment-1);
+        for (; src_ptr < src_fin; src_ptr += 16, buf_ptr += 16) {
+            __m128i x0  = _mm_stream_load_si128((__m128i *)(src_ptr));
+            _mm_store_si128((__m128i *)(buf_ptr), x0);
+        }
+    }
+}
+
+template<uint32_t step, bool ignore_fraction>
+static __forceinline void store_line_from_buffer(uint8_t *dst, uint8_t *buffer, uint32_t width) {
+#if USE_AVX
+    static_assert(step % 32 == 0, "step should be mod32.");
+#else
+    static_assert(step % 16 == 0, "step should be mod16.");
+#endif
+    const bool use_avx = USE_AVX && (0 == ((size_t)dst & 0x10));
+    const uint32_t align = ((use_avx) ? 32 : 16);
+    const uint32_t increment = (std::min)(step, ((use_avx) ? 256u : 128u));
+    uint8_t *dst_fin = dst + ((increment == align || ignore_fraction) ? width : (width & ~(increment-1)));
+    uint8_t *dst_ptr = dst, *buf_ptr = buffer;
+#if USE_AVX
+    if (!use_avx) {
+#endif
+        for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
+            __m128i x0, x1, x2, x3, x4, x5, x6, x7;
+            if (step >=  16) x0 = _mm_load_si128((__m128i *)(buf_ptr +   0));
+            if (step >=  32) x1 = _mm_load_si128((__m128i *)(buf_ptr +  16));
+            if (step >=  48) x2 = _mm_load_si128((__m128i *)(buf_ptr +  32));
+            if (step >=  64) x3 = _mm_load_si128((__m128i *)(buf_ptr +  48));
+            if (step >=  80) x4 = _mm_load_si128((__m128i *)(buf_ptr +  64));
+            if (step >=  96) x5 = _mm_load_si128((__m128i *)(buf_ptr +  80));
+            if (step >= 112) x6 = _mm_load_si128((__m128i *)(buf_ptr +  96));
+            if (step >= 128) x7 = _mm_load_si128((__m128i *)(buf_ptr + 112));
+            if (step >=  16) _mm_store_si128((__m128i *)(dst_ptr +   0), x0);
+            if (step >=  32) _mm_store_si128((__m128i *)(dst_ptr +  16), x1);
+            if (step >=  48) _mm_store_si128((__m128i *)(dst_ptr +  32), x2);
+            if (step >=  64) _mm_store_si128((__m128i *)(dst_ptr +  48), x3);
+            if (step >=  80) _mm_store_si128((__m128i *)(dst_ptr +  64), x4);
+            if (step >=  96) _mm_store_si128((__m128i *)(dst_ptr +  80), x5);
+            if (step >= 112) _mm_store_si128((__m128i *)(dst_ptr +  96), x6);
+            if (step >= 128) _mm_store_si128((__m128i *)(dst_ptr + 112), x7);
+        }
+#if USE_AVX
+    } else {
+        for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
+            __m256 y0, y1, y2, y3, y4, y5, y6, y7;
+            if (step >=  32) y0 = _mm256_loadu_ps((float *)(buf_ptr +   0));
+            if (step >=  64) y1 = _mm256_loadu_ps((float *)(buf_ptr +  32));
+            if (step >=  96) y2 = _mm256_loadu_ps((float *)(buf_ptr +  64));
+            if (step >= 128) y3 = _mm256_loadu_ps((float *)(buf_ptr +  96));
+            if (step >= 160) y4 = _mm256_loadu_ps((float *)(buf_ptr + 128));
+            if (step >= 192) y5 = _mm256_loadu_ps((float *)(buf_ptr + 160));
+            if (step >= 224) y6 = _mm256_loadu_ps((float *)(buf_ptr + 192));
+            if (step >= 256) y7 = _mm256_loadu_ps((float *)(buf_ptr + 224));
+            if (step >=  32) _mm256_store_ps((float *)(dst_ptr +   0), y0);
+            if (step >=  64) _mm256_store_ps((float *)(dst_ptr +  32), y1);
+            if (step >=  96) _mm256_store_ps((float *)(dst_ptr +  64), y2);
+            if (step >= 128) _mm256_store_ps((float *)(dst_ptr +  96), y3);
+            if (step >= 160) _mm256_store_ps((float *)(dst_ptr + 128), y4);
+            if (step >= 192) _mm256_store_ps((float *)(dst_ptr + 160), y5);
+            if (step >= 224) _mm256_store_ps((float *)(dst_ptr + 192), y6);
+            if (step >= 256) _mm256_store_ps((float *)(dst_ptr + 224), y7);
+        }
+    }
+#endif
+    if (!(ignore_fraction || increment == align)) {
+        dst_fin += width & (increment-1);
+        for (; dst_ptr < dst_fin; dst_ptr += 16, buf_ptr += 16) {
+            __m128i x0 = _mm_load_si128((__m128i *)(buf_ptr));
+            _mm_store_si128((__m128i *)(dst_ptr), x0);
+        }
+    }
+}
+
+
+
 #pragma warning(push)
 #pragma warning(disable: 4100)
 #if USE_AVX2
@@ -292,8 +454,8 @@ static QSV_FORCEINLINE __m128i shiftFirstBitmap(const uint8_t *ptr_alpha, const 
 }
 #endif
 
-template<int bForUV>
-static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t subcolor0, uint8_t subcolor1, uint8_t subTransparency) {
+template<int bForUV, bool forD3D>
+static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t subcolor0, uint8_t subcolor1, uint8_t subTransparency, uint8_t *pBuf) {
     const int bufX = subX & ~(MEM_ALIGN-1);
     const int bufW = ((subX + subW + (MEM_ALIGN-1)) & ~((MEM_ALIGN-1))) - bufX;
     const int bufXOffset = subX - bufX;
@@ -437,6 +599,10 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
     } else {
         for (int y = 0; y < bufH; y += (1 + bForUV), pFrame += pitch, pAlpha += (subStride << bForUV)) {
             uint8_t *ptr_dst = pFrame;
+            if (forD3D) {
+                load_line_to_buffer<64, true>(pBuf, pFrame, bufW);
+                ptr_dst = pBuf;
+            }
             uint8_t *ptr_dst_fin = ptr_dst + bufW - MEM_ALIGN;
             const uint8_t *ptr_alpha = pAlpha;
 #if USE_AVX2
@@ -472,6 +638,9 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
             if (bForUV) xBitmap = convert_bitmap_for_uv(xBitmap);
             blend_block(ptr_dst, xBitmap, xSubColor, xTable0, xTable1);
 #endif
+            if (forD3D) {
+                store_line_from_buffer<128, false>(pFrame, pBuf, bufW);
+            }
         }
     }
 }

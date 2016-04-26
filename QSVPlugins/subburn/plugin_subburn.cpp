@@ -258,16 +258,16 @@ mfxStatus SubBurn::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mf
     m_sTasks[ind].bBusy = true;
 
     if (m_sTasks[ind].pProcessor.get() == nullptr) {
-        bool d3dSurface = !!(m_SubBurnParam.memType & D3D9_MEMORY);
+        const bool d3dSurface = !!(m_SubBurnParam.memType & D3D9_MEMORY);
         if ((m_nSimdAvail & AVX2) == AVX2) {
-            m_sTasks[ind].pProcessor.reset((d3dSurface) ? nullptr : static_cast<Processor *>(new ProcessorSubBurnAVX2));
+            m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new ProcessorSubBurnD3DAVX2) : static_cast<Processor *>(new ProcessorSubBurnAVX2));
         } else if (m_nSimdAvail & AVX) {
-            m_sTasks[ind].pProcessor.reset((d3dSurface) ? nullptr : static_cast<Processor *>(new ProcessorSubBurnAVX));
+            m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new ProcessorSubBurnD3DAVX) : static_cast<Processor *>(new ProcessorSubBurnAVX));
         } else if (m_nSimdAvail & SSE41) {
             if (m_nCpuGen == CPU_GEN_AIRMONT || m_nCpuGen == CPU_GEN_SILVERMONT) {
-                m_sTasks[ind].pProcessor.reset((d3dSurface) ? nullptr : static_cast<Processor *>(new ProcessorSubBurnSSE41PshufbSlow));
+                m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new ProcessorSubBurnD3DSSE41PshufbSlow) : static_cast<Processor *>(new ProcessorSubBurnSSE41PshufbSlow));
             } else {
-                m_sTasks[ind].pProcessor.reset((d3dSurface) ? nullptr : static_cast<Processor *>(new ProcessorSubBurnSSE41));
+                m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new ProcessorSubBurnD3DSSE41) : static_cast<Processor *>(new ProcessorSubBurnSSE41));
             }
         } else {
             m_sTasks[ind].pProcessor.reset((d3dSurface) ? nullptr : static_cast<Processor *>(new ProcessorSubBurn));
@@ -658,6 +658,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
 
     m_vProcessData = std::vector<ProcessDataSubBurn>(m_sTasks.size());
     for (uint32_t i = 0; i < m_sTasks.size(); i++) {
+        m_vProcessData[i].memType = m_SubBurnParam.memType;
         m_vProcessData[i].pFilePath = m_SubBurnParam.pFilePath;
         m_vProcessData[i].sCharEnc = tchar_to_string(m_SubBurnParam.pCharEnc);
         m_vProcessData[i].sCrop = m_SubBurnParam.sCrop;
@@ -823,10 +824,13 @@ mfxStatus ProcessorSubBurn::Process(DataChunk *chunk, uint8_t *pBuffer) {
     const uint32_t nSimdAvail = m_pProcData->nSimdAvail;
     qsv_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
+    const bool d3dSurface = !!(m_pProcData->memType & D3D9_MEMORY);
     mfxStatus sts = MFX_ERR_NONE;
-    if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
-    if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
-        return UnlockFrame(m_pIn);
+    if (!d3dSurface) {
+        if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
+        if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+            return UnlockFrame(m_pIn);
+        }
     }
 
     AVPacket pkt;
@@ -860,17 +864,27 @@ mfxStatus ProcessorSubBurn::Process(DataChunk *chunk, uint8_t *pBuffer) {
     int nDetectChange = 0;
     auto pFrameImages = ass_render_frame(m_pProcData->pAssRenderer, m_pProcData->pAssTrack, (int64_t)dTimeMs, &nDetectChange);
 
+    if (d3dSurface) {
+        if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
+            return sts;
+        }
+        if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+            return sts;
+        }
+    }
+
     CopyFrameY();
     for (auto pImage = pFrameImages; pImage; pImage = pImage->next) {
-        if (MFX_ERR_NONE != (sts = SubBurn<false>(pImage))) return sts;
+        if (MFX_ERR_NONE != (sts = SubBurn<false>(pImage, pBuffer))) return sts;
     }
     CopyFrameUV();
     for (auto pImage = pFrameImages; pImage; pImage = pImage->next) {
-        if (MFX_ERR_NONE != (sts = SubBurn<true>(pImage))) return sts;
+        if (MFX_ERR_NONE != (sts = SubBurn<true>(pImage, pBuffer))) return sts;
     }
 
-
-    if (MFX_ERR_NONE != (sts = UnlockFrame(m_pIn)))  return sts;
+    if (!d3dSurface) {
+        if (MFX_ERR_NONE != (sts = UnlockFrame(m_pIn)))  return sts;
+    }
     if (MFX_ERR_NONE != (sts = UnlockFrame(m_pOut))) return sts;
 
     return sts;
@@ -898,7 +912,7 @@ void ProcessorSubBurn::CopyFrameUV() {
     }
 }
 
-void ProcessorSubBurn::BlendSubY(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcolory, uint8_t subTransparency) {
+void ProcessorSubBurn::BlendSubY(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcolory, uint8_t subTransparency, uint8_t *pBuf) {
     uint8_t *pFrame = m_pOut->Data.Y;
     const int w = m_pOut->Info.CropW;
     const int h = m_pOut->Info.CropH;
@@ -918,7 +932,7 @@ void ProcessorSubBurn::BlendSubY(const uint8_t *pAlpha, int bufX, int bufY, int 
     }
 }
 
-void ProcessorSubBurn::BlendSubUV(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcoloru, uint8_t subcolorv, uint8_t subTransparency) {
+void ProcessorSubBurn::BlendSubUV(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcoloru, uint8_t subcolorv, uint8_t subTransparency, uint8_t *pBuf) {
     uint8_t *pFrame = m_pOut->Data.UV;
     const int w = m_pOut->Info.CropW;
     const int h = m_pOut->Info.CropH >> 1;
@@ -940,7 +954,7 @@ void ProcessorSubBurn::BlendSubUV(const uint8_t *pAlpha, int bufX, int bufY, int
 }
 
 template<bool forUV>
-mfxStatus ProcessorSubBurn::SubBurn(ASS_Image *pImage) {
+mfxStatus ProcessorSubBurn::SubBurn(ASS_Image *pImage, uint8_t *pBuffer) {
     const uint32_t nSubColor = pImage->color;
     const uint8_t subR = (uint8_t) (nSubColor >> 24);
     const uint8_t subG = (uint8_t)((nSubColor >> 16) & 0xff);
@@ -952,9 +966,9 @@ mfxStatus ProcessorSubBurn::SubBurn(ASS_Image *pImage) {
     const uint8_t subV = (uint8_t)clamp(((112 * subR -  94 * subG -  18 * subB + 128) >> 8) + 128, 0, 255);
 
     if (!forUV)
-        BlendSubY( pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.left, pImage->dst_y + m_pProcData->sCrop.up, pImage->w, pImage->stride, pImage->h, subY, subA);
+        BlendSubY( pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.left, pImage->dst_y + m_pProcData->sCrop.up, pImage->w, pImage->stride, pImage->h, subY, subA, pBuffer);
     else
-        BlendSubUV(pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.left, pImage->dst_y + m_pProcData->sCrop.up, pImage->w, pImage->stride, pImage->h, subU, subV, subA);
+        BlendSubUV(pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.left, pImage->dst_y + m_pProcData->sCrop.up, pImage->w, pImage->stride, pImage->h, subU, subV, subA, pBuffer);
 
     return MFX_ERR_NONE;
 }

@@ -26,6 +26,7 @@
 #include "ass/ass.h"
 
 struct ProcessDataSubBurn {
+    MemType               memType;                //使用するメモリの種類
     const TCHAR          *pFilePath;              //入力字幕ファイル (nullptrの場合は入力映像ファイルのトラックから読み込む)
     std::string           sCharEnc;               //字幕の文字コード
     ASS_ShapingLevel      nAssShaping;            //assのレンダリング品質
@@ -95,9 +96,9 @@ protected:
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY();
     virtual void CopyFrameUV();
-    virtual void BlendSubY(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcolory, uint8_t subTransparency);
-    virtual void BlendSubUV(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcoloru, uint8_t subcolorv, uint8_t subTransparency);
-    template<bool forUV> mfxStatus SubBurn(ASS_Image *pImage);
+    virtual void BlendSubY(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcolory, uint8_t subTransparency, uint8_t *pBuf);
+    virtual void BlendSubUV(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcoloru, uint8_t subcolorv, uint8_t subTransparency, uint8_t *pBuf);
+    template<bool forUV> mfxStatus SubBurn(ASS_Image *pImage, uint8_t *pBuffer);
 #endif
     ProcessDataSubBurn *m_pProcData;
 };
