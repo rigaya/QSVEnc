@@ -440,7 +440,7 @@ static QSV_FORCEINLINE __m128i convert_bitmap_for_uv(__m128i xBitmap) {
 #if USE_AVX2
 static QSV_FORCEINLINE __m256i shiftFirstBitmap(const uint8_t *ptr_alpha, const __m256i& yFirstLoadShift0, const __m256i& yFirstLoadShift1) {
     __m256i y0 = _mm256_loadu_si256((__m256i *)ptr_alpha);
-    __m256i y1 = _mm256_loadu2_m128i((__m128i *)ptr_alpha, (__m128i *)ptr_alpha);
+    __m256i y1 = _mm256_broadcastsi128_si256(_mm_loadu_si128((__m128i *)ptr_alpha));
     y0 = _mm256_shuffle_epi8(y0, yFirstLoadShift0);
     y1 = _mm256_shuffle_epi8(y1, yFirstLoadShift1);
     y0 = _mm256_or_si256(y0, y1);
@@ -525,7 +525,7 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
     //alpha1            |  ptr_alpha[15] ................... ptr_alpha[0]  | ptr_alpha[15] ..................... ptr_alpha[0] |
     //yFirstLoadShift1  |  11,  10,   9, ...,   1,   0, 240, 240, 240, 240 | 240, ....................................... 240 |
     // shifted alpha = _mm256_or_si256( _mm256_shuffle_epi8(alpha0, yFirstLoadShift0),  _mm256_shuffle_epi8(alpha1, yFirstLoadShift1) )
-    const __m256i yFirstLoadShift0 = _mm256_loadu2_m128i((__m128i *)(iter + 32 - bufXOffset), (__m128i *)(iter + 32 - bufXOffset));
+    const __m256i yFirstLoadShift0 = _mm256_broadcastsi128_si256(_mm_loadu_si128((__m128i *)(iter + 32 - bufXOffset)));
     const __m256i yFirstLoadShift1 = _mm256_loadu2_m128i((__m128i *)(iter + 48 - bufXOffset), (__m128i *)(iter));
 #else
 #if PSHUFB_SLOW
