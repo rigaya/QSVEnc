@@ -418,22 +418,18 @@ static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xBitmap
 
 #if USE_AVX2
 static QSV_FORCEINLINE __m256i convert_bitmap_for_uv(__m256i yBitmap) {
-    __m256i yBitmapDoubleLo = _mm256_unpacklo_epi8(yBitmap, yBitmap);
-    __m256i yBitmapDoubleHi = _mm256_unpackhi_epi8(yBitmap, yBitmap);
-    yBitmapDoubleLo = _mm256_and_si256(yBitmapDoubleLo, _mm256_set1_epi32(0xffff));
-    yBitmapDoubleHi = _mm256_and_si256(yBitmapDoubleHi, _mm256_set1_epi32(0xffff));
-    return _mm256_packus_epi32(yBitmapDoubleLo, yBitmapDoubleHi);
+    __m256i y1 = _mm256_slli_si256(yBitmap, 1);
+    __m256i y0 = _mm256_and_si256(yBitmap, _mm256_set1_epi16(0x00ff));
+    return _mm256_or_si256(y0, y1);
 }
 #else
 static QSV_FORCEINLINE __m128i convert_bitmap_for_uv(__m128i xBitmap) {
     //15, 14, 13, 12, ..., 3, 2, 1, 0
     //  ↓
     //14, 14, 12, 12, ..., 2, 2, 0, 0
-    __m128i xBitmapDoubleLo = _mm_unpacklo_epi8(xBitmap, xBitmap);
-    __m128i xBitmapDoubleHi = _mm_unpackhi_epi8(xBitmap, xBitmap);
-    xBitmapDoubleLo = _mm_and_si128(xBitmapDoubleLo, _mm_set1_epi32(0xffff));
-    xBitmapDoubleHi = _mm_and_si128(xBitmapDoubleHi, _mm_set1_epi32(0xffff));
-    return _mm_packus_epi32_simd(xBitmapDoubleLo, xBitmapDoubleHi);
+    __m128i x1 = _mm_slli_si128(xBitmap, 1);
+    __m128i x0 = _mm_and_si128(xBitmap, _mm_set1_epi16(0x00ff));
+    return _mm_or_si128(x0, x1);
 }
 #endif
 
