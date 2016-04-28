@@ -2987,7 +2987,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     m_nAVSyncMode = pParams->nAVSyncMode;
     m_nAsyncDepth = (mfxU16)clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
-        m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1) * 2, (int)QSV_ASYNC_DEPTH_MAX);
+        m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1), 8);
         PrintMes(QSV_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
     }
 
