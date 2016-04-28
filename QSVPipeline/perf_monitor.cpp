@@ -56,6 +56,9 @@ extern char _binary_PerfMonitor_perf_monitor_pyw_size;
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 #if ENABLE_METRIC_FRAMEWORK
+#pragma comment(lib, "gmframework.lib")
+#pragma comment(lib, "building_blocks.lib")
+
 static const char *METRIC_NAMES[] = {
     "com.intel.media.mfx_usage",
     "com.intel.media.eu_usage",
