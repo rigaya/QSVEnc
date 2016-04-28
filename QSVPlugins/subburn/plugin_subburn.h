@@ -59,6 +59,7 @@ struct ProcessDataSubBurn {
     uint32_t              nSimdAvail;
 
     ProcessDataSubBurn() :
+        memType(SYSTEM_MEMORY),
         pFilePath(nullptr),
         sCharEnc(),
         nAssShaping(ASS_SHAPING_SIMPLE),
