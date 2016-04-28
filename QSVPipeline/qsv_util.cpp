@@ -2006,6 +2006,8 @@ const TCHAR *CodecIdToStr(uint32_t nFourCC) {
         return _T("MPEG2");
     case MFX_CODEC_VP8:
         return _T("VP8");
+    case MFX_CODEC_VP9:
+        return _T("VP9");
     case MFX_CODEC_JPEG:
         return _T("JPEG");
     default:

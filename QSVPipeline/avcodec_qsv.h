@@ -73,6 +73,8 @@ static const QSVCodec QSV_DECODE_LIST[] = {
     { AV_CODEC_ID_MPEG2VIDEO, MFX_CODEC_MPEG2 },
     { AV_CODEC_ID_VC1,        MFX_CODEC_VC1   },
     { AV_CODEC_ID_WMV3,       MFX_CODEC_VC1   },
+    { AV_CODEC_ID_VP8,        MFX_CODEC_VP8   },
+    { AV_CODEC_ID_VP9,        MFX_CODEC_VP9   },
 };
 
 static const TCHAR *AVQSV_CODEC_AUTO = _T("auto");

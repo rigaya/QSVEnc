@@ -801,7 +801,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                 m_Demux.video.bUseHEVCmp42AnnexB = true;
                 AddMessage(QSV_LOG_DEBUG, _T("enabled HEVCmp42AnnexB filter.\n"));
             }
-        } else if (m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0) {
+        } else if ((m_nInputCodec != MFX_CODEC_VP8 && m_nInputCodec != MFX_CODEC_VP9) && m_Demux.video.pCodecCtx->extradata == NULL && m_Demux.video.pCodecCtx->extradata_size == 0) {
             AddMessage(QSV_LOG_ERROR, _T("video header not extracted by libavcodec.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
@@ -1241,6 +1241,7 @@ mfxStatus CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *p
     return sts;
 }
 
+//動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
 mfxStatus CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
     AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
@@ -1259,8 +1260,27 @@ mfxStatus CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
         sts = setToMfxBitstream(bitstream, &pkt);
         av_packet_unref(&pkt);
         m_Demux.video.nSampleGetCount++;
-    } else {
-        sts = sts;
+    }
+    return sts;
+}
+
+//動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
+mfxStatus CAvcodecReader::GetNextBitstreamNoDelete(mfxBitstream *bitstream) {
+    AVPacket pkt;
+    if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
+        && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
+        if (0 == getSample(&pkt)) {
+            m_Demux.qVideoPkt.push(pkt);
+        }
+    }
+
+    bool bGetPacket = false;
+    for (int i = 0; false == (bGetPacket = m_Demux.qVideoPkt.front_copy_no_lock(&pkt, (m_Demux.thread.pQueueInfo) ? &m_Demux.thread.pQueueInfo->usage_vid_in : nullptr)) && m_Demux.qVideoPkt.size() > 0; i++) {
+        m_Demux.qVideoPkt.wait_for_push();
+    }
+    mfxStatus sts = MFX_ERR_MORE_BITSTREAM;
+    if (bGetPacket) {
+        sts = setToMfxBitstream(bitstream, &pkt);
     }
     return sts;
 }

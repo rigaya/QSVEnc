@@ -263,19 +263,38 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         sts = m_pFileReader->GetHeader(&m_DecInputBitstream);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to get stream header from reader."));
 
+        const bool bGotHeader = m_DecInputBitstream.DataLength > 0;
+        if (!bGotHeader) {
+            //最初のフレームそのものをヘッダーとして使用する。
+            //ここで読み込みんだ第1フレームのデータを読み込み側から消してしまうと、
+            //メインループでは第2フレームのデータがmfxBitstreamに追加されてしまい、
+            //第1・第2フレームの両方のデータが存在することになってしまう。
+            //VP8/VP9のデコードでは、mfxBitstreamに複数のフレームのデータがあるとうまく動作しないことがあるためこれを回避する。
+            //ここで読み込んだ第1フレームは読み込み側から消さないようにすることで、
+            //メインループで再び第1フレームのデータとして読み込むことができる。
+            m_pFileReader->GetNextBitstreamNoDelete(&m_DecInputBitstream);
+        }
+
         //デコーダの作成
         m_pmfxDEC.reset(new MFXVideoDECODE(m_mfxSession));
         if (!m_pmfxDEC) {
             return MFX_ERR_MEMORY_ALLOC;
         }
 
-        if (m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loading HEVC decoder plugin..."));
-            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, MFX_PLUGINID_HEVCD_HW, 1)) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc decoder.\n"));
+        const std::map<uint32_t, std::pair<mfxPluginUID, tstring>> codecPlugin = {
+            { MFX_CODEC_HEVC, std::make_pair(MFX_PLUGINID_HEVCD_HW, _T("HEVC")) },
+            { MFX_CODEC_VP8,  std::make_pair(MFX_PLUGINID_VP8D_HW,  _T("VP8"))  },
+            { MFX_CODEC_VP9,  std::make_pair(MFX_PLUGINID_VP9D_HW,  _T("VP9"))  },
+        };
+        auto plugin = codecPlugin.find(m_pFileReader->getInputCodec());
+        if (plugin != codecPlugin.end()) {
+            auto pluginData = plugin->second;
+            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), pluginData.second.c_str());
+            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, pluginData.first, 1)) {
+                PrintMes(QSV_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), pluginData.second.c_str());
                 return MFX_ERR_UNSUPPORTED;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded HEVC decoder plugin.\n"));
+            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), pluginData.second.c_str());
         }
 
         if (m_pFileReader->getInputCodec() == MFX_CODEC_AVC || m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
@@ -288,6 +307,12 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         m_mfxDecParams.IOPattern = (uint16_t)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream, &m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
+
+        if (!bGotHeader) {
+            //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
+            //メインループに入った際に再度第1フレームを読み込むようにする。
+            mfxBitstreamClear(&m_DecInputBitstream);
+        }
 
         PrintMes(QSV_LOG_DEBUG, _T("")
             _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")

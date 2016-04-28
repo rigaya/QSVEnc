@@ -660,8 +660,11 @@ public:
     //m_sPacketからの取得はGetNextBitstreamで行う
     virtual mfxStatus LoadNextFrame(mfxFrameSurface1 *pSurface) override;
 
-    //動画ストリームの1フレーム分のデータをbitstreamに追加する
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
     virtual mfxStatus GetNextBitstream(mfxBitstream *bitstream) override;
+
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
+    virtual mfxStatus GetNextBitstreamNoDelete(mfxBitstream *bitstream) override;
 
     //ストリームのヘッダ部分を取得する
     virtual mfxStatus GetHeader(mfxBitstream *bitstream) override;

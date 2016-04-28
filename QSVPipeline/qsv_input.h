@@ -79,7 +79,12 @@ public:
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
     virtual mfxStatus GetNextBitstream(mfxBitstream *bitstream) {
+        return MFX_ERR_NONE;
+    }
+    //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
+    virtual mfxStatus GetNextBitstreamNoDelete(mfxBitstream *bitstream) {
         return MFX_ERR_NONE;
     }
     virtual mfxStatus GetHeader(mfxBitstream *bitstream) {
