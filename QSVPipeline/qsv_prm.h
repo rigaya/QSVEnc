@@ -104,6 +104,22 @@ static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimL
     return false;
 }
 
+static bool inline rearrange_trim_list(int frame, int offset, std::vector<sTrim>& trimList) {
+    if (trimList.size() == 0)
+        return true;
+    if (frame < 0)
+        return false;
+    for (uint32_t i = 0; i < trimList.size(); i++) {
+        if (trimList[i].start >= frame) {
+            trimList[i].start = clamp(trimList[i].start + offset, 0, TRIM_MAX);
+        }
+        if (trimList[i].fin && trimList[i].fin >= frame) {
+            trimList[i].fin = (int)clamp((int64_t)trimList[i].fin + offset, 0, (int64_t)TRIM_MAX);
+        }
+    }
+    return false;
+}
+
 enum {
     FPS_CONVERT_NONE = 0,
     FPS_CONVERT_MUL2,

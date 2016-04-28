@@ -139,7 +139,7 @@ protected:
     vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
     vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
 
-    const sTrimParam *m_pTrimParam;
+    sTrimParam *m_pTrimParam;
 
     mfxVideoParam m_mfxDecParams;
     mfxVideoParam m_mfxEncParams;

@@ -93,7 +93,7 @@ public:
         m_sTrimParam = trim;
     }
 
-    const sTrimParam *GetTrimParam() {
+    sTrimParam *GetTrimParam() {
         return &m_sTrimParam;
     }
     mfxU32 m_ColorFormat; // color format of input YUV data, YUV420 or NV12

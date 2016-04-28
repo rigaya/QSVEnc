@@ -2713,10 +2713,6 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         PrintMes(QSV_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
         pParams->nAVSyncMode = QSV_AVSYNC_THROUGH;
     }
-    if (pParams->nAVSyncMode && pParams->nTrimCount > 0) {
-        PrintMes(QSV_LOG_ERROR, _T("avsync forcecfr + trim is not supported.\n"));
-        return MFX_ERR_UNSUPPORTED;
-    }
 
     return MFX_ERR_NONE;
 }
@@ -3711,6 +3707,9 @@ mfxStatus CQSVPipeline::RunEncode() {
                 bCheckPtsMultipleOutput = true;
                 queueFirstFrame.pSurface->Data.Locked++;
                 framePosListIndex--;
+                if (m_pTrimParam) {
+                    rearrange_trim_list(nInputFrameCount, -1, m_pTrimParam->list);
+                }
             } else {
                 bCheckPtsMultipleOutput = false;
                 qDecodeFrames.pop_front();
@@ -3718,6 +3717,9 @@ mfxStatus CQSVPipeline::RunEncode() {
                     //間引きが必要 -> フレームを後段に渡さず破棄
                     queueFirstFrame.pSurface->Data.Locked--;
                     pSurfCheckPts = nullptr;
+                    if (m_pTrimParam) {
+                        rearrange_trim_list(nInputFrameCount, 1, m_pTrimParam->list);
+                    }
                     return MFX_ERR_MORE_SURFACE;
                 }
             }
