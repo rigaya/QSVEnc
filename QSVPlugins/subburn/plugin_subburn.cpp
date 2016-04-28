@@ -430,33 +430,6 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
         //ファイル読み込みの場合
         AddMessage(QSV_LOG_DEBUG, _T("trying to open subtitle file \"%s\""), pProcData->pFilePath);
 
-        if (pProcData->sCharEnc.length() == 0) {
-            FILE *fp = NULL;
-            if (_tfopen_s(&fp, pProcData->pFilePath, _T("rb")) || fp == NULL) {
-                AddMessage(QSV_LOG_ERROR, _T("error opening file: \"%s\"\n"), pProcData->pFilePath);
-                return MFX_ERR_NULL_PTR; // Couldn't open file
-            }
-
-            std::vector<char> buffer(256 * 1024, 0);
-            const auto readBytes = fread(buffer.data(), 1, sizeof(buffer[0]) * buffer.size(), fp);
-            fclose(fp);
-
-            const auto estCodePage = get_code_page(buffer.data(), (int)readBytes);
-            std::map<uint32_t, std::string> codePageMap = {
-                { CODE_PAGE_SJIS,     "CP932"       },
-                { CODE_PAGE_JIS,      "ISO-2022-JP" },
-                { CODE_PAGE_EUC_JP,   "EUC-JP"      },
-                { CODE_PAGE_UTF8,     "UTF-8"       },
-                { CODE_PAGE_UTF16_LE, "UTF-16LE"    },
-                { CODE_PAGE_UTF16_BE, "UTF-16BE"    },
-                { CODE_PAGE_US_ASCII, "ASCII"       },
-                { CODE_PAGE_UNSET,    ""            },
-            };
-            if (codePageMap.find(estCodePage) != codePageMap.end()) {
-                pProcData->sCharEnc = codePageMap[estCodePage];
-            }
-        }
-
         std::string filename_char;
         if (0 == tchar_to_string(pProcData->pFilePath, filename_char, CP_UTF8)) {
             AddMessage(QSV_LOG_ERROR, _T("failed to convert filename to utf-8 characters.\n"));
@@ -484,12 +457,10 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
     } else {
         inputCodecId = pProcData->pCodecCtxIn->codec_id;
     }
-    if (!(avcodec_descriptor_get(inputCodecId)->props & AV_CODEC_PROP_TEXT_SUB)) {
-        AddMessage(QSV_LOG_ERROR, _T("non-text type sub currently not supported.\n"));
-        pProcData->nType = 0;
-        return MFX_ERR_UNSUPPORTED;
-    }
-    pProcData->nType = AV_CODEC_PROP_TEXT_SUB;
+
+    pProcData->nType = avcodec_descriptor_get(inputCodecId)->props;
+    AddMessage(QSV_LOG_DEBUG, _T("sub type: %s\n"), (pProcData->nType & AV_CODEC_PROP_TEXT_SUB) ? _T("text") : _T("bitmap"));
+
     auto copy_subtitle_header = [](AVCodecContext *pDstCtx, const AVCodecContext *pSrcCtx) {
         if (pSrcCtx->subtitle_header_size) {
             pDstCtx->subtitle_header_size = pSrcCtx->subtitle_header_size;
@@ -522,16 +493,46 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
     }
 
     int ret;
-    AVDictionary *pCodecOpts = NULL;
-    if (pProcData->sCharEnc.length() > 0) {
-        if (0 > (ret = av_dict_set(&pCodecOpts, "sub_charenc", pProcData->sCharEnc.c_str(), 0))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_charenc\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
+    AVDictionary *pCodecOpts = nullptr;
+    if (pProcData->nType & AV_CODEC_PROP_TEXT_SUB) {
+        if (pProcData->pFilePath) {
+            if (pProcData->sCharEnc.length() == 0) {
+                FILE *fp = NULL;
+                if (_tfopen_s(&fp, pProcData->pFilePath, _T("rb")) || fp == NULL) {
+                    AddMessage(QSV_LOG_ERROR, _T("error opening file: \"%s\"\n"), pProcData->pFilePath);
+                    return MFX_ERR_NULL_PTR; // Couldn't open file
+                }
+
+                std::vector<char> buffer(256 * 1024, 0);
+                const auto readBytes = fread(buffer.data(), 1, sizeof(buffer[0]) * buffer.size(), fp);
+                fclose(fp);
+
+                const auto estCodePage = get_code_page(buffer.data(), (int)readBytes);
+                std::map<uint32_t, std::string> codePageMap ={
+                    { CODE_PAGE_SJIS,     "CP932"       },
+                    { CODE_PAGE_JIS,      "ISO-2022-JP" },
+                    { CODE_PAGE_EUC_JP,   "EUC-JP"      },
+                    { CODE_PAGE_UTF8,     "UTF-8"       },
+                    { CODE_PAGE_UTF16_LE, "UTF-16LE"    },
+                    { CODE_PAGE_UTF16_BE, "UTF-16BE"    },
+                    { CODE_PAGE_US_ASCII, "ASCII"       },
+                    { CODE_PAGE_UNSET,    ""            },
+                };
+                if (codePageMap.find(estCodePage) != codePageMap.end()) {
+                    pProcData->sCharEnc = codePageMap[estCodePage];
+                }
+            }
+        }
+        if (pProcData->sCharEnc.length() > 0) {
+            if (0 > (ret = av_dict_set(&pCodecOpts, "sub_charenc", pProcData->sCharEnc.c_str(), 0))) {
+                AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_charenc\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
+                return MFX_ERR_NULL_PTR;
+            }
+        }
+        if (0 > (ret = av_dict_set(&pCodecOpts, "sub_text_format", "ass", 0))) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
             return MFX_ERR_NULL_PTR;
         }
-    }
-    if (0 > (ret = av_dict_set(&pCodecOpts, "sub_text_format", "ass", 0))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
-        return MFX_ERR_NULL_PTR;
     }
     if (0 > (ret = avcodec_open2(pProcData->pOutCodecDecodeCtx, pProcData->pOutCodecDecode, &pCodecOpts))) {
         AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
@@ -583,24 +584,29 @@ mfxStatus SubBurn::ProcSub(ProcessDataSubBurn *pProcData) {
     av_init_packet(&pkt);
     while (av_read_frame(pProcData->pFormatCtx, &pkt) >= 0) {
         if (pkt.stream_index == pProcData->nSubtitleStreamIndex) {
-            int got_sub = 0;
-            AVSubtitle sub = { 0 };
-            if (0 > avcodec_decode_subtitle2(pProcData->pOutCodecDecodeCtx, &sub, &got_sub, &pkt)) {
-                AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
-                return MFX_ERR_UNKNOWN;
-            }
-            if (got_sub) {
-                const int64_t nStartTime = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000));
-                const int64_t nDuration  = sub.end_display_time;
-                for (uint32_t i = 0; i < sub.num_rects; i++) {
-                    auto *ass = sub.rects[i]->ass;
-                    if (!ass) {
-                        break;
-                    }
-                    ass_process_chunk(pProcData->pAssTrack, ass, (int)strlen(ass), nStartTime, nDuration);
+            if (pProcData->nType & AV_CODEC_PROP_TEXT_SUB) {
+                int got_sub = 0;
+                AVSubtitle sub ={ 0 };
+                if (0 > avcodec_decode_subtitle2(pProcData->pOutCodecDecodeCtx, &sub, &got_sub, &pkt)) {
+                    AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
+                    return MFX_ERR_UNKNOWN;
                 }
+                if (got_sub) {
+                    const int64_t nStartTime = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000));
+                    const int64_t nDuration  = sub.end_display_time;
+                    for (uint32_t i = 0; i < sub.num_rects; i++) {
+                        auto *ass = sub.rects[i]->ass;
+                        if (!ass) {
+                            break;
+                        }
+                        ass_process_chunk(pProcData->pAssTrack, ass, (int)strlen(ass), nStartTime, nDuration);
+                    }
+                }
+                avsubtitle_free(&sub);
+            } else {
+                pProcData->qSubPackets.push(pkt);
+                continue;
             }
-            avsubtitle_free(&sub);
         }
         av_packet_unref(&pkt);
     }
@@ -679,11 +685,14 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         if (MFX_ERR_NONE != (sts = InitAvcodec(&m_vProcessData[i]))) {
             return sts;
         }
-
-        if (MFX_ERR_NONE != (sts = InitLibAss(&m_vProcessData[i]))) {
-            return sts;
+        if (m_vProcessData[i].nType & AV_CODEC_PROP_TEXT_SUB) {
+            //テキスト型の字幕ならlibassが必要
+            if (MFX_ERR_NONE != (sts = InitLibAss(&m_vProcessData[i]))) {
+                return sts;
+            }
         }
         if (m_vProcessData[i].pFormatCtx) {
+            //ファイルから読み込んでいる場合、初期化段階ですべて読み込んでしまう
             if (MFX_ERR_NONE != (sts = ProcSub(&m_vProcessData[i]))) {
                 return sts;
             }
@@ -695,9 +704,11 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
 mfxStatus SubBurn::SendData(int nType, void *pData) {
     if (nType == PLUGIN_SEND_DATA_AVPACKET) {
         for (uint32_t i = 1; i < m_sTasks.size(); i++) {
-            if (m_vProcessData[i].pAssTrack == nullptr) {
-                AddMessage(QSV_LOG_ERROR, _T("ass track not initialized.\n"));
-                return MFX_ERR_NULL_PTR;
+            if (m_vProcessData[i].nType & AV_CODEC_PROP_TEXT_SUB) {
+                if (m_vProcessData[i].pAssTrack == nullptr) {
+                    AddMessage(QSV_LOG_ERROR, _T("ass track not initialized.\n"));
+                    return MFX_ERR_NULL_PTR;
+                }
             }
             if (m_vProcessData[i].pOutCodecDecodeCtx == nullptr) {
                 AddMessage(QSV_LOG_ERROR, _T("sub decoder not initialized.\n"));
@@ -743,6 +754,11 @@ mfxStatus SubBurn::Close() {
         if (m_vProcessData[i].pBuf) {
             av_free(m_vProcessData[i].pBuf);
             m_vProcessData[i].pBuf = nullptr;
+        }
+
+        if (m_vProcessData[i].subtitle.num_rects) {
+            avsubtitle_free(&m_vProcessData[i].subtitle);
+            memset(&m_vProcessData[i].subtitle, 0, sizeof(m_vProcessData[i].subtitle));
         }
 
         //close format
@@ -813,14 +829,7 @@ mfxStatus ProcessorSubBurn::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *f
     return MFX_ERR_NONE;
 }
 
-mfxStatus ProcessorSubBurn::Process(DataChunk *chunk, uint8_t *pBuffer) {
-    if (chunk == nullptr || pBuffer == nullptr) {
-        return MFX_ERR_NULL_PTR;
-    }
-
-    if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
-        return MFX_ERR_UNSUPPORTED;
-    }
+mfxStatus ProcessorSubBurn::ProcessSubText(uint8_t *pBuffer) {
     const uint32_t nSimdAvail = m_pProcData->nSimdAvail;
     qsv_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
@@ -841,7 +850,7 @@ mfxStatus ProcessorSubBurn::Process(DataChunk *chunk, uint8_t *pBuffer) {
             AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
             return MFX_ERR_UNKNOWN;
         }
-        qsv_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
+
         if (got_sub) {
             const int64_t nStartTime = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000));
             const int64_t nDuration  = sub.end_display_time;
@@ -868,26 +877,126 @@ mfxStatus ProcessorSubBurn::Process(DataChunk *chunk, uint8_t *pBuffer) {
         if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
             return sts;
         }
-        if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
-            return sts;
+        if (pFrameImages) {
+            if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+                return sts;
+            }
         }
     }
 
-    CopyFrameY();
+    CopyFrameY(); //system memory mode の時のみ有効, d3d9 memoryの時はCopyD3DFrameGPUですでにコピーされている
     for (auto pImage = pFrameImages; pImage; pImage = pImage->next) {
         if (MFX_ERR_NONE != (sts = SubBurn<false>(pImage, pBuffer))) return sts;
     }
-    CopyFrameUV();
+    CopyFrameUV(); //system memory mode の時のみ有効, d3d9 memoryの時はCopyD3DFrameGPUですでにコピーされている
     for (auto pImage = pFrameImages; pImage; pImage = pImage->next) {
         if (MFX_ERR_NONE != (sts = SubBurn<true>(pImage, pBuffer))) return sts;
     }
 
     if (!d3dSurface) {
-        if (MFX_ERR_NONE != (sts = UnlockFrame(m_pIn)))  return sts;
+        UnlockFrame(m_pIn);
     }
-    if (MFX_ERR_NONE != (sts = UnlockFrame(m_pOut))) return sts;
+    if (!d3dSurface || pFrameImages) {
+        UnlockFrame(m_pOut);
+    }
 
     return sts;
+}
+
+mfxStatus ProcessorSubBurn::ProcessSubBitmap(uint8_t *pBuffer) {
+    const uint32_t nSimdAvail = m_pProcData->nSimdAvail;
+    qsv_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
+
+    const bool d3dSurface = !!(m_pProcData->memType & D3D9_MEMORY);
+    mfxStatus sts = MFX_ERR_NONE;
+    if (!d3dSurface) {
+        if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
+        if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+            return UnlockFrame(m_pIn);
+        }
+    }
+
+    const auto frameTimebase = (m_pProcData->pVideoInputCodecCtx) ? m_pProcData->pVideoInputCodecCtx->pkt_timebase : QSV_NATIVE_TIMEBASE;
+    const int64_t nFrameTimeMs = av_rescale_q((m_pIn->Data.TimeStamp - m_pProcData->nVideoInputFirstKeyPts), frameTimebase, { 1, 1000 });
+
+    AVPacket pkt;
+    while (m_pProcData->qSubPackets.front_copy_no_lock(&pkt)) {
+        //字幕パケットのptsが、フレームのptsより古ければ、処理する必要がある
+        if (nFrameTimeMs < av_rescale_q(pkt.pts, m_pProcData->pCodecCtxIn->pkt_timebase, { 1, 1000 })) {
+            //取得したパケットが未来のパケットなら無視
+            break;
+        }
+        //字幕パケットをキューから取り除く
+        m_pProcData->qSubPackets.pop();
+
+        //現在蓄えているデコードされた字幕を開放
+        if (m_pProcData->subtitle.num_rects) {
+            avsubtitle_free(&m_pProcData->subtitle);
+        }
+
+        //字幕パケットをデコードする
+        int got_sub = 0;
+        if (0 > avcodec_decode_subtitle2(m_pProcData->pOutCodecDecodeCtx, &m_pProcData->subtitle, &got_sub, &pkt)) {
+            AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
+            return MFX_ERR_UNKNOWN;
+        }
+        av_packet_unref(&pkt);
+    }
+    qsv_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
+
+    //いまなんらかの字幕情報がデコード済みなら、その有効期限をチェックする
+    if (m_pProcData->subtitle.num_rects) {
+        const int64_t nStartTime = av_rescale_q(m_pProcData->subtitle.pts, av_make_q(1, AV_TIME_BASE), av_make_q(1, 1000));
+        const int64_t nDuration  = m_pProcData->subtitle.end_display_time;
+        if (nStartTime + nDuration < nFrameTimeMs) {
+            //現在蓄えているデコードされた字幕を開放
+            if (m_pProcData->subtitle.num_rects) {
+                avsubtitle_free(&m_pProcData->subtitle);
+                memset(&m_pProcData->subtitle, 0, sizeof(m_pProcData->subtitle));
+            }
+        }
+    }
+
+    if (d3dSurface) {
+        if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
+            return sts;
+        }
+        if (m_pProcData->subtitle.num_rects) {
+            if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+                return sts;
+            }
+        }
+    }
+    CopyFrameY(); //system memory mode の時のみ有効, d3d9 memoryの時はCopyD3DFrameGPUですでにコピーされている
+    for (uint32_t i = 0; i < m_pProcData->subtitle.num_rects; i++) {
+        SubBurn<false>(m_pProcData->subtitle.rects[i], pBuffer);
+    }
+
+    CopyFrameUV(); //system memory mode の時のみ有効, d3d9 memoryの時はCopyD3DFrameGPUですでにコピーされている
+    for (uint32_t i = 0; i < m_pProcData->subtitle.num_rects; i++) {
+        SubBurn<true>(m_pProcData->subtitle.rects[i], pBuffer);
+    }
+
+    if (!d3dSurface) {
+        UnlockFrame(m_pIn);
+    }
+    if (!d3dSurface || m_pProcData->subtitle.num_rects) {
+        UnlockFrame(m_pOut);
+    }
+
+    return sts;
+}
+
+mfxStatus ProcessorSubBurn::Process(DataChunk *chunk, uint8_t *pBuffer) {
+    if (chunk == nullptr || pBuffer == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
+
+    if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
+        return MFX_ERR_UNSUPPORTED;
+    }
+
+    return (m_pProcData->nType & AV_CODEC_PROP_TEXT_SUB) ? ProcessSubText(pBuffer) : ProcessSubBitmap(pBuffer);
 }
 
 void ProcessorSubBurn::CopyFrameY() {
@@ -972,5 +1081,47 @@ mfxStatus ProcessorSubBurn::SubBurn(ASS_Image *pImage, uint8_t *pBuffer) {
 
     return MFX_ERR_NONE;
 }
+
+int ProcessorSubBurn::BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int subH, uint8_t *pBuf) {
+    return 256;
+}
+int ProcessorSubBurn::BlendSubUVBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int subH, uint8_t *pBuf) {
+    return 256;
+}
+
+template<bool forUV>
+mfxStatus ProcessorSubBurn::SubBurn(AVSubtitleRect *pRect, uint8_t *pBuffer) {
+    uint32_t nColorTableSize = pRect->nb_colors;
+#define INT(b) ((b) ? 1 : 0)
+    alignas(32) uint8_t pColor[256 << (INT(forUV))];
+    alignas(32) uint8_t pAlpha[256];
+
+    const uint32_t *pColorARGB = (uint32_t *)pRect->pict.data[1];
+    for (uint32_t ic = 0; ic < nColorTableSize; ic++) {
+        const uint32_t nSubColor = pColorARGB[ic];
+        const uint8_t subA = (uint8_t) (nSubColor >> 24);
+        const uint8_t subR = (uint8_t)((nSubColor >> 16) & 0xff);
+        const uint8_t subG = (uint8_t)((nSubColor >>  8) & 0xff);
+        const uint8_t subB = (uint8_t) (nSubColor        & 0xff);
+
+        const uint8_t subY = (uint8_t)clamp((( 66 * subR + 129 * subG +  25 * subB + 128) >> 8) +  16, 0, 255);
+        const uint8_t subU = (uint8_t)clamp(((-38 * subR -  74 * subG + 112 * subB + 128) >> 8) + 128, 0, 255);
+        const uint8_t subV = (uint8_t)clamp(((112 * subR -  94 * subG -  18 * subB + 128) >> 8) + 128, 0, 255);
+
+        if (forUV) {
+            pColor[2*ic + 0] = subU;
+            pColor[2*ic + 1] = subV;
+        } else {
+            pColor[ic] = subY;
+        }
+        pAlpha[ic] = subA >> 1;
+    }
+    int nMaxIndex = (forUV)
+        ? BlendSubUVBitmap(pRect->pict.data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer)
+        : BlendSubYBitmap(pRect->pict.data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer);
+    pRect->nb_colors = (std::min)(pRect->nb_colors, nMaxIndex);
+    return MFX_ERR_NONE;
+}
+
 
 #endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN

@@ -89,6 +89,38 @@ void ProcessorSubBurnAVX2::CopyFrameUV() {
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
+int ProcessorSubBurnAVX2::BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int subH, uint8_t *pBuf) {
+    uint8_t *pFrame = m_pOut->Data.Y;
+    const int w = m_pOut->Info.CropW;
+    const int h = m_pOut->Info.CropH;
+    const int pitch = m_pOut->Data.Pitch;
+    subW = (std::min)(w, subX + subW) - subX;
+    subH = (std::min)(h, subY + subH) - subY;
+    if (nColorLUT <= 16) {
+        return blend_sub<false, false, 16>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, nullptr);
+    } else if (nColorLUT <= 32) {
+        return blend_sub<false, false, 32>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, nullptr);
+    } else {
+        return blend_sub<false, false, 64>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, nullptr);
+    }
+}
+int ProcessorSubBurnAVX2::BlendSubUVBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int subH, uint8_t *pBuf) {
+    uint8_t *pFrame = m_pOut->Data.UV;
+    const int w = m_pOut->Info.CropW;
+    const int h = m_pOut->Info.CropH;
+    const int pitch = m_pOut->Data.Pitch;
+    subW = (std::min)(w, subX + subW) - subX;
+    subH = (std::min)(h, subY + subH) - subY;
+    if (nColorLUT <= 8) {
+        return blend_sub<true, false, 8>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, nullptr);
+    } else if (nColorLUT <= 16) {
+        return blend_sub<true, false, 16>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, nullptr);
+    } else if (nColorLUT <= 32) {
+        return blend_sub<true, false, 32>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, nullptr);
+    } else {
+        return blend_sub<true, false, 64>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, nullptr);
+    }
+}
 void ProcessorSubBurnAVX2::BlendSubY(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcolory, uint8_t subTransparency, uint8_t *pBuf) {
     uint8_t *pFrame = m_pOut->Data.Y;
     const int w = m_pOut->Info.CropW;
@@ -122,6 +154,40 @@ void ProcessorSubBurnD3DAVX2::CopyFrameY() {
 }
 
 void ProcessorSubBurnD3DAVX2::CopyFrameUV() {
+}
+
+int ProcessorSubBurnD3DAVX2::BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int subH, uint8_t *pBuf) {
+    uint8_t *pFrame = m_pOut->Data.Y;
+    const int w = m_pOut->Info.CropW;
+    const int h = m_pOut->Info.CropH;
+    const int pitch = m_pOut->Data.Pitch;
+    subW = (std::min)(w, subX + subW) - subX;
+    subH = (std::min)(h, subY + subH) - subY;
+    if (nColorLUT <= 16) {
+        return blend_sub<false, true, 16>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, pBuf);
+    } else if (nColorLUT <= 32) {
+        return blend_sub<false, true, 32>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, pBuf);
+    } else {
+        return blend_sub<false, true, 64>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, pBuf);
+    }
+}
+
+int ProcessorSubBurnD3DAVX2::BlendSubUVBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int subH, uint8_t *pBuf) {
+    uint8_t *pFrame = m_pOut->Data.UV;
+    const int w = m_pOut->Info.CropW;
+    const int h = m_pOut->Info.CropH;
+    const int pitch = m_pOut->Data.Pitch;
+    subW = (std::min)(w, subX + subW) - subX;
+    subH = (std::min)(h, subY + subH) - subY;
+    if (nColorLUT <= 8) {
+        return blend_sub<true, true, 8>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, pBuf);
+    } else if (nColorLUT <= 16) {
+        return blend_sub<true, true, 16>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, pBuf);
+    } else if (nColorLUT <= 32) {
+        return blend_sub<true, true, 32>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, pBuf);
+    } else {
+        return blend_sub<true, true, 64>(pFrame, pitch, pSubColorIdx, pSubColor, pAlpha, subX, subY, subW, subStride, subH, pBuf);
+    }
 }
 
 void ProcessorSubBurnD3DAVX2::BlendSubY(const uint8_t *pAlpha, int bufX, int bufY, int bufW, int bufStride, int bufH, uint8_t subcolory, uint8_t subTransparency, uint8_t *pBuf) {
