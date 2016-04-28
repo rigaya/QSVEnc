@@ -54,7 +54,7 @@
 #define _mm_alignr_epi8_simd palignr_sse2
 #endif
 
-#if USE_SSE41
+#if USE_SSE41 && !PSHUFB_SLOW
 #define _mm_blendv_epi8_simd _mm_blendv_epi8
 #else
 static inline __m128i select_by_mask(__m128i a, __m128i b, __m128i mask) {
@@ -436,29 +436,33 @@ static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xBitmap
 
 #if USE_AVX2
 static QSV_FORCEINLINE __m256i convert_bitmap_for_uv(__m256i yBitmap) {
-    __m256i yBitmapDoubleLo = _mm256_unpacklo_epi8(yBitmap, yBitmap);
-    __m256i yBitmapDoubleHi = _mm256_unpackhi_epi8(yBitmap, yBitmap);
-    yBitmapDoubleLo = _mm256_and_si256(yBitmapDoubleLo, _mm256_set1_epi32(0xff));
-    yBitmapDoubleHi = _mm256_and_si256(yBitmapDoubleHi, _mm256_set1_epi32(0xff));
-    return _mm256_packus_epi32(yBitmapDoubleLo, yBitmapDoubleHi);
+    __m256i y1 = _mm256_slli_si256(yBitmap, 1);
+    __m256i y0 = _mm256_and_si256(yBitmap, _mm256_set1_epi16(0x00ff));
+    return _mm256_or_si256(y0, y1);
 }
 #else
 static QSV_FORCEINLINE __m128i convert_bitmap_for_uv(__m128i xBitmap) {
     //15, 14, 13, 12, ..., 3, 2, 1, 0
     //  ↓
     //14, 14, 12, 12, ..., 2, 2, 0, 0
-    __m128i xBitmapDoubleLo = _mm_unpacklo_epi8(xBitmap, xBitmap);
-    __m128i xBitmapDoubleHi = _mm_unpackhi_epi8(xBitmap, xBitmap);
-    xBitmapDoubleLo = _mm_and_si128(xBitmapDoubleLo, _mm_set1_epi32(0xff));
-    xBitmapDoubleHi = _mm_and_si128(xBitmapDoubleHi, _mm_set1_epi32(0xff));
-    return _mm_packus_epi32_simd(xBitmapDoubleLo, xBitmapDoubleHi);
+    __m128i x1 = _mm_slli_si128(xBitmap, 1);
+    __m128i x0 = _mm_and_si128(xBitmap, _mm_set1_epi16(0x00ff));
+    return _mm_or_si128(x0, x1);
 }
 #endif
 
 #if USE_AVX2
 static QSV_FORCEINLINE __m256i shiftFirstBitmap(const uint8_t *ptr_alpha, const __m256i& yFirstLoadShift0, const __m256i& yFirstLoadShift1) {
     __m256i y0 = _mm256_loadu_si256((__m256i *)ptr_alpha);
-    __m256i y1 = _mm256_loadu2_m128i((__m128i *)ptr_alpha, (__m128i *)ptr_alpha);
+    __m256i y1 = _mm256_broadcastsi128_si256(_mm_loadu_si128((__m128i *)ptr_alpha));
+    y0 = _mm256_shuffle_epi8(y0, yFirstLoadShift0);
+    y1 = _mm256_shuffle_epi8(y1, yFirstLoadShift1);
+    y0 = _mm256_or_si256(y0, y1);
+    return y0;
+}
+static QSV_FORCEINLINE __m256i shiftFirstBitmap(const __m256i& yColor, const __m256i& yFirstLoadShift0, const __m256i& yFirstLoadShift1) {
+    __m256i y0 = yColor;
+    __m256i y1 = _mm256_inserti128_si256(yColor, _mm256_castsi256_si128(yColor), 1);
     y0 = _mm256_shuffle_epi8(y0, yFirstLoadShift0);
     y1 = _mm256_shuffle_epi8(y1, yFirstLoadShift1);
     y0 = _mm256_or_si256(y0, y1);
@@ -470,6 +474,40 @@ static QSV_FORCEINLINE __m128i shiftFirstBitmap(const uint8_t *ptr_alpha, const 
     x0 = _mm_shuffle_epi8(x0, xFirstLoadShift);
     return x0;
 }
+static QSV_FORCEINLINE __m128i shiftFirstBitmap(const __m128i& xColor, const __m128i& xFirstLoadShift) {
+    __m128i x0 = _mm_shuffle_epi8(xColor, xFirstLoadShift);
+    return x0;
+}
+#endif
+
+alignas(MEM_ALIGN) static const uint8_t iter[] = {
+#if USE_AVX2
+    240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240,
+#endif
+    240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240,
+    0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
+#if USE_AVX2
+    240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240,
+    0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
+    0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
+#endif
+};
+
+alignas(MEM_ALIGN) static const uint8_t mask[] = {
+#if USE_AVX2
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+#endif
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+#if USE_AVX2
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+#endif
+};
+
+#if USE_AVX2
+#define LOAD_C240B _mm256_load_si256((const __m256i *)(iter))
+#else
+#define LOAD_C240B _mm_load_si128((const __m128i *)(iter))
 #endif
 
 template<int bForUV, bool forD3D>
@@ -496,18 +534,6 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
     const __m128i xSubColor = _mm_set1_epi16((subcolor1 << 8) | subcolor0);
     const __m128i xC255b = _mm_set1_epi8(-1);
 #endif
-    alignas(MEM_ALIGN) static const uint8_t iter[] = {
-#if USE_AVX2
-        240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240,
-#endif
-        240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240,
-          0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
-#if USE_AVX2
-        240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240, 240,
-          0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
-          0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
-#endif
-    };
 #if USE_AVX2
     __m256i yTable0 = _mm256_load_si256((__m256i *)(iter + 64));
     __m256i yTable1 = yTable0;
@@ -543,7 +569,7 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
     //alpha1            |  ptr_alpha[15] ................... ptr_alpha[0]  | ptr_alpha[15] ..................... ptr_alpha[0] |
     //yFirstLoadShift1  |  11,  10,   9, ...,   1,   0, 240, 240, 240, 240 | 240, ....................................... 240 |
     // shifted alpha = _mm256_or_si256( _mm256_shuffle_epi8(alpha0, yFirstLoadShift0),  _mm256_shuffle_epi8(alpha1, yFirstLoadShift1) )
-    const __m256i yFirstLoadShift0 = _mm256_loadu2_m128i((__m128i *)(iter + 32 - bufXOffset), (__m128i *)(iter + 32 - bufXOffset));
+    const __m256i yFirstLoadShift0 = _mm256_broadcastsi128_si256(_mm_loadu_si128((__m128i *)(iter + 32 - bufXOffset)));
     const __m256i yFirstLoadShift1 = _mm256_loadu2_m128i((__m128i *)(iter + 48 - bufXOffset), (__m128i *)(iter));
 #else
 #if PSHUFB_SLOW
@@ -574,17 +600,6 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
     //  2 ... 16, 16,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13,
     // ...
 #endif
-
-    alignas(MEM_ALIGN) static const uint8_t mask[] = {
-#if USE_AVX2
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-#endif
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-#if USE_AVX2
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-#endif
-    };
     const int bufYXExtension = bufX + bufW - (subX + subW);
 #if USE_AVX2
     const __m256i yLastLoadMask = _mm256_loadu_si256((__m256i *)(mask + bufYXExtension));
@@ -661,4 +676,363 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
             }
         }
     }
+}
+
+#if USE_AVX2
+template<int bForUV, int nColorLUT>
+static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pSubAlpha, __m256i& yColor, __m256i& yAlpha, __m256i& yMaxIndex) {
+    if (bForUV) {
+        if (nColorLUT <= 8) {
+            __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
+            yIndex = convert_bitmap_for_uv(yIndex);
+            __m256i yIndexUV = _mm256_add_epi8(_mm256_slli_epi16(yIndex, 1), _mm256_set1_epi16(0x0100));
+            yColor = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)pSubColor)), yIndexUV);
+            yAlpha = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)pSubAlpha)), yIndex);
+        } else if (nColorLUT <= 16) {
+            __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
+            yIndex = convert_bitmap_for_uv(yIndex);
+            __m256i yIndexUV = _mm256_add_epi8(_mm256_slli_epi16(yIndex, 1), _mm256_set1_epi16(0x0100));
+            __m256i yIndexLo = _mm256_and_si256(yIndexUV, _mm256_set1_epi8(0x0f));  //colorIdx & 0x0f
+            __m256i yMask    = _mm256_cmpgt_epi8(yIndexUV, _mm256_set1_epi8(0x0f)); //colorIdx > 0x0f ? 0xff : 0x00;
+            __m256i yColorSelector0 = _mm256_blendv_epi8(yIndexLo, LOAD_C240B, yMask);
+            __m256i yColorSelector1 = _mm256_blendv_epi8(LOAD_C240B, yIndexLo, yMask);
+            __m256i yColor0 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor +  0))), yColorSelector0);
+            __m256i yColor1 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor + 16))), yColorSelector1);
+            yColor = _mm256_or_si256(yColor0, yColor1);
+            yAlpha = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)pSubAlpha)), yIndex);
+        } else if (nColorLUT <= 32) {
+            __m256i yIndex   = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
+            yIndex = convert_bitmap_for_uv(yIndex);
+            __m256i yIndexLo = _mm256_and_si256(yIndex, _mm256_set1_epi8(15));  //colorIdx & 0x0f
+            __m256i yMask    = _mm256_cmpgt_epi8(yIndex, _mm256_set1_epi8(15)); //colorIdx > 0x0f ? 0xff : 0x00;
+            __m256i yColorSelector0 = _mm256_blendv_epi8(yIndexLo, LOAD_C240B, yMask); //xMask ? 240 : yIndexLo
+            __m256i yColorSelector1 = _mm256_blendv_epi8(LOAD_C240B, yIndexLo, yMask);
+            __m256i yAlpha0 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubAlpha +  0))), yColorSelector0);
+            __m256i yAlpha1 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubAlpha + 16))), yColorSelector1);
+            yAlpha = _mm256_or_si256(yAlpha0, yAlpha1);
+
+            __m256i yIndexUV = _mm256_add_epi8(_mm256_slli_epi16(yIndex, 1), _mm256_set1_epi16(0x0100));
+            __m256i yIndexLoUV = _mm256_and_si256(yIndexUV, _mm256_set1_epi8(0x0f));  //colorIdx & 0x0f
+            __m256i yIndexHiUV = _mm256_and_si256(_mm256_srli_epi16(yIndexUV, 4), _mm256_set1_epi8(0x0f));  //colorIdx & 0x0f
+            __m256i yCmpHi   = _mm256_setzero_si256();
+            __m256i yC1b     = _mm256_sub_epi8(yCmpHi, _mm256_cmpeq_epi8(yCmpHi, yCmpHi));
+            __m256i yColorSelectorUV0 = _mm256_blendv_epi8(LOAD_C240B, yIndexLoUV, _mm256_cmpeq_epi8(yIndexHiUV, yCmpHi));
+            yCmpHi = _mm256_add_epi8(yCmpHi, yC1b);
+            __m256i yColorSelectorUV1 = _mm256_blendv_epi8(LOAD_C240B, yIndexLoUV, _mm256_cmpeq_epi8(yIndexHiUV, yCmpHi));
+            yCmpHi = _mm256_add_epi8(yCmpHi, yC1b);
+            __m256i yColorSelectorUV2 = _mm256_blendv_epi8(LOAD_C240B, yIndexLoUV, _mm256_cmpeq_epi8(yIndexHiUV, yCmpHi));
+            yCmpHi = _mm256_add_epi8(yCmpHi, yC1b);
+            __m256i yColorSelectorUV3 = _mm256_blendv_epi8(LOAD_C240B, yIndexLoUV, _mm256_cmpeq_epi8(yIndexHiUV, yCmpHi));
+            __m256i yColor0 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor +  0))), yColorSelectorUV0);
+            __m256i yColor1 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor + 16))), yColorSelectorUV1);
+            __m256i yColor2 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor + 32))), yColorSelectorUV2);
+            __m256i yColor3 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor + 48))), yColorSelectorUV3);
+            yColor = _mm256_or_si256(_mm256_or_si256(yColor0, yColor1), _mm256_or_si256(yColor2, yColor3));
+        } else {
+            __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
+            yMaxIndex = _mm256_max_epi8(yMaxIndex, yIndex);
+            uint8_t alignas(MEM_ALIGN) value[64];
+            for (int i = 0; i < 32; i += 2) {
+                int idx = pSubColorIdx[i];
+                value[i +  0] = pSubColor[idx + 0];
+                value[i +  1] = pSubColor[idx + 1];
+                value[i + 32] = pSubAlpha[idx];
+                value[i + 33] = pSubAlpha[idx];
+            }
+            yColor = _mm256_load_si256((const __m256i *)(value +  0));
+            yAlpha = _mm256_load_si256((const __m256i *)(value + 32));
+        }
+    } else {
+        if (nColorLUT <= 16) {
+            __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
+            yColor = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)pSubColor)), yIndex);
+            yAlpha = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)pSubAlpha)), yIndex);
+        } else if (nColorLUT <= 32) {
+            __m256i yIndex   = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
+            __m256i yIndexLo = _mm256_and_si256(yIndex, _mm256_set1_epi8(15));  //colorIdx & 0x0f
+            __m256i yMask    = _mm256_cmpgt_epi8(yIndex, _mm256_set1_epi8(15)); //colorIdx > 0x0f ? 0xff : 0x00;
+            __m256i yColorSelector0 = _mm256_blendv_epi8(yIndexLo, LOAD_C240B, yMask); //xMask ? 240 : yIndexLo
+            __m256i yColorSelector1 = _mm256_blendv_epi8(LOAD_C240B, yIndexLo, yMask);
+            __m256i yColor0 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor +  0))), yColorSelector0);
+            __m256i yColor1 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubColor + 16))), yColorSelector1);
+            __m256i yAlpha0 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubAlpha +  0))), yColorSelector0);
+            __m256i yAlpha1 = _mm256_shuffle_epi8(_mm256_broadcastsi128_si256(_mm_load_si128((const __m128i *)(pSubAlpha + 16))), yColorSelector1);
+            yColor = _mm256_or_si256(yColor0, yColor1);
+            yAlpha = _mm256_or_si256(yAlpha0, yAlpha1);
+        } else {
+            __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
+            yMaxIndex = _mm256_max_epi8(yMaxIndex, yIndex);
+            uint8_t alignas(MEM_ALIGN) value[64];
+            for (int i = 0; i < 32; i++) {
+                int idx = pSubColorIdx[i];
+                value[i +  0] = pSubColor[idx];
+                value[i + 32] = pSubAlpha[idx];
+            }
+            yColor = _mm256_load_si256((const __m256i *)(value +  0));
+            yAlpha = _mm256_load_si256((const __m256i *)(value + 32));
+        }
+    }
+}
+#else
+template<int bForUV, int nColorLUT>
+static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pSubAlpha, __m128i& xColor, __m128i& xAlpha, __m128i& xMaxIndex) {
+    if (bForUV) {
+        if (nColorLUT <= 8) {
+            __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
+            xIndex = convert_bitmap_for_uv(xIndex);
+            __m128i xIndexUV = _mm_add_epi8(_mm_slli_epi16(xIndex, 1), _mm_set1_epi16(0x0100));
+            xColor = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)pSubColor), xIndexUV);
+            xAlpha = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)pSubAlpha), xIndex);
+        } else if (nColorLUT <= 16) {
+            __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
+            xIndex = convert_bitmap_for_uv(xIndex);
+            __m128i xIndexUV = _mm_add_epi8(_mm_slli_epi16(xIndex, 1), _mm_set1_epi16(0x0100));
+            __m128i xIndexLo = _mm_and_si128(xIndexUV, _mm_set1_epi8(0x0f));  //colorIdx & 0x0f
+            __m128i xMask    = _mm_cmpgt_epi8(xIndexUV, _mm_set1_epi8(0x0f)); //colorIdx > 0x0f ? 0xff : 0x00;
+            __m128i XColorSelector0 = _mm_blendv_epi8_simd(xIndexLo, LOAD_C240B, xMask);
+            __m128i XColorSelector1 = _mm_blendv_epi8_simd(LOAD_C240B, xIndexLo, xMask);
+            __m128i xColor0 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor +  0)), XColorSelector0);
+            __m128i xColor1 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor + 16)), XColorSelector1);
+            xColor = _mm_or_si128(xColor0, xColor1);
+            xAlpha = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)pSubAlpha), xIndex);
+        } else if (nColorLUT <= 32) {
+            __m128i xIndex   = _mm_loadu_si128((const __m128i *)pSubColorIdx);
+            xIndex = convert_bitmap_for_uv(xIndex);
+            __m128i xIndexLo = _mm_and_si128(xIndex, _mm_set1_epi8(15));  //colorIdx & 0x0f
+            __m128i xMask    = _mm_cmpgt_epi8(xIndex, _mm_set1_epi8(15)); //colorIdx > 0x0f ? 0xff : 0x00;
+            __m128i xColorSelector0 = _mm_blendv_epi8_simd(xIndexLo, LOAD_C240B, xMask); //xMask ? 240 : xIndexLo
+            __m128i xColorSelector1 = _mm_blendv_epi8_simd(LOAD_C240B, xIndexLo, xMask);
+            __m128i xAlpha0 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubAlpha +  0)), xColorSelector0);
+            __m128i xAlpha1 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubAlpha + 16)), xColorSelector1);
+            xAlpha = _mm_or_si128(xAlpha0, xAlpha1);
+
+            __m128i xIndexUV = _mm_add_epi8(_mm_slli_epi16(xIndex, 1), _mm_set1_epi16(0x0100));
+            __m128i xIndexLoUV = _mm_and_si128(xIndexUV, _mm_set1_epi8(0x0f));  //colorIdx & 0x0f
+            __m128i xIndexHiUV = _mm_and_si128(_mm_srli_epi16(xIndexUV, 4), _mm_set1_epi8(0x0f));  //colorIdx & 0x0f
+            __m128i xCmpHi   = _mm_setzero_si128();
+            __m128i xC1b     = _mm_sub_epi8(xCmpHi, _mm_cmpeq_epi8(xCmpHi, xCmpHi));
+            __m128i xColorSelectorUV0 = _mm_blendv_epi8_simd(LOAD_C240B, xIndexLoUV, _mm_cmpeq_epi8(xIndexHiUV, xCmpHi));
+            xCmpHi = _mm_add_epi8(xCmpHi, xC1b);
+            __m128i xColorSelectorUV1 = _mm_blendv_epi8_simd(LOAD_C240B, xIndexLoUV, _mm_cmpeq_epi8(xIndexHiUV, xCmpHi));
+            xCmpHi = _mm_add_epi8(xCmpHi, xC1b);
+            __m128i xColorSelectorUV2 = _mm_blendv_epi8_simd(LOAD_C240B, xIndexLoUV, _mm_cmpeq_epi8(xIndexHiUV, xCmpHi));
+            xCmpHi = _mm_add_epi8(xCmpHi, xC1b);
+            __m128i xColorSelectorUV3 = _mm_blendv_epi8_simd(LOAD_C240B, xIndexLoUV, _mm_cmpeq_epi8(xIndexHiUV, xCmpHi));
+            __m128i xColor0 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor +  0)), xColorSelectorUV0);
+            __m128i xColor1 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor + 16)), xColorSelectorUV1);
+            __m128i xColor2 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor + 32)), xColorSelectorUV2);
+            __m128i xColor3 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor + 48)), xColorSelectorUV3);
+            xColor = _mm_or_si128(_mm_or_si128(xColor0, xColor1), _mm_or_si128(xColor2, xColor3));
+        } else {
+            __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
+            xMaxIndex = _mm_max_epi8(xMaxIndex, xIndex);
+            uint8_t alignas(MEM_ALIGN) value[32];
+            for (int i = 0; i < 16; i += 2) {
+                int idx = pSubColorIdx[i];
+                value[i +  0] = pSubColor[idx + 0];
+                value[i +  1] = pSubColor[idx + 1];
+                value[i + 16] = pSubAlpha[idx];
+                value[i + 17] = pSubAlpha[idx];
+            }
+            xColor = _mm_load_si128((const __m128i *)(value +  0));
+            xAlpha = _mm_load_si128((const __m128i *)(value + 16));
+        }
+    } else {
+        if (nColorLUT <= 16) {
+            __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
+            xColor = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)pSubColor), xIndex);
+            xAlpha = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)pSubAlpha), xIndex);
+        } else if (nColorLUT <= 32) {
+            __m128i xIndex   = _mm_loadu_si128((const __m128i *)pSubColorIdx);
+            __m128i xIndexLo = _mm_and_si128(xIndex, _mm_set1_epi8(15));  //colorIdx & 0x0f
+            __m128i xMask    = _mm_cmpgt_epi8(xIndex, _mm_set1_epi8(15)); //colorIdx > 0x0f ? 0xff : 0x00;
+            __m128i XColorSelector0 = _mm_blendv_epi8_simd(xIndexLo, LOAD_C240B, xMask); //xMask ? 240 : xIndexLo
+            __m128i XColorSelector1 = _mm_blendv_epi8_simd(LOAD_C240B, xIndexLo, xMask);
+            __m128i xColor0 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor +  0)), XColorSelector0);
+            __m128i xColor1 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubColor + 16)), XColorSelector1);
+            __m128i xAlpha0 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubAlpha +  0)), XColorSelector0);
+            __m128i xAlpha1 = _mm_shuffle_epi8(_mm_load_si128((const __m128i *)(pSubAlpha + 16)), XColorSelector1);
+            xColor = _mm_or_si128(xColor0, xColor1);
+            xAlpha = _mm_or_si128(xAlpha0, xAlpha1);
+        } else {
+            __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
+            xMaxIndex = _mm_max_epi8(xMaxIndex, xIndex);
+            uint8_t alignas(MEM_ALIGN) value[32];
+            for (int i = 0; i < 16; i++) {
+                int idx = pSubColorIdx[i];
+                value[i +  0] = pSubColor[idx];
+                value[i + 16] = pSubAlpha[idx];
+            }
+            xColor = _mm_load_si128((const __m128i *)(value +  0));
+            xAlpha = _mm_load_si128((const __m128i *)(value + 16));
+        }
+    }
+}
+#endif
+
+#if USE_AVX2
+static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m256i& yAlpha, const __m256i& yColor) {
+    const __m256i yC255b = _mm256_set1_epi8(-1);
+    __m256i yFrame0, yFrame1;
+    yFrame0 = _mm256_load_si256((__m256i *)ptr_dst);
+    yFrame1 = _mm256_unpackhi_epi8(yFrame0, yColor); //frame[8], color[8], frame[9], color[9], ...
+    yFrame0 = _mm256_unpacklo_epi8(yFrame0, yColor); //frame[0], color[0], frame[1], color[1], ...
+
+    const __m256i yC127b = _mm256_set1_epi8(127);
+    __m256i yAlphaInv = _mm256_sub_epi8(yC127b, yAlpha); //127-alpha[0], 127-alpha[1], ...
+
+    __m256i yInvAlphaAlpha0 = _mm256_unpacklo_epi8(yAlphaInv, yAlpha); //127-alpha[0], alpha[0], 127-alpha[1], alpha[1], ...
+    __m256i yInvAlphaAlpha1 = _mm256_unpackhi_epi8(yAlphaInv, yAlpha); //127-alpha[8], alpha[8], 127-alpha[9], alpha[9], ...
+
+    const __m256i yC256w = _mm256_set1_epi16(256);
+    yFrame0 = _mm256_maddubs_epi16(yFrame0, yInvAlphaAlpha0); //(127-alpha[0])*frame[0] + alpha[0] * color[0], ...
+    yFrame1 = _mm256_maddubs_epi16(yFrame1, yInvAlphaAlpha1); //(127-alpha[8])*frame[8] + alpha[8] * color[8], ...
+    yFrame0 = _mm256_add_epi16(yFrame0, yC256w);
+    yFrame1 = _mm256_add_epi16(yFrame1, yC256w);
+    yFrame0 = _mm256_srai_epi16(yFrame0, 7);
+    yFrame1 = _mm256_srai_epi16(yFrame1, 7);
+    yFrame0 = _mm256_packus_epi16(yFrame0, yFrame1);
+    _mm256_store_si256((__m256i *)ptr_dst, yFrame0);
+}
+#else
+static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xAlpha, const __m128i& xColor) {
+    const __m128i xC255b = _mm_set1_epi8(-1);
+    __m128i xFrame0, xFrame1;
+    xFrame0 = _mm_load_si128((__m128i *)ptr_dst);
+    xFrame1 = _mm_unpackhi_epi8(xFrame0, xColor); //frame[8], color[8], frame[9], color[9], ...
+    xFrame0 = _mm_unpacklo_epi8(xFrame0, xColor); //frame[0], color[0], frame[1], color[1], ...
+
+    const __m128i xC127b = _mm_set1_epi8(127);
+    __m128i xAlphaInv = _mm_sub_epi8(xC127b, xAlpha); //127-alpha[0], 127-alpha[1], ...
+
+    __m128i xInvAlphaAlpha0 = _mm_unpacklo_epi8(xAlphaInv, xAlpha); //127-alpha[0], alpha[0], 127-alpha[1], alpha[1], ...
+    __m128i xInvAlphaAlpha1 = _mm_unpackhi_epi8(xAlphaInv, xAlpha); //127-alpha[8], alpha[8], 127-alpha[9], alpha[9], ...
+
+    const __m128i xC256w = _mm_set1_epi16(256);
+    xFrame0 = _mm_maddubs_epi16(xFrame0, xInvAlphaAlpha0); //(127-alpha[0])*frame[0] + alpha[0] * color[0], ...
+    xFrame1 = _mm_maddubs_epi16(xFrame1, xInvAlphaAlpha1); //(127-alpha[8])*frame[8] + alpha[8] * color[8], ...
+    xFrame0 = _mm_add_epi16(xFrame0, xC256w);
+    xFrame1 = _mm_add_epi16(xFrame1, xC256w);
+    xFrame0 = _mm_srai_epi16(xFrame0, 7);
+    xFrame1 = _mm_srai_epi16(xFrame1, 7);
+    xFrame0 = _mm_packus_epi16(xFrame0, xFrame1);
+    _mm_store_si128((__m128i *)ptr_dst, xFrame0);
+}
+#endif
+
+template<int bForUV, bool forD3D, int nColorLUT>
+static QSV_FORCEINLINE int blend_sub(uint8_t *pFrame, int pitch, const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH,  uint8_t *pBuf) {
+    const int bufX = subX & ~(MEM_ALIGN-1);
+    const int bufW = ((subX + subW + (MEM_ALIGN-1)) & ~((MEM_ALIGN-1))) - bufX;
+    const int bufXOffset = subX - bufX;
+#if USE_AVX2
+    const __m256i yFirstLoadShift0 = _mm256_broadcastsi128_si256(_mm_loadu_si128((__m128i *)(iter + 32 - bufXOffset)));
+    const __m256i yFirstLoadShift1 = _mm256_loadu2_m128i((__m128i *)(iter + 48 - bufXOffset), (__m128i *)(iter));
+#else
+    const __m128i xFirstLoadShift = _mm_loadu_si128((__m128i *)(iter + 16 - bufXOffset));
+#endif
+    // bufXOffset ... xFirstLoadShift
+    //  0 ...  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+    //  1 ... 16,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+    //  2 ... 16, 16,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13,
+    // ...
+    const int bufYXExtension = bufX + bufW - (subX + subW);
+#if USE_AVX2
+    const __m256i yLastLoadMask = _mm256_loadu_si256((__m256i *)(mask + bufYXExtension));
+#else
+    const __m128i xLastLoadMask = _mm_loadu_si128((__m128i *)(mask + bufYXExtension));
+    // bufYXExtension ... xLastLoadMask
+    //  0 ... 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+    //  1 ... 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00
+    //  2 ... 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00
+    // ...
+#endif
+
+#if USE_AVX2
+    __m256i yMaxIndex = _mm256_setzero_si256();
+#else
+    __m128i xMaxIndex = _mm_setzero_si128();
+#endif
+
+    pFrame += (subY >> bForUV) * pitch + bufX;
+    if (bufW <= MEM_ALIGN) {
+        for (int y = 0; y < bufH; y += (1 + bForUV), pFrame += pitch, pSubColorIdx += (subStride << bForUV)) {
+            uint8_t *ptr_dst = pFrame;
+            const uint8_t *ptr_col_idx = pSubColorIdx;
+#if USE_AVX2
+            __m256i yColor, yAlpha;
+            lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, yColor, yAlpha, yMaxIndex);
+            yColor = shiftFirstBitmap(yColor, yFirstLoadShift0, yFirstLoadShift1);
+            yAlpha = shiftFirstBitmap(yAlpha, yFirstLoadShift0, yFirstLoadShift1);
+            yColor = _mm256_and_si256(yColor, yLastLoadMask);
+            yAlpha = _mm256_and_si256(yAlpha, yLastLoadMask);
+            blend_block(ptr_dst, yAlpha, yColor);
+#else
+            __m128i xColor, xAlpha;
+            lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, xColor, xAlpha, xMaxIndex);
+            xColor = shiftFirstBitmap(xColor, xFirstLoadShift);
+            xAlpha = shiftFirstBitmap(xAlpha, xFirstLoadShift);
+            xColor = _mm_and_si128(xColor, xLastLoadMask);
+            xAlpha = _mm_and_si128(xAlpha, xLastLoadMask);
+            blend_block(ptr_dst, xAlpha, xColor);
+#endif
+        }
+    } else {
+        for (int y = 0; y < bufH; y += (1 + bForUV), pFrame += pitch, pSubColorIdx += (subStride << bForUV)) {
+            uint8_t *ptr_dst = pFrame;
+            if (forD3D) {
+                load_line_to_buffer<64, true>(pBuf, pFrame, bufW);
+                ptr_dst = pBuf;
+            }
+            uint8_t *ptr_dst_fin = ptr_dst + bufW - MEM_ALIGN;
+            const uint8_t *ptr_col_idx = pSubColorIdx;
+#if USE_AVX2
+            __m256i yColor, yAlpha;
+            lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, yColor, yAlpha, yMaxIndex);
+            yColor = shiftFirstBitmap(yColor, yFirstLoadShift0, yFirstLoadShift1);
+            yAlpha = shiftFirstBitmap(yAlpha, yFirstLoadShift0, yFirstLoadShift1);
+            blend_block(ptr_dst, yAlpha, yColor);
+            ptr_dst += MEM_ALIGN;
+            ptr_col_idx += MEM_ALIGN - bufXOffset;
+            for (; ptr_dst < ptr_dst_fin; ptr_dst += MEM_ALIGN, ptr_col_idx += MEM_ALIGN) {
+                lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, yColor, yAlpha, yMaxIndex);
+                blend_block(ptr_dst, yAlpha, yColor);
+            }
+            lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, yColor, yAlpha, yMaxIndex);
+            yColor = _mm256_and_si256(yColor, yLastLoadMask);
+            yAlpha = _mm256_and_si256(yAlpha, yLastLoadMask);
+            blend_block(ptr_dst, yAlpha, yColor);
+#else
+            __m128i xColor, xAlpha;
+            lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, xColor, xAlpha, xMaxIndex);
+            xColor = shiftFirstBitmap(xColor, xFirstLoadShift);
+            xAlpha = shiftFirstBitmap(xAlpha, xFirstLoadShift);
+            blend_block(ptr_dst, xAlpha, xColor);
+            ptr_dst += MEM_ALIGN;
+            ptr_col_idx += MEM_ALIGN - bufXOffset;
+            for (; ptr_dst < ptr_dst_fin; ptr_dst += MEM_ALIGN, ptr_col_idx += MEM_ALIGN) {
+                lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, xColor, xAlpha, xMaxIndex);
+                blend_block(ptr_dst, xAlpha, xColor);
+            }
+            lut_color_alpha<bForUV, nColorLUT>(ptr_col_idx, pSubColor, pAlpha, xColor, xAlpha, xMaxIndex);
+            xColor = _mm_and_si128(xColor, xLastLoadMask);
+            xAlpha = _mm_and_si128(xAlpha, xLastLoadMask);
+            blend_block(ptr_dst, xAlpha, xColor);
+#endif
+            if (forD3D) {
+                store_line_from_buffer<128, false>(pFrame, pBuf, bufW);
+            }
+        }
+    }
+    if (nColorLUT > 32) {
+#if USE_AVX2
+        __m128i xMaxIndex = _mm_max_epi8(_mm256_castsi256_si128(yMaxIndex), _mm256_extracti128_si256(yMaxIndex, 1));
+#endif
+        xMaxIndex = _mm_max_epi8(xMaxIndex, _mm_srli_si128(xMaxIndex, 8));
+        xMaxIndex = _mm_max_epi8(xMaxIndex, _mm_srli_si128(xMaxIndex, 4));
+        xMaxIndex = _mm_max_epi8(xMaxIndex, _mm_srli_si128(xMaxIndex, 2));
+        xMaxIndex = _mm_max_epi8(xMaxIndex, _mm_srli_si128(xMaxIndex, 1));
+        return _mm_cvtsi128_si32(xMaxIndex) & 0xff;
+    }
+    return 256;
 }
