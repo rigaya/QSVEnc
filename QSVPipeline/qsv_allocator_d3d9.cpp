@@ -9,7 +9,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#include "hw_device.h"
+#include "qsv_hw_device.h"
 #include <objbase.h>
 #include <initguid.h>
 #include <assert.h>

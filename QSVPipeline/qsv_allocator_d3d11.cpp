@@ -11,7 +11,7 @@
 #if defined(_WIN32) || defined(_WIN64)
 
 #include "qsv_tchar.h"
-#include "hw_device.h"
+#include "qsv_hw_device.h"
 
 #if MFX_D3D11_SUPPORT
 
