@@ -60,6 +60,7 @@ enum AVQSVPtsStatus : uint32_t {
     AVQSV_PTS_HALF_INVALID      = 0x04, //PAFFなため、半分のフレームのptsやdtsが無効
     AVQSV_PTS_ALL_INVALID       = 0x08, //すべてのフレームのptsやdtsが無効
     AVQSV_PTS_NONKEY_INVALID    = 0x10, //キーフレーム以外のフレームのptsやdtsが無効
+    AVQSV_PTS_DUPLICATE         = 0x20, //重複するpts/dtsが存在する
 };
 
 static AVQSVPtsStatus operator|(AVQSVPtsStatus a, AVQSVPtsStatus b) {
@@ -228,6 +229,18 @@ public:
         return m_nNextFixNumIndex;
     }
     void clearPtsStatus() {
+        if (m_nStreamPtsStatus & AVQSV_PTS_DUPLICATE) {
+            const int nListSize = (int)m_list.size();
+            for (int i = 0; i < nListSize; i++) {
+                if (m_list[i].data.duration == 0
+                    && m_list[i].data.pts != AV_NOPTS_VALUE
+                    && m_list[i].data.dts != AV_NOPTS_VALUE
+                    && m_list[i+1].data.pts - m_list[i].data.pts <= (std::min)(m_list[i+1].data.duration / 10, 1)
+                    && m_list[i+1].data.dts - m_list[i].data.dts <= (std::min)(m_list[i+1].data.duration / 10, 1)) {
+                    m_list[i].data.duration = m_list[i+1].data.duration;
+                }
+            }
+        }
         m_nLastPoc = 0;
         m_nNextFixNumIndex = 0;
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
@@ -323,11 +336,13 @@ public:
         int nInputFrames = 0;
         int nInputFields = 0;
         int nInputKeys = 0;
+        int nDuplicateFrameInfo = 0;
         int nInvalidPtsCount = 0;
         int nInvalidPtsCountField = 0;
         int nInvalidPtsCountKeyFrame = 0;
         int nInvalidPtsCountNonKeyFrame = 0;
         int nInvalidDuration = 0;
+        bool bFractionExists = std::abs(durationHintifPtsAllInvalid - (int)(durationHintifPtsAllInvalid + 0.5)) > 1e-6;
         vector<std::pair<int, int>> durationHistgram;
         for (int i = 0; i < nInputPacketCount; i++) {
             nInputFrames += (m_list[i].data.pic_struct & AVQSV_PICSTRUCT_FRAME) != 0;
@@ -340,6 +355,18 @@ public:
                 nInvalidPtsCountKeyFrame += (m_list[i].data.flags & AV_PKT_FLAG_KEY) != 0;
                 nInvalidPtsCountNonKeyFrame += (m_list[i].data.flags & AV_PKT_FLAG_KEY) == 0;
             }
+            if (i > 0) {
+                //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
+                if (bFractionExists
+                    && m_list[i].data.duration > 0
+                    && m_list[i].data.pts != AV_NOPTS_VALUE
+                    && m_list[i].data.dts != AV_NOPTS_VALUE
+                    && m_list[i].data.pts - m_list[i-1].data.pts <= (std::min)(m_list[i].data.duration / 10, 1)
+                    && m_list[i].data.dts - m_list[i-1].data.dts <= (std::min)(m_list[i].data.duration / 10, 1)
+                    && m_list[i].data.duration == m_list[i-1].data.duration) {
+                    nDuplicateFrameInfo++;
+                }
+            }
             int nDuration = m_list[i].data.duration;
             auto target = std::find_if(durationHistgram.begin(), durationHistgram.end(), [nDuration](const std::pair<int, int>& pair) { return pair.first == nDuration; });
             if (target != durationHistgram.end()) {
@@ -351,6 +378,10 @@ public:
         //多い順にソートする
         std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
         m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
+        if (nDuplicateFrameInfo > 0) {
+            //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
+            m_nStreamPtsStatus |= AVQSV_PTS_DUPLICATE;
+        }
         if (nInvalidPtsCount == 0) {
             m_nStreamPtsStatus |= AVQSV_PTS_NORMAL;
         } else {
@@ -465,7 +496,13 @@ protected:
     }
     //ソートにより確定したptsに対して、pocを設定する
     void setPoc(int index) {
-        if (m_list[index].data.pic_struct & AVQSV_PICSTRUCT_FIELD) {
+        if ((m_nStreamPtsStatus & AVQSV_PTS_DUPLICATE)
+            && m_list[index].data.duration == 0
+            && m_list[index+1].data.pts - m_list[index].data.pts <= (std::min)(m_list[index+1].data.duration / 10, 1)
+            && m_list[index+1].data.dts - m_list[index].data.dts <= (std::min)(m_list[index+1].data.duration / 10, 1)) {
+            //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
+            m_list[index].data.poc = AVQSV_POC_INVALID;
+        } else if (m_list[index].data.pic_struct & AVQSV_PICSTRUCT_FIELD) {
             if (index > 0 && (m_list[index-1].data.poc != AVQSV_POC_INVALID && (m_list[index-1].data.pic_struct & AVQSV_PICSTRUCT_FIELD))) {
                 m_list[index].data.poc = AVQSV_POC_INVALID;
                 m_list[index-1].data.duration2 = m_list[index].data.duration;
@@ -481,7 +518,17 @@ protected:
     //ソート後のこの段階では、AV_NOPTS_VALUEはないものとする
     void adjustDurationAfterSort(int index) {
         int diff = (int)(m_list[index+1].data.pts - m_list[index].data.pts);
-        if (diff > 0) {
+        if ((m_nStreamPtsStatus & AVQSV_PTS_DUPLICATE)
+            && diff <= 1
+            && m_list[index].data.duration > 0
+            && m_list[index].data.pts != AV_NOPTS_VALUE
+            && m_list[index].data.dts != AV_NOPTS_VALUE
+            && m_list[index+1].data.duration == m_list[index].data.duration
+            && m_list[index+1].data.pts - m_list[index].data.pts <= (std::min)(m_list[index].data.duration / 10, 1)
+            && m_list[index+1].data.dts - m_list[index].data.dts <= (std::min)(m_list[index].data.duration / 10, 1)) {
+            //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
+            m_list[index].data.duration = 0;
+        } else if (diff > 0) {
             m_list[index].data.duration = diff;
         }
     }
