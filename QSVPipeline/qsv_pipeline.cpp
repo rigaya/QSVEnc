@@ -2320,6 +2320,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             ".mts", ".m2ts", ".ts", ".264", ".h264", ".x264", ".avc", ".avc1",
             ".265", ".h265", ".hevc",
             ".mpg", ".mpeg", "m2v", ".vob", ".vro", ".flv", ".ogm",
+            ".webm", ".vp8", ".vp9",
             ".wmv" }))
             pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
         else
