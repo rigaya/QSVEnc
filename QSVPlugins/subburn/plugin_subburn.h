@@ -44,6 +44,7 @@
 #include "ass/ass.h"
 
 struct ProcessDataSubBurn {
+    int                   nTaskId;                //タスクID
     MemType               memType;                //使用するメモリの種類
     const TCHAR          *pFilePath;              //入力字幕ファイル (nullptrの場合は入力映像ファイルのトラックから読み込む)
     std::string           sCharEnc;               //字幕の文字コード
@@ -78,6 +79,7 @@ struct ProcessDataSubBurn {
     uint32_t              nSimdAvail;
 
     ProcessDataSubBurn() :
+        nTaskId(0),
         memType(SYSTEM_MEMORY),
         pFilePath(nullptr),
         sCharEnc(),

@@ -218,6 +218,13 @@ static void ass_log(int ass_level, const char *fmt, va_list args, void *ctx) {
     ((CQSVLog *)ctx)->write_line(log_level_ass2qsv(ass_level), fmt, args, CP_UTF8);
 }
 
+static void ass_log_error_only(int ass_level, const char *fmt, va_list args, void *ctx) {
+    auto qsv_level = log_level_ass2qsv(ass_level);
+    if (qsv_level >= QSV_LOG_ERROR) {
+        ((CQSVLog *)ctx)->write_line(qsv_level, fmt, args, CP_UTF8);
+    }
+}
+
 // SubBurn class implementation
 SubBurn::SubBurn() :
     m_nCpuGen(getCPUGen()),
@@ -386,7 +393,7 @@ mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
         AddMessage(QSV_LOG_ERROR, _T("failed to initialize libass.\n"));
         return MFX_ERR_NULL_PTR;
     }
-    ass_set_message_cb(pProcData->pAssLibrary, ass_log, m_pPrintMes.get());
+    ass_set_message_cb(pProcData->pAssLibrary, (pProcData->nTaskId == 0) ? ass_log : ass_log_error_only, m_pPrintMes.get());
 
     ass_set_extract_fonts(pProcData->pAssLibrary, 1);
     ass_set_style_overrides(pProcData->pAssLibrary, nullptr);
@@ -557,9 +564,11 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
             char_to_tstring(avcodec_get_name(pProcData->pCodecCtxIn->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
         return MFX_ERR_NULL_PTR;
     }
-    AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
-    AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
-        pProcData->pOutCodecDecodeCtx->width, pProcData->pOutCodecDecodeCtx->height);
+    if (pProcData->nInTrackId == 0) {
+        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
+        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
+            pProcData->pOutCodecDecodeCtx->width, pProcData->pOutCodecDecodeCtx->height);
+    }
 #if 0
     //エンコーダを探す
     const AVCodecID codecId = AV_CODEC_ID_ASS;
@@ -682,6 +691,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
 
     m_vProcessData = std::vector<ProcessDataSubBurn>(m_sTasks.size());
     for (uint32_t i = 0; i < m_sTasks.size(); i++) {
+        m_vProcessData[i].nTaskId = i;
         m_vProcessData[i].memType = m_SubBurnParam.memType;
         m_vProcessData[i].pFilePath = m_SubBurnParam.pFilePath;
         m_vProcessData[i].sCharEnc = tchar_to_string(m_SubBurnParam.pCharEnc);
