@@ -3698,7 +3698,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
             //次のステップのフレームをデコードの出力に設定
             pNextFrame = pSurfDecOut;
-            nInputFrameCount += (pSurfDecOut != NULL);
+            nInputFrameCount += (pSurfDecOut != nullptr && lastSyncP != nullptr);
         } else {
             //デコードがオンでなくても、フレームは入力してるはずなので加算する
             //Trimの反映に使用する
