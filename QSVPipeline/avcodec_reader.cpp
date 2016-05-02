@@ -166,6 +166,21 @@ vector<int> CAvcodecReader::getStreamIndex(AVMediaType type) {
             streams.push_back(i);
         }
     }
+    if (type == AVMEDIA_TYPE_VIDEO) {
+        std::sort(streams.begin(), streams.end(), [pFormatCtx = m_Demux.format.pFormatCtx](int streamIdA, int streamIdB) {
+            auto pStreamA = pFormatCtx->streams[streamIdA];
+            auto pStreamB = pFormatCtx->streams[streamIdB];
+            if (pStreamA->codec == nullptr) {
+                return false;
+            }
+            if (pStreamB->codec == nullptr) {
+                return true;
+            }
+            const int resA = pStreamA->codec->width * pStreamA->codec->height;
+            const int resB = pStreamB->codec->width * pStreamB->codec->height;
+            return (resA > resB);
+        });
+    }
     return std::move(streams);
 }
 
