@@ -396,7 +396,10 @@ struct sInputParams
     float      fSeekSec; //指定された秒数分先頭を飛ばす
     TCHAR     *pFramePosListLog;
     uint32_t   nFallback;
-    int8_t     Reserved[1066];
+    int        nVideoStreamId;
+    int8_t     nVideoTrack;
+    int8_t     __unused[3];
+    int8_t     Reserved[1058];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
