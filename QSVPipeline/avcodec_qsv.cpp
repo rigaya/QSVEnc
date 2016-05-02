@@ -80,6 +80,18 @@ bool checkAvcodecLicense() {
     return (check(avutil_license()) && check(avcodec_license()) && check(avformat_license()));
 }
 
+//mfxFrameInfoから、AVFieldOrderを返す
+AVFieldOrder qsv_field_order(const mfxFrameInfo *pInfo) {
+    uint16_t pic_struct = pInfo->PicStruct;
+    if (pic_struct & MFX_PICSTRUCT_FIELD_TFF) {
+        return AV_FIELD_TT;
+    }
+    if (pic_struct & MFX_PICSTRUCT_FIELD_TFF) {
+        return AV_FIELD_BB;
+    }
+    return AV_FIELD_PROGRESSIVE;
+}
+
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret) {
     char mes[256];

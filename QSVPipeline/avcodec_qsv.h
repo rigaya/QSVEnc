@@ -122,6 +122,9 @@ enum AVQSVFormatType : uint32_t {
     AVQSV_FORMAT_MUX   = 0x02,
 };
 
+//mfxFrameInfoから、AVFieldOrderを返す
+AVFieldOrder qsv_field_order(const mfxFrameInfo *pInfo);
+
 //avcodecのエラーを表示
 tstring qsv_av_err2str(int ret);
 
