@@ -158,7 +158,7 @@ uint32_t CAvcodecReader::getQSVFourcc(uint32_t id) {
     return 0;
 }
 
-vector<int> CAvcodecReader::getStreamIndex(AVMediaType type) {
+vector<int> CAvcodecReader::getStreamIndex(AVMediaType type, const vector<int> *pVidStreamIndex) {
     vector<int> streams;
     const int n_streams = m_Demux.format.pFormatCtx->nb_streams;
     for (int i = 0; i < n_streams; i++) {
@@ -179,6 +179,34 @@ vector<int> CAvcodecReader::getStreamIndex(AVMediaType type) {
             const int resA = pStreamA->codec->width * pStreamA->codec->height;
             const int resB = pStreamB->codec->width * pStreamB->codec->height;
             return (resA > resB);
+        });
+    } else if (pVidStreamIndex && pVidStreamIndex->size()) {
+        auto mostNearestVidStreamId = [pFormatCtx = m_Demux.format.pFormatCtx, pVidStreamIndex](int streamId) {
+            auto ret = std::make_pair(0, UINT32_MAX);
+            for (uint32_t i = 0; i < pVidStreamIndex->size(); i++) {
+                uint32_t diff = (uint32_t)(streamId - pFormatCtx->streams[(*pVidStreamIndex)[i]]->id);
+                if (diff < ret.second) {
+                    ret.second = diff;
+                    ret.first = i;
+                }
+            }
+            return ret;
+        };
+        std::sort(streams.begin(), streams.end(), [pFormatCtx = m_Demux.format.pFormatCtx, pVidStreamIndex, mostNearestVidStreamId](int streamIdA, int streamIdB) {
+            if (pFormatCtx->streams[streamIdA]->codec == nullptr) {
+                return false;
+            }
+            if (pFormatCtx->streams[streamIdB]->codec == nullptr) {
+                return true;
+            }
+            auto pStreamIdA = pFormatCtx->streams[streamIdA]->id;
+            auto pStreamIdB = pFormatCtx->streams[streamIdB]->id;
+            auto nearestVidA = mostNearestVidStreamId(pStreamIdA);
+            auto nearestVidB = mostNearestVidStreamId(pStreamIdB);
+            if (nearestVidA.first == nearestVidB.first) {
+                return nearestVidA.second < nearestVidB.second;
+            }
+            return nearestVidA.first < nearestVidB.first;
         });
     }
     return std::move(streams);
@@ -655,11 +683,52 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
     m_Demux.qVideoPkt.set_keep_length(AVQSV_FRAME_MAX_REORDER);
     m_Demux.qStreamPktL2.init(4096);
 
+    //動画ストリームを探す
+    //動画ストリームは動画を処理しなかったとしても同期のため必要
+    auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
+    if (videoStreams.size()) {
+        if (input_prm->nVideoTrack) {
+            if (videoStreams.size() < (uint32_t)std::abs(input_prm->nVideoTrack)) {
+                AddMessage(QSV_LOG_ERROR, _T("track %d was selected for video, but input only contains %d video tracks.\n"), input_prm->nVideoTrack, videoStreams.size());
+                return MFX_ERR_INVALID_VIDEO_PARAM;
+            } else if (input_prm->nVideoTrack < 0) {
+                //逆順に並べ替え
+                std::reverse(videoStreams.begin(), videoStreams.end());
+            }
+            m_Demux.video.nIndex = videoStreams[std::abs(input_prm->nVideoTrack)-1];
+        } else if (input_prm->nVideoStreamId) {
+            auto streamIndexFound = std::find_if(videoStreams.begin(), videoStreams.end(), [pFormatCtx = m_Demux.format.pFormatCtx, nSearchId = input_prm->nVideoStreamId](int nStreamIndex) {
+                return (pFormatCtx->streams[nStreamIndex]->id == nSearchId);
+            });
+            if (streamIndexFound == videoStreams.end()) {
+                AddMessage(QSV_LOG_ERROR, _T("stream id %d (0x%x) not found in video tracks.\n"), input_prm->nVideoStreamId, input_prm->nVideoStreamId);
+                return MFX_ERR_INVALID_VIDEO_PARAM;
+            }
+            m_Demux.video.nIndex = *streamIndexFound;
+        } else {
+            m_Demux.video.nIndex = videoStreams[0];
+        }
+        auto selectedStream = std::find(videoStreams.begin(), videoStreams.end(), m_Demux.video.nIndex);
+        if (selectedStream == videoStreams.end()) {
+            AddMessage(QSV_LOG_ERROR, _T("video stream lost!\n"));
+            return MFX_ERR_UNKNOWN;
+        }
+        //もし、選択された動画ストリームが先頭にないのなら、先頭に入れ替える
+        if (selectedStream != videoStreams.begin()) {
+            int nSelectedStreamIndex = *selectedStream;
+            videoStreams.erase(selectedStream);
+            videoStreams.insert(videoStreams.begin(), nSelectedStreamIndex);
+        }
+        AddMessage(QSV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
+
+        m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
+    }
+
     //音声ストリームを探す
     if (input_prm->nReadAudio || input_prm->bReadSubtitle) {
         vector<int> mediaStreams;
         if (input_prm->nReadAudio) {
-            auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO);
+            auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO, &videoStreams);
             if (audioStreams.size() == 0) {
                 AddMessage(QSV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
                 return MFX_ERR_NOT_FOUND;
@@ -668,7 +737,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             vector_cat(mediaStreams, audioStreams);
         }
         if (input_prm->bReadSubtitle) {
-            auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE);
+            auto subStreams = getStreamIndex(AVMEDIA_TYPE_SUBTITLE, &videoStreams);
             if (subStreams.size() == 0) {
                 AddMessage(QSV_LOG_ERROR, _T("--sub-copy is set, but no subtitle stream found.\n"));
                 return MFX_ERR_NOT_FOUND;
@@ -762,36 +831,6 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
 
     if (input_prm->bReadChapter) {
         m_Demux.chapter = make_vector((const AVChapter **)m_Demux.format.pFormatCtx->chapters, m_Demux.format.pFormatCtx->nb_chapters);
-    }
-
-    //動画ストリームを探す
-    //動画ストリームは動画を処理しなかったとしても同期のため必要
-    auto videoStreams = getStreamIndex(AVMEDIA_TYPE_VIDEO);
-    if (videoStreams.size()) {
-        if (input_prm->nVideoTrack) {
-            if (videoStreams.size() <= (uint32_t)std::abs(input_prm->nVideoTrack)) {
-                AddMessage(QSV_LOG_ERROR, _T("track %d was selected for video, but input only contains %d video tracks.\n"), input_prm->nVideoTrack, videoStreams.size());
-                return MFX_ERR_INVALID_VIDEO_PARAM;
-            } else if (input_prm->nVideoTrack < 0) {
-                m_Demux.video.nIndex = videoStreams[videoStreams.size() - input_prm->nVideoTrack+1];
-            } else {
-                m_Demux.video.nIndex = videoStreams[input_prm->nVideoTrack-1];
-            }
-        } else if (input_prm->nVideoStreamId) {
-            auto streamIndexFound = std::find_if(videoStreams.begin(), videoStreams.end(), [pFormatCtx = m_Demux.format.pFormatCtx, nSearchId = input_prm->nVideoStreamId](int nStreamIndex) {
-                return (pFormatCtx->streams[nStreamIndex]->id == nSearchId);
-            });
-            if (streamIndexFound == videoStreams.end()) {
-                AddMessage(QSV_LOG_ERROR, _T("stream id %d (0x%x) not found in video tracks.\n"), input_prm->nVideoStreamId, input_prm->nVideoStreamId);
-                return MFX_ERR_INVALID_VIDEO_PARAM;
-            }
-            m_Demux.video.nIndex = *streamIndexFound;
-        } else {
-            m_Demux.video.nIndex = videoStreams[0];
-        }
-        AddMessage(QSV_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.nIndex);
-
-        m_Demux.video.pCodecCtx = m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->codec;
     }
 
     //動画処理の初期化を行う

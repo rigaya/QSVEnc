@@ -752,7 +752,8 @@ private:
     uint32_t getQSVFourcc(uint32_t id);
 
     //avcodecのストリームIDを取得 (typeはAVMEDIA_TYPE_xxxxx)
-    vector<int> getStreamIndex(AVMediaType type);
+    //動画ストリーム以外は、vidStreamIdに近いstreamIDのものの順番にソートする
+    vector<int> getStreamIndex(AVMediaType type, const vector<int> *pVidStreamIndex = nullptr);
 
     //VC-1のスタートコードの確認
     bool vc1StartCodeExists(uint8_t *ptr);
