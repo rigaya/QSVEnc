@@ -56,11 +56,12 @@ enum {
 enum AVQSVPtsStatus : uint32_t {
     AVQSV_PTS_UNKNOWN           = 0x00,
     AVQSV_PTS_NORMAL            = 0x01,
-    AVQSV_PTS_SOMETIMES_INVALID = 0x02, //時折、無効なptsやdtsを得る
+    AVQSV_PTS_SOMETIMES_INVALID = 0x02, //時折、無効なptsを得る
     AVQSV_PTS_HALF_INVALID      = 0x04, //PAFFなため、半分のフレームのptsやdtsが無効
     AVQSV_PTS_ALL_INVALID       = 0x08, //すべてのフレームのptsやdtsが無効
     AVQSV_PTS_NONKEY_INVALID    = 0x10, //キーフレーム以外のフレームのptsやdtsが無効
     AVQSV_PTS_DUPLICATE         = 0x20, //重複するpts/dtsが存在する
+    AVQSV_DTS_SOMETIMES_INVALID = 0x40, //時折、無効なdtsを得る
 };
 
 static AVQSVPtsStatus operator|(AVQSVPtsStatus a, AVQSVPtsStatus b) {
@@ -338,6 +339,7 @@ public:
         int nInputKeys = 0;
         int nDuplicateFrameInfo = 0;
         int nInvalidPtsCount = 0;
+        int nInvalidDtsCount = 0;
         int nInvalidPtsCountField = 0;
         int nInvalidPtsCountKeyFrame = 0;
         int nInvalidPtsCountNonKeyFrame = 0;
@@ -354,6 +356,9 @@ public:
                 nInvalidPtsCountField += (m_list[i].data.pic_struct & AVQSV_PICSTRUCT_FIELD) != 0;
                 nInvalidPtsCountKeyFrame += (m_list[i].data.flags & AV_PKT_FLAG_KEY) != 0;
                 nInvalidPtsCountNonKeyFrame += (m_list[i].data.flags & AV_PKT_FLAG_KEY) == 0;
+            }
+            if (m_list[i].data.dts == AV_NOPTS_VALUE) {
+                nInvalidDtsCount++;
             }
             if (i > 0) {
                 //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
@@ -401,6 +406,10 @@ public:
                 m_nStreamPtsStatus |= AVQSV_PTS_HALF_INVALID;
             } else if (nInvalidPtsCountKeyFrame == 0 && nInvalidPtsCountNonKeyFrame > (nInputPacketCount - nInputKeys) * 3 / 4) {
                 m_nStreamPtsStatus |= AVQSV_PTS_NONKEY_INVALID;
+                if (nInvalidPtsCount == nInvalidDtsCount) {
+                    //ワンセグなど、ptsもdtsもキーフレーム以外は得られない場合
+                    m_nStreamPtsStatus |= AVQSV_DTS_SOMETIMES_INVALID;
+                }
                 if (nInvalidDuration == 0) {
                     //ptsがだいぶいかれてるので、安定してdurationが得られていれば、durationベースで作っていったほうが早い
                     m_nStreamPtsStatus |= AVQSV_PTS_SOMETIMES_INVALID;
@@ -460,12 +469,23 @@ protected:
     //ptsの補正
     void adjustFrameInfo(uint32_t nIndex) {
         if (m_nStreamPtsStatus & AVQSV_PTS_SOMETIMES_INVALID) {
-            //ptsはあてにならない
-            int64_t firstFramePtsDtsDiff = m_list[0].data.pts - m_list[0].data.dts;
-            if (nIndex > 0 && m_list[nIndex].data.dts == AV_NOPTS_VALUE) {
-                m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + m_list[0].data.duration;
+            if (m_nStreamPtsStatus & AVQSV_DTS_SOMETIMES_INVALID) {
+                //ptsもdtsはあてにならないので、durationから再構築する (ワンセグなど)
+                if (nIndex == 0) {
+                    if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
+                        m_list[nIndex].data.pts = 0;
+                    }
+                } else if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
+                    m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + m_list[nIndex-1].data.duration;
+                }
+            } else {
+                //ptsはあてにならないので、dtsから再構築する (VC-1など)
+                int64_t firstFramePtsDtsDiff = m_list[0].data.pts - m_list[0].data.dts;
+                if (nIndex > 0 && m_list[nIndex].data.dts == AV_NOPTS_VALUE) {
+                    m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + m_list[0].data.duration;
+                }
+                m_list[nIndex].data.pts = m_list[nIndex].data.dts + firstFramePtsDtsDiff;
             }
-            m_list[nIndex].data.pts = m_list[nIndex].data.dts + firstFramePtsDtsDiff;
         } else if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
             if (nIndex == 0) {
                 m_list[nIndex].data.pts = 0;
