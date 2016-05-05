@@ -289,7 +289,7 @@ public:
                 //なにかおかしなことが起こっており、異常なのだが、最後の最後でエラーとしてしまうのもあほらしい
                 //とりあえず、ptsを推定して返してしまう
                 pos.poc = poc;
-                FramePos pos_tmp;
+                FramePos pos_tmp = { 0 };
                 m_list.copy(&pos_tmp, index-1);
                 int nLastPoc = pos_tmp.poc;
                 int64_t nLastPts = pos_tmp.pts;
