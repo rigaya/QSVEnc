@@ -63,7 +63,7 @@ regex_check()
     return $ret
 }
 
-rm -f config.* .depend QSVPipeline/qsv_config.h
+rm -f config.* .depend QSVPipeline/qsv_config.h QSVPipeline/qsv_rev.h
 
 PKGCONFIG="pkg-config"
 USE_PKGCONFIG=1
