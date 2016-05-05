@@ -34,7 +34,6 @@
 #include <set>
 #include <vector>
 #include <numeric>
-#include <regex>
 #include <algorithm>
 #include <ctime>
 #include "qsv_osdep.h"
@@ -47,6 +46,9 @@
 #include "qsv_version.h"
 #include "avcodec_qsv.h"
 
+#if ENABLE_CPP_REGEX
+#include <regex>
+#endif //#if ENABLE_CPP_REGEX
 #if ENABLE_DTL
 #include <dtl/dtl.hpp>
 #endif //#if ENABLE_DTL
@@ -750,6 +752,7 @@ static vector<std::string> createOptionList() {
     }
     return optionList;
 }
+#endif //#if ENABLE_CPP_REGEX
 
 static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, const TCHAR *strOptionName, const TCHAR *strErrorValue = nullptr) {
     if (strErrorMessage) {
@@ -765,7 +768,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             }
         } else {
             _ftprintf(stderr, _T("Error: %s\n\n"), strErrorMessage);
-#if ENABLE_DTL
+#if (ENABLE_CPP_REGEX && ENABLE_DTL)
             if (strErrorValue) {
                 //どのオプション名に近いか検証する
                 auto optList = createOptionList();
@@ -804,6 +807,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
                     _ftprintf(stderr, _T("  --%s\n"), char_to_tstring(editDist.first).c_str());
                 }
             }
+#endif //#if ENABLE_DTL
         }
     } else {
         PrintVersion();

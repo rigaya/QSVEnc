@@ -66,6 +66,7 @@ const char *get_qsvenc_version();
 
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 
+#define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
 #ifndef QSVENC_AUO
