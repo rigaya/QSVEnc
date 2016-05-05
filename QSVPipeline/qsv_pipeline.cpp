@@ -80,7 +80,7 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
 #define COMPARE_INT(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %d -> %d\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
+        PrintMes(((int64_t)prmIn.member == (int64_t)ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %d -> %d\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
     }}
 #define TRI_STATE(x) ((x == 0) ? _T("auto") : ((x == 16) ? _T("on") : _T("off")))
 #define COMPARE_TRI(member, ignoreIfInput) { \
@@ -130,7 +130,7 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     } else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
         COMPARE_INT(cop2.LookAheadDepth, -1);
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-            COMPARE_LST(cop2.LookAheadDS, -1, list_lookahead_ds);
+            COMPARE_LST(cop2.LookAheadDS, 0, list_lookahead_ds);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
             COMPARE_INT(cop3.WinBRCSize,       0);
