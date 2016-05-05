@@ -71,6 +71,14 @@ alignas(MEM_ALIGN) static const uint16_t MASK_16BIT[] = {
 };
 
 #if USE_AVX2
+#ifndef _mm256_loadu2_m128i
+static QSV_FORCEINLINE __m256i _mm256_loadu2_m128i(const void *high, const void *low) {
+    return _mm256_inserti128_si256(_mm256_castsi128_si256(
+        _mm_loadu_si128((__m128i*)low)),
+        _mm_loadu_si128((__m128i*)high),1);
+}
+#endif
+
 //本来の256bit alignr
 #define MM_ABS(x) (((x) < 0) ? -(x) : (x))
 #define _mm256_alignr256_epi8(a, b, i) ((i<=16) ? _mm256_alignr_epi8(_mm256_permute2x128_si256(a, b, (0x00<<4) + 0x03), b, i) : _mm256_alignr_epi8(a, _mm256_permute2x128_si256(a, b, (0x00<<4) + 0x03), MM_ABS(i-16)))
@@ -731,7 +739,7 @@ static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const u
         } else {
             __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
             yMaxIndex = _mm256_max_epi8(yMaxIndex, yIndex);
-            uint8_t alignas(MEM_ALIGN) value[64];
+            alignas(MEM_ALIGN) uint8_t value[64];
             for (int i = 0; i < 32; i += 2) {
                 int idx = pSubColorIdx[i];
                 value[i +  0] = pSubColor[idx + 0];
@@ -762,7 +770,7 @@ static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const u
         } else {
             __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
             yMaxIndex = _mm256_max_epi8(yMaxIndex, yIndex);
-            uint8_t alignas(MEM_ALIGN) value[64];
+            alignas(MEM_ALIGN) uint8_t value[64];
             for (int i = 0; i < 32; i++) {
                 int idx = pSubColorIdx[i];
                 value[i +  0] = pSubColor[idx];
@@ -826,7 +834,7 @@ static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const u
         } else {
             __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
             xMaxIndex = _mm_max_epi8(xMaxIndex, xIndex);
-            uint8_t alignas(MEM_ALIGN) value[32];
+            alignas(MEM_ALIGN) uint8_t value[32];
             for (int i = 0; i < 16; i += 2) {
                 int idx = pSubColorIdx[i];
                 value[i +  0] = pSubColor[idx + 0];
@@ -857,7 +865,7 @@ static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const u
         } else {
             __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
             xMaxIndex = _mm_max_epi8(xMaxIndex, xIndex);
-            uint8_t alignas(MEM_ALIGN) value[32];
+            alignas(MEM_ALIGN) uint8_t value[32];
             for (int i = 0; i < 16; i++) {
                 int idx = pSubColorIdx[i];
                 value[i +  0] = pSubColor[idx];

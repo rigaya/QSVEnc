@@ -35,6 +35,7 @@
 #define USE_POPCNT  0
 #include "subburn_process.h"
 #include "subburn_process_simd.h"
+#if defined(_MSC_VER) || defined(__AVX__)
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
 
 #if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
@@ -194,3 +195,5 @@ void ProcessorSubBurnD3DAVX::BlendSubUV(const uint8_t *pAlpha, int bufX, int buf
 }
 
 #endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if defined(_MSC_VER) || defined(__AVX__)
+

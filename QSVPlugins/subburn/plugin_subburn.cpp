@@ -40,9 +40,11 @@
 #include "plugin_subburn.h"
 #include "subburn_process.h"
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if defined(_MSC_VER)
 #pragma comment(lib, "libass-5.lib")
 
 #pragma warning(disable : 4100)
+#endif
 
 //日本語環境の一般的なコードページ一覧
 enum : uint32_t {
@@ -383,6 +385,7 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
         }
     }
 
+    AddMessage(QSV_LOG_DEBUG, _T("init success.\n"));
     m_bInited = true;
     return MFX_ERR_NONE;
 }
@@ -462,7 +465,7 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
         }
         int ret = avformat_open_input(&pProcData->pFormatCtx, filename_char.c_str(), nullptr, nullptr);
         if (ret < 0) {
-            AddMessage(QSV_LOG_ERROR, _T("error opening file: \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret));
+            AddMessage(QSV_LOG_ERROR, _T("error opening file: \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
 
@@ -682,6 +685,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
     if (m_SubBurnParam.src.nTrackId != 0) {
         m_pluginName += strsprintf(_T(" track #%d"), std::abs(m_SubBurnParam.src.nTrackId));
     } else {
+        AddMessage(QSV_LOG_DEBUG, _T("input file path \"%s\".\n"), m_SubBurnParam.pFilePath);
         tstring sFilename = PathFindFileName(m_SubBurnParam.pFilePath);
         if (sFilename.length() > 23) {
             sFilename = sFilename.substr(0, 20) + _T("...");
@@ -709,6 +713,8 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_vProcessData[i].pVideoInputCodecCtx = m_SubBurnParam.pVideoInputCodecCtx;
         m_vProcessData[i].nSimdAvail = m_nSimdAvail;
         m_vProcessData[i].qSubPackets.init();
+
+        AddMessage(QSV_LOG_DEBUG, _T("initializing task %d/%d...\n"), i, (uint32_t)m_sTasks.size());
 
         if (MFX_ERR_NONE != (sts = InitAvcodec(&m_vProcessData[i]))) {
             return sts;

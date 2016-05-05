@@ -2659,6 +2659,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 #endif
     }
     if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
+#if MFX_D3D11_SUPPORT
         uint8_t memType = pParams->memType;
         //d3d11モードはWin8以降
         if (!check_OS_Win8orLater()) {
@@ -2676,6 +2677,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
             PrintMes(QSV_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
+#endif //#if MFX_D3D11_SUPPORT
     }
 
     //フレームレートのチェック

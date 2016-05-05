@@ -79,6 +79,11 @@ CHECK_AVXSYNTH_NAMES="avxsynth"
 ENABLE_AVXSYNTH=1
 AVXSYNTH_CFLAGS=""
 
+CHECK_LIBASS_NAMES="libass"
+LIBASS_CFLAGS=""
+LIBASS_LIBS=""
+ENABLE_LIBASS=1
+
 print_help()
 {
 cat << EOF
@@ -100,6 +105,7 @@ options:
   --disable-libva          disable libva support [auto]
   --disable-libav          disable libav support [auto]
   --disable-vapoursynth    disable vapoursynth support [auto]
+  --disable-libass         disable libass support [auto]
 EOF
 }
 
@@ -146,6 +152,9 @@ for opt; do
             ;;
         --disable-vapoursynth)
             ENABLE_VAPOURSYNTH=0
+            ;;
+        --disable-libass)
+            ENABLE_LIBASS=0
             ;;
         --pkg-config=*)
             PKGCONFIG="$optarg"
@@ -483,6 +492,28 @@ if [ $ENABLE_AVXSYNTH -ne 0 ]; then
     fi
 fi
 
+if [ $ENABLE_LIBASS -ne 0 ]; then
+    printf "checking libass with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_LIBASS_NAMES} ; then
+        echo "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        echo "OK"
+        LIBASS_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBASS_NAMES}`
+        LIBASS_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBASS_NAMES}`
+    fi
+    printf "checking for ass/ass.h..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "" "ass/ass.h" "" ; then
+        echo "no"
+        ENABLE_LIBASS=0
+    else
+        echo "yes"
+    fi
+    if [ $ENABLE_LIBASS -eq 0 ]; then
+        LIBASS_CFLAGS=""
+        LIBASS_LIBS=""
+    fi
+fi
+
 SRC_MFX_DISPATCH=" \
 main.cpp                   mfx_critical_section.cpp  mfx_critical_section_linux.cpp \
 mfx_dispatcher.cpp         mfx_dispatcher_log.cpp    mfx_dxva2_device.cpp \
@@ -523,6 +554,11 @@ delogo_process_avx.cpp    delogo_process_avx2.cpp \
 delogo_process_sse41.cpp  logo.cpp \
 plugin_delogo.cpp"
 
+SRC_PLUGIN_SUBBURN=" \
+subburn_process_avx.cpp    subburn_process_avx2.cpp \
+subburn_process_sse41.cpp  subburn_process_sse41_pshub_slow.cpp \
+plugin_subburn.cpp"
+
 SRC_PLUGIN_ROTATE="plugin_rotate.cpp"
 
 SRC_QSVENCC="QSVEncC.cpp"
@@ -559,6 +595,10 @@ for src in $SRC_PLUGIN_DELOGO; do
     SRCS="$SRCS QSVPlugins/delogo/$src"
 done
 
+for src in $SRC_PLUGIN_SUBBURN; do
+    SRCS="$SRCS QSVPlugins/subburn/$src"
+done
+
 for src in $SRC_QSVENCC; do
     SRCS="$SRCS QSVEncC/$src"
 done
@@ -576,8 +616,8 @@ write_config_mak "LD  = $LD"
 write_config_mak "AS  = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS"
-write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS"
+write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
@@ -586,7 +626,8 @@ write_qsv_config "#define ENABLE_AVI_READER             0"
 write_qsv_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_qsv_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
 write_qsv_config "#define ENABLE_AVCODEC_QSV_READER     $ENABLE_AVCODEC_QSV_READER"
-write_qsv_config "#define ENABLE_CUSTOM_VPP             0"
+write_qsv_config "#define ENABLE_CUSTOM_VPP             1"
+write_qsv_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"         
 write_qsv_config "#define ENABLE_ADVANCED_DEINTERLACE   0"
 write_qsv_config "#define ENABLE_MVC_ENCODING           0"
 write_qsv_config "#define ENABLE_FPS_CONVERSION         0"
