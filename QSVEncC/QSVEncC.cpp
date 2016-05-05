@@ -47,7 +47,9 @@
 #include "qsv_version.h"
 #include "avcodec_qsv.h"
 
-#include "../dtl/dtl/dtl.hpp"
+#if ENABLE_DTL
+#include <dtl/dtl.hpp>
+#endif //#if ENABLE_DTL
 
 #if ENABLE_AVCODEC_QSV_READER
 extern "C" {
@@ -729,6 +731,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
     return str;
 }
 
+#if ENABLE_CPP_REGEX
 static vector<std::string> createOptionList() {
     vector<std::string> optionList;
     auto helpLines = split(tchar_to_string(help()), "\n");
@@ -762,6 +765,7 @@ static void PrintHelp(const TCHAR *strAppName, const TCHAR *strErrorMessage, con
             }
         } else {
             _ftprintf(stderr, _T("Error: %s\n\n"), strErrorMessage);
+#if ENABLE_DTL
             if (strErrorValue) {
                 //どのオプション名に近いか検証する
                 auto optList = createOptionList();

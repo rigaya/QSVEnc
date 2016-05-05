@@ -84,6 +84,9 @@ LIBASS_CFLAGS=""
 LIBASS_LIBS=""
 ENABLE_LIBASS=1
 
+DTL_CFLAGS=""
+ENABLE_DTL=1
+
 print_help()
 {
 cat << EOF
@@ -106,6 +109,7 @@ options:
   --disable-libav          disable libav support [auto]
   --disable-vapoursynth    disable vapoursynth support [auto]
   --disable-libass         disable libass support [auto]
+  --disable-dtl            disable dtl support [auto]
 EOF
 }
 
@@ -155,6 +159,9 @@ for opt; do
             ;;
         --disable-libass)
             ENABLE_LIBASS=0
+            ;;
+        --disable-dtl)
+            ENABLE_DTL=0
             ;;
         --pkg-config=*)
             PKGCONFIG="$optarg"
@@ -514,6 +521,22 @@ if [ $ENABLE_LIBASS -ne 0 ]; then
     fi
 fi
 
+if [ $ENABLE_DTL -ne 0 ]; then
+    printf "checking for dtl/dtl.hpp..."
+    if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl/dtl.hpp" "" "" ; then
+        printf "checking for dtl/dtl.hpp..."
+        if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" "dtl/dtl.hpp" "" "" ; then
+            echo "no"
+            ENABLE_DTL=0
+        else
+            echo "yes"
+        fi
+    else
+        DTL_CFLAGS="-I./dtl"
+        echo "yes"
+    fi
+fi
+
 SRC_MFX_DISPATCH=" \
 main.cpp                   mfx_critical_section.cpp  mfx_critical_section_linux.cpp \
 mfx_dispatcher.cpp         mfx_dispatcher_log.cpp    mfx_dxva2_device.cpp \
@@ -616,7 +639,7 @@ write_config_mak "LD  = $LD"
 write_config_mak "AS  = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
@@ -635,6 +658,7 @@ write_qsv_config "#define ENABLE_OPENCL                 0"
 write_qsv_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
 write_qsv_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
 write_qsv_config "#define ENABLE_AVCODEC_OUT_THREAD     0"
+write_qsv_config "#define ENABLE_DTL                    $ENABLE_DTL"
 
 echo successfully generated config.mak, qsv_config.h
 

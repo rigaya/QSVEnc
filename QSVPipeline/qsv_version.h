@@ -66,6 +66,8 @@ const char *get_qsvenc_version();
 
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 
+#define ENABLE_DTL 1
+
 #ifndef QSVENC_AUO
 #define ENABLE_AUO_LINK           0
 #define ENABLE_AVI_READER         1
