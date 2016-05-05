@@ -1130,7 +1130,7 @@ mfxStatus ProcessorSubBurn::SubBurn(AVSubtitleRect *pRect, uint8_t *pBuffer) {
     alignas(32) uint8_t pColor[256 << (INT(forUV))];
     alignas(32) uint8_t pAlpha[256];
 
-    const uint32_t *pColorARGB = (uint32_t *)pRect->pict.data[1];
+    const uint32_t *pColorARGB = (uint32_t *)pRect->data[1];
     for (uint32_t ic = 0; ic < nColorTableSize; ic++) {
         const uint32_t nSubColor = pColorARGB[ic];
         const uint8_t subA = (uint8_t) (nSubColor >> 24);
@@ -1151,8 +1151,8 @@ mfxStatus ProcessorSubBurn::SubBurn(AVSubtitleRect *pRect, uint8_t *pBuffer) {
         pAlpha[ic] = subA >> 1;
     }
     int nMaxIndex = (forUV)
-        ? BlendSubUVBitmap(pRect->pict.data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer)
-        : BlendSubYBitmap(pRect->pict.data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer);
+        ? BlendSubUVBitmap(pRect->data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer)
+        : BlendSubYBitmap(pRect->data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer);
     pRect->nb_colors = (std::min)(pRect->nb_colors, nMaxIndex);
     return MFX_ERR_NONE;
 }
