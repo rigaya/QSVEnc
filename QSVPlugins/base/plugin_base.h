@@ -102,8 +102,10 @@ protected:
             static_cast<directxMemId *>(pFrameOut->Data.MemId)->m_surface, NULL, D3DTEXF_NONE));
         D3D_CALL(pd3dDevice->Release());
         D3D_CALL(m_pD3DDeviceManager->UnlockDevice(m_hDevice, false));
-#endif //#if D3D_SURFACES_SUPPORT
         return MFX_ERR_NONE;
+#else
+        return MFX_ERR_UNSUPPORTED;
+#endif //#if D3D_SURFACES_SUPPORT
     }
 
     //locks frame or report of an error
