@@ -686,11 +686,11 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_pluginName += strsprintf(_T(" track #%d"), std::abs(m_SubBurnParam.src.nTrackId));
     } else {
         AddMessage(QSV_LOG_DEBUG, _T("input file path \"%s\".\n"), m_SubBurnParam.pFilePath);
-        tstring sFilename = PathFindFileName(m_SubBurnParam.pFilePath);
+        std::wstring sFilename = tchar_to_wstring(PathFindFileName(m_SubBurnParam.pFilePath));
         if (sFilename.length() > 23) {
-            sFilename = sFilename.substr(0, 20) + _T("...");
+            sFilename = sFilename.substr(0, 20) + L"...";
         }
-        m_pluginName += tstring(_T(" : ")) + sFilename.c_str();
+        m_pluginName += tstring(_T(" : ")) + wstring_to_tstring(sFilename);
     }
 
     m_vProcessData = std::vector<ProcessDataSubBurn>(m_sTasks.size());
