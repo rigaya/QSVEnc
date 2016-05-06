@@ -182,6 +182,8 @@ std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
 #endif
 
+std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
+std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
 unsigned int tchar_to_string(const TCHAR *tstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
 std::string tchar_to_string(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);

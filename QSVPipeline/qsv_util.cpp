@@ -126,6 +126,22 @@ std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage) {
     return str;
 }
 
+std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage) {
+#if UNICODE
+    str = (tstr) ? std::wstring(tstr) : L"";
+    return (unsigned int)str.length();
+#else
+    return char_to_wstring(tstr, codepage);
+#endif
+}
+
+std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage) {
+    if (tstr == nullptr) {
+        return L"";
+    }
+    return tchar_to_wstring(tstring(tstr), codepage);
+}
+
 std::string tchar_to_string(const tstring& tstr, uint32_t codepage) {
     std::string str;
     tchar_to_string(tstr.c_str(), str, codepage);
