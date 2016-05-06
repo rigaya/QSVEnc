@@ -84,11 +84,13 @@ unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t c
         return 0;
     }
     auto ic = iconv_open("UTF-8", "wchar_t"); //to, from
-    auto input_len = wcslen(wstr);
-    auto output_len = input_len * 4;
-    str.resize(output_len, 0);
-    char *outbuf = &str[0];
+    auto input_len = wcslen(wstr) * 2;
+    auto output_len = input_len * 6;
+    std::vector<char> buf(output_len, 0);
+    char *outbuf = buf.data();
     iconv(ic, (char **)&wstr, &input_len, &outbuf, &output_len);
+    iconv_close(ic);
+    str = buf.data();
     return output_len;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -196,15 +198,20 @@ unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codep
         return 0;
     }
     auto ic = iconv_open("wchar_t", "UTF-8"); //to, from
+    if ((int64_t)ic == -1) {
+        fprintf(stderr, "iconv_error\n");
+    }
     auto input_len = strlen(str);
     std::vector<char> buf(input_len + 1);
     strcpy(buf.data(), str);
-    auto output_len = input_len;
-    wstr.resize(output_len, 0);
+    auto output_len = (input_len + 1) * 8;
+    std::vector<char> bufout(output_len, 0);
     char *inbuf = buf.data();
-    char *outbuf = (char *)&wstr[0];
+    char *outbuf = bufout.data();
     iconv(ic, &inbuf, &input_len, &outbuf, &output_len);
-    return output_len;
+    iconv_close(ic);
+    wstr = std::wstring((WCHAR *)bufout.data());
+    return wstr.length();
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 std::wstring char_to_wstring(const char *str, uint32_t codepage) {
