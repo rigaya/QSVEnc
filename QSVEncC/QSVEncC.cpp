@@ -72,11 +72,16 @@ static tstring GetQSVEncVersion() {
     tstring version;
     version += get_qsvenc_version();
     version += _T("\n");
-    version += _T("reader: raw");
+    version += _T(" reader: raw");
     if (ENABLE_AVI_READER)         version += _T(", avi");
     if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
     if (ENABLE_AVCODEC_QSV_READER) version += strsprintf(_T(", avqsv [%s]"), getAVQSVSupportedCodecList().c_str());
+#if !(defined(_WIN32) || defined(_WIN64))
+    version += _T("\n vpp:    resize, deinterlace, denoise, detail-enhance, image-stab");
+    if (ENABLE_CUSTOM_VPP) version += _T(", delego");
+    if (ENABLE_LIBASS_SUBBURN && ENABLE_AVCODEC_QSV_READER) version += _T(", sub");
+#endif
     version += _T("\n");
     return version;
 }
