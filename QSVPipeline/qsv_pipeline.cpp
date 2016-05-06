@@ -2659,6 +2659,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 #endif
     }
     if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
+#if defined(_WIN32) || defined(_WIN64)
 #if MFX_D3D11_SUPPORT
         uint8_t memType = pParams->memType;
         //d3d11モードはWin8以降
@@ -2678,7 +2679,24 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
             return MFX_ERR_UNSUPPORTED;
         }
 #endif //#if MFX_D3D11_SUPPORT
+#else
+        //Linuxでのカスタムvppには systemメモリが必要
+        if (pParams->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
+            PrintMes(QSV_LOG_WARN, _T("vpp-sub requires system surface, forcing system surface.\n"));
+            pParams->memType = SYSTEM_MEMORY;
+        }
+#endif
     }
+
+#if !(defined(_WIN32) || defined(_WIN64))
+    //Linuxでのカスタムvppには systemメモリが必要
+    if (pParams->vpp.delogo.pFilePath) {
+        if (pParams->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
+            PrintMes(QSV_LOG_WARN, _T("vpp-delogo requires system surface, forcing system surface.\n"));
+            pParams->memType = SYSTEM_MEMORY;
+        }
+    }
+#endif
 
     //フレームレートのチェック
     if (pParams->nFPSRate == 0 || pParams->nFPSScale == 0) {
