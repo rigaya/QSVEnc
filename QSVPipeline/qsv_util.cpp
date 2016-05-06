@@ -130,8 +130,7 @@ std::string tchar_to_string(const TCHAR *tstr, uint32_t codepage) {
 
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage) {
 #if UNICODE
-    str = (tstr) ? std::wstring(tstr) : L"";
-    return (unsigned int)str.length();
+    return std::wstring(tstr);
 #else
     return char_to_wstring(tstr, codepage);
 #endif
@@ -181,7 +180,8 @@ tstring wstring_to_tstring(const std::wstring& wstr, uint32_t codepage) {
 #if defined(_WIN32) || defined(_WIN64)
 unsigned int char_to_wstring(std::wstring& wstr, const char *str, uint32_t codepage) {
     if (str == nullptr) {
-        return L"";
+        wstr = L"";
+        return 0;
     }
     int widechar_length = MultiByteToWideChar(codepage, 0, str, -1, nullptr, 0);
     wstr.resize(widechar_length, 0);
