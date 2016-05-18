@@ -3495,7 +3495,12 @@ mfxStatus CQSVPipeline::RunEncode() {
     bool bVppMultipleOutput = false;  //bob化などの際にvppが余分にフレームを出力するフラグ
     bool bCheckPtsMultipleOutput = false; //dorcecfrなどにともなって、checkptsが余分にフレームを出力するフラグ
 
-    std::deque<std::pair<int64_t, int>> dTimestampInputBufIdx;
+    struct inputBufData {
+        int64_t timestamp;
+        uint32_t frameFlag;
+        int nAQP[2];
+    };
+    std::deque<inputBufData> dTimestampInputBufData;
     int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)  Trimの反映に使用する
 
     struct frameData {
@@ -3747,7 +3752,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             timestamp = pos.pts;
         } else {
 #endif //#if ENABLE_AVCODEC_QSV_READER
-            timestamp = QSV_RESCALE(nInputFrameCount,inputFpsTimebase, pktTimebase);
+            timestamp = QSV_RESCALE(nInputFrameCount, inputFpsTimebase, pktTimebase);
 #if ENABLE_AVCODEC_QSV_READER
         }
         if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
@@ -3801,10 +3806,11 @@ mfxStatus CQSVPipeline::RunEncode() {
             nEstimatedPts += nFrameDuration;
             timestamp = nEstimatedPts;
         }
-#endif //#if ENABLE_AVCODEC_QSV_READER
         if (m_nExPrm) {
-            dTimestampInputBufIdx.push_back(std::make_pair(timestamp, (int)pNextFrame->Data.TimeStamp));
+            auto pInputBuf = &m_EncThread.m_InputBuf[(int)pNextFrame->Data.TimeStamp];
+            dTimestampInputBufData.push_back({ timestamp, pInputBuf->frameFlag, { pInputBuf->AQP[0], pInputBuf->AQP[1] } });
         }
+#endif //#if ENABLE_AVCODEC_QSV_READER
         pNextFrame->Data.TimeStamp = timestamp;
         return MFX_ERR_NONE;
     };
@@ -3903,32 +3909,33 @@ mfxStatus CQSVPipeline::RunEncode() {
         }
 
         mfxStatus enc_sts = MFX_ERR_NONE;
-        mfxEncodeCtrl *ptrCtrl = NULL;
+        mfxEncodeCtrl *ptrCtrl = nullptr;
         mfxEncodeCtrl encCtrl = { 0 };
 
         //以下の処理は
         if (pSurfEncIn) {
             if (m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
-                while (dTimestampInputBufIdx.front().first != (int64_t)pSurfEncIn->Data.TimeStamp) {
-                    dTimestampInputBufIdx.pop_front();
+                while (dTimestampInputBufData.front().timestamp != (int64_t)pSurfEncIn->Data.TimeStamp) {
+                    dTimestampInputBufData.pop_front();
                 }
-                const int inputBufIdx = dTimestampInputBufIdx.front().second;
+                const auto frameFlag = dTimestampInputBufData.front().frameFlag;
+                const auto frameAQP = dTimestampInputBufData.front().nAQP;
                 if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {
-                    mfxU32 currentFrameFlag = m_EncThread.m_InputBuf[inputBufIdx].frameFlag;
+                    mfxU32 currentFrameFlag = frameFlag;
                     if (nLastFrameFlag >> 8) {
                         encCtrl.FrameType = nLastFrameFlag >> 8;
                         encCtrl.QP = (mfxU16)nLastAQ;
                     } else {
                         encCtrl.FrameType = currentFrameFlag & 0xff;
-                        encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[inputBufIdx].AQP[0];
+                        encCtrl.QP = (mfxU16)frameAQP[0];
                     }
                     nLastFrameFlag = (mfxU16)currentFrameFlag;
-                    nLastAQ = m_EncThread.m_InputBuf[inputBufIdx].AQP[1];
+                    nLastAQ = frameAQP[1];
                 } else if (m_nExPrm & MFX_PRM_EX_DEINT_BOB) {
                     if (bVppDeintBobFirstFeild) {
-                        nLastFrameFlag = (mfxU16)m_EncThread.m_InputBuf[inputBufIdx].frameFlag;
-                        nLastAQ = m_EncThread.m_InputBuf[inputBufIdx].AQP[1];
-                        encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[inputBufIdx].AQP[0];
+                        nLastFrameFlag = (mfxU16)frameFlag;
+                        nLastAQ = frameAQP[1];
+                        encCtrl.QP = (mfxU16)frameAQP[0];
                         encCtrl.FrameType = nLastFrameFlag & 0xff;
                     } else {
                         encCtrl.FrameType = nLastFrameFlag >> 8;
@@ -3936,8 +3943,8 @@ mfxStatus CQSVPipeline::RunEncode() {
                     }
                     bVppDeintBobFirstFeild ^= true;
                 } else {
-                    encCtrl.FrameType = (mfxU16)m_EncThread.m_InputBuf[inputBufIdx].frameFlag;
-                    encCtrl.QP = (mfxU16)m_EncThread.m_InputBuf[inputBufIdx].AQP[0];
+                    encCtrl.FrameType = (mfxU16)frameFlag;
+                    encCtrl.QP = (mfxU16)frameAQP[0];
                 }
                 ptrCtrl = &encCtrl;
             }
@@ -4025,7 +4032,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
                 if (MFX_ERR_NONE != (sts = m_pFileReader->GetNextFrame(&pNextFrame)))
                     break;
-
                 
                 if (!m_pFileReader->getInputCodec()) {
                     //フレーム読み込みの場合には、必要ならここでロックする
