@@ -3507,7 +3507,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
 #if ENABLE_AVCODEC_QSV_READER
     const bool bAVutilDll = check_avcodec_dll();
-#define QSV_RESCALE(v, a, b) ((bAVutilDll) ? (int)av_rescale_q(1, inputFpsTimebase, pktTimebase) : (int)(v * (double)a.num * (double)b.den / ((double)a.den * b.num) + 0.5))
+#define QSV_RESCALE(v, a, b) ((bAVutilDll) ? (int)av_rescale_q(v, inputFpsTimebase, pktTimebase) : (int)(v * (double)a.num * (double)b.den / ((double)a.den * b.num) + 0.5))
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
     mfxFrameInfo inputFrmaeInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrmaeInfo);
