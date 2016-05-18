@@ -584,6 +584,12 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
         pInParams->nWeightB = 0;
     }
+    if (pInParams->nFadeDetect != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
+        if (pInParams->nFadeDetect == MFX_CODINGOPTION_ON) {
+            print_feature_warnings(QSV_LOG_WARN, _T("FadeDetect"));
+        }
+        pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
+    }
     if (!(availableFeaures & ENC_FEATURE_VUI_INFO)) {
         if (pInParams->bFullrange) {
             print_feature_warnings(QSV_LOG_WARN, _T("fullrange"));
