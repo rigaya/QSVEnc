@@ -3806,7 +3806,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             nEstimatedPts += nFrameDuration;
             timestamp = nEstimatedPts;
         }
-        if (m_nExPrm) {
+        if (m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
             auto pInputBuf = &m_EncThread.m_InputBuf[(int)pNextFrame->Data.TimeStamp];
             dTimestampInputBufData.push_back({ timestamp, pInputBuf->frameFlag, { pInputBuf->AQP[0], pInputBuf->AQP[1] } });
         }
