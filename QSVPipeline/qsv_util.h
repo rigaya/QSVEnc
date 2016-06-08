@@ -301,6 +301,7 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 15, 1 },
     { 16, 1 },
     { 17, 1 },
+    { 19, 1 },
     { 0, 0 }
 };
 
@@ -319,6 +320,7 @@ static const mfxVersion LIB_VER_LIST[] = {
 #define MFX_LIB_VERSION_1_15 LIB_VER_LIST[12]
 #define MFX_LIB_VERSION_1_16 LIB_VER_LIST[13]
 #define MFX_LIB_VERSION_1_17 LIB_VER_LIST[14]
+#define MFX_LIB_VERSION_1_19 LIB_VER_LIST[15]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);
@@ -397,6 +399,8 @@ enum : uint64_t {
     ENC_FEATURE_WEIGHT_P               = 0x0000000200000000,
     ENC_FEATURE_WEIGHT_B               = 0x0000000400000000,
     ENC_FEATURE_FADE_DETECT            = 0x0000000800000000,
+    ENC_FEATURE_PYRAMID_QP_OFFSET      = 0x0000001000000000,
+    ENC_FEATURE_DISABLE_GPB            = 0x0000002000000000,
 };
 
 enum : uint64_t {
@@ -412,6 +416,7 @@ enum : uint64_t {
     VPP_FEATURE_DEINTERLACE_AUTO      = 0x00000200,
     VPP_FEATURE_DEINTERLACE_IT_MANUAL = 0x00000400,
     VPP_FEATURE_ROTATE                = 0x00000800,
+    VPP_FEATURE_MIRROR                = 0x00001000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -447,12 +452,14 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +Scenechange"), ENC_FEATURE_B_PYRAMID_AND_SC       },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
+    { _T("PyramQPOffset"), ENC_FEATURE_PYRAMID_QP_OFFSET      },
     { _T("Ext_BRC      "), ENC_FEATURE_EXT_BRC                },
     { _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
     { _T("LA Quality   "), ENC_FEATURE_LA_DS                  },
     { _T("QP Min/Max   "), ENC_FEATURE_QP_MINMAX              },
     { _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
     { _T("No Debloc    "), ENC_FEATURE_NO_DEBLOCK             },
+    { _T("No GPB       "), ENC_FEATURE_DISABLE_GPB            },
     { _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
     { _T("PerMBQP(CQP) "), ENC_FEATURE_PERMBQP                },
     { _T("DirectBiasAdj"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
@@ -464,6 +471,7 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
     { _T("Denoise              "), VPP_FEATURE_DENOISE             },
     { _T("Rotate               "), VPP_FEATURE_ROTATE              },
+    { _T("Mirror               "), VPP_FEATURE_MIRROR              },
     { _T("Detail Enhancement   "), VPP_FEATURE_DETAIL_ENHANCEMENT  },
     { _T("Proc Amp.            "), VPP_FEATURE_PROC_AMP            },
     { _T("Image Stabilization  "), VPP_FEATURE_IMAGE_STABILIZATION },

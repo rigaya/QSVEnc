@@ -731,12 +731,14 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     mfxExtVPPImageStab vppImageStab;
     mfxExtVPPVideoSignalInfo vppVSI;
     mfxExtVPPRotation vppRotate;
+    mfxExtVPPMirroring vppMirror;
     INIT_MFX_EXT_BUFFER(vppDoUse,     MFX_EXTBUFF_VPP_DOUSE);
     INIT_MFX_EXT_BUFFER(vppDoNotUse,  MFX_EXTBUFF_VPP_DONOTUSE);
     INIT_MFX_EXT_BUFFER(vppFpsConv,   MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
     INIT_MFX_EXT_BUFFER(vppImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
     INIT_MFX_EXT_BUFFER(vppVSI,       MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
     INIT_MFX_EXT_BUFFER(vppRotate,    MFX_EXTBUFF_VPP_ROTATION);
+    INIT_MFX_EXT_BUFFER(vppMirror,    MFX_EXTBUFF_VPP_MIRRORING);
 
     vppFpsConv.Algorithm = MFX_FRCALGM_FRAME_INTERPOLATION;
     vppImageStab.Mode = MFX_IMAGESTAB_MODE_UPSCALE;
@@ -783,6 +785,7 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     mfxExtVPPImageStab vppImageStabOut;
     mfxExtVPPVideoSignalInfo vppVSIOut;
     mfxExtVPPRotation vppRotateOut;
+    mfxExtVPPMirroring vppMirrorOut;
     
     memcpy(&vppDoUseOut,     &vppDoUse,     sizeof(vppDoUse));
     memcpy(&vppDoNotUseOut,  &vppDoNotUse,  sizeof(vppDoNotUse));
@@ -790,6 +793,7 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     memcpy(&vppImageStabOut, &vppImageStab, sizeof(vppImageStab));
     memcpy(&vppVSIOut,       &vppVSI,       sizeof(vppVSI));
     memcpy(&vppRotateOut,    &vppRotate,    sizeof(vppRotate));
+    memcpy(&vppMirrorOut,    &vppMirror,    sizeof(vppMirror));
     
     vector<mfxExtBuffer *> bufOut;
     bufOut.push_back((mfxExtBuffer *)&vppDoUse);
@@ -845,6 +849,7 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 #if defined(_WIN32) || defined(_WIN64)
     check_feature((mfxExtBuffer *)&vppRotate,    (mfxExtBuffer *)&vppRotateOut,    MFX_LIB_VERSION_1_17, VPP_FEATURE_ROTATE,              0x00);
 #endif //#if defined(_WIN32) || defined(_WIN64)
+    check_feature((mfxExtBuffer *)&vppMirror,    (mfxExtBuffer *)&vppMirrorOut,    MFX_LIB_VERSION_1_19,  VPP_FEATURE_MIRROR,             0x00);
     
     videoPrm.vpp.Out.FrameRateExtN    = 60000;
     videoPrm.vpp.Out.FrameRateExtD    = 1001;
@@ -1118,6 +1123,10 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         CHECK_FEATURE(cop3.WeightedPred,         cop3Out.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.WeightedBiPred,       cop3Out.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.FadeDetection,        cop3Out.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_17);
+        if (codecId == MFX_CODEC_HEVC) {
+            CHECK_FEATURE(cop3.GPB,              cop3Out.GPB,                  ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_OFF, MFX_LIB_VERSION_1_19);
+            CHECK_FEATURE(cop3.EnableQPOffset,   cop3Out.EnableQPOffset,       ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
+        }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 #undef PICTYPE
 #pragma warning(pop)
