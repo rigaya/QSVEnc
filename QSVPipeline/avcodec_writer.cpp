@@ -478,7 +478,7 @@ mfxStatus CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     m_Mux.video.pStream->codecpar->sample_aspect_ratio.den = prm->pVideoInfo->FrameInfo.AspectRatioH;
     m_Mux.video.pStream->codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
     m_Mux.video.pStream->codecpar->field_order             = qsv_field_order(&prm->pVideoInfo->FrameInfo);
-    m_Mux.video.pStream->codecpar->video_delay             = ((prm->pVideoInfo->GopRefDist - 1) > 0) + ((prm->pVideoInfo->GopRefDist - 1) > 2);
+    m_Mux.video.pStream->codecpar->video_delay             = ((prm->pVideoInfo->GopRefDist - 1) > 0) + (((prm->pVideoInfo->GopRefDist - 1) > 0) & ((prm->pVideoInfo->GopRefDist - 1) > 2));
 #else
     m_Mux.video.pCodecCtx->codec_type              = AVMEDIA_TYPE_VIDEO;
     m_Mux.video.pCodecCtx->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
@@ -1589,7 +1589,7 @@ mfxStatus CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, con
     //API v1.6ではB-pyramidが存在しないので、Bフレームがあるかないかだけ考慮するればよい
     if (m_Mux.video.pStream) {
         if (m_Mux.video.bDtsUnavailable) {
-            m_Mux.video.nFpsBaseNextDts = (0 - (pMfxVideoPrm->mfx.GopRefDist > 0) - (cop2->BRefType == MFX_B_REF_PYRAMID)) * (1 + m_Mux.video.bIsPAFF);
+            m_Mux.video.nFpsBaseNextDts = (0 - (pMfxVideoPrm->mfx.GopRefDist > 0) - ((pMfxVideoPrm->mfx.GopRefDist > 0) & (cop2->BRefType == MFX_B_REF_PYRAMID))) * (1 + m_Mux.video.bIsPAFF);
             AddMessage(QSV_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
         }
     }
