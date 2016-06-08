@@ -1071,6 +1071,12 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         }
     }
 
+    if (pInParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT
+        && !(availableFeaures & VPP_FEATURE_SCALING_QUALITY)) {
+        PrintMes(QSV_LOG_WARN, _T("vpp scaling quality is not supported on this platform, disabled.\n"));
+        pInParams->vpp.nScalingQuality = MFX_SCALING_MODE_DEFAULT;
+    }
+
     if (pInParams->vpp.nMirrorType != MFX_MIRRORING_DISABLED
         && !(availableFeaures & VPP_FEATURE_MIRROR)) {
         PrintMes(QSV_LOG_ERROR, _T("vpp mirroring is not supported on this platform, disabled.\n"));
@@ -1271,6 +1277,17 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
 
         vppExtAddMes(strsprintf(_T("mirroring %s\n"), get_chr_from_value(list_vpp_mirroring, pParams->vpp.nMirrorType)));
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MIRRORING);
+    }
+
+    if ( (    pParams->nWidth  != pParams->nDstWidth
+           || pParams->nHeight != pParams->nDstHeight)
+        && pParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT) {
+        INIT_MFX_EXT_BUFFER(m_ExtScaling, MFX_EXTBUFF_VPP_SCALING);
+        m_ExtScaling.ScalingMode = pParams->vpp.nScalingQuality;
+        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtScaling);
+
+        vppExtAddMes(strsprintf(_T("scaling %s\n"), get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.nScalingQuality)));
+        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_SCALING);
     }
 
     if (FPS_CONVERT_NONE != pParams->vpp.nFPSConversion) {
@@ -2028,6 +2045,7 @@ CQSVPipeline::CQSVPipeline() {
     QSV_MEMSET_ZERO(m_ExtVppVSI);
     QSV_MEMSET_ZERO(m_ExtImageStab);
     QSV_MEMSET_ZERO(m_ExtMirror);
+    QSV_MEMSET_ZERO(m_ExtScaling);
 
     QSV_MEMSET_ZERO(m_EncResponse);
     QSV_MEMSET_ZERO(m_VppResponse);

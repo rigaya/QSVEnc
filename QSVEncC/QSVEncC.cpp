@@ -732,6 +732,10 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --vpp-mirror <string>        mirror image\n")
         _T("                                 - h   mirror in horizontal direction\n")
         _T("                                 - v   mirror in vertical   direction\n")
+        _T("   --vpp-scaling <string>       set scaling quality")
+        _T("                                 - auto(default)")
+        _T("                                 - simple   use simple scaling\n")
+        _T("                                 - fine     use high quality scaling\n")
         _T("   --vpp-half-turn              half turn video image\n")
         _T("                                 unoptimized and very slow.\n"),
         QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
@@ -2647,6 +2651,17 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int value = 0;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_mirroring, strInput[i]))) {
             pParams->vpp.nMirrorType = (mfxU16)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-scaling"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_scaling_quality, strInput[i]))) {
+            pParams->vpp.nScalingQuality = (mfxU16)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;

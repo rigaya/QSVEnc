@@ -234,7 +234,8 @@ typedef struct {
     } subburn;
 
     mfxU16 nMirrorType;  //MFX_MIRRORING_xxx
-    mfxU8 Reserved[86];
+    mfxU16 nScalingQuality; //MFX_SCALING_MODE_xxx
+    mfxU8 Reserved[84];
 } sVppParams;
 
 typedef struct sAudioSelect {
@@ -831,6 +832,13 @@ const CX_DESC list_vpp_mirroring[] = {
     { _T("n"), MFX_MIRRORING_DISABLED   },
     { _T("h"), MFX_MIRRORING_HORIZONTAL },
     { _T("v"), MFX_MIRRORING_VERTICAL   },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_scaling_quality[] = {
+    { _T("auto"),   MFX_SCALING_MODE_DEFAULT  },
+    { _T("simple"), MFX_SCALING_MODE_LOWPOWER },
+    { _T("fine"),   MFX_SCALING_MODE_QUALITY  },
     { NULL, 0 }
 };
 

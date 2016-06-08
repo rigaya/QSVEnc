@@ -417,6 +417,7 @@ enum : uint64_t {
     VPP_FEATURE_DEINTERLACE_IT_MANUAL = 0x00000400,
     VPP_FEATURE_ROTATE                = 0x00000800,
     VPP_FEATURE_MIRROR                = 0x00001000,
+    VPP_FEATURE_SCALING_QUALITY       = 0x00002000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -469,6 +470,7 @@ static const FEATURE_DESC list_enc_feature[] = {
 static const FEATURE_DESC list_vpp_feature[] = {
     { _T("Resize               "), VPP_FEATURE_RESIZE              },
     { _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
+    { _T("Scaling Quality      "), VPP_FEATURE_SCALING_QUALITY     },
     { _T("Denoise              "), VPP_FEATURE_DENOISE             },
     { _T("Rotate               "), VPP_FEATURE_ROTATE              },
     { _T("Mirror               "), VPP_FEATURE_MIRROR              },
