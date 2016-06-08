@@ -484,6 +484,9 @@ const CX_DESC list_vp8_profile[] = {
 const CX_DESC list_vp9_profile[] = {
     { _T("auto"),     0 },
     { _T("0"),        MFX_PROFILE_VP9_0 },
+    { _T("1"),        MFX_PROFILE_VP9_1 },
+    { _T("2"),        MFX_PROFILE_VP9_2 },
+    { _T("3"),        MFX_PROFILE_VP9_3 },
     { NULL, 0 }
 };
 
