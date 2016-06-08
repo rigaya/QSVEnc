@@ -78,14 +78,14 @@ namespace
         mfxU32 maxIndex;
 
     } implTypesRange[] =
-    {    
-        {0, 1},  // MFX_IMPL_AUTO    
-        {1, 1},  // MFX_IMPL_SOFTWARE    
-        {0, 0},  // MFX_IMPL_HARDWARE    
-        {2, 6},  // MFX_IMPL_AUTO_ANY    
-        {2, 5},  // MFX_IMPL_HARDWARE_ANY    
-        {3, 3},  // MFX_IMPL_HARDWARE2    
-        {4, 4},  // MFX_IMPL_HARDWARE3    
+    {
+        {0, 1},  // MFX_IMPL_AUTO
+        {1, 1},  // MFX_IMPL_SOFTWARE
+        {0, 0},  // MFX_IMPL_HARDWARE
+        {2, 6},  // MFX_IMPL_AUTO_ANY
+        {2, 5},  // MFX_IMPL_HARDWARE_ANY
+        {3, 3},  // MFX_IMPL_HARDWARE2
+        {4, 4},  // MFX_IMPL_HARDWARE3
         {5, 5},  // MFX_IMPL_HARDWARE4
         {2, 6},  // MFX_IMPL_RUNTIME, same as MFX_IMPL_HARDWARE_ANY
         {7, 7}   // MFX_IMPL_AUDIO
@@ -188,6 +188,7 @@ mfxStatus MFXInitEx(mfxInitParam par, mfxSession *session)
     MFX_DISP_HANDLE *pHandle;
     msdk_disp_char dllName[MFX_MAX_DLL_PATH];
     MFX::MFXLibraryIterator libIterator;
+    
     // there iterators are used only if the caller specified implicit type like AUTO
     mfxU32 curImplIdx, maxImplIdx;
     // particular implementation value
@@ -454,6 +455,7 @@ mfxStatus MFXInitEx(mfxInitParam par, mfxSession *session)
         mfxVersion apiVerActual;
         mfxStatus stsQueryVersion;
         stsQueryVersion = MFXQueryVersion((mfxSession)pHandle, &apiVerActual);
+        
         if (MFX_ERR_NONE !=  stsQueryVersion) 
         {
             DISPATCHER_LOG_ERROR((("MFXQueryVersion returned: %d, cannot load plugins\n"), mfxRes))

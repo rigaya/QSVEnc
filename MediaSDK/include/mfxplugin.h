@@ -114,8 +114,10 @@ typedef struct mfxCoreInterface {
     mfxStatus (MFX_CDECL *GetOpaqueSurface)(mfxHDL pthis, mfxFrameSurface1 *surf, mfxFrameSurface1 **op_surf);
 
     mfxStatus (MFX_CDECL *CreateAccelerationDevice)(mfxHDL pthis, mfxHandleType type, mfxHDL *handle);
+    mfxStatus (MFX_CDECL *GetFrameHandle) (mfxHDL pthis, mfxFrameData *fd, mfxHDL *handle);
+    mfxStatus (MFX_CDECL *QueryPlatform) (mfxHDL pthis, mfxPlatform *platform);
 
-    mfxHDL reserved4[3];
+    mfxHDL reserved4[1];
 } mfxCoreInterface;
 
 /* video codec plugin extension*/
@@ -186,6 +188,7 @@ typedef struct mfxPlugin{
 
 mfxStatus MFX_CDECL MFXVideoUSER_Register(mfxSession session, mfxU32 type, const mfxPlugin *par);
 mfxStatus MFX_CDECL MFXVideoUSER_Unregister(mfxSession session, mfxU32 type);
+mfxStatus MFX_CDECL MFXVideoUSER_GetPlugin(mfxSession session, mfxU32 type, mfxPlugin *par);
 mfxStatus MFX_CDECL MFXVideoUSER_ProcessFrameAsync(mfxSession session, const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfxU32 out_num, mfxSyncPoint *syncp);
 
 mfxStatus MFX_CDECL MFXVideoUSER_Load(mfxSession session, const mfxPluginUID *uid, mfxU32 version);

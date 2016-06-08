@@ -1,6 +1,6 @@
 ﻿/* ****************************************************************************** *\
 
-Copyright (C) 2007-2014 Intel Corporation.  All rights reserved.
+Copyright (C) 2007-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -292,7 +292,12 @@ public:
     mfxFrameAllocator & FrameAllocator() {
         return m_core.FrameAllocator;
     }
-
+    mfxStatus GetFrameHandle(mfxFrameData *fd, mfxHDL *handle) {
+        if (!IsCoreSet()) {
+            return MFX_ERR_NULL_PTR;
+        }
+        return m_core.GetFrameHandle(m_core.pthis, fd, handle);
+    }
 } ;
 
 /* Class adapter between "C" structure mfxPlugin and C++ interface MFXPlugin */

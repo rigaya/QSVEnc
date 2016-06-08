@@ -1,6 +1,6 @@
 ﻿/* ****************************************************************************** *\
 
-Copyright (C) 2007-2015 Intel Corporation.  All rights reserved.
+Copyright (C) 2007-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -118,6 +118,8 @@ typedef enum
     MFX_ERR_MORE_BITSTREAM              = -18,  /* expect more bitstream buffers at output */
     MFX_ERR_INCOMPATIBLE_AUDIO_PARAM    = -19,  /* incompatible audio parameters */
     MFX_ERR_INVALID_AUDIO_PARAM         = -20,  /* invalid audio parameters */
+    MFX_ERR_GPU_HANG                    = -21,  /* device operation failure caused by GPU hang */
+    MFX_ERR_REALLOC_SURFACE             = -22,  /* bigger output surface required */
 
     /* warnings >0 */
     MFX_WRN_IN_EXECUTION                = 1,    /* the previous asynchronous operation is in execution */
@@ -139,6 +141,9 @@ typedef enum
     MFX_PRINT_OPTION_ERR  = 21,
     /* other errors */
     MFX_ERR_INVALID_COLOR_FORMAT = -100,
+
+    /* plug-in statuses */
+    MFX_ERR_MORE_DATA_SUBMIT_TASK       = -10000, /* return MFX_ERR_MORE_DATA but submit internal asynchronous task */
 
 } mfxStatus;
 

@@ -1,6 +1,6 @@
 ﻿/* ****************************************************************************** *\
 
-Copyright (C) 2012-2014 Intel Corporation.  All rights reserved.
+Copyright (C) 2012-2015 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -116,7 +116,7 @@ void DXDevice::LoadDLLModule(const wchar_t *pModuleName)
     prevErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
     // load specified library
-    m_hModule = LoadLibraryExW(pModuleName, NULL, 0);
+	m_hModule = LoadLibraryExW(pModuleName, NULL, 0);
 
     // set the previous error mode
 #if (_WIN32_WINNT >= 0x0600) && !(__GNUC__) && !defined(WIN_TRESHOLD_MOBILE)
@@ -137,7 +137,7 @@ void DXDevice::UnloadDLLModule(void)
 
 } // void DXDevice::UnloaDLLdModule(void)
 
-
+#ifdef MFX_D3D9_ENABLED
 D3D9Device::D3D9Device(void)
 {
     m_pD3D9 = (void *) 0;
@@ -280,6 +280,7 @@ bool D3D9Device::Init(const mfxU32 adapterNum)
     return true;
 
 } // bool D3D9Device::Init(const mfxU32 adapterNum)
+#endif //MFX_D3D9_ENABLED
 
 typedef
 HRESULT (WINAPI *DXGICreateFactoryFunc) (REFIID riid, void **ppFactory);
@@ -430,6 +431,7 @@ void DXVA2Device::Close(void)
 
 } // void DXVA2Device::Close(void)
 
+#ifdef MFX_D3D9_ENABLED
 bool DXVA2Device::InitD3D9(const mfxU32 adapterNum)
 {
     D3D9Device d3d9Device;
@@ -464,6 +466,13 @@ bool DXVA2Device::InitD3D9(const mfxU32 adapterNum)
     // ... say goodbye
     return true;
 } // bool InitD3D9(const mfxU32 adapterNum)
+#else // MFX_D3D9_ENABLED
+bool DXVA2Device::InitD3D9(const mfxU32 adapterNum)
+{
+	(void)adapterNum;
+	return false;
+}
+#endif // MFX_D3D9_ENABLED
 
 bool DXVA2Device::InitDXGI1(const mfxU32 adapterNum)
 {
@@ -490,6 +499,7 @@ bool DXVA2Device::InitDXGI1(const mfxU32 adapterNum)
 
 } // bool DXVA2Device::InitDXGI1(const mfxU32 adapterNum)
 
+#ifdef MFX_D3D9_ENABLED
 void DXVA2Device::UseAlternativeWay(const D3D9Device *pD3D9Device)
 {
     mfxU64 d3d9LUID = pD3D9Device->GetLUID();
@@ -532,6 +542,7 @@ void DXVA2Device::UseAlternativeWay(const D3D9Device *pD3D9Device)
     // we need to match a DXGI(1) device to the D3D9 device
 
 } // void DXVA2Device::UseAlternativeWay(const D3D9Device *pD3D9Device)
+#endif // MFX_D3D9_ENABLED
 
 mfxU32 DXVA2Device::GetVendorID(void) const
 {
