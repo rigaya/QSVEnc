@@ -233,7 +233,8 @@ typedef struct {
         int    nShaping;  //字幕を焼きこむときのモード
     } subburn;
 
-    mfxU8 Reserved[88];
+    mfxU16 nMirrorType;  //MFX_MIRRORING_xxx
+    mfxU8 Reserved[86];
 } sVppParams;
 
 typedef struct sAudioSelect {
@@ -650,14 +651,6 @@ const CX_DESC list_priority[] = {
     { _T("high"),   MFX_PRIORITY_HIGH   },
 };
 
-const CX_DESC list_rotate_angle[] = {
-    { _T("0"),     MFX_ANGLE_0    },
-    { _T("90"),    MFX_ANGLE_90   },
-    { _T("180"),   MFX_ANGLE_180  },
-    { _T("270"),   MFX_ANGLE_270  },
-    { NULL, 0 }
-};
-
 const CX_DESC list_resampler[] = {
     { _T("swr"),  QSV_RESAMPLER_SWR  },
     { _T("soxr"), QSV_RESAMPLER_SOXR },
@@ -823,6 +816,21 @@ const CX_DESC list_vpp_fps_conversion[] = {
 const CX_DESC list_vpp_sub_shaping[] = {
     { _T("simple"),  QSV_VPP_SUB_SIMPLE  },
     { _T("complex"), QSV_VPP_SUB_COMPLEX },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_rotate_angle[] = {
+    { _T("0"),     MFX_ANGLE_0    },
+    { _T("90"),    MFX_ANGLE_90   },
+    { _T("180"),   MFX_ANGLE_180  },
+    { _T("270"),   MFX_ANGLE_270  },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_mirroring[] = {
+    { _T("n"), MFX_MIRRORING_DISABLED   },
+    { _T("h"), MFX_MIRRORING_HORIZONTAL },
+    { _T("v"), MFX_MIRRORING_VERTICAL   },
     { NULL, 0 }
 };
 

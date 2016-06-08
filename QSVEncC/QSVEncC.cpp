@@ -729,6 +729,9 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #endif //#if ENABLE_CUSTOM_VPP
         _T("   --vpp-rotate <int>           rotate image\n")
         _T("                                 90, 180, 270.\n")
+        _T("   --vpp-mirror <string>        mirror image\n")
+        _T("                                 - h   mirror in horizontal direction\n")
+        _T("                                 - v   mirror in vertical   direction\n")
         _T("   --vpp-half-turn              half turn video image\n")
         _T("                                 unoptimized and very slow.\n"),
         QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
@@ -2631,8 +2634,19 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("vpp-rotate"))) {
         i++;
         int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_rotate_angle, strInput[i]))) {
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_rotate_angle, strInput[i]))) {
             pParams->vpp.nRotate = (mfxU16)value;
+        } else {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-mirror"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_mirroring, strInput[i]))) {
+            pParams->vpp.nMirrorType = (mfxU16)value;
         } else {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;

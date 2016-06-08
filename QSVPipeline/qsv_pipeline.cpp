@@ -1071,6 +1071,12 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         }
     }
 
+    if (pInParams->vpp.nMirrorType != MFX_MIRRORING_DISABLED
+        && !(availableFeaures & VPP_FEATURE_MIRROR)) {
+        PrintMes(QSV_LOG_ERROR, _T("vpp mirroring is not supported on this platform, disabled.\n"));
+        return MFX_ERR_UNSUPPORTED;
+    }
+
     if (!pInParams) {
         return MFX_ERR_MEMORY_ALLOC;
     }
@@ -1256,6 +1262,15 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         break;
     default:
         break;
+    }
+
+    if (pParams->vpp.nMirrorType != MFX_MIRRORING_DISABLED) {
+        INIT_MFX_EXT_BUFFER(m_ExtMirror, MFX_EXTBUFF_VPP_MIRRORING);
+        m_ExtMirror.Type = pParams->vpp.nMirrorType;
+        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtMirror);
+
+        vppExtAddMes(strsprintf(_T("mirroring %s\n"), get_chr_from_value(list_vpp_mirroring, pParams->vpp.nMirrorType)));
+        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MIRRORING);
     }
 
     if (FPS_CONVERT_NONE != pParams->vpp.nFPSConversion) {
@@ -2007,6 +2022,12 @@ CQSVPipeline::CQSVPipeline() {
     QSV_MEMSET_ZERO(m_VppDoUse);
     QSV_MEMSET_ZERO(m_ExtDenoise);
     QSV_MEMSET_ZERO(m_ExtDetail);
+    QSV_MEMSET_ZERO(m_ExtDeinterlacing);
+    QSV_MEMSET_ZERO(m_ExtFrameRateConv);
+    QSV_MEMSET_ZERO(m_ExtRotate);
+    QSV_MEMSET_ZERO(m_ExtVppVSI);
+    QSV_MEMSET_ZERO(m_ExtImageStab);
+    QSV_MEMSET_ZERO(m_ExtMirror);
 
     QSV_MEMSET_ZERO(m_EncResponse);
     QSV_MEMSET_ZERO(m_VppResponse);

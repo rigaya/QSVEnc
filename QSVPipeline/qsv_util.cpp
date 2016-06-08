@@ -747,6 +747,7 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     vppVSI.In.NominalRange = MFX_NOMINALRANGE_16_235;
     vppVSI.Out.NominalRange = MFX_NOMINALRANGE_0_255;
     vppRotate.Angle = MFX_ANGLE_180;
+    vppMirror.Type = MFX_MIRRORING_HORIZONTAL;
 
     vector<mfxExtBuffer*> buf;
     buf.push_back((mfxExtBuffer *)&vppDoUse);

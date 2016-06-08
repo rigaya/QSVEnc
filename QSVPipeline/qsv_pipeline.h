@@ -180,6 +180,7 @@ protected:
     mfxExtVPPRotation m_ExtRotate;
     mfxExtVPPVideoSignalInfo m_ExtVppVSI;
     mfxExtVPPImageStab m_ExtImageStab;
+    mfxExtVPPMirroring m_ExtMirror;
     vector<mfxU32> m_VppDoNotUseList;
     vector<mfxU32> m_VppDoUseList;
     vector<unique_ptr<AVChapter>> m_AVChapterFromFile;
