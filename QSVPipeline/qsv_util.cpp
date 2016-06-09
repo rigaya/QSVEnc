@@ -1597,6 +1597,8 @@ const TCHAR *get_err_mes(int sts) {
         case MFX_ERR_INVALID_VIDEO_PARAM:      return _T("invalid video parameters.");
         case MFX_ERR_UNDEFINED_BEHAVIOR:       return _T("undefined behavior.");
         case MFX_ERR_DEVICE_FAILED:            return _T("device operation failure.");
+        case MFX_ERR_GPU_HANG:                 return _T("gpu hang.");
+        case MFX_ERR_REALLOC_SURFACE:          return _T("failed to realloc surface.");
         
         case MFX_WRN_IN_EXECUTION:             return _T("the previous asynchrous operation is in execution.");
         case MFX_WRN_DEVICE_BUSY:              return _T("the HW acceleration device is busy.");
