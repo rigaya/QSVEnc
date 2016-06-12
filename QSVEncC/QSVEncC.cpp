@@ -485,9 +485,9 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
         _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
         _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
-        _T("   --qpmin <int> or             set min QP, default 0 (= unset)\n")
+        _T("   --qp-min <int> or            set min QP, default 0 (= unset)\n")
         _T("           <int>:<int>:<int>\n")
-        _T("   --qpmax <int> or             set max QP, default 0 (= unset)\n")
+        _T("   --qp-max <int> or            set max QP, default 0 (= unset)\n")
         _T("           <int>:<int>:<int>\n")
         _T("-u,--quality <string>           encode quality\n")
         _T("                                  - best, higher, high, balanced(default)\n")
@@ -2351,9 +2351,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->bNoDeblock = true;
         return MFX_ERR_NONE;
     }
-    if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))) {
+    if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
+        || 0 == _tcscmp(option_name, _T("qp-max")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
         i++;
-        mfxU32 qpLimit[3] ={ 0 };
+        int qpLimit[3] = { 0 };
         if (   3 != _stscanf_s(strInput[i], _T("%d:%d:%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])
             && 3 != _stscanf_s(strInput[i], _T("%d,%d,%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])
             && 3 != _stscanf_s(strInput[i], _T("%d/%d/%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])) {
@@ -2365,9 +2366,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 return MFX_PRINT_OPTION_ERR;
             }
         }
-        mfxU8 *limit = (0 == _tcscmp(option_name, _T("qpmin"))) ? pParams->nQPMin : pParams->nQPMax;
+        uint8_t *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
         for (int j = 0; j < 3; j++) {
-            limit[j] = (mfxU8)clamp(qpLimit[j], 0, 51);
+            limit[j] = (uint8_t)clamp(qpLimit[j], 0, 51);
         }
         return MFX_ERR_NONE;
     }
