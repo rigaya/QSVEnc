@@ -295,7 +295,7 @@ typedef struct {
 static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thread_wk) {
     //渡されたスレッドIDからスレッドAffinityを決定
     //特定のコアにスレッドを縛り付ける
-    SetThreadAffinityMask(GetCurrentThread(), 1 << thread_id);
+    SetThreadAffinityMask(GetCurrentThread(), (size_t)1 << thread_id);
     //高優先度で実行
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
