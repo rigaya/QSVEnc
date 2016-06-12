@@ -607,6 +607,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
         pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
     }
+    bool bQPOffsetUsed = false;
+    std::for_each(pInParams->pQPOffset, pInParams->pQPOffset + _countof(pInParams->pQPOffset), [&bQPOffsetUsed](int8_t v){ bQPOffsetUsed |= (v != 0); });
+    if (bQPOffsetUsed && !(availableFeaures & ENC_FEATURE_PYRAMID_QP_OFFSET)) {
+        print_feature_warnings(QSV_LOG_WARN, _T("QPOffset"));
+        memset(pInParams->pQPOffset, 0, sizeof(pInParams->pQPOffset));
+        bQPOffsetUsed = false;
+    }
+    
     if (!(availableFeaures & ENC_FEATURE_VUI_INFO)) {
         if (pInParams->bFullrange) {
             print_feature_warnings(QSV_LOG_WARN, _T("fullrange"));
@@ -899,6 +907,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption3.WeightedPred   = check_coding_option(pInParams->nWeightP);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
+            m_CodingOption3.FadeDetection = check_coding_option(pInParams->nFadeDetect);
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
+            if (bQPOffsetUsed) {
+                m_CodingOption3.EnableQPOffset = MFX_CODINGOPTION_ON;
+                memcpy(m_CodingOption3.QPOffset, pInParams->pQPOffset, sizeof(pInParams->pQPOffset));
+            }
             m_CodingOption3.FadeDetection = check_coding_option(pInParams->nFadeDetect);
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
@@ -1303,7 +1318,6 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_ExtScaling.ScalingMode = pParams->vpp.nScalingQuality;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtScaling);
 
-        vppExtAddMes(strsprintf(_T("scaling %s\n"), get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.nScalingQuality)));
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_SCALING);
     }
 
@@ -3095,7 +3109,10 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     if (pParams->nWidth  != pParams->nDstWidth ||
         pParams->nHeight != pParams->nDstHeight) {
-        tstring mes = strsprintf(_T("Resizer, %dx%d -> %dx%d\n"), pParams->nWidth, pParams->nHeight, pParams->nDstWidth, pParams->nDstHeight);
+        tstring mes = strsprintf(_T("Resizer, %dx%d -> %dx%d"), pParams->nWidth, pParams->nHeight, pParams->nDstWidth, pParams->nDstHeight);
+        if (pParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT) {
+            mes += tstring(_T(" (")) + get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.nScalingQuality) + _T(")");
+        }
         PrintMes(QSV_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
         VppExtMes += mes;
     }
@@ -4959,6 +4976,18 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                     PRINT_INFO(_T("QVBR Quality   %d\n"), cop3.QVBRQuality);
                 }
             }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19) && (cop3.EnableQPOffset == MFX_CODINGOPTION_ON)) {
+            tstring bufQPOffset;
+            uint32_t fin = _countof(cop3.QPOffset);
+            while (fin > 0 && cop3.QPOffset[fin] != cop3.QPOffset[fin-1]) {
+                fin--;
+            }
+            for (uint32_t i = 0; i < fin; i++) {
+                bufQPOffset += ((i) ? _T(", ") : _T(""));
+                bufQPOffset += strsprintf(_T("%d"), cop3.QPOffset[i]);
+            }
+            PRINT_INFO(_T("Pyram QPOffset %s\n"), bufQPOffset.c_str());
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
             auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {

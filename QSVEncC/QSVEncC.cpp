@@ -489,6 +489,9 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("           <int>:<int>:<int>\n")
         _T("   --qp-max <int> or            set max QP, default 0 (= unset)\n")
         _T("           <int>:<int>:<int>\n")
+        _T("   --qp-offset <int>[:<int>][:<int>]...\n")
+        _T("                                set qp offset of each pyramid reference layers.\n")
+        _T("                                 default 0 (= unset).\n")
         _T("-u,--quality <string>           encode quality\n")
         _T("                                  - best, higher, high, balanced(default)\n")
         _T("                                    fast, faster, fastest\n")
@@ -2369,6 +2372,36 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         uint8_t *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
         for (int j = 0; j < 3; j++) {
             limit[j] = (uint8_t)clamp(qpLimit[j], 0, 51);
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("qp-offset"))) {
+        i++;
+        auto values = split(strInput[i], _T(":"), true);
+        if (values.size() == 0) {
+            PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        if (values.size() > 8) {
+            PrintHelp(strInput[0], strsprintf(_T("qp-offset value could be set up to 8 layers, but was set for %d layers.\n"), (int)values.size()).c_str(), option_name, strInput[i]);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        uint32_t iv = 0;
+        for (; iv < values.size(); iv++) {
+            TCHAR *eptr = nullptr;
+            int v = _tcstol(values[iv].c_str(), &eptr, 0);
+            if (v == 0 && (eptr != nullptr || *eptr == ' ')) {
+                PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[iv]);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            if (v < -51 || v > 51) {
+                PrintHelp(strInput[0], _T("qp-offset value should be in range of -51 - 51.\n"), option_name, strInput[i]);
+                return MFX_PRINT_OPTION_ERR;
+            }
+            pParams->pQPOffset[iv] = (int8_t)v;
+        }
+        for (; iv < _countof(pParams->pQPOffset); iv++) {
+            pParams->pQPOffset[iv] = pParams->pQPOffset[iv-1];
         }
         return MFX_ERR_NONE;
     }
