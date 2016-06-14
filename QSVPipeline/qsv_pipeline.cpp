@@ -80,33 +80,33 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
 #define COMPARE_INT(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes(((int64_t)prmIn.member == (int64_t)ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %d -> %d\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
+        PrintMes(((int64_t)prmIn.member == (int64_t)ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %d -> %d by driver\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
     }}
 #define TRI_STATE(x) ((x == 0) ? _T("auto") : ((x == 16) ? _T("on") : _T("off")))
 #define COMPARE_TRI(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s\n"), _T(#member), TRI_STATE(prmIn.member), TRI_STATE(prmOut.member)); \
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), TRI_STATE(prmIn.member), TRI_STATE(prmOut.member)); \
     }}
 #define COMPARE_HEX(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed 0x%x -> 0x%x\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed 0x%x -> 0x%x by driver\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
     }}
 #define COMPARE_DBL(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %lf -> %lf\n"), _T(#member), (double)prmIn.member, (double)prmOut.member); \
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %lf -> %lf by driver\n"), _T(#member), (double)prmIn.member, (double)prmOut.member); \
     }}
 #define COMPARE_STR(member, ignoreIfInput, printMethod) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s\n"), _T(#member), printMethod(prmIn.member), printMethod(prmOut.member)); \
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), printMethod(prmIn.member), printMethod(prmOut.member)); \
     }}
 #define COMPARE_LST(member, ignoreIfInput, list) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s\n"), _T(#member), get_chr_from_value(list, prmIn.member), get_chr_from_value(list, prmOut.member)); \
+        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), get_chr_from_value(list, prmIn.member), get_chr_from_value(list, prmOut.member)); \
     }}
     COMPARE_INT(vidprm.AsyncDepth,             0);
     COMPARE_HEX(vidprm.IOPattern,              0);
