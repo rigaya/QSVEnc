@@ -233,18 +233,18 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     COMPARE_TRI(cop3.MaxFrameSizeI,      0);
     COMPARE_TRI(cop3.MaxFrameSizeP,      0);
     COMPARE_TRI(cop3.EnableQPOffset,     0);
-    COMPARE_TRI(cop3.QPOffset[0],        0);
-    COMPARE_TRI(cop3.QPOffset[1],        0);
-    COMPARE_TRI(cop3.QPOffset[2],        0);
-    COMPARE_TRI(cop3.NumRefActiveP[0],   0);
-    COMPARE_TRI(cop3.NumRefActiveP[1],   0);
-    COMPARE_TRI(cop3.NumRefActiveP[2],   0);
-    COMPARE_TRI(cop3.NumRefActiveBL0[0], 0);
-    COMPARE_TRI(cop3.NumRefActiveBL0[1], 0);
-    COMPARE_TRI(cop3.NumRefActiveBL0[2], 0);
-    COMPARE_TRI(cop3.NumRefActiveBL1[0], 0);
-    COMPARE_TRI(cop3.NumRefActiveBL1[1], 0);
-    COMPARE_TRI(cop3.NumRefActiveBL1[2], 0);
+    COMPARE_INT(cop3.QPOffset[0],        0);
+    COMPARE_INT(cop3.QPOffset[1],        0);
+    COMPARE_INT(cop3.QPOffset[2],        0);
+    COMPARE_INT(cop3.NumRefActiveP[0],   0);
+    COMPARE_INT(cop3.NumRefActiveP[1],   0);
+    COMPARE_INT(cop3.NumRefActiveP[2],   0);
+    COMPARE_INT(cop3.NumRefActiveBL0[0], 0);
+    COMPARE_INT(cop3.NumRefActiveBL0[1], 0);
+    COMPARE_INT(cop3.NumRefActiveBL0[2], 0);
+    COMPARE_INT(cop3.NumRefActiveBL1[0], 0);
+    COMPARE_INT(cop3.NumRefActiveBL1[1], 0);
+    COMPARE_INT(cop3.NumRefActiveBL1[2], 0);
     return ret;
 }
 
