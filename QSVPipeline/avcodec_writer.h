@@ -45,6 +45,7 @@ using std::vector;
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
 typedef struct AVMuxFormat {
+    const TCHAR          *pFilename;
     AVFormatContext      *pFormatCtx;           //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
     AVOutputFormat       *pOutputFmt;           //出力ファイルのoutputFormat
@@ -75,6 +76,7 @@ typedef struct AVMuxVideo {
     bool                  bIsPAFF;              //出力映像がPAFFである
     mfxVideoParam         mfxParam;             //動画パラメータのコピー
     mfxExtCodingOption2   mfxCop2;              //動画パラメータのコピー
+    FILE                 *fpTsLogFile;          //mux timestampログファイル
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
@@ -233,6 +235,7 @@ typedef struct AvcodecWriterPrm {
     int                          nAudioThread;            //音声処理スレッド数
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
+    const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
 } AvcodecWriterPrm;
 
 class CAvcodecWriter : public CQSVOut

@@ -1618,10 +1618,10 @@ mfxStatus CQSVPipeline::AllocFrames() {
     nDecSurfAdd = DecRequest.NumFrameSuggested;
 
     //vppの出力用のフレームとencの入力用のフレームは共有される
-    nEncSurfNum = EncRequest.NumFrameSuggested + (m_nAsyncDepth - 1);
+    nEncSurfNum = EncRequest.NumFrameSuggested + m_nAsyncDepth;
 
     //m_nAsyncDepthを考慮して、vppの入力用のフレーム数を決める
-    nVppSurfNum = VppRequest[0].NumFrameSuggested + (m_nAsyncDepth - 1);
+    nVppSurfNum = VppRequest[0].NumFrameSuggested + m_nAsyncDepth;
     
     PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: nInputSurfAdd %d frames\n"), nInputSurfAdd);
     PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: nDecSurfAdd   %d frames\n"), nDecSurfAdd);
@@ -2163,6 +2163,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
+        writerPrm.pMuxVidTsLogFile = pParams->pMuxVidTsLogFile;
         if (pParams->pMuxOpt) {
             writerPrm.vMuxOpt = *pParams->pMuxOpt;
         }

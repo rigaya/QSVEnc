@@ -402,7 +402,8 @@ struct sInputParams
     int8_t     nVideoTrack;
     int8_t     __unused[3];
     int16_t    pQPOffset[8];
-    int8_t     Reserved[1042];
+    TCHAR     *pMuxVidTsLogFile;
+    int8_t     Reserved[1038];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

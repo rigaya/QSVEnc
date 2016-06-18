@@ -2924,6 +2924,11 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         memcpy(pParams->pFramePosListLog, strInput[i], sizeof(pParams->pFramePosListLog[0]) * filename_len);
         return MFX_ERR_NONE;
     }
+    if (0 == _tcscmp(option_name, _T("log-mux-ts"))) {
+        i++;
+        pParams->pMuxVidTsLogFile = _tcsdup(strInput[i]);
+        return MFX_ERR_NONE;
+    }
     if (0 == _tcscmp(option_name, _T("colormatrix"))) {
         i++;
         int value;
