@@ -82,7 +82,7 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         ret = true;\
         PrintMes(((int64_t)prmIn.member == (int64_t)ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %d -> %d by driver\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
     }}
-#define TRI_STATE(x) ((x == 0) ? _T("auto") : ((x == 16) ? _T("on") : _T("off")))
+#define TRI_STATE(x) ((x == 0) ? _T("auto") : ((x == MFX_CODINGOPTION_ON) ? _T("on") : _T("off")))
 #define COMPARE_TRI(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
