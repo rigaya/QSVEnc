@@ -157,8 +157,15 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     COMPARE_INT(vidprm.mfx.EncodedOrder,         0);
     COMPARE_INT(vidprm.mfx.ExtendedPicStruct,    0);
     COMPARE_INT(vidprm.mfx.TimeStampCalc,        0);
-    COMPARE_INT(vidprm.mfx.SliceGroupsPresent,   0);
-    COMPARE_INT(vidprm.mfx.MaxDecFrameBuffering, 0);
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+        COMPARE_INT(vidprm.mfx.SliceGroupsPresent, 0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
+        COMPARE_TRI(vidprm.mfx.LowPower, 0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
+        COMPARE_INT(vidprm.mfx.MaxDecFrameBuffering, 0);
+    }
 
     COMPARE_TRI(cop.RateDistortionOpt,    0);
     COMPARE_INT(cop.MECostType,           0);
@@ -166,85 +173,110 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     COMPARE_TRI(cop.EndOfSequence,        0);
     COMPARE_TRI(cop.FramePicture,         0);
     COMPARE_TRI(cop.CAVLC,                0);
-    COMPARE_TRI(cop.RecoveryPointSEI,     0);
     COMPARE_TRI(cop.ViewOutput,           0);
-    COMPARE_TRI(cop.NalHrdConformance,    0);
-    COMPARE_TRI(cop.SingleSeiNalUnit,     0);
     COMPARE_TRI(cop.VuiVclHrdParameters,  0);
     COMPARE_TRI(cop.RefPicListReordering, 0);
     COMPARE_TRI(cop.ResetRefList,         0);
-    COMPARE_TRI(cop.RefPicMarkRep,        0);
-    COMPARE_TRI(cop.FieldOutput,          0);
     COMPARE_INT(cop.MaxDecFrameBuffering, 0);
     COMPARE_TRI(cop.AUDelimiter,          0);
     COMPARE_TRI(cop.EndOfStream,          0);
     COMPARE_TRI(cop.PicTimingSEI,         0);
-    COMPARE_TRI(cop.VuiNalHrdParameters,  0);
-
-    COMPARE_INT(cop2.MaxFrameSize,        0);
-    COMPARE_INT(cop2.MaxSliceSize,        0);
-    COMPARE_TRI(cop2.BitrateLimit,        0);
-    COMPARE_TRI(cop2.MBBRC,               0);
-    COMPARE_TRI(cop2.ExtBRC,              0);
-    COMPARE_INT(cop2.LookAheadDepth,      0);
-    COMPARE_INT(cop2.Trellis,             0);
-    COMPARE_TRI(cop2.RepeatPPS,           0);
-    COMPARE_INT(cop2.BRefType,            0);
-    COMPARE_TRI(cop2.AdaptiveI,           0);
-    COMPARE_TRI(cop2.AdaptiveB,           0);
-    COMPARE_INT(cop2.SkipFrame,           0);
-    COMPARE_INT(cop2.MinQPI,              0);
-    COMPARE_INT(cop2.MaxQPI,              0);
-    COMPARE_INT(cop2.MinQPP,              0);
-    COMPARE_INT(cop2.MaxQPP,              0);
-    COMPARE_INT(cop2.MinQPB,              0);
-    COMPARE_INT(cop2.MaxQPB,              0);
-    COMPARE_TRI(cop2.FixedFrameRate,      0);
-    COMPARE_INT(cop2.DisableDeblockingIdc,0);
-    COMPARE_INT(cop2.DisableVUI,          0);
-    COMPARE_INT(cop2.BufferingPeriodSEI,  0);
-    COMPARE_TRI(cop2.EnableMAD,           0);
-    COMPARE_TRI(cop2.UseRawRef,           0);
-
-    COMPARE_INT(cop3.NumSliceI,                  0);
-    COMPARE_INT(cop3.NumSliceP,                  0);
-    COMPARE_INT(cop3.NumSliceB,                  0);
-    if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
-        COMPARE_INT(cop3.WinBRCMaxAvgKbps,       0);
-        COMPARE_INT(cop3.WinBRCSize,             0);
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3)) {
+        COMPARE_TRI(cop.RefPicMarkRep,       0);
+        COMPARE_TRI(cop.FieldOutput,         0);
+        COMPARE_TRI(cop.NalHrdConformance,   0);
+        COMPARE_TRI(cop.SingleSeiNalUnit,    0);
+        COMPARE_TRI(cop.VuiNalHrdParameters, 0);
     }
-    COMPARE_TRI(cop3.EnableMBQP,                 0);
-    COMPARE_INT(cop3.IntRefCycleDist,            0);
-    COMPARE_TRI(cop3.DirectBiasAdjustment,       0);
-    COMPARE_TRI(cop3.GlobalMotionBiasAdjustment, 0);
-    COMPARE_INT(cop3.MVCostScalingFactor,        0);
-    COMPARE_TRI(cop3.MBDisableSkipMap,           0);
-    COMPARE_INT(cop3.WeightedPred,               0);
-    COMPARE_INT(cop3.WeightedBiPred,             0);
-    COMPARE_TRI(cop3.AspectRatioInfoPresent,     0);
-    COMPARE_TRI(cop3.OverscanInfoPresent,        0);
-    COMPARE_TRI(cop3.OverscanAppropriate,        0);
-    COMPARE_TRI(cop3.TimingInfoPresent,          0);
-    COMPARE_TRI(cop3.BitstreamRestriction,       0);
-    COMPARE_INT(cop3.PRefType,                   0);
-    COMPARE_TRI(cop3.FadeDetection,              0);
-    COMPARE_TRI(cop3.LowDelayHrd,                0);
-    COMPARE_TRI(cop3.MotionVectorsOverPicBoundaries, 0);
-    COMPARE_TRI(cop3.MaxFrameSizeI,      0);
-    COMPARE_TRI(cop3.MaxFrameSizeP,      0);
-    COMPARE_TRI(cop3.EnableQPOffset,     0);
-    COMPARE_INT(cop3.QPOffset[0],        0);
-    COMPARE_INT(cop3.QPOffset[1],        0);
-    COMPARE_INT(cop3.QPOffset[2],        0);
-    COMPARE_INT(cop3.NumRefActiveP[0],   0);
-    COMPARE_INT(cop3.NumRefActiveP[1],   0);
-    COMPARE_INT(cop3.NumRefActiveP[2],   0);
-    COMPARE_INT(cop3.NumRefActiveBL0[0], 0);
-    COMPARE_INT(cop3.NumRefActiveBL0[1], 0);
-    COMPARE_INT(cop3.NumRefActiveBL0[2], 0);
-    COMPARE_INT(cop3.NumRefActiveBL1[0], 0);
-    COMPARE_INT(cop3.NumRefActiveBL1[1], 0);
-    COMPARE_INT(cop3.NumRefActiveBL1[2], 0);
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+        COMPARE_TRI(cop.RecoveryPointSEI, 0);
+
+        COMPARE_INT(cop2.MaxFrameSize,    0);
+        COMPARE_INT(cop2.MaxSliceSize,    0);
+        COMPARE_TRI(cop2.BitrateLimit,    0);
+        COMPARE_TRI(cop2.MBBRC,           0);
+        COMPARE_TRI(cop2.ExtBRC,          0);
+    }
+
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+        COMPARE_TRI(cop2.RepeatPPS,           0);
+        COMPARE_INT(cop2.BRefType,            0);
+        COMPARE_TRI(cop2.AdaptiveI,           0);
+        COMPARE_TRI(cop2.AdaptiveB,           0);
+        COMPARE_INT(cop2.NumMbPerSlice,       0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
+        COMPARE_INT(cop2.MaxSliceSize,        0);
+        COMPARE_INT(cop2.SkipFrame,           0);
+        COMPARE_INT(cop2.MinQPI,              0);
+        COMPARE_INT(cop2.MaxQPI,              0);
+        COMPARE_INT(cop2.MinQPP,              0);
+        COMPARE_INT(cop2.MaxQPP,              0);
+        COMPARE_INT(cop2.MinQPB,              0);
+        COMPARE_INT(cop2.MaxQPB,              0);
+        COMPARE_INT(cop2.FixedFrameRate,      0);
+        COMPARE_INT(cop2.DisableDeblockingIdc,0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_10)) {
+        COMPARE_INT(cop2.DisableVUI,         0);
+        COMPARE_INT(cop2.BufferingPeriodSEI, 0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+        COMPARE_TRI(cop2.EnableMAD, 0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
+        COMPARE_TRI(cop2.UseRawRef, 0);
+    }
+
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+        COMPARE_INT(cop3.NumSliceI,                  0);
+        COMPARE_INT(cop3.NumSliceP,                  0);
+        COMPARE_INT(cop3.NumSliceB,                  0);
+        if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
+            COMPARE_INT(cop3.WinBRCMaxAvgKbps,       0);
+            COMPARE_INT(cop3.WinBRCSize,             0);
+        }
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
+        COMPARE_TRI(cop3.EnableMBQP,                 0);
+        COMPARE_TRI(cop3.DirectBiasAdjustment,       0);
+        COMPARE_TRI(cop3.GlobalMotionBiasAdjustment, 0);
+        COMPARE_INT(cop3.MVCostScalingFactor,        0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
+        COMPARE_INT(cop3.IntRefCycleDist,            0);
+        COMPARE_TRI(cop3.MBDisableSkipMap,           0);
+        COMPARE_INT(cop3.WeightedPred,               0);
+        COMPARE_INT(cop3.WeightedBiPred,             0);
+        COMPARE_TRI(cop3.AspectRatioInfoPresent,     0);
+        COMPARE_TRI(cop3.OverscanInfoPresent,        0);
+        COMPARE_TRI(cop3.OverscanAppropriate,        0);
+        COMPARE_TRI(cop3.TimingInfoPresent,          0);
+        COMPARE_TRI(cop3.BitstreamRestriction,       0);
+        COMPARE_INT(cop3.PRefType,                   0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
+        COMPARE_TRI(cop3.FadeDetection,              0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
+        COMPARE_TRI(cop3.LowDelayHrd,                0);
+        COMPARE_TRI(cop3.MotionVectorsOverPicBoundaries, 0);
+        COMPARE_TRI(cop3.MaxFrameSizeI,      0);
+        COMPARE_TRI(cop3.MaxFrameSizeP,      0);
+        COMPARE_TRI(cop3.EnableQPOffset,     0);
+        COMPARE_INT(cop3.QPOffset[0],        0);
+        COMPARE_INT(cop3.QPOffset[1],        0);
+        COMPARE_INT(cop3.QPOffset[2],        0);
+        COMPARE_INT(cop3.NumRefActiveP[0],   0);
+        COMPARE_INT(cop3.NumRefActiveP[1],   0);
+        COMPARE_INT(cop3.NumRefActiveP[2],   0);
+        COMPARE_INT(cop3.NumRefActiveBL0[0], 0);
+        COMPARE_INT(cop3.NumRefActiveBL0[1], 0);
+        COMPARE_INT(cop3.NumRefActiveBL0[2], 0);
+        COMPARE_INT(cop3.NumRefActiveBL1[0], 0);
+        COMPARE_INT(cop3.NumRefActiveBL1[1], 0);
+        COMPARE_INT(cop3.NumRefActiveBL1[2], 0);
+    }
     return ret;
 }
 
