@@ -855,8 +855,9 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
             *(buf.end()    - 1) = (mfxExtBuffer *)structIn;
             *(bufOut.end() - 1) = (mfxExtBuffer *)structOut;
             mfxStatus ret = vpp.Query(&videoPrm, &videoPrmOut);
-            if (MFX_ERR_NONE <= ret)
+            if (MFX_ERR_NONE <= ret) {
                 result |= (MFX_ERR_NONE == ret || MFX_WRN_PARTIAL_ACCELERATION == ret) ? featureNoErr : featureWarn;
+            }
         }
     };
 
@@ -876,6 +877,114 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     return result;
 }
 
+#if D3D_SURFACES_SUPPORT
+#include "qsv_hw_d3d9.h"
+#include "qsv_hw_d3d11.h"
+
+#include "qsv_allocator_d3d9.h"
+#include "qsv_allocator_d3d11.h"
+#endif
+
+#ifdef LIBVA_SUPPORT
+#include "qsv_hw_va.h"
+#include "qsv_allocator_va.h"
+#endif
+
+
+mfxSession InitSession(bool useHWLib, MemType& memType) {
+    mfxStatus sts = MFX_ERR_NONE;
+    mfxSession session = NULL;
+
+    if (useHWLib) {
+        //とりあえず、MFX_IMPL_HARDWARE_ANYでの初期化を試みる
+        mfxIMPL impl = MFX_IMPL_HARDWARE_ANY;
+#if MFX_D3D11_SUPPORT
+        //Win7でD3D11のチェックをやると、
+        //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
+        //D3D11をWin8以降に限定
+        if (!check_OS_Win8orLater()) {
+            memType &= (MemType)(~D3D11_MEMORY);
+        }
+
+#endif //#if MFX_D3D11_SUPPORT
+        //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
+        for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
+#if MFX_D3D11_SUPPORT
+            if (D3D11_MEMORY & memType) {
+                if (0 == i_try_d3d11) {
+                    impl |= MFX_IMPL_VIA_D3D11; //d3d11モードも試す場合は、まずd3d11モードをチェック
+                    memType = D3D11_MEMORY;
+                } else {
+                    impl &= ~MFX_IMPL_VIA_D3D11; //d3d11をオフにして再度テストする
+                    memType = D3D9_MEMORY;
+                }
+            }
+#endif
+            mfxVersion verRequired = MFX_LIB_VERSION_1_1;
+            sts = MFXInit(impl, &verRequired, &session);
+
+            //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
+            if (MFX_ERR_NONE != sts) {
+                sts = MFXInit((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired, &session);
+            }
+
+            //成功したらループを出る
+            if (MFX_ERR_NONE == sts) {
+                break;
+            }
+        }
+    } else {
+        mfxIMPL impl = MFX_IMPL_SOFTWARE;
+        mfxVersion verRequired = MFX_LIB_VERSION_1_1;
+        sts = MFXInit(impl, &verRequired, &session);
+        memType = SYSTEM_MEMORY;
+    }
+    return session;
+}
+
+std::unique_ptr<CQSVHWDevice> InitHWDevice(mfxSession session, MemType& memType) {
+    mfxStatus sts = MFX_ERR_NONE;
+#if D3D_SURFACES_SUPPORT
+    POINT point = {0, 0};
+    HWND window = WindowFromPoint(point);
+    std::unique_ptr<CQSVHWDevice> hwdev;
+    std::shared_ptr<CQSVLog> pQSVLog(new CQSVLog(nullptr, QSV_LOG_ERROR));
+
+    if (memType) {
+#if MFX_D3D11_SUPPORT
+        if (memType == D3D11_MEMORY
+            && (hwdev = std::make_unique<CQSVD3D11Device>())) {
+            memType = D3D11_MEMORY;
+
+            sts = hwdev->Init(NULL, GetAdapterID(session), pQSVLog);
+            if (sts != MFX_ERR_NONE) {
+                hwdev.reset();
+            }
+        }
+#endif // #if MFX_D3D11_SUPPORT
+        if (!hwdev && (hwdev = std::make_unique<CQSVD3D9Device>())) {
+            //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
+            //sessionごと切り替える必要がある
+            if (memType != D3D9_MEMORY) {
+                memType = D3D9_MEMORY;
+                InitSession(true, memType);
+            }
+
+            sts = hwdev->Init(window, GetAdapterID(session), pQSVLog);
+        }
+    }
+
+#elif LIBVA_SUPPORT
+    hwdev.reset(CreateVAAPIDevice());
+    if (!hwdev) {
+        return MFX_ERR_MEMORY_ALLOC;
+    }
+    sts = hwdev->Init(NULL, GetAdapterID(session), m_pQSVLog);
+    QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
+#endif
+    return hwdev;
+}
+
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
     mfxU64 feature = 0x00;
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
@@ -887,13 +996,14 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
         feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
         feature |= VPP_FEATURE_PROC_AMP;
     } else {
-        mfxSession session = NULL;
+        MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
+        if (mfxSession session = InitSession(hardware, memType)) {
+            if (auto hwdevice = InitHWDevice(session, memType)) {
+                feature = CheckVppFeaturesInternal(session, ver);
+            }
+            MFXClose(session);
+        }
 
-        mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
-
-        feature = (MFX_ERR_NONE == ret) ? CheckVppFeaturesInternal(session, ver) : 0x00;
-
-        MFXClose(session);
     }
 
     return feature;
