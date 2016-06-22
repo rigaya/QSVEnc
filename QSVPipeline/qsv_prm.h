@@ -84,8 +84,26 @@ enum MemType {
     VA_MEMORY     = 0x01,
     D3D9_MEMORY   = 0x01,
     D3D11_MEMORY  = 0x02,
-    HW_MEMORY = D3D9_MEMORY | D3D11_MEMORY,
+    HW_MEMORY     = D3D9_MEMORY | D3D11_MEMORY,
 };
+
+static MemType operator|(MemType a, MemType b) {
+    return (MemType)((uint32_t)a | (uint32_t)b);
+}
+
+static MemType operator|=(MemType& a, MemType b) {
+    a = a | b;
+    return a;
+}
+
+static MemType operator&(MemType a, MemType b) {
+    return (MemType)((uint32_t)a & (uint32_t)b);
+}
+
+static MemType operator&=(MemType& a, MemType b) {
+    a = (MemType)((uint32_t)a & (uint32_t)b);
+    return a;
+}
 
 static const int8_t QSV_OUTPUT_THREAD_AUTO = -1;
 static const int8_t QSV_AUDIO_THREAD_AUTO = -1;
