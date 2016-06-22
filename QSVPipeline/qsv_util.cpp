@@ -725,6 +725,8 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     }
     MFXVideoVPP vpp(session);
 
+    const bool bSetDoNotUseTag = getCPUGen() < CPU_GEN_HASWELL;
+
     mfxExtVPPDoUse vppDoUse;
     mfxExtVPPDoUse vppDoNotUse;
     mfxExtVPPFrameRateConversion vppFpsConv;
@@ -754,7 +756,9 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 
     vector<mfxExtBuffer*> buf;
     buf.push_back((mfxExtBuffer *)&vppDoUse);
-    buf.push_back((mfxExtBuffer *)&vppDoNotUse);
+    if (bSetDoNotUseTag) {
+        buf.push_back((mfxExtBuffer *)&vppDoNotUse);
+    }
     buf.push_back((mfxExtBuffer *)nullptr);
 
     mfxVideoParam videoPrm;
@@ -803,7 +807,9 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     
     vector<mfxExtBuffer *> bufOut;
     bufOut.push_back((mfxExtBuffer *)&vppDoUse);
-    bufOut.push_back((mfxExtBuffer *)&vppDoNotUse);
+    if (bSetDoNotUseTag) {
+        bufOut.push_back((mfxExtBuffer *)&vppDoNotUse);
+    }
     bufOut.push_back((mfxExtBuffer *)nullptr);
 
     mfxVideoParam videoPrmOut;
