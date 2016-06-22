@@ -44,6 +44,7 @@
 #include "auo_error.h"
 #include "auo_audio.h"
 #include "auo_faw2aac.h"
+#include "qsv_query.h"
 
 static BOOL check_muxer_exist(const MUXER_SETTINGS *muxer_stg) {
     if (PathFileExists(muxer_stg->fullpath)) 

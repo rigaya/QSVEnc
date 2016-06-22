@@ -27,6 +27,7 @@
 
 #include "qsv_prm.h"
 #include "qsv_pipeline.h"
+#include "qsv_query.h"
 
 void init_qsvp_prm(sInputParams *prm) {
     memset(prm, 0, sizeof(sInputParams));

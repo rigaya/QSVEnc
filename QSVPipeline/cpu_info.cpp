@@ -43,6 +43,7 @@
 #include <emmintrin.h>
 #include "qsv_osdep.h"
 #include "qsv_util.h"
+#include "qsv_query.h"
 #include "cpu_info.h"
 
 int getCPUName(char *buffer, size_t nSize) {

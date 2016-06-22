@@ -33,6 +33,7 @@
 #include <fstream>
 #include <iostream>
 #include "qsv_util.h"
+#include "qsv_query.h"
 #include "qsv_simd.h"
 #include "qsv_osdep.h"
 #include "qsv_ini.h"

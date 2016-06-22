@@ -37,6 +37,7 @@
 #include <deque>
 #include "qsv_osdep.h"
 #include "qsv_pipeline.h"
+#include "qsv_query.h"
 #include "qsv_input.h"
 #include "qsv_output.h"
 #include "vpy_reader.h"

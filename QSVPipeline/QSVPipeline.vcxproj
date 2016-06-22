@@ -429,6 +429,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_pipe.cpp" />
     <ClCompile Include="qsv_plugin.cpp" />
     <ClCompile Include="qsv_prm.cpp" />
+    <ClCompile Include="qsv_query.cpp" />
     <ClCompile Include="qsv_simd.cpp" />
     <ClCompile Include="qsv_task.cpp" />
     <ClCompile Include="qsv_util.cpp" />
@@ -479,6 +480,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_pipe.h" />
     <ClInclude Include="qsv_plugin.h" />
     <ClInclude Include="qsv_prm.h" />
+    <ClInclude Include="qsv_query.h" />
     <ClInclude Include="qsv_queue.h" />
     <ClInclude Include="qsv_simd.h" />
     <ClInclude Include="qsv_log.h" />

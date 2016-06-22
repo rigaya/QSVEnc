@@ -43,6 +43,7 @@
 
 #include "qsv_pipeline.h"
 #include "qsv_prm.h"
+#include "qsv_query.h"
 #include "qsv_version.h"
 #include "avcodec_qsv.h"
 

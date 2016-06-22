@@ -35,6 +35,7 @@ using namespace System::Collections::Generic;
 
 #include "qsv_prm.h"
 #include "qsv_util.h"
+#include "qsv_query.h"
 #include "mfxstructures.h"
 
 #define HIDE_MPEG2
