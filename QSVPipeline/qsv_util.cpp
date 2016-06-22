@@ -724,6 +724,10 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
         result |= VPP_FEATURE_DEINTERLACE_IT_MANUAL;
     }
     MFXVideoVPP vpp(session);
+    mfxIMPL impl;
+    MFXQueryIMPL(session, &impl);
+    const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
+    const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
     const bool bSetDoNotUseTag = getCPUGen() < CPU_GEN_HASWELL;
 
@@ -767,7 +771,7 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
     videoPrm.AsyncDepth           = 3;
-    videoPrm.IOPattern            = MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
+    videoPrm.IOPattern            = (bHardware) ? MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
     videoPrm.vpp.In.FrameRateExtN = 24000;
     videoPrm.vpp.In.FrameRateExtD = 1001;
     videoPrm.vpp.In.FourCC        = MFX_FOURCC_NV12;
