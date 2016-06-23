@@ -591,7 +591,7 @@ qsv_control.cpp                  qsv_event.cpp               qsv_hw_d3d11.cpp \
 qsv_hw_d3d9.cpp                  qsv_hw_device.cpp           qsv_hw_va.cpp \
 qsv_ini.cpp                      qsv_input.cpp               qsv_output.cpp \
 qsv_pipe.cpp                     qsv_pipe_linux.cpp          qsv_pipeline.cpp \
-qsv_plugin.cpp                   qsv_prm.cpp                 qsv_simd.cpp \
+qsv_plugin.cpp                   qsv_prm.cpp                 qsv_query.cpp             qsv_simd.cpp \
 qsv_task.cpp                     qsv_util.cpp                qsv_version.cpp \
 ram_speed.cpp                    scene_change_detection.cpp  scene_change_detection_avx.cpp \
 scene_change_detection_simd.cpp  vpy_reader.cpp \

@@ -394,11 +394,11 @@ mfxSession InitSession(bool useHWLib, MemType& memType) {
 
 std::unique_ptr<CQSVHWDevice> InitHWDevice(mfxSession session, MemType& memType) {
     mfxStatus sts = MFX_ERR_NONE;
+    std::unique_ptr<CQSVHWDevice> hwdev;
+    std::shared_ptr<CQSVLog> pQSVLog(new CQSVLog(nullptr, QSV_LOG_ERROR));
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
     HWND window = WindowFromPoint(point);
-    std::unique_ptr<CQSVHWDevice> hwdev;
-    std::shared_ptr<CQSVLog> pQSVLog(new CQSVLog(nullptr, QSV_LOG_ERROR));
 
     if (memType) {
 #if MFX_D3D11_SUPPORT
@@ -426,12 +426,13 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(mfxSession session, MemType& memType)
 
 #elif LIBVA_SUPPORT
     hwdev.reset(CreateVAAPIDevice());
-    if (!hwdev) {
-        return MFX_ERR_MEMORY_ALLOC;
+    if (hwdev) {
+        sts = hwdev->Init(NULL, GetAdapterID(session), pQSVLog);
     }
-    sts = hwdev->Init(NULL, GetAdapterID(session), m_pQSVLog);
-    QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
 #endif
+    if (sts != MFX_ERR_NONE) {
+        hwdev.reset();
+    }
     return hwdev;
 }
 
