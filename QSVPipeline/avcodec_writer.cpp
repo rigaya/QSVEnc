@@ -259,10 +259,6 @@ void CAvcodecWriter::Close() {
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
-tstring CAvcodecWriter::errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
-    return mes + tstring(_T(" for ")) + char_to_tstring(avcodec_get_name(targetCodec)) + tstring(_T(".\n"));
-};
-
 AVCodecID CAvcodecWriter::getAVCodecId(mfxU32 QSVFourcc) {
     for (int i = 0; i < _countof(QSV_DECODE_LIST); i++)
         if (QSV_DECODE_LIST[i].qsv_fourcc == QSVFourcc)

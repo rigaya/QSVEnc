@@ -318,9 +318,6 @@ private:
     //QSVのコーデックFourccからAVCodecのCodecIDを返す
     AVCodecID getAVCodecId(mfxU32 QSVFourcc);
 
-    //"<mes> for codec"型のエラーメッセージを作成する  
-    tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec);
-
     //AAC音声にBitstreamフィルターを適用する
     void applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
 
