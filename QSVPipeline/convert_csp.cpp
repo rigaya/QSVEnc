@@ -110,7 +110,7 @@ static const ConvertCSP funcList[] = {
 const ConvertCSP* get_convert_csp_func(unsigned int csp_from, unsigned int csp_to, bool uv_only) {
     unsigned int availableSIMD = get_availableSIMD();
     const ConvertCSP *convert = nullptr;
-    for (int i = 0; funcList[i].func; i++) {
+    for (int i = 0; funcList[i].func[0]; i++) {
         if (csp_from != funcList[i].csp_from)
             continue;
         
