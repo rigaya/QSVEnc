@@ -2530,6 +2530,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 }
                 m_pFileReader = std::make_shared<CAvcodecReader>();
                 avcodecReaderPrm.memType = pParams->memType;
+                avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
                 avcodecReaderPrm.bReadVideo = true;
                 avcodecReaderPrm.nVideoTrack = pParams->nVideoTrack;
                 avcodecReaderPrm.nVideoStreamId = pParams->nVideoStreamId;

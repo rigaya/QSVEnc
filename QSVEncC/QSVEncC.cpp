@@ -332,7 +332,9 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
-        _T("-f,--format <string>            set output format of output file.\n")
+        _T("   --input-format <string>      set input format of input file.\n")
+        _T("                                 this requires use of avqsv reader.\n")
+        _T("-f,--output-format <string>     set output format of output file.\n")
         _T("                                 if format is not specified, output format will\n")
         _T("                                 be guessed from output file extension.\n")
         _T("                                 set \"raw\" for H.264/ES output.\n")
@@ -1521,15 +1523,23 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         argData->nParsedAudioFile++;
         return MFX_ERR_NONE;
     }
-    if (0 == _tcscmp(option_name, _T("format"))) {
+    if (   0 == _tcscmp(option_name, _T("format"))
+        || 0 == _tcscmp(option_name, _T("output-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
-            const int formatLen = (int)_tcslen(strInput[i]);
-            pParams->pAVMuxOutputFormat = (TCHAR *)realloc(pParams->pAVMuxOutputFormat, sizeof(pParams->pAVMuxOutputFormat[0]) * (formatLen + 1));
-            _tcscpy_s(pParams->pAVMuxOutputFormat, formatLen + 1, strInput[i]);
+            pParams->pAVMuxOutputFormat = _tcsdup(strInput[i]);
             if (0 != _tcsicmp(pParams->pAVMuxOutputFormat, _T("raw"))) {
                 pParams->nAVMux |= QSVENC_MUX_VIDEO;
             }
+        } else {
+            PrintHelp(strInput[0], _T("Invalid value"), option_name);
+            return MFX_PRINT_OPTION_ERR;
+        }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("input-format"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            pParams->pAVInputFormat = _tcsdup(strInput[i]);
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return MFX_PRINT_OPTION_ERR;
