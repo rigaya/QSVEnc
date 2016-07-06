@@ -307,9 +307,10 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #endif
 #if ENABLE_AVCODEC_QSV_READER
         _T("   --avqsv                      set input to use avcodec + qsv\n")
-        _T("   --avqsv-analyze <int>        set time (sec) which reader analyze input file.\n")
+        _T("   --avsw                       set input to use avcodec + sw deocder\n")
+        _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
-        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 could be only used with avqsv/avsw reader.\n")
         _T("                                 use if reader fails to detect audio stream.\n")
         _T("   --video-track <int>          set video track to encode in track id\n")
         _T("                                 1 (default)  highest resolution video track\n")
@@ -1337,14 +1338,19 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
         return MFX_ERR_NONE;
     }
-    if (0 == _tcscmp(option_name, _T("avqsv-analyze"))) {
+    if (0 == _tcscmp(option_name, _T("avsw"))) {
+        pParams->nInputFmt = INPUT_FMT_AVCODEC_SW;
+        return MFX_ERR_NONE;
+    }
+    if (   0 == _tcscmp(option_name, _T("input-analyze"))
+        || 0 == _tcscmp(option_name, _T("avqsv-analyze"))) { //互換性のため
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         } else if (value < 0) {
-            PrintHelp(strInput[0], _T("avqsv-analyze requires non-negative value."), option_name);
+            PrintHelp(strInput[0], _T("input-analyze requires non-negative value."), option_name);
             return MFX_PRINT_OPTION_ERR;
         } else {
             pParams->nAVDemuxAnalyzeSec = (mfxU16)((std::min)(value, USHRT_MAX));

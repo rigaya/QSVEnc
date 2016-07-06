@@ -2409,7 +2409,12 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
     //ファイル拡張子により自動的に設定
     if (pParams->nInputFmt == INPUT_FMT_AUTO) {
+        if (check_ext(pParams->strSrcFile, { ".y4m" }))
+            pParams->nInputFmt = INPUT_FMT_Y4M;
+        else if (check_ext(pParams->strSrcFile, { ".yuv" }))
+            pParams->nInputFmt = INPUT_FMT_RAW;
 #if ENABLE_AVISYNTH_READER
+        else
         if (check_ext(pParams->strSrcFile, { ".avs" }))
             pParams->nInputFmt = INPUT_FMT_AVS;
         else
@@ -2425,18 +2430,10 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         else
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVCODEC_QSV_READER
-        if (usingAVProtocols(tchar_to_string(pParams->strSrcFile, CP_UTF8), 0)
-            || check_ext(pParams->strSrcFile, { ".mp4", ".m4v", ".mkv", ".mov",
-            ".mts", ".m2ts", ".ts", ".264", ".h264", ".x264", ".avc", ".avc1",
-            ".265", ".h265", ".hevc",
-            ".mpg", ".mpeg", "m2v", ".vob", ".vro", ".flv", ".ogm",
-            ".webm", ".vp8", ".vp9",
-            ".wmv" }))
-            pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
-        else
+            pParams->nInputFmt = INPUT_FMT_AVCODEC_ANY;
+#else
+            pParams->nInputFmt = INPUT_FMT_RAW;
 #endif //ENABLE_AVCODEC_QSV_READER
-        if (check_ext(pParams->strSrcFile, { ".y4m" }))
-            pParams->nInputFmt = INPUT_FMT_Y4M;
     }
 
     //ビルドに指定リーダーが含まれているかを確認する
@@ -2462,6 +2459,10 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
     if (pParams->nInputFmt == INPUT_FMT_AVCODEC_QSV && !ENABLE_AVCODEC_QSV_READER) {
         PrintMes(QSV_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
+        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
+    }
+    if (pParams->nInputFmt == INPUT_FMT_AVCODEC_SW && !ENABLE_AVCODEC_QSV_READER) {
+        PrintMes(QSV_LOG_ERROR, _T("avcodec reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
@@ -2524,6 +2525,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 #endif
 #if ENABLE_AVCODEC_QSV_READER
             case INPUT_FMT_AVCODEC_QSV:
+            case INPUT_FMT_AVCODEC_SW:
+            case INPUT_FMT_AVCODEC_ANY:
                 if (!pParams->bUseHWLib) {
                     PrintMes(QSV_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
@@ -2532,6 +2535,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
                 avcodecReaderPrm.bReadVideo = true;
+                avcodecReaderPrm.nVideoDecodeSW = decodeModeFromInputFmtType(pParams->nInputFmt);
                 avcodecReaderPrm.nVideoTrack = pParams->nVideoTrack;
                 avcodecReaderPrm.nVideoStreamId = pParams->nVideoStreamId;
                 avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
