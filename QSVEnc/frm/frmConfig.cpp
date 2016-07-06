@@ -859,6 +859,8 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
+    //swモードは使用しない
+    fcgCBHWEncode->Checked = true;
     //両方ともnullptrの組み合わせ、つまりInitFormで呼ばれた場合以外では、
     //もしfeatureListが作成できていなければ、チェックを行わない
     if (sender != nullptr && e != nullptr) {
@@ -945,6 +947,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 }
 
 System::Void frmConfig::fcgCheckVppFeatures() {
+    //swモードは使用しない
+    fcgCBHWEncode->Checked = true;
     UInt64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
     fcgCBVppResize->Enabled = 0 != (available_features & VPP_FEATURE_RESIZE);
     if (!fcgCBVppResize->Enabled) fcgCBVppResize->Checked;
@@ -1063,11 +1067,12 @@ System::Void frmConfig::SetInputBufRange() {
 
 System::Void frmConfig::UpdateMfxLibDetection() {
     UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
-    UInt32 mfxlib_sw = featuresSW->GetmfxLibVer();
+    //UInt32 mfxlib_sw = featuresSW->GetmfxLibVer();
     fcgLBMFXLibDetectionHwValue->Text = (check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version)) ? 
         L"v" + ((mfxlib_hw>>16).ToString() + L"." + (mfxlib_hw & 0x0000ffff).ToString()) : L"-----";
-    fcgLBMFXLibDetectionSwValue->Text = (check_lib_version(mfxlib_sw, MFX_LIB_VERSION_1_1.Version)) ? 
-        L"v" + ((mfxlib_sw>>16).ToString() + L"." + (mfxlib_sw & 0x0000ffff).ToString()) : L"-----";
+    //fcgLBMFXLibDetectionSwValue->Text = (check_lib_version(mfxlib_sw, MFX_LIB_VERSION_1_1.Version)) ? 
+    //    L"v" + ((mfxlib_sw>>16).ToString() + L"." + (mfxlib_sw & 0x0000ffff).ToString()) : L"-----";
+    fcgLBMFXLibDetectionSwValue->Text = L"-----";
 }
 
 System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
@@ -1103,7 +1108,7 @@ System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
 
 System::Void frmConfig::InitForm() {
     featuresHW = gcnew QSVFeatures(true);
-    featuresSW = gcnew QSVFeatures(false);
+    //featuresSW = gcnew QSVFeatures(false);
     //CPU情報の取得
     getCPUInfoDelegate = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
     getCPUInfoDelegate->BeginInvoke(nullptr, nullptr);
@@ -1833,6 +1838,8 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 }
 
 System::Void frmConfig::UpdateFeatures() {
+    //swモードは使用しない
+    fcgCBHWEncode->Checked = true;
     //表示更新
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
     const mfxU32 currentLib = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();

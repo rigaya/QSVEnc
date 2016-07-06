@@ -1463,7 +1463,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgTSSettings->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSSettings.Image")));
             this->fcgTSSettings->ImageTransparentColor = System::Drawing::Color::Magenta;
             this->fcgTSSettings->Name = L"fcgTSSettings";
-            this->fcgTSSettings->Size = System::Drawing::Size(79, 22);
+            this->fcgTSSettings->Size = System::Drawing::Size(81, 22);
             this->fcgTSSettings->Text = L"プリセット";
             this->fcgTSSettings->DropDownItemClicked += gcnew System::Windows::Forms::ToolStripItemClickedEventHandler(this, &frmConfig::fcgTSSettings_DropDownItemClicked);
             this->fcgTSSettings->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSSettings_Click);
@@ -1476,7 +1476,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgTSBBitrateCalc->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSBBitrateCalc.Image")));
             this->fcgTSBBitrateCalc->ImageTransparentColor = System::Drawing::Color::Magenta;
             this->fcgTSBBitrateCalc->Name = L"fcgTSBBitrateCalc";
-            this->fcgTSBBitrateCalc->Size = System::Drawing::Size(97, 22);
+            this->fcgTSBBitrateCalc->Size = System::Drawing::Size(96, 22);
             this->fcgTSBBitrateCalc->Text = L"ビットレート計算機";
             this->fcgTSBBitrateCalc->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgTSBBitrateCalc_CheckedChanged);
             // 
@@ -2219,6 +2219,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBMFXLibDetectionHwValue);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBMFXLibDetectionHwStatus);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBFadeDetect);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightB);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightP);
@@ -2247,9 +2249,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->tabPageVideoEnc->Controls->Add(this->fcgPNBitrate);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNQP);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBMFXLibDetectionSwValue);
-            this->tabPageVideoEnc->Controls->Add(this->fcgLBMFXLibDetectionHwValue);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBMFXLibDetectionSwStatus);
-            this->tabPageVideoEnc->Controls->Add(this->fcgLBMFXLibDetectionHwStatus);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBMFXLibDetection);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBSlices2);
             this->tabPageVideoEnc->Controls->Add(this->fcgNUSlices);
@@ -2819,6 +2819,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgLBMFXLibDetectionSwValue->Size = System::Drawing::Size(33, 17);
             this->fcgLBMFXLibDetectionSwValue->TabIndex = 110;
             this->fcgLBMFXLibDetectionSwValue->Text = L"hw:";
+            this->fcgLBMFXLibDetectionSwValue->Visible = false;
             // 
             // fcgLBMFXLibDetectionHwValue
             // 
@@ -2826,7 +2827,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgLBMFXLibDetectionHwValue->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->fcgLBMFXLibDetectionHwValue->ForeColor = System::Drawing::Color::DarkViolet;
-            this->fcgLBMFXLibDetectionHwValue->Location = System::Drawing::Point(515, 7);
+            this->fcgLBMFXLibDetectionHwValue->Location = System::Drawing::Point(515, 20);
             this->fcgLBMFXLibDetectionHwValue->Name = L"fcgLBMFXLibDetectionHwValue";
             this->fcgLBMFXLibDetectionHwValue->Size = System::Drawing::Size(33, 17);
             this->fcgLBMFXLibDetectionHwValue->TabIndex = 109;
@@ -2843,6 +2844,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgLBMFXLibDetectionSwStatus->Size = System::Drawing::Size(31, 17);
             this->fcgLBMFXLibDetectionSwStatus->TabIndex = 108;
             this->fcgLBMFXLibDetectionSwStatus->Text = L"sw:";
+            this->fcgLBMFXLibDetectionSwStatus->Visible = false;
             // 
             // fcgLBMFXLibDetectionHwStatus
             // 
@@ -2850,7 +2852,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgLBMFXLibDetectionHwStatus->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic,
                 System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
             this->fcgLBMFXLibDetectionHwStatus->ForeColor = System::Drawing::Color::Blue;
-            this->fcgLBMFXLibDetectionHwStatus->Location = System::Drawing::Point(476, 7);
+            this->fcgLBMFXLibDetectionHwStatus->Location = System::Drawing::Point(476, 20);
             this->fcgLBMFXLibDetectionHwStatus->Name = L"fcgLBMFXLibDetectionHwStatus";
             this->fcgLBMFXLibDetectionHwStatus->Size = System::Drawing::Size(33, 17);
             this->fcgLBMFXLibDetectionHwStatus->TabIndex = 107;
@@ -4025,12 +4027,12 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgCSExeFiles->ImageScalingSize = System::Drawing::Size(18, 18);
             this->fcgCSExeFiles->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(1) { this->fcgTSExeFileshelp });
             this->fcgCSExeFiles->Name = L"fcgCSx264";
-            this->fcgCSExeFiles->Size = System::Drawing::Size(132, 26);
+            this->fcgCSExeFiles->Size = System::Drawing::Size(131, 26);
             // 
             // fcgTSExeFileshelp
             // 
             this->fcgTSExeFileshelp->Name = L"fcgTSExeFileshelp";
-            this->fcgTSExeFileshelp->Size = System::Drawing::Size(131, 22);
+            this->fcgTSExeFileshelp->Size = System::Drawing::Size(130, 22);
             this->fcgTSExeFileshelp->Text = L"helpを表示";
             this->fcgTSExeFileshelp->Click += gcnew System::EventHandler(this, &frmConfig::fcgTSExeFileshelp_Click);
             // 
