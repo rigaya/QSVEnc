@@ -3604,7 +3604,6 @@ mfxStatus CQSVPipeline::RunEncode() {
     mfxSyncPoint lastSyncP = nullptr;
     bool bVppRequireMoreFrame = false;
     int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
-    const double getTimeStampMul = m_mfxEncParams.mfx.FrameInfo.FrameRateExtD * (double)QSV_TIMEBASE / (double)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN; //TimeStamp計算用
 
     QSVTask *pCurrentTask = nullptr; //現在のタスクへのポインタ
     int nEncSurfIdx = -1; //使用するフレームのインデックス encoder input (vpp output)
@@ -3635,6 +3634,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     mfxFrameInfo inputFrmaeInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrmaeInfo);
     const AVRational inputFpsTimebase = { (int)inputFrmaeInfo.FrameRateExtD, (int)inputFrmaeInfo.FrameRateExtN };
+    const AVRational outputFpsTimebase = { (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN };
 
     auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
     const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoCodecCtx()->pkt_timebase : inputFpsTimebase;
@@ -4071,7 +4071,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 ptrCtrl = &encCtrl;
             }
             //TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
-            pSurfEncIn->Data.TimeStamp = (uint64_t)(nFramePutToEncoder * getTimeStampMul + 0.5);
+            pSurfEncIn->Data.TimeStamp = QSV_RESCALE(nFramePutToEncoder, outputFpsTimebase, QSV_NATIVE_TIMEBASE);
             nFramePutToEncoder++;
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
             pCurrentTask->mfxBS.TimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
