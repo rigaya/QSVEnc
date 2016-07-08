@@ -124,6 +124,12 @@ typedef struct FramePos {
     uint8_t pict_type; //I,P,Bフレーム
 } FramePos;
 
+#if _DEBUG
+#define DEBUG_FRMAE_COPY(x) { if (m_fpDebugCopyFrameData) { (x); } }
+#else
+#define DEBUG_FRMAE_COPY(x)
+#endif
+
 static FramePos framePos(int64_t pts, int64_t dts,
     int duration, int duration2 = 0,
     int poc = AVQSV_POC_INVALID,
@@ -164,13 +170,30 @@ public:
         m_nLastPoc(0),
         m_nFirstKeyframePts(AV_NOPTS_VALUE),
         m_nPAFFRewind(0),
-        m_nPtsWrapArroundThreshold(0xFFFFFFFF) {
+        m_nPtsWrapArroundThreshold(0xFFFFFFFF),
+        m_fpDebugCopyFrameData() {
         m_list.init();
         static_assert(sizeof(m_list.get()[0]) == sizeof(m_list.get()->data), "FramePos must not have padding.");
     };
     virtual ~FramePosList() {
         clear();
     }
+#pragma warning(push)
+#pragma warning(disable:4100)
+    int setLogCopyFrameData(const TCHAR *pLogFileName) {
+        if (pLogFileName == nullptr) return 0;
+#if _DEBUG
+        FILE *fp = NULL;
+        if (_tfopen_s(&fp, pLogFileName, _T("w"))) {
+            return 1;
+        }
+        m_fpDebugCopyFrameData.reset(fp);
+        return 0;
+#else
+        return 1;
+#endif
+    }
+#pragma warning(pop)
     //filenameに情報をcsv形式で出力する
     int printList(const TCHAR *filename) {
 #if !defined(__GNUC__)
@@ -215,6 +238,7 @@ public:
         m_nFirstKeyframePts = AV_NOPTS_VALUE;
         m_nPAFFRewind = 0;
         m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
+        m_fpDebugCopyFrameData.reset();
         m_list.init();
     }
     //ここまで計算したdurationを返す
@@ -281,6 +305,7 @@ public:
             }
             if (pos.poc == poc) {
                 *lastIndex = index;
+                DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d, pts: %I64d\n"), poc, index, pos.pts));
                 return pos;
             }
             if (m_bInputFin && pos.poc == -1) {
@@ -302,12 +327,14 @@ public:
                 int64_t pts1 = pos_tmp.pts;
                 int nFrameDuration = (int)(pts1 - pts0);
                 pos.pts = nLastPts + (poc - nLastPoc) * nFrameDuration;
+                DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d [invalid], estimated pts: %I64d\n"), poc, index, pos.pts));
                 return pos;
             }
         }
         //エラー
         FramePos pos = { 0 };
         pos.poc = AVQSV_POC_INVALID;
+        DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
         return pos;
     }
     //入力が終了した際に使用し、内部状態を変更する
@@ -612,6 +639,7 @@ protected:
     int64_t m_nFirstKeyframePts; //最初のキーフレームのpts
     int m_nPAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
     uint32_t m_nPtsWrapArroundThreshold; //wrap arroundを判定する閾値
+    unique_ptr<FILE, fp_deleter> m_fpDebugCopyFrameData; //copyのデバッグ用
 };
 
 //動画フレームのデータ
@@ -728,6 +756,7 @@ typedef struct AvcodecReaderPrm {
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
+    const TCHAR   *pLogCopyFrameData;       //frame情報copy関数のログ出力先 (デバッグ用)
     int8_t         nInputThread;            //入力スレッドを有効にする
     int8_t         bAudioIgnoreNoTrackError; //音声が見つからなかった場合のエラーを無視する
     PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体

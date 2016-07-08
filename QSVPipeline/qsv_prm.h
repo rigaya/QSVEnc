@@ -424,7 +424,8 @@ struct sInputParams
     int16_t    pQPOffset[8];
     TCHAR     *pMuxVidTsLogFile;
     TCHAR     *pAVInputFormat;
-    int8_t     Reserved[1034];
+    TCHAR     *pLogCopyFrameData;
+    int8_t     Reserved[1030];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

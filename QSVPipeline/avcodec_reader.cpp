@@ -937,6 +937,11 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             }
             m_Demux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
         }
+#if _DEBUG
+        if (m_Demux.frames.setLogCopyFrameData(input_prm->pLogCopyFrameData)) {
+            AddMessage(QSV_LOG_WARN, _T("failed to open copy-framedata log file: \"%s\"\n"), input_prm->pLogCopyFrameData);
+        }
+#endif
 
         if (MFX_ERR_NONE != (sts = getFirstFramePosAndFrameRate(input_prm->pTrimList, input_prm->nTrimCount))) {
             AddMessage(QSV_LOG_ERROR, _T("failed to get first frame position.\n"));

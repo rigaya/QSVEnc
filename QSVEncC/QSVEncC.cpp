@@ -608,6 +608,10 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #if !defined(__GNUC__)
         _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n")
 #endif //!defined(__GNUC__)
+#if _DEBUG
+        _T("   --log-mus-ts <string>         (for debug)\n")
+        _T("   --log-copy-framedata <string> (for debug)\n")
+#endif
         );
 #if ENABLE_SESSION_THREAD_CONFIG
     str += strsprintf(_T("")
@@ -2944,6 +2948,11 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("log-mux-ts"))) {
         i++;
         pParams->pMuxVidTsLogFile = _tcsdup(strInput[i]);
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("log-copy-framedata"))) {
+        i++;
+        pParams->pLogCopyFrameData = _tcsdup(strInput[i]);
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("colormatrix"))) {
