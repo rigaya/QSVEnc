@@ -3897,7 +3897,11 @@ mfxStatus CQSVPipeline::RunEncode() {
                 nEstimatedPts = queueFirstPts;
             }
             auto ptsDiff = queueFirstPts - nEstimatedPts;
-            if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
+            if (std::abs(ptsDiff) >= CHECK_PTS_MAX_INSERT_FRAMES * nFrameDuration) {
+                //timestampに一定以上の差があればそれを無視する
+                nEstimatedPts = queueFirstPts;
+                PrintMes(QSV_LOG_WARN, _T("Big Gap was found between 2 frames (%d - %d), avsync might be corrupted.\n"), nInputFrameCount, nInputFrameCount+1);
+            } else if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
                 //水増しが必要 -> 何も(pop)しない
                 bCheckPtsMultipleOutput = true;
                 queueFirstFrame.pSurface->Data.Locked++;
