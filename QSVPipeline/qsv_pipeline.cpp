@@ -4061,11 +4061,11 @@ mfxStatus CQSVPipeline::RunEncode() {
                 ptrCtrl = &encCtrl;
             }
             //TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
-            pSurfEncIn->Data.TimeStamp = (int)(nFramePutToEncoder * getTimeStampMul + 0.5);
+            pSurfEncIn->Data.TimeStamp = (uint64_t)(nFramePutToEncoder * getTimeStampMul + 0.5);
             nFramePutToEncoder++;
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
-            pCurrentTask->mfxBS.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-            pCurrentTask->mfxBS.DecodeTimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+            pCurrentTask->mfxBS.TimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
+            pCurrentTask->mfxBS.DecodeTimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
         }
 
         bool bDeviceBusy = false;
