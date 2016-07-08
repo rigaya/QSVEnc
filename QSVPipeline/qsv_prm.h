@@ -172,6 +172,8 @@ enum QSVAVSync : uint32_t {
     QSV_AVSYNC_FORCE_CFR = 0x04 | QSV_AVSYNC_CHECK_PTS,
 };
 
+static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
+
 enum {
     QSVENC_MUX_NONE     = 0x00,
     QSVENC_MUX_VIDEO    = 0x01,

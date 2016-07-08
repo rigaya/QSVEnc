@@ -1631,6 +1631,11 @@ mfxStatus CQSVPipeline::AllocFrames() {
         // VppRequest[0]はvppへの入力, VppRequest[1]はvppからの出力
         sts = m_pmfxVPP->QueryIOSurf(&m_mfxVppParams, VppRequest);
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for vpp."));
+        if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
+            //ptsチェック用に使うフレームを追加する
+            VppRequest[0].NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
+            VppRequest[0].NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
+        }
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp query[0] - %d frames\n"), VppRequest[0].NumFrameSuggested);
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp query[1] - %d frames\n"), VppRequest[1].NumFrameSuggested);
     }
@@ -1640,8 +1645,8 @@ mfxStatus CQSVPipeline::AllocFrames() {
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for decoder."));
         if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
             //ptsチェック用に使うフレームを追加する
-            DecRequest.NumFrameMin       += 4;
-            DecRequest.NumFrameSuggested += 4;
+            DecRequest.NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
+            DecRequest.NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
         }
         PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
     }
