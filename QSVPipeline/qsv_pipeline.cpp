@@ -4125,7 +4125,9 @@ mfxStatus CQSVPipeline::RunEncode() {
         pSurfEncIn = &m_pEncSurfaces[nEncSurfIdx];
 
         if (!bVppMultipleOutput) {
-            get_all_free_surface(pSurfEncIn);
+            if (MFX_ERR_NONE != (sts = get_all_free_surface(pSurfEncIn))) {
+                break;
+            }
             if (!bCheckPtsMultipleOutput) {
                 //if (m_VppPrePlugins.size()) {
                 //    pSurfInputBuf = pSurfVppPreFilter[0];
