@@ -35,6 +35,8 @@
 #include <cassert>
 #include <climits>
 #include <deque>
+#define TTMATH_NOASM
+#include "ttmath/ttmath.h"
 #include "qsv_osdep.h"
 #include "qsv_pipeline.h"
 #include "qsv_query.h"
@@ -3629,7 +3631,23 @@ mfxStatus CQSVPipeline::RunEncode() {
 
 #if ENABLE_AVCODEC_QSV_READER
     const bool bAVutilDll = check_avcodec_dll();
-#define QSV_RESCALE(v, a, b) ((bAVutilDll) ? (int)av_rescale_q(v, inputFpsTimebase, pktTimebase) : (int)(v * (double)a.num * (double)b.den / ((double)a.den * b.num) + 0.5))
+    auto qsv_rescale = [](int v, AVRational a, AVRational b) {
+#if _M_IX86
+#define RESCALE_INT_SIZE 4
+#else
+#define RESCALE_INT_SIZE 2
+#endif
+        ttmath::Int<RESCALE_INT_SIZE> tmp1 = v;
+        tmp1 *= a.num;
+        tmp1 *= b.den;
+        ttmath::Int<RESCALE_INT_SIZE> tmp2 = a.den;
+        tmp2 *= b.num;
+
+        tmp1 = (tmp1 + tmp2 - 1) / tmp2;
+        int64_t ret;
+        tmp1.ToInt(ret);
+        return ret;
+    };
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
     mfxFrameInfo inputFrmaeInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrmaeInfo);
@@ -3640,7 +3658,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoCodecCtx()->pkt_timebase : inputFpsTimebase;
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
-    const int nFrameDuration = QSV_RESCALE(1, inputFpsTimebase, pktTimebase);
+    const int nFrameDuration = (int)qsv_rescale(1, inputFpsTimebase, pktTimebase);
     vector<AVPacket> packetList;
     if (pAVCodecReader == nullptr) {
         m_nAVSyncMode = QSV_AVSYNC_THROUGH;
@@ -3870,7 +3888,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             timestamp = pos.pts;
         } else {
 #endif //#if ENABLE_AVCODEC_QSV_READER
-            timestamp = QSV_RESCALE(nInputFrameCount, inputFpsTimebase, pktTimebase);
+            timestamp = qsv_rescale(nInputFrameCount, inputFpsTimebase, pktTimebase);
 #if ENABLE_AVCODEC_QSV_READER
         }
         if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
@@ -4071,7 +4089,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 ptrCtrl = &encCtrl;
             }
             //TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
-            pSurfEncIn->Data.TimeStamp = QSV_RESCALE(nFramePutToEncoder, outputFpsTimebase, QSV_NATIVE_TIMEBASE);
+            pSurfEncIn->Data.TimeStamp = qsv_rescale(nFramePutToEncoder, outputFpsTimebase, QSV_NATIVE_TIMEBASE);
             nFramePutToEncoder++;
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
             pCurrentTask->mfxBS.TimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
