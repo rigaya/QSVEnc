@@ -927,12 +927,12 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         //parserはseek後に初期化すること
         //parserが使用されていれば、QSVEncでも使用するようにする
         //たとえば、入力がrawcodecなどでは使用しない
-        if (m_Demux.format.pFormatCtx->streams[m_Demux.video.nIndex]->parser) {
-            if (nullptr == (m_Demux.video.pParserCtx = av_parser_init(m_Demux.video.pCodecCtx->codec_id))) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(m_Demux.video.pCodecCtx->codec->name).c_str());
-                return MFX_ERR_NULL_PTR;
-            }
+        m_Demux.video.pParserCtx = av_parser_init(m_Demux.video.pCodecCtx->codec_id);
+        if (m_Demux.video.pParserCtx) {
             m_Demux.video.pParserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+        } else if (bDecodecQSV) {
+            AddMessage(QSV_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(m_Demux.video.pCodecCtx->codec->name).c_str());
+            return MFX_ERR_NULL_PTR;
         }
 #if _DEBUG
         if (m_Demux.frames.setLogCopyFrameData(input_prm->pLogCopyFrameData)) {
