@@ -1028,6 +1028,10 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                 AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("Failed to find decoder"), m_Demux.video.pCodecCtx->codec_id).c_str());
                 return MFX_ERR_UNSUPPORTED;
             }
+            cpu_info_t cpu_info;
+            if (get_cpu_info(&cpu_info)) {
+                m_Demux.video.pCodecCtx->thread_count = cpu_info.logical_cores;
+            }
             if (0 > (ret = avcodec_open2(m_Demux.video.pCodecCtx, m_Demux.video.pCodec, nullptr))) {
                 AddMessage(QSV_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return MFX_ERR_UNSUPPORTED;
