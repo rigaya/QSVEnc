@@ -97,9 +97,6 @@ void CAvcodecReader::CloseVideo(AVDemuxVideo *pVideo) {
     if (pVideo->pFrame) {
         av_frame_free(&pVideo->pFrame);
     }
-    if (pVideo->pCodec) {
-        avcodec_close(pVideo->pCodecCtx);
-    }
     
     if (pVideo->pExtradata) {
         av_free(pVideo->pExtradata);
