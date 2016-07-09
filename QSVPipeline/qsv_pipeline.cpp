@@ -4568,8 +4568,8 @@ void CQSVLog::init(const TCHAR *pLogFile, int log_level) {
 };
 
 void CQSVLog::writeHtmlHeader() {
-    FILE *fp = _tfopen(m_pStrLog, _T("wb"));
-    if (fp) {
+    FILE *fp = NULL;
+    if (_tfopen_s(&fp, m_pStrLog, _T("wb"))) {
         std::wstring header =
             L"<!DOCTYPE html>\n"
             L"<html lang = \"ja\">\n"

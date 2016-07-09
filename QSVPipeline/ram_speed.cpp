@@ -131,7 +131,7 @@ double ram_speed_mt(int check_size_kilobytes, int mode, int thread_n) {
         threads[i] = std::thread(ram_speed_func, &thread_prm[i], &thread_wake);
         //渡されたスレッドIDからスレッドAffinityを決定
         //特定のコアにスレッドを縛り付ける
-        SetThreadAffinityMask(threads[i].native_handle(), 1 << (int)thread_prm[i].thread_id);
+        SetThreadAffinityMask(threads[i].native_handle(), (uint64_t)1 << (int)thread_prm[i].thread_id);
         //高優先度で実行
         SetThreadPriority(threads[i].native_handle(), THREAD_PRIORITY_HIGHEST);
     }
