@@ -334,7 +334,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
         _T("   --input-format <string>      set input format of input file.\n")
-        _T("                                 this requires use of avqsv reader.\n")
+        _T("                                 this requires use of avqsv/avsw reader.\n")
         _T("-f,--output-format <string>     set output format of output file.\n")
         _T("                                 if format is not specified, output format will\n")
         _T("                                 be guessed from output file extension.\n")
