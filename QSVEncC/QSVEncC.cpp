@@ -203,7 +203,7 @@ static const TCHAR *short_opt_to_long(TCHAR short_opt) {
         option_name = _T("quality");
         break;
     case _T('f'):
-        option_name = _T("format");
+        option_name = _T("output-format");
         break;
     case _T('i'):
         option_name = _T("input-file");
