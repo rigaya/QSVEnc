@@ -2750,11 +2750,13 @@ mfxStatus CAvcodecWriter::WriteThreadFunc() {
     const bool bThAudProcess = m_Mux.thread.thAudProcess.joinable();
     auto writeProcessedPacket = [this](AVPktMuxData *pktData) {
         //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
+        auto sts = MFX_ERR_NONE;
         if (((int16_t)(pktData->pkt.flags >> 16)) < 0) {
-            SubtitleWritePacket(&pktData->pkt);
+            sts = SubtitleWritePacket(&pktData->pkt);
         } else {
             WriteNextPacketProcessed(pktData);
         }
+        return sts;
     };
     int audPacketsPerSec = 64;
     int nWaitAudio = 0;

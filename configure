@@ -690,7 +690,7 @@ write_qsv_config "#define ENABLE_FPS_CONVERSION         0"
 write_qsv_config "#define ENABLE_OPENCL                 0"
 write_qsv_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
 write_qsv_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
-write_qsv_config "#define ENABLE_AVCODEC_OUT_THREAD     0"
+write_qsv_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
 write_qsv_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_qsv_config "#define ENABLE_DTL                    $ENABLE_DTL"
 
