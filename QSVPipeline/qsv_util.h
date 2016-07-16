@@ -66,6 +66,9 @@ using std::shared_ptr;
 #define ALIGN16(x) (((x)+15)&(~15))
 #define ALIGN32(x) (((x)+31)&(~31))
 
+typedef long long lls;
+typedef unsigned long long llu;
+
 #define QSV_MEMSET_ZERO(x) { memset(&(x), 0, sizeof(x)); }
 
 template<typename T, size_t size>

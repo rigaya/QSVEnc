@@ -305,7 +305,7 @@ public:
             }
             if (pos.poc == poc) {
                 *lastIndex = index;
-                DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d, pts: %I64d\n"), poc, index, pos.pts));
+                DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d, pts: %lld\n"), poc, index, (lls)pos.pts));
                 return pos;
             }
             if (m_bInputFin && pos.poc == -1) {
@@ -327,14 +327,14 @@ public:
                 int64_t pts1 = pos_tmp.pts;
                 int nFrameDuration = (int)(pts1 - pts0);
                 pos.pts = nLastPts + (poc - nLastPoc) * nFrameDuration;
-                DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d [invalid], estimated pts: %I64d\n"), poc, index, pos.pts));
+                DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request poc: %8d, hit index: %8d [invalid], estimated pts: %lld\n"), poc, index, (lls)pos.pts));
                 return pos;
             }
         }
         //エラー
         FramePos pos = { 0 };
         pos.poc = AVQSV_POC_INVALID;
-        DEBUG_FRMAE_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
+        DEBUG_FRAME_COPY(_ftprintf(m_fpDebugCopyFrameData.get(), _T("request: %8d, invalid, list size: %d\n"), poc, (int)m_list.size()));
         return pos;
     }
     //入力が終了した際に使用し、内部状態を変更する

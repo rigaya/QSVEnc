@@ -1845,7 +1845,7 @@ mfxStatus CAvcodecWriter::WriteNextFrameInternal(mfxBitstream *pMfxBitstream, in
         if (m_Mux.video.fpTsLogFile) {
             const uint32_t frameType = pMfxBitstream->FrameType >> (i<<3);
             const TCHAR *pFrameTypeStr = (frameType & (MFX_FRAMETYPE_IDR | MFX_FRAMETYPE_I)) ? _T("I") : ((frameType & MFX_FRAMETYPE_P) ? _T("P") : _T("B"));
-            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20I64d, %20I64d, %20I64d, %20I64d, %d, %7d\n"), pFrameTypeStr, pMfxBitstream->TimeStamp, pMfxBitstream->DecodeTimeStamp, pts, dts, (int)duration, bytesToWrite);
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7d\n"), pFrameTypeStr, (lls)pMfxBitstream->TimeStamp, (lls)pMfxBitstream->DecodeTimeStamp, (lls)pts, (lls)dts, (int)duration, bytesToWrite);
         }
     }
     m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
