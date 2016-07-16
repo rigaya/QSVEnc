@@ -202,6 +202,7 @@ void CPerfMonitor::clear() {
         m_pipes.f_stdin = NULL;
     }
     m_pProcess.reset();
+    m_pQSVLog.reset();
 }
 
 int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
@@ -329,6 +330,7 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     std::unique_ptr<void, handle_deleter> thMainThread,
     std::shared_ptr<CQSVLog> pQSVLog) {
     clear();
+    m_pQSVLog = pQSVLog;
 
     m_nCreateTime100ns = (int64_t)(clock() * (1e7 / CLOCKS_PER_SEC) + 0.5);
     m_sMonitorFilename = filename;
@@ -341,8 +343,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     if (!m_fpLog && m_sMonitorFilename.length() > 0) {
         m_fpLog = std::unique_ptr<FILE, fp_deleter>(_tfopen(m_sMonitorFilename.c_str(), _T("a")));
         if (!m_fpLog) {
-            pQSVLog->write(QSV_LOG_WARN, _T("Failed to open performance monitor log file: %s\n"), m_sMonitorFilename.c_str());
-            pQSVLog->write(QSV_LOG_WARN, _T("performance monitoring disabled.\n"));
+            m_pQSVLog->write(QSV_LOG_WARN, _T("Failed to open performance monitor log file: %s\n"), m_sMonitorFilename.c_str());
+            m_pQSVLog->write(QSV_LOG_WARN, _T("performance monitoring disabled.\n"));
             return 1;
         }
     }
@@ -443,8 +445,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         }
 #endif
         if (createPerfMpnitorPyw(m_sPywPath.c_str())) {
-            pQSVLog->write(QSV_LOG_WARN, _T("Failed to create file qsvencc_perf_monitor.pyw for performance monitor plot.\n"));
-            pQSVLog->write(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
+            m_pQSVLog->write(QSV_LOG_WARN, _T("Failed to create file qsvencc_perf_monitor.pyw for performance monitor plot.\n"));
+            m_pQSVLog->write(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
             m_nSelectOutputPlot = 0;
         } else {
             tstring sInterval = strsprintf(_T("%d"), interval);
@@ -455,8 +457,8 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
             args.push_back(sInterval.c_str());
             args.push_back(nullptr);
             if (m_pProcess->run(args, nullptr, &m_pipes, priority, false, false)) {
-                pQSVLog->write(QSV_LOG_WARN, _T("Failed to run performance monitor plot.\n"));
-                pQSVLog->write(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
+                m_pQSVLog->write(QSV_LOG_WARN, _T("Failed to run performance monitor plot.\n"));
+                m_pQSVLog->write(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
                 m_nSelectOutputPlot = 0;
 #if defined(_WIN32) || defined(_WIN64)
             } else {
@@ -836,6 +838,16 @@ void CPerfMonitor::loader(void *prm) {
 void CPerfMonitor::run() {
     while (!m_bAbort) {
         check();
+        if (m_pProcess && !m_pProcess->processAlive()) {
+            if (m_pipes.f_stdin) {
+                fclose(m_pipes.f_stdin);
+            }
+            m_pipes.f_stdin = NULL;
+            if (m_nSelectOutputPlot) {
+                m_pQSVLog->write(QSV_LOG_WARN, _T("Error occured running python for perf-monitor-plot.\n"));
+                m_nSelectOutputPlot = 0;
+            }
+        }
         write(m_fpLog.get(),   m_nSelectOutputLog);
         write(m_pipes.f_stdin, m_nSelectOutputPlot);
         std::this_thread::sleep_for(std::chrono::milliseconds(m_nInterval));

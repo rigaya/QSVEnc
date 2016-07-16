@@ -275,6 +275,7 @@ protected:
     int m_nSelectOutputLog;
     int m_nSelectOutputPlot;
     PerfQueueInfo m_QueueInfo;
+    std::shared_ptr<CQSVLog> m_pQSVLog;
 
 #if ENABLE_METRIC_FRAMEWORK
     IExtensionLoader *m_pLoader;
