@@ -605,9 +605,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --log <string>               output log to file (txt or html).\n")
         _T("   --log-level <string>         set output log level\n")
         _T("                                 info(default), warn, error, debug\n")
-#if !defined(__GNUC__)
         _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n")
-#endif //!defined(__GNUC__)
 #if _DEBUG
         _T("   --log-mus-ts <string>         (for debug)\n")
         _T("   --log-copy-framedata <string> (for debug)\n")

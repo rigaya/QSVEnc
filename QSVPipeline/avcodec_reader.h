@@ -125,9 +125,9 @@ typedef struct FramePos {
 } FramePos;
 
 #if _DEBUG
-#define DEBUG_FRMAE_COPY(x) { if (m_fpDebugCopyFrameData) { (x); } }
+#define DEBUG_FRAME_COPY(x) { if (m_fpDebugCopyFrameData) { (x); } }
 #else
-#define DEBUG_FRMAE_COPY(x)
+#define DEBUG_FRAME_COPY(x)
 #endif
 
 static FramePos framePos(int64_t pts, int64_t dts,
@@ -196,7 +196,6 @@ public:
 #pragma warning(pop)
     //filenameに情報をcsv形式で出力する
     int printList(const TCHAR *filename) {
-#if !defined(__GNUC__)
         const int nList = (int)m_list.size();
         if (nList == 0) {
             return 0;
@@ -210,14 +209,13 @@ public:
         }
         fprintf(fp, "pts,dts,duration,duration2,poc,flags,pic_struct,repeat_pict,pict_type\r\n");
         for (int i = 0; i < nList; i++) {
-            fprintf(fp, "%I64d,%I64d,%d,%d,%d,%d,%d,%d,%d\r\n",
-                m_list[i].data.pts, m_list[i].data.dts,
+            fprintf(fp, "%lld,%lld,%d,%d,%d,%d,%d,%d,%d\r\n",
+                (lls)m_list[i].data.pts, (lls)m_list[i].data.dts,
                 m_list[i].data.duration, m_list[i].data.duration2,
                 m_list[i].data.poc,
                 (int)m_list[i].data.flags, (int)m_list[i].data.pic_struct, (int)m_list[i].data.repeat_pict, (int)m_list[i].data.pict_type);
         }
         fclose(fp);
-#endif
         return 0;
     }
     //indexの位置への参照を返す
