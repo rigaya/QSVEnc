@@ -62,28 +62,34 @@ int CPipeProcessLinux::startPipes(ProcessPipe *pipes) {
 }
 
 int CPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
+    startPipes(pipes);
+
     pid_t cpid = fork();
     if (cpid == -1) {
         return 1;
     }
 
     if (cpid == 0) {
+        //子プロセス
         if (pipes->stdIn.mode) {
             ::close(pipes->stdIn.h_write);
             dup2(pipes->stdIn.h_read, STDIN_FILENO);
         }
-
-        execvp(args[0], (char *const *)&args[0]);
-        exit(0);
+        int ret = execvp(args[0], (char *const *)args.data());
+        exit(-1);
     }
+    //親プロセス
     if (pipes->stdIn.mode) {
         ::close(pipes->stdIn.h_read);
+        pipes->stdIn.h_read = 0;
     }
     if (pipes->stdOut.mode) {
         ::close(pipes->stdOut.h_write);
+        pipes->stdOut.h_write = 0;
     }
     if (pipes->stdErr.mode) {
         ::close(pipes->stdErr.h_write);
+        pipes->stdErr.h_write = 0;
     }
     return 0;
 }

@@ -630,15 +630,11 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --perf-monitor [<string>][,<string>]...\n")
         _T("       check performance info of QSVEncC and output to log file\n")
         _T("       select counter from below, default = all\n")
-#if defined(_WIN32) || defined(_WIN64)
         _T("   --perf-monitor-plot [<string>][,<string>]...\n")
         _T("       plot perf monitor realtime (required python, pyqtgraph)\n")
         _T("       select counter from below, default = cpu,bitrate\n")
         _T("                                 \n")
         _T("     counters for perf-monitor, perf-monitor-plot\n")
-#else
-        _T("     counters for perf-monitor\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
         _T("                                 all          ... monitor all info\n")
         _T("                                 cpu_total    ... cpu total usage (%%)\n")
         _T("                                 cpu_kernel   ... cpu kernel usage (%%)\n")
@@ -669,10 +665,8 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                 bitrate_avg ... encode avg. bitrate (kbps)\n")
         _T("                                 frame_out   ... written_frames\n")
         _T("                                 \n")
-#if defined(_WIN32) || defined(_WIN64)
         _T("   --python <string>            set python path for --perf-monitor-plot\n")
         _T("                                 default: python\n")
-#endif //#if defined(_WIN32) || defined(_WIN64)
         _T("   --perf-monitor-interval <int> set perf monitor check interval (millisec)\n")
         _T("                                 default 250, must be 50 or more\n")
 #if defined(_WIN32) || defined(_WIN64)
@@ -3051,7 +3045,6 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->nPerfMonitorInterval = std::max(50, v);
         return MFX_ERR_NONE;
     }
-#if defined(_WIN32) || defined(_WIN64)
     if (0 == _tcscmp(option_name, _T("perf-monitor-plot"))) {
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
             pParams->nPerfMonitorSelectMatplot =
@@ -3086,7 +3079,6 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->bDisableTimerPeriodTuning = true;
         return MFX_ERR_NONE;
     }
-#endif
     tstring mes = _T("Unknown option: --");
     mes += option_name;
     PrintHelp(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);

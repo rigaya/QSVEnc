@@ -48,9 +48,9 @@
 #include <sys/resource.h>
 
 extern "C" {
-extern char _binary_PerfMonitor_perf_monitor_pyw_start;
-extern char _binary_PerfMonitor_perf_monitor_pyw_end;
-extern char _binary_PerfMonitor_perf_monitor_pyw_size;
+extern char _binary_PerfMonitor_perf_monitor_pyw_start[];
+extern char _binary_PerfMonitor_perf_monitor_pyw_end[];
+extern char _binary_PerfMonitor_perf_monitor_pyw_size[];
 }
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -226,8 +226,8 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
         ret = 1;
     } else
 #else
-    pDataPtr = &_binary_PerfMonitor_perf_monitor_pyw_start;
-    resourceSize = (uint32_t)(size_t)&_binary_PerfMonitor_perf_monitor_pyw_size;
+    pDataPtr = _binary_PerfMonitor_perf_monitor_pyw_start;
+    resourceSize = (uint32_t)(size_t)_binary_PerfMonitor_perf_monitor_pyw_size;
 #endif //#if defined(_WIN32) || defined(_WIN64)
     if (_tfopen_s(&fp, pywPath, _T("wb")) || NULL == fp) {
         ret = 1;
@@ -426,15 +426,28 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
         m_sPywPath = tstring(_T("/tmp/")) + strsprintf(_T("qsvencc_perf_monitor_%d.pyw"), (int)getpid());
         uint32_t priority = 0;
 #endif
+        tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
+#if defined(_WIN32) || defined(_WIN64)
+        sPythonPath = tstring(_T("\"")) + sPythonPath + tstring(_T("\""));
+        m_sPywPath = tstring(_T("\"")) + m_sPywPath + tstring(_T("\""));
+#else
+        int ret = 0;
+        if (0 > (ret = system((sPythonPath + " --version > /dev/null 2>&1").c_str()))) {
+            m_pQSVLog->write(QSV_LOG_WARN, _T("Failed to run \"%s\". \n")
+                _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
+            m_nSelectOutputPlot = 0;
+        } else if (0 > (ret = system((sPythonPath + " -c \"print 'test'\" > /dev/null 2>&1").c_str())) || WEXITSTATUS(ret) == 0) {
+            m_pQSVLog->write(QSV_LOG_WARN, _T("\"%s\" is not python3.x.\n")
+                    _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
+            m_nSelectOutputPlot = 0;
+        }
+#endif
         if (createPerfMpnitorPyw(m_sPywPath.c_str())) {
             pQSVLog->write(QSV_LOG_WARN, _T("Failed to create file qsvencc_perf_monitor.pyw for performance monitor plot.\n"));
             pQSVLog->write(QSV_LOG_WARN, _T("performance monitor plot disabled.\n"));
             m_nSelectOutputPlot = 0;
         } else {
             tstring sInterval = strsprintf(_T("%d"), interval);
-            tstring sPythonPath = (pPythonPath) ? pPythonPath : _T("python");
-            sPythonPath = tstring(_T("\"")) + sPythonPath + tstring(_T("\""));
-            m_sPywPath = tstring(_T("\"")) + m_sPywPath + tstring(_T("\""));
             std::vector<const TCHAR *> args;
             args.push_back(sPythonPath.c_str());
             args.push_back(m_sPywPath.c_str());
