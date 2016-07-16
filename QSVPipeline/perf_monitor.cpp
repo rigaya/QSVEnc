@@ -479,7 +479,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_AUDE);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_OUT);
     m_nSelectCheck &= (~PERF_MONITOR_THREAD_IN);
-    m_nSelectOutputPlot = 0;
+    m_nSelectCheck &= (~PERF_MONITOR_GPU_CLOCK);
+    m_nSelectCheck &= (~PERF_MONITOR_GPU_LOAD);
+    m_nSelectCheck &= (~PERF_MONITOR_MFX_LOAD);
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
     m_nSelectOutputLog &= m_nSelectCheck;
