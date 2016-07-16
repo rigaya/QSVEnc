@@ -232,11 +232,14 @@ class PerfMonitor:
 
     def parse_input_line(self, line):
         elems = line.rstrip().split(",")
-        current_time = float(elems[0])
-        self.aXdata.append(current_time)
-        for i in range(1, len(elems)):
-            value = float(elems[i])
-            self.aPerfData[i-1].aData.append(value)
+        try:
+            current_time = float(elems[0])
+            self.aXdata.append(current_time)
+            for i in range(1, len(elems)):
+                value = float(elems[i])
+                self.aPerfData[i-1].aData.append(value)
+        except:
+            pass
 
     def run(self):
         line = sys.stdin.readline()
