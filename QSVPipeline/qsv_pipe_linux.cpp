@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>
+#include <sys/wait.h>
 #include "qsv_pipe.h"
 
 CPipeProcessLinux::CPipeProcessLinux() {
@@ -64,12 +65,12 @@ int CPipeProcessLinux::startPipes(ProcessPipe *pipes) {
 int CPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR *exedir, ProcessPipe *pipes, uint32_t priority, bool hidden, bool minimized) {
     startPipes(pipes);
 
-    pid_t cpid = fork();
-    if (cpid == -1) {
+    m_phandle = fork();
+    if (m_phandle < 0) {
         return 1;
     }
 
-    if (cpid == 0) {
+    if (m_phandle == 0) {
         //子プロセス
         if (pipes->stdIn.mode) {
             ::close(pipes->stdIn.h_write);
@@ -95,5 +96,10 @@ int CPipeProcessLinux::run(const std::vector<const TCHAR *>& args, const TCHAR *
 }
 
 void CPipeProcessLinux::close() {
+}
+
+bool CPipeProcessLinux::processAlive() {
+    int status = 0;
+    return 0 == waitpid(m_phandle, &status, WNOHANG);
 }
 #endif //#if !(defined(_WIN32) || defined(_WIN64))

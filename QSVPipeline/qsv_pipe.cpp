@@ -103,7 +103,7 @@ int CPipeProcessWin::run(const std::vector<const TCHAR *>& args, const TCHAR *ex
     }
 
     int ret = (CreateProcess(NULL, (TCHAR *)cmd_line.c_str(), NULL, NULL, Inherit, flag, NULL, exedir, &si, &m_pi)) ? 0 : 1;
-
+    m_phandle = m_pi.hProcess;
     if (pipes->stdOut.mode) {
         CloseHandle(pipes->stdOut.h_write);
         if (ret) {
@@ -141,5 +141,10 @@ void CPipeProcessWin::close() {
         CloseHandle(m_pi.hThread);
     }
     memset(&m_pi, 0, sizeof(m_pi));
+}
+
+bool CPipeProcessWin::processAlive() {
+    int status = 0;
+    return WAIT_OBJECT_0 == WaitForSingleObject(m_phandle, 0);
 }
 #endif //defined(_WIN32) || defined(_WIN64)
