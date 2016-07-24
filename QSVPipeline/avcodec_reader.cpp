@@ -55,7 +55,7 @@ static inline void extend_array_size(VideoFrameData *dataset) {
 CAvcodecReader::CAvcodecReader() {
     memset(&m_Demux.format, 0, sizeof(m_Demux.format));
     memset(&m_Demux.video,  0, sizeof(m_Demux.video));
-    m_strReaderName = _T("avqsv");
+    m_strReaderName = _T("avqsv/avsw");
 }
 
 CAvcodecReader::~CAvcodecReader() {
@@ -587,6 +587,14 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
 
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)option;
 
+    if (input_prm->bReadVideo) {
+        if (input_prm->nVideoDecodeSW != AV_DECODE_MODE_ANY) {
+            m_strReaderName = (input_prm->nVideoDecodeSW != AV_DECODE_MODE_SW) ? _T("avqsv") : _T("avsw");
+        }
+    } else {
+        m_strReaderName = _T("avsw");
+    }
+
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
     m_Demux.thread.pQueueInfo = input_prm->pQueueInfo;
     if (input_prm->bReadVideo) {
@@ -879,6 +887,7 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                 AddMessage(QSV_LOG_DEBUG, _T("can be decoded by qsv.\n"));
             }
         }
+        m_strReaderName = (bDecodecQSV) ? _T("avqsv") : _T("avsw");
 
         //必要ならbitstream filterを初期化
         if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
