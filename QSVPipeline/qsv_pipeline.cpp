@@ -2334,9 +2334,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if (pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV
-            || pParams->nInputFmt != INPUT_FMT_AVCODEC_SW
-            || pParams->nInputFmt != INPUT_FMT_AVCODEC_ANY
+        if ((pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV
+            && pParams->nInputFmt != INPUT_FMT_AVCODEC_SW
+            && pParams->nInputFmt != INPUT_FMT_AVCODEC_ANY)
             || pAVCodecReader == nullptr) {
             PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return MFX_ERR_UNSUPPORTED;
