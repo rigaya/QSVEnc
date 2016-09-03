@@ -144,7 +144,6 @@ void CPipeProcessWin::close() {
 }
 
 bool CPipeProcessWin::processAlive() {
-    int status = 0;
     return WAIT_OBJECT_0 == WaitForSingleObject(m_phandle, 0);
 }
 #endif //defined(_WIN32) || defined(_WIN64)
