@@ -564,6 +564,9 @@ static tstring help(const TCHAR *strAppName = nullptr) {
     str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
     str += PrintListOptions(_T("--colorprim <string>"),   list_colorprim,   0);
     str += PrintListOptions(_T("--transfer <string>"),    list_transfer,    0);
+    str += strsprintf(_T("")
+        _T("   --aud                        insert aud nal unit to ouput stream.\n")
+        _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n"));
     str += strsprintf(_T("\n")
         //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
         _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
@@ -2566,6 +2569,14 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
 #endif //#ifdef LIBVA_SUPPORT
+    if (0 == _tcscmp(option_name, _T("aud"))) {
+        pParams->bOutputAud = true;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("pic-struct"))) {
+        pParams->bOutputPicStruct = true;
+        return MFX_ERR_NONE;
+    }
     if (0 == _tcscmp(option_name, _T("async-depth"))) {
         i++;
         int v;

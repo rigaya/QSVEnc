@@ -1240,6 +1240,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, cnf->qsv.VideoFormat));
     fcgCBFullrange->Checked      = cnf->qsv.bFullrange;
 
+    fcgCBOutputAud->Checked       = cnf->qsv.bOutputAud != 0;
+    fcgCBOutputPicStruct->Checked = cnf->qsv.bOutputPicStruct != 0;
+
     //Vpp
     fcgCBUseVpp->Checked                   = cnf->qsv.vpp.bEnable;
     fcgCBVppResize->Checked                = cnf->qsv.vpp.bUseResize;
@@ -1386,6 +1389,9 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         cnf->qsv.nPAR[0] *= -1;
         cnf->qsv.nPAR[1] *= -1;
     }
+
+    cnf->qsv.bOutputAud              = fcgCBOutputAud->Checked;
+    cnf->qsv.bOutputPicStruct        = fcgCBOutputPicStruct->Checked;
 
     //vpp
     cnf->qsv.vpp.bEnable             = fcgCBUseVpp->Checked;

@@ -865,8 +865,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     //m_CodingOption.FieldOutput = MFX_CODINGOPTION_ON;
     //m_CodingOption.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
     //m_CodingOption.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
-    m_CodingOption.AUDelimiter = MFX_CODINGOPTION_OFF;
-    m_CodingOption.PicTimingSEI = MFX_CODINGOPTION_OFF;
+    m_CodingOption.AUDelimiter = (mfxU16)((pInParams->bOutputAud) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+    m_CodingOption.PicTimingSEI = (mfxU16)((pInParams->bOutputPicStruct) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     //m_CodingOption.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
 
     //API v1.6の機能

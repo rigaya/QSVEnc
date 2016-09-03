@@ -422,7 +422,9 @@ struct sInputParams
     uint32_t   nFallback;
     int        nVideoStreamId;
     int8_t     nVideoTrack;
-    int8_t     __unused[3];
+    int8_t     bOutputAud;
+    int8_t     bOutputPicStruct;
+    int8_t     __unused[1];
     int16_t    pQPOffset[8];
     TCHAR     *pMuxVidTsLogFile;
     TCHAR     *pAVInputFormat;

@@ -914,6 +914,9 @@ private: System::Windows::Forms::Label^  fcgLBAvqsvAudioEncoder;
 private: System::Windows::Forms::TabPage^  fcgtabPageMuxInternal;
 private: System::Windows::Forms::CheckBox^  fcgCBCopyChapter;
 private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
+private: System::Windows::Forms::CheckBox^  fcgCBOutputPicStruct;
+
+private: System::Windows::Forms::CheckBox^  fcgCBOutputAud;
 
 
 
@@ -1128,6 +1131,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgLBMFXLibDetectionHwValue = (gcnew System::Windows::Forms::Label());
+            this->fcgLBMFXLibDetectionHwStatus = (gcnew System::Windows::Forms::Label());
             this->fcgCBFadeDetect = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightB = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightP = (gcnew System::Windows::Forms::CheckBox());
@@ -1181,9 +1186,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgLBQPP = (gcnew System::Windows::Forms::Label());
             this->fcgLBQPB = (gcnew System::Windows::Forms::Label());
             this->fcgLBMFXLibDetectionSwValue = (gcnew System::Windows::Forms::Label());
-            this->fcgLBMFXLibDetectionHwValue = (gcnew System::Windows::Forms::Label());
             this->fcgLBMFXLibDetectionSwStatus = (gcnew System::Windows::Forms::Label());
-            this->fcgLBMFXLibDetectionHwStatus = (gcnew System::Windows::Forms::Label());
             this->fcgLBMFXLibDetection = (gcnew System::Windows::Forms::Label());
             this->fcgLBSlices2 = (gcnew System::Windows::Forms::Label());
             this->fcgNUSlices = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1227,6 +1230,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgCXOutputType = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCBHWEncode = (gcnew System::Windows::Forms::CheckBox());
             this->tabPageVpp = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBOutputPicStruct = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBOutputAud = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxDetail = (gcnew System::Windows::Forms::GroupBox());
             this->fcgCBDirectBiasAdjust = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXMVCostScaling = (gcnew System::Windows::Forms::ComboBox());
@@ -2292,6 +2297,30 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
             // 
+            // fcgLBMFXLibDetectionHwValue
+            // 
+            this->fcgLBMFXLibDetectionHwValue->AutoSize = true;
+            this->fcgLBMFXLibDetectionHwValue->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
+                static_cast<System::Byte>(128)));
+            this->fcgLBMFXLibDetectionHwValue->ForeColor = System::Drawing::Color::DarkViolet;
+            this->fcgLBMFXLibDetectionHwValue->Location = System::Drawing::Point(515, 20);
+            this->fcgLBMFXLibDetectionHwValue->Name = L"fcgLBMFXLibDetectionHwValue";
+            this->fcgLBMFXLibDetectionHwValue->Size = System::Drawing::Size(33, 17);
+            this->fcgLBMFXLibDetectionHwValue->TabIndex = 109;
+            this->fcgLBMFXLibDetectionHwValue->Text = L"hw:";
+            // 
+            // fcgLBMFXLibDetectionHwStatus
+            // 
+            this->fcgLBMFXLibDetectionHwStatus->AutoSize = true;
+            this->fcgLBMFXLibDetectionHwStatus->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic,
+                System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
+            this->fcgLBMFXLibDetectionHwStatus->ForeColor = System::Drawing::Color::Blue;
+            this->fcgLBMFXLibDetectionHwStatus->Location = System::Drawing::Point(476, 20);
+            this->fcgLBMFXLibDetectionHwStatus->Name = L"fcgLBMFXLibDetectionHwStatus";
+            this->fcgLBMFXLibDetectionHwStatus->Size = System::Drawing::Size(33, 17);
+            this->fcgLBMFXLibDetectionHwStatus->TabIndex = 107;
+            this->fcgLBMFXLibDetectionHwStatus->Text = L"hw:";
+            // 
             // fcgCBFadeDetect
             // 
             this->fcgCBFadeDetect->AutoSize = true;
@@ -2821,18 +2850,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgLBMFXLibDetectionSwValue->Text = L"hw:";
             this->fcgLBMFXLibDetectionSwValue->Visible = false;
             // 
-            // fcgLBMFXLibDetectionHwValue
-            // 
-            this->fcgLBMFXLibDetectionHwValue->AutoSize = true;
-            this->fcgLBMFXLibDetectionHwValue->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
-                static_cast<System::Byte>(128)));
-            this->fcgLBMFXLibDetectionHwValue->ForeColor = System::Drawing::Color::DarkViolet;
-            this->fcgLBMFXLibDetectionHwValue->Location = System::Drawing::Point(515, 20);
-            this->fcgLBMFXLibDetectionHwValue->Name = L"fcgLBMFXLibDetectionHwValue";
-            this->fcgLBMFXLibDetectionHwValue->Size = System::Drawing::Size(33, 17);
-            this->fcgLBMFXLibDetectionHwValue->TabIndex = 109;
-            this->fcgLBMFXLibDetectionHwValue->Text = L"hw:";
-            // 
             // fcgLBMFXLibDetectionSwStatus
             // 
             this->fcgLBMFXLibDetectionSwStatus->AutoSize = true;
@@ -2845,18 +2862,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->fcgLBMFXLibDetectionSwStatus->TabIndex = 108;
             this->fcgLBMFXLibDetectionSwStatus->Text = L"sw:";
             this->fcgLBMFXLibDetectionSwStatus->Visible = false;
-            // 
-            // fcgLBMFXLibDetectionHwStatus
-            // 
-            this->fcgLBMFXLibDetectionHwStatus->AutoSize = true;
-            this->fcgLBMFXLibDetectionHwStatus->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic,
-                System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
-            this->fcgLBMFXLibDetectionHwStatus->ForeColor = System::Drawing::Color::Blue;
-            this->fcgLBMFXLibDetectionHwStatus->Location = System::Drawing::Point(476, 20);
-            this->fcgLBMFXLibDetectionHwStatus->Name = L"fcgLBMFXLibDetectionHwStatus";
-            this->fcgLBMFXLibDetectionHwStatus->Size = System::Drawing::Size(33, 17);
-            this->fcgLBMFXLibDetectionHwStatus->TabIndex = 107;
-            this->fcgLBMFXLibDetectionHwStatus->Text = L"hw:";
             // 
             // fcgLBMFXLibDetection
             // 
@@ -3280,6 +3285,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             // 
             // tabPageVpp
             // 
+            this->tabPageVpp->Controls->Add(this->fcgCBOutputPicStruct);
+            this->tabPageVpp->Controls->Add(this->fcgCBOutputAud);
             this->tabPageVpp->Controls->Add(this->fcggroupBoxDetail);
             this->tabPageVpp->Controls->Add(this->fcgPNExtSettings);
             this->tabPageVpp->Controls->Add(this->fcgCBUseVpp);
@@ -3292,6 +3299,28 @@ private: System::Windows::Forms::CheckBox^  fcgCBCopySubtitle;
             this->tabPageVpp->TabIndex = 2;
             this->tabPageVpp->Text = L"Vpp / 詳細設定";
             this->tabPageVpp->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBOutputPicStruct
+            // 
+            this->fcgCBOutputPicStruct->AutoSize = true;
+            this->fcgCBOutputPicStruct->Location = System::Drawing::Point(472, 284);
+            this->fcgCBOutputPicStruct->Name = L"fcgCBOutputPicStruct";
+            this->fcgCBOutputPicStruct->Size = System::Drawing::Size(78, 18);
+            this->fcgCBOutputPicStruct->TabIndex = 132;
+            this->fcgCBOutputPicStruct->Tag = L"chValue";
+            this->fcgCBOutputPicStruct->Text = L"pic-struct";
+            this->fcgCBOutputPicStruct->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBOutputAud
+            // 
+            this->fcgCBOutputAud->AutoSize = true;
+            this->fcgCBOutputAud->Location = System::Drawing::Point(321, 284);
+            this->fcgCBOutputAud->Name = L"fcgCBOutputAud";
+            this->fcgCBOutputAud->Size = System::Drawing::Size(68, 18);
+            this->fcgCBOutputAud->TabIndex = 131;
+            this->fcgCBOutputAud->Tag = L"chValue";
+            this->fcgCBOutputAud->Text = L"aud付加";
+            this->fcgCBOutputAud->UseVisualStyleBackColor = true;
             // 
             // fcggroupBoxDetail
             // 
