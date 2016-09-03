@@ -360,6 +360,10 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream, &m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
 
+        //DecodeHeaderした結果をreaderにも反映
+        //VPPにInputFrameInfoを渡す時などに、high bit depthなどの時にshiftの取得しておく必要がある
+        m_pFileReader->SetInputFrameInfo(&m_mfxDecParams.mfx.FrameInfo);
+
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
             //メインループに入った際に再度第1フレームを読み込むようにする。
@@ -3097,6 +3101,9 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = CreateAllocator();
     if (sts < MFX_ERR_NONE) return sts;
 
+    sts = InitMfxDecParams(pParams);
+    if (sts < MFX_ERR_NONE) return sts;
+
     sts = InitMfxEncParams(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
@@ -3110,9 +3117,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < MFX_ERR_NONE) return sts;
 
     sts = InitVppPostPlugins(pParams);
-    if (sts < MFX_ERR_NONE) return sts;
-
-    sts = InitMfxDecParams(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
     sts = InitOutput(pParams);

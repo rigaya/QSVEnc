@@ -126,6 +126,9 @@ public:
     void GetInputFrameInfo(mfxFrameInfo *inputFrameInfo) {
         memcpy(inputFrameInfo, &m_inputFrameInfo, sizeof(m_inputFrameInfo));
     }
+    void SetInputFrameInfo(const mfxFrameInfo *inputFrameInfo) {
+        memcpy(&m_inputFrameInfo, inputFrameInfo, sizeof(m_inputFrameInfo));
+    }
 
     //入力ファイルに存在する音声のトラック数を返す
     virtual int GetAudioTrackCount() {
