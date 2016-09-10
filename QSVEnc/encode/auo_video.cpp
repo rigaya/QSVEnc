@@ -287,6 +287,10 @@ static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL fo
         //vppを無効化する
         ZeroMemory(&conf->qsv.vpp, sizeof(conf->qsv.vpp));
     }
+    conf->qsv.nHeight = 0;
+    conf->qsv.nWidth = 0;
+    conf->qsv.nFPSRate = 0;
+    conf->qsv.nFPSScale = 0;
     if (!conf->qsv.vpp.bUseResize) {
         conf->qsv.nDstWidth = 0;
         conf->qsv.nDstHeight = 0;
