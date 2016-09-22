@@ -695,7 +695,6 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
         _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
         _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
-        _T("                                enabled only when set --tff or --bff\n")
         _T("                                 - none     disable deinterlace\n")
         _T("                                 - normal   normal deinterlace\n")
         _T("                                 - it       inverse telecine\n")
@@ -2660,6 +2659,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             } else {
                 pParams->vpp.nTelecinePattern = (mfxU16)value;
             }
+        }
+        if (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE
+            && pParams->nPicStruct == MFX_PICSTRUCT_PROGRESSIVE) {
+            pParams->nPicStruct = MFX_PICSTRUCT_FIELD_TFF;
         }
         return MFX_ERR_NONE;
     }
