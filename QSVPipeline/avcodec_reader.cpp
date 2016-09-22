@@ -889,6 +889,11 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         }
         m_strReaderName = (bDecodecQSV) ? _T("avqsv") : _T("avsw");
 
+        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
+        if (m_Demux.video.pCodecCtx->codec_id == AV_CODEC_ID_HEVC) {
+            m_Demux.video.pCodecCtx->log_level_offset = AV_LOG_ERROR;
+        }
+
         //必要ならbitstream filterを初期化
         if (m_Demux.video.pCodecCtx->extradata && m_Demux.video.pCodecCtx->extradata[0] == 1) {
             if (m_nInputCodec == MFX_CODEC_AVC) {
