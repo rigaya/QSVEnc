@@ -846,7 +846,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.IOPattern = (mfxU16)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_IN_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY);
 
     // frame info parameters
-    m_mfxEncParams.mfx.FrameInfo.FourCC       = MFX_FOURCC_NV12;
     m_mfxEncParams.mfx.FrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
     m_mfxEncParams.mfx.FrameInfo.PicStruct    = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
 
@@ -1215,7 +1214,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
 
     m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
-    m_mfxVppParams.vpp.Out.FourCC         = MFX_FOURCC_NV12;
+    m_mfxVppParams.vpp.Out.FourCC         = m_mfxEncParams.mfx.FrameInfo.FourCC;
     m_mfxVppParams.vpp.Out.BitDepthLuma   = 0;
     m_mfxVppParams.vpp.Out.BitDepthChroma = 0;
     m_mfxVppParams.vpp.Out.Shift          = 0;
@@ -3086,6 +3085,8 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
             m_pPerfMonitor.reset();
         }
     }
+
+    m_mfxEncParams.mfx.FrameInfo.FourCC = (pParams->CodecId == MFX_CODEC_HEVC && pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) ? MFX_FOURCC_P010 : MFX_FOURCC_NV12;
 
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
