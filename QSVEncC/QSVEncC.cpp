@@ -523,7 +523,9 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
         _T("   --(no-)weightp               enable weight prediction for P frame\n")
         _T("   --(no-)weightb               enable weight prediction for B frame\n")
+#if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")
+#endif //#if ENABLE_FADE_DETECT
         _T("   --trellis <string>           set trellis mode used in encoding\n")
         _T("                                 - auto(default), off, i, ip, all\n")
         _T("   --mv-scaling                 set mv cost scaling\n")

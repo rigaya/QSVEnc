@@ -69,6 +69,8 @@ const char *get_qsvenc_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
+#define ENABLE_FADE_DETECT 0
+
 #ifndef QSVENC_AUO
 #define ENABLE_AUO_LINK           0
 #define ENABLE_AVI_READER         1

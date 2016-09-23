@@ -740,6 +740,10 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
             result &= ~ENC_FEATURE_B_PYRAMID_AND_SC;
         }
+#if !ENABLE_FADE_DETECT
+        //不安定でエンコードが途中で終了してしまうことが多い
+        result &= ~ENC_FEATURE_FADE_DETECT;
+#endif //#if ENABLE_FADE_DETECT
     }
 #undef CHECK_FEATURE
     return result;

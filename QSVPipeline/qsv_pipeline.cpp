@@ -640,6 +640,12 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
         pInParams->nWeightB = 0;
     }
+#if !ENABLE_FADE_DETECT
+    if (pInParams->nFadeDetect == MFX_CODINGOPTION_ON) {
+        PrintMes(QSV_LOG_WARN, _T("fade-detect will be disabled due to instability.\n"));
+        pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
+    }
+#endif
     if (pInParams->nFadeDetect != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
         if (pInParams->nFadeDetect == MFX_CODINGOPTION_ON) {
             print_feature_warnings(QSV_LOG_WARN, _T("FadeDetect"));
