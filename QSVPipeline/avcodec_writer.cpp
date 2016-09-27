@@ -2598,7 +2598,6 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
         if (bSetSilenceDueToAACBsfError) {
             //無音挿入
             decodedFrame = av_frame_alloc();
-            AVRational samplerate ={ 1, pMuxAudio->nResamplerInSampleRate };
             decodedFrame                 = av_frame_alloc();
             decodedFrame->nb_samples     = nSamples;
             decodedFrame->channels       = pMuxAudio->nResamplerInChannels;
