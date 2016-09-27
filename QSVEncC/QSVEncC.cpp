@@ -1458,6 +1458,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("audio-source"))) {
         i++;
+        pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
         size_t audioSourceLen = _tcslen(strInput[i]) + 1;
         TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
         memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);

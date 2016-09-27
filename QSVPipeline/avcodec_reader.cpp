@@ -748,10 +748,11 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         vector<int> mediaStreams;
         if (input_prm->nReadAudio) {
             auto audioStreams = getStreamIndex(AVMEDIA_TYPE_AUDIO, &videoStreams);
-            if (audioStreams.size() == 0) {
-                AddMessage(QSV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
-                return MFX_ERR_NOT_FOUND;
-            }
+            //他のファイルから音声を読み込む場合もあるので、ここでチェックはできない
+            //if (audioStreams.size() == 0) {
+            //    AddMessage(QSV_LOG_ERROR, _T("--audio-encode/--audio-copy/--audio-file is set, but no audio stream found.\n"));
+            //    return MFX_ERR_NOT_FOUND;
+            //}
             m_Demux.format.nAudioTracks = (int)audioStreams.size();
             vector_cat(mediaStreams, audioStreams);
         }
