@@ -100,21 +100,30 @@ mfxStatus Delogo::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfx
 
     if (m_sTasks[ind].pProcessor.get() == nullptr) {
         bool d3dSurface = !!(m_DelogoParam.memType & D3D9_MEMORY);
+        if (m_DelogoParam.add) {
+            if (m_nSimdAvail & SSE41) {
+                m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessAddD3DSSE41) : new DelogoProcessAddSSE41);
+            } else {
+                m_message += _T("vpp-delogo requires SSE4.1 support.\n");
+                return MFX_ERR_UNSUPPORTED;
+            }
+        } else {
 #if defined(_MSC_VER) || defined(__AVX2__)
-        if ((m_nSimdAvail & (AVX2 | FMA3)) == (AVX2 | FMA3)) {
-            m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX2) : new DelogoProcessAVX2);
-        } else
+            if ((m_nSimdAvail & (AVX2 | FMA3)) == (AVX2 | FMA3)) {
+                m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX2) : new DelogoProcessAVX2);
+            } else
 #endif //#if defined(_MSC_VER) || defined(__AVX2__)
 #if defined(_MSC_VER) || defined(__AVX__)
-        if (m_nSimdAvail & AVX) {
-            m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX) : new DelogoProcessAVX);
-        } else
+            if (m_nSimdAvail & AVX) {
+                m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX) : new DelogoProcessAVX);
+            } else
 #endif //#ifdefined(_MSC_VER) || defined(__AVX__)
-        if (m_nSimdAvail & SSE41) {
-            m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DSSE41) : new DelogoProcessSSE41);
-        } else {
-            m_message += _T("vpp-delogo requires SSE4.1 support.\n");
-            return MFX_ERR_UNSUPPORTED;
+            if (m_nSimdAvail & SSE41) {
+                m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DSSE41) : new DelogoProcessSSE41);
+            } else {
+                m_message += _T("vpp-delogo requires SSE4.1 support.\n");
+                return MFX_ERR_UNSUPPORTED;
+            }
         }
 
         //GPUによるD3DSurfaceのコピーを正常に実行するためには、m_pAllocは、

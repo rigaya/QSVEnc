@@ -40,9 +40,19 @@ static QSV_NOINLINE void process_delogo_frame_sse41(mfxU8 *dst, const mfxU32 dst
     process_delogo_frame(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
 }
 
+static QSV_NOINLINE void process_logo_add_frame_sse41(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
+    mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
+    process_logo_add_frame(dst, dst_pitch, buffer, src, src_pitch, width, height_start, height_fin, data);
+}
+
 template<mfxU32 step>
 static QSV_NOINLINE void process_delogo_sse41(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
     process_delogo<step>(ptr, pitch, buffer, height_start, height_fin, data);
+}
+
+template<mfxU32 step>
+static QSV_NOINLINE void process_logo_add_sse41(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
+    process_logo_add<step>(ptr, pitch, buffer, height_start, height_fin, data);
 }
 
 DelogoProcessSSE41::DelogoProcessSSE41() : ProcessorDelogo() {
@@ -102,6 +112,68 @@ mfxStatus DelogoProcessD3DSSE41::Process(DataChunk *chunk, mfxU8 *pBuffer) {
 
     process_delogo_sse41<64>(m_pOut->Data.Y,  m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH,      m_sData[0]);
     process_delogo_sse41<32>(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
+
+    return UnlockFrame(m_pOut);
+}
+
+
+DelogoProcessAddSSE41::DelogoProcessAddSSE41() : ProcessorDelogo() {
+}
+
+DelogoProcessAddSSE41::~DelogoProcessAddSSE41() {
+}
+
+mfxStatus DelogoProcessAddSSE41::Process(DataChunk *chunk, mfxU8 *pBuffer) {
+    if (chunk == nullptr || pBuffer == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
+
+    if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
+        return MFX_ERR_UNSUPPORTED;
+    }
+
+    mfxStatus sts = MFX_ERR_NONE;
+    if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
+    if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+        return UnlockFrame(m_pIn);
+    }
+
+    process_logo_add_frame_sse41(m_pOut->Data.Y, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.Y, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH, m_sData[0]);
+    process_logo_add_frame_sse41(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, m_pIn->Data.UV, m_pIn->Data.Pitch, m_pIn->Info.CropW, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
+
+    if (MFX_ERR_NONE != (sts = UnlockFrame(m_pIn)))  return sts;
+    if (MFX_ERR_NONE != (sts = UnlockFrame(m_pOut))) return sts;
+
+    return sts;
+}
+
+DelogoProcessAddD3DSSE41::DelogoProcessAddD3DSSE41() : ProcessorDelogo() {
+}
+
+DelogoProcessAddD3DSSE41::~DelogoProcessAddD3DSSE41() {
+}
+
+mfxStatus DelogoProcessAddD3DSSE41::Process(DataChunk *chunk, mfxU8 *pBuffer) {
+    if (chunk == nullptr || pBuffer == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
+
+    if (m_pIn->Info.FourCC != MFX_FOURCC_NV12) {
+        return MFX_ERR_UNSUPPORTED;
+    }
+
+    mfxStatus sts = MFX_ERR_NONE;
+
+    if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
+        return sts;
+    }
+
+    if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
+        return sts;
+    }
+
+    process_logo_add_sse41<64>(m_pOut->Data.Y, m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH, m_sData[0]);
+    process_logo_add_sse41<32>(m_pOut->Data.UV, m_pOut->Data.Pitch, pBuffer, 0, m_pIn->Info.CropH >> 1, m_sData[1]);
 
     return UnlockFrame(m_pOut);
 }

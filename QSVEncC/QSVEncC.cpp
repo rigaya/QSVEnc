@@ -733,6 +733,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
         _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
         _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+        _T("   --vpp-delogo-add             add logo mode\n")
 #endif //#if ENABLE_CUSTOM_VPP
         _T("   --vpp-rotate <int>           rotate image\n")
         _T("                                 90, 180, 270.\n")
@@ -2847,6 +2848,14 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             return MFX_PRINT_OPTION_ERR;
         }
         pParams->vpp.delogo.nCrOffset = value;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-add"))) {
+        pParams->vpp.delogo.bAdd = 1;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-delogo-add"))) {
+        pParams->vpp.delogo.bAdd = 0;
         return MFX_ERR_NONE;
     }
 #endif //#if ENABLE_CUSTOM_VPP

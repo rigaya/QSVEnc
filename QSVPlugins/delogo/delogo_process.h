@@ -39,6 +39,14 @@ public:
     virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };
 
+class DelogoProcessAddSSE41 : public ProcessorDelogo {
+public:
+    DelogoProcessAddSSE41();
+    virtual ~DelogoProcessAddSSE41();
+
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+};
+
 class DelogoProcessAVX : public ProcessorDelogo
 {
 public:
@@ -62,6 +70,14 @@ class DelogoProcessD3DSSE41 : public ProcessorDelogo
 public:
     DelogoProcessD3DSSE41();
     virtual ~DelogoProcessD3DSSE41();
+
+    virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
+};
+
+class DelogoProcessAddD3DSSE41 : public ProcessorDelogo {
+public:
+    DelogoProcessAddD3DSSE41();
+    virtual ~DelogoProcessAddD3DSSE41();
 
     virtual mfxStatus Process(DataChunk *chunk, mfxU8 *pBuffer) override;
 };

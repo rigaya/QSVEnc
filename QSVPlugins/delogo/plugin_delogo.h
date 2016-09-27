@@ -70,6 +70,7 @@ struct DelogoParam {
     short posX, posY; //位置オフセット
     short depth;      //透明度深度
     short Y, Cb, Cr;  //(輝度・色差)オフセット
+    int   add;        //付加モード
 
     DelogoParam() :
         pAllocator(nullptr),
@@ -78,13 +79,13 @@ struct DelogoParam {
         logoFilePath(nullptr),
         logoSelect(nullptr),
         posX(0), posY(0), depth(128),
-        Y(0), Cb(0), Cr(0) {
+        Y(0), Cb(0), Cr(0), add(0) {
     };
 
     DelogoParam(mfxFrameAllocator *pAllocator, MemType memType, 
         const TCHAR *logoFilePath, const TCHAR *logoSelect, const TCHAR *inputFileName,
         short posX = 0, short posY = 0, short depth = 128,
-        short Y = 0, short Cb = 0, short Cr = 0) {
+        short Y = 0, short Cb = 0, short Cr = 0, int add = 0) {
         this->pAllocator    = pAllocator;
         this->memType       = memType;
         this->logoFilePath  = logoFilePath;
@@ -96,6 +97,7 @@ struct DelogoParam {
         this->Y     = Y;
         this->Cb    = Cb;
         this->Cr    = Cr;
+        this->add   = add;
     };
 };
 

@@ -267,7 +267,8 @@ typedef struct {
         TCHAR     *pFilePath; //ロゴファイル名へのポインタ
         TCHAR     *pSelect; //選択するロゴ
         mfxI16Pair nPosOffset;
-        mfxI16     nDepth;
+        uint8_t    nDepth;
+        uint8_t    bAdd;
         mfxI16     nYOffset;
         mfxI16     nCbOffset;
         mfxI16     nCrOffset;

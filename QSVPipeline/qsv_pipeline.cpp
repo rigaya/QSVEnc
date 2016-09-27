@@ -1501,7 +1501,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
             pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
-            pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset);
+            pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset, pParams->vpp.delogo.bAdd);
         sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts == MFX_ERR_ABORTED) {
             PrintMes(QSV_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());

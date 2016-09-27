@@ -650,3 +650,174 @@ static __forceinline void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *
     _mm256_zeroupper();
 #endif
 }
+
+#if !USE_AVX
+static __forceinline void logo_add_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_i_width,
+    CONST_MR(nv12_2_yc48_mul), CONST_MR(nv12_2_yc48_sub), CONST_MR(yc48_2_nv12_mul), CONST_MR(yc48_2_nv12_add),
+    CONST_MR(offset), CONST_MR(depth_mul_fade_slft_3)) {
+    mfxU8 *ptr_buf_fin = ptr_buf + logo_i_width;
+    for (; ptr_buf < ptr_buf_fin; ptr_buf += 16, ptr_logo += 32) {
+        __m128i x0, x1, x2, x3;
+        __m128i xDp0, xDp1, xDp2, xDp3;
+        __m128i xSrc0, xSrc1;
+
+        x0   = _mm_load_si128((__m128i *)(ptr_logo +  0));
+        x1   = _mm_load_si128((__m128i *)(ptr_logo +  8));
+        x2   = _mm_load_si128((__m128i *)(ptr_logo + 16));
+        x3   = _mm_load_si128((__m128i *)(ptr_logo + 24));
+
+        // 不透明度情報のみ取り出し
+        xDp0 = _mm_and_si128(x0, _mm_load_si128((__m128i *)MASK_16BIT));
+        xDp1 = _mm_and_si128(x1, _mm_load_si128((__m128i *)MASK_16BIT));
+        xDp2 = _mm_and_si128(x2, _mm_load_si128((__m128i *)MASK_16BIT));
+        xDp3 = _mm_and_si128(x3, _mm_load_si128((__m128i *)MASK_16BIT));
+
+        //ロゴ色データの取り出し
+        x0   = _mm_packs_epi32(_mm_srai_epi32(x0, 16), _mm_srai_epi32(x1, 16));
+        x1   = _mm_packs_epi32(_mm_srai_epi32(x2, 16), _mm_srai_epi32(x3, 16));
+
+        x0   = _mm_add_epi16(x0, xC_offset);
+        x1   = _mm_add_epi16(x1, xC_offset);
+#if DEPTH_MUL_OPTIM
+        xDp0 = _mm_packus_epi32(xDp0, xDp1);
+        xDp1 = _mm_packus_epi32(xDp2, xDp3);
+
+        xDp0 = _mm_slli_epi16(xDp0, 4);
+        xDp1 = _mm_slli_epi16(xDp1, 4);
+
+        xDp0 = _mm_mulhi_epi16(xDp0, xC_depth_mul_fade_slft_3);
+        xDp1 = _mm_mulhi_epi16(xDp1, xC_depth_mul_fade_slft_3);
+#else
+        //16bit→32bit
+        xDp0 = _mm_sub_epi32(_mm_add_epi16(xDp0, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+        xDp1 = _mm_sub_epi32(_mm_add_epi16(xDp1, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+        xDp2 = _mm_sub_epi32(_mm_add_epi16(xDp2, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+        xDp3 = _mm_sub_epi32(_mm_add_epi16(xDp3, _mm_load_si128((__m128i *)ARRAY_0x00008000)), _mm_load_si128((__m128i *)ARRAY_0x00008000));
+
+        //lgp->dp_y * logo_depth_mul_fade)/128 /LOGO_FADE_MAX;
+        xDp0 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp0, xC_depth_mul_fade), 15);
+        xDp1 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp1, xC_depth_mul_fade), 15);
+        xDp2 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp2, xC_depth_mul_fade), 15);
+        xDp3 = _mm_srai_epi32(_mm_mullo_epi32_simd(xDp3, xC_depth_mul_fade), 15);
+
+        xDp0 = _mm_packs_epi32(xDp0, xDp1);
+        xDp1 = _mm_packs_epi32(xDp2, xDp3);
+#endif
+        alignas(32) short logo_c[16];
+        _mm_store_si128((__m128i *)(logo_c + 0), x0);
+        _mm_store_si128((__m128i *)(logo_c + 8), x1);
+
+        alignas(32) short logo_depth[16];
+        _mm_store_si128((__m128i *)(logo_depth + 0), xDp0);
+        _mm_store_si128((__m128i *)(logo_depth + 8), xDp1);
+
+        //ソースをロードしてNV12->YC48
+        xSrc0 = _mm_load_si128((__m128i *)(ptr_buf));
+        xSrc1 = _mm_unpackhi_epi8(xSrc0, _mm_setzero_si128());
+        xSrc0 = _mm_unpacklo_epi8(xSrc0, _mm_setzero_si128());
+
+        xSrc0 = _mm_slli_epi16(xSrc0, 6);
+        xSrc1 = _mm_slli_epi16(xSrc1, 6);
+        xSrc0 = _mm_mulhi_epi16(xSrc0, xC_nv12_2_yc48_mul);
+        xSrc1 = _mm_mulhi_epi16(xSrc1, xC_nv12_2_yc48_mul);
+        xSrc0 = _mm_sub_epi16(xSrc0, xC_nv12_2_yc48_sub);
+        xSrc1 = _mm_sub_epi16(xSrc1, xC_nv12_2_yc48_sub);
+
+        alignas(32) short src[16];
+        _mm_store_si128((__m128i *)(src + 0), xSrc0);
+        _mm_store_si128((__m128i *)(src + 8), xSrc1);
+
+        for (int i = 0; i < 16; i++) {
+            src[i] = (src[i] * (LOGO_MAX_DP-logo_depth[i]) + logo_c[i] * logo_depth[i] +(LOGO_MAX_DP/2)) /LOGO_MAX_DP; // ロゴ付加
+        }
+
+        x0 = _mm_load_si128((__m128i *)(src + 0));
+        x1 = _mm_load_si128((__m128i *)(src + 8));
+
+        //YC48->NV12
+        x0 = _mm_add_epi16(x0, xC_yc48_2_nv12_add);
+        x1 = _mm_add_epi16(x1, xC_yc48_2_nv12_add);
+
+        x0 = _mm_mulhi_epi16(x0, xC_yc48_2_nv12_mul);
+        x1 = _mm_mulhi_epi16(x1, xC_yc48_2_nv12_mul);
+
+        x0 = _mm_packus_epi16(x0, x1);
+
+        _mm_store_si128((__m128i *)(ptr_buf), x0);
+    }
+}
+
+//dstで示される画像フレームをsrcにコピーしつつ、ロゴ部分を消去する
+//height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
+static __forceinline void process_logo_add_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
+    mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
+    mfxU8 *src_line = src;
+    mfxU8 *dst_line = dst;
+    short *data_ptr = data->pLogoPtr.get();
+    const mfxU32 logo_j_start  = data->j_start;
+    const mfxU32 logo_j_height = data->height;
+    const mfxU32 logo_i_start  = data->i_start;
+    const mfxU32 logo_i_width  = data->pitch;
+    CONST_M c_nv12_2_yc48_mul  = SET_EPI16(data->nv12_2_yc48_mul);
+    CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
+    CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
+    CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
+    CONST_M c_offset           = SET_EPI32(data->offset[0] | (data->offset[1] << 16));
+#if DEPTH_MUL_OPTIM
+    CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
+#else //#if DEPTH_MUL_OPTIM
+    CONST_M c_depth_mul_fade        = SET_EPI32(data->depth * data->fade);
+#endif //#if DEPTH_MUL_OPTIM
+
+    for (mfxU32 j = height_start; j < height_fin; j++, dst_line += dst_pitch, src_line += src_pitch) {
+        load_line_to_buffer<256, false>(buffer, src_line, width);
+        //if (logo_j_start <= j && j < logo_j_start + logo_j_height) {
+        if (j - logo_j_start < logo_j_height) {
+            mfxU8 *ptr_buf = buffer + logo_i_start;
+            short *ptr_logo = data_ptr + (j - logo_j_start) * (logo_i_width << 1);
+            logo_add_line(ptr_buf, ptr_logo, logo_i_width, c_nv12_2_yc48_mul, c_nv12_2_yc48_sub, c_yc48_2_nv12_mul, c_yc48_2_nv12_add, c_offset, c_depth_mul_fade_slft_3);
+        }
+        store_line_from_buffer<256, false>(dst_line, buffer, width);
+    }
+#if USE_AVX
+    _mm256_zeroupper();
+#endif
+}
+
+//ptrで示される画像フレーム内のロゴを付加して上書きする
+//template引数stepはロゴ部分を一時バッファにロードする単位
+//height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
+template<uint32_t step>
+static __forceinline void process_logo_add(mfxU8 *ptr, const uint32_t pitch, mfxU8 *buffer, uint32_t height_start, uint32_t height_fin, const ProcessDataDelogo *data) {
+    mfxU8 *ptr_line = ptr;
+    short *data_ptr = data->pLogoPtr.get();
+    const uint32_t logo_j_start  = data->j_start;
+    const uint32_t logo_j_height = data->height;
+    const uint32_t logo_i_start  = data->i_start;
+    const uint32_t logo_i_width  = data->pitch;
+    CONST_M c_nv12_2_yc48_mul  = SET_EPI16(data->nv12_2_yc48_mul);
+    CONST_M c_nv12_2_yc48_sub  = SET_EPI16(data->nv12_2_yc48_sub);
+    CONST_M c_yc48_2_nv12_mul  = SET_EPI16(data->yc48_2_nv12_mul);
+    CONST_M c_yc48_2_nv12_add  = SET_EPI16(data->yc48_2_nv12_add);
+    CONST_M c_offset           = SET_EPI32(data->offset[0] | (data->offset[1] << 16));
+#if DEPTH_MUL_OPTIM
+    CONST_M c_depth_mul_fade_slft_3 = SET_EPI16((short)((data->depth * data->fade) >> 3));
+#else //#if DEPTH_MUL_OPTIM
+    CONST_M c_depth_mul_fade        = SET_EPI32(data->depth * data->fade);
+#endif //#if DEPTH_MUL_OPTIM
+
+    height_start = (std::max)(height_start, logo_j_start);
+    height_fin   = (std::min)(height_fin, logo_j_start + logo_j_height);
+
+    ptr_line += logo_j_start * pitch;
+
+    for (mfxU32 j = height_start; j < height_fin; j++, ptr_line += pitch) {
+        load_line_to_buffer<step, true>(buffer, ptr_line + logo_i_start, logo_i_width);
+
+        short *ptr_logo = data_ptr + (j - logo_j_start) * (logo_i_width << 1);
+        logo_add_line(buffer, ptr_logo, logo_i_width, c_nv12_2_yc48_mul, c_nv12_2_yc48_sub, c_yc48_2_nv12_mul, c_yc48_2_nv12_add, c_offset, c_depth_mul_fade_slft_3);
+
+        store_line_from_buffer<step, true>(ptr_line + logo_i_start, buffer, logo_i_width);
+    }
+}
+#endif
