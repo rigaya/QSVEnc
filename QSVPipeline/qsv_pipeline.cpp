@@ -1184,10 +1184,10 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     } else {
         m_mfxVppParams.vpp.In.FourCC         = inputFrameInfo.FourCC;
         m_mfxVppParams.vpp.In.ChromaFormat   = inputFrameInfo.ChromaFormat;
-        m_mfxVppParams.vpp.In.BitDepthLuma   = pInParams->inputBitDepthLuma;
-        m_mfxVppParams.vpp.In.BitDepthChroma = pInParams->inputBitDepthChroma;
+        m_mfxVppParams.vpp.In.BitDepthLuma   = (pInParams->inputBitDepthLuma) ? pInParams->inputBitDepthLuma : inputFrameInfo.BitDepthLuma;
+        m_mfxVppParams.vpp.In.BitDepthChroma = (pInParams->inputBitDepthChroma) ? pInParams->inputBitDepthChroma : inputFrameInfo.BitDepthChroma;
         //QSVデコーダは特別にShiftパラメータを使う可能性がある
-        if (m_pFileReader->getInputCodec()) {
+        if (inputFrameInfo.Shift) {
             m_mfxVppParams.vpp.In.Shift      = inputFrameInfo.Shift;
         }
         m_mfxVppParams.vpp.In.Width     = (mfxU16)ALIGN(inputFrameInfo.CropW, blocksz);

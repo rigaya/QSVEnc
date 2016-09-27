@@ -27,16 +27,90 @@
 #ifndef _CONVERT_CSP_H_
 #define _CONVERT_CSP_H_
 
-typedef void (*func_convert_csp) (void **dst, void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int *crop);
+typedef void (*func_convert_csp) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+
+enum QSV_ENC_CSP {
+    QSV_ENC_CSP_NA,
+    QSV_ENC_CSP_NV12,
+    QSV_ENC_CSP_YV12,
+    QSV_ENC_CSP_YUY2,
+    QSV_ENC_CSP_YUV422,
+    QSV_ENC_CSP_YUV444,
+    QSV_ENC_CSP_YV12_09,
+    QSV_ENC_CSP_YV12_10,
+    QSV_ENC_CSP_YV12_12,
+    QSV_ENC_CSP_YV12_14,
+    QSV_ENC_CSP_YV12_16,
+    QSV_ENC_CSP_P010,
+    QSV_ENC_CSP_P210,
+    QSV_ENC_CSP_YUV444_09,
+    QSV_ENC_CSP_YUV444_10,
+    QSV_ENC_CSP_YUV444_12,
+    QSV_ENC_CSP_YUV444_14,
+    QSV_ENC_CSP_YUV444_16,
+    QSV_ENC_CSP_RGB3,
+    QSV_ENC_CSP_RGB4,
+    QSV_ENC_CSP_YC48,
+};
+
+static const TCHAR *QSV_ENC_CSP_NAMES[] = {
+    _T("Invalid"),
+    _T("nv12"),
+    _T("yv12"),
+    _T("yuy2"),
+    _T("yuv422"),
+    _T("yuv444"),
+    _T("yv12(9bit)"),
+    _T("yv12(10bit)"),
+    _T("yv12(12bit)"),
+    _T("yv12(14bit)"),
+    _T("yv12(16bit)"),
+    _T("p010"),
+    _T("p210"),
+    _T("yuv444(9bit)"),
+    _T("yuv444(10bit)"),
+    _T("yuv444(12bit)"),
+    _T("yuv444(14bit)"),
+    _T("yuv444(16bit)"),
+    _T("rgb3"),
+    _T("rgb4"),
+    _T("yc48")
+};
+
+static const int QSV_ENC_CSP_BIT_DEPTH[] = {
+    0, //QSV_ENC_CSP_NA
+    8, //QSV_ENC_CSP_NV12
+    8, //QSV_ENC_CSP_YV12
+    8, //QSV_ENC_CSP_YUY2 
+    8, //QSV_ENC_CSP_YUV422
+    8, //QSV_ENC_CSP_YUV444
+    9, //QSV_ENC_CSP_YV12_09
+    10,
+    12,
+    14,
+    16, //QSV_ENC_CSP_YV12_16
+    16, //QSV_ENC_CSP_P010
+    16, //QSV_ENC_CSP_P210
+    9, //QSV_ENC_CSP_YUV444_09
+    10,
+    12,
+    14,
+    16, //QSV_ENC_CSP_YUV444_16
+    8,
+    8,
+    10, //QSV_ENC_CSP_YC48
+};
 
 typedef struct ConvertCSP {
-    unsigned int csp_from, csp_to;
+    QSV_ENC_CSP csp_from, csp_to;
     bool uv_only;
     func_convert_csp func[2];
     unsigned int simd;
 } ConvertCSP;
 
-const ConvertCSP *get_convert_csp_func(unsigned int csp_from, unsigned int csp_to, bool uv_only);
+const ConvertCSP *get_convert_csp_func(QSV_ENC_CSP csp_from, QSV_ENC_CSP csp_to, bool uv_only);
 const TCHAR *get_simd_str(unsigned int simd);
+
+QSV_ENC_CSP mfx_fourcc_to_qsv_enc_csp(uint32_t fourcc);
 
 #endif //_CONVERT_CSP_H_

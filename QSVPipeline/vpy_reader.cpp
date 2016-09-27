@@ -222,30 +222,34 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
-    typedef struct CSPMap {
-        int fmtID;
-        mfxU32 in, out;
-        mfxU16 bitDepth;
-    } CSPMap;
+    struct CSPMap {
+        QSV_ENC_CSP in, out;
+        int bit_depth;
 
-    static const std::vector<CSPMap> valid_csp_list = {
-        { pfYUV420P8,  MFX_FOURCC_YV12, MFX_FOURCC_NV12,  0 },
-        { pfYUV420P9,  MFX_FOURCC_YV12, MFX_FOURCC_P010,  9 },
-        { pfYUV420P10, MFX_FOURCC_YV12, MFX_FOURCC_P010, 10 },
-        { pfYUV420P16, MFX_FOURCC_YV12, MFX_FOURCC_P010, 16 },
+        CSPMap(QSV_ENC_CSP csp_in, QSV_ENC_CSP csp_out, int bit_depth)
+        : in(csp_in), out(csp_out), bit_depth(bit_depth) {
+
+        };
+    };
+
+    static const std::map<int, CSPMap> valid_csp_list = {
+        { pfYUV420P8,  CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_NV12,  0) },
+        { pfYUV420P9,  CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_P010,  9) },
+        { pfYUV420P10, CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_P010, 10) },
+        { pfYUV420P16, CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_P010, 16) },
+        { pfYUV444P8,  CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_NV12,  0) },
+        { pfYUV444P9,  CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_P010,  9) },
+        { pfYUV444P10, CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_P010, 10) },
+        { pfYUV444P16, CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_P010, 16) },
     };
 
     m_ColorFormat = 0x00;
-    for (auto csp : valid_csp_list) {
-        if (csp.fmtID == vsvideoinfo->format->id) {
-            m_ColorFormat = csp.in;
-            m_inputFrameInfo.FourCC = csp.out;
-            m_inputFrameInfo.BitDepthLuma = csp.bitDepth;
-            m_inputFrameInfo.BitDepthChroma = csp.bitDepth;
-            m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
-            break;
-        }
+    if (valid_csp_list.count(vsvideoinfo->format->id) == 0) {
+        AddMessage(QSV_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
+        return MFX_ERR_INVALID_COLOR_FORMAT;
     }
+    auto csp = valid_csp_list.at(vsvideoinfo->format->id);
+    m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
 
     if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
         AddMessage(QSV_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
@@ -258,6 +262,11 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     }
     const mfxI64 fps_gcd = qsv_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
 
+    m_ColorFormat = QSV_ENC_CSP_TO_MFX_FOURCC[csp.in];
+    m_inputFrameInfo.FourCC = QSV_ENC_CSP_TO_MFX_FOURCC[csp.out];
+    m_inputFrameInfo.BitDepthLuma = csp.bit_depth;
+    m_inputFrameInfo.BitDepthChroma = csp.bit_depth;
+    m_inputFrameInfo.Shift = (csp.out == QSV_ENC_CSP_P010) ? 16 - csp.bit_depth : 0;
     m_inputFrameInfo.Width = (mfxU16)vsvideoinfo->width;
     m_inputFrameInfo.Height = (mfxU16)vsvideoinfo->height;
     m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);
@@ -287,8 +296,8 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     }
     tstring str = strsprintf(_T("VapourSynth%s%s (%s%s)->%s[%s]%s%dx%d, %d/%d fps"),
         (use_mt_mode) ? _T("MT") : _T(""), rev_info.c_str(),
-        ColorFormatToStr(m_ColorFormat), intputBitdepthStr.c_str(),
-        ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
+        QSV_ENC_CSP_NAMES[m_sConvert->csp_from], intputBitdepthStr.c_str(),
+        QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
         (m_inputFrameInfo.BitDepthLuma > 8) ? _T("\n") : _T(", "),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     AddMessage(QSV_LOG_DEBUG, str);
@@ -363,7 +372,7 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     int crop[4] = { CropLeft, CropUp, CropRight, CropBottom };
     const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
     const void *src_ptr[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
-    m_sConvert->func[interlaced]((void **)dst_ptr, (void **)src_ptr, w, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), pData->Pitch, h, crop);
+    m_sConvert->func[interlaced]((void **)dst_ptr, (const void **)src_ptr, w, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), pData->Pitch, h, h, crop);
 
     m_sVSapi->freeFrame(src_frame);
 

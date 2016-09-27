@@ -100,10 +100,10 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
         //何もしない
     } else {
         BITMAPINFOHEADER bih[4] = {
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 12, MFX_FOURCC_YV12, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3/2, 0, 0, 0, 0 },
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 16, MFX_FOURCC_YUY2, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 2,   0, 0, 0, 0 },
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 24, BI_RGB,          m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3,   0, 0, 0, 0 },
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 32, BI_RGB,          m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3,   0, 0, 0, 0 }
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 12, QSV_ENC_CSP_YV12, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3/2, 0, 0, 0, 0 },
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 16, QSV_ENC_CSP_YUY2, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 2,   0, 0, 0, 0 },
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 24, BI_RGB,           m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3,   0, 0, 0, 0 },
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 32, BI_RGB,           m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3,   0, 0, 0, 0 }
         };
         for (int i = 0; i < _countof(bih); i++) {
             if (NULL == (m_pGetFrame = AVIStreamGetFrameOpen(m_pAviStream, &bih[i]))) {
@@ -145,9 +145,9 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
         m_inputFrameInfo.FourCC = MFX_FOURCC_NV12;
         m_inputFrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
     }
-    m_sConvert = get_convert_csp_func(m_ColorFormat, m_inputFrameInfo.FourCC, false);
+    m_sConvert = get_convert_csp_func(mfx_fourcc_to_qsv_enc_csp(m_ColorFormat), mfx_fourcc_to_qsv_enc_csp(m_inputFrameInfo.FourCC), false);
     tstring mes = strsprintf(_T("avi: %s(%s)->%s[%s], %dx%d, %d/%d fps"), strFcc.c_str(),
-        ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), get_simd_str(m_sConvert->simd),
+        QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     AddMessage(QSV_LOG_DEBUG, mes);
     m_strInputInfo += mes;
@@ -233,7 +233,7 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
         dst_ptr[0] = min(min(pData->R, pData->G), pData->B);
     }
-    m_sConvert->func[interlaced]((void **)dst_ptr, (void **)src_ptr, w, w * m_nYPitchMultiplizer, w/2, pData->Pitch, h, crop);
+    m_sConvert->func[interlaced]((void **)dst_ptr, (const void **)src_ptr, w, w * m_nYPitchMultiplizer, w/2, pData->Pitch, h, h, crop);
 
     m_pEncSatusInfo->m_nInputFrames++;
     // display update

@@ -1009,42 +1009,43 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
             AVPixelFormat pix_fmt;
             uint16_t bit_depth;
             uint16_t chroma_format;
-            uint32_t fourcc;
+            QSV_ENC_CSP output_csp;
         };
 
         static const pixfmtInfo pixfmtDataList[] = {
-            { AV_PIX_FMT_YUV420P,      8, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_NV12 },
-            { AV_PIX_FMT_YUVJ420P,     8, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_NV12 },
-            { AV_PIX_FMT_NV12,         8, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_NV12 },
-            { AV_PIX_FMT_NV21,         8, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_NV12 },
-            { AV_PIX_FMT_YUV422P,      8, MFX_CHROMAFORMAT_YUV422, 0 },
-            { AV_PIX_FMT_YUVJ422P,     8, MFX_CHROMAFORMAT_YUV422, 0 },
-            { AV_PIX_FMT_YUYV422,      8, MFX_CHROMAFORMAT_YUV422, MFX_FOURCC_YUY2 },
-            { AV_PIX_FMT_UYVY422,      8, MFX_CHROMAFORMAT_YUV422, MFX_FOURCC_UYVY },
-            { AV_PIX_FMT_NV16,         8, MFX_CHROMAFORMAT_YUV422, MFX_FOURCC_NV16 },
-            { AV_PIX_FMT_YUV444P,      8, MFX_CHROMAFORMAT_YUV444, 0 },
-            { AV_PIX_FMT_YUVJ444P,     8, MFX_CHROMAFORMAT_YUV444, 0 },
-            { AV_PIX_FMT_YUV420P16LE, 16, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_P010 },
-            { AV_PIX_FMT_YUV420P14LE, 14, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_P010 },
-            { AV_PIX_FMT_YUV420P12LE, 12, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_P010 },
-            { AV_PIX_FMT_YUV420P10LE, 10, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_P010 },
-            { AV_PIX_FMT_YUV420P9LE,   9, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_P010 },
-            { AV_PIX_FMT_NV20LE,      10, MFX_CHROMAFORMAT_YUV420, MFX_FOURCC_P010 },
-            { AV_PIX_FMT_YUV422P16LE, 16, MFX_CHROMAFORMAT_YUV422, MFX_FOURCC_P210 },
-            { AV_PIX_FMT_YUV422P14LE, 14, MFX_CHROMAFORMAT_YUV422, MFX_FOURCC_P210 },
-            { AV_PIX_FMT_YUV422P12LE, 12, MFX_CHROMAFORMAT_YUV422, MFX_FOURCC_P210 },
-            { AV_PIX_FMT_YUV422P10LE, 10, MFX_CHROMAFORMAT_YUV422, MFX_FOURCC_P210 },
-            { AV_PIX_FMT_YUV444P16LE, 16, MFX_CHROMAFORMAT_YUV444, 0 },
-            { AV_PIX_FMT_YUV444P14LE, 14, MFX_CHROMAFORMAT_YUV444, 0 },
-            { AV_PIX_FMT_YUV444P12LE, 12, MFX_CHROMAFORMAT_YUV444, 0 },
-            { AV_PIX_FMT_YUV444P10LE, 10, MFX_CHROMAFORMAT_YUV444, 0 }
+            { AV_PIX_FMT_YUV420P,      8, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_YUVJ420P,     8, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_NV12,         8, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_NV21,         8, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_YUV422P,      8, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUVJ422P,     8, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUYV422,      8, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_YUY2 },
+            { AV_PIX_FMT_UYVY422,      8, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_NV16,         8, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P,      8, MFX_CHROMAFORMAT_YUV444, QSV_ENC_CSP_NV12 },
+            { AV_PIX_FMT_YUVJ444P,     8, MFX_CHROMAFORMAT_YUV444, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV420P16LE, 16, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P14LE, 14, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P12LE, 12, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P10LE, 10, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV420P9LE,   9, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_NV20LE,      10, MFX_CHROMAFORMAT_YUV420, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV422P16LE, 16, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P14LE, 14, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P12LE, 12, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV422P10LE, 10, MFX_CHROMAFORMAT_YUV422, QSV_ENC_CSP_NA },
+            { AV_PIX_FMT_YUV444P16LE, 16, MFX_CHROMAFORMAT_YUV444, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV444P14LE, 14, MFX_CHROMAFORMAT_YUV444, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV444P12LE, 12, MFX_CHROMAFORMAT_YUV444, QSV_ENC_CSP_P010 },
+            { AV_PIX_FMT_YUV444P10LE, 10, MFX_CHROMAFORMAT_YUV444, QSV_ENC_CSP_P010 }
         };
 
         const auto pixfmt = m_Demux.video.pCodecCtx->pix_fmt;
         const auto pixfmtData = std::find_if(pixfmtDataList, pixfmtDataList + _countof(pixfmtDataList), [pixfmt](const pixfmtInfo& tableData) {
             return tableData.pix_fmt == pixfmt;
         });
-        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) || pixfmtData->fourcc == 0) {
+        if (pixfmtData == (pixfmtDataList + _countof(pixfmtDataList)) ||
+            (pixfmtData->output_csp == QSV_ENC_CSP_NA || QSV_ENC_CSP_TO_MFX_FOURCC[pixfmtData->output_csp] == 0)) {
             AddMessage(QSV_LOG_ERROR, _T("Invalid pixel format from input file.\n"));
             return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
         }
@@ -1065,36 +1066,37 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
                 AddMessage(QSV_LOG_ERROR, _T("Failed to open decoder for %s: %s\n"), char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return MFX_ERR_UNSUPPORTED;
             }
-            const std::map<AVPixelFormat, uint32_t> CSP_CONV = {
-                { AV_PIX_FMT_YUV420P,     MFX_FOURCC_YV12 },
-                { AV_PIX_FMT_YUVJ420P,    MFX_FOURCC_YV12 },
-                { AV_PIX_FMT_NV12,        MFX_FOURCC_NV12 },
-                { AV_PIX_FMT_NV21,        MFX_FOURCC_NV12 },
-                { AV_PIX_FMT_YUV422P,     0 },
-                { AV_PIX_FMT_YUVJ422P,    0 },
-                { AV_PIX_FMT_YUYV422,     MFX_FOURCC_YUY2 },
-                { AV_PIX_FMT_UYVY422,     MFX_FOURCC_UYVY },
-                { AV_PIX_FMT_NV16,        MFX_FOURCC_NV16 },
-                { AV_PIX_FMT_YUV444P,     0 },
-                { AV_PIX_FMT_YUVJ444P,    0 },
-                { AV_PIX_FMT_YUV420P16LE, MFX_FOURCC_P010 },
-                { AV_PIX_FMT_YUV420P14LE, MFX_FOURCC_P010 },
-                { AV_PIX_FMT_YUV420P12LE, MFX_FOURCC_P010 },
-                { AV_PIX_FMT_YUV420P10LE, MFX_FOURCC_P010 },
-                { AV_PIX_FMT_YUV420P9LE,  MFX_FOURCC_P010 },
-                { AV_PIX_FMT_NV20LE,      MFX_FOURCC_P010 },
-                { AV_PIX_FMT_YUV422P16LE, MFX_FOURCC_P210 },
-                { AV_PIX_FMT_YUV422P14LE, MFX_FOURCC_P210 },
-                { AV_PIX_FMT_YUV422P12LE, MFX_FOURCC_P210 },
-                { AV_PIX_FMT_YUV422P10LE, MFX_FOURCC_P210 },
-                { AV_PIX_FMT_YUV444P16LE, 0 },
-                { AV_PIX_FMT_YUV444P14LE, 0 },
-                { AV_PIX_FMT_YUV444P12LE, 0 },
-                { AV_PIX_FMT_YUV444P10LE, 0 }
+            const std::map<AVPixelFormat, QSV_ENC_CSP> CSP_CONV = {
+                { AV_PIX_FMT_YUV420P,     QSV_ENC_CSP_YV12 },
+                { AV_PIX_FMT_YUVJ420P,    QSV_ENC_CSP_YV12 },
+                { AV_PIX_FMT_NV12,        QSV_ENC_CSP_NV12 },
+                { AV_PIX_FMT_NV21,        QSV_ENC_CSP_NV12 },
+                { AV_PIX_FMT_YUV422P,     QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUVJ422P,    QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUYV422,     QSV_ENC_CSP_YUY2 },
+                { AV_PIX_FMT_UYVY422,     QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_NV16,        QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P,     QSV_ENC_CSP_YUV444 },
+                { AV_PIX_FMT_YUVJ444P,    QSV_ENC_CSP_YUV444 },
+                { AV_PIX_FMT_YUV420P16LE, QSV_ENC_CSP_YV12_16 },
+                { AV_PIX_FMT_YUV420P14LE, QSV_ENC_CSP_YV12_14 },
+                { AV_PIX_FMT_YUV420P12LE, QSV_ENC_CSP_YV12_12 },
+                { AV_PIX_FMT_YUV420P10LE, QSV_ENC_CSP_YV12_10 },
+                { AV_PIX_FMT_YUV420P9LE,  QSV_ENC_CSP_YV12_09 },
+                { AV_PIX_FMT_NV20LE,      QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P16LE, QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P14LE, QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P12LE, QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV422P10LE, QSV_ENC_CSP_NA },
+                { AV_PIX_FMT_YUV444P16LE, QSV_ENC_CSP_YUV444_16 },
+                { AV_PIX_FMT_YUV444P14LE, QSV_ENC_CSP_YUV444_14 },
+                { AV_PIX_FMT_YUV444P12LE, QSV_ENC_CSP_YUV444_12 },
+                { AV_PIX_FMT_YUV444P10LE, QSV_ENC_CSP_YUV444_10 },
+                { AV_PIX_FMT_YUV444P9LE,  QSV_ENC_CSP_YUV444_09 }
             };
             auto pixCspConv = CSP_CONV.find(m_Demux.video.pCodecCtx->pix_fmt);
             if (pixCspConv == CSP_CONV.end()
-                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, pixfmtData->fourcc, false))) {
+                || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv->second, pixfmtData->output_csp, false))) {
                 AddMessage(QSV_LOG_ERROR, _T("invalid colorformat.\n"));
                 return MFX_ERR_INVALID_COLOR_FORMAT;
             }
@@ -1112,7 +1114,8 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         m_inputFrameInfo.ChromaFormat   = pixfmtData->chroma_format;
         m_inputFrameInfo.BitDepthLuma   = pixfmtData->bit_depth;
         m_inputFrameInfo.BitDepthChroma = pixfmtData->bit_depth;
-        m_inputFrameInfo.FourCC         = pixfmtData->fourcc;
+        m_inputFrameInfo.Shift          = (pixfmtData->output_csp == QSV_ENC_CSP_P010) ? 16 - pixfmtData->bit_depth : 0;
+        m_inputFrameInfo.FourCC         = QSV_ENC_CSP_TO_MFX_FOURCC[pixfmtData->output_csp];
         //インタレの可能性があるときは、MFX_PICSTRUCT_UNKNOWNを返すようにする
         m_inputFrameInfo.PicStruct      = (uint16_t)((m_Demux.frames.getMfxPicStruct() == MFX_PICSTRUCT_PROGRESSIVE) ? MFX_PICSTRUCT_PROGRESSIVE : MFX_PICSTRUCT_UNKNOWN);
         
@@ -1125,9 +1128,10 @@ mfxStatus CAvcodecReader::Init(const TCHAR *strFileName, uint32_t ColorFormat, c
         uint32_t zero = 0;
         memcpy(&m_inputFrameInfo.FrameId, &zero, sizeof(zero));
 
-        tstring mes = strsprintf(_T("%s video: %s, %dx%d, %d/%d fps"),
+        tstring mes = strsprintf(_T("%s video: %s%s, %dx%d, %d/%d fps"),
             (m_Demux.video.pCodec) ? _T("avsw") : _T("avqsv"),
             (m_Demux.video.pCodec) ? char_to_tstring(avcodec_get_name(m_Demux.video.pCodecCtx->codec_id)).c_str() : CodecIdToStr(m_nInputCodec),
+            (m_Demux.video.pCodec) ? strsprintf(_T("(%s->%s[%s])"), QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd)).c_str() : _T(""),
             m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
         if (input_prm->fSeekSec > 0.0f) {
             mes += strsprintf(_T("\n               seek: %s"), print_time(input_prm->fSeekSec).c_str());
@@ -1681,7 +1685,7 @@ mfxStatus CAvcodecReader::LoadNextFrame(mfxFrameSurface1 *pSurface) {
         BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
         int crop[4] = { m_sInputCrop.left, m_sInputCrop.up, m_sInputCrop.right, m_sInputCrop.bottom };
         const void *dst_ptr[3] = { pData->Y, pData->UV, nullptr };
-        m_sConvert->func[interlaced]((void **)dst_ptr, (void **)m_Demux.video.pFrame->data, m_Demux.video.pFrame->width, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], pData->Pitch, m_Demux.video.pFrame->height, crop);
+        m_sConvert->func[interlaced]((void **)dst_ptr, (const void **)m_Demux.video.pFrame->data, m_Demux.video.pFrame->width, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], pData->Pitch, m_Demux.video.pFrame->height, m_Demux.video.pFrame->height, crop);
         if (got_frame) {
             av_frame_unref(m_Demux.video.pFrame);
         }

@@ -116,7 +116,7 @@ mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, con
         return MFX_ERR_UNSUPPORTED;
     }
 
-    m_sConvert = get_convert_csp_func(m_ColorFormat, MFX_FOURCC_NV12, true);
+    m_sConvert = get_convert_csp_func(mfx_fourcc_to_qsv_enc_csp(m_ColorFormat), mfx_fourcc_to_qsv_enc_csp(MFX_FOURCC_NV12), true);
 
     tstring mes;
     if (m_by4m) {
@@ -132,7 +132,7 @@ mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, con
         m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
         const uint32_t fps_gcd = qsv_gcd(m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 
-        mes = strsprintf(_T("y4m: %s->%s[%s], %dx%d, %d/%d fps"), ColorFormatToStr(m_ColorFormat), ColorFormatToStr(MFX_FOURCC_NV12), get_simd_str(m_sConvert->simd),
+        mes = strsprintf(_T("y4m: %s->%s[%s], %dx%d, %d/%d fps"), QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
             m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN / fps_gcd, m_inputFrameInfo.FrameRateExtD / fps_gcd);
     } else {
         mes = ColorFormatToStr(m_ColorFormat);
@@ -241,7 +241,7 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
     int crop[4] = { CropLeft, CropUp, CropRight, CropBottom };
     const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
     const void *src_ptr[3] = { bufY, bufU, bufV };
-    m_sConvert->func[interlaced]((void **)dst_ptr, (void **)src_ptr, w, w, w/2, pData->Pitch, h, crop);
+    m_sConvert->func[interlaced]((void **)dst_ptr, (const void **)src_ptr, w, w, w/2, pData->Pitch, h, h, crop);
 
     //pSurface->Data.TimeStamp = m_pEncSatusInfo->m_nInputFrames * (mfxU64)m_pEncSatusInfo->m_nOutputFPSScale;
     m_pEncSatusInfo->m_nInputFrames++;

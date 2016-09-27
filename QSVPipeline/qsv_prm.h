@@ -35,6 +35,7 @@
 #include "mfxcommon.h"
 #include "mfxvp8.h"
 #include "mfxvp9.h"
+#include "convert_csp.h"
 
 enum {
     QSV_LOG_TRACE = -3,
@@ -79,6 +80,30 @@ enum {
     INPUT_FMT_AVCODEC_SW,
     INPUT_FMT_AVCODEC_ANY,
     INPUT_FMT_AUO,
+};
+
+static const int QSV_ENC_CSP_TO_MFX_FOURCC[] = {
+    0, //QSV_ENC_CSP_NA
+    MFX_FOURCC_NV12, //QSV_ENC_CSP_NV12
+    MFX_FOURCC_YV12, //QSV_ENC_CSP_YV12
+    MFX_FOURCC_YUY2, //QSV_ENC_CSP_YUY2 
+    0, //QSV_ENC_CSP_YUV422
+    0, //QSV_ENC_CSP_YUV444
+    MFX_FOURCC_P010, //QSV_ENC_CSP_YV12_09
+    MFX_FOURCC_P010,
+    MFX_FOURCC_P010,
+    MFX_FOURCC_P010,
+    MFX_FOURCC_P010, //QSV_ENC_CSP_YV12_16
+    MFX_FOURCC_P010, //QSV_ENC_CSP_P010
+    MFX_FOURCC_P210, //QSV_ENC_CSP_P210
+    0, //QSV_ENC_CSP_YUV444_09
+    0,
+    0,
+    0,
+    0, //QSV_ENC_CSP_YUV444_16
+    MFX_FOURCC_RGB3,
+    MFX_FOURCC_RGB4,
+    0 //QSV_ENC_CSP_YC48
 };
 
 enum MemType {
