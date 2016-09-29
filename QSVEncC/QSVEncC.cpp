@@ -2812,12 +2812,12 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-depth"))) {
         i++;
-        mfxI16 depth;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &depth)) {
+        int depth;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &depth)) {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
-        pParams->vpp.delogo.nDepth = depth;
+        pParams->vpp.delogo.nDepth = (uint8_t)clamp(depth, 0, 255);
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-y"))) {

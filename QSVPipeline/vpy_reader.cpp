@@ -264,9 +264,9 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
 
     m_ColorFormat = QSV_ENC_CSP_TO_MFX_FOURCC[csp.in];
     m_inputFrameInfo.FourCC = QSV_ENC_CSP_TO_MFX_FOURCC[csp.out];
-    m_inputFrameInfo.BitDepthLuma = csp.bit_depth;
-    m_inputFrameInfo.BitDepthChroma = csp.bit_depth;
-    m_inputFrameInfo.Shift = (csp.out == QSV_ENC_CSP_P010) ? 16 - csp.bit_depth : 0;
+    m_inputFrameInfo.BitDepthLuma = (mfxU16)csp.bit_depth;
+    m_inputFrameInfo.BitDepthChroma = (mfxU16)csp.bit_depth;
+    m_inputFrameInfo.Shift = (mfxU16)((csp.out == QSV_ENC_CSP_P010) ? 16 - csp.bit_depth : 0);
     m_inputFrameInfo.Width = (mfxU16)vsvideoinfo->width;
     m_inputFrameInfo.Height = (mfxU16)vsvideoinfo->height;
     m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);
