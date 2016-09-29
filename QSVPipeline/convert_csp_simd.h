@@ -134,6 +134,7 @@ static __forceinline void separate_low_up(__m128i& x0_return_lower, __m128i& x1_
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
+#pragma warning (disable: 4127)
 static void __forceinline convert_yuy2_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -176,7 +177,6 @@ static void __forceinline convert_yuy2_to_nv12_simd(void **dst, const void **src
         dstCLine += dst_y_pitch_byte;
     }
 }
-#pragma warning (pop)
 
 static __forceinline __m128i yuv422_to_420_i_interpolate(__m128i y_up, __m128i y_down, int i) {
     __m128i x0, x1;
@@ -206,8 +206,6 @@ static __forceinline __m128i yuv422_to_420_i_interpolate(__m128i y_up, __m128i y
     return x0;
 }
 
-#pragma warning (push)
-#pragma warning (disable: 4100)
 static void __forceinline convert_yuy2_to_nv12_i_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -254,10 +252,7 @@ static void __forceinline convert_yuy2_to_nv12_i_simd(void **dst, const void **s
         dstYLine += dst_y_pitch_byte << 1;
     }
 }
-#pragma warning (pop)
 
-#pragma warning (push)
-#pragma warning (disable: 4127)
 template<bool uv_only>
 static void __forceinline convert_yv12_to_nv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
@@ -297,7 +292,6 @@ static void __forceinline convert_yv12_to_nv12_simd(void **dst, const void **src
         }
     }
 }
-#pragma warning (pop)
 
 static void __forceinline convert_yv12_to_yv12_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
@@ -327,8 +321,6 @@ static void __forceinline convert_yv12_to_yv12_simd(void **dst, const void **src
 }
 
 #if USE_SSSE3
-#pragma warning (push)
-#pragma warning (disable: 4100)
 static void __forceinline convert_rgb3_to_rgb4_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -364,11 +356,8 @@ static void __forceinline convert_rgb3_to_rgb4_simd(void **dst, const void **src
         }
     }
 }
-#pragma warning (pop)
 #endif
 
-#pragma warning (push)
-#pragma warning (disable: 4100)
 static void __forceinline convert_rgb4_to_rgb4_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -382,7 +371,6 @@ static void __forceinline convert_rgb4_to_rgb4_simd(void **dst, const void **src
         memcpy_sse(dstLine, srcLine, y_width * 4);
     }
 }
-#pragma warning (pop)
 
 template<bool uv_only>
 static void convert_yv12_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
@@ -509,9 +497,6 @@ static void convert_yv12_high_to_nv12_simd(void **dst, const void **src, int wid
     }
 }
 
-#pragma warning (push)
-#pragma warning (disable: 4100)
-#pragma warning (disable: 4127)
 template<int in_bit_depth, bool uv_only>
 static void __forceinline convert_yv12_high_to_p010_simd(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
@@ -570,6 +555,7 @@ static void __forceinline convert_yv12_high_to_p010_simd(void **dst, const void 
         }
     }
 }
+#pragma warning (pop)
 
 
 #endif //_CONVERT_CSP_SIMD_H_

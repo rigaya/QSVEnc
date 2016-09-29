@@ -177,6 +177,7 @@ static __forceinline __m256i yuv422_to_420_i_interpolate(__m256i y_up, __m256i y
 }
 
 #pragma warning (push)
+#pragma warning (disable: 4127)
 #pragma warning (disable: 4100)
 void convert_yuy2_to_nv12_i_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
@@ -225,10 +226,7 @@ void convert_yuy2_to_nv12_i_avx2(void **dst, const void **src, int width, int sr
     }
     _mm256_zeroupper();
 }
-#pragma warning (pop)
 
-#pragma warning (push)
-#pragma warning (disable: 4127)
 template<bool uv_only>
 static void __forceinline convert_yv12_to_nv12_avx2_base(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
@@ -283,6 +281,7 @@ void convert_uv_yv12_to_nv12_avx2(void **dst, const void **src, int width, int s
 }
 
 #pragma warning (push)
+#pragma warning (disable: 4127)
 #pragma warning (disable: 4100)
 void convert_rgb3_to_rgb4_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
@@ -323,10 +322,7 @@ void convert_rgb3_to_rgb4_avx2(void **dst, const void **src, int width, int src_
     }
     _mm256_zeroupper();
 }
-#pragma warning (pop)
 
-#pragma warning (push)
-#pragma warning (disable: 4100)
 void convert_rgb4_to_rgb4_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -341,7 +337,6 @@ void convert_rgb4_to_rgb4_avx2(void **dst, const void **src, int width, int src_
     }
     _mm256_zeroupper();
 }
-#pragma warning (pop)
 
 template<bool uv_only>
 static void convert_yv12_to_p010_avx2_base(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
@@ -412,11 +407,15 @@ static void convert_yv12_to_p010_avx2_base(void **dst, const void **src, int wid
         }
     }
 }
+#pragma warning (pop)
 
 void convert_yv12_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     convert_yv12_to_p010_avx2_base<false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127)
+#pragma warning (disable: 4100)
 template<int in_bit_depth, bool uv_only>
 static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     static_assert(8 < in_bit_depth && in_bit_depth <= 16, "in_bit_depth must be 9-16.");
@@ -477,6 +476,7 @@ static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, in
         }
     }
 }
+#pragma warning (pop)
 
 void convert_yv12_16_to_nv12_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     convert_yv12_high_to_nv12_avx2_base<16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
@@ -562,6 +562,7 @@ static void __forceinline convert_yv12_high_to_p010_avx2_base(void **dst, const 
         }
     }
 }
+#pragma warning (pop)
 
 void convert_yv12_16_to_p010_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop) {
     convert_yv12_high_to_p010_avx2_base<16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, crop);
