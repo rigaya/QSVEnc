@@ -165,10 +165,10 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, cons
     m_inputFrameInfo.CropY = 0;
     *(DWORD *)&m_inputFrameInfo.FrameId = oip->n;
 
-    m_sConvert = get_convert_csp_func(m_ColorFormat, m_inputFrameInfo.FourCC, false);
+    m_sConvert = get_convert_csp_func(QSV_ENC_CSP_YUY2, QSV_ENC_CSP_NV12, false);
 
     char mes[256];
-    sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", ColorFormatToStr(m_ColorFormat), ColorFormatToStr(m_inputFrameInfo.FourCC), (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
+    sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     m_strInputInfo += mes;
     return MFX_ERR_NONE;
@@ -235,7 +235,7 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     
     int crop[4] = { 0 };
     const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
-    m_sConvert->func[g_interlaced]((void **)dst_ptr, (void **)&frame, w, w * 2, w / 2, pData->Pitch, h, crop);
+    m_sConvert->func[g_interlaced]((void **)dst_ptr, (const void **)&frame, w, w * 2, w / 2, pData->Pitch, h, h, crop);
 
     m_pEncSatusInfo->m_nInputFrames++;
     if (!(m_pEncSatusInfo->m_nInputFrames & 7))
