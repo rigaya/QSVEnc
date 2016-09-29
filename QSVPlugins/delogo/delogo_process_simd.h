@@ -703,13 +703,6 @@ static __forceinline void logo_add_line(mfxU8 *ptr_buf, short *ptr_logo, int log
         xDp0 = _mm_packs_epi32(xDp0, xDp1);
         xDp1 = _mm_packs_epi32(xDp2, xDp3);
 #endif
-        alignas(32) short logo_c[16];
-        _mm_store_si128((__m128i *)(logo_c + 0), x0);
-        _mm_store_si128((__m128i *)(logo_c + 8), x1);
-
-        alignas(32) short logo_depth[16];
-        _mm_store_si128((__m128i *)(logo_depth + 0), xDp0);
-        _mm_store_si128((__m128i *)(logo_depth + 8), xDp1);
 
         //ソースをロードしてNV12->YC48
         xSrc0 = _mm_load_si128((__m128i *)(ptr_buf));
@@ -723,16 +716,22 @@ static __forceinline void logo_add_line(mfxU8 *ptr_buf, short *ptr_logo, int log
         xSrc0 = _mm_sub_epi16(xSrc0, xC_nv12_2_yc48_sub);
         xSrc1 = _mm_sub_epi16(xSrc1, xC_nv12_2_yc48_sub);
 
-        alignas(32) short src[16];
-        _mm_store_si128((__m128i *)(src + 0), xSrc0);
-        _mm_store_si128((__m128i *)(src + 8), xSrc1);
+        xDp2 = _mm_subs_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0);
+        xDp3 = _mm_subs_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1);
+        x3 = _mm_madd_epi16(_mm_unpackhi_epi16(xSrc1, x1), _mm_unpackhi_epi16(xDp3, xDp1));
+        x2 = _mm_madd_epi16(_mm_unpacklo_epi16(xSrc1, x1), _mm_unpacklo_epi16(xDp3, xDp1));
+        x1 = _mm_madd_epi16(_mm_unpackhi_epi16(xSrc0, x0), _mm_unpackhi_epi16(xDp2, xDp0)); //xSrc0 * (LOGO_MAX_DP-logo_depth[i]) + x0 * xDp0
+        x0 = _mm_madd_epi16(_mm_unpacklo_epi16(xSrc0, x0), _mm_unpacklo_epi16(xDp2, xDp0)); //xSrc0 * (LOGO_MAX_DP-logo_depth[i]) + x0 * xDp0
 
-        for (int i = 0; i < 16; i++) {
-            src[i] = (src[i] * (LOGO_MAX_DP-logo_depth[i]) + logo_c[i] * logo_depth[i] +(LOGO_MAX_DP/2)) /LOGO_MAX_DP; // ロゴ付加
-        }
+        //(ycp->y * (LOGO_MAX_DP-logo_depth[i]) + yc * (-dp)) / (LOGO_MAX_DP);
+        // 1 / LOGO_MAX_DP = 131 / 131072 = 131 / (1<<17) 
+        x0 = _mm_srai_epi32(_mm_mullo_epi32_simd(x0, _mm_set1_epi32(131)), 17);
+        x1 = _mm_srai_epi32(_mm_mullo_epi32_simd(x1, _mm_set1_epi32(131)), 17);
+        x2 = _mm_srai_epi32(_mm_mullo_epi32_simd(x2, _mm_set1_epi32(131)), 17);
+        x3 = _mm_srai_epi32(_mm_mullo_epi32_simd(x3, _mm_set1_epi32(131)), 17);
 
-        x0 = _mm_load_si128((__m128i *)(src + 0));
-        x1 = _mm_load_si128((__m128i *)(src + 8));
+        x0 = _mm_packs_epi32(x0, x1);
+        x1 = _mm_packs_epi32(x2, x3);
 
         //YC48->NV12
         x0 = _mm_add_epi16(x0, xC_yc48_2_nv12_add);
