@@ -2531,7 +2531,7 @@ mfxStatus CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
     bool bSetSilenceDueToAACBsfError = false;
     AVRational samplerate = { 1, pMuxAudio->pCodecCtxIn->sample_rate };
     //このパケットのサンプル数
-    const int nSamples = (int)av_rescale_q(pktData->pkt.duration, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase, samplerate);
+    const int nSamples = (int)av_rescale_q(pktData->pkt.duration, pMuxAudio->pCodecCtxIn->pkt_timebase, samplerate);
     if (pMuxAudio->pAACBsfc) {
         auto sts = applyBitstreamFilterAAC(&pktData->pkt, pMuxAudio);
         //bitstream filterを正常に起動できなかった
