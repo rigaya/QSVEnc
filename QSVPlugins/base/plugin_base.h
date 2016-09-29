@@ -338,6 +338,7 @@ protected:
 
         // only NV12 color format is supported
         if (MFX_FOURCC_NV12 != pParam->In.FourCC || MFX_FOURCC_NV12 != pParam->Out.FourCC) {
+            m_message += _T("Only NV12 color format (8bit) is supported.\n");
             return MFX_ERR_UNSUPPORTED;
         }
 
