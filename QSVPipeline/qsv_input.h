@@ -126,8 +126,10 @@ public:
     void GetInputFrameInfo(mfxFrameInfo *inputFrameInfo) {
         memcpy(inputFrameInfo, &m_inputFrameInfo, sizeof(m_inputFrameInfo));
     }
-    void SetInputFrameInfo(const mfxFrameInfo *inputFrameInfo) {
-        memcpy(&m_inputFrameInfo, inputFrameInfo, sizeof(m_inputFrameInfo));
+    void SetInputFrameBitDepthInfo(const mfxFrameInfo *inputFrameInfo) {
+        m_inputFrameInfo.BitDepthChroma = inputFrameInfo->BitDepthChroma;
+        m_inputFrameInfo.BitDepthLuma = inputFrameInfo->BitDepthLuma;
+        m_inputFrameInfo.Shift = inputFrameInfo->Shift;
     }
 
     //入力ファイルに存在する音声のトラック数を返す

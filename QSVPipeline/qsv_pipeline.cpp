@@ -362,7 +362,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 
         //DecodeHeaderした結果をreaderにも反映
         //VPPにInputFrameInfoを渡す時などに、high bit depthなどの時にshiftの取得しておく必要がある
-        m_pFileReader->SetInputFrameInfo(&m_mfxDecParams.mfx.FrameInfo);
+        m_pFileReader->SetInputFrameBitDepthInfo(&m_mfxDecParams.mfx.FrameInfo);
 
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
