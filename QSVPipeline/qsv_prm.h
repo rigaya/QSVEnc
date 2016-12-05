@@ -450,7 +450,7 @@ struct sInputParams
     int8_t     nVideoTrack;
     int8_t     bOutputAud;
     int8_t     bOutputPicStruct;
-    int8_t     __unused[1];
+    int8_t     bChapterNoTrim;
     int16_t    pQPOffset[8];
     TCHAR     *pMuxVidTsLogFile;
     TCHAR     *pAVInputFormat;

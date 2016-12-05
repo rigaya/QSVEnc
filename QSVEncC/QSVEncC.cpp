@@ -399,6 +399,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                  in [<int>?], specify track number of audio.\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
+        _T("   --chapter-no-trim            do not applyapply trim to chapter file.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
         _T("                                 avqsv reader and avcodec muxer.\n")
@@ -1910,6 +1911,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return MFX_PRINT_OPTION_ERR;
         }
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("chapter-no-trim"))) {
+        pParams->bChapterNoTrim = TRUE;
         return MFX_ERR_NONE;
     }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))

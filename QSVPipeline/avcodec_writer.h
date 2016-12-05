@@ -229,6 +229,7 @@ typedef struct AvcodecWriterPrm {
     const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
+    bool                         bChapterNoTrim;          //チャプターにtrimを反映しない
     int                          nAudioResampler;         //音声のresamplerの選択
     uint32_t                     nAudioIgnoreDecodeError; //音声デコード時に発生したエラーを無視して、無音に置き換える
     int                          nBufSizeMB;              //出力バッファサイズ
@@ -345,7 +346,7 @@ private:
     mfxStatus InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle);
 
     //チャプターをコピー
-    mfxStatus SetChapters(const vector<const AVChapter *>& chapterList);
+    mfxStatus SetChapters(const vector<const AVChapter *>& chapterList, bool bChapterNoTrim);
 
     //メッセージを作成
     tstring GetWriterMes();

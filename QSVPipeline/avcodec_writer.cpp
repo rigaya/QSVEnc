@@ -1200,11 +1200,11 @@ mfxStatus CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
     return MFX_ERR_NONE;
 }
 
-mfxStatus CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterList) {
+mfxStatus CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterList, bool bChapterNoTrim) {
     vector<AVChapter *> outChapters;
     for (int i = 0; i < (int)pChapterList.size(); i++) {
-        int64_t start = AdjustTimestampTrimmed(pChapterList[i]->start, pChapterList[i]->time_base, pChapterList[i]->time_base, true);
-        int64_t end   = AdjustTimestampTrimmed(pChapterList[i]->end,   pChapterList[i]->time_base, pChapterList[i]->time_base, true);
+        int64_t start = (bChapterNoTrim) ? pChapterList[i]->start : AdjustTimestampTrimmed(pChapterList[i]->start, pChapterList[i]->time_base, pChapterList[i]->time_base, true);
+        int64_t end   = (bChapterNoTrim) ? pChapterList[i]->end   : AdjustTimestampTrimmed(pChapterList[i]->end,   pChapterList[i]->time_base, pChapterList[i]->time_base, true);
         if (start < end) {
             AVChapter *pChap = (AVChapter *)av_mallocz(sizeof(pChap[0]));
             pChap->start     = start;
@@ -1414,7 +1414,7 @@ mfxStatus CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, sha
         }
     }
 
-    SetChapters(prm->chapterList);
+    SetChapters(prm->chapterList, prm->bChapterNoTrim);
     
     sprintf_s(m_Mux.format.pFormatCtx->filename, filename.c_str());
     if (m_Mux.format.pOutputFmt->flags & AVFMT_GLOBALHEADER) {

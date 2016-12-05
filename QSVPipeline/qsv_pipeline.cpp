@@ -2219,6 +2219,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
+            writerPrm.bChapterNoTrim = false;
             if (pParams->pChapterFile) {
                 //チャプターファイルを読み込む
                 if (MFX_ERR_NONE != readChapterFile(pParams->pChapterFile)) {
@@ -2228,6 +2229,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 for (uint32_t i = 0; i < m_AVChapterFromFile.size(); i++) {
                     writerPrm.chapterList.push_back(m_AVChapterFromFile[i].get());
                 }
+                writerPrm.bChapterNoTrim = pParams->bChapterNoTrim != 0;
             } else {
                 //入力ファイルのチャプターをコピーする
                 writerPrm.chapterList = pAVCodecReader->GetChapterList();
