@@ -251,7 +251,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     auto csp = valid_csp_list.at(vsvideoinfo->format->id);
     m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
 
-    if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
+    if (m_sConvert == nullptr) {
         AddMessage(QSV_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
         return MFX_ERR_INVALID_COLOR_FORMAT;
     }
