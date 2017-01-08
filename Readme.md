@@ -113,8 +113,11 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 |Haswell-E	        |Core i7 5xxx	|×|
 |Broadwell	        |Core M/i3/i5/i7 5xxx	|○|
 |Skylake	        |Core i3/i5/i7 6xxx	|○|
-|Skylake	        |Pentium G4xxx	|○|
-|Skylake	        |Celeron G3xxx	|○|
+|Skylake	        |Pentium G44xx/G450x/G452x	|○|
+|Skylake	        |Celeron G390x/G392x	|○|
+|Kabylake	        |Core i3/i5/i7 7xxx	|○|
+|Kabylake	        |Pentium G456x/G46xx	|○|
+|Kabylake	        |Celeron G393x/G395x	|○|
 |Atom系 CPU	|||
 |Bonnell	        |Atom	        |×|
 |Saltwell	        |Atom	        |×|
