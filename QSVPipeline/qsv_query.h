@@ -164,6 +164,7 @@ enum : uint64_t {
     ENC_FEATURE_FADE_DETECT            = 0x0000000800000000,
     ENC_FEATURE_PYRAMID_QP_OFFSET      = 0x0000001000000000,
     ENC_FEATURE_DISABLE_GPB            = 0x0000002000000000,
+    ENC_FEATURE_10BIT_DEPTH            = 0x0000004000000000,
 };
 
 enum : uint64_t {
@@ -199,6 +200,7 @@ static const CX_DESC list_rate_control_ry[] = {
 };
 static const FEATURE_DESC list_enc_feature[] = {
     { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
+    { _T("10bit depth  "), ENC_FEATURE_10BIT_DEPTH            },
     { _T("Fixed Func   "), ENC_FEATURE_FIXED_FUNC             },
     { _T("Interlace    "), ENC_FEATURE_INTERLACE              },
     { _T("SceneChange  "), ENC_FEATURE_SCENECHANGE            },

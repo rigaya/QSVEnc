@@ -704,6 +704,15 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         if (codecId == MFX_CODEC_HEVC) {
             CHECK_FEATURE(cop3.GPB,              cop3Out.GPB,                  ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_OFF, MFX_LIB_VERSION_1_19);
             CHECK_FEATURE(cop3.EnableQPOffset,   cop3Out.EnableQPOffset,       ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
+            videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
+            videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
+            videoPrm.mfx.FrameInfo.Shift = 1;
+            videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN10;
+            CHECK_FEATURE(videoPrm.mfx.FrameInfo.FourCC, videoPrmOut.mfx.FrameInfo.FourCC, ENC_FEATURE_10BIT_DEPTH, MFX_FOURCC_P010, MFX_LIB_VERSION_1_19);
+            videoPrm.mfx.FrameInfo.BitDepthLuma = 0;
+            videoPrm.mfx.FrameInfo.BitDepthChroma = 0;
+            videoPrm.mfx.FrameInfo.Shift = 0;
+            videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 #undef PICTYPE
