@@ -1184,8 +1184,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNURef,          cnf->qsv.nRef);
     SetNUValue(fcgNUBframes,      cnf->qsv.nBframes);
     SetCXIndex(fcgCXTrellis,      get_cx_index(list_avc_trellis, cnf->qsv.nTrellis));
-    SetCXIndex(fcgCXCodecLevel,   get_cx_index(list_avc_level, cnf->qsv.CodecLevel));
-    SetCXIndex(fcgCXCodecProfile, get_cx_index(list_avc_profile, cnf->qsv.CodecProfile));
+    SetCXIndex(fcgCXCodecLevel,   get_cx_index(get_level_list(cnf->qsv.CodecId),   cnf->qsv.CodecLevel));
+    SetCXIndex(fcgCXCodecProfile, get_cx_index(get_profile_list(cnf->qsv.CodecId), cnf->qsv.CodecProfile));
     if (fcgCBHWEncode->Enabled)
         fcgCBHWEncode->Checked  = cnf->qsv.bUseHWLib;
     if (fcgCBFixedFunc->Enabled)
@@ -1319,8 +1319,8 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
     cnf->qsv.nEncMode               = (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value;
     cnf->qsv.nTargetUsage           = (mfxU16)list_quality[fcgCXQuality->SelectedIndex].value;
-    cnf->qsv.CodecProfile           = (mfxU16)list_avc_profile[fcgCXCodecProfile->SelectedIndex].value;
-    cnf->qsv.CodecLevel             = (mfxU16)list_avc_level[fcgCXCodecLevel->SelectedIndex].value;
+    cnf->qsv.CodecProfile           = (mfxU16)get_profile_list(cnf->qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
+    cnf->qsv.CodecLevel             = (mfxU16)get_level_list(cnf->qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
     cnf->qsv.nBitRate               = (mfxU16)fcgNUBitrate->Value;
     cnf->qsv.nMaxBitrate            = (mfxU16)fcgNUMaxkbps->Value;
     cnf->qsv.nLookaheadDepth        = (mfxU16)fcgNULookaheadDepth->Value;
