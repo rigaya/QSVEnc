@@ -130,21 +130,23 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 
 
 ## Intel Media SDKとAPIの対応関係
-API v1.19 … Intel Media SDK 2016 Update 2  
-API v1.17 … Intel Media SDK 2016  
-API v1.16 … Intel Media SDK 2015 Update 2.1  
-API v1.15 … Intel Media SDK 2015 Update 2  
-API v1.13 … Intel Media SDK 2015 Update 1  
-API v1.11 … Intel Media SDK 2015  
-API v1.10 … Intel Media SDK 2014 R2 for Server (有料?)  
-API v1.9  … Intel Media SDK 2014 R2 for Client  
-API v1.8  … Intel Media SDK 2014  
-API v1.7  … Intel Media SDK 2013 R2  
-API v1.6  … Intel Media SDK 2013  
-API v1.4  … Intel Media SDK 2012 R3  
-API v1.4  … Intel Media SDK 2012 R2  
-API v1.3  … Intel Media SDK 2012 (Intel Media SDK v3.0)  
-API v1.1  … Intel Media SDK v2.0
+|Media SDK API バージョン	        | Media SDK バージョン|
+|:--|:--|
+|API v1.19 | Intel Media SDK 2016 Update 2 |
+|API v1.17 | Intel Media SDK 2016 |
+|API v1.16 | Intel Media SDK 2015 Update 2.1 |
+|API v1.15 | Intel Media SDK 2015 Update 2 |
+|API v1.13 | Intel Media SDK 2015 Update 1 |
+|API v1.11 | Intel Media SDK 2015 |
+|API v1.10 | Intel Media SDK 2014 R2 for Server (有料?) |
+|API v1.9  | Intel Media SDK 2014 R2 for Client |
+|API v1.8  | Intel Media SDK 2014 |
+|API v1.7  | Intel Media SDK 2013 R2　|
+|API v1.6  | Intel Media SDK 2013 |
+|API v1.4  | Intel Media SDK 2012 R3 |
+|API v1.4  | Intel Media SDK 2012 R2 |
+|API v1.3  | Intel Media SDK 2012 (Intel Media SDK v3.0) |
+|API v1.1  | Intel Media SDK v2.0  |
 
 ## ソースコードについて
 - MITライセンスです。
