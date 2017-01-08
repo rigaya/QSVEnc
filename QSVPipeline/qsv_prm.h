@@ -507,7 +507,7 @@ const CX_DESC list_avc_profile[] = {
 const CX_DESC list_hevc_profile[] = {
     { _T("auto"),     0                       },
     { _T("main"),     MFX_PROFILE_HEVC_MAIN   },
-    //{ _T("main10"),   MFX_PROFILE_HEVC_MAIN10 },
+    { _T("main10"),   MFX_PROFILE_HEVC_MAIN10 },
     //{ _T("mainsp"),   MFX_PROFILE_HEVC_MAINSP },
     { NULL, 0 }
 };

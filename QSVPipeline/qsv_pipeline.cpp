@@ -1046,6 +1046,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_mfxEncParams.mfx.GopPicSize = USHRT_MAX;
     }
 
+    m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC && m_mfxEncParams.mfx.CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+        m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
+        m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = 10;
+        m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = 10;
+        m_mfxEncParams.mfx.FrameInfo.Shift = 1;
+    }
     m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->nDstWidth, blocksz);
     m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct)?
         ALIGN(pInParams->nDstHeight, blocksz) : ALIGN(pInParams->nDstHeight, blocksz * 2));
@@ -1215,9 +1222,9 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
 
     m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
     m_mfxVppParams.vpp.Out.FourCC         = m_mfxEncParams.mfx.FrameInfo.FourCC;
-    m_mfxVppParams.vpp.Out.BitDepthLuma   = 0;
-    m_mfxVppParams.vpp.Out.BitDepthChroma = 0;
-    m_mfxVppParams.vpp.Out.Shift          = 0;
+    m_mfxVppParams.vpp.Out.BitDepthLuma   = m_mfxEncParams.mfx.FrameInfo.BitDepthLuma;
+    m_mfxVppParams.vpp.Out.BitDepthChroma = m_mfxEncParams.mfx.FrameInfo.BitDepthChroma;
+    m_mfxVppParams.vpp.Out.Shift          = m_mfxEncParams.mfx.FrameInfo.Shift;
     m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
@@ -3087,8 +3094,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
             m_pPerfMonitor.reset();
         }
     }
-
-    m_mfxEncParams.mfx.FrameInfo.FourCC = (pParams->CodecId == MFX_CODEC_HEVC && pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) ? MFX_FOURCC_P010 : MFX_FOURCC_NV12;
 
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
