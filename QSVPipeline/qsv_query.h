@@ -57,6 +57,7 @@ enum {
     CPU_GEN_AIRMONT,
     CPU_GEN_BROADWELL,
     CPU_GEN_SKYLAKE,
+    CPU_GEN_KABYLAKE,
 };
 
 static const TCHAR *const CPU_GEN_STR[] = {
@@ -68,6 +69,7 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("Airmont"),
     _T("Broadwell"),
     _T("Skylake"),
+    _T("Kabylake"),
 };
 
 int getCPUGen();

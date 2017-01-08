@@ -66,7 +66,10 @@ int getCPUGen() {
     bool bRDSeed     = !!(CPUInfo[1] & (1<<18));
     bool bFsgsbase   = !!(CPUInfo[1] & (1));
 
-    if (bClflushOpt)         return CPU_GEN_SKYLAKE;
+    if (bClflushOpt) {
+        bool bHEVC10bit = (CheckEncodeFeature(true, get_mfx_libhw_version(), MFX_RATECONTROL_CQP, MFX_CODEC_HEVC) & ENC_FEATURE_10BIT_DEPTH) != 0;
+        return (bHEVC10bit) ? CPU_GEN_KABYLAKE : CPU_GEN_SKYLAKE;
+    }
     if (bRDSeed)             return CPU_GEN_BROADWELL;
     if (bMOVBE && bFsgsbase) return CPU_GEN_HASWELL;
 
