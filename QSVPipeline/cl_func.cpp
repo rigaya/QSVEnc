@@ -127,7 +127,10 @@ cl_int cl_get_platform_and_device(const char *VendorName, cl_int device_type, cl
         if (checkPlatformForVendor(platform)) {
             if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, 0, NULL, &size))) {
                 //_ftprintf(stderr, _T("Error (clGetDeviceIDs): %d\n"), ret);
-                return ret;
+                continue;
+            }
+            if (size == 0) {
+                continue;
             }
             vector<cl_device_id> device_list(size);
             if (CL_SUCCESS != (ret = cl->getDeviceIDs(platform, device_type, size, &device_list[0], &size))) {
