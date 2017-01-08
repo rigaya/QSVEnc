@@ -41,7 +41,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 ### QSVEnc/QSVEncC共通
 - QuickSyncVideoを使用したエンコード
    - H.264/AVC
-   - H.265/HEVC
+   - H.265/HEVC (8bit/10bit)
    - MPEG2
 - QuickSyncVideoの各エンコードモード
    - CQP       固定量子化量
