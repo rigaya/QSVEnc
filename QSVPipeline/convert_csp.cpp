@@ -32,6 +32,7 @@
 #include "qsv_simd.h"
 #include "qsv_version.h"
 #include "convert_csp.h"
+#include "qsv_osdep.h"
 
 enum : uint32_t {
     _P_ = 0x1,
