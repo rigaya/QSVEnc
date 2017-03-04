@@ -383,7 +383,7 @@ static void convert_yv12_to_p010_avx2_base(void **dst, const void **src, int wid
             y0 = _mm256_loadu_si256((const __m256i *)src_u_ptr); // 31-28  27-24 23-20  19-16 | 15-12  11-8  7-4  3-0
             y2 = _mm256_loadu_si256((const __m256i *)src_v_ptr);
 
-            static const alignas(32) int SHUFFLE_MASK[] ={ 0, 2, 4, 6, 1, 3, 5, 7 };
+            alignas(32) static const int SHUFFLE_MASK[] = { 0, 2, 4, 6, 1, 3, 5, 7 };
             y0 = _mm256_permutevar8x32_epi32(y0, _mm256_load_si256((const __m256i *)SHUFFLE_MASK)); // 31-28  23-20  15-12  7-4 | 27-24  19-16  11-8  3-0
             y2 = _mm256_permutevar8x32_epi32(y2, _mm256_load_si256((const __m256i *)SHUFFLE_MASK));
 
