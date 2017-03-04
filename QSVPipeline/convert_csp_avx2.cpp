@@ -436,8 +436,8 @@ static void convert_yv12_high_to_nv12_avx2_base(void **dst, const void **src, in
             uint16_t *src_ptr_fin = src_ptr + y_width;
             __m256i y0, y1;
             for (; src_ptr < src_ptr_fin; dst_ptr += 32, src_ptr += 32) {
-                y0 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 16), (const __m128i *)(src_ptr +  0));
-                y1 = _mm256_loadu2_m128i((const __m128i *)(src_ptr + 24), (const __m128i *)(src_ptr +  8));
+                y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 16)), _mm_loadu_si128((__m128i*)(src_ptr +  0)));
+                y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 24)), _mm_loadu_si128((__m128i*)(src_ptr +  8)));
 
                 y0 = _mm256_srli_epi16(y0, in_bit_depth - 8);
                 y1 = _mm256_srli_epi16(y1, in_bit_depth - 8);
