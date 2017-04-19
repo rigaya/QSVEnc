@@ -226,7 +226,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("LA Quality   "), ENC_FEATURE_LA_DS                  },
     { _T("QP Min/Max   "), ENC_FEATURE_QP_MINMAX              },
     { _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
-    { _T("No Debloc    "), ENC_FEATURE_NO_DEBLOCK             },
+    { _T("No Deblock   "), ENC_FEATURE_NO_DEBLOCK             },
     { _T("No GPB       "), ENC_FEATURE_DISABLE_GPB            },
     { _T("Windowed BRC "), ENC_FEATURE_WINBRC                 },
     { _T("PerMBQP(CQP) "), ENC_FEATURE_PERMBQP                },
