@@ -54,6 +54,7 @@
 #include "qsv_plugin.h"
 #include "qsv_osdep.h"
 #include "qsv_query.h"
+#include "qsv_hw_device.h"
 
 int getCPUGen() {
     int CPUInfo[4] = {-1};
