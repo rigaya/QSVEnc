@@ -33,6 +33,7 @@
 #else
 #include <cstddef>
 #include <cstring>
+#include <cstdio>
 
 typedef char TCHAR;
 #define _T(x) x
@@ -57,6 +58,16 @@ typedef char TCHAR;
 #define _tcserror strerror
 #define _fgetts fgets
 #define _tcscpy strcpy
+
+#define _SH_DENYRW      0x10    // deny read/write mode
+#define _SH_DENYWR      0x20    // deny write mode
+#define _SH_DENYRD      0x30    // deny read mode
+#define _SH_DENYNO      0x40    // deny none mode
+#define _SH_SECURE      0x80    // secure mode
+
+static inline FILE *_tfsopen(const TCHAR *filename, const TCHAR *mode, int shflag) {
+    return fopen(filename, mode);
+}
 
 static inline char *_tcscpy_s(TCHAR *dst, const TCHAR *src) {
     return strcpy(dst, src);
