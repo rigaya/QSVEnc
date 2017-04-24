@@ -664,8 +664,9 @@ typedef struct AVDemuxVideo {
                                                      //pCodecCtxのチェックだけでは読み込むかどうか判定できないので、
                                                      //実際に使用するかどうかはこのフラグをチェックする
     bool                      bReadVideo;
-    AVCodecContext           *pCodecCtx;             //動画のcodecContext, 動画を読み込むかどうかの判定には使用しないこと (bReadVideoを使用)
-    AVCodec                  *pCodec;                //動画のデコーダ (使用しない場合はnullptr)
+    const AVStream           *pStream;               //動画のStream, 動画を読み込むかどうかの判定には使用しないこと (bReadVideoを使用)
+    const AVCodec            *pCodecDecode;          //動画のデコーダ (使用しない場合はnullptr)
+    AVCodecContext           *pCodecCtxDecode;       //動画のデコーダ (使用しない場合はnullptr)
     AVFrame                  *pFrame;                //動画デコード用のフレーム
     int                       nIndex;                //動画のストリームID
     int64_t                   nStreamFirstKeyPts;    //動画ファイルの最初のpts
@@ -681,6 +682,7 @@ typedef struct AVDemuxVideo {
     uint32_t                  nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
+    AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {
