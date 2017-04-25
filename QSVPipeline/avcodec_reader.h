@@ -53,61 +53,61 @@ enum {
     AVQSV_AUDIO_COPY_TO_FILE = 0x02,
 };
 
-enum AVQSVPtsStatus : uint32_t {
-    AVQSV_PTS_UNKNOWN           = 0x00,
-    AVQSV_PTS_NORMAL            = 0x01,
-    AVQSV_PTS_SOMETIMES_INVALID = 0x02, //時折、無効なptsを得る
-    AVQSV_PTS_HALF_INVALID      = 0x04, //PAFFなため、半分のフレームのptsやdtsが無効
-    AVQSV_PTS_ALL_INVALID       = 0x08, //すべてのフレームのptsやdtsが無効
-    AVQSV_PTS_NONKEY_INVALID    = 0x10, //キーフレーム以外のフレームのptsやdtsが無効
-    AVQSV_PTS_DUPLICATE         = 0x20, //重複するpts/dtsが存在する
-    AVQSV_DTS_SOMETIMES_INVALID = 0x40, //時折、無効なdtsを得る
+enum RGYPtsStatus : uint32_t {
+    RGY_PTS_UNKNOWN           = 0x00,
+    RGY_PTS_NORMAL            = 0x01,
+    RGY_PTS_SOMETIMES_INVALID = 0x02, //時折、無効なptsを得る
+    RGY_PTS_HALF_INVALID      = 0x04, //PAFFなため、半分のフレームのptsやdtsが無効
+    RGY_PTS_ALL_INVALID       = 0x08, //すべてのフレームのptsやdtsが無効
+    RGY_PTS_NONKEY_INVALID    = 0x10, //キーフレーム以外のフレームのptsやdtsが無効
+    RGY_PTS_DUPLICATE         = 0x20, //重複するpts/dtsが存在する
+    RGY_DTS_SOMETIMES_INVALID = 0x40, //時折、無効なdtsを得る
 };
 
-static AVQSVPtsStatus operator|(AVQSVPtsStatus a, AVQSVPtsStatus b) {
-    return (AVQSVPtsStatus)((uint32_t)a | (uint32_t)b);
+static RGYPtsStatus operator|(RGYPtsStatus a, RGYPtsStatus b) {
+    return (RGYPtsStatus)((uint32_t)a | (uint32_t)b);
 }
 
-static AVQSVPtsStatus operator|=(AVQSVPtsStatus& a, AVQSVPtsStatus b) {
+static RGYPtsStatus operator|=(RGYPtsStatus& a, RGYPtsStatus b) {
     a = a | b;
     return a;
 }
 
-static AVQSVPtsStatus operator&(AVQSVPtsStatus a, AVQSVPtsStatus b) {
-    return (AVQSVPtsStatus)((uint32_t)a & (uint32_t)b);
+static RGYPtsStatus operator&(RGYPtsStatus a, RGYPtsStatus b) {
+    return (RGYPtsStatus)((uint32_t)a & (uint32_t)b);
 }
 
-static AVQSVPtsStatus operator&=(AVQSVPtsStatus& a, AVQSVPtsStatus b) {
-    a = (AVQSVPtsStatus)((uint32_t)a & (uint32_t)b);
+static RGYPtsStatus operator&=(RGYPtsStatus& a, RGYPtsStatus b) {
+    a = (RGYPtsStatus)((uint32_t)a & (uint32_t)b);
     return a;
 }
 
-enum AVQSVPicstruct : uint8_t {
-    AVQSV_PICSTRUCT_UNKNOWN      = 0x00,
-    AVQSV_PICSTRUCT_FRAME        = 0x01,                         //フレームとして符号化されている
-    AVQSV_PICSTRUCT_FRAME_TFF    = 0x02 | AVQSV_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (TFF)
-    AVQSV_PICSTRUCT_FRAME_BFF    = 0x04 | AVQSV_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (BFF)
-    AVQSV_PICSTRUCT_FIELD        = 0x08,                         //フィールドとして符号化されている
-    AVQSV_PICSTRUCT_FIELD_TOP    = AVQSV_PICSTRUCT_FIELD,        //フィールドとして符号化されている (Topフィールド)
-    AVQSV_PICSTRUCT_FIELD_BOTTOM = 0x10 | AVQSV_PICSTRUCT_FIELD, //フィールドとして符号化されている (Bottomフィールド)
-    AVQSV_PICSTRUCT_INTERLACED   = ((uint8_t)AVQSV_PICSTRUCT_FRAME_TFF | (uint8_t)AVQSV_PICSTRUCT_FRAME_BFF | (uint8_t)AVQSV_PICSTRUCT_FIELD_TOP | (uint8_t)AVQSV_PICSTRUCT_FIELD_BOTTOM) & ~AVQSV_PICSTRUCT_FRAME, //インタレ
+enum RGYPicstruct : uint8_t {
+    RGY_PICSTRUCT_UNKNOWN      = 0x00,
+    RGY_PICSTRUCT_FRAME        = 0x01,                         //フレームとして符号化されている
+    RGY_PICSTRUCT_FRAME_TFF    = 0x02 | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (TFF)
+    RGY_PICSTRUCT_FRAME_BFF    = 0x04 | RGY_PICSTRUCT_FRAME, //フレームとして符号化されているインタレ (BFF)
+    RGY_PICSTRUCT_FIELD        = 0x08,                         //フィールドとして符号化されている
+    RGY_PICSTRUCT_FIELD_TOP    = RGY_PICSTRUCT_FIELD,        //フィールドとして符号化されている (Topフィールド)
+    RGY_PICSTRUCT_FIELD_BOTTOM = 0x10 | RGY_PICSTRUCT_FIELD, //フィールドとして符号化されている (Bottomフィールド)
+    RGY_PICSTRUCT_INTERLACED   = ((uint8_t)RGY_PICSTRUCT_FRAME_TFF | (uint8_t)RGY_PICSTRUCT_FRAME_BFF | (uint8_t)RGY_PICSTRUCT_FIELD_TOP | (uint8_t)RGY_PICSTRUCT_FIELD_BOTTOM) & ~RGY_PICSTRUCT_FRAME, //インタレ
 };
 
-static AVQSVPicstruct operator|(AVQSVPicstruct a, AVQSVPicstruct b) {
-    return (AVQSVPicstruct)((uint8_t)a | (uint8_t)b);
+static RGYPicstruct operator|(RGYPicstruct a, RGYPicstruct b) {
+    return (RGYPicstruct)((uint8_t)a | (uint8_t)b);
 }
 
-static AVQSVPicstruct operator|=(AVQSVPicstruct& a, AVQSVPicstruct b) {
+static RGYPicstruct operator|=(RGYPicstruct& a, RGYPicstruct b) {
     a = a | b;
     return a;
 }
 
-static AVQSVPicstruct operator&(AVQSVPicstruct a, AVQSVPicstruct b) {
-    return (AVQSVPicstruct)((uint8_t)a & (uint8_t)b);
+static RGYPicstruct operator&(RGYPicstruct a, RGYPicstruct b) {
+    return (RGYPicstruct)((uint8_t)a & (uint8_t)b);
 }
 
-static AVQSVPicstruct operator&=(AVQSVPicstruct& a, AVQSVPicstruct b) {
-    a = (AVQSVPicstruct)((uint8_t)a & (uint8_t)b);
+static RGYPicstruct operator&=(RGYPicstruct& a, RGYPicstruct b) {
+    a = (RGYPicstruct)((uint8_t)a & (uint8_t)b);
     return a;
 }
 
@@ -119,7 +119,7 @@ typedef struct FramePos {
     int duration2; //ペアフィールドの表示時間
     int poc; //出力時のフレーム番号
     uint8_t flags;    //flags (キーフレームならAV_PKT_FLAG_KEY)
-    AVQSVPicstruct pic_struct; //AVQSV_PICSTRUCT_xxx
+    RGYPicstruct pic_struct; //RGY_PICSTRUCT_xxx
     uint8_t repeat_pict; //通常は1, RFFなら2+
     uint8_t pict_type; //I,P,Bフレーム
 } FramePos;
@@ -133,7 +133,7 @@ typedef struct FramePos {
 static FramePos framePos(int64_t pts, int64_t dts,
     int duration, int duration2 = 0,
     int poc = AVQSV_POC_INVALID,
-    uint8_t flags = 0, AVQSVPicstruct pic_struct = AVQSV_PICSTRUCT_FRAME, uint8_t repeat_pict = 0, uint8_t pict_type = 0) {
+    uint8_t flags = 0, RGYPicstruct pic_struct = RGY_PICSTRUCT_FRAME, uint8_t repeat_pict = 0, uint8_t pict_type = 0) {
     FramePos pos;
     pos.pts = pts;
     pos.dts = dts;
@@ -166,7 +166,7 @@ public:
         m_bInputFin(false),
         m_nDuration(0),
         m_nDurationNum(0),
-        m_nStreamPtsStatus(AVQSV_PTS_UNKNOWN),
+        m_nStreamPtsStatus(RGY_PTS_UNKNOWN),
         m_nLastPoc(0),
         m_nFirstKeyframePts(AV_NOPTS_VALUE),
         m_nPAFFRewind(0),
@@ -231,7 +231,7 @@ public:
         m_bInputFin = false;
         m_nDuration = 0;
         m_nDurationNum = 0;
-        m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
+        m_nStreamPtsStatus = RGY_PTS_UNKNOWN;
         m_nLastPoc = 0;
         m_nFirstKeyframePts = AV_NOPTS_VALUE;
         m_nPAFFRewind = 0;
@@ -252,7 +252,7 @@ public:
         return m_nNextFixNumIndex;
     }
     void clearPtsStatus() {
-        if (m_nStreamPtsStatus & AVQSV_PTS_DUPLICATE) {
+        if (m_nStreamPtsStatus & RGY_PTS_DUPLICATE) {
             const int nListSize = (int)m_list.size();
             for (int i = 0; i < nListSize; i++) {
                 if (m_list[i].data.duration == 0
@@ -266,11 +266,11 @@ public:
         }
         m_nLastPoc = 0;
         m_nNextFixNumIndex = 0;
-        m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
+        m_nStreamPtsStatus = RGY_PTS_UNKNOWN;
         m_nPAFFRewind = 0;
         m_nPtsWrapArroundThreshold = 0xFFFFFFFF;
     }
-    AVQSVPtsStatus getStreamPtsStatus() const {
+    RGYPtsStatus getStreamPtsStatus() const {
         return m_nStreamPtsStatus;
     }
     //FramePosを追加し、内部状態を変更する
@@ -285,7 +285,7 @@ public:
         if (m_nFirstKeyframePts == AV_NOPTS_VALUE && (pos.flags & AV_PKT_FLAG_KEY) && nIndex == 0) {
             m_nFirstKeyframePts = m_list[nIndex].data.pts;
         }
-        //m_nStreamPtsStatusがAVQSV_PTS_UNKNOWNの場合には、ソートなどは行わない
+        //m_nStreamPtsStatusがRGY_PTS_UNKNOWNの場合には、ソートなどは行わない
         if (m_bInputFin || (m_nStreamPtsStatus && nListSize - m_nNextFixNumIndex > (int)AVQSV_FRAME_MAX_REORDER)) {
             //ptsでソート
             sortPts(m_nNextFixNumIndex, nListSize - m_nNextFixNumIndex);
@@ -338,7 +338,7 @@ public:
     //入力が終了した際に使用し、内部状態を変更する
     void fin(const FramePos& pos, int64_t total_duration) {
         m_bInputFin = true;
-        if (m_nStreamPtsStatus == AVQSV_PTS_UNKNOWN) {
+        if (m_nStreamPtsStatus == RGY_PTS_UNKNOWN) {
             checkPtsStatus();
         }
         const int nFrame = (int)m_list.size();
@@ -372,13 +372,13 @@ public:
         bool bFractionExists = std::abs(durationHintifPtsAllInvalid - (int)(durationHintifPtsAllInvalid + 0.5)) > 1e-6;
         vector<std::pair<int, int>> durationHistgram;
         for (int i = 0; i < nInputPacketCount; i++) {
-            nInputFrames += (m_list[i].data.pic_struct & AVQSV_PICSTRUCT_FRAME) != 0;
-            nInputFields += (m_list[i].data.pic_struct & AVQSV_PICSTRUCT_FIELD) != 0;
+            nInputFrames += (m_list[i].data.pic_struct & RGY_PICSTRUCT_FRAME) != 0;
+            nInputFields += (m_list[i].data.pic_struct & RGY_PICSTRUCT_FIELD) != 0;
             nInputKeys   += (m_list[i].data.flags & AV_PKT_FLAG_KEY) != 0;
             nInvalidDuration += m_list[i].data.duration <= 0;
             if (m_list[i].data.pts == AV_NOPTS_VALUE) {
                 nInvalidPtsCount++;
-                nInvalidPtsCountField += (m_list[i].data.pic_struct & AVQSV_PICSTRUCT_FIELD) != 0;
+                nInvalidPtsCountField += (m_list[i].data.pic_struct & RGY_PICSTRUCT_FIELD) != 0;
                 nInvalidPtsCountKeyFrame += (m_list[i].data.flags & AV_PKT_FLAG_KEY) != 0;
                 nInvalidPtsCountNonKeyFrame += (m_list[i].data.flags & AV_PKT_FLAG_KEY) == 0;
             }
@@ -407,49 +407,49 @@ public:
         }
         //多い順にソートする
         std::sort(durationHistgram.begin(), durationHistgram.end(), [](const std::pair<int, int>& pairA, const std::pair<int, int>& pairB) { return pairA.second > pairB.second; });
-        m_nStreamPtsStatus = AVQSV_PTS_UNKNOWN;
+        m_nStreamPtsStatus = RGY_PTS_UNKNOWN;
         if (nDuplicateFrameInfo > 0) {
             //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
-            m_nStreamPtsStatus |= AVQSV_PTS_DUPLICATE;
+            m_nStreamPtsStatus |= RGY_PTS_DUPLICATE;
         }
         if (nInvalidPtsCount == 0) {
-            m_nStreamPtsStatus |= AVQSV_PTS_NORMAL;
+            m_nStreamPtsStatus |= RGY_PTS_NORMAL;
         } else {
             m_dFrameDuration = durationHintifPtsAllInvalid;
             if (nInvalidPtsCount >= nInputPacketCount - 1) {
                 if (m_list[0].data.duration || durationHintifPtsAllInvalid > 0.0) {
                     //durationが得られていれば、durationに基づいて、cfrでptsを発行する
                     //主にH.264/HEVCのESなど
-                    m_nStreamPtsStatus |= AVQSV_PTS_ALL_INVALID;
+                    m_nStreamPtsStatus |= RGY_PTS_ALL_INVALID;
                 } else {
                     //durationがなければ、dtsを見てptsを発行する
                     //主にVC-1ストリームなど
-                    m_nStreamPtsStatus |= AVQSV_PTS_SOMETIMES_INVALID;
+                    m_nStreamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
                 }
             } else if (nInputFields > 0 && nInvalidPtsCountField <= nInputFields / 2) {
                 //主にH.264のPAFFストリームなど
-                m_nStreamPtsStatus |= AVQSV_PTS_HALF_INVALID;
+                m_nStreamPtsStatus |= RGY_PTS_HALF_INVALID;
             } else if (nInvalidPtsCountKeyFrame == 0 && nInvalidPtsCountNonKeyFrame > (nInputPacketCount - nInputKeys) * 3 / 4) {
-                m_nStreamPtsStatus |= AVQSV_PTS_NONKEY_INVALID;
+                m_nStreamPtsStatus |= RGY_PTS_NONKEY_INVALID;
                 if (nInvalidPtsCount == nInvalidDtsCount) {
                     //ワンセグなど、ptsもdtsもキーフレーム以外は得られない場合
-                    m_nStreamPtsStatus |= AVQSV_DTS_SOMETIMES_INVALID;
+                    m_nStreamPtsStatus |= RGY_DTS_SOMETIMES_INVALID;
                 }
                 if (nInvalidDuration == 0) {
                     //ptsがだいぶいかれてるので、安定してdurationが得られていれば、durationベースで作っていったほうが早い
-                    m_nStreamPtsStatus |= AVQSV_PTS_SOMETIMES_INVALID;
+                    m_nStreamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
                 }
             }
-            if (!(m_nStreamPtsStatus & (AVQSV_PTS_ALL_INVALID | AVQSV_PTS_HALF_INVALID | AVQSV_PTS_NONKEY_INVALID | AVQSV_PTS_SOMETIMES_INVALID))
+            if (!(m_nStreamPtsStatus & (RGY_PTS_ALL_INVALID | RGY_PTS_HALF_INVALID | RGY_PTS_NONKEY_INVALID | RGY_PTS_SOMETIMES_INVALID))
                 && nInvalidPtsCount > nInputPacketCount / 16) {
-                m_nStreamPtsStatus |= AVQSV_PTS_SOMETIMES_INVALID;
+                m_nStreamPtsStatus |= RGY_PTS_SOMETIMES_INVALID;
             }
         }
-        if ((m_nStreamPtsStatus & AVQSV_PTS_ALL_INVALID)) {
+        if ((m_nStreamPtsStatus & RGY_PTS_ALL_INVALID)) {
             auto& mostPopularDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0];
             if ((m_dFrameDuration > 0.0 && m_list[0].data.duration == 0) || mostPopularDuration.first == 0) {
                 //主にH.264/HEVCのESなど向けの対策
-                m_list[0].data.duration = (int)(m_dFrameDuration * ((m_list[0].data.pic_struct & AVQSV_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
+                m_list[0].data.duration = (int)(m_dFrameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
             } else {
                 //durationのヒストグラムを作成
                 m_dFrameDuration = durationHistgram[durationHistgram.size() > 1 && durationHistgram[0].first == 0].first;
@@ -468,11 +468,11 @@ public:
     }
     //mfxのpicstructを返す
     int getMfxPicStruct() {
-        const uint8_t bottomFeildMask = (AVQSV_PICSTRUCT_FRAME_BFF | AVQSV_PICSTRUCT_FIELD_BOTTOM) & (~AVQSV_PICSTRUCT_FIELD) & ~(AVQSV_PICSTRUCT_FRAME);
+        const uint8_t bottomFeildMask = (RGY_PICSTRUCT_FRAME_BFF | RGY_PICSTRUCT_FIELD_BOTTOM) & (~RGY_PICSTRUCT_FIELD) & ~(RGY_PICSTRUCT_FRAME);
         const int nListSize = (int)m_list.size();
         for (int i = 0; i < nListSize; i++) {
             auto pic_struct = m_list[i].data.pic_struct;
-            if (pic_struct & AVQSV_PICSTRUCT_INTERLACED) {
+            if (pic_struct & RGY_PICSTRUCT_INTERLACED) {
                 return (pic_struct & bottomFeildMask) ? MFX_PICTYPE_BOTTOMFIELD : MFX_PICTYPE_TOPFIELD;
             }
         }
@@ -493,8 +493,8 @@ protected:
     }
     //ptsの補正
     void adjustFrameInfo(uint32_t nIndex) {
-        if (m_nStreamPtsStatus & AVQSV_PTS_SOMETIMES_INVALID) {
-            if (m_nStreamPtsStatus & AVQSV_DTS_SOMETIMES_INVALID) {
+        if (m_nStreamPtsStatus & RGY_PTS_SOMETIMES_INVALID) {
+            if (m_nStreamPtsStatus & RGY_DTS_SOMETIMES_INVALID) {
                 //ptsもdtsはあてにならないので、durationから再構築する (ワンセグなど)
                 if (nIndex == 0) {
                     if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
@@ -515,24 +515,24 @@ protected:
             if (nIndex == 0) {
                 m_list[nIndex].data.pts = 0;
                 m_list[nIndex].data.dts = 0;
-            } else if (m_nStreamPtsStatus & (AVQSV_PTS_ALL_INVALID | AVQSV_PTS_NONKEY_INVALID)) {
+            } else if (m_nStreamPtsStatus & (RGY_PTS_ALL_INVALID | RGY_PTS_NONKEY_INVALID)) {
                 //AVPacketのもたらすptsが無効であれば、CFRを仮定して適当にptsとdurationを突っ込んでいく
-                double frameDuration = m_dFrameDuration * ((m_list[0].data.pic_struct & AVQSV_PICSTRUCT_FIELD) ? 2.0 : 1.0);
-                m_list[nIndex].data.pts = (int64_t)(nIndex * frameDuration * ((m_list[nIndex].data.pic_struct & AVQSV_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
+                double frameDuration = m_dFrameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
+                m_list[nIndex].data.pts = (int64_t)(nIndex * frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
                 m_list[nIndex].data.dts = m_list[nIndex].data.pts;
-            } else if (m_nStreamPtsStatus & AVQSV_PTS_NONKEY_INVALID) {
+            } else if (m_nStreamPtsStatus & RGY_PTS_NONKEY_INVALID) {
                 //キーフレーム以外のptsとdtsが無効な場合は、適当に推定する
-                double frameDuration = m_dFrameDuration * ((m_list[0].data.pic_struct & AVQSV_PICSTRUCT_FIELD) ? 2.0 : 1.0);
-                m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + (int)(frameDuration * ((m_list[nIndex].data.pic_struct & AVQSV_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
-                m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + (int)(frameDuration * ((m_list[nIndex].data.pic_struct & AVQSV_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
-            } else if (m_nStreamPtsStatus & AVQSV_PTS_HALF_INVALID) {
+                double frameDuration = m_dFrameDuration * ((m_list[0].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 2.0 : 1.0);
+                m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + (int)(frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
+                m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + (int)(frameDuration * ((m_list[nIndex].data.pic_struct & RGY_PICSTRUCT_FIELD) ? 0.5 : 1.0) + 0.5);
+            } else if (m_nStreamPtsStatus & RGY_PTS_HALF_INVALID) {
                 //ptsがないのは音声抽出で、正常に抽出されない問題が生じる
                 //半分PTSがないPAFFのような動画については、前のフレームからの補完を行う
                 if (m_list[nIndex].data.dts == AV_NOPTS_VALUE) {
                     m_list[nIndex].data.dts = m_list[nIndex-1].data.dts + m_list[nIndex-1].data.duration;
                 }
                 m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + m_list[nIndex-1].data.duration;
-            } else if (m_nStreamPtsStatus & AVQSV_PTS_NORMAL) {
+            } else if (m_nStreamPtsStatus & RGY_PTS_NORMAL) {
                 if (m_list[nIndex].data.pts == AV_NOPTS_VALUE) {
                     m_list[nIndex].data.pts = m_list[nIndex-1].data.pts + m_list[nIndex-1].data.duration;
                 }
@@ -541,14 +541,14 @@ protected:
     }
     //ソートにより確定したptsに対して、pocを設定する
     void setPoc(int index) {
-        if ((m_nStreamPtsStatus & AVQSV_PTS_DUPLICATE)
+        if ((m_nStreamPtsStatus & RGY_PTS_DUPLICATE)
             && m_list[index].data.duration == 0
             && m_list[index+1].data.pts - m_list[index].data.pts <= (std::min)(m_list[index+1].data.duration / 10, 1)
             && m_list[index+1].data.dts - m_list[index].data.dts <= (std::min)(m_list[index+1].data.duration / 10, 1)) {
             //VP8/VP9では重複するpts/dts/durationを持つフレームが存在することがあるが、これを無視する
             m_list[index].data.poc = AVQSV_POC_INVALID;
-        } else if (m_list[index].data.pic_struct & AVQSV_PICSTRUCT_FIELD) {
-            if (index > 0 && (m_list[index-1].data.poc != AVQSV_POC_INVALID && (m_list[index-1].data.pic_struct & AVQSV_PICSTRUCT_FIELD))) {
+        } else if (m_list[index].data.pic_struct & RGY_PICSTRUCT_FIELD) {
+            if (index > 0 && (m_list[index-1].data.poc != AVQSV_POC_INVALID && (m_list[index-1].data.pic_struct & RGY_PICSTRUCT_FIELD))) {
                 m_list[index].data.poc = AVQSV_POC_INVALID;
                 m_list[index-1].data.duration2 = m_list[index].data.duration;
             } else {
@@ -563,7 +563,7 @@ protected:
     //ソート後のこの段階では、AV_NOPTS_VALUEはないものとする
     void adjustDurationAfterSort(int index) {
         int diff = (int)(m_list[index+1].data.pts - m_list[index].data.pts);
-        if ((m_nStreamPtsStatus & AVQSV_PTS_DUPLICATE)
+        if ((m_nStreamPtsStatus & RGY_PTS_DUPLICATE)
             && diff <= 1
             && m_list[index].data.duration > 0
             && m_list[index].data.pts != AV_NOPTS_VALUE
@@ -619,20 +619,20 @@ protected:
         //もし、現在のインデックスがフィールドデータの片割れなら、次のフィールドがくるまでdurationは確定しない
         //setPocでduration2が埋まるのを待つ必要がある
         if (m_nNextFixNumIndex > 0
-            && (m_list[m_nNextFixNumIndex-1].data.pic_struct & AVQSV_PICSTRUCT_FIELD)
+            && (m_list[m_nNextFixNumIndex-1].data.pic_struct & RGY_PICSTRUCT_FIELD)
             && m_list[m_nNextFixNumIndex-1].data.poc != AVQSV_POC_INVALID) {
             m_nNextFixNumIndex--;
             m_nPAFFRewind = 1;
         }
     }
 protected:
-    double m_dFrameDuration; //CFRを仮定する際のフレーム長 (AVQSV_PTS_ALL_INVALID, AVQSV_PTS_NONKEY_INVALID, AVQSV_PTS_NONKEY_INVALID時有効)
+    double m_dFrameDuration; //CFRを仮定する際のフレーム長 (RGY_PTS_ALL_INVALID, RGY_PTS_NONKEY_INVALID, RGY_PTS_NONKEY_INVALID時有効)
     CQueueSPSP<FramePos, 1> m_list; //内部データサイズとFramePosのデータサイズを一致させるため、alignを1に設定
     int m_nNextFixNumIndex; //次にptsを確定させるフレームのインデックス
     bool m_bInputFin; //入力が終了したことを示すフラグ
     int64_t m_nDuration; //m_nDurationNumのフレーム数分のdurationの総和
     int m_nDurationNum; //durationを計算したフレーム数
-    AVQSVPtsStatus m_nStreamPtsStatus; //入力から提供されるptsの状態 (AVQSV_PTS_xxx)
+    RGYPtsStatus m_nStreamPtsStatus; //入力から提供されるptsの状態 (RGY_PTS_xxx)
     uint32_t m_nLastPoc; //ptsが確定したフレームのうち、直近のpoc
     int64_t m_nFirstKeyframePts; //最初のキーフレームのpts
     int m_nPAFFRewind; //PAFFのdurationを確定させるため、戻した枚数
