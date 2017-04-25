@@ -1482,7 +1482,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
             pParams->vpp.subburn.pCharEnc,
             pParams->vpp.subburn.nShaping,
             frameInfo,
-            (pAVCodecReader) ? pAVCodecReader->GetInputVideoCodecCtx() : nullptr,
+            (pAVCodecReader) ? pAVCodecReader->GetInputVideoStream() : nullptr,
             //ファイルからの読み込みの時は最初のpts分の補正が必要
             //トラックからの読み込みなら不要
             (pAVCodecReader && !pParams->vpp.subburn.nTrack) ? pAVCodecReader->GetVideoFirstKeyPts() : 0,
@@ -2242,7 +2242,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerPrm.chapterList = pAVCodecReader->GetChapterList();
             }
             writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-            writerPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
+            writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
         }
         if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
             PrintMes(QSV_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
@@ -2266,7 +2266,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
                     if (pAVCodecReader == nullptr) {
                         writerPrm.nVideoInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
-                        writerPrm.pVideoInputCodecCtx = pAVCodecAudioReader->GetInputVideoCodecCtx();
+                        writerPrm.pVideoInputStream = pAVCodecAudioReader->GetInputVideoStream();
                     }
                 }
             }
@@ -2403,7 +2403,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     writerAudioPrm.trimList = m_pTrimParam->list;
                 }
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-                writerAudioPrm.pVideoInputCodecCtx = pAVCodecReader->GetInputVideoCodecCtx();
+                writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
                 auto pWriter = std::make_shared<CAvcodecWriter>();
                 pWriter->SetQSVLogPtr(m_pQSVLog);
@@ -3676,7 +3676,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     const AVRational outputFpsTimebase = { (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN };
 
     auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-    const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoCodecCtx()->pkt_timebase : inputFpsTimebase;
+    const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoStream()->time_base : inputFpsTimebase;
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
     const int nFrameDuration = (int)qsv_rescale(1, inputFpsTimebase, pktTimebase);

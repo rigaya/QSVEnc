@@ -70,7 +70,7 @@ typedef struct AVMuxVideo {
     AVRational            nFPS;                 //出力映像のフレームレート
     AVStream             *pStreamOut;           //出力ファイルの映像ストリーム
     bool                  bDtsUnavailable;      //出力映像のdtsが無効 (API v1.6以下)
-    const AVCodecContext *pInputCodecCtx;       //入力映像のコーデック情報
+    const AVStream       *pStreamIn;            //入力映像のストリーム
     int64_t               nInputFirstKeyPts;    //入力映像の最初のpts
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     bool                  bIsPAFF;              //出力映像がPAFFである
@@ -222,7 +222,7 @@ typedef struct AvcodecWriterPrm {
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
     const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
-    const AVCodecContext        *pVideoInputCodecCtx;     //入力映像のコーデック情報
+    const AVStream              *pVideoInputStream;       //入力映像のストリーム
     int64_t                      nVideoInputFirstKeyPts;  //入力映像の最初のpts
     vector<sTrim>                trimList;                //Trimする動画フレームの領域のリスト
     const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報

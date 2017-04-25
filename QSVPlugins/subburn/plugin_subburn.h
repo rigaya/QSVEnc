@@ -49,7 +49,7 @@ struct ProcessDataSubBurn {
     const TCHAR          *pFilePath;              //入力字幕ファイル (nullptrの場合は入力映像ファイルのトラックから読み込む)
     std::string           sCharEnc;               //字幕の文字コード
     ASS_ShapingLevel      nAssShaping;            //assのレンダリング品質
-    const AVCodecContext *pVideoInputCodecCtx;    //入力映像のコーデック情報
+    const AVStream       *pVideoInputStream;      //入力映像のコーデック情報
     int64_t               nVideoInputFirstKeyPts; //入力映像の最初のpts
     sInputCrop            sCrop;                  //crop
 
@@ -84,7 +84,7 @@ struct ProcessDataSubBurn {
         pFilePath(nullptr),
         sCharEnc(),
         nAssShaping(ASS_SHAPING_SIMPLE),
-        pVideoInputCodecCtx(nullptr),
+        pVideoInputStream(nullptr),
         nVideoInputFirstKeyPts(0),
         sCrop({ 0 }),
         nInTrackId(0),
@@ -138,22 +138,22 @@ struct SubBurnParam {
     const TCHAR          *pCharEnc;               //字幕の文字コード
     int                   nShaping;               //レンダリング品質 (QSV_VPP_SUB_xxx)
     mfxFrameInfo          frameInfo;              //フレーム情報
-    const AVCodecContext *pVideoInputCodecCtx;    //入力映像のコーデック情報
+    const AVStream       *pVideoInputStream;      //入力映像のコーデック情報
     int64_t               nVideoInputFirstKeyPts; //入力映像の最初のpts
     AVDemuxStream         src;                    //焼きこむ字幕の情報
     sInputCrop            sCrop;                  //crop
 
-    SubBurnParam() : pAllocator(nullptr), memType(SYSTEM_MEMORY), pFilePath(nullptr), pCharEnc(nullptr), nShaping(QSV_VPP_SUB_SIMPLE), frameInfo({ 0 }), pVideoInputCodecCtx(nullptr), nVideoInputFirstKeyPts(0), src(), sCrop({ 0 }) {
+    SubBurnParam() : pAllocator(nullptr), memType(SYSTEM_MEMORY), pFilePath(nullptr), pCharEnc(nullptr), nShaping(QSV_VPP_SUB_SIMPLE), frameInfo({ 0 }), pVideoInputStream(nullptr), nVideoInputFirstKeyPts(0), src(), sCrop({ 0 }) {
         memset(&src, 0, sizeof(src));
     }
 
-    SubBurnParam(mfxFrameAllocator *allocator, MemType memtype, const TCHAR *pSubFilePath, const TCHAR *pSubCharEnc, int nSubShaping, mfxFrameInfo inputFrameInfo, const AVCodecContext *pSrcVideoInputCodecCtx, int64_t nSrcVideoInputFirstKeyPts, AVDemuxStream srcStream, const sInputCrop *pSrcCrop) :
+    SubBurnParam(mfxFrameAllocator *allocator, MemType memtype, const TCHAR *pSubFilePath, const TCHAR *pSubCharEnc, int nSubShaping, mfxFrameInfo inputFrameInfo, const AVStream *pSrcVideoInputStream, int64_t nSrcVideoInputFirstKeyPts, AVDemuxStream srcStream, const sInputCrop *pSrcCrop) :
         pAllocator(allocator), memType(memtype),
         pFilePath(pSubFilePath),
         pCharEnc(pSubCharEnc),
         nShaping(nSubShaping),
         frameInfo(inputFrameInfo),
-        pVideoInputCodecCtx(pSrcVideoInputCodecCtx),
+        pVideoInputStream(pSrcVideoInputStream),
         nVideoInputFirstKeyPts(nSrcVideoInputFirstKeyPts),
         src(srcStream),
         sCrop({ 0 }) {

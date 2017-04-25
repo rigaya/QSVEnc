@@ -711,7 +711,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_vProcessData[i].pAssTrack = nullptr;
         m_vProcessData[i].pBuf = nullptr;
         m_vProcessData[i].pCodecCtxIn = m_SubBurnParam.src.pCodecCtx;
-        m_vProcessData[i].pVideoInputCodecCtx = m_SubBurnParam.pVideoInputCodecCtx;
+        m_vProcessData[i].pVideoInputStream = m_SubBurnParam.pVideoInputStream;
         m_vProcessData[i].nSimdAvail = m_nSimdAvail;
         m_vProcessData[i].qSubPackets.init();
 
@@ -902,7 +902,7 @@ mfxStatus ProcessorSubBurn::ProcessSubText(uint8_t *pBuffer) {
     }
     qsv_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
-    const auto frameTimebase = (m_pProcData->pVideoInputCodecCtx) ? m_pProcData->pVideoInputCodecCtx->pkt_timebase : QSV_NATIVE_TIMEBASE;
+    const auto frameTimebase = (m_pProcData->pVideoInputStream) ? m_pProcData->pVideoInputStream->time_base : QSV_NATIVE_TIMEBASE;
     const double dTimeMs = (m_pIn->Data.TimeStamp - m_pProcData->nVideoInputFirstKeyPts) * av_q2d(frameTimebase) * 1000.0;
 
     int nDetectChange = 0;
@@ -951,7 +951,7 @@ mfxStatus ProcessorSubBurn::ProcessSubBitmap(uint8_t *pBuffer) {
         }
     }
 
-    const auto frameTimebase = (m_pProcData->pVideoInputCodecCtx) ? m_pProcData->pVideoInputCodecCtx->pkt_timebase : QSV_NATIVE_TIMEBASE;
+    const auto frameTimebase = (m_pProcData->pVideoInputStream) ? m_pProcData->pVideoInputStream->time_base : QSV_NATIVE_TIMEBASE;
     const int64_t nFrameTimeMs = av_rescale_q((m_pIn->Data.TimeStamp - m_pProcData->nVideoInputFirstKeyPts), frameTimebase, { 1, 1000 });
 
     AVPacket pkt;
