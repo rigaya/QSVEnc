@@ -55,7 +55,7 @@ struct ProcessDataSubBurn {
 
     int                   nInTrackId;             //ソースファイルの入力トラック番号
     mfxFrameInfo          frameInfo;              //フレーム情報
-    AVCodecContext       *pCodecCtxIn;            //入力字幕のCodecContextのコピー
+    const AVStream       *pStreamIn;              //入力字幕のストリーム
     int                   nStreamIndexIn;         //入力字幕のStreamのindex
 
     //変換用
@@ -89,7 +89,7 @@ struct ProcessDataSubBurn {
         sCrop({ 0 }),
         nInTrackId(0),
         frameInfo({ 0 }),
-        pCodecCtxIn(nullptr),
+        pStreamIn(nullptr),
         nStreamIndexIn(-1),
         pFormatCtx(nullptr),
         nSubtitleStreamIndex(-1),

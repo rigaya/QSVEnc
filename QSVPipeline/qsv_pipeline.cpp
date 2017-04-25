@@ -1469,7 +1469,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
                     break;
                 }
             }
-            if (targetSubStream.pCodecCtx == nullptr) {
+            if (targetSubStream.pStream == nullptr) {
                 PrintMes(QSV_LOG_ERROR, _T("--vpp-sub-burn: subtitile track #%d not found.\n"), pParams->vpp.subburn.nTrack);
                 return MFX_ERR_UNSUPPORTED;
             }

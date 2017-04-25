@@ -82,7 +82,7 @@ typedef struct AVMuxVideo {
 typedef struct AVMuxAudio {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
     int                   nInSubStream;         //ソースファイルの入力サブストリーム番号
-    AVCodecContext       *pCodecCtxIn;          //入力音声のCodecContextのコピー
+    const AVStream       *pStreamIn;            //入力音声のCodecContextのコピー
     int                   nStreamIndexIn;       //入力音声のStreamのindex
     int                   nDelaySamplesOfAudio; //入力音声の遅延 (pkt_timebase基準)
     AVStream             *pStreamOut;           //出力ファイルの音声ストリーム
@@ -136,7 +136,7 @@ typedef struct AVMuxAudio {
 
 typedef struct AVMuxSub {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
-    AVCodecContext       *pCodecCtxIn;          //入力字幕のCodecContextのコピー
+    const AVStream       *pStreamIn;            //入力字幕のCodecContextのコピー
     int                   nStreamIndexIn;       //入力字幕のStreamのindex
     AVStream             *pStreamOut;           //出力ファイルの字幕ストリーム
 
@@ -314,7 +314,7 @@ private:
     bool codecIDIsPCM(AVCodecID targetCodec);
 
     //PCMのコーデックがwav出力時に変換を必要とするかを判定する
-    AVCodecID PCMRequiresConversion(const AVCodecContext *audioCtx);
+    AVCodecID PCMRequiresConversion(const AVCodecParameters *pCodecParm);
 
     //QSVのコーデックFourccからAVCodecのCodecIDを返す
     AVCodecID getAVCodecId(mfxU32 QSVFourcc);

@@ -484,7 +484,7 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
         inputCodecId = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codec->codec_id;
         AddMessage(QSV_LOG_DEBUG, _T("found subtitle in stream #%d (%s).\n"), pProcData->nSubtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str());
     } else {
-        inputCodecId = pProcData->pCodecCtxIn->codec_id;
+        inputCodecId = pProcData->pStreamIn->codecpar->codec_id;
     }
 
     pProcData->nType = avcodec_descriptor_get(inputCodecId)->props;
@@ -507,14 +507,14 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
         AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), inputCodecId));
         return MFX_ERR_NULL_PTR;
     }
-    if (pProcData->pCodecCtxIn) {
+    if (pProcData->pStreamIn) {
         //設定されていない必須情報があれば設定する
 #define COPY_IF_ZERO(dst, src) { if ((dst)==0) (dst)=(src); }
-        COPY_IF_ZERO(pProcData->pOutCodecDecodeCtx->width, pProcData->pCodecCtxIn->width);
-        COPY_IF_ZERO(pProcData->pOutCodecDecodeCtx->height, pProcData->pCodecCtxIn->height);
+        COPY_IF_ZERO(pProcData->pOutCodecDecodeCtx->width, pProcData->pStreamIn->codecpar->width);
+        COPY_IF_ZERO(pProcData->pOutCodecDecodeCtx->height, pProcData->pStreamIn->codecpar->height);
 #undef COPY_IF_ZERO
-        pProcData->pOutCodecDecodeCtx->pkt_timebase = pProcData->pCodecCtxIn->pkt_timebase;
-        SetExtraData(pProcData->pOutCodecDecodeCtx, pProcData->pCodecCtxIn->extradata, pProcData->pCodecCtxIn->extradata_size);
+        pProcData->pOutCodecDecodeCtx->pkt_timebase = pProcData->pStreamIn->time_base;
+        SetExtraData(pProcData->pOutCodecDecodeCtx, pProcData->pStreamIn->codecpar->extradata, pProcData->pStreamIn->codecpar->extradata_size);
     } else {
         pProcData->pOutCodecDecodeCtx->pkt_timebase = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->time_base;
         auto *pCodecCtx = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codec;
@@ -565,7 +565,7 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
     }
     if (0 > (ret = avcodec_open2(pProcData->pOutCodecDecodeCtx, pProcData->pOutCodecDecode, &pCodecOpts))) {
         AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
-            char_to_tstring(avcodec_get_name(pProcData->pCodecCtxIn->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+            char_to_tstring(avcodec_get_name(pProcData->pStreamIn->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
         return MFX_ERR_NULL_PTR;
     }
     if (pProcData->nInTrackId == 0) {
@@ -710,7 +710,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_vProcessData[i].pAssRenderer = nullptr;
         m_vProcessData[i].pAssTrack = nullptr;
         m_vProcessData[i].pBuf = nullptr;
-        m_vProcessData[i].pCodecCtxIn = m_SubBurnParam.src.pCodecCtx;
+        m_vProcessData[i].pStreamIn = m_SubBurnParam.src.pStream;
         m_vProcessData[i].pVideoInputStream = m_SubBurnParam.pVideoInputStream;
         m_vProcessData[i].nSimdAvail = m_nSimdAvail;
         m_vProcessData[i].qSubPackets.init();
@@ -957,7 +957,7 @@ mfxStatus ProcessorSubBurn::ProcessSubBitmap(uint8_t *pBuffer) {
     AVPacket pkt;
     while (m_pProcData->qSubPackets.front_copy_no_lock(&pkt)) {
         //字幕パケットのptsが、フレームのptsより古ければ、処理する必要がある
-        if (nFrameTimeMs < av_rescale_q(pkt.pts, m_pProcData->pCodecCtxIn->pkt_timebase, { 1, 1000 })) {
+        if (nFrameTimeMs < av_rescale_q(pkt.pts, m_pProcData->pStreamIn->time_base, { 1, 1000 })) {
             //取得したパケットが未来のパケットなら無視
             break;
         }
