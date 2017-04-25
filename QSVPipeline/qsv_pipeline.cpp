@@ -2348,7 +2348,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if ((pParams->nInputFmt != INPUT_FMT_AVCODEC_QSV
+        if ((pParams->nInputFmt != INPUT_FMT_AVCODEC_HW
             && pParams->nInputFmt != INPUT_FMT_AVCODEC_SW
             && pParams->nInputFmt != INPUT_FMT_AVCODEC_ANY)
             || pAVCodecReader == nullptr) {
@@ -2485,7 +2485,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         PrintMes(QSV_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    if (pParams->nInputFmt == INPUT_FMT_AVCODEC_QSV && !ENABLE_AVCODEC_QSV_READER) {
+    if (pParams->nInputFmt == INPUT_FMT_AVCODEC_HW && !ENABLE_AVCODEC_QSV_READER) {
         PrintMes(QSV_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
@@ -2552,7 +2552,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 break;
 #endif
 #if ENABLE_AVCODEC_QSV_READER
-            case INPUT_FMT_AVCODEC_QSV:
+            case INPUT_FMT_AVCODEC_HW:
             case INPUT_FMT_AVCODEC_SW:
             case INPUT_FMT_AVCODEC_ANY:
                 if (!pParams->bUseHWLib) {

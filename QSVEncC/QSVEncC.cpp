@@ -1337,7 +1337,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avqsv"))) {
-        pParams->nInputFmt = INPUT_FMT_AVCODEC_QSV;
+        pParams->nInputFmt = INPUT_FMT_AVCODEC_HW;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avsw"))) {
