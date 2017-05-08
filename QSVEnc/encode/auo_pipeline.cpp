@@ -44,8 +44,6 @@ mfxStatus AuoPipeline::InitLog(sInputParams *pParams) {
 }
 
 mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
-    mfxStatus sts = MFX_ERR_NONE;
-
     m_pEncSatusInfo = std::make_shared<AUO_EncodeStatusInfo>();
     m_pEncSatusInfo->SetPrivData(nullptr);
 
@@ -56,8 +54,8 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     // prepare input file reader
     m_pFileReader = std::make_shared<AUO_YUVReader>();
     m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-    sts = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
-    if (sts < MFX_ERR_NONE) return sts;
+    auto ret = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
+    if (ret != RGY_ERR_NONE) return err_to_mfx(ret);
 
     mfxFrameInfo inputFrameInfo = { 0 };
     m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
@@ -100,11 +98,10 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
 
     m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog, nullptr);
 
-    return sts;
+    return MFX_ERR_NONE;
 }
 
 mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
-    mfxStatus sts = MFX_ERR_NONE;
     if (pParams->nInputFmt != INPUT_FMT_AUO) {
         return CQSVPipeline::InitOutput(pParams);
     }
@@ -112,10 +109,10 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     m_pFileWriter = std::make_shared<CQSVOutBitstream>();
     m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
     bool bDummy = false;
-    sts = m_pFileWriter->Init(pParams->strDstFile, &bDummy, m_pEncSatusInfo);
-    if (sts < MFX_ERR_NONE) return sts;
+    auto ret = m_pFileWriter->Init(pParams->strDstFile, &bDummy, m_pEncSatusInfo);
+    if (ret != RGY_ERR_NONE) return err_to_mfx(ret);
 
-    return sts;
+    return MFX_ERR_NONE;
 }
 
 #pragma warning(push)

@@ -40,8 +40,8 @@ public :
     virtual ~AUO_YUVReader();
 
     virtual void Close() override;
-    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
 
 private:
     mfxU32 current_frame;
@@ -59,7 +59,7 @@ public :
     virtual void SetPrivData(void *pPrivateData);
 private:
     virtual void UpdateDisplay(const char *mes, int drop_frames, double progressPercent) override;
-    virtual mfxStatus UpdateDisplay(int drop_frames, double progressPercent = 0.0) override;
+    virtual RGY_ERR UpdateDisplay(int drop_frames, double progressPercent = 0.0) override;
     virtual void WriteLine(const TCHAR *mes) override;
 
     AuoStatusData m_auoData;

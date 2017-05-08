@@ -143,7 +143,7 @@ AUO_YUVReader::AUO_YUVReader() {
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
+RGY_ERR AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
 
     Close();
 
@@ -171,7 +171,7 @@ mfxStatus AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, cons
     sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     m_strInputInfo += mes;
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 #pragma warning(pop)
 
@@ -184,7 +184,7 @@ void AUO_YUVReader::Close() {
     m_pEncSatusInfo.reset();
 }
 
-mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     const int total_frames = oip->n;
 
     int nFrame = m_pEncSatusInfo->m_nInputFrames + pe->drop_count;
@@ -192,7 +192,7 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     if (nFrame >= total_frames) {
         oip->func_rest_time_disp(current_frame, total_frames);
         release_audio_parallel_events(pe);
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     mfxFrameInfo *pInfo = &pSurface->Info;
@@ -213,7 +213,7 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         for ( ; ; ) {
             if ((frame = afs_get_video((OUTPUT_INFO *)oip, nFrame, &drop, &jitter[nFrame + 1])) == NULL) {
                 error_afs_get_frame();
-                return MFX_ERR_MORE_DATA;
+                return RGY_ERR_MORE_DATA;
             }
             if (!drop)
                 break;
@@ -223,13 +223,13 @@ mfxStatus AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
             if (nFrame >= total_frames) {
                 oip->func_rest_time_disp(current_frame, total_frames);
                 release_audio_parallel_events(pe);
-                return MFX_ERR_MORE_DATA;
+                return RGY_ERR_MORE_DATA;
             }
         }
     } else {
         if ((frame = oip->func_get_video_ex(m_pEncSatusInfo->m_nInputFrames, COLORFORMATS[CF_YUY2].FOURCC)) == NULL) {
             error_afs_get_frame();
-            return MFX_ERR_MORE_DATA;
+            return RGY_ERR_MORE_DATA;
         }
     }
     
@@ -280,11 +280,11 @@ void AUO_EncodeStatusInfo::UpdateDisplay(const char *mes, int drop_frames, doubl
 }
 #pragma warning(pop)
 
-mfxStatus AUO_EncodeStatusInfo::UpdateDisplay(int drop_frames, double progressPercent) {
+RGY_ERR AUO_EncodeStatusInfo::UpdateDisplay(int drop_frames, double progressPercent) {
     auto tm = std::chrono::system_clock::now();
 
     if (m_auoData.oip->func_is_abort())
-        return MFX_ERR_ABORTED;
+        return RGY_ERR_ABORTED;
 
     if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastLogUpdate).count() >= LOG_UPDATE_INTERVAL) {
         log_process_events();
@@ -292,7 +292,7 @@ mfxStatus AUO_EncodeStatusInfo::UpdateDisplay(int drop_frames, double progressPe
         while (m_pause) {
             Sleep(LOG_UPDATE_INTERVAL);
             if (m_auoData.oip->func_is_abort())
-                return MFX_ERR_ABORTED;
+                return RGY_ERR_ABORTED;
             log_process_events();
         }
         m_tmLastLogUpdate = tm;

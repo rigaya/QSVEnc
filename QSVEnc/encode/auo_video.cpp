@@ -250,7 +250,7 @@ void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
 static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL force_bluray, BOOL timer_period_tuning, int log_level, AVQSV_PARM *avqsv_prm) {
     init_avqsv_prm(avqsv_prm);
 
-    conf->qsv.nInputFmt = INPUT_FMT_AVCODEC_QSV;
+    conf->qsv.nInputFmt = INPUT_FMT_AVCODEC_HW;
 
     avqsv_prm->audioSelectList.push_back(&avqsv_prm->audioSelect);
     switch (conf->aud_avqsv.encoder) {

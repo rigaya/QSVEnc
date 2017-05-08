@@ -58,7 +58,7 @@ void CAVSReader::release_avisynth() {
     memset(&m_sAvisynth, 0, sizeof(m_sAvisynth));
 }
 
-mfxStatus CAVSReader::load_avisynth() {
+RGY_ERR CAVSReader::load_avisynth() {
     release_avisynth();
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -76,31 +76,31 @@ mfxStatus CAVSReader::load_avisynth() {
         || NULL == (m_sAvisynth.release_clip = (func_avs_release_clip)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_clip"))
         || NULL == (m_sAvisynth.release_value = (func_avs_release_value)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_value"))
         || NULL == (m_sAvisynth.release_video_frame = (func_avs_release_video_frame)QSV_GET_PROC_ADDRESS(m_sAvisynth.h_avisynth, "avs_release_video_frame")))
-        return MFX_ERR_INVALID_HANDLE;
-    return MFX_ERR_NONE;
+        return RGY_ERR_INVALID_HANDLE;
+    return RGY_ERR_NONE;
 }
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
+RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
     Close();
     m_pEncThread = pEncThread;
     m_pEncSatusInfo = pEncSatusInfo;
     memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
 
-    if (MFX_ERR_NONE != load_avisynth()) {
+    if (RGY_ERR_NONE != load_avisynth()) {
         AddMessage(QSV_LOG_ERROR,  _T("failed to load %s.\n"), avisynth_dll_name);
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_INVALID_HANDLE;
     }
 
     if (NULL == (m_sAVSenv = m_sAvisynth.create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
         AddMessage(QSV_LOG_ERROR,  _T("failed to init avisynth enviroment.\n"));
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_INVALID_HANDLE;
     }
     std::string filename_char;
     if (0 == tchar_to_string(strFileName, filename_char)) {
         AddMessage(QSV_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_UNSUPPORTED;
     }
     AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
     AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, NULL);
@@ -112,19 +112,19 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
             AddMessage(QSV_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
         }
         m_sAvisynth.release_value(val_res);
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_INVALID_HANDLE;
     }
     m_sAVSclip = m_sAvisynth.take_clip(val_res, m_sAVSenv);
     m_sAvisynth.release_value(val_res);
 
     if (NULL == (m_sAVSinfo = m_sAvisynth.get_video_info(m_sAVSclip))) {
         AddMessage(QSV_LOG_ERROR,  _T("failed to get avs info.\n"));
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_INVALID_HANDLE;
     }
 
     if (!avs_has_video(m_sAVSinfo)) {
         AddMessage(QSV_LOG_ERROR,  _T("avs has no video.\n"));
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_INVALID_HANDLE;
     }
     AddMessage(QSV_LOG_DEBUG,  _T("found video from avs file, pixel type 0x%x.\n"), m_sAVSinfo->pixel_type);
 
@@ -156,7 +156,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
 
     if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
         AddMessage(QSV_LOG_ERROR,  _T("invalid colorformat.\n"));
-        return MFX_ERR_INVALID_COLOR_FORMAT;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     int fps_gcd = qsv_gcd(m_sAVSinfo->fps_numerator, m_sAVSinfo->fps_denominator);
@@ -182,7 +182,7 @@ mfxStatus CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     m_strInputInfo += mes;
 
     m_bInited = true;
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 #pragma warning(pop)
 
@@ -203,7 +203,7 @@ void CAVSReader::Close() {
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
-mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxFrameInfo *pInfo = &pSurface->Info;
     mfxFrameData *pData = &pSurface->Data;
 
@@ -218,7 +218,7 @@ mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
         || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     int w = 0, h = 0;
@@ -234,7 +234,7 @@ mfxStatus CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     
     AVS_VideoFrame *frame = m_sAvisynth.get_frame(m_sAVSclip, m_pEncSatusInfo->m_nInputFrames);
     if (frame == NULL) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
     
     BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));

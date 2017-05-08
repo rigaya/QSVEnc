@@ -81,10 +81,10 @@ public:
     CVSReader();
     virtual ~CVSReader();
 
-    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
 
-    virtual void Close();
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual void Close() override;
+    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
 
     void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 private:

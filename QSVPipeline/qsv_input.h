@@ -35,6 +35,7 @@
 #include "qsv_event.h"
 #include "qsv_control.h"
 #include "convert_csp.h"
+#include "rgy_err.h"
 
 class CQSVInput
 {
@@ -46,10 +47,10 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) = 0;
+    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) = 0;
 
-    //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-    mfxStatus GetNextFrame(mfxFrameSurface1** pSurface) {
+    //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
+    RGY_ERR GetNextFrame(mfxFrameSurface1** pSurface) {
         const int inputBufIdx = m_pEncThread->m_nFrameGet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
 
@@ -63,7 +64,7 @@ public:
             return m_pEncThread->m_stsThread;
         }
         //読み込み完了による終了
-        if (m_pEncThread->m_stsThread == MFX_ERR_MORE_DATA && m_pEncThread->m_nFrameGet == m_pEncSatusInfo->m_nInputFrames) {
+        if (m_pEncThread->m_stsThread == RGY_ERR_MORE_DATA && m_pEncThread->m_nFrameGet == m_pEncSatusInfo->m_nInputFrames) {
             AddMessage(QSV_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
             return m_pEncThread->m_stsThread;
         }
@@ -74,25 +75,25 @@ public:
             (*pSurface)->Data.Locked = FALSE;
             m_pEncThread->m_nFrameGet++;
         }
-        return MFX_ERR_NONE;
+        return RGY_ERR_NONE;
     }
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
-    virtual mfxStatus GetNextBitstream(mfxBitstream *bitstream) {
-        return MFX_ERR_NONE;
+    virtual RGY_ERR GetNextBitstream(mfxBitstream *bitstream) {
+        return RGY_ERR_NONE;
     }
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-    virtual mfxStatus GetNextBitstreamNoDelete(mfxBitstream *bitstream) {
-        return MFX_ERR_NONE;
+    virtual RGY_ERR GetNextBitstreamNoDelete(mfxBitstream *bitstream) {
+        return RGY_ERR_NONE;
     }
-    virtual mfxStatus GetHeader(mfxBitstream *bitstream) {
-        return MFX_ERR_NONE;
+    virtual RGY_ERR GetHeader(mfxBitstream *bitstream) {
+        return RGY_ERR_NONE;
     }
 #pragma warning (pop)
 
-    mfxStatus SetNextSurface(mfxFrameSurface1 *pSurface) {
+    RGY_ERR SetNextSurface(mfxFrameSurface1 *pSurface) {
         const int inputBufIdx = m_pEncThread->m_nFrameSet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
         //フレーム読み込みでない場合は、フレーム関連の処理は行わない
@@ -105,12 +106,12 @@ public:
         SetEvent(pInputBuf->heInputStart);
         AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_pEncThread->m_nFrameSet);
         m_pEncThread->m_nFrameSet++;
-        return MFX_ERR_NONE;
+        return RGY_ERR_NONE;
     }
 
     virtual void Close();
-    //virtual mfxStatus Init(const TCHAR *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<TCHAR*> srcFileBuff);
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1 *pSurface) = 0;
+    //virtual RGY_ERR Init(const TCHAR *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<TCHAR*> srcFileBuff);
+    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1 *pSurface) = 0;
 
     void SetTrimParam(const sTrimParam& trim) {
         m_sTrimParam = trim;
@@ -211,8 +212,8 @@ public:
     CQSVInputRaw();
     ~CQSVInputRaw();
 protected:
-    virtual mfxStatus Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
     bool m_by4m;
 };
 

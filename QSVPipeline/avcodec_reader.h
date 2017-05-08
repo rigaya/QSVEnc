@@ -768,22 +768,22 @@ public:
     CAvcodecReader();
     virtual ~CAvcodecReader();
 
-    virtual mfxStatus Init(const TCHAR *strFileName, uint32_t ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, uint32_t ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
 
-    virtual void Close();
+    virtual void Close() override;
 
     //動画ストリームの1フレーム分のデータをm_sPacketに格納する
     //m_sPacketからの取得はGetNextBitstreamで行う
-    virtual mfxStatus LoadNextFrame(mfxFrameSurface1 *pSurface) override;
+    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1 *pSurface) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
-    virtual mfxStatus GetNextBitstream(mfxBitstream *bitstream) override;
+    virtual RGY_ERR GetNextBitstream(mfxBitstream *bitstream) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-    virtual mfxStatus GetNextBitstreamNoDelete(mfxBitstream *bitstream) override;
+    virtual RGY_ERR GetNextBitstreamNoDelete(mfxBitstream *bitstream) override;
 
     //ストリームのヘッダ部分を取得する
-    virtual mfxStatus GetHeader(mfxBitstream *bitstream) override;
+    virtual RGY_ERR GetHeader(mfxBitstream *bitstream) override;
 
     //入力ファイルのグローバルメタデータを取得する
     const AVDictionary *GetInputFormatMetadata();
@@ -835,7 +835,7 @@ private:
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);
 
     //bitstreamにpktの内容を追加する
-    mfxStatus setToMfxBitstream(mfxBitstream *bitstream, AVPacket *pkt);
+    RGY_ERR setToMfxBitstream(mfxBitstream *bitstream, AVPacket *pkt);
 
     //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
     //必要ならqStreamPktL2に移し、不要ならパケットを開放する
@@ -847,10 +847,10 @@ private:
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する
     //fpsDecoderはdecoderの推定したfps
-    mfxStatus getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount);
+    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount);
 
     //読み込みスレッド関数
-    mfxStatus ThreadFuncRead();
+    RGY_ERR ThreadFuncRead();
 
     //指定したptsとtimebaseから、該当する動画フレームを取得する
     int getVideoFrameIdx(int64_t pts, AVRational timebase, int iStart);

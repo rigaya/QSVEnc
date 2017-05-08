@@ -46,7 +46,7 @@ CAVIReader::~CAVIReader() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
+RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
     Close();
 
     m_pEncThread = pEncThread;
@@ -57,19 +57,19 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
 
     if (0 != AVIFileOpen(&m_pAviFile, strFileName, OF_READ | OF_SHARE_DENY_NONE, NULL)) {
         AddMessage(QSV_LOG_ERROR, _T("failed to open avi file: \"%s\"\n"), strFileName);
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_FILE_OPEN;
     }
     AddMessage(QSV_LOG_DEBUG, _T("openend avi file: \"%s\"\n"), strFileName);
 
     AVIFILEINFO finfo = { 0 };
     if (0 != AVIFileInfo(m_pAviFile, &finfo, sizeof(AVIFILEINFO))) {
         AddMessage(QSV_LOG_ERROR, _T("failed to get avi file info.\n"));
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_INVALID_HANDLE;
     }
     tstring strFcc;
     for (DWORD i_stream = 0; i_stream < finfo.dwStreams; i_stream++) {
         if (0 != AVIFileGetStream(m_pAviFile, &m_pAviStream, 0, i_stream))
-            return MFX_ERR_INVALID_HANDLE;
+            return RGY_ERR_INVALID_HANDLE;
         AVISTREAMINFO sinfo = { 0 };
         if (0 == AVIStreamInfo(m_pAviStream, &sinfo, sizeof(AVISTREAMINFO)) && sinfo.fccType == streamtypeVIDEO) {
             memset(&m_inputFrameInfo, 0, sizeof(m_inputFrameInfo));
@@ -91,7 +91,7 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     }
     if (m_pAviStream == NULL) {
         AddMessage(QSV_LOG_ERROR, _T("failed to get valid stream from avi file.\n"));
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_INVALID_HANDLE;
     }
     AddMessage(QSV_LOG_DEBUG, _T("found video stream from avi file.\n"));
 
@@ -117,12 +117,12 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
             if (   NULL == (m_pGetFrame = AVIStreamGetFrameOpen(m_pAviStream, NULL))
                 && NULL == (m_pGetFrame = AVIStreamGetFrameOpen(m_pAviStream, (BITMAPINFOHEADER *)AVIGETFRAMEF_BESTDISPLAYFMT))) {
                 AddMessage(QSV_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
-                return MFX_ERR_INVALID_HANDLE;
+                return RGY_ERR_INVALID_HANDLE;
             }
             BITMAPINFOHEADER *bmpInfoHeader = (BITMAPINFOHEADER *)AVIStreamGetFrame(m_pGetFrame, 0);
             if (NULL == bmpInfoHeader || bmpInfoHeader->biCompression != 0) {
                 AddMessage(QSV_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
-                return MFX_ERR_MORE_DATA;
+                return RGY_ERR_MORE_DATA;
             }
 
             m_ColorFormat = (bmpInfoHeader->biBitCount == 24) ? MFX_FOURCC_RGB3 : MFX_FOURCC_RGB4;
@@ -153,7 +153,7 @@ mfxStatus CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const v
     m_strInputInfo += mes;
 
     m_bInited = true;
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 #pragma warning(pop)
 
@@ -179,7 +179,7 @@ void CAVIReader::Close() {
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
-mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxFrameInfo *pInfo = &pSurface->Info;
     mfxFrameData *pData = &pSurface->Data;
 
@@ -192,7 +192,7 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
         || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     int w = 0, h = 0;
@@ -209,7 +209,7 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxU8 *ptr_src = nullptr;
     if (m_pGetFrame) {
         if (NULL == (ptr_src = (mfxU8 *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_nInputFrames)))
-            return MFX_ERR_MORE_DATA;
+            return RGY_ERR_MORE_DATA;
         ptr_src += sizeof(BITMAPINFOHEADER);
     } else {
         mfxU32 required_bufsize = w * h * 3;
@@ -217,12 +217,12 @@ mfxStatus CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
             m_pBuffer.reset();
             m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(required_bufsize, 16), aligned_malloc_deleter());
             if (m_pBuffer.get())
-                return MFX_ERR_MEMORY_ALLOC;
+                return RGY_ERR_MEMORY_ALLOC;
             m_nBufSize = required_bufsize;
         }
         LONG sizeRead = 0;
         if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
-            return MFX_ERR_MORE_DATA;
+            return RGY_ERR_MORE_DATA;
         ptr_src = m_pBuffer.get();
     }
 

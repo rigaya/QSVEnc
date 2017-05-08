@@ -107,12 +107,12 @@ CEncodingThread::~CEncodingThread() {
     Close();
 }
 
-mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
+RGY_ERR CEncodingThread::Init(mfxU16 bufferSize) {
     Close();
 
     m_nFrameBuffer = bufferSize;
     if (nullptr == (m_InputBuf = (sInputBufSys *)_mm_malloc(m_nFrameBuffer * sizeof(sInputBufSys), 64)))
-        return MFX_ERR_NULL_PTR;
+        return RGY_ERR_NULL_PTR;
 
     memset(m_InputBuf, 0, m_nFrameBuffer * sizeof(sInputBufSys));
 
@@ -120,45 +120,45 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
         if (   NULL == (m_InputBuf[i].heInputDone  = CreateEvent(NULL, FALSE, FALSE, NULL))
             || NULL == (m_InputBuf[i].heSubStart   = CreateEvent(NULL, FALSE, FALSE, NULL))
             || NULL == (m_InputBuf[i].heInputStart = CreateEvent(NULL, FALSE, FALSE, NULL))) {
-            return MFX_ERR_INVALID_HANDLE;
+            return RGY_ERR_INVALID_HANDLE;
         }
     }
     m_bInit = true;
     m_bthForceAbort = FALSE;
     m_bthSubAbort = FALSE;
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
-mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask) {
-    if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
+RGY_ERR CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask) {
+    if (!m_bInit) return RGY_ERR_NOT_INITIALIZED;
 
     m_thEncode = std::thread(func, pipeline);
 
     if (threadAffinityMask)
         SetThreadAffinityMask(m_thEncode.native_handle(), threadAffinityMask);
 
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
-mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask) {
-    if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
+RGY_ERR CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask) {
+    if (!m_bInit) return RGY_ERR_NOT_INITIALIZED;
 
     m_thSub = std::thread(func, pipeline);
 
     if (threadAffinityMask)
         SetThreadAffinityMask(m_thSub.native_handle(), threadAffinityMask);
 
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 //終了を待機する
-mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVLog) {
-    if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
+RGY_ERR CEncodingThread::WaitToFinish(RGY_ERR sts, shared_ptr<CQSVLog> pQSVLog) {
+    if (!m_bInit) return RGY_ERR_NOT_INITIALIZED;
     //最後のLoadNextFrameの結果をm_stsThreadにセットし、RunEncodeに知らせる
     m_stsThread = sts;
-    //読み込み終了(MFX_ERR_MORE_DATA)ではなく、エラーや中断だった場合、
+    //読み込み終了(RGY_ERR_MORE_DATA)ではなく、エラーや中断だった場合、
     //直ちに終了する
-    if (sts != MFX_ERR_MORE_DATA) {
+    if (sts != RGY_ERR_MORE_DATA) {
         pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
         m_bthForceAbort++; //m_bthForceAbort = TRUE;
         m_bthSubAbort++;   //m_bthSubAbort = TRUE;
@@ -173,7 +173,7 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVL
     //RunEncodeの終了を待つ
     m_thEncode.join();
     pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Encode thread shut down.\n"));
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 void CEncodingThread::Close() {
@@ -203,6 +203,6 @@ void CEncodingThread::Close() {
     m_nFrameGet = 0;
     m_bthSubAbort = FALSE;
     m_bthForceAbort = FALSE;
-    m_stsThread = MFX_ERR_NONE;
+    m_stsThread = RGY_ERR_NONE;
     m_bInit = false;
 }

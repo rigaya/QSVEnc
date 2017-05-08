@@ -31,7 +31,7 @@
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \
         AddMessage(QSV_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n")); \
-        return MFX_ERR_UNDEFINED_BEHAVIOR; \
+        return RGY_ERR_UNDEFINED_BEHAVIOR; \
     } }
 
 CQSVOut::CQSVOut() :
@@ -84,11 +84,11 @@ CQSVOutBitstream::~CQSVOutBitstream() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
     CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
         AddMessage(QSV_LOG_ERROR, _T("output filename not set.\n"));
-        return MFX_ERR_NULL_PTR;
+        return RGY_ERR_INVALID_PARAM;
     }
 
     Close();
@@ -109,7 +109,7 @@ mfxStatus CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shar
             int error = _tfopen_s(&fp, strFileName, _T("wb+"));
             if (error != 0 || fp == NULL) {
                 AddMessage(QSV_LOG_ERROR, _T("failed to open output file \"%s\": %s\n"), strFileName, _tcserror(error));
-                return MFX_ERR_NULL_PTR;
+                return RGY_ERR_FILE_OPEN;
             }
             m_fDest.reset(fp);
             AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
@@ -127,14 +127,14 @@ mfxStatus CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shar
         }
     }
     m_bInited = true;
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
-mfxStatus CQSVOutBitstream::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) { return MFX_ERR_NONE; };
+RGY_ERR CQSVOutBitstream::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) { return RGY_ERR_NONE; };
 #pragma warning(pop)
-mfxStatus CQSVOutBitstream::WriteNextFrame(mfxBitstream *pMfxBitstream) {
+RGY_ERR CQSVOutBitstream::WriteNextFrame(mfxBitstream *pMfxBitstream) {
     if (pMfxBitstream == nullptr) {
         AddMessage(QSV_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
-        return MFX_ERR_NULL_PTR;
+        return RGY_ERR_NULL_PTR;
     }
 
     uint32_t nBytesWritten = 0;
@@ -146,13 +146,13 @@ mfxStatus CQSVOutBitstream::WriteNextFrame(mfxBitstream *pMfxBitstream) {
     m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
     pMfxBitstream->DataLength = 0;
 
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-mfxStatus CQSVOutBitstream::WriteNextFrame(mfxFrameSurface1 *pSurface) {
-    return MFX_ERR_UNSUPPORTED;
+RGY_ERR CQSVOutBitstream::WriteNextFrame(mfxFrameSurface1 *pSurface) {
+    return RGY_ERR_UNSUPPORTED;
 }
 #pragma warning(pop)
 
@@ -166,7 +166,7 @@ CQSVOutFrame::~CQSVOutFrame() {
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-mfxStatus CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
     Close();
 
     if (_tcscmp(strFileName, _T("-")) == 0) {
@@ -178,7 +178,7 @@ mfxStatus CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_p
         int error = _tfopen_s(&fp, strFileName, _T("wb"));
         if (0 != error || fp == NULL) {
             AddMessage(QSV_LOG_DEBUG, _T("failed to open file \"%s\": %s\n"), strFileName, _tcserror(error));
-            return MFX_ERR_NULL_PTR;
+            return RGY_ERR_NULL_PTR;
         }
         m_fDest.reset(fp);
     }
@@ -190,24 +190,24 @@ mfxStatus CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_p
     m_bSourceHWMem = !!(writerParam->memType & (D3D11_MEMORY | D3D9_MEMORY));
     m_bInited = true;
 
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
-mfxStatus CQSVOutFrame::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) {
-    return MFX_ERR_UNSUPPORTED;
+RGY_ERR CQSVOutFrame::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) {
+    return RGY_ERR_UNSUPPORTED;
 }
 
-mfxStatus CQSVOutFrame::WriteNextFrame(mfxBitstream *pMfxBitstream) {
-    return MFX_ERR_UNSUPPORTED;
+RGY_ERR CQSVOutFrame::WriteNextFrame(mfxBitstream *pMfxBitstream) {
+    return RGY_ERR_UNSUPPORTED;
 }
 #pragma warning(pop)
 
-mfxStatus CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
+RGY_ERR CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
     mfxFrameInfo &pInfo = pSurface->Info;
     mfxFrameData &pData = pSurface->Data;
 
     if (!m_fDest) {
-        return MFX_ERR_NULL_PTR;
+        return RGY_ERR_NULL_PTR;
     }
 
     if (m_bSourceHWMem) {
@@ -342,9 +342,9 @@ mfxStatus CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
             WRITE_CHECK(fwrite(ptr + i * pData.Pitch, 1, 4*w, m_fDest.get()), 4*w);
         }
     } else {
-        return MFX_ERR_UNSUPPORTED;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     m_pEncSatusInfo->SetOutputData(frameSize, (MFX_FRAMETYPE_IDR | MFX_FRAMETYPE_I));
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }

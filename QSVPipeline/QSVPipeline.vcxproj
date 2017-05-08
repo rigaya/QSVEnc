@@ -435,6 +435,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_util.cpp" />
     <ClCompile Include="qsv_version.cpp" />
     <ClCompile Include="ram_speed.cpp" />
+    <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="scene_change_detection.cpp" />
     <ClCompile Include="scene_change_detection_avx.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
@@ -490,6 +491,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_util.h" />
     <ClInclude Include="qsv_version.h" />
     <ClInclude Include="ram_speed.h" />
+    <ClInclude Include="rgy_err.h" />
     <ClInclude Include="scene_change_detection.h" />
     <ClInclude Include="scene_change_detection_simd.h" />
     <ClInclude Include="vpp_plugins.h" />

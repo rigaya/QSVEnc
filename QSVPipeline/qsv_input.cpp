@@ -81,7 +81,7 @@ CQSVInputRaw::~CQSVInputRaw() {
     Close();
 }
 
-mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, const void *prm,
+RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, const void *prm,
     CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
     Close();
 
@@ -100,7 +100,7 @@ mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, con
         int error = 0;
         if (0 != (error = _tfopen_s(&m_fSource, strFileName, _T("rb"))) || m_fSource == nullptr) {
             AddMessage(QSV_LOG_ERROR, _T("Failed to open file \"%s\": %s.\n"), strFileName, _tcserror(error));
-            return MFX_ERR_NULL_PTR;
+            return RGY_ERR_FILE_OPEN;
         } else {
             AddMessage(QSV_LOG_DEBUG, _T("Opened file: \"%s\".\n"), strFileName);
         }
@@ -113,7 +113,7 @@ mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, con
         break;
     default:
         AddMessage(QSV_LOG_ERROR, _T("invalid color format.\n"));
-        return MFX_ERR_UNSUPPORTED;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     m_sConvert = get_convert_csp_func(mfx_fourcc_to_qsv_enc_csp(m_ColorFormat), mfx_fourcc_to_qsv_enc_csp(MFX_FOURCC_NV12), true);
@@ -125,8 +125,8 @@ mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, con
         if (fread(buf, 1, strlen("YUV4MPEG2"), m_fSource) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
             || !fgets(buf, sizeof(buf), m_fSource)
-            || MFX_ERR_NONE != ParseY4MHeader(buf, &m_inputFrameInfo)) {
-            return MFX_ERR_UNSUPPORTED;
+            || RGY_ERR_NONE != ParseY4MHeader(buf, &m_inputFrameInfo)) {
+            return RGY_ERR_INVALID_DATA_TYPE;
         }
         m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);
         m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
@@ -141,12 +141,12 @@ mfxStatus CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, con
     m_strInputInfo += mes;
     m_bInited = true;
 
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
-//この関数がMFX_ERR_NONE以外を返すと、Runループが終了し、
+//この関数がRGY_ERR_NONE以外を返すと、Runループが終了し、
 //EncodingThreadのm_stsThreadに返した値がセットされる。
-mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxFrameInfo *pInfo = &pSurface->Info;
     mfxFrameData *pData = &pSurface->Data;
 
@@ -157,13 +157,13 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
 
     uint32_t FourCCRequired = pInfo->FourCC;
     if (MFX_FOURCC_NV12 != FourCCRequired && MFX_FOURCC_YV12 != FourCCRequired) {
-        return MFX_ERR_UNSUPPORTED;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
     //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
     if (getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     uint32_t w = 0, h = 0;
@@ -185,7 +185,7 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
         m_pBuffer.reset();
         m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(required_bufsize, 16), aligned_malloc_deleter());
         if (!m_pBuffer) {
-            return MFX_ERR_NULL_PTR;
+            return RGY_ERR_NULL_PTR;
         }
     }
     auto bufY = m_pBuffer.get();
@@ -199,11 +199,11 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
         uint8_t y4m_buf[8] = { 0 };
         if (fread(y4m_buf, 1, strlen("FRAME"), m_fSource) != strlen("FRAME")
             || memcmp(y4m_buf, "FRAME", strlen("FRAME")) != 0) {
-            return MFX_ERR_MORE_DATA;
+            return RGY_ERR_MORE_DATA;
         }
         for (int i = 0; fgetc(m_fSource) != '\n'; i++) {
             if (i >= 64) {
-                return MFX_ERR_MORE_DATA;
+                return RGY_ERR_MORE_DATA;
             }
         }
     }
@@ -227,14 +227,14 @@ mfxStatus CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
         nBytesRead += (uint32_t)fread(bufY, 1, w, m_fSource);
     }
     if (nBytesRead != (uint32_t)(w * h)) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     // 色差を読み込み
     nBytesRead  = (uint32_t)fread(bufU, 1, (w*h)>>2, m_fSource);
     nBytesRead += (uint32_t)fread(bufV, 1, (w*h)>>2, m_fSource);
     if (nBytesRead != (uint32_t)((w*h)>>1)) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));

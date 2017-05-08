@@ -48,6 +48,7 @@
 #include "cpu_info.h"
 #include "gpuz_info.h"
 #include "perf_monitor.h"
+#include "rgy_err.h"
 
 using std::chrono::duration_cast;
 using std::shared_ptr;
@@ -278,16 +279,16 @@ public:
         fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
     }
 #pragma warning(pop)
-    virtual mfxStatus UpdateDisplay(int drop_frames, double progressPercent = 0.0) {
+    virtual RGY_ERR UpdateDisplay(int drop_frames, double progressPercent = 0.0) {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
-            return MFX_ERR_NONE;
+            return RGY_ERR_NONE;
         }
         if (m_sData.nProcessedFramesNum + drop_frames <= 0) {
-            return MFX_ERR_NONE;
+            return RGY_ERR_NONE;
         }
         auto tm = std::chrono::system_clock::now();
         if (duration_cast<std::chrono::milliseconds>(tm - m_tmLastUpdate).count() < UPDATE_INTERVAL) {
-            return MFX_ERR_NONE;
+            return RGY_ERR_NONE;
         }
         m_tmLastUpdate = tm;
         bool bMFXUsage = false;
@@ -373,7 +374,7 @@ public:
             mes[len] = _T('\0');
         }
         UpdateDisplay(mes, drop_frames, progressPercent);
-        return MFX_ERR_NONE;
+        return RGY_ERR_NONE;
     }
     virtual void WriteLine(const TCHAR *mes) {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
@@ -499,12 +500,12 @@ public:
     CEncodingThread();
     ~CEncodingThread();
 
-    mfxStatus Init(mfxU16 bufferSize);
+    RGY_ERR Init(mfxU16 bufferSize);
     void Close();
     //終了を待機する
-    mfxStatus WaitToFinish(mfxStatus sts, shared_ptr<CQSVLog> pQSVLog);
-    mfxStatus RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
-    mfxStatus RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
+    RGY_ERR WaitToFinish(RGY_ERR sts, shared_ptr<CQSVLog> pQSVLog);
+    RGY_ERR RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
+    RGY_ERR RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
 
     std::thread& GetHandleEncThread() {
         return m_thEncode;
@@ -518,7 +519,7 @@ public:
     sInputBufSys *m_InputBuf;
     mfxU32 m_nFrameSet;
     mfxU32 m_nFrameGet;
-    mfxStatus m_stsThread;
+    RGY_ERR m_stsThread;
     mfxU16  m_nFrameBuffer;
 protected:
     std::thread m_thEncode;

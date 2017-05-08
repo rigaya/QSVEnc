@@ -52,12 +52,12 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual mfxStatus Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
 
-    virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) = 0;
+    virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) = 0;
 
-    virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) = 0;
-    virtual mfxStatus WriteNextFrame(mfxFrameSurface1 *pSurface) = 0;
+    virtual RGY_ERR WriteNextFrame(mfxBitstream *pMfxBitstream) = 0;
+    virtual RGY_ERR WriteNextFrame(mfxFrameSurface1 *pSurface) = 0;
     virtual void Close();
 
     virtual bool outputStdout() {
@@ -128,12 +128,12 @@ public:
     CQSVOutBitstream();
     virtual ~CQSVOutBitstream();
 
-    virtual mfxStatus Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
 
-    virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
+    virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
 
-    virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) override;
-    virtual mfxStatus WriteNextFrame(mfxFrameSurface1 *pSurface) override;
+    virtual RGY_ERR WriteNextFrame(mfxBitstream *pMfxBitstream) override;
+    virtual RGY_ERR WriteNextFrame(mfxFrameSurface1 *pSurface) override;
 };
 
 
@@ -148,11 +148,11 @@ public:
     CQSVOutFrame();
     virtual ~CQSVOutFrame();
 
-    virtual mfxStatus Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
 
-    virtual mfxStatus SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
-    virtual mfxStatus WriteNextFrame(mfxBitstream *pMfxBitstream) override;
-    virtual mfxStatus WriteNextFrame(mfxFrameSurface1 *pSurface) override;
+    virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
+    virtual RGY_ERR WriteNextFrame(mfxBitstream *pMfxBitstream) override;
+    virtual RGY_ERR WriteNextFrame(mfxFrameSurface1 *pSurface) override;
 protected:
     bool m_bY4m;
 };

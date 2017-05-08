@@ -163,7 +163,7 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
+RGY_ERR CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
     Close();
     m_pEncThread = pEncThread;
     m_pEncSatusInfo = pEncSatusInfo;
@@ -172,14 +172,14 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     const bool use_mt_mode = ((VSReaderPrm *)option)->use_mt;
     
     if (load_vapoursynth()) {
-        return MFX_ERR_NULL_PTR;
+        return RGY_ERR_NULL_PTR;
     }
 
     //ファイルデータ読み込み
     std::ifstream inputFile(strFileName);
     if (inputFile.bad()) {
         AddMessage(QSV_LOG_ERROR, _T("Failed to open vpy file \"%s\".\n"), strFileName);
-        return MFX_ERR_INVALID_HANDLE;
+        return RGY_ERR_FILE_OPEN;
     }
     AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\""), strFileName);
     std::istreambuf_iterator<char> data_begin(inputFile);
@@ -200,26 +200,31 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
         if (m_sVSscript) {
             AddMessage(QSV_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
-        return MFX_ERR_NULL_PTR;
+        return RGY_ERR_NULL_PTR;
     }
     if (vscoreinfo->api < 3) {
         AddMessage(QSV_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->height <= 0 || vsvideoinfo->width <= 0) {
         AddMessage(QSV_LOG_ERROR, _T("Variable resolution is not supported.\n"));
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (vsvideoinfo->numFrames == 0) {
         AddMessage(QSV_LOG_ERROR, _T("Length of input video is unknown.\n"));
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     if (!vsvideoinfo->format) {
         AddMessage(QSV_LOG_ERROR, _T("Variable colorformat is not supported.\n"));
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
+
+    if (pfNone == vsvideoinfo->format->id) {
+        AddMessage(QSV_LOG_ERROR, _T("Invalid colorformat.\n"));
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     struct CSPMap {
@@ -246,19 +251,19 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     m_ColorFormat = 0x00;
     if (valid_csp_list.count(vsvideoinfo->format->id) == 0) {
         AddMessage(QSV_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
-        return MFX_ERR_INVALID_COLOR_FORMAT;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
     auto csp = valid_csp_list.at(vsvideoinfo->format->id);
     m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
 
     if (m_sConvert == nullptr) {
         AddMessage(QSV_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
-        return MFX_ERR_INVALID_COLOR_FORMAT;
+        return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
         AddMessage(QSV_LOG_ERROR, _T("Invalid framerate %d/%d.\n"), vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
+        return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     const mfxI64 fps_gcd = qsv_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
 
@@ -304,7 +309,7 @@ mfxStatus CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const vo
     m_strInputInfo += str;
 
     m_bInited = true;
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 void CVSReader::Close() {
@@ -334,7 +339,7 @@ void CVSReader::Close() {
     AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
 }
 
-mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
     mfxFrameInfo *pInfo = &pSurface->Info;
     mfxFrameData *pData = &pSurface->Data;
 
@@ -349,7 +354,7 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
         || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     int w = 0, h = 0;
@@ -365,7 +370,7 @@ mfxStatus CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
 
     const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_pEncSatusInfo->m_nInputFrames);
     if (NULL == src_frame) {
-        return MFX_ERR_MORE_DATA;
+        return RGY_ERR_MORE_DATA;
     }
 
     BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));

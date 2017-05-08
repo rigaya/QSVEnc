@@ -66,6 +66,7 @@
 #include "qsv_allocator_va.h"
 #endif
 
+#define RGY_ERR_MES(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return err_to_mfx(ret);}}
 #define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
 #define CHECK_RANGE_LIST(value, list, name)    { if (CheckParamList((value), (list), (name)) != MFX_ERR_NONE) { return MFX_ERR_INVALID_VIDEO_PARAM; } }
 
@@ -312,7 +313,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         //TimeStampはQSVに自動的に計算させる
         m_DecInputBitstream.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
 
-        sts = m_pFileReader->GetHeader(&m_DecInputBitstream);
+        sts = err_to_mfx(m_pFileReader->GetHeader(&m_DecInputBitstream));
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to get stream header from reader."));
 
         const bool bGotHeader = m_DecInputBitstream.DataLength > 0;
@@ -2184,7 +2185,7 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
 }
 
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
-    mfxStatus sts = MFX_ERR_NONE;
+    RGY_ERR ret = RGY_ERR_NONE;
     bool stdoutUsed = false;
 #if ENABLE_AVCODEC_QSV_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
@@ -2300,10 +2301,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             }
         }
         m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
-        sts = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
-        if (sts < MFX_ERR_NONE) {
+        ret = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
+        if (ret != RGY_ERR_NONE) {
             PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-            return sts;
+            return err_to_mfx(ret);
         } else if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
             m_pFileWriterListAudio.push_back(m_pFileWriter);
         }
@@ -2320,10 +2321,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             YUVWriterParam param;
             param.bY4m = true;
             param.memType = m_memType;
-            sts = m_pFileWriter->Init(pParams->strDstFile, &param, m_pEncSatusInfo);
-            if (sts < MFX_ERR_NONE) {
+            ret = m_pFileWriter->Init(pParams->strDstFile, &param, m_pEncSatusInfo);
+            if (ret != RGY_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-                return sts;
+                return err_to_mfx(ret);
             }
             stdoutUsed = m_pFileWriter->outputStdout();
             PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
@@ -2333,10 +2334,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             CQSVOutRawPrm rawPrm = { 0 };
             rawPrm.bBenchmark = pParams->bBenchmark != 0;
             rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
-            sts = m_pFileWriter->Init(pParams->strDstFile, &rawPrm, m_pEncSatusInfo);
-            if (sts < MFX_ERR_NONE) {
+            ret = m_pFileWriter->Init(pParams->strDstFile, &rawPrm, m_pEncSatusInfo);
+            if (ret != RGY_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-                return sts;
+                return err_to_mfx(ret);
             }
             stdoutUsed = m_pFileWriter->outputStdout();
             PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
@@ -2407,16 +2408,16 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
 
                 auto pWriter = std::make_shared<CAvcodecWriter>();
                 pWriter->SetQSVLogPtr(m_pQSVLog);
-                sts = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pEncSatusInfo);
-                if (sts < MFX_ERR_NONE) {
+                ret = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pEncSatusInfo);
+                if (ret != RGY_ERR_NONE) {
                     PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
-                    return sts;
+                    return err_to_mfx(ret);
                 }
                 PrintMes(QSV_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), audioTrack.nTrackId);
                 bool audioStdout = pWriter->outputStdout();
-                if (stdoutUsed && audioStdout) {
+                if (ret != RGY_ERR_NONE) {
                     PrintMes(QSV_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
-                    return MFX_ERR_INVALID_AUDIO_PARAM;
+                    return err_to_mfx(ret);
                 }
                 stdoutUsed |= audioStdout;
                 m_pFileWriterListAudio.push_back(std::move(pWriter));
@@ -2424,11 +2425,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         }
     }
 #endif //ENABLE_AVCODEC_QSV_READER
-    return sts;
+    return MFX_ERR_NONE;
 }
 
 mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
-    mfxStatus sts = MFX_ERR_NONE;
+    RGY_ERR ret = RGY_ERR_NONE;
 
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
@@ -2521,19 +2522,19 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             pParams->nInputFmt = INPUT_FMT_AVI;
         } else {
             m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-            sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_options,
+            ret = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_options,
                 &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
-            if (sts == MFX_ERR_INVALID_COLOR_FORMAT) {
+            if (ret == RGY_ERR_INVALID_COLOR_FORMAT) {
                 //入力色空間の制限で使用できない場合はaviリーダーに切り替え再試行する
                 PrintMes(QSV_LOG_WARN, m_pFileReader->GetInputMessage());
                 m_pFileReader.reset();
-                sts = MFX_ERR_NONE;
+                ret = RGY_ERR_NONE;
                 PrintMes(QSV_LOG_WARN, _T("Input: switching to avi reader.\n"));
                 pParams->nInputFmt = INPUT_FMT_AVI;
             }
-            if (sts < MFX_ERR_NONE) {
+            if (ret != RGY_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, m_pFileReader->GetInputMessage());
-                return sts;
+                return err_to_mfx(ret);
             }
         }
     }
@@ -2598,12 +2599,12 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 break;
         }
         m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-        sts = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_option,
+        ret = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_option,
             &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
     }
-    if (sts < MFX_ERR_NONE) {
+    if (ret != RGY_ERR_NONE) {
         PrintMes(QSV_LOG_ERROR, m_pFileReader->GetInputMessage());
-        return sts;
+        return err_to_mfx(ret);
     }
     PrintMes(QSV_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
@@ -2635,10 +2636,10 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);
-            sts = audioReader->Init(pParams->ppAudioSourceList[i], 0, &avcodecReaderPrm, nullptr, nullptr, nullptr);
-            if (sts < MFX_ERR_NONE) {
+            ret = audioReader->Init(pParams->ppAudioSourceList[i], 0, &avcodecReaderPrm, nullptr, nullptr, nullptr);
+            if (ret != RGY_ERR_NONE) {
                 PrintMes(QSV_LOG_ERROR, audioReader->GetInputMessage());
-                return sts;
+                return err_to_mfx(ret);
             }
             sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
             sourceSubtitleTrackIdStart += audioReader->GetSubtitleTrackCount();
@@ -2665,7 +2666,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
         PrintMes(QSV_LOG_DEBUG, _T(" (offset: %d)\n"), m_pTrimParam->offset);
     }
-    return sts;
+    return MFX_ERR_NONE;
 }
 
 mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
@@ -3104,7 +3105,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = CheckParam(pParams);
     if (sts != MFX_ERR_NONE) return sts;
 
-    sts = m_EncThread.Init(pParams->nInputBufSize);
+    sts = err_to_mfx(m_EncThread.Init(pParams->nInputBufSize));
     QSV_ERR_MES(sts, _T("Failed to allocate memory for thread control."));
 
     sts = InitSession(pParams->bUseHWLib, pParams->memType);
@@ -3523,13 +3524,13 @@ mfxStatus CQSVPipeline::Run() {
 }
 
 mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
-    mfxStatus sts = MFX_ERR_NONE;
+    RGY_ERR ret = RGY_ERR_NONE;
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
-    sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
-    QSV_ERR_MES(sts, _T("Failed to start encode thread."));
+    ret = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
+    RGY_ERR_MES(ret, _T("Failed to start encode thread."));
     if (m_SceneChange.isInitialized()) {
-        sts = m_EncThread.RunSubFuncbyThread(&RunSubThreadLauncher, this, SubThreadAffinityMask);
-        QSV_ERR_MES(sts, _T("Failed to start encode sub thread."));
+        ret = m_EncThread.RunSubFuncbyThread(&RunSubThreadLauncher, this, SubThreadAffinityMask);
+        RGY_ERR_MES(ret, _T("Failed to start encode sub thread."));
     }
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
 
@@ -3556,7 +3557,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     sInputBufSys *pArrayInputBuf = m_EncThread.m_InputBuf;
     sInputBufSys *pInputBuf;
     //入力ループ
-    for (int i = 0; sts == MFX_ERR_NONE; i++) {
+    for (int i = 0; ret == RGY_ERR_NONE; i++) {
         pInputBuf = &pArrayInputBuf[i % bufferSize];
 
         //空いているフレームがセットされるのを待機
@@ -3565,37 +3566,38 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
             //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
             if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
                 PrintMes(QSV_LOG_ERROR, _T("error at encode thread.\n"));
-                sts = MFX_ERR_INVALID_HANDLE;
+                ret = RGY_ERR_INVALID_HANDLE;
                 break;
             }
             if (m_SceneChange.isInitialized()
                 && !CheckThreadAlive(m_EncThread.GetHandleSubThread())) {
                     PrintMes(QSV_LOG_ERROR, _T("error at sub thread.\n"));
-                    sts = MFX_ERR_INVALID_HANDLE;
+                    ret = RGY_ERR_INVALID_HANDLE;
                     break;
             }
         }
 
         //フレームを読み込み
         PrintMes(QSV_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
-        if (!sts)
-            sts = m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface);
-        if (NULL != m_pAbortByUser && *m_pAbortByUser) {
+        if (ret == MFX_ERR_NONE) {
+            ret = m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface);
+        }
+        if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
             PrintMes(QSV_LOG_INFO, _T("                                                                              \r"));
-            sts = MFX_ERR_ABORTED;
-        } else if (sts == MFX_ERR_MORE_DATA) {
-            m_EncThread.m_stsThread = sts;
+            ret = RGY_ERR_ABORTED;
+        } else if (ret == RGY_ERR_MORE_DATA) {
+            m_EncThread.m_stsThread = ret;
         }
 
         //フレームの読み込み終了を通知
         SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
         PrintMes(QSV_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
     }
-    m_EncThread.WaitToFinish(sts, m_pQSVLog);
+    m_EncThread.WaitToFinish(ret, m_pQSVLog);
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
 
-    sts = (std::min)(sts, m_EncThread.m_stsThread);
-    QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
+    ret = (std::min)(ret, m_EncThread.m_stsThread);
+    if (ret == MFX_ERR_MORE_DATA) ret = RGY_ERR_NONE;
 
     m_EncThread.Close();
 
@@ -3609,7 +3611,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     m_pEncSatusInfo->WriteResults((m_nExPrm & MFX_PRM_EX_VQP) ? &info : NULL);
     
     PrintMes(QSV_LOG_DEBUG, _T("Main Thread: finished.\n"));
-    return sts;
+    return err_to_mfx(ret);
 }
 
 mfxStatus CQSVPipeline::RunEncode() {
@@ -3794,7 +3796,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     };
 
     auto extract_audio =[&]() {
-        mfxStatus sts = MFX_ERR_NONE;
+        RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVCODEC_QSV_READER
         if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
             auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
@@ -3816,28 +3818,29 @@ mfxStatus CQSVPipeline::RunEncode() {
                     auto pWriter = pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
                         PrintMes(QSV_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
-                        return MFX_ERR_NULL_PTR;
+                        return RGY_ERR_NULL_PTR;
                     }
-                    if (MFX_ERR_NONE != (sts = pWriter->WriteNextPacket(&packetList[i]))) {
-                        return sts;
+                    if (RGY_ERR_NONE != (ret = pWriter->WriteNextPacket(&packetList[i]))) {
+                        return ret;
                     }
                 } else if (pFilterForStreams.count(nTrackId)) {
                     auto pFilter = pFilterForStreams[nTrackId];
                     if (pFilter == nullptr) {
                         PrintMes(QSV_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
-                        return MFX_ERR_NULL_PTR;
+                        return RGY_ERR_NULL_PTR;
                     }
-                    if (MFX_ERR_NONE != (sts = pFilter->SendData(PLUGIN_SEND_DATA_AVPACKET, &packetList[i]))) {
-                        return sts;
+                    auto sts = pFilter->SendData(PLUGIN_SEND_DATA_AVPACKET, &packetList[i]);
+                    if (sts != MFX_ERR_NONE) {
+                        return err_to_rgy(sts);
                     }
                 } else {
                     PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
-                    return MFX_ERR_NULL_PTR;
+                    return RGY_ERR_NOT_FOUND;
                 }
             }
         }
 #endif //ENABLE_AVCODEC_QSV_READER
-        return sts;
+        return ret;
     };
 
     auto decode_one_frame = [&](bool getNextBitstream) {
@@ -3845,11 +3848,11 @@ mfxStatus CQSVPipeline::RunEncode() {
         if (m_pmfxDEC) {
             if (getNextBitstream) {
                 //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
-                dec_sts = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
-                if (dec_sts == MFX_ERR_MORE_BITSTREAM) {
-                    return dec_sts; //入力ビットストリームは終了
+                auto ret = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
+                if (ret == RGY_ERR_MORE_BITSTREAM) {
+                    return err_to_mfx(ret); //入力ビットストリームは終了
                 }
-                QSV_ERR_MES(dec_sts, _T("Error on getting video bitstream."));
+                RGY_ERR_MES(ret, _T("Error on getting video bitstream."));
             }
 
             getNextBitstream |= 0 < m_DecInputBitstream.DataLength;
@@ -4192,9 +4195,12 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //    //ppNextFrame = &pSurfEncIn;
                 //}
                 //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
-                //この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-                if (MFX_ERR_NONE != (sts = m_pFileReader->GetNextFrame(&pNextFrame)))
+                //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
+                auto ret = m_pFileReader->GetNextFrame(&pNextFrame);
+                if (ret != RGY_ERR_NONE) {
+                    sts = err_to_mfx(ret);
                     break;
+                }
                 
                 if (!m_pFileReader->getInputCodec()) {
                     //フレーム読み込みの場合には、必要ならここでロックする
@@ -4213,8 +4219,11 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //空いているフレームを読み込み側に渡す
                 m_pFileReader->SetNextSurface(pSurfInputBuf);
 
-                if (MFX_ERR_NONE != (sts = extract_audio()))
+                ret = extract_audio();
+                if (ret != RGY_ERR_NONE) {
+                    sts = err_to_mfx(ret);
                     break;
+                }
 
                 //この関数がMFX_ERR_MORE_BITSTREAMを返せば、入力は終了
                 sts = decode_one_frame(true);
@@ -4266,13 +4275,13 @@ mfxStatus CQSVPipeline::RunEncode() {
     //MFX_ERR_MORE_DATA/MFX_ERR_MORE_BITSTREAMは入力が終了したことを示す
     QSV_IGNORE_STS(sts, (m_pFileReader->getInputCodec()) ? MFX_ERR_MORE_BITSTREAM : MFX_ERR_MORE_DATA);
     //エラーチェック
-    m_EncThread.m_stsThread = sts;
+    m_EncThread.m_stsThread = err_to_rgy(sts);
     QSV_ERR_MES(sts, _T("Error in encoding pipeline."));
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished main loop.\n"));
 
     if (m_pmfxDEC) {
-        sts = extract_audio();
-        QSV_ERR_MES(sts, _T("Error on extracting audio."));
+        auto ret = extract_audio();
+        RGY_ERR_MES(ret, _T("Error on extracting audio."));
 
         pNextFrame = NULL;
 
@@ -4352,7 +4361,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //MFX_ERR_MORE_DATAはデコーダにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
         //エラーチェック
-        m_EncThread.m_stsThread = sts;
+        m_EncThread.m_stsThread = err_to_rgy(sts);
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from decoder."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
     }
@@ -4431,7 +4440,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //MFX_ERR_MORE_DATAはcheck_ptsにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
         // exit in case of other errors
-        m_EncThread.m_stsThread = sts;
+        m_EncThread.m_stsThread = err_to_rgy(sts);
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from avsync buffer."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from avsync buffer.\n"));
     }
@@ -4510,7 +4519,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //MFX_ERR_MORE_DATAはvppにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
         //エラーチェック
-        m_EncThread.m_stsThread = sts;
+        m_EncThread.m_stsThread = err_to_rgy(sts);
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from vpp."));
         PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from vpp.\n"));
     }
@@ -4533,7 +4542,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     //MFX_ERR_MORE_DATAはencにもうflushするべきフレームがないことを示す
     QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
     //エラーチェック
-    m_EncThread.m_stsThread = sts;
+    m_EncThread.m_stsThread = err_to_rgy(sts);
     QSV_ERR_MES(sts, _T("Error in getting buffered frames from encoder."));
 
     //タスクプールのすべてのタスクの終了を確認
@@ -4544,7 +4553,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     // MFX_ERR_NOT_FOUNDは、正しい終了ステータス
     QSV_IGNORE_STS(sts, MFX_ERR_NOT_FOUND);
     //エラーチェック
-    m_EncThread.m_stsThread = sts;
+    m_EncThread.m_stsThread = err_to_rgy(sts);
     QSV_ERR_MES(sts, _T("Error in encoding pipeline, synchronizing pipeline."));
     
     PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished.\n"));
@@ -4912,9 +4921,10 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     CompareParam(m_prmSetIn, prmSetOut);
 
     if (m_pFileWriter && m_pFileWriter->getOutType() == OUT_TYPE_BITSTREAM) {
-        if (MFX_ERR_NONE != (sts = m_pFileWriter->SetVideoParam(&videoPrm, &cop2))) {
+        auto ret = m_pFileWriter->SetVideoParam(&videoPrm, &cop2);
+        if (ret != RGY_ERR_NONE) {
             PrintMes(QSV_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
-            return sts;
+            return err_to_mfx(ret);
         }
         PrintMes(QSV_LOG_DEBUG, _T("CheckCurrentVideoParam: SetVideoParam to video file writer.\n"));
     }
