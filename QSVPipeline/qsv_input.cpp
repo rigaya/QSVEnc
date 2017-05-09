@@ -132,7 +132,7 @@ RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, const
         m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
         const uint32_t fps_gcd = qsv_gcd(m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
 
-        mes = strsprintf(_T("y4m: %s->%s[%s], %dx%d, %d/%d fps"), QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
+        mes = strsprintf(_T("y4m: %s->%s[%s], %dx%d, %d/%d fps"), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
             m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN / fps_gcd, m_inputFrameInfo.FrameRateExtD / fps_gcd);
     } else {
         mes = ColorFormatToStr(m_ColorFormat);

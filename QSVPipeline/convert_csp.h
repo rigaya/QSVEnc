@@ -29,31 +29,31 @@
 
 typedef void (*func_convert_csp) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
-enum QSV_ENC_CSP {
-    QSV_ENC_CSP_NA,
-    QSV_ENC_CSP_NV12,
-    QSV_ENC_CSP_YV12,
-    QSV_ENC_CSP_YUY2,
-    QSV_ENC_CSP_YUV422,
-    QSV_ENC_CSP_YUV444,
-    QSV_ENC_CSP_YV12_09,
-    QSV_ENC_CSP_YV12_10,
-    QSV_ENC_CSP_YV12_12,
-    QSV_ENC_CSP_YV12_14,
-    QSV_ENC_CSP_YV12_16,
-    QSV_ENC_CSP_P010,
-    QSV_ENC_CSP_P210,
-    QSV_ENC_CSP_YUV444_09,
-    QSV_ENC_CSP_YUV444_10,
-    QSV_ENC_CSP_YUV444_12,
-    QSV_ENC_CSP_YUV444_14,
-    QSV_ENC_CSP_YUV444_16,
-    QSV_ENC_CSP_RGB3,
-    QSV_ENC_CSP_RGB4,
-    QSV_ENC_CSP_YC48,
+enum RGY_CSP {
+    RGY_CSP_NA,
+    RGY_CSP_NV12,
+    RGY_CSP_YV12,
+    RGY_CSP_YUY2,
+    RGY_CSP_YUV422,
+    RGY_CSP_YUV444,
+    RGY_CSP_YV12_09,
+    RGY_CSP_YV12_10,
+    RGY_CSP_YV12_12,
+    RGY_CSP_YV12_14,
+    RGY_CSP_YV12_16,
+    RGY_CSP_P010,
+    RGY_CSP_P210,
+    RGY_CSP_YUV444_09,
+    RGY_CSP_YUV444_10,
+    RGY_CSP_YUV444_12,
+    RGY_CSP_YUV444_14,
+    RGY_CSP_YUV444_16,
+    RGY_CSP_RGB3,
+    RGY_CSP_RGB4,
+    RGY_CSP_YC48,
 };
 
-static const TCHAR *QSV_ENC_CSP_NAMES[] = {
+static const TCHAR *RGY_CSP_NAMES[] = {
     _T("Invalid"),
     _T("nv12"),
     _T("yv12"),
@@ -77,40 +77,40 @@ static const TCHAR *QSV_ENC_CSP_NAMES[] = {
     _T("yc48")
 };
 
-static const int QSV_ENC_CSP_BIT_DEPTH[] = {
-    0, //QSV_ENC_CSP_NA
-    8, //QSV_ENC_CSP_NV12
-    8, //QSV_ENC_CSP_YV12
-    8, //QSV_ENC_CSP_YUY2 
-    8, //QSV_ENC_CSP_YUV422
-    8, //QSV_ENC_CSP_YUV444
-    9, //QSV_ENC_CSP_YV12_09
+static const int RGY_CSP_BIT_DEPTH[] = {
+    0, //RGY_CSP_NA
+    8, //RGY_CSP_NV12
+    8, //RGY_CSP_YV12
+    8, //RGY_CSP_YUY2 
+    8, //RGY_CSP_YUV422
+    8, //RGY_CSP_YUV444
+    9, //RGY_CSP_YV12_09
     10,
     12,
     14,
-    16, //QSV_ENC_CSP_YV12_16
-    16, //QSV_ENC_CSP_P010
-    16, //QSV_ENC_CSP_P210
-    9, //QSV_ENC_CSP_YUV444_09
+    16, //RGY_CSP_YV12_16
+    16, //RGY_CSP_P010
+    16, //RGY_CSP_P210
+    9, //RGY_CSP_YUV444_09
     10,
     12,
     14,
-    16, //QSV_ENC_CSP_YUV444_16
+    16, //RGY_CSP_YUV444_16
     8,
     8,
-    10, //QSV_ENC_CSP_YC48
+    10, //RGY_CSP_YC48
 };
 
 typedef struct ConvertCSP {
-    QSV_ENC_CSP csp_from, csp_to;
+    RGY_CSP csp_from, csp_to;
     bool uv_only;
     func_convert_csp func[2];
     unsigned int simd;
 } ConvertCSP;
 
-const ConvertCSP *get_convert_csp_func(QSV_ENC_CSP csp_from, QSV_ENC_CSP csp_to, bool uv_only);
+const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only);
 const TCHAR *get_simd_str(unsigned int simd);
 
-QSV_ENC_CSP mfx_fourcc_to_qsv_enc_csp(uint32_t fourcc);
+RGY_CSP mfx_fourcc_to_qsv_enc_csp(uint32_t fourcc);
 
 #endif //_CONVERT_CSP_H_

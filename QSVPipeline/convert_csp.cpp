@@ -106,51 +106,51 @@ void convert_yv12_09_to_p010_sse2(void **dst, const void **src, int width, int s
 
 
 static const ConvertCSP funcList[] = {
-    FUNC_AVX2(QSV_ENC_CSP_YUY2, QSV_ENC_CSP_NV12, false, convert_yuy2_to_nv12_avx2,     convert_yuy2_to_nv12_i_avx2,   AVX2|AVX)
-    FUNC_AVX( QSV_ENC_CSP_YUY2, QSV_ENC_CSP_NV12, false, convert_yuy2_to_nv12_avx,      convert_yuy2_to_nv12_i_avx,    AVX )
-    FUNC_SSE( QSV_ENC_CSP_YUY2, QSV_ENC_CSP_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_ssse3,  SSSE3|SSE2 )
-    FUNC_SSE( QSV_ENC_CSP_YUY2, QSV_ENC_CSP_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_sse2,   SSE2 )
+    FUNC_AVX2(RGY_CSP_YUY2, RGY_CSP_NV12, false, convert_yuy2_to_nv12_avx2,     convert_yuy2_to_nv12_i_avx2,   AVX2|AVX)
+    FUNC_AVX( RGY_CSP_YUY2, RGY_CSP_NV12, false, convert_yuy2_to_nv12_avx,      convert_yuy2_to_nv12_i_avx,    AVX )
+    FUNC_SSE( RGY_CSP_YUY2, RGY_CSP_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_ssse3,  SSSE3|SSE2 )
+    FUNC_SSE( RGY_CSP_YUY2, RGY_CSP_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_sse2,   SSE2 )
 #if !QSVENC_AUO
-    FUNC_AVX2(QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12, false, convert_yv12_to_nv12_avx2,     convert_yv12_to_nv12_avx2,     AVX2|AVX)
-    FUNC_AVX( QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12, false, convert_yv12_to_nv12_avx,      convert_yv12_to_nv12_avx,      AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12, false, convert_yv12_to_nv12_sse2,     convert_yv12_to_nv12_sse2,     SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12, true,  convert_uv_yv12_to_nv12_avx2,  convert_uv_yv12_to_nv12_avx2,  AVX2|AVX )
-    FUNC_AVX( QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12, true,  convert_uv_yv12_to_nv12_avx,   convert_uv_yv12_to_nv12_avx,   AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12, true,  convert_uv_yv12_to_nv12_sse2,  convert_uv_yv12_to_nv12_sse2,  SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_RGB3, QSV_ENC_CSP_RGB4, false, convert_rgb3_to_rgb4_avx2,     convert_rgb3_to_rgb4_avx2,     AVX2|AVX )
-    FUNC_AVX( QSV_ENC_CSP_RGB3, QSV_ENC_CSP_RGB4, false, convert_rgb3_to_rgb4_avx,      convert_rgb3_to_rgb4_avx,      AVX )
-    FUNC_SSE( QSV_ENC_CSP_RGB3, QSV_ENC_CSP_RGB4, false, convert_rgb3_to_rgb4_ssse3,    convert_rgb3_to_rgb4_ssse3,    SSSE3|SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_RGB4, QSV_ENC_CSP_RGB4, false, convert_rgb4_to_rgb4_avx2,     convert_rgb4_to_rgb4_avx2,     AVX2|AVX )
-    FUNC_AVX( QSV_ENC_CSP_RGB4, QSV_ENC_CSP_RGB4, false, convert_rgb4_to_rgb4_avx,      convert_rgb4_to_rgb4_avx,      AVX )
-    FUNC_SSE( QSV_ENC_CSP_RGB4, QSV_ENC_CSP_RGB4, false, convert_rgb4_to_rgb4_sse2,     convert_rgb4_to_rgb4_sse2,     SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_avx2,     convert_yv12_to_nv12_avx2,     AVX2|AVX)
+    FUNC_AVX( RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_avx,      convert_yv12_to_nv12_avx,      AVX )
+    FUNC_SSE( RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_sse2,     convert_yv12_to_nv12_sse2,     SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_avx2,  convert_uv_yv12_to_nv12_avx2,  AVX2|AVX )
+    FUNC_AVX( RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_avx,   convert_uv_yv12_to_nv12_avx,   AVX )
+    FUNC_SSE( RGY_CSP_YV12, RGY_CSP_NV12, true,  convert_uv_yv12_to_nv12_sse2,  convert_uv_yv12_to_nv12_sse2,  SSE2 )
+    FUNC_AVX2(RGY_CSP_RGB3, RGY_CSP_RGB4, false, convert_rgb3_to_rgb4_avx2,     convert_rgb3_to_rgb4_avx2,     AVX2|AVX )
+    FUNC_AVX( RGY_CSP_RGB3, RGY_CSP_RGB4, false, convert_rgb3_to_rgb4_avx,      convert_rgb3_to_rgb4_avx,      AVX )
+    FUNC_SSE( RGY_CSP_RGB3, RGY_CSP_RGB4, false, convert_rgb3_to_rgb4_ssse3,    convert_rgb3_to_rgb4_ssse3,    SSSE3|SSE2 )
+    FUNC_AVX2(RGY_CSP_RGB4, RGY_CSP_RGB4, false, convert_rgb4_to_rgb4_avx2,     convert_rgb4_to_rgb4_avx2,     AVX2|AVX )
+    FUNC_AVX( RGY_CSP_RGB4, RGY_CSP_RGB4, false, convert_rgb4_to_rgb4_avx,      convert_rgb4_to_rgb4_avx,      AVX )
+    FUNC_SSE( RGY_CSP_RGB4, RGY_CSP_RGB4, false, convert_rgb4_to_rgb4_sse2,     convert_rgb4_to_rgb4_sse2,     SSE2 )
  
-    FUNC_AVX2(QSV_ENC_CSP_YV12,      QSV_ENC_CSP_P010, false,  convert_yv12_to_p010_avx2,    convert_yv12_to_p010_avx2   ,AVX2|AVX )
-    FUNC_AVX( QSV_ENC_CSP_YV12,      QSV_ENC_CSP_P010, false,  convert_yv12_to_p010_avx,     convert_yv12_to_p010_avx    ,AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12,      QSV_ENC_CSP_P010, false,  convert_yv12_to_p010_sse2,    convert_yv12_to_p010_sse2   ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_16,   QSV_ENC_CSP_NV12, false, convert_yv12_16_to_nv12_avx2, convert_yv12_16_to_nv12_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_16,   QSV_ENC_CSP_NV12, false, convert_yv12_16_to_nv12_sse2, convert_yv12_16_to_nv12_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_14,   QSV_ENC_CSP_NV12, false, convert_yv12_14_to_nv12_avx2, convert_yv12_14_to_nv12_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_14,   QSV_ENC_CSP_NV12, false, convert_yv12_14_to_nv12_sse2, convert_yv12_14_to_nv12_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_12,   QSV_ENC_CSP_NV12, false, convert_yv12_12_to_nv12_avx2, convert_yv12_12_to_nv12_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_12,   QSV_ENC_CSP_NV12, false, convert_yv12_12_to_nv12_sse2, convert_yv12_12_to_nv12_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_10,   QSV_ENC_CSP_NV12, false, convert_yv12_10_to_nv12_avx2, convert_yv12_10_to_nv12_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_10,   QSV_ENC_CSP_NV12, false, convert_yv12_10_to_nv12_sse2, convert_yv12_10_to_nv12_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_09,   QSV_ENC_CSP_NV12, false, convert_yv12_09_to_nv12_avx2, convert_yv12_09_to_nv12_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_09,   QSV_ENC_CSP_NV12, false, convert_yv12_09_to_nv12_sse2, convert_yv12_09_to_nv12_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_16,   QSV_ENC_CSP_P010, false, convert_yv12_16_to_p010_avx2, convert_yv12_16_to_p010_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_16,   QSV_ENC_CSP_P010, false, convert_yv12_16_to_p010_sse2, convert_yv12_16_to_p010_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_14,   QSV_ENC_CSP_P010, false, convert_yv12_14_to_p010_avx2, convert_yv12_14_to_p010_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_14,   QSV_ENC_CSP_P010, false, convert_yv12_14_to_p010_sse2, convert_yv12_14_to_p010_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_12,   QSV_ENC_CSP_P010, false, convert_yv12_12_to_p010_avx2, convert_yv12_12_to_p010_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_12,   QSV_ENC_CSP_P010, false, convert_yv12_12_to_p010_sse2, convert_yv12_12_to_p010_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_10,   QSV_ENC_CSP_P010, false, convert_yv12_10_to_p010_sse2, convert_yv12_10_to_p010_sse2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_10,   QSV_ENC_CSP_P010, false, convert_yv12_10_to_p010_sse2, convert_yv12_10_to_p010_sse2 ,SSE2 )
-    FUNC_AVX2(QSV_ENC_CSP_YV12_09,   QSV_ENC_CSP_P010, false, convert_yv12_09_to_p010_avx2, convert_yv12_09_to_p010_avx2 ,AVX2|AVX )
-    FUNC_SSE( QSV_ENC_CSP_YV12_09,   QSV_ENC_CSP_P010, false, convert_yv12_09_to_p010_sse2, convert_yv12_09_to_p010_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12,      RGY_CSP_P010, false,  convert_yv12_to_p010_avx2,    convert_yv12_to_p010_avx2   ,AVX2|AVX )
+    FUNC_AVX( RGY_CSP_YV12,      RGY_CSP_P010, false,  convert_yv12_to_p010_avx,     convert_yv12_to_p010_avx    ,AVX )
+    FUNC_SSE( RGY_CSP_YV12,      RGY_CSP_P010, false,  convert_yv12_to_p010_sse2,    convert_yv12_to_p010_sse2   ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_16,   RGY_CSP_NV12, false, convert_yv12_16_to_nv12_avx2, convert_yv12_16_to_nv12_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_16,   RGY_CSP_NV12, false, convert_yv12_16_to_nv12_sse2, convert_yv12_16_to_nv12_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_14,   RGY_CSP_NV12, false, convert_yv12_14_to_nv12_avx2, convert_yv12_14_to_nv12_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_14,   RGY_CSP_NV12, false, convert_yv12_14_to_nv12_sse2, convert_yv12_14_to_nv12_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_12,   RGY_CSP_NV12, false, convert_yv12_12_to_nv12_avx2, convert_yv12_12_to_nv12_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_12,   RGY_CSP_NV12, false, convert_yv12_12_to_nv12_sse2, convert_yv12_12_to_nv12_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_10,   RGY_CSP_NV12, false, convert_yv12_10_to_nv12_avx2, convert_yv12_10_to_nv12_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_10,   RGY_CSP_NV12, false, convert_yv12_10_to_nv12_sse2, convert_yv12_10_to_nv12_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_09,   RGY_CSP_NV12, false, convert_yv12_09_to_nv12_avx2, convert_yv12_09_to_nv12_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_09,   RGY_CSP_NV12, false, convert_yv12_09_to_nv12_sse2, convert_yv12_09_to_nv12_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_16,   RGY_CSP_P010, false, convert_yv12_16_to_p010_avx2, convert_yv12_16_to_p010_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_16,   RGY_CSP_P010, false, convert_yv12_16_to_p010_sse2, convert_yv12_16_to_p010_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_14,   RGY_CSP_P010, false, convert_yv12_14_to_p010_avx2, convert_yv12_14_to_p010_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_14,   RGY_CSP_P010, false, convert_yv12_14_to_p010_sse2, convert_yv12_14_to_p010_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_12,   RGY_CSP_P010, false, convert_yv12_12_to_p010_avx2, convert_yv12_12_to_p010_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_12,   RGY_CSP_P010, false, convert_yv12_12_to_p010_sse2, convert_yv12_12_to_p010_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_10,   RGY_CSP_P010, false, convert_yv12_10_to_p010_sse2, convert_yv12_10_to_p010_sse2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_10,   RGY_CSP_P010, false, convert_yv12_10_to_p010_sse2, convert_yv12_10_to_p010_sse2 ,SSE2 )
+    FUNC_AVX2(RGY_CSP_YV12_09,   RGY_CSP_P010, false, convert_yv12_09_to_p010_avx2, convert_yv12_09_to_p010_avx2 ,AVX2|AVX )
+    FUNC_SSE( RGY_CSP_YV12_09,   RGY_CSP_P010, false, convert_yv12_09_to_p010_sse2, convert_yv12_09_to_p010_sse2 ,SSE2 )
 #endif
 };
 
-const ConvertCSP *get_convert_csp_func(QSV_ENC_CSP csp_from, QSV_ENC_CSP csp_to, bool uv_only) {
+const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only) {
     unsigned int availableSIMD = get_availableSIMD();
     const ConvertCSP *convert = nullptr;
     for (int i = 0; i < _countof(funcList); i++) {
@@ -188,15 +188,15 @@ const TCHAR *get_simd_str(unsigned int simd) {
     return _T("-");
 }
 
-QSV_ENC_CSP mfx_fourcc_to_qsv_enc_csp(uint32_t fourcc) {
+RGY_CSP mfx_fourcc_to_qsv_enc_csp(uint32_t fourcc) {
     switch (fourcc) {
-    case MFX_FOURCC_NV12: return QSV_ENC_CSP_NV12;
-    case MFX_FOURCC_YV12: return QSV_ENC_CSP_YV12;
-    case MFX_FOURCC_YUY2: return QSV_ENC_CSP_YUY2;
-    case MFX_FOURCC_P010: return QSV_ENC_CSP_P010;
-    case MFX_FOURCC_P210: return QSV_ENC_CSP_P210;
-    case MFX_FOURCC_RGB3: return QSV_ENC_CSP_RGB3;
-    case MFX_FOURCC_RGB4: return QSV_ENC_CSP_RGB4;
-    default: return QSV_ENC_CSP_NA;
+    case MFX_FOURCC_NV12: return RGY_CSP_NV12;
+    case MFX_FOURCC_YV12: return RGY_CSP_YV12;
+    case MFX_FOURCC_YUY2: return RGY_CSP_YUY2;
+    case MFX_FOURCC_P010: return RGY_CSP_P010;
+    case MFX_FOURCC_P210: return RGY_CSP_P210;
+    case MFX_FOURCC_RGB3: return RGY_CSP_RGB3;
+    case MFX_FOURCC_RGB4: return RGY_CSP_RGB4;
+    default: return RGY_CSP_NA;
     }
 }

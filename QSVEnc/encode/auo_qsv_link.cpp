@@ -165,10 +165,10 @@ RGY_ERR AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const 
     m_inputFrameInfo.CropY = 0;
     *(DWORD *)&m_inputFrameInfo.FrameId = oip->n;
 
-    m_sConvert = get_convert_csp_func(QSV_ENC_CSP_YUY2, QSV_ENC_CSP_NV12, false);
+    m_sConvert = get_convert_csp_func(RGY_CSP_YUY2, RGY_CSP_NV12, false);
 
     char mes[256];
-    sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
+    sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     m_strInputInfo += mes;
     return RGY_ERR_NONE;

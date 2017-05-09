@@ -132,23 +132,23 @@ RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
 
     typedef struct CSPMap {
         int fmtID;
-        QSV_ENC_CSP in, out;
+        RGY_CSP in, out;
     } CSPMap;
 
     static const std::vector<CSPMap> valid_csp_list = {
-        { AVS_CS_YV12,  QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12},
-        { AVS_CS_I420,  QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12},
-        { AVS_CS_IYUV,  QSV_ENC_CSP_YV12, QSV_ENC_CSP_NV12},
-        { AVS_CS_YUY2,  QSV_ENC_CSP_YUY2, QSV_ENC_CSP_NV12},
-        { AVS_CS_BGR24, QSV_ENC_CSP_RGB3, QSV_ENC_CSP_RGB4},
-        { AVS_CS_BGR32, QSV_ENC_CSP_RGB4, QSV_ENC_CSP_RGB4},
+        { AVS_CS_YV12,  RGY_CSP_YV12, RGY_CSP_NV12},
+        { AVS_CS_I420,  RGY_CSP_YV12, RGY_CSP_NV12},
+        { AVS_CS_IYUV,  RGY_CSP_YV12, RGY_CSP_NV12},
+        { AVS_CS_YUY2,  RGY_CSP_YUY2, RGY_CSP_NV12},
+        { AVS_CS_BGR24, RGY_CSP_RGB3, RGY_CSP_RGB4},
+        { AVS_CS_BGR32, RGY_CSP_RGB4, RGY_CSP_RGB4},
     };
 
     m_ColorFormat = 0x00;
     for (auto csp : valid_csp_list) {
         if (csp.fmtID == m_sAVSinfo->pixel_type) {
-            m_ColorFormat = QSV_ENC_CSP_TO_MFX_FOURCC[csp.in];
-            m_inputFrameInfo.FourCC = QSV_ENC_CSP_TO_MFX_FOURCC[csp.out];
+            m_ColorFormat = RGY_CSP_TO_MFX_FOURCC[csp.in];
+            m_inputFrameInfo.FourCC = RGY_CSP_TO_MFX_FOURCC[csp.out];
             m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
             break;
         }
@@ -176,7 +176,7 @@ RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     m_sAvisynth.release_value(val_version);
     
     tstring mes = strsprintf( _T("Avisynth %s (%s)->%s[%s], %dx%d, %d/%d fps"), avisynth_version.c_str(),
-        QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
+        RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     AddMessage(RGY_LOG_DEBUG, mes);
     m_strInputInfo += mes;

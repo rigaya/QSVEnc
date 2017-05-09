@@ -100,8 +100,8 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
         //何もしない
     } else {
         BITMAPINFOHEADER bih[4] = {
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 12, QSV_ENC_CSP_YV12, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3/2, 0, 0, 0, 0 },
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 16, QSV_ENC_CSP_YUY2, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 2,   0, 0, 0, 0 },
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 12, RGY_CSP_YV12, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3/2, 0, 0, 0, 0 },
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 16, RGY_CSP_YUY2, m_inputFrameInfo.Width * m_inputFrameInfo.Height * 2,   0, 0, 0, 0 },
             { sizeof(BITMAPINFOHEADER), 0, 0, 1, 24, BI_RGB,           m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3,   0, 0, 0, 0 },
             { sizeof(BITMAPINFOHEADER), 0, 0, 1, 32, BI_RGB,           m_inputFrameInfo.Width * m_inputFrameInfo.Height * 3,   0, 0, 0, 0 }
         };
@@ -147,7 +147,7 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     }
     m_sConvert = get_convert_csp_func(mfx_fourcc_to_qsv_enc_csp(m_ColorFormat), mfx_fourcc_to_qsv_enc_csp(m_inputFrameInfo.FourCC), false);
     tstring mes = strsprintf(_T("avi: %s(%s)->%s[%s], %dx%d, %d/%d fps"), strFcc.c_str(),
-        QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
+        RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     AddMessage(RGY_LOG_DEBUG, mes);
     m_strInputInfo += mes;

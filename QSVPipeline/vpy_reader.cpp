@@ -228,24 +228,24 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void
     }
 
     struct CSPMap {
-        QSV_ENC_CSP in, out;
+        RGY_CSP in, out;
         int bit_depth;
 
-        CSPMap(QSV_ENC_CSP csp_in, QSV_ENC_CSP csp_out, int bit_depth)
+        CSPMap(RGY_CSP csp_in, RGY_CSP csp_out, int bit_depth)
         : in(csp_in), out(csp_out), bit_depth(bit_depth) {
 
         };
     };
 
     static const std::map<int, CSPMap> valid_csp_list = {
-        { pfYUV420P8,  CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_NV12,  0) },
-        { pfYUV420P9,  CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_P010,  9) },
-        { pfYUV420P10, CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_P010, 10) },
-        { pfYUV420P16, CSPMap(QSV_ENC_CSP_YV12,   QSV_ENC_CSP_P010, 16) },
-        { pfYUV444P8,  CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_NV12,  0) },
-        { pfYUV444P9,  CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_P010,  9) },
-        { pfYUV444P10, CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_P010, 10) },
-        { pfYUV444P16, CSPMap(QSV_ENC_CSP_YUV444, QSV_ENC_CSP_P010, 16) },
+        { pfYUV420P8,  CSPMap(RGY_CSP_YV12,   RGY_CSP_NV12,  0) },
+        { pfYUV420P9,  CSPMap(RGY_CSP_YV12,   RGY_CSP_P010,  9) },
+        { pfYUV420P10, CSPMap(RGY_CSP_YV12,   RGY_CSP_P010, 10) },
+        { pfYUV420P16, CSPMap(RGY_CSP_YV12,   RGY_CSP_P010, 16) },
+        { pfYUV444P8,  CSPMap(RGY_CSP_YUV444, RGY_CSP_NV12,  0) },
+        { pfYUV444P9,  CSPMap(RGY_CSP_YUV444, RGY_CSP_P010,  9) },
+        { pfYUV444P10, CSPMap(RGY_CSP_YUV444, RGY_CSP_P010, 10) },
+        { pfYUV444P16, CSPMap(RGY_CSP_YUV444, RGY_CSP_P010, 16) },
     };
 
     m_ColorFormat = 0x00;
@@ -267,11 +267,11 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void
     }
     const mfxI64 fps_gcd = qsv_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
 
-    m_ColorFormat = QSV_ENC_CSP_TO_MFX_FOURCC[csp.in];
-    m_inputFrameInfo.FourCC = QSV_ENC_CSP_TO_MFX_FOURCC[csp.out];
+    m_ColorFormat = RGY_CSP_TO_MFX_FOURCC[csp.in];
+    m_inputFrameInfo.FourCC = RGY_CSP_TO_MFX_FOURCC[csp.out];
     m_inputFrameInfo.BitDepthLuma = (mfxU16)csp.bit_depth;
     m_inputFrameInfo.BitDepthChroma = (mfxU16)csp.bit_depth;
-    m_inputFrameInfo.Shift = (mfxU16)((csp.out == QSV_ENC_CSP_P010) ? 16 - csp.bit_depth : 0);
+    m_inputFrameInfo.Shift = (mfxU16)((csp.out == RGY_CSP_P010) ? 16 - csp.bit_depth : 0);
     m_inputFrameInfo.Width = (mfxU16)vsvideoinfo->width;
     m_inputFrameInfo.Height = (mfxU16)vsvideoinfo->height;
     m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);
@@ -301,8 +301,8 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void
     }
     tstring str = strsprintf(_T("VapourSynth%s%s (%s%s)->%s[%s]%s%dx%d, %d/%d fps"),
         (use_mt_mode) ? _T("MT") : _T(""), rev_info.c_str(),
-        QSV_ENC_CSP_NAMES[m_sConvert->csp_from], intputBitdepthStr.c_str(),
-        QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
+        RGY_CSP_NAMES[m_sConvert->csp_from], intputBitdepthStr.c_str(),
+        RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
         (m_inputFrameInfo.BitDepthLuma > 8) ? _T("\n") : _T(", "),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
     AddMessage(RGY_LOG_DEBUG, str);
