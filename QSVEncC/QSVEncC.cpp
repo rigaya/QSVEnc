@@ -1313,35 +1313,35 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("raw"))) {
-        pParams->nInputFmt = INPUT_FMT_RAW;
+        pParams->nInputFmt = RGY_INPUT_FMT_RAW;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("y4m"))) {
-        pParams->nInputFmt = INPUT_FMT_Y4M;
+        pParams->nInputFmt = RGY_INPUT_FMT_Y4M;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avi"))) {
-        pParams->nInputFmt = INPUT_FMT_AVI;
+        pParams->nInputFmt = RGY_INPUT_FMT_AVI;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avs"))) {
-        pParams->nInputFmt = INPUT_FMT_AVS;
+        pParams->nInputFmt = RGY_INPUT_FMT_AVS;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("vpy"))) {
-        pParams->nInputFmt = INPUT_FMT_VPY;
+        pParams->nInputFmt = RGY_INPUT_FMT_VPY;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("vpy-mt"))) {
-        pParams->nInputFmt = INPUT_FMT_VPY_MT;
+        pParams->nInputFmt = RGY_INPUT_FMT_VPY_MT;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avqsv"))) {
-        pParams->nInputFmt = INPUT_FMT_AVCODEC_HW;
+        pParams->nInputFmt = RGY_INPUT_FMT_AVCODEC_HW;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avsw"))) {
-        pParams->nInputFmt = INPUT_FMT_AVCODEC_SW;
+        pParams->nInputFmt = RGY_INPUT_FMT_AVCODEC_SW;
         return MFX_ERR_NONE;
     }
     if (   0 == _tcscmp(option_name, _T("input-analyze"))

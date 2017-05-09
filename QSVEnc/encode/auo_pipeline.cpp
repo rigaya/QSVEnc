@@ -47,7 +47,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     m_pEncSatusInfo = std::make_shared<AUO_EncodeStatusInfo>();
     m_pEncSatusInfo->SetPrivData(nullptr);
 
-    if (pParams->nInputFmt != INPUT_FMT_AUO) {
+    if (pParams->nInputFmt != RGY_INPUT_FMT_AUO) {
         return CQSVPipeline::InitInput(pParams);
     }
 
@@ -102,7 +102,7 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
 }
 
 mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
-    if (pParams->nInputFmt != INPUT_FMT_AUO) {
+    if (pParams->nInputFmt != RGY_INPUT_FMT_AUO) {
         return CQSVPipeline::InitOutput(pParams);
     }
 

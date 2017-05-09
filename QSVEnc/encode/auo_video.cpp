@@ -226,7 +226,7 @@ static void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const P
     prm->nInputBufSize = clamp(prm->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX);
     
     prm->nBluray += (prm->nBluray == 1 && force_bluray);
-    prm->nInputFmt = INPUT_FMT_AUO;
+    prm->nInputFmt = RGY_INPUT_FMT_AUO;
 
     prm->bDisableTimerPeriodTuning = !timer_period_tuning;
     prm->nLogLevel = (mfxI16)log_level;
@@ -250,7 +250,7 @@ void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
 static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL force_bluray, BOOL timer_period_tuning, int log_level, AVQSV_PARM *avqsv_prm) {
     init_avqsv_prm(avqsv_prm);
 
-    conf->qsv.nInputFmt = INPUT_FMT_AVCODEC_HW;
+    conf->qsv.nInputFmt = RGY_INPUT_FMT_AVCODEC_HW;
 
     avqsv_prm->audioSelectList.push_back(&avqsv_prm->audioSelect);
     switch (conf->aud_avqsv.encoder) {

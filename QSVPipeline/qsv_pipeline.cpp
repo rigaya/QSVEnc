@@ -2349,9 +2349,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if ((pParams->nInputFmt != INPUT_FMT_AVCODEC_HW
-            && pParams->nInputFmt != INPUT_FMT_AVCODEC_SW
-            && pParams->nInputFmt != INPUT_FMT_AVCODEC_ANY)
+        if ((pParams->nInputFmt != RGY_INPUT_FMT_AVCODEC_HW
+            && pParams->nInputFmt != RGY_INPUT_FMT_AVCODEC_SW
+            && pParams->nInputFmt != RGY_INPUT_FMT_AVCODEC_ANY)
             || pAVCodecReader == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return MFX_ERR_UNSUPPORTED;
@@ -2437,76 +2437,76 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         m_pEncSatusInfo = std::make_shared<CEncodeStatusInfo>();
     }
     //ファイル拡張子により自動的に設定
-    if (pParams->nInputFmt == INPUT_FMT_AUTO) {
+    if (pParams->nInputFmt == RGY_INPUT_FMT_AUTO) {
         if (check_ext(pParams->strSrcFile, { ".y4m" }))
-            pParams->nInputFmt = INPUT_FMT_Y4M;
+            pParams->nInputFmt = RGY_INPUT_FMT_Y4M;
         else if (check_ext(pParams->strSrcFile, { ".yuv" }))
-            pParams->nInputFmt = INPUT_FMT_RAW;
+            pParams->nInputFmt = RGY_INPUT_FMT_RAW;
 #if ENABLE_AVISYNTH_READER
         else
         if (check_ext(pParams->strSrcFile, { ".avs" }))
-            pParams->nInputFmt = INPUT_FMT_AVS;
+            pParams->nInputFmt = RGY_INPUT_FMT_AVS;
         else
 #endif //ENABLE_AVISYNTH_READER
 #if ENABLE_VAPOURSYNTH_READER
         if (check_ext(pParams->strSrcFile, { ".vpy" }))
-            pParams->nInputFmt = INPUT_FMT_VPY;
+            pParams->nInputFmt = RGY_INPUT_FMT_VPY;
         else
 #endif //ENABLE_VAPOURSYNTH_READER
 #if ENABLE_AVI_READER
         if (check_ext(pParams->strSrcFile, { ".avi", ".avs", ".vpy" }))
-            pParams->nInputFmt = INPUT_FMT_AVI;
+            pParams->nInputFmt = RGY_INPUT_FMT_AVI;
         else
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVCODEC_QSV_READER
-            pParams->nInputFmt = INPUT_FMT_AVCODEC_ANY;
+            pParams->nInputFmt = RGY_INPUT_FMT_AVCODEC_ANY;
 #else
-            pParams->nInputFmt = INPUT_FMT_RAW;
+            pParams->nInputFmt = RGY_INPUT_FMT_RAW;
 #endif //ENABLE_AVCODEC_QSV_READER
     }
 
     //ビルドに指定リーダーが含まれているかを確認する
     //avs/vpy等はビルドに含まれていなければ、aviで代用する
-    if (pParams->nInputFmt == INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
-        pParams->nInputFmt = INPUT_FMT_AVI;
+    if (pParams->nInputFmt == RGY_INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
+        pParams->nInputFmt = RGY_INPUT_FMT_AVI;
         PrintMes(RGY_LOG_WARN, _T("avs reader not compiled in this binary.\n"));
         PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
-    if (pParams->nInputFmt == INPUT_FMT_VPY && !ENABLE_VAPOURSYNTH_READER) {
-        pParams->nInputFmt = INPUT_FMT_AVI;
+    if (pParams->nInputFmt == RGY_INPUT_FMT_VPY && !ENABLE_VAPOURSYNTH_READER) {
+        pParams->nInputFmt = RGY_INPUT_FMT_AVI;
         PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
         PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
-    if (pParams->nInputFmt == INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
-        pParams->nInputFmt = INPUT_FMT_AVI;
+    if (pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
+        pParams->nInputFmt = RGY_INPUT_FMT_AVI;
         PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
         PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
-    if (pParams->nInputFmt == INPUT_FMT_AVI && !ENABLE_AVI_READER) {
+    if (pParams->nInputFmt == RGY_INPUT_FMT_AVI && !ENABLE_AVI_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    if (pParams->nInputFmt == INPUT_FMT_AVCODEC_HW && !ENABLE_AVCODEC_QSV_READER) {
+    if (pParams->nInputFmt == RGY_INPUT_FMT_AVCODEC_HW && !ENABLE_AVCODEC_QSV_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    if (pParams->nInputFmt == INPUT_FMT_AVCODEC_SW && !ENABLE_AVCODEC_QSV_READER) {
+    if (pParams->nInputFmt == RGY_INPUT_FMT_AVCODEC_SW && !ENABLE_AVCODEC_QSV_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     //まずavs or vpy readerをためす
     m_pFileReader = NULL;
-    if (   pParams->nInputFmt == INPUT_FMT_VPY
-        || pParams->nInputFmt == INPUT_FMT_VPY_MT
-        || pParams->nInputFmt == INPUT_FMT_AVS) {
+    if (   pParams->nInputFmt == RGY_INPUT_FMT_VPY
+        || pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT
+        || pParams->nInputFmt == RGY_INPUT_FMT_AVS) {
         void *input_options = nullptr;
 #if ENABLE_VAPOURSYNTH_READER
         VSReaderPrm vsReaderPrm = { 0 };
 #endif
-        if (pParams->nInputFmt == INPUT_FMT_VPY || pParams->nInputFmt == INPUT_FMT_VPY_MT) {
+        if (pParams->nInputFmt == RGY_INPUT_FMT_VPY || pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT) {
 #if ENABLE_VAPOURSYNTH_READER
-            vsReaderPrm.use_mt = pParams->nInputFmt == INPUT_FMT_VPY_MT;
+            vsReaderPrm.use_mt = pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT;
             input_options = &vsReaderPrm;
             m_pFileReader = std::make_shared<CVSReader>();
             PrintMes(RGY_LOG_DEBUG, _T("Input: vpy reader selected.\n"));
@@ -2519,7 +2519,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
         if (NULL == m_pFileReader) {
             //aviリーダーに切り替え再試行する
-            pParams->nInputFmt = INPUT_FMT_AVI;
+            pParams->nInputFmt = RGY_INPUT_FMT_AVI;
         } else {
             m_pFileReader->SetQSVLogPtr(m_pQSVLog);
             ret = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_options,
@@ -2530,7 +2530,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 m_pFileReader.reset();
                 ret = RGY_ERR_NONE;
                 PrintMes(RGY_LOG_WARN, _T("Input: switching to avi reader.\n"));
-                pParams->nInputFmt = INPUT_FMT_AVI;
+                pParams->nInputFmt = RGY_INPUT_FMT_AVI;
             }
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
@@ -2541,21 +2541,21 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 
     if (NULL == m_pFileReader) {
         const void *input_option = nullptr;
-        bool bY4m = pParams->nInputFmt == INPUT_FMT_Y4M;
+        bool bY4m = pParams->nInputFmt == RGY_INPUT_FMT_Y4M;
 #if ENABLE_AVCODEC_QSV_READER
         AvcodecReaderPrm avcodecReaderPrm = { 0 };
 #endif
         switch (pParams->nInputFmt) {
 #if ENABLE_AVI_READER
-            case INPUT_FMT_AVI:
+            case RGY_INPUT_FMT_AVI:
                 m_pFileReader = std::make_shared<CAVIReader>();
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avi reader selected.\n"));
                 break;
 #endif
 #if ENABLE_AVCODEC_QSV_READER
-            case INPUT_FMT_AVCODEC_HW:
-            case INPUT_FMT_AVCODEC_SW:
-            case INPUT_FMT_AVCODEC_ANY:
+            case RGY_INPUT_FMT_AVCODEC_HW:
+            case RGY_INPUT_FMT_AVCODEC_SW:
+            case RGY_INPUT_FMT_AVCODEC_ANY:
                 if (!pParams->bUseHWLib) {
                     PrintMes(RGY_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
@@ -2590,8 +2590,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
 #endif
-            case INPUT_FMT_Y4M:
-            case INPUT_FMT_RAW:
+            case RGY_INPUT_FMT_Y4M:
+            case RGY_INPUT_FMT_RAW:
             default:
                 input_option = &bY4m;
                 m_pFileReader = std::make_shared<CQSVInputRaw>();
