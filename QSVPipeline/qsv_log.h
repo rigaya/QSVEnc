@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_LOG_H__
-#define __QSV_LOG_H__
+#ifndef __RGY_LOG_H__
+#define __RGY_LOG_H__
 
 #include <cstdint>
 #include <thread>
@@ -36,18 +36,18 @@
 
 class CQSVLog {
 protected:
-    int m_nLogLevel = QSV_LOG_INFO;
+    int m_nLogLevel = RGY_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
     bool m_bHtml = false;
     std::mutex m_mtx;
     static const char *HTML_FOOTER;
 public:
-    CQSVLog(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO) {
+    CQSVLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO) {
         init(pLogFile, log_level);
     };
     virtual ~CQSVLog() {
     };
-    void init(const TCHAR *pLogFile, int log_level = QSV_LOG_INFO);
+    void init(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
     void writeHtmlHeader();
     void writeFileHeader(const TCHAR *pDstFilename);
     void writeFileFooter();
@@ -70,4 +70,4 @@ public:
 };
 
 
-#endif //__QSV_LOG_H__
+#endif //__RGY_LOG_H__

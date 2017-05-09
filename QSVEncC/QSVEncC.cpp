@@ -3514,7 +3514,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         basic_stringstream<TCHAR> ss;
         FILE *fp_bench = NULL;
         if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
-            pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
+            pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
             return MFX_ERR_INVALID_HANDLE;
         } else {
             fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
@@ -3531,7 +3531,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         }
         basic_ofstream<TCHAR> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
         if (!benchmark_log_test_open.good()) {
-            pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
+            pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
             return MFX_ERR_INVALID_HANDLE;
         }
         benchmark_log_test_open << ss.str();
@@ -3541,7 +3541,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             sts = pPipeline->Run();
 
             if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-                pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+                pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
                 if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
                     || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
                     break;
@@ -3606,7 +3606,7 @@ mfxStatus run_benchmark(sInputParams *params) {
                 sts = pPipeline->Run();
 
                 if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-                    pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+                    pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
                     if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
                         || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
                         break;
@@ -3702,7 +3702,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             _ftprintf(stderr, _T("\nFinished benchmark.\n"));
         }
     } else {
-        qsv_print_stderr(QSV_LOG_ERROR, _T("\nError occurred during benchmark.\n"));
+        qsv_print_stderr(RGY_LOG_ERROR, _T("\nError occurred during benchmark.\n"));
     }
 
     return sts;
@@ -3764,7 +3764,7 @@ int run(int argc, TCHAR *argv[]) {
         sts = pPipeline->Run();
 
         if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-            pPipeline->PrintMes(QSV_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
+            pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
             sts = pPipeline->ResetDevice();
             if (sts < MFX_ERR_NONE) return sts;
 
@@ -3778,7 +3778,7 @@ int run(int argc, TCHAR *argv[]) {
     }
 
     pPipeline->Close();
-    pPipeline->PrintMes(QSV_LOG_INFO, _T("\nProcessing finished\n"));
+    pPipeline->PrintMes(RGY_LOG_INFO, _T("\nProcessing finished\n"));
 
     return sts;
 }
@@ -3786,7 +3786,7 @@ int run(int argc, TCHAR *argv[]) {
 int _tmain(int argc, TCHAR *argv[]) {
     int ret = 0;
     if (0 != (ret = run(argc, argv))) {
-        qsv_print_stderr(QSV_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
+        qsv_print_stderr(RGY_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
     }
 #if ENABLE_AVCODEC_QSV_READER
     avformatNetworkDeinit();

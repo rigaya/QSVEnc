@@ -58,17 +58,17 @@ void CQSVD3D11Device::SetSCD1(DXGI_SWAP_CHAIN_DESC1& scd1) {
 
 mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<CQSVLog> pQSVLog) {
     HRESULT hr = 0;
-    pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: Init...\n"));
+    pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: Init...\n"));
     m_HandleWindow = (HWND)hWindow;
     m_pQSVLog = pQSVLog;
     if (FAILED(hr = CreateDXGIFactory(__uuidof(IDXGIFactory2), (void**)(&m_pDXGIFactory)))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D11Device: CreateDXGIFactory: %d\n"), hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: CreateDXGIFactory: %d\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     } else if (FAILED(hr = m_pDXGIFactory->EnumAdapters(nAdapterNum, &m_pAdapter))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D11Device: EnumAdapters: %d\n"), hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: EnumAdapters: %d\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     }
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: CreateDXGIFactory Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: CreateDXGIFactory Success.\n"));
 
     static const D3D_FEATURE_LEVEL FeatureLevels[] = {
         D3D_FEATURE_LEVEL_11_1,
@@ -80,10 +80,10 @@ mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr
     if (FAILED(hr = D3D11CreateDevice(m_pAdapter,
         D3D_DRIVER_TYPE_UNKNOWN, NULL, 0, FeatureLevels, _countof(FeatureLevels),
         D3D11_SDK_VERSION, &m_pD3D11Device, &pFeatureLevelsOut, &m_pD3D11Ctx))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D11Device: D3D11CreateDevice: %d\n"), hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: D3D11CreateDevice: %d\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     }
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: D3D11CreateDevice Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: D3D11CreateDevice Success.\n"));
 
     m_pDXGIDev = m_pD3D11Device;
     m_pDX11VideoDevice = m_pD3D11Device;
@@ -98,7 +98,7 @@ mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr
         return MFX_ERR_DEVICE_FAILED;
     }
     p_mt->SetMultithreadProtected(true);
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: SetMultithreadProtected Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: SetMultithreadProtected Success.\n"));
 
     if (hWindow) {
         if (!m_pDXGIFactory.p) {
@@ -109,17 +109,17 @@ mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr
         if (FAILED(hr = m_pDXGIFactory->CreateSwapChainForHwnd(m_pD3D11Device,
             (HWND)hWindow, &swapChainDesc, NULL, NULL,
             reinterpret_cast<IDXGISwapChain1**>(&m_pSwapChain)))) {
-            m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D11Device: CreateSwapChainForHwnd: %d\n"), hr);
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: CreateSwapChainForHwnd: %d\n"), hr);
             return MFX_ERR_DEVICE_FAILED;
         }
-        m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: CreateSwapChainForHwnd Success.\n"));
+        m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: CreateSwapChainForHwnd Success.\n"));
     }
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: Init Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: Init Success.\n"));
     return MFX_ERR_NONE;
 }
 
 mfxStatus CQSVD3D11Device::CreateVideoProcessor(mfxFrameSurface1 *pSurface) {
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: CreateVideoProcessor...\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: CreateVideoProcessor...\n"));
     if (m_VideoProcessorEnum.p || pSurface == nullptr) {
         return MFX_ERR_NONE;
     }
@@ -139,13 +139,13 @@ mfxStatus CQSVD3D11Device::CreateVideoProcessor(mfxFrameSurface1 *pSurface) {
 
     HRESULT hr = 0;
     if (FAILED(hr = m_pDX11VideoDevice->CreateVideoProcessorEnumerator(&ContentDesc, &m_VideoProcessorEnum))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D11Device: CreateVideoProcessorEnumerator: %d\n"), hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: CreateVideoProcessorEnumerator: %d\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     } else if (FAILED(hr = m_pDX11VideoDevice->CreateVideoProcessor(m_VideoProcessorEnum, 0, &m_pVideoProcessor))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D11Device: CreateVideoProcessor: %d\n"), hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: CreateVideoProcessor: %d\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     }
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: CreateVideoProcessor Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: CreateVideoProcessor Success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -159,10 +159,10 @@ mfxStatus CQSVD3D11Device::Reset() {
     if (FAILED(hr = m_pDXGIFactory->CreateSwapChainForHwnd(m_pD3D11Device,
         (HWND)m_HandleWindow, &swapChainDesc, NULL, NULL,
         reinterpret_cast<IDXGISwapChain1**>(&m_pSwapChain)))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("D3D11Device: CreateSwapChainForHwnd: %d\n"), hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: CreateSwapChainForHwnd: %d\n"), hr);
         return MFX_ERR_DEVICE_FAILED;
     }
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: Reset Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: Reset Success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -176,7 +176,7 @@ mfxStatus CQSVD3D11Device::GetHandle(mfxHandleType type, mfxHDL *pHdl) {
 
 void CQSVD3D11Device::Close() {
     m_HandleWindow = NULL;
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("D3D11Device: Closed.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: Closed.\n"));
     m_pQSVLog.reset();
 }
 

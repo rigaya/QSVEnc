@@ -195,24 +195,24 @@ static bool check_libass_dll() {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-//MSGL_FATAL 0 - QSV_LOG_ERROR  2
-//MSGL_ERR   1 - QSV_LOG_ERROR  2
-//MSGL_WARN  2 - QSV_LOG_WARN   1
-//           3 - QSV_LOG_WARN   1
-//MSGL_INFO  4 - QSV_LOG_MORE  -1 (いろいろ情報が出すぎるので)
-//           5 - QSV_LOG_MORE  -1
-//MSGL_V     6 - QSV_LOG_DEBUG -2
-//MSGL_DBG2  7 - QSV_LOG_TRACE -3
+//MSGL_FATAL 0 - RGY_LOG_ERROR  2
+//MSGL_ERR   1 - RGY_LOG_ERROR  2
+//MSGL_WARN  2 - RGY_LOG_WARN   1
+//           3 - RGY_LOG_WARN   1
+//MSGL_INFO  4 - RGY_LOG_MORE  -1 (いろいろ情報が出すぎるので)
+//           5 - RGY_LOG_MORE  -1
+//MSGL_V     6 - RGY_LOG_DEBUG -2
+//MSGL_DBG2  7 - RGY_LOG_TRACE -3
 static inline int log_level_ass2qsv(int level) {
     static const int log_level_map[] = {
-        QSV_LOG_ERROR,
-        QSV_LOG_ERROR,
-        QSV_LOG_WARN,
-        QSV_LOG_WARN,
-        QSV_LOG_MORE,
-        QSV_LOG_MORE,
-        QSV_LOG_DEBUG,
-        QSV_LOG_TRACE
+        RGY_LOG_ERROR,
+        RGY_LOG_ERROR,
+        RGY_LOG_WARN,
+        RGY_LOG_WARN,
+        RGY_LOG_MORE,
+        RGY_LOG_MORE,
+        RGY_LOG_DEBUG,
+        RGY_LOG_TRACE
     };
     return log_level_map[clamp(level, 0, _countof(log_level_map) - 1)];
 }
@@ -223,7 +223,7 @@ static void ass_log(int ass_level, const char *fmt, va_list args, void *ctx) {
 
 static void ass_log_error_only(int ass_level, const char *fmt, va_list args, void *ctx) {
     auto qsv_level = log_level_ass2qsv(ass_level);
-    if (qsv_level >= QSV_LOG_ERROR) {
+    if (qsv_level >= RGY_LOG_ERROR) {
         ((CQSVLog *)ctx)->write_line(qsv_level, fmt, args, CP_UTF8);
     }
 }
@@ -302,7 +302,7 @@ mfxStatus SubBurn::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mf
         }
 
         if (!m_sTasks[ind].pProcessor) {
-            AddMessage(QSV_LOG_ERROR, _T("Unsupported.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Unsupported.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
         m_sTasks[ind].pProcessor->SetLog(m_pPrintMes);
@@ -324,7 +324,7 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
         return MFX_ERR_NULL_PTR;
     }
     if (!check_libass_dll()) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to load libass dll.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to load libass dll.\n"));
         return MFX_ERR_NULL_PTR;
     }
     mfxStatus sts = MFX_ERR_NONE;
@@ -339,7 +339,7 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
         pluginOpaqueAlloc = (mfxExtOpaqueSurfaceAlloc*)GetExtBuffer(m_VideoParam.ExtParam,
             m_VideoParam.NumExtParam, MFX_EXTBUFF_OPAQUE_SURFACE_ALLOCATION);
         if (sts != MFX_ERR_NONE) {
-            AddMessage(QSV_LOG_ERROR, _T("failed GetExtBuffer for OpaqueAlloc.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed GetExtBuffer for OpaqueAlloc.\n"));
             return sts;
         }
     }
@@ -352,7 +352,7 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
         sts = m_mfxCore.MapOpaqueSurface(pluginOpaqueAlloc->In.NumSurface,
             pluginOpaqueAlloc->In.Type, pluginOpaqueAlloc->In.Surfaces);
         if (sts != MFX_ERR_NONE) {
-            AddMessage(QSV_LOG_ERROR, _T("failed MapOpaqueSurface[In].\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed MapOpaqueSurface[In].\n"));
             return sts;
         }
     }
@@ -361,7 +361,7 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
         sts = m_mfxCore.MapOpaqueSurface(pluginOpaqueAlloc->Out.NumSurface,
             pluginOpaqueAlloc->Out.Type, pluginOpaqueAlloc->Out.Surfaces);
         if (sts != MFX_ERR_NONE) {
-            AddMessage(QSV_LOG_ERROR, _T("failed MapOpaqueSurface[Out].\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed MapOpaqueSurface[Out].\n"));
             return sts;
         }
     }
@@ -381,12 +381,12 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
     for (uint32_t i = 0; i < m_sTasks.size(); i++) {
         m_sTasks[i].pBuffer.reset((uint8_t *)_aligned_malloc(((std::max)(mfxParam->mfx.FrameInfo.Width, mfxParam->mfx.FrameInfo.CropW) + 255 + 16) & ~255, 32));
         if (m_sTasks[i].pBuffer.get() == nullptr) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to allocate buffer.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate buffer.\n"));
             return MFX_ERR_NULL_PTR;
         }
     }
 
-    AddMessage(QSV_LOG_DEBUG, _T("init success.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("init success.\n"));
     m_bInited = true;
     return MFX_ERR_NONE;
 }
@@ -394,7 +394,7 @@ mfxStatus SubBurn::Init(mfxVideoParam *mfxParam) {
 mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
     //libassの初期化
     if (nullptr == (pProcData->pAssLibrary = ass_library_init())) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to initialize libass.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass.\n"));
         return MFX_ERR_NULL_PTR;
     }
     ass_set_message_cb(pProcData->pAssLibrary, (pProcData->nTaskId == 0) ? ass_log : ass_log_error_only, m_pPrintMes.get());
@@ -403,7 +403,7 @@ mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
     ass_set_style_overrides(pProcData->pAssLibrary, nullptr);
 
     if (nullptr == (pProcData->pAssRenderer = ass_renderer_init(pProcData->pAssLibrary))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to initialize libass renderer.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass renderer.\n"));
         return MFX_ERR_NULL_PTR;
     }
 
@@ -418,7 +418,7 @@ mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
     ass_set_fonts(pProcData->pAssRenderer, font, family, 1, nullptr, 1);
 
     if (nullptr == (pProcData->pAssTrack = ass_new_track(pProcData->pAssLibrary))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to initialize libass track.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to initialize libass track.\n"));
         return MFX_ERR_NULL_PTR;
     }
 
@@ -457,38 +457,38 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
     AVCodecID inputCodecId = AV_CODEC_ID_NONE;
     if (pProcData->pFilePath) {
         //ファイル読み込みの場合
-        AddMessage(QSV_LOG_DEBUG, _T("trying to open subtitle file \"%s\""), pProcData->pFilePath);
+        AddMessage(RGY_LOG_DEBUG, _T("trying to open subtitle file \"%s\""), pProcData->pFilePath);
 
         std::string filename_char;
         if (0 == tchar_to_string(pProcData->pFilePath, filename_char, CP_UTF8)) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to convert filename to utf-8 characters.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to convert filename to utf-8 characters.\n"));
             return MFX_ERR_INVALID_HANDLE;
         }
         int ret = avformat_open_input(&pProcData->pFormatCtx, filename_char.c_str(), nullptr, nullptr);
         if (ret < 0) {
-            AddMessage(QSV_LOG_ERROR, _T("error opening file: \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
 
         if (avformat_find_stream_info(pProcData->pFormatCtx, nullptr) < 0) {
-            AddMessage(QSV_LOG_ERROR, _T("error finding stream information.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("error finding stream information.\n"));
             return MFX_ERR_NULL_PTR; // Couldn't find stream information
         }
-        AddMessage(QSV_LOG_DEBUG, _T("got stream information.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("got stream information.\n"));
         av_dump_format(pProcData->pFormatCtx, 0, filename_char.c_str(), 0);
 
         if (0 > (pProcData->nSubtitleStreamIndex = av_find_best_stream(pProcData->pFormatCtx, AVMEDIA_TYPE_SUBTITLE, -1, -1, nullptr, 0))) {
-            AddMessage(QSV_LOG_ERROR, _T("no subtitle stream found in \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("no subtitle stream found in \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
         inputCodecId = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codec->codec_id;
-        AddMessage(QSV_LOG_DEBUG, _T("found subtitle in stream #%d (%s).\n"), pProcData->nSubtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("found subtitle in stream #%d (%s).\n"), pProcData->nSubtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str());
     } else {
         inputCodecId = pProcData->pStreamIn->codecpar->codec_id;
     }
 
     pProcData->nType = avcodec_descriptor_get(inputCodecId)->props;
-    AddMessage(QSV_LOG_DEBUG, _T("sub type: %s\n"), (pProcData->nType & AV_CODEC_PROP_TEXT_SUB) ? _T("text") : _T("bitmap"));
+    AddMessage(RGY_LOG_DEBUG, _T("sub type: %s\n"), (pProcData->nType & AV_CODEC_PROP_TEXT_SUB) ? _T("text") : _T("bitmap"));
 
     auto copy_subtitle_header = [](AVCodecContext *pDstCtx, const AVCodecContext *pSrcCtx) {
         if (pSrcCtx->subtitle_header_size) {
@@ -499,12 +499,12 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
     };
     //decoderの初期化
     if (NULL == (pProcData->pOutCodecDecode = avcodec_find_decoder(inputCodecId))) {
-        AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), inputCodecId));
-        AddMessage(QSV_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), inputCodecId));
+        AddMessage(RGY_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
         return MFX_ERR_NULL_PTR;
     }
     if (NULL == (pProcData->pOutCodecDecodeCtx = avcodec_alloc_context3(pProcData->pOutCodecDecode))) {
-        AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), inputCodecId));
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), inputCodecId));
         return MFX_ERR_NULL_PTR;
     }
     if (pProcData->pStreamIn) {
@@ -528,7 +528,7 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
             if (pProcData->sCharEnc.length() == 0) {
                 FILE *fp = NULL;
                 if (_tfopen_s(&fp, pProcData->pFilePath, _T("rb")) || fp == NULL) {
-                    AddMessage(QSV_LOG_ERROR, _T("error opening file: \"%s\"\n"), pProcData->pFilePath);
+                    AddMessage(RGY_LOG_ERROR, _T("error opening file: \"%s\"\n"), pProcData->pFilePath);
                     return MFX_ERR_NULL_PTR; // Couldn't open file
                 }
 
@@ -554,56 +554,56 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
         }
         if (pProcData->sCharEnc.length() > 0) {
             if (0 > (ret = av_dict_set(&pCodecOpts, "sub_charenc", pProcData->sCharEnc.c_str(), 0))) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_charenc\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to set \"sub_charenc\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
                 return MFX_ERR_NULL_PTR;
             }
         }
         if (0 > (ret = av_dict_set(&pCodecOpts, "sub_text_format", "ass", 0))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
             return MFX_ERR_NULL_PTR;
         }
     }
     if (0 > (ret = avcodec_open2(pProcData->pOutCodecDecodeCtx, pProcData->pOutCodecDecode, &pCodecOpts))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
+        AddMessage(RGY_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
             char_to_tstring(avcodec_get_name(pProcData->pStreamIn->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
         return MFX_ERR_NULL_PTR;
     }
     if (pProcData->nInTrackId == 0) {
-        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
-        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
+        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(inputCodecId)).c_str(),
             pProcData->pOutCodecDecodeCtx->width, pProcData->pOutCodecDecodeCtx->height);
     }
 #if 0
     //エンコーダを探す
     const AVCodecID codecId = AV_CODEC_ID_ASS;
     if (NULL == (pProcData->pOutCodecEncode = avcodec_find_encoder(codecId))) {
-        AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
-        AddMessage(QSV_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
+        AddMessage(RGY_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
         return MFX_ERR_NULL_PTR;
     }
-    AddMessage(QSV_LOG_DEBUG, _T("found encoder for codec %s for subtitle track %d\n"), char_to_tstring(pProcData->pOutCodecEncode->name).c_str(), pProcData->nInTrackId);
+    AddMessage(RGY_LOG_DEBUG, _T("found encoder for codec %s for subtitle track %d\n"), char_to_tstring(pProcData->pOutCodecEncode->name).c_str(), pProcData->nInTrackId);
 
     if (NULL == (pProcData->pOutCodecEncodeCtx = avcodec_alloc_context3(pProcData->pOutCodecEncode))) {
-        AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
         return MFX_ERR_NULL_PTR;
     }
     pProcData->pOutCodecEncodeCtx->time_base = av_make_q(1, 1000);
     copy_subtitle_header(pProcData->pOutCodecEncodeCtx, pProcData->pCodecCtxIn);
 
-    AddMessage(QSV_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(pProcData->pOutCodecEncode->name).c_str(),
+    AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(pProcData->pOutCodecEncode->name).c_str(),
         pProcData->pOutCodecEncodeCtx->width, pProcData->pOutCodecEncodeCtx->height);
     if (pProcData->pOutCodecEncode->capabilities & CODEC_CAP_EXPERIMENTAL) {
         //問答無用で使うのだ
         av_opt_set(pProcData->pOutCodecEncodeCtx, "strict", "experimental", 0);
     }
     if (0 > (ret = avcodec_open2(pProcData->pOutCodecEncodeCtx, pProcData->pOutCodecEncode, NULL))) {
-        AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
-        AddMessage(QSV_LOG_ERROR, _T("%s\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
+        AddMessage(RGY_LOG_ERROR, _T("%s\n"), qsv_av_err2str(ret).c_str());
         return MFX_ERR_NULL_PTR;
     }
-    AddMessage(QSV_LOG_DEBUG, _T("Opened Subtitle Encoder Param: %s\n"), char_to_tstring(pProcData->pOutCodecEncode->name).c_str());
+    AddMessage(RGY_LOG_DEBUG, _T("Opened Subtitle Encoder Param: %s\n"), char_to_tstring(pProcData->pOutCodecEncode->name).c_str());
     if (nullptr == (pProcData->pBuf = (uint8_t *)av_malloc(1024 * 1024))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to allocate buffer memory for subtitle encoding.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate buffer memory for subtitle encoding.\n"));
         return MFX_ERR_NULL_PTR;
     }
 #endif
@@ -619,7 +619,7 @@ mfxStatus SubBurn::ProcSub(ProcessDataSubBurn *pProcData) {
                 int got_sub = 0;
                 AVSubtitle sub ={ 0 };
                 if (0 > avcodec_decode_subtitle2(pProcData->pOutCodecDecodeCtx, &sub, &got_sub, &pkt)) {
-                    AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to decode subtitle.\n"));
                     return MFX_ERR_UNKNOWN;
                 }
                 if (got_sub) {
@@ -659,7 +659,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         { QSV_VPP_SUB_COMPLEX, ASS_SHAPING_COMPLEX },
     };
     if (mShapingLevel.find(pSubBurnPar->nShaping) == mShapingLevel.end()) {
-        AddMessage(QSV_LOG_ERROR, _T("unknown shaping mode for sub burning.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("unknown shaping mode for sub burning.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
 
@@ -686,7 +686,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
     if (m_SubBurnParam.src.nTrackId != 0) {
         m_pluginName += strsprintf(_T(" track #%d"), std::abs(m_SubBurnParam.src.nTrackId));
     } else {
-        AddMessage(QSV_LOG_DEBUG, _T("input file path \"%s\".\n"), m_SubBurnParam.pFilePath);
+        AddMessage(RGY_LOG_DEBUG, _T("input file path \"%s\".\n"), m_SubBurnParam.pFilePath);
         std::wstring sFilename = tchar_to_wstring(PathFindFileName(m_SubBurnParam.pFilePath));
         if (sFilename.length() > 23) {
             sFilename = sFilename.substr(0, 20) + L"...";
@@ -715,7 +715,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_vProcessData[i].nSimdAvail = m_nSimdAvail;
         m_vProcessData[i].qSubPackets.init();
 
-        AddMessage(QSV_LOG_DEBUG, _T("initializing task %d/%d...\n"), i, (uint32_t)m_sTasks.size());
+        AddMessage(RGY_LOG_DEBUG, _T("initializing task %d/%d...\n"), i, (uint32_t)m_sTasks.size());
 
         if (MFX_ERR_NONE != (sts = InitAvcodec(&m_vProcessData[i]))) {
             return sts;
@@ -741,22 +741,22 @@ mfxStatus SubBurn::SendData(int nType, void *pData) {
         for (uint32_t i = 1; i < m_sTasks.size(); i++) {
             if (m_vProcessData[i].nType & AV_CODEC_PROP_TEXT_SUB) {
                 if (m_vProcessData[i].pAssTrack == nullptr) {
-                    AddMessage(QSV_LOG_ERROR, _T("ass track not initialized.\n"));
+                    AddMessage(RGY_LOG_ERROR, _T("ass track not initialized.\n"));
                     return MFX_ERR_NULL_PTR;
                 }
             }
             if (m_vProcessData[i].pOutCodecDecodeCtx == nullptr) {
-                AddMessage(QSV_LOG_ERROR, _T("sub decoder not initialized.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("sub decoder not initialized.\n"));
                 return MFX_ERR_NULL_PTR;
             }
             AVPacket *pktCopy = av_packet_clone((AVPacket *)pData);
             m_vProcessData[i].qSubPackets.push(*pktCopy);
         }
         m_vProcessData[0].qSubPackets.push(*(AVPacket *)pData);
-        AddMessage(QSV_LOG_TRACE, _T("Add subtitle packet\n"));
+        AddMessage(RGY_LOG_TRACE, _T("Add subtitle packet\n"));
         return MFX_ERR_NONE;
     } else {
-        AddMessage(QSV_LOG_ERROR, _T("SendData: unknown data type.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("SendData: unknown data type.\n"));
         return MFX_ERR_UNSUPPORTED;
     }
 }
@@ -776,14 +776,14 @@ mfxStatus SubBurn::Close() {
         if (m_vProcessData[i].pOutCodecDecodeCtx) {
             avcodec_close(m_vProcessData[i].pOutCodecDecodeCtx);
             av_free(m_vProcessData[i].pOutCodecDecodeCtx);
-            AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
         }
 
         //close encoder
         if (m_vProcessData[i].pOutCodecEncodeCtx) {
             avcodec_close(m_vProcessData[i].pOutCodecEncodeCtx);
             av_free(m_vProcessData[i].pOutCodecEncodeCtx);
-            AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
         }
 
         if (m_vProcessData[i].pBuf) {
@@ -882,7 +882,7 @@ mfxStatus ProcessorSubBurn::ProcessSubText(uint8_t *pBuffer) {
         int got_sub = 0;
         AVSubtitle sub = { 0 };
         if (0 > avcodec_decode_subtitle2(m_pProcData->pOutCodecDecodeCtx, &sub, &got_sub, &pkt)) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to decode subtitle.\n"));
             return MFX_ERR_UNKNOWN;
         }
 
@@ -972,7 +972,7 @@ mfxStatus ProcessorSubBurn::ProcessSubBitmap(uint8_t *pBuffer) {
         //字幕パケットをデコードする
         int got_sub = 0;
         if (0 > avcodec_decode_subtitle2(m_pProcData->pOutCodecDecodeCtx, &m_pProcData->subtitle, &got_sub, &pkt)) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to decode subtitle.\n"));
             return MFX_ERR_UNKNOWN;
         }
         av_packet_unref(&pkt);

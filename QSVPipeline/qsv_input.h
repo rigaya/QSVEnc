@@ -56,16 +56,16 @@ public:
 
         //_ftprintf(stderr, "GetNextFrame: wait for %d\n", m_pEncThread->m_nFrameGet);
         //_ftprintf(stderr, "wait for heInputDone, %d\n", m_pEncThread->m_nFrameGet);
-        AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Wait Done %d.\n"), m_pEncThread->m_nFrameGet);
+        AddMessage(RGY_LOG_TRACE, _T("Enc Thread: Wait Done %d.\n"), m_pEncThread->m_nFrameGet);
         WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
         //エラー・中断要求などでの終了
         if (m_pEncThread->m_bthForceAbort) {
-            AddMessage(QSV_LOG_DEBUG, _T("GetNextFrame: Encode Aborted...\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("GetNextFrame: Encode Aborted...\n"));
             return m_pEncThread->m_stsThread;
         }
         //読み込み完了による終了
         if (m_pEncThread->m_stsThread == RGY_ERR_MORE_DATA && m_pEncThread->m_nFrameGet == m_pEncSatusInfo->m_nInputFrames) {
-            AddMessage(QSV_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
             return m_pEncThread->m_stsThread;
         }
         //フレーム読み込みでない場合は、フレーム関連の処理は行わない
@@ -104,7 +104,7 @@ public:
             pInputBuf->pFrameSurface = pSurface;
         }
         SetEvent(pInputBuf->heInputStart);
-        AddMessage(QSV_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_pEncThread->m_nFrameSet);
+        AddMessage(RGY_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_pEncThread->m_nFrameSet);
         m_pEncThread->m_nFrameSet++;
         return RGY_ERR_NONE;
     }

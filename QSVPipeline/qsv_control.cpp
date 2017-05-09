@@ -159,11 +159,11 @@ RGY_ERR CEncodingThread::WaitToFinish(RGY_ERR sts, shared_ptr<CQSVLog> pQSVLog) 
     //読み込み終了(RGY_ERR_MORE_DATA)ではなく、エラーや中断だった場合、
     //直ちに終了する
     if (sts != RGY_ERR_MORE_DATA) {
-        pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
+        pQSVLog->write(RGY_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
         m_bthForceAbort++; //m_bthForceAbort = TRUE;
         m_bthSubAbort++;   //m_bthSubAbort = TRUE;
         if (m_InputBuf) {
-            pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
+            pQSVLog->write(RGY_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
             for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
                 SetEvent(m_InputBuf[i].heInputDone);
                 SetEvent(m_InputBuf[i].heSubStart);
@@ -172,7 +172,7 @@ RGY_ERR CEncodingThread::WaitToFinish(RGY_ERR sts, shared_ptr<CQSVLog> pQSVLog) 
     }
     //RunEncodeの終了を待つ
     m_thEncode.join();
-    pQSVLog->write(QSV_LOG_DEBUG, _T("WaitToFinish: Encode thread shut down.\n"));
+    pQSVLog->write(RGY_LOG_DEBUG, _T("WaitToFinish: Encode thread shut down.\n"));
     return RGY_ERR_NONE;
 }
 

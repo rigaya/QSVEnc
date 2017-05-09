@@ -56,14 +56,14 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     AVIFileInit();
 
     if (0 != AVIFileOpen(&m_pAviFile, strFileName, OF_READ | OF_SHARE_DENY_NONE, NULL)) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to open avi file: \"%s\"\n"), strFileName);
+        AddMessage(RGY_LOG_ERROR, _T("failed to open avi file: \"%s\"\n"), strFileName);
         return RGY_ERR_FILE_OPEN;
     }
-    AddMessage(QSV_LOG_DEBUG, _T("openend avi file: \"%s\"\n"), strFileName);
+    AddMessage(RGY_LOG_DEBUG, _T("openend avi file: \"%s\"\n"), strFileName);
 
     AVIFILEINFO finfo = { 0 };
     if (0 != AVIFileInfo(m_pAviFile, &finfo, sizeof(AVIFILEINFO))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to get avi file info.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to get avi file info.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
     tstring strFcc;
@@ -90,10 +90,10 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
         m_pAviStream = NULL;
     }
     if (m_pAviStream == NULL) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to get valid stream from avi file.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to get valid stream from avi file.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
-    AddMessage(QSV_LOG_DEBUG, _T("found video stream from avi file.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("found video stream from avi file.\n"));
 
     if (   m_ColorFormat == MFX_FOURCC_YUY2
         || m_ColorFormat == MFX_FOURCC_YV12) {
@@ -116,12 +116,12 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
         if (m_pGetFrame == NULL) {
             if (   NULL == (m_pGetFrame = AVIStreamGetFrameOpen(m_pAviStream, NULL))
                 && NULL == (m_pGetFrame = AVIStreamGetFrameOpen(m_pAviStream, (BITMAPINFOHEADER *)AVIGETFRAMEF_BESTDISPLAYFMT))) {
-                AddMessage(QSV_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
                 return RGY_ERR_INVALID_HANDLE;
             }
             BITMAPINFOHEADER *bmpInfoHeader = (BITMAPINFOHEADER *)AVIStreamGetFrame(m_pGetFrame, 0);
             if (NULL == bmpInfoHeader || bmpInfoHeader->biCompression != 0) {
-                AddMessage(QSV_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("\nfailed to decode avi file.\n"));
                 return RGY_ERR_MORE_DATA;
             }
 
@@ -149,7 +149,7 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     tstring mes = strsprintf(_T("avi: %s(%s)->%s[%s], %dx%d, %d/%d fps"), strFcc.c_str(),
         QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
-    AddMessage(QSV_LOG_DEBUG, mes);
+    AddMessage(RGY_LOG_DEBUG, mes);
     m_strInputInfo += mes;
 
     m_bInited = true;
@@ -158,7 +158,7 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
 #pragma warning(pop)
 
 void CAVIReader::Close() {
-    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_pGetFrame)
         AVIStreamGetFrameClose(m_pGetFrame);
     if (m_pAviStream)
@@ -176,7 +176,7 @@ void CAVIReader::Close() {
     m_bInited = false;
     m_nYPitchMultiplizer = 1;
     m_pEncSatusInfo.reset();
-    AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 RGY_ERR CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {

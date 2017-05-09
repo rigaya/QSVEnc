@@ -399,7 +399,7 @@ mfxSession InitSession(bool useHWLib, MemType& memType) {
 std::unique_ptr<CQSVHWDevice> InitHWDevice(mfxSession session, MemType& memType) {
     mfxStatus sts = MFX_ERR_NONE;
     std::unique_ptr<CQSVHWDevice> hwdev;
-    std::shared_ptr<CQSVLog> pQSVLog(new CQSVLog(nullptr, QSV_LOG_ERROR));
+    std::shared_ptr<CQSVLog> pQSVLog(new CQSVLog(nullptr, RGY_LOG_ERROR));
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
     HWND window = WindowFromPoint(point);

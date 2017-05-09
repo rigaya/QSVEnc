@@ -38,13 +38,13 @@
 #include "convert_csp.h"
 
 enum {
-    QSV_LOG_TRACE = -3,
-    QSV_LOG_DEBUG = -2,
-    QSV_LOG_MORE = -1,
-    QSV_LOG_INFO = 0,
-    QSV_LOG_WARN,
-    QSV_LOG_ERROR,
-    QSV_LOG_QUIET,
+    RGY_LOG_TRACE = -3,
+    RGY_LOG_DEBUG = -2,
+    RGY_LOG_MORE = -1,
+    RGY_LOG_INFO = 0,
+    RGY_LOG_WARN,
+    RGY_LOG_ERROR,
+    RGY_LOG_QUIET,
 };
 
 enum {
@@ -685,12 +685,12 @@ const CX_DESC list_mv_cost_scaling[] = {
 };
 
 const CX_DESC list_log_level[] = {
-    { _T("trace"), QSV_LOG_TRACE },
-    { _T("debug"), QSV_LOG_DEBUG },
-    { _T("more"),  QSV_LOG_MORE  },
-    { _T("info"),  QSV_LOG_INFO  },
-    { _T("warn"),  QSV_LOG_WARN  },
-    { _T("error"), QSV_LOG_ERROR },
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
     { NULL, 0 }
 };
 

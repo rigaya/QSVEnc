@@ -604,13 +604,13 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
     if (handle == NULL) {
         handle = GetStdHandle(STD_ERROR_HANDLE);
     }
-    if (handle && log_level != QSV_LOG_INFO) {
+    if (handle && log_level != RGY_LOG_INFO) {
         GetConsoleScreenBufferInfo(handle, &csbi);
-        SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE] | (csbi.wAttributes & 0x00f0));
+        SetConsoleTextAttribute(handle, LOG_COLOR[clamp(log_level, RGY_LOG_TRACE, RGY_LOG_ERROR) - RGY_LOG_TRACE] | (csbi.wAttributes & 0x00f0));
     }
     //このfprintfで"%"が消えてしまわないよう置換する
     int ret = _ftprintf(stderr, (nullptr == _tcschr(mes, _T('%'))) ? mes : str_replace(tstring(mes), _T("%"), _T("%%")).c_str());
-    if (handle && log_level != QSV_LOG_INFO) {
+    if (handle && log_level != RGY_LOG_INFO) {
         SetConsoleTextAttribute(handle, csbi.wAttributes); //元に戻す
     }
 #else
@@ -622,7 +622,7 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
         "\x1b[33m", //黄色
         "\x1b[31m", //赤
     };
-    int ret = _ftprintf(stderr, "%s%s%s", LOG_COLOR[clamp(log_level, QSV_LOG_TRACE, QSV_LOG_ERROR) - QSV_LOG_TRACE], mes, LOG_COLOR[QSV_LOG_INFO - QSV_LOG_TRACE]);
+    int ret = _ftprintf(stderr, "%s%s%s", LOG_COLOR[clamp(log_level, RGY_LOG_TRACE, RGY_LOG_ERROR) - RGY_LOG_TRACE], mes, LOG_COLOR[RGY_LOG_INFO - RGY_LOG_TRACE]);
 #endif //#if defined(_WIN32) || defined(_WIN64)
     fflush(stderr);
     return ret;

@@ -89,27 +89,27 @@ RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
 
     if (RGY_ERR_NONE != load_avisynth()) {
-        AddMessage(QSV_LOG_ERROR,  _T("failed to load %s.\n"), avisynth_dll_name);
+        AddMessage(RGY_LOG_ERROR,  _T("failed to load %s.\n"), avisynth_dll_name);
         return RGY_ERR_INVALID_HANDLE;
     }
 
     if (NULL == (m_sAVSenv = m_sAvisynth.create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
-        AddMessage(QSV_LOG_ERROR,  _T("failed to init avisynth enviroment.\n"));
+        AddMessage(RGY_LOG_ERROR,  _T("failed to init avisynth enviroment.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
     std::string filename_char;
     if (0 == tchar_to_string(strFileName, filename_char)) {
-        AddMessage(QSV_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
+        AddMessage(RGY_LOG_ERROR,  _T("failed to convert to ansi characters.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     AVS_Value val_filename = avs_new_value_string(filename_char.c_str());
     AVS_Value val_res = m_sAvisynth.invoke(m_sAVSenv, "Import", val_filename, NULL);
     m_sAvisynth.release_value(val_filename);
-    AddMessage(QSV_LOG_DEBUG,  _T("opened avs file: \"%s\"\n"), char_to_tstring(filename_char).c_str());
+    AddMessage(RGY_LOG_DEBUG,  _T("opened avs file: \"%s\"\n"), char_to_tstring(filename_char).c_str());
     if (!avs_is_clip(val_res)) {
-        AddMessage(QSV_LOG_ERROR,  _T("invalid clip.\n"));
+        AddMessage(RGY_LOG_ERROR,  _T("invalid clip.\n"));
         if (avs_is_error(val_res)) {
-            AddMessage(QSV_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
+            AddMessage(RGY_LOG_ERROR, char_to_tstring(avs_as_string(val_res)) + _T("\n"));
         }
         m_sAvisynth.release_value(val_res);
         return RGY_ERR_INVALID_HANDLE;
@@ -118,15 +118,15 @@ RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     m_sAvisynth.release_value(val_res);
 
     if (NULL == (m_sAVSinfo = m_sAvisynth.get_video_info(m_sAVSclip))) {
-        AddMessage(QSV_LOG_ERROR,  _T("failed to get avs info.\n"));
+        AddMessage(RGY_LOG_ERROR,  _T("failed to get avs info.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
 
     if (!avs_has_video(m_sAVSinfo)) {
-        AddMessage(QSV_LOG_ERROR,  _T("avs has no video.\n"));
+        AddMessage(RGY_LOG_ERROR,  _T("avs has no video.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
-    AddMessage(QSV_LOG_DEBUG,  _T("found video from avs file, pixel type 0x%x.\n"), m_sAVSinfo->pixel_type);
+    AddMessage(RGY_LOG_DEBUG,  _T("found video from avs file, pixel type 0x%x.\n"), m_sAVSinfo->pixel_type);
 
     memset(&m_inputFrameInfo, 0, sizeof(m_inputFrameInfo));
 
@@ -155,7 +155,7 @@ RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     }
 
     if (0x00 == m_ColorFormat || nullptr == m_sConvert) {
-        AddMessage(QSV_LOG_ERROR,  _T("invalid colorformat.\n"));
+        AddMessage(RGY_LOG_ERROR,  _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
@@ -178,7 +178,7 @@ RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
     tstring mes = strsprintf( _T("Avisynth %s (%s)->%s[%s], %dx%d, %d/%d fps"), avisynth_version.c_str(),
         QSV_ENC_CSP_NAMES[m_sConvert->csp_from], QSV_ENC_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
         m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
-    AddMessage(QSV_LOG_DEBUG, mes);
+    AddMessage(RGY_LOG_DEBUG, mes);
     m_strInputInfo += mes;
 
     m_bInited = true;
@@ -187,7 +187,7 @@ RGY_ERR CAVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const voi
 #pragma warning(pop)
 
 void CAVSReader::Close() {
-    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_sAVSclip)
         m_sAvisynth.release_clip(m_sAVSclip);
     if (m_sAVSenv)
@@ -200,7 +200,7 @@ void CAVSReader::Close() {
     m_sAVSinfo = NULL;
     m_bInited = false;
     m_pEncSatusInfo.reset();
-    AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 RGY_ERR CAVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {

@@ -126,9 +126,9 @@ const CX_DESC list_outtype[] = {
 };
 
 const CX_DESC list_log_level_jp[] = {
-    { "通常",                  QSV_LOG_INFO  },
-    { "音声/muxのログも表示 ", QSV_LOG_MORE  },
-    { "デバッグ用出力も表示 ", QSV_LOG_DEBUG },
+    { "通常",                  RGY_LOG_INFO  },
+    { "音声/muxのログも表示 ", RGY_LOG_MORE  },
+    { "デバッグ用出力も表示 ", RGY_LOG_DEBUG },
     { NULL, NULL }
 };
 

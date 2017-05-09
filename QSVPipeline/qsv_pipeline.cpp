@@ -66,15 +66,15 @@
 #include "qsv_allocator_va.h"
 #endif
 
-#define RGY_ERR_MES(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return err_to_mfx(ret);}}
-#define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(QSV_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
+#define RGY_ERR_MES(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return err_to_mfx(ret);}}
+#define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
 #define CHECK_RANGE_LIST(value, list, name)    { if (CheckParamList((value), (list), (name)) != MFX_ERR_NONE) { return MFX_ERR_INVALID_VIDEO_PARAM; } }
 
 int CQSVPipeline::clamp_param_int(int value, int low, int high, const TCHAR *param_name) {
     auto value_old = value;
     value = clamp(value, low, high);
     if (value != value_old) {
-        PrintMes(QSV_LOG_WARN, _T("%s value changed %d -> %d, must be in range of %d-%d\n"), param_name, value_old, value, low, high);
+        PrintMes(RGY_LOG_WARN, _T("%s value changed %d -> %d, must be in range of %d-%d\n"), param_name, value_old, value, low, high);
     }
     return value;
 }
@@ -84,33 +84,33 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
 #define COMPARE_INT(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes(((int64_t)prmIn.member == (int64_t)ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %d -> %d by driver\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
+        PrintMes(((int64_t)prmIn.member == (int64_t)ignoreIfInput) ? RGY_LOG_DEBUG : RGY_LOG_WARN, _T("%s value changed %d -> %d by driver\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
     }}
 #define TRI_STATE(x) ((x == 0) ? _T("auto") : ((x == MFX_CODINGOPTION_ON) ? _T("on") : _T("off")))
 #define COMPARE_TRI(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), TRI_STATE(prmIn.member), TRI_STATE(prmOut.member)); \
+        PrintMes((prmIn.member == ignoreIfInput) ? RGY_LOG_DEBUG : RGY_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), TRI_STATE(prmIn.member), TRI_STATE(prmOut.member)); \
     }}
 #define COMPARE_HEX(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed 0x%x -> 0x%x by driver\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
+        PrintMes((prmIn.member == ignoreIfInput) ? RGY_LOG_DEBUG : RGY_LOG_WARN, _T("%s value changed 0x%x -> 0x%x by driver\n"), _T(#member), (int)prmIn.member, (int)prmOut.member); \
     }}
 #define COMPARE_DBL(member, ignoreIfInput) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %lf -> %lf by driver\n"), _T(#member), (double)prmIn.member, (double)prmOut.member); \
+        PrintMes((prmIn.member == ignoreIfInput) ? RGY_LOG_DEBUG : RGY_LOG_WARN, _T("%s value changed %lf -> %lf by driver\n"), _T(#member), (double)prmIn.member, (double)prmOut.member); \
     }}
 #define COMPARE_STR(member, ignoreIfInput, printMethod) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), printMethod(prmIn.member), printMethod(prmOut.member)); \
+        PrintMes((prmIn.member == ignoreIfInput) ? RGY_LOG_DEBUG : RGY_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), printMethod(prmIn.member), printMethod(prmOut.member)); \
     }}
 #define COMPARE_LST(member, ignoreIfInput, list) { \
     if (prmIn.member != prmOut.member) { \
         ret = true;\
-        PrintMes((prmIn.member == ignoreIfInput) ? QSV_LOG_DEBUG : QSV_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), get_chr_from_value(list, prmIn.member), get_chr_from_value(list, prmOut.member)); \
+        PrintMes((prmIn.member == ignoreIfInput) ? RGY_LOG_DEBUG : RGY_LOG_WARN, _T("%s value changed %s -> %s by driver\n"), _T(#member), get_chr_from_value(list, prmIn.member), get_chr_from_value(list, prmOut.member)); \
     }}
     COMPARE_INT(vidprm.AsyncDepth,             0);
     COMPARE_HEX(vidprm.IOPattern,              0);
@@ -289,7 +289,7 @@ mfxStatus CQSVPipeline::CheckParamList(int value, const CX_DESC *list, const cha
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == value)
             return MFX_ERR_NONE;
-    PrintMes(QSV_LOG_ERROR, _T("%s=%d, is not valid param.\n"), param_name, value);
+    PrintMes(RGY_LOG_ERROR, _T("%s=%d, is not valid param.\n"), param_name, value);
     return MFX_ERR_INVALID_VIDEO_PARAM;
 };
 
@@ -342,12 +342,12 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         auto plugin = codecPlugin.find(m_pFileReader->getInputCodec());
         if (plugin != codecPlugin.end()) {
             auto pluginData = plugin->second;
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), pluginData.second.c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), pluginData.second.c_str());
             if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, pluginData.first, 1)) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), pluginData.second.c_str());
+                PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), pluginData.second.c_str());
                 return MFX_ERR_UNSUPPORTED;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), pluginData.second.c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), pluginData.second.c_str());
         }
 
         if (m_pFileReader->getInputCodec() == MFX_CODEC_AVC || m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
@@ -371,7 +371,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             mfxBitstreamClear(&m_DecInputBitstream);
         }
 
-        PrintMes(QSV_LOG_DEBUG, _T("")
+        PrintMes(RGY_LOG_DEBUG, _T("")
             _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")
             _T("InitMfxDecParams: Frame: %s, %dx%d%s [%d,%d,%d,%d] %d:%d, bitdepth %d, shift %d\n"),
             CodecIdToStr(m_mfxDecParams.mfx.CodecId), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
@@ -383,7 +383,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to initialize QSV decoder."));
-        PrintMes(QSV_LOG_DEBUG, _T("InitMfxDecParams: Initialized QSVDec.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Initialized QSVDec.\n"));
     }
 #endif
     return MFX_ERR_NONE;
@@ -391,7 +391,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 
 mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     if (pInParams->CodecId == MFX_CODEC_RAW) {
-        PrintMes(QSV_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
         return MFX_ERR_NONE;
     }
     const mfxU32 blocksz = (pInParams->CodecId == MFX_CODEC_HEVC) ? 32 : 16;
@@ -401,26 +401,26 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     if (pInParams->CodecId == MFX_CODEC_HEVC) {
         if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1)) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
-            PrintMes(QSV_LOG_ERROR, _T("hevc encoding is not supported on current platform.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("hevc encoding is not supported on current platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     } else if (pInParams->CodecId == MFX_CODEC_VP8) {
         if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1)) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
-            PrintMes(QSV_LOG_ERROR, _T("vp8 encoding is not supported on current platform.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vp8 encoding is not supported on current platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     } else if (pInParams->CodecId == MFX_CODEC_VP9) {
         if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1)) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
-            PrintMes(QSV_LOG_ERROR, _T("vp9 encoding is not supported on current platform.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vp9 encoding is not supported on current platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
     }
     //エンコードモードのチェック
     auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
-    PrintMes(QSV_LOG_DEBUG, _T("Detected avaliable features for %s API v%d.%d, %s, %s\n%s\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for %s API v%d.%d, %s, %s\n%s\n"),
         (pInParams->bUseHWLib) ? _T("hw") : _T("sw"), m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
@@ -429,10 +429,10 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             || pInParams->nEncMode == MFX_RATECONTROL_VBR
             || pInParams->nEncMode == MFX_RATECONTROL_CBR
             || !(CheckEncodeFeature(m_mfxSession, m_mfxVer, MFX_RATECONTROL_CQP, pInParams->CodecId) & ENC_FEATURE_CURRENT_RC)) {
-            PrintMes(QSV_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
+            PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
-        const int rc_error_log_level = (pInParams->nFallback) ? QSV_LOG_WARN : QSV_LOG_ERROR;
+        const int rc_error_log_level = (pInParams->nFallback) ? RGY_LOG_WARN : RGY_LOG_ERROR;
         PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
@@ -521,7 +521,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
     }
     if (MFX_RATECONTROL_VQP == pInParams->nEncMode && m_pFileReader->getInputCodec()) {
-        PrintMes(QSV_LOG_ERROR, _T("%s mode cannot be used with avqsv reader.\n"), EncmodeToStr(pInParams->nEncMode));
+        PrintMes(RGY_LOG_ERROR, _T("%s mode cannot be used with avqsv reader.\n"), EncmodeToStr(pInParams->nEncMode));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
@@ -529,157 +529,157 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     }
     //その他機能のチェック
     if (pInParams->bAdaptiveI && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
-        PrintMes(QSV_LOG_WARN, _T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));
         pInParams->bAdaptiveI = false;
     }
     if (pInParams->bAdaptiveB && !(availableFeaures & ENC_FEATURE_ADAPTIVE_B)) {
-        PrintMes(QSV_LOG_WARN, _T("Adaptve B-frame insert is not supported on current platform, disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("Adaptve B-frame insert is not supported on current platform, disabled.\n"));
         pInParams->bAdaptiveB = false;
     }
     if (pInParams->bBPyramid && !(availableFeaures & ENC_FEATURE_B_PYRAMID)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("B pyramid"));
+        print_feature_warnings(RGY_LOG_WARN, _T("B pyramid"));
         pInParams->bBPyramid = false;
     }
     if (pInParams->bCAVLC && !(availableFeaures & ENC_FEATURE_CAVLC)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("CAVLC"));
+        print_feature_warnings(RGY_LOG_WARN, _T("CAVLC"));
         pInParams->bCAVLC = false;
     }
     if (pInParams->bExtBRC && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("ExtBRC"));
+        print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->bExtBRC = false;
     }
     if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("MBBRC"));
+        print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
         pInParams->bMBBRC = false;
     }
     if (!pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_SCENECHANGE)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("Scene change detection"));
+        print_feature_warnings(RGY_LOG_WARN, _T("Scene change detection"));
         pInParams->bforceGOPSettings = true;
     }
     if (   (MFX_RATECONTROL_LA     == pInParams->nEncMode
          || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode)
         && pInParams->nLookaheadDS != MFX_LOOKAHEAD_DS_UNKNOWN
         && !(availableFeaures & ENC_FEATURE_LA_DS)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("Lookahead qaulity setting"));
+        print_feature_warnings(RGY_LOG_WARN, _T("Lookahead qaulity setting"));
         pInParams->nLookaheadDS = MFX_LOOKAHEAD_DS_UNKNOWN;
     }
     if (pInParams->nTrellis != MFX_TRELLIS_UNKNOWN && !(availableFeaures & ENC_FEATURE_TRELLIS)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("trellis"));
+        print_feature_warnings(RGY_LOG_WARN, _T("trellis"));
         pInParams->nTrellis = MFX_TRELLIS_UNKNOWN;
     }
     if (pInParams->bRDO && !(availableFeaures & ENC_FEATURE_RDO)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("RDO"));
+        print_feature_warnings(RGY_LOG_WARN, _T("RDO"));
         pInParams->bRDO = false;
     }
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
         && pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {
-        PrintMes(QSV_LOG_ERROR, _T("Interlaced encoding is not supported on current rate control mode.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Interlaced encoding is not supported on current rate control mode.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     //最近のドライバでは問題ない模様
     //if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
-    //    PrintMes(QSV_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
+    //    PrintMes(RGY_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
     //}
     if (pInParams->bBPyramid && !pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_B_PYRAMID_AND_SC)) {
-        PrintMes(QSV_LOG_WARN, _T("B pyramid with scenechange is not supported on current platform, B pyramid disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("B pyramid with scenechange is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
     }
     if (pInParams->bBPyramid && pInParams->nBframes >= 10 && !(availableFeaures & ENC_FEATURE_B_PYRAMID_MANY_BFRAMES)) {
-        PrintMes(QSV_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
     }
     if (pInParams->bBPyramid && pInParams->bUseHWLib && getCPUGen() < CPU_GEN_HASWELL) {
-        PrintMes(QSV_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
+        PrintMes(RGY_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
     }
     if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("No deblock"));
+        print_feature_warnings(RGY_LOG_WARN, _T("No deblock"));
         pInParams->bNoDeblock = false;
     }
     if (pInParams->bIntraRefresh && !(availableFeaures & ENC_FEATURE_INTRA_REFRESH)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("Intra Refresh"));
+        print_feature_warnings(RGY_LOG_WARN, _T("Intra Refresh"));
         pInParams->bIntraRefresh = false;
     }
     if (0 != (pInParams->nQPMin[0] | pInParams->nQPMin[1] | pInParams->nQPMin[2]
             | pInParams->nQPMax[0] | pInParams->nQPMax[1] | pInParams->nQPMax[2]) && !(availableFeaures & ENC_FEATURE_QP_MINMAX)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("Min/Max QP"));
+        print_feature_warnings(RGY_LOG_WARN, _T("Min/Max QP"));
         memset(pInParams->nQPMin, 0, sizeof(pInParams->nQPMin));
         memset(pInParams->nQPMax, 0, sizeof(pInParams->nQPMax));
     }
     if (0 != pInParams->nWinBRCSize) {
         if (!(availableFeaures & ENC_FEATURE_WINBRC)) {
-            print_feature_warnings(QSV_LOG_WARN, _T("WinBRC"));
+            print_feature_warnings(RGY_LOG_WARN, _T("WinBRC"));
             pInParams->nWinBRCSize = 0;
         } else if (0 == pInParams->nMaxBitrate) {
-            print_feature_warnings(QSV_LOG_WARN, _T("Min/Max QP"));
-            PrintMes(QSV_LOG_WARN, _T("WinBRC requires Max bitrate to be set, disabled.\n"));
+            print_feature_warnings(RGY_LOG_WARN, _T("Min/Max QP"));
+            PrintMes(RGY_LOG_WARN, _T("WinBRC requires Max bitrate to be set, disabled.\n"));
             pInParams->nWinBRCSize = 0;
         }
     }
     if (pInParams->bDirectBiasAdjust && !(availableFeaures & ENC_FEATURE_DIRECT_BIAS_ADJUST)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("Direct Bias Adjust"));
+        print_feature_warnings(RGY_LOG_WARN, _T("Direct Bias Adjust"));
         pInParams->bDirectBiasAdjust = 0;
     }
     if (pInParams->bGlobalMotionAdjust && !(availableFeaures & ENC_FEATURE_GLOBAL_MOTION_ADJUST)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("MV Cost Scaling"));
+        print_feature_warnings(RGY_LOG_WARN, _T("MV Cost Scaling"));
         pInParams->bGlobalMotionAdjust = 0;
         pInParams->nMVCostScaling = 0;
     }
     if (pInParams->bUseFixedFunc && !(availableFeaures & ENC_FEATURE_FIXED_FUNC)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("Fixed Func"));
+        print_feature_warnings(RGY_LOG_WARN, _T("Fixed Func"));
         pInParams->bUseFixedFunc = 0;
     }
     if (pInParams->nWeightP && !(availableFeaures & ENC_FEATURE_WEIGHT_P)) {
         if (pInParams->nWeightP == MFX_CODINGOPTION_ON) {
-            print_feature_warnings(QSV_LOG_WARN, _T("WeightP"));
+            print_feature_warnings(RGY_LOG_WARN, _T("WeightP"));
         }
         pInParams->nWeightP = 0;
     }
     if (pInParams->nWeightB && !(availableFeaures & ENC_FEATURE_WEIGHT_B)) {
         if (pInParams->nWeightB == MFX_CODINGOPTION_ON) {
-            print_feature_warnings(QSV_LOG_WARN, _T("WeightB"));
+            print_feature_warnings(RGY_LOG_WARN, _T("WeightB"));
         }
         pInParams->nWeightB = 0;
     }
 #if !ENABLE_FADE_DETECT
     if (pInParams->nFadeDetect == MFX_CODINGOPTION_ON) {
-        PrintMes(QSV_LOG_WARN, _T("fade-detect will be disabled due to instability.\n"));
+        PrintMes(RGY_LOG_WARN, _T("fade-detect will be disabled due to instability.\n"));
         pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
     }
 #endif
     if (pInParams->nFadeDetect != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
         if (pInParams->nFadeDetect == MFX_CODINGOPTION_ON) {
-            print_feature_warnings(QSV_LOG_WARN, _T("FadeDetect"));
+            print_feature_warnings(RGY_LOG_WARN, _T("FadeDetect"));
         }
         pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
     }
     bool bQPOffsetUsed = false;
     std::for_each(pInParams->pQPOffset, pInParams->pQPOffset + _countof(pInParams->pQPOffset), [&bQPOffsetUsed](int8_t v){ bQPOffsetUsed |= (v != 0); });
     if (bQPOffsetUsed && !(availableFeaures & ENC_FEATURE_PYRAMID_QP_OFFSET)) {
-        print_feature_warnings(QSV_LOG_WARN, _T("QPOffset"));
+        print_feature_warnings(RGY_LOG_WARN, _T("QPOffset"));
         memset(pInParams->pQPOffset, 0, sizeof(pInParams->pQPOffset));
         bQPOffsetUsed = false;
     }
     
     if (!(availableFeaures & ENC_FEATURE_VUI_INFO)) {
         if (pInParams->bFullrange) {
-            print_feature_warnings(QSV_LOG_WARN, _T("fullrange"));
+            print_feature_warnings(RGY_LOG_WARN, _T("fullrange"));
             pInParams->bFullrange = false;
         }
         if (pInParams->Transfer) {
-            print_feature_warnings(QSV_LOG_WARN, _T("transfer"));
+            print_feature_warnings(RGY_LOG_WARN, _T("transfer"));
             pInParams->Transfer = (mfxU16)list_transfer[0].value;
         }
         if (pInParams->VideoFormat) {
-            print_feature_warnings(QSV_LOG_WARN, _T("videoformat"));
+            print_feature_warnings(RGY_LOG_WARN, _T("videoformat"));
             pInParams->VideoFormat = (mfxU16)list_videoformat[0].value;
         }
         if (pInParams->ColorMatrix) {
-            print_feature_warnings(QSV_LOG_WARN, _T("colormatrix"));
+            print_feature_warnings(RGY_LOG_WARN, _T("colormatrix"));
             pInParams->ColorMatrix = (mfxU16)list_colormatrix[0].value;
         }
         if (pInParams->ColorPrim) {
-            print_feature_warnings(QSV_LOG_WARN, _T("colorprim"));
+            print_feature_warnings(RGY_LOG_WARN, _T("colorprim"));
             pInParams->ColorPrim = (mfxU16)list_colorprim[0].value;
         }
     }
@@ -692,12 +692,12 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     //GOP長さが短いならVQPもシーンチェンジ検出も実行しない
     if (pInParams->nGOPLength != 0 && pInParams->nGOPLength < 4) {
         if (!pInParams->bforceGOPSettings) {
-            PrintMes(QSV_LOG_WARN, _T("Scene change detection cannot be used with very short GOP length.\n"));
+            PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with very short GOP length.\n"));
             pInParams->bforceGOPSettings = true;
         }
         if (pInParams->nEncMode == MFX_RATECONTROL_VQP)    {
-            PrintMes(QSV_LOG_WARN, _T("VQP mode cannot be used with very short GOP length.\n"));
-            PrintMes(QSV_LOG_WARN, _T("Switching to CQP mode.\n"));
+            PrintMes(RGY_LOG_WARN, _T("VQP mode cannot be used with very short GOP length.\n"));
+            PrintMes(RGY_LOG_WARN, _T("Switching to CQP mode.\n"));
             pInParams->nEncMode = MFX_RATECONTROL_CQP;
         }
     }
@@ -711,13 +711,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             case MFX_DEINTERLACE_AUTO_DOUBLE:
                 break;
             default:
-                PrintMes(QSV_LOG_WARN, _T("Scene change detection cannot be used with interlaced output, disabled.\n"));
+                PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with interlaced output, disabled.\n"));
                 pInParams->bforceGOPSettings = true;
                 break;
             }
         }
         if (m_pFileReader->getInputCodec()) {
-            PrintMes(QSV_LOG_WARN, _T("Scene change detection cannot be used with transcoding, disabled.\n"));
+            PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with transcoding, disabled.\n"));
             pInParams->bforceGOPSettings = true;
         }
         if (!pInParams->bforceGOPSettings) {
@@ -733,11 +733,11 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             case MFX_DEINTERLACE_AUTO_DOUBLE:
                 break;
             default:
-                PrintMes(QSV_LOG_ERROR, _T("VQP mode cannot be used with interlaced output.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("VQP mode cannot be used with interlaced output.\n"));
                 return MFX_ERR_INVALID_VIDEO_PARAM;
             }
         } else if (m_pFileReader->getInputCodec()) {
-            PrintMes(QSV_LOG_ERROR, _T("VQP mode cannot be used with transcoding.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("VQP mode cannot be used with transcoding.\n"));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
         m_nExPrm |= MFX_PRM_EX_VQP;
@@ -821,10 +821,10 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: Output FPS %d/%d\n"), OutputFPSRate, OutputFPSScale);
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Output FPS %d/%d\n"), OutputFPSRate, OutputFPSScale);
     if (pInParams->nGOPLength == 0) {
         pInParams->nGOPLength = (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 10;
-        PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: Auto GOP Length: %d\n"), pInParams->nGOPLength);
+        PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Auto GOP Length: %d\n"), pInParams->nGOPLength);
     }
     m_mfxEncParams.mfx.FrameInfo.FrameRateExtN = OutputFPSRate;
     m_mfxEncParams.mfx.FrameInfo.FrameRateExtD = OutputFPSScale;
@@ -970,14 +970,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             && m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_VBR
             && m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_LA) {
                 if (pInParams->nBluray == 1) {
-                    PrintMes(QSV_LOG_ERROR, _T("")
+                    PrintMes(RGY_LOG_ERROR, _T("")
                         _T("Current encode mode (%s) is not preferred for Bluray encoding,\n")
                         _T("since it cannot set Max Bitrate.\n")
                         _T("Please consider using Lookahead/VBR/CBR mode for Bluray encoding.\n"), EncmodeToStr(m_mfxEncParams.mfx.RateControlMethod));
                     return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
                 } else {
                     //pInParams->nBluray == 2 -> force Bluray
-                    PrintMes(QSV_LOG_WARN, _T("")
+                    PrintMes(RGY_LOG_WARN, _T("")
                         _T("Current encode mode (%s) is not preferred for Bluray encoding,\n")
                         _T("since it cannot set Max Bitrate.\n")
                         _T("This output might not be able to be played on a Bluray Player.\n")
@@ -1009,7 +1009,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_nExPrm &= (~MFX_PRM_EX_SCENE_CHANGE);
         //m_CodingOption.EndOfSequence = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0a
         //m_CodingOption.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
-        PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: Adjusted param for Bluray encoding.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Adjusted param for Bluray encoding.\n"));
     }
 
     m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
@@ -1091,16 +1091,16 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_mfxEncParams.ExtParam = &m_EncExtParams[0];
         m_mfxEncParams.NumExtParam = (mfxU16)m_EncExtParams.size();
         for (const auto& extParam : m_EncExtParams) {
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: set ext param %s.\n"), fourccToStr(extParam->BufferId).c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: set ext param %s.\n"), fourccToStr(extParam->BufferId).c_str());
         }
     }
 
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: enc input frame %dx%d (%d,%d,%d,%d)\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: enc input frame %dx%d (%d,%d,%d,%d)\n"),
         m_mfxEncParams.mfx.FrameInfo.Width, m_mfxEncParams.mfx.FrameInfo.Height,
         m_mfxEncParams.mfx.FrameInfo.CropX, m_mfxEncParams.mfx.FrameInfo.CropY, m_mfxEncParams.mfx.FrameInfo.CropW, m_mfxEncParams.mfx.FrameInfo.CropH);
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: enc input color format %s, chroma %d, bitdepth %d, shift %d\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: enc input color format %s, chroma %d, bitdepth %d, shift %d\n"),
         ColorFormatToStr(m_mfxEncParams.mfx.FrameInfo.FourCC), m_mfxEncParams.mfx.FrameInfo.ChromaFormat, m_mfxEncParams.mfx.FrameInfo.BitDepthLuma, m_mfxEncParams.mfx.FrameInfo.Shift);
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxEncParams: set all enc params.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: set all enc params.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -1109,29 +1109,29 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     mfxU64 availableFeaures = CheckVppFeatures(pInParams->bUseHWLib, m_mfxVer);
 #if ENABLE_FPS_CONVERSION
     if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
-        PrintMes(QSV_LOG_WARN, _T("FPS Conversion not supported on this platform, disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("FPS Conversion not supported on this platform, disabled.\n"));
         pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
     }
 #else
     if (pInParams->vpp.nRotate) {
         if (!(availableFeaures & VPP_FEATURE_ROTATE)) {
-            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
         if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate is not supported with interlaced output.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported with interlaced output.\n"));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
     }
     //現時点ではうまく動いてなさそうなので無効化
     if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion) {
-        PrintMes(QSV_LOG_WARN, _T("FPS Conversion not supported on this build, disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("FPS Conversion not supported on this build, disabled.\n"));
         pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
     }
 #endif
 
     if (pInParams->vpp.nImageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
-        PrintMes(QSV_LOG_WARN, _T("Image Stabilizer not supported on this platform, disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("Image Stabilizer not supported on this platform, disabled.\n"));
         pInParams->vpp.nImageStabilizer = 0;
     }
 
@@ -1139,14 +1139,14 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         switch (pInParams->vpp.nDeinterlace) {
         case MFX_DEINTERLACE_IT_MANUAL:
             if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
-                PrintMes(QSV_LOG_ERROR, _T("Deinterlace \"it-manual\" is not supported on this platform.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Deinterlace \"it-manual\" is not supported on this platform.\n"));
                 return MFX_ERR_INVALID_VIDEO_PARAM;
             }
             break;
         case MFX_DEINTERLACE_AUTO_SINGLE:
         case MFX_DEINTERLACE_AUTO_DOUBLE:
             if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_AUTO)) {
-                PrintMes(QSV_LOG_ERROR, _T("Deinterlace \"auto\" is not supported on this platform.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Deinterlace \"auto\" is not supported on this platform.\n"));
                 return MFX_ERR_INVALID_VIDEO_PARAM;
             }
             break;
@@ -1157,13 +1157,13 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
 
     if (pInParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT
         && !(availableFeaures & VPP_FEATURE_SCALING_QUALITY)) {
-        PrintMes(QSV_LOG_WARN, _T("vpp scaling quality is not supported on this platform, disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("vpp scaling quality is not supported on this platform, disabled.\n"));
         pInParams->vpp.nScalingQuality = MFX_SCALING_MODE_DEFAULT;
     }
 
     if (pInParams->vpp.nMirrorType != MFX_MIRRORING_DISABLED
         && !(availableFeaures & VPP_FEATURE_MIRROR)) {
-        PrintMes(QSV_LOG_ERROR, _T("vpp mirroring is not supported on this platform, disabled.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("vpp mirroring is not supported on this platform, disabled.\n"));
         return MFX_ERR_UNSUPPORTED;
     }
 
@@ -1212,11 +1212,11 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         m_mfxVppParams.vpp.In.CropY = pInParams->sInCrop.up;
         m_mfxVppParams.vpp.In.CropW -= (pInParams->sInCrop.left   + pInParams->sInCrop.right);
         m_mfxVppParams.vpp.In.CropH -= (pInParams->sInCrop.bottom + pInParams->sInCrop.up);
-        PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp crop enabled.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp crop enabled.\n"));
     }
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp input frame %dx%d (%d,%d,%d,%d)\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp input frame %dx%d (%d,%d,%d,%d)\n"),
         m_mfxVppParams.vpp.In.Width, m_mfxVppParams.vpp.In.Height, m_mfxVppParams.vpp.In.CropX, m_mfxVppParams.vpp.In.CropY, m_mfxVppParams.vpp.In.CropW, m_mfxVppParams.vpp.In.CropH);
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp input color format %s, chroma %d, bitdepth %d, shift %d\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp input color format %s, chroma %d, bitdepth %d, shift %d\n"),
         ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), m_mfxVppParams.vpp.In.ChromaFormat, m_mfxVppParams.vpp.In.BitDepthLuma, m_mfxVppParams.vpp.In.Shift);
 
     memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
@@ -1269,7 +1269,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
                 VppExtMes += get_chr_from_value(list_telecine_patterns, pInParams->vpp.nTelecinePattern);
             }
             VppExtMes += _T(")\n");
-            PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp deinterlace enabled.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp deinterlace enabled.\n"));
         }
         pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
     } else {
@@ -1308,13 +1308,13 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         }
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
-        PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp colorspace conversion enabled.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp colorspace conversion enabled.\n"));
     }
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp output frame %dx%d (%d,%d,%d,%d)\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp output frame %dx%d (%d,%d,%d,%d)\n"),
         m_mfxVppParams.vpp.Out.Width, m_mfxVppParams.vpp.Out.Height, m_mfxVppParams.vpp.Out.CropX, m_mfxVppParams.vpp.Out.CropY, m_mfxVppParams.vpp.Out.CropW, m_mfxVppParams.vpp.Out.CropH);
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: vpp output color format %s, chroma %d, bitdepth %d, shift %d\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp output color format %s, chroma %d, bitdepth %d, shift %d\n"),
         ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC), m_mfxVppParams.vpp.Out.ChromaFormat, m_mfxVppParams.vpp.Out.BitDepthLuma, m_mfxVppParams.vpp.Out.Shift);
-    PrintMes(QSV_LOG_DEBUG, _T("InitMfxVppParams: set all vpp params.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: set all vpp params.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -1325,7 +1325,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
     auto vppExtAddMes = [this](tstring str) {
         VppExtMes += str;
-        PrintMes(QSV_LOG_DEBUG, _T("CreateVppExtBuffers: %s"), str.c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("CreateVppExtBuffers: %s"), str.c_str());
     };
 
     if (pParams->vpp.bUseDetailEnhance) {
@@ -1429,7 +1429,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
 
         m_VppExtParams.insert(m_VppExtParams.begin(), (mfxExtBuffer *)&m_VppDoUse);
         for (const auto& extParam : m_VppDoUseList) {
-            PrintMes(QSV_LOG_DEBUG, _T("CreateVppExtBuffers: set DoUse %s.\n"), fourccToStr(extParam).c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("CreateVppExtBuffers: set DoUse %s.\n"), fourccToStr(extParam).c_str());
         }
     }
 
@@ -1438,7 +1438,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         AllocAndInitVppDoNotUse();
         m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoNotUse);
         for (const auto& extParam : m_VppDoNotUseList) {
-            PrintMes(QSV_LOG_DEBUG, _T("CreateVppExtBuffers: set DoNotUse %s.\n"), fourccToStr(extParam).c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("CreateVppExtBuffers: set DoNotUse %s.\n"), fourccToStr(extParam).c_str());
         }
     }
 
@@ -1461,7 +1461,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if (pParams->vpp.subburn.nTrack) {
             if (pAVCodecReader == nullptr) {
-                PrintMes(QSV_LOG_ERROR, _T("--vpp-sub-burn from track required --avqsv reader.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("--vpp-sub-burn from track required --avqsv reader.\n"));
                 return MFX_ERR_UNSUPPORTED;
             }
             for (const auto& stream : pAVCodecReader->GetInputStreamInfo()) {
@@ -1471,7 +1471,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
                 }
             }
             if (targetSubStream.pStream == nullptr) {
-                PrintMes(QSV_LOG_ERROR, _T("--vpp-sub-burn: subtitile track #%d not found.\n"), pParams->vpp.subburn.nTrack);
+                PrintMes(RGY_LOG_ERROR, _T("--vpp-sub-burn: subtitile track #%d not found.\n"), pParams->vpp.subburn.nTrack);
                 return MFX_ERR_UNSUPPORTED;
             }
         }
@@ -1493,13 +1493,13 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
         uint16_t nVppSubAsyncDepth = (pParams->nAsyncDepth) ? (uint16_t)(std::min<int>)(pParams->nAsyncDepth, 6) : 3;
         sts = filter->Init(m_mfxVer, _T("subburn"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), nVppSubAsyncDepth, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
-            PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
+            PrintMes(RGY_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
             return sts;
         } else {
             sts = MFXJoinSession(m_mfxSession, filter->getSession());
             QSV_ERR_MES(sts, _T("Failed to join vpp pre filter session."));
             tstring mes = filter->getMessage();
-            PrintMes(QSV_LOG_DEBUG, _T("InitVppPrePlugins: add filter: %s\n"), mes.c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitVppPrePlugins: add filter: %s\n"), mes.c_str());
             vppPreMes += mes;
             m_VppPrePlugins.push_back(std::move(filter));
         }
@@ -1512,16 +1512,16 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
             pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset, pParams->vpp.delogo.bAdd);
         sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts == MFX_ERR_ABORTED) {
-            PrintMes(QSV_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
+            PrintMes(RGY_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
             sts = MFX_ERR_NONE;
         } else if (sts != MFX_ERR_NONE) {
-            PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
+            PrintMes(RGY_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
             return sts;
         } else {
             sts = MFXJoinSession(m_mfxSession, filter->getSession());
             QSV_ERR_MES(sts, _T("Failed to join vpp pre filter session."));
             tstring mes = filter->getMessage();
-            PrintMes(QSV_LOG_DEBUG, _T("InitVppPrePlugins: add filter: %s\n"), mes.c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitVppPrePlugins: add filter: %s\n"), mes.c_str());
             vppPreMes += mes;
             m_VppPrePlugins.push_back(std::move(filter));
         }
@@ -1531,13 +1531,13 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
         RotateParam param(180);
         sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
-            PrintMes(QSV_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
+            PrintMes(RGY_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
             return sts;
         } else {
             sts = MFXJoinSession(m_mfxSession, filter->getSession());
             QSV_ERR_MES(sts, _T("Failed to join vpp pre filter session."));
             tstring mes = filter->getMessage();
-            PrintMes(QSV_LOG_DEBUG, _T("InitVppPrePlugins: add filter: %s\n"), mes.c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitVppPrePlugins: add filter: %s\n"), mes.c_str());
             vppPreMes += mes;
             m_VppPrePlugins.push_back(std::move(filter));
         }
@@ -1565,12 +1565,12 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
         if (m_memType == D3D11_MEMORY
             && (m_hwdev = std::make_shared<CQSVD3D11Device>())) {
             m_memType = D3D11_MEMORY;
-            PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
             sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession), m_pQSVLog);
             if (sts != MFX_ERR_NONE) {
                 m_hwdev.reset();
-                PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
+                PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
@@ -1578,17 +1578,17 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (m_memType != D3D9_MEMORY) {
-                PrintMes(QSV_LOG_DEBUG, _T("Retry openning device, chaging to d3d9 mode, re-init session.\n"));
+                PrintMes(RGY_LOG_DEBUG, _T("Retry openning device, chaging to d3d9 mode, re-init session.\n"));
                 InitSession(true, D3D9_MEMORY);
                 m_memType = m_memType;
             }
 
-            PrintMes(QSV_LOG_DEBUG, _T("HWDevice: d3d9 - initializing...\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d9 - initializing...\n"));
             sts = m_hwdev->Init(window, GetAdapterID(m_mfxSession), m_pQSVLog);
         }
     }
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
-    PrintMes(QSV_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
     
 #elif LIBVA_SUPPORT
     m_hwdev.reset(CreateVAAPIDevice());
@@ -1603,7 +1603,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
 
 mfxStatus CQSVPipeline::ResetDevice() {
     if (m_memType & (D3D9_MEMORY | D3D11_MEMORY)) {
-        PrintMes(QSV_LOG_DEBUG, _T("HWDevice: reset.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("HWDevice: reset.\n"));
         return m_hwdev->Reset();
     }
     return MFX_ERR_NONE;
@@ -1637,13 +1637,13 @@ mfxStatus CQSVPipeline::AllocFrames() {
     }
     QSV_MEMSET_ZERO(NextRequest);
     
-    PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
+    PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
 
     //各要素が要求するフレーム数を調べる
     if (m_pmfxENC) {
         sts = m_pmfxENC->QueryIOSurf(&m_mfxEncParams, &EncRequest);
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for encoder."));
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Enc query - %d frames\n"), EncRequest.NumFrameSuggested);
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Enc query - %d frames\n"), EncRequest.NumFrameSuggested);
     }
 
     if (m_pmfxVPP) {
@@ -1655,8 +1655,8 @@ mfxStatus CQSVPipeline::AllocFrames() {
             VppRequest[0].NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
             VppRequest[0].NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
         }
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp query[0] - %d frames\n"), VppRequest[0].NumFrameSuggested);
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp query[1] - %d frames\n"), VppRequest[1].NumFrameSuggested);
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Vpp query[0] - %d frames\n"), VppRequest[0].NumFrameSuggested);
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Vpp query[1] - %d frames\n"), VppRequest[1].NumFrameSuggested);
     }
 
     if (m_pmfxDEC) {
@@ -1667,7 +1667,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
             DecRequest.NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
             DecRequest.NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
         }
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
     }
 
     nInputSurfAdd = (std::max<uint16_t>)(m_EncThread.m_nFrameBuffer, 1);
@@ -1680,8 +1680,8 @@ mfxStatus CQSVPipeline::AllocFrames() {
     //m_nAsyncDepthを考慮して、vppの入力用のフレーム数を決める
     nVppSurfNum = VppRequest[0].NumFrameSuggested + m_nAsyncDepth;
     
-    PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: nInputSurfAdd %d frames\n"), nInputSurfAdd);
-    PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: nDecSurfAdd   %d frames\n"), nDecSurfAdd);
+    PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: nInputSurfAdd %d frames\n"), nInputSurfAdd);
+    PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: nDecSurfAdd   %d frames\n"), nDecSurfAdd);
 
     if (m_pmfxDEC) {
         NextRequest = DecRequest;
@@ -1712,7 +1712,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
             }
             NextRequest = m_VppPrePlugins[i]->m_PluginRequest;
             memcpy(&NextRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
-            PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PrePlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: PrePlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
                 i, m_VppPrePlugins[i]->getFilterName().c_str(), qsv_memtype_str(mem_type).c_str(),
                 m_VppPrePlugins[i]->m_PluginRequest.Info.Width, m_VppPrePlugins[i]->m_PluginRequest.Info.Height,
                 m_VppPrePlugins[i]->m_PluginRequest.Info.CropX, m_VppPrePlugins[i]->m_PluginRequest.Info.CropY,
@@ -1756,7 +1756,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         nVppSurfAdd = (std::max<uint16_t>)(VppRequest[1].NumFrameSuggested, 1);
         NextRequest = VppRequest[1];
         memcpy(&NextRequest.Info, &(m_mfxVppParams.vpp.Out), sizeof(mfxFrameInfo));
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Vpp type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Vpp type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
             qsv_memtype_str(VppRequest[0].Type).c_str(),
             VppRequest[0].Info.Width, VppRequest[0].Info.Height,
             VppRequest[0].Info.CropX, VppRequest[0].Info.CropY, VppRequest[0].Info.CropW, VppRequest[0].Info.CropH, VppRequest[0].NumFrameSuggested);
@@ -1788,7 +1788,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
             }
             NextRequest = m_VppPostPlugins[i]->m_PluginRequest;
             memcpy(&NextRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.vpp.Out), sizeof(mfxFrameInfo));
-            PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: PostPlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: PostPlugins[%d] %s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
                 i, m_VppPostPlugins[i]->getFilterName().c_str(), qsv_memtype_str(mem_type).c_str(),
                 m_VppPostPlugins[i]->m_PluginRequest.Info.Width, m_VppPostPlugins[i]->m_PluginRequest.Info.Height,
                 m_VppPostPlugins[i]->m_PluginRequest.Info.CropX, m_VppPostPlugins[i]->m_PluginRequest.Info.CropY,
@@ -1830,7 +1830,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         nVppPreSurfAdd = 0;
         nVppSurfAdd = 0;
         nVppPostSurfAdd = 0;
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: %s type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
             (m_pmfxENC) ? _T("Enc") : _T("Out"),
             qsv_memtype_str(EncRequest.Type).c_str(),
             EncRequest.Info.Width, EncRequest.Info.Height,
@@ -1840,13 +1840,13 @@ mfxStatus CQSVPipeline::AllocFrames() {
     // エンコーダ用のメモリ確保
     sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &EncRequest, &m_EncResponse);
     QSV_ERR_MES(sts, _T("Failed to allocate frames for encoder."));
-    PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated EncRequest %d\n"), m_EncResponse.NumFrameActual);
+    PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Allocated EncRequest %d\n"), m_EncResponse.NumFrameActual);
 
     // vppを使用するなら、vpp用のメモリを確保する
     if (m_pmfxVPP) {
         sts = m_pMFXAllocator->Alloc(m_pMFXAllocator->pthis, &(VppRequest[0]), &m_VppResponse);
         QSV_ERR_MES(sts, _T("Failed to allocate frames for vpp."));
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated VppRequest %d\n"), m_VppResponse.NumFrameActual);
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Allocated VppRequest %d\n"), m_VppResponse.NumFrameActual);
     }
 
     //エンコーダ用のmfxFrameSurface1配列を作成する
@@ -1884,19 +1884,19 @@ mfxStatus CQSVPipeline::AllocFrames() {
     //vpp pre用のmfxFrameSurface1配列を作成する
     for (const auto& filter : m_VppPrePlugins) {
         if (MFX_ERR_NONE != (sts = filter->AllocSurfaces(m_pMFXAllocator.get(), m_bExternalAlloc))) {
-            PrintMes(QSV_LOG_ERROR, _T("AllocFrames: Failed to alloc surface for %s\n"), filter->getFilterName().c_str());
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: Failed to alloc surface for %s\n"), filter->getFilterName().c_str());
             return sts;
         }
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated surface for %s\n"), filter->getFilterName().c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Allocated surface for %s\n"), filter->getFilterName().c_str());
     }
 
     //vpp post用のmfxFrameSurface1配列を作成する
     for (const auto& filter : m_VppPostPlugins) {
         if (MFX_ERR_NONE != (sts = filter->AllocSurfaces(m_pMFXAllocator.get(), m_bExternalAlloc))) {
-            PrintMes(QSV_LOG_ERROR, _T("AllocFrames: Failed to alloc surface for %s\n"), filter->getFilterName().c_str());
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: Failed to alloc surface for %s\n"), filter->getFilterName().c_str());
             return sts;
         }
-        PrintMes(QSV_LOG_DEBUG, _T("AllocFrames: Allocated surface for %s\n"), filter->getFilterName().c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Allocated surface for %s\n"), filter->getFilterName().c_str());
     }
 
     return MFX_ERR_NONE;
@@ -1904,13 +1904,13 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
 mfxStatus CQSVPipeline::CreateAllocator() {
     mfxStatus sts = MFX_ERR_NONE;
-    PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
+    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
 
     if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType || HW_MEMORY == m_memType) {
 #if D3D_SURFACES_SUPPORT
         sts = CreateHWDevice();
         QSV_ERR_MES(sts, _T("Failed to CreateHWDevice."));
-        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: CreateHWDevice success.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateHWDevice success.\n"));
 
         mfxHDL hdl = NULL;
 #if MFX_D3D11_SUPPORT
@@ -1920,7 +1920,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
 #endif
         sts = m_hwdev->GetHandle(hdl_t, &hdl);
         QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
-        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
 
         mfxIMPL impl = 0;
         m_mfxSession.QueryIMPL(&impl);
@@ -1928,45 +1928,45 @@ mfxStatus CQSVPipeline::CreateAllocator() {
             // hwエンコード時のみハンドルを渡す
             sts = m_mfxSession.SetHandle(hdl_t, hdl);
             QSV_ERR_MES(sts, _T("Failed to set HW device handle to encode session."));
-            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: set HW device handle to encode session.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: set HW device handle to encode session.\n"));
         }
 
         //D3D allocatorを作成
 #if MFX_D3D11_SUPPORT
         if (D3D11_MEMORY == m_memType) {
-            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: Create d3d11 allocator.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d11 allocator.\n"));
             m_pMFXAllocator.reset(new QSVAllocatorD3D11);
             if (!m_pMFXAllocator) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
             QSVAllocatorParamsD3D11 *pd3dAllocParams = new QSVAllocatorParamsD3D11;
             if (!pd3dAllocParams) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for D3D11AllocatorParams.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11AllocatorParams.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
             pd3dAllocParams->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
-            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: d3d11...\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: d3d11...\n"));
 
             m_pmfxAllocatorParams.reset(pd3dAllocParams);
         } else
 #endif // #if MFX_D3D11_SUPPORT
         {
-            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: Create d3d9 allocator.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d9 allocator.\n"));
             m_pMFXAllocator.reset(new QSVAllocatorD3D9);
             if (!m_pMFXAllocator) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
             QSVAllocatorParamsD3D9 *pd3dAllocParams = new QSVAllocatorParamsD3D9;
             if (!pd3dAllocParams) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for pd3dAllocParams.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for pd3dAllocParams.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
             pd3dAllocParams->pManager = reinterpret_cast<IDirect3DDeviceManager9 *>(hdl);
-            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: d3d9...\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: d3d9...\n"));
 
             m_pmfxAllocatorParams.reset(pd3dAllocParams);
         }
@@ -1975,7 +1975,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         //mfxSessionにallocatorを渡してやる必要がある
         sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get());
         QSV_ERR_MES(sts, _T("Failed to set frame allocator to encode session."));
-        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
 
         m_bExternalAlloc = true;
 #endif
@@ -1986,7 +1986,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         mfxHDL hdl = NULL;
         sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
         QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
-        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
+        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
         //ハンドルを渡す
         sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
@@ -1995,13 +1995,13 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         //VAAPI allocatorを作成
         m_pMFXAllocator.reset(new QSVAllocatorVA());
         if (!m_pMFXAllocator) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
         QSVAllocatorParamsVA *p_vaapiAllocParams = new QSVAllocatorParamsVA;
         if (!p_vaapiAllocParams) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to allcate memory for vaapiAllocatorParams.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiAllocatorParams.\n"));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
@@ -2012,7 +2012,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         //mfxSessionにallocatorを渡してやる必要がある
         sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get());
         QSV_ERR_MES(sts, _T("Failed to set frame allocator to encode session."));
-        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
 
         m_bExternalAlloc = true;
 #endif
@@ -2029,7 +2029,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
             mfxHDL hdl = NULL;
             sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
             QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
-            PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
+            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
             //ハンドルを渡す
             sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
@@ -2041,15 +2041,15 @@ mfxStatus CQSVPipeline::CreateAllocator() {
         if (!m_pMFXAllocator) {
             return MFX_ERR_MEMORY_ALLOC;
         }
-        PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: sys mem allocator...\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: sys mem allocator...\n"));
     }
 
     //メモリallocatorの初期化
     if (MFX_ERR_NONE > (sts = m_pMFXAllocator->Init(m_pmfxAllocatorParams.get(), m_pQSVLog))) {
-        PrintMes(QSV_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(m_memType), get_err_mes(sts));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(m_memType), get_err_mes(sts));
         return sts;
     }
-    PrintMes(QSV_LOG_DEBUG, _T("CreateAllocator: frame allocator initialized.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator initialized.\n"));
 
     return MFX_ERR_NONE;
 }
@@ -2153,11 +2153,11 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
     ChapterRW chapter;
     auto err = chapter.read_file(chapfile.c_str(), CODE_PAGE_UNSET, 0.0);
     if (err != AUO_CHAP_ERR_NONE) {
-        PrintMes(QSV_LOG_ERROR, _T("failed to %s chapter file: \"%s\".\n"), (err == AUO_CHAP_ERR_FILE_OPEN) ? _T("open") : _T("read"), chapfile.c_str());
+        PrintMes(RGY_LOG_ERROR, _T("failed to %s chapter file: \"%s\".\n"), (err == AUO_CHAP_ERR_FILE_OPEN) ? _T("open") : _T("read"), chapfile.c_str());
         return MFX_ERR_UNKNOWN;
     }
     if (chapter.chapterlist().size() == 0) {
-        PrintMes(QSV_LOG_ERROR, _T("no chapter found from chapter file: \"%s\".\n"), chapfile.c_str());
+        PrintMes(RGY_LOG_ERROR, _T("no chapter found from chapter file: \"%s\".\n"), chapfile.c_str());
         return MFX_ERR_UNKNOWN;
     }
     m_AVChapterFromFile.clear();
@@ -2176,10 +2176,10 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
             wstring_to_tstring(chapter_list[i]->name).c_str());
         m_AVChapterFromFile.push_back(std::move(avchap));
     }
-    PrintMes(QSV_LOG_DEBUG, _T("%s"), chap_log.c_str());
+    PrintMes(RGY_LOG_DEBUG, _T("%s"), chap_log.c_str());
     return MFX_ERR_NONE;
 #else
-    PrintMes(QSV_LOG_ERROR, _T("chater reading unsupportted in this build"));
+    PrintMes(RGY_LOG_ERROR, _T("chater reading unsupportted in this build"));
     return MFX_ERR_UNKNOWN;
 #endif //#if ENABLE_AVCODEC_QSV_READER
 }
@@ -2201,10 +2201,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     }
     if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
         if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
-            PrintMes(QSV_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
+            PrintMes(RGY_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
             return MFX_ERR_UNSUPPORTED;
         }
-        PrintMes(QSV_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = std::make_shared<CAvcodecWriter>();
         AvcodecWriterPrm writerPrm = { 0 };
         writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
@@ -2246,14 +2246,14 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
         }
         if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
-            PrintMes(QSV_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
             pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
             bool copyAll = false;
             for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
                 copyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
             }
-            PrintMes(QSV_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
+            PrintMes(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
             vector<AVDemuxStream> streamList;
             if (pAVCodecReader) {
                 streamList = pAVCodecReader->GetInputStreamInfo();
@@ -2293,7 +2293,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
                     prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
                     prm.pFilter = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAudioFilter;
-                    PrintMes(QSV_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
+                    PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
                         stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec);
                     writerPrm.inputStreamList.push_back(std::move(prm));
@@ -2303,15 +2303,15 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
         ret = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
         if (ret != RGY_ERR_NONE) {
-            PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+            PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
             return err_to_mfx(ret);
         } else if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
             m_pFileWriterListAudio.push_back(m_pFileWriter);
         }
         stdoutUsed = m_pFileWriter->outputStdout();
-        PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+        PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
     } else if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
-        PrintMes(QSV_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
         return MFX_ERR_UNSUPPORTED;
     } else {
 #endif
@@ -2323,11 +2323,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             param.memType = m_memType;
             ret = m_pFileWriter->Init(pParams->strDstFile, &param, m_pEncSatusInfo);
             if (ret != RGY_ERR_NONE) {
-                PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+                PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
                 return err_to_mfx(ret);
             }
             stdoutUsed = m_pFileWriter->outputStdout();
-            PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+            PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else {
             m_pFileWriter = std::make_shared<CQSVOutBitstream>();
             m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
@@ -2336,24 +2336,24 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
             ret = m_pFileWriter->Init(pParams->strDstFile, &rawPrm, m_pEncSatusInfo);
             if (ret != RGY_ERR_NONE) {
-                PrintMes(QSV_LOG_ERROR, m_pFileWriter->GetOutputMessage());
+                PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
                 return err_to_mfx(ret);
             }
             stdoutUsed = m_pFileWriter->outputStdout();
-            PrintMes(QSV_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
+            PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         }
 #if ENABLE_AVCODEC_QSV_READER
     } //ENABLE_AVCODEC_QSV_READER
 
     //音声の抽出
     if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
-        PrintMes(QSV_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
         if ((pParams->nInputFmt != INPUT_FMT_AVCODEC_HW
             && pParams->nInputFmt != INPUT_FMT_AVCODEC_SW
             && pParams->nInputFmt != INPUT_FMT_AVCODEC_ANY)
             || pAVCodecReader == nullptr) {
-            PrintMes(QSV_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return MFX_ERR_UNSUPPORTED;
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
@@ -2362,7 +2362,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 for (auto usedTrack : streamTrackUsed) {
                     if (usedTrack == audioTrack.nTrackId) {
                         bTrackAlreadyUsed = true;
-                        PrintMes(QSV_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), audioTrack.nTrackId);
+                        PrintMes(RGY_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), audioTrack.nTrackId);
                         break;
                     }
                 }
@@ -2377,10 +2377,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     }
                 }
                 if (pAudioSelect == nullptr) {
-                    PrintMes(QSV_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), audioTrack.nTrackId);
+                    PrintMes(RGY_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), audioTrack.nTrackId);
                     return MFX_ERR_INVALID_AUDIO_PARAM;
                 }
-                PrintMes(QSV_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
+                PrintMes(RGY_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
                     audioTrack.nTrackId, audioTrack.nIndex, pAudioSelect->pAudioExtractFilename, pAudioSelect->pAudioExtractFormat, pAudioSelect->pAVAudioEncodeCodec, pAudioSelect->nAVAudioEncodeBitrate);
 
                 AVOutputStreamPrm prm;
@@ -2410,13 +2410,13 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 pWriter->SetQSVLogPtr(m_pQSVLog);
                 ret = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pEncSatusInfo);
                 if (ret != RGY_ERR_NONE) {
-                    PrintMes(QSV_LOG_ERROR, pWriter->GetOutputMessage());
+                    PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
                     return err_to_mfx(ret);
                 }
-                PrintMes(QSV_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), audioTrack.nTrackId);
+                PrintMes(RGY_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), audioTrack.nTrackId);
                 bool audioStdout = pWriter->outputStdout();
                 if (ret != RGY_ERR_NONE) {
-                    PrintMes(QSV_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
+                    PrintMes(RGY_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
                     return err_to_mfx(ret);
                 }
                 stdoutUsed |= audioStdout;
@@ -2469,29 +2469,29 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     //avs/vpy等はビルドに含まれていなければ、aviで代用する
     if (pParams->nInputFmt == INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
         pParams->nInputFmt = INPUT_FMT_AVI;
-        PrintMes(QSV_LOG_WARN, _T("avs reader not compiled in this binary.\n"));
-        PrintMes(QSV_LOG_WARN, _T("switching to avi reader.\n"));
+        PrintMes(RGY_LOG_WARN, _T("avs reader not compiled in this binary.\n"));
+        PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
     if (pParams->nInputFmt == INPUT_FMT_VPY && !ENABLE_VAPOURSYNTH_READER) {
         pParams->nInputFmt = INPUT_FMT_AVI;
-        PrintMes(QSV_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
-        PrintMes(QSV_LOG_WARN, _T("switching to avi reader.\n"));
+        PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
+        PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
     if (pParams->nInputFmt == INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
         pParams->nInputFmt = INPUT_FMT_AVI;
-        PrintMes(QSV_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
-        PrintMes(QSV_LOG_WARN, _T("switching to avi reader.\n"));
+        PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
+        PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
     if (pParams->nInputFmt == INPUT_FMT_AVI && !ENABLE_AVI_READER) {
-        PrintMes(QSV_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     if (pParams->nInputFmt == INPUT_FMT_AVCODEC_HW && !ENABLE_AVCODEC_QSV_READER) {
-        PrintMes(QSV_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
     if (pParams->nInputFmt == INPUT_FMT_AVCODEC_SW && !ENABLE_AVCODEC_QSV_READER) {
-        PrintMes(QSV_LOG_ERROR, _T("avcodec reader not compiled in this binary.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("avcodec reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
@@ -2509,12 +2509,12 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             vsReaderPrm.use_mt = pParams->nInputFmt == INPUT_FMT_VPY_MT;
             input_options = &vsReaderPrm;
             m_pFileReader = std::make_shared<CVSReader>();
-            PrintMes(QSV_LOG_DEBUG, _T("Input: vpy reader selected.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("Input: vpy reader selected.\n"));
 #endif
         } else {
 #if ENABLE_AVISYNTH_READER
             m_pFileReader = std::make_shared<CAVSReader>();
-            PrintMes(QSV_LOG_DEBUG, _T("Input: avs reader selected.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("Input: avs reader selected.\n"));
 #endif
         }
         if (NULL == m_pFileReader) {
@@ -2526,14 +2526,14 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
             if (ret == RGY_ERR_INVALID_COLOR_FORMAT) {
                 //入力色空間の制限で使用できない場合はaviリーダーに切り替え再試行する
-                PrintMes(QSV_LOG_WARN, m_pFileReader->GetInputMessage());
+                PrintMes(RGY_LOG_WARN, m_pFileReader->GetInputMessage());
                 m_pFileReader.reset();
                 ret = RGY_ERR_NONE;
-                PrintMes(QSV_LOG_WARN, _T("Input: switching to avi reader.\n"));
+                PrintMes(RGY_LOG_WARN, _T("Input: switching to avi reader.\n"));
                 pParams->nInputFmt = INPUT_FMT_AVI;
             }
             if (ret != RGY_ERR_NONE) {
-                PrintMes(QSV_LOG_ERROR, m_pFileReader->GetInputMessage());
+                PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
                 return err_to_mfx(ret);
             }
         }
@@ -2549,7 +2549,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 #if ENABLE_AVI_READER
             case INPUT_FMT_AVI:
                 m_pFileReader = std::make_shared<CAVIReader>();
-                PrintMes(QSV_LOG_DEBUG, _T("Input: avi reader selected.\n"));
+                PrintMes(RGY_LOG_DEBUG, _T("Input: avi reader selected.\n"));
                 break;
 #endif
 #if ENABLE_AVCODEC_QSV_READER
@@ -2557,7 +2557,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             case INPUT_FMT_AVCODEC_SW:
             case INPUT_FMT_AVCODEC_ANY:
                 if (!pParams->bUseHWLib) {
-                    PrintMes(QSV_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
+                    PrintMes(RGY_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
                 }
                 m_pFileReader = std::make_shared<CAvcodecReader>();
@@ -2587,7 +2587,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
                 input_option = &avcodecReaderPrm;
-                PrintMes(QSV_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
+                PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
                 break;
 #endif
             case INPUT_FMT_Y4M:
@@ -2595,7 +2595,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             default:
                 input_option = &bY4m;
                 m_pFileReader = std::make_shared<CQSVInputRaw>();
-                PrintMes(QSV_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (bY4m) ? _T("y4m") : _T("raw"));
+                PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (bY4m) ? _T("y4m") : _T("raw"));
                 break;
         }
         m_pFileReader->SetQSVLogPtr(m_pQSVLog);
@@ -2603,10 +2603,10 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
     }
     if (ret != RGY_ERR_NONE) {
-        PrintMes(QSV_LOG_ERROR, m_pFileReader->GetInputMessage());
+        PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
         return err_to_mfx(ret);
     }
-    PrintMes(QSV_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
 
@@ -2638,7 +2638,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             audioReader->SetQSVLogPtr(m_pQSVLog);
             ret = audioReader->Init(pParams->ppAudioSourceList[i], 0, &avcodecReaderPrm, nullptr, nullptr, nullptr);
             if (ret != RGY_ERR_NONE) {
-                PrintMes(QSV_LOG_ERROR, audioReader->GetInputMessage());
+                PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
                 return err_to_mfx(ret);
             }
             sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
@@ -2660,11 +2660,11 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     auto trimParam = m_pFileReader->GetTrimParam();
     m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
     if (m_pTrimParam) {
-        PrintMes(QSV_LOG_DEBUG, _T("Input: trim options\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
         for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
-            PrintMes(QSV_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
+            PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
         }
-        PrintMes(QSV_LOG_DEBUG, _T(" (offset: %d)\n"), m_pTrimParam->offset);
+        PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_pTrimParam->offset);
     }
     return MFX_ERR_NONE;
 }
@@ -2719,24 +2719,24 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     }
     //crop設定の確認
     if (pParams->sInCrop.left % 2 != 0 || pParams->sInCrop.right % 2 != 0) {
-        PrintMes(QSV_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (pParams->sInCrop.bottom % h_mul != 0 || pParams->sInCrop.up % h_mul != 0) {
-        PrintMes(QSV_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (0 == pParams->nWidth || 0 == pParams->nHeight) {
-        PrintMes(QSV_LOG_ERROR, _T("--input-res must be specified with raw input.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("--input-res must be specified with raw input.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (pParams->nFPSRate == 0 || pParams->nFPSScale == 0) {
-        PrintMes(QSV_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (   pParams->nWidth < (pParams->sInCrop.left + pParams->sInCrop.right)
         || pParams->nHeight < (pParams->sInCrop.bottom + pParams->sInCrop.up)) {
-            PrintMes(QSV_LOG_ERROR, _T("crop size is too big.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("crop size is too big.\n"));
             return MFX_ERR_INVALID_VIDEO_PARAM;
     }
 
@@ -2770,12 +2770,12 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     }
 
     if (pParams->nDstWidth % 2 != 0) {
-        PrintMes(QSV_LOG_ERROR, _T("output width should be a multiple of 2."));
+        PrintMes(RGY_LOG_ERROR, _T("output width should be a multiple of 2."));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
 
     if (pParams->nDstHeight % h_mul != 0) {
-        PrintMes(QSV_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
+        PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (pParams->vpp.nRotate) {
@@ -2790,16 +2790,16 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
             std::swap(pParams->nDstWidth, pParams->nDstHeight);
             break;
         default:
-            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate of %d degree is not supported.\n"), (int)pParams->vpp.nRotate);
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate of %d degree is not supported.\n"), (int)pParams->vpp.nRotate);
             return MFX_ERR_UNSUPPORTED;
         }
         //vpp-rotateにはd3d11メモリが必要
         if (!(pParams->memType & D3D11_MEMORY) || (pParams->memType & D3D9_MEMORY)) {
-            PrintMes(QSV_LOG_WARN, _T("vpp-rotate requires d3d11 surface, forcing d3d11 surface.\n"));
+            PrintMes(RGY_LOG_WARN, _T("vpp-rotate requires d3d11 surface, forcing d3d11 surface.\n"));
         }
         pParams->memType = D3D11_MEMORY;
 #else
-        PrintMes(QSV_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
         return MFX_ERR_UNSUPPORTED;
 #endif
     }
@@ -2814,20 +2814,20 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         //d3d11モードが必要なら、vpp-subは実行できない
         if (HW_MEMORY == (memType & HW_MEMORY) && check_if_d3d11_necessary()) {
             memType &= (~D3D11_MEMORY);
-            PrintMes(QSV_LOG_DEBUG, _T("d3d11 mode required on this system, but vpp-sub does not support d3d11 mode.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode required on this system, but vpp-sub does not support d3d11 mode.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
         //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-subは競合する
         if (pParams->vpp.nRotate) {
-            PrintMes(QSV_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
-            PrintMes(QSV_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
 #endif //#if MFX_D3D11_SUPPORT
 #else
         //Linuxでのカスタムvppには systemメモリが必要
         if (pParams->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
-            PrintMes(QSV_LOG_WARN, _T("vpp-sub requires system surface, forcing system surface.\n"));
+            PrintMes(RGY_LOG_WARN, _T("vpp-sub requires system surface, forcing system surface.\n"));
             pParams->memType = SYSTEM_MEMORY;
         }
 #endif
@@ -2837,7 +2837,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     //Linuxでのカスタムvppには systemメモリが必要
     if (pParams->vpp.delogo.pFilePath) {
         if (pParams->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
-            PrintMes(QSV_LOG_WARN, _T("vpp-delogo requires system surface, forcing system surface.\n"));
+            PrintMes(RGY_LOG_WARN, _T("vpp-delogo requires system surface, forcing system surface.\n"));
             pParams->memType = SYSTEM_MEMORY;
         }
     }
@@ -2845,7 +2845,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
     //フレームレートのチェック
     if (pParams->nFPSRate == 0 || pParams->nFPSScale == 0) {
-        PrintMes(QSV_LOG_ERROR, _T("unable to parse fps data.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("unable to parse fps data.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     mfxU32 OutputFPSRate = pParams->nFPSRate;
@@ -2859,7 +2859,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
              || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL
              || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB
              || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
-            PrintMes(QSV_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, pParams->vpp.nDeinterlace));
+            PrintMes(RGY_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, pParams->vpp.nDeinterlace));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
 
@@ -2895,7 +2895,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
     m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog, m_pPerfMonitor);
-    PrintMes(QSV_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
 
@@ -2913,7 +2913,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
                 pParams->memType &= ~D3D9_MEMORY;
                 pParams->memType |= D3D11_MEMORY;
             }
-            PrintMes(QSV_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC decoding on Haswell.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC decoding on Haswell.\n"));
         }
     }
 
@@ -2921,7 +2921,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
 
     if (pParams->nAVSyncMode && std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader) == nullptr) {
-        PrintMes(QSV_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
         pParams->nAVSyncMode = QSV_AVSYNC_THROUGH;
     }
 
@@ -2944,7 +2944,7 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     mfxStatus sts = MFX_ERR_NONE;
     m_SessionPlugins.reset();
     m_mfxSession.Close();
-    PrintMes(QSV_LOG_DEBUG, _T("InitSession: Start initilaizing... memType: %s\n"), MemTypeToStr(memType));
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initilaizing... memType: %s\n"), MemTypeToStr(memType));
 
     auto InitSessionEx = [&](mfxIMPL impl, mfxVersion *verRequired) {
 #if ENABLE_SESSION_THREAD_CONFIG
@@ -2975,13 +2975,13 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
         //D3D11をWin8以降に限定
         if (!check_OS_Win8orLater()) {
             memType &= (~D3D11_MEMORY);
-            PrintMes(QSV_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
         }
 
         //D3D11モードは基本的には遅い模様なので、自動モードなら切る
         if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
             memType &= (~D3D11_MEMORY);
-            PrintMes(QSV_LOG_DEBUG, _T("InitSession: d3d11 memory mode not required, switching to d3d9 memory mode.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("InitSession: d3d11 memory mode not required, switching to d3d9 memory mode.\n"));
         }
 #endif //#if MFX_D3D11_SUPPORT
         //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
@@ -2991,11 +2991,11 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
                 if (0 == i_try_d3d11) {
                     impl |= MFX_IMPL_VIA_D3D11; //d3d11モードも試す場合は、まずd3d11モードをチェック
                     m_memType = D3D11_MEMORY;
-                    PrintMes(QSV_LOG_DEBUG, _T("InitSession: trying to init session for d3d11 mode.\n"));
+                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d11 mode.\n"));
                 } else {
                     impl &= ~MFX_IMPL_VIA_D3D11; //d3d11をオフにして再度テストする
                     m_memType = D3D9_MEMORY;
-                    PrintMes(QSV_LOG_DEBUG, _T("InitSession: trying to init session for d3d9 mode.\n"));
+                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d9 mode.\n"));
                 }
             }
 #endif
@@ -3004,7 +3004,7 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
 
             //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
             if (MFX_ERR_NONE != sts) {
-                PrintMes(QSV_LOG_DEBUG, _T("InitSession: failed to init session for multi GPU mode, retry by single GPU mode.\n"));
+                PrintMes(RGY_LOG_DEBUG, _T("InitSession: failed to init session for multi GPU mode, retry by single GPU mode.\n"));
                 sts = m_mfxSession.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
             }
 
@@ -3013,17 +3013,17 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
                 break;
             }
         }
-        PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), MemTypeToStr(m_memType));
+        PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), MemTypeToStr(m_memType));
     } else {
         mfxIMPL impl = MFX_IMPL_SOFTWARE;
         mfxVersion verRequired = MFX_LIB_VERSION_1_1;
         sts = InitSessionEx(impl, &verRequired);
         m_memType = SYSTEM_MEMORY;
-        PrintMes(QSV_LOG_DEBUG, _T("InitSession: initialized with system memory.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized with system memory.\n"));
     }
     //使用できる最大のversionをチェック
     m_mfxSession.QueryVersion(&m_mfxVer);
-    PrintMes(QSV_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     return sts;
 }
 
@@ -3053,28 +3053,28 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
             }
             qsv_free(pParams->ppAudioSelectList);
             pParams->nAudioSelectCount = 0;
-            PrintMes(QSV_LOG_WARN, _T("audio copy or audio encoding disabled on benchmark mode.\n"));
+            PrintMes(RGY_LOG_WARN, _T("audio copy or audio encoding disabled on benchmark mode.\n"));
         }
         if (pParams->nSubtitleSelectCount) {
             qsv_free(pParams->pSubtitleSelect);
             pParams->nSubtitleSelectCount = 0;
-            PrintMes(QSV_LOG_WARN, _T("subtitle copy disabled on benchmark mode.\n"));
+            PrintMes(RGY_LOG_WARN, _T("subtitle copy disabled on benchmark mode.\n"));
         }
         if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
             pParams->nPerfMonitorSelect = 0;
             pParams->nPerfMonitorSelectMatplot = 0;
-            PrintMes(QSV_LOG_WARN, _T("performance monitor disabled on benchmark mode.\n"));
+            PrintMes(RGY_LOG_WARN, _T("performance monitor disabled on benchmark mode.\n"));
         }
         static const TCHAR *RAW_FORMAT = _T("raw");
         static const size_t RAW_FORMAT_LEN = _tcslen(RAW_FORMAT) + 1;
         pParams->pAVMuxOutputFormat = (TCHAR *)realloc(pParams->pAVMuxOutputFormat, RAW_FORMAT_LEN * sizeof(RAW_FORMAT[0]));
         _tcscpy_s(pParams->pAVMuxOutputFormat, RAW_FORMAT_LEN, RAW_FORMAT);
-        PrintMes(QSV_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
 
     //メモリの指定が自動の場合、出力コーデックがrawなら、systemメモリを自動的に使用する
     if (HW_MEMORY == (pParams->memType & HW_MEMORY) && pParams->CodecId == MFX_CODEC_RAW) {
-        PrintMes(QSV_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
         pParams->memType = SYSTEM_MEMORY;
     }
     if (true) {
@@ -3091,7 +3091,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
             nullptr,
 #endif
             m_pQSVLog)) {
-            PrintMes(QSV_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
+            PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
             m_pPerfMonitor.reset();
         }
     }
@@ -3145,7 +3145,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         if (m_SceneChange.Init(80, (deinterlace_enabled) ? m_mfxVppParams.mfx.FrameInfo.PicStruct : m_mfxEncParams.mfx.FrameInfo.PicStruct, pParams->nVQPStrength, pParams->nVQPSensitivity, 3, pParams->nGOPLength, deinterlace_normal)) {
             QSV_ERR_MES(MFX_ERR_UNDEFINED_BEHAVIOR, _T("Failed to start scenechange detection."));
         }
-        PrintMes(QSV_LOG_DEBUG, _T("Initialized Scene change detection.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Initialized Scene change detection.\n"));
     }
 
     //encの作成 (raw出力の場合はエンコードしないので不要)
@@ -3165,7 +3165,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         || m_mfxVppParams.vpp.In.BitDepthChroma != m_mfxVppParams.vpp.Out.BitDepthChroma
         || m_mfxVppParams.NumExtParam > 1
         || pParams->vpp.nDeinterlace) {
-        PrintMes(QSV_LOG_DEBUG, _T("Vpp Enabled...\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled...\n"));
         m_pmfxVPP.reset(new MFXVideoVPP(m_mfxSession));
         if (!m_pmfxVPP) {
             return MFX_ERR_MEMORY_ALLOC;
@@ -3173,7 +3173,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     if (m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC) {
         tstring mes = strsprintf(_T("ColorFmtConvertion: %s -> %s\n"), ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC));
-        PrintMes(QSV_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
         VppExtMes += mes;
     }
     if (pParams->nWidth  != pParams->nDstWidth ||
@@ -3182,30 +3182,30 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         if (pParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT) {
             mes += tstring(_T(" (")) + get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.nScalingQuality) + _T(")");
         }
-        PrintMes(QSV_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
         VppExtMes += mes;
     }
 
     const int nPipelineElements = !!m_pmfxDEC + !!m_pmfxVPP + !!m_pmfxENC + (int)m_VppPrePlugins.size() + (int)m_VppPostPlugins.size();
     if (nPipelineElements == 0) {
-        PrintMes(QSV_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
+        PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
-    PrintMes(QSV_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
+    PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
     m_nProcSpeedLimit = pParams->nProcSpeedLimit;
     m_nAVSyncMode = pParams->nAVSyncMode;
     m_nAsyncDepth = (mfxU16)clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1), 8);
-        PrintMes(QSV_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
+        PrintMes(RGY_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
     }
 
 #if defined(_WIN32) || defined(_WIN64)
     if (!pParams->bDisableTimerPeriodTuning) {
         m_bTimerPeriodTuning = true;
         timeBeginPeriod(1);
-        PrintMes(QSV_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
@@ -3216,21 +3216,21 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
 }
 
 void CQSVPipeline::Close() {
-    PrintMes(QSV_LOG_DEBUG, _T("Closing pipeline...\n"));
-    //PrintMes(QSV_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
+    PrintMes(RGY_LOG_DEBUG, _T("Closing pipeline...\n"));
+    //PrintMes(RGY_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing enc status...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
     m_pEncSatusInfo.reset();
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing m_EncThread...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing m_EncThread...\n"));
     m_EncThread.Close();
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing Plugins...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing Plugins...\n"));
     m_SessionPlugins.reset();
 
     m_pTrimParam = NULL;
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
     m_pmfxDEC.reset();
     m_pmfxENC.reset();
     m_pmfxVPP.reset();
@@ -3250,22 +3250,22 @@ void CQSVPipeline::Close() {
 
     mfxBitstreamClear(&m_DecInputBitstream);
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing TaskPool...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing TaskPool...\n"));
     m_TaskPool.Close();
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing mfxSession...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing mfxSession...\n"));
     m_mfxSession.Close();
 
-    PrintMes(QSV_LOG_DEBUG, _T("DeleteFrames...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("DeleteFrames...\n"));
     DeleteFrames();
 
-    PrintMes(QSV_LOG_DEBUG, _T("DeleteAllocator...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("DeleteAllocator...\n"));
     // allocator if used as external for MediaSDK must be deleted after SDK components
     DeleteAllocator();
 
     m_SceneChange.Close();
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing audio readers (if used)...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing audio readers (if used)...\n"));
     m_AudioReaders.clear();
 
     for (auto pWriter : m_pFileWriterListAudio) {
@@ -3278,13 +3278,13 @@ void CQSVPipeline::Close() {
     }
     m_pFileWriterListAudio.clear();
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing writer...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing writer...\n"));
     if (m_pFileWriter) {
         m_pFileWriter->Close();
         m_pFileWriter.reset();
     }
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing reader...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing reader...\n"));
     if (m_pFileReader) {
         m_pFileReader->Close();
         m_pFileReader.reset();
@@ -3293,11 +3293,11 @@ void CQSVPipeline::Close() {
     if (m_bTimerPeriodTuning) {
         timeEndPeriod(1);
         m_bTimerPeriodTuning = false;
-        PrintMes(QSV_LOG_DEBUG, _T("timeEndPeriod(1)\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("timeEndPeriod(1)\n"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-    PrintMes(QSV_LOG_DEBUG, _T("Closing perf monitor...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
     m_pPerfMonitor.reset();
 
     m_pAbortByUser = NULL;
@@ -3307,7 +3307,7 @@ void CQSVPipeline::Close() {
 #if ENABLE_AVCODEC_QSV_READER
     av_qsv_log_free();
 #endif //#if ENABLE_AVCODEC_QSV_READER
-    PrintMes(QSV_LOG_DEBUG, _T("Closed pipeline.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Closed pipeline.\n"));
     if (m_pQSVLog.get() != nullptr) {
         m_pQSVLog->writeFileFooter();
         m_pQSVLog.reset();
@@ -3320,47 +3320,47 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     }
 
     mfxStatus sts = MFX_ERR_NONE;
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Start...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Start...\n"));
 
     if (m_pmfxENC) {
         sts = m_pmfxENC->Close();
         QSV_IGNORE_STS(sts, MFX_ERR_NOT_INITIALIZED);
         QSV_ERR_MES(sts, _T("Failed to reset encoder (fail on closing)."));
-        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Enc closed.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Enc closed.\n"));
     }
 
     if (m_pmfxVPP) {
         sts = m_pmfxVPP->Close();
         QSV_IGNORE_STS(sts, MFX_ERR_NOT_INITIALIZED);
         QSV_ERR_MES(sts, _T("Failed to reset vpp (fail on closing)."));
-        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Vpp closed.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp closed.\n"));
     }
 
     if (m_pmfxDEC) {
         sts = m_pmfxDEC->Close();
         QSV_IGNORE_STS(sts, MFX_ERR_NOT_INITIALIZED);
         QSV_ERR_MES(sts, _T("Failed to reset decoder (fail on closing)."));
-        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Dec closed.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Dec closed.\n"));
     }
 
     // free allocated frames
     DeleteFrames();
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Frames deleted.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Frames deleted.\n"));
 
     m_TaskPool.Close();
 
     sts = AllocFrames();
     if (sts < MFX_ERR_NONE) return sts;
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Frames allocated.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Frames allocated.\n"));
 
-    //MediaSDK内のエラーをQSV_LOG_DEBUG以下の時以外には一時的に無視するようにする。
-    //QSV_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
+    //MediaSDK内のエラーをRGY_LOG_DEBUG以下の時以外には一時的に無視するようにする。
+    //RGY_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
     auto logIgnoreMFXLibraryInternalErrors = [this]() {
         const auto log_level = m_pQSVLog->getLogLevel();
-        if (log_level >= QSV_LOG_MORE) {
-            m_pQSVLog->setLogLevel(QSV_LOG_QUIET); //一時的にエラーを無視
+        if (log_level >= RGY_LOG_MORE) {
+            m_pQSVLog->setLogLevel(RGY_LOG_QUIET); //一時的にエラーを無視
         } else {
-            PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
+            PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
         }
         return log_level;
     };
@@ -3375,11 +3375,11 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
         sts = m_pmfxENC->Init(&m_mfxEncParams);
         m_pQSVLog->setLogLevel(log_level);
         if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
-            PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on Encoding.\n"));
+            PrintMes(RGY_LOG_WARN, _T("ResetMFXComponents: partial acceleration on Encoding.\n"));
             QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
         }
         QSV_ERR_MES(sts, _T("Failed to initialize encoder."));
-        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Enc initialized.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Enc initialized.\n"));
     }
 
     if (m_pmfxVPP) {
@@ -3392,11 +3392,11 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
         sts = m_pmfxVPP->Init(&m_mfxVppParams);
         m_pQSVLog->setLogLevel(log_level);
         if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
-            PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on vpp.\n"));
+            PrintMes(RGY_LOG_WARN, _T("ResetMFXComponents: partial acceleration on vpp.\n"));
             QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
         }
         QSV_ERR_MES(sts, _T("Failed to initialize vpp."));
-        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Vpp initialized.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp initialized.\n"));
     }
 
     if (m_pmfxDEC) {
@@ -3404,18 +3404,18 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
         m_pQSVLog->setLogLevel(log_level);
         if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
-            PrintMes(QSV_LOG_WARN, _T("ResetMFXComponents: partial acceleration on decoding.\n"));
+            PrintMes(RGY_LOG_WARN, _T("ResetMFXComponents: partial acceleration on decoding.\n"));
             QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
         }
         QSV_ERR_MES(sts, _T("Failed to initialize decoder.\n"));
-        PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Dec initialized.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Dec initialized.\n"));
     }
 
     mfxU32 nEncodedDataBufferSize = m_mfxEncParams.mfx.FrameInfo.Width * m_mfxEncParams.mfx.FrameInfo.Height * 4;
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth, nEncodedDataBufferSize >> 10);
+    PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth, nEncodedDataBufferSize >> 10);
     sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator.get(), m_pFileWriter, m_nAsyncDepth, nEncodedDataBufferSize);
     QSV_ERR_MES(sts, _T("Failed to initialize task pool for encoding."));
-    PrintMes(QSV_LOG_DEBUG, _T("ResetMFXComponents: Created task pool.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Created task pool.\n"));
 
     return MFX_ERR_NONE;
 }
@@ -3431,7 +3431,7 @@ mfxStatus CQSVPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
 
     sts = mfxBitstreamExtend(pBS, par.mfx.BufferSizeInKB * 1000 * (std::max)(1, (int)par.mfx.BRCParamMultiplier));
     if (sts != MFX_ERR_NONE) {
-        PrintMes(QSV_LOG_ERROR, _T("Failed to allocate memory for output bufffer: %s\n"), get_err_mes(sts));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to allocate memory for output bufffer: %s\n"), get_err_mes(sts));
         mfxBitstreamClear(pBS);
         return sts;
     }
@@ -3461,7 +3461,7 @@ mfxStatus CQSVPipeline::SynchronizeFirstTask() {
 }
 
 mfxStatus CQSVPipeline::CheckSceneChange() {
-    PrintMes(QSV_LOG_DEBUG, _T("Starting Sub Thread...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Starting Sub Thread...\n"));
     mfxStatus sts = MFX_ERR_NONE;
 
     const int bufferSize = m_EncThread.m_nFrameBuffer;
@@ -3507,7 +3507,7 @@ mfxStatus CQSVPipeline::CheckSceneChange() {
         SetEvent(pInputBuf->heInputDone);
     }
     
-    PrintMes(QSV_LOG_DEBUG, _T("Sub Thread: finished.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Sub Thread: finished.\n"));
     return sts;
 }
 
@@ -3525,14 +3525,14 @@ mfxStatus CQSVPipeline::Run() {
 
 mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     RGY_ERR ret = RGY_ERR_NONE;
-    PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
     ret = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
     RGY_ERR_MES(ret, _T("Failed to start encode thread."));
     if (m_SceneChange.isInitialized()) {
         ret = m_EncThread.RunSubFuncbyThread(&RunSubThreadLauncher, this, SubThreadAffinityMask);
         RGY_ERR_MES(ret, _T("Failed to start encode sub thread."));
     }
-    PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
 
 #if ENABLE_AVCODEC_QSV_READER
     if (m_pPerfMonitor) {
@@ -3561,29 +3561,29 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
         pInputBuf = &pArrayInputBuf[i % bufferSize];
 
         //空いているフレームがセットされるのを待機
-        PrintMes(QSV_LOG_TRACE, _T("Main Thread: Wait Start %d.\n"), i);
+        PrintMes(RGY_LOG_TRACE, _T("Main Thread: Wait Start %d.\n"), i);
         while (WAIT_TIMEOUT == WaitForSingleObject(pInputBuf->heInputStart, 10000)) {
             //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
             if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
-                PrintMes(QSV_LOG_ERROR, _T("error at encode thread.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("error at encode thread.\n"));
                 ret = RGY_ERR_INVALID_HANDLE;
                 break;
             }
             if (m_SceneChange.isInitialized()
                 && !CheckThreadAlive(m_EncThread.GetHandleSubThread())) {
-                    PrintMes(QSV_LOG_ERROR, _T("error at sub thread.\n"));
+                    PrintMes(RGY_LOG_ERROR, _T("error at sub thread.\n"));
                     ret = RGY_ERR_INVALID_HANDLE;
                     break;
             }
         }
 
         //フレームを読み込み
-        PrintMes(QSV_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
+        PrintMes(RGY_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
         if (ret == MFX_ERR_NONE) {
             ret = m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface);
         }
         if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
-            PrintMes(QSV_LOG_INFO, _T("                                                                              \r"));
+            PrintMes(RGY_LOG_INFO, _T("                                                                              \r"));
             ret = RGY_ERR_ABORTED;
         } else if (ret == RGY_ERR_MORE_DATA) {
             m_EncThread.m_stsThread = ret;
@@ -3591,10 +3591,10 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 
         //フレームの読み込み終了を通知
         SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
-        PrintMes(QSV_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
+        PrintMes(RGY_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
     }
     m_EncThread.WaitToFinish(ret, m_pQSVLog);
-    PrintMes(QSV_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
 
     ret = (std::min)(ret, m_EncThread.m_stsThread);
     if (ret == MFX_ERR_MORE_DATA) ret = RGY_ERR_NONE;
@@ -3610,12 +3610,12 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     }
     m_pEncSatusInfo->WriteResults((m_nExPrm & MFX_PRM_EX_VQP) ? &info : NULL);
     
-    PrintMes(QSV_LOG_DEBUG, _T("Main Thread: finished.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
     return err_to_mfx(ret);
 }
 
 mfxStatus CQSVPipeline::RunEncode() {
-    PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: Starting Encode...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: Starting Encode...\n"));
 
     mfxStatus sts = MFX_ERR_NONE;
 
@@ -3735,7 +3735,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         for (int i_filter = (int)m_VppPostPlugins.size()-1; i_filter >= 0; i_filter--) {
             int freeSurfIdx = GetFreeSurface(m_VppPostPlugins[i_filter]->m_pPluginSurfaces.get(), m_VppPostPlugins[i_filter]->m_PluginResponse.NumFrameActual);
             if (freeSurfIdx == MSDK_INVALID_SURF_IDX) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for vpp post.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for vpp post.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
             pSurfVppPostFilter[i_filter] = &m_VppPostPlugins[i_filter]->m_pPluginSurfaces[freeSurfIdx];
@@ -3746,7 +3746,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
             nVppSurfIdx = GetFreeSurface(m_pVppSurfaces.data(), m_VppResponse.NumFrameActual);
             if (nVppSurfIdx == MSDK_INVALID_SURF_IDX) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for vpp.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for vpp.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
             pSurfVppIn = &m_pVppSurfaces[nVppSurfIdx];
@@ -3756,7 +3756,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         for (int i_filter = (int)m_VppPrePlugins.size()-1; i_filter >= 0; i_filter--) {
             int freeSurfIdx = GetFreeSurface(m_VppPrePlugins[i_filter]->m_pPluginSurfaces.get(), m_VppPrePlugins[i_filter]->m_PluginResponse.NumFrameActual);
             if (freeSurfIdx == MSDK_INVALID_SURF_IDX) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for vpp pre.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for vpp pre.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
             pSurfVppPreFilter[i_filter] = &m_VppPrePlugins[i_filter]->m_pPluginSurfaces[freeSurfIdx];
@@ -3784,7 +3784,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     
     //先読みバッファ用フレームを読み込み側に提供する
     set_surface_to_input_buffer();
-    PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: Set surface to input buffer...\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: Set surface to input buffer...\n"));
 
     auto copy_crop_info = [](mfxFrameSurface1 *dst, const mfxFrameInfo *src) {
         if (NULL != dst) {
@@ -3817,7 +3817,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 if (pWriterForAudioStreams.count(nTrackId)) {
                     auto pWriter = pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
-                        PrintMes(QSV_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
                         return RGY_ERR_NULL_PTR;
                     }
                     if (RGY_ERR_NONE != (ret = pWriter->WriteNextPacket(&packetList[i]))) {
@@ -3826,7 +3826,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 } else if (pFilterForStreams.count(nTrackId)) {
                     auto pFilter = pFilterForStreams[nTrackId];
                     if (pFilter == nullptr) {
-                        PrintMes(QSV_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
                         return RGY_ERR_NULL_PTR;
                     }
                     auto sts = pFilter->SendData(PLUGIN_SEND_DATA_AVPACKET, &packetList[i]);
@@ -3834,7 +3834,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                         return err_to_rgy(sts);
                     }
                 } else {
-                    PrintMes(QSV_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
                     return RGY_ERR_NOT_FOUND;
                 }
             }
@@ -3875,14 +3875,14 @@ mfxStatus CQSVPipeline::RunEncode() {
                     if (MFX_WRN_DEVICE_BUSY == dec_sts)
                         sleep_hybrid(i); // wait if device is busy
                     if (i > 1024 * 1024 * 30) {
-                        PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                        PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                         return MFX_ERR_UNKNOWN;
                     }
                 } else if (MFX_ERR_NONE < dec_sts && DecSyncPoint) {
                     dec_sts = MFX_ERR_NONE; //出力があれば、警告は無視する
                     break;
                 } else if (dec_sts < MFX_ERR_NONE && (dec_sts != MFX_ERR_MORE_DATA && dec_sts != MFX_ERR_MORE_SURFACE)) {
-                    PrintMes(QSV_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
+                    PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
                     break;
                 } else {
                     break; // not a warning
@@ -3906,7 +3906,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         if (framePosList && pNextFrame) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
             if (pos.poc == AVQSV_POC_INVALID) {
-                PrintMes(QSV_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
                 return MFX_ERR_UNKNOWN;
             }
             timestamp = pos.pts;
@@ -3931,7 +3931,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             auto queueFirstFrame = qDecodeFrames.front();
             auto queueFirstPts = queueFirstFrame.timestamp;
             if (queueFirstPts == AV_NOPTS_VALUE) {
-                PrintMes(QSV_LOG_ERROR, _T("Invalid timestamp provided from input.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Invalid timestamp provided from input.\n"));
                 return MFX_ERR_UNSUPPORTED;
             }
 
@@ -3942,7 +3942,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             if (std::abs(ptsDiff) >= CHECK_PTS_MAX_INSERT_FRAMES * nFrameDuration) {
                 //timestampに一定以上の差があればそれを無視する
                 nEstimatedPts = queueFirstPts;
-                PrintMes(QSV_LOG_WARN, _T("Big Gap was found between 2 frames (%d - %d), avsync might be corrupted.\n"), nInputFrameCount, nInputFrameCount+1);
+                PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames (%d - %d), avsync might be corrupted.\n"), nInputFrameCount, nInputFrameCount+1);
             } else if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
                 //水増しが必要 -> 何も(pop)しない
                 bCheckPtsMultipleOutput = true;
@@ -3992,7 +3992,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             if (MFX_WRN_DEVICE_BUSY == filter_sts) {
                 sleep_hybrid(i);
                 if (i > 1024 * 1024 * 30) {
-                    PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                    PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                     return MFX_ERR_UNKNOWN;
                 }
             } else {
@@ -4031,7 +4031,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     if (MFX_WRN_DEVICE_BUSY == vpp_sts)
                         sleep_hybrid(i); // wait if device is busy
                     if (i > 1024 * 1024 * 30) {
-                        PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                        PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                         return MFX_ERR_UNKNOWN;
                     }
                 } else if (MFX_ERR_NONE < vpp_sts && VppSyncPoint) {
@@ -4130,7 +4130,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 if (MFX_WRN_DEVICE_BUSY == enc_sts)
                 sleep_hybrid(i);
                 if (i > 65536 * 1024 * 30) {
-                    PrintMes(QSV_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                    PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                     return MFX_ERR_UNKNOWN;
                 }
             } else if (MFX_ERR_NONE < enc_sts && pCurrentTask->encSyncPoint) {
@@ -4140,7 +4140,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 enc_sts = AllocateSufficientBuffer(&pCurrentTask->mfxBS);
                 if (enc_sts < MFX_ERR_NONE) return enc_sts;
             } else if (enc_sts < MFX_ERR_NONE && (enc_sts != MFX_ERR_MORE_DATA && enc_sts != MFX_ERR_MORE_SURFACE)) {
-                PrintMes(QSV_LOG_ERROR, _T("EncodeFrameAsync error: %s.\n"), get_err_mes(enc_sts));
+                PrintMes(RGY_LOG_ERROR, _T("EncodeFrameAsync error: %s.\n"), get_err_mes(enc_sts));
                 break;
             } else {
                 // get next surface and new task for 2nd bitstream in ViewOutput mode
@@ -4169,7 +4169,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
         nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
         if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
-            PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
@@ -4277,7 +4277,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     //エラーチェック
     m_EncThread.m_stsThread = err_to_rgy(sts);
     QSV_ERR_MES(sts, _T("Error in encoding pipeline."));
-    PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished main loop.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished main loop.\n"));
 
     if (m_pmfxDEC) {
         auto ret = extract_audio();
@@ -4301,7 +4301,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
             nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
             if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
@@ -4363,7 +4363,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //エラーチェック
         m_EncThread.m_stsThread = err_to_rgy(sts);
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from decoder."));
-        PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
     }
 
 #if ENABLE_AVCODEC_QSV_READER
@@ -4387,7 +4387,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
             nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
             if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
@@ -4442,7 +4442,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         // exit in case of other errors
         m_EncThread.m_stsThread = err_to_rgy(sts);
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from avsync buffer."));
-        PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from avsync buffer.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from avsync buffer.\n"));
     }
 
     for (const auto& writer : m_pFileWriterListAudio) {
@@ -4471,7 +4471,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
             nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
             if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
-                PrintMes(QSV_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for enc.\n"));
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
@@ -4521,7 +4521,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //エラーチェック
         m_EncThread.m_stsThread = err_to_rgy(sts);
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from vpp."));
-        PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from vpp.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from vpp.\n"));
     }
 
     //encのフレームをflush
@@ -4537,7 +4537,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
         sts = encode_one_frame(NULL);
     }
-    PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from encoder.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from encoder.\n"));
 
     //MFX_ERR_MORE_DATAはencにもうflushするべきフレームがないことを示す
     QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
@@ -4556,13 +4556,13 @@ mfxStatus CQSVPipeline::RunEncode() {
     m_EncThread.m_stsThread = err_to_rgy(sts);
     QSV_ERR_MES(sts, _T("Error in encoding pipeline, synchronizing pipeline."));
     
-    PrintMes(QSV_LOG_DEBUG, _T("Encode Thread: finished.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished.\n"));
     return sts;
 }
 
 void CQSVPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
     if (m_pQSVLog.get() == nullptr) {
-        if (log_level <= QSV_LOG_INFO) {
+        if (log_level <= RGY_LOG_INFO) {
             return;
         }
     } else if (log_level < m_pQSVLog->getLogLevel()) {
@@ -4667,21 +4667,21 @@ void CQSVLog::writeFileHeader(const TCHAR *pDstFilename) {
             fileHeader += SEP5;
     }
     fileHeader += _T("\n");
-    write(QSV_LOG_INFO, fileHeader.c_str());
+    write(RGY_LOG_INFO, fileHeader.c_str());
 
-    if (m_nLogLevel == QSV_LOG_DEBUG) {
+    if (m_nLogLevel == RGY_LOG_DEBUG) {
         TCHAR cpuInfo[256] = { 0 };
         TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
-        write(QSV_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
-        write(QSV_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
-        write(QSV_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
-        write(QSV_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
+        write(RGY_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
+        write(RGY_LOG_DEBUG, _T("OS        %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
+        write(RGY_LOG_DEBUG, _T("CPU Info  %s\n"), cpuInfo);
+        write(RGY_LOG_DEBUG, _T("GPU Info  %s\n"), gpu_info);
     }
 }
 void CQSVLog::writeFileFooter() {
-    write(QSV_LOG_INFO, _T("\n\n"));
+    write(RGY_LOG_INFO, _T("\n\n"));
 }
 
 
@@ -4700,7 +4700,7 @@ void CQSVLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
 
         std::string strHtml;
         for (mfxU32 i = 0; i < strLines.size() - 1; i++) {
-            strHtml += strsprintf("<div class=\"%s\">", tchar_to_string(list_log_level[log_level - QSV_LOG_TRACE].desc).c_str());
+            strHtml += strsprintf("<div class=\"%s\">", tchar_to_string(list_log_level[log_level - RGY_LOG_TRACE].desc).c_str());
             strHtml += strLines[i];
             strHtml += "</div>\n";
         }
@@ -4923,10 +4923,10 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     if (m_pFileWriter && m_pFileWriter->getOutType() == OUT_TYPE_BITSTREAM) {
         auto ret = m_pFileWriter->SetVideoParam(&videoPrm, &cop2);
         if (ret != RGY_ERR_NONE) {
-            PrintMes(QSV_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
+            PrintMes(RGY_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
             return err_to_mfx(ret);
         }
-        PrintMes(QSV_LOG_DEBUG, _T("CheckCurrentVideoParam: SetVideoParam to video file writer.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("CheckCurrentVideoParam: SetVideoParam to video file writer.\n"));
     }
 
     TCHAR cpuInfo[256] = { 0 };
@@ -5219,7 +5219,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         }
     }
 
-    PrintMes(QSV_LOG_INFO, info);
+    PrintMes(RGY_LOG_INFO, info);
     if (str && bufSize > 0) {
         _tcscpy_s(str, bufSize, info);
     }

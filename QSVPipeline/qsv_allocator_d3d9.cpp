@@ -99,7 +99,7 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     HRESULT hr = 0;
     D3DSURFACE_DESC desc;
     if (FAILED(hr = pSurface->GetDesc(&desc))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::FrameLock Failed GetDesc mid 0x%x: %d\n"), mid, hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::FrameLock Failed GetDesc mid 0x%x: %d\n"), mid, hr);
         return MFX_ERR_LOCK_MEMORY;
     }
     static const auto SUPPORTED_FORMATS = make_array<D3DFORMAT>(
@@ -113,12 +113,12 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         D3DFMT_A2R10G10B10
     );
     if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), desc.Format) == SUPPORTED_FORMATS.end()) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::Unsupported format.\n"));
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::Unsupported format.\n"));
         return MFX_ERR_UNSUPPORTED;
     }
     D3DLOCKED_RECT locked;
     if (FAILED(hr = pSurface->LockRect(&locked, 0, D3DLOCK_NOSYSLOCK))) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::FrameLock Failed to Lock frame mid 0x%x: %d\n"), mid, hr);
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::FrameLock Failed to Lock frame mid 0x%x: %d\n"), mid, hr);
         return MFX_ERR_LOCK_MEMORY;
     }
 
@@ -170,7 +170,7 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         break;
     }
 
-    m_pQSVLog->write(QSV_LOG_TRACE, _T("QSVAllocatorD3D9::FrameLock Success.\n"));
+    m_pQSVLog->write(RGY_LOG_TRACE, _T("QSVAllocatorD3D9::FrameLock Success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -190,7 +190,7 @@ mfxStatus QSVAllocatorD3D9::FrameUnlock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->U     = nullptr;
         ptr->V     = nullptr;
     }
-    m_pQSVLog->write(QSV_LOG_TRACE, _T("QSVAllocatorD3D9::FrameUnlock Success.\n"));
+    m_pQSVLog->write(RGY_LOG_TRACE, _T("QSVAllocatorD3D9::FrameUnlock Success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -226,7 +226,7 @@ mfxStatus QSVAllocatorD3D9::ReleaseResponse(mfxFrameAllocResponse *response) {
         qsv_free(response->mids[0]);
     }
     qsv_free(response->mids);
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorD3D9::ReleaseResponse Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::ReleaseResponse Success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -236,20 +236,20 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
     }
 
     if (fourccToD3DFormat.find(request->Info.FourCC) == fourccToD3DFormat.end()) {
-        m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl unsupported format.\n"));
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl unsupported format.\n"));
         return MFX_ERR_UNSUPPORTED;
     }
 
     D3DFORMAT format = fourccToD3DFormat.at(request->Info.FourCC);
     DWORD target;
     if (MFX_MEMTYPE_DXVA2_DECODER_TARGET & request->Type) {
-        m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl select DXVA2_VideoDecoderRenderTarget.\n"));
+        m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl select DXVA2_VideoDecoderRenderTarget.\n"));
         target = DXVA2_VideoDecoderRenderTarget;
     } else if (MFX_MEMTYPE_DXVA2_PROCESSOR_TARGET & request->Type) {
-        m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl select DXVA2_VideoProcessorRenderTarget.\n"));
+        m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl select DXVA2_VideoProcessorRenderTarget.\n"));
         target = DXVA2_VideoProcessorRenderTarget;
     } else {
-        m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl unsupported mem type.\n"));
+        m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl unsupported mem type.\n"));
         return MFX_ERR_UNSUPPORTED;
     }
 
@@ -259,10 +259,10 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
     if (target == DXVA2_VideoProcessorRenderTarget) {
         if (!m_hProcessor) {
             if (FAILED(hr = m_manager->OpenDeviceHandle(&m_hProcessor))) {
-                m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed OpenDeviceHandle(Processor): %d.\n"), hr);
+                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed OpenDeviceHandle(Processor): %d.\n"), hr);
                 return MFX_ERR_DEVICE_FAILED;
             } else if (FAILED(hr = m_manager->GetVideoService(m_hProcessor, IID_IDirectXVideoProcessorService, (void**)&m_processorService))) {
-                m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed GetVideoService(Decoder): %d.\n"), hr);
+                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed GetVideoService(Decoder): %d.\n"), hr);
                 return MFX_ERR_DEVICE_FAILED;
             }
         }
@@ -270,16 +270,16 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
     } else {
         if (!m_hDecoder) {
             if (FAILED(hr = m_manager->OpenDeviceHandle(&m_hDecoder))) {
-                m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed OpenDeviceHandle(Decoder): %d.\n"), hr);
+                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed OpenDeviceHandle(Decoder): %d.\n"), hr);
                 return MFX_ERR_DEVICE_FAILED;
             } else if (FAILED(hr = m_manager->GetVideoService(m_hDecoder, IID_IDirectXVideoDecoderService, (void**)&m_decoderService))) {
-                m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed GetVideoService(Decoder): %d.\n"), hr);
+                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed GetVideoService(Decoder): %d.\n"), hr);
                 return MFX_ERR_DEVICE_FAILED;
             }
         }
         videoService = m_decoderService;
     }
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl GetVideoService Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl GetVideoService Success.\n"));
 
     mfxHDLPair  *dxMids    = (mfxHDLPair *)calloc(request->NumFrameSuggested, sizeof(mfxHDLPair));
     mfxHDLPair **dxMidPtrs = (mfxHDLPair**)calloc(request->NumFrameSuggested, sizeof(mfxHDLPair*));
@@ -290,7 +290,7 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
         return MFX_ERR_MEMORY_ALLOC;
     }
 
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl allocate surface...\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl allocate surface...\n"));
     response->mids = (mfxMemId*)dxMidPtrs;
     response->NumFrameActual = request->NumFrameSuggested;
 
@@ -300,7 +300,7 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
                                                 D3DPOOL_DEFAULT, m_surfaceUsage, target, (IDirect3DSurface9**)&dxMids[i].first, NULL /*&dxMids[i].second*/))) {
                 ReleaseResponse(response);
                 qsv_free(dxMids);
-                m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(external) #%d: %d.\n"), i, hr);
+                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(external) #%d: %d.\n"), i, hr);
                 return MFX_ERR_MEMORY_ALLOC;
             }
             dxMidPtrs[i] = &dxMids[i];
@@ -314,7 +314,7 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
         if (FAILED(hr = videoService->CreateSurface(request->Info.Width, request->Info.Height, request->NumFrameSuggested - 1,  format,
                                             D3DPOOL_DEFAULT, m_surfaceUsage, target, dxSrf.get(), NULL))) { 
             qsv_free(dxMids);
-            m_pQSVLog->write(QSV_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(other) %d frmaes: %d.\n"), request->NumFrameSuggested - 1, hr);
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(other) %d frmaes: %d.\n"), request->NumFrameSuggested - 1, hr);
             return MFX_ERR_MEMORY_ALLOC;
         }
         for (int i = 0; i < request->NumFrameSuggested; i++) {
@@ -322,7 +322,7 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
             dxMidPtrs[i] = &dxMids[i];
         }
     }
-    m_pQSVLog->write(QSV_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl Success.\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::AllocImpl Success.\n"));
     return MFX_ERR_NONE;
 }
 

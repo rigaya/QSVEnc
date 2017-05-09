@@ -24,8 +24,8 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVCODEC_QSV_LOG_H_
-#define _AVCODEC_QSV_LOG_H_
+#ifndef _AVCODEC_RGY_LOG_H_
+#define _AVCODEC_RGY_LOG_H_
 
 #include "qsv_version.h"
 
@@ -38,4 +38,4 @@ void av_qsv_log_free();
 
 #endif //ENABLE_AVCODEC_QSV_READER
 
-#endif //_AVCODEC_QSV_LOG_H_
+#endif //_AVCODEC_RGY_LOG_H_

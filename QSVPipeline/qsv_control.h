@@ -259,7 +259,7 @@ public:
 #pragma warning(disable:4100)
     virtual void SetPrivData(void *pPrivateData) {};
     virtual void UpdateDisplay(const TCHAR *mes, int drop_frames, double progressPercent) {
-        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > RGY_LOG_INFO) {
             return;
         }
 #if UNICODE
@@ -280,7 +280,7 @@ public:
     }
 #pragma warning(pop)
     virtual RGY_ERR UpdateDisplay(int drop_frames, double progressPercent = 0.0) {
-        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > RGY_LOG_INFO) {
             return RGY_ERR_NONE;
         }
         if (m_sData.nProcessedFramesNum + drop_frames <= 0) {
@@ -377,16 +377,16 @@ public:
         return RGY_ERR_NONE;
     }
     virtual void WriteLine(const TCHAR *mes) {
-        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > RGY_LOG_INFO) {
             return;
         }
-        m_pQSVLog->write(QSV_LOG_INFO, _T("%s\n"), mes);
+        m_pQSVLog->write(RGY_LOG_INFO, _T("%s\n"), mes);
     }
     virtual void WriteLineDirect(TCHAR *mes) {
-        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > QSV_LOG_INFO) {
+        if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > RGY_LOG_INFO) {
             return;
         }
-        m_pQSVLog->write_log(QSV_LOG_INFO, mes);
+        m_pQSVLog->write_log(RGY_LOG_INFO, mes);
     }
     virtual void WriteFrameTypeResult(const TCHAR *header, mfxU32 count, mfxU32 maxCount, mfxU64 frameSize, mfxU64 maxFrameSize, double avgQP) {
         if (count) {

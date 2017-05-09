@@ -69,28 +69,28 @@ void CAvcodecWriter::CloseSubtitle(AVMuxSub *pMuxSub) {
     if (pMuxSub->pOutCodecDecodeCtx) {
         avcodec_close(pMuxSub->pOutCodecDecodeCtx);
         av_free(pMuxSub->pOutCodecDecodeCtx);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
     }
 
     //close encoder
     if (pMuxSub->pOutCodecEncodeCtx) {
         avcodec_close(pMuxSub->pOutCodecEncodeCtx);
         av_free(pMuxSub->pOutCodecEncodeCtx);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
     }
     if (pMuxSub->pBuf) {
         av_free(pMuxSub->pBuf);
     }
 
     memset(pMuxSub, 0, sizeof(pMuxSub[0]));
-    AddMessage(QSV_LOG_DEBUG, _T("Closed subtitle.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed subtitle.\n"));
 }
 
 void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
     //close resampler
     if (pMuxAudio->pSwrContext) {
         swr_free(&pMuxAudio->pSwrContext);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed pSwrContext.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed pSwrContext.\n"));
     }
     if (pMuxAudio->pSwrBuffer) {
         if (pMuxAudio->pSwrBuffer[0]) {
@@ -104,14 +104,14 @@ void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
         && pMuxAudio->nInSubStream == 0) { //サブストリームのものは単なるコピーなので開放不要
         avcodec_close(pMuxAudio->pOutCodecDecodeCtx);
         av_free(pMuxAudio->pOutCodecDecodeCtx);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed pOutCodecDecodeCtx.\n"));
     }
 
     //close encoder
     if (pMuxAudio->pOutCodecEncodeCtx) {
         avcodec_close(pMuxAudio->pOutCodecEncodeCtx);
         av_free(pMuxAudio->pOutCodecEncodeCtx);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed pOutCodecEncodeCtx.\n"));
     }
 
     //close filter
@@ -123,7 +123,7 @@ void CAvcodecWriter::CloseAudio(AVMuxAudio *pMuxAudio) {
         av_bsf_free(&pMuxAudio->pAACBsfc);
     }
     memset(pMuxAudio, 0, sizeof(pMuxAudio[0]));
-    AddMessage(QSV_LOG_DEBUG, _T("Closed audio.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed audio.\n"));
 }
 
 void CAvcodecWriter::CloseVideo(AVMuxVideo *pMuxVideo) {
@@ -131,7 +131,7 @@ void CAvcodecWriter::CloseVideo(AVMuxVideo *pMuxVideo) {
         fclose(m_Mux.video.fpTsLogFile);
     }
     memset(pMuxVideo, 0, sizeof(pMuxVideo[0]));
-    AddMessage(QSV_LOG_DEBUG, _T("Closed video.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
 }
 
 void CAvcodecWriter::CloseFormat(AVMuxFormat *pMuxFormat) {
@@ -143,18 +143,18 @@ void CAvcodecWriter::CloseFormat(AVMuxFormat *pMuxFormat) {
         if (!pMuxFormat->fpOutput) {
 #endif
             avio_close(pMuxFormat->pFormatCtx->pb);
-            AddMessage(QSV_LOG_DEBUG, _T("Closed AVIO Context.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("Closed AVIO Context.\n"));
 #if USE_CUSTOM_IO
         }
 #endif
         avformat_free_context(pMuxFormat->pFormatCtx);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed avformat context.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed avformat context.\n"));
     }
 #if USE_CUSTOM_IO
     if (pMuxFormat->fpOutput) {
         fflush(pMuxFormat->fpOutput);
         fclose(pMuxFormat->fpOutput);
-        AddMessage(QSV_LOG_DEBUG, _T("Closed File Pointer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed File Pointer.\n"));
     }
 
     if (pMuxFormat->pAVOutBuffer) {
@@ -166,7 +166,7 @@ void CAvcodecWriter::CloseFormat(AVMuxFormat *pMuxFormat) {
     }
 #endif //USE_CUSTOM_IO
     memset(pMuxFormat, 0, sizeof(pMuxFormat[0]));
-    AddMessage(QSV_LOG_DEBUG, _T("Closed format.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed format.\n"));
 }
 
 void CAvcodecWriter::CloseQueues() {
@@ -180,7 +180,7 @@ void CAvcodecWriter::CloseQueues() {
     m_Mux.thread.qAudioPacketOut.close();
     m_Mux.thread.qAudioFrameEncode.close();
     m_Mux.thread.qAudioPacketProcess.close();
-    AddMessage(QSV_LOG_DEBUG, _T("closed queues...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("closed queues...\n"));
 #endif
 }
 
@@ -196,7 +196,7 @@ void CAvcodecWriter::CloseThread() {
         m_Mux.thread.thAudEncode.join();
         CloseEvent(m_Mux.thread.heEventPktAddedAudEncode);
         CloseEvent(m_Mux.thread.heEventClosingAudEncode);
-        AddMessage(QSV_LOG_DEBUG, _T("closed audio encode thread...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("closed audio encode thread...\n"));
     }
     m_Mux.thread.bThAudProcessAbort = true;
     if (m_Mux.thread.thAudProcess.joinable()) {
@@ -208,7 +208,7 @@ void CAvcodecWriter::CloseThread() {
         m_Mux.thread.thAudProcess.join();
         CloseEvent(m_Mux.thread.heEventPktAddedAudProcess);
         CloseEvent(m_Mux.thread.heEventClosingAudProcess);
-        AddMessage(QSV_LOG_DEBUG, _T("closed audio process thread...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("closed audio process thread...\n"));
     }
     m_Mux.thread.bAbortOutput = true;
     if (m_Mux.thread.thOutput.joinable()) {
@@ -224,7 +224,7 @@ void CAvcodecWriter::CloseThread() {
         m_Mux.thread.thOutput.join();
         CloseEvent(m_Mux.thread.heEventPktAddedOutput);
         CloseEvent(m_Mux.thread.heEventClosingOutput);
-        AddMessage(QSV_LOG_DEBUG, _T("closed output thread...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("closed output thread...\n"));
     }
     CloseQueues();
     m_Mux.thread.bAbortOutput = false;
@@ -234,7 +234,7 @@ void CAvcodecWriter::CloseThread() {
 }
 
 void CAvcodecWriter::Close() {
-    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     CloseThread();
     CloseFormat(&m_Mux.format);
     for (int i = 0; i < (int)m_Mux.audio.size(); i++) {
@@ -248,7 +248,7 @@ void CAvcodecWriter::Close() {
     CloseVideo(&m_Mux.video);
     m_strOutputInfo.clear();
     m_pEncSatusInfo.reset();
-    AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 AVCodecID CAvcodecWriter::getAVCodecId(mfxU32 QSVFourcc) {
@@ -327,7 +327,7 @@ AVCodecID CAvcodecWriter::PCMRequiresConversion(const AVCodecParameters *pCodecP
         }
     }
     if (prmCodec != AV_CODEC_ID_NONE) {
-        AddMessage(QSV_LOG_DEBUG, _T("PCM requires conversion...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("PCM requires conversion...\n"));
     }
     return prmCodec;
 }
@@ -441,20 +441,20 @@ AVSampleFormat CAvcodecWriter::AutoSelectSampleFmt(const AVSampleFormat *pSample
 RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(prm->pVideoInfo->CodecId);
     if (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_NONE) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to find codec id for video.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to find codec id for video.\n"));
         return RGY_ERR_INVALID_CODEC;
     }
     m_Mux.format.pFormatCtx->oformat->video_codec = m_Mux.format.pFormatCtx->video_codec_id;
     if (NULL == (m_Mux.video.pCodec = avcodec_find_decoder(m_Mux.format.pFormatCtx->video_codec_id))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to codec for video.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to codec for video.\n"));
         return RGY_ERR_INVALID_CODEC;
     }
     if (NULL == (m_Mux.video.pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, m_Mux.video.pCodec))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to create new stream for video.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for video.\n"));
         return RGY_ERR_NULL_PTR;
     }
     m_Mux.video.nFPS = av_make_q(prm->pVideoInfo->FrameInfo.FrameRateExtN, prm->pVideoInfo->FrameInfo.FrameRateExtD);
-    AddMessage(QSV_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), prm->pVideoInfo->FrameInfo.FrameRateExtN, prm->pVideoInfo->FrameInfo.FrameRateExtD);
+    AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), prm->pVideoInfo->FrameInfo.FrameRateExtN, prm->pVideoInfo->FrameInfo.FrameRateExtD);
 
     m_Mux.video.pCodecCtx = m_Mux.video.pStreamOut->codec;
 #if USE_AVCODECPAR
@@ -504,10 +504,10 @@ RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
 #endif //#if USE_AVCODECPAR
     }
     if (0 > avcodec_open2(m_Mux.video.pCodecCtx, m_Mux.video.pCodec, NULL)) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to open codec for video.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to open codec for video.\n"));
         return RGY_ERR_NULL_PTR;
     }
-    AddMessage(QSV_LOG_DEBUG, _T("opened video avcodec\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("opened video avcodec\n"));
 
     m_Mux.video.pStreamOut->time_base = av_inv_q(m_Mux.video.nFPS);
     if (m_Mux.format.bIsMatroska) {
@@ -529,10 +529,10 @@ RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
 
     if (prm->pMuxVidTsLogFile) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->pMuxVidTsLogFile, _T("a"))) {
-            AddMessage(QSV_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), prm->pMuxVidTsLogFile);
+            AddMessage(RGY_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), prm->pMuxVidTsLogFile);
             m_Mux.video.fpTsLogFile = NULL;
         } else {
-            AddMessage(QSV_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), prm->pMuxVidTsLogFile);
+            AddMessage(RGY_LOG_DEBUG, _T("Opened mux timestamp log file: \"%s\""), prm->pMuxVidTsLogFile);
             tstring strFileHeadSep;
             for (int i = 0; i < 78; i++) {
                 strFileHeadSep += _T("-");
@@ -543,8 +543,8 @@ RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
         }
     }
 
-    AddMessage(QSV_LOG_DEBUG, _T("output video stream timebase: %d/%d\n"), m_Mux.video.pStreamOut->time_base.num, m_Mux.video.pStreamOut->time_base.den);
-    AddMessage(QSV_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
+    AddMessage(RGY_LOG_DEBUG, _T("output video stream timebase: %d/%d\n"), m_Mux.video.pStreamOut->time_base.num, m_Mux.video.pStreamOut->time_base.den);
+    AddMessage(RGY_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
     return RGY_ERR_NONE;
 }
 
@@ -585,17 +585,17 @@ RGY_ERR CAvcodecWriter::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uin
         AVFilterInOut *inputs = nullptr;
         AVFilterInOut *outputs = nullptr;
         if (0 > (ret = avfilter_graph_parse2(pMuxAudio->pFilterGraph, tchar_to_string(pMuxAudio->pFilter).c_str(), &inputs, &outputs))) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\"\n"), qsv_av_err2str(ret).c_str(), pMuxAudio->pFilter);
+            AddMessage(RGY_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\"\n"), qsv_av_err2str(ret).c_str(), pMuxAudio->pFilter);
             return RGY_ERR_INVALID_AUDIO_PARAM;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("Parsed filter: %s\n"), pMuxAudio->pFilter);
+        AddMessage(RGY_LOG_DEBUG, _T("Parsed filter: %s\n"), pMuxAudio->pFilter);
 
         const int nOutputCount = !!outputs + (outputs && outputs->next);
         const int nInputCount = !!inputs  + (inputs  && inputs->next);
         if (nOutputCount != 1 || nInputCount != 1) {
             const TCHAR *pFilterCountStr[] = { _T("0"), _T("1"), _T(">1") };
-            AddMessage(QSV_LOG_ERROR, _T("filtergraph has %s input(s) and %s output(s).\n"), pFilterCountStr[nInputCount], pFilterCountStr[nOutputCount]);
-            AddMessage(QSV_LOG_ERROR, _T("only 1 in -> 1 out filtering is supported.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("filtergraph has %s input(s) and %s output(s).\n"), pFilterCountStr[nInputCount], pFilterCountStr[nOutputCount]);
+            AddMessage(RGY_LOG_ERROR, _T("only 1 in -> 1 out filtering is supported.\n"));
             avfilter_inout_free(&inputs);
             avfilter_inout_free(&outputs);
             return RGY_ERR_UNSUPPORTED;
@@ -607,45 +607,45 @@ RGY_ERR CAvcodecWriter::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uin
         const AVFilter *abuffersrc  = avfilter_get_by_name("abuffer");
         const auto inName = strsprintf("in_track_%d.%d", pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
         if (0 > (ret = avfilter_graph_create_filter(&pMuxAudio->pFilterBufferSrcCtx, abuffersrc, inName.c_str(), args.c_str(), nullptr, pMuxAudio->pFilterGraph))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to create abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to create abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
             avfilter_inout_free(&inputs);
             avfilter_inout_free(&outputs);
             return RGY_ERR_UNSUPPORTED;
         }
         if (0 > (ret = avfilter_link(pMuxAudio->pFilterBufferSrcCtx, 0, inputs->filter_ctx, inputs->pad_idx))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to link abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to link abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
             avfilter_inout_free(&inputs);
             avfilter_inout_free(&outputs);
             return RGY_ERR_UNKNOWN;
         }
         avfilter_inout_free(&inputs);
-        AddMessage(QSV_LOG_DEBUG, _T("filter linked with src buffer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("filter linked with src buffer.\n"));
 
         const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
         const auto outName = strsprintf("out_track_%d.%d", pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
         if (0 > (ret = avfilter_graph_create_filter(&pMuxAudio->pFilterBufferSinkCtx, abuffersink, outName.c_str(), nullptr, nullptr, pMuxAudio->pFilterGraph))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to create abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to create abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
             avfilter_inout_free(&outputs);
             return RGY_ERR_UNSUPPORTED;
         }
         if (0 > (ret = av_opt_set_int(pMuxAudio->pFilterBufferSinkCtx, "all_channel_counts", 1, AV_OPT_SEARCH_CHILDREN))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to set channel counts to abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to set channel counts to abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
             avfilter_inout_free(&outputs);
             return RGY_ERR_UNSUPPORTED;
         }
         if (0 > (ret = avfilter_link(outputs->filter_ctx, outputs->pad_idx, pMuxAudio->pFilterBufferSinkCtx, 0))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to link abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to link abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
             avfilter_inout_free(&outputs);
             return RGY_ERR_UNKNOWN;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("filter linked with sink buffer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("filter linked with sink buffer.\n"));
 
         avfilter_inout_free(&outputs);
         if (0 > (ret = avfilter_graph_config(pMuxAudio->pFilterGraph, nullptr))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to configure filter graph: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to configure filter graph: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("filter config done, filter ready.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("filter config done, filter ready.\n"));
     }
     return RGY_ERR_NONE;
 }
@@ -663,7 +663,7 @@ RGY_ERR CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, 
             //resamplerをflush
             WriteNextPacketAudioFrame(&pktData);
             swr_free(&pMuxAudio->pSwrContext);
-            AddMessage(QSV_LOG_DEBUG, _T("Cleared resampler for track %d.%d\n"), pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
+            AddMessage(RGY_LOG_DEBUG, _T("Cleared resampler for track %d.%d\n"), pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
         }
         pMuxAudio->nResamplerInChannels      = channels;
         pMuxAudio->nResamplerInChannelLayout = channel_layout;
@@ -682,7 +682,7 @@ RGY_ERR CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, 
             av_opt_set       (pMuxAudio->pSwrContext, "resampler",          "soxr",                                        0);
         }
 
-        AddMessage(QSV_LOG_DEBUG, _T("Creating audio resampler [%s] for track %d.%d: %s, %dch [%s], %.1fkHz -> %s, %dch [%s], %.1fkHz\n"),
+        AddMessage(RGY_LOG_DEBUG, _T("Creating audio resampler [%s] for track %d.%d: %s, %dch [%s], %.1fkHz -> %s, %dch [%s], %.1fkHz\n"),
             get_chr_from_value(list_resampler, pMuxAudio->nAudioResampler),
             pMuxAudio->nInTrackId, pMuxAudio->nInSubStream,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt)).c_str(),
@@ -720,31 +720,31 @@ RGY_ERR CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, 
                 }
                 pMuxAudio->channelMapping[inChannel] = select_channel_index;
             }
-            if (QSV_LOG_DEBUG >= m_pPrintMes->getLogLevel()) {
+            if (RGY_LOG_DEBUG >= m_pPrintMes->getLogLevel()) {
                 tstring channel_layout_str = strsprintf(_T("channel layout for track %d.%d:\n["), pMuxAudio->nInTrackId, pMuxAudio->nInSubStream);
                 for (int inChannel = 0; inChannel < channels; inChannel++) {
                     channel_layout_str += strsprintf(_T("%4d"), pMuxAudio->channelMapping[inChannel]);
                 }
                 channel_layout_str += _T("]\n");
-                AddMessage(QSV_LOG_DEBUG, channel_layout_str.c_str());
+                AddMessage(RGY_LOG_DEBUG, channel_layout_str.c_str());
             }
             int ret = swr_set_channel_mapping(pMuxAudio->pSwrContext, pMuxAudio->channelMapping);
             if (ret < 0) {
-                AddMessage(QSV_LOG_ERROR, _T("Failed to set channel mapping to the resampling context: %s\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("Failed to set channel mapping to the resampling context: %s\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
         }
 
         int ret = swr_init(pMuxAudio->pSwrContext);
         if (ret < 0) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to initialize the resampling context: %s\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize the resampling context: %s\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
         if (pMuxAudio->pSwrBuffer == nullptr) {
             pMuxAudio->nSwrBufferSize = 16384;
             if (0 >(ret = av_samples_alloc_array_and_samples(&pMuxAudio->pSwrBuffer, &pMuxAudio->nSwrBufferLinesize,
                 pMuxAudio->pOutCodecEncodeCtx->channels, pMuxAudio->nSwrBufferSize, pMuxAudio->pOutCodecEncodeCtx->sample_fmt, 0))) {
-                AddMessage(QSV_LOG_ERROR, _T("Failed to allocate buffer for resampling: %s\n"), qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer for resampling: %s\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_MEMORY_ALLOC;
             }
         }
@@ -754,12 +754,12 @@ RGY_ERR CAvcodecWriter::InitAudioResampler(AVMuxAudio *pMuxAudio, int channels, 
 
 RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError) {
     pMuxAudio->pStreamIn = pInputAudio->src.pStream;
-    AddMessage(QSV_LOG_DEBUG, _T("start initializing audio ouput...\n"));
-    AddMessage(QSV_LOG_DEBUG, _T("output stream index %d, trackId %d.%d, delay %d, \n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId, pMuxAudio->nDelaySamplesOfAudio);
-    AddMessage(QSV_LOG_DEBUG, _T("samplerate %d, stream pkt_timebase %d/%d\n"), pMuxAudio->pStreamIn->codecpar->sample_rate, pMuxAudio->pStreamIn->time_base.num, pMuxAudio->pStreamIn->time_base.den);
+    AddMessage(RGY_LOG_DEBUG, _T("start initializing audio ouput...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d, delay %d, \n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId, pMuxAudio->nDelaySamplesOfAudio);
+    AddMessage(RGY_LOG_DEBUG, _T("samplerate %d, stream pkt_timebase %d/%d\n"), pMuxAudio->pStreamIn->codecpar->sample_rate, pMuxAudio->pStreamIn->time_base.num, pMuxAudio->pStreamIn->time_base.den);
 
     if (NULL == (pMuxAudio->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to create new stream for audio.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for audio.\n"));
         return RGY_ERR_NULL_PTR;
     }
     pMuxAudio->pDecodedFrameCache = nullptr;
@@ -779,12 +779,12 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
         if (pMuxAudio->nInSubStream == 0) {
             //setup decoder
             if (NULL == (pMuxAudio->pOutCodecDecode = avcodec_find_decoder(pMuxAudio->pStreamIn->codecpar->codec_id))) {
-                AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), pInputAudio->src.pStream->codecpar->codec_id));
-                AddMessage(QSV_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
+                AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), pInputAudio->src.pStream->codecpar->codec_id));
+                AddMessage(RGY_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
                 return RGY_ERR_INVALID_CODEC;
             }
             if (NULL == (pMuxAudio->pOutCodecDecodeCtx = avcodec_alloc_context3(pMuxAudio->pOutCodecDecode))) {
-                AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), pInputAudio->src.pStream->codecpar->codec_id));
+                AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), pInputAudio->src.pStream->codecpar->codec_id));
                 return RGY_ERR_NULL_PTR;
             }
             //設定されていない必須情報があれば設定する
@@ -801,12 +801,12 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
             }
             int ret;
             if (0 > (ret = avcodec_open2(pMuxAudio->pOutCodecDecodeCtx, pMuxAudio->pOutCodecDecode, NULL))) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
+                AddMessage(RGY_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
                     char_to_tstring(avcodec_get_name(pInputAudio->src.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_NULL_PTR;
             }
-            AddMessage(QSV_LOG_DEBUG, _T("Audio Decoder opened\n"));
-            AddMessage(QSV_LOG_DEBUG, _T("Audio Decode Info: %s, %dch[0x%02x], %.1fkHz, %s, %d/%d\n"), char_to_tstring(avcodec_get_name(pMuxAudio->pStreamIn->codecpar->codec_id)).c_str(),
+            AddMessage(RGY_LOG_DEBUG, _T("Audio Decoder opened\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("Audio Decode Info: %s, %dch[0x%02x], %.1fkHz, %s, %d/%d\n"), char_to_tstring(avcodec_get_name(pMuxAudio->pStreamIn->codecpar->codec_id)).c_str(),
                 pMuxAudio->pOutCodecDecodeCtx->channels, (uint32_t)pMuxAudio->pOutCodecDecodeCtx->channel_layout, pMuxAudio->pOutCodecDecodeCtx->sample_rate / 1000.0,
                 char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecDecodeCtx->sample_fmt)).c_str(),
                 pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecDecodeCtx->pkt_timebase.den);
@@ -815,7 +815,7 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
         if (codecId != AV_CODEC_ID_NONE) {
             //PCM encoder
             if (NULL == (pMuxAudio->pOutCodecEncode = avcodec_find_encoder(codecId))) {
-                AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
+                AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
                 return RGY_ERR_INVALID_CODEC;
             }
             pInputAudio->pEncodeCodec = AVQSV_CODEC_COPY;
@@ -823,24 +823,24 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
             if (avcodecIsAuto(pInputAudio->pEncodeCodec)) {
                 //エンコーダを探す (自動)
                 if (NULL == (pMuxAudio->pOutCodecEncode = avcodec_find_encoder(m_Mux.format.pOutputFmt->audio_codec))) {
-                    AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), m_Mux.format.pOutputFmt->audio_codec));
-                    AddMessage(QSV_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
+                    AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), m_Mux.format.pOutputFmt->audio_codec));
+                    AddMessage(RGY_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
                     return RGY_ERR_INVALID_CODEC;
                 }
-                AddMessage(QSV_LOG_DEBUG, _T("found encoder for codec %s for audio track %d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(), pInputAudio->src.nTrackId);
+                AddMessage(RGY_LOG_DEBUG, _T("found encoder for codec %s for audio track %d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(), pInputAudio->src.nTrackId);
             } else {
                 //エンコーダを探す (指定のもの)
                 if (NULL == (pMuxAudio->pOutCodecEncode = avcodec_find_encoder_by_name(tchar_to_string(pInputAudio->pEncodeCodec).c_str()))) {
-                    AddMessage(QSV_LOG_ERROR, _T("failed to find encoder for codec %s\n"), pInputAudio->pEncodeCodec);
-                    AddMessage(QSV_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
+                    AddMessage(RGY_LOG_ERROR, _T("failed to find encoder for codec %s\n"), pInputAudio->pEncodeCodec);
+                    AddMessage(RGY_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
                     return RGY_ERR_INVALID_CODEC;
                 }
-                AddMessage(QSV_LOG_DEBUG, _T("found encoder for codec %s selected for audio track %d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(), pInputAudio->src.nTrackId);
+                AddMessage(RGY_LOG_DEBUG, _T("found encoder for codec %s selected for audio track %d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(), pInputAudio->src.nTrackId);
             }
             pInputAudio->pEncodeCodec = _T("codec_something");
         }
         if (NULL == (pMuxAudio->pOutCodecEncodeCtx = avcodec_alloc_context3(pMuxAudio->pOutCodecEncode))) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
             return RGY_ERR_NULL_PTR;
         }
 
@@ -873,7 +873,7 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
         if (!avcodecIsCopy(pInputAudio->pEncodeCodec)) {
             pMuxAudio->pOutCodecEncodeCtx->bit_rate        = ((pInputAudio->nBitrate) ? pInputAudio->nBitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[0x%02x], %.1fkHz, %s, %d/%d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
+        AddMessage(RGY_LOG_DEBUG, _T("Audio Encoder Param: %s, %dch[0x%02x], %.1fkHz, %s, %d/%d\n"), char_to_tstring(pMuxAudio->pOutCodecEncode->name).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->channels, (uint32_t)pMuxAudio->pOutCodecEncodeCtx->channel_layout, pMuxAudio->pOutCodecEncodeCtx->sample_rate / 1000.0,
             char_to_tstring(av_get_sample_fmt_name(pMuxAudio->pOutCodecEncodeCtx->sample_fmt)).c_str(),
             pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.num, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase.den);
@@ -882,7 +882,7 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
             av_opt_set(pMuxAudio->pOutCodecEncodeCtx, "strict", "experimental", 0);
         }
         if (0 > avcodec_open2(pMuxAudio->pOutCodecEncodeCtx, pMuxAudio->pOutCodecEncode, NULL)) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
             return RGY_ERR_NULL_PTR;
         }
         pMuxAudio->nResamplerInChannels      = pMuxAudio->pOutCodecEncodeCtx->channels;
@@ -920,24 +920,24 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
             if (sts != RGY_ERR_NONE) return sts;
         }
     } else if (pMuxAudio->pStreamIn->codecpar->codec_id == AV_CODEC_ID_AAC && pMuxAudio->pStreamIn->codecpar->extradata == NULL && m_Mux.video.pStreamOut) {
-        AddMessage(QSV_LOG_DEBUG, _T("start initialize aac_adtstoasc filter...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("start initialize aac_adtstoasc filter...\n"));
         auto filter = av_bsf_get_by_name("aac_adtstoasc");
         if (filter == nullptr) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
             return RGY_ERR_NOT_FOUND;
         }
         int ret = 0;
         if (0 > (ret = av_bsf_alloc(filter, &pMuxAudio->pAACBsfc))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
         if (0 > (ret = avcodec_parameters_copy(pMuxAudio->pAACBsfc->par_in, pMuxAudio->pStreamIn->codecpar))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to copy parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
         pMuxAudio->pAACBsfc->time_base_in = pMuxAudio->pStreamIn->time_base;
         if (0 > (ret = av_bsf_init(pMuxAudio->pAACBsfc))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNKNOWN;
         }
         if (pInputAudio->src.pktSample.data) {
@@ -953,12 +953,12 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
                     break;
                 }
                 if (ret != AVERROR(EAGAIN) && !(inpkt && ret == AVERROR_EOF)) {
-                    AddMessage(QSV_LOG_ERROR, _T("failed to run aac_adtstoasc.\n"));
+                    AddMessage(RGY_LOG_ERROR, _T("failed to run aac_adtstoasc.\n"));
                     return RGY_ERR_UNKNOWN;
                 }
                 av_packet_unref(&outpkt);
             }
-            AddMessage(QSV_LOG_DEBUG, _T("successfully attached packet sample from AAC\n."));
+            AddMessage(RGY_LOG_DEBUG, _T("successfully attached packet sample from AAC\n."));
         }
     }
 
@@ -982,13 +982,13 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
     pMuxAudio->pStreamOut->codecpar->format          = srcCodecParam->format;
     pMuxAudio->pStreamOut->codecpar->block_align     = srcCodecParam->block_align;
     if (srcCodecParam->extradata_size) {
-        AddMessage(QSV_LOG_DEBUG, _T("set extradata from stream codec...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("set extradata from stream codec...\n"));
         SetExtraData(pMuxAudio->pStreamOut->codecpar, srcCodecParam->extradata, srcCodecParam->extradata_size);
     } else if (pMuxAudio->pStreamIn->codecpar->extradata_size) {
         //aac_adtstoascから得たヘッダをコピーする
         //これをしておかないと、avformat_write_headerで"Error parsing AAC extradata, unable to determine samplerate."という
         //意味不明なエラーメッセージが表示される
-        AddMessage(QSV_LOG_DEBUG, _T("set extradata from original packet...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("set extradata from original packet...\n"));
         SetExtraData(pMuxAudio->pStreamOut->codecpar, pMuxAudio->pStreamIn->codecpar->extradata, pMuxAudio->pStreamIn->codecpar->extradata_size);
     }
     pMuxAudio->pStreamOut->time_base = av_make_q(1, pMuxAudio->pStreamOut->codecpar->sample_rate);
@@ -997,8 +997,8 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
         pMuxAudio->nDelaySamplesOfAudio = (int)pMuxAudio->pStreamOut->start_time;
         pMuxAudio->nLastPtsOut = pMuxAudio->pStreamOut->start_time;
 
-        AddMessage(QSV_LOG_DEBUG, _T("delay      %6d (timabase %d/%d)\n"), pInputAudio->src.nDelayOfStream, pMuxAudio->pStreamIn->time_base.num, pMuxAudio->pStreamIn->time_base.den);
-        AddMessage(QSV_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStreamOut->start_time,  pMuxAudio->pStreamOut->codec->time_base.num, pMuxAudio->pStreamOut->codec->time_base.den);
+        AddMessage(RGY_LOG_DEBUG, _T("delay      %6d (timabase %d/%d)\n"), pInputAudio->src.nDelayOfStream, pMuxAudio->pStreamIn->time_base.num, pMuxAudio->pStreamIn->time_base.den);
+        AddMessage(RGY_LOG_DEBUG, _T("start_time %6d (timabase %d/%d)\n"), pMuxAudio->pStreamOut->start_time,  pMuxAudio->pStreamOut->codec->time_base.num, pMuxAudio->pStreamOut->codec->time_base.den);
     }
     if (srcCodecParam) {
         avcodec_parameters_free(&srcCodecParam);
@@ -1008,24 +1008,24 @@ RGY_ERR CAvcodecWriter::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInp
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputAudio->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
             av_dict_set(&pMuxAudio->pStreamOut->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Copy Audio Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("Copy Audio Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
         }
         auto language_data = av_dict_get(pInputAudio->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
         if (language_data) {
             av_dict_set(&pMuxAudio->pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
         }
     }
     return RGY_ERR_NONE;
 }
 
 RGY_ERR CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle) {
-    AddMessage(QSV_LOG_DEBUG, _T("start initializing subtitle ouput...\n"));
-    AddMessage(QSV_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
+    AddMessage(RGY_LOG_DEBUG, _T("start initializing subtitle ouput...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
         pInputSubtitle->src.nIndex, pInputSubtitle->src.pStream->time_base.num, pInputSubtitle->src.pStream->time_base.den, pInputSubtitle->src.nTrackId);
 
     if (NULL == (pMuxSub->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
         return RGY_ERR_NULL_PTR;
     }
 
@@ -1055,12 +1055,12 @@ RGY_ERR CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInpu
     if (codecId != pInputSubtitle->src.pStream->codecpar->codec_id || codecId == AV_CODEC_ID_MOV_TEXT) {
         //setup decoder
         if (NULL == (pMuxSub->pOutCodecDecode = avcodec_find_decoder(pInputSubtitle->src.pStream->codecpar->codec_id))) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), pInputSubtitle->src.pStream->codecpar->codec_id));
-            AddMessage(QSV_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), pInputSubtitle->src.pStream->codecpar->codec_id));
+            AddMessage(RGY_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
             return RGY_ERR_INVALID_CODEC;
         }
         if (NULL == (pMuxSub->pOutCodecDecodeCtx = avcodec_alloc_context3(pMuxSub->pOutCodecDecode))) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), pInputSubtitle->src.pStream->codecpar->codec_id));
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), pInputSubtitle->src.pStream->codecpar->codec_id));
             return RGY_ERR_NULL_PTR;
         }
         //設定されていない必須情報があれば設定する
@@ -1072,43 +1072,43 @@ RGY_ERR CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInpu
         SetExtraData(pMuxSub->pOutCodecDecodeCtx, pInputSubtitle->src.pStream->codecpar->extradata, pInputSubtitle->src.pStream->codecpar->extradata_size);
         int ret;
         if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecDecodeCtx, pMuxSub->pOutCodecDecode, NULL))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
+            AddMessage(RGY_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
                 char_to_tstring(avcodec_get_name(pInputSubtitle->src.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
-        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(pInputSubtitle->src.pStream->codecpar->codec_id)).c_str(),
+        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(pInputSubtitle->src.pStream->codecpar->codec_id)).c_str(),
             pMuxSub->pOutCodecDecodeCtx->width, pMuxSub->pOutCodecDecodeCtx->height);
 
         //エンコーダを探す
         if (NULL == (pMuxSub->pOutCodecEncode = avcodec_find_encoder(codecId))) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
-            AddMessage(QSV_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
+            AddMessage(RGY_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
             return RGY_ERR_INVALID_CODEC;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("found encoder for codec %s for subtitle track %d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(), pInputSubtitle->src.nTrackId);
+        AddMessage(RGY_LOG_DEBUG, _T("found encoder for codec %s for subtitle track %d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(), pInputSubtitle->src.nTrackId);
 
         if (NULL == (pMuxSub->pOutCodecEncodeCtx = avcodec_alloc_context3(pMuxSub->pOutCodecEncode))) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get encode codec context"), codecId));
             return RGY_ERR_NULL_PTR;
         }
         pMuxSub->pOutCodecEncodeCtx->time_base = av_make_q(1, 1000);
         copy_subtitle_header(pMuxSub->pOutCodecEncodeCtx, pInputSubtitle->src.pStream->codec);
 
-        AddMessage(QSV_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(),
+        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(),
             pMuxSub->pOutCodecEncodeCtx->width, pMuxSub->pOutCodecEncodeCtx->height);
         if (pMuxSub->pOutCodecEncode->capabilities & CODEC_CAP_EXPERIMENTAL) {
             //問答無用で使うのだ
             av_opt_set(pMuxSub->pOutCodecEncodeCtx, "strict", "experimental", 0);
         }
         if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecEncodeCtx, pMuxSub->pOutCodecEncode, NULL))) {
-            AddMessage(QSV_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
-            AddMessage(QSV_LOG_ERROR, _T("%s\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
+            AddMessage(RGY_LOG_ERROR, _T("%s\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("Opened Subtitle Encoder Param: %s\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("Opened Subtitle Encoder Param: %s\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str());
         if (nullptr == (pMuxSub->pBuf = (uint8_t *)av_malloc(SUB_ENC_BUF_MAX_SIZE))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to allocate buffer memory for subtitle encoding.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate buffer memory for subtitle encoding.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
         pMuxSub->pStreamOut->codec->codec = pMuxSub->pOutCodecEncodeCtx->codec;
@@ -1152,12 +1152,12 @@ RGY_ERR CAvcodecWriter::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInpu
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
             av_dict_set(&pMuxSub->pStreamOut->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
         }
         auto language_data = av_dict_get(pInputSubtitle->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
         if (language_data) {
             av_dict_set(&pMuxSub->pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(QSV_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
         }
     }
     return RGY_ERR_NONE;
@@ -1184,7 +1184,7 @@ RGY_ERR CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterLis
         for (int i = 0; i < (int)outChapters.size(); i++) {
             m_Mux.format.pFormatCtx->chapters[i] = outChapters[i];
 
-            AddMessage(QSV_LOG_DEBUG, _T("chapter #%d: id %d, start %I64d, end %I64d\n, timebase %d/%d\n"),
+            AddMessage(RGY_LOG_DEBUG, _T("chapter #%d: id %d, start %I64d, end %I64d\n, timebase %d/%d\n"),
                 outChapters[i]->id, outChapters[i]->start, outChapters[i]->end, outChapters[i]->time_base.num, outChapters[i]->time_base.den);
         }
     }
@@ -1196,20 +1196,20 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
     AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
 
     if (!check_avcodec_dll()) {
-        AddMessage(QSV_LOG_ERROR, error_mes_avcodec_dll_not_found());
+        AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
         return RGY_ERR_NULL_PTR;
     }
 
     std::string filename;
     if (0 == tchar_to_string(strFileName, filename, CP_UTF8)) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to convert output filename to utf-8 characters.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to convert output filename to utf-8 characters.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
 
     av_register_all();
     avcodec_register_all();
     avformatNetworkInit();
-    av_log_set_level((m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
+    av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : QSV_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
     for (const auto& stream : prm->inputStreamList) {
         if (stream.pFilter) {
@@ -1219,22 +1219,22 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
     }
 
     if (prm->pOutputFormat != nullptr) {
-        AddMessage(QSV_LOG_DEBUG, _T("output format specified: %s\n"), prm->pOutputFormat);
+        AddMessage(RGY_LOG_DEBUG, _T("output format specified: %s\n"), prm->pOutputFormat);
     }
-    AddMessage(QSV_LOG_DEBUG, _T("output filename: \"%s\"\n"), strFileName);
+    AddMessage(RGY_LOG_DEBUG, _T("output filename: \"%s\"\n"), strFileName);
     m_Mux.format.pFilename = strFileName;
     if (NULL == (m_Mux.format.pOutputFmt = av_guess_format((prm->pOutputFormat) ? tchar_to_string(prm->pOutputFormat).c_str() : NULL, filename.c_str(), NULL))) {
-        AddMessage(QSV_LOG_ERROR,
+        AddMessage(RGY_LOG_ERROR,
             _T("failed to assume format from output filename.\n")
             _T("please set proper extension for output file, or specify format using option %s.\n"), (prm->pVideoInfo) ? _T("--format") : _T("--audio-file <format>:<filename>"));
         if (prm->pOutputFormat != nullptr) {
-            AddMessage(QSV_LOG_ERROR, _T("Please use --check-formats to check available formats.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Please use --check-formats to check available formats.\n"));
         }
         return RGY_ERR_INVALID_FORMAT;
     }
     int err = avformat_alloc_output_context2(&m_Mux.format.pFormatCtx, m_Mux.format.pOutputFmt, nullptr, filename.c_str());
     if (m_Mux.format.pFormatCtx == nullptr) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to allocate format context: %s.\n"), qsv_av_err2str(err).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate format context: %s.\n"), qsv_av_err2str(err).c_str());
         return RGY_ERR_NULL_PTR;
     }
     m_Mux.format.bIsMatroska = 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "matroska");
@@ -1244,31 +1244,31 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
     if (m_Mux.format.bIsPipe || usingAVProtocols(filename, 1) || (m_Mux.format.pFormatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
 #endif //#if USE_CUSTOM_IO
         if (m_Mux.format.bIsPipe) {
-            AddMessage(QSV_LOG_DEBUG, _T("output is pipe\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("output is pipe\n"));
 #if defined(_WIN32) || defined(_WIN64)
             if (_setmode(_fileno(stdout), _O_BINARY) < 0) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to switch stdout to binary mode.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("failed to switch stdout to binary mode.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
 #endif //#if defined(_WIN32) || defined(_WIN64)
             if (0 == strcmp(filename.c_str(), "-")) {
                 m_bOutputIsStdout = true;
                 filename = "pipe:1";
-                AddMessage(QSV_LOG_DEBUG, _T("output is set to stdout\n"));
-            } else if (m_pPrintMes->getLogLevel() == QSV_LOG_DEBUG) {
-                AddMessage(QSV_LOG_DEBUG, _T("file name is %sunc path.\n"), (PathIsUNC(strFileName)) ? _T("") : _T("not "));
+                AddMessage(RGY_LOG_DEBUG, _T("output is set to stdout\n"));
+            } else if (m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) {
+                AddMessage(RGY_LOG_DEBUG, _T("file name is %sunc path.\n"), (PathIsUNC(strFileName)) ? _T("") : _T("not "));
                 if (PathFileExists(strFileName)) {
-                    AddMessage(QSV_LOG_DEBUG, _T("file already exists and will overwrite.\n"));
+                    AddMessage(RGY_LOG_DEBUG, _T("file already exists and will overwrite.\n"));
                 }
             }
         }
         if (!(m_Mux.format.pFormatCtx->oformat->flags & AVFMT_NOFILE)) {
             if (0 > (err = avio_open2(&m_Mux.format.pFormatCtx->pb, filename.c_str(), AVIO_FLAG_WRITE, NULL, NULL))) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to avio_open2 file \"%s\": %s\n"), char_to_tstring(filename, CP_UTF8).c_str(), qsv_av_err2str(err).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to avio_open2 file \"%s\": %s\n"), char_to_tstring(filename, CP_UTF8).c_str(), qsv_av_err2str(err).c_str());
                 return RGY_ERR_FILE_OPEN; // Couldn't open file
             }
         }
-        AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\".\n"), char_to_tstring(filename, CP_UTF8).c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("Opened file \"%s\".\n"), char_to_tstring(filename, CP_UTF8).c_str());
 #if USE_CUSTOM_IO
     } else {
         m_Mux.format.nOutputBufferSize = clamp(prm->nBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
@@ -1289,25 +1289,25 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         }
 
         if (NULL == (m_Mux.format.pAVOutBuffer = (mfxU8 *)av_malloc(m_Mux.format.nAVOutBufferSize))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to allocate muxer buffer of %d MB.\n"), m_Mux.format.nAVOutBufferSize / (1024 * 1024));
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate muxer buffer of %d MB.\n"), m_Mux.format.nAVOutBufferSize / (1024 * 1024));
             return RGY_ERR_MEMORY_ALLOC;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("allocated internal buffer %d MB.\n"), m_Mux.format.nAVOutBufferSize / (1024 * 1024));
+        AddMessage(RGY_LOG_DEBUG, _T("allocated internal buffer %d MB.\n"), m_Mux.format.nAVOutBufferSize / (1024 * 1024));
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(strFileName).second.c_str());
 
         //"movflags:faststart"にするには、共有モードで開けるようにする必要がある
         m_Mux.format.fpOutput = _tfsopen(strFileName, _T("wb"), _SH_DENYWR);
         if (m_Mux.format.fpOutput == NULL) {
             errno_t error = errno;
-            AddMessage(QSV_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->pVideoInfo) ? _T("") : _T("audio "), strFileName, _tcserror(error));
+            AddMessage(RGY_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->pVideoInfo) ? _T("") : _T("audio "), strFileName, _tcserror(error));
             return RGY_ERR_FILE_OPEN; // Couldn't open file
         }
         if (0 < (m_Mux.format.nOutputBufferSize = (uint32_t)malloc_degeneracy((void **)&m_Mux.format.pOutputBuffer, m_Mux.format.nOutputBufferSize, 1024 * 1024))) {
             setvbuf(m_Mux.format.fpOutput, m_Mux.format.pOutputBuffer, _IOFBF, m_Mux.format.nOutputBufferSize);
-            AddMessage(QSV_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Mux.format.nOutputBufferSize / (1024 * 1024));
+            AddMessage(RGY_LOG_DEBUG, _T("set external output buffer %d MB.\n"), m_Mux.format.nOutputBufferSize / (1024 * 1024));
         }
         if (NULL == (m_Mux.format.pFormatCtx->pb = avio_alloc_context(m_Mux.format.pAVOutBuffer, m_Mux.format.nAVOutBufferSize, 1, this, funcReadPacket, funcWritePacket, funcSeek))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to alloc avio context.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to alloc avio context.\n"));
             return RGY_ERR_NULL_PTR;
         }
     }
@@ -1320,7 +1320,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("Initialized video output.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Initialized video output.\n"));
     }
 
     const int audioStreamCount = (int)count_if(prm->inputStreamList.begin(), prm->inputStreamList.end(), [](AVOutputStreamPrm prm) { return prm.src.nTrackId > 0; });
@@ -1342,7 +1342,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
                         m_Mux.audio[iAudioIdx].pFilterBufferSrcCtx  = pAudioMuxStream->pFilterBufferSrcCtx;
                         m_Mux.audio[iAudioIdx].pFilterBufferSinkCtx = pAudioMuxStream->pFilterBufferSinkCtx;
                     } else {
-                        AddMessage(QSV_LOG_ERROR, _T("Substream #%d found for track %d, but root stream not found.\n"),
+                        AddMessage(RGY_LOG_ERROR, _T("Substream #%d found for track %d, but root stream not found.\n"),
                             prm->inputStreamList[iStream].src.nSubStreamId, prm->inputStreamList[iStream].src.nTrackId);
                         return RGY_ERR_UNDEFINED_BEHAVIOR;
                     }
@@ -1358,7 +1358,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
                     m_Mux.audio[iAudioIdx].pFilterBufferSrcCtx = nullptr;
                     m_Mux.audio[iAudioIdx].pFilterBufferSinkCtx = nullptr;
                 }
-                AddMessage(QSV_LOG_DEBUG, _T("Initialized audio output - #%d: track %d, substream %d.\n"),
+                AddMessage(RGY_LOG_DEBUG, _T("Initialized audio output - #%d: track %d, substream %d.\n"),
                     iAudioIdx, prm->inputStreamList[iStream].src.nTrackId, prm->inputStreamList[iStream].src.nSubStreamId);
                 iAudioIdx++;
             }
@@ -1374,7 +1374,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
-                AddMessage(QSV_LOG_DEBUG, _T("Initialized subtitle output - %d.\n"), iSubIdx);
+                AddMessage(RGY_LOG_DEBUG, _T("Initialized subtitle output - %d.\n"), iSubIdx);
                 iSubIdx++;
             }
         }
@@ -1403,10 +1403,10 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         std::string optName = tchar_to_string(muxOpt.first);
         std::string optValue = tchar_to_string(muxOpt.second);
         if (0 > (err = av_dict_set(&m_Mux.format.pHeaderOptions, optName.c_str(), optValue.c_str(), 0))) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to set mux opt: %s = %s.\n"), muxOpt.first.c_str(), muxOpt.second.c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to set mux opt: %s = %s.\n"), muxOpt.first.c_str(), muxOpt.second.c_str());
             return RGY_ERR_INVALID_PARAM;
         }
-        AddMessage(QSV_LOG_DEBUG, _T("set mux opt: %s = %s.\n"), muxOpt.first.c_str(), muxOpt.second.c_str());
+        AddMessage(RGY_LOG_DEBUG, _T("set mux opt: %s = %s.\n"), muxOpt.first.c_str(), muxOpt.second.c_str());
     }
 
     m_pEncSatusInfo = pEncSatusInfo;
@@ -1429,7 +1429,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     m_Mux.thread.bEnableOutputThread     = prm->nOutputThread > 0;
     if (m_Mux.thread.bEnableOutputThread) {
-        AddMessage(QSV_LOG_DEBUG, _T("starting output thread...\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("starting output thread...\n"));
         m_Mux.thread.bAbortOutput = false;
         m_Mux.thread.bThAudProcessAbort = false;
         m_Mux.thread.bThAudEncodeAbort = false;
@@ -1442,13 +1442,13 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         m_Mux.thread.thOutput = std::thread(&CAvcodecWriter::WriteThreadFunc, this);
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.bEnableAudProcessThread) {
-            AddMessage(QSV_LOG_DEBUG, _T("starting audio process thread...\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("starting audio process thread...\n"));
             m_Mux.thread.qAudioPacketProcess.init(8192, 512, 4);
             m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
             m_Mux.thread.thAudProcess = std::thread(&CAvcodecWriter::ThreadFuncAudThread, this);
             if (m_Mux.thread.bEnableAudEncodeThread) {
-                AddMessage(QSV_LOG_DEBUG, _T("starting audio encode thread...\n"));
+                AddMessage(RGY_LOG_DEBUG, _T("starting audio encode thread...\n"));
                 m_Mux.thread.qAudioFrameEncode.init(8192, 512, 4);
                 m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
                 m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -1483,14 +1483,14 @@ RGY_ERR CAvcodecWriter::SetSPSPPSToExtraData(const mfxVideoParam *pMfxVideoPrm) 
             memcpy(m_Mux.video.pCodecCtx->extradata,                       pSpsPPS->SPSBuffer, pSpsPPS->SPSBufSize);
             memcpy(m_Mux.video.pCodecCtx->extradata + pSpsPPS->SPSBufSize, pSpsPPS->PPSBuffer, pSpsPPS->PPSBufSize);
 #endif
-            AddMessage(QSV_LOG_DEBUG, _T("copied video header from QSV encoder.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("copied video header from QSV encoder.\n"));
         } else {
-            AddMessage(QSV_LOG_ERROR, _T("failed to get video header from QSV encoder.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to get video header from QSV encoder.\n"));
             return RGY_ERR_UNKNOWN;
         }
         m_Mux.video.bIsPAFF = 0 != (pMfxVideoPrm->mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
         if (m_Mux.video.bIsPAFF) {
-            AddMessage(QSV_LOG_DEBUG, _T("output is PAFF.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("output is PAFF.\n"));
         }
     }
     return RGY_ERR_NONE;
@@ -1560,24 +1560,24 @@ RGY_ERR CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const
         if (   0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")
             || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mov")) {
             av_dict_set(&m_Mux.format.pHeaderOptions, "brand", "mp42", 0);
-            AddMessage(QSV_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("set format brand \"mp42\".\n"));
 
             //moovを先頭に
             av_dict_set(&m_Mux.format.pHeaderOptions, "movflags", "faststart", 0);
-            AddMessage(QSV_LOG_DEBUG, _T("set faststart.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("set faststart.\n"));
         }
     }
 
     //なんらかの問題があると、ここでよく死ぬ
     int ret = 0;
     if (0 > (ret = avformat_write_header(m_Mux.format.pFormatCtx, &m_Mux.format.pHeaderOptions))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to write header for output file: %s\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to write header for output file: %s\n"), qsv_av_err2str(ret).c_str());
         if (m_Mux.format.pHeaderOptions) av_dict_free(&m_Mux.format.pHeaderOptions);
         return RGY_ERR_UNKNOWN;
     }
     //不正なオプションを渡していないかチェック
     for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Mux.format.pHeaderOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
-        AddMessage(QSV_LOG_ERROR, _T("Unknown option to muxer: ") + char_to_tstring(t->key) + _T("\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Unknown option to muxer: ") + char_to_tstring(t->key) + _T("\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (m_Mux.format.pHeaderOptions) {
@@ -1596,7 +1596,7 @@ RGY_ERR CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const
             if (audio.pOutCodecEncodeCtx) {
                 audioFrameSize += strsprintf(_T(" -> %s frame_size %d sample/byte"), char_to_tstring(audio.pOutCodecEncode->name).c_str(), audio.pOutCodecEncodeCtx->frame_size);
             }
-            AddMessage(QSV_LOG_DEBUG, audioFrameSize);
+            AddMessage(RGY_LOG_DEBUG, audioFrameSize);
         }
     }
 
@@ -1605,7 +1605,7 @@ RGY_ERR CAvcodecWriter::WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const
     if (m_Mux.video.pStreamOut) {
         if (m_Mux.video.bDtsUnavailable) {
             m_Mux.video.nFpsBaseNextDts = (0 - (pMfxVideoPrm->mfx.GopRefDist > 0) - ((pMfxVideoPrm->mfx.GopRefDist > 0) & (cop2->BRefType == MFX_B_REF_PYRAMID))) * (1 + m_Mux.video.bIsPAFF);
-            AddMessage(QSV_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
+            AddMessage(RGY_LOG_DEBUG, _T("calc dts, first dts %d x (timebase).\n"), m_Mux.video.nFpsBaseNextDts);
         }
     }
     return RGY_ERR_NONE;
@@ -1628,7 +1628,7 @@ RGY_ERR CAvcodecWriter::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const m
     }
 
     tstring mes = GetWriterMes();
-    AddMessage(QSV_LOG_DEBUG, mes);
+    AddMessage(RGY_LOG_DEBUG, mes);
     m_strOutputInfo += mes;
     m_Mux.format.bStreamError = false;
 
@@ -1774,7 +1774,7 @@ RGY_ERR CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
         if (!qVideoQueueFree.front_copy_and_pop_no_lock(&copyStream) || copyStream.MaxLength < pMfxBitstream->DataLength) {
             //空いているmfxBistreamがない、あるいはそのバッファサイズが小さい場合は、領域を取り直す
             if (RGY_ERR_NONE != mfxBitstreamInit(&copyStream, pMfxBitstream->DataLength * ((bFrameI | bFrameP) ? 2 : 8))) {
-                AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for video bitstream output buffer.\n"));
                 m_Mux.format.bStreamError = true;
                 return RGY_ERR_MEMORY_ALLOC;
             }
@@ -1789,7 +1789,7 @@ RGY_ERR CAvcodecWriter::WriteNextFrame(mfxBitstream *pMfxBitstream) {
         memcpy(copyStream.Data, pMfxBitstream->Data + pMfxBitstream->DataOffset, copyStream.DataLength);
         //キューに押し込む
         if (!m_Mux.thread.qVideobitstream.push(copyStream)) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for video bitstream queue.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for video bitstream queue.\n"));
             m_Mux.format.bStreamError = true;
         }
         pMfxBitstream->DataLength = 0;
@@ -1932,25 +1932,25 @@ RGY_ERR CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxA
     av_bsf_free(&pMuxAudio->pAACBsfc);
     auto filter = av_bsf_get_by_name("aac_adtstoasc");
     if (filter == nullptr) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to find aac_adtstoasc.\n"));
         return RGY_ERR_NOT_FOUND;
     }
     if (0 > (ret = av_bsf_alloc(filter, &pMuxAudio->pAACBsfc))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
         return RGY_ERR_NULL_PTR;
     }
     if (0 > (ret = avcodec_parameters_copy(pMuxAudio->pAACBsfc->par_in, pMuxAudio->pStreamIn->codecpar))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to copy parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
     pMuxAudio->pAACBsfc->time_base_in = pMuxAudio->pStreamIn->time_base;
     if (0 > (ret = av_bsf_init(pMuxAudio->pAACBsfc))) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to init aac_adtstoasc: %s.\n"), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
     if (0 > (ret = av_bsf_send_packet(pMuxAudio->pAACBsfc, pkt))) {
         av_packet_unref(pkt);
-        AddMessage(QSV_LOG_ERROR, _T("failed to send packet to aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
     ret = av_bsf_receive_packet(pMuxAudio->pAACBsfc, pkt);
@@ -1966,11 +1966,11 @@ RGY_ERR CAvcodecWriter::applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxA
             static int AACBSFFILTER_ERROR_THRESHOLD = 30;
             if (pMuxAudio->nAACBsfErrorFromStart > AACBSFFILTER_ERROR_THRESHOLD) {
                 m_Mux.format.bStreamError = true;
-                AddMessage(QSV_LOG_ERROR, _T("failed to run aac_adtstoasc bitstream filter for %d times: %s.\n"), AACBSFFILTER_ERROR_THRESHOLD, qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to run aac_adtstoasc bitstream filter for %d times: %s.\n"), AACBSFFILTER_ERROR_THRESHOLD, qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
         }
-        AddMessage(QSV_LOG_WARN, _T("failed to run aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_WARN, _T("failed to run aac_adtstoasc bitstream filter: %s.\n"), qsv_av_err2str(ret).c_str());
         pkt->duration = 0; //書き込み処理が行われないように
         return RGY_WRN_FILTER_SKIPPED;
     }
@@ -1989,7 +1989,7 @@ void CAvcodecWriter::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *p
             AudioFlushStream(&m_Mux.audio[i], pWrittenDts);
         }
         *pWrittenDts = INT64_MAX;
-        AddMessage(QSV_LOG_DEBUG, _T("Flushed audio buffer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return;
     }
     AVRational samplerate = { 1, (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx->sample_rate : pMuxAudio->pStreamIn->codecpar->sample_rate };
@@ -2056,7 +2056,7 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt)
                 if (decodedFrame) {
                     av_frame_free(&decodedFrame);
                 }
-                AddMessage(QSV_LOG_ERROR, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
                 m_Mux.format.bStreamError = true;
                 break;
             }
@@ -2071,7 +2071,7 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt)
                 break;
             }
             if (recv_ret < 0) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to receive frame from audio decoder: %s.\n"), qsv_av_err2str(recv_ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to receive frame from audio decoder: %s.\n"), qsv_av_err2str(recv_ret).c_str());
                 pMuxAudio->nDecodeError++;
             } else {
                 pMuxAudio->nDecodeError = 0;
@@ -2094,7 +2094,7 @@ AVFrame *CAvcodecWriter::AudioDecodePacket(AVMuxAudio *pMuxAudio, AVPacket *pkt)
                 av_frame_get_buffer(receivedData, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
                 av_samples_set_silence((uint8_t **)receivedData->data, 0, receivedData->nb_samples, receivedData->channels, (AVSampleFormat)receivedData->format);
             } else {
-                AddMessage(QSV_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d for %d times.\n"), pMuxAudio->nInTrackId, pMuxAudio->nDecodeError);
+                AddMessage(RGY_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d for %d times.\n"), pMuxAudio->nInTrackId, pMuxAudio->nDecodeError);
                 if (decodedFrame) {
                     av_frame_free(&decodedFrame);
                 }
@@ -2153,7 +2153,7 @@ RGY_ERR CAvcodecWriter::AudioFilterFrame(AVPktMuxData *pktData) {
     }
     //フィルターチェーンにフレームを追加
     if (av_buffersrc_add_frame_flags(pMuxAudio->pFilterBufferSrcCtx, pktData->pFrame, AV_BUFFERSRC_FLAG_PUSH) < 0) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to feed the audio filtergraph\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to feed the audio filtergraph\n"));
         m_Mux.format.bStreamError = true;
         av_frame_unref(pktData->pFrame);
         return RGY_ERR_UNKNOWN;
@@ -2223,7 +2223,7 @@ int CAvcodecWriter::AudioResampleFrame(AVMuxAudio *pMuxAudio, AVFrame **frame) {
                 pMuxAudio->pSwrBuffer, dst_nb_samples,
                 (*frame) ? (const uint8_t **)(*frame)->data : nullptr,
                 (*frame) ? (*frame)->nb_samples : 0))) {
-                AddMessage(QSV_LOG_ERROR, _T("avcodec writer: failed to convert sample format #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("avcodec writer: failed to convert sample format #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
                 m_Mux.format.bStreamError = true;
             }
             if (*frame) {
@@ -2260,7 +2260,7 @@ vector<AVPktMuxData> CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, con
         return encPktDatas;
     }
     if (ret < 0) {
-        AddMessage(QSV_LOG_WARN, _T("avcodec writer: failed to send frame to audio encoder #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
+        AddMessage(RGY_LOG_WARN, _T("avcodec writer: failed to send frame to audio encoder #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
         pMuxAudio->bEncodeError = true;
         return encPktDatas;
     }
@@ -2275,7 +2275,7 @@ vector<AVPktMuxData> CAvcodecWriter::AudioEncodeFrame(AVMuxAudio *pMuxAudio, con
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
             break;
         } else if (ret < 0) {
-            AddMessage(QSV_LOG_WARN, _T("avcodec writer: failed to encode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_WARN, _T("avcodec writer: failed to encode audio #%d: %s\n"), pMuxAudio->nInTrackId, qsv_av_err2str(ret).c_str());
             pMuxAudio->bEncodeError = true;
         }
         pktData.samples = (int)av_rescale_q(pktData.pkt.duration, pMuxAudio->pOutCodecEncodeCtx->pkt_timebase, { 1, pMuxAudio->pStreamIn->codecpar->sample_rate });
@@ -2348,11 +2348,11 @@ RGY_ERR CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt
     int got_sub = 0;
     AVSubtitle sub = { 0 };
     if (0 > avcodec_decode_subtitle2(pMuxSub->pOutCodecDecodeCtx, &sub, &got_sub, pkt)) {
-        AddMessage(QSV_LOG_ERROR, _T("Failed to decode subtitle.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Failed to decode subtitle.\n"));
         m_Mux.format.bStreamError = true;
     }
     if (!pMuxSub->pBuf) {
-        AddMessage(QSV_LOG_ERROR, _T("No buffer for encoding subtitle.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("No buffer for encoding subtitle.\n"));
         m_Mux.format.bStreamError = true;
     }
     av_packet_unref(pkt);
@@ -2372,7 +2372,7 @@ RGY_ERR CAvcodecWriter::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt
 
         int sub_out_size = avcodec_encode_subtitle(pMuxSub->pOutCodecEncodeCtx, pMuxSub->pBuf, SUB_ENC_BUF_MAX_SIZE, &sub);
         if (sub_out_size < 0) {
-            AddMessage(QSV_LOG_ERROR, _T("failed to encode subtitle.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to encode subtitle.\n"));
             m_Mux.format.bStreamError = true;
             return RGY_ERR_UNKNOWN;
         }
@@ -2444,7 +2444,7 @@ RGY_ERR CAvcodecWriter::WriteNextPacket(AVPacket *pkt) {
         //pkt = nullptrの代理として、pkt.buf == nullptrなパケットを投入
         AVPktMuxData zeroFilled = { 0 };
         if (!audioQueue.push((pkt == nullptr) ? zeroFilled : pktData)) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
             m_Mux.format.bStreamError = true;
         }
         SetEvent(heEventPktAdd);
@@ -2462,7 +2462,7 @@ RGY_ERR CAvcodecWriter::AddAudQueue(AVPktMuxData *pktData, int type) {
         auto& qAudio       = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut       : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.qAudioPacketProcess       : m_Mux.thread.qAudioFrameEncode);
         auto& heEventAdded = (type == AUD_QUEUE_OUT) ? m_Mux.thread.heEventPktAddedOutput : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.heEventPktAddedAudProcess : m_Mux.thread.heEventPktAddedAudEncode);
         if (!qAudio.push(*pktData)) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to allocate memory for audio queue.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio queue.\n"));
             m_Mux.format.bStreamError = true;
         }
         SetEvent(heEventAdded);
@@ -2510,7 +2510,7 @@ RGY_ERR CAvcodecWriter::WriteNextPacketInternal(AVPktMuxData *pktData) {
             AudioFlushStream(&m_Mux.audio[i], &pktData->dts);
         }
         pktData->dts = INT64_MAX;
-        AddMessage(QSV_LOG_DEBUG, _T("Flushed audio buffer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 
@@ -2534,7 +2534,7 @@ RGY_ERR CAvcodecWriter::WriteNextPacketAudio(AVPktMuxData *pktData) {
     pktData->samples = 0;
     AVMuxAudio *pMuxAudio = pktData->pMuxAudio;
     if (pMuxAudio == NULL) {
-        AddMessage(QSV_LOG_ERROR, _T("failed to get stream for input stream.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to get stream for input stream.\n"));
         m_Mux.format.bStreamError = true;
         av_packet_unref(&pktData->pkt);
         return RGY_ERR_NULL_PTR;

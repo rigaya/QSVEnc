@@ -50,11 +50,11 @@ CQSVInput::~CQSVInput() {
 }
 
 void CQSVInput::Close() {
-    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_fSource) {
         fclose(m_fSource);
         m_fSource = NULL;
-        AddMessage(QSV_LOG_DEBUG, _T("Closed file pointer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
 
     m_pEncSatusInfo.reset();
@@ -68,7 +68,7 @@ void CQSVInput::Close() {
 
     m_sTrimParam.list.clear();
     m_sTrimParam.offset = 0;
-    AddMessage(QSV_LOG_DEBUG, _T("Close...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Close...\n"));
     m_pPrintMes.reset();
 }
 
@@ -95,14 +95,14 @@ RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, const
     bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
     if (use_stdin) {
         m_fSource = stdin;
-        AddMessage(QSV_LOG_DEBUG, _T("output to stdout.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("output to stdout.\n"));
     } else {
         int error = 0;
         if (0 != (error = _tfopen_s(&m_fSource, strFileName, _T("rb"))) || m_fSource == nullptr) {
-            AddMessage(QSV_LOG_ERROR, _T("Failed to open file \"%s\": %s.\n"), strFileName, _tcserror(error));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to open file \"%s\": %s.\n"), strFileName, _tcserror(error));
             return RGY_ERR_FILE_OPEN;
         } else {
-            AddMessage(QSV_LOG_DEBUG, _T("Opened file: \"%s\".\n"), strFileName);
+            AddMessage(RGY_LOG_DEBUG, _T("Opened file: \"%s\".\n"), strFileName);
         }
     }
 
@@ -112,7 +112,7 @@ RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, const
         m_ColorFormat = ColorFormat;
         break;
     default:
-        AddMessage(QSV_LOG_ERROR, _T("invalid color format.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("invalid color format.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
@@ -137,7 +137,7 @@ RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, uint32_t ColorFormat, const
     } else {
         mes = ColorFormatToStr(m_ColorFormat);
     }
-    AddMessage(QSV_LOG_DEBUG, mes);
+    AddMessage(RGY_LOG_DEBUG, mes);
     m_strInputInfo += mes;
     m_bInited = true;
 

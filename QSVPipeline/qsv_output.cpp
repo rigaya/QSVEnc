@@ -30,7 +30,7 @@
 
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \
-        AddMessage(QSV_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n")); \
+        AddMessage(RGY_LOG_ERROR, _T("Error writing file.\nNot enough disk space!\n")); \
         return RGY_ERR_UNDEFINED_BEHAVIOR; \
     } }
 
@@ -56,10 +56,10 @@ CQSVOut::~CQSVOut() {
 }
 
 void CQSVOut::Close() {
-    AddMessage(QSV_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_fDest) {
         m_fDest.reset();
-        AddMessage(QSV_LOG_DEBUG, _T("Closed file pointer.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
     m_pOutputBuffer.reset();
     m_pReadBuffer.reset();
@@ -70,7 +70,7 @@ void CQSVOut::Close() {
     m_bInited = false;
     m_bSourceHWMem = false;
     m_bY4mHeaderWritten = false;
-    AddMessage(QSV_LOG_DEBUG, _T("Closed.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
     m_pPrintMes.reset();
 }
 
@@ -87,7 +87,7 @@ CQSVOutBitstream::~CQSVOutBitstream() {
 RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
     CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
-        AddMessage(QSV_LOG_ERROR, _T("output filename not set.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
 
@@ -97,22 +97,22 @@ RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared
 
     if (rawPrm->bBenchmark) {
         m_bNoOutput = true;
-        AddMessage(QSV_LOG_DEBUG, _T("no output for benchmark mode.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("no output for benchmark mode.\n"));
     } else {
         if (_tcscmp(strFileName, _T("-")) == 0) {
             m_fDest.reset(stdout);
             m_bOutputIsStdout = true;
-            AddMessage(QSV_LOG_DEBUG, _T("using stdout\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
         } else {
             CreateDirectoryRecursive(PathRemoveFileSpecFixed(strFileName).second.c_str());
             FILE *fp = NULL;
             int error = _tfopen_s(&fp, strFileName, _T("wb+"));
             if (error != 0 || fp == NULL) {
-                AddMessage(QSV_LOG_ERROR, _T("failed to open output file \"%s\": %s\n"), strFileName, _tcserror(error));
+                AddMessage(RGY_LOG_ERROR, _T("failed to open output file \"%s\": %s\n"), strFileName, _tcserror(error));
                 return RGY_ERR_FILE_OPEN;
             }
             m_fDest.reset(fp);
-            AddMessage(QSV_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
+            AddMessage(RGY_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
 
             int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
             if (bufferSizeByte) {
@@ -121,7 +121,7 @@ RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared
                 if (bufferSizeByte) {
                     m_pOutputBuffer.reset((char*)ptr);
                     setvbuf(m_fDest.get(), m_pOutputBuffer.get(), _IOFBF, bufferSizeByte);
-                    AddMessage(QSV_LOG_DEBUG, _T("Added %d MB output buffer.\n"), bufferSizeByte / (1024 * 1024));
+                    AddMessage(RGY_LOG_DEBUG, _T("Added %d MB output buffer.\n"), bufferSizeByte / (1024 * 1024));
                 }
             }
         }
@@ -133,7 +133,7 @@ RGY_ERR CQSVOutBitstream::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const
 #pragma warning(pop)
 RGY_ERR CQSVOutBitstream::WriteNextFrame(mfxBitstream *pMfxBitstream) {
     if (pMfxBitstream == nullptr) {
-        AddMessage(QSV_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
         return RGY_ERR_NULL_PTR;
     }
 
@@ -172,12 +172,12 @@ RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr
     if (_tcscmp(strFileName, _T("-")) == 0) {
         m_fDest.reset(stdout);
         m_bOutputIsStdout = true;
-        AddMessage(QSV_LOG_DEBUG, _T("using stdout\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
     } else {
         FILE *fp = NULL;
         int error = _tfopen_s(&fp, strFileName, _T("wb"));
         if (0 != error || fp == NULL) {
-            AddMessage(QSV_LOG_DEBUG, _T("failed to open file \"%s\": %s\n"), strFileName, _tcserror(error));
+            AddMessage(RGY_LOG_DEBUG, _T("failed to open file \"%s\": %s\n"), strFileName, _tcserror(error));
             return RGY_ERR_NULL_PTR;
         }
         m_fDest.reset(fp);
