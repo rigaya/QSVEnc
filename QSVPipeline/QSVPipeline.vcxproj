@@ -432,7 +432,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_query.cpp" />
     <ClCompile Include="qsv_simd.cpp" />
     <ClCompile Include="qsv_task.cpp" />
-    <ClCompile Include="qsv_util.cpp" />
+    <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="qsv_version.cpp" />
     <ClCompile Include="ram_speed.cpp" />
     <ClCompile Include="rgy_err.cpp" />
@@ -488,7 +488,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_task.h" />
     <ClInclude Include="qsv_tchar.h" />
     <ClInclude Include="qsv_thread.h" />
-    <ClInclude Include="qsv_util.h" />
+    <ClInclude Include="rgy_util.h" />
     <ClInclude Include="qsv_version.h" />
     <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_err.h" />

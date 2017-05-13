@@ -148,14 +148,33 @@ struct handle_deleter {
 };
 
 template<typename T>
-static inline T qsv_gcd(T a, T b) {
-    static_assert(std::is_integral<T>::value, "qsv_gcd is defined only for integer.");
+static inline T rgy_gcd(T a, T b) {
+    static_assert(std::is_integral<T>::value, "rgy_gcd is defined only for integer.");
     if (a == 0) return b;
     if (b == 0) return a;
     T c;
     while ((c = a % b) != 0)
         a = b, b = c;
     return b;
+}
+
+template<typename T>
+static inline int rgy_gcd(std::pair<T, T> int2) {
+    return rgy_gcd(int2.first, int2.second);
+}
+
+template<typename T>
+static inline void rgy_reduce(T& a, T& b) {
+    static_assert(std::is_integral<T>::value, "rgy_reduce is defined only for integer.");
+    if (a == 0 || b == 0) return;
+    T gcd = rgy_gcd(a, b);
+    a /= gcd;
+    b /= gcd;
+}
+
+template<typename T>
+static inline void rgy_reduce(std::pair<T, T>& int2) {
+    rgy_reduce(int2.first, int2.second);
 }
 
 #if UNICODE
@@ -307,9 +326,6 @@ static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 const TCHAR *get_vpp_image_stab_mode_str(int mode);
 
 BOOL check_OS_Win8orLater();
-
-mfxStatus ParseY4MHeader(char *buf, mfxFrameInfo *info);
-mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info);
 
 const TCHAR *get_err_mes(int sts);
 
