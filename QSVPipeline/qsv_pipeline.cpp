@@ -2208,16 +2208,15 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         }
         PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = std::make_shared<CAvcodecWriter>();
-        AvcodecWriterPrm writerPrm = { 0 };
+        AvcodecWriterPrm writerPrm;
         writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
+        writerPrm.outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
         writerPrm.nOutputThread = pParams->nOutputThread;
         writerPrm.nAudioThread  = pParams->nAudioThread;
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
-        writerPrm.pVideoInfo = &m_mfxEncParams.mfx;
-        writerPrm.pVideoSignalInfo = &m_VideoSignalInfo;
         writerPrm.nAudioResampler = pParams->nAudioResampler;
         writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
@@ -2393,7 +2392,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
                 prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
                 
-                AvcodecWriterPrm writerAudioPrm = { 0 };
+                AvcodecWriterPrm writerAudioPrm;
                 writerAudioPrm.nOutputThread   = pParams->nOutputThread;
                 writerAudioPrm.nAudioThread    = pParams->nAudioThread;
                 writerAudioPrm.nBufSizeMB      = pParams->nOutputBufSizeMB;

@@ -47,6 +47,32 @@ static const auto RGY_CHROMAFMT_TO_MFX = make_array<std::pair<RGY_CHROMAFMT, mfx
 
 MAP_PAIR_0_1(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU32, RGY_CHROMAFMT_TO_MFX, RGY_CHROMAFMT_UNKNOWN, 0u);
 
+static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
+    std::make_pair(RGY_CSP_NA,        0),
+    std::make_pair(RGY_CSP_NV12,      MFX_FOURCC_NV12),
+    std::make_pair(RGY_CSP_YV12,      MFX_FOURCC_YV12),
+    std::make_pair(RGY_CSP_YUY2,      MFX_FOURCC_YUY2),
+    std::make_pair(RGY_CSP_YUV422,    0),
+    std::make_pair(RGY_CSP_YUV444,    0),
+    std::make_pair(RGY_CSP_YV12_09,   MFX_FOURCC_P010),
+    std::make_pair(RGY_CSP_YV12_10,   MFX_FOURCC_P010),
+    std::make_pair(RGY_CSP_YV12_12,   MFX_FOURCC_P010),
+    std::make_pair(RGY_CSP_YV12_14,   MFX_FOURCC_P010),
+    std::make_pair(RGY_CSP_YV12_16,   MFX_FOURCC_P010),
+    std::make_pair(RGY_CSP_P010,      MFX_FOURCC_P010),
+    std::make_pair(RGY_CSP_P210,      MFX_FOURCC_P210),
+    std::make_pair(RGY_CSP_YUV444_09, 0),
+    std::make_pair(RGY_CSP_YUV444_10, 0),
+    std::make_pair(RGY_CSP_YUV444_12, 0),
+    std::make_pair(RGY_CSP_YUV444_14, 0),
+    std::make_pair(RGY_CSP_YUV444_16, 0),
+    std::make_pair(RGY_CSP_RGB3,      MFX_FOURCC_RGB3),
+    std::make_pair(RGY_CSP_RGB4,      MFX_FOURCC_RGB4),
+    std::make_pair(RGY_CSP_YC48,      0)
+    );
+
+MAP_PAIR_0_1(csp, rgy, RGY_CSP, enc, mfxU32, RGY_CSP_TO_MFX, RGY_CSP_NA, 0);
+
 __declspec(noinline)
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {
     if (picstruct & RGY_PICSTRUCT_TFF) return (mfxU16)MFX_PICSTRUCT_FIELD_TFF;
@@ -81,4 +107,29 @@ mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
     mfx.AspectRatioH = (mfxU16)info.sar[1];
     mfx.PicStruct = picstruct_rgy_to_enc(info.picstruct);
     return mfx;
+}
+
+__declspec(noinline)
+VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui) {
+    VideoInfo info;
+    info.codec = codec_enc_to_rgy(mfx.CodecId);
+    info.codecLevel = mfx.CodecLevel;
+    info.codecProfile = mfx.CodecProfile;
+    info.videoDelay = ((mfx.GopRefDist - 1) > 0) + (((mfx.GopRefDist - 1) > 0) & ((mfx.GopRefDist - 1) > 2));;
+    info.dstWidth = mfx.FrameInfo.CropW;
+    info.dstHeight = mfx.FrameInfo.CropH;
+    info.fpsN = mfx.FrameInfo.FrameRateExtN;
+    info.fpsD = mfx.FrameInfo.FrameRateExtD;
+    info.sar[0] = mfx.FrameInfo.AspectRatioW;
+    info.sar[1] = mfx.FrameInfo.AspectRatioH;
+    info.vui.descriptpresent = vui.ColourDescriptionPresent;
+    info.vui.colorprim = vui.ColourPrimaries;
+    info.vui.matrix = vui.MatrixCoefficients;
+    info.vui.transfer = vui.TransferCharacteristics;
+    info.vui.fullrange = vui.VideoFullRange;
+    info.vui.format = vui.VideoFormat;
+    info.picstruct = picstruct_enc_to_rgy(mfx.FrameInfo.PicStruct);
+    info.shift = mfx.FrameInfo.Shift;
+    info.csp = csp_enc_to_rgy(mfx.FrameInfo.FourCC);
+    return info;
 }

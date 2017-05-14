@@ -217,15 +217,14 @@ typedef struct AVOutputStreamPrm {
     const TCHAR  *pFilter;       //音声フィルタ
 } AVOutputStreamPrm;
 
-typedef struct AvcodecWriterPrm {
+struct AvcodecWriterPrm {
     const AVDictionary          *pInputFormatMetadata;    //入力ファイルのグローバルメタデータ
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
-    const mfxInfoMFX            *pVideoInfo;              //出力映像の情報
+    VideoInfo                    outputVideoInfo;         //出力映像の情報
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
     const AVStream              *pVideoInputStream;       //入力映像のストリーム
     int64_t                      nVideoInputFirstKeyPts;  //入力映像の最初のpts
     vector<sTrim>                trimList;                //Trimする動画フレームの領域のリスト
-    const mfxExtVideoSignalInfo *pVideoSignalInfo;        //出力映像の情報
     vector<AVOutputStreamPrm>    inputStreamList;         //入力ファイルの音声・字幕の情報
     vector<const AVChapter *>    chapterList;             //チャプターリスト
     bool                         bChapterNoTrim;          //チャプターにtrimを反映しない
@@ -237,7 +236,29 @@ typedef struct AvcodecWriterPrm {
     muxOptList                   vMuxOpt;                 //mux時に使用するオプション
     PerfQueueInfo               *pQueueInfo;              //キューの情報を格納する構造体
     const TCHAR                 *pMuxVidTsLogFile;        //mux timestampログファイル
-} AvcodecWriterPrm;
+
+    AvcodecWriterPrm() :
+        pInputFormatMetadata(nullptr),
+        pOutputFormat(nullptr),
+        outputVideoInfo(),
+        bVideoDtsUnavailable(),
+        pVideoInputStream(nullptr),
+        nVideoInputFirstKeyPts(0),
+        trimList(),
+        inputStreamList(),
+        chapterList(),
+        bChapterNoTrim(false),
+        nAudioResampler(0),
+        nAudioIgnoreDecodeError(0),
+        nBufSizeMB(0),
+        nOutputThread(0),
+        nAudioThread(0),
+        vMuxOpt(),
+        pQueueInfo(nullptr),
+        pMuxVidTsLogFile(nullptr) {
+        memset(&outputVideoInfo, 0, sizeof(outputVideoInfo));
+    }
+};
 
 class CAvcodecWriter : public CQSVOut
 {

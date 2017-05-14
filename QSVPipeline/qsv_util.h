@@ -77,10 +77,12 @@ using std::shared_ptr;
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, mfxU32);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU32);
+MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, mfxU32);
 
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct);
 RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct);
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info);
+VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui);
 
 static const int RGY_CSP_TO_MFX_FOURCC[] = {
     0, //RGY_CSP_NA
@@ -107,5 +109,7 @@ static const int RGY_CSP_TO_MFX_FOURCC[] = {
 };
 
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
+
+VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui);
 
 #endif //_QSV_UTIL_H_

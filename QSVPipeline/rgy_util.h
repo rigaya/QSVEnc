@@ -410,6 +410,21 @@ static tstring CodecToStr(RGY_CODEC codec) {
     }
 }
 
+struct RGY_CODEC_DATA {
+    RGY_CODEC codec;
+    int codecProfile;
+
+    RGY_CODEC_DATA() : codec(RGY_CODEC_UNKNOWN), codecProfile(0) {}
+    RGY_CODEC_DATA(RGY_CODEC _codec, int profile) : codec(_codec), codecProfile(profile) {}
+
+    bool operator<(const RGY_CODEC_DATA& right) const {
+        return codec == right.codec ? codec < right.codec : codecProfile < right.codecProfile;
+    }
+    bool operator==(const RGY_CODEC_DATA& right) const {
+        return codec == right.codec && codecProfile == right.codecProfile;
+    }
+};
+
 enum RGY_INPUT_FMT {
     RGY_INPUT_FMT_AUTO = 0,
     RGY_INPUT_FMT_AUO = 0,
@@ -437,6 +452,15 @@ typedef union sInputCrop {
 static inline bool cropEnabled(const sInputCrop& crop) {
     return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
 }
+
+struct VideoVUIInfo {
+    int descriptpresent;
+    int colorprim;
+    int matrix;
+    int transfer;
+    int format;
+    int fullrange;
+};
 
 struct VideoInfo {
     //[ i    ] 入力モジュールに渡す際にセットする
@@ -506,6 +530,18 @@ struct VideoInfo {
 
     //[      ] 入力コーデックのヘッダーの大きさ
     uint32_t codecExtraSize;
+
+    //[      ] 入力コーデックのレベル
+    int codecLevel;
+
+    //[      ] 入力コーデックのプロファイル
+    int codecProfile;
+
+    //[      ] 入力コーデックの遅延
+    int videoDelay;
+
+    //[      ] 入力コーデックのVUI情報
+    VideoVUIInfo vui;
 };
 
 

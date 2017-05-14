@@ -439,7 +439,7 @@ AVSampleFormat CAvcodecWriter::AutoSelectSampleFmt(const AVSampleFormat *pSample
 }
 
 RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
-    m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(codec_enc_to_rgy(prm->pVideoInfo->CodecId));
+    m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(prm->outputVideoInfo.codec);
     if (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to find codec id for video.\n"));
         return RGY_ERR_INVALID_CODEC;
@@ -453,55 +453,29 @@ RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
         AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for video.\n"));
         return RGY_ERR_NULL_PTR;
     }
-    m_Mux.video.nFPS = av_make_q(prm->pVideoInfo->FrameInfo.FrameRateExtN, prm->pVideoInfo->FrameInfo.FrameRateExtD);
-    AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), prm->pVideoInfo->FrameInfo.FrameRateExtN, prm->pVideoInfo->FrameInfo.FrameRateExtD);
+    m_Mux.video.nFPS = av_make_q(prm->outputVideoInfo.fpsN, prm->outputVideoInfo.fpsD);
+    AddMessage(RGY_LOG_DEBUG, _T("output video stream fps: %d/%d\n"), m_Mux.video.nFPS.num, m_Mux.video.nFPS.den);
 
     m_Mux.video.pCodecCtx = m_Mux.video.pStreamOut->codec;
-#if USE_AVCODECPAR
     m_Mux.video.pStreamOut->codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
     m_Mux.video.pStreamOut->codecpar->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
-    m_Mux.video.pStreamOut->codecpar->width                   = prm->pVideoInfo->FrameInfo.CropW;
-    m_Mux.video.pStreamOut->codecpar->height                  = prm->pVideoInfo->FrameInfo.CropH;
-    m_Mux.video.pStreamOut->codecpar->format                  = AV_PIX_FMT_YUV420P;
-    m_Mux.video.pStreamOut->codecpar->level                   = prm->pVideoInfo->CodecLevel;
-    m_Mux.video.pStreamOut->codecpar->profile                 = prm->pVideoInfo->CodecProfile;
-    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.num = prm->pVideoInfo->FrameInfo.AspectRatioW;
-    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.den = prm->pVideoInfo->FrameInfo.AspectRatioH;
+    m_Mux.video.pStreamOut->codecpar->width                   = prm->outputVideoInfo.dstWidth;
+    m_Mux.video.pStreamOut->codecpar->height                  = prm->outputVideoInfo.dstHeight;
+    m_Mux.video.pStreamOut->codecpar->format                  = csp_rgy_to_avpixfmt(prm->outputVideoInfo.csp);
+    m_Mux.video.pStreamOut->codecpar->level                   = prm->outputVideoInfo.codecLevel;
+    m_Mux.video.pStreamOut->codecpar->profile                 = prm->outputVideoInfo.codecProfile;
+    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.num = prm->outputVideoInfo.sar[0];
+    m_Mux.video.pStreamOut->codecpar->sample_aspect_ratio.den = prm->outputVideoInfo.sar[1];
     m_Mux.video.pStreamOut->codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
-    m_Mux.video.pStreamOut->codecpar->field_order             = qsv_field_order(&prm->pVideoInfo->FrameInfo);
-    m_Mux.video.pStreamOut->codecpar->video_delay             = ((prm->pVideoInfo->GopRefDist - 1) > 0) + (((prm->pVideoInfo->GopRefDist - 1) > 0) & ((prm->pVideoInfo->GopRefDist - 1) > 2));
-#else
-    m_Mux.video.pCodecCtx->codec_type              = AVMEDIA_TYPE_VIDEO;
-    m_Mux.video.pCodecCtx->codec_id                = m_Mux.format.pFormatCtx->video_codec_id;
-    m_Mux.video.pCodecCtx->width                   = prm->pVideoInfo->FrameInfo.CropW;
-    m_Mux.video.pCodecCtx->height                  = prm->pVideoInfo->FrameInfo.CropH;
-    m_Mux.video.pCodecCtx->time_base               = av_inv_q(m_Mux.video.nFPS);
-    m_Mux.video.pCodecCtx->pix_fmt                 = AV_PIX_FMT_YUV420P;
-    m_Mux.video.pCodecCtx->compression_level       = FF_COMPRESSION_DEFAULT;
-    m_Mux.video.pCodecCtx->level                   = prm->pVideoInfo->CodecLevel;
-    m_Mux.video.pCodecCtx->profile                 = prm->pVideoInfo->CodecProfile;
-    m_Mux.video.pCodecCtx->refs                    = prm->pVideoInfo->NumRefFrame;
-    m_Mux.video.pCodecCtx->gop_size                = prm->pVideoInfo->GopPicSize;
-    m_Mux.video.pCodecCtx->max_b_frames            = prm->pVideoInfo->GopRefDist - 1;
-    m_Mux.video.pCodecCtx->chroma_sample_location  = AVCHROMA_LOC_LEFT;
-    m_Mux.video.pCodecCtx->slice_count             = prm->pVideoInfo->NumSlice;
-    m_Mux.video.pCodecCtx->sample_aspect_ratio.num = prm->pVideoInfo->FrameInfo.AspectRatioW;
-    m_Mux.video.pCodecCtx->sample_aspect_ratio.den = prm->pVideoInfo->FrameInfo.AspectRatioH;
-#endif //#if USE_AVCODECPAR
-    m_Mux.video.pStreamOut->sample_aspect_ratio.num   = prm->pVideoInfo->FrameInfo.AspectRatioW; //mkvではこちらの指定も必要
-    m_Mux.video.pStreamOut->sample_aspect_ratio.den   = prm->pVideoInfo->FrameInfo.AspectRatioH;
-    if (prm->pVideoSignalInfo->ColourDescriptionPresent) {
-#if USE_AVCODECPAR
-        m_Mux.video.pStreamOut->codecpar->color_space         = (AVColorSpace)prm->pVideoSignalInfo->MatrixCoefficients;
-        m_Mux.video.pStreamOut->codecpar->color_primaries     = (AVColorPrimaries)prm->pVideoSignalInfo->ColourPrimaries;
-        m_Mux.video.pStreamOut->codecpar->color_range         = (AVColorRange)(prm->pVideoSignalInfo->VideoFullRange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
-        m_Mux.video.pStreamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)prm->pVideoSignalInfo->TransferCharacteristics;
-#else
-        m_Mux.video.pCodecCtx->colorspace          = (AVColorSpace)prm->pVideoSignalInfo->MatrixCoefficients;
-        m_Mux.video.pCodecCtx->color_primaries     = (AVColorPrimaries)prm->pVideoSignalInfo->ColourPrimaries;
-        m_Mux.video.pCodecCtx->color_range         = (AVColorRange)(prm->pVideoSignalInfo->VideoFullRange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
-        m_Mux.video.pCodecCtx->color_trc           = (AVColorTransferCharacteristic)prm->pVideoSignalInfo->TransferCharacteristics;
-#endif //#if USE_AVCODECPAR
+    m_Mux.video.pStreamOut->codecpar->field_order             = picstrcut_rgy_to_avfieldorder(prm->outputVideoInfo.picstruct);
+    m_Mux.video.pStreamOut->codecpar->video_delay             = prm->outputVideoInfo.videoDelay;
+    m_Mux.video.pStreamOut->sample_aspect_ratio.num           = prm->outputVideoInfo.sar[0]; //mkvではこちらの指定も必要
+    m_Mux.video.pStreamOut->sample_aspect_ratio.den           = prm->outputVideoInfo.sar[1];
+    if (prm->outputVideoInfo.vui.descriptpresent) {
+        m_Mux.video.pStreamOut->codecpar->color_space         = (AVColorSpace)prm->outputVideoInfo.vui.matrix;
+        m_Mux.video.pStreamOut->codecpar->color_primaries     = (AVColorPrimaries)prm->outputVideoInfo.vui.colorprim;
+        m_Mux.video.pStreamOut->codecpar->color_range         = (AVColorRange)(prm->outputVideoInfo.vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+        m_Mux.video.pStreamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)prm->outputVideoInfo.vui.transfer;
     }
     if (0 > avcodec_open2(m_Mux.video.pCodecCtx, m_Mux.video.pCodec, NULL)) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open codec for video.\n"));
@@ -513,16 +487,10 @@ RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
     if (m_Mux.format.bIsMatroska) {
         m_Mux.video.pStreamOut->time_base = av_make_q(1, 1000);
     }
-    if (prm->pVideoInfo->FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
+    if (prm->outputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) {
         m_Mux.video.pStreamOut->time_base.den *= 2;
     }
-#if !USE_AVCODECPAR
-    m_Mux.video.pStream->codec->pkt_timebase = m_Mux.video.pStream->time_base;
-    m_Mux.video.pStream->codec->time_base    = m_Mux.video.pStream->time_base;
-    m_Mux.video.pStream->codec->framerate    = m_Mux.video.nFPS;
-#endif
     m_Mux.video.pStreamOut->start_time          = 0;
-
     m_Mux.video.bDtsUnavailable   = prm->bVideoDtsUnavailable;
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
     m_Mux.video.pStreamIn         = prm->pVideoInputStream;
@@ -1226,7 +1194,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
     if (NULL == (m_Mux.format.pOutputFmt = av_guess_format((prm->pOutputFormat) ? tchar_to_string(prm->pOutputFormat).c_str() : NULL, filename.c_str(), NULL))) {
         AddMessage(RGY_LOG_ERROR,
             _T("failed to assume format from output filename.\n")
-            _T("please set proper extension for output file, or specify format using option %s.\n"), (prm->pVideoInfo) ? _T("--format") : _T("--audio-file <format>:<filename>"));
+            _T("please set proper extension for output file, or specify format using option %s.\n"), (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) ? _T("--format") : _T("--audio-file <format>:<filename>"));
         if (prm->pOutputFormat != nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Please use --check-formats to check available formats.\n"));
         }
@@ -1275,12 +1243,12 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         if (m_Mux.format.nOutputBufferSize == 0) {
             //出力バッファが0とされている場合、libavformat用の内部バッファも量を減らす
             m_Mux.format.nAVOutBufferSize = 128 * 1024;
-            if (prm->pVideoInfo) {
+            if (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
                 m_Mux.format.nAVOutBufferSize *= 4;
             }
         } else {
             m_Mux.format.nAVOutBufferSize = 1024 * 1024;
-            if (prm->pVideoInfo) {
+            if (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
                 m_Mux.format.nAVOutBufferSize *= 8;
             } else {
                 //動画を出力しない(音声のみの場合)場合、バッファを減らす
@@ -1299,7 +1267,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
         m_Mux.format.fpOutput = _tfsopen(strFileName, _T("wb"), _SH_DENYWR);
         if (m_Mux.format.fpOutput == NULL) {
             errno_t error = errno;
-            AddMessage(RGY_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->pVideoInfo) ? _T("") : _T("audio "), strFileName, _tcserror(error));
+            AddMessage(RGY_LOG_ERROR, _T("failed to open %soutput file \"%s\": %s.\n"), (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) ? _T("") : _T("audio "), strFileName, _tcserror(error));
             return RGY_ERR_FILE_OPEN; // Couldn't open file
         }
         if (0 < (m_Mux.format.nOutputBufferSize = (uint32_t)malloc_degeneracy((void **)&m_Mux.format.pOutputBuffer, m_Mux.format.nOutputBufferSize, 1024 * 1024))) {
@@ -1315,7 +1283,7 @@ RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, share
 
     m_Mux.trim = prm->trimList;
 
-    if (prm->pVideoInfo) {
+    if (prm->outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
         RGY_ERR sts = InitVideo(prm);
         if (sts != RGY_ERR_NONE) {
             return sts;
