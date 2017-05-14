@@ -63,20 +63,22 @@ extern "C" {
 #define QSV_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
 
-typedef struct QSVCodec {
-    uint32_t codec_id;   //avcodecのコーデックID
-    uint32_t qsv_fourcc; //QSVのfourcc
-} QSVCodec;
+typedef struct CodecMap {
+    AVCodecID avcodec_id;   //avcodecのコーデックID
+    RGY_CODEC rgy_codec; //QSVのfourcc
+} CodecMap;
 
 //QSVでデコード可能なコーデックのリスト
-static const QSVCodec QSV_DECODE_LIST[] = { 
-    { AV_CODEC_ID_H264,       MFX_CODEC_AVC   },
-    { AV_CODEC_ID_HEVC,       MFX_CODEC_HEVC  },
-    { AV_CODEC_ID_MPEG2VIDEO, MFX_CODEC_MPEG2 },
-    { AV_CODEC_ID_VC1,        MFX_CODEC_VC1   },
-    { AV_CODEC_ID_WMV3,       MFX_CODEC_VC1   },
-    { AV_CODEC_ID_VP8,        MFX_CODEC_VP8   },
-    { AV_CODEC_ID_VP9,        MFX_CODEC_VP9   },
+static const CodecMap HW_DECODE_LIST[] ={
+    { AV_CODEC_ID_H264,       RGY_CODEC_H264 },
+    { AV_CODEC_ID_HEVC,       RGY_CODEC_HEVC },
+    { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
+    { AV_CODEC_ID_MPEG2VIDEO, RGY_CODEC_MPEG2 },
+    { AV_CODEC_ID_VP8,        RGY_CODEC_VP8 },
+    { AV_CODEC_ID_VP9,        RGY_CODEC_VP9 },
+    //{ AV_CODEC_ID_VC1,        RGY_CODEC_VC1   },
+    //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
+    //{ AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4   },
 };
 
 static const TCHAR *AVQSV_CODEC_AUTO = _T("auto");
@@ -148,7 +150,7 @@ tstring error_mes_avcodec_dll_not_found();
 bool checkAvcodecLicense();
 
 //avqsvでサポートされている動画コーデックを表示
-tstring getAVQSVSupportedCodecList();
+tstring getHWDecSupportedCodecList();
 
 //利用可能な音声エンコーダ/デコーダを表示
 tstring getAVCodecs(AVQSVCodecType flag);

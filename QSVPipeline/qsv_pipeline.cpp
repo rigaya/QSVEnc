@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <sstream>
 #include <map>
+#include <unordered_map>
 #include <algorithm>
 #include <cassert>
 #include <climits>
@@ -334,10 +335,10 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             return MFX_ERR_MEMORY_ALLOC;
         }
 
-        const std::map<uint32_t, std::pair<mfxPluginUID, tstring>> codecPlugin = {
-            { MFX_CODEC_HEVC, std::make_pair(MFX_PLUGINID_HEVCD_HW, _T("HEVC")) },
-            { MFX_CODEC_VP8,  std::make_pair(MFX_PLUGINID_VP8D_HW,  _T("VP8"))  },
-            { MFX_CODEC_VP9,  std::make_pair(MFX_PLUGINID_VP9D_HW,  _T("VP9"))  },
+        const std::unordered_map<RGY_CODEC, std::pair<mfxPluginUID, tstring>> codecPlugin = {
+            { RGY_CODEC_HEVC, std::make_pair(MFX_PLUGINID_HEVCD_HW, _T("HEVC")) },
+            { RGY_CODEC_VP8,  std::make_pair(MFX_PLUGINID_VP8D_HW,  _T("VP8"))  },
+            { RGY_CODEC_VP9,  std::make_pair(MFX_PLUGINID_VP9D_HW,  _T("VP9"))  },
         };
         auto plugin = codecPlugin.find(m_pFileReader->getInputCodec());
         if (plugin != codecPlugin.end()) {
@@ -350,20 +351,23 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), pluginData.second.c_str());
         }
 
-        if (m_pFileReader->getInputCodec() == MFX_CODEC_AVC || m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
+        if (m_pFileReader->getInputCodec() == RGY_CODEC_H264 || m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
             //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
             const uint32_t IDR = 0x65010000;
             mfxBitstreamAppend(&m_DecInputBitstream, (uint8_t *)&IDR, sizeof(IDR));
         }
         memset(&m_mfxDecParams, 0, sizeof(m_mfxDecParams));
-        m_mfxDecParams.mfx.CodecId = m_pFileReader->getInputCodec();
+        m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(m_pFileReader->getInputCodec());
         m_mfxDecParams.IOPattern = (uint16_t)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream, &m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
 
         //DecodeHeaderした結果をreaderにも反映
         //VPPにInputFrameInfoを渡す時などに、high bit depthなどの時にshiftの取得しておく必要がある
-        m_pFileReader->SetInputFrameBitDepthInfo(&m_mfxDecParams.mfx.FrameInfo);
+        auto inputVideoInfo = m_pFileReader->GetInputFrameInfo();
+        m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp]);
+        m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp]);
+        m_mfxDecParams.mfx.FrameInfo.Shift = (mfxU16)inputVideoInfo.shift;
 
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
@@ -520,7 +524,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
     }
-    if (MFX_RATECONTROL_VQP == pInParams->nEncMode && m_pFileReader->getInputCodec()) {
+    if (MFX_RATECONTROL_VQP == pInParams->nEncMode && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         PrintMes(RGY_LOG_ERROR, _T("%s mode cannot be used with avqsv reader.\n"), EncmodeToStr(pInParams->nEncMode));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
@@ -716,7 +720,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
                 break;
             }
         }
-        if (m_pFileReader->getInputCodec()) {
+        if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
             PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with transcoding, disabled.\n"));
             pInParams->bforceGOPSettings = true;
         }
@@ -736,7 +740,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
                 PrintMes(RGY_LOG_ERROR, _T("VQP mode cannot be used with interlaced output.\n"));
                 return MFX_ERR_INVALID_VIDEO_PARAM;
             }
-        } else if (m_pFileReader->getInputCodec()) {
+        } else if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("VQP mode cannot be used with transcoding.\n"));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
@@ -818,7 +822,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             break;
         }
     }
-    mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
+    auto gcd = rgy_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Output FPS %d/%d\n"), OutputFPSRate, OutputFPSScale);
@@ -1181,8 +1185,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     m_mfxVppParams.vpp.In.AspectRatioW  = (mfxU16)pInParams->nPAR[0];
     m_mfxVppParams.vpp.In.AspectRatioH  = (mfxU16)pInParams->nPAR[1];
 
-    mfxFrameInfo inputFrameInfo = { 0 };
-    m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
+    mfxFrameInfo inputFrameInfo = frameinfo_rgy_to_enc(m_pFileReader->GetInputFrameInfo());
     if (inputFrameInfo.FourCC == 0 || inputFrameInfo.FourCC == MFX_FOURCC_NV12) {
         m_mfxVppParams.vpp.In.FourCC       = MFX_FOURCC_NV12;
         m_mfxVppParams.vpp.In.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
@@ -1207,11 +1210,11 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     m_mfxVppParams.vpp.In.CropH = pInParams->nHeight;
 
     //QSVデコードを行う場合、CropはVppで行う
-    if (m_pFileReader->getInputCodec()) {
-        m_mfxVppParams.vpp.In.CropX = pInParams->sInCrop.left;
-        m_mfxVppParams.vpp.In.CropY = pInParams->sInCrop.up;
-        m_mfxVppParams.vpp.In.CropW -= (pInParams->sInCrop.left   + pInParams->sInCrop.right);
-        m_mfxVppParams.vpp.In.CropH -= (pInParams->sInCrop.bottom + pInParams->sInCrop.up);
+    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
+        m_mfxVppParams.vpp.In.CropX = (mfxU16)pInParams->sInCrop.e.left;
+        m_mfxVppParams.vpp.In.CropY = (mfxU16)pInParams->sInCrop.e.up;
+        m_mfxVppParams.vpp.In.CropW -= (mfxU16)(pInParams->sInCrop.e.left   + pInParams->sInCrop.e.right);
+        m_mfxVppParams.vpp.In.CropH -= (mfxU16)(pInParams->sInCrop.e.bottom + pInParams->sInCrop.e.up);
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp crop enabled.\n"));
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp input frame %dx%d (%d,%d,%d,%d)\n"),
@@ -1475,14 +1478,13 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
                 return MFX_ERR_UNSUPPORTED;
             }
         }
-        mfxFrameInfo frameInfo = { 0 };
-        m_pFileReader->GetInputFrameInfo(&frameInfo);
+
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         SubBurnParam param(m_pMFXAllocator.get(), m_memType,
             pParams->vpp.subburn.pFilePath,
             pParams->vpp.subburn.pCharEnc,
             pParams->vpp.subburn.nShaping,
-            frameInfo,
+            frameinfo_rgy_to_enc(m_pFileReader->GetInputFrameInfo()),
             (pAVCodecReader) ? pAVCodecReader->GetInputVideoStream() : nullptr,
             //ファイルからの読み込みの時は最初のpts分の補正が必要
             //トラックからの読み込みなら不要
@@ -2349,9 +2351,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
-        if ((pParams->nInputFmt != RGY_INPUT_FMT_AVCODEC_HW
-            && pParams->nInputFmt != RGY_INPUT_FMT_AVCODEC_SW
-            && pParams->nInputFmt != RGY_INPUT_FMT_AVCODEC_ANY)
+        if ((pParams->nInputFmt != RGY_INPUT_FMT_AVHW
+            && pParams->nInputFmt != RGY_INPUT_FMT_AVSW
+            && pParams->nInputFmt != RGY_INPUT_FMT_AVANY)
             || pAVCodecReader == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
             return MFX_ERR_UNSUPPORTED;
@@ -2436,78 +2438,87 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     if (!m_pEncSatusInfo) {
         m_pEncSatusInfo = std::make_shared<CEncodeStatusInfo>();
     }
+    VideoInfo inputVideo;
+    memset(&inputVideo, 0, sizeof(inputVideo));
+    inputVideo.type = (RGY_INPUT_FMT)pParams->nInputFmt;
+    inputVideo.srcWidth = pParams->nWidth;
+    inputVideo.srcHeight = pParams->nHeight;
+    inputVideo.dstWidth = pParams->nDstWidth;
+    inputVideo.dstHeight = pParams->nDstHeight;
+    inputVideo.csp = RGY_CSP_NA;
+    inputVideo.sar[0] = pParams->nPAR[0];
+    inputVideo.sar[1] = pParams->nPAR[1];
+    inputVideo.fpsN = pParams->nFPSRate;
+    inputVideo.fpsD = pParams->nFPSScale;
+    inputVideo.crop = pParams->sInCrop;
+    inputVideo.picstruct = (RGY_PICSTRUCT)pParams->nPicStruct;
+
     //ファイル拡張子により自動的に設定
-    if (pParams->nInputFmt == RGY_INPUT_FMT_AUTO) {
+    if (inputVideo.type == RGY_INPUT_FMT_AUTO) {
         if (check_ext(pParams->strSrcFile, { ".y4m" }))
-            pParams->nInputFmt = RGY_INPUT_FMT_Y4M;
+            inputVideo.type = RGY_INPUT_FMT_Y4M;
         else if (check_ext(pParams->strSrcFile, { ".yuv" }))
-            pParams->nInputFmt = RGY_INPUT_FMT_RAW;
+            inputVideo.type = RGY_INPUT_FMT_RAW;
 #if ENABLE_AVISYNTH_READER
         else
         if (check_ext(pParams->strSrcFile, { ".avs" }))
-            pParams->nInputFmt = RGY_INPUT_FMT_AVS;
+            inputVideo.type = RGY_INPUT_FMT_AVS;
         else
 #endif //ENABLE_AVISYNTH_READER
 #if ENABLE_VAPOURSYNTH_READER
         if (check_ext(pParams->strSrcFile, { ".vpy" }))
-            pParams->nInputFmt = RGY_INPUT_FMT_VPY;
+            inputVideo.type = RGY_INPUT_FMT_VPY;
         else
 #endif //ENABLE_VAPOURSYNTH_READER
 #if ENABLE_AVI_READER
         if (check_ext(pParams->strSrcFile, { ".avi", ".avs", ".vpy" }))
-            pParams->nInputFmt = RGY_INPUT_FMT_AVI;
+            inputVideo.type = RGY_INPUT_FMT_AVI;
         else
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVCODEC_QSV_READER
-            pParams->nInputFmt = RGY_INPUT_FMT_AVCODEC_ANY;
+            inputVideo.type = RGY_INPUT_FMT_AVANY;
 #else
-            pParams->nInputFmt = RGY_INPUT_FMT_RAW;
+            inputVideo.type = RGY_INPUT_FMT_RAW;
 #endif //ENABLE_AVCODEC_QSV_READER
     }
 
     //ビルドに指定リーダーが含まれているかを確認する
     //avs/vpy等はビルドに含まれていなければ、aviで代用する
-    if (pParams->nInputFmt == RGY_INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
-        pParams->nInputFmt = RGY_INPUT_FMT_AVI;
+    if (inputVideo.type == RGY_INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
+        inputVideo.type = RGY_INPUT_FMT_AVI;
         PrintMes(RGY_LOG_WARN, _T("avs reader not compiled in this binary.\n"));
         PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
-    if (pParams->nInputFmt == RGY_INPUT_FMT_VPY && !ENABLE_VAPOURSYNTH_READER) {
-        pParams->nInputFmt = RGY_INPUT_FMT_AVI;
+    if (inputVideo.type == RGY_INPUT_FMT_VPY && !ENABLE_VAPOURSYNTH_READER) {
+        inputVideo.type = RGY_INPUT_FMT_AVI;
         PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
         PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
-    if (pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
-        pParams->nInputFmt = RGY_INPUT_FMT_AVI;
+    if (inputVideo.type == RGY_INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
+        inputVideo.type = RGY_INPUT_FMT_AVI;
         PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
         PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
     }
-    if (pParams->nInputFmt == RGY_INPUT_FMT_AVI && !ENABLE_AVI_READER) {
+    if (inputVideo.type == RGY_INPUT_FMT_AVI && !ENABLE_AVI_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    if (pParams->nInputFmt == RGY_INPUT_FMT_AVCODEC_HW && !ENABLE_AVCODEC_QSV_READER) {
+    if (inputVideo.type == RGY_INPUT_FMT_AVHW && !ENABLE_AVCODEC_QSV_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    if (pParams->nInputFmt == RGY_INPUT_FMT_AVCODEC_SW && !ENABLE_AVCODEC_QSV_READER) {
+    if (inputVideo.type == RGY_INPUT_FMT_AVSW && !ENABLE_AVCODEC_QSV_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
     //まずavs or vpy readerをためす
     m_pFileReader = NULL;
-    if (   pParams->nInputFmt == RGY_INPUT_FMT_VPY
-        || pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT
-        || pParams->nInputFmt == RGY_INPUT_FMT_AVS) {
-        void *input_options = nullptr;
+    if (   inputVideo.type == RGY_INPUT_FMT_VPY
+        || inputVideo.type == RGY_INPUT_FMT_VPY_MT
+        || inputVideo.type == RGY_INPUT_FMT_AVS) {
+        if (inputVideo.type == RGY_INPUT_FMT_VPY || inputVideo.type == RGY_INPUT_FMT_VPY_MT) {
 #if ENABLE_VAPOURSYNTH_READER
-        VSReaderPrm vsReaderPrm = { 0 };
-#endif
-        if (pParams->nInputFmt == RGY_INPUT_FMT_VPY || pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT) {
-#if ENABLE_VAPOURSYNTH_READER
-            vsReaderPrm.use_mt = pParams->nInputFmt == RGY_INPUT_FMT_VPY_MT;
-            input_options = &vsReaderPrm;
             m_pFileReader = std::make_shared<CVSReader>();
             PrintMes(RGY_LOG_DEBUG, _T("Input: vpy reader selected.\n"));
 #endif
@@ -2519,18 +2530,18 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
         if (NULL == m_pFileReader) {
             //aviリーダーに切り替え再試行する
-            pParams->nInputFmt = RGY_INPUT_FMT_AVI;
+            inputVideo.type = RGY_INPUT_FMT_AVI;
         } else {
             m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-            ret = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_options,
-                &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
+            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr,
+                &m_EncThread, m_pEncSatusInfo);
             if (ret == RGY_ERR_INVALID_COLOR_FORMAT) {
                 //入力色空間の制限で使用できない場合はaviリーダーに切り替え再試行する
                 PrintMes(RGY_LOG_WARN, m_pFileReader->GetInputMessage());
                 m_pFileReader.reset();
                 ret = RGY_ERR_NONE;
                 PrintMes(RGY_LOG_WARN, _T("Input: switching to avi reader.\n"));
-                pParams->nInputFmt = RGY_INPUT_FMT_AVI;
+                inputVideo.type = RGY_INPUT_FMT_AVI;
             }
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
@@ -2539,13 +2550,12 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
     }
 
-    if (NULL == m_pFileReader) {
+    if (m_pFileReader == nullptr) {
         const void *input_option = nullptr;
-        bool bY4m = pParams->nInputFmt == RGY_INPUT_FMT_Y4M;
 #if ENABLE_AVCODEC_QSV_READER
         AvcodecReaderPrm avcodecReaderPrm = { 0 };
 #endif
-        switch (pParams->nInputFmt) {
+        switch (inputVideo.type) {
 #if ENABLE_AVI_READER
             case RGY_INPUT_FMT_AVI:
                 m_pFileReader = std::make_shared<CAVIReader>();
@@ -2553,9 +2563,9 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 break;
 #endif
 #if ENABLE_AVCODEC_QSV_READER
-            case RGY_INPUT_FMT_AVCODEC_HW:
-            case RGY_INPUT_FMT_AVCODEC_SW:
-            case RGY_INPUT_FMT_AVCODEC_ANY:
+            case RGY_INPUT_FMT_AVHW:
+            case RGY_INPUT_FMT_AVSW:
+            case RGY_INPUT_FMT_AVANY:
                 if (!pParams->bUseHWLib) {
                     PrintMes(RGY_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
@@ -2564,7 +2574,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
                 avcodecReaderPrm.bReadVideo = true;
-                avcodecReaderPrm.nVideoDecodeSW = decodeModeFromInputFmtType(pParams->nInputFmt);
                 avcodecReaderPrm.nVideoTrack = pParams->nVideoTrack;
                 avcodecReaderPrm.nVideoStreamId = pParams->nVideoStreamId;
                 avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
@@ -2587,33 +2596,32 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
                 input_option = &avcodecReaderPrm;
-                PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv reader selected.\n"));
+                PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv/avsw reader selected.\n"));
                 break;
 #endif
             case RGY_INPUT_FMT_Y4M:
             case RGY_INPUT_FMT_RAW:
             default:
-                input_option = &bY4m;
                 m_pFileReader = std::make_shared<CQSVInputRaw>();
-                PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (bY4m) ? _T("y4m") : _T("raw"));
+                PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (inputVideo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw"));
                 break;
         }
         m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-        ret = m_pFileReader->Init(pParams->strSrcFile, pParams->ColorFormat, input_option,
-            &m_EncThread, m_pEncSatusInfo, &pParams->sInCrop);
+        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr,
+            &m_EncThread, m_pEncSatusInfo);
     }
     if (ret != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
         return err_to_mfx(ret);
     }
+    m_pEncSatusInfo->m_nTotalOutFrames = inputVideo.frames;
     PrintMes(RGY_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
 
 #if ENABLE_AVCODEC_QSV_READER
     if (pParams->nAudioSourceCount && pParams->ppAudioSourceList) {
-        mfxFrameInfo videoInfo = { 0 };
-        m_pFileReader->GetInputFrameInfo(&videoInfo);
+        auto videoInfo = inputVideo;
 
         for (int i = 0; i < pParams->nAudioSourceCount; i++) {
             AvcodecReaderPrm avcodecReaderPrm = { 0 };
@@ -2623,7 +2631,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
             avcodecReaderPrm.pTrimList = pParams->pTrimList;
             avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-            avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(videoInfo.FrameRateExtN, videoInfo.FrameRateExtD);
+            avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(videoInfo.fpsN, videoInfo.fpsD);
             avcodecReaderPrm.nAudioTrackStart = sourceAudioTrackIdStart;
             avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
             avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
@@ -2636,7 +2644,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);
-            ret = audioReader->Init(pParams->ppAudioSourceList[i], 0, &avcodecReaderPrm, nullptr, nullptr, nullptr);
+            ret = audioReader->Init(pParams->ppAudioSourceList[i], &videoInfo, &avcodecReaderPrm, nullptr, nullptr);
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
                 return err_to_mfx(ret);
@@ -2648,7 +2656,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
 #endif
 
-    if (!m_pFileReader->getInputCodec()
+    if (!m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN
         && pParams->pTrimList && pParams->nTrimCount > 0) {
         //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
@@ -2670,36 +2678,30 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 }
 
 mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
-    mfxFrameInfo inputFrameInfo = { 0 };
-    m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
-
-    sInputCrop cropInfo = { 0 };
-    m_pFileReader->GetInputCropInfo(&cropInfo);
+    auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
+    auto cropInfo = m_pFileReader->GetInputCropInfo();
 
     //読み込み時に取得されていれば、それを使用する
-    if (inputFrameInfo.Width) {
-        pParams->nWidth = inputFrameInfo.Width;
+    if (inputFrameInfo.srcWidth) {
+        pParams->nWidth = (mfxU16)inputFrameInfo.srcWidth;
     }
 
-    if (inputFrameInfo.Height) {
-        pParams->nHeight = inputFrameInfo.Height;
+    if (inputFrameInfo.srcHeight) {
+        pParams->nHeight = (mfxU16)inputFrameInfo.srcHeight;
     }
 
-    if (inputFrameInfo.PicStruct) {
-        pParams->nPicStruct = inputFrameInfo.PicStruct;
+    if (inputFrameInfo.picstruct != RGY_PICSTRUCT_UNKNOWN) {
+        pParams->nPicStruct = (mfxU16)picstruct_rgy_to_enc(inputFrameInfo.picstruct);
     }
 
-    if ((!pParams->nFPSRate || !pParams->nFPSScale) && inputFrameInfo.FrameRateExtN && inputFrameInfo.FrameRateExtD) {
-        pParams->nFPSRate = inputFrameInfo.FrameRateExtN;
-        pParams->nFPSScale = inputFrameInfo.FrameRateExtD;
+    if ((!pParams->nFPSRate || !pParams->nFPSScale) && inputFrameInfo.fpsN && inputFrameInfo.fpsD) {
+        pParams->nFPSRate = inputFrameInfo.fpsN;
+        pParams->nFPSScale = inputFrameInfo.fpsD;
     }
 
-    if (0 == pParams->inputBitDepthLuma && inputFrameInfo.BitDepthLuma) {
-        pParams->inputBitDepthLuma = inputFrameInfo.BitDepthLuma;
-    }
-
-    if (0 == pParams->inputBitDepthChroma && inputFrameInfo.BitDepthChroma) {
-        pParams->inputBitDepthChroma = inputFrameInfo.BitDepthChroma;
+    if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
+        pParams->inputBitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputFrameInfo.csp]);
+        pParams->inputBitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputFrameInfo.csp]);
     }
 
     //picstructが設定されていない場合、プログレッシブとして扱う
@@ -2718,11 +2720,11 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         h_mul *= 2;
     }
     //crop設定の確認
-    if (pParams->sInCrop.left % 2 != 0 || pParams->sInCrop.right % 2 != 0) {
+    if (pParams->sInCrop.e.left % 2 != 0 || pParams->sInCrop.e.right % 2 != 0) {
         PrintMes(RGY_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
-    if (pParams->sInCrop.bottom % h_mul != 0 || pParams->sInCrop.up % h_mul != 0) {
+    if (pParams->sInCrop.e.bottom % h_mul != 0 || pParams->sInCrop.e.up % h_mul != 0) {
         PrintMes(RGY_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
@@ -2734,25 +2736,25 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         PrintMes(RGY_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
-    if (   pParams->nWidth < (pParams->sInCrop.left + pParams->sInCrop.right)
-        || pParams->nHeight < (pParams->sInCrop.bottom + pParams->sInCrop.up)) {
+    if (   pParams->nWidth < (pParams->sInCrop.e.left + pParams->sInCrop.e.right)
+        || pParams->nHeight < (pParams->sInCrop.e.bottom + pParams->sInCrop.e.up)) {
             PrintMes(RGY_LOG_ERROR, _T("crop size is too big.\n"));
             return MFX_ERR_INVALID_VIDEO_PARAM;
     }
 
     //出力解像度が設定されていない場合は、入力解像度と同じにする
     if (pParams->nDstWidth == 0) {
-        pParams->nDstWidth = pParams->nWidth -  (pParams->sInCrop.left + pParams->sInCrop.right);
+        pParams->nDstWidth = pParams->nWidth -  (mfxU16)(pParams->sInCrop.e.left + pParams->sInCrop.e.right);
     }
 
     if (pParams->nDstHeight == 0) {
-        pParams->nDstHeight = pParams->nHeight - (pParams->sInCrop.bottom + pParams->sInCrop.up);
+        pParams->nDstHeight = pParams->nHeight - (mfxU16)(pParams->sInCrop.e.bottom + pParams->sInCrop.e.up);
     }
 
-    if (0 == m_pFileReader->getInputCodec()) {
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
         //QSVデコードを使わない場合には、入力段階でCropが行われる
-        pParams->nWidth -= (pParams->sInCrop.left + pParams->sInCrop.right);
-        pParams->nHeight -= (pParams->sInCrop.bottom + pParams->sInCrop.up);
+        pParams->nWidth -= (mfxU16)(pParams->sInCrop.e.left + pParams->sInCrop.e.right);
+        pParams->nHeight -= (mfxU16)(pParams->sInCrop.e.bottom + pParams->sInCrop.e.up);
     }
 
     //入力解像度と出力解像度が一致しないときはリサイズが必要なので、vppを有効にする
@@ -2763,10 +2765,10 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
     //必要ならばSAR比の指定を行う
     if ((!pParams->nPAR[0] || !pParams->nPAR[1]) //SAR比の指定がない
-        && inputFrameInfo.AspectRatioW && inputFrameInfo.AspectRatioH //入力側からSAR比を取得ずみ
+        && inputFrameInfo.sar[0] && inputFrameInfo.sar[1] //入力側からSAR比を取得ずみ
         && !pParams->vpp.bUseResize) { //リサイズは行われない
-        pParams->nPAR[0] = inputFrameInfo.AspectRatioW;
-        pParams->nPAR[1] = inputFrameInfo.AspectRatioH;
+        pParams->nPAR[0] = inputFrameInfo.sar[0];
+        pParams->nPAR[1] = inputFrameInfo.sar[1];
     }
 
     if (pParams->nDstWidth % 2 != 0) {
@@ -2850,8 +2852,8 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     }
     mfxU32 OutputFPSRate = pParams->nFPSRate;
     mfxU32 OutputFPSScale = pParams->nFPSScale;
-    mfxU32 outputFrames = 0;
-    memcpy(&outputFrames, &inputFrameInfo.FrameId, sizeof(outputFrames));
+    mfxU32 outputFrames = inputFrameInfo.frames;
+
     if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         CHECK_RANGE_LIST(pParams->vpp.nDeinterlace, list_deinterlace, "vpp-deinterlace");
         if (pParams->nAVSyncMode == QSV_AVSYNC_FORCE_CFR
@@ -2891,7 +2893,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     default:
         break;
     }
-    mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
+    auto gcd = rgy_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
     m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog, m_pPerfMonitor);
@@ -2905,10 +2907,10 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
     //デコードを行う場合は、入力バッファサイズを常に1に設定する (そうしないと正常に動かない)
     //また、バッファサイズを拡大しても特に高速化しない
-    if (m_pFileReader->getInputCodec()) {
+    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         pParams->nInputBufSize = 1;
         //Haswell以前はHEVCデコーダを使用する場合はD3D11メモリを使用しないと正常に稼働しない (4080ドライバ)
-        if (getCPUGen() <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == MFX_CODEC_HEVC) {
+        if (getCPUGen() <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
             if (pParams->memType & D3D9_MEMORY) {
                 pParams->memType &= ~D3D9_MEMORY;
                 pParams->memType |= D3D11_MEMORY;
@@ -3672,9 +3674,8 @@ mfxStatus CQSVPipeline::RunEncode() {
         return ret;
     };
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
-    mfxFrameInfo inputFrmaeInfo = { 0 };
-    m_pFileReader->GetInputFrameInfo(&inputFrmaeInfo);
-    const AVRational inputFpsTimebase = { (int)inputFrmaeInfo.FrameRateExtD, (int)inputFrmaeInfo.FrameRateExtN };
+    const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
+    const AVRational inputFpsTimebase = { (int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN };
     const AVRational outputFpsTimebase = { (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN };
 
     auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
@@ -3772,7 +3773,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             get_all_free_surface(&m_pEncSurfaces[GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual)]);
 
             //フレーム読み込みでない場合には、ここでロックする必要はない
-            if (m_bExternalAlloc && !m_pFileReader->getInputCodec()) {
+            if (m_bExternalAlloc && m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
                 if (MFX_ERR_NONE != (sts_set_buffer = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data))))
                     break;
         }
@@ -4202,7 +4203,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     break;
                 }
                 
-                if (!m_pFileReader->getInputCodec()) {
+                if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
                     //フレーム読み込みの場合には、必要ならここでロックする
                     if (m_bExternalAlloc) {
                         if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))
@@ -4273,7 +4274,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
     
     //MFX_ERR_MORE_DATA/MFX_ERR_MORE_BITSTREAMは入力が終了したことを示す
-    QSV_IGNORE_STS(sts, (m_pFileReader->getInputCodec()) ? MFX_ERR_MORE_BITSTREAM : MFX_ERR_MORE_DATA);
+    QSV_IGNORE_STS(sts, (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) ? MFX_ERR_MORE_BITSTREAM : MFX_ERR_MORE_DATA);
     //エラーチェック
     m_EncThread.m_stsThread = err_to_rgy(sts);
     QSV_ERR_MES(sts, _T("Error in encoding pipeline."));
@@ -4968,13 +4969,12 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
     }
 
-    sInputCrop inputCrop;
-    m_pFileReader->GetInputCropInfo(&inputCrop);
-    if (0 != (inputCrop.bottom | inputCrop.left | inputCrop.right | inputCrop.up))
+    sInputCrop inputCrop = m_pFileReader->GetInputCropInfo();
+    if (0 != (inputCrop.e.bottom | inputCrop.e.left | inputCrop.e.right | inputCrop.e.up))
         PRINT_INFO(_T("Crop           %d,%d,%d,%d (%dx%d -> %dx%d)\n"),
-            inputCrop.left, inputCrop.up, inputCrop.right, inputCrop.bottom,
-            SrcPicInfo.CropW + inputCrop.left + inputCrop.right,
-            SrcPicInfo.CropH + inputCrop.up + inputCrop.bottom,
+            inputCrop.e.left, inputCrop.e.up, inputCrop.e.right, inputCrop.e.bottom,
+            SrcPicInfo.CropW + inputCrop.e.left + inputCrop.e.right,
+            SrcPicInfo.CropH + inputCrop.e.up + inputCrop.e.bottom,
             SrcPicInfo.CropW, SrcPicInfo.CropH);
 
     if (VppExtMes.size()) {

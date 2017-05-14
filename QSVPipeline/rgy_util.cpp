@@ -731,28 +731,6 @@ const TCHAR *get_low_power_str(mfxU16 LowPower) {
     }
 }
 
-mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info) {
-    char buffer[256] = { 0 };
-    char *ptr = buffer;
-    mfxU32 len = 0;
-    memcpy(ptr, "YUV4MPEG2 ", 10);
-    len += 10;
-
-    len += sprintf_s(ptr+len, sizeof(buffer)-len, "W%d H%d ", info->CropW, info->CropH);
-    len += sprintf_s(ptr+len, sizeof(buffer)-len, "F%d:%d ", info->FrameRateExtN, info->FrameRateExtD);
-
-    const char *picstruct = "Ip ";
-    if (info->PicStruct & MFX_PICSTRUCT_FIELD_TFF) {
-        picstruct = "It ";
-    } else if (info->PicStruct & MFX_PICSTRUCT_FIELD_BFF) {
-        picstruct = "Ib ";
-    }
-    strcpy_s(ptr+len, sizeof(buffer)-len, picstruct); len += 3;
-    len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->AspectRatioW, info->AspectRatioH);
-    strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += (mfxU32)strlen("C420mpeg2\n");
-    return (len == fwrite(buffer, 1, len, fp)) ? MFX_ERR_NONE : MFX_ERR_UNDEFINED_BEHAVIOR;
-}
-
 #if defined(_WIN32) || defined(_WIN64)
 
 #include <Windows.h>

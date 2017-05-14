@@ -422,8 +422,8 @@ mfxStatus SubBurn::InitLibAss(ProcessDataSubBurn *pProcData) {
         return MFX_ERR_NULL_PTR;
     }
 
-    const int width = pProcData->frameInfo.CropW - pProcData->sCrop.left - pProcData->sCrop.right;
-    const int height = pProcData->frameInfo.CropH - pProcData->sCrop.up - pProcData->sCrop.bottom;
+    const int width = pProcData->frameInfo.CropW - pProcData->sCrop.e.left - pProcData->sCrop.e.right;
+    const int height = pProcData->frameInfo.CropH - pProcData->sCrop.e.up - pProcData->sCrop.e.bottom;
     ass_set_frame_size(pProcData->pAssRenderer, width, height);
 
     const AVRational sar = { pProcData->frameInfo.AspectRatioW, pProcData->frameInfo.AspectRatioH };
@@ -1110,9 +1110,9 @@ mfxStatus ProcessorSubBurn::SubBurn(ASS_Image *pImage, uint8_t *pBuffer) {
     const uint8_t subV = (uint8_t)clamp(((112 * subR -  94 * subG -  18 * subB + 128) >> 8) + 128, 0, 255);
 
     if (!forUV)
-        BlendSubY( pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.left, pImage->dst_y + m_pProcData->sCrop.up, pImage->w, pImage->stride, pImage->h, subY, subA, pBuffer);
+        BlendSubY( pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.e.left, pImage->dst_y + m_pProcData->sCrop.e.up, pImage->w, pImage->stride, pImage->h, subY, subA, pBuffer);
     else
-        BlendSubUV(pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.left, pImage->dst_y + m_pProcData->sCrop.up, pImage->w, pImage->stride, pImage->h, subU, subV, subA, pBuffer);
+        BlendSubUV(pImage->bitmap, pImage->dst_x + m_pProcData->sCrop.e.left, pImage->dst_y + m_pProcData->sCrop.e.up, pImage->w, pImage->stride, pImage->h, subU, subV, subA, pBuffer);
 
     return MFX_ERR_NONE;
 }
@@ -1152,8 +1152,8 @@ mfxStatus ProcessorSubBurn::SubBurn(AVSubtitleRect *pRect, uint8_t *pBuffer) {
         pAlpha[ic] = subA >> 1;
     }
     int nMaxIndex = (forUV)
-        ? BlendSubUVBitmap(pRect->data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer)
-        : BlendSubYBitmap(pRect->data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.left, pRect->y + m_pProcData->sCrop.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer);
+        ? BlendSubUVBitmap(pRect->data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.e.left, pRect->y + m_pProcData->sCrop.e.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer)
+        : BlendSubYBitmap(pRect->data[0], pRect->nb_colors, pColor, pAlpha, pRect->x + m_pProcData->sCrop.e.left, pRect->y + m_pProcData->sCrop.e.up, pRect->w, pRect->linesize[0], pRect->h, pBuffer);
     pRect->nb_colors = (std::min)(pRect->nb_colors, nMaxIndex);
     return MFX_ERR_NONE;
 }

@@ -40,16 +40,18 @@ public:
     CAVIReader();
     virtual ~CAVIReader();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
-
-    virtual void Close() override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual void Close() override;
 
     PAVIFILE m_pAviFile;
     PAVISTREAM m_pAviStream;
     PGETFRAME m_pGetFrame;
     LPBITMAPINFOHEADER m_pBitmapInfoHeader;
     int m_nYPitchMultiplizer;
+
+    uint32_t m_nBufSize;
+    shared_ptr<uint8_t> m_pBuffer;
 };
 
 #endif //ENABLE_AVI_READER

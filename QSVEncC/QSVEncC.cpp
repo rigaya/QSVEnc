@@ -58,7 +58,6 @@
 extern "C" {
 #include <libavutil/channel_layout.h>
 }
-tstring getAVQSVSupportedCodecList();
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -77,7 +76,7 @@ static tstring GetQSVEncVersion() {
     if (ENABLE_AVI_READER)         version += _T(", avi");
     if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
-    if (ENABLE_AVCODEC_QSV_READER) version += strsprintf(_T(", avqsv [%s]"), getAVQSVSupportedCodecList().c_str());
+    if (ENABLE_AVCODEC_QSV_READER) version += strsprintf(_T(", avqsv [%s]"), getHWDecSupportedCodecList().c_str());
 #if !(defined(_WIN32) || defined(_WIN64))
     version += _T("\n vpp:    resize, deinterlace, denoise, detail-enhance, image-stab");
     if (ENABLE_CUSTOM_VPP) version += _T(", delego");
@@ -1290,8 +1289,8 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("crop"))) {
         i++;
-        if (   4 != _stscanf_s(strInput[i], _T("%hd,%hd,%hd,%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom)
-            && 4 != _stscanf_s(strInput[i], _T("%hd:%hd:%hd:%hd"), &pParams->sInCrop.left, &pParams->sInCrop.up, &pParams->sInCrop.right, &pParams->sInCrop.bottom)) {
+        if (   4 != _stscanf_s(strInput[i], _T("%d,%d,%d,%d"), &pParams->sInCrop.e.left, &pParams->sInCrop.e.up, &pParams->sInCrop.e.right, &pParams->sInCrop.e.bottom)
+            && 4 != _stscanf_s(strInput[i], _T("%d:%d:%d:%d"), &pParams->sInCrop.e.left, &pParams->sInCrop.e.up, &pParams->sInCrop.e.right, &pParams->sInCrop.e.bottom)) {
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
@@ -1337,11 +1336,11 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avqsv"))) {
-        pParams->nInputFmt = RGY_INPUT_FMT_AVCODEC_HW;
+        pParams->nInputFmt = RGY_INPUT_FMT_AVHW;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("avsw"))) {
-        pParams->nInputFmt = RGY_INPUT_FMT_AVCODEC_SW;
+        pParams->nInputFmt = RGY_INPUT_FMT_AVSW;
         return MFX_ERR_NONE;
     }
     if (   0 == _tcscmp(option_name, _T("input-analyze"))
@@ -2518,9 +2517,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 } else {
                     pParams->nFPSScale = 100000;
                     pParams->nFPSRate = (int)(d * pParams->nFPSScale + 0.5);
-                    int gcd = qsv_gcd(pParams->nFPSRate, pParams->nFPSScale);
-                    pParams->nFPSScale /= gcd;
-                    pParams->nFPSRate  /= gcd;
+                    rgy_reduce(pParams->nFPSRate, pParams->nFPSScale);
                 }
             } else {
                 PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);

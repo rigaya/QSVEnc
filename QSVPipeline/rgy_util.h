@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef _QSV_UTIL_H_
-#define _QSV_UTIL_H_
+#ifndef __RGY_UTIL_H__
+#define __RGY_UTIL_H__
 
 #include "qsv_tchar.h"
 #include <emmintrin.h>
@@ -46,6 +46,7 @@
 #include "qsv_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
+#include "convert_csp.h"
 
 using std::vector;
 using std::unique_ptr;
@@ -371,6 +372,143 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 const int MAX_FILENAME_LEN = 1024;
 
+enum {
+    RGY_LOG_TRACE = -3,
+    RGY_LOG_DEBUG = -2,
+    RGY_LOG_MORE  = -1,
+    RGY_LOG_INFO  = 0,
+    RGY_LOG_WARN  = 1,
+    RGY_LOG_ERROR = 2,
+    RGY_LOG_QUIET = 3,
+};
+
+enum RGY_CODEC {
+    RGY_CODEC_UNKNOWN = 0,
+    RGY_CODEC_H264,
+    RGY_CODEC_HEVC,
+    RGY_CODEC_MPEG1,
+    RGY_CODEC_MPEG2,
+    RGY_CODEC_MPEG4,
+    RGY_CODEC_VP8,
+    RGY_CODEC_VP9,
+    RGY_CODEC_VC1,
+
+    RGY_CODEC_NUM,
+};
+
+static tstring CodecToStr(RGY_CODEC codec) {
+    switch (codec) {
+    case RGY_CODEC_H264:  return _T("H.264/AVC");
+    case RGY_CODEC_HEVC:  return _T("H.265/HEVC");
+    case RGY_CODEC_MPEG2: return _T("MPEG2");
+    case RGY_CODEC_MPEG1: return _T("MPEG1");
+    case RGY_CODEC_VC1:   return _T("VC-1");
+    case RGY_CODEC_MPEG4: return _T("MPEG4");
+    case RGY_CODEC_VP8:   return _T("VP8");
+    case RGY_CODEC_VP9:   return _T("VP9");
+    default: return _T("unknown");
+    }
+}
+
+enum RGY_INPUT_FMT {
+    RGY_INPUT_FMT_AUTO = 0,
+    RGY_INPUT_FMT_AUO = 0,
+    RGY_INPUT_FMT_RAW,
+    RGY_INPUT_FMT_Y4M,
+    RGY_INPUT_FMT_AVI,
+    RGY_INPUT_FMT_AVS,
+    RGY_INPUT_FMT_VPY,
+    RGY_INPUT_FMT_VPY_MT,
+    RGY_INPUT_FMT_AVHW,
+    RGY_INPUT_FMT_AVSW,
+    RGY_INPUT_FMT_AVANY,
+};
+
+#pragma warning(push)
+#pragma warning(disable: 4201)
+typedef union sInputCrop {
+    struct {
+        int left, up, right, bottom;
+    } e;
+    int c[4];
+} sInputCrop;
+#pragma warning(pop)
+
+static inline bool cropEnabled(const sInputCrop& crop) {
+    return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
+}
+
+struct VideoInfo {
+    //[ i    ] 入力モジュールに渡す際にセットする
+    //[    i ] 入力モジュールによってセットされる
+    //[ o    ] 出力モジュールに渡す際にセットする
+
+    //[ i (i)] 種類 (RGY_INPUT_FMT_xxx)
+    //  i      使用する入力モジュールの種類
+    //     i   変更があれば
+    RGY_INPUT_FMT type;
+
+    //[(i) i ] 入力横解像度
+    uint32_t srcWidth;
+
+    //[(i) i ] 入力縦解像度
+    uint32_t srcHeight;
+
+    //[(i)(i)] 入力ピッチ 0なら入力横解像度に同じ
+    uint32_t srcPitch;
+
+    uint32_t codedWidth;     //[   (i)] 
+    uint32_t codedHeight;    //[   (i)]
+
+                             //[      ] 出力解像度
+    uint32_t dstWidth;
+
+    //[      ] 出力解像度
+    uint32_t dstHeight;
+
+    //[      ] 出力解像度
+    uint32_t dstPitch;
+
+    //[    i ] 入力の取得した総フレーム数 (不明なら0)
+    int frames;
+
+    //[   (i)] 右shiftすべきビット数
+    int shift;
+
+    //[   (i)] 入力の取得したフレームレート (分子)
+    int fpsN;
+
+    //[   (i)] 入力の取得したフレームレート (分母)
+    int fpsD;
+
+    //[ i    ] 入力時切り落とし
+    sInputCrop crop;
+
+    //[   (i)] 入力の取得したアスペクト比
+    int sar[2];
+
+    //[(i) i ] 入力色空間 (RGY_CSP_xxx)
+    //  i      取得したい色空間をセット
+    //     i   入力の取得する色空間
+    RGY_CSP csp;
+
+    //[(i)(i)] RGY_PICSTRUCT_xxx
+    //  i      ユーザー指定の設定をセット
+    //     i   入力の取得した値、あるいはそのまま
+    RGY_PICSTRUCT picstruct;
+
+    //[    i ] 入力コーデック (デコード時使用)
+    //     i   HWデコード時セット
+    RGY_CODEC codec;
+
+    //[      ] 入力コーデックのヘッダー
+    void *codecExtra;
+
+    //[      ] 入力コーデックのヘッダーの大きさ
+    uint32_t codecExtraSize;
+};
+
+
 const TCHAR *ColorFormatToStr(uint32_t format);
 const TCHAR *CodecIdToStr(uint32_t nFourCC);
 const TCHAR *TargetUsageToStr(uint16_t tu);
@@ -393,4 +531,4 @@ static void print_err_mes(int sts) {
 
 int qsv_avx_dummy_if_avail(int bAVXAvail);
 
-#endif //_QSV_UTIL_H_
+#endif //__RGY_UTIL_H__

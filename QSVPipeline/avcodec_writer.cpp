@@ -251,10 +251,10 @@ void CAvcodecWriter::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-AVCodecID CAvcodecWriter::getAVCodecId(mfxU32 QSVFourcc) {
-    for (int i = 0; i < _countof(QSV_DECODE_LIST); i++)
-        if (QSV_DECODE_LIST[i].qsv_fourcc == QSVFourcc)
-            return (AVCodecID)QSV_DECODE_LIST[i].codec_id;
+AVCodecID CAvcodecWriter::getAVCodecId(RGY_CODEC codec) {
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++)
+        if (HW_DECODE_LIST[i].rgy_codec == codec)
+            return HW_DECODE_LIST[i].avcodec_id;
     return AV_CODEC_ID_NONE;
 }
 bool CAvcodecWriter::codecIDIsPCM(AVCodecID targetCodec) {
@@ -439,7 +439,7 @@ AVSampleFormat CAvcodecWriter::AutoSelectSampleFmt(const AVSampleFormat *pSample
 }
 
 RGY_ERR CAvcodecWriter::InitVideo(const AvcodecWriterPrm *prm) {
-    m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(prm->pVideoInfo->CodecId);
+    m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(codec_enc_to_rgy(prm->pVideoInfo->CodecId));
     if (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to find codec id for video.\n"));
         return RGY_ERR_INVALID_CODEC;

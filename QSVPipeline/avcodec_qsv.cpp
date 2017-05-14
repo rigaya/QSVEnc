@@ -105,12 +105,12 @@ tstring get_media_type_string(AVCodecID codecId) {
 }
 
 //avqsvでサポートされている動画コーデックを表示
-tstring getAVQSVSupportedCodecList() {
+tstring getHWDecSupportedCodecList() {
     tstring codecs;
-    for (int i = 0; i < _countof(QSV_DECODE_LIST); i++) {
-        if (i == 0 || QSV_DECODE_LIST[i-1].qsv_fourcc != QSV_DECODE_LIST[i].qsv_fourcc) {
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
+        if (i == 0 || HW_DECODE_LIST[i-1].rgy_codec != HW_DECODE_LIST[i].rgy_codec) {
             if (i) codecs += _T(", ");
-            codecs += CodecIdToStr(QSV_DECODE_LIST[i].qsv_fourcc);
+            codecs += CodecToStr(HW_DECODE_LIST[i].rgy_codec);
         }
     }
     return codecs;

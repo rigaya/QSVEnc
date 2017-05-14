@@ -38,16 +38,6 @@
 #include "convert_csp.h"
 
 enum {
-    RGY_LOG_TRACE = -3,
-    RGY_LOG_DEBUG = -2,
-    RGY_LOG_MORE = -1,
-    RGY_LOG_INFO = 0,
-    RGY_LOG_WARN,
-    RGY_LOG_ERROR,
-    RGY_LOG_QUIET,
-};
-
-enum {
     QSV_RESAMPLER_SWR,
     QSV_RESAMPLER_SOXR,
 };
@@ -66,44 +56,6 @@ enum {
     MVC_DISABLED          = 0x0,
     MVC_ENABLED           = 0x1,
     MVC_VIEWOUTPUT        = 0x2,    // 2 output bitstreams
-};
-
-enum RGY_INPUT_FMT {
-    RGY_INPUT_FMT_AUTO = 0,
-    RGY_INPUT_FMT_RAW,
-    RGY_INPUT_FMT_Y4M,
-    RGY_INPUT_FMT_AVI,
-    RGY_INPUT_FMT_AVS,
-    RGY_INPUT_FMT_VPY,
-    RGY_INPUT_FMT_VPY_MT,
-    RGY_INPUT_FMT_AVCODEC_HW,
-    RGY_INPUT_FMT_AVCODEC_SW,
-    RGY_INPUT_FMT_AVCODEC_ANY,
-    RGY_INPUT_FMT_AUO,
-};
-
-static const int RGY_CSP_TO_MFX_FOURCC[] = {
-    0, //RGY_CSP_NA
-    MFX_FOURCC_NV12, //RGY_CSP_NV12
-    MFX_FOURCC_YV12, //RGY_CSP_YV12
-    MFX_FOURCC_YUY2, //RGY_CSP_YUY2 
-    0, //RGY_CSP_YUV422
-    0, //RGY_CSP_YUV444
-    MFX_FOURCC_P010, //RGY_CSP_YV12_09
-    MFX_FOURCC_P010,
-    MFX_FOURCC_P010,
-    MFX_FOURCC_P010,
-    MFX_FOURCC_P010, //RGY_CSP_YV12_16
-    MFX_FOURCC_P010, //RGY_CSP_P010
-    MFX_FOURCC_P210, //RGY_CSP_P210
-    0, //RGY_CSP_YUV444_09
-    0,
-    0,
-    0,
-    0, //RGY_CSP_YUV444_16
-    MFX_FOURCC_RGB3,
-    MFX_FOURCC_RGB4,
-    0 //RGY_CSP_YC48
 };
 
 enum MemType {
@@ -135,10 +87,6 @@ static MemType operator&=(MemType& a, MemType b) {
 static const int8_t QSV_OUTPUT_THREAD_AUTO = -1;
 static const int8_t QSV_AUDIO_THREAD_AUTO = -1;
 static const int8_t QSV_INPUT_THREAD_AUTO = -1;
-
-typedef struct {
-    mfxU16 left, up, right, bottom;
-} sInputCrop;
 
 typedef struct {
     int start, fin;
@@ -300,7 +248,7 @@ typedef struct sAudioSelect {
 
 struct sInputParams
 {
-    mfxU16 nInputFmt;     // 0 - raw, 1 - y4m, 2 - avi/avs
+    mfxU16 nInputFmt;     // RGY_INUPT_FMT_xxx
     mfxU16 nEncMode;      // RateControl
     mfxU16 nTargetUsage;  // Quality
     mfxU32 CodecId;       // H.264 only for this
@@ -362,7 +310,7 @@ struct sInputParams
     mfxU16     nVQPStrength;
     mfxU16     nVQPSensitivity;
 
-    sInputCrop sInCrop;
+    mfxU16     reserved__[4];
 
     mfxU16     nQuality; // quality parameter for JPEG encoder
 
@@ -455,7 +403,10 @@ struct sInputParams
     TCHAR     *pMuxVidTsLogFile;
     TCHAR     *pAVInputFormat;
     TCHAR     *pLogCopyFrameData;
-    int8_t     Reserved[1030];
+
+    sInputCrop sInCrop;
+
+    int8_t     Reserved[1014];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];

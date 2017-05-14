@@ -70,10 +70,10 @@ typedef struct {
     func_vs_getVSApi       getVSApi;
 } vsscript_t;
 
-
-typedef struct VSReaderPrm {
-    bool use_mt;
-} VSReaderPrm;
+struct CVSReaderParam {
+    bool interlaced;
+    bool mt;
+};
 
 class CVSReader : public CQSVInput
 {
@@ -81,10 +81,9 @@ public:
     CVSReader();
     virtual ~CVSReader();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
-
-    virtual void Close() override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual void Close() override;
 
     void setFrameToAsyncBuffer(int n, const VSFrameRef* f);
 private:
@@ -105,7 +104,7 @@ private:
     int getRevInfo(const char *vs_version_string);
 
     bool m_bAbortAsync;
-    mfxU32 m_nCopyOfInputFrames;
+    uint32_t m_nCopyOfInputFrames;
 
     const VSAPI *m_sVSapi;
     VSScript *m_sVSscript;

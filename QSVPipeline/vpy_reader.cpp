@@ -32,18 +32,20 @@
 #include <string>
 #include <algorithm>
 
-CVSReader::CVSReader() {
-    m_sVSapi = NULL;
-    m_sVSscript = NULL;
-    m_sVSnode = NULL;
-    m_nAsyncFrames = 0;
+CVSReader::CVSReader() :
+    m_pAsyncBuffer(),
+    m_hAsyncEventFrameSetFin(),
+    m_hAsyncEventFrameSetStart(),
+    m_bAbortAsync(false),
+    m_nCopyOfInputFrames(0),
+    m_sVSapi(nullptr),
+    m_sVSscript(nullptr),
+    m_sVSnode(nullptr),
+    m_nAsyncFrames(0),
+    m_sVS() {
     memset(m_pAsyncBuffer, 0, sizeof(m_pAsyncBuffer));
     memset(m_hAsyncEventFrameSetFin,   0, sizeof(m_hAsyncEventFrameSetFin));
     memset(m_hAsyncEventFrameSetStart, 0, sizeof(m_hAsyncEventFrameSetStart));
-
-    m_bAbortAsync = false;
-    m_nCopyOfInputFrames = 0;
-
     memset(&m_sVS, 0, sizeof(m_sVS));
     m_strReaderName = _T("vpy");
 }
@@ -136,9 +138,7 @@ void CVSReader::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
     SetEvent(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)]);
 
-    int nTotalFrame = 0;
-    memcpy(&nTotalFrame, &m_inputFrameInfo.FrameId, sizeof(nTotalFrame));
-    if (m_nAsyncFrames < nTotalFrame && !m_bAbortAsync) {
+    if (m_nAsyncFrames < m_inputVideoInfo.frames && !m_bAbortAsync) {
         m_sVSapi->getFrameAsync(m_nAsyncFrames, m_sVSnode, frameDoneCallback, this);
         m_nAsyncFrames++;
     }
@@ -161,15 +161,15 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-#pragma warning(push)
-#pragma warning(disable:4100)
-RGY_ERR CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
+RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+    UNREFERENCED_PARAMETER(prm);
+
     Close();
     m_pEncThread = pEncThread;
     m_pEncSatusInfo = pEncSatusInfo;
-    memcpy(&m_sInputCrop, pInputCrop, sizeof(m_sInputCrop));
+    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
-    const bool use_mt_mode = ((VSReaderPrm *)option)->use_mt;
+    const bool use_mt_mode = ((CVSReaderParam *)prm)->mt;
     
     if (load_vapoursynth()) {
         return RGY_ERR_NULL_PTR;
@@ -187,15 +187,15 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void
     std::string script_data = std::string(data_begin, data_end);
     inputFile.close();
 
-    const VSVideoInfo *vsvideoinfo = NULL;
-    const VSCoreInfo *vscoreinfo = NULL;
+    const VSVideoInfo *vsvideoinfo = nullptr;
+    const VSCoreInfo *vscoreinfo = nullptr;
     if (   !m_sVS.init()
         || initAsyncEvents()
-        || NULL == (m_sVSapi = m_sVS.getVSApi())
-        || m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), NULL, efSetWorkingDir)
-        || NULL == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
-        || NULL == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
-        || NULL == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
+        || nullptr == (m_sVSapi = m_sVS.getVSApi())
+        || m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
+        || nullptr == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
+        || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
+        || nullptr == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
         if (m_sVSscript) {
             AddMessage(RGY_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
@@ -227,88 +227,73 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    struct CSPMap {
+    const RGY_CSP prefered_csp = (m_inputVideoInfo.csp != RGY_CSP_NA) ? m_inputVideoInfo.csp : RGY_CSP_NV12;
+
+    typedef struct CSPMap {
+        int fmtID;
         RGY_CSP in, out;
-        int bit_depth;
+    } CSPMap;
 
-        CSPMap(RGY_CSP csp_in, RGY_CSP csp_out, int bit_depth)
-        : in(csp_in), out(csp_out), bit_depth(bit_depth) {
-
-        };
+    const std::vector<CSPMap> valid_csp_list ={
+        { pfYUV420P8,  RGY_CSP_YV12,      prefered_csp },
+        { pfYUV420P10, RGY_CSP_YV12_10,   prefered_csp },
+        { pfYUV420P16, RGY_CSP_YV12_16,   prefered_csp },
+        { pfYUV422P8,  RGY_CSP_YUV422,    prefered_csp },
+        { pfYUV444P8,  RGY_CSP_YUV444,    prefered_csp },
+        { pfYUV444P10, RGY_CSP_YUV444_10, prefered_csp },
+        { pfYUV444P16, RGY_CSP_YUV444_16, prefered_csp },
     };
 
-    static const std::map<int, CSPMap> valid_csp_list = {
-        { pfYUV420P8,  CSPMap(RGY_CSP_YV12,   RGY_CSP_NV12,  0) },
-        { pfYUV420P9,  CSPMap(RGY_CSP_YV12,   RGY_CSP_P010,  9) },
-        { pfYUV420P10, CSPMap(RGY_CSP_YV12,   RGY_CSP_P010, 10) },
-        { pfYUV420P16, CSPMap(RGY_CSP_YV12,   RGY_CSP_P010, 16) },
-        { pfYUV444P8,  CSPMap(RGY_CSP_YUV444, RGY_CSP_NV12,  0) },
-        { pfYUV444P9,  CSPMap(RGY_CSP_YUV444, RGY_CSP_P010,  9) },
-        { pfYUV444P10, CSPMap(RGY_CSP_YUV444, RGY_CSP_P010, 10) },
-        { pfYUV444P16, CSPMap(RGY_CSP_YUV444, RGY_CSP_P010, 16) },
-    };
-
-    m_ColorFormat = 0x00;
-    if (valid_csp_list.count(vsvideoinfo->format->id) == 0) {
-        AddMessage(RGY_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
-        return RGY_ERR_INVALID_COLOR_FORMAT;
+    for (auto csp : valid_csp_list) {
+        if (csp.fmtID == vsvideoinfo->format->id) {
+            m_InputCsp = csp.in;
+            m_inputVideoInfo.csp = csp.out;
+            m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
+            break;
+        }
     }
-    auto csp = valid_csp_list.at(vsvideoinfo->format->id);
-    m_sConvert = get_convert_csp_func(csp.in, csp.out, false);
 
     if (m_sConvert == nullptr) {
-        AddMessage(RGY_LOG_ERROR, _T("invalid colorformat %d.\n"), m_ColorFormat);
+        AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
     if (vsvideoinfo->fpsNum <= 0 || vsvideoinfo->fpsDen <= 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid framerate %d/%d.\n"), vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
+        AddMessage(RGY_LOG_ERROR, _T("Invalid framerate.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    const mfxI64 fps_gcd = qsv_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
 
-    m_ColorFormat = RGY_CSP_TO_MFX_FOURCC[csp.in];
-    m_inputFrameInfo.FourCC = RGY_CSP_TO_MFX_FOURCC[csp.out];
-    m_inputFrameInfo.BitDepthLuma = (mfxU16)csp.bit_depth;
-    m_inputFrameInfo.BitDepthChroma = (mfxU16)csp.bit_depth;
-    m_inputFrameInfo.Shift = (mfxU16)((csp.out == RGY_CSP_P010) ? 16 - csp.bit_depth : 0);
-    m_inputFrameInfo.Width = (mfxU16)vsvideoinfo->width;
-    m_inputFrameInfo.Height = (mfxU16)vsvideoinfo->height;
-    m_inputFrameInfo.CropW = m_inputFrameInfo.Width - (pInputCrop->left + pInputCrop->right);
-    m_inputFrameInfo.CropH = m_inputFrameInfo.Height - (pInputCrop->up + pInputCrop->bottom);
-    m_inputFrameInfo.FrameRateExtN = (mfxU32)(vsvideoinfo->fpsNum / fps_gcd);
-    m_inputFrameInfo.FrameRateExtD = (mfxU32)(vsvideoinfo->fpsDen / fps_gcd);
-    memcpy(&m_inputFrameInfo.FrameId, &vsvideoinfo->numFrames, sizeof(vsvideoinfo->numFrames));
+    const int64_t fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
+    m_inputVideoInfo.srcWidth = vsvideoinfo->width;
+    m_inputVideoInfo.srcHeight = vsvideoinfo->height;
+    m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
+    m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
+    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010) ? 16 - RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] : 0;
+    m_inputVideoInfo.frames = vsvideoinfo->numFrames;
+
     m_nAsyncFrames = vsvideoinfo->numFrames;
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo->numThreads);
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);
-    if (!use_mt_mode)
+    if (m_inputVideoInfo.type != RGY_INPUT_FMT_VPY_MT) {
         m_nAsyncFrames = 1;
-    
-    AddMessage(RGY_LOG_DEBUG, _T("VpyReader using %d async frames.\n"), m_nAsyncFrames);
+    }
+
     for (int i = 0; i < m_nAsyncFrames; i++) {
         m_sVSapi->getFrameAsync(i, m_sVSnode, frameDoneCallback, this);
     }
 
-    tstring rev_info = _T("");
-    tstring intputBitdepthStr = _T("");
-    int rev = getRevInfo(vscoreinfo->versionString);
+    tstring vs_ver = _T("VapourSynth");
+    if (m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) {
+        vs_ver += _T("MT");
+    }
+    const int rev = getRevInfo(vscoreinfo->versionString);
     if (0 != rev) {
-        rev_info = strsprintf( _T(" r%d"), rev);
+        vs_ver += strsprintf(_T(" r%d"), rev);
     }
-    if (m_inputFrameInfo.BitDepthLuma > 8) {
-        intputBitdepthStr = strsprintf(_T("(%dbit)"), m_inputFrameInfo.BitDepthLuma);
-    }
-    tstring str = strsprintf(_T("VapourSynth%s%s (%s%s)->%s[%s]%s%dx%d, %d/%d fps"),
-        (use_mt_mode) ? _T("MT") : _T(""), rev_info.c_str(),
-        RGY_CSP_NAMES[m_sConvert->csp_from], intputBitdepthStr.c_str(),
-        RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd),
-        (m_inputFrameInfo.BitDepthLuma > 8) ? _T("\n") : _T(", "),
-        m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
-    AddMessage(RGY_LOG_DEBUG, str);
-    m_strInputInfo += str;
 
-    m_bInited = true;
+    CreateInputInfo(vs_ver.c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
+    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
 
@@ -327,64 +312,41 @@ void CVSReader::Close() {
     m_bAbortAsync = false;
     m_nCopyOfInputFrames = 0;
 
-    m_sVSapi = NULL;
-    m_sVSscript = NULL;
-    m_sVSnode = NULL;
+    m_sVSapi = nullptr;
+    m_sVSscript = nullptr;
+    m_sVSnode = nullptr;
     m_nAsyncFrames = 0;
-
-    m_bInited = false;
-    m_nBufSize = 0;
-    m_pBuffer.reset();
     m_pEncSatusInfo.reset();
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
 RGY_ERR CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
-    mfxFrameInfo *pInfo = &pSurface->Info;
-    mfxFrameData *pData = &pSurface->Data;
-
-    mfxU16 CropLeft = m_sInputCrop.left;
-    mfxU16 CropUp = m_sInputCrop.up;
-    mfxU16 CropRight = m_sInputCrop.right;
-    mfxU16 CropBottom = m_sInputCrop.bottom;
-
-    uint32_t nTotalFrame = 0;
-    memcpy(&nTotalFrame, &m_inputFrameInfo.FrameId, sizeof(nTotalFrame));
-    if (m_pEncSatusInfo->m_nInputFrames >= nTotalFrame
+    if ((int)m_pEncSatusInfo->m_nInputFrames >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
         || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
-    int w = 0, h = 0;
-    if (pInfo->CropH > 0 && pInfo->CropW > 0) {
-        w = pInfo->CropW;
-        h = pInfo->CropH;
-    } else {
-        w = pInfo->Width;
-        h = pInfo->Height;
-    }
-    w += (CropLeft + CropRight);
-    h += (CropUp + CropBottom);
-
     const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_pEncSatusInfo->m_nInputFrames);
-    if (NULL == src_frame) {
+    if (src_frame == nullptr) {
         return RGY_ERR_MORE_DATA;
     }
 
-    BOOL interlaced = 0 != (pSurface->Info.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
-    int crop[4] = { CropLeft, CropUp, CropRight, CropBottom };
-    const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
-    const void *src_ptr[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
-    m_sConvert->func[interlaced]((void **)dst_ptr, (const void **)src_ptr, w, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1), pData->Pitch, h, h, crop);
+    const int dst_pitch = pSurface->Data.Pitch;
+    void *dst_array[3] = { pSurface->Data.Y, pSurface->Data.UV, nullptr };
+    const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
+    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+        dst_array, src_array,
+        m_inputVideoInfo.srcWidth, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1),
+        dst_pitch, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_sVSapi->freeFrame(src_frame);
 
     m_pEncSatusInfo->m_nInputFrames++;
     m_nCopyOfInputFrames = m_pEncSatusInfo->m_nInputFrames;
 
-    return m_pEncSatusInfo->UpdateDisplay(0);
+    return m_pEncSatusInfo->UpdateDisplay();
 }
 
 #endif //ENABLE_VAPOURSYNTH_READER

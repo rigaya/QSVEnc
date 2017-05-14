@@ -73,10 +73,9 @@ public:
     CAVSReader();
     virtual ~CAVSReader();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *option, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
-
-    virtual void Close() override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual void Close() override;
 private:
     RGY_ERR load_avisynth();
     void release_avisynth();

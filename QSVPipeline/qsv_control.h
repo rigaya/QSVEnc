@@ -279,7 +279,7 @@ public:
         fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
     }
 #pragma warning(pop)
-    virtual RGY_ERR UpdateDisplay(int drop_frames, double progressPercent = 0.0) {
+    virtual RGY_ERR UpdateDisplay(int drop_frames = 0, double progressPercent = 0.0) {
         if (m_pQSVLog != nullptr && m_pQSVLog->getLogLevel() > RGY_LOG_INFO) {
             return RGY_ERR_NONE;
         }

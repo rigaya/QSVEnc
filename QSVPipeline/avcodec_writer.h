@@ -316,8 +316,8 @@ private:
     //PCMのコーデックがwav出力時に変換を必要とするかを判定する
     AVCodecID PCMRequiresConversion(const AVCodecParameters *pCodecParm);
 
-    //QSVのコーデックFourccからAVCodecのCodecIDを返す
-    AVCodecID getAVCodecId(mfxU32 QSVFourcc);
+    //RGY_CODECのcodecからAVCodecのCodecIDを返す
+    AVCodecID getAVCodecId(RGY_CODEC codec);
 
     //AAC音声にBitstreamフィルターを適用する
     RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);

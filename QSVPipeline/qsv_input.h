@@ -37,6 +37,8 @@
 #include "convert_csp.h"
 #include "rgy_err.h"
 
+static_assert(std::is_pod<VideoInfo>::value == true, "VideoInfo is POD");
+
 class CQSVInput
 {
 public:
@@ -47,7 +49,7 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) = 0;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
 
     //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
     RGY_ERR GetNextFrame(mfxFrameSurface1** pSurface) {
@@ -69,7 +71,7 @@ public:
             return m_pEncThread->m_stsThread;
         }
         //フレーム読み込みでない場合は、フレーム関連の処理は行わない
-        if (!getInputCodec()) {
+        if (getInputCodec() == RGY_CODEC_UNKNOWN) {
             *pSurface = pInputBuf->pFrameSurface;
             (*pSurface)->Data.TimeStamp = inputBufIdx;
             (*pSurface)->Data.Locked = FALSE;
@@ -97,7 +99,7 @@ public:
         const int inputBufIdx = m_pEncThread->m_nFrameSet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
         //フレーム読み込みでない場合は、フレーム関連の処理は行わない
-        if (!getInputCodec()) {
+        if (getInputCodec() == RGY_CODEC_UNKNOWN) {
             //_ftprintf(stderr, "Set heInputStart: %d\n", m_pEncThread->m_nFrameSet);
             pSurface->Data.Locked = TRUE;
             //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_pEncThread->m_nFrameSet);
@@ -120,17 +122,12 @@ public:
     sTrimParam *GetTrimParam() {
         return &m_sTrimParam;
     }
-    mfxU32 m_ColorFormat; // color format of input YUV data, YUV420 or NV12
-    void GetInputCropInfo(sInputCrop *cropInfo) {
-        memcpy(cropInfo, &m_sInputCrop, sizeof(m_sInputCrop));
+
+    sInputCrop GetInputCropInfo() {
+        return m_inputVideoInfo.crop;
     }
-    void GetInputFrameInfo(mfxFrameInfo *inputFrameInfo) {
-        memcpy(inputFrameInfo, &m_inputFrameInfo, sizeof(m_inputFrameInfo));
-    }
-    void SetInputFrameBitDepthInfo(const mfxFrameInfo *inputFrameInfo) {
-        m_inputFrameInfo.BitDepthChroma = inputFrameInfo->BitDepthChroma;
-        m_inputFrameInfo.BitDepthLuma = inputFrameInfo->BitDepthLuma;
-        m_inputFrameInfo.Shift = inputFrameInfo->Shift;
+    VideoInfo GetInputFrameInfo() {
+        return m_inputVideoInfo;
     }
 
     //入力ファイルに存在する音声のトラック数を返す
@@ -171,12 +168,14 @@ public:
         va_end(args);
         AddMessage(log_level, buffer);
     }
-    //QSVデコードを行う場合のコーデックを返す
-    //行わない場合は0を返す
-    mfxU32 getInputCodec() {
-        return m_nInputCodec;
+    //HWデコードを行う場合のコーデックを返す
+    //行わない場合はRGY_CODEC_UNKNOWNを返す
+    RGY_CODEC getInputCodec() {
+        return m_inputVideoInfo.codec;
     }
 protected:
+    virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
+
     //trim listを参照し、動画の最大フレームインデックスを取得する
     int getVideoTrimMaxFramIdx() {
         if (m_sTrimParam.list.size() == 0) {
@@ -185,24 +184,17 @@ protected:
         return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
     }
 
-    FILE *m_fSource;
     CEncodingThread *m_pEncThread;
     shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
-    bool m_bInited;
-    sInputCrop m_sInputCrop;
 
-    mfxFrameInfo m_inputFrameInfo;
+    VideoInfo m_inputVideoInfo;
 
+    RGY_CSP m_InputCsp;
     const ConvertCSP *m_sConvert;
 
-    mfxU32 m_nInputCodec;
-
-    mfxU32 m_nBufSize;
-    shared_ptr<uint8_t> m_pBuffer;
-
-    tstring m_strReaderName;
     tstring m_strInputInfo;
     shared_ptr<CQSVLog> m_pPrintMes;  //ログ出力
+    tstring m_strReaderName;
 
     sTrimParam m_sTrimParam;
 };
@@ -212,9 +204,16 @@ public:
     CQSVInputRaw();
     ~CQSVInputRaw();
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
-    bool m_by4m;
+    virtual void Close() override;
+
+    RGY_ERR ParseY4MHeader(char *buf, VideoInfo *pInfo);
+
+    FILE *m_fSource;
+
+    uint32_t m_nBufSize;
+    shared_ptr<uint8_t> m_pBuffer;
 };
 
 
