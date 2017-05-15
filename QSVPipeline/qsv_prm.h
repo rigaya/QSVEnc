@@ -97,7 +97,7 @@ typedef struct {
     int offset;
 } sTrimParam;
 
-typedef  std::vector<std::pair<tstring, tstring>> muxOptList;
+typedef std::vector<std::pair<tstring, tstring>> muxOptList;
 
 static const int TRIM_MAX = INT_MAX;
 static const int TRIM_OVERREAD_FRAMES = 128;

@@ -3490,7 +3490,7 @@ mfxStatus CQSVPipeline::CheckSceneChange() {
         if (!m_EncThread.m_bthSubAbort) {
             //フレームタイプとQP値の決定
             int qp_offset[2] = { 0, 0 };
-            mfxU32 frameFlag = m_SceneChange.Check(pInputBuf->pFrameSurface, qp_offset);
+            mfxU32 frameFlag = m_SceneChange.Check(&pInputBuf->pFrameSurface->frame(), qp_offset);
             frameFlag = m_frameTypeSim.GetFrameType(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I));
             pInputBuf->frameFlag.store((frameFlag & MFX_FRAMETYPE_I) ? frameFlag : 0x00); //frameFlagにはIDR,I,Ref以外は渡してはならない
             if (m_nExPrm & MFX_PRM_EX_VQP) {
@@ -3779,7 +3779,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     break;
         }
         //空いているフレームを読み込み側に渡し、該当フレームの読み込み開始イベントをSetする(pInputBuf->heInputStart)
-        m_pFileReader->SetNextSurface(pSurfInputBuf);
+        m_pFileReader->SetNextSurface((RGYFrame *)pSurfInputBuf);
     }
         return sts_set_buffer;
     };
@@ -4198,7 +4198,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //}
                 //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
                 //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-                auto ret = m_pFileReader->GetNextFrame(&pNextFrame);
+                auto ret = m_pFileReader->GetNextFrame((RGYFrame **)&pNextFrame);
                 if (ret != RGY_ERR_NONE) {
                     sts = err_to_mfx(ret);
                     break;
@@ -4219,7 +4219,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 }
 
                 //空いているフレームを読み込み側に渡す
-                m_pFileReader->SetNextSurface(pSurfInputBuf);
+                m_pFileReader->SetNextSurface((RGYFrame *)pSurfInputBuf);
 
                 ret = extract_audio();
                 if (ret != RGY_ERR_NONE) {

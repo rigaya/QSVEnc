@@ -195,7 +195,7 @@ void CAVIReader::Close() {
     m_pEncSatusInfo.reset();
 }
 
-RGY_ERR CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR CAVIReader::LoadNextFrame(RGYFrame *pSurface) {
     if ((int)m_pEncSatusInfo->m_nInputFrames >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
@@ -225,16 +225,16 @@ RGY_ERR CAVIReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         ptr_src = m_pBuffer.get();
     }
 
-    const int dst_pitch = pSurface->Data.Pitch;
-    void *dst_array[3] = { pSurface->Data.Y, pSurface->Data.UV, nullptr };
+    void *dst_array[3];
+    pSurface->ptrArray(dst_array);
     const void *src_array[3] = { ptr_src, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight };
     if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
-        dst_array[0] = (std::min)((std::min)(pSurface->Data.R, pSurface->Data.G), pSurface->Data.B);
+        dst_array[0] = pSurface->ptrRGB();
     }
 
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array,
-        m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, dst_pitch,
+        m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, pSurface->pitch(),
         m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_pEncSatusInfo->m_nInputFrames++;

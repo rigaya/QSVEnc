@@ -320,7 +320,7 @@ void CVSReader::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR CVSReader::LoadNextFrame(RGYFrame *pSurface) {
     if ((int)m_pEncSatusInfo->m_nInputFrames >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
@@ -333,13 +333,13 @@ RGY_ERR CVSReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
         return RGY_ERR_MORE_DATA;
     }
 
-    const int dst_pitch = pSurface->Data.Pitch;
-    void *dst_array[3] = { pSurface->Data.Y, pSurface->Data.UV, nullptr };
+    void *dst_array[3];
+    pSurface->ptrArray(dst_array);
     const void *src_array[3] = { m_sVSapi->getReadPtr(src_frame, 0), m_sVSapi->getReadPtr(src_frame, 1), m_sVSapi->getReadPtr(src_frame, 2) };
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array,
         m_inputVideoInfo.srcWidth, m_sVSapi->getStride(src_frame, 0), m_sVSapi->getStride(src_frame, 1),
-        dst_pitch, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+        pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     m_sVSapi->freeFrame(src_frame);
 

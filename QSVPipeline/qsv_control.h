@@ -63,13 +63,13 @@ const uint32_t MSDK_WAIT_INTERVAL = MSDK_DEC_WAIT_INTERVAL+3*MSDK_VPP_WAIT_INTER
 const uint32_t MSDK_INVALID_SURF_IDX = 0xFFFF;
 
 typedef struct {
-    mfxFrameSurface1* pFrameSurface;
+    RGYFrame* pFrameSurface;
     HANDLE heInputStart;
     HANDLE heSubStart;
     HANDLE heInputDone;
     std::atomic<uint32_t> frameFlag;
     std::atomic_int AQP[2];
-    mfxU8 reserved[64-(sizeof(mfxFrameSurface1*)+sizeof(HANDLE)*3+sizeof(std::atomic<uint32_t>)+sizeof(std::atomic_int)*2)];
+    mfxU8 reserved[64-(sizeof(RGYFrame*)+sizeof(HANDLE)*3+sizeof(std::atomic<uint32_t>)+sizeof(std::atomic_int)*2)];
 } sInputBufSys;
 
 typedef struct {

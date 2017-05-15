@@ -52,7 +52,7 @@ public:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
 
     //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-    RGY_ERR GetNextFrame(mfxFrameSurface1** pSurface) {
+    RGY_ERR GetNextFrame(RGYFrame** pSurface) {
         const int inputBufIdx = m_pEncThread->m_nFrameGet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
 
@@ -73,8 +73,8 @@ public:
         //フレーム読み込みでない場合は、フレーム関連の処理は行わない
         if (getInputCodec() == RGY_CODEC_UNKNOWN) {
             *pSurface = pInputBuf->pFrameSurface;
-            (*pSurface)->Data.TimeStamp = inputBufIdx;
-            (*pSurface)->Data.Locked = FALSE;
+            (*pSurface)->setTimestamp(inputBufIdx);
+            (*pSurface)->setLocked(FALSE);
             m_pEncThread->m_nFrameGet++;
         }
         return RGY_ERR_NONE;
@@ -98,13 +98,13 @@ public:
     }
 #pragma warning (pop)
 
-    RGY_ERR SetNextSurface(mfxFrameSurface1 *pSurface) {
+    RGY_ERR SetNextSurface(RGYFrame *pSurface) {
         const int inputBufIdx = m_pEncThread->m_nFrameSet % m_pEncThread->m_nFrameBuffer;
         sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
         //フレーム読み込みでない場合は、フレーム関連の処理は行わない
         if (getInputCodec() == RGY_CODEC_UNKNOWN) {
             //_ftprintf(stderr, "Set heInputStart: %d\n", m_pEncThread->m_nFrameSet);
-            pSurface->Data.Locked = TRUE;
+            pSurface->setLocked(TRUE);
             //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_pEncThread->m_nFrameSet);
             pInputBuf->pFrameSurface = pSurface;
         }
@@ -116,7 +116,7 @@ public:
 
     virtual void Close();
     //virtual RGY_ERR Init(const TCHAR *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<TCHAR*> srcFileBuff);
-    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1 *pSurface) = 0;
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) = 0;
 
     void SetTrimParam(const sTrimParam& trim) {
         m_sTrimParam = trim;
@@ -208,7 +208,7 @@ public:
     ~CQSVInputRaw();
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
-    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 
     RGY_ERR ParseY4MHeader(char *buf, VideoInfo *pInfo);

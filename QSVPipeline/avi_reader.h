@@ -41,7 +41,7 @@ public:
     virtual ~CAVIReader();
 
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
-    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 
     PAVIFILE m_pAviFile;

@@ -272,11 +272,72 @@ public:
     }
 };
 
-RGYBitstream RGYBitstreamInit() {
+static inline RGYBitstream RGYBitstreamInit() {
     RGYBitstream bitstream;
     memset(&bitstream, 0, sizeof(bitstream));
     return bitstream;
 }
 
+static_assert(sizeof(mfxBitstream) == sizeof(RGYBitstream), "RGYFrame size should equal to mfxFrameSurface1 size.");
 static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
+
+struct RGYFrame {
+private:
+    mfxFrameSurface1 m_surface;
+public:
+    mfxFrameSurface1& frame() {
+        return m_surface;
+    }
+    void ptrArray(void *array[3]) {
+        array[0] = m_surface.Data.Y;
+        array[1] = m_surface.Data.UV;
+        array[2] = m_surface.Data.V;
+    }
+    uint8_t *ptrY() {
+        return m_surface.Data.Y;
+    }
+    uint8_t *ptrUV() {
+        return m_surface.Data.UV;
+    }
+    uint8_t *ptrU() {
+        return m_surface.Data.U;
+    }
+    uint8_t *ptrV() {
+        return m_surface.Data.V;
+    }
+    uint8_t *ptrRGB() {
+        return (std::min)((std::min)(m_surface.Data.R, m_surface.Data.G), m_surface.Data.B);
+    }
+    uint32_t pitch() {
+        return m_surface.Data.Pitch;
+    }
+    int locked() {
+        return m_surface.Data.Locked;
+    }
+    void lockIncrement() {
+        m_surface.Data.Locked++;
+    }
+    void lockDecrement() {
+        m_surface.Data.Locked--;
+    }
+    void setLocked(int locked) {
+        m_surface.Data.Locked = (uint16_t)locked;
+    }
+    uint64_t timestamp() {
+        return m_surface.Data.TimeStamp;
+    }
+    void setTimestamp(uint64_t timestamp) {
+        m_surface.Data.TimeStamp = timestamp;
+    }
+};
+
+static inline RGYFrame RGYFrameInit() {
+    RGYFrame frame;
+    memset(&frame, 0, sizeof(frame));
+    return frame;
+}
+
+static_assert(sizeof(RGYFrame) == sizeof(mfxFrameSurface1), "RGYFrame size should equal to mfxFrameSurface1 size.");
+static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
+
 #endif //_QSV_UTIL_H_

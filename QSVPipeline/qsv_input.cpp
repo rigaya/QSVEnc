@@ -297,7 +297,7 @@ RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, cons
 
 //この関数がRGY_ERR_NONE以外を返すと、Runループが終了し、
 //EncodingThreadのm_stsThreadに返した値がセットされる。
-RGY_ERR CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR CQSVInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
     //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
     if (getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
@@ -346,9 +346,7 @@ RGY_ERR CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
     }
 
     void *dst_array[3];
-    dst_array[0] = pSurface->Data.Y;
-    dst_array[1] = pSurface->Data.UV;
-    dst_array[2] = nullptr;
+    pSurface->ptrArray(dst_array);
 
     const void *src_array[3];
     src_array[0] = m_pBuffer.get();
@@ -381,7 +379,7 @@ RGY_ERR CQSVInputRaw::LoadNextFrame(mfxFrameSurface1* pSurface) {
     const int src_uv_pitch = (m_sConvert->csp_from == RGY_CSP_YUV444) ? m_inputVideoInfo.srcPitch : m_inputVideoInfo.srcPitch / 2;
     m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
-        src_uv_pitch, pSurface->Data.Pitch, m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+        src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     //pSurface->Data.TimeStamp = m_pEncSatusInfo->m_nInputFrames * (mfxU64)m_pEncSatusInfo->m_nOutputFPSScale;
     m_pEncSatusInfo->m_nInputFrames++;
