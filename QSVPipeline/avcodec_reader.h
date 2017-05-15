@@ -48,12 +48,6 @@ static const uint32_t AVCODEC_READER_INPUT_BUF_SIZE = 16 * 1024 * 1024;
 static const uint32_t AVQSV_FRAME_MAX_REORDER = 16;
 static const int AVQSV_POC_INVALID = -1;
 
-enum {
-    AVQSV_AUDIO_NONE         = 0x00,
-    AVQSV_AUDIO_MUX          = 0x01,
-    AVQSV_AUDIO_COPY_TO_FILE = 0x02,
-};
-
 enum RGYPtsStatus : uint32_t {
     RGY_PTS_UNKNOWN           = 0x00,
     RGY_PTS_NORMAL            = 0x01,
@@ -626,6 +620,7 @@ typedef struct AVDemuxFormat {
     uint32_t                  nPreReadBufferIdx;     //先読みバッファの読み込み履歴
     int                       nAudioTracks;          //存在する音声のトラック数
     int                       nSubtitleTracks;       //存在する字幕のトラック数
+    RGYAVSync                 nAVSyncMode;           //音声・映像同期モード
     AVDictionary             *pFormatOptions;        //avformat_open_inputに渡すオプション       
 } AVDemuxFormat;
 
@@ -687,21 +682,6 @@ typedef struct AVDemuxer {
     CQueueSPSP<AVPacket>     qStreamPktL2;
 } AVDemuxer;
 
-enum AVDecodeMode {
-    AV_DECODE_MODE_ANY = 0,
-    AV_DECODE_MODE_QSV,
-    AV_DECODE_MODE_SW
-};
-
-static AVDecodeMode decodeModeFromInputFmtType(int inputFmt) {
-    switch (inputFmt) {
-    case RGY_INPUT_FMT_AVHW: return AV_DECODE_MODE_QSV;
-    case RGY_INPUT_FMT_AVSW:  return AV_DECODE_MODE_SW;
-    case RGY_INPUT_FMT_AVANY:
-    default: return AV_DECODE_MODE_ANY;
-    }
-}
-
 typedef struct AvcodecReaderPrm {
     uint8_t        memType;                 //使用するメモリの種類
     const TCHAR   *pInputFormat;            //入力フォーマット
@@ -721,6 +701,7 @@ typedef struct AvcodecReaderPrm {
     sAudioSelect **ppAudioSelect;           //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     int            nSubtitleSelectCount;    //muxする字幕のトラック数
     const int     *pSubtitleSelect;         //muxする字幕のトラック番号のリスト 1,2,...(1から連番で指定)
+    RGYAVSync      nAVSyncMode;             //音声・映像同期モード
     int            nProcSpeedLimit;         //プリデコードする場合の処理速度制限 (0で制限なし)
     float          fSeekSec;                //指定された秒数分先頭を飛ばす
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
@@ -746,13 +727,13 @@ public:
     virtual RGY_ERR LoadNextFrame(mfxFrameSurface1 *pSurface) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
-    virtual RGY_ERR GetNextBitstream(mfxBitstream *bitstream) override;
+    virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) override;
 
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-    virtual RGY_ERR GetNextBitstreamNoDelete(mfxBitstream *bitstream) override;
+    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *pBitstream) override;
 
     //ストリームのヘッダ部分を取得する
-    virtual RGY_ERR GetHeader(mfxBitstream *bitstream) override;
+    virtual RGY_ERR GetHeader(RGYBitstream *pBitstream) override;
 
     //入力ファイルのグローバルメタデータを取得する
     const AVDictionary *GetInputFormatMetadata();
@@ -802,9 +783,6 @@ private:
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);
-
-    //bitstreamにpktの内容を追加する
-    RGY_ERR setToMfxBitstream(mfxBitstream *bitstream, AVPacket *pkt);
 
     //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
     //必要ならqStreamPktL2に移し、不要ならパケットを開放する

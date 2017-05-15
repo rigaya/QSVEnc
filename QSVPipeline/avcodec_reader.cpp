@@ -961,7 +961,7 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
         AddMessage(RGY_LOG_DEBUG, _T("start predecode.\n"));
 
         RGY_ERR sts = RGY_ERR_NONE;
-        mfxBitstream bitstream = { 0 };
+        RGYBitstream bitstream = RGYBitstreamInit();
         if (m_Demux.video.pStream->codecpar->extradata
             && RGY_ERR_NONE != (sts = GetHeader(&bitstream))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to get header.\n"));
@@ -1448,20 +1448,8 @@ int CAvcodecReader::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) {
     return 1;
 }
 
-RGY_ERR CAvcodecReader::setToMfxBitstream(mfxBitstream *bitstream, AVPacket *pkt) {
-    RGY_ERR sts = RGY_ERR_NONE;
-    if (pkt->data) {
-        sts = err_to_rgy(mfxBitstreamAppend(bitstream, pkt->data, pkt->size));
-        bitstream->TimeStamp = 0;
-        bitstream->DataFlag  = 0;
-    } else {
-        sts = RGY_ERR_MORE_BITSTREAM;
-    }
-    return sts;
-}
-
 //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
-RGY_ERR CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
+RGY_ERR CAvcodecReader::GetNextBitstream(RGYBitstream *pBitstream) {
     AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
@@ -1476,7 +1464,10 @@ RGY_ERR CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
     }
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
-        sts = setToMfxBitstream(bitstream, &pkt);
+        if (pkt.data) {
+            auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
+            sts = pBitstream->set(pkt.data, pkt.size, pkt.dts, pts);
+        }
         av_packet_unref(&pkt);
         m_Demux.video.nSampleGetCount++;
     }
@@ -1484,7 +1475,7 @@ RGY_ERR CAvcodecReader::GetNextBitstream(mfxBitstream *bitstream) {
 }
 
 //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-RGY_ERR CAvcodecReader::GetNextBitstreamNoDelete(mfxBitstream *bitstream) {
+RGY_ERR CAvcodecReader::GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
     AVPacket pkt;
     if (!m_Demux.thread.thInput.joinable() //入力スレッドがなければ、自分で読み込む
         && m_Demux.qVideoPkt.get_keep_length() > 0) { //keep_length == 0なら読み込みは終了していて、これ以上読み込む必要はない
@@ -1499,7 +1490,10 @@ RGY_ERR CAvcodecReader::GetNextBitstreamNoDelete(mfxBitstream *bitstream) {
     }
     RGY_ERR sts = RGY_ERR_MORE_BITSTREAM;
     if (bGetPacket) {
-        sts = setToMfxBitstream(bitstream, &pkt);
+        if (pkt.data) {
+            auto pts = ((m_Demux.format.nAVSyncMode & RGY_AVSYNC_CHECK_PTS) && 0 == (m_Demux.frames.getStreamPtsStatus() & (~RGY_PTS_NORMAL))) ? pkt.pts : AV_NOPTS_VALUE;
+            sts = pBitstream->set(pkt.data, pkt.size, pkt.dts, pts);
+        }
     }
     return sts;
 }
@@ -1609,12 +1603,16 @@ vector<AVDemuxStream> CAvcodecReader::GetInputStreamInfo() {
     return vector<AVDemuxStream>(m_Demux.stream.begin(), m_Demux.stream.end());
 }
 
-RGY_ERR CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
-    if (bitstream == nullptr)
+RGY_ERR CAvcodecReader::GetHeader(RGYBitstream *pBitstream) {
+    if (pBitstream == nullptr) {
         return RGY_ERR_NULL_PTR;
-    if (bitstream->Data == nullptr)
-        if (RGY_ERR_NONE != mfxBitstreamInit(bitstream, AVCODEC_READER_INPUT_BUF_SIZE))
-            return RGY_ERR_NULL_PTR;
+    }
+    if (pBitstream->bufptr() == nullptr) {
+        auto sts = pBitstream->init(AVCODEC_READER_INPUT_BUF_SIZE);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
 
     if (m_Demux.video.pExtradata == nullptr) {
         m_Demux.video.nExtradataSize = m_Demux.video.pStream->codecpar->extradata_size;
@@ -1646,8 +1644,8 @@ RGY_ERR CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
                 AddMessage(RGY_LOG_ERROR, _T("failed init %s: %s.\n"), char_to_tstring(pBsf->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            uint8_t H264_IDR[] ={ 0x00, 0x00, 0x00, 0x01, 0x65 };
-            uint8_t HEVC_IDR[] ={ 0x00, 0x00, 0x00, 0x01, 19<<1 };
+            uint8_t H264_IDR[] = { 0x00, 0x00, 0x00, 0x01, 0x65 };
+            uint8_t HEVC_IDR[] = { 0x00, 0x00, 0x00, 0x01, 19<<1 };
             AVPacket pkt ={ 0 };
             av_init_packet(&pkt);
             switch (m_Demux.video.pStream->codecpar->codec_id) {
@@ -1680,11 +1678,10 @@ RGY_ERR CAvcodecReader::GetHeader(mfxBitstream *bitstream) {
             int lengthFix = (0 == strcmp(m_Demux.format.pFormatCtx->iformat->name, "mpegts")) ? 0 : -1;
             vc1FixHeader(lengthFix);
         }
-        AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), bitstream->DataLength);
+        AddMessage(RGY_LOG_DEBUG, _T("GetHeader: %d bytes.\n"), m_Demux.video.nExtradataSize);
     }
     
-    memcpy(bitstream->Data, m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
-    bitstream->DataLength = m_Demux.video.nExtradataSize;
+    pBitstream->set(m_Demux.video.pExtradata, m_Demux.video.nExtradataSize);
     return RGY_ERR_NONE;
 }
 

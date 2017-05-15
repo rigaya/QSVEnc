@@ -26,6 +26,7 @@
 // --------------------------------------------------------------------------------------------
 
 #include "qsv_util.h"
+#include "rgy_err.h"
 
 static const auto RGY_CODEC_TO_MFX = make_array<std::pair<RGY_CODEC, mfxU32>>(
     std::make_pair(RGY_CODEC_H264,  MFX_CODEC_AVC),

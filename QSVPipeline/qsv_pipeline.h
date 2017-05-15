@@ -136,7 +136,7 @@ protected:
 
     CQSVTaskControl m_TaskPool;
     mfxU16 m_nAsyncDepth;
-    QSVAVSync m_nAVSyncMode;
+    RGYAVSync m_nAVSyncMode;
 
     mfxInitParam m_InitParam;
     mfxExtBuffer *m_pInitParamExtBuf[1];
@@ -195,7 +195,7 @@ protected:
 
     bool *m_pAbortByUser;
 
-    mfxBitstream m_DecInputBitstream;
+    RGYBitstream m_DecInputBitstream;
 
     vector<mfxFrameSurface1> m_pEncSurfaces; //enc input用のフレーム (vpp output, decoder output)
     vector<mfxFrameSurface1> m_pVppSurfaces; //vpp input用のフレーム (decoder output)

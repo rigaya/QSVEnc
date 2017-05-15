@@ -83,14 +83,17 @@ public:
 #pragma warning (push)
 #pragma warning (disable: 4100)
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
-    virtual RGY_ERR GetNextBitstream(mfxBitstream *bitstream) {
+    virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) {
         return RGY_ERR_NONE;
     }
+
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは残す)
-    virtual RGY_ERR GetNextBitstreamNoDelete(mfxBitstream *bitstream) {
+    virtual RGY_ERR GetNextBitstreamNoDelete(RGYBitstream *pBitstream) {
         return RGY_ERR_NONE;
     }
-    virtual RGY_ERR GetHeader(mfxBitstream *bitstream) {
+
+    //ストリームのヘッダ部分を取得する
+    virtual RGY_ERR GetHeader(RGYBitstream *pBitstream) {
         return RGY_ERR_NONE;
     }
 #pragma warning (pop)

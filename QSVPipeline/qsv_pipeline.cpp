@@ -310,14 +310,14 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 #if ENABLE_AVCODEC_QSV_READER
     mfxStatus sts = MFX_ERR_NONE;
     if (m_pFileReader->getInputCodec()) {
-        mfxBitstreamInit(&m_DecInputBitstream, AVCODEC_READER_INPUT_BUF_SIZE);
+        m_DecInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         //TimeStampはQSVに自動的に計算させる
-        m_DecInputBitstream.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+        m_DecInputBitstream.setPts(MFX_TIMESTAMP_UNKNOWN);
 
         sts = err_to_mfx(m_pFileReader->GetHeader(&m_DecInputBitstream));
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to get stream header from reader."));
 
-        const bool bGotHeader = m_DecInputBitstream.DataLength > 0;
+        const bool bGotHeader = m_DecInputBitstream.size() > 0;
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用する。
             //ここで読み込みんだ第1フレームのデータを読み込み側から消してしまうと、
@@ -354,12 +354,12 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         if (m_pFileReader->getInputCodec() == RGY_CODEC_H264 || m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
             //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
             const uint32_t IDR = 0x65010000;
-            mfxBitstreamAppend(&m_DecInputBitstream, (uint8_t *)&IDR, sizeof(IDR));
+            m_DecInputBitstream.append((uint8_t *)&IDR, sizeof(IDR));
         }
         memset(&m_mfxDecParams, 0, sizeof(m_mfxDecParams));
         m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(m_pFileReader->getInputCodec());
         m_mfxDecParams.IOPattern = (uint16_t)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
-        sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream, &m_mfxDecParams);
+        sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream.bitstream(), &m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
 
         //DecodeHeaderした結果をreaderにも反映
@@ -372,7 +372,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
             //メインループに入った際に再度第1フレームを読み込むようにする。
-            mfxBitstreamClear(&m_DecInputBitstream);
+            m_DecInputBitstream.clear();
         }
 
         PrintMes(RGY_LOG_DEBUG, _T("")
@@ -1652,7 +1652,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         // VppRequest[0]はvppへの入力, VppRequest[1]はvppからの出力
         sts = m_pmfxVPP->QueryIOSurf(&m_mfxVppParams, VppRequest);
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for vpp."));
-        if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
+        if (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS) {
             //ptsチェック用に使うフレームを追加する
             VppRequest[0].NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
             VppRequest[0].NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
@@ -1664,7 +1664,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
     if (m_pmfxDEC) {
         sts = m_pmfxDEC->QueryIOSurf(&m_mfxDecParams, &DecRequest);
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for decoder."));
-        if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
+        if (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS) {
             //ptsチェック用に使うフレームを追加する
             DecRequest.NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
             DecRequest.NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
@@ -2088,7 +2088,7 @@ CQSVPipeline::CQSVPipeline() {
     m_bExternalAlloc = false;
     m_nAsyncDepth = 0;
     m_nExPrm = 0x00;
-    m_nAVSyncMode = QSV_AVSYNC_THROUGH;
+    m_nAVSyncMode = RGY_AVSYNC_THROUGH;
     m_nProcSpeedLimit = 0;
     m_bTimerPeriodTuning = false;
 
@@ -2588,6 +2588,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &pParams->vpp.subburn.nTrack : pParams->pSubtitleSelect;
                 avcodecReaderPrm.nSubtitleSelectCount = (pParams->vpp.subburn.nTrack) ? 1 : pParams->nSubtitleSelectCount;
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
+                avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_THROUGH;
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 avcodecReaderPrm.nInputThread = pParams->nInputThread;
@@ -2636,6 +2637,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
+            avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_THROUGH;
             avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
             avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
             avcodecReaderPrm.nInputThread = 0;
@@ -2855,7 +2857,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
     if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         CHECK_RANGE_LIST(pParams->vpp.nDeinterlace, list_deinterlace, "vpp-deinterlace");
-        if (pParams->nAVSyncMode == QSV_AVSYNC_FORCE_CFR
+        if (pParams->nAVSyncMode == RGY_AVSYNC_FORCE_CFR
             && (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT
              || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL
              || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB
@@ -2923,7 +2925,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
     if (pParams->nAVSyncMode && std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader) == nullptr) {
         PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
-        pParams->nAVSyncMode = QSV_AVSYNC_THROUGH;
+        pParams->nAVSyncMode = RGY_AVSYNC_THROUGH;
     }
 
     return MFX_ERR_NONE;
@@ -3249,7 +3251,7 @@ void CQSVPipeline::Close() {
     m_VppExtParams.clear();
     VppExtMes.clear();
 
-    mfxBitstreamClear(&m_DecInputBitstream);
+    m_DecInputBitstream.clear();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing TaskPool...\n"));
     m_TaskPool.Close();
@@ -3303,7 +3305,7 @@ void CQSVPipeline::Close() {
 
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
-    m_nAVSyncMode = QSV_AVSYNC_THROUGH;
+    m_nAVSyncMode = RGY_AVSYNC_THROUGH;
     m_nProcSpeedLimit = 0;
 #if ENABLE_AVCODEC_QSV_READER
     av_qsv_log_free();
@@ -3684,11 +3686,11 @@ mfxStatus CQSVPipeline::RunEncode() {
     const int nFrameDuration = (int)qsv_rescale(1, inputFpsTimebase, pktTimebase);
     vector<AVPacket> packetList;
     if (pAVCodecReader == nullptr) {
-        m_nAVSyncMode = QSV_AVSYNC_THROUGH;
+        m_nAVSyncMode = RGY_AVSYNC_THROUGH;
     }
 #else
     const std::pair<int, int> pktTimebase = QSV_NATIVE_TIMEBASE;
-    m_nAVSyncMode = QSV_AVSYNC_THROUGH;
+    m_nAVSyncMode = RGY_AVSYNC_THROUGH;
 #endif
 
     mfxU16 nLastFrameFlag = 0;
@@ -3855,12 +3857,12 @@ mfxStatus CQSVPipeline::RunEncode() {
                 RGY_ERR_MES(ret, _T("Error on getting video bitstream."));
             }
 
-            getNextBitstream |= 0 < m_DecInputBitstream.DataLength;
+            getNextBitstream |= m_DecInputBitstream.size() > 0;
 
             //デコードも行う場合は、デコード用のフレームをpSurfVppInかpSurfEncInから受け取る
             mfxFrameSurface1 *pSurfDecWork = pNextFrame;
             mfxFrameSurface1 *pSurfDecOut = NULL;
-            mfxBitstream *pInputBitstream = (getNextBitstream) ? &m_DecInputBitstream : nullptr;
+            mfxBitstream *pInputBitstream = (getNextBitstream) ? &m_DecInputBitstream.bitstream() : nullptr;
 
             //デコード前には、デコード用のパラメータでFrameInfoを更新
             copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
@@ -3915,7 +3917,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             timestamp = qsv_rescale(nInputFrameCount, inputFpsTimebase, pktTimebase);
 #if ENABLE_AVCODEC_QSV_READER
         }
-        if (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS) {
+        if (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS) {
             if (!bCheckPtsMultipleOutput) {
                 //ひとまずデコード結果をキューに格納
                 if (pNextFrame) {
@@ -4367,7 +4369,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
 
 #if ENABLE_AVCODEC_QSV_READER
-    if (m_pmfxDEC && (m_nAVSyncMode & QSV_AVSYNC_CHECK_PTS)) {
+    if (m_pmfxDEC && (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS)) {
 
         pNextFrame = NULL;
 
@@ -5001,7 +5003,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         }
         PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
     }
-    if (m_nAVSyncMode != QSV_AVSYNC_THROUGH) {
+    if (m_nAVSyncMode != RGY_AVSYNC_THROUGH) {
         PRINT_INFO(_T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     }
     if (m_pmfxENC) {

@@ -137,12 +137,12 @@ enum {
     FPS_CONVERT_MUL2_5,
 };
 
-enum QSVAVSync : uint32_t {
-    QSV_AVSYNC_THROUGH   = 0x00,
-    QSV_AVSYNC_INIT      = 0x01,
-    QSV_AVSYNC_CHECK_PTS = 0x02,
-    QSV_AVSYNC_VFR       = 0x02,
-    QSV_AVSYNC_FORCE_CFR = 0x04 | QSV_AVSYNC_CHECK_PTS,
+enum RGYAVSync : uint32_t {
+    RGY_AVSYNC_THROUGH   = 0x00,
+    RGY_AVSYNC_INIT      = 0x01,
+    RGY_AVSYNC_CHECK_PTS = 0x02,
+    RGY_AVSYNC_VFR       = 0x02,
+    RGY_AVSYNC_FORCE_CFR = 0x04 | RGY_AVSYNC_CHECK_PTS,
 };
 
 static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
@@ -387,7 +387,7 @@ struct sInputParams
     muxOptList *pMuxOpt;
     TCHAR     *pChapterFile;
     uint32_t   nAudioIgnoreDecodeError;
-    QSVAVSync  nAVSyncMode;     //avsyncの方法 (QSV_AVSYNC_xxx)
+    RGYAVSync  nAVSyncMode;     //avsyncの方法 (RGY_AVSYNC_xxx)
     uint16_t   nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
     int8_t     nInputThread;
     int8_t     bAudioIgnoreNoTrackError;
@@ -646,8 +646,8 @@ const CX_DESC list_log_level[] = {
 };
 
 const CX_DESC list_avsync[] = {
-    { _T("through"),  QSV_AVSYNC_THROUGH   },
-    { _T("forcecfr"), QSV_AVSYNC_FORCE_CFR },
+    { _T("through"),  RGY_AVSYNC_THROUGH   },
+    { _T("forcecfr"), RGY_AVSYNC_FORCE_CFR },
     { NULL, 0 }
 };
 
