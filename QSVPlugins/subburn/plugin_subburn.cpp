@@ -37,7 +37,7 @@
 #include "qsv_simd.h"
 #include "qsv_osdep.h"
 #include "qsv_ini.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "plugin_subburn.h"
 #include "subburn_process.h"
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN

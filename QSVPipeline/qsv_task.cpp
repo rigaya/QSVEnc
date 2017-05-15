@@ -32,7 +32,7 @@
 #include <emmintrin.h>
 #include "qsv_osdep.h"
 #include "qsv_event.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "qsv_output.h"
 
 #include "mfxcommon.h"

@@ -30,7 +30,7 @@
 
 #include <memory>
 #include <mfxplugin++.h>
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "qsv_query.h"
 #include "qsv_allocator.h"
 #include "qsv_hw_device.h"

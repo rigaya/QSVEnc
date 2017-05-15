@@ -36,7 +36,7 @@
 #include "cpu_info.h"
 #include "qsv_util.h"
 #include "qsv_pipe.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 
 #if ENABLE_METRIC_FRAMEWORK
 #pragma warning(push)

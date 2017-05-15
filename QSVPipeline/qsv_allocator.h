@@ -33,7 +33,7 @@
 #include <cstring>
 #include <functional>
 #include "mfxvideo.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 
 class QSVBufferAllocator : public mfxBufferAllocator {
 public:

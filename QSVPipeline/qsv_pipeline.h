@@ -34,7 +34,7 @@
 #include "qsv_prm.h"
 #include "qsv_thread.h"
 #include "qsv_event.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 
 #include "qsv_hw_device.h"
 

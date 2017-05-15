@@ -32,7 +32,7 @@
 #include <vector>
 #include "qsv_osdep.h"
 #include "qsv_tchar.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "qsv_control.h"
 
 using std::unique_ptr;

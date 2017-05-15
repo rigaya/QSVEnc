@@ -31,7 +31,7 @@
 #include <memory>
 #include "qsv_osdep.h"
 #include "qsv_tchar.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "qsv_event.h"
 #include "qsv_control.h"
 #include "convert_csp.h"

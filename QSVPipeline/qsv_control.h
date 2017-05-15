@@ -44,7 +44,7 @@
 #include "mfxjpeg.h"
 #include "qsv_prm.h"
 #include "qsv_util.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "cpu_info.h"
 #include "gpuz_info.h"
 #include "perf_monitor.h"

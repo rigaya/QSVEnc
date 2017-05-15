@@ -31,7 +31,7 @@
 #include <cstdint>
 #include <memory>
 #include "mfxvideo++.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "qsv_version.h"
 
 #if MFX_D3D11_SUPPORT

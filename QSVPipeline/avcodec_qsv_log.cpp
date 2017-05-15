@@ -30,7 +30,7 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 #include <atomic>
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "avcodec_qsv_log.h"
 
 static std::weak_ptr<CQSVLog> g_pQSVLog;
