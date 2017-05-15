@@ -46,7 +46,7 @@ public:
     CQSVInput();
     virtual ~CQSVInput();
 
-    virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
+    virtual void SetQSVLogPtr(shared_ptr<RGYLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
@@ -196,7 +196,7 @@ protected:
     const ConvertCSP *m_sConvert;
 
     tstring m_strInputInfo;
-    shared_ptr<CQSVLog> m_pPrintMes;  //ログ出力
+    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
     tstring m_strReaderName;
 
     sTrimParam m_sTrimParam;

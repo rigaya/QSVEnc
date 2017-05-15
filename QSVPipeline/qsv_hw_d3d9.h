@@ -51,7 +51,7 @@ public:
     CQSVD3D9Device();
     virtual ~CQSVD3D9Device();
 
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<CQSVLog> pQSVLog) override;
+    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<RGYLog> pQSVLog) override;
     virtual mfxStatus Reset();
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
     virtual void      Close() override;

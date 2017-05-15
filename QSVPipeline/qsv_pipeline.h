@@ -110,7 +110,7 @@ public:
     virtual MemType GetMemType();
 
     virtual void PrintMes(int log_level, const TCHAR *format, ...);
-    shared_ptr<CQSVLog> m_pQSVLog;
+    shared_ptr<RGYLog> m_pQSVLog;
 
     virtual mfxStatus RunEncode();
     mfxStatus CheckSceneChange();

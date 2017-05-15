@@ -237,7 +237,7 @@ class CEncodeStatusInfo {
 public:
     CEncodeStatusInfo();
     virtual ~CEncodeStatusInfo();
-    virtual void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog, shared_ptr<CPerfMonitor> pPerfMonitor);
+    virtual void Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<RGYLog> pQSVLog, shared_ptr<CPerfMonitor> pPerfMonitor);
     void SetStart();
     void GetEncodeData(sEncodeStatusData *data) {
         if (NULL != data) {
@@ -489,7 +489,7 @@ protected:
     std::chrono::system_clock::time_point m_tmLastUpdate;
     PROCESS_TIME m_sStartTime;
     sEncodeStatusData m_sData;
-    shared_ptr<CQSVLog> m_pQSVLog;
+    shared_ptr<RGYLog> m_pQSVLog;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
     bool m_bStdErrWriteToConsole;
     bool m_bEncStarted;
@@ -503,7 +503,7 @@ public:
     RGY_ERR Init(mfxU16 bufferSize);
     void Close();
     //終了を待機する
-    RGY_ERR WaitToFinish(RGY_ERR sts, shared_ptr<CQSVLog> pQSVLog);
+    RGY_ERR WaitToFinish(RGY_ERR sts, shared_ptr<RGYLog> pQSVLog);
     RGY_ERR RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
     RGY_ERR RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask);
 

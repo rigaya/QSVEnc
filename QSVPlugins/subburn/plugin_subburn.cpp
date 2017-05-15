@@ -218,13 +218,13 @@ static inline int log_level_ass2qsv(int level) {
 }
 
 static void ass_log(int ass_level, const char *fmt, va_list args, void *ctx) {
-    ((CQSVLog *)ctx)->write_line(log_level_ass2qsv(ass_level), fmt, args, CP_UTF8);
+    ((RGYLog *)ctx)->write_line(log_level_ass2qsv(ass_level), fmt, args, CP_UTF8);
 }
 
 static void ass_log_error_only(int ass_level, const char *fmt, va_list args, void *ctx) {
     auto qsv_level = log_level_ass2qsv(ass_level);
     if (qsv_level >= RGY_LOG_ERROR) {
-        ((CQSVLog *)ctx)->write_line(qsv_level, fmt, args, CP_UTF8);
+        ((RGYLog *)ctx)->write_line(qsv_level, fmt, args, CP_UTF8);
     }
 }
 

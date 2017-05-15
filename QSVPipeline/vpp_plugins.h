@@ -128,7 +128,7 @@ public:
 public:
     virtual mfxStatus Init(mfxVersion ver, const TCHAR *pluginName, void *pPluginParam, mfxU32 nPluginParamSize,
         bool useHWLib, MemType memType, shared_ptr<CQSVHWDevice> phwdev, QSVAllocator* pAllocator,
-        mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, shared_ptr<CQSVLog> pQSVLog) {
+        mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern, shared_ptr<RGYLog> pQSVLog) {
 
         if (pluginName == nullptr || pPluginParam == nullptr) {
             return MFX_ERR_NULL_PTR;
@@ -268,7 +268,7 @@ private:
     shared_ptr<CQSVHWDevice>       m_hwdev;               //使用しているデバイス
 #endif
     tstring                        m_message;             //このカスタムVPPからのメッセージ
-    shared_ptr<CQSVLog>            m_pQSVLog;            //ログ出力用関数オブジェクト
+    shared_ptr<RGYLog>            m_pQSVLog;            //ログ出力用関数オブジェクト
 };
 
 #endif //__VPP_PLUGINS_H__

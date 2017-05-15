@@ -222,7 +222,7 @@ public:
     int init(tstring filename, const TCHAR *pPythonPath,
         int interval, int nSelectOutputLog, int nSelectOutputMatplot,
         std::unique_ptr<void, handle_deleter> thMainThread,
-        std::shared_ptr<CQSVLog> pQSVLog);
+        std::shared_ptr<RGYLog> pQSVLog);
     ~CPerfMonitor();
 
     void SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus);
@@ -275,7 +275,7 @@ protected:
     int m_nSelectOutputLog;
     int m_nSelectOutputPlot;
     PerfQueueInfo m_QueueInfo;
-    std::shared_ptr<CQSVLog> m_pQSVLog;
+    std::shared_ptr<RGYLog> m_pQSVLog;
 
 #if ENABLE_METRIC_FRAMEWORK
     IExtensionLoader *m_pLoader;

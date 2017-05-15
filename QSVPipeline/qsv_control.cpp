@@ -73,7 +73,7 @@ CEncodeStatusInfo::~CEncodeStatusInfo() {
     m_pQSVLog.reset();
 }
 
-void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<CQSVLog> pQSVLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
+void CEncodeStatusInfo::Init(mfxU32 outputFPSRate, mfxU32 outputFPSScale, mfxU32 totalOutputFrames, shared_ptr<RGYLog> pQSVLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
     m_pause = FALSE;
     m_nOutputFPSRate = outputFPSRate;
     m_nOutputFPSScale = outputFPSScale;
@@ -152,7 +152,7 @@ RGY_ERR CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline
 }
 
 //終了を待機する
-RGY_ERR CEncodingThread::WaitToFinish(RGY_ERR sts, shared_ptr<CQSVLog> pQSVLog) {
+RGY_ERR CEncodingThread::WaitToFinish(RGY_ERR sts, shared_ptr<RGYLog> pQSVLog) {
     if (!m_bInit) return RGY_ERR_NOT_INITIALIZED;
     //最後のLoadNextFrameの結果をm_stsThreadにセットし、RunEncodeに知らせる
     m_stsThread = sts;

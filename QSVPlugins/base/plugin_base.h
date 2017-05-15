@@ -33,7 +33,7 @@
 #include <mfxplugin++.h>
 #include "qsv_version.h"
 #include "qsv_util.h"
-#include "qsv_log.h"
+#include "rgy_log.h"
 #include "qsv_allocator_d3d9.h"
 
 #if D3D_SURFACES_SUPPORT
@@ -78,7 +78,7 @@ public:
     }
     virtual mfxStatus Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out, const void *data) = 0;
     virtual mfxStatus Process(DataChunk *chunk, uint8_t *pBuffer) = 0;
-    void SetLog(shared_ptr<CQSVLog> pLog) {
+    void SetLog(shared_ptr<RGYLog> pLog) {
         m_pPrintMes = pLog;
     }
 protected:
@@ -166,7 +166,7 @@ protected:
     IDirect3DDeviceManager9 *m_pD3DDeviceManager;
 #endif //#if D3D_SURFACES_SUPPORT
     HANDLE                   m_hDevice;
-    shared_ptr<CQSVLog>      m_pPrintMes; //ログ出力用オブジェクト
+    shared_ptr<RGYLog>      m_pPrintMes; //ログ出力用オブジェクト
 };
 
 #pragma warning (push)
@@ -206,7 +206,7 @@ public:
         m_pPrintMes.reset();
     }
 
-    virtual void SetLog(shared_ptr<CQSVLog> pPrintMes) {
+    virtual void SetLog(shared_ptr<RGYLog> pPrintMes) {
         m_pPrintMes = pPrintMes;
     }
 
@@ -361,7 +361,7 @@ protected:
     
     tstring m_pluginName;
     tstring m_message;
-    shared_ptr<CQSVLog> m_pPrintMes; //ログ出力用オブジェクト
+    shared_ptr<RGYLog> m_pPrintMes; //ログ出力用オブジェクト
 };
 #pragma warning (pop)
 

@@ -78,7 +78,7 @@ QSVAllocatorD3D11::TextureSubResource QSVAllocatorD3D11::GetResourceFromMid(mfxM
     return TextureSubResource(p, mid);
 }
 
-mfxStatus QSVAllocatorD3D11::Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) {
+mfxStatus QSVAllocatorD3D11::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> pQSVLog) {
     m_pQSVLog = pQSVLog;
 
     QSVAllocatorParamsD3D11 *pd3d11Params = dynamic_cast<QSVAllocatorParamsD3D11 *>(pParams);

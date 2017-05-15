@@ -59,7 +59,7 @@ QSVAllocatorD3D9::~QSVAllocatorD3D9() {
     Close();
 }
 
-mfxStatus QSVAllocatorD3D9::Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) {
+mfxStatus QSVAllocatorD3D9::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> pQSVLog) {
     m_pQSVLog = pQSVLog;
 
     QSVAllocatorParamsD3D9 *pd3d9Params = dynamic_cast<QSVAllocatorParamsD3D9 *>(pParams);

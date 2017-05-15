@@ -49,7 +49,7 @@ public:
     CQSVOut();
     virtual ~CQSVOut();
 
-    virtual void SetQSVLogPtr(shared_ptr<CQSVLog> pQSVLog) {
+    virtual void SetQSVLogPtr(shared_ptr<RGYLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
     virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
@@ -111,7 +111,7 @@ protected:
     bool        m_bY4mHeaderWritten;
     tstring     m_strWriterName;
     tstring     m_strOutputInfo;
-    shared_ptr<CQSVLog> m_pPrintMes;  //ログ出力
+    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
     unique_ptr<char, malloc_deleter>            m_pOutputBuffer;
     unique_ptr<uint8_t, aligned_malloc_deleter> m_pReadBuffer;
     unique_ptr<mfxU8, aligned_malloc_deleter>   m_pUVBuffer;

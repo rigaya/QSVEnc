@@ -44,12 +44,12 @@ class CQSVHWDevice {
 public:
     CQSVHWDevice() {};
     virtual ~CQSVHWDevice() { }
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<CQSVLog> pQSVLog) = 0;
+    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<RGYLog> pQSVLog) = 0;
     virtual mfxStatus Reset() = 0;
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) = 0;
     virtual void      Close() = 0;
 protected:
-    std::shared_ptr<CQSVLog> m_pQSVLog;
+    std::shared_ptr<RGYLog> m_pQSVLog;
 };
 
 #endif //#ifndef __QSV_HW_DEVICE_H__

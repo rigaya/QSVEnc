@@ -97,7 +97,7 @@ QSVAllocatorSys::~QSVAllocatorSys() {
     Close();
 }
 
-mfxStatus QSVAllocatorSys::Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) {
+mfxStatus QSVAllocatorSys::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> pQSVLog) {
     m_pQSVLog = pQSVLog;
     m_pBufferAllocator.reset(new QSVBufferAllocatorSys());
     return MFX_ERR_NONE;

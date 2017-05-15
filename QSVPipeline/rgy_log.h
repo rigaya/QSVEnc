@@ -34,7 +34,7 @@
 #include "qsv_tchar.h"
 #include "qsv_prm.h"
 
-class CQSVLog {
+class RGYLog {
 protected:
     int m_nLogLevel = RGY_LOG_INFO;
     const TCHAR *m_pStrLog = nullptr;
@@ -42,10 +42,10 @@ protected:
     std::mutex m_mtx;
     static const char *HTML_FOOTER;
 public:
-    CQSVLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO) {
+    RGYLog(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO) {
         init(pLogFile, log_level);
     };
-    virtual ~CQSVLog() {
+    virtual ~RGYLog() {
     };
     void init(const TCHAR *pLogFile, int log_level = RGY_LOG_INFO);
     void writeHtmlHeader();

@@ -304,7 +304,7 @@ CQSVHWVADeviceX11::~CQSVHWVADeviceX11(void) {
     Close();
 }
 
-mfxStatus CQSVHWVADeviceX11::Init(mfxHDL hWindow, mfxU32 nAdapterNum, shared_ptr<CQSVLog> pQSVLog) {
+mfxStatus CQSVHWVADeviceX11::Init(mfxHDL hWindow, mfxU32 nAdapterNum, shared_ptr<RGYLog> pQSVLog) {
     mfxStatus mfx_res = MFX_ERR_NONE;
     m_pQSVLog = pQSVLog;
     Window* window = NULL;

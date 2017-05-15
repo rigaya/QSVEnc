@@ -61,7 +61,7 @@ class QSVAllocator : public mfxFrameAllocator {
 public:
     QSVAllocator();
     virtual ~QSVAllocator();
-    virtual mfxStatus Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) = 0;
+    virtual mfxStatus Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> pQSVLog) = 0;
     virtual mfxStatus Close();
 
     virtual mfxStatus FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocResponse *response);
@@ -110,7 +110,7 @@ protected:
 
     std::list<mfxFrameAllocResponse> m_responses;
     std::list<UniqueResponse> m_ExtResponses;
-    shared_ptr<CQSVLog> m_pQSVLog;
+    shared_ptr<RGYLog> m_pQSVLog;
 };
 
 #endif // __QSV_ALLOCATOR_H__

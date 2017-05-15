@@ -328,7 +328,7 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
 int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     int interval, int nSelectOutputLog, int nSelectOutputPlot,
     std::unique_ptr<void, handle_deleter> thMainThread,
-    std::shared_ptr<CQSVLog> pQSVLog) {
+    std::shared_ptr<RGYLog> pQSVLog) {
     clear();
     m_pQSVLog = pQSVLog;
 

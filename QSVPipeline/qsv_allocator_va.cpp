@@ -62,7 +62,7 @@ QSVAllocatorVA::~QSVAllocatorVA() {
     Close();
 }
 
-mfxStatus QSVAllocatorVA::Init(mfxAllocatorParams *pParams, shared_ptr<CQSVLog> pQSVLog) {
+mfxStatus QSVAllocatorVA::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> pQSVLog) {
     QSVAllocatorParamsVA *p_vaapiParams = dynamic_cast<QSVAllocatorParamsVA *>(pParams);
     if ((NULL == p_vaapiParams) || (NULL == p_vaapiParams->m_dpy)) {
         return MFX_ERR_NOT_INITIALIZED;
