@@ -28,7 +28,7 @@
 #ifndef __QSV_CONTROL_H__
 #define __QSV_CONTROL_H__
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <stdio.h>
 #include <math.h>
 #include <cstdint>
@@ -47,7 +47,7 @@
 #include "rgy_log.h"
 #include "cpu_info.h"
 #include "gpuz_info.h"
-#include "perf_monitor.h"
+#include "rgy_perf_monitor.h"
 #include "rgy_err.h"
 
 using std::chrono::duration_cast;

@@ -35,7 +35,7 @@
 #include <map>
 #include "cpu_info.h"
 #include "qsv_util.h"
-#include "qsv_pipe.h"
+#include "rgy_pipe.h"
 #include "rgy_log.h"
 
 #if ENABLE_METRIC_FRAMEWORK

@@ -25,7 +25,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,7 +38,7 @@
 #include <deque>
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_pipeline.h"
 #include "qsv_query.h"
 #include "qsv_input.h"

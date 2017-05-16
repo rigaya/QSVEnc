@@ -425,7 +425,6 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_ini.cpp" />
     <ClCompile Include="qsv_input.cpp" />
     <ClCompile Include="qsv_output.cpp" />
-    <ClCompile Include="qsv_pipe.cpp" />
     <ClCompile Include="qsv_plugin.cpp" />
     <ClCompile Include="qsv_prm.cpp" />
     <ClCompile Include="qsv_query.cpp" />
@@ -434,6 +433,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_util.cpp" />
     <ClCompile Include="rgy_log.cpp" />
     <ClCompile Include="rgy_perf_monitor.cpp" />
+    <ClCompile Include="rgy_pipe.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="qsv_version.cpp" />
     <ClCompile Include="ram_speed.cpp" />
@@ -477,20 +477,18 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_event.h" />
     <ClInclude Include="qsv_ini.h" />
     <ClInclude Include="qsv_input.h" />
-    <ClInclude Include="qsv_osdep.h" />
     <ClInclude Include="qsv_output.h" />
-    <ClInclude Include="qsv_pipe.h" />
     <ClInclude Include="qsv_plugin.h" />
     <ClInclude Include="qsv_prm.h" />
     <ClInclude Include="qsv_query.h" />
     <ClInclude Include="qsv_queue.h" />
     <ClInclude Include="qsv_simd.h" />
     <ClInclude Include="qsv_task.h" />
-    <ClInclude Include="qsv_tchar.h" />
     <ClInclude Include="qsv_thread.h" />
     <ClInclude Include="qsv_util.h" />
     <ClInclude Include="rgy_log.h" />
     <ClInclude Include="rgy_perf_monitor.h" />
+    <ClInclude Include="rgy_pipe.h" />
     <ClInclude Include="rgy_status.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="qsv_version.h" />

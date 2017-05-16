@@ -30,7 +30,7 @@
 #include <cctype>
 #include <cmath>
 #include <memory>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_util.h"
 #include "qsv_control.h"
 #include "avcodec_writer.h"

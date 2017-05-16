@@ -31,7 +31,7 @@
 #include "qsv_hw_device.h"
 
 #if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT)
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include <va/va.h>
 
 class CLibVA {

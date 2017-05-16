@@ -38,7 +38,7 @@
 #else
 #include "avxsynth_c.h"
 #endif
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_input.h"
 #pragma warning(pop)
 

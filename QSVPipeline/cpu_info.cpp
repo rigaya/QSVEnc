@@ -34,14 +34,14 @@
 #include <mutex>
 #include <climits>
 #include <condition_variable>
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #ifdef _MSC_VER
 #include <intrin.h>
 #else
 #include <x86intrin.h>
 #endif
 #include <emmintrin.h>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_util.h"
 #include "qsv_query.h"
 #include "cpu_info.h"

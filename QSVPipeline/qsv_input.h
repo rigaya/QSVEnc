@@ -29,11 +29,11 @@
 #define __QSV_INPUT_H__
 
 #include <memory>
-#include "qsv_osdep.h"
-#include "qsv_tchar.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "rgy_log.h"
 #include "qsv_event.h"
-#include "qsv_control.h"
+#include "rgy_status.h"
 #include "convert_csp.h"
 #include "rgy_err.h"
 

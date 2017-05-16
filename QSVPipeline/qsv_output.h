@@ -30,10 +30,10 @@
 
 #include <memory>
 #include <vector>
-#include "qsv_osdep.h"
-#include "qsv_tchar.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 #include "rgy_log.h"
-#include "qsv_control.h"
+#include "rgy_status.h"
 
 using std::unique_ptr;
 using std::shared_ptr;

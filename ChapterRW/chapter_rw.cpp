@@ -38,7 +38,7 @@
 #include <shlwapi.h>
 #pragma comment (lib, "shlwapi.lib")
 #else
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <iconv.h>

@@ -33,7 +33,7 @@
 #include "plugin_delogo.h"
 #include "delogo_process.h"
 #include "qsv_simd.h"
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_ini.h"
 
 // disable "unreferenced formal parameter" warning -

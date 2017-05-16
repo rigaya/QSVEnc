@@ -28,7 +28,7 @@
 #ifndef _QSV_UTIL_H_
 #define _QSV_UTIL_H_
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <emmintrin.h>
 #if defined(_WIN32) || defined(_WIN64)
 #include <shlwapi.h>
@@ -41,7 +41,7 @@
 #include <chrono>
 #include <memory>
 #include <type_traits>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "mfxstructures.h"
 #include "mfxcommon.h"
 #include "mfxsession.h"

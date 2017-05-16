@@ -25,12 +25,12 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <math.h>
 #include <iostream>
 #include <mfxvideo++.h>
 #include <emmintrin.h>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_event.h"
 #include "rgy_log.h"
 #include "qsv_output.h"

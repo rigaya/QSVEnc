@@ -29,7 +29,7 @@
 #define __PIPELINE_ENCODE_H__
 
 #include "qsv_version.h"
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "qsv_thread.h"
@@ -57,6 +57,7 @@
 #include "qsv_input.h"
 #include "qsv_output.h"
 #include "qsv_task.h"
+#include "qsv_control.h"
 
 #include <vector>
 #include <memory>

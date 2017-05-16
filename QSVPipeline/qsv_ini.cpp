@@ -30,8 +30,8 @@
 #include <cstdio>
 #include <regex>
 #include <string>
-#include "qsv_tchar.h"
-#include "qsv_osdep.h"
+#include "rgy_tchar.h"
+#include "rgy_osdep.h"
 
 uint32_t GetPrivateProfileString(const TCHAR *Section, const TCHAR *Key, const TCHAR *Default, TCHAR *buf, size_t nSize, const TCHAR *IniFile) {
     FILE *fp = fopen(IniFile, "r");

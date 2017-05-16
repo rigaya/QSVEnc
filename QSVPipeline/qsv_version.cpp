@@ -27,7 +27,7 @@
 
 #include "qsv_version.h"
 #include "qsv_rev.h"
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_util.h"
 
 #define SSTRING(str) STRING(str)

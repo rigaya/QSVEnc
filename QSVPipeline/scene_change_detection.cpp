@@ -25,7 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <cmath>
 #include <atomic>
 #include <thread>

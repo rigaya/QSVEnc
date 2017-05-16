@@ -28,7 +28,7 @@
 #ifndef __QSV_TASK_H__
 #define __QSV_TASK_H__
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <stdio.h>
 #include <math.h>
 #include <cstdint>
@@ -50,6 +50,7 @@
 #include "gpuz_info.h"
 #include "qsv_allocator.h"
 #include "qsv_thread.h"
+#include "qsv_control.h"
 
 static inline int GetFreeSurface(mfxFrameSurface1 *pSurfacesPool, int nPoolSize) {
     for (mfxU32 j = 0; j < MSDK_WAIT_INTERVAL; j++) {

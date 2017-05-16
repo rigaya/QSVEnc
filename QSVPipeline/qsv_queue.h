@@ -33,7 +33,7 @@
 #include <atomic>
 #include <climits>
 #include <memory>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_event.h"
 
 #ifndef clamp

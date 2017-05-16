@@ -25,7 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <string>
 #include <vector>
 #include <random>
@@ -33,7 +33,7 @@
 #include <algorithm>
 #include "cl_func.h"
 #include "DeviceId.h"
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_util.h"
 
 typedef struct IntelDeviceInfo {

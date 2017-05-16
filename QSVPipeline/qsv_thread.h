@@ -29,7 +29,7 @@
 #define __QSV_THREAD_H__
 
 #include <thread>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 
 static void QSV_FORCEINLINE sleep_hybrid(int count) {
     _mm_pause();

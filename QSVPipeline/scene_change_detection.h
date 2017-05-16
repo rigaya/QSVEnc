@@ -30,7 +30,7 @@
 
 #include <thread>
 #include <atomic>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "mfxstructures.h"
 
 #pragma warning (push)

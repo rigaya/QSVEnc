@@ -30,7 +30,7 @@
 
 #include <cstdint>
 #include <climits>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #define CloseEvent CloseHandle

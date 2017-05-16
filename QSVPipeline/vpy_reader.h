@@ -30,7 +30,7 @@
 
 #include "qsv_version.h"
 #if ENABLE_VAPOURSYNTH_READER
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "qsv_input.h"
 #include "VapourSynth.h"
 #include "VSScript.h"

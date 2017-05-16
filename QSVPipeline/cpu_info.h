@@ -29,8 +29,8 @@
 #define _CPU_INFO_H_
 
 #include <stdint.h>
-#include "qsv_tchar.h"
-#include "qsv_osdep.h"
+#include "rgy_tchar.h"
+#include "rgy_osdep.h"
 
 typedef struct cache_info_t {
     uint32_t count;

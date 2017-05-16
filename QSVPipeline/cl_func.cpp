@@ -28,7 +28,7 @@
 #include "qsv_version.h"
 #if ENABLE_OPENCL
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <vector>
 #include "cl_func.h"
 

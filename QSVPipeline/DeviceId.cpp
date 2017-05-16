@@ -19,7 +19,7 @@
 #if _MSC_VER
 #include "DeviceId.h"
 #include <stdio.h>
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 
 #include <D3D11.h>
 #include <D3DCommon.h>

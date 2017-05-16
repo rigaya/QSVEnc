@@ -31,7 +31,7 @@
 #include <cstdint>
 #include <thread>
 #include <mutex>
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include "qsv_prm.h"
 
 class RGYLog {

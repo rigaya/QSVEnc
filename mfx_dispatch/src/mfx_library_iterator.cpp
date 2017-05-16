@@ -38,7 +38,7 @@ File Name: mfx_library_iterator.cpp
 #include "mfx_dxva2_device.h"
 #include "mfx_load_dll.h"
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <windows.h>
 
 namespace MFX

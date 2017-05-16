@@ -33,10 +33,10 @@
 #include <cstdio>
 #include <ctime>
 #include <string>
+#include "rgy_status.h"
 #include "rgy_perf_monitor.h"
 #include "cpu_info.h"
-#include "qsv_osdep.h"
-#include "qsv_control.h"
+#include "rgy_osdep.h"
 #include "qsv_util.h"
 #include "gpuz_info.h"
 #if defined(_WIN32) || defined(_WIN64)

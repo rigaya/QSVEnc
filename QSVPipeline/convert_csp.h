@@ -28,7 +28,7 @@
 #define _CONVERT_CSP_H_
 
 #include <cstdint>
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 
 typedef void (*func_convert_csp) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
