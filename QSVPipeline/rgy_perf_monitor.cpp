@@ -33,7 +33,7 @@
 #include <cstdio>
 #include <ctime>
 #include <string>
-#include "perf_monitor.h"
+#include "rgy_perf_monitor.h"
 #include "cpu_info.h"
 #include "qsv_osdep.h"
 #include "qsv_control.h"

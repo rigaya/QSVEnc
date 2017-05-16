@@ -33,7 +33,7 @@
 #if ENABLE_AVCODEC_QSV_READER
 #include "avcodec_qsv.h"
 #include "qsv_queue.h"
-#include "perf_monitor.h"
+#include "rgy_perf_monitor.h"
 #include "convert_csp.h"
 #include <deque>
 #include <atomic>

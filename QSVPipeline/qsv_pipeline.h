@@ -52,7 +52,7 @@
 
 #include "vpp_plugins.h"
 #include "scene_change_detection.h"
-#include "perf_monitor.h"
+#include "rgy_perf_monitor.h"
 #include "qsv_plugin.h"
 #include "qsv_input.h"
 #include "qsv_output.h"

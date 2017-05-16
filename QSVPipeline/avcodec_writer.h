@@ -36,7 +36,7 @@
 #include "avcodec_qsv.h"
 #include "avcodec_reader.h"
 #include "qsv_output.h"
-#include "perf_monitor.h"
+#include "rgy_perf_monitor.h"
 
 using std::vector;
 

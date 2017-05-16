@@ -410,7 +410,6 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="DeviceId.cpp" />
     <ClCompile Include="gpuz_info.cpp" />
     <ClCompile Include="gpu_info.cpp" />
-    <ClCompile Include="perf_monitor.cpp" />
     <ClCompile Include="qsv_allocator.cpp" />
     <ClCompile Include="qsv_allocator_d3d11.cpp" />
     <ClCompile Include="qsv_allocator_d3d9.cpp" />
@@ -434,6 +433,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_task.cpp" />
     <ClCompile Include="qsv_util.cpp" />
     <ClCompile Include="rgy_log.cpp" />
+    <ClCompile Include="rgy_perf_monitor.cpp" />
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="qsv_version.cpp" />
     <ClCompile Include="ram_speed.cpp" />
@@ -463,7 +463,6 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="gpuz_info.h" />
     <ClInclude Include="gpu_info.h" />
     <ClInclude Include="hw_device.h" />
-    <ClInclude Include="perf_monitor.h" />
     <ClInclude Include="qsv_allocator.h" />
     <ClInclude Include="qsv_allocator_d3d11.h" />
     <ClInclude Include="qsv_allocator_d3d9.h" />
@@ -491,6 +490,8 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_thread.h" />
     <ClInclude Include="qsv_util.h" />
     <ClInclude Include="rgy_log.h" />
+    <ClInclude Include="rgy_perf_monitor.h" />
+    <ClInclude Include="rgy_status.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="qsv_version.h" />
     <ClInclude Include="ram_speed.h" />
