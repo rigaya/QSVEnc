@@ -161,11 +161,10 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
     UNREFERENCED_PARAMETER(prm);
 
     Close();
-    m_pEncThread = pEncThread;
     m_pEncSatusInfo = pEncSatusInfo;
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
@@ -321,14 +320,14 @@ void CVSReader::Close() {
 }
 
 RGY_ERR CVSReader::LoadNextFrame(RGYFrame *pSurface) {
-    if ((int)m_pEncSatusInfo->m_nInputFrames >= m_inputVideoInfo.frames
+    if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
+        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
-    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_pEncSatusInfo->m_nInputFrames);
+    const VSFrameRef *src_frame = getFrameFromAsyncBuffer(m_pEncSatusInfo->m_sData.frameIn);
     if (src_frame == nullptr) {
         return RGY_ERR_MORE_DATA;
     }
@@ -343,8 +342,8 @@ RGY_ERR CVSReader::LoadNextFrame(RGYFrame *pSurface) {
 
     m_sVSapi->freeFrame(src_frame);
 
-    m_pEncSatusInfo->m_nInputFrames++;
-    m_nCopyOfInputFrames = m_pEncSatusInfo->m_nInputFrames;
+    m_pEncSatusInfo->m_sData.frameIn++;
+    m_nCopyOfInputFrames = m_pEncSatusInfo->m_sData.frameIn;
 
     return m_pEncSatusInfo->UpdateDisplay();
 }

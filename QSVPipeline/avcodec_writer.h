@@ -266,7 +266,7 @@ public:
     CAvcodecWriter();
     virtual ~CAvcodecWriter();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, const void *option, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *option, shared_ptr<EncodeStatus> pEncSatusInfo) override;
 
     virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
 

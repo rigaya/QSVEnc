@@ -48,11 +48,11 @@
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
 #include "mfxjpeg.h"
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "qsv_plugin.h"
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "ram_speed.h"
 
 #ifdef LIBVA_SUPPORT

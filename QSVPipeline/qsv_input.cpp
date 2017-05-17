@@ -25,6 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#include <sstream>
 #include "qsv_input.h"
 
 CQSVInput::CQSVInput() :
@@ -48,7 +49,6 @@ void CQSVInput::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
 
     m_pEncSatusInfo.reset();
-    m_pEncThread = nullptr;
     m_sConvert = nullptr;
 
     m_strInputInfo.empty();
@@ -200,12 +200,11 @@ RGY_ERR CQSVInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
     UNREFERENCED_PARAMETER(prm);
 
     Close();
 
-    m_pEncThread = pEncThread;
     m_pEncSatusInfo = pEncSatusInfo;
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
@@ -300,7 +299,7 @@ RGY_ERR CQSVInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, cons
 RGY_ERR CQSVInputRaw::LoadNextFrame(RGYFrame *pSurface) {
     //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
     //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-    if (getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
+    if (getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
@@ -382,6 +381,6 @@ RGY_ERR CQSVInputRaw::LoadNextFrame(RGYFrame *pSurface) {
         src_uv_pitch, pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
     //pSurface->Data.TimeStamp = m_pEncSatusInfo->m_nInputFrames * (mfxU64)m_pEncSatusInfo->m_nOutputFPSScale;
-    m_pEncSatusInfo->m_nInputFrames++;
+    m_pEncSatusInfo->m_sData.frameIn++;
     return m_pEncSatusInfo->UpdateDisplay();
 }

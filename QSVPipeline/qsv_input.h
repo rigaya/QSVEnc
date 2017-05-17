@@ -49,36 +49,7 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<RGYLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
-
-    //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-    RGY_ERR GetNextFrame(RGYFrame** pSurface) {
-        const int inputBufIdx = m_pEncThread->m_nFrameGet % m_pEncThread->m_nFrameBuffer;
-        sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
-
-        //_ftprintf(stderr, "GetNextFrame: wait for %d\n", m_pEncThread->m_nFrameGet);
-        //_ftprintf(stderr, "wait for heInputDone, %d\n", m_pEncThread->m_nFrameGet);
-        AddMessage(RGY_LOG_TRACE, _T("Enc Thread: Wait Done %d.\n"), m_pEncThread->m_nFrameGet);
-        WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
-        //エラー・中断要求などでの終了
-        if (m_pEncThread->m_bthForceAbort) {
-            AddMessage(RGY_LOG_DEBUG, _T("GetNextFrame: Encode Aborted...\n"));
-            return m_pEncThread->m_stsThread;
-        }
-        //読み込み完了による終了
-        if (m_pEncThread->m_stsThread == RGY_ERR_MORE_DATA && m_pEncThread->m_nFrameGet == m_pEncSatusInfo->m_nInputFrames) {
-            AddMessage(RGY_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
-            return m_pEncThread->m_stsThread;
-        }
-        //フレーム読み込みでない場合は、フレーム関連の処理は行わない
-        if (getInputCodec() == RGY_CODEC_UNKNOWN) {
-            *pSurface = pInputBuf->pFrameSurface;
-            (*pSurface)->setTimestamp(inputBufIdx);
-            (*pSurface)->setLocked(FALSE);
-            m_pEncThread->m_nFrameGet++;
-        }
-        return RGY_ERR_NONE;
-    }
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -97,22 +68,6 @@ public:
         return RGY_ERR_NONE;
     }
 #pragma warning (pop)
-
-    RGY_ERR SetNextSurface(RGYFrame *pSurface) {
-        const int inputBufIdx = m_pEncThread->m_nFrameSet % m_pEncThread->m_nFrameBuffer;
-        sInputBufSys *pInputBuf = &m_pEncThread->m_InputBuf[inputBufIdx];
-        //フレーム読み込みでない場合は、フレーム関連の処理は行わない
-        if (getInputCodec() == RGY_CODEC_UNKNOWN) {
-            //_ftprintf(stderr, "Set heInputStart: %d\n", m_pEncThread->m_nFrameSet);
-            pSurface->setLocked(TRUE);
-            //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_pEncThread->m_nFrameSet);
-            pInputBuf->pFrameSurface = pSurface;
-        }
-        SetEvent(pInputBuf->heInputStart);
-        AddMessage(RGY_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_pEncThread->m_nFrameSet);
-        m_pEncThread->m_nFrameSet++;
-        return RGY_ERR_NONE;
-    }
 
     virtual void Close();
     //virtual RGY_ERR Init(const TCHAR *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<TCHAR*> srcFileBuff);
@@ -187,8 +142,7 @@ protected:
         return m_sTrimParam.list[m_sTrimParam.list.size()-1].fin;
     }
 
-    CEncodingThread *m_pEncThread;
-    shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
+    shared_ptr<EncodeStatus> m_pEncSatusInfo;
 
     VideoInfo m_inputVideoInfo;
 
@@ -207,7 +161,7 @@ public:
     CQSVInputRaw();
     ~CQSVInputRaw();
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 

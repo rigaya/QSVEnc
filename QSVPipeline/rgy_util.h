@@ -28,7 +28,7 @@
 #ifndef __RGY_UTIL_H__
 #define __RGY_UTIL_H__
 
-#include "qsv_tchar.h"
+#include "rgy_tchar.h"
 #include <emmintrin.h>
 #if defined(_WIN32) || defined(_WIN64)
 #include <shlwapi.h>
@@ -40,7 +40,7 @@
 #include <chrono>
 #include <memory>
 #include <type_traits>
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include "mfxstructures.h"
 #include "mfxsession.h"
 #include "qsv_version.h"
@@ -381,6 +381,42 @@ enum {
     RGY_LOG_ERROR = 2,
     RGY_LOG_QUIET = 3,
 };
+
+enum RGY_FRAMETYPE : uint32_t {
+    RGY_FRAMETYPE_UNKNOWN = 0,
+
+    RGY_FRAMETYPE_I       = 1<<0,
+    RGY_FRAMETYPE_P       = 1<<1,
+    RGY_FRAMETYPE_B       = 1<<2,
+
+    RGY_FRAMETYPE_REF     = 1<<6,
+    RGY_FRAMETYPE_IDR     = 1<<7,
+
+    RGY_FRAMETYPE_xI      = 1<<8,
+    RGY_FRAMETYPE_xP      = 1<<9,
+    RGY_FRAMETYPE_xB      = 1<<10,
+
+    RGY_FRAMETYPE_xREF    = 1<<14,
+    RGY_FRAMETYPE_xIDR    = 1<<15
+};
+
+static RGY_FRAMETYPE operator|(RGY_FRAMETYPE a, RGY_FRAMETYPE b) {
+    return (RGY_FRAMETYPE)((uint32_t)a | (uint32_t)b);
+}
+
+static RGY_FRAMETYPE operator|=(RGY_FRAMETYPE& a, RGY_FRAMETYPE b) {
+    a = a | b;
+    return a;
+}
+
+static RGY_FRAMETYPE operator&(RGY_FRAMETYPE a, RGY_FRAMETYPE b) {
+    return (RGY_FRAMETYPE)((uint32_t)a & (uint32_t)b);
+}
+
+static RGY_FRAMETYPE operator&=(RGY_FRAMETYPE& a, RGY_FRAMETYPE b) {
+    a = (RGY_FRAMETYPE)((uint32_t)a & (uint32_t)b);
+    return a;
+}
 
 enum RGY_CODEC {
     RGY_CODEC_UNKNOWN = 0,

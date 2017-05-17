@@ -106,7 +106,7 @@ CQSVOutBitstream::~CQSVOutBitstream() {
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
     CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
@@ -165,7 +165,7 @@ RGY_ERR CQSVOutBitstream::WriteNextFrame(mfxBitstream *pMfxBitstream) {
         WRITE_CHECK(nBytesWritten, pMfxBitstream->DataLength);
     }
 
-    m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
+    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pMfxBitstream->FrameType), pMfxBitstream->DataLength, 0);
     pMfxBitstream->DataLength = 0;
 
     return RGY_ERR_NONE;
@@ -188,7 +188,7 @@ CQSVOutFrame::~CQSVOutFrame() {
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
     Close();
 
     if (_tcscmp(strFileName, _T("-")) == 0) {
@@ -367,6 +367,6 @@ RGY_ERR CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    m_pEncSatusInfo->SetOutputData(frameSize, (MFX_FRAMETYPE_IDR | MFX_FRAMETYPE_I));
+    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(MFX_FRAMETYPE_IDR | MFX_FRAMETYPE_I), frameSize, 0);
     return RGY_ERR_NONE;
 }

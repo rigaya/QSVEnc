@@ -1597,7 +1597,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     if (!m_hwdev) {
         return MFX_ERR_MEMORY_ALLOC;
     }
-    sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession), m_pQSVLog);
+    sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession), m_pRGYLog);
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
 #endif
     return MFX_ERR_NONE;
@@ -2435,7 +2435,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
     if (!m_pEncSatusInfo) {
-        m_pEncSatusInfo = std::make_shared<CEncodeStatusInfo>();
+        m_pEncSatusInfo = std::make_shared<EncodeStatus>();
     }
     VideoInfo inputVideo;
     memset(&inputVideo, 0, sizeof(inputVideo));
@@ -2532,8 +2532,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             inputVideo.type = RGY_INPUT_FMT_AVI;
         } else {
             m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr,
-                &m_EncThread, m_pEncSatusInfo);
+            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pEncSatusInfo);
             if (ret == RGY_ERR_INVALID_COLOR_FORMAT) {
                 //入力色空間の制限で使用できない場合はaviリーダーに切り替え再試行する
                 PrintMes(RGY_LOG_WARN, m_pFileReader->GetInputMessage());
@@ -2607,14 +2606,13 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 break;
         }
         m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr,
-            &m_EncThread, m_pEncSatusInfo);
+        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pEncSatusInfo);
     }
     if (ret != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
         return err_to_mfx(ret);
     }
-    m_pEncSatusInfo->m_nTotalOutFrames = inputVideo.frames;
+    m_pEncSatusInfo->m_sData.frameOut = inputVideo.frames;
     PrintMes(RGY_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
@@ -2645,7 +2643,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
             audioReader->SetQSVLogPtr(m_pQSVLog);
-            ret = audioReader->Init(pParams->ppAudioSourceList[i], &videoInfo, &avcodecReaderPrm, nullptr, nullptr);
+            ret = audioReader->Init(pParams->ppAudioSourceList[i], &videoInfo, &avcodecReaderPrm, nullptr);
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
                 return err_to_mfx(ret);
@@ -3108,7 +3106,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = CheckParam(pParams);
     if (sts != MFX_ERR_NONE) return sts;
 
-    sts = err_to_mfx(m_EncThread.Init(pParams->nInputBufSize));
+    sts = m_EncThread.Init(pParams->nInputBufSize);
     QSV_ERR_MES(sts, _T("Failed to allocate memory for thread control."));
 
     sts = InitSession(pParams->bUseHWLib, pParams->memType);
@@ -3442,6 +3440,51 @@ mfxStatus CQSVPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
     return MFX_ERR_NONE;
 }
 
+//この関数がMFX_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
+mfxStatus CQSVPipeline::GetNextFrame(mfxFrameSurface1 **pSurface) {
+    const int inputBufIdx = m_EncThread.m_nFrameGet % m_EncThread.m_nFrameBuffer;
+    sInputBufSys *pInputBuf = &m_EncThread.m_InputBuf[inputBufIdx];
+
+    //_ftprintf(stderr, "GetNextFrame: wait for %d\n", m_EncThread.m_nFrameGet);
+    //_ftprintf(stderr, "wait for heInputDone, %d\n", m_EncThread.m_nFrameGet);
+    PrintMes(RGY_LOG_TRACE, _T("Enc Thread: Wait Done %d.\n"), m_EncThread.m_nFrameGet);
+    WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
+    //エラー・中断要求などでの終了
+    if (m_EncThread.m_bthForceAbort) {
+        PrintMes(RGY_LOG_DEBUG, _T("GetNextFrame: Encode Aborted...\n"));
+        return m_EncThread.m_stsThread;
+    }
+    //読み込み完了による終了
+    if (m_EncThread.m_stsThread == RGY_ERR_MORE_DATA && m_EncThread.m_nFrameGet == m_pEncSatusInfo->m_sData.frameIn) {
+        PrintMes(RGY_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
+        return m_EncThread.m_stsThread;
+    }
+    //フレーム読み込みでない場合は、フレーム関連の処理は行わない
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+        *pSurface = (mfxFrameSurface1 *)pInputBuf->pFrameSurface;
+        (*pSurface)->Data.TimeStamp = inputBufIdx;
+        (*pSurface)->Data.Locked = FALSE;
+        m_EncThread.m_nFrameGet++;
+    }
+    return MFX_ERR_NONE;
+}
+
+mfxStatus CQSVPipeline::SetNextSurface(mfxFrameSurface1 *pSurface) {
+    const int inputBufIdx = m_EncThread.m_nFrameSet % m_EncThread.m_nFrameBuffer;
+    sInputBufSys *pInputBuf = &m_EncThread.m_InputBuf[inputBufIdx];
+    //フレーム読み込みでない場合は、フレーム関連の処理は行わない
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+        //_ftprintf(stderr, "Set heInputStart: %d\n", m_EncThread.m_nFrameSet);
+        pSurface->Data.Locked = TRUE;
+        //_ftprintf(stderr, "set surface %d, set event heInputStart %d\n", pSurface, m_EncThread.m_nFrameSet);
+        pInputBuf->pFrameSurface = (RGYFrame *)pSurface;
+    }
+    SetEvent(pInputBuf->heInputStart);
+    PrintMes(RGY_LOG_TRACE, _T("Enc Thread: Set Start %d.\n"), m_EncThread.m_nFrameSet);
+    m_EncThread.m_nFrameSet++;
+    return MFX_ERR_NONE;
+}
+
 mfxStatus CQSVPipeline::GetFreeTask(QSVTask **ppTask) {
     mfxStatus sts = MFX_ERR_NONE;
 
@@ -3485,7 +3528,7 @@ mfxStatus CQSVPipeline::CheckSceneChange() {
         pInputBuf = &pArrayInputBuf[i_frames % bufferSize];
         WaitForSingleObject(pInputBuf->heSubStart, INFINITE);
 
-        m_EncThread.m_bthSubAbort |= ((m_EncThread.m_stsThread == MFX_ERR_MORE_DATA && i_frames == m_pEncSatusInfo->m_nInputFrames));
+        m_EncThread.m_bthSubAbort |= ((m_EncThread.m_stsThread == MFX_ERR_MORE_DATA && i_frames == m_pEncSatusInfo->m_sData.frameIn));
 
         if (!m_EncThread.m_bthSubAbort) {
             //フレームタイプとQP値の決定
@@ -3527,13 +3570,13 @@ mfxStatus CQSVPipeline::Run() {
 }
 
 mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
-    RGY_ERR ret = RGY_ERR_NONE;
+    mfxStatus sts = MFX_ERR_NONE;
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
-    ret = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
-    RGY_ERR_MES(ret, _T("Failed to start encode thread."));
+    sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
+    QSV_ERR_MES(sts, _T("Failed to start encode thread."));
     if (m_SceneChange.isInitialized()) {
-        ret = m_EncThread.RunSubFuncbyThread(&RunSubThreadLauncher, this, SubThreadAffinityMask);
-        RGY_ERR_MES(ret, _T("Failed to start encode sub thread."));
+        sts = m_EncThread.RunSubFuncbyThread(&RunSubThreadLauncher, this, SubThreadAffinityMask);
+        QSV_ERR_MES(sts, _T("Failed to start encode sub thread."));
     }
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
 
@@ -3560,7 +3603,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     sInputBufSys *pArrayInputBuf = m_EncThread.m_InputBuf;
     sInputBufSys *pInputBuf;
     //入力ループ
-    for (int i = 0; ret == RGY_ERR_NONE; i++) {
+    for (int i = 0; sts == MFX_ERR_NONE; i++) {
         pInputBuf = &pArrayInputBuf[i % bufferSize];
 
         //空いているフレームがセットされるのを待機
@@ -3569,52 +3612,47 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
             //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
             if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
                 PrintMes(RGY_LOG_ERROR, _T("error at encode thread.\n"));
-                ret = RGY_ERR_INVALID_HANDLE;
+                sts = MFX_ERR_INVALID_HANDLE;
                 break;
             }
             if (m_SceneChange.isInitialized()
                 && !CheckThreadAlive(m_EncThread.GetHandleSubThread())) {
                     PrintMes(RGY_LOG_ERROR, _T("error at sub thread.\n"));
-                    ret = RGY_ERR_INVALID_HANDLE;
+                    sts = MFX_ERR_INVALID_HANDLE;
                     break;
             }
         }
 
         //フレームを読み込み
         PrintMes(RGY_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
-        if (ret == MFX_ERR_NONE) {
-            ret = m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface);
+        if (sts == MFX_ERR_NONE) {
+            sts = err_to_mfx(m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface));
         }
         if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
             PrintMes(RGY_LOG_INFO, _T("                                                                              \r"));
-            ret = RGY_ERR_ABORTED;
-        } else if (ret == RGY_ERR_MORE_DATA) {
-            m_EncThread.m_stsThread = ret;
+            sts = MFX_ERR_ABORTED;
+        } else if (sts == RGY_ERR_MORE_DATA) {
+            m_EncThread.m_stsThread = sts;
         }
 
         //フレームの読み込み終了を通知
         SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
         PrintMes(RGY_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
     }
-    m_EncThread.WaitToFinish(ret, m_pQSVLog);
+    m_EncThread.WaitToFinish(sts, m_pQSVLog);
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
 
-    ret = (std::min)(ret, m_EncThread.m_stsThread);
-    if (ret == MFX_ERR_MORE_DATA) ret = RGY_ERR_NONE;
+    sts = (std::min)(sts, m_EncThread.m_stsThread);
+    QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
 
     m_EncThread.Close();
 
     //ここでファイル出力の完了を確認してから、結果表示(m_pEncSatusInfo->WriteResults)を行う
     m_pFileWriter->WaitFin();
-
-    sFrameTypeInfo info = { 0 };
-    if (m_nExPrm & MFX_PRM_EX_VQP) {
-        m_frameTypeSim.getFrameInfo(&info);
-    }
-    m_pEncSatusInfo->WriteResults((m_nExPrm & MFX_PRM_EX_VQP) ? &info : NULL);
+    m_pEncSatusInfo->WriteResults();
     
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
-    return err_to_mfx(ret);
+    return sts;
 }
 
 mfxStatus CQSVPipeline::RunEncode() {
@@ -3779,7 +3817,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     break;
         }
         //空いているフレームを読み込み側に渡し、該当フレームの読み込み開始イベントをSetする(pInputBuf->heInputStart)
-        m_pFileReader->SetNextSurface((RGYFrame *)pSurfInputBuf);
+        SetNextSurface(pSurfInputBuf);
     }
         return sts_set_buffer;
     };
@@ -4198,9 +4236,8 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //}
                 //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
                 //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-                auto ret = m_pFileReader->GetNextFrame((RGYFrame **)&pNextFrame);
-                if (ret != RGY_ERR_NONE) {
-                    sts = err_to_mfx(ret);
+                sts = GetNextFrame(&pNextFrame);
+                if (sts != MFX_ERR_NONE) {
                     break;
                 }
                 
@@ -4219,9 +4256,9 @@ mfxStatus CQSVPipeline::RunEncode() {
                 }
 
                 //空いているフレームを読み込み側に渡す
-                m_pFileReader->SetNextSurface((RGYFrame *)pSurfInputBuf);
+                SetNextSurface(pSurfInputBuf);
 
-                ret = extract_audio();
+                auto ret = extract_audio();
                 if (ret != RGY_ERR_NONE) {
                     sts = err_to_mfx(ret);
                     break;
@@ -4277,7 +4314,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     //MFX_ERR_MORE_DATA/MFX_ERR_MORE_BITSTREAMは入力が終了したことを示す
     QSV_IGNORE_STS(sts, (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) ? MFX_ERR_MORE_BITSTREAM : MFX_ERR_MORE_DATA);
     //エラーチェック
-    m_EncThread.m_stsThread = err_to_rgy(sts);
+    m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in encoding pipeline."));
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished main loop.\n"));
 
@@ -4363,7 +4400,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //MFX_ERR_MORE_DATAはデコーダにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
         //エラーチェック
-        m_EncThread.m_stsThread = err_to_rgy(sts);
+        m_EncThread.m_stsThread = sts;
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from decoder."));
         PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
     }
@@ -4442,7 +4479,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //MFX_ERR_MORE_DATAはcheck_ptsにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
         // exit in case of other errors
-        m_EncThread.m_stsThread = err_to_rgy(sts);
+        m_EncThread.m_stsThread = sts;
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from avsync buffer."));
         PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from avsync buffer.\n"));
     }
@@ -4521,7 +4558,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         //MFX_ERR_MORE_DATAはvppにもうflushするべきフレームがないことを示す
         QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
         //エラーチェック
-        m_EncThread.m_stsThread = err_to_rgy(sts);
+        m_EncThread.m_stsThread = sts;
         QSV_ERR_MES(sts, _T("Error in getting buffered frames from vpp."));
         PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from vpp.\n"));
     }
@@ -4544,7 +4581,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     //MFX_ERR_MORE_DATAはencにもうflushするべきフレームがないことを示す
     QSV_IGNORE_STS(sts, MFX_ERR_MORE_DATA);
     //エラーチェック
-    m_EncThread.m_stsThread = err_to_rgy(sts);
+    m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in getting buffered frames from encoder."));
 
     //タスクプールのすべてのタスクの終了を確認
@@ -4555,7 +4592,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     // MFX_ERR_NOT_FOUNDは、正しい終了ステータス
     QSV_IGNORE_STS(sts, MFX_ERR_NOT_FOUND);
     //エラーチェック
-    m_EncThread.m_stsThread = err_to_rgy(sts);
+    m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in encoding pipeline, synchronizing pipeline."));
     
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished.\n"));
@@ -4600,14 +4637,14 @@ MemType CQSVPipeline::GetMemType() {
     return m_memType;
 }
 
-mfxStatus CQSVPipeline::GetEncodeStatusData(sEncodeStatusData *data) {
+mfxStatus CQSVPipeline::GetEncodeStatusData(EncodeStatusData *data) {
     if (NULL == data)
         return MFX_ERR_NULL_PTR;
 
     if (NULL == m_pEncSatusInfo)
         return MFX_ERR_NOT_INITIALIZED;
 
-    m_pEncSatusInfo->GetEncodeData(data);
+    *data = m_pEncSatusInfo->GetEncodeData();
     return MFX_ERR_NONE;
 }
 

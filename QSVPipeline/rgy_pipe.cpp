@@ -30,8 +30,8 @@
 #include <fcntl.h>
 #include <io.h>
 #include <cstring>
-#include "qsv_pipe.h"
-#include "qsv_util.h"
+#include "rgy_pipe.h"
+#include "rgy_util.h"
 
 CPipeProcessWin::CPipeProcessWin() {
     memset(&m_pi, 0, sizeof(m_pi));

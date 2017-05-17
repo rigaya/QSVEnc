@@ -51,7 +51,7 @@
 typedef void * HANDLE;
 #endif
 
-class CEncodeStatusInfo;
+class EncodeStatus;
 
 enum : int {
     PERF_MONITOR_CPU           = 0x00000001,
@@ -225,7 +225,7 @@ public:
         std::shared_ptr<RGYLog> pQSVLog);
     ~CPerfMonitor();
 
-    void SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus);
+    void SetEncStatus(std::shared_ptr<EncodeStatus> encStatus);
     void SetThreadHandles(HANDLE thEncThread, HANDLE thInThread, HANDLE thOutThread, HANDLE thAudProcThread, HANDLE thAudEncThread);
     PerfQueueInfo *GetQueueInfoPtr() {
         return &m_QueueInfo;
@@ -261,7 +261,7 @@ protected:
     HANDLE m_thAudProcThread;
     HANDLE m_thAudEncThread;
     int m_nLogicalCPU;
-    std::shared_ptr<CEncodeStatusInfo> m_pEncStatus;
+    std::shared_ptr<EncodeStatus> m_pEncStatus;
     int64_t m_nEncStartTime;
     int64_t m_nOutputFPSRate;
     int64_t m_nOutputFPSScale;

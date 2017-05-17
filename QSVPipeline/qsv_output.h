@@ -52,7 +52,7 @@ public:
     virtual void SetQSVLogPtr(shared_ptr<RGYLog> pQSVLog) {
         m_pPrintMes = pQSVLog;
     }
-    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) = 0;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
 
     virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) = 0;
 
@@ -101,7 +101,7 @@ public:
         AddMessage(log_level, buffer);
     }
 protected:
-    shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
+    shared_ptr<EncodeStatus> m_pEncSatusInfo;
     unique_ptr<FILE, fp_deleter>  m_fDest;
     bool        m_bOutputIsStdout;
     bool        m_bInited;
@@ -128,7 +128,7 @@ public:
     CQSVOutBitstream();
     virtual ~CQSVOutBitstream();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
 
     virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
 
@@ -148,7 +148,7 @@ public:
     CQSVOutFrame();
     virtual ~CQSVOutFrame();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
 
     virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
     virtual RGY_ERR WriteNextFrame(mfxBitstream *pMfxBitstream) override;

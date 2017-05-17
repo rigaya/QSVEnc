@@ -1159,7 +1159,7 @@ RGY_ERR CAvcodecWriter::SetChapters(const vector<const AVChapter *>& pChapterLis
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CAvcodecWriter::Init(const TCHAR *strFileName, const void *option, shared_ptr<EncodeStatus> pEncSatusInfo) {
     m_Mux.format.bStreamError = true;
     AvcodecWriterPrm *prm = (AvcodecWriterPrm *)option;
 
@@ -1815,7 +1815,7 @@ RGY_ERR CAvcodecWriter::WriteNextFrameInternal(mfxBitstream *pMfxBitstream, int6
             _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7d\n"), pFrameTypeStr, (lls)pMfxBitstream->TimeStamp, (lls)pMfxBitstream->DecodeTimeStamp, (lls)pts, (lls)dts, (int)duration, bytesToWrite);
         }
     }
-    m_pEncSatusInfo->SetOutputData(pMfxBitstream->DataLength, pMfxBitstream->FrameType);
+    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pMfxBitstream->FrameType), pMfxBitstream->DataLength, 0);
 #if ENABLE_AVCODEC_OUT_THREAD
     //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
     if (m_Mux.thread.thOutput.joinable() && m_Mux.format.bFileHeaderWritten) {

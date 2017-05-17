@@ -40,7 +40,7 @@ public :
     virtual ~AUO_YUVReader();
 
     virtual void Close() override;
-    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<EncodeStatus> pEncSatusInfo, sInputCrop *pInputCrop) override;
     virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
 
 private:
@@ -51,7 +51,7 @@ typedef struct AuoStatusData {
     const OUTPUT_INFO *oip;
 };
 
-class AUO_EncodeStatusInfo : public CEncodeStatusInfo
+class AUO_EncodeStatusInfo : public EncodeStatus
 {
 public :
     AUO_EncodeStatusInfo();

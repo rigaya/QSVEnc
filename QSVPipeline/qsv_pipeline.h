@@ -105,7 +105,7 @@ public:
 
     virtual void SetAbortFlagPointer(bool *abort);
 
-    virtual mfxStatus GetEncodeStatusData(sEncodeStatusData *data);
+    virtual mfxStatus GetEncodeStatusData(EncodeStatusData *data);
     virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
     virtual const TCHAR *GetInputMessage();
     virtual MemType GetMemType();
@@ -120,7 +120,7 @@ public:
     bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
 protected:
     mfxVersion m_mfxVer;
-    shared_ptr<CEncodeStatusInfo> m_pEncSatusInfo;
+    shared_ptr<EncodeStatus> m_pEncSatusInfo;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
     CEncodingThread m_EncThread;
 
@@ -204,6 +204,9 @@ protected:
     mfxFrameAllocResponse m_EncResponse;  //enc用 memory allocation response
     mfxFrameAllocResponse m_VppResponse;  //vpp用 memory allocation response
     mfxFrameAllocResponse m_DecResponse;  //dec用 memory allocation response
+
+    mfxStatus GetNextFrame(mfxFrameSurface1 **pSurface);
+    mfxStatus SetNextSurface(mfxFrameSurface1 *pSurface);
 
     // for disabling VPP algorithms
     //mfxExtVPPDoNotUse m_VppDoNotUse;

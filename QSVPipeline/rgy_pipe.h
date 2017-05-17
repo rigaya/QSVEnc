@@ -31,8 +31,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
-#include "qsv_osdep.h"
-#include "qsv_tchar.h"
+#include "rgy_osdep.h"
+#include "rgy_tchar.h"
 
 enum PipeMode {
     PIPE_MODE_DISABLE = 0,

@@ -55,12 +55,11 @@ CAVIReader::~CAVIReader() {
     Close();
 }
 
-RGY_ERR CAVIReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CAVIReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
     UNREFERENCED_PARAMETER(prm);
 
     Close();
 
-    m_pEncThread = pEncThread;
     m_pEncSatusInfo = pEncSatusInfo;
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
     
@@ -196,16 +195,16 @@ void CAVIReader::Close() {
 }
 
 RGY_ERR CAVIReader::LoadNextFrame(RGYFrame *pSurface) {
-    if ((int)m_pEncSatusInfo->m_nInputFrames >= m_inputVideoInfo.frames
+    if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく
-        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_nInputFrames - TRIM_OVERREAD_FRAMES) {
+        || getVideoTrimMaxFramIdx() < (int)m_pEncSatusInfo->m_sData.frameIn - TRIM_OVERREAD_FRAMES) {
         return RGY_ERR_MORE_DATA;
     }
 
     uint8_t *ptr_src = nullptr;
     if (m_pGetFrame) {
-        if (nullptr == (ptr_src = (uint8_t *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_nInputFrames))) {
+        if (nullptr == (ptr_src = (uint8_t *)AVIStreamGetFrame(m_pGetFrame, m_pEncSatusInfo->m_sData.frameIn))) {
             return RGY_ERR_MORE_DATA;
         }
         ptr_src += sizeof(BITMAPINFOHEADER);
@@ -220,7 +219,7 @@ RGY_ERR CAVIReader::LoadNextFrame(RGYFrame *pSurface) {
             m_nBufSize = required_bufsize;
         }
         LONG sizeRead = 0;
-        if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_nInputFrames, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
+        if (0 != AVIStreamRead(m_pAviStream, m_pEncSatusInfo->m_sData.frameIn, 1, m_pBuffer.get(), (LONG)m_nBufSize, &sizeRead, NULL))
             return RGY_ERR_MORE_DATA;
         ptr_src = m_pBuffer.get();
     }
@@ -237,9 +236,9 @@ RGY_ERR CAVIReader::LoadNextFrame(RGYFrame *pSurface) {
         m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcWidth * m_nYPitchMultiplizer, m_inputVideoInfo.srcWidth/2, pSurface->pitch(),
         m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
 
-    m_pEncSatusInfo->m_nInputFrames++;
+    m_pEncSatusInfo->m_sData.frameIn++;
     // display update
-    return m_pEncSatusInfo->UpdateDisplay(0);
+    return m_pEncSatusInfo->UpdateDisplay();
 }
 
 #endif //ENABLE_AVI_READER

@@ -143,7 +143,7 @@ AUO_YUVReader::AUO_YUVReader() {
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-RGY_ERR AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo, sInputCrop *pInputCrop) {
+RGY_ERR AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<EncodeStatus> pEncSatusInfo, sInputCrop *pInputCrop) {
 
     Close();
 
@@ -297,5 +297,5 @@ RGY_ERR AUO_EncodeStatusInfo::UpdateDisplay(int drop_frames, double progressPerc
         }
         m_tmLastLogUpdate = tm;
     }
-    return CEncodeStatusInfo::UpdateDisplay(drop_frames, progressPercent);
+    return EncodeStatus::UpdateDisplay(drop_frames, progressPercent);
 }

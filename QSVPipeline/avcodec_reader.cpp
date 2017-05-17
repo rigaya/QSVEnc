@@ -587,7 +587,7 @@ RGY_ERR CAvcodecReader::getFirstFramePosAndFrameRate(const sTrim *pTrimList, int
 
 #pragma warning(push)
 #pragma warning(disable:4100)
-RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, CEncodingThread *pEncThread, shared_ptr<CEncodeStatusInfo> pEncSatusInfo) {
+RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
 
     Close();
 
@@ -604,7 +604,6 @@ RGY_ERR CAvcodecReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, co
     m_Demux.video.bReadVideo = input_prm->bReadVideo;
     m_Demux.thread.pQueueInfo = input_prm->pQueueInfo;
     if (input_prm->bReadVideo) {
-        m_pEncThread = pEncThread;
         m_pEncSatusInfo = pEncSatusInfo;
         memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
     } else {
@@ -1756,12 +1755,12 @@ RGY_ERR CAvcodecReader::LoadNextFrame(RGYFrame *pSurface) {
         }
     }
     //進捗表示
-    m_pEncSatusInfo->m_nInputFrames++;
+    m_pEncSatusInfo->m_sData.frameIn++;
     double progressPercent = 0.0;
     if (m_Demux.format.pFormatCtx->duration) {
         progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
     }
-    return m_pEncSatusInfo->UpdateDisplay(0, progressPercent);
+    return m_pEncSatusInfo->UpdateDisplay(progressPercent);
 }
 #pragma warning(pop)
 

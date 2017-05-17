@@ -37,7 +37,7 @@
 #include "rgy_perf_monitor.h"
 #include "cpu_info.h"
 #include "rgy_osdep.h"
-#include "qsv_util.h"
+#include "rgy_util.h"
 #include "gpuz_info.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <psapi.h>
@@ -435,11 +435,11 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
 #else
         int ret = 0;
         if (0 > (ret = system((sPythonPath + " --version > /dev/null 2>&1").c_str()))) {
-            m_pQSVLog->write(RGY_LOG_WARN, _T("Failed to run \"%s\". \n")
+            m_pRGYLog->write(RGY_LOG_WARN, _T("Failed to run \"%s\". \n")
                 _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
             m_nSelectOutputPlot = 0;
         } else if (0 > (ret = system((sPythonPath + " -c \"print 'test'\" > /dev/null 2>&1").c_str())) || WEXITSTATUS(ret) == 0) {
-            m_pQSVLog->write(RGY_LOG_WARN, _T("\"%s\" is not python3.x.\n")
+            m_pRGYLog->write(RGY_LOG_WARN, _T("\"%s\" is not python3.x.\n")
                     _T("--perf-monitor-plot requires python3.x, please set python3 path by \"--python\".\n"), sPythonPath.c_str());
             m_nSelectOutputPlot = 0;
         }
@@ -499,10 +499,11 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     return 0;
 }
 
-void CPerfMonitor::SetEncStatus(std::shared_ptr<CEncodeStatusInfo> encStatus) {
+void CPerfMonitor::SetEncStatus(std::shared_ptr<EncodeStatus> encStatus) {
     m_pEncStatus = encStatus;
-    m_nOutputFPSScale = encStatus->m_nOutputFPSScale;
-    m_nOutputFPSRate = encStatus->m_nOutputFPSRate;
+    EncodeStatusData data = m_pEncStatus->GetEncodeData();
+    m_nOutputFPSScale = data.outputFPSScale;
+    m_nOutputFPSRate = data.outputFPSRate;
 }
 
 void CPerfMonitor::SetThreadHandles(HANDLE thEncThread, HANDLE thInThread, HANDLE thOutThread, HANDLE thAudProcThread, HANDLE thAudEncThread) {
@@ -719,11 +720,10 @@ void CPerfMonitor::check() {
     pInfoNew->frames_out_byte = 0;
     pInfoNew->fps = 0.0;
     if (m_bEncStarted && m_pEncStatus) {
-        sEncodeStatusData data = { 0 };
-        m_pEncStatus->GetEncodeData(&data);
+        EncodeStatusData data = m_pEncStatus->GetEncodeData();
 
         //fps情報
-        pInfoNew->frames_out = data.nProcessedFramesNum;
+        pInfoNew->frames_out = data.frameTotal;
         if (pInfoNew->frames_out > pInfoOld->frames_out) {
             pInfoNew->fps_avg = pInfoNew->frames_out / (double)(current_time / 10 - m_nEncStartTime) * 1e6;
             if (pInfoNew->time_us > pInfoOld->time_us) {
@@ -734,7 +734,7 @@ void CPerfMonitor::check() {
             double videoSec     = pInfoNew->frames_out * m_nOutputFPSScale / (double)m_nOutputFPSRate;
             double videoSecDiff = (pInfoNew->frames_out - pInfoOld->frames_out) * m_nOutputFPSScale / (double)m_nOutputFPSRate;
 
-            pInfoNew->frames_out_byte = data.nWrittenBytes;
+            pInfoNew->frames_out_byte = data.outFileSize;
             pInfoNew->bitrate_kbps_avg =  pInfoNew->frames_out_byte * 8.0 / videoSec * 1e-3;
             if (pInfoNew->time_us > pInfoOld->time_us) {
                 pInfoNew->bitrate_kbps     = (pInfoNew->frames_out_byte - pInfoOld->frames_out_byte) * 8.0 / videoSecDiff * 1e-3;

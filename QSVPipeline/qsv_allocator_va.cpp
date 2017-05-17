@@ -67,7 +67,7 @@ mfxStatus QSVAllocatorVA::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> p
     if ((NULL == p_vaapiParams) || (NULL == p_vaapiParams->m_dpy)) {
         return MFX_ERR_NOT_INITIALIZED;
     }
-    m_pQSVLog = pQSVLog;
+    m_pRGYLog = pQSVLog;
     m_dpy = p_vaapiParams->m_dpy;
     return MFX_ERR_NONE;
 }

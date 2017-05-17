@@ -340,4 +340,17 @@ static inline RGYFrame RGYFrameInit() {
 static_assert(sizeof(RGYFrame) == sizeof(mfxFrameSurface1), "RGYFrame size should equal to mfxFrameSurface1 size.");
 static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
 
+static inline RGY_FRAMETYPE frametype_enc_to_rgy(const mfxU16 frametype) {
+    RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_IDR  & frametype) ? RGY_FRAMETYPE_IDR : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_I    & frametype) ? RGY_FRAMETYPE_I   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_P    & frametype) ? RGY_FRAMETYPE_P   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_B    & frametype) ? RGY_FRAMETYPE_B   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xIDR & frametype) ? RGY_FRAMETYPE_xIDR : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xI   & frametype) ? RGY_FRAMETYPE_xI   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xP   & frametype) ? RGY_FRAMETYPE_xP   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xB   & frametype) ? RGY_FRAMETYPE_xB   : RGY_FRAMETYPE_UNKNOWN;
+    return type;
+}
+
 #endif //_QSV_UTIL_H_

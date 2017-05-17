@@ -70,9 +70,9 @@ public:
     CQSVHWVADeviceDRM(){}
     virtual ~CQSVHWVADeviceDRM(void) {}
 
-    virtual mfxStatus Init(mfxHDL hWindow, mfxU32 nAdapterNum, shared_ptr<RGYLog> pQSVLog) override { m_pQSVLog = pQSVLog; return MFX_ERR_NONE; }
+    virtual mfxStatus Init(mfxHDL hWindow, mfxU32 nAdapterNum, shared_ptr<RGYLog> pQSVLog) override { m_pRGYLog = pQSVLog; return MFX_ERR_NONE; }
     virtual mfxStatus Reset(void) override { return MFX_ERR_NONE; }
-    virtual void Close(void) override { m_pQSVLog.reset(); }
+    virtual void Close(void) override { m_pRGYLog.reset(); }
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override {
         if ((MFX_HANDLE_VA_DISPLAY == type) && (nullptr != pHdl)) {
             *pHdl = m_DRMLibVA.GetVADisplay();

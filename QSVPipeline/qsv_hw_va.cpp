@@ -306,7 +306,7 @@ CQSVHWVADeviceX11::~CQSVHWVADeviceX11(void) {
 
 mfxStatus CQSVHWVADeviceX11::Init(mfxHDL hWindow, mfxU32 nAdapterNum, shared_ptr<RGYLog> pQSVLog) {
     mfxStatus mfx_res = MFX_ERR_NONE;
-    m_pQSVLog = pQSVLog;
+    m_pRGYLog = pQSVLog;
     Window* window = NULL;
     return mfx_res;
 }
@@ -320,7 +320,7 @@ void CQSVHWVADeviceX11::Close() {
         free(m_window);
         m_window = NULL;
     }
-    m_pQSVLog.reset();
+    m_pRGYLog.reset();
 }
 
 mfxStatus CQSVHWVADeviceX11::Reset() {

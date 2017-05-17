@@ -3547,7 +3547,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             }
         }
 
-        sEncodeStatusData data = { 0 };
+        EncodeStatusData data = { 0 };
         sts = pPipeline->GetEncodeStatusData(&data);
 
         pPipeline->Close();
@@ -3612,7 +3612,7 @@ mfxStatus run_benchmark(sInputParams *params) {
                 }
             }
 
-            sEncodeStatusData data = { 0 };
+            EncodeStatusData data = { 0 };
             sts = pPipeline->GetEncodeStatusData(&data);
 
             pPipeline->Close();
@@ -3620,9 +3620,9 @@ mfxStatus run_benchmark(sInputParams *params) {
             benchmark_t result;
             result.resolution      = resolution;
             result.targetUsage     = (mfxU16)list_target_quality[i].value;
-            result.fps             = data.fEncodeFps;
-            result.bitrate         = data.fBitrateKbps;
-            result.cpuUsagePercent = data.fCPUUsagePercent;
+            result.fps             = data.encodeFps;
+            result.bitrate         = data.bitrateKbps;
+            result.cpuUsagePercent = data.CPUUsagePercent;
             benchmark_per_target_usage.push_back(result);
 
             _ftprintf(stderr, _T("\n"));
