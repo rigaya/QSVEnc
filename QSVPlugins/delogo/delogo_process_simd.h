@@ -39,7 +39,7 @@
 #if USE_AVX
 #include <immintrin.h>
 #endif
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 
 #if USE_AVX2
 #define MEM_ALIGN 32

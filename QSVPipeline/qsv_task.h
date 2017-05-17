@@ -49,7 +49,7 @@
 #include "cpu_info.h"
 #include "gpuz_info.h"
 #include "qsv_allocator.h"
-#include "qsv_thread.h"
+#include "rgy_thread.h"
 #include "qsv_control.h"
 
 static inline int GetFreeSurface(mfxFrameSurface1 *pSurfacesPool, int nPoolSize) {

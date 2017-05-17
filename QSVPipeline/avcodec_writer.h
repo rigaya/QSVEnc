@@ -27,7 +27,7 @@
 #ifndef _AVCODEC_WRITER_H_
 #define _AVCODEC_WRITER_H_
 
-#include "qsv_queue.h"
+#include "rgy_queue.h"
 
 #if ENABLE_AVCODEC_QSV_READER
 #include <thread>

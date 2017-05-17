@@ -37,7 +37,7 @@
 #include <condition_variable>
 
 #include "cpu_info.h"
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include "ram_speed.h"
 
 typedef struct {

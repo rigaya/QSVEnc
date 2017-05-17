@@ -26,7 +26,7 @@
 // --------------------------------------------------------------------------------------------
 
 #if !(defined(_WIN32) || defined(_WIN64))
-#include "qsv_event.h"
+#include "rgy_event.h"
 
 #include <thread>
 #include <mutex>

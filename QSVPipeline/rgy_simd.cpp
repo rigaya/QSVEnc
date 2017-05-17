@@ -30,7 +30,7 @@
 #if _MSC_VER
 #include <intrin.h>
 #endif //_MSC_VER
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 
 unsigned int get_availableSIMD() {
     int CPUInfo[4];

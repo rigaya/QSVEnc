@@ -32,7 +32,7 @@
 #include "rgy_osdep.h"
 #include "rgy_tchar.h"
 #include "rgy_log.h"
-#include "qsv_event.h"
+#include "rgy_event.h"
 #include "rgy_status.h"
 #include "convert_csp.h"
 #include "rgy_err.h"

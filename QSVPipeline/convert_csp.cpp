@@ -29,7 +29,7 @@
 #include "rgy_tchar.h"
 #include <vector>
 #include "mfxstructures.h"
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include "qsv_version.h"
 #include "convert_csp.h"
 #include "rgy_osdep.h"

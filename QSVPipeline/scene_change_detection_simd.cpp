@@ -26,7 +26,7 @@
 // -------------------------------------------------------------------------------------------
 
 #include <cstdint>
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include "scene_change_detection.h"
 #include "scene_change_detection_simd.h"
 

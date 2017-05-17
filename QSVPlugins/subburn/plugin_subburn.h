@@ -36,7 +36,7 @@
 #include "qsv_version.h"
 
 #include "qsv_prm.h"
-#include "qsv_queue.h"
+#include "rgy_queue.h"
 #include "../base/plugin_base.h"
 
 #if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN

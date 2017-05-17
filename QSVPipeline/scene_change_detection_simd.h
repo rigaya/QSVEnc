@@ -31,7 +31,7 @@
 #include <smmintrin.h> //SSE4.1
 #include <nmmintrin.h> //SSE4.2
 #include <cstdint>
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include "scene_change_detection.h"
 
 void make_hist_sse2(const uint8_t *frame_Y, hist_t *hist_buf, int y_start, int y_end, int y_step, int x_skip, int width, int pitch);

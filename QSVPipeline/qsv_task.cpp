@@ -31,7 +31,7 @@
 #include <mfxvideo++.h>
 #include <emmintrin.h>
 #include "rgy_osdep.h"
-#include "qsv_event.h"
+#include "rgy_event.h"
 #include "rgy_log.h"
 #include "qsv_output.h"
 

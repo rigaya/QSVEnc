@@ -34,9 +34,9 @@
 #include <iostream>
 #include "qsv_util.h"
 #include "qsv_query.h"
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include "rgy_osdep.h"
-#include "qsv_ini.h"
+#include "rgy_ini.h"
 #include "rgy_log.h"
 #include "plugin_subburn.h"
 #include "subburn_process.h"

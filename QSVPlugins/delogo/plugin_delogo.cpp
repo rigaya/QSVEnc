@@ -32,9 +32,9 @@
 #include "qsv_util.h"
 #include "plugin_delogo.h"
 #include "delogo_process.h"
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include "rgy_osdep.h"
-#include "qsv_ini.h"
+#include "rgy_ini.h"
 
 // disable "unreferenced formal parameter" warning -
 // not all formal parameters of interface functions will be used by sample plugin

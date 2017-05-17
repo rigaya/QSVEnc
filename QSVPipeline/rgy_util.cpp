@@ -1158,7 +1158,7 @@ const TCHAR *MemTypeToStr(uint32_t memType) {
     }
 }
 
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include <immintrin.h>
 
 QSV_NOINLINE int qsv_avx_dummy_if_avail(int bAVXAvail) {

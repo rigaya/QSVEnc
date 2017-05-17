@@ -31,7 +31,7 @@
 #define USE_AVX   1
 #define USE_AVX2  1
 
-#include "qsv_simd.h"
+#include "rgy_simd.h"
 #include <stdint.h>
 #include <string.h>
 #include <immintrin.h>

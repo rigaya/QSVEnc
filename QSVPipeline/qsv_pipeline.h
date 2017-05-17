@@ -32,8 +32,8 @@
 #include "rgy_osdep.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
-#include "qsv_thread.h"
-#include "qsv_event.h"
+#include "rgy_thread.h"
+#include "rgy_event.h"
 #include "rgy_log.h"
 
 #include "qsv_hw_device.h"

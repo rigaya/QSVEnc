@@ -36,7 +36,7 @@
 #include <nmmintrin.h> //SSE4.2
 #include "scene_change_detection.h"
 #include "cpu_info.h"
-#include "qsv_event.h"
+#include "rgy_event.h"
 
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Warray-bounds"

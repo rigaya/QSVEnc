@@ -33,7 +33,7 @@
 #include <climits>
 #include <memory>
 #include "qsv_plugin.h"
-#include "qsv_thread.h"
+#include "rgy_thread.h"
 #include "avcodec_reader.h"
 #include "avcodec_qsv_log.h"
 

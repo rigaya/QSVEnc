@@ -34,7 +34,7 @@
 #include <climits>
 #include <memory>
 #include "rgy_osdep.h"
-#include "qsv_event.h"
+#include "rgy_event.h"
 
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
