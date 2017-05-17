@@ -25,6 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#pragma once
 #ifndef __RGY_LOG_H__
 #define __RGY_LOG_H__
 
@@ -32,7 +33,7 @@
 #include <thread>
 #include <mutex>
 #include "rgy_tchar.h"
-#include "qsv_prm.h"
+#include "rgy_util.h"
 
 class RGYLog {
 protected:

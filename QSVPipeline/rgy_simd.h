@@ -25,8 +25,8 @@
 //
 // -------------------------------------------------------------------------------------------
 
-#ifndef _QSV_SIMD_H_
-#define _QSV_SIMD_H_
+#ifndef __RGY_SIMD_H__
+#define __RGY_SIMD_H__
 
 #ifndef _MSC_VER
 #ifndef __forceinline
@@ -51,4 +51,4 @@ enum {
 
 unsigned int get_availableSIMD();
 
-#endif //_QSV_SIMD_H_
+#endif //__RGY_SIMD_H__

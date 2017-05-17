@@ -294,16 +294,6 @@ static tstring fourccToStr(mfxU32 nFourCC) {
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
 
-typedef struct CX_DESC {
-    const TCHAR *desc;
-    int value;
-} CX_DESC;
-
-typedef struct FEATURE_DESC {
-    const TCHAR *desc;
-    uint64_t value;
-} FEATURE_DESC;
-
 static const int QSV_TIMEBASE = 90000;
 
 #define INIT_MFX_EXT_BUFFER(x, id) { QSV_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
@@ -332,7 +322,7 @@ const TCHAR *get_err_mes(int sts);
 
 const TCHAR *get_low_power_str(mfxU16 LowPower);
 
-static void QSV_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
+static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
     uint8_t *dst_fin = dst + size;
     uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)dst_fin & ~15) - 64);
     __m128 x0, x1, x2, x3;
@@ -488,6 +478,30 @@ typedef union sInputCrop {
 static inline bool cropEnabled(const sInputCrop& crop) {
     return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
 }
+
+typedef struct CX_DESC {
+    const TCHAR *desc;
+    int value;
+} CX_DESC;
+
+typedef struct FEATURE_DESC {
+    const TCHAR *desc;
+    uint64_t value;
+} FEATURE_DESC;
+
+const CX_DESC list_empty[] = {
+    { NULL, 0 }
+};
+
+const CX_DESC list_log_level[] = {
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
+    { NULL, 0 }
+};
 
 struct VideoVUIInfo {
     int descriptpresent;

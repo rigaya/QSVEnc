@@ -25,15 +25,15 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_OSDEP_H__
-#define __QSV_OSDEP_H__
+#ifndef __RGY_OSDEP_H__
+#define __RGY_OSDEP_H__
 
 #if defined(_WIN32) || defined(_WIN64)
-#define QSV_FORCEINLINE __forceinline
-#define QSV_NOINLINE __declspec(noinline)
+#define RGY_FORCEINLINE __forceinline
+#define RGY_NOINLINE __declspec(noinline)
 #else
-#define QSV_FORCEINLINE __attribute__((always_inline))
-#define QSV_NOINLINE __attribute__ ((noinline))
+#define RGY_FORCEINLINE __attribute__((always_inline))
+#define RGY_NOINLINE __attribute__ ((noinline))
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -259,4 +259,4 @@ static void SetThreadPriority(pthread_t thread, int priority) {
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-#endif //__QSV_OSDEP_H__
+#endif //__RGY_OSDEP_H__

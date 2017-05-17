@@ -25,8 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_INI_H__
-#define __QSV_INI_H__
+#ifndef __RGY_INI_H__
+#define __RGY_INI_H__
 
 #if !(defined(_WIN32) || defined(_WIN64))
 
@@ -36,5 +36,5 @@ uint32_t GetPrivateProfileString(const TCHAR *Section, const TCHAR *Key, const T
 
 #endif //#if !(defined(_WIN32) || defined(_WIN64))
 
-#endif //__QSV_INI_H__
+#endif //__RGY_INI_H__
 

@@ -484,11 +484,13 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_ini.h" />
     <ClInclude Include="rgy_log.h" />
+    <ClInclude Include="rgy_osdep.h" />
     <ClInclude Include="rgy_perf_monitor.h" />
     <ClInclude Include="rgy_pipe.h" />
     <ClInclude Include="rgy_queue.h" />
     <ClInclude Include="rgy_simd.h" />
     <ClInclude Include="rgy_status.h" />
+    <ClInclude Include="rgy_tchar.h" />
     <ClInclude Include="rgy_thread.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="qsv_version.h" />

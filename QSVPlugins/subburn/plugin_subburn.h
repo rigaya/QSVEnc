@@ -74,7 +74,7 @@ struct ProcessDataSubBurn {
     ASS_Renderer         *pAssRenderer;           //libassのレンダラ
     ASS_Track            *pAssTrack;              //libassのトラック
     
-    CQueueSPSP<AVPacket>  qSubPackets;            //入力から得られた字幕パケット
+    RGYQueueSPSP<AVPacket>  qSubPackets;            //入力から得られた字幕パケット
 
     uint32_t              nSimdAvail;
 

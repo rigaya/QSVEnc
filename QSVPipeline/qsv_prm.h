@@ -418,9 +418,6 @@ struct sInputParams
 
 const int MFX_COLOR_VALUE_AUTO = 0x0000ffff; //max of 16bit-integer (unsigned)
 
-const CX_DESC list_empty[] = { 
-    { NULL, 0 }
-};
 const CX_DESC list_codec[] = {
     { _T("h264"),     MFX_CODEC_AVC   },
     { _T("hevc"),     MFX_CODEC_HEVC  },
@@ -632,16 +629,6 @@ const CX_DESC list_mv_cost_scaling[] = {
     { _T("2"),        2 },
     { _T("3"),        3 },
     { _T("4"),        4 },
-    { NULL, 0 }
-};
-
-const CX_DESC list_log_level[] = {
-    { _T("trace"), RGY_LOG_TRACE },
-    { _T("debug"), RGY_LOG_DEBUG },
-    { _T("more"),  RGY_LOG_MORE  },
-    { _T("info"),  RGY_LOG_INFO  },
-    { _T("warn"),  RGY_LOG_WARN  },
-    { _T("error"), RGY_LOG_ERROR },
     { NULL, 0 }
 };
 

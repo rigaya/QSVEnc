@@ -72,7 +72,7 @@ alignas(MEM_ALIGN) static const uint16_t MASK_16BIT[] = {
 
 #if USE_AVX2
 #ifndef _mm256_loadu2_m128i
-static QSV_FORCEINLINE __m256i _mm256_loadu2_m128i(const void *high, const void *low) {
+static RGY_FORCEINLINE __m256i _mm256_loadu2_m128i(const void *high, const void *low) {
     return _mm256_inserti128_si256(_mm256_castsi128_si256(
         _mm_loadu_si128((__m128i*)low)),
         _mm_loadu_si128((__m128i*)high),1);
@@ -95,23 +95,23 @@ static QSV_FORCEINLINE __m256i _mm256_loadu2_m128i(const void *high, const void 
 alignas(MEM_ALIGN) static const unsigned int ARRAY_0x00008000[8] = {
     0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000,
 };
-static QSV_FORCEINLINE __m256i cvtlo256_epi16_epi32(__m256i y0) {
+static RGY_FORCEINLINE __m256i cvtlo256_epi16_epi32(__m256i y0) {
     __m256i yWordsHi = _mm256_cmpgt_epi16(_mm256_setzero_si256(), y0);
     return _mm256_unpacklo_epi16(y0, yWordsHi);
 }
 
-static QSV_FORCEINLINE __m256i cvthi256_epi16_epi32(__m256i y0) {
+static RGY_FORCEINLINE __m256i cvthi256_epi16_epi32(__m256i y0) {
     __m256i yWordsHi = _mm256_cmpgt_epi16(_mm256_setzero_si256(), y0);
     return _mm256_unpackhi_epi16(y0, yWordsHi);
 }
 
-static QSV_FORCEINLINE __m256i _mm256_neg_epi32(__m256i y) {
+static RGY_FORCEINLINE __m256i _mm256_neg_epi32(__m256i y) {
     return _mm256_sub_epi32(_mm256_setzero_si256(), y);
 }
-static QSV_FORCEINLINE __m256i _mm256_neg_epi16(__m256i y) {
+static RGY_FORCEINLINE __m256i _mm256_neg_epi16(__m256i y) {
     return _mm256_sub_epi16(_mm256_setzero_si256(), y);
 }
-static QSV_FORCEINLINE __m256 _mm256_rcp_ps_hp(__m256 y0) {
+static RGY_FORCEINLINE __m256 _mm256_rcp_ps_hp(__m256 y0) {
     __m256 y1, y2;
     y1 = _mm256_rcp_ps(y0);
     y0 = _mm256_mul_ps(y0, y1);
@@ -129,13 +129,13 @@ static QSV_FORCEINLINE __m256 _mm256_rcp_ps_hp(__m256 y0) {
 alignas(MEM_ALIGN) static const unsigned int ARRAY_0x00008000[4] = {
     0x00008000, 0x00008000, 0x00008000, 0x00008000,
 };
-static QSV_FORCEINLINE __m128i _mm_neg_epi32(__m128i y) {
+static RGY_FORCEINLINE __m128i _mm_neg_epi32(__m128i y) {
     return _mm_sub_epi32(_mm_setzero_si128(), y);
 }
-static QSV_FORCEINLINE __m128i _mm_neg_epi16(__m128i y) {
+static RGY_FORCEINLINE __m128i _mm_neg_epi16(__m128i y) {
     return _mm_sub_epi16(_mm_setzero_si128(), y);
 }
-static QSV_FORCEINLINE __m128 _mm_rcp_ps_hp(__m128 x0) {
+static RGY_FORCEINLINE __m128 _mm_rcp_ps_hp(__m128 x0) {
     __m128 x1, x2;
     x1 = _mm_rcp_ps(x0);
     x0 = _mm_mul_ps(x0, x1);
@@ -145,7 +145,7 @@ static QSV_FORCEINLINE __m128 _mm_rcp_ps_hp(__m128 x0) {
     return x2;
 }
 
-static QSV_FORCEINLINE __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
+static RGY_FORCEINLINE __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 #if USE_SSE41
     return _mm_packus_epi32(a, b);
 #else
@@ -165,7 +165,7 @@ static QSV_FORCEINLINE __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 }
 
 
-static QSV_FORCEINLINE __m128i _mm_mullo_epi32_simd(__m128i x0, __m128i x1) {
+static RGY_FORCEINLINE __m128i _mm_mullo_epi32_simd(__m128i x0, __m128i x1) {
 #if USE_SSE41
     return _mm_mullo_epi32(x0, x1);
 #else
@@ -179,7 +179,7 @@ static QSV_FORCEINLINE __m128i _mm_mullo_epi32_simd(__m128i x0, __m128i x1) {
 #endif
 }
 
-static QSV_FORCEINLINE __m128i cvtlo_epi16_epi32(__m128i x0) {
+static RGY_FORCEINLINE __m128i cvtlo_epi16_epi32(__m128i x0) {
 #if USE_SSE41
     return _mm_cvtepi16_epi32(x0);
 #else
@@ -188,7 +188,7 @@ static QSV_FORCEINLINE __m128i cvtlo_epi16_epi32(__m128i x0) {
 #endif
 }
 
-static QSV_FORCEINLINE __m128i cvthi_epi16_epi32(__m128i x0) {
+static RGY_FORCEINLINE __m128i cvthi_epi16_epi32(__m128i x0) {
 #if USE_SSE41
     return _mm_cvtepi16_epi32(_mm_srli_si128(x0, 8));
 #else
@@ -197,7 +197,7 @@ static QSV_FORCEINLINE __m128i cvthi_epi16_epi32(__m128i x0) {
 #endif
 }
 
-static QSV_FORCEINLINE __m128i blendv_epi8_simd(__m128i a, __m128i b, __m128i mask) {
+static RGY_FORCEINLINE __m128i blendv_epi8_simd(__m128i a, __m128i b, __m128i mask) {
 #if USE_SSE41
     return _mm_blendv_epi8(a, b, mask);
 #else
@@ -371,7 +371,7 @@ static __forceinline void store_line_from_buffer(uint8_t *dst, uint8_t *buffer, 
 #pragma warning(push)
 #pragma warning(disable: 4100)
 #if USE_AVX2
-static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m256i& yBitmap, const __m256i& ySubColor, const __m256i& yTable0, const __m256i& yTable1) {
+static RGY_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m256i& yBitmap, const __m256i& ySubColor, const __m256i& yTable0, const __m256i& yTable1) {
     const __m256i yC255b = _mm256_set1_epi8(-1);
     //uint8_t alpha = ((255 - ptr_transparency[0]) * subalpha) >> 9;
     //ptr_dst[0] = (ptr_dst[0] * (127 - alpha) + subcolory * alpha) >> 7;
@@ -400,7 +400,7 @@ static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m256i& yBitmap
     _mm256_store_si256((__m256i *)ptr_dst, yFrame0);
 }
 #else
-static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xBitmap, const __m128i& xSubColor, const __m128i& xTable0, const __m128i& xTable1) {
+static RGY_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xBitmap, const __m128i& xSubColor, const __m128i& xTable0, const __m128i& xTable1) {
     const __m128i xC255b = _mm_set1_epi8(-1);
     //uint8_t alpha = ((255 - ptr_transparency[0]) * subalpha) >> 9;
     //ptr_dst[0] = (ptr_dst[0] * (127 - alpha) + subcolory * alpha) >> 7;
@@ -443,13 +443,13 @@ static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xBitmap
 #pragma warning(pop)
 
 #if USE_AVX2
-static QSV_FORCEINLINE __m256i convert_bitmap_for_uv(__m256i yBitmap) {
+static RGY_FORCEINLINE __m256i convert_bitmap_for_uv(__m256i yBitmap) {
     __m256i y1 = _mm256_slli_si256(yBitmap, 1);
     __m256i y0 = _mm256_and_si256(yBitmap, _mm256_set1_epi16(0x00ff));
     return _mm256_or_si256(y0, y1);
 }
 #else
-static QSV_FORCEINLINE __m128i convert_bitmap_for_uv(__m128i xBitmap) {
+static RGY_FORCEINLINE __m128i convert_bitmap_for_uv(__m128i xBitmap) {
     //15, 14, 13, 12, ..., 3, 2, 1, 0
     //  ↓
     //14, 14, 12, 12, ..., 2, 2, 0, 0
@@ -460,7 +460,7 @@ static QSV_FORCEINLINE __m128i convert_bitmap_for_uv(__m128i xBitmap) {
 #endif
 
 #if USE_AVX2
-static QSV_FORCEINLINE __m256i shiftFirstBitmap(const uint8_t *ptr_alpha, const __m256i& yFirstLoadShift0, const __m256i& yFirstLoadShift1) {
+static RGY_FORCEINLINE __m256i shiftFirstBitmap(const uint8_t *ptr_alpha, const __m256i& yFirstLoadShift0, const __m256i& yFirstLoadShift1) {
     __m256i y0 = _mm256_loadu_si256((__m256i *)ptr_alpha);
     __m256i y1 = _mm256_broadcastsi128_si256(_mm_loadu_si128((__m128i *)ptr_alpha));
     y0 = _mm256_shuffle_epi8(y0, yFirstLoadShift0);
@@ -468,7 +468,7 @@ static QSV_FORCEINLINE __m256i shiftFirstBitmap(const uint8_t *ptr_alpha, const 
     y0 = _mm256_or_si256(y0, y1);
     return y0;
 }
-static QSV_FORCEINLINE __m256i shiftFirstBitmap(const __m256i& yColor, const __m256i& yFirstLoadShift0, const __m256i& yFirstLoadShift1) {
+static RGY_FORCEINLINE __m256i shiftFirstBitmap(const __m256i& yColor, const __m256i& yFirstLoadShift0, const __m256i& yFirstLoadShift1) {
     __m256i y0 = yColor;
     __m256i y1 = _mm256_inserti128_si256(yColor, _mm256_castsi256_si128(yColor), 1);
     y0 = _mm256_shuffle_epi8(y0, yFirstLoadShift0);
@@ -477,12 +477,12 @@ static QSV_FORCEINLINE __m256i shiftFirstBitmap(const __m256i& yColor, const __m
     return y0;
 }
 #else
-static QSV_FORCEINLINE __m128i shiftFirstBitmap(const uint8_t *ptr_alpha, const __m128i& xFirstLoadShift) {
+static RGY_FORCEINLINE __m128i shiftFirstBitmap(const uint8_t *ptr_alpha, const __m128i& xFirstLoadShift) {
     __m128i x0 = _mm_loadu_si128((__m128i *)ptr_alpha);
     x0 = _mm_shuffle_epi8(x0, xFirstLoadShift);
     return x0;
 }
-static QSV_FORCEINLINE __m128i shiftFirstBitmap(const __m128i& xColor, const __m128i& xFirstLoadShift) {
+static RGY_FORCEINLINE __m128i shiftFirstBitmap(const __m128i& xColor, const __m128i& xFirstLoadShift) {
     __m128i x0 = _mm_shuffle_epi8(xColor, xFirstLoadShift);
     return x0;
 }
@@ -519,7 +519,7 @@ alignas(MEM_ALIGN) static const uint8_t mask[] = {
 #endif
 
 template<int bForUV, bool forD3D>
-static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t subcolor0, uint8_t subcolor1, uint8_t subTransparency, uint8_t *pBuf) {
+static RGY_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t subcolor0, uint8_t subcolor1, uint8_t subTransparency, uint8_t *pBuf) {
     const int bufX = subX & ~(MEM_ALIGN-1);
     const int bufW = ((subX + subW + (MEM_ALIGN-1)) & ~((MEM_ALIGN-1))) - bufX;
     const int bufXOffset = subX - bufX;
@@ -688,7 +688,7 @@ static QSV_FORCEINLINE void blend_sub(uint8_t *pFrame, int pitch, const uint8_t 
 
 #if USE_AVX2
 template<int bForUV, int nColorLUT>
-static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pSubAlpha, __m256i& yColor, __m256i& yAlpha, __m256i& yMaxIndex) {
+static RGY_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pSubAlpha, __m256i& yColor, __m256i& yAlpha, __m256i& yMaxIndex) {
     if (bForUV) {
         if (nColorLUT <= 8) {
             __m256i yIndex = _mm256_loadu_si256((const __m256i *)pSubColorIdx);
@@ -783,7 +783,7 @@ static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const u
 }
 #else
 template<int bForUV, int nColorLUT>
-static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pSubAlpha, __m128i& xColor, __m128i& xAlpha, __m128i& xMaxIndex) {
+static RGY_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pSubAlpha, __m128i& xColor, __m128i& xAlpha, __m128i& xMaxIndex) {
     if (bForUV) {
         if (nColorLUT <= 8) {
             __m128i xIndex = _mm_loadu_si128((const __m128i *)pSubColorIdx);
@@ -879,7 +879,7 @@ static QSV_FORCEINLINE void lut_color_alpha(const uint8_t *pSubColorIdx, const u
 #endif
 
 #if USE_AVX2
-static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m256i& yAlpha, const __m256i& yColor) {
+static RGY_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m256i& yAlpha, const __m256i& yColor) {
     const __m256i yC255b = _mm256_set1_epi8(-1);
     __m256i yFrame0, yFrame1;
     yFrame0 = _mm256_load_si256((__m256i *)ptr_dst);
@@ -903,7 +903,7 @@ static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m256i& yAlpha,
     _mm256_store_si256((__m256i *)ptr_dst, yFrame0);
 }
 #else
-static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xAlpha, const __m128i& xColor) {
+static RGY_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xAlpha, const __m128i& xColor) {
     const __m128i xC255b = _mm_set1_epi8(-1);
     __m128i xFrame0, xFrame1;
     xFrame0 = _mm_load_si128((__m128i *)ptr_dst);
@@ -929,7 +929,7 @@ static QSV_FORCEINLINE void blend_block(uint8_t *ptr_dst, const __m128i& xAlpha,
 #endif
 
 template<int bForUV, bool forD3D, int nColorLUT>
-static QSV_FORCEINLINE int blend_sub(uint8_t *pFrame, int pitch, const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH,  uint8_t *pBuf) {
+static RGY_FORCEINLINE int blend_sub(uint8_t *pFrame, int pitch, const uint8_t *pSubColorIdx, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH,  uint8_t *pBuf) {
     const int bufX = subX & ~(MEM_ALIGN-1);
     const int bufW = ((subX + subW + (MEM_ALIGN-1)) & ~((MEM_ALIGN-1))) - bufX;
     const int bufXOffset = subX - bufX;

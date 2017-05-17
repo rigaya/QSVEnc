@@ -1161,7 +1161,7 @@ const TCHAR *MemTypeToStr(uint32_t memType) {
 #include "rgy_simd.h"
 #include <immintrin.h>
 
-QSV_NOINLINE int qsv_avx_dummy_if_avail(int bAVXAvail) {
+RGY_NOINLINE int qsv_avx_dummy_if_avail(int bAVXAvail) {
     int ret = 1;
     if (bAVXAvail) {
         return ret;
