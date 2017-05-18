@@ -57,6 +57,10 @@ using std::vector;
 using std::unique_ptr;
 using std::shared_ptr;
 
+static const int QSV_TIMEBASE = 90000;
+
+#define INIT_MFX_EXT_BUFFER(x, id) { RGY_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
+
 #define MAP_PAIR_0_1_PROTO(prefix, name0, type0, name1, type1) \
     type1 prefix ## _ ## name0 ## _to_ ## name1(type0 var0); \
     type0 prefix ## _ ## name1 ## _to_ ## name0(type1 var1);
@@ -111,6 +115,18 @@ static const int RGY_CSP_TO_MFX_FOURCC[] = {
 };
 
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
+
+tstring qsv_memtype_str(uint16_t memtype);
+
+static inline uint16_t check_coding_option(uint16_t value) {
+    if (value == MFX_CODINGOPTION_UNKNOWN
+        || value == MFX_CODINGOPTION_ON
+        || value == MFX_CODINGOPTION_OFF
+        || value == MFX_CODINGOPTION_ADAPTIVE) {
+        return value;
+    }
+    return MFX_CODINGOPTION_UNKNOWN;
+}
 
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui);
 
@@ -352,5 +368,33 @@ static inline RGY_FRAMETYPE frametype_enc_to_rgy(const mfxU16 frametype) {
     type |=  (MFX_FRAMETYPE_xB   & frametype) ? RGY_FRAMETYPE_xB   : RGY_FRAMETYPE_UNKNOWN;
     return type;
 }
+
+const TCHAR *get_low_power_str(mfxU16 LowPower);
+const TCHAR *get_err_mes(int sts);
+static void print_err_mes(int sts) {
+    _ftprintf(stderr, _T("%s"), get_err_mes(sts));
+}
+
+const TCHAR *ColorFormatToStr(uint32_t format);
+const TCHAR *CodecIdToStr(uint32_t nFourCC);
+const TCHAR *TargetUsageToStr(uint16_t tu);
+const TCHAR *EncmodeToStr(uint32_t enc_mode);
+const TCHAR *MemTypeToStr(uint32_t memType);
+
+mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
+mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream);
+mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize);
+mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size);
+void mfxBitstreamClear(mfxBitstream *pBitstream);
+
+#define QSV_IGNORE_STS(sts, err)                { if ((err) == (sts)) {(sts) = MFX_ERR_NONE; } }
+
+mfxExtBuffer *GetExtBuffer(mfxExtBuffer **ppExtBuf, int nCount, uint32_t targetBufferId);
+
+const TCHAR *get_vpp_image_stab_mode_str(int mode);
+
+#if defined(_WIN32) || defined(_WIN64)
+bool check_if_d3d11_necessary();
+#endif
 
 #endif //_QSV_UTIL_H_

@@ -41,13 +41,11 @@
 #include <memory>
 #include <type_traits>
 #include "rgy_osdep.h"
-#include "mfxstructures.h"
-#include "mfxsession.h"
-#include "qsv_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
 #include "convert_csp.h"
 
+typedef std::basic_string<TCHAR> tstring;
 using std::vector;
 using std::unique_ptr;
 using std::shared_ptr;
@@ -70,7 +68,7 @@ using std::shared_ptr;
 typedef long long lls;
 typedef unsigned long long llu;
 
-#define QSV_MEMSET_ZERO(x) { memset(&(x), 0, sizeof(x)); }
+#define RGY_MEMSET_ZERO(x) { memset(&(x), 0, sizeof(x)); }
 
 template<typename T, size_t size>
 std::vector<T> make_vector(T(&ptr)[size]) {
@@ -109,7 +107,7 @@ void vector_cat(vector<T>& v1, const vector<T>& v2) {
     }
 }
 template<typename T>
-static void qsv_free(T& ptr) {
+static void rgy_free(T& ptr) {
     static_assert(std::is_pointer<T>::value == true, "T should be pointer");
     if (ptr) {
         free(ptr);
@@ -198,7 +196,7 @@ std::wstring strsprintf(const WCHAR* format, ...);
 
 std::wstring str_replace(std::wstring str, const std::wstring& from, const std::wstring& to);
 std::wstring GetFullPath(const WCHAR *path);
-bool qsv_get_filesize(const WCHAR *filepath, uint64_t *filesize);
+bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize);
 std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path);
 std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename);
 std::string PathCombineS(const std::string& dir, const std::string& filename);
@@ -228,44 +226,42 @@ std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
-bool qsv_get_filesize(const char *filepath, uint64_t *filesize);
+bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
 bool CreateDirectoryRecursive(const char *dir);
 
 tstring print_time(double time);
 
-tstring qsv_memtype_str(mfxU16 memtype);
-
-static inline mfxU16 readUB16(const void *ptr) {
-    mfxU16 i = *(mfxU16 *)ptr;
+static inline uint16_t readUB16(const void *ptr) {
+    uint16_t i = *(uint16_t *)ptr;
     return (i >> 8) | (i << 8);
 }
 
-static inline mfxU32 readUB32(const void *ptr) {
-    mfxU32 i = *(mfxU32 *)ptr;
+static inline uint32_t readUB32(const void *ptr) {
+    uint32_t i = *(uint32_t *)ptr;
     return (i >> 24) | ((i & 0xff0000) >> 8) | ((i & 0xff00) << 8) | ((i & 0xff) << 24);
 }
 
-static inline mfxU32 check_range_unsigned(mfxU32 value, mfxU32 min, mfxU32 max) {
+static inline uint32_t check_range_unsigned(uint32_t value, uint32_t min, uint32_t max) {
     return (value - min) <= (max - min);
 }
 
-static inline uint16_t check_coding_option(uint16_t value) {
-    if (   value == MFX_CODINGOPTION_UNKNOWN
-        || value == MFX_CODINGOPTION_ON
-        || value == MFX_CODINGOPTION_OFF
-        || value == MFX_CODINGOPTION_ADAPTIVE) {
-        return value;
-    }
-    return MFX_CODINGOPTION_UNKNOWN;
-}
-
-static int popcnt32(mfxU32 bits) {
+static inline uint32_t popcnt32(uint32_t bits) {
     bits = (bits & 0x55555555) + (bits >> 1 & 0x55555555);
     bits = (bits & 0x33333333) + (bits >> 2 & 0x33333333);
     bits = (bits & 0x0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f);
     bits = (bits & 0x00ff00ff) + (bits >> 8 & 0x00ff00ff);
     return (bits & 0x0000ffff) + (bits >>16 & 0x0000ffff);
+}
+
+static inline uint32_t popcnt64(uint64_t bits) {
+    bits = (bits & 0x5555555555555555) + (bits >> 1 & 0x5555555555555555);
+    bits = (bits & 0x3333333333333333) + (bits >> 2 & 0x3333333333333333);
+    bits = (bits & 0x0f0f0f0f0f0f0f0f) + (bits >> 4 & 0x0f0f0f0f0f0f0f0f);
+    bits = (bits & 0x00ff00ff00ff00ff) + (bits >> 8 & 0x00ff00ff00ff00ff);
+    bits = (bits & 0x0000ffff0000ffff) + (bits >>16 & 0x0000ffff0000ffff);
+    bits = (bits & 0x00000000ffffffff) + (bits >>32 & 0x00000000ffffffff);
+    return (uint32_t)bits;
 }
 
 static TCHAR *alloc_str(const TCHAR *str, size_t length = 0) {
@@ -284,7 +280,7 @@ static std::basic_string<type> repeatStr(std::basic_string<type> str, int count)
     return ret;
 }
 
-static tstring fourccToStr(mfxU32 nFourCC) {
+static tstring fourccToStr(uint32_t nFourCC) {
     tstring fcc;
     for (int i = 0; i < 4; i++) {
         fcc.push_back((TCHAR)*(i + (char*)&nFourCC));
@@ -293,10 +289,14 @@ static tstring fourccToStr(mfxU32 nFourCC) {
 }
 
 bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list);
+bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list);
 
-static const int QSV_TIMEBASE = 90000;
+//拡張子が一致するか確認する
+static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
+    return (_tcsicmp(PathFindExtension(filename), ext) == 0) ? TRUE : FALSE;
+}
 
-#define INIT_MFX_EXT_BUFFER(x, id) { QSV_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
+int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 #if defined(_WIN32) || defined(_WIN64)
 bool check_if_d3d11_necessary();
@@ -304,23 +304,13 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo = nullptr);
 #else
 tstring getOSVersion();
 #endif
-BOOL is_64bit_os();
+BOOL rgy_is_64bit_os();
 uint64_t getPhysicalRamSize(uint64_t *ramUsed);
 tstring getEnviromentInfo(bool add_ram_info = true);
-void adjust_sar(int *sar_w, int *sar_h, int width, int height);
-
-//拡張子が一致するか確認する
-static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
-    return (_tcsicmp(PathFindExtension(filename), ext) == 0) ? TRUE : FALSE;
-}
 
 const TCHAR *get_vpp_image_stab_mode_str(int mode);
 
 BOOL check_OS_Win8orLater();
-
-const TCHAR *get_err_mes(int sts);
-
-const TCHAR *get_low_power_str(mfxU16 LowPower);
 
 static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
     uint8_t *dst_fin = dst + size;
@@ -357,8 +347,6 @@ static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int siz
 
 //確保できなかったら、サイズを小さくして再度確保を試みる (最終的にnMinSizeも確保できなかったら諦める)
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize);
-
-int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 const int MAX_FILENAME_LEN = 1024;
 
@@ -594,27 +582,100 @@ struct VideoInfo {
     VideoVUIInfo vui;
 };
 
+void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h);
+std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight);
+void adjust_sar(int *sar_w, int *sar_h, int width, int height);
+int get_h264_sar_idx(std::pair<int, int>sar);
+std::pair<int, int> get_h264_sar(int idx);
 
-const TCHAR *ColorFormatToStr(uint32_t format);
-const TCHAR *CodecIdToStr(uint32_t nFourCC);
-const TCHAR *TargetUsageToStr(uint16_t tu);
-const TCHAR *EncmodeToStr(uint32_t enc_mode);
-const TCHAR *MemTypeToStr(uint32_t memType);
+struct nal_info {
+    const uint8_t *ptr;
+    uint8_t type;
+    uint32_t size;
+};
 
-mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
-mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream);
-mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize);
-mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size);
-void mfxBitstreamClear(mfxBitstream *pBitstream);
+enum : uint8_t {
+    NALU_H264_UNDEF    = 0,
+    NALU_H264_NONIDR   = 1,
+    NALU_H264_SLICEA   = 2,
+    NALU_H264_SLICEB   = 3,
+    NALU_H264_SLICEC   = 4,
+    NALU_H264_IDR      = 5,
+    NALU_H264_SEI      = 6,
+    NALU_H264_SPS      = 7,
+    NALU_H264_PPS      = 8,
+    NALU_H264_AUD      = 9,
+    NALU_H264_EOSEQ    = 10,
+    NALU_H264_EOSTREAM = 11,
+    NALU_H264_FILLER   = 12,
+    NALU_H264_SPSEXT   = 13,
+    NALU_H264_PREFIX   = 14,
+    NALU_H264_SUBSPS   = 15,
 
-mfxExtBuffer *GetExtBuffer(mfxExtBuffer **ppExtBuf, int nCount, uint32_t targetBufferId);
+    NALU_HEVC_UNDEF    = 0,
+    NALU_HEVC_VPS      = 32,
+    NALU_HEVC_SPS      = 33,
+    NALU_HEVC_PPS      = 34,
+    NALU_HEVC_AUD      = 35,
+    NALU_HEVC_EOS      = 36,
+    NALU_HEVC_EOB      = 37,
+    NALU_HEVC_FILLER     = 38,
+    NALU_HEVC_PREFIX_SEI = 39,
+    NALU_HEVC_SUFFIX_SEI = 40,
+};
 
-const TCHAR *get_err_mes(int sts);
-static void print_err_mes(int sts) {
-    _ftprintf(stderr, _T("%s"), get_err_mes(sts));
+static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, uint32_t size) {
+    std::vector<nal_info> nal_list;
+    nal_info nal_start ={ nullptr, 0, 0 };
+    const int i_fin = size - 3;
+    for (int i = 0; i < i_fin; i++) {
+        if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
+            if (nal_start.ptr) {
+                nal_list.push_back(nal_start);
+            }
+            nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
+            nal_start.type = data[i+3] & 0x1f;
+            nal_start.size = (int)(data + size - nal_start.ptr);
+            if (nal_list.size()) {
+                auto prev = nal_list.end()-1;
+                prev->size = (int)(nal_start.ptr - prev->ptr);
+            }
+            i += 3;
+        }
+    }
+    if (nal_start.ptr) {
+        nal_list.push_back(nal_start);
+    }
+    return nal_list;
 }
-#define QSV_IGNORE_STS(sts, err)                { if ((err) == (sts)) {(sts) = MFX_ERR_NONE; } }
 
-int qsv_avx_dummy_if_avail(int bAVXAvail);
+static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, uint32_t size) {
+    std::vector<nal_info> nal_list;
+    nal_info nal_start ={ nullptr, 0, 0 };
+    const int i_fin = size - 3;
+
+    for (int i = 0; i < i_fin; i++) {
+        if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
+            if (nal_start.ptr) {
+                nal_list.push_back(nal_start);
+            }
+            nal_start.ptr = data + i - (i > 0 && data[i-1] == 0);
+            nal_start.type = (data[i+3] & 0x7f) >> 1;
+            nal_start.size = (int)(data + size - nal_start.ptr);
+            if (nal_list.size()) {
+                auto prev = nal_list.end()-1;
+                prev->size = (int)(nal_start.ptr - prev->ptr);
+            }
+            i += 3;
+        }
+    }
+    if (nal_start.ptr) {
+        nal_list.push_back(nal_start);
+    }
+    return nal_list;
+}
+
+
+int rgy_avx_dummy_if_avail(int bAVXAvail);
 
 #endif //__RGY_UTIL_H__

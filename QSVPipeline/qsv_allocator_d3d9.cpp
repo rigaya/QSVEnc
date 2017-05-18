@@ -223,9 +223,9 @@ mfxStatus QSVAllocatorD3D9::ReleaseResponse(mfxFrameAllocResponse *response) {
                 dxMids->m_surface->Release();
             }
         }
-        qsv_free(response->mids[0]);
+        rgy_free(response->mids[0]);
     }
-    qsv_free(response->mids);
+    rgy_free(response->mids);
     m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D9::ReleaseResponse Success.\n"));
     return MFX_ERR_NONE;
 }
@@ -285,8 +285,8 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
     mfxHDLPair **dxMidPtrs = (mfxHDLPair**)calloc(request->NumFrameSuggested, sizeof(mfxHDLPair*));
 
     if (!dxMids || !dxMidPtrs) {
-        qsv_free(dxMids);
-        qsv_free(dxMidPtrs);
+        rgy_free(dxMids);
+        rgy_free(dxMidPtrs);
         return MFX_ERR_MEMORY_ALLOC;
     }
 
@@ -299,7 +299,7 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
             if (FAILED(hr = videoService->CreateSurface(request->Info.Width, request->Info.Height, 0,  format,
                                                 D3DPOOL_DEFAULT, m_surfaceUsage, target, (IDirect3DSurface9**)&dxMids[i].first, NULL /*&dxMids[i].second*/))) {
                 ReleaseResponse(response);
-                qsv_free(dxMids);
+                rgy_free(dxMids);
                 m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(external) #%d: %d.\n"), i, hr);
                 return MFX_ERR_MEMORY_ALLOC;
             }
@@ -308,12 +308,12 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
     } else {
         unique_ptr<IDirect3DSurface9*> dxSrf(new IDirect3DSurface9*[request->NumFrameSuggested]);
         if (!dxSrf.get()) {
-            qsv_free(dxMids);
+            rgy_free(dxMids);
             return MFX_ERR_MEMORY_ALLOC;
         }
         if (FAILED(hr = videoService->CreateSurface(request->Info.Width, request->Info.Height, request->NumFrameSuggested - 1,  format,
                                             D3DPOOL_DEFAULT, m_surfaceUsage, target, dxSrf.get(), NULL))) { 
-            qsv_free(dxMids);
+            rgy_free(dxMids);
             m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(other) %d frmaes: %d.\n"), request->NumFrameSuggested - 1, hr);
             return MFX_ERR_MEMORY_ALLOC;
         }

@@ -30,14 +30,14 @@
 #pragma warning(disable:4068)
 
 CQSVD3D9Device::CQSVD3D9Device() {
-    QSV_MEMSET_ZERO(m_D3DPresentPrm);
+    RGY_MEMSET_ZERO(m_D3DPresentPrm);
     m_resetToken = 0;
 
-    QSV_MEMSET_ZERO(m_backBufferDesc);
-    QSV_MEMSET_ZERO(m_targetRect);
-    QSV_MEMSET_ZERO(m_VideoDesc);
-    QSV_MEMSET_ZERO(m_BltParams);
-    QSV_MEMSET_ZERO(m_Sample);
+    RGY_MEMSET_ZERO(m_backBufferDesc);
+    RGY_MEMSET_ZERO(m_targetRect);
+    RGY_MEMSET_ZERO(m_VideoDesc);
+    RGY_MEMSET_ZERO(m_BltParams);
+    RGY_MEMSET_ZERO(m_Sample);
 
     DXVA2_AYUVSample16 color = {
         0x8000,          // Cr

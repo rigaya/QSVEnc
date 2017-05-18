@@ -125,7 +125,7 @@ mfxStatus CQSVD3D11Device::CreateVideoProcessor(mfxFrameSurface1 *pSurface) {
     }
 
     D3D11_VIDEO_PROCESSOR_CONTENT_DESC ContentDesc;
-    QSV_MEMSET_ZERO(ContentDesc);
+    RGY_MEMSET_ZERO(ContentDesc);
     ContentDesc.InputFrameFormat            = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
     ContentDesc.InputFrameRate.Numerator    = 30000;
     ContentDesc.InputFrameRate.Denominator  = 1000;

@@ -100,7 +100,7 @@ public:
         i_from_last_idr = 0;
         openGOP = _openGOP;
         maxIdrInterval = (int)(frameRate + 0.5) * 20;
-        QSV_MEMSET_ZERO(m_info);
+        RGY_MEMSET_ZERO(m_info);
     }
     ~CQSVFrameTypeSimulation() {
     }

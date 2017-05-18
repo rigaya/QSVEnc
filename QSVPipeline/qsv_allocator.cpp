@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <algorithm>
 #include "qsv_allocator.h"
+#include "qsv_util.h"
 
 QSVBufferAllocator::QSVBufferAllocator() {
     pthis = this;

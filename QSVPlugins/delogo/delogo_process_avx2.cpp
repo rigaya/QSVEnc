@@ -66,7 +66,7 @@ mfxStatus DelogoProcessAVX2::Process(DataChunk *chunk, mfxU8 *pBuffer) {
     }
 
     mfxStatus sts = MFX_ERR_NONE;
-    qsv_avx_dummy_if_avail(AVX2);
+    rgy_avx_dummy_if_avail(AVX2);
     
     if (MFX_ERR_NONE != (sts = LockFrame(m_pIn))) return sts;
     if (MFX_ERR_NONE != (sts = LockFrame(m_pOut))) {
@@ -98,7 +98,7 @@ mfxStatus DelogoProcessD3DAVX2::Process(DataChunk *chunk, mfxU8 *pBuffer) {
     }
 
     mfxStatus sts = MFX_ERR_NONE;
-    qsv_avx_dummy_if_avail(AVX2);
+    rgy_avx_dummy_if_avail(AVX2);
 
     if (MFX_ERR_NONE != (sts = CopyD3DFrameGPU(m_pIn, m_pOut))) {
         return sts;

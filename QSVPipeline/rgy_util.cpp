@@ -32,33 +32,16 @@
 #include <sstream>
 #include <algorithm>
 #include <type_traits>
-#if (_MSC_VER >= 1800)
-#include <Windows.h>
-#include <VersionHelpers.h>
-#endif
 #ifndef _MSC_VER
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <iconv.h>
 #endif
-#include "mfxstructures.h"
-#include "mfxvideo.h"
-#include "mfxvideo++.h"
-#include "mfxplugin.h"
-#include "mfxplugin++.h"
-#include "mfxjpeg.h"
+#include "rgy_util.h"
 #include "rgy_tchar.h"
-#include "qsv_util.h"
-#include "qsv_prm.h"
-#include "qsv_plugin.h"
 #include "rgy_osdep.h"
 #include "ram_speed.h"
-
-#ifdef LIBVA_SUPPORT
-#include "qsv_hw_va.h"
-#include "qsv_allocator_va.h"
-#endif //#ifdef LIBVA_SUPPORT
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -533,7 +516,11 @@ bool check_ext(const TCHAR *filename, const std::vector<const char*>& ext_list) 
     return false;
 }
 
-bool qsv_get_filesize(const char *filepath, uint64_t *filesize) {
+bool check_ext(const tstring& filename, const std::vector<const char*>& ext_list) {
+    return check_ext(filename.c_str(), ext_list);
+}
+
+bool rgy_get_filesize(const char *filepath, uint64_t *filesize) {
 #if defined(_WIN32) || defined(_WIN64)
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExA(filepath, GetFileExInfoStandard, &fd)) ? true : false;
@@ -555,7 +542,7 @@ bool qsv_get_filesize(const char *filepath, uint64_t *filesize) {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-bool qsv_get_filesize(const WCHAR *filepath, UINT64 *filesize) {
+bool rgy_get_filesize(const WCHAR *filepath, UINT64 *filesize) {
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd)) ? true : false;
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;
@@ -574,23 +561,7 @@ tstring print_time(double time) {
     return strsprintf(_T("%d:%02d:%02d%s"), hour, miniute, sec, frac.substr(frac.find_first_of(_T("."))).c_str());
 }
 
-tstring qsv_memtype_str(mfxU16 memtype) {
-    tstring str;
-    if (memtype & MFX_MEMTYPE_INTERNAL_FRAME)         str += _T("internal,");
-    if (memtype & MFX_MEMTYPE_EXTERNAL_FRAME)         str += _T("external,");
-    if (memtype & MFX_MEMTYPE_OPAQUE_FRAME)           str += _T("opaque,");
-    if (memtype & MFX_MEMTYPE_DXVA2_DECODER_TARGET)   str += _T("dxvadec,");
-    if (memtype & MFX_MEMTYPE_DXVA2_PROCESSOR_TARGET) str += _T("dxvaproc,");
-    if (memtype & MFX_MEMTYPE_SYSTEM_MEMORY)          str += _T("system,");
-    if (memtype & MFX_MEMTYPE_FROM_ENCODE)            str += _T("enc,");
-    if (memtype & MFX_MEMTYPE_FROM_DECODE)            str += _T("dec,");
-    if (memtype & MFX_MEMTYPE_FROM_VPPIN)             str += _T("vppin,");
-    if (memtype & MFX_MEMTYPE_FROM_VPPOUT)            str += _T("vppout,");
-    if (memtype == 0)                                 str += _T("none,");
-    return str.substr(0, str.length()-1);
-}
-
-int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
+int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
 #if defined(_WIN32) || defined(_WIN64)
     CONSOLE_SCREEN_BUFFER_INFO csbi = { 0 };
     static const WORD LOG_COLOR[] = {
@@ -628,48 +599,6 @@ int qsv_print_stderr(int log_level, const TCHAR *mes, HANDLE handle) {
     return ret;
 }
 
-void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
-    int aspect_w = *sar_w;
-    int aspect_h = *sar_h;
-    //正負チェック
-    if (aspect_w * aspect_h <= 0)
-        aspect_w = aspect_h = 0;
-    else if (aspect_w < 0) {
-        //負で与えられている場合はDARでの指定
-        //SAR比に変換する
-        int dar_x = -1 * aspect_w;
-        int dar_y = -1 * aspect_h;
-        int x = dar_x * height;
-        int y = dar_y * width;
-        //多少のづれは容認する
-        if (abs(y - x) > 16 * dar_y) {
-            //gcd
-            int a = x, b = y, c;
-            while ((c = a % b) != 0)
-                a = b, b = c;
-            *sar_w = x / b;
-            *sar_h = y / b;
-        } else {
-             *sar_w = *sar_h = 1;
-        }
-    } else {
-        //sarも一応gcdをとっておく
-        int a = aspect_w, b = aspect_h, c;
-        while ((c = a % b) != 0)
-            a = b, b = c;
-        *sar_w = aspect_w / b;
-        *sar_h = aspect_h / b;
-    }
-}
-
-const TCHAR *get_vpp_image_stab_mode_str(int mode) {
-    switch (mode) {
-    case MFX_IMAGESTAB_MODE_UPSCALE: return _T("upscale");
-    case MFX_IMAGESTAB_MODE_BOXING:  return _T("boxing");
-    default: return _T("unknown");
-    }
-}
-
 size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
     *ptr = nullptr;
     nMinSize = (std::max<size_t>)(nMinSize, 1);
@@ -689,52 +618,11 @@ size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
     return 0;
 }
 
-const TCHAR *get_err_mes(int sts) {
-    switch (sts) {
-        case MFX_ERR_NONE:                     return _T("no error.");
-        case MFX_ERR_UNKNOWN:                  return _T("unknown error.");
-        case MFX_ERR_NULL_PTR:                 return _T("null pointer.");
-        case MFX_ERR_UNSUPPORTED:              return _T("undeveloped feature.");
-        case MFX_ERR_MEMORY_ALLOC:             return _T("failed to allocate memory.");
-        case MFX_ERR_NOT_ENOUGH_BUFFER:        return _T("insufficient buffer at input/output.");
-        case MFX_ERR_INVALID_HANDLE:           return _T("invalid handle.");
-        case MFX_ERR_LOCK_MEMORY:              return _T("failed to lock the memory block.");
-        case MFX_ERR_NOT_INITIALIZED:          return _T("member function called before initialization.");
-        case MFX_ERR_NOT_FOUND:                return _T("the specified object is not found.");
-        case MFX_ERR_MORE_DATA:                return _T("expect more data at input.");
-        case MFX_ERR_MORE_SURFACE:             return _T("expect more surface at output.");
-        case MFX_ERR_ABORTED:                  return _T("operation aborted.");
-        case MFX_ERR_DEVICE_LOST:              return _T("lose the HW acceleration device.");
-        case MFX_ERR_INCOMPATIBLE_VIDEO_PARAM: return _T("incompatible video parameters.");
-        case MFX_ERR_INVALID_VIDEO_PARAM:      return _T("invalid video parameters.");
-        case MFX_ERR_UNDEFINED_BEHAVIOR:       return _T("undefined behavior.");
-        case MFX_ERR_DEVICE_FAILED:            return _T("device operation failure.");
-        case MFX_ERR_GPU_HANG:                 return _T("gpu hang.");
-        case MFX_ERR_REALLOC_SURFACE:          return _T("failed to realloc surface.");
-        
-        case MFX_WRN_IN_EXECUTION:             return _T("the previous asynchrous operation is in execution.");
-        case MFX_WRN_DEVICE_BUSY:              return _T("the HW acceleration device is busy.");
-        case MFX_WRN_VIDEO_PARAM_CHANGED:      return _T("the video parameters are changed during decoding.");
-        case MFX_WRN_PARTIAL_ACCELERATION:     return _T("SW is used.");
-        case MFX_WRN_INCOMPATIBLE_VIDEO_PARAM: return _T("incompatible video parameters.");
-        case MFX_WRN_VALUE_NOT_CHANGED:        return _T("the value is saturated based on its valid range.");
-        case MFX_WRN_OUT_OF_RANGE:             return _T("the value is out of valid range.");
-        default:                               return _T("unknown error."); 
-    }
-}
-
-const TCHAR *get_low_power_str(mfxU16 LowPower) {
-    switch (LowPower) {
-    case MFX_CODINGOPTION_OFF: return _T(" PG");
-    case MFX_CODINGOPTION_ON:  return _T(" FF");
-    default: return _T("");
-    }
-}
-
 #if defined(_WIN32) || defined(_WIN64)
 
 #include <Windows.h>
 #include <process.h>
+#include <VersionHelpers.h>
 
 typedef void (WINAPI *RtlGetVersion_FUNC)(OSVERSIONINFOEXW*);
 
@@ -888,7 +776,7 @@ tstring getOSVersion() {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-BOOL is_64bit_os() {
+BOOL rgy_is_64bit_os() {
 #if defined(_WIN32) || defined(_WIN64)
     SYSTEM_INFO sinfo = { 0 };
     GetNativeSystemInfo(&sinfo);
@@ -934,7 +822,7 @@ tstring getEnviromentInfo(bool add_ram_info) {
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
 
     buf += _T("Environment Info\n");
-    buf += strsprintf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
+    buf += strsprintf(_T("OS : %s (%s)\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
     buf += strsprintf(_T("CPU: %s\n"), cpu_info);
     if (add_ram_info) {
         cpu_info_t cpuinfo;
@@ -960,208 +848,117 @@ tstring getEnviromentInfo(bool add_ram_info) {
     return buf;
 }
 
-mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize) {
-    mfxBitstreamClear(pBitstream);
+struct sar_option_t {
+    int key;
+    int sar[2];
+};
 
-    if (nullptr == (pBitstream->Data = (uint8_t *)_aligned_malloc(nSize, 32))) {
-        return MFX_ERR_NULL_PTR;
+static const sar_option_t SAR_LIST[] = {
+    {  0, {  0,  0 } },
+    {  1, {  1,  1 } },
+    {  2, { 12, 11 } },
+    {  3, { 10, 11 } },
+    {  4, { 16, 11 } },
+    {  5, { 40, 33 } },
+    {  6, { 24, 11 } },
+    {  7, { 20, 11 } },
+    {  8, { 32, 11 } },
+    {  9, { 80, 33 } },
+    { 10, { 18, 11 } },
+    { 11, { 15, 11 } },
+    { 12, { 64, 33 } },
+    { 13, {160, 99 } },
+    { 14, {  4,  3 } },
+    { 15, {  3,  2 } },
+    { 16, {  2,  1 } }
+};
+
+std::pair<int, int> get_h264_sar(int idx) {
+    for (int i = 0; i < _countof(SAR_LIST); i++) {
+        if (SAR_LIST[i].key == idx)
+            return std::make_pair(SAR_LIST[i].sar[0], SAR_LIST[i].sar[1]);
     }
-
-    pBitstream->MaxLength = nSize;
-    return MFX_ERR_NONE;
+    return std::make_pair(0, 0);
 }
 
-mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream) {
-    memcpy(pBitstreamCopy, pBitstream, sizeof(pBitstreamCopy[0]));
-    pBitstreamCopy->Data = nullptr;
-    pBitstreamCopy->DataLength = 0;
-    pBitstreamCopy->DataOffset = 0;
-    pBitstreamCopy->MaxLength = 0;
-    auto sts = mfxBitstreamInit(pBitstreamCopy, pBitstream->MaxLength);
-    if (sts == MFX_ERR_NONE) {
-        memcpy(pBitstreamCopy->Data, pBitstream->Data, pBitstreamCopy->DataLength);
-    }
-    return sts;
-}
+int get_h264_sar_idx(std::pair<int, int> sar) {
 
-mfxStatus mfxBitstreamExtend(mfxBitstream *pBitstream, uint32_t nSize) {
-    uint8_t *pData = (uint8_t *)_aligned_malloc(nSize, 32);
-    if (nullptr == pData) {
-        return MFX_ERR_NULL_PTR;
+    if (0 != sar.first && 0 != sar.second) {
+        rgy_reduce(sar);
     }
 
-    auto nDataLen = pBitstream->DataLength;
-    if (nDataLen) {
-        memmove(pData, pBitstream->Data + pBitstream->DataOffset, nDataLen);
-    }
-
-    mfxBitstreamClear(pBitstream);
-
-    pBitstream->Data       = pData;
-    pBitstream->DataOffset = 0;
-    pBitstream->DataLength = nDataLen;
-    pBitstream->MaxLength  = nSize;
-
-    return MFX_ERR_NONE;
-}
-
-void mfxBitstreamClear(mfxBitstream *pBitstream) {
-    if (pBitstream->Data) {
-        _aligned_free(pBitstream->Data);
-    }
-    memset(pBitstream, 0, sizeof(pBitstream[0]));
-}
-
-mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint32_t size) {
-    mfxStatus sts = MFX_ERR_NONE;
-    if (data) {
-        const uint32_t new_data_length = pBitstream->DataLength + size;
-        if (pBitstream->MaxLength < new_data_length) {
-            if (MFX_ERR_NONE != (sts = mfxBitstreamExtend(pBitstream, new_data_length))) {
-                return sts;
-            }
-        }
-
-        if (pBitstream->MaxLength < new_data_length + pBitstream->DataOffset) {
-            memmove(pBitstream->Data, pBitstream->Data + pBitstream->DataOffset, pBitstream->DataLength);
-            pBitstream->DataOffset = 0;
-        }
-        memcpy(pBitstream->Data + pBitstream->DataLength + pBitstream->DataOffset, data, size);
-        pBitstream->DataLength = new_data_length;
-    }
-    return sts;
-}
-
-mfxExtBuffer *GetExtBuffer(mfxExtBuffer **ppExtBuf, int nCount, uint32_t targetBufferId) {
-    if (ppExtBuf) {
-        for (int i = 0; i < nCount; i++) {
-            if (ppExtBuf[i] && ppExtBuf[i]->BufferId == targetBufferId) {
-                return ppExtBuf[i];
-            }
+    for (int i = 0; i < _countof(SAR_LIST); i++) {
+        if (SAR_LIST[i].sar[0] == sar.first && SAR_LIST[i].sar[1] == sar.second) {
+            return SAR_LIST[i].key;
         }
     }
-    return nullptr;
+    return -1;
 }
 
-const TCHAR *ColorFormatToStr(uint32_t format) {
-    switch (format) {
-    case MFX_FOURCC_NV12:
-        return _T("nv12");
-    case MFX_FOURCC_NV16:
-        return _T("nv16");
-    case MFX_FOURCC_YV12:
-        return _T("yv12");
-    case MFX_FOURCC_YUY2:
-        return _T("yuy2");
-    case MFX_FOURCC_RGB3:
-        return _T("rgb24");
-    case MFX_FOURCC_RGB4:
-        return _T("rgb32");
-    case MFX_FOURCC_BGR4:
-        return _T("bgr32");
-    case MFX_FOURCC_P010:
-        return _T("nv12(10bit)");
-    case MFX_FOURCC_P210:
-        return _T("nv16(10bit)");
-    default:
-        return _T("unsupported");
+void adjust_sar(int *sar_w, int *sar_h, int width, int height) {
+    int aspect_w = *sar_w;
+    int aspect_h = *sar_h;
+    //正負チェック
+    if (aspect_w * aspect_h <= 0)
+        aspect_w = aspect_h = 0;
+    else if (aspect_w < 0) {
+        //負で与えられている場合はDARでの指定
+        //SAR比に変換する
+        int dar_x = -1 * aspect_w;
+        int dar_y = -1 * aspect_h;
+        int x = dar_x * height;
+        int y = dar_y * width;
+        //多少のづれは容認する
+        if (abs(y - x) > 16 * dar_y) {
+            //gcd
+            int a = x, b = y, c;
+            while ((c = a % b) != 0)
+                a = b, b = c;
+            *sar_w = x / b;
+            *sar_h = y / b;
+        } else {
+            *sar_w = *sar_h = 1;
+        }
+    } else {
+        //sarも一応gcdをとっておく
+        int a = aspect_w, b = aspect_h, c;
+        while ((c = a % b) != 0)
+            a = b, b = c;
+        *sar_w = aspect_w / b;
+        *sar_h = aspect_h / b;
     }
 }
 
-const TCHAR *CodecIdToStr(uint32_t nFourCC) {
-    switch (nFourCC) {
-    case MFX_CODEC_AVC:
-        return _T("H.264/AVC");
-    case MFX_CODEC_VC1:
-        return _T("VC-1");
-    case MFX_CODEC_HEVC:
-        return _T("HEVC");
-    case MFX_CODEC_MPEG2:
-        return _T("MPEG2");
-    case MFX_CODEC_VP8:
-        return _T("VP8");
-    case MFX_CODEC_VP9:
-        return _T("VP9");
-    case MFX_CODEC_JPEG:
-        return _T("JPEG");
-    default:
-        return _T("NOT_SUPPORTED");
+void get_dar_pixels(unsigned int* width, unsigned int* height, int sar_w, int sar_h) {
+    int w = *width;
+    int h = *height;
+    if (0 != (w * h * sar_w * sar_h)) {
+        int x = w * sar_w;
+        int y = h * sar_h;
+        int a = x, b = y, c;
+        while ((c = a % b) != 0)
+            a = b, b = c;
+        x /= b;
+        y /= b;
+        c = ((y + h - 1) / h) * h;
+        *width  = x * c;
+        *height = y * c;
     }
 }
 
-const TCHAR *TargetUsageToStr(uint16_t tu) {
-    switch (tu) {
-    case MFX_TARGETUSAGE_BEST_QUALITY: return _T("1 - best");
-    case 2:                            return _T("2 - higher");
-    case 3:                            return _T("3 - high");
-    case MFX_TARGETUSAGE_BALANCED:     return _T("4 - balanced");
-    case 5:                            return _T("5 - fast");
-    case 6:                            return _T("6 - faster");
-    case MFX_TARGETUSAGE_BEST_SPEED:   return _T("7 - fastest");
-    case MFX_TARGETUSAGE_UNKNOWN:      return _T("unknown");
-    default:                           return _T("unsupported");
-    }
-}
-
-const TCHAR *EncmodeToStr(uint32_t enc_mode) {
-    switch (enc_mode) {
-    case MFX_RATECONTROL_CBR:
-        return _T("Bitrate Mode - CBR");
-    case MFX_RATECONTROL_VBR:
-        return _T("Bitrate Mode - VBR");
-    case MFX_RATECONTROL_AVBR:
-        return _T("Bitrate Mode - AVBR");
-    case MFX_RATECONTROL_CQP:
-        return _T("Constant QP (CQP)");
-    case MFX_RATECONTROL_LA:
-        return _T("Bitrate Mode - Lookahead");
-    case MFX_RATECONTROL_ICQ:
-        return _T("ICQ (Intelligent Const. Quality)");
-    case MFX_RATECONTROL_VCM:
-        return _T("VCM (Video Conference Mode)");
-    case MFX_RATECONTROL_LA_ICQ:
-        return _T("LA-ICQ (Intelligent Const. Quality with Lookahead)");
-    case MFX_RATECONTROL_LA_EXT:
-        return _T("LA-EXT (Extended Lookahead)");
-    case MFX_RATECONTROL_LA_HRD:
-        return _T("LA-HRD (HRD compliant Lookahead)");
-    case MFX_RATECONTROL_QVBR:
-        return _T("Quality VBR bitrate");
-    case MFX_RATECONTROL_VQP:
-        return _T("Variable QP (VQP)");
-    default:
-        return _T("unsupported");
-    }
-}
-
-const TCHAR *MemTypeToStr(uint32_t memType) {
-    switch (memType) {
-    case SYSTEM_MEMORY:
-        return _T("system");
-#if D3D_SURFACES_SUPPORT
-    case D3D9_MEMORY:
-        return _T("d3d9");
-#if MFX_D3D11_SUPPORT
-    case D3D11_MEMORY:
-        return _T("d3d11");
-    case HW_MEMORY:
-        return _T("d3d11+d3d9");
-#endif //#if MFX_D3D11_SUPPORT
-#endif //#if D3D_SURFACES_SUPPORT
-#ifdef LIBVA_SUPPORT
-    case VA_MEMORY:
-    case HW_MEMORY:
-        return _T("va");
-#endif
-    default:
-        return _T("unsupported");
-    }
+std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned int darWidth, unsigned int darHeight) {
+    int x = darWidth  * height;
+    int y = darHeight *  width;
+    int a = x, b = y, c;
+    while ((c = a % b) != 0)
+        a = b, b = c;
+    return std::make_pair<int, int>(x / b, y / b);
 }
 
 #include "rgy_simd.h"
 #include <immintrin.h>
 
-RGY_NOINLINE int qsv_avx_dummy_if_avail(int bAVXAvail) {
+RGY_NOINLINE int rgy_avx_dummy_if_avail(int bAVXAvail) {
     int ret = 1;
     if (bAVXAvail) {
         return ret;

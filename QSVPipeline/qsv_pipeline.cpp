@@ -295,7 +295,7 @@ mfxStatus CQSVPipeline::CheckParamList(int value, const CX_DESC *list, const cha
 };
 
 mfxStatus CQSVPipeline::AllocAndInitVppDoNotUse() {
-    QSV_MEMSET_ZERO(m_VppDoNotUse);
+    RGY_MEMSET_ZERO(m_VppDoNotUse);
     m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
     m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
     m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
@@ -860,7 +860,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.FrameInfo.AspectRatioW = (mfxU16)m_iSAR[0];
     m_mfxEncParams.mfx.FrameInfo.AspectRatioH = (mfxU16)m_iSAR[1];
 
-    QSV_MEMSET_ZERO(m_CodingOption);
+    RGY_MEMSET_ZERO(m_CodingOption);
     m_CodingOption.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
     m_CodingOption.Header.BufferSz = sizeof(mfxExtCodingOption);
     if (!pInParams->bUseHWLib) {
@@ -1088,7 +1088,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_mfxEncParams.mfx.Interleaved = 1;
         m_mfxEncParams.mfx.Quality = pInParams->nQuality;
         m_mfxEncParams.mfx.RestartInterval = 0;
-        QSV_MEMSET_ZERO(m_mfxEncParams.mfx.reserved5);
+        RGY_MEMSET_ZERO(m_mfxEncParams.mfx.reserved5);
     }
 
     if (!m_EncExtParams.empty()) {
@@ -1627,17 +1627,17 @@ mfxStatus CQSVPipeline::AllocFrames() {
     uint16_t nVppSurfAdd     = 0;
     uint16_t nVppPostSurfAdd = 0; // vpp post用のフレーム数
 
-    QSV_MEMSET_ZERO(DecRequest);
-    QSV_MEMSET_ZERO(EncRequest);
-    QSV_MEMSET_ZERO(VppRequest[0]);
-    QSV_MEMSET_ZERO(VppRequest[1]);
+    RGY_MEMSET_ZERO(DecRequest);
+    RGY_MEMSET_ZERO(EncRequest);
+    RGY_MEMSET_ZERO(VppRequest[0]);
+    RGY_MEMSET_ZERO(VppRequest[1]);
     for (const auto& filter : m_VppPrePlugins) {
-        QSV_MEMSET_ZERO(filter->m_PluginResponse);
+        RGY_MEMSET_ZERO(filter->m_PluginResponse);
     }
     for (const auto& filter : m_VppPostPlugins) {
-        QSV_MEMSET_ZERO(filter->m_PluginResponse);
+        RGY_MEMSET_ZERO(filter->m_PluginResponse);
     }
-    QSV_MEMSET_ZERO(NextRequest);
+    RGY_MEMSET_ZERO(NextRequest);
     
     PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
 
@@ -1871,7 +1871,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         m_pVppSurfaces.resize(m_VppResponse.NumFrameActual);
 
         for (int i = 0; i < m_VppResponse.NumFrameActual; i++) {
-            QSV_MEMSET_ZERO(m_pVppSurfaces[i]);
+            RGY_MEMSET_ZERO(m_pVppSurfaces[i]);
             memcpy(&m_pVppSurfaces[i].Info, &(VppRequest[0].Info), sizeof(mfxFrameInfo));
 
             if (m_bExternalAlloc) {
@@ -2067,9 +2067,9 @@ void CQSVPipeline::DeleteFrames() {
         m_pMFXAllocator->Free(m_pMFXAllocator->pthis, &m_DecResponse);
     }
 
-    QSV_MEMSET_ZERO(m_EncResponse);
-    QSV_MEMSET_ZERO(m_VppResponse);
-    QSV_MEMSET_ZERO(m_DecResponse);
+    RGY_MEMSET_ZERO(m_EncResponse);
+    RGY_MEMSET_ZERO(m_VppResponse);
+    RGY_MEMSET_ZERO(m_DecResponse);
 }
 
 void CQSVPipeline::DeleteHWDevice() {
@@ -2103,7 +2103,7 @@ CQSVPipeline::CQSVPipeline() {
     m_bIsMVC = false;
     m_MVCflags = MVC_DISABLED;
     m_nNumView = 0;
-    QSV_MEMSET_ZERO(m_MVCSeqDesc);
+    RGY_MEMSET_ZERO(m_MVCSeqDesc);
     m_MVCSeqDesc.Header.BufferId = MFX_EXTBUFF_MVC_SEQ_DESC;
     m_MVCSeqDesc.Header.BufferSz = sizeof(m_MVCSeqDesc);
 #endif
@@ -2118,28 +2118,28 @@ CQSVPipeline::CQSVPipeline() {
 
     m_hwdev.reset();
 
-    QSV_MEMSET_ZERO(m_DecInputBitstream);
+    RGY_MEMSET_ZERO(m_DecInputBitstream);
     
-    QSV_MEMSET_ZERO(m_InitParam);
-    QSV_MEMSET_ZERO(m_mfxDecParams);
-    QSV_MEMSET_ZERO(m_mfxEncParams);
-    QSV_MEMSET_ZERO(m_mfxVppParams);
+    RGY_MEMSET_ZERO(m_InitParam);
+    RGY_MEMSET_ZERO(m_mfxDecParams);
+    RGY_MEMSET_ZERO(m_mfxEncParams);
+    RGY_MEMSET_ZERO(m_mfxVppParams);
     
-    QSV_MEMSET_ZERO(m_VppDoNotUse);
-    QSV_MEMSET_ZERO(m_VppDoUse);
-    QSV_MEMSET_ZERO(m_ExtDenoise);
-    QSV_MEMSET_ZERO(m_ExtDetail);
-    QSV_MEMSET_ZERO(m_ExtDeinterlacing);
-    QSV_MEMSET_ZERO(m_ExtFrameRateConv);
-    QSV_MEMSET_ZERO(m_ExtRotate);
-    QSV_MEMSET_ZERO(m_ExtVppVSI);
-    QSV_MEMSET_ZERO(m_ExtImageStab);
-    QSV_MEMSET_ZERO(m_ExtMirror);
-    QSV_MEMSET_ZERO(m_ExtScaling);
+    RGY_MEMSET_ZERO(m_VppDoNotUse);
+    RGY_MEMSET_ZERO(m_VppDoUse);
+    RGY_MEMSET_ZERO(m_ExtDenoise);
+    RGY_MEMSET_ZERO(m_ExtDetail);
+    RGY_MEMSET_ZERO(m_ExtDeinterlacing);
+    RGY_MEMSET_ZERO(m_ExtFrameRateConv);
+    RGY_MEMSET_ZERO(m_ExtRotate);
+    RGY_MEMSET_ZERO(m_ExtVppVSI);
+    RGY_MEMSET_ZERO(m_ExtImageStab);
+    RGY_MEMSET_ZERO(m_ExtMirror);
+    RGY_MEMSET_ZERO(m_ExtScaling);
 
-    QSV_MEMSET_ZERO(m_EncResponse);
-    QSV_MEMSET_ZERO(m_VppResponse);
-    QSV_MEMSET_ZERO(m_DecResponse);
+    RGY_MEMSET_ZERO(m_EncResponse);
+    RGY_MEMSET_ZERO(m_VppResponse);
+    RGY_MEMSET_ZERO(m_DecResponse);
 }
 
 CQSVPipeline::~CQSVPipeline() {
@@ -2935,7 +2935,7 @@ mfxStatus CQSVPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priority) {
     m_ThreadsParam.Priority = (mfxU16)clamp_param_int(priority, MFX_PRIORITY_LOW, MFX_PRIORITY_HIGH, _T("priority"));
     m_pInitParamExtBuf[0] = &m_ThreadsParam.Header;
 
-    QSV_MEMSET_ZERO(m_InitParam);
+    RGY_MEMSET_ZERO(m_InitParam);
     m_InitParam.ExtParam = m_pInitParamExtBuf;
     m_InitParam.NumExtParam = 1;
     return MFX_ERR_NONE;
@@ -3050,14 +3050,14 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         pParams->nAVMux = QSVENC_MUX_NONE;
         if (pParams->nAudioSelectCount) {
             for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                qsv_free(pParams->ppAudioSelectList[i]);
+                rgy_free(pParams->ppAudioSelectList[i]);
             }
-            qsv_free(pParams->ppAudioSelectList);
+            rgy_free(pParams->ppAudioSelectList);
             pParams->nAudioSelectCount = 0;
             PrintMes(RGY_LOG_WARN, _T("audio copy or audio encoding disabled on benchmark mode.\n"));
         }
         if (pParams->nSubtitleSelectCount) {
-            qsv_free(pParams->pSubtitleSelect);
+            rgy_free(pParams->pSubtitleSelect);
             pParams->nSubtitleSelectCount = 0;
             PrintMes(RGY_LOG_WARN, _T("subtitle copy disabled on benchmark mode.\n"));
         }
@@ -3515,7 +3515,7 @@ mfxStatus CQSVPipeline::CheckSceneChange() {
     sInputBufSys *pInputBuf;
 
     mfxVideoParam videoPrm;
-    QSV_MEMSET_ZERO(videoPrm);
+    RGY_MEMSET_ZERO(videoPrm);
     m_pmfxENC->GetVideoParam(&videoPrm);
 
     m_frameTypeSim.Init(videoPrm.mfx.GopPicSize, videoPrm.mfx.GopRefDist-1, videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB,
@@ -4691,7 +4691,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
 
     mfxVideoParam videoPrm;
-    QSV_MEMSET_ZERO(videoPrm);
+    RGY_MEMSET_ZERO(videoPrm);
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = &buf[0];
 
@@ -4701,7 +4701,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         QSV_ERR_MES(sts, _T("Failed to get video param from encoder."));
     } else if (m_pmfxVPP) {
         mfxVideoParam videoPrmVpp;
-        QSV_MEMSET_ZERO(videoPrmVpp);
+        RGY_MEMSET_ZERO(videoPrmVpp);
         sts = m_pmfxVPP->GetVideoParam(&videoPrmVpp);
         QSV_ERR_MES(sts, _T("Failed to get video param from vpp."));
         videoPrm.mfx.FrameInfo = videoPrmVpp.vpp.Out;
@@ -4742,7 +4742,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
     PRINT_INFO(    _T("%s\n"), get_qsvenc_version());
-    PRINT_INFO(    _T("OS             %s (%s)\n"), getOSVersion().c_str(), is_64bit_os() ? _T("x64") : _T("x86"));
+    PRINT_INFO(    _T("OS             %s (%s)\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
     if (Check_HWUsed(impl)) {
         PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);

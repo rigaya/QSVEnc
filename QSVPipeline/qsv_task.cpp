@@ -45,7 +45,7 @@ QSVTask::QSVTask() :
     vppSyncPoint(),
     pWriter(),
     pmfxAllocator(nullptr) {
-    QSV_MEMSET_ZERO(mfxBS);
+    RGY_MEMSET_ZERO(mfxBS);
 }
 
 mfxStatus QSVTask::Init(shared_ptr<CQSVOut> pTaskWriter, uint32_t nBufferSize, QSVAllocator *pAllocator) {

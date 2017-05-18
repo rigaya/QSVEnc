@@ -1106,7 +1106,7 @@ function showTable(idno) {
                                 _T("</li><br>\n")), false);
                             print_tstring(tstring(_T("<li>Intel GPUのドライバがWindows Update経由でインストールされた場合など、Intel ドライバのインストールが不完全な場合に正しく動作しないことがあります。<br>\n")
                                 _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/ja/search?keyword=") + cpuname + tstring(_T("\">こちらのリンク</a>から")) +
-                                getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。<br>\n")
+                                getOSVersion() + _T(" ") + tstring(rgy_is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。<br>\n")
                                 _T("<img src=\"setup/intel_driver_select.png\" alt=\"intel_driver_select\" border=\"0\" width=\"360\"/></li><br>\n")), false);
                             print_tstring(_T("</ol>\n"), false);
                             print_tstring(_T("<hr><br><br>\n"), false);
@@ -1134,7 +1134,7 @@ function showTable(idno) {
                                 _T("<a target=\"_blank\" href=\"setup/intel_gpu_uefi_setting.jpg\"><img src=\"setup/intel_gpu_uefi_settings.jpg\" alt=\"intel_gpu_uefi_settings\" border=\"0\" width=\"400\"/></a><span style=font-size:x-small>(Click ot enlarge)</span><br\n>")
                                 _T("</li><br>\n")), false);
                             print_tstring(tstring(_T("<li>Sometimes Intel GPU driver is not installed properlly, especially when it is installed from Windows Update.<br>\n")
-                                _T("Please install Intel GPU driver for") + getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T(" ")
+                                _T("Please install Intel GPU driver for") + getOSVersion() + _T(" ") + tstring(rgy_is_64bit_os() ? _T("64bit") : _T("32bit")) + _T(" ")
                                 _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/search?keyword=") + cpuname + tstring(_T("\">from here</a>")) +
                                 _T(" and reinstall the driver.<br>\n")
                                 _T("<img src=\"setup/intel_driver_select_en.png\" alt=\"intel_driver_select_en\" border=\"0\" width=\"320\"/></li><br>\n")), false);
@@ -1164,7 +1164,7 @@ function showTable(idno) {
                         print_tstring(_T("<ul>\n"), false);
                         print_tstring(tstring(_T("<li>Windows Update経由でインストールされた場合など、Intel ドライバのインストールが不完全な場合に正しく動作しないことがあります。<br>")
                             _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/ja/search?keyword=") + cpuname + tstring(_T("\">こちら</a>から")) +
-                            getOSVersion() + _T(" ") + tstring(is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。</li>\n")), false);
+                            getOSVersion() + _T(" ") + tstring(rgy_is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。</li>\n")), false);
                         print_tstring(_T("</ul>\n"), false);
                     }
                 } else {
@@ -1502,7 +1502,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         assert(pAudioSelect != nullptr);
         const TCHAR *qtr = _tcschr(ptr, ':');
         if (qtr != NULL && !(ptr + 1 == qtr && qtr[1] == _T('\\'))) {
-            pAudioSelect->pAudioExtractFormat = alloc_str(ptr, qtr - ptr);
+            pAudioSelect->pAudioExtractFormat = _tcsdup(ptr);
             ptr = qtr + 1;
         }
         size_t filename_len = _tcslen(ptr);
@@ -1527,7 +1527,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->ppAudioSelectList[pParams->nAudioSelectCount] = pAudioSelect;
             pParams->nAudioSelectCount++;
         }
-        pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = alloc_str(ptr);
+        pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = _tcsdup(ptr);
         argData->nParsedAudioFile++;
         return MFX_ERR_NONE;
     }
@@ -1585,7 +1585,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = alloc_str(AVQSV_CODEC_COPY);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup(AVQSV_CODEC_COPY);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
@@ -1630,7 +1630,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = alloc_str((ptr) ? ptr : AVQSV_CODEC_AUTO);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup((ptr) ? ptr : AVQSV_CODEC_AUTO);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
@@ -1905,7 +1905,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     if (0 == _tcscmp(option_name, _T("chapter"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
-            pParams->pChapterFile = alloc_str(strInput[i]);
+            pParams->pChapterFile = _tcsdup(strInput[i]);
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return MFX_PRINT_OPTION_ERR;
@@ -2021,7 +2021,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &value[0], &value[1])) {
-            QSV_MEMSET_ZERO(pParams->nPAR);
+            RGY_MEMSET_ZERO(pParams->nPAR);
             PrintHelp(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return MFX_PRINT_OPTION_ERR;
         }
@@ -3094,7 +3094,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("python"))) {
         i++;
-        pParams->pPythonPath = alloc_str(strInput[i]);
+        pParams->pPythonPath = _tcsdup(strInput[i]);
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("timer-period-tuning"))) {
@@ -3121,7 +3121,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     if (!pParams) {
         return MFX_ERR_NONE;
     }
-    QSV_MEMSET_ZERO(*pParams);
+    RGY_MEMSET_ZERO(*pParams);
 
     pParams->CodecId           = MFX_CODEC_AVC;
     pParams->nTargetUsage      = QSV_DEFAULT_QUALITY;
@@ -3699,7 +3699,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             _ftprintf(stderr, _T("\nFinished benchmark.\n"));
         }
     } else {
-        qsv_print_stderr(RGY_LOG_ERROR, _T("\nError occurred during benchmark.\n"));
+        rgy_print_stderr(RGY_LOG_ERROR, _T("\nError occurred during benchmark.\n"));
     }
 
     return sts;
@@ -3783,7 +3783,7 @@ int run(int argc, TCHAR *argv[]) {
 int _tmain(int argc, TCHAR *argv[]) {
     int ret = 0;
     if (0 != (ret = run(argc, argv))) {
-        qsv_print_stderr(RGY_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
+        rgy_print_stderr(RGY_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
     }
 #if ENABLE_AVCODEC_QSV_READER
     avformatNetworkDeinit();
