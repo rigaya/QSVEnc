@@ -33,7 +33,7 @@
 #include <thread>
 #include <atomic>
 #include "qsv_version.h"
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 #include "avcodec_reader.h"
 #include "qsv_output.h"
 #include "rgy_perf_monitor.h"

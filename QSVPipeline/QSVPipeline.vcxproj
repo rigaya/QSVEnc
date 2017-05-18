@@ -384,8 +384,6 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="avcodec_qsv.cpp" />
-    <ClCompile Include="avcodec_qsv_log.cpp" />
     <ClCompile Include="avcodec_reader.cpp" />
     <ClCompile Include="avcodec_writer.cpp" />
     <ClCompile Include="avi_reader.cpp" />
@@ -428,6 +426,8 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_query.cpp" />
     <ClCompile Include="qsv_task.cpp" />
     <ClCompile Include="qsv_util.cpp" />
+    <ClCompile Include="rgy_avlog.cpp" />
+    <ClCompile Include="rgy_avutil.cpp" />
     <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_ini.cpp" />
     <ClCompile Include="rgy_log.cpp" />
@@ -449,8 +449,6 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="vpy_reader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="avcodec_qsv.h" />
-    <ClInclude Include="avcodec_qsv_log.h" />
     <ClInclude Include="avcodec_reader.h" />
     <ClInclude Include="avcodec_writer.h" />
     <ClInclude Include="avi_reader.h" />
@@ -481,6 +479,8 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_query.h" />
     <ClInclude Include="qsv_task.h" />
     <ClInclude Include="qsv_util.h" />
+    <ClInclude Include="rgy_avlog.h" />
+    <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_ini.h" />
     <ClInclude Include="rgy_log.h" />

@@ -46,7 +46,7 @@
 #include "auo_system.h"
 #include "auo_version.h"
 #include "auo_qsv_link.h"
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 
 #include "auo_encode.h"
 #include "auo_video.h"

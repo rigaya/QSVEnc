@@ -31,7 +31,7 @@
 #include "qsv_version.h"
 
 #if ENABLE_AVCODEC_QSV_READER
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 #include "rgy_queue.h"
 #include "rgy_perf_monitor.h"
 #include "convert_csp.h"

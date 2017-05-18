@@ -31,7 +31,7 @@
 #if ENABLE_AVCODEC_QSV_READER
 #include <atomic>
 #include "rgy_log.h"
-#include "avcodec_qsv_log.h"
+#include "rgy_avlog.h"
 
 static std::weak_ptr<RGYLog> g_pQSVLog;
 static int print_prefix = 1;

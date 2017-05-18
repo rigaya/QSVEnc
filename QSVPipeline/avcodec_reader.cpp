@@ -35,7 +35,7 @@
 #include "qsv_plugin.h"
 #include "rgy_thread.h"
 #include "avcodec_reader.h"
-#include "avcodec_qsv_log.h"
+#include "rgy_avlog.h"
 
 #ifdef LIBVA_SUPPORT
 #include "qsv_hw_va.h"

@@ -34,7 +34,7 @@
 #include "qsv_util.h"
 #include "qsv_control.h"
 #include "avcodec_writer.h"
-#include "avcodec_qsv_log.h"
+#include "rgy_avlog.h"
 
 #define USE_AVCODECPAR 1
 

@@ -51,7 +51,7 @@
 #include "qsv_hw_device.h"
 #include "qsv_allocator.h"
 #include "qsv_allocator_sys.h"
-#include "avcodec_qsv_log.h"
+#include "rgy_avlog.h"
 #include "chapter_rw.h"
 
 #if D3D_SURFACES_SUPPORT

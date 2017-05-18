@@ -31,7 +31,7 @@
 
 #if ENABLE_AVCODEC_QSV_READER
 
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 
 void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog);
 void av_qsv_log_free();

@@ -45,7 +45,7 @@
 #include "qsv_prm.h"
 #include "qsv_query.h"
 #include "qsv_version.h"
-#include "avcodec_qsv.h"
+#include "rgy_avutil.h"
 
 #if ENABLE_CPP_REGEX
 #include <regex>
