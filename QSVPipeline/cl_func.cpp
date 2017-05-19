@@ -25,7 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#include "qsv_version.h"
+#include "rgy_version.h"
 #if ENABLE_OPENCL
 
 #include "rgy_tchar.h"

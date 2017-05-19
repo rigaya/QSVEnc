@@ -28,7 +28,7 @@
 #ifndef _AVS_READER_H_
 #define _AVS_READER_H_
 
-#include "qsv_version.h"
+#include "rgy_version.h"
 #if ENABLE_AVISYNTH_READER
 #pragma warning(push)
 #pragma warning(disable:4244)

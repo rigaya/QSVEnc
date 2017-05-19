@@ -33,7 +33,7 @@
 #include <vector>
 #include <mfxplugin++.h>
 
-#include "qsv_version.h"
+#include "rgy_version.h"
 
 #include "qsv_prm.h"
 #include "rgy_queue.h"

@@ -481,6 +481,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_util.h" />
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
+    <ClInclude Include="rgy_config.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_ini.h" />
     <ClInclude Include="rgy_log.h" />
@@ -493,7 +494,6 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="rgy_tchar.h" />
     <ClInclude Include="rgy_thread.h" />
     <ClInclude Include="rgy_util.h" />
-    <ClInclude Include="qsv_version.h" />
     <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="scene_change_detection.h" />

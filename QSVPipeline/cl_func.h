@@ -28,7 +28,7 @@
 #ifndef _CL_FUNC_H_
 #define _CL_FUNC_H_
 
-#include "qsv_version.h"
+#include "rgy_version.h"
 
 #if ENABLE_OPENCL
 

@@ -45,7 +45,7 @@
 #include "mfxstructures.h"
 #include "mfxcommon.h"
 #include "mfxsession.h"
-#include "qsv_version.h"
+#include "rgy_config.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
 #include "rgy_util.h"

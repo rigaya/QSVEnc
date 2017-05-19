@@ -30,7 +30,7 @@
 
 #include <climits>
 #include <vector>
-#include "qsv_version.h"
+#include "rgy_version.h"
 #include "qsv_util.h"
 #include "mfxcommon.h"
 #include "mfxvp8.h"

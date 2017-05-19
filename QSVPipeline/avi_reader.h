@@ -27,7 +27,7 @@
 #ifndef _AVI_READER_H_
 #define _AVI_READER_H_
 
-#include "qsv_version.h"
+#include "rgy_version.h"
 #if ENABLE_AVI_READER
 #include <Windows.h>
 #include <vfw.h>

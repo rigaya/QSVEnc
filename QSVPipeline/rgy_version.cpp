@@ -25,7 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#include "qsv_version.h"
+#include "rgy_config.h"
 #include "qsv_rev.h"
 #include "rgy_osdep.h"
 #include "qsv_util.h"

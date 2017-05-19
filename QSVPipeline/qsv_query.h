@@ -43,7 +43,7 @@
 #include "rgy_osdep.h"
 #include "mfxstructures.h"
 #include "mfxsession.h"
-#include "qsv_version.h"
+#include "rgy_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
 #include "qsv_util.h"

@@ -32,7 +32,7 @@
 #if ENABLE_AVSW_READER
 #include <thread>
 #include <atomic>
-#include "qsv_version.h"
+#include "rgy_version.h"
 #include "rgy_avutil.h"
 #include "avcodec_reader.h"
 #include "qsv_output.h"

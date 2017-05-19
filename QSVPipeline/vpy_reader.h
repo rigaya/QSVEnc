@@ -28,7 +28,7 @@
 #ifndef _VPY_READER_H_
 #define _VPY_READER_H_
 
-#include "qsv_version.h"
+#include "rgy_version.h"
 #if ENABLE_VAPOURSYNTH_READER
 #include "rgy_osdep.h"
 #include "qsv_input.h"

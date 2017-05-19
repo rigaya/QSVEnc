@@ -28,7 +28,7 @@
 #ifndef __PIPELINE_ENCODE_H__
 #define __PIPELINE_ENCODE_H__
 
-#include "qsv_version.h"
+#include "rgy_config.h"
 #include "rgy_osdep.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"

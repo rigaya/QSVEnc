@@ -32,7 +32,7 @@
 #include <memory>
 #include "mfxvideo++.h"
 #include "rgy_log.h"
-#include "qsv_version.h"
+#include "rgy_version.h"
 
 #if MFX_D3D11_SUPPORT
 #include <sdkddkver.h>

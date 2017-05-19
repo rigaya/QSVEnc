@@ -26,7 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <numeric>
-#include "qsv_version.h"
+#include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
 

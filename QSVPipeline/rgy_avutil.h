@@ -27,7 +27,7 @@
 #ifndef __RGY_AVUTIL_H__
 #define __RGY_AVUTIL_H__
 
-#include "qsv_version.h"
+#include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
 #include <algorithm>
