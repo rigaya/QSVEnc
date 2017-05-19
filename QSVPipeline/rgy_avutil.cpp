@@ -28,7 +28,7 @@
 #include <numeric>
 #include "qsv_version.h"
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 
 #include "rgy_avutil.h"
 
@@ -487,4 +487,4 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
 
 MAP_PAIR_0_1(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP, CSP_PIXFMT_RGY, AV_PIX_FMT_NONE, RGY_CSP_NA);
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER

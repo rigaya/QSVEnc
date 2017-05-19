@@ -25,6 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#pragma once
 #ifndef __RGY_UTIL_H__
 #define __RGY_UTIL_H__
 
@@ -104,6 +105,14 @@ template<typename T>
 void vector_cat(vector<T>& v1, const vector<T>& v2) {
     if (v2.size()) {
         v1.insert(v1.end(), v2.begin(), v2.end());
+    }
+}
+template<typename T>
+void vector_cat(std::vector<T>& v1, const T *ptr, size_t nCount) {
+    if (nCount) {
+        size_t currentSize = v1.size();
+        v1.resize(currentSize + nCount);
+        memcpy(v1.data() + currentSize, ptr, sizeof(T) * nCount);
     }
 }
 template<typename T>
@@ -264,13 +273,6 @@ static inline uint32_t popcnt64(uint64_t bits) {
     return (uint32_t)bits;
 }
 
-static TCHAR *alloc_str(const TCHAR *str, size_t length = 0) {
-    const size_t count = (length) ? length : _tcslen(str);
-    TCHAR *ptr = (TCHAR *)calloc(count + 1, sizeof(str[0]));
-    memcpy(ptr, str, sizeof(str[0]) * count);
-    return ptr;
-}
-
 template<typename type>
 static std::basic_string<type> repeatStr(std::basic_string<type> str, int count) {
     std::basic_string<type> ret;
@@ -299,7 +301,6 @@ static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 #if defined(_WIN32) || defined(_WIN64)
-bool check_if_d3d11_necessary();
 tstring getOSVersion(OSVERSIONINFOEXW *osinfo = nullptr);
 #else
 tstring getOSVersion();
@@ -308,20 +309,22 @@ BOOL rgy_is_64bit_os();
 uint64_t getPhysicalRamSize(uint64_t *ramUsed);
 tstring getEnviromentInfo(bool add_ram_info = true);
 
-const TCHAR *get_vpp_image_stab_mode_str(int mode);
-
 BOOL check_OS_Win8orLater();
 
 static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int size) {
-    uint8_t *dst_fin = dst + size;
-    uint8_t *dst_aligned_fin = (uint8_t *)(((size_t)dst_fin & ~15) - 64);
+    if (size < 64) {
+        memcpy(dst, src, size);
+        return;
+    }
+    BYTE *dst_fin = dst + size;
+    BYTE *dst_aligned_fin = (BYTE *)(((size_t)(dst_fin + 15) & ~15) - 64);
     __m128 x0, x1, x2, x3;
     const int start_align_diff = (int)((size_t)dst & 15);
     if (start_align_diff) {
         x0 = _mm_loadu_ps((float*)src);
         _mm_storeu_ps((float*)dst, x0);
-        dst += start_align_diff;
-        src += start_align_diff;
+        dst += 16 - start_align_diff;
+        src += 16 - start_align_diff;
     }
     for ( ; dst < dst_aligned_fin; dst += 64, src += 64) {
         x0 = _mm_loadu_ps((float*)(src +  0));
@@ -333,7 +336,7 @@ static void RGY_FORCEINLINE sse_memcpy(uint8_t *dst, const uint8_t *src, int siz
         _mm_store_ps((float*)(dst + 32), x2);
         _mm_store_ps((float*)(dst + 48), x3);
     }
-    uint8_t *dst_tmp = dst_fin - 64;
+    BYTE *dst_tmp = dst_fin - 64;
     src -= (dst - dst_tmp);
     x0 = _mm_loadu_ps((float*)(src +  0));
     x1 = _mm_loadu_ps((float*)(src + 16));

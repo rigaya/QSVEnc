@@ -307,7 +307,7 @@ void CQSVPipeline::FreeVppDoNotUse() {
 }
 
 mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     mfxStatus sts = MFX_ERR_NONE;
     if (m_pFileReader->getInputCodec()) {
         m_DecInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
@@ -1457,7 +1457,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
 #if ENABLE_CUSTOM_VPP
     tstring vppPreMes = _T("");
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
         int nCrop[4] = { 0 };
         AVDemuxStream targetSubStream = { 0 };
@@ -1506,7 +1506,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
             m_VppPrePlugins.push_back(std::move(filter));
         }
     }
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (pParams->vpp.delogo.pFilePath) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
@@ -2151,7 +2151,7 @@ void CQSVPipeline::SetAbortFlagPointer(bool *abortFlag) {
 }
 
 mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     ChapterRW chapter;
     auto err = chapter.read_file(chapfile.c_str(), CODE_PAGE_UNSET, 0.0);
     if (err != AUO_CHAP_ERR_NONE) {
@@ -2183,13 +2183,13 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
 #else
     PrintMes(RGY_LOG_ERROR, _T("chater reading unsupportted in this build"));
     return MFX_ERR_UNKNOWN;
-#endif //#if ENABLE_AVCODEC_QSV_READER
+#endif //#if ENABLE_AVSW_READER
 }
 
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     RGY_ERR ret = RGY_ERR_NONE;
     bool stdoutUsed = false;
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
         ((pParams->pAVMuxOutputFormat && 0 == _tcscmp(pParams->pAVMuxOutputFormat, _T("raw")))) //--formatにrawが指定されている
@@ -2343,8 +2343,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             stdoutUsed = m_pFileWriter->outputStdout();
             PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         }
-#if ENABLE_AVCODEC_QSV_READER
-    } //ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
+    } //ENABLE_AVSW_READER
 
     //音声の抽出
     if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
@@ -2425,7 +2425,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             }
         }
     }
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
     return MFX_ERR_NONE;
 }
 
@@ -2474,11 +2474,11 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             inputVideo.type = RGY_INPUT_FMT_AVI;
         else
 #endif //ENABLE_AVI_READER
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
             inputVideo.type = RGY_INPUT_FMT_AVANY;
 #else
             inputVideo.type = RGY_INPUT_FMT_RAW;
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
     }
 
     //ビルドに指定リーダーが含まれているかを確認する
@@ -2502,11 +2502,11 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    if (inputVideo.type == RGY_INPUT_FMT_AVHW && !ENABLE_AVCODEC_QSV_READER) {
+    if (inputVideo.type == RGY_INPUT_FMT_AVHW && !ENABLE_AVSW_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
-    if (inputVideo.type == RGY_INPUT_FMT_AVSW && !ENABLE_AVCODEC_QSV_READER) {
+    if (inputVideo.type == RGY_INPUT_FMT_AVSW && !ENABLE_AVSW_READER) {
         PrintMes(RGY_LOG_ERROR, _T("avcodec reader not compiled in this binary.\n"));
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
@@ -2550,7 +2550,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 
     if (m_pFileReader == nullptr) {
         const void *input_option = nullptr;
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         AvcodecReaderPrm avcodecReaderPrm = { 0 };
 #endif
         switch (inputVideo.type) {
@@ -2560,7 +2560,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avi reader selected.\n"));
                 break;
 #endif
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
             case RGY_INPUT_FMT_AVHW:
             case RGY_INPUT_FMT_AVSW:
             case RGY_INPUT_FMT_AVANY:
@@ -2617,7 +2617,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     if (pParams->nAudioSourceCount && pParams->ppAudioSourceList) {
         auto videoInfo = inputVideo;
 
@@ -3305,9 +3305,9 @@ void CQSVPipeline::Close() {
     m_nExPrm = 0x00;
     m_nAVSyncMode = RGY_AVSYNC_THROUGH;
     m_nProcSpeedLimit = 0;
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     av_qsv_log_free();
-#endif //#if ENABLE_AVCODEC_QSV_READER
+#endif //#if ENABLE_AVSW_READER
     PrintMes(RGY_LOG_DEBUG, _T("Closed pipeline.\n"));
     if (m_pQSVLog.get() != nullptr) {
         m_pQSVLog->writeFileFooter();
@@ -3580,7 +3580,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     if (m_pPerfMonitor) {
         HANDLE thOutput = NULL;
         HANDLE thInput = NULL;
@@ -3598,7 +3598,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
         }
         m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
-#endif //#if ENABLE_AVCODEC_QSV_READER
+#endif //#if ENABLE_AVSW_READER
     const int bufferSize = m_EncThread.m_nFrameBuffer;
     sInputBufSys *pArrayInputBuf = m_EncThread.m_InputBuf;
     sInputBufSys *pInputBuf;
@@ -3693,7 +3693,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     };
     std::deque<frameData> qDecodeFrames; //デコードされて出てきたsyncpとframe, timestamp
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     const bool bAVutilDll = check_avcodec_dll();
     auto qsv_rescale = [](int v, AVRational a, AVRational b) {
 #if _M_IX86
@@ -3738,7 +3738,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
     m_pEncSatusInfo->SetStart();
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
     std::map<int, shared_ptr<CAvcodecWriter>> pWriterForAudioStreams;
     for (auto pWriter : m_pFileWriterListAudio) {
@@ -3837,7 +3837,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
     auto extract_audio =[&]() {
         RGY_ERR ret = RGY_ERR_NONE;
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
             auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
             vector<AVPacket> packetList;
@@ -3879,7 +3879,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 }
             }
         }
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
         return ret;
     };
 
@@ -3942,7 +3942,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
     auto check_pts = [&]() {
         int64_t timestamp = AV_NOPTS_VALUE;
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         if (framePosList && pNextFrame) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
             if (pos.poc == AVQSV_POC_INVALID) {
@@ -3951,9 +3951,9 @@ mfxStatus CQSVPipeline::RunEncode() {
             }
             timestamp = pos.pts;
         } else {
-#endif //#if ENABLE_AVCODEC_QSV_READER
+#endif //#if ENABLE_AVSW_READER
             timestamp = qsv_rescale(nInputFrameCount, inputFpsTimebase, pktTimebase);
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         }
         if (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS) {
             if (!bCheckPtsMultipleOutput) {
@@ -4014,7 +4014,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             auto pInputBuf = &m_EncThread.m_InputBuf[(int)pNextFrame->Data.TimeStamp];
             dTimestampInputBufData.push_back({ timestamp, pInputBuf->frameFlag, { pInputBuf->AQP[0], pInputBuf->AQP[1] } });
         }
-#endif //#if ENABLE_AVCODEC_QSV_READER
+#endif //#if ENABLE_AVSW_READER
         pNextFrame->Data.TimeStamp = timestamp;
         return MFX_ERR_NONE;
     };
@@ -4405,7 +4405,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished getting buffered frames from decoder.\n"));
     }
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     if (m_pmfxDEC && (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS)) {
 
         pNextFrame = NULL;
@@ -4491,7 +4491,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             pAVCodecWriter->WriteNextPacket(nullptr);
         }
     }
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
 
     if (m_pmfxVPP) {
         //vppのフレームをflush

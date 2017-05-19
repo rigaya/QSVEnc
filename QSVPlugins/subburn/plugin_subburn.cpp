@@ -40,7 +40,7 @@
 #include "rgy_log.h"
 #include "plugin_subburn.h"
 #include "subburn_process.h"
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 #if defined(_MSC_VER)
 #pragma comment(lib, "libass-5.lib")
 
@@ -1159,4 +1159,4 @@ mfxStatus ProcessorSubBurn::SubBurn(AVSubtitleRect *pRect, uint8_t *pBuffer) {
 }
 
 
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN

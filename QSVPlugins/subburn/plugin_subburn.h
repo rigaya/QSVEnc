@@ -39,7 +39,7 @@
 #include "rgy_queue.h"
 #include "../base/plugin_base.h"
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 #include "avcodec_reader.h"
 #include "ass/ass.h"
 
@@ -116,7 +116,7 @@ public:
     virtual mfxStatus Process(DataChunk *chunk, uint8_t *pBuffer) override;
 
 protected:
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     mfxStatus ProcessSubText(uint8_t *pBuffer);
     mfxStatus ProcessSubBitmap(uint8_t *pBuffer);
     virtual void CopyFrameY();
@@ -198,6 +198,6 @@ protected:
     SubBurnParam m_SubBurnParam;
     vector<ProcessDataSubBurn> m_vProcessData;
 };
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 #endif // __PLUGIN_SUB_BURN_H__

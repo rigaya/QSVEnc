@@ -30,7 +30,7 @@
 
 #include "plugin_subburn.h"
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 class ProcessorSubBurnSSE41 : public ProcessorSubBurn
 {
@@ -38,7 +38,7 @@ public:
     ProcessorSubBurnSSE41();
     virtual ~ProcessorSubBurnSSE41();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -54,7 +54,7 @@ public:
     ProcessorSubBurnSSE41PshufbSlow();
     virtual ~ProcessorSubBurnSSE41PshufbSlow();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -70,7 +70,7 @@ public:
     ProcessorSubBurnAVX();
     virtual ~ProcessorSubBurnAVX();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -86,7 +86,7 @@ public:
     ProcessorSubBurnAVX2();
     virtual ~ProcessorSubBurnAVX2();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -102,7 +102,7 @@ public:
     ProcessorSubBurnD3DSSE41();
     virtual ~ProcessorSubBurnD3DSSE41();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -118,7 +118,7 @@ public:
     ProcessorSubBurnD3DSSE41PshufbSlow();
     virtual ~ProcessorSubBurnD3DSSE41PshufbSlow();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -134,7 +134,7 @@ public:
     ProcessorSubBurnD3DAVX();
     virtual ~ProcessorSubBurnD3DAVX();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -150,7 +150,7 @@ public:
     ProcessorSubBurnD3DAVX2();
     virtual ~ProcessorSubBurnD3DAVX2();
 
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     virtual void CopyFrameY() override;
     virtual void CopyFrameUV() override;
     virtual int BlendSubYBitmap(const uint8_t *pSubColorIdx, int nColorLUT, const uint8_t *pSubColor, const uint8_t *pAlpha, int subX, int subY, int subW, int subStride, int bufH, uint8_t *pBuf) override;
@@ -160,6 +160,6 @@ public:
 #endif
 };
 
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 #endif // __SUB_BURN_PROCESS_H__

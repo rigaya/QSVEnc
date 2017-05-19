@@ -26,7 +26,7 @@
 // --------------------------------------------------------------------------------------------
 
 #include <cstdint>
-#include <rgy_osdep.h>
+#include "rgy_osdep.h"
 #if _MSC_VER
 #include <intrin.h>
 #endif //_MSC_VER

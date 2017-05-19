@@ -30,7 +30,7 @@
 #include "qsv_input.h"
 #include "qsv_version.h"
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 #include "rgy_avutil.h"
 #include "rgy_queue.h"
 #include "rgy_perf_monitor.h"
@@ -824,6 +824,6 @@ private:
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
 };
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
 
 #endif //_AVCODEC_READER_H_

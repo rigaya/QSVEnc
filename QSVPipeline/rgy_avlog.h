@@ -24,18 +24,18 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVCODEC_RGY_LOG_H_
-#define _AVCODEC_RGY_LOG_H_
+#ifndef __RGY_AVLOG_H__
+#define __RGY_AVLOG_H__
 
 #include "qsv_version.h"
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 
 #include "rgy_avutil.h"
 
 void av_qsv_log_set(std::shared_ptr<RGYLog>& pQSVLog);
 void av_qsv_log_free();
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
 
-#endif //_AVCODEC_RGY_LOG_H_
+#endif //__RGY_AVLOG_H__

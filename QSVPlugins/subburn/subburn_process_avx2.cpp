@@ -36,7 +36,7 @@
 #if defined(_MSC_VER) || defined(__AVX2__)
 #include "subburn_process.h"
 #include "subburn_process_simd.h"
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 #if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
 static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
@@ -231,6 +231,6 @@ void ProcessorSubBurnD3DAVX2::BlendSubUV(const uint8_t *pAlpha, int bufX, int bu
     _mm256_zeroupper();
 }
 
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 #endif //#if defined(_MSC_VER) || defined(__AVX2__)
 

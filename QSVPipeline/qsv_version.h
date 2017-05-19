@@ -76,7 +76,7 @@ const char *get_qsvenc_version();
 #define ENABLE_AVI_READER         1
 #define ENABLE_AVISYNTH_READER    1
 #define ENABLE_VAPOURSYNTH_READER 1
-#define ENABLE_AVCODEC_QSV_READER 1
+#define ENABLE_AVSW_READER        1
 #define ENABLE_LIBASS_SUBBURN     1
 #define ENABLE_CUSTOM_VPP         1
 #ifdef _M_IX86
@@ -90,7 +90,7 @@ const char *get_qsvenc_version();
 #define ENABLE_AVI_READER         0
 #define ENABLE_AVISYNTH_READER    0
 #define ENABLE_VAPOURSYNTH_READER 0
-#define ENABLE_AVCODEC_QSV_READER 1
+#define ENABLE_AVSW_READER        1
 #define ENABLE_CUSTOM_VPP         1
 #define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_METRIC_FRAMEWORK   0

@@ -38,7 +38,7 @@
 
 #define USE_AVCODECPAR 1
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 #if USE_CUSTOM_IO
 static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
     CAvcodecWriter *writer = reinterpret_cast<CAvcodecWriter *>(opaque);
@@ -2980,4 +2980,4 @@ int64_t CAvcodecWriter::seek(int64_t offset, int whence) {
 }
 #endif //USE_CUSTOM_IO
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER

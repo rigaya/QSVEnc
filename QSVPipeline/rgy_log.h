@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <thread>
+#include <string>
 #include <mutex>
 #include "rgy_tchar.h"
 #include "rgy_util.h"
@@ -69,6 +70,5 @@ public:
     virtual void write(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP);
     virtual void write_line(int log_level, const char *format, va_list args, uint32_t codepage = CP_THREAD_ACP);
 };
-
 
 #endif //__RGY_LOG_H__

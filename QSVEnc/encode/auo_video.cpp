@@ -359,11 +359,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     } else
 #endif //#if ENABLE_AUO_LINK
     {
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         if (!check_avcodec_dll() || !conf->vid.afs) {
 
         }
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
         set_conf_qsvp_prm(&conf->qsv, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
     }
     conf->qsv.nPerfMonitorSelect        = (sys_dat->exstg->s_local.perf_monitor) ? PERF_MONITOR_ALL : 0;

@@ -215,7 +215,7 @@ unsigned int char_to_tstring(tstring& tstr, const char *str, uint32_t codepage) 
 #if UNICODE
     return char_to_wstring(tstr, str, codepage);
 #else
-    tstr = std::string(str);
+    tstr = (str) ? std::string(str) : _T("");
     return (unsigned int)tstr.length();
 #endif
 }
@@ -403,7 +403,7 @@ std::string GetFullPath(const char *path) {
 std::wstring GetFullPath(const WCHAR *path) {
     if (PathIsRelativeW(path) == FALSE)
         return std::wstring(path);
-    
+
     std::vector<WCHAR> buffer(wcslen(path) + 1024, 0);
     _wfullpath(buffer.data(), path, buffer.size());
     return std::wstring(buffer.data());
@@ -542,7 +542,7 @@ bool rgy_get_filesize(const char *filepath, uint64_t *filesize) {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-bool rgy_get_filesize(const WCHAR *filepath, UINT64 *filesize) {
+bool rgy_get_filesize(const WCHAR *filepath, uint64_t *filesize) {
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     bool ret = (GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd)) ? true : false;
     *filesize = (ret) ? (((UINT64)fd.nFileSizeHigh) << 32) + (UINT64)fd.nFileSizeLow : NULL;

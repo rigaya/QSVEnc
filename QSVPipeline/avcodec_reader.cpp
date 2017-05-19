@@ -42,7 +42,7 @@
 #include "qsv_allocator.h"
 #endif //#if LIBVA_SUPPORT
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 
 static inline void extend_array_size(VideoFrameData *dataset) {
     static int default_capacity = 8 * 1024;
@@ -1783,4 +1783,4 @@ RGY_ERR CAvcodecReader::ThreadFuncRead() {
     return RGY_ERR_NONE;
 }
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER

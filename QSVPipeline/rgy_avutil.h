@@ -24,12 +24,12 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVCODEC_QSV_H_
-#define _AVCODEC_QSV_H_
+#ifndef __RGY_AVUTIL_H__
+#define __RGY_AVUTIL_H__
 
 #include "qsv_version.h"
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 #include <algorithm>
 
 #pragma warning (push)
@@ -184,6 +184,6 @@ tstring getAVVersions();
 
 MAP_PAIR_0_1_PROTO(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP);
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
 
-#endif //_AVCODEC_QSV_H_
+#endif //__RGY_AVUTIL_H__

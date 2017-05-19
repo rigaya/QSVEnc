@@ -35,7 +35,7 @@
 #define USE_POPCNT  0
 #include "subburn_process.h"
 #include "subburn_process_simd.h"
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 ProcessorSubBurnSSE41::ProcessorSubBurnSSE41() : ProcessorSubBurn() {
 }
@@ -186,4 +186,4 @@ void ProcessorSubBurnD3DSSE41::BlendSubUV(const uint8_t *pAlpha, int bufX, int b
     blend_sub<true, true>(pFrame, pitch, pAlpha, bufX, bufY, bufW, bufStride, bufH, subcoloru, subcolorv, subTransparency, pBuf);
 }
 
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN

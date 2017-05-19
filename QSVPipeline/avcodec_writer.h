@@ -29,7 +29,7 @@
 
 #include "rgy_queue.h"
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 #include <thread>
 #include <atomic>
 #include "qsv_version.h"
@@ -441,6 +441,6 @@ private:
     vector<AVPktMuxData> m_AudPktBufFileHead; //ファイルヘッダを書く前にやってきた音声パケットのバッファ
 };
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
 
 #endif //_AVCODEC_WRITER_H_

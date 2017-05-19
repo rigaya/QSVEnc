@@ -26,6 +26,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
+#include <algorithm>
 #include "rgy_log.h"
 #include "qsv_version.h"
 
@@ -34,7 +35,7 @@ const char *RGYLog::HTML_FOOTER = "</body>\n</html>\n";
 void RGYLog::init(const TCHAR *pLogFile, int log_level) {
     m_pStrLog = pLogFile;
     m_nLogLevel = log_level;
-    if (pLogFile != nullptr) {
+    if (pLogFile != nullptr && _tcslen(pLogFile) > 0) {
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(pLogFile).second.c_str());
         FILE *fp = NULL;
         if (_tfopen_s(&fp, pLogFile, _T("a+")) || fp == NULL) {
@@ -43,7 +44,7 @@ void RGYLog::init(const TCHAR *pLogFile, int log_level) {
         } else {
             if (check_ext(pLogFile, { ".html", ".htm" })) {
                 _fseeki64(fp, 0, SEEK_SET);
-                char buffer[1024] ={ 0 };
+                char buffer[1024] = { 0 };
                 size_t file_read = fread(buffer, 1, sizeof(buffer)-1, fp);
                 if (file_read == 0) {
                     m_bHtml = true;
@@ -114,9 +115,9 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
     fileHeader += _T("\n");
     write(RGY_LOG_INFO, fileHeader.c_str());
 
-    if (m_nLogLevel == RGY_LOG_DEBUG) {
-        TCHAR cpuInfo[256] ={ 0 };
-        TCHAR gpu_info[1024] ={ 0 };
+    if (m_nLogLevel <= RGY_LOG_DEBUG) {
+        TCHAR cpuInfo[256] = { 0 };
+        TCHAR gpu_info[1024] = { 0 };
         getCPUInfo(cpuInfo, _countof(cpuInfo));
         getGPUInfo("Intel", gpu_info, _countof(gpu_info));
         write(RGY_LOG_DEBUG, _T("QSVEnc    %s (%s)\n"), VER_STR_FILEVERSION_TCHAR, BUILD_ARCH_STR);
@@ -128,7 +129,6 @@ void RGYLog::writeFileHeader(const TCHAR *pDstFilename) {
 void RGYLog::writeFileFooter() {
     write(RGY_LOG_INFO, _T("\n\n"));
 }
-
 
 void RGYLog::write_log(int log_level, const TCHAR *buffer, bool file_only) {
     if (log_level < m_nLogLevel) {

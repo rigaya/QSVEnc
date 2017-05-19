@@ -28,7 +28,7 @@
 #include <memory>
 #include "qsv_version.h"
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 #include <atomic>
 #include "rgy_log.h"
 #include "rgy_avlog.h"
@@ -63,4 +63,4 @@ void av_qsv_log_free() {
     }
 }
 
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER

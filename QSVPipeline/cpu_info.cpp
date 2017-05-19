@@ -277,9 +277,9 @@ static uint64_t __fastcall repeatFunc(uint32_t *test) {
         x0 = _mm_xor_si128(x0, x1);
         x0 = _mm_add_epi32(x0, x2);))
     }
-    
+
     uint64_t fin = __rdtscp(&dummy); //終了はrdtscpで受ける
-    
+
     //計算結果を強引に使うことで最適化による計算の削除を抑止する
     *test = _mm_movemask_epi8(x0);
 
@@ -306,7 +306,7 @@ static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thr
     }
     uint32_t test = 0;
     uint64_t result = ULLONG_MAX;
-    
+
     for (int j = 0; j < 4; j++) {
         for (int i = 0; i < 800; i++) {
             //連続で大量に行うことでTurboBoostを働かせる
@@ -394,7 +394,7 @@ double getCPUDefaultClockOpenCL() {
     char buffer[1024] = { 0 };
     getCPUName(buffer, _countof(buffer));
     const std::vector<const char*> vendorNameList = { "Intel", "NVIDIA", "AMD" };
-    
+
     const char *vendorName = NULL;
     for (auto vendor : vendorNameList) {
         if (cl_check_vendor_name(buffer, vendor)) {
@@ -421,8 +421,6 @@ double getCPUDefaultClock() {
         defautlClock = getCPUDefaultClockOpenCL();
     return defautlClock;
 }
-
-#include "qsv_util.h"
 
 int getCPUInfo(TCHAR *buffer, size_t nSize) {
     int ret = 0;

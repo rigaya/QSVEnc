@@ -54,7 +54,7 @@
 #include <dtl/dtl.hpp>
 #endif //#if ENABLE_DTL
 
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
 extern "C" {
 #include <libavutil/channel_layout.h>
 }
@@ -76,11 +76,11 @@ static tstring GetQSVEncVersion() {
     if (ENABLE_AVI_READER)         version += _T(", avi");
     if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
-    if (ENABLE_AVCODEC_QSV_READER) version += strsprintf(_T(", avqsv [%s]"), getHWDecSupportedCodecList().c_str());
+    if (ENABLE_AVSW_READER) version += strsprintf(_T(", avqsv [%s]"), getHWDecSupportedCodecList().c_str());
 #if !(defined(_WIN32) || defined(_WIN64))
     version += _T("\n vpp:    resize, deinterlace, denoise, detail-enhance, image-stab");
     if (ENABLE_CUSTOM_VPP) version += _T(", delego");
-    if (ENABLE_LIBASS_SUBBURN != 0 && ENABLE_AVCODEC_QSV_READER != 0) version += _T(", sub");
+    if (ENABLE_LIBASS_SUBBURN != 0 && ENABLE_AVSW_READER != 0) version += _T(", sub");
 #endif
     version += _T("\n");
     return version;
@@ -230,7 +230,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
     tstring str;
     str += strsprintf(_T("Usage: %s [Options] -i <filename> -o <filename>\n"), (strAppName) ? PathFindFileName(strAppName) : _T("QSVEncC"));
     str += strsprintf(_T("\n")
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         _T("When video codec could be decoded by QSV, any format or protocol supported\n")
         _T("by ffmpeg library could be used as a input.\n")
 #endif
@@ -247,7 +247,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("Example for Benchmark:\n")
         _T("  QSVEncC -i \"<avsfilename>\" --benchmark \"<benchmark_result.txt>\"\n")
         ,
-        (ENABLE_AVCODEC_QSV_READER) ? _T("Also, ") : _T(""),
+        (ENABLE_AVSW_READER) ? _T("Also, ") : _T(""),
         (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
         (ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
         (ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
@@ -269,7 +269,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                 specified path. With no value, \"qsv_check.html\"\n")
         _T("                                 will be created to current directory.\n")
         _T("   --check-environment          check environment info\n")
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         _T("   --check-avversion            show dll version\n")
         _T("   --check-codecs               show codecs available\n")
         _T("   --check-encoders             show audio encoders available\n")
@@ -286,7 +286,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                 - h264(default), hevc, mpeg2\n")
         _T("-i,--input-file <filename>      set input file name\n")
         _T("-o,--output-file <filename>     set ouput file name\n")
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         _T("                                 for extension mp4/mkv/mov,\n")
         _T("                                 avcodec muxer will be used.\n")
 #endif
@@ -304,7 +304,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --vpy                        set input as vpy format\n")
         _T("   --vpy-mt                     set input as vpy format in multi-thread\n")
 #endif
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         _T("   --avqsv                      set input to use avcodec + qsv\n")
         _T("   --avsw                       set input to use avcodec + sw deocder\n")
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
@@ -717,14 +717,14 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n")
 #if ENABLE_CUSTOM_VPP
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-sub [<int>] or [<string>]\n")
         _T("                                burn in subtitle into frame\n")
         _T("                                set sub track number in input file by integer\n")
         _T("                                or set external sub file path by string.\n")
         _T("   --vpp-sub-charset [<string>] set subtitle char set\n")
         _T("   --vpp-sub-shaping <string>   simple(default), complex\n")
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-delogo <string>        set delogo file path\n")
         _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
         _T("                                 or logo index starting from 1.\n")
@@ -1554,7 +1554,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("audio-copy"))
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
         pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
@@ -1896,7 +1896,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
-#endif //#if ENABLE_AVCODEC_QSV_READER
+#endif //#if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("chapter-copy"))
         || 0 == _tcscmp(option_name, _T("copy-chapter"))) {
         pParams->bCopyChapter = TRUE;
@@ -2736,7 +2736,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
 #if ENABLE_CUSTOM_VPP
-#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (0 == _tcscmp(option_name, _T("vpp-sub"))) {
         if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
             i++;
@@ -2783,7 +2783,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         return MFX_ERR_NONE;
     }
-#endif //#if ENABLE_AVCODEC_QSV_READER && ENABLE_LIBASS_SUBBURN
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (   0 == _tcscmp(option_name, _T("vpp-delogo"))
         || 0 == _tcscmp(option_name, _T("vpp-delogo-file"))) {
         i++;
@@ -3252,7 +3252,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
                 _ftprintf(stdout, _T("libmfxsw%s.dll : ----\n"), dll_platform);
             return MFX_PRINT_OPTION_DONE;
         }
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
         if (0 == _tcscmp(option_name, _T("check-avversion")))
         {
             _ftprintf(stdout, _T("%s\n"), getAVVersions().c_str());
@@ -3288,7 +3288,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
             _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
             return MFX_PRINT_OPTION_DONE;
         }
-#endif //ENABLE_AVCODEC_QSV_READER
+#endif //ENABLE_AVSW_READER
         auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData);
         if (sts != MFX_ERR_NONE) {
             return sts;
@@ -3785,8 +3785,8 @@ int _tmain(int argc, TCHAR *argv[]) {
     if (0 != (ret = run(argc, argv))) {
         rgy_print_stderr(RGY_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
     }
-#if ENABLE_AVCODEC_QSV_READER
+#if ENABLE_AVSW_READER
     avformatNetworkDeinit();
-#endif //#if ENABLE_AVCODEC_QSV_READER
+#endif //#if ENABLE_AVSW_READER
     return ret;
 }
