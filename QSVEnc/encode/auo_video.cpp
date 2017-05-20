@@ -260,7 +260,7 @@ static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL fo
         conf->qsv.nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
         avqsv_prm->audioSelect.nAudioSelect = 1;
         avqsv_prm->audioSelect.pAVAudioEncodeCodec = avqsv_prm->audioCodec;
-        strcpy_s(avqsv_prm->audioCodec, AVQSV_CODEC_COPY);
+        strcpy_s(avqsv_prm->audioCodec, RGY_AVCODEC_COPY);
         conf->qsv.ppAudioSelectList = avqsv_prm->audioSelectList.data();
         conf->qsv.nAudioSelectCount = 1;
         break;

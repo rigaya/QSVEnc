@@ -25,22 +25,18 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#include "rgy_config.h"
-#include "qsv_rev.h"
+#include "rgy_version.h"
+#include "rgy_rev.h"
 #include "rgy_osdep.h"
-#include "qsv_util.h"
+#include "rgy_util.h"
 
 #define SSTRING(str) STRING(str)
 #define STRING(str) #str
 
-const TCHAR *get_qsvenc_version() {
+const TCHAR *get_encoder_version() {
     return
-#if QSVENC_AUO
-        _T("QSVEnc (")
-#else
-        _T("QSVEncC (")
-#endif
-        BUILD_ARCH_STR _T(") ") VER_STR_FILEVERSION_TCHAR _T(" (r") QSVENC_REV _T(") by rigaya, ")  _T(__DATE__) _T(" ") _T(__TIME__)
+        _T(ENCODER_NAME) _T(" (")
+        BUILD_ARCH_STR _T(") ") VER_STR_FILEVERSION_TCHAR _T(" (r") ENCODER_REV _T(") by rigaya, ")  _T(__DATE__) _T(" ") _T(__TIME__)
 #if defined(_MSC_VER)
         _T(" (VC ") _T(SSTRING(_MSC_VER))
 #elif defined(__clang__)

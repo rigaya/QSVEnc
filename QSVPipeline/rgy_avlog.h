@@ -28,6 +28,7 @@
 #define __RGY_AVLOG_H__
 
 #include "rgy_version.h"
+#include "rgy_log.h"
 
 #if ENABLE_AVSW_READER
 

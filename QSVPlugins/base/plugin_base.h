@@ -31,7 +31,7 @@
 #include <memory>
 #include <vector>
 #include <mfxplugin++.h>
-#include "qsv_version.h"
+#include "rgy_version.h"
 #include "qsv_util.h"
 #include "rgy_log.h"
 #include "qsv_allocator_d3d9.h"

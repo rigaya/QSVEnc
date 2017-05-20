@@ -28,7 +28,7 @@
 #ifndef __PIPELINE_ENCODE_H__
 #define __PIPELINE_ENCODE_H__
 
-#include "rgy_config.h"
+#include "rgy_version.h"
 #include "rgy_osdep.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
@@ -46,7 +46,7 @@
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
 
-#ifndef QSVENC_AUO
+#ifndef BUILD_AUO
 #pragma comment(lib, "libmfx.lib")
 #endif
 

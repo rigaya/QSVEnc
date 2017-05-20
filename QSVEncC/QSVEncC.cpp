@@ -70,7 +70,7 @@ static bool check_locale_is_ja() {
 static tstring GetQSVEncVersion() {
     static const TCHAR *const ENABLED_INFO[] = { _T("disabled"), _T("enabled") };
     tstring version;
-    version += get_qsvenc_version();
+    version += get_encoder_version();
     version += _T("\n");
     version += _T(" reader: raw");
     if (ENABLE_AVI_READER)         version += _T(", avi");
@@ -1585,7 +1585,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = _tcsdup(AVQSV_CODEC_COPY);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup(RGY_AVCODEC_COPY);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
@@ -1630,7 +1630,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             } else {
                 pAudioSelect = pParams->ppAudioSelectList[audioIdx];
             }
-            pAudioSelect->pAVAudioEncodeCodec = _tcsdup((ptr) ? ptr : AVQSV_CODEC_AUTO);
+            pAudioSelect->pAVAudioEncodeCodec = _tcsdup((ptr) ? ptr : RGY_AVCODEC_AUTO);
 
             if (audioIdx < 0) {
                 audioIdx = pParams->nAudioSelectCount;
@@ -3260,17 +3260,17 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
         }
         if (0 == _tcscmp(option_name, _T("check-codecs")))
         {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs((AVQSVCodecType)(AVQSV_CODEC_DEC | AVQSV_CODEC_ENC)).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC | RGY_AVCODEC_ENC)).c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-encoders")))
         {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_ENC).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_ENC).c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-decoders")))
         {
-            _ftprintf(stdout, _T("%s\n"), getAVCodecs(AVQSV_CODEC_DEC).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_DEC).c_str());
             return MFX_PRINT_OPTION_DONE;
         }
         if (0 == _tcscmp(option_name, _T("check-protocols")))
@@ -3285,7 +3285,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
         }
         if (0 == _tcscmp(option_name, _T("check-formats")))
         {
-            _ftprintf(stdout, _T("%s\n"), getAVFormats((AVQSVFormatType)(AVQSV_FORMAT_DEMUX | AVQSV_FORMAT_MUX)).c_str());
+            _ftprintf(stdout, _T("%s\n"), getAVFormats((RGYAVFormatType)(RGY_AVFORMAT_DEMUX | RGY_AVFORMAT_MUX)).c_str());
             return MFX_PRINT_OPTION_DONE;
         }
 #endif //ENABLE_AVSW_READER

@@ -34,7 +34,7 @@
 #include <memory>
 #include <map>
 #include "cpu_info.h"
-#include "qsv_util.h"
+#include "rgy_util.h"
 #include "rgy_pipe.h"
 #include "rgy_log.h"
 

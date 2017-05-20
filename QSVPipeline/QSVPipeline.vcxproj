@@ -135,7 +135,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;..\ttmath;$(SolutionDir)libass\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QSVENC_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>BUILD_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -151,10 +151,10 @@
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
@@ -177,10 +177,10 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -206,10 +206,10 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
@@ -235,10 +235,10 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -251,7 +251,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.;include;include\vm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;..\ttmath;$(SolutionDir)libass\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>BUILD_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -269,10 +269,10 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">
@@ -304,10 +304,10 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -340,10 +340,10 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
@@ -377,10 +377,10 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
       <Command>@set REV=0
 where git &gt;NUL　2&gt;&amp;1
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
-echo #pragma once &gt; qsv_rev.h.tmp
-echo #define QSVENC_REV "%REV%" &gt;&gt; qsv_rev.h.tmp
-fc qsv_rev.h.tmp qsv_rev.h &gt; nul 2&gt;&amp;1
-if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del qsv_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
+echo #pragma once &gt; rgy_rev.h.tmp
+echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.tmp
+fc rgy_rev.h.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
+if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1 ) else ( del rgy_rev.h.tmp ) &gt; nul 2&gt;&amp;1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -435,9 +435,9 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="rgy_pipe.cpp" />
     <ClCompile Include="rgy_simd.cpp" />
     <ClCompile Include="rgy_util.cpp" />
-    <ClCompile Include="qsv_version.cpp" />
     <ClCompile Include="ram_speed.cpp" />
     <ClCompile Include="rgy_err.cpp" />
+    <ClCompile Include="rgy_version.cpp" />
     <ClCompile Include="scene_change_detection.cpp" />
     <ClCompile Include="scene_change_detection_avx.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
@@ -481,7 +481,6 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_util.h" />
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
-    <ClInclude Include="rgy_config.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_ini.h" />
     <ClInclude Include="rgy_log.h" />
@@ -496,6 +495,7 @@ if not %errorlevel% == 0 ( move /y qsv_rev.h.tmp qsv_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_err.h" />
+    <ClInclude Include="rgy_version.h" />
     <ClInclude Include="scene_change_detection.h" />
     <ClInclude Include="scene_change_detection_simd.h" />
     <ClInclude Include="vpp_plugins.h" />

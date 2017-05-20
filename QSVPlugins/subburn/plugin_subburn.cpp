@@ -902,7 +902,7 @@ mfxStatus ProcessorSubBurn::ProcessSubText(uint8_t *pBuffer) {
     }
     rgy_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
-    const auto frameTimebase = (m_pProcData->pVideoInputStream) ? m_pProcData->pVideoInputStream->time_base : QSV_NATIVE_TIMEBASE;
+    const auto frameTimebase = (m_pProcData->pVideoInputStream) ? m_pProcData->pVideoInputStream->time_base : HW_NATIVE_TIMEBASE;
     const double dTimeMs = (m_pIn->Data.TimeStamp - m_pProcData->nVideoInputFirstKeyPts) * av_q2d(frameTimebase) * 1000.0;
 
     int nDetectChange = 0;
@@ -951,7 +951,7 @@ mfxStatus ProcessorSubBurn::ProcessSubBitmap(uint8_t *pBuffer) {
         }
     }
 
-    const auto frameTimebase = (m_pProcData->pVideoInputStream) ? m_pProcData->pVideoInputStream->time_base : QSV_NATIVE_TIMEBASE;
+    const auto frameTimebase = (m_pProcData->pVideoInputStream) ? m_pProcData->pVideoInputStream->time_base : HW_NATIVE_TIMEBASE;
     const int64_t nFrameTimeMs = av_rescale_q((m_pIn->Data.TimeStamp - m_pProcData->nVideoInputFirstKeyPts), frameTimebase, { 1, 1000 });
 
     AVPacket pkt;

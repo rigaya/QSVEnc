@@ -110,7 +110,7 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX( RGY_CSP_YUY2, RGY_CSP_NV12, false, convert_yuy2_to_nv12_avx,      convert_yuy2_to_nv12_i_avx,    AVX )
     FUNC_SSE( RGY_CSP_YUY2, RGY_CSP_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_ssse3,  SSSE3|SSE2 )
     FUNC_SSE( RGY_CSP_YUY2, RGY_CSP_NV12, false, convert_yuy2_to_nv12_sse2,     convert_yuy2_to_nv12_i_sse2,   SSE2 )
-#if !QSVENC_AUO
+#if !BUILD_AUO
     FUNC_AVX2(RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_avx2,     convert_yv12_to_nv12_avx2,     AVX2|AVX)
     FUNC_AVX( RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_avx,      convert_yv12_to_nv12_avx,      AVX )
     FUNC_SSE( RGY_CSP_YV12, RGY_CSP_NV12, false, convert_yv12_to_nv12_sse2,     convert_yv12_to_nv12_sse2,     SSE2 )

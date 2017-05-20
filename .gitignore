@@ -5,7 +5,7 @@ ffmpeg_lgpl/
 dtl/
 libass/
 .depend
-qsv_rev.h
+rgy_rev.h
 qsv_config.h
 config.mak
 .project

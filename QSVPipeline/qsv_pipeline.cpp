@@ -2292,7 +2292,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
                     prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
                     prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
-                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? AVQSV_CODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
+                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? RGY_AVCODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
                     prm.pFilter = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAudioFilter;
                     PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
@@ -3727,7 +3727,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         m_nAVSyncMode = RGY_AVSYNC_THROUGH;
     }
 #else
-    const std::pair<int, int> pktTimebase = QSV_NATIVE_TIMEBASE;
+    const std::pair<int, int> pktTimebase = HW_NATIVE_TIMEBASE;
     m_nAVSyncMode = RGY_AVSYNC_THROUGH;
 #endif
 
@@ -4153,7 +4153,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 ptrCtrl = &encCtrl;
             }
             //TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
-            pSurfEncIn->Data.TimeStamp = qsv_rescale(nFramePutToEncoder, outputFpsTimebase, QSV_NATIVE_TIMEBASE);
+            pSurfEncIn->Data.TimeStamp = qsv_rescale(nFramePutToEncoder, outputFpsTimebase, HW_NATIVE_TIMEBASE);
             nFramePutToEncoder++;
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
             pCurrentTask->mfxBS.TimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
@@ -4741,7 +4741,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
-    PRINT_INFO(    _T("%s\n"), get_qsvenc_version());
+    PRINT_INFO(    _T("%s\n"), get_encoder_version());
     PRINT_INFO(    _T("OS             %s (%s)\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
     if (Check_HWUsed(impl)) {

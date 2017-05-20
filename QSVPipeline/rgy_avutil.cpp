@@ -116,7 +116,7 @@ tstring getHWDecSupportedCodecList() {
 }
 
 //利用可能な音声エンコーダ/デコーダを表示
-tstring getAVCodecs(AVQSVCodecType flag) {
+tstring getAVCodecs(RGYAVCodecType flag) {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
@@ -137,16 +137,16 @@ tstring getAVCodecs(AVQSVCodecType flag) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
                 if (0 == strcmp(list[i].name, codec->name)) {
-                    list[i].type |= codec->decode ? AVQSV_CODEC_DEC : 0x00;
-                    list[i].type |= codec->encode2 ? AVQSV_CODEC_ENC : 0x00;
+                    list[i].type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
+                    list[i].type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
                     alreadyExists = true;
                     break;
                 }
             }
             if (!alreadyExists) {
                 uint32_t type = 0x00;
-                type |= codec->decode ? AVQSV_CODEC_DEC : 0x00;
-                type |= codec->encode2 ? AVQSV_CODEC_ENC : 0x00;
+                type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
+                type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
                 list.push_back({ type, codec->name, codec->long_name });
             }
         }
@@ -165,8 +165,8 @@ tstring getAVCodecs(AVQSVCodecType flag) {
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avcodecName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
     maxNameLength = (std::min)(maxNameLength, 15u);
 
-    uint32_t flag_dec = flag & AVQSV_CODEC_DEC;
-    uint32_t flag_enc = flag & AVQSV_CODEC_ENC;
+    uint32_t flag_dec = flag & RGY_AVCODEC_DEC;
+    uint32_t flag_enc = flag & RGY_AVCODEC_ENC;
     int flagCount = popcnt32(flag);
 
     std::string codecstr = (flagCount > 1) ? "D-: Decode\n-E: Encode\n---------------------\n" : "";
@@ -191,7 +191,7 @@ tstring getAVCodecs(AVQSVCodecType flag) {
 }
 
 //利用可能なフォーマットを表示
-tstring getAVFormats(AVQSVFormatType flag) {
+tstring getAVFormats(RGYAVFormatType flag) {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
@@ -212,13 +212,13 @@ tstring getAVFormats(AVQSVFormatType flag) {
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, iformat->name)) {
-                list[i].type |= AVQSV_FORMAT_DEMUX;
+                list[i].type |= RGY_AVFORMAT_DEMUX;
                 alreadyExists = true;
                 break;
             }
         }
         if (!alreadyExists) {
-            list.push_back({ AVQSV_FORMAT_DEMUX, iformat->name, iformat->long_name });
+            list.push_back({ RGY_AVFORMAT_DEMUX, iformat->name, iformat->long_name });
         }
     }
     
@@ -227,13 +227,13 @@ tstring getAVFormats(AVQSVFormatType flag) {
         bool alreadyExists = false;
         for (uint32_t i = 0; i < list.size(); i++) {
             if (0 == strcmp(list[i].name, oformat->name)) {
-                list[i].type |= AVQSV_FORMAT_MUX;
+                list[i].type |= RGY_AVFORMAT_MUX;
                 alreadyExists = true;
                 break;
             }
         }
         if (!alreadyExists) {
-            list.push_back({ AVQSV_FORMAT_MUX, oformat->name, oformat->long_name });
+            list.push_back({ RGY_AVFORMAT_MUX, oformat->name, oformat->long_name });
         }
     }
 
@@ -251,8 +251,8 @@ tstring getAVFormats(AVQSVFormatType flag) {
     std::for_each(list.begin(), list.end(), [&maxNameLength](const avformatName& format) { maxNameLength = (std::max)(maxNameLength, (uint32_t)strlen(format.name)); });
     maxNameLength = (std::min)(maxNameLength, 15u);
 
-    uint32_t flag_demux = flag & AVQSV_FORMAT_DEMUX;
-    uint32_t flag_mux = flag & AVQSV_FORMAT_MUX;
+    uint32_t flag_demux = flag & RGY_AVFORMAT_DEMUX;
+    uint32_t flag_mux = flag & RGY_AVFORMAT_MUX;
     int flagCount = popcnt32(flag);
 
     std::string formatstr = (flagCount > 1) ? "D-: Demux\n-M: Mux\n---------------------\n" : "";
