@@ -31,9 +31,8 @@
 #include <cmath>
 #include <memory>
 #include "rgy_osdep.h"
-#include "qsv_util.h"
-#include "qsv_control.h"
-#include "avcodec_writer.h"
+#include "rgy_util.h"
+#include "rgy_output_ffmpeg.h"
 #include "rgy_avlog.h"
 
 #define USE_AVCODECPAR 1

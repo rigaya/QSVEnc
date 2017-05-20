@@ -28,15 +28,17 @@
 #define _AVCODEC_WRITER_H_
 
 #include "rgy_queue.h"
+#include "rgy_version.h"
 
 #if ENABLE_AVSW_READER
 #include <thread>
 #include <atomic>
-#include "rgy_version.h"
 #include "rgy_avutil.h"
-#include "avcodec_reader.h"
-#include "qsv_output.h"
+#include "rgy_input_ffmpeg.h"
+#include "rgy_output.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_util.h"
+#include "qsv_util.h"
 
 using std::vector;
 

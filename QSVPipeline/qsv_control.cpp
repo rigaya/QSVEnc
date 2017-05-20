@@ -33,7 +33,7 @@
 #include "rgy_osdep.h"
 #include "rgy_event.h"
 #include "rgy_log.h"
-#include "qsv_output.h"
+#include "rgy_output.h"
 
 #include "mfxcommon.h"
 #include "qsv_control.h"

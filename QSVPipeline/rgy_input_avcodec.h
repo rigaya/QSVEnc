@@ -27,7 +27,7 @@
 #ifndef _AVCODEC_READER_H_
 #define _AVCODEC_READER_H_
 
-#include "qsv_input.h"
+#include "rgy_input.h"
 #include "rgy_version.h"
 
 #if ENABLE_AVSW_READER

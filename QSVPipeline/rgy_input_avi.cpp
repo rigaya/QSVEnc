@@ -25,7 +25,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "avi_reader.h"
+#include "rgy_input_avi.h"
 #include "Aviriff.h"
 #if ENABLE_AVI_READER
 

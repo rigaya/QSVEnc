@@ -32,7 +32,7 @@
 #include <Windows.h>
 #include <vfw.h>
 #pragma comment(lib, "vfw32.lib")
-#include "qsv_input.h"
+#include "rgy_input.h"
 
 class CAVIReader : public CQSVInput
 {

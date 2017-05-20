@@ -45,7 +45,7 @@
 #include "qsv_prm.h"
 #include "qsv_util.h"
 #include "rgy_log.h"
-#include "qsv_output.h"
+#include "rgy_output.h"
 #include "cpu_info.h"
 #include "gpuz_info.h"
 #include "qsv_allocator.h"

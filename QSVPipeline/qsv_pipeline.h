@@ -54,8 +54,8 @@
 #include "scene_change_detection.h"
 #include "rgy_perf_monitor.h"
 #include "qsv_plugin.h"
-#include "qsv_input.h"
-#include "qsv_output.h"
+#include "rgy_input.h"
+#include "rgy_output.h"
 #include "qsv_task.h"
 #include "qsv_control.h"
 

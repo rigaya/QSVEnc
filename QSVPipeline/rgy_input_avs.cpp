@@ -25,7 +25,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "avs_reader.h"
+#include "rgy_input_avs.h"
 #if ENABLE_AVISYNTH_READER
 
 #if defined(_WIN32) || defined(_WIN64)

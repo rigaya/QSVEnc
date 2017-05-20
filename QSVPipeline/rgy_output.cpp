@@ -25,7 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#include "qsv_output.h"
+#include "rgy_output.h"
 #include <smmintrin.h>
 
 static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {

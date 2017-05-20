@@ -384,10 +384,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="avcodec_reader.cpp" />
-    <ClCompile Include="avcodec_writer.cpp" />
-    <ClCompile Include="avi_reader.cpp" />
-    <ClCompile Include="avs_reader.cpp" />
     <ClCompile Include="cl_func.cpp" />
     <ClCompile Include="convert_csp.cpp" />
     <ClCompile Include="convert_csp_avx.cpp">
@@ -419,8 +415,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_hw_va.cpp" />
     <ClCompile Include="qsv_pipeline.cpp" />
     <ClCompile Include="qsv_control.cpp" />
-    <ClCompile Include="qsv_input.cpp" />
-    <ClCompile Include="qsv_output.cpp" />
     <ClCompile Include="qsv_plugin.cpp" />
     <ClCompile Include="qsv_prm.cpp" />
     <ClCompile Include="qsv_query.cpp" />
@@ -430,7 +424,15 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="rgy_avutil.cpp" />
     <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_ini.cpp" />
+    <ClCompile Include="rgy_input.cpp" />
+    <ClCompile Include="rgy_input_avcodec.cpp" />
+    <ClCompile Include="rgy_input_avi.cpp" />
+    <ClCompile Include="rgy_input_avs.cpp" />
+    <ClCompile Include="rgy_input_raw.cpp" />
+    <ClCompile Include="rgy_input_vpy.cpp" />
     <ClCompile Include="rgy_log.cpp" />
+    <ClCompile Include="rgy_output.cpp" />
+    <ClCompile Include="rgy_output_avcodec.cpp" />
     <ClCompile Include="rgy_perf_monitor.cpp" />
     <ClCompile Include="rgy_pipe.cpp" />
     <ClCompile Include="rgy_simd.cpp" />
@@ -446,13 +448,8 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="scene_change_detection_simd.cpp" />
-    <ClCompile Include="vpy_reader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="avcodec_reader.h" />
-    <ClInclude Include="avcodec_writer.h" />
-    <ClInclude Include="avi_reader.h" />
-    <ClInclude Include="avs_reader.h" />
     <ClInclude Include="cl_func.h" />
     <ClInclude Include="convert_csp.h" />
     <ClInclude Include="convert_csp_simd.h" />
@@ -472,8 +469,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_hw_va.h" />
     <ClInclude Include="qsv_pipeline.h" />
     <ClInclude Include="qsv_control.h" />
-    <ClInclude Include="qsv_input.h" />
-    <ClInclude Include="qsv_output.h" />
     <ClInclude Include="qsv_plugin.h" />
     <ClInclude Include="qsv_prm.h" />
     <ClInclude Include="qsv_query.h" />
@@ -483,8 +478,16 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_ini.h" />
+    <ClInclude Include="rgy_input.h" />
+    <ClInclude Include="rgy_input_avcodec.h" />
+    <ClInclude Include="rgy_input_avi.h" />
+    <ClInclude Include="rgy_input_avs.h" />
+    <ClInclude Include="rgy_input_raw.h" />
+    <ClInclude Include="rgy_input_vpy.h" />
     <ClInclude Include="rgy_log.h" />
     <ClInclude Include="rgy_osdep.h" />
+    <ClInclude Include="rgy_output.h" />
+    <ClInclude Include="rgy_output_avcodec.h" />
     <ClInclude Include="rgy_perf_monitor.h" />
     <ClInclude Include="rgy_pipe.h" />
     <ClInclude Include="rgy_queue.h" />
@@ -499,7 +502,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="scene_change_detection.h" />
     <ClInclude Include="scene_change_detection_simd.h" />
     <ClInclude Include="vpp_plugins.h" />
-    <ClInclude Include="vpy_reader.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="ram_speed_x86.asm">

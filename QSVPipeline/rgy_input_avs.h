@@ -39,7 +39,7 @@
 #include "avxsynth_c.h"
 #endif
 #include "rgy_osdep.h"
-#include "qsv_input.h"
+#include "rgy_input.h"
 #pragma warning(pop)
 
 typedef AVS_Value (__stdcall *func_avs_invoke)(AVS_ScriptEnvironment *scriptEnv, const char *name, AVS_Value args, const char** arg_names);

@@ -26,7 +26,7 @@
 // --------------------------------------------------------------------------------------------
 
 #include <sstream>
-#include "qsv_input.h"
+#include "rgy_input.h"
 
 CQSVInput::CQSVInput() :
     m_inputVideoInfo(),

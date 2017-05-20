@@ -30,8 +30,8 @@
 #define _AUO_PIPELINE_ENCODE_H_
 
 #include "qsv_pipeline.h"
-#include "qsv_input.h"
-#include "qsv_output.h"
+#include "rgy_input.h"
+#include "rgy_output.h"
 
 class CAuoLog : public RGYLog {
 public:

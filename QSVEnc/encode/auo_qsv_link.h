@@ -28,7 +28,7 @@
 #ifndef _AUO_YUVREADER_H_
 #define _AUO_YUVREADER_H_
 
-#include "qsv_input.h"
+#include "rgy_input.h"
 #include "auo_version.h"
 #include "output.h"
 

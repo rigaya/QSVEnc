@@ -25,7 +25,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "vpy_reader.h"
+#include "rgy_input_vpy.h"
 #if ENABLE_VAPOURSYNTH_READER
 #include <map>
 #include <fstream>
