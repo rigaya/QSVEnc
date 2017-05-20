@@ -73,10 +73,10 @@ public:
     CAVSReader();
     virtual ~CAVSReader();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
-private:
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
     RGY_ERR load_avisynth();
     void release_avisynth();
 

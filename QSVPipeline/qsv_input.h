@@ -36,6 +36,8 @@
 #include "rgy_status.h"
 #include "convert_csp.h"
 #include "rgy_err.h"
+#include "rgy_util.h"
+#include "qsv_util.h"
 
 static_assert(std::is_pod<VideoInfo>::value == true, "VideoInfo is POD");
 
@@ -46,10 +48,12 @@ public:
     CQSVInput();
     virtual ~CQSVInput();
 
-    virtual void SetQSVLogPtr(shared_ptr<RGYLog> pQSVLog) {
-        m_pPrintMes = pQSVLog;
-    }
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) = 0;
+    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
+        Close();
+        m_pPrintMes = pLog;
+        m_pEncSatusInfo = pEncSatusInfo;
+        return Init(strFileName, pInputInfo, prm);
+    };
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -132,6 +136,7 @@ public:
         return m_inputVideoInfo.codec;
     }
 protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) = 0;
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
 
     //trim listを参照し、動画の最大フレームインデックスを取得する
@@ -161,7 +166,7 @@ public:
     CQSVInputRaw();
     ~CQSVInputRaw();
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 

@@ -28,26 +28,26 @@
 #include "qsv_output.h"
 #include <smmintrin.h>
 
-static mfxStatus WriteY4MHeader(FILE *fp, const mfxFrameInfo *info) {
-    char buffer[256] ={ 0 };
+static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
+    char buffer[256] = { 0 };
     char *ptr = buffer;
-    mfxU32 len = 0;
+    uint32_t len = 0;
     memcpy(ptr, "YUV4MPEG2 ", 10);
     len += 10;
 
-    len += sprintf_s(ptr+len, sizeof(buffer)-len, "W%d H%d ", info->CropW, info->CropH);
-    len += sprintf_s(ptr+len, sizeof(buffer)-len, "F%d:%d ", info->FrameRateExtN, info->FrameRateExtD);
+    len += sprintf_s(ptr+len, sizeof(buffer)-len, "W%d H%d ", info->dstWidth, info->dstHeight);
+    len += sprintf_s(ptr+len, sizeof(buffer)-len, "F%d:%d ", info->fpsN, info->fpsD);
 
     const char *picstruct = "Ip ";
-    if (info->PicStruct & MFX_PICSTRUCT_FIELD_TFF) {
+    if (info->picstruct & RGY_PICSTRUCT_TFF) {
         picstruct = "It ";
-    } else if (info->PicStruct & MFX_PICSTRUCT_FIELD_BFF) {
+    } else if (info->picstruct & RGY_PICSTRUCT_BFF) {
         picstruct = "Ib ";
     }
     strcpy_s(ptr+len, sizeof(buffer)-len, picstruct); len += 3;
-    len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->AspectRatioW, info->AspectRatioH);
+    len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->sar[0], info->sar[1]);
     strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += (mfxU32)strlen("C420mpeg2\n");
-    return (len == fwrite(buffer, 1, len, fp)) ? MFX_ERR_NONE : MFX_ERR_UNDEFINED_BEHAVIOR;
+    return (len == fwrite(buffer, 1, len, fp)) ? RGY_ERR_NONE : RGY_ERR_UNDEFINED_BEHAVIOR;
 }
 
 #define WRITE_CHECK(writtenBytes, expected) { \
@@ -67,13 +67,17 @@ CQSVOut::CQSVOut() :
     m_bY4mHeaderWritten(false),
     m_strWriterName(),
     m_strOutputInfo(),
+    m_VideoOutputInfo(),
     m_pPrintMes(),
     m_pOutputBuffer(),
     m_pReadBuffer(),
     m_pUVBuffer() {
+    memset(&m_VideoOutputInfo, 0, sizeof(m_VideoOutputInfo));
 }
 
 CQSVOut::~CQSVOut() {
+    m_pEncSatusInfo.reset();
+    m_pPrintMes.reset();
     Close();
 }
 
@@ -83,11 +87,11 @@ void CQSVOut::Close() {
         m_fDest.reset();
         AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
+    m_pEncSatusInfo.reset();
     m_pOutputBuffer.reset();
     m_pReadBuffer.reset();
     m_pUVBuffer.reset();
 
-    m_pEncSatusInfo.reset();
     m_bNoOutput = false;
     m_bInited = false;
     m_bSourceHWMem = false;
@@ -104,18 +108,16 @@ CQSVOutBitstream::CQSVOutBitstream() {
 CQSVOutBitstream::~CQSVOutBitstream() {
 }
 
-#pragma warning(push)
-#pragma warning(disable:4100)
-RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
     CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
 
-    Close();
-
-    m_pEncSatusInfo = pEncSatusInfo;
+    if (pVideoOutputInfo) {
+        memcpy(&m_VideoOutputInfo, pVideoOutputInfo, sizeof(m_VideoOutputInfo));
+    }
 
     if (rawPrm->bBenchmark) {
         m_bNoOutput = true;
@@ -151,32 +153,29 @@ RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const void *prm, shared
     m_bInited = true;
     return RGY_ERR_NONE;
 }
-RGY_ERR CQSVOutBitstream::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) { return RGY_ERR_NONE; };
-#pragma warning(pop)
-RGY_ERR CQSVOutBitstream::WriteNextFrame(mfxBitstream *pMfxBitstream) {
-    if (pMfxBitstream == nullptr) {
+
+RGY_ERR CQSVOutBitstream::WriteNextFrame(RGYBitstream *pBitstream) {
+    if (pBitstream == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
         return RGY_ERR_NULL_PTR;
     }
 
     uint32_t nBytesWritten = 0;
     if (!m_bNoOutput) {
-        nBytesWritten = (uint32_t)fwrite(pMfxBitstream->Data + pMfxBitstream->DataOffset, 1, pMfxBitstream->DataLength, m_fDest.get());
-        WRITE_CHECK(nBytesWritten, pMfxBitstream->DataLength);
+        nBytesWritten = (uint32_t)fwrite(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+        WRITE_CHECK(nBytesWritten, pBitstream->size());
     }
 
-    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pMfxBitstream->FrameType), pMfxBitstream->DataLength, 0);
-    pMfxBitstream->DataLength = 0;
+    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pBitstream->frametype()), pBitstream->size(), 0);
+    pBitstream->setSize(0);
 
     return RGY_ERR_NONE;
 }
 
-#pragma warning(push)
-#pragma warning(disable: 4100)
-RGY_ERR CQSVOutBitstream::WriteNextFrame(mfxFrameSurface1 *pSurface) {
+RGY_ERR CQSVOutBitstream::WriteNextFrame(RGYFrame *pSurface) {
+    UNREFERENCED_PARAMETER(pSurface);
     return RGY_ERR_UNSUPPORTED;
 }
-#pragma warning(pop)
 
 CQSVOutFrame::CQSVOutFrame() : m_bY4m(true) {
     m_strWriterName = _T("yuv writer");
@@ -186,11 +185,8 @@ CQSVOutFrame::CQSVOutFrame() : m_bY4m(true) {
 CQSVOutFrame::~CQSVOutFrame() {
 };
 
-#pragma warning(push)
-#pragma warning(disable: 4100)
-RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
-    Close();
-
+RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
+    UNREFERENCED_PARAMETER(pVideoOutputInfo);
     if (_tcscmp(strFileName, _T("-")) == 0) {
         m_fDest.reset(stdout);
         m_bOutputIsStdout = true;
@@ -207,7 +203,6 @@ RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr
 
     YUVWriterParam *writerParam = (YUVWriterParam *)prm;
 
-    m_pEncSatusInfo = pEncSatusInfo;
     m_bY4m = writerParam->bY4m;
     m_bSourceHWMem = !!(writerParam->memType & (D3D11_MEMORY | D3D9_MEMORY));
     m_bInited = true;
@@ -215,32 +210,25 @@ RGY_ERR CQSVOutFrame::Init(const TCHAR *strFileName, const void *prm, shared_ptr
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVOutFrame::SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) {
+RGY_ERR CQSVOutFrame::WriteNextFrame(RGYBitstream *pBitstream) {
+    UNREFERENCED_PARAMETER(pBitstream);
     return RGY_ERR_UNSUPPORTED;
 }
 
-RGY_ERR CQSVOutFrame::WriteNextFrame(mfxBitstream *pMfxBitstream) {
-    return RGY_ERR_UNSUPPORTED;
-}
-#pragma warning(pop)
-
-RGY_ERR CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
-    mfxFrameInfo &pInfo = pSurface->Info;
-    mfxFrameData &pData = pSurface->Data;
-
+RGY_ERR CQSVOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     if (!m_fDest) {
         return RGY_ERR_NULL_PTR;
     }
 
     if (m_bSourceHWMem) {
         if (m_pReadBuffer.get() == nullptr) {
-            m_pReadBuffer.reset((uint8_t *)_aligned_malloc(pData.Pitch + 128, 16));
+            m_pReadBuffer.reset((uint8_t *)_aligned_malloc(pSurface->pitch() + 128, 16));
         }
     }
 
     if (m_bY4m) {
         if (!m_bY4mHeaderWritten) {
-            WriteY4MHeader(m_fDest.get(), &pInfo);
+            WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo);
             m_bY4mHeaderWritten = true;
         }
         WRITE_CHECK(fwrite("FRAME\n", 1, strlen("FRAME\n"), m_fDest.get()), strlen("FRAME\n"));
@@ -267,46 +255,46 @@ RGY_ERR CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
         }
     };
 
-    const uint32_t lumaWidthBytes = pInfo.CropW << ((pInfo.FourCC == MFX_FOURCC_P010) ? 1 : 0);
-    if (   pInfo.FourCC == MFX_FOURCC_YV12
-        || pInfo.FourCC == MFX_FOURCC_NV12
-        || pInfo.FourCC == MFX_FOURCC_P010) {
-        const uint32_t cropOffset = pInfo.CropY * pData.Pitch + pInfo.CropX;
+    const uint32_t lumaWidthBytes = pSurface->width() << ((pSurface->csp() == RGY_CSP_P010) ? 1 : 0);
+    if (   pSurface->csp() == RGY_CSP_YV12
+        || pSurface->csp() == RGY_CSP_NV12
+        || pSurface->csp() == RGY_CSP_P010) {
+        const uint32_t cropOffset = pSurface->crop().e.up * pSurface->pitch() + pSurface->crop().e.left;
         if (m_bSourceHWMem) {
-            for (uint32_t j = 0; j < pInfo.CropH; j++) {
+            for (uint32_t j = 0; j < pSurface->height(); j++) {
                 uint8_t *ptrBuf = m_pReadBuffer.get();
-                uint8_t *ptrSrc = pData.Y + (pInfo.CropY + j) * pData.Pitch;
-                loadLineToBuffer(ptrBuf, ptrSrc, pData.Pitch);
-                WRITE_CHECK(fwrite(ptrBuf + pInfo.CropX, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
+                uint8_t *ptrSrc = pSurface->ptrY() + (pSurface->crop().e.up + j) * pSurface->pitch();
+                loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
+                WRITE_CHECK(fwrite(ptrBuf + pSurface->crop().e.left, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
             }
         } else {
-            for (uint32_t j = 0; j < pInfo.CropH; j++) {
-                WRITE_CHECK(fwrite(pData.Y + cropOffset + j * pData.Pitch, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
+            for (uint32_t j = 0; j < pSurface->height(); j++) {
+                WRITE_CHECK(fwrite(pSurface->ptrY() + cropOffset + j * pSurface->pitch(), 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
             }
         }
     }
 
     uint32_t frameSize = 0;
-    if (pInfo.FourCC == MFX_FOURCC_YV12) {
-        frameSize = lumaWidthBytes * pInfo.CropH * 3 / 2;
+    if (pSurface->csp() == RGY_CSP_YV12) {
+        frameSize = lumaWidthBytes * pSurface->height() * 3 / 2;
 
-        uint32_t uvPitch = pData.Pitch >> 1;
-        uint32_t uvWidth = pInfo.CropW >> 1;
-        uint32_t uvHeight = pInfo.CropH >> 1;
+        uint32_t uvPitch = pSurface->pitch() >> 1;
+        uint32_t uvWidth = pSurface->width() >> 1;
+        uint32_t uvHeight = pSurface->height() >> 1;
         uint8_t *ptrBuf = m_pReadBuffer.get();
         for (uint32_t i = 0; i < uvHeight; i++) {
-            loadLineToBuffer(ptrBuf, pData.U + (pInfo.CropY + i) * uvPitch, uvPitch);
-            WRITE_CHECK(fwrite(ptrBuf + (pInfo.CropX >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
+            loadLineToBuffer(ptrBuf, pSurface->ptrU() + (pSurface->crop().e.up + i) * uvPitch, uvPitch);
+            WRITE_CHECK(fwrite(ptrBuf + (pSurface->crop().e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
         }
         for (uint32_t i = 0; i < uvHeight; i++) {
-            loadLineToBuffer(ptrBuf, pData.V + (pInfo.CropY + i) * uvPitch, uvPitch);
-            WRITE_CHECK(fwrite(ptrBuf + (pInfo.CropX >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
+            loadLineToBuffer(ptrBuf, pSurface->ptrV() + (pSurface->crop().e.up + i) * uvPitch, uvPitch);
+            WRITE_CHECK(fwrite(ptrBuf + (pSurface->crop().e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
         }
-    } else if (pInfo.FourCC == MFX_FOURCC_NV12) {
-        frameSize = lumaWidthBytes * pInfo.CropH * 3 / 2;
-        uint32_t uvWidth = pInfo.CropW >> 1;
-        //uint32_t nv12Width = pInfo.CropW;
-        uint32_t uvHeight = pInfo.CropH >> 1;
+    } else if (pSurface->csp() == RGY_CSP_NV12) {
+        frameSize = lumaWidthBytes * pSurface->height() * 3 / 2;
+        uint32_t uvWidth = pSurface->width() >> 1;
+        //uint32_t nv12Width = pSurface->width();
+        uint32_t uvHeight = pSurface->height() >> 1;
         uint32_t uvFrameOffset = ALIGN16(uvWidth * uvHeight + 16);
         if (m_pUVBuffer.get() == nullptr) {
             m_pUVBuffer.reset((uint8_t *)_aligned_malloc(uvFrameOffset << 1, 32));
@@ -319,14 +307,14 @@ RGY_ERR CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
 
         for (uint32_t j = 0; j < uvHeight; j++) {
             uint8_t *ptrBuf = m_pReadBuffer.get();
-            uint8_t *ptrSrc = pData.UV + (pInfo.CropY + j) * pData.Pitch;
+            uint8_t *ptrSrc = pSurface->ptrUV() + (pSurface->crop().e.up + j) * pSurface->pitch();
             if (m_bSourceHWMem) {
-                loadLineToBuffer(ptrBuf, ptrSrc, pData.Pitch);
+                loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
             } else {
                 ptrBuf = ptrSrc;
             }
 
-            uint8_t *ptrUV = ptrBuf + pInfo.CropX;
+            uint8_t *ptrUV = ptrBuf + pSurface->crop().e.left;
             uint8_t *ptrU = m_pUVBuffer.get() + j * uvWidth;
             uint8_t *ptrV = ptrU + uvFrameOffset;
             for (uint32_t i = 0; i < uvWidth; i += 16, ptrUV += 32, ptrU += 16, ptrV += 16) {
@@ -338,30 +326,24 @@ RGY_ERR CQSVOutFrame::WriteNextFrame(mfxFrameSurface1 *pSurface) {
         }
         WRITE_CHECK(fwrite(m_pUVBuffer.get(), 1, uvWidth * uvHeight, m_fDest.get()), uvWidth * uvHeight);
         WRITE_CHECK(fwrite(m_pUVBuffer.get() + uvFrameOffset, 1, uvWidth * uvHeight, m_fDest.get()), uvWidth * uvHeight);
-    } else if (pInfo.FourCC == MFX_FOURCC_P010) {
-        frameSize = lumaWidthBytes * pInfo.CropH * 3 / 2;
+    } else if (pSurface->csp() == RGY_CSP_P010) {
+        frameSize = lumaWidthBytes * pSurface->height() * 3 / 2;
         uint8_t *ptrBuf = m_pReadBuffer.get();
-        for (uint32_t i = 0; i < (uint32_t)(pInfo.CropH >> 1); i++) {
-            loadLineToBuffer(ptrBuf, pData.UV + pInfo.CropY * (pData.Pitch >> 1) + i * pData.Pitch, pData.Pitch);
-            WRITE_CHECK(fwrite(ptrBuf + pInfo.CropX, 1, (uint32_t)pInfo.CropW << 1, m_fDest.get()), (uint32_t)pInfo.CropW << 1);
+        for (uint32_t i = 0; i < (uint32_t)(pSurface->height() >> 1); i++) {
+            loadLineToBuffer(ptrBuf, pSurface->ptrUV() + pSurface->crop().e.up * (pSurface->pitch() >> 1) + i * pSurface->pitch(), pSurface->pitch());
+            WRITE_CHECK(fwrite(ptrBuf + pSurface->crop().e.left, 1, (uint32_t)pSurface->width() << 1, m_fDest.get()), (uint32_t)pSurface->width() << 1);
         }
-    } else if (pInfo.FourCC == MFX_FOURCC_RGB4
-        || pInfo.FourCC == 100 //DXGI_FORMAT_AYUV
-        || pInfo.FourCC == MFX_FOURCC_A2RGB10) {
-        frameSize = lumaWidthBytes * pInfo.CropH * 4;
-        uint32_t w, h;
-        if (pInfo.CropH > 0 && pInfo.CropW > 0) {
-            w = pInfo.CropW;
-            h = pInfo.CropH;
-        } else {
-            w = pInfo.Width;
-            h = pInfo.Height;
-        }
+    } else if (pSurface->csp() == RGY_CSP_RGB4
+        || pSurface->csp() == 100 //DXGI_FORMAT_AYUV
+        /*|| pSurface->csp() == RGY_CSP_A2RGB10*/) {
+        frameSize = lumaWidthBytes * pSurface->height() * 4;
+        uint32_t w = pSurface->width();
+        uint32_t h = pSurface->height();
 
-        uint8_t *ptr = (std::min)((std::min)(pData.R, pData.G), pData.B) + pInfo.CropX + pInfo.CropY * pData.Pitch;
+        uint8_t *ptr = pSurface->ptrRGB() + pSurface->crop().e.left + pSurface->crop().e.up * pSurface->pitch();
 
         for (uint32_t i = 0; i < h; i++) {
-            WRITE_CHECK(fwrite(ptr + i * pData.Pitch, 1, 4*w, m_fDest.get()), 4*w);
+            WRITE_CHECK(fwrite(ptr + i * pSurface->pitch(), 1, 4*w, m_fDest.get()), 4*w);
         }
     } else {
         return RGY_ERR_INVALID_COLOR_FORMAT;

@@ -91,7 +91,7 @@ struct QSVTask {
 
         mfxStatus sts = MFX_ERR_NONE;
         if (pWriter->getOutType() == OUT_TYPE_BITSTREAM) {
-            sts = err_to_mfx(pWriter->WriteNextFrame(&mfxBS));
+            sts = err_to_mfx(pWriter->WriteNextFrame((RGYBitstream *)&mfxBS));
         } else {
             if (mfxSurf->Data.MemId) {
                 sts = pmfxAllocator->Lock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
@@ -100,7 +100,7 @@ struct QSVTask {
                 }
             }
 
-            sts = err_to_mfx(pWriter->WriteNextFrame(mfxSurf));
+            sts = err_to_mfx(pWriter->WriteNextFrame((RGYFrame *)mfxSurf));
 
             if (mfxSurf->Data.MemId) {
                 pmfxAllocator->Unlock(pmfxAllocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));

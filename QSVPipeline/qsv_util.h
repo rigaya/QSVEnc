@@ -68,6 +68,32 @@ RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct);
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info);
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui);
 
+static inline RGY_FRAMETYPE frametype_enc_to_rgy(const uint32_t frametype) {
+    RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_IDR  & frametype) ? RGY_FRAMETYPE_IDR : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_I    & frametype) ? RGY_FRAMETYPE_I   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_P    & frametype) ? RGY_FRAMETYPE_P   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_B    & frametype) ? RGY_FRAMETYPE_B   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xIDR & frametype) ? RGY_FRAMETYPE_xIDR : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xI   & frametype) ? RGY_FRAMETYPE_xI   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xP   & frametype) ? RGY_FRAMETYPE_xP   : RGY_FRAMETYPE_UNKNOWN;
+    type |=  (MFX_FRAMETYPE_xB   & frametype) ? RGY_FRAMETYPE_xB   : RGY_FRAMETYPE_UNKNOWN;
+    return type;
+}
+
+static inline uint16_t frametype_rgy_to_enc(const RGY_FRAMETYPE frametype) {
+    uint32_t type = MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_IDR  & frametype) ? MFX_FRAMETYPE_IDR : MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_I    & frametype) ? MFX_FRAMETYPE_I   : MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_P    & frametype) ? MFX_FRAMETYPE_P   : MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_B    & frametype) ? MFX_FRAMETYPE_B   : MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_xIDR & frametype) ? MFX_FRAMETYPE_xIDR : MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_xI   & frametype) ? MFX_FRAMETYPE_xI   : MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_xP   & frametype) ? MFX_FRAMETYPE_xP   : MFX_FRAMETYPE_UNKNOWN;
+    type |=  (RGY_FRAMETYPE_xB   & frametype) ? MFX_FRAMETYPE_xB   : MFX_FRAMETYPE_UNKNOWN;
+    return (uint16_t)type;
+}
+
 static const int RGY_CSP_TO_MFX_FOURCC[] = {
     0, //RGY_CSP_NA
     MFX_FOURCC_NV12, //RGY_CSP_NV12
@@ -126,12 +152,64 @@ public:
         return m_bitstream.Data + m_bitstream.DataOffset;
     }
 
+    uint32_t dataflag() const {
+        return m_bitstream.DataFlag;
+    }
+
+    void setDataflag(uint32_t flag) {
+        m_bitstream.DataFlag = (uint16_t)flag;
+    }
+
+    RGY_FRAMETYPE frametype() const {
+        return frametype_enc_to_rgy(m_bitstream.FrameType);
+    }
+
+    void setFrametype(RGY_FRAMETYPE frametype) {
+        m_bitstream.FrameType = frametype_rgy_to_enc(frametype);
+    }
+
+    RGY_PICSTRUCT picstruct() const {
+        return picstruct_enc_to_rgy(m_bitstream.PicStruct);
+    }
+
+    void setPicstruct(RGY_PICSTRUCT picstruct) {
+        m_bitstream.PicStruct = picstruct_rgy_to_enc(picstruct);
+    }
+
+    int duration() {
+        return 0;
+    }
+
+    void setDuration(int duration) {
+        UNREFERENCED_PARAMETER(duration);
+    }
+
+    int frameIdx() {
+        return 0;
+    }
+
+    void setFrameIdx(int frameIdx) {
+        UNREFERENCED_PARAMETER(frameIdx);
+    }
+
     uint32_t size() const {
         return m_bitstream.DataLength;
     }
 
+    void setSize(uint32_t size) {
+        m_bitstream.DataLength = size;
+    }
+
     uint32_t offset() const {
         return m_bitstream.DataOffset;
+    }
+
+    void addOffset(uint32_t add) {
+        m_bitstream.DataOffset += add;
+    }
+
+    void setOffset(uint32_t offset) {
+        m_bitstream.DataOffset = offset;
     }
 
     uint32_t bufsize() const {
@@ -152,6 +230,14 @@ public:
 
     int64_t dts() const {
         return m_bitstream.DecodeTimeStamp;
+    }
+
+    uint32_t avgQP() {
+        return 0;
+    }
+
+    void setAvgQP(uint32_t avgQP) {
+        UNREFERENCED_PARAMETER(avgQP);
     }
 
     void clear() {
@@ -305,6 +391,23 @@ public:
     uint32_t pitch() {
         return m_surface.Data.Pitch;
     }
+    uint32_t width() {
+        return m_surface.Info.CropW;
+    }
+    uint32_t height() {
+        return m_surface.Info.CropH;
+    }
+    sInputCrop crop() {
+        sInputCrop cr;
+        cr.e.left = m_surface.Info.CropX;
+        cr.e.up = m_surface.Info.CropY;
+        cr.e.right = m_surface.Info.Width - m_surface.Info.CropW - m_surface.Info.CropX;
+        cr.e.bottom = m_surface.Info.Height - m_surface.Info.CropH - m_surface.Info.CropY;
+        return cr;
+    }
+    RGY_CSP csp() {
+        return csp_enc_to_rgy(m_surface.Info.FourCC);
+    }
     int locked() {
         return m_surface.Data.Locked;
     }
@@ -333,19 +436,6 @@ static inline RGYFrame RGYFrameInit() {
 
 static_assert(sizeof(RGYFrame) == sizeof(mfxFrameSurface1), "RGYFrame size should equal to mfxFrameSurface1 size.");
 static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
-
-static inline RGY_FRAMETYPE frametype_enc_to_rgy(const mfxU16 frametype) {
-    RGY_FRAMETYPE type = RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_IDR  & frametype) ? RGY_FRAMETYPE_IDR : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_I    & frametype) ? RGY_FRAMETYPE_I   : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_P    & frametype) ? RGY_FRAMETYPE_P   : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_B    & frametype) ? RGY_FRAMETYPE_B   : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_xIDR & frametype) ? RGY_FRAMETYPE_xIDR : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_xI   & frametype) ? RGY_FRAMETYPE_xI   : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_xP   & frametype) ? RGY_FRAMETYPE_xP   : RGY_FRAMETYPE_UNKNOWN;
-    type |=  (MFX_FRAMETYPE_xB   & frametype) ? RGY_FRAMETYPE_xB   : RGY_FRAMETYPE_UNKNOWN;
-    return type;
-}
 
 const TCHAR *get_low_power_str(mfxU16 LowPower);
 const TCHAR *get_err_mes(int sts);

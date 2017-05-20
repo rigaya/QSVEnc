@@ -2201,6 +2201,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->CodecId == MFX_CODEC_RAW) {
         pParams->nAVMux &= ~QSVENC_MUX_VIDEO;
     }
+    const auto outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
     if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
         if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
             PrintMes(RGY_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
@@ -2213,7 +2214,6 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (m_pTrimParam) {
             writerPrm.trimList = m_pTrimParam->list;
         }
-        writerPrm.outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
         writerPrm.nOutputThread = pParams->nOutputThread;
         writerPrm.nAudioThread  = pParams->nAudioThread;
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
@@ -2301,8 +2301,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 }
             }
         }
-        m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
-        ret = m_pFileWriter->Init(pParams->strDstFile, &writerPrm, m_pEncSatusInfo);
+        ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &writerPrm, m_pQSVLog, m_pEncSatusInfo);
         if (ret != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
             return err_to_mfx(ret);
@@ -2318,11 +2317,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
 #endif
         if (pParams->CodecId == MFX_CODEC_RAW) {
             m_pFileWriter.reset(new CQSVOutFrame());
-            m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
             YUVWriterParam param;
             param.bY4m = true;
             param.memType = m_memType;
-            ret = m_pFileWriter->Init(pParams->strDstFile, &param, m_pEncSatusInfo);
+            ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &param, m_pQSVLog, m_pEncSatusInfo);
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
                 return err_to_mfx(ret);
@@ -2331,11 +2329,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else {
             m_pFileWriter = std::make_shared<CQSVOutBitstream>();
-            m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
             CQSVOutRawPrm rawPrm = { 0 };
             rawPrm.bBenchmark = pParams->bBenchmark != 0;
             rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
-            ret = m_pFileWriter->Init(pParams->strDstFile, &rawPrm, m_pEncSatusInfo);
+            ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &rawPrm, m_pQSVLog, m_pEncSatusInfo);
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
                 return err_to_mfx(ret);
@@ -2407,9 +2404,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
-                auto pWriter = std::make_shared<CAvcodecWriter>();
-                pWriter->SetQSVLogPtr(m_pQSVLog);
-                ret = pWriter->Init(pAudioSelect->pAudioExtractFilename, &writerAudioPrm, m_pEncSatusInfo);
+                shared_ptr<CQSVOut> pWriter(new CAvcodecWriter());
+                ret = pWriter->Init(pAudioSelect->pAudioExtractFilename, nullptr, &writerAudioPrm, m_pQSVLog, m_pEncSatusInfo);
                 if (ret != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
                     return err_to_mfx(ret);
@@ -2512,7 +2508,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
 
     //まずavs or vpy readerをためす
-    m_pFileReader = NULL;
+    m_pFileReader = nullptr;
     if (   inputVideo.type == RGY_INPUT_FMT_VPY
         || inputVideo.type == RGY_INPUT_FMT_VPY_MT
         || inputVideo.type == RGY_INPUT_FMT_AVS) {
@@ -2531,8 +2527,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             //aviリーダーに切り替え再試行する
             inputVideo.type = RGY_INPUT_FMT_AVI;
         } else {
-            m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pEncSatusInfo);
+            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pQSVLog, m_pEncSatusInfo);
             if (ret == RGY_ERR_INVALID_COLOR_FORMAT) {
                 //入力色空間の制限で使用できない場合はaviリーダーに切り替え再試行する
                 PrintMes(RGY_LOG_WARN, m_pFileReader->GetInputMessage());
@@ -2605,8 +2600,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (inputVideo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw"));
                 break;
         }
-        m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pEncSatusInfo);
+        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pQSVLog, m_pEncSatusInfo);
     }
     if (ret != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
@@ -2642,8 +2636,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.pQueueInfo = nullptr;
 
             unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
-            audioReader->SetQSVLogPtr(m_pQSVLog);
-            ret = audioReader->Init(pParams->ppAudioSourceList[i], &videoInfo, &avcodecReaderPrm, nullptr);
+            ret = audioReader->Init(pParams->ppAudioSourceList[i], &videoInfo, &avcodecReaderPrm, m_pQSVLog, nullptr);
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
                 return err_to_mfx(ret);
@@ -4719,15 +4712,6 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     prmSetOut.cop3   = cop3;
 
     CompareParam(m_prmSetIn, prmSetOut);
-
-    if (m_pFileWriter && m_pFileWriter->getOutType() == OUT_TYPE_BITSTREAM) {
-        auto ret = m_pFileWriter->SetVideoParam(&videoPrm, &cop2);
-        if (ret != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("%s\n"), m_pFileWriter->GetOutputMessage());
-            return err_to_mfx(ret);
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("CheckCurrentVideoParam: SetVideoParam to video file writer.\n"));
-    }
 
     TCHAR cpuInfo[256] = { 0 };
     getCPUInfo(cpuInfo, _countof(cpuInfo));

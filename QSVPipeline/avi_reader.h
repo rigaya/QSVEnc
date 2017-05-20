@@ -39,10 +39,10 @@ class CAVIReader : public CQSVInput
 public:
     CAVIReader();
     virtual ~CAVIReader();
-
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) override;
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
 
     PAVIFILE m_pAviFile;
     PAVISTREAM m_pAviStream;

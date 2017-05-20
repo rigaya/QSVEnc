@@ -161,11 +161,8 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
-
-    Close();
-    m_pEncSatusInfo = pEncSatusInfo;
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
     const bool use_mt_mode = ((CVSReaderParam *)prm)->mt;

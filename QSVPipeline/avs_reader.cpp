@@ -80,12 +80,8 @@ RGY_ERR CAVSReader::load_avisynth() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CAVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<EncodeStatus> pEncSatusInfo) {
+RGY_ERR CAVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
-
-    Close();
-
-    m_pEncSatusInfo = pEncSatusInfo;
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
     if (load_avisynth() != RGY_ERR_NONE) {

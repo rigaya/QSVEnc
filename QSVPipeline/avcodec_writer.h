@@ -188,9 +188,9 @@ typedef struct AVMuxThread {
     HANDLE                       heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
     HANDLE                       heEventPktAddedAudEncode;  //キューのいずれかにデータが追加されたことを通知する
     HANDLE                       heEventClosingAudEncode;   //音声処理スレッドが停止処理を開始したことを通知する
-    RGYQueueSPSP<mfxBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
-    RGYQueueSPSP<mfxBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
-    RGYQueueSPSP<mfxBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
+    RGYQueueSPSP<RGYBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
+    RGYQueueSPSP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
+    RGYQueueSPSP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
@@ -220,7 +220,6 @@ typedef struct AVOutputStreamPrm {
 struct AvcodecWriterPrm {
     const AVDictionary          *pInputFormatMetadata;    //入力ファイルのグローバルメタデータ
     const TCHAR                 *pOutputFormat;           //出力のフォーマット
-    VideoInfo                    outputVideoInfo;         //出力映像の情報
     bool                         bVideoDtsUnavailable;    //出力映像のdtsが無効 (API v1.6以下)
     const AVStream              *pVideoInputStream;       //入力映像のストリーム
     int64_t                      nVideoInputFirstKeyPts;  //入力映像の最初のpts
@@ -240,7 +239,6 @@ struct AvcodecWriterPrm {
     AvcodecWriterPrm() :
         pInputFormatMetadata(nullptr),
         pOutputFormat(nullptr),
-        outputVideoInfo(),
         bVideoDtsUnavailable(),
         pVideoInputStream(nullptr),
         nVideoInputFirstKeyPts(0),
@@ -256,7 +254,6 @@ struct AvcodecWriterPrm {
         vMuxOpt(),
         pQueueInfo(nullptr),
         pMuxVidTsLogFile(nullptr) {
-        memset(&outputVideoInfo, 0, sizeof(outputVideoInfo));
     }
 };
 
@@ -266,13 +263,9 @@ public:
     CAvcodecWriter();
     virtual ~CAvcodecWriter();
 
-    virtual RGY_ERR Init(const TCHAR *strFileName, const void *option, shared_ptr<EncodeStatus> pEncSatusInfo) override;
+    virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) override;
 
-    virtual RGY_ERR SetVideoParam(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2) override;
-
-    virtual RGY_ERR WriteNextFrame(mfxBitstream *pMfxBitstream) override;
-
-    virtual RGY_ERR WriteNextFrame(mfxFrameSurface1 *pSurface) override;
+    virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) override;
 
     virtual RGY_ERR WriteNextPacket(AVPacket *pkt);
 
@@ -291,7 +284,9 @@ public:
     HANDLE getThreadHandleOutput();
     HANDLE getThreadHandleAudProcess();
     HANDLE getThreadHandleAudEncode();
-private:
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *option) override;
+
     //別のスレッドで実行する場合のスレッド関数 (出力)
     RGY_ERR WriteThreadFunc();
 
@@ -311,7 +306,7 @@ private:
     AVPktMuxData pktMuxData(AVFrame *pFrame);
 
     //WriteNextFrameの本体
-    RGY_ERR WriteNextFrameInternal(mfxBitstream *pMfxBitstream, int64_t *pWrittenDts);
+    RGY_ERR WriteNextFrameInternal(RGYBitstream *pBitstream, int64_t *pWrittenDts);
 
     //WriteNextPacketの本体
     RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData);
@@ -344,14 +339,14 @@ private:
     RGY_ERR applyBitstreamFilterAAC(AVPacket *pkt, AVMuxAudio *pMuxAudio);
 
     //H.264ストリームからPAFFのフィールドの長さを返す
-    mfxU32 getH264PAFFFieldLength(mfxU8 *ptr, mfxU32 size);
+    uint32_t getH264PAFFFieldLength(const uint8_t *ptr, uint32_t size, int *isIDR);
 
     //extradataをコピーする
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
     void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
     
     //映像の初期化
-    RGY_ERR InitVideo(const AvcodecWriterPrm *prm);
+    RGY_ERR InitVideo(const VideoInfo *pVideoOutputInfo, const AvcodecWriterPrm *prm);
 
     //音声フィルタの初期化
     RGY_ERR InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt);
@@ -416,14 +411,14 @@ private:
     //パケットを実際に書き出す
     void WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket *pkt, int samples, int64_t *pWrittenDts);
 
-    //extradataに動画のヘッダーをセットする
-    RGY_ERR SetSPSPPSToExtraData(const mfxVideoParam *pMfxVideoPrm);
+    //extradataにH264のヘッダーを追加する
+    RGY_ERR AddH264HeaderToExtraData(const RGYBitstream *pBitstream);
 
     //extradataにHEVCのヘッダーを追加する
-    RGY_ERR AddHEVCHeaderToExtraData(const mfxBitstream *pMfxBitstream);
+    RGY_ERR AddHEVCHeaderToExtraData(const RGYBitstream *pBitstream);
 
     //ファイルヘッダーを書き出す
-    RGY_ERR WriteFileHeader(const mfxVideoParam *pMfxVideoPrm, const mfxExtCodingOption2 *cop2, const mfxBitstream *pMfxBitstream);
+    RGY_ERR WriteFileHeader(const RGYBitstream *pBitstream);
 
     //タイムスタンプをTrimなどを考慮しつつ計算しなおす
     //nTimeInがTrimで切り取られる領域の場合
