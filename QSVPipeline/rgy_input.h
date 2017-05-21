@@ -25,8 +25,9 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_INPUT_H__
-#define __QSV_INPUT_H__
+#pragma once
+#ifndef __RGY_INPUT_H__
+#define __RGY_INPUT_H__
 
 #include <memory>
 #include "rgy_osdep.h"
@@ -39,14 +40,10 @@
 #include "rgy_util.h"
 #include "qsv_util.h"
 
-static_assert(std::is_pod<VideoInfo>::value == true, "VideoInfo is POD");
-
-class CQSVInput
-{
+class RGYInput {
 public:
-
-    CQSVInput();
-    virtual ~CQSVInput();
+    RGYInput();
+    virtual ~RGYInput();
 
     RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
         Close();
@@ -55,8 +52,10 @@ public:
         return Init(strFileName, pInputInfo, prm);
     };
 
-#pragma warning (push)
-#pragma warning (disable: 4100)
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) = 0;
+
+#pragma warning(push)
+#pragma warning(disable: 4100)
     //動画ストリームの1フレーム分のデータをbitstreamに追加する (リーダー側のデータは消す)
     virtual RGY_ERR GetNextBitstream(RGYBitstream *pBitstream) {
         return RGY_ERR_NONE;
@@ -71,11 +70,9 @@ public:
     virtual RGY_ERR GetHeader(RGYBitstream *pBitstream) {
         return RGY_ERR_NONE;
     }
-#pragma warning (pop)
+#pragma warning(pop)
 
     virtual void Close();
-    //virtual RGY_ERR Init(const TCHAR *strFileName, const mfxU32 ColorFormat, const mfxU32 numViews, std::vector<TCHAR*> srcFileBuff);
-    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) = 0;
 
     void SetTrimParam(const sTrimParam& trim) {
         m_sTrimParam = trim;
@@ -130,6 +127,7 @@ public:
         va_end(args);
         AddMessage(log_level, buffer);
     }
+
     //HWデコードを行う場合のコーデックを返す
     //行わない場合はRGY_CODEC_UNKNOWNを返す
     RGY_CODEC getInputCodec() {
@@ -153,31 +151,13 @@ protected:
 
     RGY_CSP m_InputCsp;
     const ConvertCSP *m_sConvert;
+    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
 
     tstring m_strInputInfo;
-    shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
-    tstring m_strReaderName;
+    tstring m_strReaderName;    //読み込みの名前
 
     sTrimParam m_sTrimParam;
 };
 
-class CQSVInputRaw : public CQSVInput {
-public:
-    CQSVInputRaw();
-    ~CQSVInputRaw();
-protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
-    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
-    virtual void Close() override;
-
-    RGY_ERR ParseY4MHeader(char *buf, VideoInfo *pInfo);
-
-    FILE *m_fSource;
-
-    uint32_t m_nBufSize;
-    shared_ptr<uint8_t> m_pBuffer;
-};
-
-
-#endif //__QSV_INPUT_H__
+#endif //__RGY_INPUT_H__
 

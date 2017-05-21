@@ -26,37 +26,31 @@
 // --------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __RGY_EVENT_H__
-#define __RGY_EVENT_H__
+#ifndef __RGY_INPUT_RAW_H__
+#define __RGY_INPUT_RAW_H__
 
-#include <cstdint>
-#include <climits>
-#include "rgy_osdep.h"
+#include "rgy_input.h"
 
-#if defined(_WIN32) || defined(_WIN64)
-#define CloseEvent CloseHandle
-#else //#if defined(_WIN32) || defined(_WIN64)
+#if ENABLE_RAW_READER
 
-enum : uint32_t {
-    WAIT_OBJECT_0 = 0,
-    WAIT_TIMEOUT = 258L,
-    WAIT_ABANDONED_0 = 0x00000080L
+class RGYInputRaw : public RGYInput {
+public:
+    RGYInputRaw();
+    ~RGYInputRaw();
+
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
+    virtual void Close() override;
+
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+    RGY_ERR ParseY4MHeader(char *buf, VideoInfo *pInfo);
+
+    FILE *m_fSource;
+
+    uint32_t m_nBufSize;
+    shared_ptr<uint8_t> m_pBuffer;
 };
 
-static const uint32_t INFINITE = UINT_MAX;
+#endif //ENABLE_RAW_READER
 
-void ResetEvent(HANDLE ev);
-
-void SetEvent(HANDLE ev);
-
-HANDLE CreateEvent(void *pDummy, int bManualReset, int bInitialState, void *pDummy2);
-
-void CloseEvent(HANDLE ev);
-
-uint32_t WaitForSingleObject(HANDLE ev, uint32_t millisec);
-
-uint32_t WaitForMultipleObjects(uint32_t count, HANDLE *pev, int dummy, uint32_t millisec);
-
-#endif //#if defined(_WIN32) || defined(_WIN64)
-
-#endif //__RGY_EVENT_H__
+#endif //__RGY_INPUT_RAW_H__

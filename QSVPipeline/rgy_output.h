@@ -25,8 +25,9 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_OUTPUT_H__
-#define __QSV_OUTPUT_H__
+#pragma once
+#ifndef __RGY_OUTPUT_H__
+#define __RGY_OUTPUT_H__
 
 #include <memory>
 #include <vector>
@@ -45,10 +46,10 @@ enum OutputType {
     OUT_TYPE_SURFACE
 };
 
-class CQSVOut {
+class RGYOutput {
 public:
-    CQSVOut();
-    virtual ~CQSVOut();
+    RGYOutput();
+    virtual ~RGYOutput();
 
     RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm, shared_ptr<RGYLog> pLog, shared_ptr<EncodeStatus> pEncSatusInfo) {
         Close();
@@ -121,20 +122,19 @@ protected:
     shared_ptr<RGYLog> m_pPrintMes;  //ログ出力
     unique_ptr<char, malloc_deleter>            m_pOutputBuffer;
     unique_ptr<uint8_t, aligned_malloc_deleter> m_pReadBuffer;
-    unique_ptr<mfxU8, aligned_malloc_deleter>   m_pUVBuffer;
+    unique_ptr<uint8_t, aligned_malloc_deleter> m_pUVBuffer;
 };
 
-struct CQSVOutRawPrm {
+struct RGYOutputRawPrm {
     bool bBenchmark;
     int nBufSizeMB;
 };
 
-class CQSVOutBitstream : public CQSVOut {
+class RGYOutputRaw : public RGYOutput {
 public:
 
-    CQSVOutBitstream();
-    virtual ~CQSVOutBitstream();
-
+    RGYOutputRaw();
+    virtual ~RGYOutputRaw();
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) override;
     virtual RGY_ERR WriteNextFrame(RGYFrame *pSurface) override;
@@ -148,7 +148,7 @@ struct YUVWriterParam {
     MemType memType;
 };
 
-class CQSVOutFrame : public CQSVOut {
+class CQSVOutFrame : public RGYOutput {
 public:
 
     CQSVOutFrame();
@@ -162,4 +162,4 @@ protected:
     bool m_bY4m;
 };
 
-#endif //__QSV_OUTPUT_H__
+#endif //__RGY_OUTPUT_H__

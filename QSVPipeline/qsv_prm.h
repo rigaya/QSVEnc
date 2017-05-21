@@ -38,11 +38,6 @@
 #include "convert_csp.h"
 
 enum {
-    QSV_RESAMPLER_SWR,
-    QSV_RESAMPLER_SOXR,
-};
-
-enum {
     MFX_DEINTERLACE_NONE        = 0,
     MFX_DEINTERLACE_NORMAL      = 1,
     MFX_DEINTERLACE_IT          = 2, //inverse telecine, to 24fps
@@ -84,108 +79,16 @@ static MemType operator&=(MemType& a, MemType b) {
     return a;
 }
 
-static const int8_t QSV_OUTPUT_THREAD_AUTO = -1;
-static const int8_t QSV_AUDIO_THREAD_AUTO = -1;
-static const int8_t QSV_INPUT_THREAD_AUTO = -1;
-
-typedef struct {
-    int start, fin;
-} sTrim;
-
-typedef struct {
-    std::vector<sTrim> list;
-    int offset;
-} sTrimParam;
-
-typedef std::vector<std::pair<tstring, tstring>> muxOptList;
-
-static const int TRIM_MAX = INT_MAX;
-static const int TRIM_OVERREAD_FRAMES = 128;
-
-static bool inline frame_inside_range(int frame, const std::vector<sTrim>& trimList) {
-    if (trimList.size() == 0)
-        return true;
-    if (frame < 0)
-        return false;
-    for (auto trim : trimList) {
-        if (trim.start <= frame && frame <= trim.fin) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool inline rearrange_trim_list(int frame, int offset, std::vector<sTrim>& trimList) {
-    if (trimList.size() == 0)
-        return true;
-    if (frame < 0)
-        return false;
-    for (uint32_t i = 0; i < trimList.size(); i++) {
-        if (trimList[i].start >= frame) {
-            trimList[i].start = clamp(trimList[i].start + offset, 0, TRIM_MAX);
-        }
-        if (trimList[i].fin && trimList[i].fin >= frame) {
-            trimList[i].fin = (int)clamp((int64_t)trimList[i].fin + offset, 0, (int64_t)TRIM_MAX);
-        }
-    }
-    return false;
-}
-
 enum {
     FPS_CONVERT_NONE = 0,
     FPS_CONVERT_MUL2,
     FPS_CONVERT_MUL2_5,
 };
 
-enum RGYAVSync : uint32_t {
-    RGY_AVSYNC_THROUGH   = 0x00,
-    RGY_AVSYNC_INIT      = 0x01,
-    RGY_AVSYNC_CHECK_PTS = 0x02,
-    RGY_AVSYNC_VFR       = 0x02,
-    RGY_AVSYNC_FORCE_CFR = 0x04 | RGY_AVSYNC_CHECK_PTS,
-};
-
-static const int CHECK_PTS_MAX_INSERT_FRAMES = 8;
-
-enum {
-    QSVENC_MUX_NONE     = 0x00,
-    QSVENC_MUX_VIDEO    = 0x01,
-    QSVENC_MUX_AUDIO    = 0x02,
-    QSVENC_MUX_SUBTITLE = 0x04,
-};
-
 enum {
     QSV_VPP_SUB_SIMPLE = 0,
     QSV_VPP_SUB_COMPLEX,
 };
-
-static const uint32_t MAX_SPLIT_CHANNELS = 32;
-static const uint64_t QSV_CHANNEL_AUTO = UINT64_MAX;
-
-template <uint32_t size>
-static bool bSplitChannelsEnabled(uint64_t (&pnStreamChannels)[size]) {
-    bool bEnabled = false;
-    for (uint32_t i = 0; i < size; i++) {
-        bEnabled |= pnStreamChannels[i] != 0;
-    }
-    return bEnabled;
-}
-
-template <uint32_t size>
-static void setSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
-    for (uint32_t i = 0; i < size; i++) {
-        pnStreamChannels[i] = ((uint64_t)1) << i;
-    }
-}
-
-template <uint32_t size>
-static bool isSplitChannelAuto(uint64_t (&pnStreamChannels)[size]) {
-    bool isAuto = true;
-    for (uint32_t i = 0; isAuto && i < size; i++) {
-        isAuto &= (pnStreamChannels[i] == (((uint64_t)1) << i));
-    }
-    return isAuto;
-}
 
 typedef struct {
     bool bEnable;             //use vpp
@@ -354,7 +257,7 @@ struct sInputParams
     sTrim     *pTrimList;
     mfxU16     inputBitDepthLuma;
     mfxU16     inputBitDepthChroma;
-    mfxU8      nAVMux; //QSVENC_MUX_xxx
+    mfxU8      nAVMux; //RGY_MUX_xxx
     mfxU16     nAVDemuxAnalyzeSec;
 
     TCHAR     *pAVMuxOutputFormat;
@@ -494,7 +397,7 @@ const CX_DESC list_vp9_profile[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_interlaced[] = {
+const CX_DESC list_interlaced_mfx[] = {
     { _T("progressive"),     MFX_PICSTRUCT_PROGRESSIVE },
     { _T("interlaced(tff)"), MFX_PICSTRUCT_FIELD_TFF   },
     { _T("interlaced(bff)"), MFX_PICSTRUCT_FIELD_BFF   },
@@ -632,22 +535,10 @@ const CX_DESC list_mv_cost_scaling[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_avsync[] = {
-    { _T("through"),  RGY_AVSYNC_THROUGH   },
-    { _T("forcecfr"), RGY_AVSYNC_FORCE_CFR },
-    { NULL, 0 }
-};
-
 const CX_DESC list_priority[] = {
     { _T("low"),    MFX_PRIORITY_LOW    },
     { _T("normal"), MFX_PRIORITY_NORMAL },
     { _T("high"),   MFX_PRIORITY_HIGH   },
-};
-
-const CX_DESC list_resampler[] = {
-    { _T("swr"),  QSV_RESAMPLER_SWR  },
-    { _T("soxr"), QSV_RESAMPLER_SOXR },
-    { NULL, 0 }
 };
 
 enum {
@@ -834,33 +725,6 @@ const CX_DESC list_vpp_scaling_quality[] = {
     { NULL, 0 }
 };
 
-static int get_cx_index(const CX_DESC * list, int v) {
-    for (int i = 0; list[i].desc; i++)
-        if (list[i].value == v)
-            return i;
-    return 0;
-}
-static int get_cx_index(const CX_DESC * list, const TCHAR *chr) {
-    for (int i = 0; list[i].desc; i++)
-        if (0 == _tcsicmp(list[i].desc, chr))
-            return i;
-    return 0;
-}
-
-static int PARSE_ERROR_FLAG = INT_MIN;
-static int get_value_from_chr(const CX_DESC *list, const TCHAR *chr) {
-    for (int i = 0; list[i].desc; i++)
-        if (0 == _tcsicmp(list[i].desc, chr))
-            return list[i].value;
-    return PARSE_ERROR_FLAG;
-}
-static const TCHAR *get_chr_from_value(const CX_DESC *list, int v) {
-    for (int i = 0; list[i].desc; i++)
-        if (list[i].value == v)
-            return list[i].desc;
-    return _T("unknown");
-}
-
 //define defaults
 const int QSV_DEFAULT_REF = 0;
 const int QSV_DEFAULT_GOP_LEN = 0;
@@ -881,7 +745,6 @@ const int QSV_DEFAULT_CONVERGENCE = 90;
 const int QSV_DEFAULT_ACCURACY = 500;
 const int QSV_DEFAULT_FORCE_GOP_LEN = 1;
 const int QSV_DEFAULT_OUTPUT_BUF_MB = 8;
-const int QSV_OUTPUT_BUF_MB_MAX = 128;
 const uint32_t QSV_DEFAULT_BENCH = (1 << 1) | (1 << 4) | (1 << 7);
 
 const mfxU16 QSV_DEFAULT_VQP_STRENGTH = 10;

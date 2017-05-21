@@ -40,7 +40,7 @@
 #include "../base/plugin_base.h"
 
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-#include "rgy_input_ffmpeg.h"
+#include "rgy_input_avcodec.h"
 #include "ass/ass.h"
 
 struct ProcessDataSubBurn {

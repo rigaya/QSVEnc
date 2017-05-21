@@ -32,7 +32,7 @@
 #include "auo_version.h"
 #include "output.h"
 
-class AUO_YUVReader : public CQSVInput
+class AUO_YUVReader : public RGYInput
 {
 public :
 

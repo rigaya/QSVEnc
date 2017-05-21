@@ -106,7 +106,7 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
         return CQSVPipeline::InitOutput(pParams);
     }
 
-    m_pFileWriter = std::make_shared<CQSVOutBitstream>();
+    m_pFileWriter = std::make_shared<RGYOutputRaw>();
     m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
     bool bDummy = false;
     auto ret = m_pFileWriter->Init(pParams->strDstFile, &bDummy, m_pEncSatusInfo);

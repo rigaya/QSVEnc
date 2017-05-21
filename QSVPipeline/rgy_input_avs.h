@@ -25,8 +25,9 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef _AVS_READER_H_
-#define _AVS_READER_H_
+#pragma once
+#ifndef __RGY_INPUT_AVS_H__
+#define __RGY_INPUT_AVS_H__
 
 #include "rgy_version.h"
 #if ENABLE_AVISYNTH_READER
@@ -67,14 +68,14 @@ typedef struct {
     func_avs_get_version get_version;
 } avs_dll_t;
 
-class CAVSReader : public CQSVInput
-{
+class RGYInputAvs : public RGYInput {
 public:
-    CAVSReader();
-    virtual ~CAVSReader();
+    RGYInputAvs();
+    virtual ~RGYInputAvs();
 
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
+
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
     RGY_ERR load_avisynth();
@@ -89,4 +90,4 @@ protected:
 
 #endif //ENABLE_AVISYNTH_READER
 
-#endif //_AVS_READER_H_
+#endif //__RGY_INPUT_AVS_H__

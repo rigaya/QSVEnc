@@ -24,8 +24,10 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVCODEC_WRITER_H_
-#define _AVCODEC_WRITER_H_
+
+#pragma once
+#ifndef __RGY_OUTPUT_AVCODEC_H__
+#define __RGY_OUTPUT_AVCODEC_H__
 
 #include "rgy_queue.h"
 #include "rgy_version.h"
@@ -33,8 +35,9 @@
 #if ENABLE_AVSW_READER
 #include <thread>
 #include <atomic>
+#include <cstdint>
 #include "rgy_avutil.h"
-#include "rgy_input_ffmpeg.h"
+#include "rgy_input_avcodec.h"
 #include "rgy_output.h"
 #include "rgy_perf_monitor.h"
 #include "rgy_util.h"
@@ -47,13 +50,13 @@ using std::vector;
 static const int SUB_ENC_BUF_MAX_SIZE = 1024 * 1024;
 
 typedef struct AVMuxFormat {
-    const TCHAR          *pFilename;
+    const TCHAR          *pFilename;            //出力ファイル名
     AVFormatContext      *pFormatCtx;           //出力ファイルのformatContext
     char                  metadataStr[256];     //出力ファイルのエンコーダ名
     AVOutputFormat       *pOutputFmt;           //出力ファイルのoutputFormat
 
 #if USE_CUSTOM_IO
-    mfxU8                *pAVOutBuffer;         //avio_alloc_context用のバッファ
+    uint8_t              *pAVOutBuffer;         //avio_alloc_context用のバッファ
     uint32_t              nAVOutBufferSize;     //avio_alloc_context用のバッファサイズ
     FILE                 *fpOutput;             //出力ファイルポインタ
     char                 *pOutputBuffer;        //出力ファイルポインタ用のバッファ
@@ -75,16 +78,13 @@ typedef struct AVMuxVideo {
     const AVStream       *pStreamIn;            //入力映像のストリーム
     int64_t               nInputFirstKeyPts;    //入力映像の最初のpts
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
-    bool                  bIsPAFF;              //出力映像がPAFFである
-    mfxVideoParam         mfxParam;             //動画パラメータのコピー
-    mfxExtCodingOption2   mfxCop2;              //動画パラメータのコピー
     FILE                 *fpTsLogFile;          //mux timestampログファイル
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
     int                   nInSubStream;         //ソースファイルの入力サブストリーム番号
-    const AVStream       *pStreamIn;            //入力音声のCodecContextのコピー
+    const AVStream       *pStreamIn;            //入力音声のストリーム
     int                   nStreamIndexIn;       //入力音声のStreamのindex
     int                   nDelaySamplesOfAudio; //入力音声の遅延 (pkt_timebase基準)
     AVStream             *pStreamOut;           //出力ファイルの音声ストリーム
@@ -132,13 +132,13 @@ typedef struct AVMuxAudio {
     int                   nAACBsfErrorFromStart; //開始直後からのbitstream filter errorの数
 
     int                   nOutputSamples;       //出力音声の出力済みsample数
-    mfxI64                nLastPtsIn;           //入力音声の前パケットのpts
-    mfxI64                nLastPtsOut;          //出力音声の前パケットのpts
+    int64_t               nLastPtsIn;           //入力音声の前パケットのpts
+    int64_t               nLastPtsOut;          //出力音声の前パケットのpts
 } AVMuxAudio;
 
 typedef struct AVMuxSub {
     int                   nInTrackId;           //ソースファイルの入力トラック番号
-    const AVStream       *pStreamIn;            //入力字幕のCodecContextのコピー
+    const AVStream       *pStreamIn;            //入力字幕のストリーム
     int                   nStreamIndexIn;       //入力字幕のStreamのindex
     AVStream             *pStreamOut;           //出力ファイルの字幕ストリーム
 
@@ -175,28 +175,28 @@ enum {
 
 #if ENABLE_AVCODEC_OUT_THREAD
 typedef struct AVMuxThread {
-    bool                         bEnableOutputThread;       //出力スレッドを使用する
-    bool                         bEnableAudProcessThread;   //音声処理スレッドを使用する
-    bool                         bEnableAudEncodeThread;    //音声エンコードスレッドを使用する
-    std::atomic<bool>            bAbortOutput;              //出力スレッドに停止を通知する
-    std::thread                  thOutput;                  //出力スレッド(mux部分を担当)
-    std::atomic<bool>            bThAudProcessAbort;        //音声処理スレッドに停止を通知する
-    std::thread                  thAudProcess;              //音声処理スレッド(デコード/thAudEncodeがなければエンコードも担当)
-    std::atomic<bool>            bThAudEncodeAbort;         //音声エンコードスレッドに停止を通知する
-    std::thread                  thAudEncode;               //音声エンコードスレッド(エンコードを担当)
-    HANDLE                       heEventPktAddedOutput;     //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                       heEventClosingOutput;      //出力スレッドが停止処理を開始したことを通知する
-    HANDLE                       heEventPktAddedAudProcess; //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                       heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
-    HANDLE                       heEventPktAddedAudEncode;  //キューのいずれかにデータが追加されたことを通知する
-    HANDLE                       heEventClosingAudEncode;   //音声処理スレッドが停止処理を開始したことを通知する
+    bool                           bEnableOutputThread;       //出力スレッドを使用する
+    bool                           bEnableAudProcessThread;   //音声処理スレッドを使用する
+    bool                           bEnableAudEncodeThread;    //音声エンコードスレッドを使用する
+    std::atomic<bool>              bAbortOutput;              //出力スレッドに停止を通知する
+    std::thread                    thOutput;                  //出力スレッド(mux部分を担当)
+    std::atomic<bool>              bThAudProcessAbort;        //音声処理スレッドに停止を通知する
+    std::thread                    thAudProcess;              //音声処理スレッド(デコード/thAudEncodeがなければエンコードも担当)
+    std::atomic<bool>              bThAudEncodeAbort;         //音声エンコードスレッドに停止を通知する
+    std::thread                    thAudEncode;               //音声エンコードスレッド(エンコードを担当)
+    HANDLE                         heEventPktAddedOutput;     //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                         heEventClosingOutput;      //出力スレッドが停止処理を開始したことを通知する
+    HANDLE                         heEventPktAddedAudProcess; //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                         heEventClosingAudProcess;  //音声処理スレッドが停止処理を開始したことを通知する
+    HANDLE                         heEventPktAddedAudEncode;  //キューのいずれかにデータが追加されたことを通知する
+    HANDLE                         heEventClosingAudEncode;   //音声処理スレッドが停止処理を開始したことを通知する
     RGYQueueSPSP<RGYBitstream, 64> qVideobitstreamFreeI;      //映像 Iフレーム用に空いているデータ領域を格納する
     RGYQueueSPSP<RGYBitstream, 64> qVideobitstreamFreePB;     //映像 P/Bフレーム用に空いているデータ領域を格納する
     RGYQueueSPSP<RGYBitstream, 64> qVideobitstream;           //映像パケットを出力スレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketProcess;       //処理前音声パケットをデコード/エンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioFrameEncode;         //デコード済み音声フレームをエンコードスレッドに渡すためのキュー
     RGYQueueSPSP<AVPktMuxData, 64> qAudioPacketOut;           //音声パケットを出力スレッドに渡すためのキュー
-    PerfQueueInfo               *pQueueInfo;                //キューの情報を格納する構造体
+    PerfQueueInfo                 *pQueueInfo;                //キューの情報を格納する構造体
 } AVMuxThread;
 #endif
 
@@ -259,11 +259,11 @@ struct AvcodecWriterPrm {
     }
 };
 
-class CAvcodecWriter : public CQSVOut
+class RGYOutputAvcodec : public RGYOutput
 {
 public:
-    CAvcodecWriter();
-    virtual ~CAvcodecWriter();
+    RGYOutputAvcodec();
+    virtual ~RGYOutputAvcodec();
 
     virtual RGY_ERR WriteNextFrame(RGYBitstream *pBitstream) override;
 
@@ -275,7 +275,7 @@ public:
 
     virtual void WaitFin() override;
 
-    virtual void Close();
+    virtual void Close() override;
 
 #if USE_CUSTOM_IO
     int readPacket(uint8_t *buf, int buf_size);
@@ -440,4 +440,4 @@ protected:
 
 #endif //ENABLE_AVSW_READER
 
-#endif //_AVCODEC_WRITER_H_
+#endif //__RGY_OUTPUT_AVCODEC_H__

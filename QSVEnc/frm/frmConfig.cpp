@@ -654,7 +654,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXCodecLevel,      list_avc_level);
     setComboBox(fcgCXCodecProfile,    list_avc_profile);
     setComboBox(fcgCXQuality,         list_quality);
-    setComboBox(fcgCXInterlaced,      list_interlaced);
+    setComboBox(fcgCXInterlaced,      list_interlaced_mfx);
     setComboBox(fcgCXAspectRatio,     list_aspect_ratio);
     setComboBox(fcgCXTrellis,         list_avc_trellis);
     setComboBox(fcgCXLookaheadDS,     list_lookahead_ds);
@@ -1205,7 +1205,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBMBBRC->Checked         = cnf->qsv.bMBBRC != 0;
     fcgCBExtBRC->Checked        = cnf->qsv.bExtBRC != 0;
     SetNUValue(fcgNUWinBRCSize,       cnf->qsv.nWinBRCSize);
-    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, cnf->qsv.nPicStruct));
+    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced_mfx, cnf->qsv.nPicStruct));
     if (cnf->qsv.nPAR[0] * cnf->qsv.nPAR[1] <= 0)
         cnf->qsv.nPAR[0] = cnf->qsv.nPAR[1] = 0;
     SetCXIndex(fcgCXAspectRatio, (cnf->qsv.nPAR[0] < 0));
@@ -1335,7 +1335,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.nQVBRQuality           = (mfxU16)fcgNUQVBR->Value;
     cnf->qsv.nBframes               = (mfxI16)fcgNUBframes->Value;
     cnf->qsv.nTrellis               = (mfxU16)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
-    cnf->qsv.nPicStruct             = (mfxU16)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
+    cnf->qsv.nPicStruct             = (mfxU16)list_interlaced_mfx[fcgCXInterlaced->SelectedIndex].value;
     cnf->qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
     cnf->qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
     cnf->qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked    ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);

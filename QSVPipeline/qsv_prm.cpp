@@ -67,8 +67,8 @@ void init_qsvp_prm(sInputParams *prm) {
     prm->nPerfMonitorInterval = QSV_DEFAULT_PERF_MONITOR_INTERVAL;
     prm->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
     prm->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
-    prm->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
-    prm->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
+    prm->nOutputThread     = RGY_OUTPUT_THREAD_AUTO;
+    prm->nAudioThread      = RGY_AUDIO_THREAD_AUTO;
     prm->nAudioIgnoreDecodeError = QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR;
 
     prm->nDstWidth          = 1280;

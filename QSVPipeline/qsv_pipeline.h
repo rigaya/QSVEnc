@@ -130,10 +130,10 @@ protected:
     mfxU32 m_nExPrm;
     CQSVFrameTypeSimulation m_frameTypeSim;
 
-    vector<shared_ptr<CQSVOut>> m_pFileWriterListAudio;
-    shared_ptr<CQSVOut> m_pFileWriter;
-    vector<shared_ptr<CQSVInput>> m_AudioReaders;
-    shared_ptr<CQSVInput> m_pFileReader;
+    vector<shared_ptr<RGYOutput>> m_pFileWriterListAudio;
+    shared_ptr<RGYOutput> m_pFileWriter;
+    vector<shared_ptr<RGYInput>> m_AudioReaders;
+    shared_ptr<RGYInput> m_pFileReader;
 
     CQSVTaskControl m_TaskPool;
     mfxU16 m_nAsyncDepth;

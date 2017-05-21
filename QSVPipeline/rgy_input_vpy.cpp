@@ -27,12 +27,12 @@
 
 #include "rgy_input_vpy.h"
 #if ENABLE_VAPOURSYNTH_READER
+#include <algorithm>
+#include <sstream>
 #include <map>
 #include <fstream>
-#include <string>
-#include <algorithm>
 
-CVSReader::CVSReader() :
+RGYInputVpy::RGYInputVpy() :
     m_pAsyncBuffer(),
     m_hAsyncEventFrameSetFin(),
     m_hAsyncEventFrameSetStart(),
@@ -50,11 +50,11 @@ CVSReader::CVSReader() :
     m_strReaderName = _T("vpy");
 }
 
-CVSReader::~CVSReader() {
+RGYInputVpy::~RGYInputVpy() {
     Close();
 }
 
-void CVSReader::release_vapoursynth() {
+void RGYInputVpy::release_vapoursynth() {
     if (m_sVS.hVSScriptDLL) {
 #if defined(_WIN32) || defined(_WIN64)
         FreeLibrary(m_sVS.hVSScriptDLL);
@@ -66,7 +66,7 @@ void CVSReader::release_vapoursynth() {
     memset(&m_sVS, 0, sizeof(m_sVS));
 }
 
-int CVSReader::load_vapoursynth() {
+int RGYInputVpy::load_vapoursynth() {
     release_vapoursynth();
 #if defined(_WIN32) || defined(_WIN64)
     const TCHAR *vsscript_dll_name = _T("vsscript.dll");
@@ -93,7 +93,7 @@ int CVSReader::load_vapoursynth() {
     };
 
     for (auto vs_func : vs_func_list) {
-        if (NULL == (*(vs_func.first) = QSV_GET_PROC_ADDRESS(m_sVS.hVSScriptDLL, vs_func.second))) {
+        if (NULL == (*(vs_func.first) = RGY_GET_PROC_ADDRESS(m_sVS.hVSScriptDLL, vs_func.second))) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to load vsscript functions.\n"));
             return 1;
         }
@@ -101,7 +101,7 @@ int CVSReader::load_vapoursynth() {
     return 0;
 }
 
-int CVSReader::initAsyncEvents() {
+int RGYInputVpy::initAsyncEvents() {
     for (int i = 0; i < _countof(m_hAsyncEventFrameSetFin); i++) {
         if (   NULL == (m_hAsyncEventFrameSetFin[i]   = CreateEvent(NULL, FALSE, FALSE, NULL))
             || NULL == (m_hAsyncEventFrameSetStart[i] = CreateEvent(NULL, FALSE, TRUE,  NULL)))
@@ -109,7 +109,7 @@ int CVSReader::initAsyncEvents() {
     }
     return 0;
 }
-void CVSReader::closeAsyncEvents() {
+void RGYInputVpy::closeAsyncEvents() {
     m_bAbortAsync = true;
     for (int i_frame = m_nCopyOfInputFrames; i_frame < m_nAsyncFrames; i_frame++) {
         if (m_hAsyncEventFrameSetFin[i_frame & (ASYNC_BUFFER_SIZE-1)])
@@ -129,11 +129,11 @@ void CVSReader::closeAsyncEvents() {
 #pragma warning(push)
 #pragma warning(disable:4100)
 void __stdcall frameDoneCallback(void *userData, const VSFrameRef *f, int n, VSNodeRef *, const char *errorMsg) {
-    reinterpret_cast<CVSReader*>(userData)->setFrameToAsyncBuffer(n, f);
+    reinterpret_cast<RGYInputVpy*>(userData)->setFrameToAsyncBuffer(n, f);
 }
 #pragma warning(pop)
 
-void CVSReader::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
+void RGYInputVpy::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     WaitForSingleObject(m_hAsyncEventFrameSetStart[n & (ASYNC_BUFFER_SIZE-1)], INFINITE);
     m_pAsyncBuffer[n & (ASYNC_BUFFER_SIZE-1)] = f;
     SetEvent(m_hAsyncEventFrameSetFin[n & (ASYNC_BUFFER_SIZE-1)]);
@@ -144,7 +144,7 @@ void CVSReader::setFrameToAsyncBuffer(int n, const VSFrameRef* f) {
     }
 }
 
-int CVSReader::getRevInfo(const char *vsVersionString) {
+int RGYInputVpy::getRevInfo(const char *vsVersionString) {
     char *api_info = NULL;
     char buf[1024];
     strcpy_s(buf, _countof(buf), vsVersionString);
@@ -161,16 +161,13 @@ int CVSReader::getRevInfo(const char *vsVersionString) {
     return 0;
 }
 
-RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
+RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
-
-    const bool use_mt_mode = ((CVSReaderParam *)prm)->mt;
     
     if (load_vapoursynth()) {
         return RGY_ERR_NULL_PTR;
     }
-
     //ファイルデータ読み込み
     std::ifstream inputFile(strFileName);
     if (inputFile.bad()) {
@@ -230,7 +227,7 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const v
         RGY_CSP in, out;
     } CSPMap;
 
-    const std::vector<CSPMap> valid_csp_list ={
+    const std::vector<CSPMap> valid_csp_list = {
         { pfYUV420P8,  RGY_CSP_YV12,      prefered_csp },
         { pfYUV420P10, RGY_CSP_YV12_10,   prefered_csp },
         { pfYUV420P16, RGY_CSP_YV12_16,   prefered_csp },
@@ -259,7 +256,7 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const v
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
-    const int64_t fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
+    const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
     m_inputVideoInfo.srcWidth = vsvideoinfo->width;
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
     m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
@@ -293,7 +290,7 @@ RGY_ERR CVSReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const v
     return RGY_ERR_NONE;
 }
 
-void CVSReader::Close() {
+void RGYInputVpy::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     closeAsyncEvents();
     if (m_sVSapi && m_sVSnode)
@@ -316,7 +313,7 @@ void CVSReader::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR CVSReader::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputVpy::LoadNextFrame(RGYFrame *pSurface) {
     if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく

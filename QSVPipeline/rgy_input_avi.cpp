@@ -40,7 +40,7 @@ static const auto FOURCC_CSP = make_array<std::pair<uint32_t, RGY_CSP>>(
 
 MAP_PAIR_0_1(codec, fcc, uint32_t, rgy, RGY_CSP, FOURCC_CSP, 0u, RGY_CSP_NA);
 
-CAVIReader::CAVIReader() :
+RGYInputAvi::RGYInputAvi() :
     m_pAviFile(nullptr),
     m_pAviStream(nullptr),
     m_pGetFrame(nullptr),
@@ -51,11 +51,11 @@ CAVIReader::CAVIReader() :
     m_strReaderName = _T("avi");
 }
 
-CAVIReader::~CAVIReader() {
+RGYInputAvi::~RGYInputAvi() {
     Close();
 }
 
-RGY_ERR CAVIReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
+RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
     
@@ -165,7 +165,7 @@ RGY_ERR CAVIReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const 
     return RGY_ERR_NONE;
 }
 
-void CAVIReader::Close() {
+void RGYInputAvi::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_pGetFrame) {
         AVIStreamGetFrameClose(m_pGetFrame);
@@ -190,7 +190,7 @@ void CAVIReader::Close() {
     m_pEncSatusInfo.reset();
 }
 
-RGY_ERR CAVIReader::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
     if ((int)m_pEncSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_pEncSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく

@@ -76,11 +76,25 @@ const char *get_encoder_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
-#ifndef BUILD_AUO
+#ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
 #define AUO_NAME                 "QSVEnc.auo"
 #define FOR_AUO                   1
 #define ENABLE_AUO_LINK           0
+#define ENABLE_RAW_READER         0
+#define ENABLE_AVI_READER         0
+#define ENABLE_AVISYNTH_READER    0
+#define ENABLE_VAPOURSYNTH_READER 0
+#define ENABLE_AVSW_READER        0
+#define ENABLE_CUSTOM_VPP         1
+#define ENABLE_LIBASS_SUBBURN     0
+#define ENABLE_METRIC_FRAMEWORK   0
+#else
+#define ENCODER_NAME              "QSVEncC"
+#define DECODER_NAME              "qsv"
+#define FOR_AUO                   0
+#define ENABLE_AUO_LINK           0
+#define ENABLE_RAW_READER         1
 #define ENABLE_AVI_READER         1
 #define ENABLE_AVISYNTH_READER    1
 #define ENABLE_VAPOURSYNTH_READER 1
@@ -92,17 +106,6 @@ const char *get_encoder_version();
 #else
 #define ENABLE_METRIC_FRAMEWORK   1
 #endif
-#else
-#define ENCODER_NAME              "NVEncC"
-#define FOR_AUO                   0
-#define ENABLE_AUO_LINK           0
-#define ENABLE_AVI_READER         0
-#define ENABLE_AVISYNTH_READER    0
-#define ENABLE_VAPOURSYNTH_READER 0
-#define ENABLE_AVSW_READER        1
-#define ENABLE_CUSTOM_VPP         1
-#define ENABLE_LIBASS_SUBBURN     0
-#define ENABLE_METRIC_FRAMEWORK   0
 #endif
 
 #else //#if defined(WIN32) || defined(WIN64)

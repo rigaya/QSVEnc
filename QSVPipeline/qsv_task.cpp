@@ -48,7 +48,7 @@ QSVTask::QSVTask() :
     RGY_MEMSET_ZERO(mfxBS);
 }
 
-mfxStatus QSVTask::Init(shared_ptr<CQSVOut> pTaskWriter, uint32_t nBufferSize, QSVAllocator *pAllocator) {
+mfxStatus QSVTask::Init(shared_ptr<RGYOutput> pTaskWriter, uint32_t nBufferSize, QSVAllocator *pAllocator) {
     Close();
 
     pWriter = pTaskWriter;
@@ -97,7 +97,7 @@ CQSVTaskControl::~CQSVTaskControl() {
     Close();
 }
 
-mfxStatus CQSVTaskControl::Init(MFXVideoSession *pmfxSession, QSVAllocator *pAllocator, shared_ptr<CQSVOut> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize) {
+mfxStatus CQSVTaskControl::Init(MFXVideoSession *pmfxSession, QSVAllocator *pAllocator, shared_ptr<RGYOutput> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize) {
     if (nPoolSize == 0) {
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }

@@ -56,7 +56,7 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
         return RGY_ERR_UNDEFINED_BEHAVIOR; \
     } }
 
-CQSVOut::CQSVOut() :
+RGYOutput::RGYOutput() :
     m_pEncSatusInfo(),
     m_fDest(),
     m_bOutputIsStdout(false),
@@ -75,13 +75,13 @@ CQSVOut::CQSVOut() :
     memset(&m_VideoOutputInfo, 0, sizeof(m_VideoOutputInfo));
 }
 
-CQSVOut::~CQSVOut() {
+RGYOutput::~RGYOutput() {
     m_pEncSatusInfo.reset();
     m_pPrintMes.reset();
     Close();
 }
 
-void CQSVOut::Close() {
+void RGYOutput::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
     if (m_fDest) {
         m_fDest.reset();
@@ -100,23 +100,20 @@ void CQSVOut::Close() {
     m_pPrintMes.reset();
 }
 
-CQSVOutBitstream::CQSVOutBitstream() {
+RGYOutputRaw::RGYOutputRaw() {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
 
-CQSVOutBitstream::~CQSVOutBitstream() {
+RGYOutputRaw::~RGYOutputRaw() {
 }
 
-RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
-    CQSVOutRawPrm *rawPrm = (CQSVOutRawPrm *)prm;
+RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
+    UNREFERENCED_PARAMETER(pVideoOutputInfo);
+    RGYOutputRawPrm *rawPrm = (RGYOutputRawPrm *)prm;
     if (!rawPrm->bBenchmark && _tcslen(strFileName) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("output filename not set.\n"));
         return RGY_ERR_INVALID_PARAM;
-    }
-
-    if (pVideoOutputInfo) {
-        memcpy(&m_VideoOutputInfo, pVideoOutputInfo, sizeof(m_VideoOutputInfo));
     }
 
     if (rawPrm->bBenchmark) {
@@ -138,7 +135,7 @@ RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pVideo
             m_fDest.reset(fp);
             AddMessage(RGY_LOG_DEBUG, _T("Opened file \"%s\"\n"), strFileName);
 
-            int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
+            int bufferSizeByte = clamp(rawPrm->nBufSizeMB, 0, RGY_OUTPUT_BUF_MB_MAX) * 1024 * 1024;
             if (bufferSizeByte) {
                 void *ptr = nullptr;
                 bufferSizeByte = (int)malloc_degeneracy(&ptr, bufferSizeByte, 1024 * 1024);
@@ -154,7 +151,7 @@ RGY_ERR CQSVOutBitstream::Init(const TCHAR *strFileName, const VideoInfo *pVideo
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVOutBitstream::WriteNextFrame(RGYBitstream *pBitstream) {
+RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
     if (pBitstream == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
         return RGY_ERR_NULL_PTR;
@@ -166,13 +163,13 @@ RGY_ERR CQSVOutBitstream::WriteNextFrame(RGYBitstream *pBitstream) {
         WRITE_CHECK(nBytesWritten, pBitstream->size());
     }
 
-    m_pEncSatusInfo->SetOutputData(frametype_enc_to_rgy(pBitstream->frametype()), pBitstream->size(), 0);
+    m_pEncSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), 0);
     pBitstream->setSize(0);
 
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVOutBitstream::WriteNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYOutputRaw::WriteNextFrame(RGYFrame *pSurface) {
     UNREFERENCED_PARAMETER(pSurface);
     return RGY_ERR_UNSUPPORTED;
 }

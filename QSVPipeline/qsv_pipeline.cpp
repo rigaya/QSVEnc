@@ -43,11 +43,12 @@
 #include "qsv_query.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
+#include "rgy_input_raw.h"
 #include "rgy_input_vpy.h"
 #include "rgy_input_avs.h"
 #include "rgy_input_avi.h"
-#include "rgy_input_ffmpeg.h"
-#include "rgy_output_ffmpeg.h"
+#include "rgy_input_avcodec.h"
+#include "rgy_output_avcodec.h"
 #include "qsv_hw_device.h"
 #include "qsv_allocator.h"
 #include "qsv_allocator_sys.h"
@@ -1461,7 +1462,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
     if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
         int nCrop[4] = { 0 };
         AVDemuxStream targetSubStream = { 0 };
-        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pParams->vpp.subburn.nTrack) {
             if (pAVCodecReader == nullptr) {
                 PrintMes(RGY_LOG_ERROR, _T("--vpp-sub-burn from track required --avqsv reader.\n"));
@@ -2196,19 +2197,19 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         || (PathFindExtension(pParams->strDstFile) == nullptr || PathFindExtension(pParams->strDstFile)[0] != '.') //拡張子がしない
         || check_ext(pParams->strDstFile, { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
     if (!useH264ESOutput) {
-        pParams->nAVMux |= QSVENC_MUX_VIDEO;
+        pParams->nAVMux |= RGY_MUX_VIDEO;
     }
     if (pParams->CodecId == MFX_CODEC_RAW) {
-        pParams->nAVMux &= ~QSVENC_MUX_VIDEO;
+        pParams->nAVMux &= ~RGY_MUX_VIDEO;
     }
     const auto outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
-    if (pParams->nAVMux & QSVENC_MUX_VIDEO) {
+    if (pParams->nAVMux & RGY_MUX_VIDEO) {
         if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
             PrintMes(RGY_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
             return MFX_ERR_UNSUPPORTED;
         }
         PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
-        m_pFileWriter = std::make_shared<CAvcodecWriter>();
+        m_pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
         writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
         if (m_pTrimParam) {
@@ -2225,7 +2226,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (pParams->pMuxOpt) {
             writerPrm.vMuxOpt = *pParams->pMuxOpt;
         }
-        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
             writerPrm.bChapterNoTrim = false;
@@ -2246,9 +2247,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
             writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
         }
-        if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
+        if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
-            pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             bool copyAll = false;
             for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
@@ -2261,7 +2262,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             }
             for (const auto& audioReader : m_AudioReaders) {
                 if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<CAvcodecReader>(audioReader);
+                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<RGYInputAvcodec>(audioReader);
                     if (pAVCodecAudioReader) {
                         vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
                     }
@@ -2305,12 +2306,12 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (ret != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
             return err_to_mfx(ret);
-        } else if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
+        } else if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             m_pFileWriterListAudio.push_back(m_pFileWriter);
         }
         stdoutUsed = m_pFileWriter->outputStdout();
         PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-    } else if (pParams->nAVMux & (QSVENC_MUX_AUDIO | QSVENC_MUX_SUBTITLE)) {
+    } else if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
         PrintMes(RGY_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
         return MFX_ERR_UNSUPPORTED;
     } else {
@@ -2328,8 +2329,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             stdoutUsed = m_pFileWriter->outputStdout();
             PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
         } else {
-            m_pFileWriter = std::make_shared<CQSVOutBitstream>();
-            CQSVOutRawPrm rawPrm = { 0 };
+            m_pFileWriter = std::make_shared<RGYOutputRaw>();
+            RGYOutputRawPrm rawPrm = { 0 };
             rawPrm.bBenchmark = pParams->bBenchmark != 0;
             rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
             ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &rawPrm, m_pQSVLog, m_pEncSatusInfo);
@@ -2346,7 +2347,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     //音声の抽出
     if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
-        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if ((pParams->nInputFmt != RGY_INPUT_FMT_AVHW
             && pParams->nInputFmt != RGY_INPUT_FMT_AVSW
             && pParams->nInputFmt != RGY_INPUT_FMT_AVANY)
@@ -2404,7 +2405,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
-                shared_ptr<CQSVOut> pWriter(new CAvcodecWriter());
+                shared_ptr<RGYOutput> pWriter(new RGYOutputAvcodec());
                 ret = pWriter->Init(pAudioSelect->pAudioExtractFilename, nullptr, &writerAudioPrm, m_pQSVLog, m_pEncSatusInfo);
                 if (ret != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
@@ -2514,12 +2515,12 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         || inputVideo.type == RGY_INPUT_FMT_AVS) {
         if (inputVideo.type == RGY_INPUT_FMT_VPY || inputVideo.type == RGY_INPUT_FMT_VPY_MT) {
 #if ENABLE_VAPOURSYNTH_READER
-            m_pFileReader = std::make_shared<CVSReader>();
+            m_pFileReader = std::make_shared<RGYInputVpy>();
             PrintMes(RGY_LOG_DEBUG, _T("Input: vpy reader selected.\n"));
 #endif
         } else {
 #if ENABLE_AVISYNTH_READER
-            m_pFileReader = std::make_shared<CAVSReader>();
+            m_pFileReader = std::make_shared<RGYInputAvs>();
             PrintMes(RGY_LOG_DEBUG, _T("Input: avs reader selected.\n"));
 #endif
         }
@@ -2551,7 +2552,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         switch (inputVideo.type) {
 #if ENABLE_AVI_READER
             case RGY_INPUT_FMT_AVI:
-                m_pFileReader = std::make_shared<CAVIReader>();
+                m_pFileReader = std::make_shared<RGYInputAvi>();
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avi reader selected.\n"));
                 break;
 #endif
@@ -2563,7 +2564,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                     PrintMes(RGY_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
                 }
-                m_pFileReader = std::make_shared<CAvcodecReader>();
+                m_pFileReader = std::make_shared<RGYInputAvcodec>();
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
                 avcodecReaderPrm.bReadVideo = true;
@@ -2586,7 +2587,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 avcodecReaderPrm.nInputThread = pParams->nInputThread;
-                avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
+                avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError != 0;
                 avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
                 input_option = &avcodecReaderPrm;
@@ -2596,7 +2597,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             case RGY_INPUT_FMT_Y4M:
             case RGY_INPUT_FMT_RAW:
             default:
-                m_pFileReader = std::make_shared<CQSVInputRaw>();
+                m_pFileReader = std::make_shared<RGYInputRaw>();
                 PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (inputVideo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw"));
                 break;
         }
@@ -2631,11 +2632,11 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
             avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_THROUGH;
             avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
-            avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError;
+            avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError != 0;
             avcodecReaderPrm.nInputThread = 0;
             avcodecReaderPrm.pQueueInfo = nullptr;
 
-            unique_ptr<CQSVInput> audioReader(new CAvcodecReader());
+            unique_ptr<RGYInput> audioReader(new RGYInputAvcodec());
             ret = audioReader->Init(pParams->ppAudioSourceList[i], &videoInfo, &avcodecReaderPrm, m_pQSVLog, nullptr);
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
@@ -2914,7 +2915,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     //入力バッファサイズの範囲チェック
     pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
 
-    if (pParams->nAVSyncMode && std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader) == nullptr) {
+    if (pParams->nAVSyncMode && std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr) {
         PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
         pParams->nAVSyncMode = RGY_AVSYNC_THROUGH;
     }
@@ -3040,7 +3041,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     mfxStatus sts = MFX_ERR_NONE;
     
     if (pParams->bBenchmark) {
-        pParams->nAVMux = QSVENC_MUX_NONE;
+        pParams->nAVMux = RGY_MUX_NONE;
         if (pParams->nAudioSelectCount) {
             for (int i = 0; i < pParams->nAudioSelectCount; i++) {
                 rgy_free(pParams->ppAudioSelectList[i]);
@@ -3579,11 +3580,11 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
         HANDLE thInput = NULL;
         HANDLE thAudProc = NULL;
         HANDLE thAudEnc = NULL;
-        auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pAVCodecReader != nullptr) {
             thInput = pAVCodecReader->getThreadHandleInput();
         }
-        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(m_pFileWriter);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(m_pFileWriter);
         if (pAVCodecWriter != nullptr) {
             thOutput = pAVCodecWriter->getThreadHandleOutput();
             thAudProc = pAVCodecWriter->getThreadHandleAudProcess();
@@ -3710,7 +3711,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     const AVRational inputFpsTimebase = { (int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN };
     const AVRational outputFpsTimebase = { (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN };
 
-    auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoStream()->time_base : inputFpsTimebase;
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
@@ -3733,9 +3734,9 @@ mfxStatus CQSVPipeline::RunEncode() {
 
 #if ENABLE_AVSW_READER
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
-    std::map<int, shared_ptr<CAvcodecWriter>> pWriterForAudioStreams;
+    std::map<int, shared_ptr<RGYOutputAvcodec>> pWriterForAudioStreams;
     for (auto pWriter : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(pWriter);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(pWriter);
         if (pAVCodecWriter) {
             auto trackIdList = pAVCodecWriter->GetStreamTrackIdList();
             for (auto trackID : trackIdList) {
@@ -3832,14 +3833,14 @@ mfxStatus CQSVPipeline::RunEncode() {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
         if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
-            auto pAVCodecReader = std::dynamic_pointer_cast<CAvcodecReader>(m_pFileReader);
+            auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
                 packetList = pAVCodecReader->GetStreamDataPackets();
             }
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
-                auto pReader = std::dynamic_pointer_cast<CAvcodecReader>(reader);
+                auto pReader = std::dynamic_pointer_cast<RGYInputAvcodec>(reader);
                 if (pReader != nullptr) {
                     vector_cat(packetList, pReader->GetStreamDataPackets());
                 }
@@ -3938,7 +3939,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 #if ENABLE_AVSW_READER
         if (framePosList && pNextFrame) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
-            if (pos.poc == AVQSV_POC_INVALID) {
+            if (pos.poc == FRAMEPOS_POC_INVALID) {
                 PrintMes(RGY_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
                 return MFX_ERR_UNKNOWN;
             }
@@ -4478,7 +4479,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
 
     for (const auto& writer : m_pFileWriterListAudio) {
-        auto pAVCodecWriter = std::dynamic_pointer_cast<CAvcodecWriter>(writer);
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(writer);
         if (pAVCodecWriter != nullptr) {
             //エンコーダなどにキャッシュされたパケットを書き出す
             pAVCodecWriter->WriteNextPacket(nullptr);
@@ -4742,7 +4743,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);
     PRINT_INFO(    _T("Buffer Memory  %s, %d input buffer, %d work buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer, m_EncResponse.NumFrameActual + m_VppResponse.NumFrameActual + m_DecResponse.NumFrameActual);
     //PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
-    //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced[get_cx_index(list_interlaced, SrcPicInfo.PicStruct)].desc);
+    //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced_mfx[get_cx_index(list_interlaced_mfx, SrcPicInfo.PicStruct)].desc);
     tstring inputMes = m_pFileReader->GetInputMessage();
     for (const auto& reader : m_AudioReaders) {
         inputMes += _T("\n") + tstring(reader->GetInputMessage());
@@ -4799,7 +4800,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         videoPrm.mfx.FrameInfo.AspectRatioW, videoPrm.mfx.FrameInfo.AspectRatioH,
         DstPicInfo.FrameRateExtN / (double)DstPicInfo.FrameRateExtD, DstPicInfo.FrameRateExtN, DstPicInfo.FrameRateExtD,
         (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : _T(", "),
-        (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced[get_cx_index(list_interlaced, DstPicInfo.PicStruct)].desc);
+        (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("") : list_interlaced_mfx[get_cx_index(list_interlaced_mfx, DstPicInfo.PicStruct)].desc);
     if (m_pFileWriter) {
         inputMesSplitted = split(m_pFileWriter->GetOutputMessage(), _T("\n"));
         for (auto mes : inputMesSplitted) {

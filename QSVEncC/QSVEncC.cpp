@@ -580,7 +580,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
     str += strsprintf(_T("")
         _T("   --output-buf <int>           buffer size for output in MByte\n")
         _T("                                 default %d MB (0-%d)\n"),
-        QSV_DEFAULT_OUTPUT_BUF_MB, QSV_OUTPUT_BUF_MB_MAX
+        QSV_DEFAULT_OUTPUT_BUF_MB, RGY_OUTPUT_BUF_MB_MAX
         );
     str += strsprintf(_T("")
         _T("   --input-thread <int>        set input thread num\n")
@@ -1459,7 +1459,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("audio-source"))) {
         i++;
-        pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         size_t audioSourceLen = _tcslen(strInput[i]) + 1;
         TCHAR *pAudioSource = (TCHAR *)malloc(sizeof(strInput[i][0]) * audioSourceLen);
         memcpy(pAudioSource, strInput[i], sizeof(strInput[i][0]) * audioSourceLen);
@@ -1537,7 +1537,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             i++;
             pParams->pAVMuxOutputFormat = _tcsdup(strInput[i]);
             if (0 != _tcsicmp(pParams->pAVMuxOutputFormat, _T("raw"))) {
-                pParams->nAVMux |= QSVENC_MUX_VIDEO;
+                pParams->nAVMux |= RGY_MUX_VIDEO;
             }
         } else {
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
@@ -1557,7 +1557,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
 #if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("audio-copy"))
         || 0 == _tcscmp(option_name, _T("copy-audio"))) {
-        pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         std::set<int> trackSet; //重複しないよう、setを使う
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
@@ -1599,7 +1599,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("audio-codec"))) {
-        pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         if (i+1 < nArgNum) {
             const TCHAR *ptr = nullptr;
             const TCHAR *ptrDelim = nullptr;
@@ -1823,9 +1823,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 if (selectDelimPos == nullptr) {
                     auto channelLayout = av_get_channel_layout(selectPtr);
                     pAudioSelect->pnStreamChannelSelect[j] = channelLayout;
-                    pAudioSelect->pnStreamChannelOut[j]    = QSV_CHANNEL_AUTO; //自動
+                    pAudioSelect->pnStreamChannelOut[j]    = RGY_CHANNEL_AUTO; //自動
                 } else if (selectPtr == selectDelimPos) {
-                    pAudioSelect->pnStreamChannelSelect[j] = QSV_CHANNEL_AUTO;
+                    pAudioSelect->pnStreamChannelSelect[j] = RGY_CHANNEL_AUTO;
                     pAudioSelect->pnStreamChannelOut[j]    = av_get_channel_layout(selectDelimPos + strlen(DELIM));
                 } else {
                     pAudioSelect->pnStreamChannelSelect[j] = av_get_channel_layout(streamSelectList[j].substr(0, selectDelimPos - selectPtr).c_str());
@@ -1918,7 +1918,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
-        pParams->nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_SUBTITLE);
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
         std::set<int> trackSet; //重複しないよう、setを使う
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
             i++;
@@ -2880,7 +2880,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             PrintHelp(strInput[0], _T("Invalid value"), option_name);
             return MFX_PRINT_OPTION_ERR;
         }
-        pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, QSV_OUTPUT_BUF_MB_MAX);
+        pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("input-thread"))) {
@@ -3151,9 +3151,9 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
     pParams->nPerfMonitorInterval = QSV_DEFAULT_PERF_MONITOR_INTERVAL;
     pParams->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
-    pParams->nInputThread      = QSV_INPUT_THREAD_AUTO;
-    pParams->nOutputThread     = QSV_OUTPUT_THREAD_AUTO;
-    pParams->nAudioThread      = QSV_AUDIO_THREAD_AUTO;
+    pParams->nInputThread      = RGY_INPUT_THREAD_AUTO;
+    pParams->nOutputThread     = RGY_OUTPUT_THREAD_AUTO;
+    pParams->nAudioThread      = RGY_AUDIO_THREAD_AUTO;
     pParams->nBenchQuality     = QSV_DEFAULT_BENCH;
     pParams->nAudioIgnoreDecodeError = QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR;
 

@@ -257,7 +257,7 @@ static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL fo
     case QSV_AUD_ENC_NONE:
         break;
     case QSV_AUD_ENC_COPY:
-        conf->qsv.nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+        conf->qsv.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         avqsv_prm->audioSelect.nAudioSelect = 1;
         avqsv_prm->audioSelect.pAVAudioEncodeCodec = avqsv_prm->audioCodec;
         strcpy_s(avqsv_prm->audioCodec, RGY_AVCODEC_COPY);
@@ -265,7 +265,7 @@ static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL fo
         conf->qsv.nAudioSelectCount = 1;
         break;
     default:
-        conf->qsv.nAVMux |= (QSVENC_MUX_VIDEO | QSVENC_MUX_AUDIO);
+        conf->qsv.nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         avqsv_prm->audioSelect.nAudioSelect = 1;
         avqsv_prm->audioSelect.pAVAudioEncodeCodec = avqsv_prm->audioCodec;
         strcpy_s(avqsv_prm->audioCodec, list_avqsv_aud_encoder[get_cx_index(list_avqsv_aud_encoder, conf->aud_avqsv.encoder)].desc);

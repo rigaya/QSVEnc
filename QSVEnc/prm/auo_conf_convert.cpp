@@ -67,17 +67,17 @@ void guiEx_config::convert_qsvstgv3_to_stgv4(CONF_GUIEX *conf) {
     if (conf->qsv.nOutputBufSizeMB == 0) {
         conf->qsv.nOutputBufSizeMB = QSV_DEFAULT_OUTPUT_BUF_MB;
     } else {
-        conf->qsv.nOutputBufSizeMB = clamp(conf->qsv.nOutputBufSizeMB, 0, QSV_OUTPUT_BUF_MB_MAX);
+        conf->qsv.nOutputBufSizeMB = clamp(conf->qsv.nOutputBufSizeMB, 0, RGY_OUTPUT_BUF_MB_MAX);
     }
     strcpy_s(conf->conf_name, CONF_NAME_OLD_4);
 }
 
 void guiEx_config::convert_qsvstgv4_to_stgv5(CONF_GUIEX *conf) {
     if (conf->qsv.nOutputThread == 0) {
-        conf->qsv.nOutputThread = QSV_OUTPUT_THREAD_AUTO;
+        conf->qsv.nOutputThread = RGY_OUTPUT_THREAD_AUTO;
     }
     if (conf->qsv.nAudioThread == 0) {
-        conf->qsv.nAudioThread = QSV_AUDIO_THREAD_AUTO;
+        conf->qsv.nAudioThread = RGY_AUDIO_THREAD_AUTO;
     }
     strcpy_s(conf->conf_name, CONF_NAME_OLD_5);
 }

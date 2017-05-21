@@ -25,8 +25,9 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef _VPY_READER_H_
-#define _VPY_READER_H_
+#pragma once
+#ifndef __RGY_INPUT_VPY_H__
+#define __RGY_INPUT_VPY_H__
 
 #include "rgy_version.h"
 #if ENABLE_VAPOURSYNTH_READER
@@ -70,16 +71,10 @@ typedef struct {
     func_vs_getVSApi       getVSApi;
 } vsscript_t;
 
-struct CVSReaderParam {
-    bool interlaced;
-    bool mt;
-};
-
-class CVSReader : public CQSVInput
-{
+class RGYInputVpy : public RGYInput {
 public:
-    CVSReader();
-    virtual ~CVSReader();
+    RGYInputVpy();
+    virtual ~RGYInputVpy();
 
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
@@ -117,4 +112,4 @@ protected:
 
 #endif //ENABLE_VAPOURSYNTH_READER
 
-#endif //_VPY_READER_H_
+#endif //__RGY_INPUT_VPY_H__

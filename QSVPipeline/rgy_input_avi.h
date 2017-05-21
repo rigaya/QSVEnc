@@ -24,8 +24,10 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
-#ifndef _AVI_READER_H_
-#define _AVI_READER_H_
+
+#pragma once
+#ifndef __RGY_INPUT_AVI_H__
+#define __RGY_INPUT_AVI_H__
 
 #include "rgy_version.h"
 #if ENABLE_AVI_READER
@@ -34,11 +36,11 @@
 #pragma comment(lib, "vfw32.lib")
 #include "rgy_input.h"
 
-class CAVIReader : public CQSVInput
+class RGYInputAvi : public RGYInput
 {
 public:
-    CAVIReader();
-    virtual ~CAVIReader();
+    RGYInputAvi();
+    virtual ~RGYInputAvi();
     virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 protected:
@@ -56,4 +58,4 @@ protected:
 
 #endif //ENABLE_AVI_READER
 
-#endif //_AVI_READER_H_
+#endif //__RGY_INPUT_AVI_H__

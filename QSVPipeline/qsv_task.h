@@ -79,7 +79,7 @@ struct QSVTask {
     mfxFrameSurface1 *mfxSurf;
     mfxSyncPoint encSyncPoint;
     vector<mfxSyncPoint> vppSyncPoint;
-    shared_ptr<CQSVOut> pWriter;
+    shared_ptr<RGYOutput> pWriter;
     QSVAllocator *pmfxAllocator;
 
     QSVTask();
@@ -123,7 +123,7 @@ struct QSVTask {
 
         return MFX_ERR_NONE;
     }
-    mfxStatus Init(shared_ptr<CQSVOut> pTaskWriter, uint32_t nBufferSize, QSVAllocator *pAllocator = nullptr);
+    mfxStatus Init(shared_ptr<RGYOutput> pTaskWriter, uint32_t nBufferSize, QSVAllocator *pAllocator = nullptr);
     mfxStatus Close();
 };
 
@@ -132,7 +132,7 @@ public:
     CQSVTaskControl();
     virtual ~CQSVTaskControl();
 
-    virtual mfxStatus Init(MFXVideoSession *pmfxSession, QSVAllocator *pAllocator, shared_ptr<CQSVOut> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize);
+    virtual mfxStatus Init(MFXVideoSession *pmfxSession, QSVAllocator *pAllocator, shared_ptr<RGYOutput> pTaskWriter, uint32_t nPoolSize, uint32_t nBufferSize);
 
     mfxStatus GetFreeTask(QSVTask **ppTask) {
         if (ppTask == nullptr) {
