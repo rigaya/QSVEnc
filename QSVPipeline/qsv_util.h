@@ -260,7 +260,7 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR set(const uint8_t *setData, uint32_t setSize) {
+    RGY_ERR copy(const uint8_t *setData, uint32_t setSize) {
         if (setData == nullptr || setSize == 0) {
             return RGY_ERR_MORE_BITSTREAM;
         }
@@ -277,8 +277,8 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR set(const uint8_t *setData, uint32_t setSize, int64_t dts, int64_t pts) {
-        auto sts = set(setData, setSize);
+    RGY_ERR copy(const uint8_t *setData, uint32_t setSize, int64_t dts, int64_t pts) {
+        auto sts = copy(setData, setSize);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -288,7 +288,7 @@ public:
     }
 
     RGY_ERR copy(const RGYBitstream *pBitstream) {
-        auto sts = set(pBitstream->data(), pBitstream->size());
+        auto sts = copy(pBitstream->data(), pBitstream->size());
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
