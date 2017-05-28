@@ -38,17 +38,35 @@
 
 #define D3DFMT_NV12 (D3DFORMAT)MAKEFOURCC('N','V','1','2')
 #define D3DFMT_YV12 (D3DFORMAT)MAKEFOURCC('Y','V','1','2')
+#define D3DFMT_NV16 (D3DFORMAT)MAKEFOURCC('N','V','1','6')
 #define D3DFMT_P010 (D3DFORMAT)MAKEFOURCC('P','0','1','0')
+#define D3DFMT_P210 (D3DFORMAT)MAKEFOURCC('P','2','1','0')
+#define D3DFMT_Y210 (D3DFORMAT)MAKEFOURCC('Y','2','1','0')
+#define D3DFMT_IMC3 (D3DFORMAT)MAKEFOURCC('I','M','C','3')
+#define D3DFMT_AYUV (D3DFORMAT)MAKEFOURCC('A','Y','U','V')
+#ifdef FUTURE_API
+#define D3DFMT_Y210 (D3DFORMAT)MAKEFOURCC('Y','2','1','0')
+#define D3DFMT_Y410 (D3DFORMAT)MAKEFOURCC('Y','4','1','0')
+#endif
+#define MFX_FOURCC_IMC3 (MFX_MAKEFOURCC('I','M','C','3')) // This line should be moved into mfxstructures.h in new API version
 
 static const std::map<mfxU32, D3DFORMAT> fourccToD3DFormat = {
     { MFX_FOURCC_NV12,    D3DFMT_NV12 },
     { MFX_FOURCC_YV12,    D3DFMT_YV12},
+    { MFX_FOURCC_NV16,    D3DFMT_NV16},
     { MFX_FOURCC_YUY2,    D3DFMT_YUY2},
     { MFX_FOURCC_RGB3,    D3DFMT_R8G8B8},
     { MFX_FOURCC_RGB4,    D3DFMT_A8R8G8B8},
     { MFX_FOURCC_P8,      D3DFMT_P8},
     { MFX_FOURCC_P010,    D3DFMT_P010},
+#ifdef FUTURE_API
+    { MFX_FOURCC_P210,    D3DFMT_P210},
+    { MFX_FOURCC_P410,    D3DFMT_P410},
+#endif
     { MFX_FOURCC_A2RGB10, D3DFMT_A2R10G10B10},
+    { MFX_FOURCC_ABGR16,  D3DFMT_A16B16G16R16},
+    { MFX_FOURCC_ARGB16,  D3DFMT_A16B16G16R16},
+    { MFX_FOURCC_IMC3,    D3DFMT_IMC3},
 };
 
 QSVAllocatorD3D9::QSVAllocatorD3D9() :
@@ -110,7 +128,14 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         D3DFMT_A8R8G8B8,
         D3DFMT_P8,
         D3DFMT_P010,
-        D3DFMT_A2R10G10B10
+        D3DFMT_A2R10G10B10,
+        D3DFMT_A16B16G16R16,
+        D3DFMT_IMC3,
+#ifdef FUTURE_API
+        D3DFMT_Y210,
+        D3DFMT_Y410,
+#endif
+        D3DFMT_AYUV
     );
     if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), desc.Format) == SUPPORTED_FORMATS.end()) {
         m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::Unsupported format.\n"));
@@ -124,10 +149,11 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
 
     switch ((DWORD)desc.Format) {
     case D3DFMT_NV12:
+    case D3DFMT_P010:
         ptr->Pitch = (mfxU16)locked.Pitch;
         ptr->Y = (mfxU8 *)locked.pBits;
         ptr->U = (mfxU8 *)locked.pBits + desc.Height * locked.Pitch;
-        ptr->V = ptr->U + 1;
+        ptr->V = (desc.Format == D3DFMT_P010) ? ptr->U + 2 : ptr->U + 1;
         break;
     case D3DFMT_YV12:
         ptr->Pitch = (mfxU16)locked.Pitch;
@@ -161,12 +187,42 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->U = 0;
         ptr->V = 0;
         break;
-    case D3DFMT_P010:
-        ptr->PitchHigh = (mfxU16)(locked.Pitch >> 16);
-        ptr->PitchLow = (mfxU16)(locked.Pitch & (0xffff));
+    case D3DFMT_A16B16G16R16:
+        ptr->V16 = (mfxU16*)locked.pBits;
+        ptr->U16 = ptr->V16 + 1;
+        ptr->Y16 = ptr->V16 + 2;
+        ptr->A = (mfxU8*)(ptr->V16 + 3);
+        ptr->PitchHigh = (mfxU16)((mfxU32)locked.Pitch / (1 << 16));
+        ptr->PitchLow  = (mfxU16)((mfxU32)locked.Pitch % (1 << 16));
+        break;
+    case D3DFMT_IMC3:
+        ptr->Pitch = (mfxU16)locked.Pitch;
         ptr->Y = (mfxU8 *)locked.pBits;
-        ptr->U = (mfxU8 *)locked.pBits + desc.Height * locked.Pitch;
-        ptr->V = ptr->U + 1;
+        ptr->V = ptr->Y + desc.Height * locked.Pitch;
+        ptr->U = ptr->Y + desc.Height * locked.Pitch *2;
+        break;
+    case D3DFMT_AYUV:
+        ptr->Pitch = (mfxU16)locked.Pitch;
+        ptr->V = (mfxU8 *)locked.pBits;
+        ptr->U = ptr->V + 1;
+        ptr->Y = ptr->V + 2;
+        ptr->A = ptr->V + 3;
+        break;
+#ifdef FUTURE_API
+    case D3DFMT_Y210:
+        ptr->Pitch = (mfxU16)locked.Pitch;
+        ptr->Y16 = (mfxU16 *)locked.pBits;
+        ptr->U16 = ptr->Y16 + 1;
+        ptr->V16 = ptr->Y16 + 3;
+        break;
+    case D3DFMT_Y410:
+        ptr->Pitch = (mfxU16)locked.Pitch;
+        ptr->Y410 = (mfxY410 *)locked.pBits;
+        ptr->Y = 0;
+        ptr->V = 0;
+        ptr->A = 0;
+        break;
+#endif
         break;
     }
 

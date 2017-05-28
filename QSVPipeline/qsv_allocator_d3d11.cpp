@@ -53,7 +53,7 @@ static const std::map<mfxU32, DXGI_FORMAT> fourccToDXGIFormat = {
     { MFX_FOURCC_P8,         DXGI_FORMAT_P8 },
     { MFX_FOURCC_P8_TEXTURE, DXGI_FORMAT_P8 },
     { MFX_FOURCC_P010,       DXGI_FORMAT_P010 },
-    { MFX_FOURCC_A2RGB10,    DXGI_FORMAT_P8 },
+    { MFX_FOURCC_A2RGB10,    DXGI_FORMAT_R10G10B10A2_UNORM },
     { DXGI_FORMAT_AYUV,      DXGI_FORMAT_AYUV }
 };
 
@@ -135,6 +135,12 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
             DXGI_FORMAT_R16_UINT,
             DXGI_FORMAT_R16_UNORM,
             DXGI_FORMAT_R10G10B10A2_UNORM,
+            DXGI_FORMAT_R16G16B16A16_UNORM,
+            DXGI_FORMAT_P010,
+#ifdef FUTURE_API
+            DXGI_FORMAT_Y210,
+            DXGI_FORMAT_Y410,]
+#endif
             DXGI_FORMAT_AYUV
             );
         if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), desc.Format) == SUPPORTED_FORMATS.end()) {
@@ -160,13 +166,14 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     }
 
     switch (desc.Format) {
+        case DXGI_FORMAT_P010:
         case DXGI_FORMAT_NV12:
             ptr->Pitch = (mfxU16)lockedRect.RowPitch;
             ptr->Y = (mfxU8 *)lockedRect.pData;
             ptr->U = (mfxU8 *)lockedRect.pData + desc.Height * lockedRect.RowPitch;
-            ptr->V = ptr->U + 1;
+            ptr->V = (desc.Format == DXGI_FORMAT_P010) ? ptr->U + 2 : ptr->U + 1;
             break;
-        case DXGI_FORMAT_420_OPAQUE:
+        case DXGI_FORMAT_420_OPAQUE: // can be unsupported by standard ms guid
             ptr->Pitch = (mfxU16)lockedRect.RowPitch;
             ptr->Y = (mfxU8 *)lockedRect.pData;
             ptr->V = ptr->Y + desc.Height * lockedRect.RowPitch;
@@ -199,6 +206,14 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
             ptr->R = ptr->B + 2;
             ptr->A = ptr->B + 3;
             break;
+        case DXGI_FORMAT_R16G16B16A16_UNORM:
+            ptr->V16 = (mfxU16*)lockedRect.pData;
+            ptr->U16 = ptr->V16 + 1;
+            ptr->Y16 = ptr->V16 + 2;
+            ptr->A = (mfxU8*)(ptr->V16 + 3);
+            ptr->PitchHigh = (mfxU16)((mfxU32)lockedRect.RowPitch / (1 << 16));
+            ptr->PitchLow  = (mfxU16)((mfxU32)lockedRect.RowPitch % (1 << 16));
+            break;
         case DXGI_FORMAT_R16_UNORM :
         case DXGI_FORMAT_R16_UINT :
             ptr->Pitch = (mfxU16)lockedRect.RowPitch;
@@ -206,6 +221,26 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
             ptr->U16 = 0;
             ptr->V16 = 0;
             break;
+#ifdef FUTURE_API
+        case DXGI_FORMAT_Y210:
+            ptr->PitchHigh = (mfxU16)(lockedRect.RowPitch / (1 << 16));
+            ptr->PitchLow  = (mfxU16)(lockedRect.RowPitch % (1 << 16));
+            ptr->Y16 = (mfxU16 *)lockedRect.pData;
+            ptr->U16 = ptr->Y16 + 1;
+            ptr->V16 = ptr->Y16 + 3;
+
+            break;
+
+        case DXGI_FORMAT_Y410:
+            ptr->PitchHigh = (mfxU16)(lockedRect.RowPitch / (1 << 16));
+            ptr->PitchLow  = (mfxU16)(lockedRect.RowPitch % (1 << 16));
+            ptr->Y410 = (mfxY410 *)lockedRect.pData;
+            ptr->Y = 0;
+            ptr->V = 0;
+            ptr->A = 0;
+
+            break;
+#endif
         default:
             return MFX_ERR_LOCK_MEMORY;
     }
@@ -331,7 +366,8 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
 
         if ( (MFX_MEMTYPE_FROM_VPPIN & request->Type) && (DXGI_FORMAT_YUY2 == desc.Format) ||
              (DXGI_FORMAT_B8G8R8A8_UNORM == desc.Format) ||
-             (DXGI_FORMAT_R10G10B10A2_UNORM == desc.Format) ) {
+             (DXGI_FORMAT_R10G10B10A2_UNORM == desc.Format) ||
+             (DXGI_FORMAT_R16G16B16A16_UNORM == desc.Format)) {
             desc.BindFlags = D3D11_BIND_RENDER_TARGET;
             m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl set D3D11_BIND_RENDER_TARGET.\n"));
             if (desc.ArraySize > 2) {
