@@ -3314,7 +3314,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
                     } else {
                         value = (int)(val_float + 0.5);
                         if (value == desc[get_cx_index(desc, value)].value) {
-                            pParams->CodecLevel = value;
+                            pParams->CodecLevel = (mfxU16)value;
                             bParsed = true;
                         }
                     }
