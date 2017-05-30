@@ -2187,6 +2187,13 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
 #endif //#if ENABLE_AVSW_READER
 }
 
+uint32_t CQSVPipeline::EncoderCsp(const sInputParams *pParams) {
+    if (pParams->CodecId == MFX_CODEC_HEVC && pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+        return MFX_FOURCC_P010;
+    }
+    return MFX_FOURCC_NV12;
+}
+
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     RGY_ERR ret = RGY_ERR_NONE;
     bool stdoutUsed = false;
@@ -2441,7 +2448,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     inputVideo.srcHeight = pParams->nHeight;
     inputVideo.dstWidth = pParams->nDstWidth;
     inputVideo.dstHeight = pParams->nDstHeight;
-    inputVideo.csp = RGY_CSP_NA;
+    inputVideo.csp = csp_enc_to_rgy(EncoderCsp(pParams));
     inputVideo.sar[0] = pParams->nPAR[0];
     inputVideo.sar[1] = pParams->nPAR[1];
     inputVideo.fpsN = pParams->nFPSRate;
@@ -2601,7 +2608,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (inputVideo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw"));
                 break;
         }
-        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pQSVLog, m_pEncSatusInfo);
+        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, input_option, m_pQSVLog, m_pEncSatusInfo);
     }
     if (ret != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
