@@ -2454,7 +2454,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     inputVideo.fpsN = pParams->nFPSRate;
     inputVideo.fpsD = pParams->nFPSScale;
     inputVideo.crop = pParams->sInCrop;
-    inputVideo.picstruct = (RGY_PICSTRUCT)pParams->nPicStruct;
+    inputVideo.picstruct = picstruct_enc_to_rgy(pParams->nPicStruct);
 
     //ファイル拡張子により自動的に設定
     if (inputVideo.type == RGY_INPUT_FMT_AUTO) {
@@ -2690,7 +2690,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         pParams->nHeight = (mfxU16)inputFrameInfo.srcHeight;
     }
 
-    if (inputFrameInfo.picstruct != RGY_PICSTRUCT_UNKNOWN) {
+    if (pParams->nPicStruct == RGY_PICSTRUCT_UNKNOWN) {
         pParams->nPicStruct = (mfxU16)picstruct_rgy_to_enc(inputFrameInfo.picstruct);
     }
 
@@ -2705,7 +2705,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     }
 
     //picstructが設定されていない場合、プログレッシブとして扱う
-    if (!pParams->nPicStruct) {
+    if (pParams->nPicStruct == MFX_PICSTRUCT_UNKNOWN) {
         pParams->nPicStruct = MFX_PICSTRUCT_PROGRESSIVE;
     }
 
