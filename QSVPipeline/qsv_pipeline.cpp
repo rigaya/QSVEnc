@@ -3451,7 +3451,18 @@ mfxStatus CQSVPipeline::GetNextFrame(mfxFrameSurface1 **pSurface) {
     //_ftprintf(stderr, "GetNextFrame: wait for %d\n", m_EncThread.m_nFrameGet);
     //_ftprintf(stderr, "wait for heInputDone, %d\n", m_EncThread.m_nFrameGet);
     PrintMes(RGY_LOG_TRACE, _T("Enc Thread: Wait Done %d.\n"), m_EncThread.m_nFrameGet);
-    WaitForSingleObject(pInputBuf->heInputDone, INFINITE);
+    //HWデコードの場合、本来ここで待機する必要はなく、またここでRGY_ERR_MORE_DATAを返す必要もない
+    while (WaitForSingleObject(pInputBuf->heInputDone, (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) ? INFINITE : 1) == WAIT_TIMEOUT) {
+        //ここに入るのはHWデコードの場合のみ
+        //HWデコードの時は、本来このロックはフレーム読み込みには使用しておらず、
+        //CQSVPipeline::Run()内のm_pFileReader->LoadNextFrame()による進捗管理のために行っているに過ぎない
+        //そのためCQSVPipeline::Run()が終了している、
+        //すなわちm_EncThread.m_stsThreadがRGY_ERR_MORE_DATAであれば、
+        //特に待機せずMFX_ERR_NONEを返して終了する
+        if (m_EncThread.m_stsThread == RGY_ERR_MORE_DATA) {
+            return MFX_ERR_NONE;
+        }
+    }
     //エラー・中断要求などでの終了
     if (m_EncThread.m_bthForceAbort) {
         PrintMes(RGY_LOG_DEBUG, _T("GetNextFrame: Encode Aborted...\n"));
@@ -3889,7 +3900,15 @@ mfxStatus CQSVPipeline::RunEncode() {
     auto decode_one_frame = [&](bool getNextBitstream) {
         mfxStatus dec_sts = MFX_ERR_NONE;
         if (m_pmfxDEC) {
-            if (getNextBitstream) {
+            if (getNextBitstream
+                //m_DecInputBitstream.size() > 0のときにbitstreamを連結してしまうと
+                //環境によっては正常にフレームが取り出せなくなることがある
+                //これを避けるため、m_DecInputBitstream.size() == 0のときのみbitstreamを取得する
+                //これにより GetNextFrame / SetNextFrame の回数が異常となり、
+                //GetNextFrameのロックが抜けれらなくなる場合がある。
+                //HWデコード時、本来GetNextFrameのロックは必要ないので、
+                //これを無視する実装も併せて行った。
+                && m_DecInputBitstream.size() == 0) {
                 //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
                 auto ret = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
                 if (ret == RGY_ERR_MORE_BITSTREAM) {
