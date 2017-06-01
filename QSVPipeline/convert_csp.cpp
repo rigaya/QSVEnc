@@ -187,16 +187,3 @@ const TCHAR *get_simd_str(unsigned int simd) {
     }
     return _T("-");
 }
-
-RGY_CSP mfx_fourcc_to_qsv_enc_csp(uint32_t fourcc) {
-    switch (fourcc) {
-    case MFX_FOURCC_NV12: return RGY_CSP_NV12;
-    case MFX_FOURCC_YV12: return RGY_CSP_YV12;
-    case MFX_FOURCC_YUY2: return RGY_CSP_YUY2;
-    case MFX_FOURCC_P010: return RGY_CSP_P010;
-    case MFX_FOURCC_P210: return RGY_CSP_P210;
-    case MFX_FOURCC_RGB3: return RGY_CSP_RGB3;
-    case MFX_FOURCC_RGB4: return RGY_CSP_RGB4;
-    default: return RGY_CSP_NA;
-    }
-}

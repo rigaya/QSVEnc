@@ -178,6 +178,4 @@ typedef struct ConvertCSP {
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only);
 const TCHAR *get_simd_str(unsigned int simd);
 
-RGY_CSP mfx_fourcc_to_qsv_enc_csp(uint32_t fourcc);
-
 #endif //_CONVERT_CSP_H_
