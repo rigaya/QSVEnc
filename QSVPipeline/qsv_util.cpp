@@ -118,7 +118,7 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
     info.codec = codec_enc_to_rgy(mfx.CodecId);
     info.codecLevel = mfx.CodecLevel;
     info.codecProfile = mfx.CodecProfile;
-    info.videoDelay = ((mfx.GopRefDist - 1) > 0) + (((mfx.GopRefDist - 1) > 0) & ((mfx.GopRefDist - 1) > 2));;
+    info.videoDelay = ((mfx.GopRefDist - 1) > 0) + (((mfx.GopRefDist - 1) > 0) & ((mfx.GopRefDist - 1) > 2));
     info.dstWidth = mfx.FrameInfo.CropW;
     info.dstHeight = mfx.FrameInfo.CropH;
     info.fpsN = mfx.FrameInfo.FrameRateExtN;
