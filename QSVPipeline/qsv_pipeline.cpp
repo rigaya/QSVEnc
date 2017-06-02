@@ -3467,9 +3467,9 @@ mfxStatus CQSVPipeline::GetNextFrame(mfxFrameSurface1 **pSurface) {
         //HWデコードの時は、本来このロックはフレーム読み込みには使用しておらず、
         //CQSVPipeline::Run()内のm_pFileReader->LoadNextFrame()による進捗管理のために行っているに過ぎない
         //そのためCQSVPipeline::Run()が終了している、
-        //すなわちm_EncThread.m_stsThreadがRGY_ERR_MORE_DATAであれば、
+        //すなわちm_EncThread.m_stsThreadがMFX_ERR_MORE_DATAであれば、
         //特に待機せずMFX_ERR_NONEを返して終了する
-        if (m_EncThread.m_stsThread == RGY_ERR_MORE_DATA) {
+        if (m_EncThread.m_stsThread == MFX_ERR_MORE_DATA) {
             return MFX_ERR_NONE;
         }
     }
@@ -3479,7 +3479,7 @@ mfxStatus CQSVPipeline::GetNextFrame(mfxFrameSurface1 **pSurface) {
         return m_EncThread.m_stsThread;
     }
     //読み込み完了による終了
-    if (m_EncThread.m_stsThread == RGY_ERR_MORE_DATA && m_EncThread.m_nFrameGet == m_pEncSatusInfo->m_sData.frameIn) {
+    if (m_EncThread.m_stsThread == MFX_ERR_MORE_DATA && m_EncThread.m_nFrameGet == m_pEncSatusInfo->m_sData.frameIn) {
         PrintMes(RGY_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
         return m_EncThread.m_stsThread;
     }
@@ -3655,7 +3655,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
             if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
                 PrintMes(RGY_LOG_INFO, _T("                                                                              \r"));
                 sts = MFX_ERR_ABORTED;
-            } else if (sts == RGY_ERR_MORE_DATA) {
+            } else if (sts == MFX_ERR_MORE_DATA) {
                 m_EncThread.m_stsThread = sts;
             }
 
@@ -3682,7 +3682,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
             if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
                 PrintMes(RGY_LOG_INFO, _T("                                                                              \r"));
                 sts = MFX_ERR_ABORTED;
-            } else if (sts == RGY_ERR_MORE_DATA) {
+            } else if (sts == MFX_ERR_MORE_DATA) {
                 m_EncThread.m_stsThread = sts;
             }
         }
