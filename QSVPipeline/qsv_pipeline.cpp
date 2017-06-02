@@ -368,7 +368,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         auto inputVideoInfo = m_pFileReader->GetInputFrameInfo();
         m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp]);
         m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp]);
-        m_mfxDecParams.mfx.FrameInfo.Shift = (mfxU16)inputVideoInfo.shift;
+        m_mfxDecParams.mfx.FrameInfo.Shift = inputVideoInfo.shift ? 1 : 0; //mfxFrameInfoのShiftはシフトすべきかどうかの 1 か 0 のみ。
         if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 8)   m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = 0;
         if (m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 8) m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = 0;
 
