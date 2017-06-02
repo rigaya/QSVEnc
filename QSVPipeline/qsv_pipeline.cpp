@@ -3859,7 +3859,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         }
     };
 
-    auto extract_audio =[&]() {
+    auto extract_audio = [&]() {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
         if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
