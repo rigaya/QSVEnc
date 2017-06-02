@@ -1835,8 +1835,8 @@ mfxStatus CQSVPipeline::AllocFrames() {
         EncRequest.NumFrameSuggested = nEncSurfNum;
         if (m_pmfxDEC && nDecSurfAdd) {
             EncRequest.Type |= MFX_MEMTYPE_FROM_DECODE;
-            EncRequest.Info.Width = DecRequest.Info.Width;
-            EncRequest.Info.Height = DecRequest.Info.Height;
+            EncRequest.Info.Width = std::max(EncRequest.Info.Width, DecRequest.Info.Width);
+            EncRequest.Info.Height = std::max(EncRequest.Info.Height, DecRequest.Info.Height);
         }
         if (nVppPreSurfAdd || nVppSurfAdd || nVppPostSurfAdd) {
             EncRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT;
