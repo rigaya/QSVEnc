@@ -91,7 +91,9 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 AddMessage(RGY_LOG_ERROR, _T("Invalid Color format.\n"));
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
-            strFcc = char_to_tstring((char *)sinfo.fccHandler);
+            char temp[5] = { 0 };
+            memcpy(temp, &sinfo.fccHandler, sizeof(sinfo.fccHandler));
+            strFcc = char_to_tstring(temp);
             break;
         }
         AVIStreamRelease(m_pAviStream);
