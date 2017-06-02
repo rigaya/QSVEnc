@@ -211,7 +211,7 @@ RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
         if (m_nBufSize < required_bufsize) {
             m_pBuffer.reset();
             m_pBuffer = std::shared_ptr<uint8_t>((uint8_t *)_aligned_malloc(required_bufsize, 16), aligned_malloc_deleter());
-            if (m_pBuffer.get()) {
+            if (!m_pBuffer.get()) {
                 return RGY_ERR_MEMORY_ALLOC;
             }
             m_nBufSize = required_bufsize;
