@@ -42,6 +42,7 @@
 #include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxjpeg.h"
+#include "rgy_err.h"
 #include "qsv_prm.h"
 #include "qsv_util.h"
 #include "rgy_log.h"

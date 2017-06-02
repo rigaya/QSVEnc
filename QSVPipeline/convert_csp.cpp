@@ -209,6 +209,11 @@ void convert_yuy2_to_nv12_i(void **dst_array, const void **src_array, int width,
     }
 }
 
+#if defined(__GNUC__)
+//template展開部分で、実際には通らない箇所であっても反応してしまう
+#pragma GCC diagnostic ignored "-Wshift-count-negative"
+#endif
+
 #define CHANGE_BIT_DEPTH_2(c0, c1, offset) \
     if (out_bit_depth > in_bit_depth + offset) { \
         c0 <<= (out_bit_depth - in_bit_depth - offset); \

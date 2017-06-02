@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <immintrin.h>
+#include "convert_csp.h"
 
 #if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
 static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
@@ -43,7 +44,7 @@ static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file
 #if defined(_MSC_VER) || defined(__AVX2__)
 
 template<bool use_stream>
-static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
+static void __forceinline avx2_memcpy(uint8_t *dst, const uint8_t *src, int size) {
     if (size < 128) {
         for (int i = 0; i < size; i++)
             dst[i] = src[i];
@@ -54,17 +55,17 @@ static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
     __m256i y0, y1, y2, y3;
     const int start_align_diff = (int)((size_t)dst & 31);
     if (start_align_diff) {
-        y0 = _mm256_loadu_si256((__m256i*)src);
+        y0 = _mm256_loadu_si256((const __m256i*)src);
         _mm256_storeu_si256((__m256i*)dst, y0);
         dst += 32 - start_align_diff;
         src += 32 - start_align_diff;
     }
 #define _mm256_stream_switch_si256(x, ymm) ((use_stream) ? _mm256_stream_si256((x), (ymm)) : _mm256_store_si256((x), (ymm)))
     for ( ; dst < dst_aligned_fin; dst += 128, src += 128) {
-        y0 = _mm256_loadu_si256((__m256i*)(src +  0));
-        y1 = _mm256_loadu_si256((__m256i*)(src + 32));
-        y2 = _mm256_loadu_si256((__m256i*)(src + 64));
-        y3 = _mm256_loadu_si256((__m256i*)(src + 96));
+        y0 = _mm256_loadu_si256((const __m256i*)(src +  0));
+        y1 = _mm256_loadu_si256((const __m256i*)(src + 32));
+        y2 = _mm256_loadu_si256((const __m256i*)(src + 64));
+        y3 = _mm256_loadu_si256((const __m256i*)(src + 96));
         _mm256_stream_switch_si256((__m256i*)(dst +  0), y0);
         _mm256_stream_switch_si256((__m256i*)(dst + 32), y1);
         _mm256_stream_switch_si256((__m256i*)(dst + 64), y2);
@@ -73,10 +74,10 @@ static void __forceinline avx2_memcpy(uint8_t *dst, uint8_t *src, int size) {
 #undef _mm256_stream_switch_si256
     uint8_t *dst_tmp = dst_fin - 128;
     src -= (dst - dst_tmp);
-    y0 = _mm256_loadu_si256((__m256i*)(src +  0));
-    y1 = _mm256_loadu_si256((__m256i*)(src + 32));
-    y2 = _mm256_loadu_si256((__m256i*)(src + 64));
-    y3 = _mm256_loadu_si256((__m256i*)(src + 96));
+    y0 = _mm256_loadu_si256((const __m256i*)(src +  0));
+    y1 = _mm256_loadu_si256((const __m256i*)(src + 32));
+    y2 = _mm256_loadu_si256((const __m256i*)(src + 64));
+    y3 = _mm256_loadu_si256((const __m256i*)(src + 96));
     _mm256_storeu_si256((__m256i*)(dst_tmp +  0), y0);
     _mm256_storeu_si256((__m256i*)(dst_tmp + 32), y1);
     _mm256_storeu_si256((__m256i*)(dst_tmp + 64), y2);
@@ -522,7 +523,7 @@ static void __forceinline convert_yv12_high_to_p010_avx2_base(void **dst, const 
         const int y_width = width - crop_right - crop_left;
         for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
             if (in_bit_depth == 16) {
-                avx2_memcpy<true>((uint8_t *)dstLine, (uint8_t *)srcYLine, y_width * sizeof(uint16_t));
+                avx2_memcpy<true>((uint8_t *)dstLine, (uint8_t *)srcYLine, y_width * (int)sizeof(uint16_t));
             } else {
                 uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
@@ -599,7 +600,7 @@ void copy_yuv444_to_yuv444_avx2(void **dst, const void **src, int width, int src
     const int crop_right  = crop[2];
     const int crop_bottom = crop[3];
     for (int i = 0; i < 3; i++) {
-        uint8_t *srcYLine = (uint8_t *)src[i] + src_y_pitch_byte * crop_up + crop_left;
+        const uint8_t *srcYLine = (const uint8_t *)src[i] + src_y_pitch_byte * crop_up + crop_left;
         uint8_t *dstLine = (uint8_t *)dst[i];
         const int y_fin = height - crop_bottom;
         const int y_width = width - crop_right - crop_left;
@@ -619,15 +620,15 @@ static void __forceinline convert_yuv444_high_to_yuv444_16_avx2_base(void **dst,
     const int src_y_pitch = src_y_pitch_byte >> 1;
     const int dst_y_pitch = dst_y_pitch_byte >> 1;
     for (int i = 0; i < 3; i++) {
-        uint16_t *srcYLine = (uint16_t *)src[i] + src_y_pitch * crop_up + crop_left;
+        const uint16_t *srcYLine = (const uint16_t *)src[i] + src_y_pitch * crop_up + crop_left;
         uint16_t *dstLine = (uint16_t *)dst[i];
         const int y_fin = height - crop_bottom;
         const int y_width = width - crop_right - crop_left;
         for (int y = crop_up; y < y_fin; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
             if (in_bit_depth == 16) {
-                avx2_memcpy<true>((uint8_t *)dstLine, (uint8_t *)srcYLine, y_width * sizeof(uint16_t));
+                avx2_memcpy<true>((uint8_t *)dstLine, (const uint8_t *)srcYLine, y_width * (int)sizeof(uint16_t));
             } else {
-                uint16_t *src_ptr = srcYLine;
+                const uint16_t *src_ptr = srcYLine;
                 uint16_t *dst_ptr = dstLine;
                 for (int x = 0; x < y_width; x += 16, dst_ptr += 16, src_ptr += 16) {
                     __m256i x0 = _mm256_loadu_si256((const __m256i *)src_ptr);

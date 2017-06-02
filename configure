@@ -18,13 +18,13 @@ write_config_mak()
 write_qsv_config()
 {
     echo $1
-    echo $1 >> QSVPipeline/qsv_config.h
+    echo $1 >> QSVPipeline/rgy_config.h
 }
 
 write_qsv_rev()
 {
     echo $1
-    echo $1 >> QSVPipeline/qsv_rev.h
+    echo $1 >> QSVPipeline/rgy_rev.h
 }
 
 cxx_check()
@@ -580,21 +580,23 @@ mfx_win_reg_key.cpp \
 "
 
 SRC_QSVPIPELINE=" \
-DeviceId.cpp                     avcodec_qsv.cpp             avcodec_qsv_log.cpp       avcodec_reader.cpp \
-avcodec_writer.cpp               avi_reader.cpp              avs_reader.cpp \
-cl_func.cpp                      convert_csp.cpp             convert_csp_avx.cpp \
-convert_csp_avx2.cpp             convert_csp_sse2.cpp        convert_csp_ssse3.cpp \
-cpu_info.cpp                     gpu_info.cpp                gpuz_info.cpp \
-perf_monitor.cpp                 qsv_allocator.cpp           qsv_allocator_d3d11.cpp \
-qsv_allocator_d3d9.cpp           qsv_allocator_sys.cpp       qsv_allocator_va.cpp \
-qsv_control.cpp                  qsv_event.cpp               qsv_hw_d3d11.cpp \
-qsv_hw_d3d9.cpp                  qsv_hw_device.cpp           qsv_hw_va.cpp \
-qsv_ini.cpp                      qsv_input.cpp               qsv_output.cpp \
-qsv_pipe.cpp                     qsv_pipe_linux.cpp          qsv_pipeline.cpp \
-qsv_plugin.cpp                   qsv_prm.cpp                 qsv_query.cpp             qsv_simd.cpp \
-qsv_task.cpp                     qsv_util.cpp                qsv_version.cpp \
-ram_speed.cpp                    scene_change_detection.cpp  scene_change_detection_avx.cpp \
-scene_change_detection_simd.cpp  vpy_reader.cpp \
+DeviceId.cpp                cl_func.cpp                     convert_csp.cpp \
+convert_csp_avx.cpp         convert_csp_avx2.cpp            convert_csp_sse2.cpp \
+convert_csp_sse41.cpp       convert_csp_ssse3.cpp           cpu_info.cpp \
+gpu_info.cpp                gpuz_info.cpp                   qsv_allocator.cpp \
+qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp          qsv_allocator_sys.cpp \
+qsv_allocator_va.cpp        qsv_control.cpp                 qsv_hw_d3d11.cpp \
+qsv_hw_d3d9.cpp             qsv_hw_device.cpp               qsv_hw_va.cpp \
+qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
+qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
+ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
+rgy_err.cpp                 rgy_event.cpp                   rgy_ini.cpp \
+rgy_input.cpp               rgy_input_avcodec.cpp           rgy_input_avi.cpp \
+rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp \
+rgy_log.cpp                 rgy_output.cpp                  rgy_output_avcodec.cpp \
+rgy_perf_monitor.cpp        rgy_pipe.cpp                    rgy_pipe_linux.cpp \
+rgy_simd.cpp                rgy_util.cpp                    rgy_version.cpp \
+scene_change_detection.cpp  scene_change_detection_avx.cpp  scene_change_detection_simd.cpp \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"

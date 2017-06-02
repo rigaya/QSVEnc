@@ -27,6 +27,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_err.h"
+#include "rgy_osdep.h"
 
 #if ENCODER_QSV
 struct RGYErrMapMFX {

@@ -1613,7 +1613,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     if (!m_hwdev) {
         return MFX_ERR_MEMORY_ALLOC;
     }
-    sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession), m_pRGYLog);
+    sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession), m_pQSVLog);
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
 #endif
     return MFX_ERR_NONE;
@@ -2212,6 +2212,7 @@ uint32_t CQSVPipeline::EncoderCsp(const sInputParams *pParams) {
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     RGY_ERR ret = RGY_ERR_NONE;
     bool stdoutUsed = false;
+    const auto outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
 #if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
@@ -2224,7 +2225,6 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->CodecId == MFX_CODEC_RAW) {
         pParams->nAVMux &= ~RGY_MUX_VIDEO;
     }
-    const auto outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
     if (pParams->nAVMux & RGY_MUX_VIDEO) {
         if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
             PrintMes(RGY_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));

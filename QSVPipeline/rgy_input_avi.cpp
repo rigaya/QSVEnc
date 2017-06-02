@@ -26,8 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_input_avi.h"
-#include "Aviriff.h"
 #if ENABLE_AVI_READER
+#include "Aviriff.h"
 
 #pragma warning(disable:4312)
 #pragma warning(disable:4838)

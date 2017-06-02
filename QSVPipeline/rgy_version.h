@@ -47,11 +47,11 @@ const wchar_t *get_encoder_version();
 const char *get_encoder_version();
 #endif
 
-#if defined(_WIN32) || defined(_WIN64)
-
 #define ENCODER_QSV    1
 #define ENCODER_NVENC  0
 #define ENCODER_VCEENC 0
+
+#if defined(_WIN32) || defined(_WIN64)
 
 #define D3D_SURFACES_SUPPORT 1
 
@@ -111,7 +111,7 @@ const char *get_encoder_version();
 #else //#if defined(WIN32) || defined(WIN64)
 #define MFX_D3D11_SUPPORT 0
 #define ENABLE_METRIC_FRAMEWORK 0
-#include "qsv_config.h"
+#include "rgy_config.h"
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__

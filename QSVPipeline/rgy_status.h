@@ -86,12 +86,11 @@ typedef struct EncodeStatusData {
 class EncodeStatus {
 public:
     EncodeStatus() {
-        ZeroMemory(&m_sData, sizeof(m_sData));
+        memset(&m_sData, 0, sizeof(m_sData));
 
         m_tmLastUpdate = std::chrono::system_clock::now();
         m_pause = false;
-        DWORD mode = 0;
-        m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
+        m_bStdErrWriteToConsole = false;
     }
     ~EncodeStatus() {
         m_pRGYLog.reset();
@@ -113,7 +112,7 @@ public:
 
     void SetStart() {
         m_tmStart = std::chrono::system_clock::now();
-        GetProcessTime(GetCurrentProcess(), &m_sStartTime);
+        GetProcessTime(&m_sStartTime);
     }
     void SetOutputData(RGY_FRAMETYPE picType, uint32_t outputBytes, uint32_t frameAvgQP) {
         m_sData.outFileSize    += outputBytes;

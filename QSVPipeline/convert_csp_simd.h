@@ -37,6 +37,7 @@
 #if USE_SSE41
 #include <smmintrin.h> //イントリンシック命令 SSE4.1
 #endif
+#include "convert_const.h"
 
 static void __forceinline memcpy_sse(uint8_t *dst, const uint8_t *src, int size) {
     if (size < 64) {
