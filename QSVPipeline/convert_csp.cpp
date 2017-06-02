@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2011-2016 rigaya
@@ -1008,7 +1009,7 @@ static const ConvertCSP funcList[] = {
 };
 
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only) {
-    unsigned int availableSIMD = get_availableSIMD();
+    uint32_t availableSIMD = get_availableSIMD();
     const ConvertCSP *convert = nullptr;
     for (int i = 0; i < _countof(funcList); i++) {
         if (csp_from != funcList[i].csp_from)
@@ -1034,7 +1035,7 @@ const TCHAR *get_simd_str(unsigned int simd) {
         { AVX2,  _T("AVX2")   },
         { AVX,   _T("AVX")    },
         { SSE42, _T("SSE4.2") },
-        { SSE41, _T("SSE4.2") },
+        { SSE41, _T("SSE4.1") },
         { SSSE3, _T("SSSE3")  },
         { SSE2,  _T("SSE2")   },
     };

@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2011-2016 rigaya
@@ -24,13 +25,14 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
+
 #ifndef _CONVERT_CSP_H_
 #define _CONVERT_CSP_H_
 
 #include <cstdint>
 #include "rgy_tchar.h"
 
-typedef void (*func_convert_csp) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+typedef void (*funcConvertCSP) (void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 
 enum RGY_CSP {
     RGY_CSP_NA,
@@ -81,26 +83,26 @@ static const TCHAR *RGY_CSP_NAMES[] = {
 };
 
 static const int RGY_CSP_BIT_DEPTH[] = {
-    0, //RGY_CSP_NA
-    8, //RGY_CSP_NV12
-    8, //RGY_CSP_YV12
-    8, //RGY_CSP_YUY2 
-    8, //RGY_CSP_YUV422
-    8, //RGY_CSP_YUV444
-    9, //RGY_CSP_YV12_09
+     0, //RGY_CSP_NA
+     8, //RGY_CSP_NV12
+     8, //RGY_CSP_YV12
+     8, //RGY_CSP_YUY2 
+     8, //RGY_CSP_YUV422
+     8, //RGY_CSP_YUV444
+     9, //RGY_CSP_YV12_09
     10,
     12,
     14,
     16, //RGY_CSP_YV12_16
     16, //RGY_CSP_P010
     16, //RGY_CSP_P210
-    9, //RGY_CSP_YUV444_09
+     9, //RGY_CSP_YUV444_09
     10,
     12,
     14,
     16, //RGY_CSP_YUV444_16
-    8,
-    8,
+     8, //RGY_CSP_RGB3
+     8, //RGY_CSP_RGB4
     10, //RGY_CSP_YC48
 };
 
@@ -171,11 +173,26 @@ static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
 typedef struct ConvertCSP {
     RGY_CSP csp_from, csp_to;
     bool uv_only;
-    func_convert_csp func[2];
+    funcConvertCSP func[2];
     unsigned int simd;
 } ConvertCSP;
 
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only);
 const TCHAR *get_simd_str(unsigned int simd);
+
+struct FrameInfo {
+    uint8_t *ptr;
+    RGY_CSP csp;
+    int width, height, pitch;
+    uint64_t timestamp;
+    bool deivce_mem;
+    bool interlaced;
+};
+
+struct FrameInfoExtra {
+    int width_byte, height_total, frame_size;
+};
+
+FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 
 #endif //_CONVERT_CSP_H_

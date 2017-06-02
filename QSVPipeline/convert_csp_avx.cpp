@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2011-2016 rigaya
@@ -30,6 +31,7 @@
 #define USE_SSE41 1
 #define USE_AVX   1
 #define USE_AVX2  0
+
 #include "convert_csp_simd.h"
 
 #if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)

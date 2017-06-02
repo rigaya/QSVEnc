@@ -1,6 +1,7 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
+//
 // The MIT License
 //
 // Copyright (c) 2011-2016 rigaya
@@ -1008,6 +1009,5 @@ static __forceinline void convert_yc48_to_yuv444_16bit_simd(void **dst, const vo
 }
 
 #pragma warning (pop)
-
 
 #endif //_CONVERT_CSP_SIMD_H_
