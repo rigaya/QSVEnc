@@ -1514,6 +1514,7 @@ RGY_ERR RGYInputAvcodec::GetNextBitstream(RGYBitstream *pBitstream) {
         }
         av_packet_unref(&pkt);
         m_Demux.video.nSampleGetCount++;
+        m_pEncSatusInfo->m_sData.frameIn++;
     }
     return sts;
 }
@@ -1836,6 +1837,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (got_frame) {
             av_frame_unref(m_Demux.video.pFrame);
         }
+        m_pEncSatusInfo->m_sData.frameIn++;
     } else {
         if (m_Demux.qVideoPkt.size() == 0) {
             //m_Demux.qVideoPkt.size() == 0となるのは、最後まで読み込んだときか、中断した時しかありえない
@@ -1843,7 +1845,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         }
     }
     //進捗表示
-    m_pEncSatusInfo->m_sData.frameIn++;
     double progressPercent = 0.0;
     if (m_Demux.format.pFormatCtx->duration) {
         progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
