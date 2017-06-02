@@ -2202,11 +2202,17 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
 #endif //#if ENABLE_AVSW_READER
 }
 
-uint32_t CQSVPipeline::EncoderCsp(const sInputParams *pParams) {
+RGY_CSP CQSVPipeline::EncoderCsp(const sInputParams *pParams, int *pShift) {
     if (pParams->CodecId == MFX_CODEC_HEVC && pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
-        return MFX_FOURCC_P010;
+        if (pShift) {
+            *pShift = 6;
+        }
+        return RGY_CSP_P010;
     }
-    return MFX_FOURCC_NV12;
+    if (pShift) {
+        *pShift = 0;
+    }
+    return RGY_CSP_NV12;
 }
 
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
@@ -2463,7 +2469,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     inputVideo.srcHeight = pParams->nHeight;
     inputVideo.dstWidth = pParams->nDstWidth;
     inputVideo.dstHeight = pParams->nDstHeight;
-    inputVideo.csp = csp_enc_to_rgy(EncoderCsp(pParams));
+    inputVideo.csp = EncoderCsp(pParams, &inputVideo.shift);
     inputVideo.sar[0] = pParams->nPAR[0];
     inputVideo.sar[1] = pParams->nPAR[1];
     inputVideo.fpsN = pParams->nFPSRate;

@@ -161,6 +161,11 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     } else {
         m_inputVideoInfo.csp = RGY_CSP_NV12;
     }
+    m_sConvert = get_convert_csp_func(m_InputCsp, m_inputVideoInfo.csp, false);
+    if (m_sConvert == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
     CreateInputInfo(tstring(_T("avi: ") + strFcc).c_str(), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
     AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
     *pInputInfo = m_inputVideoInfo;

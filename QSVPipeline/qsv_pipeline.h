@@ -223,7 +223,7 @@ protected:
     virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
     virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);
     virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);
-    virtual uint32_t EncoderCsp(const sInputParams *pParams);
+    virtual RGY_CSP EncoderCsp(const sInputParams *pParams, int *pShift);
     //virtual void InitVppExtParam();
     virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
 
