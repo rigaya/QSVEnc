@@ -4315,6 +4315,10 @@ mfxStatus CQSVPipeline::RunEncode() {
                 } else {
                     //フレーム読み込みでない場合には、フレームバッファをm_pFileReaderを通さずに直接渡す
                     pNextFrame = pSurfInputBuf;
+                    if (m_EncThread.m_bthForceAbort) {
+                        sts = m_EncThread.m_stsThread;
+                        break;
+                    }
                 }
 
                 auto ret = extract_audio();
