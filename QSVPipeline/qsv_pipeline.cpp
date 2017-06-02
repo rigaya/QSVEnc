@@ -3623,45 +3623,69 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
         m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thInput, thOutput, thAudProc, thAudEnc);
     }
 #endif //#if ENABLE_AVSW_READER
+
     const int bufferSize = m_EncThread.m_nFrameBuffer;
     sInputBufSys *pArrayInputBuf = m_EncThread.m_InputBuf;
     sInputBufSys *pInputBuf;
     //入力ループ
-    for (int i = 0; sts == MFX_ERR_NONE; i++) {
-        pInputBuf = &pArrayInputBuf[i % bufferSize];
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+        for (int i = 0; sts == MFX_ERR_NONE; i++) {
+            pInputBuf = &pArrayInputBuf[i % bufferSize];
 
-        //空いているフレームがセットされるのを待機
-        PrintMes(RGY_LOG_TRACE, _T("Main Thread: Wait Start %d.\n"), i);
-        while (WAIT_TIMEOUT == WaitForSingleObject(pInputBuf->heInputStart, 10000)) {
-            //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
-            if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
-                PrintMes(RGY_LOG_ERROR, _T("error at encode thread.\n"));
-                sts = MFX_ERR_INVALID_HANDLE;
-                break;
-            }
-            if (m_SceneChange.isInitialized()
-                && !CheckThreadAlive(m_EncThread.GetHandleSubThread())) {
+            //空いているフレームがセットされるのを待機
+            PrintMes(RGY_LOG_TRACE, _T("Main Thread: Wait Start %d.\n"), i);
+            while (WAIT_TIMEOUT == WaitForSingleObject(pInputBuf->heInputStart, 5000)) {
+                //エンコードスレッドが異常終了していたら、それを検知してこちらも終了
+                if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
+                    PrintMes(RGY_LOG_ERROR, _T("error at encode thread.\n"));
+                    sts = MFX_ERR_INVALID_HANDLE;
+                }
+                if (m_SceneChange.isInitialized()
+                    && !CheckThreadAlive(m_EncThread.GetHandleSubThread())) {
                     PrintMes(RGY_LOG_ERROR, _T("error at sub thread.\n"));
                     sts = MFX_ERR_INVALID_HANDLE;
-                    break;
+                }
+            }
+
+            //フレームを読み込み
+            PrintMes(RGY_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
+            if (sts == MFX_ERR_NONE) {
+                sts = err_to_mfx(m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface));
+            }
+            if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
+                PrintMes(RGY_LOG_INFO, _T("                                                                              \r"));
+                sts = MFX_ERR_ABORTED;
+            } else if (sts == RGY_ERR_MORE_DATA) {
+                m_EncThread.m_stsThread = sts;
+            }
+
+            //フレームの読み込み終了を通知
+            SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
+            PrintMes(RGY_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
+        }
+    } else {
+        while (sts == MFX_ERR_NONE) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(800));
+            if (!CheckThreadAlive(m_EncThread.GetHandleEncThread())) {
+                //読み込みが完了しているか、確認
+                if (MFX_ERR_MORE_DATA == err_to_mfx(m_pFileReader->LoadNextFrame(nullptr))) {
+                    //正常に読み込みを終了
+                    sts = MFX_ERR_NONE;
+                } else {
+                    PrintMes(RGY_LOG_ERROR, _T("error at encode thread.\n"));
+                    sts = MFX_ERR_UNKNOWN;
+                }
+                break;
+            }
+            //進捗表示 & 読み込み状況確認
+            sts = err_to_mfx(m_pFileReader->LoadNextFrame(nullptr));
+            if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
+                PrintMes(RGY_LOG_INFO, _T("                                                                              \r"));
+                sts = MFX_ERR_ABORTED;
+            } else if (sts == RGY_ERR_MORE_DATA) {
+                m_EncThread.m_stsThread = sts;
             }
         }
-
-        //フレームを読み込み
-        PrintMes(RGY_LOG_TRACE, _T("Main Thread: LoadNextFrame %d.\n"), i);
-        if (sts == MFX_ERR_NONE) {
-            sts = err_to_mfx(m_pFileReader->LoadNextFrame(pInputBuf->pFrameSurface));
-        }
-        if (m_pAbortByUser != nullptr && *m_pAbortByUser) {
-            PrintMes(RGY_LOG_INFO, _T("                                                                              \r"));
-            sts = MFX_ERR_ABORTED;
-        } else if (sts == RGY_ERR_MORE_DATA) {
-            m_EncThread.m_stsThread = sts;
-        }
-
-        //フレームの読み込み終了を通知
-        SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
-        PrintMes(RGY_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
     }
     m_EncThread.WaitToFinish(sts, m_pQSVLog);
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Finished Main Loop...\n"));
@@ -4269,14 +4293,14 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //    pSurfInputBuf = pSurfEncIn;
                 //    //ppNextFrame = &pSurfEncIn;
                 //}
-                //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
-                //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
-                sts = GetNextFrame(&pNextFrame);
-                if (sts != MFX_ERR_NONE) {
-                    break;
-                }
                 
                 if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+                    //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
+                    //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
+                    sts = GetNextFrame(&pNextFrame);
+                    if (sts != MFX_ERR_NONE) {
+                        break;
+                    }
                     //フレーム読み込みの場合には、必要ならここでロックする
                     if (m_bExternalAlloc) {
                         if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))
@@ -4285,13 +4309,13 @@ mfxStatus CQSVPipeline::RunEncode() {
                         if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, pSurfInputBuf->Data.MemId, &(pSurfInputBuf->Data))))
                             break;
                     }
+
+                    //空いているフレームを読み込み側に渡す
+                    SetNextSurface(pSurfInputBuf);
                 } else {
                     //フレーム読み込みでない場合には、フレームバッファをm_pFileReaderを通さずに直接渡す
                     pNextFrame = pSurfInputBuf;
                 }
-
-                //空いているフレームを読み込み側に渡す
-                SetNextSurface(pSurfInputBuf);
 
                 auto ret = extract_audio();
                 if (ret != RGY_ERR_NONE) {
