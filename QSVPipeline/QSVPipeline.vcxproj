@@ -399,6 +399,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="convert_csp_sse2.cpp" />
+    <ClCompile Include="convert_csp_sse41.cpp" />
     <ClCompile Include="convert_csp_ssse3.cpp" />
     <ClCompile Include="cpu_info.cpp" />
     <ClCompile Include="DeviceId.cpp" />
@@ -451,6 +452,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cl_func.h" />
+    <ClInclude Include="convert_const.h" />
     <ClInclude Include="convert_csp.h" />
     <ClInclude Include="convert_csp_simd.h" />
     <ClInclude Include="cpu_info.h" />
