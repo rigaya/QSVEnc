@@ -336,20 +336,23 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             return MFX_ERR_MEMORY_ALLOC;
         }
 
-        const std::unordered_map<RGY_CODEC, std::pair<mfxPluginUID, tstring>> codecPlugin = {
-            { RGY_CODEC_HEVC, std::make_pair(MFX_PLUGINID_HEVCD_HW, _T("HEVC")) },
-            { RGY_CODEC_VP8,  std::make_pair(MFX_PLUGINID_VP8D_HW,  _T("VP8"))  },
-            { RGY_CODEC_VP9,  std::make_pair(MFX_PLUGINID_VP9D_HW,  _T("VP9"))  },
-        };
-        auto plugin = codecPlugin.find(m_pFileReader->getInputCodec());
-        if (plugin != codecPlugin.end()) {
-            auto pluginData = plugin->second;
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), pluginData.second.c_str());
-            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, pluginData.first, 1)) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), pluginData.second.c_str());
+        static const auto codecPluginList = make_array<std::pair<RGY_CODEC, mfxPluginUID>>(
+            std::make_pair(RGY_CODEC_HEVC, MFX_PLUGINID_HEVCD_HW),
+            std::make_pair(RGY_CODEC_VP8,  MFX_PLUGINID_VP8D_HW),
+            std::make_pair(RGY_CODEC_VP9,  MFX_PLUGINID_VP9D_HW)
+        );
+        const auto inputCodec = m_pFileReader->getInputCodec();
+        const auto plugin = std::find_if(codecPluginList.begin(), codecPluginList.end(),
+                [inputCodec](const decltype((codecPluginList[0])) codecPlugin) {
+            return codecPlugin.first == inputCodec;
+        });
+        if (plugin != codecPluginList.end()) {
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), CodecToStr(plugin->first).c_str());
+            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, plugin->second, 1)) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), CodecToStr(plugin->first).c_str());
                 return MFX_ERR_UNSUPPORTED;
             }
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), pluginData.second.c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), CodecToStr(plugin->first).c_str());
         }
 
         if (m_pFileReader->getInputCodec() == RGY_CODEC_H264 || m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
