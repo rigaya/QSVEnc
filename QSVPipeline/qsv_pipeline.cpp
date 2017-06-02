@@ -3722,8 +3722,6 @@ mfxStatus CQSVPipeline::RunEncode() {
     bool bVppRequireMoreFrame = false;
     int nFramePutToEncoder = 0; //エンコーダに投入したフレーム数 (TimeStamp計算用)
 
-    uint32_t nDecInputBitstreamLastLength = 0;
-
     QSVTask *pCurrentTask = nullptr; //現在のタスクへのポインタ
     int nEncSurfIdx = -1; //使用するフレームのインデックス encoder input (vpp output)
     int nVppSurfIdx = -1; //使用するフレームのインデックス vpp input
@@ -3947,7 +3945,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //GetNextFrameのロックが抜けれらなくなる場合がある。
                 //HWデコード時、本来GetNextFrameのロックは必要ないので、
                 //これを無視する実装も併せて行った。
-                && (m_DecInputBitstream.size() == 0 || m_DecInputBitstream.size() == nDecInputBitstreamLastLength)) {
+                && m_DecInputBitstream.size() <= 1) {
                 //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
                 auto ret = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
                 if (ret == RGY_ERR_MORE_BITSTREAM) {
@@ -3966,7 +3964,6 @@ mfxStatus CQSVPipeline::RunEncode() {
             //デコード前には、デコード用のパラメータでFrameInfoを更新
             copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
             pSurfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-            nDecInputBitstreamLastLength = m_DecInputBitstream.size();
 
             for (int i = 0; ; i++) {
                 mfxSyncPoint DecSyncPoint = NULL;
