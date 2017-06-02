@@ -368,9 +368,19 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         auto inputVideoInfo = m_pFileReader->GetInputFrameInfo();
         m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp] - inputVideoInfo.shift);
         m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp] - inputVideoInfo.shift);
+        if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma > 16 || m_mfxDecParams.mfx.FrameInfo.BitDepthChroma > 16) {
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Invalid bitdepth.\n"));
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
         m_mfxDecParams.mfx.FrameInfo.Shift = inputVideoInfo.shift ? 1 : 0; //mfxFrameInfoのShiftはシフトすべきかどうかの 1 か 0 のみ。
         if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 8)   m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = 0;
         if (m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 8) m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = 0;
+        if (m_mfxDecParams.mfx.FrameInfo.Shift
+            && m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 0
+            && m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 0) {
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Bit shift required but bitdepth not set.\n"));
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
 
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
