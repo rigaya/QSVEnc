@@ -810,7 +810,7 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
     //code from afs v7.5a+10
     __m128i x5, x6, x7, xMask;
     //select y
-    static const _declspec(align(16)) uint16_t maskY_select[8] ={ 0xffff, 0x0000, 0x0000, 0xffff, 0x0000, 0x0000, 0xffff, 0x0000 };
+    alignas(16) static const uint16_t maskY_select[8] = { 0xffff, 0x0000, 0x0000, 0xffff, 0x0000, 0x0000, 0xffff, 0x0000 };
     xMask = _mm_load_si128((__m128i*)maskY_select);
 
     x5 = select_by_mask(x2, x0, xMask);
@@ -820,7 +820,7 @@ static __forceinline void gather_y_u_v_from_yc48(__m128i& x0, __m128i& x1, __m12
     x6 = _mm_unpacklo_epi16(x5, x5);    //11663300
     x7 = _mm_unpackhi_epi16(x5, x5);    //55227744
 
-    static const _declspec(align(16)) uint16_t maskY_shuffle[8] ={ 0xffff, 0x0000, 0xffff, 0x0000, 0x0000, 0xffff, 0xffff, 0x0000 };
+    alignas(16) static const uint16_t maskY_shuffle[8] = { 0xffff, 0x0000, 0xffff, 0x0000, 0x0000, 0xffff, 0xffff, 0x0000 };
     xMask = _mm_load_si128((__m128i*)maskY_shuffle);
     x5 = select_by_mask(x7, x6, xMask);                 //51627340
     x5 = _mm_shuffle_epi32(x5, _MM_SHUFFLE(1, 2, 3, 0));   //73625140

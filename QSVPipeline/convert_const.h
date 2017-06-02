@@ -94,7 +94,7 @@ static const int UV_L_YCC_8       = 16;
 static const int UV_L_YCC_10      = UV_L_YCC_8<<2;
 static const int UV_L_YCC_16      = UV_L_YCC_8<<8;
 
-#define ALIGN32_CONST_ARRAY static const _declspec(align(32))
+#define ALIGN32_CONST_ARRAY alignas(32) static const
 
 ALIGN32_CONST_ARRAY short Array_Y_L_MA_8[16]        = { Y_L_MUL,  Y_L_ADD_8,       Y_L_MUL,   Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8,       Y_L_MUL,  Y_L_ADD_8,       Y_L_MUL,   Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8,        Y_L_MUL,  Y_L_ADD_8       };
 ALIGN32_CONST_ARRAY short Array_UV_L_MA_8_420P[16]  = {UV_L_MUL, UV_L_ADD_8_420P, UV_L_MUL,  UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P, UV_L_MUL, UV_L_ADD_8_420P, UV_L_MUL,  UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P,  UV_L_MUL, UV_L_ADD_8_420P  };
