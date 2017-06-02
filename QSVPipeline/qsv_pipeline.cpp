@@ -2629,7 +2629,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
         return err_to_mfx(ret);
     }
-    m_pEncSatusInfo->m_sData.frameOut = inputVideo.frames;
+    m_pEncSatusInfo->m_sData.frameTotal = inputVideo.frames;
     PrintMes(RGY_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
