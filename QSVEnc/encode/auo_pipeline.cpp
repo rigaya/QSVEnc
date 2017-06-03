@@ -45,59 +45,32 @@ mfxStatus AuoPipeline::InitLog(sInputParams *pParams) {
 
 mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     m_pEncSatusInfo = std::make_shared<AUO_EncodeStatusInfo>();
-    m_pEncSatusInfo->SetPrivData(nullptr);
+    m_pEncSatusInfo->SetPrivData(pParams->pPrivatePrm);
 
     if (pParams->nInputFmt != RGY_INPUT_FMT_AUO) {
         return CQSVPipeline::InitInput(pParams);
     }
 
-    // prepare input file reader
+    VideoInfo inputVideo;
+    memset(&inputVideo, 0, sizeof(inputVideo));
+    inputVideo.type = (RGY_INPUT_FMT)pParams->nInputFmt;
+    inputVideo.srcWidth = pParams->nWidth;
+    inputVideo.srcHeight = pParams->nHeight;
+    inputVideo.dstWidth = pParams->nDstWidth;
+    inputVideo.dstHeight = pParams->nDstHeight;
+    inputVideo.csp = EncoderCsp(pParams, &inputVideo.shift);
+    inputVideo.sar[0] = pParams->nPAR[0];
+    inputVideo.sar[1] = pParams->nPAR[1];
+    inputVideo.fpsN = pParams->nFPSRate;
+    inputVideo.fpsD = pParams->nFPSScale;
+    inputVideo.crop = pParams->sInCrop;
+    inputVideo.picstruct = picstruct_enc_to_rgy(pParams->nPicStruct);
+
     m_pFileReader = std::make_shared<AUO_YUVReader>();
-    m_pFileReader->SetQSVLogPtr(m_pQSVLog);
-    auto ret = m_pFileReader->Init(NULL, NULL, false, &m_EncThread, m_pEncSatusInfo, NULL);
+    auto ret = m_pFileReader->Init(nullptr, &inputVideo, pParams->pPrivatePrm, m_pQSVLog, m_pEncSatusInfo);
     if (ret != RGY_ERR_NONE) return err_to_mfx(ret);
 
-    mfxFrameInfo inputFrameInfo = { 0 };
-    m_pFileReader->GetInputFrameInfo(&inputFrameInfo);
-
-    mfxU32 OutputFPSRate = pParams->nFPSRate;
-    mfxU32 OutputFPSScale = pParams->nFPSScale;
-    mfxU32 outputFrames = *(mfxU32 *)&inputFrameInfo.FrameId;
-    if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-        switch (pParams->vpp.nDeinterlace) {
-            case MFX_DEINTERLACE_IT:
-            case MFX_DEINTERLACE_IT_MANUAL:
-                OutputFPSRate = OutputFPSRate * 4;
-                OutputFPSScale = OutputFPSScale * 5;
-                outputFrames = (outputFrames * 4) / 5;
-                break;
-            case MFX_DEINTERLACE_BOB:
-            case MFX_DEINTERLACE_AUTO_DOUBLE:
-                OutputFPSRate = OutputFPSRate * 2;
-                outputFrames *= 2;
-                break;
-            default:
-                break;
-        }
-    }
-    switch (pParams->vpp.nFPSConversion) {
-    case FPS_CONVERT_MUL2:
-        OutputFPSRate = OutputFPSRate * 2;
-        outputFrames *= 2;
-        break;
-    case FPS_CONVERT_MUL2_5:
-        OutputFPSRate = OutputFPSRate * 5 / 2;
-        outputFrames = outputFrames * 5 / 2;
-        break;
-    default:
-        break;
-    }
-    mfxU32 gcd = qsv_gcd(OutputFPSRate, OutputFPSScale);
-    OutputFPSRate /= gcd;
-    OutputFPSScale /= gcd;
-
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog, nullptr);
-
+    m_pEncSatusInfo->m_sData.frameTotal = inputVideo.frames;
     return MFX_ERR_NONE;
 }
 
@@ -107,9 +80,8 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
     }
 
     m_pFileWriter = std::make_shared<RGYOutputRaw>();
-    m_pFileWriter->SetQSVLogPtr(m_pQSVLog);
-    bool bDummy = false;
-    auto ret = m_pFileWriter->Init(pParams->strDstFile, &bDummy, m_pEncSatusInfo);
+    const auto outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
+    auto ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, nullptr, m_pQSVLog, m_pEncSatusInfo);
     if (ret != RGY_ERR_NONE) return err_to_mfx(ret);
 
     return MFX_ERR_NONE;

@@ -195,8 +195,8 @@ struct sInputParams
 
     mfxU16 nInputBufSize; //input buf size
 
-    bool   bIsMVC; // true if Multi-View-Codec is in use
-    mfxU32 numViews; // number of views for Multi-View-Codec
+    bool   __unused;
+    void  *pPrivatePrm;
     
 
     mfxI32     nPAR[2]; //PAR比

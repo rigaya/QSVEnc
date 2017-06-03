@@ -185,7 +185,9 @@ protected:
     mfxExtVPPScaling m_ExtScaling;
     vector<mfxU32> m_VppDoNotUseList;
     vector<mfxU32> m_VppDoUseList;
+#if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_AVChapterFromFile;
+#endif
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;
     unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;

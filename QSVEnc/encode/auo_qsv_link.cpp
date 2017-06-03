@@ -87,90 +87,53 @@ void close_afsvideo(PRM_ENC *pe) {
 
     pe->afs_init = FALSE;
 }
-//邪道っぽいが静的グローバル変数
-static const OUTPUT_INFO *oip = NULL;
-static PRM_ENC *pe = NULL;
-static int g_total_out_frames = NULL;
-static int *jitter = NULL;
-static BOOL g_interlaced = FALSE;
 
-//静的グローバル変数の初期化
-DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_ENC *_pe, int *_jitter) {
-    oip = _oip;
-    pe = _pe;
-    jitter = _jitter;
-    g_interlaced = (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? TRUE : FALSE;
-    g_total_out_frames = oip->n;
-    if (g_interlaced) {
-        switch (conf->qsv.vpp.nDeinterlace) {
-        case MFX_DEINTERLACE_IT:
-        case MFX_DEINTERLACE_IT_MANUAL:
-            g_total_out_frames = (g_total_out_frames * 4) / 5;
-            break;
-        case MFX_DEINTERLACE_BOB:
-        case MFX_DEINTERLACE_AUTO_DOUBLE:
-            g_total_out_frames *= 2;
-            break;
-        default:
-            break;
-        }
-    }
-    switch (conf->qsv.vpp.nFPSConversion) {
-    case FPS_CONVERT_MUL2:
-        g_total_out_frames *= 2;
-        break;
-    case FPS_CONVERT_MUL2_5:
-        g_total_out_frames = g_total_out_frames * 5 / 2;
-        break;
-    default:
-        break;
-    }
-    return AUO_RESULT_SUCCESS;
-}
-
-//静的グローバル変数使用終了
-void clear_auo_yuvreader_g_data() {
-    g_total_out_frames = 0;
-    oip = NULL;
-    pe = NULL;
-    jitter = NULL;
-    g_interlaced = FALSE;
-}
-
-AUO_YUVReader::AUO_YUVReader() {
-    m_ColorFormat = MFX_FOURCC_NV12; //AUO_YUVReaderはNV12専用
+AUO_YUVReader::AUO_YUVReader() :
+    oip(nullptr),
+    conf(nullptr),
+    pe(nullptr),
+    jitter(nullptr),
+    m_iFrame(0),
+    m_pause(FALSE) {
 }
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-RGY_ERR AUO_YUVReader::Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<EncodeStatus> pEncSatusInfo, sInputCrop *pInputCrop) {
+RGY_ERR AUO_YUVReader::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
+    auto *info = (const InputInfoAuo *)(prm);
+    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
 
-    Close();
+    oip = info->oip;
+    conf = info->conf;
+    pe = info->pe;
+    jitter = info->jitter;
 
-    m_pEncThread = pEncThread;
-    m_pEncSatusInfo = pEncSatusInfo;
-    m_bInited = true;
+    m_inputVideoInfo.frames = oip->n;
+    m_inputVideoInfo.srcWidth = oip->w;
+    m_inputVideoInfo.srcHeight = oip->h;
+    m_inputVideoInfo.fpsN = oip->rate;
+    m_inputVideoInfo.fpsD = oip->scale;
+    m_inputVideoInfo.srcPitch = oip->w;
+    rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
-    m_ColorFormat = MFX_FOURCC_YUY2;
+    const RGY_CSP input_csp = (m_inputVideoInfo.csp == RGY_CSP_YUV444 || m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_YUV444_16) ? RGY_CSP_YC48 : RGY_CSP_YUY2;
+    m_sConvert = get_convert_csp_func(input_csp, m_inputVideoInfo.csp, false);
+    m_inputVideoInfo.shift = (m_inputVideoInfo.csp == RGY_CSP_P010 && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
 
-    m_inputFrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-    m_inputFrameInfo.FourCC = MFX_FOURCC_NV12;
-    m_inputFrameInfo.FrameRateExtN = oip->rate;
-    m_inputFrameInfo.FrameRateExtD = oip->scale;
-    m_inputFrameInfo.Width = (mfxU16)oip->w;
-    m_inputFrameInfo.Height = (mfxU16)oip->h;
-    m_inputFrameInfo.CropW = (mfxU16)oip->w;
-    m_inputFrameInfo.CropH = (mfxU16)oip->h;
-    m_inputFrameInfo.CropX = 0;
-    m_inputFrameInfo.CropY = 0;
-    *(DWORD *)&m_inputFrameInfo.FrameId = oip->n;
+    if (m_sConvert == nullptr) {
+        AddMessage(RGY_LOG_ERROR, "invalid colorformat.\n");
+        return RGY_ERR_INVALID_COLOR_FORMAT;
+    }
 
-    m_sConvert = get_convert_csp_func(RGY_CSP_YUY2, RGY_CSP_NV12, false);
-
-    char mes[256];
-    sprintf_s(mes, _countof(mes), "auo: %s->%s%s [%s], %dx%d, %d/%d fps", RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], (g_interlaced) ? "i" : "p", get_simd_str(m_sConvert->simd),
-        m_inputFrameInfo.Width, m_inputFrameInfo.Height, m_inputFrameInfo.FrameRateExtN, m_inputFrameInfo.FrameRateExtD);
-    m_strInputInfo += mes;
+    if (conf->vid.afs) {
+        if (!setup_afsvideo(oip, info->sys_dat, conf, pe)) {
+            AddMessage(RGY_LOG_ERROR, "自動フィールドシフトの初期化に失敗しました。\n");
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+    CreateInputInfo(_T("auo"), RGY_CSP_NAMES[m_sConvert->csp_from], RGY_CSP_NAMES[m_sConvert->csp_to], get_simd_str(m_sConvert->simd), &m_inputVideoInfo);
+    AddMessage(RGY_LOG_DEBUG, m_strInputInfo);
+    *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
 #pragma warning(pop)
@@ -181,67 +144,64 @@ AUO_YUVReader::~AUO_YUVReader() {
 
 void AUO_YUVReader::Close() {
     disable_enc_control();
+    oip = nullptr;
+    conf = nullptr;
+    pe = nullptr;
+    jitter = nullptr;
+    m_iFrame = 0;
+    m_pause = FALSE;
     m_pEncSatusInfo.reset();
 }
 
-RGY_ERR AUO_YUVReader::LoadNextFrame(mfxFrameSurface1* pSurface) {
+RGY_ERR AUO_YUVReader::LoadNextFrame(RGYFrame *pSurface) {
     const int total_frames = oip->n;
 
-    int nFrame = m_pEncSatusInfo->m_nInputFrames + pe->drop_count;
-
-    if (nFrame >= total_frames) {
-        oip->func_rest_time_disp(current_frame, total_frames);
+    if (m_iFrame >= total_frames) {
+        oip->func_rest_time_disp(m_iFrame-1, total_frames);
         release_audio_parallel_events(pe);
         return RGY_ERR_MORE_DATA;
-    }
-
-    mfxFrameInfo *pInfo = &pSurface->Info;
-    mfxFrameData *pData = &pSurface->Data;
-    
-    int w = 0, h = 0;
-    if (pInfo->CropH > 0 && pInfo->CropW > 0) {
-        w = pInfo->CropW;
-        h = pInfo->CropH;
-    } else {
-        w = pInfo->Width;
-        h = pInfo->Height;
     }
     
     void *frame = nullptr;
     if (pe->afs_init) {
         BOOL drop = FALSE;
         for ( ; ; ) {
-            if ((frame = afs_get_video((OUTPUT_INFO *)oip, nFrame, &drop, &jitter[nFrame + 1])) == NULL) {
+            if ((frame = afs_get_video((OUTPUT_INFO *)oip, m_iFrame, &drop, &jitter[m_iFrame + 1])) == NULL) {
                 error_afs_get_frame();
                 return RGY_ERR_MORE_DATA;
             }
             if (!drop)
                 break;
-            jitter[nFrame] = DROP_FRAME_FLAG;
+            jitter[m_iFrame] = DROP_FRAME_FLAG;
             pe->drop_count++;
-            nFrame++;
-            if (nFrame >= total_frames) {
-                oip->func_rest_time_disp(current_frame, total_frames);
+            m_pEncSatusInfo->m_sData.frameDrop++;
+            m_iFrame++;
+            if (m_iFrame >= total_frames) {
+                oip->func_rest_time_disp(m_iFrame, total_frames);
                 release_audio_parallel_events(pe);
                 return RGY_ERR_MORE_DATA;
             }
         }
     } else {
-        if ((frame = oip->func_get_video_ex(m_pEncSatusInfo->m_nInputFrames, COLORFORMATS[CF_YUY2].FOURCC)) == NULL) {
+        if ((frame = oip->func_get_video_ex(m_iFrame, COLORFORMATS[m_sConvert->csp_from == RGY_CSP_YC48 ? CF_YC48 : CF_YUY2].FOURCC)) == NULL) {
             error_afs_get_frame();
             return RGY_ERR_MORE_DATA;
         }
     }
-    
-    int crop[4] = { 0 };
-    const void *dst_ptr[3] = { pData->Y, pData->UV, NULL };
-    m_sConvert->func[g_interlaced]((void **)dst_ptr, (const void **)&frame, w, w * 2, w / 2, pData->Pitch, h, h, crop);
 
-    m_pEncSatusInfo->m_nInputFrames++;
-    if (!(m_pEncSatusInfo->m_nInputFrames & 7))
+    void *dst_array[3];
+    pSurface->ptrArray(dst_array);
+    int src_pitch = m_inputVideoInfo.srcPitch * ((m_sConvert->csp_from == RGY_CSP_YC48) ? 6 : 2); //high444出力ならAviutlからYC48をもらう
+    m_sConvert->func[(m_inputVideoInfo.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0](
+        dst_array, (const void **)&frame, m_inputVideoInfo.srcWidth, src_pitch, 0,
+        pSurface->pitch(), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
+
+    m_iFrame++;
+    if (!(m_pEncSatusInfo->m_sData.frameIn & 7))
         aud_parallel_task(oip, pe);
 
-    return m_pEncSatusInfo->UpdateDisplay(pe->drop_count);    
+    m_pEncSatusInfo->m_sData.frameIn++;
+    return m_pEncSatusInfo->UpdateDisplay();    
 }
 
 AUO_EncodeStatusInfo::AUO_EncodeStatusInfo() {
@@ -254,8 +214,8 @@ AUO_EncodeStatusInfo::~AUO_EncodeStatusInfo() {     }
 #pragma warning(push)
 #pragma warning(disable: 4100)
 void AUO_EncodeStatusInfo::SetPrivData(void *pPrivateData) {
-    m_auoData.oip = oip;
-    enable_enc_control(&m_pause, pe->afs_init, FALSE, timeGetTime(), g_total_out_frames);
+    m_auoData = *(InputInfoAuo *)pPrivateData;
+    enable_enc_control(&m_pause, m_auoData.pe->afs_init, FALSE, timeGetTime(), m_auoData.oip->n);
 };
 #pragma warning(pop)
 
@@ -273,14 +233,14 @@ void AUO_EncodeStatusInfo::WriteLine(const TCHAR *mes) {
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
-void AUO_EncodeStatusInfo::UpdateDisplay(const char *mes, int drop_frames, double progressPercent) {
+void AUO_EncodeStatusInfo::UpdateDisplay(const TCHAR *mes, double progressPercent) {
     set_log_title_and_progress(mes, progressPercent * 0.01);
-    m_auoData.oip->func_rest_time_disp(m_sData.nProcessedFramesNum + drop_frames, g_total_out_frames);
+    m_auoData.oip->func_rest_time_disp(m_sData.frameOut + m_sData.frameDrop, m_sData.frameTotal);
     m_auoData.oip->func_update_preview();
 }
 #pragma warning(pop)
 
-RGY_ERR AUO_EncodeStatusInfo::UpdateDisplay(int drop_frames, double progressPercent) {
+RGY_ERR AUO_EncodeStatusInfo::UpdateDisplay(double progressPercent) {
     auto tm = std::chrono::system_clock::now();
 
     if (m_auoData.oip->func_is_abort())
@@ -297,5 +257,5 @@ RGY_ERR AUO_EncodeStatusInfo::UpdateDisplay(int drop_frames, double progressPerc
         }
         m_tmLastLogUpdate = tm;
     }
-    return EncodeStatus::UpdateDisplay(drop_frames, progressPercent);
+    return EncodeStatus::UpdateDisplay(progressPercent);
 }

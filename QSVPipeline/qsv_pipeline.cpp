@@ -2622,12 +2622,16 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv/avsw reader selected.\n"));
                 break;
 #endif
+#if ENABLE_RAW_READER
             case RGY_INPUT_FMT_Y4M:
             case RGY_INPUT_FMT_RAW:
-            default:
                 m_pFileReader = std::make_shared<RGYInputRaw>();
                 PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (inputVideo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw"));
                 break;
+#endif
+            default:
+                PrintMes(RGY_LOG_DEBUG, _T("Failed to select reader.\n"));
+                return MFX_ERR_NOT_FOUND;
         }
         ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, input_option, m_pQSVLog, m_pEncSatusInfo);
     }
@@ -2943,9 +2947,15 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     //入力バッファサイズの範囲チェック
     pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
 
-    if (pParams->nAVSyncMode && std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr) {
-        PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
-        pParams->nAVSyncMode = RGY_AVSYNC_THROUGH;
+    if (pParams->nAVSyncMode) {
+#if ENABLE_AVSW_READER
+        if (std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr) {
+#else
+        if (true) {
+#endif
+            PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
+            pParams->nAVSyncMode = RGY_AVSYNC_THROUGH;
+        }
     }
 
     return MFX_ERR_NONE;
@@ -3712,6 +3722,31 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     return sts;
 }
 
+int64_t qsv_rescale(int64_t v, const std::pair<int, int>& a, const std::pair<int, int>& b) {
+#if _M_IX86
+#define RESCALE_INT_SIZE 4
+#else
+#define RESCALE_INT_SIZE 2
+#endif
+    ttmath::Int<RESCALE_INT_SIZE> tmp1 = v;
+    tmp1 *= a.first;
+    tmp1 *= b.second;
+    ttmath::Int<RESCALE_INT_SIZE> tmp2 = a.second;
+    tmp2 *= b.first;
+
+    tmp1 = (tmp1 + tmp2 - 1) / tmp2;
+    int64_t ret;
+    tmp1.ToInt(ret);
+    return ret;
+};
+
+#if ENABLE_AVSW_READER
+int64_t inline qsv_rescale(int64_t v, AVRational a, AVRational b) {
+    return qsv_rescale(v,
+        std::make_pair(a.num, a.den), std::make_pair(b.num, b.den));
+};
+#endif
+
 mfxStatus CQSVPipeline::RunEncode() {
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: Starting Encode...\n"));
 
@@ -3750,27 +3785,10 @@ mfxStatus CQSVPipeline::RunEncode() {
     };
     std::deque<frameData> qDecodeFrames; //デコードされて出てきたsyncpとframe, timestamp
 
+    const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
 #if ENABLE_AVSW_READER
     const bool bAVutilDll = check_avcodec_dll();
-    auto qsv_rescale = [](int v, AVRational a, AVRational b) {
-#if _M_IX86
-#define RESCALE_INT_SIZE 4
-#else
-#define RESCALE_INT_SIZE 2
-#endif
-        ttmath::Int<RESCALE_INT_SIZE> tmp1 = v;
-        tmp1 *= a.num;
-        tmp1 *= b.den;
-        ttmath::Int<RESCALE_INT_SIZE> tmp2 = a.den;
-        tmp2 *= b.num;
-
-        tmp1 = (tmp1 + tmp2 - 1) / tmp2;
-        int64_t ret;
-        tmp1.ToInt(ret);
-        return ret;
-    };
     int64_t nEstimatedPts = AV_NOPTS_VALUE;
-    const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const AVRational inputFpsTimebase = { (int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN };
     const AVRational outputFpsTimebase = { (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN };
 
@@ -3784,7 +3802,10 @@ mfxStatus CQSVPipeline::RunEncode() {
         m_nAVSyncMode = RGY_AVSYNC_THROUGH;
     }
 #else
-    const std::pair<int, int> pktTimebase = HW_NATIVE_TIMEBASE;
+    const auto pktTimebase = std::make_pair(1, HW_TIMEBASE);
+    const auto inputFpsTimebase = std::make_pair((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
+    const auto outputFpsTimebase = std::make_pair((int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN);
+    const auto HW_NATIVE_TIMEBASE = std::make_pair(1, HW_TIMEBASE);
     m_nAVSyncMode = RGY_AVSYNC_THROUGH;
 #endif
 
@@ -4006,7 +4027,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     };
 
     auto check_pts = [&]() {
-        int64_t timestamp = AV_NOPTS_VALUE;
+        int64_t timestamp = 0;
 #if ENABLE_AVSW_READER
         if (framePosList && pNextFrame) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);

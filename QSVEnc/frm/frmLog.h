@@ -156,7 +156,7 @@ namespace QSVEnc {
     private:
         taskbarProgress *taskbar_progress; //タスクバーでの進捗表示
         HWND hWnd; //このウィンドウのハンドル
-        BOOL *_enc_pause;      //エンコ一時停止へのポインタ
+        bool *_enc_pause;      //エンコ一時停止へのポインタ
         DWORD _start_time;//エンコ開始時間
         bool closed; //このウィンドウが閉じているか、開いているか
         bool prevent_log_closing; //ログウィンドウを閉じるを無効化するか・設定保存イベントのフラグでもある
@@ -745,7 +745,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  ToolStripMenuItemEncPause;
                 SaveLog(String(log_filename).ToString());
         }
     public:
-        System::Void EnableEncControl(BOOL *enc_pause, BOOL afs, BOOL _add_progress, DWORD start_time, int _total_frame) {
+        System::Void EnableEncControl(bool *enc_pause, BOOL afs, BOOL _add_progress, DWORD start_time, int _total_frame) {
             _enc_pause = enc_pause;
             add_progress = _add_progress != 0;
             using_afs = afs != 0;
@@ -813,7 +813,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  ToolStripMenuItemEncPause;
     private: 
         System::Void ToolStripMenuItemEncPause_CheckedChanged(System::Object^  sender, System::EventArgs^  e) {
             if (_enc_pause) {
-                *_enc_pause = Convert::ToInt32(ToolStripMenuItemEncPause->Checked);
+                *_enc_pause = ToolStripMenuItemEncPause->Checked;
                 if (nullptr != taskbar_progress) {
                     (*_enc_pause) ? taskbar_progress->pause() : taskbar_progress->restart();
                 }

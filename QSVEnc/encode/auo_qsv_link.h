@@ -30,21 +30,35 @@
 
 #include "rgy_input.h"
 #include "auo_version.h"
+#include "auo.h"
+#include "auo_conf.h"
+#include "auo_system.h"
 #include "output.h"
+
+typedef struct InputInfoAuo {
+    const OUTPUT_INFO *oip;
+    const SYSTEM_DATA *sys_dat;
+    CONF_GUIEX *conf;
+    PRM_ENC *pe;
+    int *jitter;
+} InputInfoAuo;
 
 class AUO_YUVReader : public RGYInput
 {
+private:
+    const OUTPUT_INFO *oip;
+    CONF_GUIEX *conf;
+    PRM_ENC *pe;
+    int *jitter;
+    int m_iFrame;
+    BOOL m_pause;
 public :
-
     AUO_YUVReader();
     virtual ~AUO_YUVReader();
 
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
-    virtual RGY_ERR Init(const TCHAR *strFileName, mfxU32 ColorFormat, const void *prm, CEncodingThread *pEncThread, shared_ptr<EncodeStatus> pEncSatusInfo, sInputCrop *pInputCrop) override;
-    virtual RGY_ERR LoadNextFrame(mfxFrameSurface1* pSurface) override;
-
-private:
-    mfxU32 current_frame;
 };
 
 typedef struct AuoStatusData {
@@ -58,11 +72,11 @@ public :
     virtual ~AUO_EncodeStatusInfo();
     virtual void SetPrivData(void *pPrivateData);
 private:
-    virtual void UpdateDisplay(const char *mes, int drop_frames, double progressPercent) override;
-    virtual RGY_ERR UpdateDisplay(int drop_frames, double progressPercent = 0.0) override;
+    virtual void UpdateDisplay(const TCHAR *mes, double progressPercent = 0.0) override;
+    virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) override;
     virtual void WriteLine(const TCHAR *mes) override;
 
-    AuoStatusData m_auoData;
+    InputInfoAuo m_auoData;
     std::chrono::system_clock::time_point m_tmLastLogUpdate;
 };
 

@@ -53,9 +53,6 @@
 #include "auo_audio_parallel.h"
 #include "auo_pipeline.h"
 
-DWORD set_auo_yuvreader_g_data(const OUTPUT_INFO *_oip, CONF_GUIEX *conf, PRM_ENC *_pe, int *jitter);
-void clear_auo_yuvreader_g_data();
-
 static int getLwiRealPath(char *path, size_t size) {
     int ret = 1;
     FILE *fp = fopen(path, "rb");
@@ -233,6 +230,14 @@ static void set_conf_qsvp_prm(sInputParams *prm, const OUTPUT_INFO *oip, const P
     prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 }
 
+static void set_input_info_auo(InputInfoAuo *pInfo, const OUTPUT_INFO *oip, CONF_GUIEX *conf, PRM_ENC *pe, const SYSTEM_DATA *sys_dat, int *jitter) {
+    pInfo->oip = oip;
+    pInfo->sys_dat = sys_dat;
+    pInfo->conf = conf;
+    pInfo->pe = pe;
+    pInfo->jitter = jitter;
+}
+
 struct AVQSV_PARM {
     int nSubtitleCopyAll;
     sAudioSelect audioSelect;
@@ -247,10 +252,11 @@ void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
     avqsv_prm->audioSelectList.clear();
 }
 
+
 static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL force_bluray, BOOL timer_period_tuning, int log_level, AVQSV_PARM *avqsv_prm) {
     init_avqsv_prm(avqsv_prm);
-
-    conf->qsv.nInputFmt = RGY_INPUT_FMT_AVCODEC_HW;
+#if ENABLE_AVSW_READER
+    conf->qsv.nInputFmt = RGY_INPUT_FMT_AVHW;
 
     avqsv_prm->audioSelectList.push_back(&avqsv_prm->audioSelect);
     switch (conf->aud_avqsv.encoder) {
@@ -306,6 +312,7 @@ static void set_conf_qsvp_avqsv_prm(CONF_GUIEX *conf, const PRM_ENC *pe, BOOL fo
     if (check_ext(conf->qsv.strSrcFile, { ".lwi" })) {
         getLwiRealPath(conf->qsv.strSrcFile, sizeof(conf->qsv.strSrcFile));
     }
+#endif //#if ENABLE_AVSW_READER
 }
 
 static DWORD_PTR setThreadAffinityMaskforQSVEnc(DWORD_PTR *mainThreadAffinityMask, DWORD_PTR *subThreadAffinityMask) {
@@ -388,6 +395,8 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         return AUO_RESULT_ERROR;
     }
 
+
+
     //if (Params.bIsMVC)
     //{
     //    pPipeline->SetMultiView();
@@ -401,49 +410,52 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     } else if (!setup_afsvideo(oip, sys_dat, conf, pe)) {
         sts = MFX_ERR_UNKNOWN; //Aviutl(afs)からのフレーム読み込みに失敗
     //QSVEncプロセス開始
-    } else if (AUO_RESULT_SUCCESS != set_auo_yuvreader_g_data(oip, conf, pe, jitter)
-            || MFX_ERR_NONE != (sts = pPipeline->Init(&conf->qsv))) {
-        write_mfx_message(sts);
-    } else if (MFX_ERR_NONE == (sts = pPipeline->CheckCurrentVideoParam())) {
-        if (conf->vid.afs) write_log_auo_line(LOG_INFO, _T("自動フィールドシフト    on"));
+    } else {
+        InputInfoAuo inputInfo = { 0 };
+        set_input_info_auo(&inputInfo, oip, conf, pe, sys_dat, jitter);
+        conf->qsv.pPrivatePrm = &inputInfo;
+        if (MFX_ERR_NONE != (sts = pPipeline->Init(&conf->qsv))) {
+            write_mfx_message(sts);
+        } else if (MFX_ERR_NONE == (sts = pPipeline->CheckCurrentVideoParam())) {
+            if (conf->vid.afs) write_log_auo_line(LOG_INFO, _T("自動フィールドシフト    on"));
 
-        DWORD tm_qsv = timeGetTime();
-        const char * const encode_name = (conf->qsv.bUseHWLib) ? "QuickSyncVideoエンコード" : "IntelMediaSDKエンコード";
-        set_window_title(encode_name, PROGRESSBAR_CONTINUOUS);
-        log_process_events();
+            DWORD tm_qsv = timeGetTime();
+            const char * const encode_name = (conf->qsv.bUseHWLib) ? "QuickSyncVideoエンコード" : "IntelMediaSDKエンコード";
+            set_window_title(encode_name, PROGRESSBAR_CONTINUOUS);
+            log_process_events();
 
-        DWORD_PTR subThreadAffinityMask = 0x00;
-        DWORD_PTR oldThreadAffinity = 0x00;
-        if (sys_dat->exstg->s_local.thread_tuning)
-            oldThreadAffinity = setThreadAffinityMaskforQSVEnc(NULL, &subThreadAffinityMask);
+            DWORD_PTR subThreadAffinityMask = 0x00;
+            DWORD_PTR oldThreadAffinity = 0x00;
+            if (sys_dat->exstg->s_local.thread_tuning)
+                oldThreadAffinity = setThreadAffinityMaskforQSVEnc(NULL, &subThreadAffinityMask);
 
-        for (;;) {
-            sts = pPipeline->Run(subThreadAffinityMask);
+            for (;;) {
+                sts = pPipeline->Run(subThreadAffinityMask);
 
-            if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-                write_log_auo_line(LOG_WARNING, "Hardware device was lost or returned an unexpected error. Recovering...");
-                if (MFX_ERR_NONE != (sts = pPipeline->ResetDevice())) {
-                    write_mfx_message(sts);
+                if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
+                    write_log_auo_line(LOG_WARNING, "Hardware device was lost or returned an unexpected error. Recovering...");
+                    if (MFX_ERR_NONE != (sts = pPipeline->ResetDevice())) {
+                        write_mfx_message(sts);
+                        break;
+                    }
+
+                    if (MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(&conf->qsv))) {
+                        write_mfx_message(sts);
+                        break;
+                    }
+                    continue;
+                } else {
+                    //if (sts != MFX_ERR_NONE)
+                    //    write_mfx_message(sts);
                     break;
                 }
-
-                if (MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(&conf->qsv))) {
-                    write_mfx_message(sts);
-                    break;
-                }
-                continue;
-            } else {
-                //if (sts != MFX_ERR_NONE)
-                //    write_mfx_message(sts);
-                break;
             }
-        }
 
-        pPipeline->Close();
-        resetThreadAffinityMaskforQSVEnc(oldThreadAffinity);
-        write_log_auo_enc_time(encode_name, timeGetTime() - tm_qsv);
+            pPipeline->Close();
+            resetThreadAffinityMaskforQSVEnc(oldThreadAffinity);
+            write_log_auo_enc_time(encode_name, timeGetTime() - tm_qsv);
+        }
     }
-    clear_auo_yuvreader_g_data();
     //タイムコード出力
     if (sts == MFX_ERR_NONE && (conf->vid.afs || conf->vid.auo_tcfile_out))
         tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, conf->vid.afs, pe);
