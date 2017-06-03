@@ -644,7 +644,6 @@ typedef struct AVDemuxVideo {
     uint8_t                  *pExtradata;            //動画のヘッダ情報
     int                       nExtradataSize;        //動画のヘッダサイズ
     AVRational                nAvgFramerate;         //動画のフレームレート
-    bool                      bUseHEVCmp42AnnexB;    //HEVCのmp4->AnnexB変換
 
     uint32_t                  nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
 
@@ -809,9 +808,6 @@ protected:
 
     //ptsを動画のtimebaseから音声のtimebaseに変換する
     int64_t convertTimebaseVidToStream(int64_t pts, const AVDemuxStream *pStream);
-
-    //HEVCのmp4->AnnexB簡易変換
-    void hevcMp42Annexb(AVPacket *pkt);
 
     //VC-1のヘッダの修正を行う
     void vc1FixHeader(int nLengthFix = -1);
