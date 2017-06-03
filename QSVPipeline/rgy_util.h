@@ -745,6 +745,18 @@ static bool isSplitChannelAuto(uint64_t(&pnStreamChannels)[size]) {
     return isAuto;
 }
 
+typedef struct sAudioSelect {
+    int    nAudioSelect;          //選択した音声トラックのリスト 1,2,...(1から連番で指定)
+    TCHAR *pAVAudioEncodeCodec;   //音声エンコードのコーデック
+    int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
+    int    nAudioSamplingRate;    //サンプリング周波数
+    TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
+    TCHAR *pAudioExtractFormat;   //抽出する音声ファイルのフォーマット
+    TCHAR *pAudioFilter; //音声フィルタ
+    uint64_t pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+} sAudioSelect;
+
 const CX_DESC list_empty[] = {
     { NULL, 0 }
 };
