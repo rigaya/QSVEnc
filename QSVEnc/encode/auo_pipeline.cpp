@@ -81,7 +81,10 @@ mfxStatus AuoPipeline::InitOutput(sInputParams *pParams) {
 
     m_pFileWriter = std::make_shared<RGYOutputRaw>();
     const auto outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
-    auto ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, nullptr, m_pQSVLog, m_pEncSatusInfo);
+    RGYOutputRawPrm rawPrm = { 0 };
+    rawPrm.bBenchmark = false;
+    rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
+    auto ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &rawPrm, m_pQSVLog, m_pEncSatusInfo);
     if (ret != RGY_ERR_NONE) return err_to_mfx(ret);
 
     return MFX_ERR_NONE;
