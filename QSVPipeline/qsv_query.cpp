@@ -569,12 +569,12 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
         videoPrm.mfx.CodecProfile        = MFX_PROFILE_AVC_HIGH;
         break;
     }
-    videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BEST_QUALITY;
+    videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BALANCED;
     videoPrm.mfx.EncodedOrder            = 0;
     videoPrm.mfx.NumSlice                = 1;
     videoPrm.mfx.NumRefFrame             = 2;
-    videoPrm.mfx.GopPicSize              = USHRT_MAX;
-    videoPrm.mfx.GopOptFlag              = MFX_GOP_CLOSED;
+    videoPrm.mfx.GopPicSize              = 30;
+    videoPrm.mfx.GopOptFlag              = 0;
     videoPrm.mfx.GopRefDist              = 4;
     videoPrm.mfx.FrameInfo.FrameRateExtN = 30000;
     videoPrm.mfx.FrameInfo.FrameRateExtD = 1001;
