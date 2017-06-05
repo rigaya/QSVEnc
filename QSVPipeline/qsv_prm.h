@@ -253,7 +253,7 @@ struct sInputParams
     mfxU8      nAudioSelectCount; //pAudioSelectの数
     sAudioSelect **ppAudioSelectList;
 
-    mfxU16     nSessionThreads;
+    mfxI16     nSessionThreads;
     mfxU16     nSessionThreadPriority;
 
     mfxU8      bCopyChapter;

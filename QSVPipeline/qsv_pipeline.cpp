@@ -36,6 +36,7 @@
 #include <cassert>
 #include <climits>
 #include <deque>
+#include <mutex>
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
 #include "rgy_osdep.h"
@@ -54,6 +55,9 @@
 #include "qsv_allocator_sys.h"
 #include "rgy_avlog.h"
 #include "chapter_rw.h"
+#if defined(_WIN32) || defined(_WIN64)
+#include "api_hook.h"
+#endif
 
 #if D3D_SURFACES_SUPPORT
 #include "qsv_hw_d3d9.h"
@@ -2107,6 +2111,7 @@ CQSVPipeline::CQSVPipeline() {
     m_nAVSyncMode = RGY_AVSYNC_THROUGH;
     m_nProcSpeedLimit = 0;
     m_bTimerPeriodTuning = false;
+    m_nMFXThreads = -1;
 
     m_pAbortByUser = NULL;
 
@@ -2973,87 +2978,121 @@ mfxStatus CQSVPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priority) {
     return MFX_ERR_NONE;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+typedef decltype(GetSystemInfo)* funcGetSystemInfo;
+static int nGetSystemInfoHookThreads = -1;
+static std::mutex mtxGetSystemInfoHook;
+static funcGetSystemInfo origGetSystemInfoFunc = nullptr;
+void __stdcall GetSystemInfoHook(LPSYSTEM_INFO lpSystemInfo) {
+    origGetSystemInfoFunc(lpSystemInfo);
+    if (lpSystemInfo && nGetSystemInfoHookThreads > 0) {
+        decltype(lpSystemInfo->dwActiveProcessorMask) mask = 0;
+        const int nThreads = std::max(1, std::min(nGetSystemInfoHookThreads, (int)sizeof(lpSystemInfo->dwActiveProcessorMask) * 8));
+        for (int i = 0; i < nThreads; i++) {
+            mask |= (1<<i);
+        }
+        lpSystemInfo->dwActiveProcessorMask = mask;
+        lpSystemInfo->dwNumberOfProcessors = nThreads;
+    }
+}
+#endif
+
 mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
     mfxStatus sts = MFX_ERR_NONE;
     m_SessionPlugins.reset();
     m_mfxSession.Close();
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initilaizing... memType: %s\n"), MemTypeToStr(memType));
+#if defined(_WIN32) || defined(_WIN64)
+    //コードの簡略化のため、静的フィールドを使うので、念のためロックをかける
+    {
+        std::lock_guard<std::mutex> lock(mtxGetSystemInfoHook);
+        {
+            nGetSystemInfoHookThreads = m_nMFXThreads;
+            apihook api_hook;
+            api_hook.hook(_T("kernel32.dll"), "GetSystemInfo", GetSystemInfoHook, (void **)&origGetSystemInfoFunc);
+#endif
 
-    auto InitSessionEx = [&](mfxIMPL impl, mfxVersion *verRequired) {
+            auto InitSessionEx = [&](mfxIMPL impl, mfxVersion *verRequired) {
 #if ENABLE_SESSION_THREAD_CONFIG
-        if (m_ThreadsParam.NumThread != 0 || m_ThreadsParam.Priority != get_value_from_chr(list_priority, _T("normal"))) {
-            m_InitParam.Implementation = impl;
-            m_InitParam.Version = MFX_LIB_VERSION_1_15;
-            if (useHWLib) {
-                m_InitParam.GPUCopy = MFX_GPUCOPY_ON;
-            }
-            if (MFX_ERR_NONE == m_mfxSession.InitEx(m_InitParam)) {
-                return MFX_ERR_NONE;
-            } else {
-                m_ThreadsParam.NumThread = 0;
-                m_ThreadsParam.Priority = get_value_from_chr(list_priority, _T("normal"));
-            }
-        }
-#endif
-        return m_mfxSession.Init(impl, verRequired);
-    };
-
-    if (useHWLib) {
-        //とりあえず、MFX_IMPL_HARDWARE_ANYでの初期化を試みる
-        mfxIMPL impl = MFX_IMPL_HARDWARE_ANY;
-        m_memType = (memType) ? D3D9_MEMORY : SYSTEM_MEMORY;
-#if MFX_D3D11_SUPPORT
-        //Win7でD3D11のチェックをやると、
-        //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
-        //D3D11をWin8以降に限定
-        if (!check_OS_Win8orLater()) {
-            memType &= (~D3D11_MEMORY);
-            PrintMes(RGY_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
-        }
-
-        //D3D11モードは基本的には遅い模様なので、自動モードなら切る
-        if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
-            memType &= (~D3D11_MEMORY);
-            PrintMes(RGY_LOG_DEBUG, _T("InitSession: d3d11 memory mode not required, switching to d3d9 memory mode.\n"));
-        }
-#endif //#if MFX_D3D11_SUPPORT
-        //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
-        for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
-#if MFX_D3D11_SUPPORT
-            if (D3D11_MEMORY & memType) {
-                if (0 == i_try_d3d11) {
-                    impl |= MFX_IMPL_VIA_D3D11; //d3d11モードも試す場合は、まずd3d11モードをチェック
-                    m_memType = D3D11_MEMORY;
-                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d11 mode.\n"));
-                } else {
-                    impl &= ~MFX_IMPL_VIA_D3D11; //d3d11をオフにして再度テストする
-                    m_memType = D3D9_MEMORY;
-                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d9 mode.\n"));
+                if (m_ThreadsParam.NumThread != 0 || m_ThreadsParam.Priority != get_value_from_chr(list_priority, _T("normal"))) {
+                    m_InitParam.Implementation = impl;
+                    m_InitParam.Version = MFX_LIB_VERSION_1_15;
+                    if (useHWLib) {
+                        m_InitParam.GPUCopy = MFX_GPUCOPY_ON;
+                    }
+                    if (MFX_ERR_NONE == m_mfxSession.InitEx(m_InitParam)) {
+                        return MFX_ERR_NONE;
+                    } else {
+                        m_ThreadsParam.NumThread = 0;
+                        m_ThreadsParam.Priority = get_value_from_chr(list_priority, _T("normal"));
+                    }
                 }
-            }
 #endif
-            mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-            sts = InitSessionEx(impl, &verRequired);
+                return m_mfxSession.Init(impl, verRequired);
+            };
 
-            //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
-            if (MFX_ERR_NONE != sts) {
-                PrintMes(RGY_LOG_DEBUG, _T("InitSession: failed to init session for multi GPU mode, retry by single GPU mode.\n"));
-                sts = m_mfxSession.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
-            }
+            if (useHWLib) {
+                //とりあえず、MFX_IMPL_HARDWARE_ANYでの初期化を試みる
+                mfxIMPL impl = MFX_IMPL_HARDWARE_ANY;
+                m_memType = (memType) ? D3D9_MEMORY : SYSTEM_MEMORY;
+#if MFX_D3D11_SUPPORT
+                //Win7でD3D11のチェックをやると、
+                //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
+                //D3D11をWin8以降に限定
+                if (!check_OS_Win8orLater()) {
+                    memType &= (~D3D11_MEMORY);
+                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
+                }
 
-            //成功したらループを出る
-            if (MFX_ERR_NONE == sts) {
-                break;
+                //D3D11モードは基本的には遅い模様なので、自動モードなら切る
+                if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
+                    memType &= (~D3D11_MEMORY);
+                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: d3d11 memory mode not required, switching to d3d9 memory mode.\n"));
+                }
+#endif //#if MFX_D3D11_SUPPORT
+                //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
+                for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
+#if MFX_D3D11_SUPPORT
+                    if (D3D11_MEMORY & memType) {
+                        if (0 == i_try_d3d11) {
+                            impl |= MFX_IMPL_VIA_D3D11; //d3d11モードも試す場合は、まずd3d11モードをチェック
+                            m_memType = D3D11_MEMORY;
+                            PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d11 mode.\n"));
+                        } else {
+                            impl &= ~MFX_IMPL_VIA_D3D11; //d3d11をオフにして再度テストする
+                            m_memType = D3D9_MEMORY;
+                            PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d9 mode.\n"));
+                        }
+                    }
+#endif
+                    mfxVersion verRequired = MFX_LIB_VERSION_1_1;
+
+                    sts = InitSessionEx(impl, &verRequired);
+
+                    //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
+                    if (MFX_ERR_NONE != sts) {
+                        PrintMes(RGY_LOG_DEBUG, _T("InitSession: failed to init session for multi GPU mode, retry by single GPU mode.\n"));
+                        sts = m_mfxSession.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
+                    }
+
+                    //成功したらループを出る
+                    if (MFX_ERR_NONE == sts) {
+                        break;
+                    }
+                }
+                PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), MemTypeToStr(m_memType));
+            } else {
+                mfxIMPL impl = MFX_IMPL_SOFTWARE;
+                mfxVersion verRequired = MFX_LIB_VERSION_1_1;
+                sts = InitSessionEx(impl, &verRequired);
+                m_memType = SYSTEM_MEMORY;
+                PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized with system memory.\n"));
             }
+#if defined(_WIN32) || defined(_WIN64)
         }
-        PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), MemTypeToStr(m_memType));
-    } else {
-        mfxIMPL impl = MFX_IMPL_SOFTWARE;
-        mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-        sts = InitSessionEx(impl, &verRequired);
-        m_memType = SYSTEM_MEMORY;
-        PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized with system memory.\n"));
+#endif
     }
+
     //使用できる最大のversionをチェック
     m_mfxSession.QueryVersion(&m_mfxVer);
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
@@ -3128,6 +3167,8 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
             m_pPerfMonitor.reset();
         }
     }
+
+    m_nMFXThreads = pParams->nSessionThreads;
 
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
@@ -3333,6 +3374,7 @@ void CQSVPipeline::Close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
     m_pPerfMonitor.reset();
 
+    m_nMFXThreads = -1;
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
     m_nAVSyncMode = RGY_AVSYNC_THROUGH;
