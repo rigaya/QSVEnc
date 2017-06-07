@@ -110,8 +110,8 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         //何もしない
     } else {
         BITMAPINFOHEADER bih[4] = {
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 12, FCC("YV12"), m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3/2, 0, 0, 0, 0 },
-            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 16, FCC("YUY2"), m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2,   0, 0, 0, 0 },
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 12, FCC('YV12'), m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3/2, 0, 0, 0, 0 },
+            { sizeof(BITMAPINFOHEADER), 0, 0, 1, 16, FCC('YUY2'), m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 2,   0, 0, 0, 0 },
             { sizeof(BITMAPINFOHEADER), 0, 0, 1, 24, BI_RGB,      m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3,   0, 0, 0, 0 },
             { sizeof(BITMAPINFOHEADER), 0, 0, 1, 32, BI_RGB,      m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3,   0, 0, 0, 0 }
         };
