@@ -1077,8 +1077,12 @@ System::Void frmConfig::UpdateMfxLibDetection() {
 
 System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
     AUO_LINK_DATA link_data = { 0 };
-    if (!ENABLE_AUO_LINK || get_auo_link_data(&link_data)) {
+    const bool auoLinkEnabled = ENABLE_AUO_LINK && !get_auo_link_data(&link_data);
+    fcggroupBoxAvqsv->Enabled = auoLinkEnabled;
+    fcgCBAvqsv->Enabled = auoLinkEnabled;
+    if (!auoLinkEnabled) {
         memset(&cnf->oth.link_prm, 0, sizeof(cnf->oth.link_prm));
+        fcgCBAvqsv->Checked = false;
     } else {
         memcpy(&cnf->oth.link_prm, &link_data.prm, sizeof(link_data.prm));
         memcpy(conf_link_prm, &link_data.prm, sizeof(link_data.prm));
