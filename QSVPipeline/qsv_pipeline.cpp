@@ -4327,7 +4327,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             pSurfCheckPts->Data.Locked--;
             pSurfCheckPts = nullptr;
         }
-        speedCtrl.wait();
+        speedCtrl.wait(m_pEncSatusInfo->m_sData.frameIn);
 
         //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
@@ -4463,7 +4463,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfCheckPts->Data.Locked--;
                 pSurfCheckPts = nullptr;
             }
-            speedCtrl.wait();
 
             //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
@@ -4549,7 +4548,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfCheckPts->Data.Locked--;
                 pSurfCheckPts = nullptr;
             }
-            speedCtrl.wait();
 
             //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
@@ -4636,7 +4634,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfCheckPts->Data.Locked--;
                 pSurfCheckPts = nullptr;
             }
-            speedCtrl.wait();
 
             pNextFrame = nullptr;
 
@@ -4701,7 +4698,6 @@ mfxStatus CQSVPipeline::RunEncode() {
             pSurfCheckPts->Data.Locked--;
             pSurfCheckPts = nullptr;
         }
-        speedCtrl.wait();
 
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
