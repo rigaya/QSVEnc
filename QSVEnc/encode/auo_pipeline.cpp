@@ -48,7 +48,12 @@ mfxStatus AuoPipeline::InitInput(sInputParams *pParams) {
     m_pEncSatusInfo->SetPrivData(pParams->pPrivatePrm);
 
     if (pParams->nInputFmt != RGY_INPUT_FMT_AUO) {
-        return CQSVPipeline::InitInput(pParams);
+        auto ret = CQSVPipeline::InitInput(pParams);
+        if (ret == RGY_ERR_NONE) {
+            //avqsv/avswリーダーではフレーム数が設定されないため、明示的に与える必要がある
+            m_pFileReader->SetInputFrames(((InputInfoAuo *)pParams->pPrivatePrm)->oip->n);
+        }
+        return ret;
     }
 
     VideoInfo inputVideo;
