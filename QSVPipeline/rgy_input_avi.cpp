@@ -87,10 +87,7 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             m_inputVideoInfo.frames = sinfo.dwLength - sinfo.dwStart;
 
             m_InputCsp = codec_fcc_to_rgy(sinfo.fccHandler);
-            if (m_InputCsp == RGY_CSP_NA) {
-                AddMessage(RGY_LOG_ERROR, _T("Invalid Color format.\n"));
-                return RGY_ERR_INVALID_COLOR_FORMAT;
-            }
+
             char temp[5] = { 0 };
             memcpy(temp, &sinfo.fccHandler, sizeof(sinfo.fccHandler));
             strFcc = char_to_tstring(temp);
