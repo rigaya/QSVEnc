@@ -52,8 +52,8 @@ static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
 #endif //USE_CUSTOM_IO
 
 RGYOutputAvcodec::RGYOutputAvcodec() {
-    RGY_MEMSET_ZERO(m_Mux.format);
-    RGY_MEMSET_ZERO(m_Mux.video);
+    memset(&m_Mux.format, 0, sizeof(m_Mux.format));
+    memset(&m_Mux.video,  0, sizeof(m_Mux.video));
     m_strWriterName = _T("avout");
 }
 

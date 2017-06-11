@@ -247,7 +247,7 @@ public:
                 }
                 mes[len] = _T('\0');
             } else {
-                int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %0.2lf fps, %d kbps"),
+                int len = _stprintf_s(mes, _countof(mes), _T("%d frames: %.2lf fps, %d kbps"),
                     (m_sData.frameOut + m_sData.frameDrop),
                     m_sData.encodeFps,
                     (int)(m_sData.bitrateKbps + 0.5)

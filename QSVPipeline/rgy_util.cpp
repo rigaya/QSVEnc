@@ -633,7 +633,7 @@ static int getRealWindowsVersion(DWORD *major, DWORD *minor, DWORD *build) {
     HMODULE hModule = NULL;
     RtlGetVersion_FUNC func = NULL;
     int ret = 1;
-    if (NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
+    if (   NULL != (hModule = LoadLibrary(_T("ntdll.dll")))
         && NULL != (func = (RtlGetVersion_FUNC)GetProcAddress(hModule, "RtlGetVersion"))) {
         func(&osver);
         *major = osver.dwMajorVersion;
