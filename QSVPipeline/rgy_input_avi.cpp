@@ -27,10 +27,10 @@
 
 #include "rgy_input_avi.h"
 #if ENABLE_AVI_READER
-#include "Aviriff.h"
-
 #pragma warning(disable:4312)
 #pragma warning(disable:4838)
+#pragma warning(disable:4201)
+#include "Aviriff.h"
 
 static const auto FOURCC_CSP = make_array<std::pair<uint32_t, RGY_CSP>>(
     std::make_pair(FCC('YUY2'), RGY_CSP_YUY2),
@@ -154,7 +154,7 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     if (   m_InputCsp == RGY_CSP_RGB4
         || m_InputCsp == RGY_CSP_RGB3) {
-        m_inputVideoInfo.csp = RGY_CSP_RGB4;
+        m_inputVideoInfo.csp = (ENCODER_NVENC) ? m_InputCsp : RGY_CSP_RGB4;
     } else {
         m_inputVideoInfo.csp = RGY_CSP_NV12;
     }
@@ -227,7 +227,7 @@ RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
     void *dst_array[3];
     pSurface->ptrArray(dst_array);
     const void *src_array[3] = { ptr_src, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 5 / 4, ptr_src + m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight };
-    if (MFX_FOURCC_RGB4 == m_sConvert->csp_to) {
+    if (RGY_CSP_RGB4 == m_sConvert->csp_to) {
         dst_array[0] = pSurface->ptrRGB();
     }
 
