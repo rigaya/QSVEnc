@@ -2577,6 +2577,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
     }
 
+    CodecCsp HWDecCodecCsp;
+
     if (m_pFileReader == nullptr) {
         const void *input_option = nullptr;
 #if ENABLE_AVSW_READER
@@ -2597,6 +2599,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                     PrintMes(RGY_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
                 }
+                HWDecCodecCsp = getHWDecCodecCsp();
                 m_pFileReader = std::make_shared<RGYInputAvcodec>();
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
@@ -2607,7 +2610,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.bReadSubtitle = pParams->nSubtitleSelectCount + pParams->vpp.subburn.nTrack > 0;
                 avcodecReaderPrm.pTrimList = pParams->pTrimList;
                 avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-                avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0; 
+                avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
                 avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
                 avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(pParams->nFPSRate, pParams->nFPSScale);
                 avcodecReaderPrm.nAudioTrackStart = (mfxU8)sourceAudioTrackIdStart;
@@ -2623,6 +2626,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError != 0;
                 avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
+                avcodecReaderPrm.pHWDecCodecCsp = &HWDecCodecCsp;
                 input_option = &avcodecReaderPrm;
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv/avsw reader selected.\n"));
                 break;
