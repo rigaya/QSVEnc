@@ -188,7 +188,7 @@ mfxU64 CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 co
     mfxVideoParam videoPrm, videoPrmOut;
     memset(&videoPrm,  0, sizeof(videoPrm));
     videoPrm.AsyncDepth                  = 3;
-    videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
+    videoPrm.IOPattern                   = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
     videoPrm.mfx.CodecId                 = codecId;
     switch (codecId) {
     case MFX_CODEC_HEVC:
@@ -267,70 +267,6 @@ mfxU64 CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 co
 
 #undef CHECK_FEATURE
     return result;
-}
-
-mfxU64 CheckDecodeFeature(bool hardware, mfxVersion ver, mfxU32 codecId) {
-    //暫定的に、sw libのチェックを無効化する
-    if (!hardware) {
-        return 0;
-    }
-    switch (codecId) {
-    case MFX_CODEC_HEVC:
-        if (!check_lib_version(ver, MFX_LIB_VERSION_1_8)) {
-            return 0;
-        }
-        break;
-    case MFX_CODEC_VP8:
-    case MFX_CODEC_VP9:
-    case MFX_CODEC_JPEG:
-        if (!check_lib_version(ver, MFX_LIB_VERSION_1_13)) {
-            return 0;
-        }
-        break;
-    default:
-        break;
-    }
-
-    mfxSession session = NULL;
-
-    mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
-    if (ret != MFX_ERR_NONE) {
-        return 0;
-    }
-
-#ifdef LIBVA_SUPPORT
-    //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
-    unique_ptr<CQSVHWDevice> phwDevice;
-    if (ret == MFX_ERR_NONE) {
-        mfxIMPL impl;
-        MFXQueryIMPL(session, &impl);
-
-        if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
-            phwDevice.reset(CreateVAAPIDevice());
-
-            // provide device manager to MediaSDK
-            mfxHDL hdl = NULL;
-            if (phwDevice.get() != nullptr
-                && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, GetAdapterID(session), nullptr))
-                && MFX_ERR_NONE != (ret = phwDevice->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl))) {
-                ret = MFXVideoCORE_SetHandle(session, MFX_HANDLE_VA_DISPLAY, hdl);
-            }
-        }
-    }
-#endif //#ifdef LIBVA_SUPPORT
-
-    mfxU64 feature = CheckDecFeaturesInternal(session, ver, codecId);
-    MFXClose(session);
-#ifdef LIBVA_SUPPORT
-    phwDevice.reset();
-#endif //#ifdef LIBVA_SUPPORT
-
-    return feature;
-}
-
-mfxU64 CheckDecodeFeature(bool hardware, mfxU32 codecId) {
-    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-    return CheckDecodeFeature(hardware, ver, codecId);
 }
 
 mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
@@ -634,6 +570,45 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
     }
 
     return feature;
+}
+
+mfxU64 CheckDecodeFeature(bool hardware, mfxVersion ver, mfxU32 codecId) {
+    //暫定的に、sw libのチェックを無効化する
+    if (!hardware) {
+        return 0;
+    }
+    switch (codecId) {
+    case MFX_CODEC_HEVC:
+        if (!check_lib_version(ver, MFX_LIB_VERSION_1_8)) {
+            return 0;
+        }
+        break;
+    case MFX_CODEC_VP8:
+    case MFX_CODEC_VP9:
+    case MFX_CODEC_JPEG:
+        if (!check_lib_version(ver, MFX_LIB_VERSION_1_13)) {
+            return 0;
+        }
+        break;
+    default:
+        break;
+    }
+
+    mfxU64 feature = 0x00;
+    MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
+    if (mfxSession session = InitSession(hardware, memType)) {
+        if (auto hwdevice = InitHWDevice(session, memType)) {
+            feature = CheckDecFeaturesInternal(session, ver, codecId);
+        }
+        MFXClose(session);
+    }
+
+    return feature;
+}
+
+mfxU64 CheckDecodeFeature(bool hardware, mfxU32 codecId) {
+    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+    return CheckDecodeFeature(hardware, ver, codecId);
 }
 
 mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
@@ -1041,43 +1016,24 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
         //コードで決められた値を返すようにする
         feature = CheckEncodeFeatureStatic(ver, ratecontrol, codecId);
     } else {
-        mfxSession session = NULL;
+        MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
+        if (mfxSession session = InitSession(hardware, memType)) {
+            if (auto hwdevice = InitHWDevice(session, memType)) {
 
-        mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
-
-#ifdef LIBVA_SUPPORT
-        //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
-        unique_ptr<CQSVHWDevice> phwDevice;
-        if (ret == MFX_ERR_NONE) {
-            mfxIMPL impl;
-            MFXQueryIMPL(session, &impl);
-
-            if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
-                phwDevice.reset(CreateVAAPIDevice());
-
-                // provide device manager to MediaSDK
-                mfxHDL hdl = NULL;
-                if (phwDevice.get() != nullptr
-                   && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, GetAdapterID(session), nullptr))
-                   && MFX_ERR_NONE != (ret = phwDevice->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl))) {
-                    ret = MFXVideoCORE_SetHandle(session, MFX_HANDLE_VA_DISPLAY, hdl);
+                CSessionPlugins sessionPlugins(session);
+                if (codecId == MFX_CODEC_HEVC) {
+                    sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1);
+                } else if (codecId == MFX_CODEC_VP8) {
+                    sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1);
+                } else if (codecId == MFX_CODEC_VP9) {
+                    sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
                 }
+                feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
+                sessionPlugins.UnloadPlugins();
             }
+            MFXClose(session);
         }
-#endif //#ifdef LIBVA_SUPPORT
-
-        CSessionPlugins sessionPlugins(session);
-        if (codecId == MFX_CODEC_HEVC) {
-            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1);
-        } else if (codecId == MFX_CODEC_VP8) {
-            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1);
-        } else if (codecId == MFX_CODEC_VP9) {
-            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
-        }
-        feature = (MFX_ERR_NONE == ret) ? CheckEncodeFeature(session, ver, ratecontrol, codecId) : 0x00;
         
-        sessionPlugins.UnloadPlugins();
-        MFXClose(session);
 #ifdef LIBVA_SUPPORT
         phwDevice.reset();
 #endif //#ifdef LIBVA_SUPPORT
