@@ -1238,6 +1238,27 @@ function showTable(idno) {
                     print_tstring(vppHeader + _T("\n"), true);
                     print_tstring(strsprintf(_T("%s\n\n"), vppFeatures.c_str()), false);
                 }
+
+                const auto decHeader = tstring((bUseJapanese) ? _T("利用可能なHWデコーダ") : _T("Supported Decode features:\n"));
+                const auto decFeatures = MakeDecFeatureStr(0 == impl_type, type);
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    tstring str;
+                    str += strsprintf(_T("<div class=table_block id=\"TableOpen%d\">\n"), i);
+                    str += _T("<p class=table_block>\n");
+                    str += strsprintf(_T("<a class=vpp_table_block href=\"#\" title=\"%s▼\" onclick=\"showTable(%d);return false;\">%s▼</a>"), decHeader.c_str(), i, vppHeader.c_str());
+                    str += _T("</p>\n");
+                    str += _T("</div>\n");
+                    str += strsprintf(_T("<div class=table_block id=\"TableClose%d\" style=\"display: none\">\n"), i);
+                    str += _T("<p class=table_block>\n");
+                    str += strsprintf(_T("<a class=vpp_table_block href=\"#\" title=\"%s▲\" onclick=\"showTable(%d);return false;\">%s▲</a>\n"), decHeader.c_str(), i, vppHeader.c_str());
+                    str += _T("</p>\n");
+                    str += vppFeatures;
+                    str += _T("</div><br>\n");
+                    print_tstring(str, false);
+                } else {
+                    print_tstring(decHeader + _T("\n"), true);
+                    print_tstring(strsprintf(_T("%s\n\n"), decFeatures.c_str()), false);
+                }
             }
         }
     }
