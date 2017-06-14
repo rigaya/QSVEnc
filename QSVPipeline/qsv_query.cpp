@@ -49,6 +49,8 @@
 #include "mfxplugin++.h"
 #include "mfxjpeg.h"
 #include "rgy_tchar.h"
+#include "rgy_util.h"
+#include "rgy_avutil.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "qsv_plugin.h"
@@ -159,6 +161,176 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
     if (value.Minor < required.Minor)
         return FALSE;
     return TRUE;
+}
+
+mfxU64 CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 codecId) {
+    MFXVideoDECODE dec(session);
+    mfxIMPL impl;
+    MFXQueryIMPL(session, &impl);
+    const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
+    const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
+
+    static const auto codecPluginList = make_array<std::pair<mfxU32, mfxPluginUID>>(
+        std::make_pair(MFX_CODEC_HEVC, MFX_PLUGINID_HEVCD_HW),
+        std::make_pair(MFX_CODEC_VP8,  MFX_PLUGINID_VP8D_HW),
+        std::make_pair(MFX_CODEC_VP9,  MFX_PLUGINID_VP9D_HW)
+        );
+    const auto plugin = std::find_if(codecPluginList.begin(), codecPluginList.end(),
+        [codecId](const decltype((codecPluginList[0])) codecPlugin) {
+        return codecPlugin.first == codecId;
+    });
+    auto sessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(session));
+    if (plugin != codecPluginList.end()) {
+        if (MFX_ERR_NONE != sessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, plugin->second, 1)) {
+            return 0;
+        }
+    }
+    mfxVideoParam videoPrm, videoPrmOut;
+    memset(&videoPrm,  0, sizeof(videoPrm));
+    videoPrm.AsyncDepth                  = 3;
+    videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
+    videoPrm.mfx.CodecId                 = codecId;
+    switch (codecId) {
+    case MFX_CODEC_HEVC:
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_HEVC_4;
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_HEVC_MAIN;
+        break;
+    case MFX_CODEC_MPEG2:
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_MPEG2_MAIN;
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_MPEG2_MAIN;
+        break;
+    case MFX_CODEC_VC1:
+        videoPrm.mfx.CodecLevel          = 0;
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_VC1_ADVANCED;
+        break;
+    case MFX_CODEC_VP8:
+        break;
+    case MFX_CODEC_VP9:
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_VP9_0;
+        break;
+    default:
+    case MFX_CODEC_AVC:
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_AVC_41;
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_AVC_HIGH;
+        break;
+    }
+    videoPrm.mfx.EncodedOrder            = 0;
+    videoPrm.mfx.FrameInfo.FrameRateExtN = 30000;
+    videoPrm.mfx.FrameInfo.FrameRateExtD = 1001;
+    videoPrm.mfx.FrameInfo.FourCC        = MFX_FOURCC_NV12;
+    videoPrm.mfx.FrameInfo.ChromaFormat  = MFX_CHROMAFORMAT_YUV420;
+    videoPrm.mfx.FrameInfo.PicStruct     = MFX_PICSTRUCT_PROGRESSIVE;
+    videoPrm.mfx.FrameInfo.AspectRatioW  = 1;
+    videoPrm.mfx.FrameInfo.AspectRatioH  = 1;
+    videoPrm.mfx.FrameInfo.Width         = 1920;
+    videoPrm.mfx.FrameInfo.Height        = 1088;
+    videoPrm.mfx.FrameInfo.CropX         = 0;
+    videoPrm.mfx.FrameInfo.CropY         = 0;
+    videoPrm.mfx.FrameInfo.CropW         = 1920;
+    videoPrm.mfx.FrameInfo.CropH         = 1080;
+
+    memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
+
+    uint64_t result = DEC_FEATURE_HW;
+    switch (codecId) {
+    case MFX_CODEC_AVC:
+    case MFX_CODEC_MPEG2:
+    case MFX_CODEC_VC1:
+        break;
+    default:
+        {
+        mfxStatus ret = dec.Query(&videoPrm, &videoPrmOut);
+        if (ret != MFX_ERR_NONE) {
+            return 0;
+        }
+        break;
+        }
+    }
+
+
+#define CHECK_FEATURE(flag, required_ver) { \
+        if (check_lib_version(mfxVer, (required_ver))) { \
+            memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
+            if (MFX_ERR_NONE <= dec.Query(&videoPrm, &videoPrmOut)) \
+                result |= (flag); \
+        } \
+    }
+
+    mfxVideoParam videoPrmTmp = videoPrm;
+    videoPrm.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
+    videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN10;
+    videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
+    videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
+    videoPrm.mfx.FrameInfo.Shift = 1;
+    CHECK_FEATURE(DEC_FEATURE_10BIT, MFX_LIB_VERSION_1_19);
+    videoPrm = videoPrmTmp;
+
+#undef CHECK_FEATURE
+    return result;
+}
+
+mfxU64 CheckDecodeFeature(bool hardware, mfxVersion ver, mfxU32 codecId) {
+    //暫定的に、sw libのチェックを無効化する
+    if (!hardware) {
+        return 0;
+    }
+    switch (codecId) {
+    case MFX_CODEC_HEVC:
+        if (!check_lib_version(ver, MFX_LIB_VERSION_1_8)) {
+            return 0;
+        }
+        break;
+    case MFX_CODEC_VP8:
+    case MFX_CODEC_VP9:
+    case MFX_CODEC_JPEG:
+        if (!check_lib_version(ver, MFX_LIB_VERSION_1_13)) {
+            return 0;
+        }
+        break;
+    default:
+        break;
+    }
+
+    mfxSession session = NULL;
+
+    mfxStatus ret = MFXInit((hardware) ? MFX_IMPL_HARDWARE_ANY : MFX_IMPL_SOFTWARE, &ver, &session);
+    if (ret != MFX_ERR_NONE) {
+        return 0;
+    }
+
+#ifdef LIBVA_SUPPORT
+    //in case of system memory allocator we also have to pass MFX_HANDLE_VA_DISPLAY to HW library
+    unique_ptr<CQSVHWDevice> phwDevice;
+    if (ret == MFX_ERR_NONE) {
+        mfxIMPL impl;
+        MFXQueryIMPL(session, &impl);
+
+        if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
+            phwDevice.reset(CreateVAAPIDevice());
+
+            // provide device manager to MediaSDK
+            mfxHDL hdl = NULL;
+            if (phwDevice.get() != nullptr
+                && MFX_ERR_NONE != (ret = phwDevice->Init(NULL, GetAdapterID(session), nullptr))
+                && MFX_ERR_NONE != (ret = phwDevice->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl))) {
+                ret = MFXVideoCORE_SetHandle(session, MFX_HANDLE_VA_DISPLAY, hdl);
+            }
+        }
+    }
+#endif //#ifdef LIBVA_SUPPORT
+
+    mfxU64 feature = CheckDecFeaturesInternal(session, ver, codecId);
+    MFXClose(session);
+#ifdef LIBVA_SUPPORT
+    phwDevice.reset();
+#endif //#ifdef LIBVA_SUPPORT
+
+    return feature;
+}
+
+mfxU64 CheckDecodeFeature(bool hardware, mfxU32 codecId) {
+    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+    return CheckDecodeFeature(hardware, ver, codecId);
 }
 
 mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
@@ -914,6 +1086,7 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
     return feature;
 }
 
+
 mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId) {
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
     return CheckEncodeFeature(hardware, ver, ratecontrol, codecId);
@@ -956,7 +1129,15 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DE
     return std::move(codecFeatures);
 }
 
-static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] ={ _T("×"), _T("○") };
+vector<mfxU64> MakeDecodeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<mfxU32>& codecIdList) {
+    vector<mfxU64> codecFeatures;
+    for (auto codec : codecIdList) {
+        codecFeatures.push_back(CheckDecodeFeature(hardware, ver, codec));
+    }
+    return std::move(codecFeatures);
+}
+
+static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] = { _T("×"), _T("○") };
 static const TCHAR *const QSV_FEATURE_MARK_YES_NO_WITH_SPACE[] = { _T(" x    "), _T(" o    ") };
 
 tstring MakeFeatureListStr(mfxU64 feature) {
@@ -1094,6 +1275,111 @@ tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {
         str += _T("</table>\n");
     }
     return str;
+}
+
+tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
+    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+    vector<mfxU32> codecLists;
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
+        codecLists.push_back(codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec));
+    }
+    auto featurePerCodec = MakeDecodeFeatureListPerCodec(hardware, ver, codecLists);
+    const TCHAR *MARK_YES_NO[] = { _T("    x"), _T("    o") };
+    tstring str;
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        str += _T("<table class=simpleOrange>");
+    }
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        str += _T("<tr><td></td>");
+    }
+
+    int maxFeatureStrLen = 0;
+    for (const FEATURE_DESC *ptr = list_dec_feature; ptr->desc; ptr++) {
+        maxFeatureStrLen = (std::max<int>)(maxFeatureStrLen, _tcslen(ptr->desc));
+    }
+
+    if (type != FEATURE_LIST_STR_TYPE_HTML) {
+        for (int i = 0; i < maxFeatureStrLen; i++) {
+            str += _T(" ");
+        }
+    }
+    for (uint32_t i_codec = 0; i_codec < codecLists.size(); i_codec++) {
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("<td>");
+        }
+        str += tstring(CodecIdToStr(codecLists[i_codec]));
+        switch (type) {
+        case FEATURE_LIST_STR_TYPE_TXT: str += _T(" ");
+            break;
+        case FEATURE_LIST_STR_TYPE_CSV:
+            str += _T(","); 
+            break;
+        case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
+        default: break;
+        }
+    }
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        str += _T("</tr>");
+    }
+    str += _T("\n");
+
+    for (const FEATURE_DESC *ptr = list_dec_feature; ptr->desc; ptr++) {
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("<tr><td>");
+        }
+        str += ptr->desc;
+        switch (type) {
+        case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
+        case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
+        default: break;
+        }
+        for (uint32_t i_codec = 0; i_codec < codecLists.size(); i_codec++) {
+            if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                str += (featurePerCodec[i_codec] & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
+            }
+            if (type == FEATURE_LIST_STR_TYPE_TXT) {
+                str += MARK_YES_NO[ptr->value == (featurePerCodec[i_codec] & ptr->value)];
+            } else {
+                str += QSV_FEATURE_MARK_YES_NO[ptr->value == (featurePerCodec[i_codec] & ptr->value)];
+            }
+            if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                str += _T("</td>");
+            }
+        }
+        if (type == FEATURE_LIST_STR_TYPE_HTML) {
+            str += _T("</tr>");
+        }
+        str += _T("\n");
+    }
+    if (type == FEATURE_LIST_STR_TYPE_HTML) {
+        str += _T("</table>\n");
+    }
+    return str;
+}
+
+CodecCsp getHWDecCodecCsp() {
+    CodecCsp codecCsp;
+    vector<mfxU32> codecLists;
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
+        const auto mfxcodec = codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec);
+        const auto features = CheckDecodeFeature(true, mfxcodec);
+        std::vector<RGY_CSP> csp_list;
+        if (features & DEC_FEATURE_HW) {
+            csp_list.push_back(RGY_CSP_NV12);
+            csp_list.push_back(RGY_CSP_YV12);
+        }
+        if (features & DEC_FEATURE_10BIT) {
+            csp_list.push_back(RGY_CSP_YV12_10);
+        }
+        if (features & DEC_FEATURE_YUV444) {
+            csp_list.push_back(RGY_CSP_YUV444);
+        }
+        if (features & DEC_FEATURE_YUV444_10BIT) {
+            csp_list.push_back(RGY_CSP_YUV444_10);
+        }
+        codecCsp[HW_DECODE_LIST[i].rgy_codec] = csp_list;
+    }
+    return codecCsp;
 }
 
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
