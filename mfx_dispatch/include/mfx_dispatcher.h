@@ -1,4 +1,4 @@
-﻿/* ****************************************************************************** *\
+/* ****************************************************************************** *\
 
 Copyright (C) 2012-2015 Intel Corporation.  All rights reserved.
 
@@ -40,9 +40,6 @@ File Name: mfx_dispatcher.h
 #include "mfxenc.h"
 #include "mfxpak.h"
 
-#ifdef __GNUC__
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#endif
 
 mfxStatus MFXQueryVersion(mfxSession session, mfxVersion *version);
 

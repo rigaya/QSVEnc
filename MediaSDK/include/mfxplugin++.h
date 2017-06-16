@@ -298,6 +298,12 @@ public:
         }
         return m_core.GetFrameHandle(m_core.pthis, fd, handle);
     }
+    mfxStatus QueryPlatform(mfxPlatform *platform) {
+        if (!IsCoreSet()) {
+            return MFX_ERR_NULL_PTR;
+        }
+        return m_core.QueryPlatform(m_core.pthis, platform);
+    }
 } ;
 
 /* Class adapter between "C" structure mfxPlugin and C++ interface MFXPlugin */
@@ -311,11 +317,13 @@ namespace detail
         mfxPlugin m_mfxAPI;
     public:
         MFXPluginAdapterBase( T *plugin, mfxVideoCodecPlugin *pCodec = NULL)
+            : m_mfxAPI()
         {
             SetupCallbacks(plugin, pCodec);
         }
 
         MFXPluginAdapterBase( T *plugin, mfxAudioCodecPlugin *pCodec)
+            : m_mfxAPI()
         {
             SetupCallbacks(plugin, pCodec);
         }

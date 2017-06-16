@@ -1,6 +1,6 @@
 ﻿/******************************************************************************* *\
 
-Copyright (C) 2014-2015 Intel Corporation.  All rights reserved.
+Copyright (C) 2014-2016 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -52,7 +52,9 @@ enum {
     MFX_EXTBUF_CAM_PIPECONTROL                  = MFX_MAKEFOURCC('C','P','P','C'),
     MFX_EXTBUF_CAM_FORWARD_GAMMA_CORRECTION     = MFX_MAKEFOURCC('C','F','G','C'),
     MFX_EXTBUF_CAM_LENS_GEOM_DIST_CORRECTION    = MFX_MAKEFOURCC('C','L','G','D'),
-    MFX_EXTBUF_CAM_3DLUT                        = MFX_MAKEFOURCC('C','L','U','T')
+    MFX_EXTBUF_CAM_3DLUT                        = MFX_MAKEFOURCC('C','L','U','T'),
+    MFX_EXTBUF_CAM_TOTAL_COLOR_CONTROL          = MFX_MAKEFOURCC('C','T','C','C'),
+    MFX_EXTBUF_CAM_CSC_YUV_RGB                  = MFX_MAKEFOURCC('C','C','Y','R')
 };
 
 typedef enum {
@@ -87,6 +89,26 @@ typedef struct {
     mfxF64          G1;
     mfxU32          reserved[8];
 } mfxExtCamWhiteBalance;
+
+typedef struct {
+    mfxExtBuffer Header;
+    mfxU16        R;
+    mfxU16        G;
+    mfxU16        B;
+    mfxU16        C;
+    mfxU16        M;
+    mfxU16        Y;
+    mfxU16        reserved[6];
+} mfxExtCamTotalColorControl;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxF32       PreOffset[3];
+    mfxF32       Matrix[3][3];
+    mfxF32       PostOffset[3];
+    mfxU16       reserved[30];
+} mfxExtCamCscYuvRgb;
 
 typedef struct {
     mfxExtBuffer    Header;

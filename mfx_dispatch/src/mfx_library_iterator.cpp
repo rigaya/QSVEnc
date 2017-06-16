@@ -1,4 +1,4 @@
-﻿/* ****************************************************************************** *\
+/* ****************************************************************************** *\
 
 Copyright (C) 2012-2015 Intel Corporation.  All rights reserved.
 
@@ -38,7 +38,7 @@ File Name: mfx_library_iterator.cpp
 #include "mfx_dxva2_device.h"
 #include "mfx_load_dll.h"
 
-#include "rgy_tchar.h"
+#include <tchar.h>
 #include <windows.h>
 
 namespace MFX

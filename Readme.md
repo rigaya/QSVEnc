@@ -132,6 +132,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 ## Intel Media SDKとAPIの対応関係
 |Media SDK API バージョン	        | Media SDK バージョン|
 |:--|:--|
+|API v1.23 | Intel Media SDK 2017 R1 |
 |API v1.19 | Intel Media SDK 2016 Update 2 |
 |API v1.17 | Intel Media SDK 2016 |
 |API v1.16 | Intel Media SDK 2015 Update 2.1 |

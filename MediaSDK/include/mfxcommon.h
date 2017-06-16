@@ -161,6 +161,8 @@ enum {
     MFX_PLATFORM_BROADWELL      = 5,
     MFX_PLATFORM_CHERRYTRAIL    = 6,
     MFX_PLATFORM_SKYLAKE        = 7,
+    MFX_PLATFORM_APOLLOLAKE     = 8,
+    MFX_PLATFORM_KABYLAKE       = 9
 };
 
 typedef struct {

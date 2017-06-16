@@ -1,4 +1,4 @@
-﻿/* ****************************************************************************** *\
+/* ****************************************************************************** *\
 
 Copyright (C) 2013-2014 Intel Corporation.  All rights reserved.
 
@@ -159,22 +159,22 @@ MFX::MFXPluginsInHive::MFXPluginsInHive(int mfxStorageID, const msdk_disp_char *
         {
             continue;
         }
-        TRACE_HIVE_INFO(alignStr() " : %d\n", TypeKeyName, descriptionRecord.Type);
+        TRACE_HIVE_INFO(alignStr()" : %d\n", TypeKeyName, descriptionRecord.Type);
 
         if (QueryKey(subKey, CodecIDKeyName, descriptionRecord.CodecId)) 
         {
-            TRACE_HIVE_INFO(alignStr() " : " MFXFOURCCTYPE() " \n", CodecIDKeyName, MFXU32TOFOURCC(descriptionRecord.CodecId));
+            TRACE_HIVE_INFO(alignStr()" : "MFXFOURCCTYPE()" \n", CodecIDKeyName, MFXU32TOFOURCC(descriptionRecord.CodecId));
         }
         else
         {
-                TRACE_HIVE_INFO(alignStr() " : \n", CodecIDKeyName, "NOT REGISTERED");
+                TRACE_HIVE_INFO(alignStr()" : \n", CodecIDKeyName, "NOT REGISTERED");
         }
 
         if (!QueryKey(subKey, GUIDKeyName, descriptionRecord.PluginUID)) 
         {
             continue;
         }
-        TRACE_HIVE_INFO(alignStr() " : " MFXGUIDTYPE() "\n", GUIDKeyName, MFXGUIDTOHEX(&descriptionRecord.PluginUID));
+        TRACE_HIVE_INFO(alignStr()" : "MFXGUIDTYPE()"\n", GUIDKeyName, MFXGUIDTOHEX(&descriptionRecord.PluginUID));
 
         mfxU32 nSize = sizeof(descriptionRecord.sPath)/sizeof(*descriptionRecord.sPath);
         if (!subKey.Query(PathKeyName, descriptionRecord.sPath, nSize)) 
@@ -182,13 +182,13 @@ MFX::MFXPluginsInHive::MFXPluginsInHive(int mfxStorageID, const msdk_disp_char *
             TRACE_HIVE_WRN("no value for : %S\n", PathKeyName);
             continue;
         }
-        TRACE_HIVE_INFO(alignStr() " : %S\n", PathKeyName, descriptionRecord.sPath);
+        TRACE_HIVE_INFO(alignStr()" : %S\n", PathKeyName, descriptionRecord.sPath);
 
         if (!QueryKey(subKey, DefaultKeyName, descriptionRecord.Default)) 
         {
             continue;
         }
-        TRACE_HIVE_INFO(alignStr() " : %s\n", DefaultKeyName, descriptionRecord.Default ? "true" : "false");
+        TRACE_HIVE_INFO(alignStr()" : %s\n", DefaultKeyName, descriptionRecord.Default ? "true" : "false");
 
         mfxU32 version;
         if (!QueryKey(subKey, PlgVerKeyName, version)) 
@@ -198,12 +198,12 @@ MFX::MFXPluginsInHive::MFXPluginsInHive(int mfxStorageID, const msdk_disp_char *
         descriptionRecord.PluginVersion = static_cast<mfxU16>(version);
         if (0 == version) 
         {
-            TRACE_HIVE_ERROR(alignStr() " : %d, which is invalid\n", PlgVerKeyName, descriptionRecord.PluginVersion);
+            TRACE_HIVE_ERROR(alignStr()" : %d, which is invalid\n", PlgVerKeyName, descriptionRecord.PluginVersion);
             continue;
         } 
         else 
         { 
-            TRACE_HIVE_INFO(alignStr() " : %d\n", PlgVerKeyName, descriptionRecord.PluginVersion);
+            TRACE_HIVE_INFO(alignStr()" : %d\n", PlgVerKeyName, descriptionRecord.PluginVersion);
         }
 
         mfxU32 APIVersion;
@@ -212,7 +212,7 @@ MFX::MFXPluginsInHive::MFXPluginsInHive(int mfxStorageID, const msdk_disp_char *
             continue;
         }
         ConvertAPIVersion(APIVersion, descriptionRecord);
-        TRACE_HIVE_INFO(alignStr() " : %d.%d \n", APIVerKeyName, descriptionRecord.APIVersion.Major, descriptionRecord.APIVersion.Minor);
+        TRACE_HIVE_INFO(alignStr()" : %d.%d \n", APIVerKeyName, descriptionRecord.APIVersion.Major, descriptionRecord.APIVersion.Minor);
 
         try 
         {
