@@ -2756,6 +2756,13 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     auto cropInfo = m_pFileReader->GetInputCropInfo();
 
+    if ((pParams->memType & HW_MEMORY)
+        && (inputFrameInfo.csp == RGY_CSP_NV16 || inputFrameInfo.csp == RGY_CSP_P210)) {
+        PrintMes(RGY_LOG_WARN, _T("Currently yuv422 surfaces are not supported by d3d9/d3d11 memory.\n"));
+        PrintMes(RGY_LOG_WARN, _T("Switching to system memory.\n"));
+        pParams->memType = SYSTEM_MEMORY;
+    }
+
     //読み込み時に取得されていれば、それを使用する
     if (inputFrameInfo.srcWidth) {
         pParams->nWidth = (mfxU16)inputFrameInfo.srcWidth;

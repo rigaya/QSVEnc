@@ -139,10 +139,21 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->V = ptr->U + 1;
         ptr->Pitch = (mfxU16)WidthAlign;
         break;
+    case MFX_FOURCC_NV16:
+        ptr->U = ptr->Y + WidthAlign * HeightAlign;
+        ptr->V = ptr->U + 1;
+        ptr->Pitch = (mfxU16)WidthAlign;
+        break;
     case MFX_FOURCC_YV12:
         ptr->V = ptr->Y + WidthAlign * HeightAlign;
         ptr->U = ptr->V + (WidthAlign >> 1) * (HeightAlign >> 1);
         ptr->Pitch = (mfxU16)WidthAlign;
+        break;
+    case MFX_FOURCC_UYVY:
+        ptr->U = ptr->Y;
+        ptr->Y = ptr->U + 1;
+        ptr->V = ptr->U + 2;
+        ptr->Pitch = 2 * (mfxU16)WidthAlign;
         break;
     case MFX_FOURCC_YUY2:
         ptr->U = ptr->Y + 1;
@@ -170,6 +181,32 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->V = ptr->U + 2;
         ptr->Pitch = (mfxU16)WidthAlign * 2;
         break;
+    case MFX_FOURCC_P210:
+        ptr->U = ptr->Y + WidthAlign * HeightAlign * 2;
+        ptr->V = ptr->U + 2;
+        ptr->Pitch = (mfxU16)WidthAlign * 2;
+        break;
+    case MFX_FOURCC_AYUV:
+        ptr->Y = ptr->B;
+        ptr->U = ptr->Y + 1;
+        ptr->V = ptr->Y + 2;
+        ptr->A = ptr->Y + 3;
+        ptr->Pitch = 4 * (mfxU16)WidthAlign;
+        break;
+#ifdef FUTURE_API
+    case MFX_FOURCC_Y210:
+    case MFX_FOURCC_Y216:
+        ptr->Y16 = (mfxU16 *)ptr->B;
+        ptr->U16 = ptr->Y16 + 1;
+        ptr->V16 = ptr->Y16 + 3;
+        //4 words per macropixel -> 2 words per pixel -> 4 bytes per pixel
+        ptr->Pitch = 4 * (mfxU16)WidthAlign;
+        break;
+    case MFX_FOURCC_Y410:
+        ptr->U = ptr->V = ptr->A = ptr->Y;
+        ptr->Pitch = 4 * (mfxU16)WidthAlign;
+        break;
+#endif
     default:
         return MFX_ERR_UNSUPPORTED;
     }
@@ -225,12 +262,20 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
     case MFX_FOURCC_NV12:
         nbytes = WidthAlign * HeightAlign * 3/2;
         break;
+    case MFX_FOURCC_NV16:
+        nbytes = WidthAlign * HeightAlign * 2;
+        break;
     case MFX_FOURCC_RGB3:
         nbytes = WidthAlign * HeightAlign * 3;
         break;
     case MFX_FOURCC_RGB4:
+    case MFX_FOURCC_AYUV:
+#ifdef FUTURE_API
+    case MFX_FOURCC_Y410:
+#endif
         nbytes = WidthAlign * HeightAlign * 4;
         break;
+    case MFX_FOURCC_UYVY:
     case MFX_FOURCC_YUY2:
         nbytes = WidthAlign * HeightAlign * 2;
         break;
@@ -241,6 +286,13 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
         nbytes = WidthAlign * HeightAlign * 3;
         break;
     case MFX_FOURCC_A2RGB10:
+        nbytes = WidthAlign * HeightAlign * 4;
+        break;
+    case MFX_FOURCC_P210:
+#ifdef FUTURE_API
+    case MFX_FOURCC_Y210:
+    case MFX_FOURCC_Y216:
+#endif
         nbytes = WidthAlign * HeightAlign * 4;
         break;
     default:

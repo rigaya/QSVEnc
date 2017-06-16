@@ -57,12 +57,18 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_YUY2,      MFX_FOURCC_YUY2),
     std::make_pair(RGY_CSP_YUV422,    0),
     std::make_pair(RGY_CSP_YUV444,    0),
+    std::make_pair(RGY_CSP_NV16,      MFX_FOURCC_NV16),
     std::make_pair(RGY_CSP_YV12_09,   MFX_FOURCC_P010),
     std::make_pair(RGY_CSP_YV12_10,   MFX_FOURCC_P010),
     std::make_pair(RGY_CSP_YV12_12,   MFX_FOURCC_P010),
     std::make_pair(RGY_CSP_YV12_14,   MFX_FOURCC_P010),
     std::make_pair(RGY_CSP_YV12_16,   MFX_FOURCC_P010),
     std::make_pair(RGY_CSP_P010,      MFX_FOURCC_P010),
+    std::make_pair(RGY_CSP_YUV422_09, 0),
+    std::make_pair(RGY_CSP_YUV422_10, 0),
+    std::make_pair(RGY_CSP_YUV422_12, 0),
+    std::make_pair(RGY_CSP_YUV422_14, 0),
+    std::make_pair(RGY_CSP_YUV422_16, 0),
     std::make_pair(RGY_CSP_P210,      MFX_FOURCC_P210),
     std::make_pair(RGY_CSP_YUV444_09, 0),
     std::make_pair(RGY_CSP_YUV444_10, 0),
@@ -300,9 +306,9 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
     case MFX_FOURCC_BGR4:
         return _T("bgr32");
     case MFX_FOURCC_P010:
-        return _T("nv12(10bit)");
+        return _T("p010");
     case MFX_FOURCC_P210:
-        return _T("nv16(10bit)");
+        return _T("p210");
     default:
         return _T("unsupported");
     }
