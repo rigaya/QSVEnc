@@ -115,6 +115,8 @@ static const int RGY_CSP_TO_MFX_FOURCC[] = {
     0, //RGY_CSP_YUV444_16
     MFX_FOURCC_RGB3,
     MFX_FOURCC_RGB4,
+    MFX_FOURCC_RGB3,
+    MFX_FOURCC_RGB4,
     0 //RGY_CSP_YC48
 };
 
@@ -368,8 +370,8 @@ public:
     mfxFrameSurface1& frame() {
         return m_surface;
     }
-    void ptrArray(void *array[3]) {
-        array[0] = m_surface.Data.Y;
+    void ptrArray(void *array[3], bool bRGB) {
+        array[0] = (bRGB) ? ptrRGB() : m_surface.Data.Y;
         array[1] = m_surface.Data.UV;
         array[2] = m_surface.Data.V;
     }

@@ -1059,7 +1059,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             { AV_PIX_FMT_YUV444P14LE, 14, RGY_CHROMAFMT_YUV444, RGY_CSP_P010 },
             { AV_PIX_FMT_YUV444P12LE, 12, RGY_CHROMAFMT_YUV444, RGY_CSP_P010 },
             { AV_PIX_FMT_YUV444P10LE, 10, RGY_CHROMAFMT_YUV444, RGY_CSP_P010 },
-            { AV_PIX_FMT_YUV444P9LE,   9, RGY_CHROMAFMT_YUV444, RGY_CSP_P010 }
+            { AV_PIX_FMT_YUV444P9LE,   9, RGY_CHROMAFMT_YUV444, RGY_CSP_P010 },
+            { AV_PIX_FMT_RGB24,        8, RGY_CHROMAFMT_RGB,    (ENCODER_NVENC) ? RGY_CSP_RGB24 : RGY_CSP_RGB32 },
+            { AV_PIX_FMT_RGBA,         8, RGY_CHROMAFMT_RGB,    RGY_CSP_RGB32 }
         };
 
         const auto pixfmt = (AVPixelFormat)m_Demux.video.pStream->codecpar->format;
@@ -1116,6 +1118,13 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             }
 
             const auto pixCspConv = csp_avpixfmt_to_rgy(m_Demux.video.pCodecCtxDecode->pix_fmt);
+            switch (pixCspConv) {
+            case RGY_CSP_RGB24:
+            case RGY_CSP_RGB32:
+                m_inputVideoInfo.csp = pixfmtData->output_csp;
+            default:
+                break;
+            }
             if (pixCspConv == RGY_CSP_NA
                 || nullptr == (m_sConvert = get_convert_csp_func(pixCspConv, m_inputVideoInfo.csp, false))) {
                 AddMessage(RGY_LOG_ERROR, _T("invalid colorformat.\n"));
@@ -1781,7 +1790,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         }
         //フレームデータをコピー
         void *dst_array[3];
-        pSurface->ptrArray(dst_array);
+        pSurface->ptrArray(dst_array, m_sConvert->csp_to == RGY_CSP_RGB24 || m_sConvert->csp_to == RGY_CSP_RGB32);
         m_sConvert->func[m_Demux.video.pFrame->interlaced_frame != 0](
             dst_array, (const void **)m_Demux.video.pFrame->data,
             m_inputVideoInfo.srcWidth, m_Demux.video.pFrame->linesize[0], m_Demux.video.pFrame->linesize[1], pSurface->pitch(),

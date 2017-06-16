@@ -52,8 +52,10 @@ enum RGY_CSP {
     RGY_CSP_YUV444_12,
     RGY_CSP_YUV444_14,
     RGY_CSP_YUV444_16,
-    RGY_CSP_RGB3,
-    RGY_CSP_RGB4,
+    RGY_CSP_RGB24R,
+    RGY_CSP_RGB32R,
+    RGY_CSP_RGB24,
+    RGY_CSP_RGB32,
     RGY_CSP_YC48,
 };
 
@@ -76,8 +78,10 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuv444(12bit)"),
     _T("yuv444(14bit)"),
     _T("yuv444(16bit)"),
-    _T("rgb3"),
-    _T("rgb4"),
+    _T("rgb24r"),
+    _T("rgb32r"),
+    _T("rgb24"),
+    _T("rgb32"),
     _T("yc48")
 };
 
@@ -100,8 +104,10 @@ static const int RGY_CSP_BIT_DEPTH[] = {
     12,
     14,
     16, //RGY_CSP_YUV444_16
-     8, //RGY_CSP_RGB3
-     8, //RGY_CSP_RGB4
+     8, //RGY_CSP_RGB24R
+     8, //RGY_CSP_RGB32R
+     8, //RGY_CSP_RGB24
+     8, //RGY_CSP_RGB32
     10, //RGY_CSP_YC48
 };
 
@@ -133,6 +139,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_16
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48

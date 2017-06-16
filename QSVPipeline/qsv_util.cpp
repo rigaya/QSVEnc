@@ -69,8 +69,8 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_YUV444_12, 0),
     std::make_pair(RGY_CSP_YUV444_14, 0),
     std::make_pair(RGY_CSP_YUV444_16, 0),
-    std::make_pair(RGY_CSP_RGB3,      MFX_FOURCC_RGB3),
-    std::make_pair(RGY_CSP_RGB4,      MFX_FOURCC_RGB4),
+    std::make_pair(RGY_CSP_RGB24,     MFX_FOURCC_RGB3),
+    std::make_pair(RGY_CSP_RGB32,     MFX_FOURCC_RGB4),
     std::make_pair(RGY_CSP_YC48,      0)
     );
 
