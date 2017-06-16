@@ -5072,7 +5072,6 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         //PRINT_INFO(    _T("Idr Interval    %d\n"), videoPrm.mfx.IdrInterval);
         PRINT_INFO(_T("%s"), _T("Max GOP Length "));
         PRINT_INT_AUTO(_T("%d frames\n"), (std::min)(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
-        PRINT_INFO(_T("Scene Change   %s\n"), m_SceneChange.isInitialized() ? _T("on") : _T("off"));
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
             //PRINT_INFO(    _T("GOP Structure           "));
             //bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
@@ -5096,6 +5095,9 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
         //last line
         tstring extFeatures;
+        if (m_SceneChange.isInitialized()) {
+            extFeatures += _T("SceneChange ");
+        }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
             if (cop2.MBBRC  == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("PerMBRC ");
