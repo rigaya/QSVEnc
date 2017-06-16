@@ -187,13 +187,6 @@ enum : uint64_t {
     VPP_FEATURE_SCALING_QUALITY       = 0x00002000,
 };
 
-enum : uint64_t {
-    DEC_FEATURE_HW           = 0x00000001,
-    DEC_FEATURE_10BIT        = 0x00000002,
-    DEC_FEATURE_YUV444       = 0x00000004,
-    DEC_FEATURE_YUV444_10BIT = 0x00000008
-};
-
 static const CX_DESC list_rate_control_ry[] = {
     { _T("CBR  "), MFX_RATECONTROL_CBR    },
     { _T("VBR  "), MFX_RATECONTROL_VBR    },
@@ -257,11 +250,6 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { _T("FPS Conversion (Adv.)"), VPP_FEATURE_FPS_CONVERSION_ADV  },
     { NULL, 0 },
 };
-static const FEATURE_DESC list_dec_feature[] = {
-    { _T("HW Decode   "), DEC_FEATURE_HW },
-    { _T("10bit depth "), DEC_FEATURE_10BIT },
-    { NULL, 0 },
-};
 
 enum FeatureListStrType {
     FEATURE_LIST_STR_TYPE_UNKNOWN,
@@ -284,9 +272,9 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
 tstring MakeVppFeatureStr(bool hardware);
 tstring MakeVppFeatureStr(bool hardware, FeatureListStrType outputType);
 
-mfxU64 CheckDecodeFeature(bool hardware, mfxU32 codecId);
-mfxU64 CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 codecId);
-vector<mfxU64> MakeDecodeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<mfxU32>& codecIdList);
+std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxU32 codecId);
+std::vector<RGY_CSP> CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 codecId);
+CodecCsp MakeDecodeFeatureList(bool hardware, mfxVersion ver, const vector<mfxU32>& codecIdList);
 tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type);
 CodecCsp getHWDecCodecCsp();
 

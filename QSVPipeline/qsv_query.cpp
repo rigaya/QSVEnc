@@ -163,7 +163,8 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
     return TRUE;
 }
 
-mfxU64 CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 codecId) {
+std::vector<RGY_CSP> CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 codecId) {
+    std::vector<RGY_CSP> supportedCsp;
     MFXVideoDECODE dec(session);
     mfxIMPL impl;
     MFXQueryIMPL(session, &impl);
@@ -182,7 +183,7 @@ mfxU64 CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 co
     auto sessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(session));
     if (plugin != codecPluginList.end()) {
         if (MFX_ERR_NONE != sessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, plugin->second, 1)) {
-            return 0;
+            return supportedCsp;
         }
     }
     mfxVideoParam videoPrm, videoPrmOut;
@@ -231,42 +232,70 @@ mfxU64 CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 co
 
     memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
 
-    uint64_t result = DEC_FEATURE_HW;
     switch (codecId) {
+    //デフォルトでデコード可能なもの
     case MFX_CODEC_AVC:
     case MFX_CODEC_MPEG2:
     case MFX_CODEC_VC1:
         break;
+    //不明なものはテストする
     default:
         {
         mfxStatus ret = dec.Query(&videoPrm, &videoPrmOut);
         if (ret != MFX_ERR_NONE) {
-            return 0;
+            return supportedCsp;
         }
         break;
         }
     }
+    supportedCsp.push_back(RGY_CSP_NV12);
+    supportedCsp.push_back(RGY_CSP_YV12);
 
 
-#define CHECK_FEATURE(flag, required_ver) { \
+#define CHECK_FEATURE(rgy_csp, required_ver) { \
         if (check_lib_version(mfxVer, (required_ver))) { \
             memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
-            if (MFX_ERR_NONE <= dec.Query(&videoPrm, &videoPrmOut)) \
-                result |= (flag); \
+            if (MFX_ERR_NONE <= dec.Query(&videoPrm, &videoPrmOut)) { \
+                supportedCsp.push_back(rgy_csp); \
+            } \
         } \
     }
 
+    static const auto test_yuv420_highbit_depth = make_array<std::pair<int, RGY_CSP>>(
+        std::make_pair( 9, RGY_CSP_YV12_09),
+        std::make_pair(10, RGY_CSP_YV12_10),
+        std::make_pair(12, RGY_CSP_YV12_12),
+        std::make_pair(14, RGY_CSP_YV12_14),
+        std::make_pair(14, RGY_CSP_YV12_16)
+        );
+    static const auto test_yuv444 = make_array<std::pair<int, RGY_CSP>>(
+        std::make_pair( 8, RGY_CSP_YUV444),
+        std::make_pair( 9, RGY_CSP_YUV444_09),
+        std::make_pair(10, RGY_CSP_YUV444_10),
+        std::make_pair(12, RGY_CSP_YUV444_12),
+        std::make_pair(14, RGY_CSP_YUV444_14),
+        std::make_pair(16, RGY_CSP_YUV444_16)
+        );
+
     mfxVideoParam videoPrmTmp = videoPrm;
-    videoPrm.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
-    videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN10;
-    videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
-    videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
-    videoPrm.mfx.FrameInfo.Shift = 1;
-    CHECK_FEATURE(DEC_FEATURE_10BIT, MFX_LIB_VERSION_1_19);
-    videoPrm = videoPrmTmp;
+    for (const auto& test : test_yuv420_highbit_depth) {
+        videoPrm.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
+        if (codecId == MFX_CODEC_HEVC) {
+            videoPrm.mfx.CodecProfile = (mfxU16)((test.first > 8) ? MFX_PROFILE_HEVC_MAIN10 : MFX_PROFILE_HEVC_MAIN);
+        } else if (codecId == MFX_CODEC_VP9) {
+            videoPrm.mfx.CodecProfile = (mfxU16)((test.first > 8) ? MFX_PROFILE_VP9_2 : MFX_PROFILE_VP9_0);
+        } else {
+            break;
+        }
+        videoPrm.mfx.FrameInfo.BitDepthLuma = (mfxU16)((test.first > 8) ? test.first : 0);
+        videoPrm.mfx.FrameInfo.BitDepthChroma = (mfxU16)((test.first > 8) ? test.first : 0);
+        videoPrm.mfx.FrameInfo.Shift = (test.first > 8) ? 1 : 0;
+        CHECK_FEATURE(test.second, MFX_LIB_VERSION_1_19);
+        videoPrm = videoPrmTmp;
+    }
 
 #undef CHECK_FEATURE
-    return result;
+    return supportedCsp;
 }
 
 mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
@@ -572,41 +601,41 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
     return feature;
 }
 
-mfxU64 CheckDecodeFeature(bool hardware, mfxVersion ver, mfxU32 codecId) {
+std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxVersion ver, mfxU32 codecId) {
+    std::vector<RGY_CSP> supportedCsp;
     //暫定的に、sw libのチェックを無効化する
     if (!hardware) {
-        return 0;
+        return supportedCsp;
     }
     switch (codecId) {
     case MFX_CODEC_HEVC:
         if (!check_lib_version(ver, MFX_LIB_VERSION_1_8)) {
-            return 0;
+            return supportedCsp;
         }
         break;
     case MFX_CODEC_VP8:
     case MFX_CODEC_VP9:
     case MFX_CODEC_JPEG:
         if (!check_lib_version(ver, MFX_LIB_VERSION_1_13)) {
-            return 0;
+            return supportedCsp;
         }
         break;
     default:
         break;
     }
 
-    mfxU64 feature = 0x00;
     MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
     if (mfxSession session = InitSession(hardware, memType)) {
         if (auto hwdevice = InitHWDevice(session, memType)) {
-            feature = CheckDecFeaturesInternal(session, ver, codecId);
+            supportedCsp = CheckDecFeaturesInternal(session, ver, codecId);
         }
         MFXClose(session);
     }
 
-    return feature;
+    return supportedCsp;
 }
 
-mfxU64 CheckDecodeFeature(bool hardware, mfxU32 codecId) {
+std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxU32 codecId) {
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
     return CheckDecodeFeature(hardware, ver, codecId);
 }
@@ -1085,10 +1114,13 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DE
     return std::move(codecFeatures);
 }
 
-vector<mfxU64> MakeDecodeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<mfxU32>& codecIdList) {
-    vector<mfxU64> codecFeatures;
+CodecCsp MakeDecodeFeatureList(bool hardware, mfxVersion ver, const vector<RGY_CODEC>& codecIdList) {
+    CodecCsp codecFeatures;
     for (auto codec : codecIdList) {
-        codecFeatures.push_back(CheckDecodeFeature(hardware, ver, codec));
+        auto features = CheckDecodeFeature(hardware, ver, codec_rgy_to_enc(codec));
+        if (features.size() > 0) {
+            codecFeatures[codec] = features;
+        }
     }
     return std::move(codecFeatures);
 }
@@ -1235,12 +1267,40 @@ tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {
 
 tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-    vector<mfxU32> codecLists;
+    vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
-        codecLists.push_back(codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec));
+        codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    auto featurePerCodec = MakeDecodeFeatureListPerCodec(hardware, ver, codecLists);
-    const TCHAR *MARK_YES_NO[] = { _T("    x"), _T("    o") };
+    auto decodeCodecCsp = MakeDecodeFeatureList(hardware, ver, codecLists);
+
+    enum : uint32_t {
+        DEC_FEATURE_HW    = 0x00000001,
+        DEC_FEATURE_10BIT = 0x00000002,
+    };
+
+    static const FEATURE_DESC list_dec_feature[] = {
+        { _T("HW Decode   "), DEC_FEATURE_HW    },
+        { _T("10bit depth "), DEC_FEATURE_10BIT },
+        { NULL, 0 },
+    };
+
+    std::vector<uint32_t> featurePerCodec;
+    for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
+        uint32_t feature = 0x00;
+        if (decodeCodecCsp.count(HW_DECODE_LIST[i].rgy_codec) > 0) {
+            feature |= DEC_FEATURE_HW;
+            const auto& cspList = decodeCodecCsp.at(HW_DECODE_LIST[i].rgy_codec);
+            for (auto csp : cspList) {
+                if (RGY_CSP_BIT_DEPTH[csp] > 8) {
+                    feature |= DEC_FEATURE_10BIT;
+                }
+            }
+        }
+        featurePerCodec.push_back(feature);
+    }
+
+
+    const TCHAR *MARK_YES_NO[] = { _T("   x "), _T("   o ") };
     tstring str;
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         str += _T("<table class=simpleOrange>");
@@ -1263,7 +1323,13 @@ tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             str += _T("<td>");
         }
-        str += tstring(CodecIdToStr(codecLists[i_codec]));
+        tstring codecStr = CodecToStr(codecLists[i_codec]);
+        codecStr = str_replace(codecStr, _T("H.264/AVC"), _T("H.264"));
+        codecStr = str_replace(codecStr, _T("H.265/HEVC"), _T("HEVC"));
+        while (codecStr.length() < 4) {
+            codecStr += _T(" ");
+        }
+        str += codecStr;
         switch (type) {
         case FEATURE_LIST_STR_TYPE_TXT: str += _T(" ");
             break;
@@ -1314,28 +1380,11 @@ tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
 }
 
 CodecCsp getHWDecCodecCsp() {
-    CodecCsp codecCsp;
-    vector<mfxU32> codecLists;
+    vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
-        const auto mfxcodec = codec_rgy_to_enc(HW_DECODE_LIST[i].rgy_codec);
-        const auto features = CheckDecodeFeature(true, mfxcodec);
-        std::vector<RGY_CSP> csp_list;
-        if (features & DEC_FEATURE_HW) {
-            csp_list.push_back(RGY_CSP_NV12);
-            csp_list.push_back(RGY_CSP_YV12);
-        }
-        if (features & DEC_FEATURE_10BIT) {
-            csp_list.push_back(RGY_CSP_YV12_10);
-        }
-        if (features & DEC_FEATURE_YUV444) {
-            csp_list.push_back(RGY_CSP_YUV444);
-        }
-        if (features & DEC_FEATURE_YUV444_10BIT) {
-            csp_list.push_back(RGY_CSP_YUV444_10);
-        }
-        codecCsp[HW_DECODE_LIST[i].rgy_codec] = csp_list;
+        codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    return codecCsp;
+    return MakeDecodeFeatureList(true, get_mfx_libhw_version(), codecLists);
 }
 
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
