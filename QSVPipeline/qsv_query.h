@@ -92,6 +92,7 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 16, 1 },
     { 17, 1 },
     { 19, 1 },
+    { 23, 1 },
     { 0, 0 }
 };
 
@@ -111,6 +112,7 @@ static const mfxVersion LIB_VER_LIST[] = {
 #define MFX_LIB_VERSION_1_16 LIB_VER_LIST[13]
 #define MFX_LIB_VERSION_1_17 LIB_VER_LIST[14]
 #define MFX_LIB_VERSION_1_19 LIB_VER_LIST[15]
+#define MFX_LIB_VERSION_1_23 LIB_VER_LIST[16]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);
