@@ -67,7 +67,7 @@ const char *get_encoder_version();
 
 #define ENABLE_SESSION_THREAD_CONFIG 0
 
-#define ENABLE_FADE_DETECT 0
+#define ENABLE_FADE_DETECT 1
 
 #define ENABLE_OPENCL 1
 
