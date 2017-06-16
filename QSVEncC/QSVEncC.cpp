@@ -523,6 +523,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
         _T("   --(no-)weightp               enable weight prediction for P frame\n")
         _T("   --(no-)weightb               enable weight prediction for B frame\n")
+        _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
 #if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")
 #endif //#if ENABLE_FADE_DETECT
@@ -2138,6 +2139,14 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("no-weightp"))) {
         pParams->nWeightP = MFX_WEIGHTED_PRED_UNKNOWN;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("repartition-check"))) {
+        pParams->nRepartitionCheck = MFX_CODINGOPTION_ON;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("no-repartition-check"))) {
+        pParams->nRepartitionCheck = MFX_CODINGOPTION_OFF;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("fade-detect"))) {

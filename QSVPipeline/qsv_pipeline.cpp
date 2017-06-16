@@ -985,6 +985,9 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             }
             m_CodingOption3.FadeDetection = check_coding_option(pInParams->nFadeDetect);
         }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
+            m_CodingOption3.RepartitionCheckEnable = pInParams->nRepartitionCheck;
+        }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
 
@@ -5144,6 +5147,11 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         //if (cop.SingleSeiNalUnit == MFX_CODINGOPTION_ON) {
         //    extFeatures += _T("SingleSEI ");
         //}
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
+            if (cop3.RepartitionCheckEnable == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("RepartitionCheck ");
+            }
+        }
         if (extFeatures.length() > 0) {
             PRINT_INFO(_T("Ext. Features  %s\n"), extFeatures.c_str());
         }

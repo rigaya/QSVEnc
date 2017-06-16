@@ -297,7 +297,8 @@ struct sInputParams
 
     sInputCrop sInCrop;
 
-    int8_t     Reserved[1014];
+    mfxU16     nRepartitionCheck;
+    int8_t     Reserved[1012];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
