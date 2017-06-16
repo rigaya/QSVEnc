@@ -972,8 +972,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
-            m_CodingOption3.WeightedBiPred = check_coding_option(pInParams->nWeightB);
-            m_CodingOption3.WeightedPred   = check_coding_option(pInParams->nWeightP);
+            m_CodingOption3.WeightedBiPred = pInParams->nWeightB;
+            m_CodingOption3.WeightedPred   = pInParams->nWeightP;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
             m_CodingOption3.FadeDetection = check_coding_option(pInParams->nFadeDetect);
@@ -5123,10 +5123,10 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
-            if (cop3.WeightedPred == MFX_CODINGOPTION_ON) {
+            if (cop3.WeightedPred != MFX_WEIGHTED_PRED_UNKNOWN) {
                 extFeatures += _T("WeightP ");
             }
-            if (cop3.WeightedBiPred == MFX_CODINGOPTION_ON) {
+            if (cop3.WeightedBiPred != MFX_WEIGHTED_PRED_UNKNOWN) {
                 extFeatures += _T("WeightB ");
             }
         }
