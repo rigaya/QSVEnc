@@ -168,10 +168,12 @@ protected:
     
     unique_ptr<MFXVideoUSER>  m_pUserModule;
 
+    vector<mfxExtBuffer*> m_DecExtParams;
     vector<mfxExtBuffer*> m_EncExtParams;
     vector<mfxExtBuffer*> m_VppExtParams;
     tstring VppExtMes;
 
+    mfxExtDecVideoProcessing m_DecVidProc;
     mfxExtVPPDoNotUse m_VppDoNotUse;
     mfxExtVPPDoNotUse m_VppDoUse;
     mfxExtVPPDenoise m_ExtDenoise;

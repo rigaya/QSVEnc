@@ -405,6 +405,43 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             m_mfxDecParams.mfx.FrameInfo.AspectRatioW, m_mfxDecParams.mfx.FrameInfo.AspectRatioH,
             m_mfxDecParams.mfx.FrameInfo.BitDepthLuma, m_mfxDecParams.mfx.FrameInfo.Shift);
 
+        memset(&m_DecVidProc, 0, sizeof(m_DecVidProc));
+        m_DecExtParams.clear();
+#if 0
+        const auto enc_fourcc = csp_rgy_to_enc(EncoderCsp(pInParams, nullptr));
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)
+            && ( m_mfxDecParams.mfx.FrameInfo.CropW  != pInParams->nDstWidth
+              || m_mfxDecParams.mfx.FrameInfo.CropH  != pInParams->nDstHeight
+              || m_mfxDecParams.mfx.FrameInfo.FourCC != enc_fourcc)
+            && pInParams->vpp.nScalingQuality == MFX_SCALING_MODE_LOWPOWER
+            && enc_fourcc == MFX_FOURCC_NV12
+            && m_mfxDecParams.mfx.FrameInfo.FourCC == MFX_FOURCC_NV12
+            && m_mfxDecParams.mfx.FrameInfo.ChromaFormat == MFX_CHROMAFORMAT_YUV420
+            && !cropEnabled(pInParams->sInCrop)) {
+            m_DecVidProc.Header.BufferId = MFX_EXTBUFF_DEC_VIDEO_PROCESSING;
+            m_DecVidProc.Header.BufferSz = sizeof(m_DecVidProc);
+            m_DecVidProc.In.CropX = 0;
+            m_DecVidProc.In.CropY = 0;
+            m_DecVidProc.In.CropW = m_mfxDecParams.mfx.FrameInfo.CropW;
+            m_DecVidProc.In.CropH = m_mfxDecParams.mfx.FrameInfo.CropH;
+
+            m_DecVidProc.Out.FourCC = enc_fourcc;
+            m_DecVidProc.Out.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
+            m_DecVidProc.Out.Width  = std::max<mfxU16>(ALIGN16(pInParams->nDstWidth), m_mfxDecParams.mfx.FrameInfo.Width);
+            m_DecVidProc.Out.Height = std::max<mfxU16>(ALIGN16(pInParams->nDstHeight), m_mfxDecParams.mfx.FrameInfo.Height);
+            m_DecVidProc.Out.CropX = 0;
+            m_DecVidProc.Out.CropY = 0;
+            m_DecVidProc.Out.CropW = pInParams->nDstWidth;
+            m_DecVidProc.Out.CropH = pInParams->nDstHeight;
+
+            m_DecExtParams.push_back((mfxExtBuffer *)&m_DecVidProc);
+            m_mfxDecParams.ExtParam = &m_DecExtParams[0];
+            m_mfxDecParams.NumExtParam = (mfxU16)m_DecExtParams.size();
+
+            pInParams->nWidth = pInParams->nDstWidth;
+            pInParams->nHeight = pInParams->nDstHeight;
+        }
+#endif
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to initialize QSV decoder."));
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Initialized QSVDec.\n"));
@@ -2148,7 +2185,8 @@ CQSVPipeline::CQSVPipeline() {
     RGY_MEMSET_ZERO(m_mfxDecParams);
     RGY_MEMSET_ZERO(m_mfxEncParams);
     RGY_MEMSET_ZERO(m_mfxVppParams);
-    
+
+    RGY_MEMSET_ZERO(m_DecVidProc);
     RGY_MEMSET_ZERO(m_VppDoNotUse);
     RGY_MEMSET_ZERO(m_VppDoUse);
     RGY_MEMSET_ZERO(m_ExtDenoise);
@@ -3323,6 +3361,7 @@ void CQSVPipeline::Close() {
 #endif
     FreeVppDoNotUse();
 
+    m_VppExtParams.clear();
     m_EncExtParams.clear();
     m_VppDoNotUseList.clear();
     m_VppDoUseList.clear();
@@ -4037,8 +4076,10 @@ mfxStatus CQSVPipeline::RunEncode() {
             mfxFrameSurface1 *pSurfDecOut = NULL;
             mfxBitstream *pInputBitstream = (getNextBitstream) ? &m_DecInputBitstream.bitstream() : nullptr;
 
-            //デコード前には、デコード用のパラメータでFrameInfoを更新
-            copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
+            if (!m_mfxDecParams.mfx.FrameInfo.FourCC) {
+                //デコード前には、デコード用のパラメータでFrameInfoを更新
+                copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
+            }
             pSurfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
 
             for (int i = 0; ; i++) {
