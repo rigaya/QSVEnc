@@ -1311,7 +1311,7 @@ tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
 
     int maxFeatureStrLen = 0;
     for (const FEATURE_DESC *ptr = list_dec_feature; ptr->desc; ptr++) {
-        maxFeatureStrLen = (std::max<int>)(maxFeatureStrLen, _tcslen(ptr->desc));
+        maxFeatureStrLen = (std::max<int>)(maxFeatureStrLen, (int)_tcslen(ptr->desc));
     }
 
     if (type != FEATURE_LIST_STR_TYPE_HTML) {

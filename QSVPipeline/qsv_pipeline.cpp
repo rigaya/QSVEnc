@@ -3041,7 +3041,7 @@ void __stdcall GetSystemInfoHook(LPSYSTEM_INFO lpSystemInfo) {
         decltype(lpSystemInfo->dwActiveProcessorMask) mask = 0;
         const int nThreads = std::max(1, std::min(nGetSystemInfoHookThreads, (int)sizeof(lpSystemInfo->dwActiveProcessorMask) * 8));
         for (int i = 0; i < nThreads; i++) {
-            mask |= (1<<i);
+            mask |= ((size_t)1<<i);
         }
         lpSystemInfo->dwActiveProcessorMask = mask;
         lpSystemInfo->dwNumberOfProcessors = nThreads;
