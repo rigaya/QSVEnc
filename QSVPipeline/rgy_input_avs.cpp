@@ -136,10 +136,8 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         { AVS_CS_I420,  RGY_CSP_YV12, prefered_csp },
         { AVS_CS_IYUV,  RGY_CSP_YV12, prefered_csp },
         { AVS_CS_YUY2,  RGY_CSP_YUY2, prefered_csp },
-#if ENCODER_QSV
         { AVS_CS_BGR24, RGY_CSP_RGB24R, RGY_CSP_RGB32 },
         { AVS_CS_BGR32, RGY_CSP_RGB32R, RGY_CSP_RGB32 },
-#endif
     };
 
     m_InputCsp = RGY_CSP_NA;

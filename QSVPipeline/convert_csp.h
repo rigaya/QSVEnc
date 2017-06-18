@@ -103,7 +103,7 @@ static const int RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_YV12
      8, //RGY_CSP_YUY2
      8, //RGY_CSP_YUV422
-     8, //RGY_CSP_NV16 
+     8, //RGY_CSP_NV16
      8, //RGY_CSP_YUV444
      9, //RGY_CSP_YV12_09
     10,
