@@ -57,8 +57,10 @@
 #include "rgy_osdep.h"
 #include "qsv_query.h"
 #include "qsv_hw_device.h"
+#include "cpu_info.h"
 
-int getCPUGen() {
+#if 1
+int getCPUGenCpuid() {
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x01);
     bool bMOVBE  = !!(CPUInfo[2] & (1<<22));
@@ -69,20 +71,29 @@ int getCPUGen() {
     bool bRDSeed     = !!(CPUInfo[1] & (1<<18));
     bool bFsgsbase   = !!(CPUInfo[1] & (1));
 
-    if (bClflushOpt) {
-        bool bHEVC10bit = (CheckEncodeFeature(true, get_mfx_libhw_version(), MFX_RATECONTROL_CQP, MFX_CODEC_HEVC) & ENC_FEATURE_10BIT_DEPTH) != 0;
-        return (bHEVC10bit) ? CPU_GEN_KABYLAKE : CPU_GEN_SKYLAKE;
-    }
+    if (bClflushOpt) return CPU_GEN_SKYLAKE;
     if (bRDSeed)             return CPU_GEN_BROADWELL;
     if (bMOVBE && bFsgsbase) return CPU_GEN_HASWELL;
-
-    bool bICQ = !!(CheckEncodeFeature(true, get_mfx_libhw_version(), MFX_RATECONTROL_ICQ, MFX_CODEC_AVC) & ENC_FEATURE_CURRENT_RC);
-
-    if (bICQ)      return CPU_GEN_AIRMONT;
     if (bFsgsbase) return CPU_GEN_IVYBRIDGE;
     if (bRDRand)   return CPU_GEN_SILVERMONT;
     return CPU_GEN_SANDYBRIDGE;
 }
+#endif
+
+static const auto RGY_CPU_GEN_TO_MFX = make_array<std::pair<int, uint32_t>>(
+    std::make_pair(CPU_GEN_UNKNOWN, MFX_PLATFORM_UNKNOWN),
+    std::make_pair(CPU_GEN_SANDYBRIDGE, MFX_PLATFORM_SANDYBRIDGE),
+    std::make_pair(CPU_GEN_IVYBRIDGE, MFX_PLATFORM_IVYBRIDGE),
+    std::make_pair(CPU_GEN_HASWELL, MFX_PLATFORM_HASWELL),
+    std::make_pair(CPU_GEN_SILVERMONT, MFX_PLATFORM_BAYTRAIL),
+    std::make_pair(CPU_GEN_BROADWELL, MFX_PLATFORM_BROADWELL),
+    std::make_pair(CPU_GEN_SILVERMONT, MFX_PLATFORM_CHERRYTRAIL),
+    std::make_pair(CPU_GEN_SKYLAKE, MFX_PLATFORM_SKYLAKE),
+    std::make_pair(CPU_GEN_APPLLOLAKE, MFX_PLATFORM_APOLLOLAKE),
+    std::make_pair(CPU_GEN_KABYLAKE, MFX_PLATFORM_KABYLAKE)
+    );
+MAP_PAIR_0_1(cpu_gen, rgy, int, enc, uint32_t, RGY_CPU_GEN_TO_MFX, CPU_GEN_UNKNOWN, MFX_PLATFORM_UNKNOWN);
+
 
 BOOL Check_HWUsed(mfxIMPL impl) {
     static const int HW_list[] = {
@@ -320,7 +331,7 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
     const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
-    const bool bSetDoNotUseTag = getCPUGen() < CPU_GEN_HASWELL;
+    const bool bSetDoNotUseTag = getCPUGen(session) < CPU_GEN_HASWELL;
 
     mfxExtVPPDoUse vppDoUse;
     mfxExtVPPDoUse vppDoNotUse;
@@ -935,7 +946,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
             result &= ~ENC_FEATURE_B_PYRAMID_AND_SC;
         }
         //Kabylake以前では、不安定でエンコードが途中で終了あるいはフリーズしてしまう
-        if ((result & ENC_FEATURE_FADE_DETECT) && getCPUGen() < CPU_GEN_KABYLAKE) {
+        if ((result & ENC_FEATURE_FADE_DETECT) && getCPUGen(session) < CPU_GEN_KABYLAKE) {
             result &= ~ENC_FEATURE_FADE_DETECT;
         }
     }
@@ -1398,4 +1409,35 @@ BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
     if (value.Minor < required.Minor)
         return FALSE;
     return TRUE;
+}
+
+int getCPUGen() {
+    mfxPlatform platform;
+    memset(&platform, 0, sizeof(platform));
+    MemType memtype = HW_MEMORY;
+    mfxSession session = InitSession(true, memtype);
+    mfxVersion mfxVer;
+    MFXQueryVersion(session, &mfxVer);
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
+        MFXVideoCORE_QueryPlatform(session, &platform);
+        return cpu_gen_rgy_to_enc(platform.CodeName);
+    } else {
+        return getCPUGenCpuid();
+    }
+}
+
+int getCPUGen(mfxSession session) {
+    if (session == nullptr) {
+        return getCPUGen();
+    }
+    mfxPlatform platform;
+    memset(&platform, 0, sizeof(platform));
+    mfxVersion mfxVer;
+    MFXQueryVersion(session, &mfxVer);
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
+        MFXVideoCORE_QueryPlatform(session, &platform);
+        return cpu_gen_rgy_to_enc(platform.CodeName);
+    } else {
+        return getCPUGenCpuid();
+    }
 }

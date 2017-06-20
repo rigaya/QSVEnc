@@ -43,10 +43,8 @@
 #include <emmintrin.h>
 #include "rgy_osdep.h"
 #include "rgy_util.h"
+#include "rgy_version.h"
 #include "cpu_info.h"
-#if ENCODER_QSV
-#include "qsv_query.h"
-#endif
 
 int getCPUName(char *buffer, size_t nSize) {
     int CPUInfo[4] = {-1};
@@ -424,7 +422,15 @@ double getCPUDefaultClock() {
     return defautlClock;
 }
 
-int getCPUInfo(TCHAR *buffer, size_t nSize) {
+#if ENCODER_QSV
+#include "qsv_query.h"
+#endif
+
+int getCPUInfo(TCHAR *buffer, size_t nSize
+#if ENCODER_QSV
+    , mfxSession session
+#endif
+) {
     int ret = 0;
     buffer[0] = _T('\0');
     cpu_info_t cpu_info;
@@ -447,8 +453,8 @@ int getCPUInfo(TCHAR *buffer, size_t nSize) {
         }
         _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
 #if ENCODER_QSV
-        int cpuGen = getCPUGen();
-        if (cpuGen) {
+        int cpuGen = getCPUGen(session);
+        if (cpuGen != CPU_GEN_UNKNOWN) {
             _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" <%s>"), CPU_GEN_STR[cpuGen]);
         }
 #endif

@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
+#include "rgy_version.h"
 
 typedef struct cache_info_t {
     uint32_t count;
@@ -53,7 +54,12 @@ typedef struct {
 int getCPUName(char *buffer, size_t nSize);
 bool get_cpu_info(cpu_info_t *cpu_info);
 
+#if ENCODER_QSV
+#include "mfxsession.h"
+int getCPUInfo(TCHAR *buffer, size_t nSize, mfxSession session = nullptr);
+#else
 int getCPUInfo(TCHAR *buffer, size_t nSize);
+#endif
 
 template <size_t size>
 int inline getCPUInfo(TCHAR(&buffer)[size]) {

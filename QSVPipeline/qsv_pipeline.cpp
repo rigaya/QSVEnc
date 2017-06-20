@@ -650,7 +650,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
     }
-    if (pInParams->bBPyramid && pInParams->bUseHWLib && getCPUGen() < CPU_GEN_HASWELL) {
+    if (pInParams->bBPyramid && pInParams->bUseHWLib && getCPUGen(m_mfxSession) < CPU_GEN_HASWELL) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
     }
     if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
@@ -1497,7 +1497,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
     }
 
     //Haswell以降では、DONOTUSEをセットするとdetail enhancerの効きが固定になるなど、よくわからない挙動を示す。
-    if (m_VppDoNotUseList.size() && getCPUGen() < CPU_GEN_HASWELL) {
+    if (m_VppDoNotUseList.size() && getCPUGen(m_mfxSession) < CPU_GEN_HASWELL) {
         AllocAndInitVppDoNotUse();
         m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoNotUse);
         for (const auto& extParam : m_VppDoNotUseList) {
@@ -2992,7 +2992,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         pParams->nInputBufSize = 1;
         //Haswell以前はHEVCデコーダを使用する場合はD3D11メモリを使用しないと正常に稼働しない (4080ドライバ)
-        if (getCPUGen() <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
+        if (getCPUGen(m_mfxSession) <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
             if (pParams->memType & D3D9_MEMORY) {
                 pParams->memType &= ~D3D9_MEMORY;
                 pParams->memType |= D3D11_MEMORY;
@@ -4904,7 +4904,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     CompareParam(m_prmSetIn, prmSetOut);
 
     TCHAR cpuInfo[256] = { 0 };
-    getCPUInfo(cpuInfo, _countof(cpuInfo));
+    getCPUInfo(cpuInfo, _countof(cpuInfo), m_mfxSession);
 
     TCHAR gpu_info[1024] = { 0 };
     if (Check_HWUsed(impl)) {
