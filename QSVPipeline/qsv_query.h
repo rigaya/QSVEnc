@@ -43,6 +43,7 @@
 #include "rgy_osdep.h"
 #include "mfxstructures.h"
 #include "mfxsession.h"
+#include "mfxvideo++.h"
 #include "rgy_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
@@ -76,7 +77,7 @@ static const TCHAR *const CPU_GEN_STR[] = {
 };
 
 int getCPUGen();
-int getCPUGen(mfxSession session);
+int getCPUGen(MFXVideoSession *pSession);
 
 static const mfxVersion LIB_VER_LIST[] = {
     {  0, 0 },
@@ -263,7 +264,7 @@ enum FeatureListStrType {
     FEATURE_LIST_STR_TYPE_HTML,
 };
 
-mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
+mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId);
 vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId);
@@ -273,12 +274,13 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, co
 tstring MakeFeatureListStr(mfxU64 feature);
 vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType outputType);
 
+mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver);
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
 tstring MakeVppFeatureStr(bool hardware);
 tstring MakeVppFeatureStr(bool hardware, FeatureListStrType outputType);
 
 std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxU32 codecId);
-std::vector<RGY_CSP> CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 codecId);
+std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId);
 CodecCsp MakeDecodeFeatureList(bool hardware, mfxVersion ver, const vector<mfxU32>& codecIdList);
 tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type);
 CodecCsp getHWDecCodecCsp();

@@ -55,8 +55,8 @@ int getCPUName(char *buffer, size_t nSize);
 bool get_cpu_info(cpu_info_t *cpu_info);
 
 #if ENCODER_QSV
-#include "mfxsession.h"
-int getCPUInfo(TCHAR *buffer, size_t nSize, mfxSession session = nullptr);
+#include "mfxvideo++.h"
+int getCPUInfo(TCHAR *buffer, size_t nSize, MFXVideoSession *pSession = nullptr);
 #else
 int getCPUInfo(TCHAR *buffer, size_t nSize);
 #endif

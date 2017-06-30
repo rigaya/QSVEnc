@@ -174,11 +174,11 @@ BOOL check_lib_version(mfxVersion value, mfxVersion required) {
     return TRUE;
 }
 
-std::vector<RGY_CSP> CheckDecFeaturesInternal(mfxSession session, mfxVersion mfxVer, mfxU32 codecId) {
+std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId) {
     std::vector<RGY_CSP> supportedCsp;
     MFXVideoDECODE dec(session);
     mfxIMPL impl;
-    MFXQueryIMPL(session, &impl);
+    session.QueryIMPL(&impl);
     const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
     const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
@@ -309,7 +309,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(mfxSession session, mfxVersion mfx
     return supportedCsp;
 }
 
-mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
+mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     using namespace std;
 
     mfxU64 result = 0x00;
@@ -327,11 +327,11 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
     }
     MFXVideoVPP vpp(session);
     mfxIMPL impl;
-    MFXQueryIMPL(session, &impl);
+    session.QueryIMPL(&impl);
     const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
     const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
-    const bool bSetDoNotUseTag = getCPUGen(session) < CPU_GEN_HASWELL;
+    const bool bSetDoNotUseTag = getCPUGen(&session) < CPU_GEN_HASWELL;
 
     mfxExtVPPDoUse vppDoUse;
     mfxExtVPPDoUse vppDoNotUse;
@@ -493,10 +493,8 @@ mfxU64 CheckVppFeaturesInternal(mfxSession session, mfxVersion mfxVer) {
 #endif
 
 
-mfxSession InitSession(bool useHWLib, MemType& memType) {
-    mfxStatus sts = MFX_ERR_NONE;
-    mfxSession session = NULL;
-
+mfxStatus InitSession(MFXVideoSession& session, bool useHWLib, MemType& memType) {
+    mfxStatus sts = MFX_ERR_INVALID_HANDLE;
     if (useHWLib) {
         //とりあえず、MFX_IMPL_HARDWARE_ANYでの初期化を試みる
         mfxIMPL impl = MFX_IMPL_HARDWARE_ANY;
@@ -505,6 +503,9 @@ mfxSession InitSession(bool useHWLib, MemType& memType) {
         //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
         //D3D11をWin8以降に限定
         if (!check_OS_Win8orLater()) {
+            memType &= (MemType)(~D3D11_MEMORY);
+        }
+        if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
             memType &= (MemType)(~D3D11_MEMORY);
         }
 
@@ -523,11 +524,11 @@ mfxSession InitSession(bool useHWLib, MemType& memType) {
             }
 #endif
             mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-            sts = MFXInit(impl, &verRequired, &session);
+            sts = session.Init(impl, &verRequired);
 
             //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
             if (MFX_ERR_NONE != sts) {
-                sts = MFXInit((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired, &session);
+                sts = session.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
             }
 
             //成功したらループを出る
@@ -538,13 +539,13 @@ mfxSession InitSession(bool useHWLib, MemType& memType) {
     } else {
         mfxIMPL impl = MFX_IMPL_SOFTWARE;
         mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-        sts = MFXInit(impl, &verRequired, &session);
+        sts = session.Init(impl, &verRequired);
         memType = SYSTEM_MEMORY;
     }
-    return session;
+    return sts;
 }
 
-std::unique_ptr<CQSVHWDevice> InitHWDevice(mfxSession session, MemType& memType) {
+std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& memType) {
     mfxStatus sts = MFX_ERR_NONE;
     std::unique_ptr<CQSVHWDevice> hwdev;
     std::shared_ptr<RGYLog> pQSVLog(new RGYLog(nullptr, RGY_LOG_ERROR));
@@ -569,7 +570,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(mfxSession session, MemType& memType)
             //sessionごと切り替える必要がある
             if (memType != D3D9_MEMORY) {
                 memType = D3D9_MEMORY;
-                InitSession(true, memType);
+                InitSession(session, true, memType);
             }
 
             sts = hwdev->Init(window, GetAdapterID(session), pQSVLog);
@@ -588,6 +589,23 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(mfxSession session, MemType& memType)
     return hwdev;
 }
 
+mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver) {
+    mfxU64 feature = 0x00;
+    if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
+        //API v1.3未満で実際にチェックする必要は殆ど無いので、
+        //コードで決められた値を返すようにする
+        feature |= VPP_FEATURE_RESIZE;
+        feature |= VPP_FEATURE_DEINTERLACE;
+        feature |= VPP_FEATURE_DENOISE;
+        feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
+        feature |= VPP_FEATURE_PROC_AMP;
+    } else {
+        feature = CheckVppFeaturesInternal(session, ver);
+    }
+
+    return feature;
+}
+
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
     mfxU64 feature = 0x00;
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
@@ -600,11 +618,11 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
         feature |= VPP_FEATURE_PROC_AMP;
     } else {
         MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
-        if (mfxSession session = InitSession(hardware, memType)) {
+        MFXVideoSession session;
+        if (InitSession(session, hardware, memType) == MFX_ERR_NONE) {
             if (auto hwdevice = InitHWDevice(session, memType)) {
                 feature = CheckVppFeaturesInternal(session, ver);
             }
-            MFXClose(session);
         }
 
     }
@@ -636,11 +654,11 @@ std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxVersion ver, mfxU32 co
     }
 
     MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
-    if (mfxSession session = InitSession(hardware, memType)) {
+    MFXVideoSession session;
+    if (InitSession(session, hardware, memType) == MFX_ERR_NONE) {
         if (auto hwdevice = InitHWDevice(session, memType)) {
             supportedCsp = CheckDecFeaturesInternal(session, ver, codecId);
         }
-        MFXClose(session);
     }
 
     return supportedCsp;
@@ -651,7 +669,7 @@ std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxU32 codecId) {
     return CheckDecodeFeature(hardware, ver, codecId);
 }
 
-mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
+mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
     if (codecId == MFX_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
         return 0x00;
     }
@@ -946,7 +964,7 @@ mfxU64 CheckEncodeFeature(mfxSession session, mfxVersion mfxVer, mfxU16 ratecont
             result &= ~ENC_FEATURE_B_PYRAMID_AND_SC;
         }
         //Kabylake以前では、不安定でエンコードが途中で終了あるいはフリーズしてしまう
-        if ((result & ENC_FEATURE_FADE_DETECT) && getCPUGen(session) < CPU_GEN_KABYLAKE) {
+        if ((result & ENC_FEATURE_FADE_DETECT) && getCPUGen(&session) < CPU_GEN_KABYLAKE) {
             result &= ~ENC_FEATURE_FADE_DETECT;
         }
     }
@@ -1057,7 +1075,8 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
         feature = CheckEncodeFeatureStatic(ver, ratecontrol, codecId);
     } else {
         MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
-        if (mfxSession session = InitSession(hardware, memType)) {
+        MFXVideoSession session;
+        if (InitSession(session, hardware, memType) == MFX_ERR_NONE) {
             if (auto hwdevice = InitHWDevice(session, memType)) {
 
                 CSessionPlugins sessionPlugins(session);
@@ -1071,7 +1090,6 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
                 feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
                 sessionPlugins.UnloadPlugins();
             }
-            MFXClose(session);
         }
         
 #ifdef LIBVA_SUPPORT
@@ -1415,27 +1433,28 @@ int getCPUGen() {
     mfxPlatform platform;
     memset(&platform, 0, sizeof(platform));
     MemType memtype = HW_MEMORY;
-    mfxSession session = InitSession(true, memtype);
+    MFXVideoSession session;
+    InitSession(session, true, memtype);
     mfxVersion mfxVer;
-    MFXQueryVersion(session, &mfxVer);
+    session.QueryVersion(&mfxVer);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
-        MFXVideoCORE_QueryPlatform(session, &platform);
+        session.QueryPlatform(&platform);
         return cpu_gen_rgy_to_enc(platform.CodeName);
     } else {
         return getCPUGenCpuid();
     }
 }
 
-int getCPUGen(mfxSession session) {
-    if (session == nullptr) {
+int getCPUGen(MFXVideoSession *pSession) {
+    if (pSession == nullptr || (mfxSession)(*pSession) == nullptr) {
         return getCPUGen();
     }
     mfxPlatform platform;
     memset(&platform, 0, sizeof(platform));
     mfxVersion mfxVer;
-    MFXQueryVersion(session, &mfxVer);
+    pSession->QueryVersion(&mfxVer);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
-        MFXVideoCORE_QueryPlatform(session, &platform);
+        pSession->QueryPlatform(&platform);
         return cpu_gen_rgy_to_enc(platform.CodeName);
     } else {
         return getCPUGenCpuid();
