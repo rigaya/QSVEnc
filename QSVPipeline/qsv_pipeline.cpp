@@ -5026,6 +5026,11 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 PRINT_INFO(_T("CQP Value      I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
             }
         } else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
+            if (m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_LA_ICQ) {
+                PRINT_INFO(_T("Bitrate        %d kbps\n"), videoPrm.mfx.TargetKbps * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+                PRINT_INFO(_T("%s"), _T("Max Bitrate    "));
+                PRINT_INT_AUTO(_T("%d kbps\n"), videoPrm.mfx.MaxKbps * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+            }
             PRINT_INFO(_T("Lookahead      depth %d frames"), cop2.LookAheadDepth);
             if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
                 PRINT_INFO(_T(", quality %s"), list_lookahead_ds[get_cx_index(list_lookahead_ds, cop2.LookAheadDS)].desc);
@@ -5038,19 +5043,19 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                     PRINT_INFO(_T("%s"), _T("Windowed RC    off\n"));
                 }
             }
-            if (MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+            if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA_ICQ) {
                 PRINT_INFO(_T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
             }
-        } else if (MFX_RATECONTROL_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
+        } else if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_ICQ) {
             PRINT_INFO(_T("ICQ Quality    %d\n"), videoPrm.mfx.ICQQuality);
         } else {
-            PRINT_INFO(_T("Bitrate        %d kbps\n"), (mfxU32)videoPrm.mfx.TargetKbps * (std::max)(m_mfxEncParams.mfx.BRCParamMultiplier, (uint16_t)1));
+            PRINT_INFO(_T("Bitrate        %d kbps\n"), videoPrm.mfx.TargetKbps * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
             if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
                 //PRINT_INFO(_T("AVBR Accuracy range\t%.01lf%%"), m_mfxEncParams.mfx.Accuracy / 10.0);
                 PRINT_INFO(_T("AVBR Converge  %d frames unit\n"), videoPrm.mfx.Convergence * 100);
             } else {
                 PRINT_INFO(_T("%s"), _T("Max Bitrate    "));
-                PRINT_INT_AUTO(_T("%d kbps\n"), (mfxU32)videoPrm.mfx.MaxKbps * (std::max)(m_mfxEncParams.mfx.BRCParamMultiplier, (uint16_t)1));
+                PRINT_INT_AUTO(_T("%d kbps\n"), videoPrm.mfx.MaxKbps * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
                 if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
                     PRINT_INFO(_T("QVBR Quality   %d\n"), cop3.QVBRQuality);
                 }
