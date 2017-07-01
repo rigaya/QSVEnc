@@ -230,7 +230,7 @@ static void ass_log_error_only(int ass_level, const char *fmt, va_list args, voi
 
 // SubBurn class implementation
 SubBurn::SubBurn() :
-    m_nCpuGen(getCPUGen()),
+    m_nCpuGen(getCPUGenCpuid()),
     m_nSimdAvail(get_availableSIMD()),
     m_SubBurnParam(),
     m_vProcessData() {

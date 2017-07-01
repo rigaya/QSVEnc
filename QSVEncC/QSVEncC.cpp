@@ -3192,7 +3192,7 @@ mfxStatus ParseInputString(const TCHAR *strInput[], int nArgNum, sInputParams *p
     pParams->memType           = SYSTEM_MEMORY;
 #endif
     pParams->nBframes          = QSV_BFRAMES_AUTO;
-    pParams->bBPyramid         = getCPUGen() >= CPU_GEN_HASWELL;
+    pParams->bBPyramid         = getCPUGenCpuid() >= CPU_GEN_HASWELL;
     pParams->nGOPLength        = QSV_DEFAULT_GOP_LEN;
     pParams->ColorPrim         = (mfxU16)list_colorprim[0].value;
     pParams->ColorMatrix       = (mfxU16)list_colormatrix[0].value;
