@@ -124,17 +124,15 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl) {
     if (impl == MFX_IMPL_SOFTWARE) {
         return LIB_VER_LIST[0];
     }
-    int i;
-    for (i = 1; LIB_VER_LIST[i].Major; i++) {
-        auto session_deleter = [](MFXVideoSession *session) { session->Close(); };
-        std::unique_ptr<MFXVideoSession, decltype(session_deleter)> test(new MFXVideoSession(), session_deleter);
-        mfxVersion ver;
-        memcpy(&ver, &LIB_VER_LIST[i], sizeof(mfxVersion));
-        mfxStatus sts = test->Init(impl, &ver);
-        if (sts != MFX_ERR_NONE)
-            break;
+    mfxVersion ver = MFX_LIB_VERSION_1_1;
+    auto session_deleter = [](MFXVideoSession *session) { session->Close(); };
+    std::unique_ptr<MFXVideoSession, decltype(session_deleter)> test(new MFXVideoSession(), session_deleter);
+    mfxStatus sts = test->Init(impl, &ver);
+    if (sts != MFX_ERR_NONE) {
+        return LIB_VER_LIST[0];
     }
-    return LIB_VER_LIST[i-1];
+    sts = test->QueryVersion(&ver);
+    return (sts == MFX_ERR_NONE) ? ver : LIB_VER_LIST[0];
 }
 
 mfxVersion get_mfx_libhw_version() {

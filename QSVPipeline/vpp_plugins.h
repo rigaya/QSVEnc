@@ -236,7 +236,7 @@ private:
             m_memType = SYSTEM_MEMORY;
         }
         //使用できる最大のversionをチェック
-        m_mfxVer = get_mfx_lib_version(impl);
+        m_mfxSession.QueryVersion(&m_mfxVer);
         return sts;
     }
     
