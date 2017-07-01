@@ -59,7 +59,7 @@ enum {
     CPU_GEN_AIRMONT,
     CPU_GEN_BROADWELL,
     CPU_GEN_SKYLAKE,
-    CPU_GEN_APPLLOLAKE,
+    CPU_GEN_GOLDMONT,
     CPU_GEN_KABYLAKE,
 };
 
@@ -76,6 +76,7 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("Kabylake"),
 };
 
+int getCPUGenCpuid();
 int getCPUGen();
 int getCPUGen(MFXVideoSession *pSession);
 

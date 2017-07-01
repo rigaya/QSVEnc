@@ -63,19 +63,27 @@
 int getCPUGenCpuid() {
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x01);
-    bool bMOVBE  = !!(CPUInfo[2] & (1<<22));
-    bool bRDRand = !!(CPUInfo[2] & (1<<30));
+    const bool bMOVBE  = !!(CPUInfo[2] & (1<<22));
+    const bool bRDRand = !!(CPUInfo[2] & (1<<30));
 
     __cpuid(CPUInfo, 0x07);
-    bool bClflushOpt = !!(CPUInfo[1] & (1<<23));
-    bool bRDSeed     = !!(CPUInfo[1] & (1<<18));
-    bool bFsgsbase   = !!(CPUInfo[1] & (1));
+    const bool bSHA        = !!(CPUInfo[1] & (1<<29));
+    const bool bClflushOpt = !!(CPUInfo[1] & (1<<23));
+    const bool bADX        = !!(CPUInfo[1] & (1<<19));
+    const bool bRDSeed     = !!(CPUInfo[1] & (1<<18));
+    const bool bFsgsbase   = !!(CPUInfo[1] & (1));
 
-    if (bClflushOpt) return CPU_GEN_SKYLAKE;
+    if (bSHA && !bADX)       return CPU_GEN_GOLDMONT;
+    if (bClflushOpt)         return CPU_GEN_SKYLAKE;
     if (bRDSeed)             return CPU_GEN_BROADWELL;
     if (bMOVBE && bFsgsbase) return CPU_GEN_HASWELL;
-    if (bFsgsbase) return CPU_GEN_IVYBRIDGE;
-    if (bRDRand)   return CPU_GEN_SILVERMONT;
+    if (bFsgsbase)           return CPU_GEN_IVYBRIDGE;
+
+    if (bRDRand) {
+        __cpuid(CPUInfo, 0x02);
+        return (CPUInfo[0] == 0x61B4A001) ? CPU_GEN_AIRMONT : CPU_GEN_SILVERMONT;
+    }
+
     return CPU_GEN_SANDYBRIDGE;
 }
 #endif
@@ -87,9 +95,9 @@ static const auto RGY_CPU_GEN_TO_MFX = make_array<std::pair<int, uint32_t>>(
     std::make_pair(CPU_GEN_HASWELL, MFX_PLATFORM_HASWELL),
     std::make_pair(CPU_GEN_SILVERMONT, MFX_PLATFORM_BAYTRAIL),
     std::make_pair(CPU_GEN_BROADWELL, MFX_PLATFORM_BROADWELL),
-    std::make_pair(CPU_GEN_SILVERMONT, MFX_PLATFORM_CHERRYTRAIL),
+    std::make_pair(CPU_GEN_AIRMONT, MFX_PLATFORM_CHERRYTRAIL),
     std::make_pair(CPU_GEN_SKYLAKE, MFX_PLATFORM_SKYLAKE),
-    std::make_pair(CPU_GEN_APPLLOLAKE, MFX_PLATFORM_APOLLOLAKE),
+    std::make_pair(CPU_GEN_GOLDMONT, MFX_PLATFORM_APOLLOLAKE),
     std::make_pair(CPU_GEN_KABYLAKE, MFX_PLATFORM_KABYLAKE)
     );
 MAP_PAIR_0_1(cpu_gen, rgy, int, enc, uint32_t, RGY_CPU_GEN_TO_MFX, CPU_GEN_UNKNOWN, MFX_PLATFORM_UNKNOWN);
