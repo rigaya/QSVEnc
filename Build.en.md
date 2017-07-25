@@ -72,7 +72,7 @@ After preparations are done, open QSVEnc.sln, and set headers below in the inclu
 
 Finally, start build of QSVEnc by Visual Studio.
 
-||For Debug build|For Release build|
-|:--------------|:----------------------------------|
+|  |For Debug build|For Release build|
+|:--------------|:--------------|:--------|
 |QSVEnc.auo (win32 only) | Debug | Release |
 |QSVEncC(64).exe | DebugStatic | RelStatic |
