@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <sstream>
+#include <fcntl.h>
 #include "rgy_input_raw.h"
 
 #if ENABLE_RAW_READER
@@ -174,6 +175,12 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     bool use_stdin = _tcscmp(strFileName, _T("-")) == 0;
     if (use_stdin) {
         m_fSource = stdin;
+#if defined(_WIN32) || defined(_WIN64)
+        if (_setmode(_fileno(stdin), _O_BINARY) < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to switch stdin to binary mode.\n"));
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         AddMessage(RGY_LOG_DEBUG, _T("output to stdout.\n"));
     } else {
         int error = 0;
