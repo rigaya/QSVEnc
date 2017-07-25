@@ -284,7 +284,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
     str += strsprintf(_T("\n")
         _T("Basic Encoding Options: \n")
         _T("-c,--codec <string>             set encode codec\n")
-        _T("                                 - h264(default), hevc, mpeg2\n")
+        _T("                                 - h264(default), hevc, mpeg2, raw\n")
         _T("-i,--input-file <filename>      set input file name\n")
         _T("-o,--output-file <filename>     set ouput file name\n")
 #if ENABLE_AVSW_READER
@@ -307,7 +307,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #endif
 #if ENABLE_AVSW_READER
         _T("   --avqsv                      set input to use avcodec + qsv\n")
-        _T("   --avsw                       set input to use avcodec + sw deocder\n")
+        _T("   --avsw                       set input to use avcodec + sw decoder\n")
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avqsv/avsw reader.\n")
@@ -373,7 +373,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("         mixing input channels to stereo.\n")
         _T("       example3: --audio-stream 5.1,5.1:stereo\n")
         _T("         keeping 5.1ch audio and also adding downmixed stereo stream.\n")
-        _T("       usable simbols\n")
+        _T("       usable symbols\n")
         _T("         mono       = FC\n")
         _T("         stereo     = FL + FR\n")
         _T("         2.1        = FL + FR + LFE\n")
@@ -399,7 +399,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                  in [<int>?], specify track number of audio.\n")
         _T("   --chapter-copy               copy chapter to output file.\n")
         _T("   --chapter <string>           set chapter from file specified.\n")
-        _T("   --chapter-no-trim            do not applyapply trim to chapter file.\n")
+        _T("   --chapter-no-trim            do not apply trim to chapter file.\n")
         _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
         _T("                                 these could be only used with\n")
         _T("                                 avqsv reader and avcodec muxer.\n")
@@ -434,7 +434,7 @@ static tstring help(const TCHAR *strAppName = nullptr) {
 #ifdef D3D_SURFACES_SUPPORT
         _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
         _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
-        _T(" On particular cases, sush as runnning on a system with dGPU, or running\n")
+        _T(" On particular cases, such as runnning on a system with dGPU, or running\n")
         _T(" vpp-rotate, will require the uses of d3d11 surface.\n")
         _T(" Options below will change this default behavior.\n")
         _T("\n")
@@ -522,8 +522,8 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("   --strict-gop                 force gop structure\n")
         _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
         _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
-        _T("   --(no-)weightp               enable weight prediction for P frame\n")
-        _T("   --(no-)weightb               enable weight prediction for B frame\n")
+        _T("   --(no-)weightp               enable weighted prediction for P frame\n")
+        _T("   --(no-)weightb               enable weighted prediction for B frame\n")
         _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
 #if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")
