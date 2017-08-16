@@ -1284,12 +1284,14 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
 
     memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
 
-    m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
-    m_mfxVppParams.vpp.Out.FourCC         = m_mfxEncParams.mfx.FrameInfo.FourCC;
-    m_mfxVppParams.vpp.Out.BitDepthLuma   = m_mfxEncParams.mfx.FrameInfo.BitDepthLuma;
-    m_mfxVppParams.vpp.Out.BitDepthChroma = m_mfxEncParams.mfx.FrameInfo.BitDepthChroma;
-    m_mfxVppParams.vpp.Out.Shift          = m_mfxEncParams.mfx.FrameInfo.Shift;
-    m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
+    if (m_mfxEncParams.mfx.FrameInfo.FourCC) {
+        m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
+        m_mfxVppParams.vpp.Out.FourCC         = m_mfxEncParams.mfx.FrameInfo.FourCC;
+        m_mfxVppParams.vpp.Out.BitDepthLuma   = m_mfxEncParams.mfx.FrameInfo.BitDepthLuma;
+        m_mfxVppParams.vpp.Out.BitDepthChroma = m_mfxEncParams.mfx.FrameInfo.BitDepthChroma;
+        m_mfxVppParams.vpp.Out.Shift          = m_mfxEncParams.mfx.FrameInfo.Shift;
+        m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
+    }
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
         switch (pInParams->vpp.nDeinterlace) {
@@ -2264,7 +2266,7 @@ RGY_CSP CQSVPipeline::EncoderCsp(const sInputParams *pParams, int *pShift) {
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     RGY_ERR ret = RGY_ERR_NONE;
     bool stdoutUsed = false;
-    const auto outputVideoInfo = videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo);
+    const auto outputVideoInfo = (pParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
 #if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =

@@ -144,6 +144,22 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
 }
 
 RGY_NOINLINE
+VideoInfo videooutputinfo(const mfxFrameInfo& frameinfo) {
+    VideoInfo info;
+    info.dstWidth = frameinfo.CropW;
+    info.dstHeight = frameinfo.CropH;
+    info.fpsN = frameinfo.FrameRateExtN;
+    info.fpsD = frameinfo.FrameRateExtD;
+    info.sar[0] = frameinfo.AspectRatioW;
+    info.sar[1] = frameinfo.AspectRatioH;
+    info.picstruct = picstruct_enc_to_rgy(frameinfo.PicStruct);
+    info.shift = (frameinfo.Shift) ? 16 - frameinfo.BitDepthLuma : 0;
+    info.csp = csp_enc_to_rgy(frameinfo.FourCC);
+    return info;
+}
+
+
+RGY_NOINLINE
 const TCHAR *get_err_mes(int sts) {
     switch (sts) {
     case MFX_ERR_NONE:                     return _T("no error.");
