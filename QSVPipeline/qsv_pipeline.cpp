@@ -4898,13 +4898,15 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         DstPicInfo = videoPrm.mfx.FrameInfo;
     }
 
-    mfxParamSet prmSetOut;
-    prmSetOut.vidprm = videoPrm;
-    prmSetOut.cop    = cop;
-    prmSetOut.cop2   = cop2;
-    prmSetOut.cop3   = cop3;
+    if (m_pmfxENC) {
+        mfxParamSet prmSetOut;
+        prmSetOut.vidprm = videoPrm;
+        prmSetOut.cop    = cop;
+        prmSetOut.cop2   = cop2;
+        prmSetOut.cop3   = cop3;
 
-    CompareParam(m_prmSetIn, prmSetOut);
+        CompareParam(m_prmSetIn, prmSetOut);
+    }
 
     TCHAR cpuInfo[256] = { 0 };
     getCPUInfo(cpuInfo, _countof(cpuInfo), &m_mfxSession);
