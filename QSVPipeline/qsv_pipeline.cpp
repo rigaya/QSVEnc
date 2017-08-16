@@ -3203,18 +3203,19 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     if (true) {
         m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
+        const bool bLogOutput = pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot;
         tstring perfMonLog;
-        if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
+        if (bLogOutput) {
             perfMonLog = tstring(pParams->strDstFile) + _T("_perf.csv");
         }
-        if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->pPythonPath, pParams->nPerfMonitorInterval,
+        if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->pPythonPath, (bLogOutput) ? pParams->nPerfMonitorInterval : 1000,
             (int)pParams->nPerfMonitorSelect, (int)pParams->nPerfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)
             std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
 #else
             nullptr,
 #endif
-            m_pQSVLog)) {
+            m_pQSVLog, nullptr)) {
             PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
             m_pPerfMonitor.reset();
         }

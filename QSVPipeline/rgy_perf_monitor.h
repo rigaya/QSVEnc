@@ -35,6 +35,7 @@
 #include <memory>
 #include <map>
 #include "cpu_info.h"
+#include "gpuz_info.h"
 #include "rgy_util.h"
 #include "rgy_pipe.h"
 #include "rgy_log.h"
@@ -47,6 +48,10 @@
 #include <observation/building_blocks.h>
 #pragma warning(pop)
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+#include "nvml.h"
+#define NVML_DLL_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvml.dll)")
+#endif
 
 #ifndef HANDLE
 typedef void * HANDLE;
@@ -80,7 +85,9 @@ enum : int {
     PERF_MONITOR_QUEUE_AUD_IN  = 0x00400000,
     PERF_MONITOR_QUEUE_AUD_OUT = 0x00800000,
     PERF_MONITOR_MFX_LOAD      = 0x01000000,
-    PERF_MONITOR_VE_LOAD       = 0x02000000,
+    PERF_MONITOR_VE_CLOCK      = 0x02000000,
+    PERF_MONITOR_VEE_LOAD      = 0x04000000,
+    PERF_MONITOR_VED_LOAD      = 0x08000000,
     PERF_MONITOR_ALL         = (int)UINT_MAX,
 };
 
@@ -107,13 +114,15 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("bitrate"),     PERF_MONITOR_BITRATE },
     { _T("bitrate_avg"), PERF_MONITOR_BITRATE_AVG },
     { _T("frame_out"),   PERF_MONITOR_FRAME_OUT },
-    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VE_LOAD | PERF_MONITOR_GPU_CLOCK },
+    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VEE_LOAD | PERF_MONITOR_VED_LOAD | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_VE_CLOCK },
     { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
     { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
 #if ENABLE_METRIC_FRAMEWORK
     { _T("mfx"),         PERF_MONITOR_MFX_LOAD },
 #endif
-    { _T("ve"),          PERF_MONITOR_VE_LOAD },
+    { _T("vee_load"),    PERF_MONITOR_VEE_LOAD },
+    { _T("ved_load"),    PERF_MONITOR_VEE_LOAD },
+    { _T("ve_clock"),    PERF_MONITOR_VE_CLOCK },
     { _T("queue"),       PERF_MONITOR_QUEUE_VID_IN | PERF_MONITOR_QUEUE_VID_OUT | PERF_MONITOR_QUEUE_AUD_IN | PERF_MONITOR_QUEUE_AUD_OUT },
     { nullptr, 0 }
 };
@@ -165,7 +174,9 @@ struct PerfInfo {
 
     double  mfx_load_percent;
 
-    double  ve_load_percent;
+    double  vee_load_percent;
+    double  ved_load_percent;
+    double  ve_clock;
 };
 
 struct PerfOutputInfo {
@@ -220,6 +231,76 @@ private:
 };
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
+#if ENABLE_NVML
+#define NVML_FUNCPTR(x) typedef decltype(x)* pf ## x;
+
+NVML_FUNCPTR(nvmlInit);
+NVML_FUNCPTR(nvmlShutdown);
+NVML_FUNCPTR(nvmlErrorString);
+NVML_FUNCPTR(nvmlDeviceGetCount);
+NVML_FUNCPTR(nvmlDeviceGetHandleByIndex);
+NVML_FUNCPTR(nvmlDeviceGetUtilizationRates);
+NVML_FUNCPTR(nvmlDeviceGetEncoderUtilization);
+NVML_FUNCPTR(nvmlDeviceGetDecoderUtilization);
+NVML_FUNCPTR(nvmlDeviceGetMemoryInfo);
+NVML_FUNCPTR(nvmlDeviceGetClockInfo);
+NVML_FUNCPTR(nvmlSystemGetDriverVersion);
+NVML_FUNCPTR(nvmlSystemGetNVMLVersion);
+
+#undef NVML_FUNCPTR
+
+#define NVML_FUNC(x) pf ## x f_ ## x;
+
+struct NVMLFuncList {
+    NVML_FUNC(nvmlInit)
+    NVML_FUNC(nvmlShutdown)
+    NVML_FUNC(nvmlErrorString)
+    NVML_FUNC(nvmlDeviceGetCount)
+    NVML_FUNC(nvmlDeviceGetHandleByIndex)
+    NVML_FUNC(nvmlDeviceGetUtilizationRates)
+    NVML_FUNC(nvmlDeviceGetEncoderUtilization)
+    NVML_FUNC(nvmlDeviceGetDecoderUtilization)
+    NVML_FUNC(nvmlDeviceGetMemoryInfo)
+    NVML_FUNC(nvmlDeviceGetClockInfo)
+    NVML_FUNC(nvmlSystemGetDriverVersion)
+    NVML_FUNC(nvmlSystemGetNVMLVersion)
+};
+#undef NVML_FUNC
+
+struct NVMLMonitorInfo {
+    bool bDataValid;
+    double dGPULoad;
+    double dGPUFreq;
+    double dVEELoad;
+    double dVEDLoad;
+    double dVEFreq;
+};
+
+class NVMLMonitor {
+private:
+    HMODULE m_hDll;
+    NVMLFuncList m_func;
+    nvmlDevice_t m_device;
+
+    nvmlReturn_t LoadDll();
+    void Close();
+public:
+    NVMLMonitor() : m_hDll(NULL), m_func({ 0 }) {};
+    ~NVMLMonitor() {
+        Close();
+    }
+    nvmlReturn_t Init(int deviceId);
+    nvmlReturn_t getData(NVMLMonitorInfo *info);
+    nvmlReturn_t getDriverVersionx1000(int& ver);
+};
+#endif //#if ENABLE_NVML
+
+struct CPerfMonitorPrm {
+#if ENABLE_NVML
+    int deviceId;
+#endif
+    char reserved[256];
+};
 
 class CPerfMonitor {
 public:
@@ -227,7 +308,7 @@ public:
     int init(tstring filename, const TCHAR *pPythonPath,
         int interval, int nSelectOutputLog, int nSelectOutputMatplot,
         std::unique_ptr<void, handle_deleter> thMainThread,
-        std::shared_ptr<RGYLog> pRGYLog);
+        std::shared_ptr<RGYLog> pRGYLog, CPerfMonitorPrm *prm);
     ~CPerfMonitor();
 
     void SetEncStatus(std::shared_ptr<EncodeStatus> encStatus);
@@ -240,6 +321,16 @@ public:
         return m_Consumer.getMFXLoad(info);
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    bool GetNVMLInfo(NVMLMonitorInfo *info) {
+        memcpy(info, &m_nvmlInfo, sizeof(m_nvmlInfo));
+        return m_nvmlInfo.bDataValid;
+    }
+#endif //#if ENABLE_METRIC_FRAMEWORK
+    bool GetGPUZInfo(GPUZ_SH_MEM *info) {
+        memcpy(info, &m_GPUZInfo, sizeof(m_GPUZInfo));
+        return m_bGPUZInfoValid;
+    }
 
     void clear();
 protected:
@@ -287,6 +378,12 @@ protected:
     std::unique_ptr<IClientManager> m_pManager;
     CQSVConsumer m_Consumer;
 #endif //#if ENABLE_METRIC_FRAMEWORK
+#if ENABLE_NVML
+    NVMLMonitor m_nvmlMonitor;
+    NVMLMonitorInfo m_nvmlInfo;
+#endif //#if ENABLE_NVML
+    GPUZ_SH_MEM m_GPUZInfo;
+    bool m_bGPUZInfoValid;
 };
 
 
