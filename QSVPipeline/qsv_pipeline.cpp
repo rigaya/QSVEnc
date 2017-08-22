@@ -1257,6 +1257,12 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         m_mfxVppParams.vpp.In.ChromaFormat   = inputFrameInfo.ChromaFormat;
         m_mfxVppParams.vpp.In.BitDepthLuma   = (pInParams->inputBitDepthLuma) ? pInParams->inputBitDepthLuma : inputFrameInfo.BitDepthLuma;
         m_mfxVppParams.vpp.In.BitDepthChroma = (pInParams->inputBitDepthChroma) ? pInParams->inputBitDepthChroma : inputFrameInfo.BitDepthChroma;
+        if (m_mfxVppParams.vpp.In.ChromaFormat == MFX_CHROMAFORMAT_YUV422) {
+            //10を指定しないとおかしな変換が行われる
+            if (m_mfxVppParams.vpp.In.BitDepthLuma > 8) m_mfxVppParams.vpp.In.BitDepthLuma = 10;
+            if (m_mfxVppParams.vpp.In.BitDepthChroma > 8) m_mfxVppParams.vpp.In.BitDepthChroma = 10;
+            if (m_mfxVppParams.vpp.In.BitDepthLuma > 8) m_mfxVppParams.vpp.In.Shift = 1;
+        }
         //QSVデコーダは特別にShiftパラメータを使う可能性がある
         if (inputFrameInfo.Shift) {
             m_mfxVppParams.vpp.In.Shift      = inputFrameInfo.Shift;
