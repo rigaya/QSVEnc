@@ -708,7 +708,6 @@ typedef struct AvcodecReaderPrm {
     const TCHAR   *pFramePosListLog;        //FramePosListの内容を入力終了時に出力する (デバッグ用)
     const TCHAR   *pLogCopyFrameData;       //frame情報copy関数のログ出力先 (デバッグ用)
     int            nInputThread;            //入力スレッドを有効にする
-    bool           bAudioIgnoreNoTrackError; //音声が見つからなかった場合のエラーを無視する
     PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
     const CodecCsp *pHWDecCodecCsp;           //HWデコーダのサポートするコーデックと色空間
 } AvcodecReaderPrm;

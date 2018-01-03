@@ -281,7 +281,7 @@ struct sInputParams
     RGYAVSync  nAVSyncMode;     //avsyncの方法 (RGY_AVSYNC_xxx)
     uint16_t   nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
     int8_t     nInputThread;
-    int8_t     bAudioIgnoreNoTrackError;
+    int8_t     unused;
     float      fSeekSec; //指定された秒数分先頭を飛ばす
     TCHAR     *pFramePosListLog;
     uint32_t   nFallback;

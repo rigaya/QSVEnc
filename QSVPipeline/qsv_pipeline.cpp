@@ -2672,7 +2672,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 avcodecReaderPrm.nInputThread = pParams->nInputThread;
-                avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError != 0;
                 avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
                 avcodecReaderPrm.pHWDecCodecCsp = &HWDecCodecCsp;
@@ -2722,7 +2721,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
             avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_THROUGH;
             avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
-            avcodecReaderPrm.bAudioIgnoreNoTrackError = pParams->bAudioIgnoreNoTrackError != 0;
             avcodecReaderPrm.nInputThread = 0;
             avcodecReaderPrm.pQueueInfo = nullptr;
 
