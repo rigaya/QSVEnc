@@ -3148,8 +3148,8 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
             }
 #if defined(_WIN32) || defined(_WIN64)
         }
-#endif
     }
+#endif
 
     //使用できる最大のversionをチェック
     m_mfxSession.QueryVersion(&m_mfxVer);

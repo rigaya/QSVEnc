@@ -88,7 +88,7 @@ LIBVA_SUPPORT=1
 CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
 LIBAV_CFLAGS=""
 LIBAV_LIBS=""
-ENABLE_AVCODEC_QSV_READER=1
+ENABLE_AVSW_READER=1
 
 CHECK_VAPOURSYNTH_NAMES="vapoursynth vapoursynth-script"
 ENABLE_VAPOURSYNTH=1
@@ -172,7 +172,7 @@ for opt; do
             LIBVA_SUPPORT=0
             ;;
         --disable-libav)
-            ENABLE_AVCODEC_QSV_READER=0
+            ENABLE_AVSW_READER=0
             ;;
         --disable-vapoursynth)
             ENABLE_VAPOURSYNTH=0
@@ -415,7 +415,7 @@ if [ $? -ne 0 ]; then
 fi
 echo "OK"
 
-if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
+if [ $ENABLE_AVSW_READER -ne 0 ]; then
     if [ $USE_PKGCONFIG -ne 0 ]; then
         printf "checking libavcodec with pkg-config..."
         if ! ${PKGCONFIG} --exists $CHECK_LIBAV_NAMES ; then
@@ -438,7 +438,7 @@ if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
     printf "checking for libavutil.."
     if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavutil/avutil.h" "avutil_version();" ; then
         echo "no"
-        ENABLE_AVCODEC_QSV_READER=0
+        ENABLE_AVSW_READER=0
     else
         echo "yes"
     fi
@@ -446,7 +446,7 @@ if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
     printf "checking for libavcodec..."
     if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavcodec/avcodec.h" "avcodec_find_decoder((AVCodecID)0);" ; then
         echo "no"
-        ENABLE_AVCODEC_QSV_READER=0
+        ENABLE_AVSW_READER=0
     else
         echo "yes"
     fi
@@ -454,7 +454,7 @@ if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
     printf "checking for libavformat..."
     if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavformat/avformat.h" "avformat_find_stream_info(0,0);" ; then
         echo "no"
-        ENABLE_AVCODEC_QSV_READER=0
+        ENABLE_AVSW_READER=0
     else
         echo "yes"
     fi
@@ -462,7 +462,7 @@ if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
     printf "checking for libavfilter..."
     if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libavfilter/avfilter.h" "avfilter_register_all();" ; then
         echo "no"
-        ENABLE_AVCODEC_QSV_READER=0
+        ENABLE_AVSW_READER=0
     else
         echo "yes"
     fi
@@ -470,11 +470,11 @@ if [ $ENABLE_AVCODEC_QSV_READER -ne 0 ]; then
     printf "checking for libswresample..."
     if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "libswresample/swresample.h" "swr_alloc();" ; then
         echo "no"
-        ENABLE_AVCODEC_QSV_READER=0
+        ENABLE_AVSW_READER=0
     else
         echo "yes"
     fi
-    if [ $ENABLE_AVCODEC_QSV_READER -eq 0 ]; then
+    if [ $ENABLE_AVSW_READER -eq 0 ]; then
         LIBAV_CFLAGS=""
         LIBAV_LIBS=""
     fi
@@ -683,7 +683,7 @@ write_qsv_rev    "#define QSVENC_REV                  \"$QSVENC_REV\""
 write_qsv_config "#define ENABLE_AVI_READER             0"
 write_qsv_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_qsv_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
-write_qsv_config "#define ENABLE_AVCODEC_QSV_READER     $ENABLE_AVCODEC_QSV_READER"
+write_qsv_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER"
 write_qsv_config "#define ENABLE_CUSTOM_VPP             1"
 write_qsv_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"         
 write_qsv_config "#define ENABLE_ADVANCED_DEINTERLACE   0"

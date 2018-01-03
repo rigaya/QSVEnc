@@ -113,6 +113,8 @@ const char *get_encoder_version();
 #define MFX_D3D11_SUPPORT 0
 #define ENABLE_METRIC_FRAMEWORK 0
 #include "rgy_config.h"
+#define ENCODER_NAME              "QSVEncC"
+#define DECODER_NAME              "qsv"
 #endif // #if defined(WIN32) || defined(WIN64)
 
 #endif //__RGY_CONFIG_H__
