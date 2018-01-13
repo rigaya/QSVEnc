@@ -783,8 +783,8 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
     videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BALANCED;
     videoPrm.mfx.EncodedOrder            = 0;
     videoPrm.mfx.NumSlice                = 1;
-    videoPrm.mfx.NumRefFrame             = 2;
-    videoPrm.mfx.GopPicSize              = 30;
+    videoPrm.mfx.NumRefFrame             = 0;
+    videoPrm.mfx.GopPicSize              = 300;
     videoPrm.mfx.IdrInterval             = 0;
     videoPrm.mfx.GopOptFlag              = 0;
     videoPrm.mfx.GopRefDist              = 4;
