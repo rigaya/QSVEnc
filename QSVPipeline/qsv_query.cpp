@@ -970,8 +970,13 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
             result &= ~ENC_FEATURE_B_PYRAMID_AND_SC;
         }
         //Kabylake以前では、不安定でエンコードが途中で終了あるいはフリーズしてしまう
-        if ((result & ENC_FEATURE_FADE_DETECT) && getCPUGen(&session) < CPU_GEN_KABYLAKE) {
+        auto cpu_gen = getCPUGen(&session);
+        if ((result & ENC_FEATURE_FADE_DETECT) && cpu_gen < CPU_GEN_KABYLAKE) {
             result &= ~ENC_FEATURE_FADE_DETECT;
+        }
+        //Kabylake以降では、10bit depthに対応しているはずだが、これが正常に判定されないことがある
+        if (codecId == MFX_CODEC_HEVC && cpu_gen >= CPU_GEN_KABYLAKE) {
+            result |= ENC_FEATURE_10BIT_DEPTH;
         }
     }
 #undef CHECK_FEATURE
