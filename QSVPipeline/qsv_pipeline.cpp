@@ -5070,18 +5070,6 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 }
             }
         }
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19) && (cop3.EnableQPOffset == MFX_CODINGOPTION_ON)) {
-            tstring bufQPOffset;
-            uint32_t fin = _countof(cop3.QPOffset);
-            while (fin > 0 && cop3.QPOffset[fin] != cop3.QPOffset[fin-1]) {
-                fin--;
-            }
-            for (uint32_t i = 0; i < fin; i++) {
-                bufQPOffset += ((i) ? _T(", ") : _T(""));
-                bufQPOffset += strsprintf(_T("%d"), cop3.QPOffset[i]);
-            }
-            PRINT_INFO(_T("Pyram QPOffset %s\n"), bufQPOffset.c_str());
-        }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
             auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {
                 mfxU8 limit[3] = { limitI, limitP, limitB };
@@ -5198,6 +5186,11 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
             if (cop3.FadeDetection == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("FadeDetect ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
+            if (cop3.EnableQPOffset == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("QPOffset ");
             }
         }
         //if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {
