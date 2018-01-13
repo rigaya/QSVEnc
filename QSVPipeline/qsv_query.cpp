@@ -766,7 +766,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
     videoPrm.mfx.RateControlMethod       = (ratecontrol == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : ratecontrol;
     switch (codecId) {
     case MFX_CODEC_HEVC:
-        videoPrm.mfx.CodecLevel          = MFX_LEVEL_HEVC_4;
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile        = MFX_PROFILE_HEVC_MAIN;
         break;
     case MFX_CODEC_VP8:
@@ -785,6 +785,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
     videoPrm.mfx.NumSlice                = 1;
     videoPrm.mfx.NumRefFrame             = 2;
     videoPrm.mfx.GopPicSize              = 30;
+    videoPrm.mfx.IdrInterval             = 0;
     videoPrm.mfx.GopOptFlag              = 0;
     videoPrm.mfx.GopRefDist              = 4;
     videoPrm.mfx.FrameInfo.FrameRateExtN = 30000;
@@ -873,13 +874,17 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
             memcpy(&cop2Out, &cop2, sizeof(cop2)); \
             memcpy(&cop3Out, &cop3, sizeof(cop3)); \
             memcpy(&hevcOut, &hevc, sizeof(hevc)); \
-            if (MFX_ERR_NONE <= encode.Query(&videoPrm, &videoPrmOut) \
+            auto check_ret = encode.Query(&videoPrm, &videoPrmOut); \
+            if (MFX_ERR_NONE <= check_ret \
                 && (membersIn) == (membersOut) \
-                && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) \
+                && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) { \
                 result |= (flag); \
+            } else { \
+                /*_ftprintf(stderr, _T("error checking " # flag ": %s\n"), get_err_mes(err_to_rgy(check_ret)));*/ \
+            } \
             (membersIn) = temp; \
         } \
-    }\
+    }
         //これはもう単純にAPIチェックでOK
         if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
             result |= ENC_FEATURE_VUI_INFO;
