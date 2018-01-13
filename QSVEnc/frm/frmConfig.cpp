@@ -1343,7 +1343,7 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
     cnf->qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
     cnf->qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
-    cnf->qsv.nWeightB               = (mfxU16)(fcgCBWeightB->Checked    ? MFX_WEIGHTED_PRED_IMPLICIT : MFX_WEIGHTED_PRED_UNKNOWN);
+    cnf->qsv.nWeightB               = (mfxU16)(fcgCBWeightB->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
     cnf->qsv.nFadeDetect            = (mfxU16)(fcgCBFadeDetect->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     cnf->qsv.bBPyramid              = fcgCBBPyramid->Checked;
     cnf->qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
