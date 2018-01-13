@@ -2127,7 +2127,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("weightb"))) {
-        pParams->nWeightB = MFX_WEIGHTED_PRED_IMPLICIT;
+        pParams->nWeightB = MFX_WEIGHTED_PRED_DEFAULT;
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("no-weightb"))) {
