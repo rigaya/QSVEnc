@@ -208,7 +208,7 @@ public:
             if ((m_pPerfMonitor && m_pPerfMonitor->GetGPUZInfo(&gpu_info))
                 || 0 == get_gpuz_info(&gpu_info)) {
                 const double gpu_usage = gpu_load(&gpu_info);
-                const double ve_usage = video_engine_load(&gpu_info, &bVideoEngineUsage);;
+                const double ve_usage = video_engine_load(&gpu_info, &bVideoEngineUsage);
 
                 bGPUUsage = true;
                 m_sData.GPUInfoCountSuccess++;
@@ -376,7 +376,7 @@ public:
 #endif
             } else {
                 int gpu_clock_avg = (int)(m_sData.GPUClockTotal / m_sData.GPUInfoCountSuccess + 0.5);
-                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.1f%%, GPU: %.1f%%, GPUClockAvg: %dMHz\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, gpu_clock_avg);
+                _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPU: %.1f%%, GPU: %.1f%%, GPUClock: %dMHz\n"), hh, mm, ss, m_sData.CPUUsagePercent, gpu_load, gpu_clock_avg);
             }
         } else {
             _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.1f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent);
