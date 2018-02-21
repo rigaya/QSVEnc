@@ -35,10 +35,10 @@
 #include <memory>
 #include <map>
 #include "cpu_info.h"
-#include "gpuz_info.h"
 #include "rgy_util.h"
 #include "rgy_pipe.h"
 #include "rgy_log.h"
+#include "gpuz_info.h"
 
 #if ENABLE_METRIC_FRAMEWORK
 #pragma warning(push)
@@ -52,6 +52,7 @@
 #include "nvml.h"
 #define NVML_DLL_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvml.dll)")
 #endif
+#define NVSMI_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvidia-smi.exe)")
 
 #ifndef HANDLE
 typedef void * HANDLE;
@@ -231,14 +232,28 @@ private:
 };
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
+struct NVMLMonitorInfo {
+    bool bDataValid;
+    double dGPULoad;
+    double dGPUFreq;
+    double dVEELoad;
+    double dVEDLoad;
+    double dVEFreq;
+    int64_t nMemFree;
+    int64_t nMemUsage;
+    int64_t nMemMax;
+};
+
 #if ENABLE_NVML
+const TCHAR *nvmlErrStr(nvmlReturn_t ret);
+
 #define NVML_FUNCPTR(x) typedef decltype(x)* pf ## x;
 
 NVML_FUNCPTR(nvmlInit);
 NVML_FUNCPTR(nvmlShutdown);
 NVML_FUNCPTR(nvmlErrorString);
 NVML_FUNCPTR(nvmlDeviceGetCount);
-NVML_FUNCPTR(nvmlDeviceGetHandleByIndex);
+NVML_FUNCPTR(nvmlDeviceGetHandleByPciBusId);
 NVML_FUNCPTR(nvmlDeviceGetUtilizationRates);
 NVML_FUNCPTR(nvmlDeviceGetEncoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetDecoderUtilization);
@@ -256,7 +271,7 @@ struct NVMLFuncList {
     NVML_FUNC(nvmlShutdown)
     NVML_FUNC(nvmlErrorString)
     NVML_FUNC(nvmlDeviceGetCount)
-    NVML_FUNC(nvmlDeviceGetHandleByIndex)
+    NVML_FUNC(nvmlDeviceGetHandleByPciBusId)
     NVML_FUNC(nvmlDeviceGetUtilizationRates)
     NVML_FUNC(nvmlDeviceGetEncoderUtilization)
     NVML_FUNC(nvmlDeviceGetDecoderUtilization)
@@ -266,15 +281,6 @@ struct NVMLFuncList {
     NVML_FUNC(nvmlSystemGetNVMLVersion)
 };
 #undef NVML_FUNC
-
-struct NVMLMonitorInfo {
-    bool bDataValid;
-    double dGPULoad;
-    double dGPUFreq;
-    double dVEELoad;
-    double dVEDLoad;
-    double dVEFreq;
-};
 
 class NVMLMonitor {
 private:
@@ -289,15 +295,25 @@ public:
     ~NVMLMonitor() {
         Close();
     }
-    nvmlReturn_t Init(int deviceId);
+    nvmlReturn_t Init(const std::string& pciBusId);
     nvmlReturn_t getData(NVMLMonitorInfo *info);
     nvmlReturn_t getDriverVersionx1000(int& ver);
 };
+
 #endif //#if ENABLE_NVML
+
+class NVSMIInfo {
+private:
+    std::string m_NVSMIOut;
+public:
+    NVSMIInfo() {};
+    ~NVSMIInfo() {};
+    int getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid);
+};
 
 struct CPerfMonitorPrm {
 #if ENABLE_NVML
-    int deviceId;
+    const char *pciBusId;
 #endif
     char reserved[256];
 };
@@ -317,7 +333,7 @@ public:
         return &m_QueueInfo;
     }
 #if ENABLE_METRIC_FRAMEWORK
-    bool CPerfMonitor::GetQSVInfo(QSVGPUInfo *info) {
+    bool GetQSVInfo(QSVGPUInfo *info) {
         return m_Consumer.getMFXLoad(info);
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
@@ -332,7 +348,7 @@ public:
         memcpy(info, &m_GPUZInfo, sizeof(m_GPUZInfo));
         return m_bGPUZInfoValid;
     }
-#endif //ENABLE_GPUZ_INFO
+#endif //#if ENABLE_GPUZ_INFO
 
     void clear();
 protected:

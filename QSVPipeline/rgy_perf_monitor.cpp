@@ -133,13 +133,44 @@ void CQSVConsumer::AddMetrics(const std::map<MetricHandle, std::string>& metrics
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
 #if ENABLE_NVML
+const TCHAR *nvmlErrStr(nvmlReturn_t ret) {
+    switch (ret) {
+    case NVML_SUCCESS:                   return _T("The operation was successful");
+    case NVML_ERROR_UNINITIALIZED:       return _T("case NVML was not first initialized with case NVMLInit()");
+    case NVML_ERROR_INVALID_ARGUMENT:    return _T("A supplied argument is invalid");
+    case NVML_ERROR_NOT_SUPPORTED:       return _T("The requested operation is not available on target device");
+    case NVML_ERROR_NO_PERMISSION:       return _T("The current user does not have permission for operation");
+    case NVML_ERROR_ALREADY_INITIALIZED: return _T("Deprecated: Multiple initializations are now allowed through ref counting");
+    case NVML_ERROR_NOT_FOUND:           return _T("A query to find an object was unsuccessful");
+    case NVML_ERROR_INSUFFICIENT_SIZE:   return _T("An input argument is not large enough");
+    case NVML_ERROR_INSUFFICIENT_POWER:  return _T("A device's external power cables are not properly attached");
+    case NVML_ERROR_DRIVER_NOT_LOADED:   return _T("NVIDIA driver is not loaded");
+    case NVML_ERROR_TIMEOUT:            return _T("User provided timeout passed");
+    case NVML_ERROR_IRQ_ISSUE:          return _T("NVIDIA Kernel detected an interrupt issue with a GPU");
+    case NVML_ERROR_LIBRARY_NOT_FOUND:  return _T("case NVML Shared Library couldn't be found or loaded");
+    case NVML_ERROR_FUNCTION_NOT_FOUND: return _T("Local version of case NVML doesn't implement this function");
+    case NVML_ERROR_CORRUPTED_INFOROM:  return _T("infoROM is corrupted");
+    case NVML_ERROR_GPU_IS_LOST:        return _T("The GPU has fallen off the bus or has otherwise become inaccessible");
+    case NVML_ERROR_RESET_REQUIRED:     return _T("The GPU requires a reset before it can be used again");
+    case NVML_ERROR_OPERATING_SYSTEM:   return _T("The GPU control device has been blocked by the operating system/cgroups");
+    case NVML_ERROR_LIB_RM_VERSION_MISMATCH:   return _T("RM detects a driver/library version mismatch");
+    case NVML_ERROR_IN_USE:             return _T("An operation cannot be performed because the GPU is currently in use");
+    case NVML_ERROR_UNKNOWN:
+    default:                            return _T("An internal driver error occurred");
+    }
+}
+
+
 nvmlReturn_t NVMLMonitor::LoadDll() {
     if (m_hDll) {
         CloseHandle(m_hDll);
     }
     m_hDll = LoadLibrary(NVML_DLL_PATH);
     if (m_hDll == NULL) {
-        return NVML_ERROR_NOT_FOUND;
+        m_hDll = LoadLibrary(_T("nvml.dll"));
+        if (m_hDll == NULL) {
+            return NVML_ERROR_NOT_FOUND;
+        }
     }
 #define LOAD_NVML_FUNC(x) { \
     if ( NULL == (m_func.f_ ## x = (pf ## x)GetProcAddress(m_hDll, #x )) ) { \
@@ -151,7 +182,7 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     LOAD_NVML_FUNC(nvmlShutdown);
     LOAD_NVML_FUNC(nvmlErrorString);
     LOAD_NVML_FUNC(nvmlDeviceGetCount);
-    LOAD_NVML_FUNC(nvmlDeviceGetHandleByIndex);
+    LOAD_NVML_FUNC(nvmlDeviceGetHandleByPciBusId);
     LOAD_NVML_FUNC(nvmlDeviceGetUtilizationRates);
     LOAD_NVML_FUNC(nvmlDeviceGetEncoderUtilization);
     LOAD_NVML_FUNC(nvmlDeviceGetDecoderUtilization);
@@ -165,7 +196,7 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
 #undef LOAD_NVML_FUNC
 }
 
-nvmlReturn_t NVMLMonitor::Init(int deviceId) {
+nvmlReturn_t NVMLMonitor::Init(const std::string& pciBusId) {
     auto ret = LoadDll();
     if (ret != NVML_SUCCESS) {
         return ret;
@@ -174,7 +205,7 @@ nvmlReturn_t NVMLMonitor::Init(int deviceId) {
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    ret = m_func.f_nvmlDeviceGetHandleByIndex(deviceId, &m_device);
+    ret = m_func.f_nvmlDeviceGetHandleByPciBusId(pciBusId.c_str(), &m_device);
     if (ret != NVML_SUCCESS) {
         return ret;
     }
@@ -213,6 +244,14 @@ nvmlReturn_t NVMLMonitor::getData(NVMLMonitorInfo *info) {
         return ret;
     }
     info->dVEFreq = value;
+    nvmlMemory_t mem;
+    ret = m_func.f_nvmlDeviceGetMemoryInfo(m_device, &mem);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->nMemFree = mem.free;
+    info->nMemUsage = mem.used;
+    info->nMemMax = mem.total;
     info->bDataValid = true;
     return ret;
 }
@@ -244,6 +283,128 @@ void NVMLMonitor::Close() {
     memset(&m_func, 0, sizeof(m_func));
 }
 #endif
+
+int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
+    memset(info, 0, sizeof(info[0]));
+
+    RGYPipeProcessWin process;
+    ProcessPipe pipes = { 0 };
+    pipes.stdOut.mode = PIPE_MODE_ENABLE;
+    std::vector<const TCHAR *> args;
+    args.push_back(NVSMI_PATH);
+    args.push_back(_T("-q"));
+    if (process.run(args, nullptr, &pipes, NORMAL_PRIORITY_CLASS, true, true)) {
+        return 1;
+    }
+    if (m_NVSMIOut.length() == 0) {
+        auto read_from_pipe = [&]() {
+            DWORD pipe_read = 0;
+            if (!PeekNamedPipe(pipes.stdOut.h_read, NULL, 0, NULL, &pipe_read, NULL))
+                return -1;
+            if (pipe_read) {
+                char read_buf[1024] = { 0 };
+                ReadFile(pipes.stdOut.h_read, read_buf, sizeof(read_buf) - 1, &pipe_read, NULL);
+                m_NVSMIOut += read_buf;
+            }
+            return (int)pipe_read;
+        };
+
+        while (WAIT_TIMEOUT == WaitForSingleObject(process.getProcessInfo().hProcess, 10)) {
+            read_from_pipe();
+        }
+        for (;;) {
+            if (read_from_pipe() <= 0) {
+                break;
+            }
+        }
+        std::transform(m_NVSMIOut.cbegin(), m_NVSMIOut.cend(), m_NVSMIOut.begin(), tolower);
+    }
+    if (m_NVSMIOut.length() == 0) {
+        return 1;
+    }
+    const auto gpu_info_list = split(m_NVSMIOut, "\ngpu ");
+    for (const auto& gpu_str : gpu_info_list) {
+        if (gpu_str.substr(0, gpu_str.find("\n")).find(gpu_pcibusid) != std::string::npos) {
+            //対象のGPU
+            auto pos_utilization = gpu_str.find("utilization");
+            if (pos_utilization != std::string::npos) {
+                auto pos_gpu = gpu_str.find("gpu", pos_utilization);
+                if (pos_gpu != std::string::npos) {
+                    auto str_gpu = trim(gpu_str.substr(pos_gpu, gpu_str.find("\n", pos_gpu) - pos_gpu));
+                    if (str_gpu.length() > 0) {
+                        sscanf_s(str_gpu.c_str(), "gpu : %lf %%", &info->dGPULoad);
+                    }
+                }
+                auto pos_enc = gpu_str.find("encoder", pos_utilization);
+                if (pos_enc != std::string::npos) {
+                    auto str_enc = trim(gpu_str.substr(pos_enc, gpu_str.find("\n", pos_enc) - pos_enc));
+                    if (str_enc.length() > 0) {
+                        sscanf_s(str_enc.c_str(), "encoder : %lf %%", &info->dVEELoad);
+                    }
+                }
+                auto pos_dec = gpu_str.find("decoder", pos_utilization);
+                if (pos_dec != std::string::npos) {
+                    auto str_dec = trim(gpu_str.substr(pos_dec, gpu_str.find("\n", pos_dec) - pos_dec));
+                    if (str_dec.length() > 0) {
+                        sscanf_s(str_dec.c_str(), "decoder : %lf %%", &info->dVEDLoad);
+                    }
+                }
+            }
+            auto pos_mem_usage = gpu_str.find("fb memory usage");
+            if (pos_mem_usage != std::string::npos) {
+                auto pos_total = gpu_str.find("total", pos_mem_usage);
+                if (pos_total != std::string::npos) {
+                    auto str_total = trim(gpu_str.substr(pos_total, gpu_str.find("\n", pos_total) - pos_total));
+                    if (str_total.length() > 0) {
+                        int value = 0;
+                        if (       1 == sscanf_s(str_total.c_str(), "total : %d k", &value)) {
+                            info->nMemMax = value * (int64_t)1024;
+                        } else if (1 == sscanf_s(str_total.c_str(), "total : %d m", &value)) {
+                            info->nMemMax = value * (int64_t)(1024 * 1024);
+                        } else if (1 == sscanf_s(str_total.c_str(), "total : %d g", &value)) {
+                            info->nMemMax = value * (int64_t)(1024 * 1024 * 1024);
+                        } else {
+                            info->nMemMax = 0;
+                        }
+                    }
+                }
+                auto pos_used = gpu_str.find("used", pos_mem_usage);
+                if (pos_used != std::string::npos) {
+                    auto str_used = trim(gpu_str.substr(pos_used, gpu_str.find("\n", pos_used) - pos_used));
+                    if (str_used.length() > 0) {
+                        int value = 0;
+                        if (       1 == sscanf_s(str_used.c_str(), "used : %d k", &value)) {
+                            info->nMemUsage = value * (int64_t)1024;
+                        } else if (1 == sscanf_s(str_used.c_str(), "used : %d m", &value)) {
+                            info->nMemUsage = value * (int64_t)(1024 * 1024);
+                        } else if (1 == sscanf_s(str_used.c_str(), "used : %d g", &value)) {
+                            info->nMemUsage = value * (int64_t)(1024 * 1024 * 1024);
+                        } else {
+                            info->nMemUsage = 0;
+                        }
+                    }
+                }
+                auto pos_free = gpu_str.find("free", pos_mem_usage);
+                if (pos_free != std::string::npos) {
+                    auto str_free = trim(gpu_str.substr(pos_free, gpu_str.find("\n", pos_free) - pos_free));
+                    if (str_free.length() > 0) {
+                        int value = 0;
+                        if (       1 == sscanf_s(str_free.c_str(), "free : %df k", &value)) {
+                            info->nMemFree = value * (int64_t)1024;
+                        } else if (1 == sscanf_s(str_free.c_str(), "free : %d m", &value)) {
+                            info->nMemFree = value * (int64_t)(1024 * 1024);
+                        } else if (1 == sscanf_s(str_free.c_str(), "free : %d g", &value)) {
+                            info->nMemFree = value * (int64_t)(1024 * 1024 * 1024);
+                        } else {
+                            info->nMemFree = 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
 
 tstring CPerfMonitor::SelectedCounters(int select) {
     if (select == 0) {
@@ -541,9 +702,9 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
-    auto nvml_ret = m_nvmlMonitor.Init(prm->deviceId);
+    auto nvml_ret = m_nvmlMonitor.Init(prm->pciBusId);
     if (nvml_ret != NVML_SUCCESS) {
-        pRGYLog->write(RGY_LOG_INFO, _T("Failed to start NVML Monitoring.\n"));
+        pRGYLog->write(RGY_LOG_INFO, _T("Failed to start NVML Monitoring for \"%s\": %s.\n"), char_to_tstring(prm->pciBusId).c_str(), nvmlErrStr(nvml_ret));
     } else {
         pRGYLog->write(RGY_LOG_DEBUG, _T("Eanble NVML Monitoring\n"));
     }
@@ -743,7 +904,7 @@ void CPerfMonitor::check() {
             pInfoNew->vee_load_percent = video_engine_load(&m_GPUZInfo, nullptr);
             pInfoNew->gpu_clock = gpu_core_clock(&m_GPUZInfo);
         }
-#endif
+#endif //#if ENABLE_GPUZ_INFO
 #if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK || ENABLE_NVML
