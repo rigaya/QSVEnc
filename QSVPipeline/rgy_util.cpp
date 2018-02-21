@@ -42,6 +42,7 @@
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
 #include "ram_speed.h"
+#include "rgy_version.h"
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
@@ -285,7 +286,6 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
 #pragma warning (pop)
-
 #if defined(_WIN32) || defined(_WIN64)
 std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim, bool bTrim) {
     std::vector<std::wstring> res;
@@ -390,6 +390,7 @@ std::wstring trim(const std::wstring& string, const WCHAR* trim) {
     return result;
 }
 
+
 std::string GetFullPath(const char *path) {
 #if defined(_WIN32) || defined(_WIN64)
     if (PathIsRelativeA(path) == FALSE)
@@ -454,6 +455,24 @@ std::pair<int, std::wstring> PathRemoveFileSpecFixed(const std::wstring& path) {
     }
     std::wstring newPath = path.substr(0, qtr - ptr - 1);
     return std::make_pair((int)(path.length() - newPath.length()), newPath);
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+std::string PathRemoveExtensionS(const std::string& path) {
+    const char *ptr = path.c_str();
+    const char *qtr = PathFindExtensionA(ptr);
+    if (qtr == ptr || qtr == nullptr) {
+        return path;
+    }
+    return path.substr(0, qtr - ptr);
+}
+#if defined(_WIN32) || defined(_WIN64)
+std::wstring PathRemoveExtensionS(const std::wstring& path) {
+    const WCHAR *ptr = path.c_str();
+    WCHAR *qtr = PathFindExtensionW(ptr);
+    if (qtr == ptr || qtr == nullptr) {
+        return path;
+    }
+    return path.substr(0, qtr - ptr);
 }
 std::string PathCombineS(const std::string& dir, const std::string& filename) {
     std::vector<char> buffer(dir.length() + filename.length() + 128, '\0');
@@ -819,10 +838,11 @@ tstring getEnviromentInfo(bool add_ram_info) {
     getCPUInfo(cpu_info, _countof(cpu_info));
 
     TCHAR gpu_info[1024] = { 0 };
-    getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+    getGPUInfo(GPU_VENDOR, gpu_info, _countof(gpu_info));
 
     uint64_t UsedRamSize = 0;
     uint64_t totalRamsize = getPhysicalRamSize(&UsedRamSize);
+
 
     buf += _T("Environment Info\n");
 #if defined(_WIN32) || defined(_WIN64)
