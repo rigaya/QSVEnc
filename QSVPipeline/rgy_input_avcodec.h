@@ -641,6 +641,7 @@ protected:
     unique_ptr<FILE, fp_deleter> m_fpDebugCopyFrameData; //copyのデバッグ用
 };
 
+
 //動画フレームのデータ
 typedef struct VideoFrameData {
     FramePos *frame;      //各フレームの情報への配列 (デコードが開始されるフレームから取得する)
@@ -684,6 +685,8 @@ typedef struct AVDemuxVideo {
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
+
+    int                       nHWDecodeDeviceId;     //HWデコードする場合に選択したデバイス
 } AVDemuxVideo;
 
 typedef struct AVDemuxStream {
@@ -744,7 +747,7 @@ typedef struct AvcodecReaderPrm {
     const TCHAR   *pLogCopyFrameData;       //frame情報copy関数のログ出力先 (デバッグ用)
     int            nInputThread;            //入力スレッドを有効にする
     PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
-    const CodecCsp *pHWDecCodecCsp;           //HWデコーダのサポートするコーデックと色空間
+    DeviceCodecCsp *pHWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
 } AvcodecReaderPrm;
 
 
@@ -795,6 +798,9 @@ public:
 
     //動画の最初のフレームのptsを取得する
     int64_t GetVideoFirstKeyPts();
+
+    //入力に使用する予定のdeviceIDを取得する
+    int GetHWDecDeviceID();
 
     //入力スレッドのハンドルを取得する
     HANDLE getThreadHandleInput();

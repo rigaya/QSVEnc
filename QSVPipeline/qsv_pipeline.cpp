@@ -2632,6 +2632,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         const void *input_option = nullptr;
 #if ENABLE_AVSW_READER
         AvcodecReaderPrm avcodecReaderPrm = { 0 };
+        DeviceCodecCsp HWDecCodecCsp;
+        HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp()));
 #endif
         switch (inputVideo.type) {
 #if ENABLE_AVI_READER
@@ -2648,7 +2650,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                     PrintMes(RGY_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
                     return MFX_ERR_UNSUPPORTED;
                 }
-                HWDecCodecCsp = getHWDecCodecCsp();
                 m_pFileReader = std::make_shared<RGYInputAvcodec>();
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
