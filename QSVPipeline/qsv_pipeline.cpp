@@ -2682,6 +2682,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
                 avcodecReaderPrm.pHWDecCodecCsp = &HWDecCodecCsp;
+                avcodecReaderPrm.bVideoDetectPulldown = pParams->nAVSyncMode == RGY_AVSYNC_THROUGH;
                 input_option = &avcodecReaderPrm;
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv/avsw reader selected.\n"));
                 break;

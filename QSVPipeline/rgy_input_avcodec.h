@@ -748,6 +748,7 @@ typedef struct AvcodecReaderPrm {
     int            nInputThread;            //入力スレッドを有効にする
     PerfQueueInfo *pQueueInfo;               //キューの情報を格納する構造体
     DeviceCodecCsp *pHWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
+    bool           bVideoDetectPulldown;     //pulldownの検出を試みるかどうか
 } AvcodecReaderPrm;
 
 
@@ -839,7 +840,7 @@ protected:
     //QSVでデコードした際の最初のフレームのptsを取得する
     //さらに、平均フレームレートを推定する
     //fpsDecoderはdecoderの推定したfps
-    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount);
+    RGY_ERR getFirstFramePosAndFrameRate(const sTrim *pTrimList, int nTrimCount, bool bDetectpulldown);
 
     //読み込みスレッド関数
     RGY_ERR ThreadFuncRead();
