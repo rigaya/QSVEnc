@@ -2626,8 +2626,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
     }
 
-    CodecCsp HWDecCodecCsp;
-
     if (m_pFileReader == nullptr) {
         const void *input_option = nullptr;
 #if ENABLE_AVSW_READER
