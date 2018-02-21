@@ -435,6 +435,14 @@ public:
     void setTimestamp(uint64_t timestamp) {
         m_surface.Data.TimeStamp = timestamp;
     }
+    int64_t duration() {
+        //QSVEncでは使用しない
+        return 0;
+    }
+    void setDuration(int64_t frame_duration) {
+        UNREFERENCED_PARAMETER(frame_duration);
+        //QSVEncでは使用しない
+    }
 };
 
 static inline RGYFrame RGYFrameInit() {
