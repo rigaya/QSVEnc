@@ -2157,7 +2157,7 @@ CQSVPipeline::CQSVPipeline() {
     m_bExternalAlloc = false;
     m_nAsyncDepth = 0;
     m_nExPrm = 0x00;
-    m_nAVSyncMode = RGY_AVSYNC_THROUGH;
+    m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     m_nProcSpeedLimit = 0;
     m_bTimerPeriodTuning = false;
     m_nMFXThreads = -1;
@@ -2675,14 +2675,14 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &pParams->vpp.subburn.nTrack : pParams->pSubtitleSelect;
                 avcodecReaderPrm.nSubtitleSelectCount = (pParams->vpp.subburn.nTrack) ? 1 : pParams->nSubtitleSelectCount;
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
-                avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_THROUGH;
+                avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
                 avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
                 avcodecReaderPrm.nInputThread = pParams->nInputThread;
                 avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
                 avcodecReaderPrm.pHWDecCodecCsp = &HWDecCodecCsp;
-                avcodecReaderPrm.bVideoDetectPulldown = pParams->nAVSyncMode == RGY_AVSYNC_THROUGH;
+                avcodecReaderPrm.bVideoDetectPulldown = pParams->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
                 input_option = &avcodecReaderPrm;
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv/avsw reader selected.\n"));
                 break;
@@ -2727,7 +2727,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
-            avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_THROUGH;
+            avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
             avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
             avcodecReaderPrm.nInputThread = 0;
             avcodecReaderPrm.pQueueInfo = nullptr;
@@ -3025,7 +3025,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         if (true) {
 #endif
             PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
-            pParams->nAVSyncMode = RGY_AVSYNC_THROUGH;
+            pParams->nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         }
     }
 
@@ -3445,7 +3445,7 @@ void CQSVPipeline::Close() {
     m_nMFXThreads = -1;
     m_pAbortByUser = NULL;
     m_nExPrm = 0x00;
-    m_nAVSyncMode = RGY_AVSYNC_THROUGH;
+    m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     m_nProcSpeedLimit = 0;
 #if ENABLE_AVSW_READER
     av_qsv_log_free();
@@ -3909,14 +3909,14 @@ mfxStatus CQSVPipeline::RunEncode() {
     const int nFrameDuration = (int)qsv_rescale(1, inputFpsTimebase, pktTimebase);
     vector<AVPacket> packetList;
     if (pAVCodecReader == nullptr) {
-        m_nAVSyncMode = RGY_AVSYNC_THROUGH;
+        m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     }
 #else
     const auto pktTimebase = std::make_pair(1, HW_TIMEBASE);
     const auto inputFpsTimebase = std::make_pair((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto outputFpsTimebase = std::make_pair((int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN);
     const auto HW_NATIVE_TIMEBASE = std::make_pair(1, HW_TIMEBASE);
-    m_nAVSyncMode = RGY_AVSYNC_THROUGH;
+    m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
 #endif
 
     mfxU16 nLastFrameFlag = 0;
@@ -4998,7 +4998,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         }
         PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
     }
-    if (m_nAVSyncMode != RGY_AVSYNC_THROUGH) {
+    if (m_nAVSyncMode != RGY_AVSYNC_ASSUME_CFR) {
         PRINT_INFO(_T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     }
     if (m_pmfxENC) {
