@@ -497,6 +497,23 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.nInputFirstKeyPts = prm->nVideoInputFirstKeyPts;
     m_Mux.video.pStreamIn         = prm->pVideoInputStream;
 
+    if (prm->pVideoInputStream) {
+        m_Mux.video.pStreamOut->disposition = prm->pVideoInputStream->disposition;
+        if (prm->pVideoInputStream->metadata) {
+            auto language_data = av_dict_get(prm->pVideoInputStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
+            if (language_data) {
+                av_dict_set(&m_Mux.video.pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+                AddMessage(RGY_LOG_DEBUG, _T("Set Audio language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+            }
+        }
+    }
+
+    m_Mux.video.timestampList.clear();
+
+    if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->seiNal.size() > 0) {
+        m_Mux.video.seiNal.copy(prm->seiNal.data(), prm->seiNal.size());
+    }
+
     if (prm->pMuxVidTsLogFile) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->pMuxVidTsLogFile, _T("a"))) {
             AddMessage(RGY_LOG_WARN, _T("failed to open mux timestamp log file: \"%s\""), prm->pMuxVidTsLogFile);
@@ -970,7 +987,11 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     if (srcCodecParam) {
         avcodec_parameters_free(&srcCodecParam);
     }
-
+    pMuxAudio->pStreamOut->disposition = pInputAudio->src.pStream->disposition;
+    if (pInputAudio->src.nSubStreamId != 0) {
+        //substream(--audio-filterなどによる複製stream)の場合はデフォルトstreamではない
+        pMuxAudio->pStreamOut->disposition &= (~AV_DISPOSITION_DEFAULT);
+    }
     if (pInputAudio->src.pStream->metadata) {
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputAudio->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
@@ -1109,9 +1130,7 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
     pMuxSub->pStreamOut->codecpar->width        = srcCodecParam->width;
     pMuxSub->pStreamOut->codecpar->height       = srcCodecParam->height;
 
-    if (pInputSubtitle->src.nTrackId == -1) {
-        pMuxSub->pStreamOut->disposition |= AV_DISPOSITION_DEFAULT;
-    }
+    pMuxSub->pStreamOut->disposition = pInputSubtitle->src.pStream->disposition;
     if (pInputSubtitle->src.pStream->metadata) {
         for (AVDictionaryEntry *pEntry = nullptr;
         nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
