@@ -50,6 +50,7 @@
 #include "rgy_input_avi.h"
 #include "rgy_input_avcodec.h"
 #include "rgy_output_avcodec.h"
+#include "rgy_bitstream.h"
 #include "qsv_hw_device.h"
 #include "qsv_allocator.h"
 #include "qsv_allocator_sys.h"
@@ -2273,6 +2274,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     RGY_ERR ret = RGY_ERR_NONE;
     bool stdoutUsed = false;
     const auto outputVideoInfo = (pParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
+    HEVCHDRSei hedrsei;
+    if (hedrsei.parse(pParams->sMaxCll, pParams->sMasterDisplay)) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
+        return MFX_ERR_UNSUPPORTED;
+    }
 #if ENABLE_AVSW_READER
     vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
     bool useH264ESOutput =
@@ -2415,6 +2421,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             RGYOutputRawPrm rawPrm = { 0 };
             rawPrm.bBenchmark = pParams->bBenchmark != 0;
             rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
+            rawPrm.codecId = codec_enc_to_rgy(pParams->CodecId);
+            rawPrm.seiNal = hedrsei.gen_nal();
             ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &rawPrm, m_pQSVLog, m_pEncSatusInfo);
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());

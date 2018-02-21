@@ -425,6 +425,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_util.cpp" />
     <ClCompile Include="rgy_avlog.cpp" />
     <ClCompile Include="rgy_avutil.cpp" />
+    <ClCompile Include="rgy_bitstream.cpp" />
     <ClCompile Include="rgy_event.cpp" />
     <ClCompile Include="rgy_ini.cpp" />
     <ClCompile Include="rgy_input.cpp" />
@@ -481,6 +482,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_util.h" />
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
+    <ClInclude Include="rgy_bitstream.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_ini.h" />
     <ClInclude Include="rgy_input.h" />

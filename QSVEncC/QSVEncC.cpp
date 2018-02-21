@@ -561,15 +561,18 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("\n")
         _T("   --crop <int>,<int>,<int>,<int>\n")
         _T("                                set crop pixels of left, up, right, bottom.\n")
-        _T("\n")
-        _T("   --fullrange                  set stream as fullrange yuv\n"));
+        _T("\n"));
     str += PrintListOptions(_T("--videoformat <string>"), list_videoformat, 0);
     str += PrintListOptions(_T("--colormatrix <string>"), list_colormatrix, 0);
     str += PrintListOptions(_T("--colorprim <string>"),   list_colorprim,   0);
     str += PrintListOptions(_T("--transfer <string>"),    list_transfer,    0);
     str += strsprintf(_T("")
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
-        _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n"));
+        _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
+        _T("   --fullrange                  set stream as fullrange yuv\n")
+        _T("   --max-cll <int>,<int>        set MaxCLL and MaxFall in nits. e.g. \"1000,300\"\n")
+        _T("   --master-display <string>    set Mastering display data.\n")
+        _T("      e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
     str += strsprintf(_T("\n")
         //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
         _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
@@ -2483,10 +2486,6 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->bDirectBiasAdjust = false;
         return MFX_ERR_NONE;
     }
-    if (0 == _tcscmp(option_name, _T("fullrange"))) {
-        pParams->bFullrange = true;
-        return MFX_ERR_NONE;
-    }
     if (0 == _tcscmp(option_name, _T("inter-pred"))) {
         i++;
         mfxI32 v;
@@ -3057,6 +3056,16 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
     }
     if (0 == _tcscmp(option_name, _T("fullrange"))) {
         pParams->bFullrange = true;
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("max-cll"))) {
+        i++;
+        pParams->sMaxCll = strdup(tchar_to_string(strInput[i]).c_str());
+        return MFX_ERR_NONE;
+    }
+    if (0 == _tcscmp(option_name, _T("master-display"))) {
+        i++;
+        pParams->sMasterDisplay = strdup(tchar_to_string(strInput[i]).c_str());
         return MFX_ERR_NONE;
     }
     if (0 == _tcscmp(option_name, _T("sar"))) {
