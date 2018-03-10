@@ -1420,7 +1420,8 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                 else if (!(pkt->flags & AV_PKT_FLAG_KEY)
                     && (pkt->pts != AV_NOPTS_VALUE)
                     && (m_Demux.video.nStreamFirstKeyPts != AV_NOPTS_VALUE)
-                    && pkt->pts < m_Demux.video.nStreamFirstKeyPts) {
+                    && pkt->pts < m_Demux.video.nStreamFirstKeyPts
+                    && m_Demux.video.nHWDecodeDeviceId >= 0) { //trim調整の適用はavhwリーダーのみ
                     m_sTrimParam.offset++;
                 }
 #endif //#if ENCODER_NVENC
