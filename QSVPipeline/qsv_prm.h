@@ -298,9 +298,10 @@ struct sInputParams
     sInputCrop sInCrop;
 
     mfxU16     nRepartitionCheck;
+    int8_t     padding[2];
     char      *sMaxCll;
     char      *sMasterDisplay;
-    int8_t     Reserved[1004];
+    int8_t     Reserved[1000];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
