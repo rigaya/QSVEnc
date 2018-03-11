@@ -216,6 +216,7 @@ static inline BOOL CreateDirectory(const char *dir, void *dummy) {
 #define PathFileExistsA PathFileExists
 #define PathIsDirectoryA PathIsDirectory
 #define CreateDirectoryA CreateDirectory
+#define PathFindExtensionA PathFindExtension
 
 static inline int PathIsUNC(const char *path) {
     return 0;

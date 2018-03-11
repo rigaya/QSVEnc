@@ -589,7 +589,7 @@ qsv_allocator_va.cpp        qsv_control.cpp                 qsv_hw_d3d11.cpp \
 qsv_hw_d3d9.cpp             qsv_hw_device.cpp               qsv_hw_va.cpp \
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
-ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
+ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp         rgy_bitstream.cpp \
 rgy_err.cpp                 rgy_event.cpp                   rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp           rgy_input_avi.cpp \
 rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp \
@@ -661,7 +661,7 @@ for src in $SRC_QSVENCC; do
     SRCS="$SRCS QSVEncC/$src"
 done
 
-QSVENC_REV=`git rev-list HEAD | wc --lines`
+ENCODER_REV=`git rev-list HEAD | wc --lines`
 
 echo ""
 echo "Creating config.mak, qsv_config.h..."
@@ -679,7 +679,7 @@ write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
-write_qsv_rev    "#define QSVENC_REV                  \"$QSVENC_REV\""
+write_qsv_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
 write_qsv_config "#define ENABLE_AVI_READER             0"
 write_qsv_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_qsv_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"

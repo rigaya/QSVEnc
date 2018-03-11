@@ -26,8 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __RGY_CONFIG_H__
-#define __RGY_CONFIG_H__
+#ifndef __RGY_VERSION_H__
+#define __RGY_VERSION_H__
 
 #define VER_FILEVERSION             0,2,76,0
 #define VER_STR_FILEVERSION          "2.76"
@@ -50,6 +50,8 @@ const char *get_encoder_version();
 #define ENCODER_QSV    1
 #define ENCODER_NVENC  0
 #define ENCODER_VCEENC 0
+
+#define GPU_VENDOR "Intel"
 
 #if defined(_WIN32) || defined(_WIN64)
 
@@ -75,8 +77,6 @@ const char *get_encoder_version();
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
-
-#define GPU_VENDOR "Intel"
 
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
@@ -119,4 +119,4 @@ const char *get_encoder_version();
 #define DECODER_NAME              "qsv"
 #endif // #if defined(WIN32) || defined(WIN64)
 
-#endif //__RGY_CONFIG_H__
+#endif //__RGY_VERSION_H__
