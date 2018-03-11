@@ -2275,7 +2275,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     bool stdoutUsed = false;
     const auto outputVideoInfo = (pParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
     HEVCHDRSei hedrsei;
-    if (hedrsei.parse(pParams->sMaxCll, pParams->sMasterDisplay)) {
+    if (hedrsei.parse(std::string(pParams->sMaxCll ? pParams->sMaxCll : ""), std::string(pParams->sMasterDisplay ? pParams->sMasterDisplay : ""))) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
         return MFX_ERR_UNSUPPORTED;
     }
