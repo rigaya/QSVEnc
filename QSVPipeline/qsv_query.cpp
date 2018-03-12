@@ -1107,10 +1107,6 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
                 sessionPlugins.UnloadPlugins();
             }
         }
-        
-#ifdef LIBVA_SUPPORT
-        phwDevice.reset();
-#endif //#ifdef LIBVA_SUPPORT
     }
 
     return feature;
