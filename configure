@@ -63,7 +63,7 @@ regex_check()
     return $ret
 }
 
-rm -f config.* .depend QSVPipeline/qsv_config.h QSVPipeline/qsv_rev.h
+rm -f config.* .depend QSVPipeline/rgy_config.h QSVPipeline/qsv_rev.h
 
 PKGCONFIG="pkg-config"
 USE_PKGCONFIG=1
@@ -664,7 +664,7 @@ done
 ENCODER_REV=`git rev-list HEAD | wc --lines`
 
 echo ""
-echo "Creating config.mak, qsv_config.h..."
+echo "Creating config.mak, rgy_config.h..."
 echo "SRCS = $SRCS" >> config.mak
 echo "ASMS = $ASMS" >> config.mak
 echo "PYWS = $PYWS" >> config.mak
@@ -696,6 +696,6 @@ write_qsv_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
 write_qsv_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_qsv_config "#define ENABLE_DTL                    $ENABLE_DTL"
 
-echo successfully generated config.mak, qsv_config.h
+echo successfully generated config.mak, rgy_config.h
 
 

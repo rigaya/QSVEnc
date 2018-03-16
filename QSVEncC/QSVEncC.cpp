@@ -77,7 +77,9 @@ static tstring GetQSVEncVersion() {
     if (ENABLE_AVI_READER)         version += _T(", avi");
     if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
-    if (ENABLE_AVSW_READER) version += strsprintf(_T(", avqsv [%s]"), getHWDecSupportedCodecList().c_str());
+#if ENABLE_AVSW_READER
+    version += strsprintf(_T(", avqsv [%s]"), getHWDecSupportedCodecList().c_str());
+#endif
 #if !(defined(_WIN32) || defined(_WIN64))
     version += _T("\n vpp:    resize, deinterlace, denoise, detail-enhance, image-stab");
     if (ENABLE_CUSTOM_VPP) version += _T(", delego");
@@ -412,8 +414,9 @@ static tstring help(const TCHAR *strAppName = nullptr) {
         _T("                                set muxer option name and value.\n")
         _T("                                 these could be only used with\n")
         _T("                                 avqsv reader and avcodec muxer.\n"),
-        QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR);
+        QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR
 #endif
+    );
     str += strsprintf(_T("\n")
         _T("   --nv12                       set raw input as NV12 color format,\n")
         _T("                                if not specified YV12 is expected\n")

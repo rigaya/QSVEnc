@@ -1307,6 +1307,7 @@ tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {
 }
 
 tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
+#if ENABLE_AVSW_READER
     mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
@@ -1418,14 +1419,21 @@ tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
         str += _T("</table>\n");
     }
     return str;
+#else
+    return _T("");
+#endif
 }
 
 CodecCsp getHWDecCodecCsp() {
+#if ENABLE_AVSW_READER
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
     return MakeDecodeFeatureList(true, get_mfx_libhw_version(), codecLists);
+#else
+    return CodecCsp();
+#endif
 }
 
 BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
