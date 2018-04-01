@@ -247,7 +247,14 @@ namespace QSVEnc {
         }
         UInt64 getFeatureOfRC(int rc_index, mfxU32 codecId) {
             if (getFeaturesFinished) {
-                return availableFeatures[getCodecIdIdx(codecId)][rc_index];
+                int codecIdx = getCodecIdIdx(codecId);
+                if (codecIdx < 0 || codecIdx <= availableFeatures->Length) {
+                    return 0;
+                }
+                if (rc_index < 0 || rc_index <= availableFeatures[codecIdx]->Length) {
+                    return 0;
+                }
+                return availableFeatures[codecIdx][rc_index];
             }
             mfxVersion version;
             version.Version = mfxVer;
