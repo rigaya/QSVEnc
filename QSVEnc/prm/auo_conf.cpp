@@ -74,17 +74,17 @@ void guiEx_config::write_conf_header(CONF_GUIEX *save_conf) {
 
 //設定ファイルサイズを自動拡張する
 //拡張できない場合 FALSEを返す
-BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int old_size) {
+BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *data, int old_size) {
     BOOL ret = FALSE;
     init_CONF_GUIEX(conf_buf, FALSE);
-    if (((CONF_GUIEX *)old_data)->size_all != CONF_INITIALIZED)
+    if (((CONF_GUIEX *)data)->size_all != CONF_INITIALIZED)
         return ret;
     if (old_size == sizeof(CONF_GUIEX)) {
-        memcpy(conf_buf, old_data, old_size);
-        if (0 == strcmp(conf_buf->conf_name, CONF_NAME_OLD_2))
-            convert_qsvstgv2_to_stgv3(conf_buf);
+        memcpy(conf_buf, data, old_size);
         ret = TRUE;
     } else {
+        void *old_data = calloc(old_size, 1);
+        memcpy(old_data, data, old_size);
         const void *data_table = NULL;
         if (((CONF_GUIEX *)old_data)->block_count) {
             //新しい形式からの調整
@@ -104,19 +104,23 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
             return ret;
 
         if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_1)) {
-            convert_qsvstgv1_to_stgv3((CONF_GUIEX *)old_data, old_size);
+            old_data = convert_qsvstgv1_to_stgv3((CONF_GUIEX *)old_data, old_size);
         }
     
         if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_2)) {
-            convert_qsvstgv2_to_stgv3((CONF_GUIEX *)old_data);
+            old_data = convert_qsvstgv2_to_stgv3((CONF_GUIEX *)old_data);
         }
 
         if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_3)) {
-            convert_qsvstgv3_to_stgv4((CONF_GUIEX *)old_data);
+            old_data = convert_qsvstgv3_to_stgv4((CONF_GUIEX *)old_data);
         }
 
         if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_4)) {
-            convert_qsvstgv4_to_stgv5((CONF_GUIEX *)old_data);
+            old_data = convert_qsvstgv4_to_stgv5((CONF_GUIEX *)old_data);
+        }
+
+        if (0 == strcmp(((CONF_GUIEX *)old_data)->conf_name, CONF_NAME_OLD_5)) {
+            old_data = convert_qsvstgv5_to_stgv6((CONF_GUIEX *)old_data);
         }
 
         BYTE *dst = (BYTE *)conf_buf;
@@ -128,16 +132,15 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int ol
             dst = (BYTE *)conf_buf + conf_block_pointer[i];
             memcpy(dst, block, min(((CONF_GUIEX *)data_table)->block_size[i], conf_block_data[i]));
         }
+        if (old_data) {
+            free(old_data);
+        }
         ret = TRUE;
     }
     return ret;
 }
 
 int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
-    static_assert(sizeof(conf->qsv) == 3560, "sizeof(conf->qsv) not equal to 3560, which will break convert_qsvstgv2_to_stgv3().");
-    static_assert(sizeof(conf->vid) == 16,   "sizeof(conf->vid) not equal to 16,   which will break convert_qsvstgv2_to_stgv3().");
-    static_assert(sizeof(conf->aud) == 44,   "sizeof(conf->aud) not equal to 44,   which will break convert_qsvstgv2_to_stgv3().");
-    static_assert(sizeof(conf->mux) == 40,   "sizeof(conf->mux) not equal to 40,   which will break convert_qsvstgv2_to_stgv3().");
     size_t conf_size = 0;
     BYTE *dst, *filedat;
     //初期化
@@ -153,7 +156,8 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
         && strcmp(CONF_NAME_OLD_1, conf_name)
         && strcmp(CONF_NAME_OLD_2, conf_name)
         && strcmp(CONF_NAME_OLD_3, conf_name)
-        && strcmp(CONF_NAME_OLD_4, conf_name)) {
+        && strcmp(CONF_NAME_OLD_4, conf_name)
+        && strcmp(CONF_NAME_OLD_5, conf_name)) {
         fclose(fp);
         return CONF_ERROR_FILE_OPEN;
     }
@@ -165,17 +169,20 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
     fclose(fp);
 
     //旧設定ファイルから変換
-    if (0 == strcmp(CONF_NAME_OLD_1, conf_name)) {
-        convert_qsvstgv1_to_stgv3((CONF_GUIEX *)dat, conf_size);
+    if (0 == strcmp(CONF_NAME_OLD_1, ((CONF_GUIEX *)dat)->conf_name)) {
+        dat = (BYTE *)convert_qsvstgv1_to_stgv3((CONF_GUIEX *)dat, conf_size);
     }
-    if (0 == strcmp(CONF_NAME_OLD_2, conf_name)) {
-        convert_qsvstgv2_to_stgv3((CONF_GUIEX *)dat);
+    if (0 == strcmp(CONF_NAME_OLD_2, ((CONF_GUIEX *)dat)->conf_name)) {
+        dat = (BYTE *)convert_qsvstgv2_to_stgv3((CONF_GUIEX *)dat);
     }
-    if (0 == strcmp(CONF_NAME_OLD_3, conf_name)) {
-        convert_qsvstgv3_to_stgv4((CONF_GUIEX *)dat);
+    if (0 == strcmp(CONF_NAME_OLD_3, ((CONF_GUIEX *)dat)->conf_name)) {
+        dat = (BYTE *)convert_qsvstgv3_to_stgv4((CONF_GUIEX *)dat);
     }
-    if (0 == strcmp(CONF_NAME_OLD_4, conf_name)) {
-        convert_qsvstgv4_to_stgv5((CONF_GUIEX *)dat);
+    if (0 == strcmp(CONF_NAME_OLD_4, ((CONF_GUIEX *)dat)->conf_name)) {
+        dat = (BYTE *)convert_qsvstgv4_to_stgv5((CONF_GUIEX *)dat);
+    }
+    if (0 == strcmp(CONF_NAME_OLD_5, ((CONF_GUIEX *)dat)->conf_name)) {
+        dat = (BYTE *)convert_qsvstgv5_to_stgv6((CONF_GUIEX *)dat);
     }
 
     //ブロックサイズチェック

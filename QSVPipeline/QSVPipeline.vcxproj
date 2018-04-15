@@ -147,6 +147,7 @@
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <PreBuildEvent>
       <Command>@set REV=0
@@ -173,6 +174,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <PreBuildEvent>
       <Command>@set REV=0
@@ -202,6 +204,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <PreBuildEvent>
       <Command>@set REV=0
@@ -231,6 +234,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <PreBuildEvent>
       <Command>@set REV=0
@@ -265,6 +269,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <PreBuildEvent>
       <Command>@set REV=0
@@ -336,6 +341,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <PreBuildEvent>
       <Command>@set REV=0
@@ -412,6 +418,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="qsv_allocator_d3d9.cpp" />
     <ClCompile Include="qsv_allocator_sys.cpp" />
     <ClCompile Include="qsv_allocator_va.cpp" />
+    <ClCompile Include="qsv_cmd.cpp" />
     <ClCompile Include="qsv_hw_d3d11.cpp" />
     <ClCompile Include="qsv_hw_d3d9.cpp" />
     <ClCompile Include="qsv_hw_device.cpp" />
@@ -469,6 +476,7 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="qsv_allocator_d3d9.h" />
     <ClInclude Include="qsv_allocator_sys.h" />
     <ClInclude Include="qsv_allocator_va.h" />
+    <ClInclude Include="qsv_cmd.h" />
     <ClInclude Include="qsv_hw_d3d11.h" />
     <ClInclude Include="qsv_hw_d3d9.h" />
     <ClInclude Include="qsv_hw_device.h" />

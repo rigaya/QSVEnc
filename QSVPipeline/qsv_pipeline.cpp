@@ -482,8 +482,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     }
     //エンコードモードのチェック
     auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
-    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for %s API v%d.%d, %s, %s\n%s\n"),
-        (pInParams->bUseHWLib) ? _T("hw") : _T("sw"), m_mfxVer.Major, m_mfxVer.Minor,
+    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%d, %s, %s\n%s\n"),
+        m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
         //このコーデックがサポートされているかどうか確認する
@@ -651,7 +651,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
     }
-    if (pInParams->bBPyramid && pInParams->bUseHWLib && getCPUGen(&m_mfxSession) < CPU_GEN_HASWELL) {
+    if (pInParams->bBPyramid && getCPUGen(&m_mfxSession) < CPU_GEN_HASWELL) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
     }
     if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
@@ -921,18 +921,18 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     RGY_MEMSET_ZERO(m_CodingOption);
     m_CodingOption.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
     m_CodingOption.Header.BufferSz = sizeof(mfxExtCodingOption);
-    if (!pInParams->bUseHWLib) {
-        //swライブラリ使用時のみ
-        m_CodingOption.InterPredBlockSize = pInParams->nInterPred;
-        m_CodingOption.IntraPredBlockSize = pInParams->nIntraPred;
-        m_CodingOption.MVSearchWindow     = pInParams->MVSearchWindow;
-        m_CodingOption.MVPrecision        = pInParams->nMVPrecision;
-    }
-    if (!pInParams->bUseHWLib || pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
-        //swライブラリ使用時かbaselineを指定した時
-        m_CodingOption.RateDistortionOpt  = (mfxU16)((pInParams->bRDO) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-        m_CodingOption.CAVLC              = (mfxU16)((pInParams->bCAVLC) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-    }
+    //if (!pInParams->bUseHWLib) {
+    //    //swライブラリ使用時のみ
+    //    m_CodingOption.InterPredBlockSize = pInParams->nInterPred;
+    //    m_CodingOption.IntraPredBlockSize = pInParams->nIntraPred;
+    //    m_CodingOption.MVSearchWindow     = pInParams->MVSearchWindow;
+    //    m_CodingOption.MVPrecision        = pInParams->nMVPrecision;
+    //}
+    //if (!pInParams->bUseHWLib || pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
+    //    //swライブラリ使用時かbaselineを指定した時
+    //    m_CodingOption.RateDistortionOpt  = (mfxU16)((pInParams->bRDO) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+    //    m_CodingOption.CAVLC              = (mfxU16)((pInParams->bCAVLC) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+    //}
     //m_CodingOption.FramePicture = MFX_CODINGOPTION_ON;
     //m_CodingOption.FieldOutput = MFX_CODINGOPTION_ON;
     //m_CodingOption.VuiVclHrdParameters = MFX_CODINGOPTION_ON;
@@ -1562,7 +1562,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
             //avqsvリーダー使用時以外はcropは読み込み段階ですでに行われている
             (pAVCodecReader) ? &(pParams->sInCrop) : nullptr);
         uint16_t nVppSubAsyncDepth = (pParams->nAsyncDepth) ? (uint16_t)(std::min<int>)(pParams->nAsyncDepth, 6) : 3;
-        sts = filter->Init(m_mfxVer, _T("subburn"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), nVppSubAsyncDepth, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
+        sts = filter->Init(m_mfxVer, _T("subburn"), &param, sizeof(param), true, m_memType, m_hwdev, m_pMFXAllocator.get(), nVppSubAsyncDepth, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
             return sts;
@@ -1581,7 +1581,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
         DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
             pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
             pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset, pParams->vpp.delogo.bAdd);
-        sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
+        sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), true, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts == MFX_ERR_ABORTED) {
             PrintMes(RGY_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
             sts = MFX_ERR_NONE;
@@ -1600,7 +1600,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
     if (pParams->vpp.bHalfTurn) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         RotateParam param(180);
-        sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), pParams->bUseHWLib, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
+        sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), true, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("%s\n"), filter->getMessage().c_str());
             return sts;
@@ -2652,10 +2652,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             case RGY_INPUT_FMT_AVHW:
             case RGY_INPUT_FMT_AVSW:
             case RGY_INPUT_FMT_AVANY:
-                if (!pParams->bUseHWLib) {
-                    PrintMes(RGY_LOG_ERROR, _T("Input: avqsv reader is only supported with HW libs.\n"));
-                    return MFX_ERR_UNSUPPORTED;
-                }
                 m_pFileReader = std::make_shared<RGYInputAvcodec>();
                 avcodecReaderPrm.memType = pParams->memType;
                 avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
@@ -2803,11 +2799,6 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     //picstructが設定されていない場合、プログレッシブとして扱う
     if (pParams->nPicStruct == MFX_PICSTRUCT_UNKNOWN) {
         pParams->nPicStruct = MFX_PICSTRUCT_PROGRESSIVE;
-    }
-
-    //SWエンコード時にはシステムメモリを使用する
-    if (!pParams->bUseHWLib) {
-        pParams->memType = SYSTEM_MEMORY;
     }
 
     int h_mul = 2;
@@ -3249,7 +3240,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = m_EncThread.Init(pParams->nInputBufSize);
     QSV_ERR_MES(sts, _T("Failed to allocate memory for thread control."));
 
-    sts = InitSession(pParams->bUseHWLib, pParams->memType);
+    sts = InitSession(true, pParams->memType);
     QSV_ERR_MES(sts, _T("Failed to initialize encode session."));
 
     m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));

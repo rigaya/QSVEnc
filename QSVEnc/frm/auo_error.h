@@ -40,6 +40,7 @@ void error_no_exe_file(const char *name, const char *path);
 void warning_auto_afs_disable();
 void error_afs_setup(BOOL afs, BOOL auto_afs_disable);
 void error_run_process(const char *exe_name, int rp_ret);
+void error_video_output_thread_start();
 void warning_auto_qpfile_failed();
 void warning_auo_tcfile_failed();
 void error_open_wavfile();
@@ -48,6 +49,7 @@ void warning_audio_length();
 void error_malloc_pixel_data();
 void error_malloc_tc();
 void error_malloc_8bit();
+void error_afs_auo_link();
 void error_afs_interlace_stg();
 void error_x264_dead();
 void error_x264_version();
@@ -81,9 +83,7 @@ void warning_mux_no_chapter_file();
 void warning_mux_chapter(int sts);
 void warning_chapter_convert_to_utf8(int sts);
 
-void error_mfx_libsw();
-void error_mfx_libhw();
-void write_mfx_message(int mfx_status);
+void error_select_convert_func(int width, int height, BOOL use16bit, BOOL interlaced, int output_csp);
 
 void warning_no_batfile(const char *batfile);
 void warning_malloc_batfile_tmp();

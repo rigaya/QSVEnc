@@ -25,49 +25,26 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef _AUO_PIPE_H_
-#define _AUO_PIPE_H_
+#ifndef __QSV_CMD_H__
+#define __QSV_CMD_H__
 
-#include <Windows.h>
-#include <stdio.h>
+#include "rgy_tchar.h"
+#include "qsv_prm.h"
 
-enum {
-    RP_USE_NO_PIPE = -1,
-    RP_SUCCESS = 0,
-    RP_ERROR_OPEN_PIPE,
-    RP_ERROR_GET_STDIN_FILE_HANDLE,
-    RP_ERROR_CREATE_PROCESS,
+const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
+tstring GetQSVEncVersion();
+
+
+struct ParseCmdError {
+    tstring strAppName;
+    tstring strErrorMessage;
+    tstring strOptionName;
+    tstring strErrorValue;
 };
 
-enum AUO_PIPE_MODE {
-    AUO_PIPE_DISABLE = 0, 
-    AUO_PIPE_ENABLE,
-    AUO_PIPE_MUXED, //Stderrのモードに使用し、StderrをStdOutに混合する
-};
+mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err = false);
+mfxStatus parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err = false);
 
-const int PIPE_READ_BUF = 2048;
+tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm);
 
-typedef struct {
-    HANDLE h_read;
-    HANDLE h_write;
-    AUO_PIPE_MODE mode;
-    DWORD bufferSize;
-} PIPE;
-
-typedef struct {
-    PIPE stdIn;
-    PIPE stdOut;
-    PIPE stdErr;
-    FILE *f_stdin;
-    DWORD buf_len;
-    char read_buf[PIPE_READ_BUF];
-} PIPE_SET;
-
-void InitPipes(PIPE_SET *pipes);
-int RunProcess(char *args, const char *exe_dir, PROCESS_INFORMATION *pi, PIPE_SET *pipes, DWORD priority, BOOL hidden, BOOL minimized);
-void CloseStdIn(PIPE_SET *pipes);
-int read_from_pipe(PIPE_SET *pipes, BOOL fromStdErr);
-BOOL get_exe_message(const char *exe_path, const char *args, char *buf, size_t nSize, AUO_PIPE_MODE from_stderr);
-BOOL get_exe_message_to_file(const char *exe_path, const char *args, const char *filepath, AUO_PIPE_MODE from_stderr, DWORD loop_ms);
-
-#endif //_AUO_PIPE_H_
+#endif //__QSV_CMD_H__

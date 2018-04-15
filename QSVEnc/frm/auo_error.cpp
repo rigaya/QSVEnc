@@ -30,6 +30,7 @@
 #include "auo_frm.h" 
 #include "auo_pipe.h"
 #include "auo_chapter.h"
+#include "convert.h"
 
 void warning_failed_getting_temp_path() {
     write_log_auo_line(LOG_WARNING, "一時フォルダ名取得に失敗しました。一時フォルダ指定を解除しました。");
@@ -122,6 +123,10 @@ void error_run_process(const char *exe_name, int rp_ret) {
     }
 }
 
+void error_video_output_thread_start() {
+    write_log_auo_line(LOG_ERROR, "パイプ出力用スレッドの生成に失敗しました。");
+}
+
 void warning_auto_qpfile_failed() {
     write_log_auo_line(LOG_WARNING, "Aviutlのキーフレーム検出用 qpfileの自動作成に失敗しました。");
 }
@@ -142,6 +147,10 @@ void error_malloc_8bit() {
     write_log_auo_line(LOG_ERROR, "音声16bit→8bit変換用メモリ確保に失敗しました。");
 }
 
+void error_afs_auo_link() {
+    write_log_auo_line(LOG_ERROR, "auo linkと自動フィールドシフトは併用できません。");
+}
+
 void error_afs_interlace_stg() {
     write_log_line(LOG_ERROR, 
         "auo [error]: 自動フィールドシフトとインターレース設定が両方オンになっており、設定が矛盾しています。\n"
@@ -149,7 +158,7 @@ void error_afs_interlace_stg() {
 }
 
 void error_x264_dead() {
-    write_log_auo_line(LOG_ERROR, "x264が予期せず途中終了しました。x264に不正なパラメータ(オプション)が渡された可能性があります。");
+    write_log_auo_line(LOG_ERROR, "QSVEncCが予期せず途中終了しました。QSVEncCに不正なパラメータ(オプション)が渡された可能性があります。");
 }
 
 void error_x264_version() {
@@ -303,29 +312,14 @@ void warning_chapter_convert_to_utf8(int sts) {
     warning_mux_chapter(sts);
 }
 
-void error_mfx_libsw() {
-    char mes[1024];
-    sprintf_s(mes, sizeof(mes), "%s\n%s", 
-        "auo [error]: ソフトウェアエンコードが行えません。libmfxsw32.dllがAviutl.exeと同じフォルダなどの",
-        "             パスの通る場所にあるか確認してください。"
-        );
-    write_log_line(LOG_ERROR, mes);
-}
-
-void error_mfx_libhw() {
-    char mes[1024];
-    sprintf_s(mes, sizeof(mes),
-        "auo [error]: QuickSyncVideoによるハードウェアエンコードが行えません。\n"
-        "             Windows Vista以降であること、CPUやマザーボードなどが対応したハードウェアであること\n"
-        "             Intelのドライバを適切にインストールできていること、Intel HD Graphicsからの出力が\n"
-        "             有効であることなどを確認してください。"
-        );
-    write_log_line(LOG_ERROR, mes);
-}
-
-void write_mfx_message(int mfx_status) {
-    int log_type = (mfx_status == MFX_ERR_NONE) ? LOG_INFO : ((mfx_status < MFX_ERR_NONE) ? LOG_ERROR : LOG_WARNING);
-    write_log_auo_line(log_type, get_err_mes(mfx_status));
+void error_select_convert_func(int width, int height, BOOL use16bit, BOOL interlaced, int output_csp) {
+    write_log_auo_line(LOG_ERROR, "色形式変換関数の取得に失敗しました。");
+    write_log_auo_line_fmt(LOG_ERROR, "%dx%d%s, output-csp %s%s%s",
+        width, height,
+        (interlaced) ? "i" : "p",
+        specify_csp[output_csp],
+        (use16bit) ? "(16bit)" : ""
+    );
 }
 
 void warning_no_batfile(const char *batfile) {

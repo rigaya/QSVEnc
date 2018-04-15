@@ -29,9 +29,9 @@
 #ifndef __RGY_VERSION_H__
 #define __RGY_VERSION_H__
 
-#define VER_FILEVERSION             0,2,76,0
-#define VER_STR_FILEVERSION          "2.76"
-#define VER_STR_FILEVERSION_TCHAR _T("2.76")
+#define VER_FILEVERSION             0,3,0,0
+#define VER_STR_FILEVERSION          "3.00"
+#define VER_STR_FILEVERSION_TCHAR _T("3.00")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")

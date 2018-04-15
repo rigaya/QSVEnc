@@ -27,7 +27,7 @@
 
 #ifndef _AUO_YUVREADER_H_
 #define _AUO_YUVREADER_H_
-
+#if 0
 #include "rgy_input.h"
 #include "auo_version.h"
 #include "auo.h"
@@ -79,5 +79,5 @@ private:
     InputInfoAuo m_auoData;
     std::chrono::system_clock::time_point m_tmLastLogUpdate;
 };
-
+#endif
 #endif //_AUO_YUVREADER_H_

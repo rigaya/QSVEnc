@@ -25,6 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#if 0
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -129,3 +130,4 @@ void CAuoLog::write(int log_level, const TCHAR *format, ... ) {
     free(buffer);
 }
 
+#endif

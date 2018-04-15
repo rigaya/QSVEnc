@@ -101,6 +101,11 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 0, 0 }
 };
 
+static const mfxU32 CODEC_LIST_AUO[] = {
+    MFX_CODEC_AVC,
+    MFX_CODEC_HEVC
+};
+
 #define MFX_LIB_VERSION_0_0  LIB_VER_LIST[ 0]
 #define MFX_LIB_VERSION_1_0  LIB_VER_LIST[ 1]
 #define MFX_LIB_VERSION_1_1  LIB_VER_LIST[ 2]
@@ -270,10 +275,10 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
 mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId);
 vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId);
 vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 
 tstring MakeFeatureListStr(mfxU64 feature);
 vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType outputType);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType outputType, const vector<mfxU32>& codecIdList);
 
 mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver);
 mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);

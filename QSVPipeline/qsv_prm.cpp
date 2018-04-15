@@ -34,14 +34,17 @@ void init_qsvp_prm(sInputParams *prm) {
     prm->CodecId           = MFX_CODEC_AVC;
     prm->nTargetUsage      = QSV_DEFAULT_QUALITY;
     prm->nEncMode          = MFX_RATECONTROL_CQP;
-    prm->bUseHWLib         = true;
+#if defined(_WIN32) || defined(_WIN64)
     prm->memType           = HW_MEMORY;
+#else
+    prm->memType           = SYSTEM_MEMORY;
+#endif
     prm->ColorFormat       = MFX_FOURCC_NV12;
     prm->nPicStruct        = MFX_PICSTRUCT_PROGRESSIVE;
-    prm->nBitRate          = 3000;
+    prm->nBitRate          = 6000;
     prm->nMaxBitrate       = 15000;
-    prm->nFPSRate          = 30000;
-    prm->nFPSScale         = 1001;
+    prm->nFPSRate          = 0;
+    prm->nFPSScale         = 0;
     prm->nQPI              = QSV_DEFAULT_QPI;
     prm->nQPP              = QSV_DEFAULT_QPP;
     prm->nQPB              = QSV_DEFAULT_QPB;
@@ -71,9 +74,12 @@ void init_qsvp_prm(sInputParams *prm) {
     prm->nAudioThread      = RGY_AUDIO_THREAD_AUTO;
     prm->nAudioIgnoreDecodeError = QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR;
 
-    prm->nDstWidth          = 1280;
-    prm->nDstHeight         = 720;
+    prm->nDstWidth          = 0;
+    prm->nDstHeight         = 0;
+    prm->vpp.bEnable        = true;
     prm->vpp.nDenoise       = 20;
     prm->vpp.nDetailEnhance = 20;
     prm->vpp.delogo.nDepth  = QSV_DEFAULT_VPP_DELOGO_DEPTH;
+
+    prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 }

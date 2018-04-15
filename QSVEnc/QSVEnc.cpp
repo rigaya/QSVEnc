@@ -248,8 +248,6 @@ void init_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
     get_aviutl_dir(_sys_dat->aviutl_dir, _countof(_sys_dat->aviutl_dir));
     _sys_dat->exstg = new guiEx_settings();
     //set_ex_stg_ptr(_sys_dat->exstg);
-    _sys_dat->hw_ver = get_mfx_libhw_version();
-    _sys_dat->sw_ver = get_mfx_libsw_version();
     _sys_dat->init = TRUE;
 }
 void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
@@ -265,7 +263,8 @@ void delete_SYSTEM_DATA(SYSTEM_DATA *_sys_dat) {
 void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit) {
     ZeroMemory(conf, sizeof(CONF_GUIEX));
     guiEx_config::write_conf_header(conf);
-    init_qsvp_prm(&conf->qsv);
+    conf->vid.resize_width = 1280;
+    conf->vid.resize_height = 720;
     conf->aud.encoder = g_sys_dat.exstg->s_local.default_audio_encoder;
     conf->size_all = CONF_INITIALIZED;
 }

@@ -44,6 +44,7 @@ typedef struct {
     DWORD size;  //1ピクセルあたりバイト数
 } COLORFORMAT_DATA;
 
+static const char * const CF_NAME[] = { "YUY2", "YC48", "RGB" };
 static const COLORFORMAT_DATA COLORFORMATS[] = {
     { MAKEFOURCC('Y', 'U', 'Y', '2'), 2 }, //YUY2
     { MAKEFOURCC('Y', 'C', '4', '8'), 6 }, //YC48

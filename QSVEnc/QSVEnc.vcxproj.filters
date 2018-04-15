@@ -108,6 +108,21 @@
     <ClCompile Include="prm\auo_conf_convert.cpp">
       <Filter>ソース ファイル\prm</Filter>
     </ClCompile>
+    <ClCompile Include="encode\convert_sse2.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_sse41.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_ssse3.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\convert_avx2.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="encode\auo_convert.cpp">
+      <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="QSVEnc.def">

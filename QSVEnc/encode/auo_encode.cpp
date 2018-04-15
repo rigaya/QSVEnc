@@ -69,8 +69,6 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, c
 
     //解像度
     int w_mul = 2, h_mul = 2;
-    if (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
-        h_mul *= 2;
     if (oip->w % w_mul) {
         error_invalid_resolution(TRUE,  w_mul, oip->w, oip->h);
         check = FALSE;
@@ -82,17 +80,6 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, c
 
     if (conf->oth.out_audio_only)
         write_log_auo_line(LOG_INFO, "音声のみ出力を行います。");
-
-    //Intel Media SDK ライブラリのチェック
-    if (conf->qsv.bUseHWLib && (check_lib_version(get_mfx_libhw_version(), MFX_LIB_VERSION_1_1) == 0)) {
-        error_mfx_libhw();
-        check = FALSE;
-    }
-
-    if (!conf->qsv.bUseHWLib && (check_lib_version(get_mfx_libsw_version(), MFX_LIB_VERSION_1_1) == 0)) {
-        error_mfx_libsw();
-        check = FALSE;
-    }
 
     //音声エンコーダ
     if (oip->flag & OUTPUT_INFO_FLAG_AUDIO) {
@@ -236,7 +223,7 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
         //ESで出力するので拡張子を変更
         //check_muxer_to_be_usedの前に拡張子を変更しないと音声なしのときにmuxされない
         const char *ext = ".tmp";
-        switch (conf->qsv.CodecId) {
+        switch (conf->qsv.codec) {
         case MFX_CODEC_AVC:     ext = ".264"; break;
         case MFX_CODEC_MPEG2:   ext = ".m2v"; break;
         case MFX_CODEC_VC1:     ext = ".vc1"; break;
@@ -335,7 +322,7 @@ static void set_guiEx_auto_sar(int *sar_x, int *sar_y, int width, int height) {
         *sar_x = *sar_y = 0;
     }
 }
-
+/*
 static void replace_aspect_ratio(char *cmd, size_t nSize, const CONF_GUIEX *conf, const OUTPUT_INFO *oip) {
     const int w = oip->w;
     const int h = oip->h;
@@ -378,7 +365,7 @@ static void replace_aspect_ratio(char *cmd, size_t nSize, const CONF_GUIEX *conf
     sprintf_s(buf, _countof(buf), "%d", dar_y);
     replace(cmd, nSize, "%{dar_y}", buf);
 }
-
+*/
 void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const CONF_GUIEX *conf, const OUTPUT_INFO *oip) {
     char tmp[MAX_PATH_LEN] = { 0 };
     //置換操作の実行
@@ -438,39 +425,6 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
     //%{fps_rate}
     int fps_rate = oip->rate;
     int fps_scale = oip->scale;
-#ifdef BUILD_AUO
-#if ENABLE_ADVANCED_DEINTERLACE
-    switch (conf->qsv.vpp.nFPSConversion) {
-    case MFX_DEINTERLACE_IT:
-    case MFX_DEINTERLACE_IT_MANUAL:
-        fps_rate = (fps_rate * 4) / 5;
-        break;
-    case MFX_DEINTERLACE_BOB:
-    case MFX_DEINTERLACE_AUTO_DOUBLE:
-        fps_rate = fps_rate * 2;
-        break;
-    default:
-        break;
-    }
-#ifdef ENABLE_FPS_CONVERSION
-    switch (conf->qsv.vpp.nFPSConversion) {
-    case FPS_CONVERT_MUL2:
-        fps_rate = fps_rate * 2;
-        break;
-    case FPS_CONVERT_MUL2_5:
-        fps_rate = (fps_rate * 5) / 2;
-        break;
-    default:
-        break;
-    }
-#endif
-#else
-    if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT || conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL)
-        fps_rate = (fps_rate * 4) / 5;
-    if (conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_BOB || conf->qsv.vpp.nDeinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)
-        fps_rate = fps_rate * 2;
-#endif //ENABLE_ADVANCED_DEINTERLACE
-#endif //MSDK_SAMPLE_VERSION
     const int fps_gcd = get_gcd(fps_rate, fps_scale);
     fps_rate /= fps_gcd;
     fps_scale /= fps_gcd;
@@ -484,7 +438,7 @@ void cmd_replace(char *cmd, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *
     sprintf_s(tmp, sizeof(tmp), "%d", fps_scale);
     replace(cmd, nSize, "%{fps_scale}", tmp);
     //アスペクト比
-    replace_aspect_ratio(cmd, nSize, conf, oip);
+    //replace_aspect_ratio(cmd, nSize, conf, oip);
 
     char fullpath[MAX_PATH_LEN];
     replace(cmd, nSize, "%{audencpath}",   GetFullPath(sys_dat->exstg->s_aud[conf->aud.encoder].fullpath, fullpath, _countof(fullpath)));

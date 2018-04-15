@@ -25,6 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#if 0
 #include <Windows.h>
 #include <Process.h>
 #include <Math.h>
@@ -259,3 +260,4 @@ RGY_ERR AUO_EncodeStatusInfo::UpdateDisplay(double progressPercent) {
     }
     return EncodeStatus::UpdateDisplay(progressPercent);
 }
+#endif

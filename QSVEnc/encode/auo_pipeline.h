@@ -28,7 +28,7 @@
 
 #ifndef _AUO_PIPELINE_ENCODE_H_
 #define _AUO_PIPELINE_ENCODE_H_
-
+#if 0
 #include "qsv_pipeline.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
@@ -50,6 +50,6 @@ public:
     virtual mfxStatus InitInput(sInputParams *pParams) override;
     virtual mfxStatus InitOutput(sInputParams *pParams) override;
 };
-
+#endif
 
 #endif //_AUO_PIPELINE_ENCODE_H_

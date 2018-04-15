@@ -193,6 +193,8 @@ System::Void frmConfig::LoadLocalStg() {
     LocalStg.CustomMP4TmpDir = String(_ex_stg->s_local.custom_mp4box_tmp_dir).ToString();
     LocalStg.LastAppDir      = String(_ex_stg->s_local.app_dir).ToString();
     LocalStg.LastBatDir      = String(_ex_stg->s_local.bat_dir).ToString();
+    LocalStg.vidEncName      = String(_ex_stg->s_vid.filename).ToString();
+    LocalStg.vidEncPath      = String(_ex_stg->s_vid.fullpath).ToString();
     LocalStg.MP4MuxerExeName = String(_ex_stg->s_mux[MUXER_MP4].filename).ToString();
     LocalStg.MP4MuxerPath    = String(_ex_stg->s_mux[MUXER_MP4].fullpath).ToString();
     LocalStg.MKVMuxerExeName = String(_ex_stg->s_mux[MUXER_MKV].filename).ToString();
@@ -219,6 +221,13 @@ System::Void frmConfig::LoadLocalStg() {
 System::Boolean frmConfig::CheckLocalStg() {
     bool error = false;
     String^ err = "";
+    //映像エンコーダのチェック
+    String^ VideoEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
+    if (!File::Exists(VideoEncoderPath)) {
+        if (!error) err += L"\n\n";
+        error = true;
+        err += L"指定された 動画エンコーダ は存在しません。\n [ " + VideoEncoderPath + L" ]\n";
+    }
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
     if (LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
         String^ AudioEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
@@ -254,29 +263,6 @@ System::Boolean frmConfig::CheckLocalStg() {
     return error;
 }
 
-System::Boolean frmConfig::CheckVppResolution(CONF_GUIEX *cnf) {
-    bool error = false;
-    if (!cnf->qsv.vpp.bUseResize)
-        return error;
-    int w_mul = 2;
-    int h_mul = 2;
-    if ((cnf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) != 0 &&
-        !cnf->qsv.vpp.nDeinterlace)
-        h_mul *= 2;
-    String^ err = L"";
-    if (cnf->qsv.nDstWidth % w_mul != 0) {
-        err += L"VPP リサイズに指定した横解像度が " + w_mul + L" で割りきれません。\n";
-        error = true;
-    }
-    if (cnf->qsv.nDstHeight % h_mul != 0) {
-        err += L"VPP リサイズに指定した縦解像度が " + h_mul + L" で割りきれません。\n";
-        error = true;
-    }
-    if (error)
-        MessageBox::Show(this, err, L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
-    return error;
-}
-
 System::Void frmConfig::SaveLocalStg() {
     guiEx_settings *_ex_stg = sys_dat->exstg;
     _ex_stg->load_encode_stg();
@@ -286,6 +272,7 @@ System::Void frmConfig::SaveLocalStg() {
     GetCHARfromString(_ex_stg->s_local.custom_audio_tmp_dir,  sizeof(_ex_stg->s_local.custom_audio_tmp_dir),  LocalStg.CustomAudTmpDir);
     GetCHARfromString(_ex_stg->s_local.app_dir,               sizeof(_ex_stg->s_local.app_dir),               LocalStg.LastAppDir);
     GetCHARfromString(_ex_stg->s_local.bat_dir,               sizeof(_ex_stg->s_local.bat_dir),               LocalStg.LastBatDir);
+    GetCHARfromString(_ex_stg->s_vid.fullpath,                sizeof(_ex_stg->s_vid.fullpath),                LocalStg.vidEncPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MP4].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MP4].fullpath),     LocalStg.MP4MuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MKV].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MKV].fullpath),     LocalStg.MKVMuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_TC2MP4].fullpath,  sizeof(_ex_stg->s_mux[MUXER_TC2MP4].fullpath),  LocalStg.TC2MP4Path);
@@ -297,6 +284,7 @@ System::Void frmConfig::SaveLocalStg() {
 }
 
 System::Void frmConfig::SetLocalStg() {
+    fcgTXVideoEncoderPath->Text   = LocalStg.vidEncPath;
     fcgTXMP4MuxerPath->Text       = LocalStg.MP4MuxerPath;
     fcgTXMKVMuxerPath->Text       = LocalStg.MKVMuxerPath;
     fcgTXTC2MP4Path->Text         = LocalStg.TC2MP4Path;
@@ -305,12 +293,14 @@ System::Void frmConfig::SetLocalStg() {
     fcgTXCustomAudioTempDir->Text = LocalStg.CustomAudTmpDir;
     fcgTXCustomTempDir->Text      = LocalStg.CustomTmpDir;
     fcgTXMP4BoxTempDir->Text      = LocalStg.CustomMP4TmpDir;
+    fcgLBVideoEncoderPath->Text   = LocalStg.vidEncName + L" の指定";
     fcgLBMP4MuxerPath->Text       = LocalStg.MP4MuxerExeName + L" の指定";
     fcgLBMKVMuxerPath->Text       = LocalStg.MKVMuxerExeName + L" の指定";
     fcgLBTC2MP4Path->Text         = LocalStg.TC2MP4ExeName   + L" の指定";
     fcgLBMPGMuxerPath->Text       = LocalStg.MPGMuxerExeName + L" の指定";
     fcgLBMP4RawPath->Text         = LocalStg.MP4RawExeName + L" の指定";
 
+    fcgTXVideoEncoderPath->SelectionStart = fcgTXVideoEncoderPath->Text->Length;
     fcgTXMP4MuxerPath->SelectionStart     = fcgTXMP4MuxerPath->Text->Length;
     fcgTXTC2MP4Path->SelectionStart       = fcgTXTC2MP4Path->Text->Length;
     fcgTXMKVMuxerPath->SelectionStart     = fcgTXMKVMuxerPath->Text->Length;
@@ -707,6 +697,7 @@ System::Void frmConfig::SetTXMaxLen(TextBox^ TX, int max_len) {
 
 System::Void frmConfig::SetTXMaxLenAll() {
     //MaxLengthに最大文字数をセットし、それをもとにバイト数計算を行うイベントをセットする。
+    SetTXMaxLen(fcgTXVideoEncoderPath,   sizeof(sys_dat->exstg->s_vid.fullpath) - 1);
     SetTXMaxLen(fcgTXAudioEncoderPath,   sizeof(sys_dat->exstg->s_aud[0].fullpath) - 1);
     SetTXMaxLen(fcgTXMP4MuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
     SetTXMaxLen(fcgTXMKVMuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);
@@ -770,8 +761,6 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-    
-    fcgPNExtSettings->Visible = !fcgCBHWEncode->Checked;
 
     //Scene change detection
     fcgCBSceneChange->Enabled = 0 != (available_features & ENC_FEATURE_SCENECHANGE);
@@ -859,12 +848,10 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
-    //swモードは使用しない
-    fcgCBHWEncode->Checked = true;
     //両方ともnullptrの組み合わせ、つまりInitFormで呼ばれた場合以外では、
     //もしfeatureListが作成できていなければ、チェックを行わない
     if (sender != nullptr && e != nullptr) {
-        bool featureListAvialable = (fcgCBHWEncode->Checked) ? featuresHW->checkIfGetFeaturesFinished() : featuresSW->checkIfGetFeaturesFinished();
+        bool featureListAvialable = featuresHW->checkIfGetFeaturesFinished();
         if (!featureListAvialable)
             return;
     }
@@ -874,13 +861,13 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
 
     mfxVersion mfxlib_target;
-    mfxlib_target.Version = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
+    mfxlib_target.Version = featuresHW->GetmfxLibVer();
     
-    mfxU64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
+    mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
     //まず、レート制御モードのみのチェックを行う
     //もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
     if (fcgCheckLibRateControl(mfxlib_target.Version, available_features))
-        available_features = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId) : featuresSW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
+        available_features = featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
 
     //つぎに全体のチェックを行う
     fcgCheckLibVersion(mfxlib_target.Version, available_features);
@@ -926,13 +913,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgLBWinBRCSizeAuto->Visible = la_mode;
     fcgNUWinBRCSize->Visible = la_mode;
 
-    fcgNURef->Visible = !fcgCBHWEncode->Checked;
-    fcgLBRef->Visible = !fcgCBHWEncode->Checked;
-    fcgLBRefAuto->Visible = !fcgCBHWEncode->Checked;
-    fcgCBD3DMemAlloc->Enabled = fcgCBHWEncode->Checked;
-    fcgCBD3DMemAlloc->Checked = fcgCBD3DMemAlloc->Enabled;
-
-    fcggroupBoxVpp->Enabled = fcgCBUseVpp->Checked;
+    fcgPNExtSettings->Visible = false;
 
     fcgPNICQ->Visible = icq_mode;
     fcgPNQVBR->Visible = qvbr_mode;
@@ -947,6 +928,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 }
 
 System::Void frmConfig::fcgCheckVppFeatures() {
+#if 0
     //swモードは使用しない
     fcgCBHWEncode->Checked = true;
     UInt64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
@@ -973,6 +955,7 @@ System::Void frmConfig::fcgCheckVppFeatures() {
     fcgCXImageStabilizer->Enabled = 0 != (available_features & VPP_FEATURE_IMAGE_STABILIZATION);
     fcgLBImageStabilizer->Enabled = fcgCXImageStabilizer->Enabled;
     if (!fcgCXImageStabilizer->Enabled) fcgCXImageStabilizer->SelectedIndex = 0;
+#endif
 }
 
 System::Void frmConfig::fcgCBHWLibChanged(System::Object^  sender, System::EventArgs^  e) {
@@ -1067,12 +1050,8 @@ System::Void frmConfig::SetInputBufRange() {
 
 System::Void frmConfig::UpdateMfxLibDetection() {
     UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
-    //UInt32 mfxlib_sw = featuresSW->GetmfxLibVer();
     fcgLBMFXLibDetectionHwValue->Text = (check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version)) ? 
         L"v" + ((mfxlib_hw>>16).ToString() + L"." + (mfxlib_hw & 0x0000ffff).ToString()) : L"-----";
-    //fcgLBMFXLibDetectionSwValue->Text = (check_lib_version(mfxlib_sw, MFX_LIB_VERSION_1_1.Version)) ? 
-    //    L"v" + ((mfxlib_sw>>16).ToString() + L"." + (mfxlib_sw & 0x0000ffff).ToString()) : L"-----";
-    fcgLBMFXLibDetectionSwValue->Text = L"-----";
 }
 
 System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
@@ -1086,16 +1065,19 @@ System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
     } else {
         memcpy(&cnf->oth.link_prm, &link_data.prm, sizeof(link_data.prm));
         memcpy(conf_link_prm, &link_data.prm, sizeof(link_data.prm));
-        strcpy(cnf->qsv.strSrcFile, link_data.input_file);
-        fcgTXAvqsvInputFile->Text = String(cnf->qsv.strSrcFile).ToString();
+        strcpy(cnf->qsv.auo_link_src, link_data.input_file);
+        fcgTXAvqsvInputFile->Text = String(cnf->qsv.auo_link_src).ToString();
+
+        Point point = fcgTXCmd->Location;
+        point.Y += fcggroupBoxAvqsv->Size.Height;
+        fcgTXCmd->Location = point;
 
         //ウィンドウ位置の修正
         auto formSize = this->Size;
         formSize.Height += fcggroupBoxAvqsv->Size.Height;
         this->Size = formSize;
 
-        this->Size.Height += fcggroupBoxAvqsv->Size.Height;
-        Point point = fcgtabControlMux->Location;
+        point = fcgtabControlMux->Location;
         point.Y += fcggroupBoxAvqsv->Size.Height;
         fcgtabControlMux->Location = point;
 
@@ -1111,8 +1093,6 @@ System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
 }
 
 System::Void frmConfig::InitForm() {
-    featuresHW = gcnew QSVFeatures(true);
-    //featuresSW = gcnew QSVFeatures(false);
     //CPU情報の取得
     getCPUInfoDelegate = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
     getCPUInfoDelegate->BeginInvoke(nullptr, nullptr);
@@ -1139,10 +1119,6 @@ System::Void frmConfig::InitForm() {
     CheckQSVLink(conf);
     //HWエンコードの可否
     UpdateMfxLibDetection();
-    UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
-    fcgCBHWEncode->Enabled = check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version) != 0;
-    if (!fcgCBHWEncode->Enabled)
-        fcgCBHWEncode->Checked = false;
     //パラメータセット
     ConfToFrm(conf);
     //イベントセット
@@ -1167,105 +1143,106 @@ System::Void frmConfig::InitForm() {
     UpdateFeatures();
     fcgChangeEnabled(nullptr, nullptr);
     fcgChangeVisibleDirectEnc(nullptr, nullptr);
-    fcgCBHWEncode->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBHWLibChanged);
 }
 
 /////////////         データ <-> GUI     /////////////
 System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
-    SetCXIndex(fcgCXOutputType,   get_cx_index(list_outtype, cnf->qsv.CodecId));
-    SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, cnf->qsv.nEncMode));
-    SetCXIndex(fcgCXQuality,      get_cx_index(list_quality, cnf->qsv.nTargetUsage));
-    SetNUValue(fcgNUBitrate,      cnf->qsv.nBitRate);
-    SetNUValue(fcgNUMaxkbps,      cnf->qsv.nMaxBitrate);
-    SetNUValue(fcgNUQPI,          cnf->qsv.nQPI);
-    SetNUValue(fcgNUQPP,          cnf->qsv.nQPP);
-    SetNUValue(fcgNUQPB,          cnf->qsv.nQPB);
-    SetNUValue(fcgNUICQQuality,   cnf->qsv.nICQQuality);
-    SetNUValue(fcgNUQVBR,         cnf->qsv.nQVBRQuality);
-    SetNUValue(fcgNUGopLength,    Convert::ToDecimal(cnf->qsv.nGOPLength));
-    SetNUValue(fcgNURef,          cnf->qsv.nRef);
-    SetNUValue(fcgNUBframes,      cnf->qsv.nBframes);
-    SetCXIndex(fcgCXTrellis,      get_cx_index(list_avc_trellis, cnf->qsv.nTrellis));
-    SetCXIndex(fcgCXCodecLevel,   get_cx_index(get_level_list(cnf->qsv.CodecId),   cnf->qsv.CodecLevel));
-    SetCXIndex(fcgCXCodecProfile, get_cx_index(get_profile_list(cnf->qsv.CodecId), cnf->qsv.CodecProfile));
-    if (fcgCBHWEncode->Enabled)
-        fcgCBHWEncode->Checked  = cnf->qsv.bUseHWLib;
+    sInputParams prm_qsv;
+    init_qsvp_prm(&prm_qsv);
+    ParseCmdError err;
+    parse_cmd(&prm_qsv, cnf->qsv.cmd, err);
+
+    SetCXIndex(fcgCXOutputType,   get_cx_index(list_outtype, prm_qsv.CodecId));
+    SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.nEncMode));
+    SetCXIndex(fcgCXQuality,      get_cx_index(list_quality, prm_qsv.nTargetUsage));
+    SetNUValue(fcgNUBitrate,      prm_qsv.nBitRate);
+    SetNUValue(fcgNUMaxkbps,      prm_qsv.nMaxBitrate);
+    SetNUValue(fcgNUQPI,          prm_qsv.nQPI);
+    SetNUValue(fcgNUQPP,          prm_qsv.nQPP);
+    SetNUValue(fcgNUQPB,          prm_qsv.nQPB);
+    SetNUValue(fcgNUICQQuality,   prm_qsv.nICQQuality);
+    SetNUValue(fcgNUQVBR,         prm_qsv.nQVBRQuality);
+    SetNUValue(fcgNUGopLength,    Convert::ToDecimal(prm_qsv.nGOPLength));
+    SetNUValue(fcgNURef,          prm_qsv.nRef);
+    SetNUValue(fcgNUBframes,      prm_qsv.nBframes);
+    SetCXIndex(fcgCXTrellis,      get_cx_index(list_avc_trellis, prm_qsv.nTrellis));
+    SetCXIndex(fcgCXCodecLevel,   get_cx_index(get_level_list(prm_qsv.CodecId),   prm_qsv.CodecLevel));
+    SetCXIndex(fcgCXCodecProfile, get_cx_index(get_profile_list(prm_qsv.CodecId), prm_qsv.CodecProfile));
     if (fcgCBFixedFunc->Enabled)
-        fcgCBFixedFunc->Checked = cnf->qsv.bUseFixedFunc != 0;
+        fcgCBFixedFunc->Checked = prm_qsv.bUseFixedFunc != 0;
     if (fcgCBD3DMemAlloc->Enabled)
-        fcgCBD3DMemAlloc->Checked = cnf->qsv.memType != SYSTEM_MEMORY;
-    SetNUValue(fcgNUAVBRAccuarcy, cnf->qsv.nAVBRAccuarcy / Convert::ToDecimal(10.0));
-    SetNUValue(fcgNUAVBRConvergence, cnf->qsv.nAVBRConvergence);
-    SetNUValue(fcgNULookaheadDepth, cnf->qsv.nLookaheadDepth);
-    fcgCBAdaptiveI->Checked     = cnf->qsv.bAdaptiveI != 0;
-    fcgCBAdaptiveB->Checked     = cnf->qsv.bAdaptiveB != 0;
-    fcgCBWeightP->Checked       = cnf->qsv.nWeightP != MFX_WEIGHTED_PRED_UNKNOWN;
-    fcgCBWeightB->Checked       = cnf->qsv.nWeightB != MFX_WEIGHTED_PRED_UNKNOWN;
-    fcgCBFadeDetect->Checked    = cnf->qsv.nFadeDetect == MFX_CODINGOPTION_ON;
-    fcgCBBPyramid->Checked      = cnf->qsv.bBPyramid != 0;
-    SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, cnf->qsv.nLookaheadDS));
-    fcgCBMBBRC->Checked         = cnf->qsv.bMBBRC != 0;
-    fcgCBExtBRC->Checked        = cnf->qsv.bExtBRC != 0;
-    SetNUValue(fcgNUWinBRCSize,       cnf->qsv.nWinBRCSize);
-    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced_mfx, cnf->qsv.nPicStruct));
-    if (cnf->qsv.nPAR[0] * cnf->qsv.nPAR[1] <= 0)
-        cnf->qsv.nPAR[0] = cnf->qsv.nPAR[1] = 0;
-    SetCXIndex(fcgCXAspectRatio, (cnf->qsv.nPAR[0] < 0));
-    SetNUValue(fcgNUAspectRatioX, abs(cnf->qsv.nPAR[0]));
-    SetNUValue(fcgNUAspectRatioY, abs(cnf->qsv.nPAR[1]));
-    fcgCBSceneChange->Checked    = false == cnf->qsv.bforceGOPSettings;
-    fcgCBOpenGOP->Checked        = cnf->qsv.bopenGOP;
+        fcgCBD3DMemAlloc->Checked = prm_qsv.memType != SYSTEM_MEMORY;
+    SetNUValue(fcgNUAVBRAccuarcy, prm_qsv.nAVBRAccuarcy / Convert::ToDecimal(10.0));
+    SetNUValue(fcgNUAVBRConvergence, prm_qsv.nAVBRConvergence);
+    SetNUValue(fcgNULookaheadDepth, prm_qsv.nLookaheadDepth);
+    fcgCBAdaptiveI->Checked     = prm_qsv.bAdaptiveI != 0;
+    fcgCBAdaptiveB->Checked     = prm_qsv.bAdaptiveB != 0;
+    fcgCBWeightP->Checked       = prm_qsv.nWeightP != MFX_WEIGHTED_PRED_UNKNOWN;
+    fcgCBWeightB->Checked       = prm_qsv.nWeightB != MFX_WEIGHTED_PRED_UNKNOWN;
+    fcgCBFadeDetect->Checked    = prm_qsv.nFadeDetect == MFX_CODINGOPTION_ON;
+    fcgCBBPyramid->Checked      = prm_qsv.bBPyramid != 0;
+    SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, prm_qsv.nLookaheadDS));
+    fcgCBMBBRC->Checked         = prm_qsv.bMBBRC != 0;
+    fcgCBExtBRC->Checked        = prm_qsv.bExtBRC != 0;
+    SetNUValue(fcgNUWinBRCSize,       prm_qsv.nWinBRCSize);
+    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced_mfx, prm_qsv.nPicStruct));
+    if (prm_qsv.nPAR[0] * prm_qsv.nPAR[1] <= 0)
+        prm_qsv.nPAR[0] = prm_qsv.nPAR[1] = 0;
+    SetCXIndex(fcgCXAspectRatio, (prm_qsv.nPAR[0] < 0));
+    SetNUValue(fcgNUAspectRatioX, abs(prm_qsv.nPAR[0]));
+    SetNUValue(fcgNUAspectRatioY, abs(prm_qsv.nPAR[1]));
+    fcgCBSceneChange->Checked    = false == prm_qsv.bforceGOPSettings;
+    fcgCBOpenGOP->Checked        = prm_qsv.bopenGOP;
 
-    SetNUValue(fcgNUSlices,       cnf->qsv.nSlices);
+    SetNUValue(fcgNUSlices,       prm_qsv.nSlices);
 
-    fcgCBBlurayCompat->Checked   = cnf->qsv.nBluray != 0;
+    fcgCBBlurayCompat->Checked   = prm_qsv.nBluray != 0;
 
-    SetNUValue(fcgNUQPMin,         cnf->qsv.nQPMin[0]);
-    SetNUValue(fcgNUQPMax,         cnf->qsv.nQPMax[0]);
+    SetNUValue(fcgNUQPMin,         prm_qsv.nQPMin[0]);
+    SetNUValue(fcgNUQPMax,         prm_qsv.nQPMax[0]);
 
-    fcgCBCABAC->Checked          = !cnf->qsv.bCAVLC;
-    fcgCBRDO->Checked            = cnf->qsv.bRDO;
-    SetNUValue(fcgNUMVSearchWindow, cnf->qsv.MVSearchWindow.x);
-    SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion,    cnf->qsv.nMVPrecision));
-    SetCXIndex(fcgCXInterPred,   get_cx_index(list_pred_block_size, cnf->qsv.nInterPred));
-    SetCXIndex(fcgCXIntraPred,   get_cx_index(list_pred_block_size, cnf->qsv.nIntraPred));
+    fcgCBCABAC->Checked          = !prm_qsv.bCAVLC;
+    fcgCBRDO->Checked            = prm_qsv.bRDO;
+    SetNUValue(fcgNUMVSearchWindow, prm_qsv.MVSearchWindow.x);
+    SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion,    prm_qsv.nMVPrecision));
+    SetCXIndex(fcgCXInterPred,   get_cx_index(list_pred_block_size, prm_qsv.nInterPred));
+    SetCXIndex(fcgCXIntraPred,   get_cx_index(list_pred_block_size, prm_qsv.nIntraPred));
 
-    fcgCBDirectBiasAdjust->Checked = 0 != cnf->qsv.bDirectBiasAdjust;
-    SetCXIndex(fcgCXMVCostScaling, (cnf->qsv.bGlobalMotionAdjust) ? get_cx_index(list_mv_cost_scaling, cnf->qsv.nMVCostScaling) : 0);
+    fcgCBDirectBiasAdjust->Checked = 0 != prm_qsv.bDirectBiasAdjust;
+    SetCXIndex(fcgCXMVCostScaling, (prm_qsv.bGlobalMotionAdjust) ? get_cx_index(list_mv_cost_scaling, prm_qsv.nMVCostScaling) : 0);
 
-    fcgCBDeblock->Checked        = cnf->qsv.bNoDeblock == 0;
-    fcgCBIntraRefresh->Checked   = cnf->qsv.bIntraRefresh != 0;
+    fcgCBDeblock->Checked        = prm_qsv.bNoDeblock == 0;
+    fcgCBIntraRefresh->Checked   = prm_qsv.bIntraRefresh != 0;
 
-    SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer, cnf->qsv.Transfer));
-    SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, cnf->qsv.ColorMatrix));
-    SetCXIndex(fcgCXColorPrim,   get_cx_index(list_colorprim,   cnf->qsv.ColorPrim));
-    SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, cnf->qsv.VideoFormat));
-    fcgCBFullrange->Checked      = cnf->qsv.bFullrange;
+    SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer, prm_qsv.Transfer));
+    SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, prm_qsv.ColorMatrix));
+    SetCXIndex(fcgCXColorPrim,   get_cx_index(list_colorprim,   prm_qsv.ColorPrim));
+    SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, prm_qsv.VideoFormat));
+    fcgCBFullrange->Checked      = prm_qsv.bFullrange;
 
-    fcgCBOutputAud->Checked       = cnf->qsv.bOutputAud != 0;
-    fcgCBOutputPicStruct->Checked = cnf->qsv.bOutputPicStruct != 0;
+    fcgCBOutputAud->Checked       = prm_qsv.bOutputAud != 0;
+    fcgCBOutputPicStruct->Checked = prm_qsv.bOutputPicStruct != 0;
 
     //Vpp
-    fcgCBUseVpp->Checked                   = cnf->qsv.vpp.bEnable;
-    fcgCBVppResize->Checked                = cnf->qsv.vpp.bUseResize;
-    SetNUValue(fcgNUVppResizeW,              cnf->qsv.nDstWidth);
-    SetNUValue(fcgNUVppResizeH,              cnf->qsv.nDstHeight);
-    fcgCBVppDenoise->Checked               = cnf->qsv.vpp.bUseDenoise;
-    SetNUValue(fcgNUVppDenoise,              cnf->qsv.vpp.nDenoise);
-    fcgCBVppDetail->Checked                = cnf->qsv.vpp.bUseDetailEnhance;
-    SetNUValue(fcgNUVppDetail,               cnf->qsv.vpp.nDetailEnhance);
-    SetCXIndex(fcgCXDeinterlace,             cnf->qsv.vpp.nDeinterlace);
-    SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, cnf->qsv.vpp.nTelecinePattern));
-    SetCXIndex(fcgCXImageStabilizer,         cnf->qsv.vpp.nImageStabilizer);
-    SetCXIndex(fcgCXFPSConversion,           cnf->qsv.vpp.nFPSConversion);
-    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, cnf->qsv.vpp.nRotate));
+    fcgCBVppResize->Checked                = cnf->vid.resize_enable != 0;
+    SetNUValue(fcgNUVppResizeW,              cnf->vid.resize_width);
+    SetNUValue(fcgNUVppResizeH,              cnf->vid.resize_height);
+    fcgCBVppDenoise->Checked               = prm_qsv.vpp.bUseDenoise;
+    SetNUValue(fcgNUVppDenoise,              prm_qsv.vpp.nDenoise);
+    fcgCBVppDetail->Checked                = prm_qsv.vpp.bUseDetailEnhance;
+    SetNUValue(fcgNUVppDetail,               prm_qsv.vpp.nDetailEnhance);
+    SetCXIndex(fcgCXDeinterlace,             prm_qsv.vpp.nDeinterlace);
+    SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, prm_qsv.vpp.nTelecinePattern));
+    SetCXIndex(fcgCXImageStabilizer,         prm_qsv.vpp.nImageStabilizer);
+    SetCXIndex(fcgCXFPSConversion,           prm_qsv.vpp.nFPSConversion);
+    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, prm_qsv.vpp.nRotate));
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
-        SetNUValue(fcgNUInputBufSize,        cnf->qsv.nInputBufSize);
+        SetNUValue(fcgNUInputBufSize,        prm_qsv.nInputBufSize);
         fcgCBAFS->Checked                  = (enable_tc2mp4_muxer) ? cnf->vid.afs != 0 : false;
         fcgCBAuoTcfileout->Checked         = (enable_tc2mp4_muxer) ? cnf->vid.auo_tcfile_out != 0 : false;
 
@@ -1302,8 +1279,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBTrim->Checked                 = cnf->oth.link_prm.use_trim != 0;
         SetCXIndex(fcgCXAvqsvAudioEncoder,   get_cx_index(list_avqsv_aud_encoder, conf->aud_avqsv.encoder));
         SetNUValue(fcgNUAvqsvAudioBitrate,   conf->aud_avqsv.bitrate);
-        fcgCBCopyChapter->Checked          = cnf->qsv.bCopyChapter != 0;
-        fcgCBCopySubtitle->Checked         = cnf->qsv.nSubtitleSelectCount != 0;
+        fcgCBCopyChapter->Checked          = prm_qsv.bCopyChapter != 0;
+        fcgCBCopySubtitle->Checked         = prm_qsv.nSubtitleSelectCount != 0;
 
         fcgCBRunBatBefore->Checked         =(cnf->oth.run_bat & RUN_BAT_BEFORE_PROCESS) != 0;
         fcgCBRunBatAfter->Checked          =(cnf->oth.run_bat & RUN_BAT_AFTER_PROCESS)  != 0;
@@ -1318,104 +1295,117 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->PerformLayout();
 }
 
-System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
+System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     //これもひたすら書くだけ。めんどい
-    cnf->qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
-    cnf->qsv.nEncMode               = (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value;
-    cnf->qsv.nTargetUsage           = (mfxU16)list_quality[fcgCXQuality->SelectedIndex].value;
-    cnf->qsv.CodecProfile           = (mfxU16)get_profile_list(cnf->qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
-    cnf->qsv.CodecLevel             = (mfxU16)get_level_list(cnf->qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
-    cnf->qsv.nBitRate               = (mfxU16)fcgNUBitrate->Value;
-    cnf->qsv.nMaxBitrate            = (mfxU16)fcgNUMaxkbps->Value;
-    cnf->qsv.nLookaheadDepth        = (mfxU16)fcgNULookaheadDepth->Value;
-    cnf->qsv.nRef                   = (mfxU16)fcgNURef->Value;
-    cnf->qsv.bopenGOP               = fcgCBOpenGOP->Checked;
-    cnf->qsv.bforceGOPSettings      = fcgCBSceneChange->Checked == 0;
-    cnf->qsv.nGOPLength             = (mfxU16)fcgNUGopLength->Value;
-    cnf->qsv.nQPI                   = (mfxU16)fcgNUQPI->Value;
-    cnf->qsv.nQPP                   = (mfxU16)fcgNUQPP->Value;
-    cnf->qsv.nQPB                   = (mfxU16)fcgNUQPB->Value;
-    cnf->qsv.nICQQuality            = (mfxU16)fcgNUICQQuality->Value;
-    cnf->qsv.nQVBRQuality           = (mfxU16)fcgNUQVBR->Value;
-    cnf->qsv.nBframes               = (mfxI16)fcgNUBframes->Value;
-    cnf->qsv.nTrellis               = (mfxU16)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
-    cnf->qsv.nPicStruct             = (mfxU16)list_interlaced_mfx[fcgCXInterlaced->SelectedIndex].value;
-    cnf->qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
-    cnf->qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
-    cnf->qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
-    cnf->qsv.nWeightB               = (mfxU16)(fcgCBWeightB->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
-    cnf->qsv.nFadeDetect            = (mfxU16)(fcgCBFadeDetect->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
-    cnf->qsv.bBPyramid              = fcgCBBPyramid->Checked;
-    cnf->qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
-    cnf->qsv.bMBBRC                 = fcgCBMBBRC->Checked;
-    cnf->qsv.bExtBRC                = fcgCBExtBRC->Checked;
-    cnf->qsv.nWinBRCSize            = (mfxU16)fcgNUWinBRCSize->Value;
-    cnf->qsv.bUseHWLib              = fcgCBHWEncode->Checked;
-    cnf->qsv.bUseFixedFunc          = fcgCBFixedFunc->Checked;
-    cnf->qsv.memType                = (mfxU8)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
-    cnf->qsv.nAVBRAccuarcy          = (mfxU16)(fcgNUAVBRAccuarcy->Value * 10);
-    cnf->qsv.nAVBRConvergence       = (mfxU16)fcgNUAVBRConvergence->Value;
-    cnf->qsv.nSlices                = (mfxU16)fcgNUSlices->Value;
-    cnf->qsv.nQPMin[0]              = (mfxU8)fcgNUQPMin->Value;
-    cnf->qsv.nQPMin[1]              = (mfxU8)fcgNUQPMin->Value;
-    cnf->qsv.nQPMin[2]              = (mfxU8)fcgNUQPMin->Value;
-    cnf->qsv.nQPMax[0]              = (mfxU8)fcgNUQPMax->Value;
-    cnf->qsv.nQPMax[1]              = (mfxU8)fcgNUQPMax->Value;
-    cnf->qsv.nQPMax[2]              = (mfxU8)fcgNUQPMax->Value;
+    sInputParams prm_qsv;
+    init_qsvp_prm(&prm_qsv);
 
-    cnf->qsv.nBluray                = fcgCBBlurayCompat->Checked;
+    prm_qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    cnf->qsv.codec                 = prm_qsv.CodecId;
+    prm_qsv.nEncMode               = (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value;
+    prm_qsv.nTargetUsage           = (mfxU16)list_quality[fcgCXQuality->SelectedIndex].value;
+    prm_qsv.CodecProfile           = (mfxU16)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
+    prm_qsv.CodecLevel             = (mfxU16)get_level_list(prm_qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
+    prm_qsv.nBitRate               = (mfxU16)fcgNUBitrate->Value;
+    prm_qsv.nMaxBitrate            = (mfxU16)fcgNUMaxkbps->Value;
+    prm_qsv.nLookaheadDepth        = (mfxU16)fcgNULookaheadDepth->Value;
+    prm_qsv.nRef                   = (mfxU16)fcgNURef->Value;
+    prm_qsv.bopenGOP               = fcgCBOpenGOP->Checked;
+    prm_qsv.bforceGOPSettings      = fcgCBSceneChange->Checked == 0;
+    prm_qsv.nGOPLength             = (mfxU16)fcgNUGopLength->Value;
+    prm_qsv.nQPI                   = (mfxU16)fcgNUQPI->Value;
+    prm_qsv.nQPP                   = (mfxU16)fcgNUQPP->Value;
+    prm_qsv.nQPB                   = (mfxU16)fcgNUQPB->Value;
+    prm_qsv.nICQQuality            = (mfxU16)fcgNUICQQuality->Value;
+    prm_qsv.nQVBRQuality           = (mfxU16)fcgNUQVBR->Value;
+    prm_qsv.nBframes               = (mfxI16)fcgNUBframes->Value;
+    prm_qsv.nTrellis               = (mfxU16)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
+    prm_qsv.nPicStruct             = (mfxU16)list_interlaced_mfx[fcgCXInterlaced->SelectedIndex].value;
+    prm_qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
+    prm_qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
+    prm_qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
+    prm_qsv.nWeightB               = (mfxU16)(fcgCBWeightB->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
+    prm_qsv.nFadeDetect            = (mfxU16)(fcgCBFadeDetect->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+    prm_qsv.bBPyramid              = fcgCBBPyramid->Checked;
+    prm_qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
+    prm_qsv.bMBBRC                 = fcgCBMBBRC->Checked;
+    prm_qsv.bExtBRC                = fcgCBExtBRC->Checked;
+    prm_qsv.nWinBRCSize            = (mfxU16)fcgNUWinBRCSize->Value;
+    prm_qsv.bUseFixedFunc          = fcgCBFixedFunc->Checked;
+    prm_qsv.memType                = (mfxU8)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
+    prm_qsv.nAVBRAccuarcy          = (mfxU16)(fcgNUAVBRAccuarcy->Value * 10);
+    prm_qsv.nAVBRConvergence       = (mfxU16)fcgNUAVBRConvergence->Value;
+    prm_qsv.nSlices                = (mfxU16)fcgNUSlices->Value;
+    prm_qsv.nQPMin[0]              = (mfxU8)fcgNUQPMin->Value;
+    prm_qsv.nQPMin[1]              = (mfxU8)fcgNUQPMin->Value;
+    prm_qsv.nQPMin[2]              = (mfxU8)fcgNUQPMin->Value;
+    prm_qsv.nQPMax[0]              = (mfxU8)fcgNUQPMax->Value;
+    prm_qsv.nQPMax[1]              = (mfxU8)fcgNUQPMax->Value;
+    prm_qsv.nQPMax[2]              = (mfxU8)fcgNUQPMax->Value;
 
-    cnf->qsv.bNoDeblock             = !fcgCBDeblock->Checked;
-    cnf->qsv.bIntraRefresh          = fcgCBIntraRefresh->Checked;
+    prm_qsv.nBluray                = fcgCBBlurayCompat->Checked;
 
-    cnf->qsv.bCAVLC                 = !fcgCBCABAC->Checked;
-    cnf->qsv.bRDO                   = fcgCBRDO->Checked;
-    cnf->qsv.MVSearchWindow.x       = (mfxI16)fcgNUMVSearchWindow->Value;
-    cnf->qsv.MVSearchWindow.y       = (mfxI16)fcgNUMVSearchWindow->Value;
-    cnf->qsv.nMVPrecision           = (mfxU16)list_mv_presicion[fcgCXMVPred->SelectedIndex].value;
-    cnf->qsv.nInterPred             = (mfxU16)list_pred_block_size[fcgCXInterPred->SelectedIndex].value;
-    cnf->qsv.nIntraPred             = (mfxU16)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
+    prm_qsv.bNoDeblock             = !fcgCBDeblock->Checked;
+    prm_qsv.bIntraRefresh          = fcgCBIntraRefresh->Checked;
 
-    cnf->qsv.bDirectBiasAdjust      = fcgCBDirectBiasAdjust->Checked;
-    cnf->qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value > 0;
-    cnf->qsv.nMVCostScaling         = (mfxU8)((cnf->qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
+    prm_qsv.bCAVLC                 = !fcgCBCABAC->Checked;
+    prm_qsv.bRDO                   = fcgCBRDO->Checked;
+    prm_qsv.MVSearchWindow.x       = (mfxI16)fcgNUMVSearchWindow->Value;
+    prm_qsv.MVSearchWindow.y       = (mfxI16)fcgNUMVSearchWindow->Value;
+    prm_qsv.nMVPrecision           = (mfxU16)list_mv_presicion[fcgCXMVPred->SelectedIndex].value;
+    prm_qsv.nInterPred             = (mfxU16)list_pred_block_size[fcgCXInterPred->SelectedIndex].value;
+    prm_qsv.nIntraPred             = (mfxU16)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
 
-    cnf->qsv.ColorMatrix            = (mfxU16)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
-    cnf->qsv.ColorPrim              = (mfxU16)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
-    cnf->qsv.Transfer               = (mfxU16)list_transfer[fcgCXTransfer->SelectedIndex].value;
-    cnf->qsv.VideoFormat            = (mfxU16)list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
-    cnf->qsv.bFullrange             = fcgCBFullrange->Checked;
+    prm_qsv.bDirectBiasAdjust      = fcgCBDirectBiasAdjust->Checked;
+    prm_qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value > 0;
+    prm_qsv.nMVCostScaling         = (mfxU8)((prm_qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
 
+    prm_qsv.ColorMatrix            = (mfxU16)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
+    prm_qsv.ColorPrim              = (mfxU16)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
+    prm_qsv.Transfer               = (mfxU16)list_transfer[fcgCXTransfer->SelectedIndex].value;
+    prm_qsv.VideoFormat            = (mfxU16)list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
+    prm_qsv.bFullrange             = fcgCBFullrange->Checked;
 
-    cnf->qsv.nPAR[0]                = (int)fcgNUAspectRatioX->Value;
-    cnf->qsv.nPAR[1]                = (int)fcgNUAspectRatioY->Value;
+    prm_qsv.nHeight                = 0;
+    prm_qsv.nWidth                 = 0;
+    prm_qsv.nFPSRate               = 0;
+    prm_qsv.nFPSScale              = 0;
+
+    prm_qsv.nPAR[0]                = (int)fcgNUAspectRatioX->Value;
+    prm_qsv.nPAR[1]                = (int)fcgNUAspectRatioY->Value;
     if (fcgCXAspectRatio->SelectedIndex == 1) {
-        cnf->qsv.nPAR[0] *= -1;
-        cnf->qsv.nPAR[1] *= -1;
+        prm_qsv.nPAR[0] *= -1;
+        prm_qsv.nPAR[1] *= -1;
     }
 
-    cnf->qsv.bOutputAud              = fcgCBOutputAud->Checked;
-    cnf->qsv.bOutputPicStruct        = fcgCBOutputPicStruct->Checked;
+    prm_qsv.bOutputAud              = fcgCBOutputAud->Checked;
+    prm_qsv.bOutputPicStruct        = fcgCBOutputPicStruct->Checked;
 
     //vpp
-    cnf->qsv.vpp.bEnable             = fcgCBUseVpp->Checked;
-    cnf->qsv.vpp.bUseResize          = fcgCBVppResize->Checked;
-    cnf->qsv.nDstWidth               = (mfxU16)fcgNUVppResizeW->Value;
-    cnf->qsv.nDstHeight              = (mfxU16)fcgNUVppResizeH->Value;
-    cnf->qsv.vpp.bUseDenoise         = fcgCBVppDenoise->Checked;
-    cnf->qsv.vpp.nDenoise            = (mfxU16)fcgNUVppDenoise->Value;
-    cnf->qsv.vpp.bUseDetailEnhance   = fcgCBVppDetail->Checked;
-    cnf->qsv.vpp.nDetailEnhance      = (mfxU16)fcgNUVppDetail->Value;
-    cnf->qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
-    cnf->qsv.vpp.nTelecinePattern    = (mfxU16)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
-    cnf->qsv.vpp.nImageStabilizer    = (mfxU16)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
-    cnf->qsv.vpp.nFPSConversion      = (mfxU16)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
-    cnf->qsv.vpp.nRotate             = (mfxU16)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
+    cnf->vid.resize_enable          = fcgCBVppResize->Checked;
+    cnf->vid.resize_width           = (int)fcgNUVppResizeW->Value;
+    cnf->vid.resize_height          = (int)fcgNUVppResizeH->Value;
+    if (cnf->vid.resize_enable) {
+        prm_qsv.nDstWidth = (mfxU16)cnf->vid.resize_width;
+        prm_qsv.nDstHeight = (mfxU16)cnf->vid.resize_height;
+    } else {
+        prm_qsv.nDstWidth = 0;
+        prm_qsv.nDstHeight = 0;
+    }
+    prm_qsv.vpp.bUseDenoise         = fcgCBVppDenoise->Checked;
+    prm_qsv.vpp.nDenoise            = (mfxU16)fcgNUVppDenoise->Value;
+    prm_qsv.vpp.bUseDetailEnhance   = fcgCBVppDetail->Checked;
+    prm_qsv.vpp.nDetailEnhance      = (mfxU16)fcgNUVppDetail->Value;
+    prm_qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
+    prm_qsv.vpp.nTelecinePattern    = (mfxU16)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
+    prm_qsv.vpp.nImageStabilizer    = (mfxU16)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
+    prm_qsv.vpp.nFPSConversion      = (mfxU16)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
+    prm_qsv.vpp.nRotate             = (mfxU16)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
     cnf->oth.temp_dir               = fcgCXTempDir->SelectedIndex;
-    cnf->qsv.nInputBufSize          = (mfxU16)fcgNUInputBufSize->Value;
+    prm_qsv.nInputBufSize          = (mfxU16)fcgNUInputBufSize->Value;
     cnf->vid.auo_tcfile_out         = (enable_tc2mp4_muxer) ? fcgCBAuoTcfileout->Checked : false;
     cnf->vid.afs                    = (enable_tc2mp4_muxer) ? fcgCBAFS->Checked : false;
 
@@ -1449,10 +1439,10 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->oth.link_prm.use_trim      = fcgCBTrim->Checked;
     conf->aud_avqsv.encoder         = list_avqsv_aud_encoder[fcgCXAvqsvAudioEncoder->SelectedIndex].value;
     conf->aud_avqsv.bitrate         = (int)fcgNUAvqsvAudioBitrate->Value;
-    cnf->qsv.bCopyChapter           = fcgCBCopyChapter->Checked;
-    cnf->qsv.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
+    prm_qsv.bCopyChapter           = fcgCBCopyChapter->Checked;
+    prm_qsv.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
 
-    GetCHARfromString(cnf->qsv.strSrcFile, sizeof(cnf->qsv.strSrcFile), fcgTXAvqsvInputFile->Text);
+    GetCHARfromString(prm_qsv.strSrcFile, sizeof(prm_qsv.strSrcFile), fcgTXAvqsvInputFile->Text);
     
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;
@@ -1468,6 +1458,9 @@ System::Void frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     GetCHARfromString(cnf->oth.batfile.after_audio,  sizeof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
 
     GetfcgTSLSettingsNotes(cnf->oth.notes, sizeof(cnf->oth.notes));
+    strcpy_s(cnf->qsv.cmd, gen_cmd(&prm_qsv, true).c_str());
+
+    return String(gen_cmd(&prm_qsv, false).c_str()).ToString();
 }
 
 System::Void frmConfig::GetfcgTSLSettingsNotes(char *notes, int nSize) {
@@ -1577,6 +1570,8 @@ System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {
             SetToolStripEvents((ToolStrip^)(top->Controls[i]), gcnew System::Windows::Forms::MouseEventHandler(this, &frmConfig::fcgTSItem_MouseDown));
         else if (top->Controls[i]->Tag == nullptr)
             SetAllCheckChangedEvents(top->Controls[i]);
+        else if (String::Equals(top->Controls[i]->Tag->ToString(), L"reCmd"))
+            SetChangedEvent(top->Controls[i], gcnew System::EventHandler(this, &frmConfig::fcgRebuildCmd));
         else if (top->Controls[i]->Tag->ToString()->Contains(L"chValue"))
             SetChangedEvent(top->Controls[i], gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges));
         else 
@@ -1848,13 +1843,14 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 }
 
 System::Void frmConfig::UpdateFeatures() {
-    //swモードは使用しない
-    fcgCBHWEncode->Checked = true;
+    if (fcgCXOutputType->SelectedIndex < 0 || _countof(list_outtype) == fcgCXOutputType->SelectedIndex) {
+        return;
+    }
     //表示更新
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
-    const mfxU32 currentLib = (fcgCBHWEncode->Checked) ? featuresHW->GetmfxLibVer() : featuresSW->GetmfxLibVer();
+    const mfxU32 currentLib = featuresHW->GetmfxLibVer();
     const bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
-    String^ currentAPI = ((fcgCBHWEncode->Checked) ? L"hw" : L"sw") + L": ";
+    String^ currentAPI = L"hw: ";
     currentAPI += (currentLibValid) ? L"API v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-------";
     fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_outtype[fcgCXOutputType->SelectedIndex].desc).ToString();
 
@@ -1865,7 +1861,7 @@ System::Void frmConfig::UpdateFeatures() {
     fcgDGVFeatures->AllowUserToResizeRows = false;
     fcgDGVFeatures->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
 
-    fcgDGVFeatures->DataSource = (fcgCBHWEncode->Checked) ? featuresHW->getFeatureTable(codecId) : featuresSW->getFeatureTable(codecId); //テーブルをバインド
+    fcgDGVFeatures->DataSource = featuresHW->getFeatureTable(codecId);
 
     fcgDGVFeatures->Columns[0]->FillWeight = 240;
     fcgDGVFeatures->DefaultCellStyle->Font = dataGridViewFont;

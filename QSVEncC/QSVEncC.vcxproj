@@ -159,6 +159,7 @@
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -170,6 +171,7 @@
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -206,6 +208,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -217,6 +220,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -256,6 +260,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -267,6 +272,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -307,6 +313,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -318,6 +325,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -362,6 +370,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -376,6 +385,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -419,6 +429,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -433,6 +444,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -478,6 +490,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -492,6 +505,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>
@@ -538,6 +552,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4505;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\MediaSDK\lib\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -552,6 +567,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll;libass.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline\include</AdditionalIncludeDirectories>

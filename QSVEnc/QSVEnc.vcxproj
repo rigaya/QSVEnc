@@ -190,8 +190,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -240,8 +239,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -292,8 +290,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -342,8 +339,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -393,8 +389,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -446,8 +441,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -501,8 +495,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -554,8 +547,7 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -602,6 +594,16 @@
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
+    <ClCompile Include="encode\auo_convert.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
+    </ClCompile>
     <ClCompile Include="encode\auo_faw2aac.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
@@ -631,6 +633,47 @@
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="encode\convert_avx2.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="encode\convert_sse2.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\convert_sse41.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="encode\convert_ssse3.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="encode\exe_version.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>

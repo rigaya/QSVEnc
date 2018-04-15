@@ -145,6 +145,8 @@ namespace QSVEnc {
 
     ref class LocalSettings {
     public:
+        String^ vidEncName;
+        String^ vidEncPath;
         List<String^>^ audEncName;
         List<String^>^ audEncExeName;
         List<String^>^ audEncPath;
@@ -196,12 +198,14 @@ namespace QSVEnc {
         bool getFeaturesFinished;
         mfxU32 mfxVer;
         array<DataTable^>^ dataTableQsvCodecFeatures;
+        String^ exePath;
     public:
-        QSVFeatures(bool _hardware) {
+        QSVFeatures(bool _hardware, String^ _exePath) {
 
             thGetLibVersion = nullptr;
             thGetFeatures = nullptr;
             hardware = _hardware;
+            exePath = _exePath;
             availableFeatures = nullptr;
             getLibVerFinished = false;
             getFeaturesFinished = false;
@@ -223,6 +227,8 @@ namespace QSVEnc {
 
             thGetLibVersion = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getLibVersion));
             thGetLibVersion->Start();
+            thGetFeatures = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getFeatures));
+            thGetFeatures->Start();
         }
         ~QSVFeatures() {
             if (thGetLibVersion != nullptr && thGetLibVersion->IsAlive) {
@@ -242,31 +248,32 @@ namespace QSVEnc {
             }
             return -1;
         }
+        int getRCIdx(mfxU32 rc) {
+            for (int i_rate_control = 0; i_rate_control < _countof(list_rate_control_ry); i_rate_control++) {
+                if ((mfxU32)(list_rate_control_ry[i_rate_control].value) == rc) {
+                    return i_rate_control;
+                }
+            }
+            return -1;
+        }
         bool checkIfGetFeaturesFinished() {
             return getFeaturesFinished;
         }
         UInt64 getFeatureOfRC(int rc_index, mfxU32 codecId) {
-            if (getFeaturesFinished) {
-                int codecIdx = getCodecIdIdx(codecId);
-                if (codecIdx < 0 || codecIdx <= availableFeatures->Length) {
-                    return 0;
-                }
-                if (rc_index < 0 || rc_index <= availableFeatures[codecIdx]->Length) {
-                    return 0;
-                }
-                return availableFeatures[codecIdx][rc_index];
+            if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
+                thGetFeatures->Join();
             }
-            mfxVersion version;
-            version.Version = mfxVer;
-            return CheckEncodeFeature(hardware, version, (mfxU16)list_rate_control_ry[rc_index].value, codecId);
+            int codecIdx = getCodecIdIdx(codecId);
+            if (codecIdx < 0 || availableFeatures->Length <= codecIdx) {
+                return 0;
+            }
+            if (rc_index < 0 || availableFeatures[codecIdx]->Length <= rc_index) {
+                return 0;
+            }
+            return availableFeatures[codecIdx][rc_index];
         }
         UInt64 getVppFeatures() {
-            if (getFeaturesFinished) {
-                return availableVppFeatures;
-            }
-            mfxVersion version;
-            version.Version = mfxVer;
-            return CheckVppFeatures(hardware, version);
+            return 0; //未実装
         }
         DataTable^ getFeatureTable(mfxU32 codecId) {
             return dataTableQsvCodecFeatures[getCodecIdIdx(codecId)];
@@ -283,35 +290,92 @@ namespace QSVEnc {
         }
     private:
         System::Void getLibVersion() {
-            mfxVer = (hardware) ? get_mfx_libhw_version().Version : get_mfx_libsw_version().Version;
-            thGetFeatures = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getFeatures));
-            thGetFeatures->Start();
-        }
-        System::Void getFeatures() {
-            if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_1.Version)) {
-                if (availableFeatures == nullptr) {
-                    //MakeFeatureListが少し時間かかるので非同期にする必要がある
-                    mfxVersion version;
-                    version.Version = mfxVer;
-                    std::vector<mfxU32> _codecIdList;
-                    for each(auto codec in codecIdList) {
-                        _codecIdList.push_back(codec);
-                    }
-                    auto featuresPerCodec = MakeFeatureListPerCodec(hardware, version, make_vector(list_rate_control_ry), _codecIdList);
-
-                    availableFeatures = gcnew array<array<UInt64>^>(codecIdList->Length);
-                    for (int j = 0; j < (int)featuresPerCodec.size(); j++) {
-                        auto codecAvailableFeatures = gcnew array<UInt64>(_countof(list_rate_control_ry));
-                        for (int i = 0; i < _countof(list_rate_control_ry); i++) {
-                            codecAvailableFeatures[i] = featuresPerCodec[j][i];
+            char exe_path[1024];
+            char mes[4096];
+            GetCHARfromString(exe_path, sizeof(exe_path), exePath);
+            if (exePath != nullptr
+                && System::IO::File::Exists(exePath)
+                && get_exe_message(exe_path, "--check-lib", mes, _countof(mes), AUO_PIPE_MUXED) == RP_SUCCESS) {
+                auto lines = String(mes).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+                for (int i = 0; i < lines->Length; i++) {
+                    if (lines[i]->Contains(L"libmfxhw") && !lines[i]->Contains(L"----")) {
+                        auto ver = lines[i]->Substring(lines[i]->IndexOf(L":") + 1);
+                        auto ver2 = ver->Substring(ver->IndexOf(L"v") + 1)->Split(String(L".").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+                        try {
+                            mfxVersion version;
+                            version.Major = System::Int16::Parse(ver2[0]);
+                            version.Minor = System::Int16::Parse(ver2[1]);
+                            mfxVer = version.Version;
+                        } catch (...) {
+                            mfxVer = 0;
                         }
-                        availableFeatures[j] = codecAvailableFeatures;
-                        GenerateTable(codecIdList[j]);
+                        break;
                     }
-                    availableVppFeatures = CheckVppFeatures(hardware, version);
-                    getFeaturesFinished = true;
                 }
             }
+        }
+        System::Void getFeatures() {
+            std::vector<char> buffer(64 * 1024);
+            availableFeatures = gcnew array<array<UInt64>^>(codecIdList->Length);
+            char exe_path[1024];
+            GetCHARfromString(exe_path, sizeof(exe_path), exePath);
+
+            if (exePath != nullptr
+                && System::IO::File::Exists(exePath)
+                && get_exe_message(exe_path, "--check-features-auo", buffer.data(), buffer.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
+                auto lines = String(buffer.data()).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+                int i_feature = 0;
+                mfxU32 codec = 0;
+
+                array<UInt64>^ codecAvailableFeatures = nullptr;
+                for (int iline = 0; iline < lines->Length; iline++) {
+                    if (lines[iline]->Contains(L"Codec:")) {
+                        if (codec != 0) {
+                            availableFeatures[getCodecIdIdx(codec)] = codecAvailableFeatures;
+                            GenerateTable(codec);
+                        }
+                        codecAvailableFeatures = gcnew array<UInt64>(_countof(list_rate_control_ry));
+                        for (int i_rate_control = 0; i_rate_control < _countof(list_rate_control_ry); i_rate_control++) {
+                            codecAvailableFeatures[i_rate_control] = 0;
+                        }
+                        if (lines[iline]->Contains(L"H.264")) {
+                            codec = MFX_CODEC_AVC;
+                        } else if (lines[iline]->Contains(L"HEVC")) {
+                            codec = MFX_CODEC_HEVC;
+                        }
+                        i_feature = 0;
+                        iline++;
+                    } else if (codec != 0) {
+                        int i_rate_control = 0;
+                        for (int j = _tcslen(list_enc_feature[0].desc); j < lines[iline]->Length; j++) {
+                            auto c = lines[iline][j];
+                            if (c == L'o') {
+                                codecAvailableFeatures[i_rate_control] |= list_enc_feature[i_feature].value;
+                                i_rate_control++;
+                            } else if (c == L'x') {
+                                i_rate_control++;
+                            }
+                        }
+                        i_feature++;
+                    }
+                }
+                availableFeatures[getCodecIdIdx(codec)] = codecAvailableFeatures;
+
+                for (int codecIdx = 0; codecIdx < availableFeatures->Length; codecIdx++) {
+                    uint64_t feat = 0;
+                    feat |= (availableFeatures[codecIdx][getRCIdx(MFX_RATECONTROL_AVBR)]   & ENC_FEATURE_CURRENT_RC) ? ENC_FEATURE_AVBR   : 0;
+                    feat |= (availableFeatures[codecIdx][getRCIdx(MFX_RATECONTROL_QVBR)]   & ENC_FEATURE_CURRENT_RC) ? ENC_FEATURE_QVBR   : 0;
+                    feat |= (availableFeatures[codecIdx][getRCIdx(MFX_RATECONTROL_LA)]     & ENC_FEATURE_CURRENT_RC) ? ENC_FEATURE_LA     : 0;
+                    feat |= (availableFeatures[codecIdx][getRCIdx(MFX_RATECONTROL_LA_HRD)] & ENC_FEATURE_CURRENT_RC) ? ENC_FEATURE_LA_HRD : 0;
+                    feat |= (availableFeatures[codecIdx][getRCIdx(MFX_RATECONTROL_ICQ)]    & ENC_FEATURE_CURRENT_RC) ? ENC_FEATURE_ICQ    : 0;
+                    feat |= (availableFeatures[codecIdx][getRCIdx(MFX_RATECONTROL_VCM)]    & ENC_FEATURE_CURRENT_RC) ? ENC_FEATURE_VCM    : 0;
+                    for (int i_rate_control = 0; i_rate_control < _countof(list_rate_control_ry); i_rate_control++) {
+                        availableFeatures[codecIdx][i_rate_control] |= feat;
+                    }
+                }
+                GenerateTable(codec);
+            }
+            getFeaturesFinished = true;
         }
         System::Void GenerateTable(mfxU32 codecId) {
             static const FEATURE_DESC list_enc_feature_jp[] = {

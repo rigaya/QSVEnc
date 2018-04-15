@@ -61,7 +61,8 @@ static const char *const CONF_NAME_OLD_2 = "QSVEnc ConfigFile v2";
 static const char *const CONF_NAME_OLD_3 = "QSVEnc ConfigFile v3";
 static const char *const CONF_NAME_OLD_4 = "QSVEnc ConfigFile v4";
 static const char *const CONF_NAME_OLD_5 = "QSVEnc ConfigFile v5";
-static const char *const CONF_NAME       = CONF_NAME_OLD_5;
+static const char *const CONF_NAME_OLD_6 = "QSVEnc ConfigFile v6";
+static const char *const CONF_NAME       = CONF_NAME_OLD_6;
 const int CONF_NAME_BLOCK_LEN            = 32;
 const int CONF_BLOCK_MAX                 = 32;
 const int CONF_BLOCK_COUNT               = 6; //最大 CONF_BLOCK_MAXまで
@@ -91,10 +92,21 @@ static const char *const AUDIO_DELAY_CUT_MODE[] = {
 
 const int CMDEX_MAX_LEN = 2048;    //追加コマンドラインの最大長
 
+#pragma pack(push, 1)
+typedef struct {
+    int codec;
+    int reserved[128];
+    char auo_link_src[1024];
+    char cmd[3072];
+} CONF_QSV;
+
 typedef struct {
     BOOL afs;                      //自動フィールドシフトの使用
     BOOL auo_tcfile_out;           //auo側でタイムコードを出力する
     int  reserved[2];
+    BOOL resize_enable;
+    int resize_width;
+    int resize_height;
 } CONF_VIDEO; //動画用設定(qsv以外)
 
 typedef struct {
@@ -155,22 +167,24 @@ typedef struct {
     int         block_count;                     //ヘッダ部を除いた設定のブロック数
     int         block_size[CONF_BLOCK_MAX];      //各ブロックのサイズ
     size_t      block_head_p[CONF_BLOCK_MAX];    //各ブロックのポインタ位置
-    sInputParams   qsv;                          //qsvについての設定
+    CONF_QSV    qsv;                             //qsvについての設定
     CONF_VIDEO  vid;                             //その他動画についての設定
     CONF_AUDIO  aud;                             //音声についての設定
     CONF_MUX    mux;                             //muxについての設定
     CONF_OTHER  oth;                             //その他の設定
     CONF_AUDIO_DIRECT aud_avqsv;                 //音声についての設定
 } CONF_GUIEX;
+#pragma pack(pop)
 
 class guiEx_config {
 private:
     static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
     static const int conf_block_data[CONF_BLOCK_COUNT];
-    static void convert_qsvstgv1_to_stgv3(CONF_GUIEX *conf, int size);
-    static void convert_qsvstgv2_to_stgv3(CONF_GUIEX *conf);
-    static void convert_qsvstgv3_to_stgv4(CONF_GUIEX *conf);
-    static void convert_qsvstgv4_to_stgv5(CONF_GUIEX *conf);
+    static void *convert_qsvstgv1_to_stgv3(void *_conf, int size);
+    static void *convert_qsvstgv2_to_stgv3(void *_conf);
+    static void *convert_qsvstgv3_to_stgv4(void *_conf);
+    static void *convert_qsvstgv4_to_stgv5(void *_conf);
+    static void *convert_qsvstgv5_to_stgv6(void *_conf);
 public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX *conf);

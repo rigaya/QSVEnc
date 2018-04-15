@@ -179,7 +179,7 @@ struct sInputParams
     mfxU16 nDstHeight;    //input width
 
     mfxU8 memType;       //use d3d surface
-    bool bUseHWLib;       //use QSV (hw encoding)
+    bool __unused2;       //use QSV (hw encoding)
 
     mfxU16 nInputBufSize; //input buf size
 
@@ -632,6 +632,13 @@ const CX_DESC list_videoformat[] = {
     { _T("pal"),       1  },
     { _T("secam"),     3  },
     { _T("mac"),       4  },
+    { NULL, 0 }
+};
+
+const CX_DESC list_interlaced[] = {
+    { _T("none"), MFX_PICSTRUCT_PROGRESSIVE },
+    { _T("tff"),  MFX_PICSTRUCT_FIELD_TFF },
+    { _T("bff"),  MFX_PICSTRUCT_FIELD_BFF },
     { NULL, 0 }
 };
 

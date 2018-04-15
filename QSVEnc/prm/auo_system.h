@@ -75,8 +75,6 @@ typedef struct {
     char auo_path[MAX_PATH_LEN];    //QSVEnc.auoのフルパス
     char aviutl_dir[MAX_PATH_LEN];  //Aviutlのディレクトリ(\無し)
     guiEx_settings *exstg;          //ini設定
-    mfxVersion sw_ver;              //ソフトウェアのライブラリのバージョン
-    mfxVersion hw_ver;              //ハードウェアのライブラリのバージョン
 } SYSTEM_DATA;
 
 void init_SYSTEM_DATA(SYSTEM_DATA *_sys_dat);
