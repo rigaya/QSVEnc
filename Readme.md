@@ -45,7 +45,6 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
    - MPEG2
 - QuickSyncVideoの各エンコードモード
    - CQP       固定量子化量
-   - VQP       可変量子化量
    - CBR       固定ビットレート
    - VBR       可変ビットレート
    - AVBR      適応的可変ビットレート
@@ -118,6 +117,10 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 |Kabylake	        |Core i3/i5/i7 7xxx	|○|
 |Kabylake	        |Pentium G456x/G46xx	|○|
 |Kabylake	        |Celeron G393x/G395x	|○|
+|Skylake-X	        |Core i7/i9 78xx/79xx	|×|
+|Coffeelake	        |Core i3/i5/i7 8xxx	|○|
+|Coffeelake	        |Pentium G5xxx	|○|
+|Coffeelake	        |Celeron G49xx	|○|
 |Atom系 CPU	|||
 |Bonnell	        |Atom	        |×|
 |Saltwell	        |Atom	        |×|
@@ -127,11 +130,14 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 |Airmont	        |Pentium N3xxx/J3xxx	|○|
 |Airmont	        |Celeron N3xxx/J3xxx	|○|
 |Airmont	        |Atom x7/x5/x3	|○|
+|GeminiLake	        |Pentium N5xxx/J5xxx	|○|
+|GeminiLake	        |Celeron N4xxx/J4xxx	|○|
 
 
 ## Intel Media SDKとAPIの対応関係
 |Media SDK API バージョン	        | Media SDK バージョン|
 |:--|:--|
+|API v1.26 | Intel Media SDK 2018 R1 |
 |API v1.23 | Intel Media SDK 2017 R1 |
 |API v1.19 | Intel Media SDK 2016 Update 2 |
 |API v1.17 | Intel Media SDK 2016 |
