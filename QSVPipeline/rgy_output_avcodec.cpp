@@ -516,7 +516,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     m_Mux.video.timestampList.clear();
 
     if (pVideoOutputInfo->codec == RGY_CODEC_HEVC && prm->seiNal.size() > 0) {
-        m_Mux.video.seiNal.copy(prm->seiNal.data(), prm->seiNal.size());
+        m_Mux.video.seiNal.copy(prm->seiNal.data(), (uint32_t)prm->seiNal.size());
     }
 
     if (prm->pMuxVidTsLogFile) {
