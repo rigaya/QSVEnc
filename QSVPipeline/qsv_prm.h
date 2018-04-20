@@ -396,6 +396,12 @@ const CX_DESC list_vp9_profile[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_hevc_output_depth[] = {
+    { _T("8"),     8 },
+    { _T("10"),   10 },
+    { NULL, 0 }
+};
+
 const CX_DESC list_interlaced_mfx[] = {
     { _T("progressive"),     MFX_PICSTRUCT_PROGRESSIVE },
     { _T("interlaced(tff)"), MFX_PICSTRUCT_FIELD_TFF   },
