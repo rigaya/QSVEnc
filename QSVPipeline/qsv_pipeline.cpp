@@ -555,7 +555,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
                 nAdjustedQP[0] = pInParams->nICQQuality - 1;
                 nAdjustedQP[1] = pInParams->nICQQuality + 1;
                 nAdjustedQP[2] = pInParams->nICQQuality + 4;
-            } else if (pInParams->nEncMode == MFX_RATECONTROL_VQP || pInParams->nEncMode == MFX_RATECONTROL_CQP) {
+            } else if (pInParams->nEncMode == MFX_RATECONTROL_CQP) {
                 nAdjustedQP[0] = pInParams->nQPI;
                 nAdjustedQP[1] = pInParams->nQPP;
                 nAdjustedQP[2] = pInParams->nQPB;
@@ -586,10 +586,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         if (!bFallbackSuccess) {
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
-    }
-    if (MFX_RATECONTROL_VQP == pInParams->nEncMode && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        PrintMes(RGY_LOG_ERROR, _T("%s mode cannot be used with avqsv reader.\n"), EncmodeToStr(pInParams->nEncMode));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
         pInParams->nBframes = (pInParams->CodecId == MFX_CODEC_HEVC) ? QSV_DEFAULT_HEVC_BFRAMES : QSV_DEFAULT_H264_BFRAMES;
@@ -776,11 +772,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with very short GOP length.\n"));
             pInParams->bforceGOPSettings = true;
         }
-        if (pInParams->nEncMode == MFX_RATECONTROL_VQP)    {
-            PrintMes(RGY_LOG_WARN, _T("VQP mode cannot be used with very short GOP length.\n"));
-            PrintMes(RGY_LOG_WARN, _T("Switching to CQP mode.\n"));
-            pInParams->nEncMode = MFX_RATECONTROL_CQP;
-        }
     }
     //拡張設定
     if (!pInParams->bforceGOPSettings) {
@@ -805,24 +796,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_nExPrm |= MFX_PRM_EX_SCENE_CHANGE;
         }
     }
-    if (pInParams->nEncMode == MFX_RATECONTROL_VQP)    { 
-        if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
-            switch (pInParams->vpp.nDeinterlace) {
-            case MFX_DEINTERLACE_NORMAL:
-            case MFX_DEINTERLACE_BOB:
-            case MFX_DEINTERLACE_AUTO_SINGLE:
-            case MFX_DEINTERLACE_AUTO_DOUBLE:
-                break;
-            default:
-                PrintMes(RGY_LOG_ERROR, _T("VQP mode cannot be used with interlaced output.\n"));
-                return MFX_ERR_INVALID_VIDEO_PARAM;
-            }
-        } else if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-            PrintMes(RGY_LOG_ERROR, _T("VQP mode cannot be used with transcoding.\n"));
-            return MFX_ERR_INVALID_VIDEO_PARAM;
-        }
-        m_nExPrm |= MFX_PRM_EX_VQP;
-    }
     //profileを守るための調整
     if (pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
         pInParams->nBframes = 0;
@@ -839,7 +812,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     //設定開始
     m_mfxEncParams.mfx.CodecId                 = pInParams->CodecId;
-    m_mfxEncParams.mfx.RateControlMethod       =(pInParams->nEncMode == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : pInParams->nEncMode;
+    m_mfxEncParams.mfx.RateControlMethod       = pInParams->nEncMode;
     if (MFX_RATECONTROL_CQP == m_mfxEncParams.mfx.RateControlMethod) {
         //CQP
         m_mfxEncParams.mfx.QPI             = (mfxU16)clamp_param_int(pInParams->nQPI, 0, 51, _T("qp-i"));
@@ -4885,7 +4858,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(copVp8, MFX_EXTBUFF_VP8_CODING_OPTION);
-    INIT_MFX_EXT_BUFFER(copVp8, MFX_EXTBUFF_HEVC_PARAM);
+    INIT_MFX_EXT_BUFFER(hevcPrm, MFX_EXTBUFF_HEVC_PARAM);
 
     std::vector<mfxExtBuffer *> buf;
     buf.push_back((mfxExtBuffer *)&cop);
@@ -5050,14 +5023,9 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     
     if (m_pmfxENC) {
         PRINT_INFO(_T("Target usage   %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
-        PRINT_INFO(_T("Encode Mode    %s\n"), EncmodeToStr((videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP && (m_nExPrm & MFX_PRM_EX_VQP)) ? MFX_RATECONTROL_VQP : videoPrm.mfx.RateControlMethod));
+        PRINT_INFO(_T("Encode Mode    %s\n"), EncmodeToStr(videoPrm.mfx.RateControlMethod));
         if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
-            if (m_nExPrm & MFX_PRM_EX_VQP) {
-                //PRINT_INFO(_T("VQP params             I:%d  P:%d+  B:%d+  strength:%d  sensitivity:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB, m_SceneChange.getVQPStrength(), m_SceneChange.getVQPSensitivity());
-                PRINT_INFO(_T("VQP params     I:%d  P:%d+  B:%d+\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
-            } else {
-                PRINT_INFO(_T("CQP Value      I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
-            }
+            PRINT_INFO(_T("CQP Value      I:%d  P:%d  B:%d\n"), videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB);
         } else if (rc_is_type_lookahead(m_mfxEncParams.mfx.RateControlMethod)) {
             if (m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_LA_ICQ) {
                 PRINT_INFO(_T("Bitrate        %d kbps\n"), videoPrm.mfx.TargetKbps * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));

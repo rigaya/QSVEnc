@@ -91,7 +91,6 @@ const CX_DESC list_encmode[] = {
     { "ビットレート指定 - AVBR",          MFX_RATECONTROL_AVBR   },
     { "ビットレート指定 - QVBR",          MFX_RATECONTROL_QVBR   },
     { "固定量子化量 (CQP)",               MFX_RATECONTROL_CQP    },
-    { "可変QP (VQP, プログレッシブのみ)", MFX_RATECONTROL_VQP    },
     { "先行探索レート制御",               MFX_RATECONTROL_LA     },
     { "先行探索レート制御 (HRD準拠)",     MFX_RATECONTROL_LA_HRD },
     { "固定品質モード",                   MFX_RATECONTROL_ICQ    },

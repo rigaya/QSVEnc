@@ -216,7 +216,6 @@ static const CX_DESC list_rate_control_ry[] = {
     { _T("AVBR "), MFX_RATECONTROL_AVBR   },
     { _T("QVBR "), MFX_RATECONTROL_QVBR   },
     { _T("CQP  "), MFX_RATECONTROL_CQP    },
-    { _T("VQP  "), MFX_RATECONTROL_VQP    },
     { _T("LA   "), MFX_RATECONTROL_LA     },
     { _T("LAHRD"), MFX_RATECONTROL_LA_HRD },
     { _T("ICQ  "), MFX_RATECONTROL_ICQ    },

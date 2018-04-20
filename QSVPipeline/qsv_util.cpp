@@ -392,8 +392,6 @@ const TCHAR *EncmodeToStr(uint32_t enc_mode) {
         return _T("LA-HRD (HRD compliant Lookahead)");
     case MFX_RATECONTROL_QVBR:
         return _T("Quality VBR bitrate");
-    case MFX_RATECONTROL_VQP:
-        return _T("Variable QP (VQP)");
     default:
         return _T("unsupported");
     }

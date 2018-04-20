@@ -335,7 +335,6 @@ const CX_DESC list_rc_mode[] = {
     { _T("CBR"),     MFX_RATECONTROL_CBR    },
     { _T("VBR"),     MFX_RATECONTROL_VBR    },
     { _T("CQP"),     MFX_RATECONTROL_CQP    },
-    { _T("VQP"),     MFX_RATECONTROL_VQP    },
     { _T("AVBR"),    MFX_RATECONTROL_AVBR   },
     { _T("LA"),      MFX_RATECONTROL_LA     },
     { _T("LA-EXT"),  MFX_RATECONTROL_LA_EXT },

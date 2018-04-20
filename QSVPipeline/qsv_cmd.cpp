@@ -1176,7 +1176,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("cqp")) || 0 == _tcscmp(option_name, _T("vqp"))) {
+    if (0 == _tcscmp(option_name, _T("cqp"))) {
         i++;
         if (   3 != _stscanf_s(strInput[i], _T("%hd:%hd:%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)
             && 3 != _stscanf_s(strInput[i], _T("%hd,%hd,%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)
@@ -1189,7 +1189,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 return 1;
             }
         }
-        pParams->nEncMode = (mfxU16)((0 == _tcscmp(option_name, _T("vqp"))) ? MFX_RATECONTROL_VQP : MFX_RATECONTROL_CQP);
+        pParams->nEncMode = (mfxU16)MFX_RATECONTROL_CQP;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr-unitsize"))) {

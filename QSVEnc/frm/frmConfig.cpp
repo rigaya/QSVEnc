@@ -748,7 +748,7 @@ System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU64 
         || fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_HRD))
         || fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ))
         || fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)))
-        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, 0 != (available_features & ENC_FEATURE_VCM)))
+        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_VCM)))
         result = true;
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
@@ -796,7 +796,7 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
     //API v1.8 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ));
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)));
-    fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VQP, 0 != (available_features & ENC_FEATURE_VCM));
+    fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_VCM));
     fcgCBAdaptiveB->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
     fcgCBAdaptiveI->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
     fcgCBBPyramid->Enabled    = 0 != (available_features & ENC_FEATURE_B_PYRAMID);
@@ -872,7 +872,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     //つぎに全体のチェックを行う
     fcgCheckLibVersion(mfxlib_target.Version, available_features);
     int enc_mode = list_encmode[fcgCXEncMode->SelectedIndex].value;
-    bool cqp_mode =     (enc_mode == MFX_RATECONTROL_CQP    || enc_mode == MFX_RATECONTROL_VQP);
+    bool cqp_mode =     (enc_mode == MFX_RATECONTROL_CQP);
     bool avbr_mode =    (enc_mode == MFX_RATECONTROL_AVBR);
     bool cbr_vbr_mode = (enc_mode == MFX_RATECONTROL_VBR    || enc_mode == MFX_RATECONTROL_CBR);
     bool la_mode =      (rc_is_type_lookahead(enc_mode));

@@ -398,8 +398,6 @@ static tstring help() {
         _T(" EncMode default: --cqp\n")
         _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
         _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
-        _T("   --vqp <int> or               encode in Variable QP, default %d:%d:%d\n")
-        _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
         _T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
         _T("   --la-hrd <int>               set bitrate in HRD-Lookahead mode (kbps)\n")
         _T("   --icq <int>                  encode in Intelligent Const. Quality mode\n")

@@ -686,7 +686,6 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
         { MFX_RATECONTROL_VBR,    MFX_LIB_VERSION_1_1  },
         { MFX_RATECONTROL_CBR,    MFX_LIB_VERSION_1_1  },
         { MFX_RATECONTROL_CQP,    MFX_LIB_VERSION_1_1  },
-        { MFX_RATECONTROL_VQP,    MFX_LIB_VERSION_1_1  },
         { MFX_RATECONTROL_AVBR,   MFX_LIB_VERSION_1_3  },
         { MFX_RATECONTROL_LA,     MFX_LIB_VERSION_1_7  },
         { MFX_RATECONTROL_LA_ICQ, MFX_LIB_VERSION_1_8  },
@@ -748,9 +747,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
                 videoPrm.mfx.Accuracy     = 500;
                 videoPrm.mfx.Convergence  = 90;
             }
-        } else if (
-               videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP
-            || videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VQP) {
+        } else if (videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
             videoPrm.mfx.QPI = 23;
             videoPrm.mfx.QPP = 23;
             videoPrm.mfx.QPB = 23;
@@ -766,7 +763,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
     videoPrm.AsyncDepth                  = 3;
     videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
     videoPrm.mfx.CodecId                 = codecId;
-    videoPrm.mfx.RateControlMethod       = (ratecontrol == MFX_RATECONTROL_VQP) ? MFX_RATECONTROL_CQP : ratecontrol;
+    videoPrm.mfx.RateControlMethod       = ratecontrol;
     switch (codecId) {
     case MFX_CODEC_HEVC:
         videoPrm.mfx.CodecLevel          = MFX_LEVEL_UNKNOWN;
@@ -950,10 +947,6 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
 #pragma warning(pop)
         //付随オプション
         result |= ENC_FEATURE_SCENECHANGE;
-        //encCtrlを渡すことにより実現するVQPでは、B-pyramidは不安定(フレーム順が入れ替わるなど)
-        if (MFX_RATECONTROL_VQP == ratecontrol && check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
-            result &= ~ENC_FEATURE_B_PYRAMID;
-        }
         if (result & ENC_FEATURE_B_PYRAMID) {
             result |= ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
         }
@@ -971,8 +964,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
                 //API v1.8以降、LA + 多すぎるBフレームは不安定(フリーズ)
                 result &= ~ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
             }
-        } else if (MFX_RATECONTROL_CQP == ratecontrol
-                || MFX_RATECONTROL_VQP == ratecontrol) {
+        } else if (MFX_RATECONTROL_CQP == ratecontrol) {
             result &= ~ENC_FEATURE_MBBRC;
             result &= ~ENC_FEATURE_EXT_BRC;
         }
@@ -1008,7 +1000,6 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol, mf
     case MFX_RATECONTROL_CBR:
     case MFX_RATECONTROL_VBR:
     case MFX_RATECONTROL_CQP:
-    case MFX_RATECONTROL_VQP:
         rate_control_supported = true;
         break;
     case MFX_RATECONTROL_AVBR:
@@ -1074,8 +1065,7 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol, mf
         feature &= ~ENC_FEATURE_RDO;
         feature &= ~ENC_FEATURE_MBBRC;
         feature &= ~ENC_FEATURE_EXT_BRC;
-    } else if (MFX_RATECONTROL_CQP == ratecontrol
-            || MFX_RATECONTROL_VQP == ratecontrol) {
+    } else if (MFX_RATECONTROL_CQP == ratecontrol) {
         feature &= ~ENC_FEATURE_MBBRC;
         feature &= ~ENC_FEATURE_EXT_BRC;
     }

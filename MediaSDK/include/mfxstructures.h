@@ -500,7 +500,6 @@ enum {
     MFX_RATECONTROL_LA_EXT    =12,
     MFX_RATECONTROL_LA_HRD    =13,
     MFX_RATECONTROL_QVBR      =14,
-    MFX_RATECONTROL_VQP       =70,
 };
 
 /* Trellis control*/
