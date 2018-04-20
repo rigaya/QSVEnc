@@ -448,8 +448,6 @@ static tstring help() {
         _T("                                 - auto(default), fast, medium, slow\n")
         _T("   --(no-)mbbrc                 enables per macro block rate control\n")
         _T("                                 default: auto\n")
-        _T("   --(no-)extbrc                enables extended rate control\n")
-        _T("                                 default: auto\n")
         _T("   --ref <int>                  reference frames\n")
         _T("                                  default %d (auto)\n")
         _T("-b,--bframes <int>              number of sequential b frames\n")

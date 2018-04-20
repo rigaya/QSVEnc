@@ -245,7 +245,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T(" +Scenechange"), ENC_FEATURE_B_PYRAMID_AND_SC       },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
     { _T("PyramQPOffset"), ENC_FEATURE_PYRAMID_QP_OFFSET      },
-    { _T("Ext_BRC      "), ENC_FEATURE_EXT_BRC                },
+    //{ _T("Ext_BRC      "), ENC_FEATURE_EXT_BRC                },
     { _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
     { _T("LA Quality   "), ENC_FEATURE_LA_DS                  },
     { _T("QP Min/Max   "), ENC_FEATURE_QP_MINMAX              },

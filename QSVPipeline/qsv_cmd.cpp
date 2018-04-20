@@ -1242,14 +1242,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bRDO = true;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("extbrc"))) {
-        pParams->bExtBRC = true;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-extbrc"))) {
-        pParams->bExtBRC = false;
-        return 0;
-    }
+    //if (0 == _tcscmp(option_name, _T("extbrc"))) {
+    //    pParams->bExtBRC = true;
+    //    return 0;
+    //}
+    //if (0 == _tcscmp(option_name, _T("no-extbrc"))) {
+    //    pParams->bExtBRC = false;
+    //    return 0;
+    //}
     if (0 == _tcscmp(option_name, _T("mbbrc"))) {
         pParams->bMBBRC = true;
         return 0;
@@ -2445,7 +2445,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         cmd << _T(" --dar ") << -1 * pParams->nPAR[0] << _T(":") << -1 * pParams->nPAR[1];
     }
 
-    OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), bExtBRC);
+    //OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), bExtBRC);
     OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
     OPT_BOOL(_T("--intra-refresh"), _T("--no-intra-refresh"), bIntraRefresh);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);

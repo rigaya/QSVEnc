@@ -981,9 +981,9 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
         }
 
-        if (pInParams->bExtBRC) {
-            m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
-        }
+        //if (pInParams->bExtBRC) {
+        //    m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
+        //}
         if (pInParams->bIntraRefresh) {
             m_CodingOption2.IntRefType = 1;
             m_CodingOption2.IntRefCycleSize = (pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 10;
