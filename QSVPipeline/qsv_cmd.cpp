@@ -1270,6 +1270,36 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bNoDeblock = true;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("ctu"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_ctu, strInput[i]))) {
+            pParams->hevc_ctu = value;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("sao"))) {
+        i++;
+        int value = MFX_SAO_UNKNOWN;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_sao, strInput[i]))) {
+            pParams->hevc_sao = value;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-tskip"))) {
+        pParams->hevc_tskip = MFX_CODINGOPTION_OFF;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("tskip"))) {
+        pParams->hevc_tskip = MFX_CODINGOPTION_ON;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
         || 0 == _tcscmp(option_name, _T("qp-max")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
         i++;
@@ -2433,6 +2463,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {
         OPT_CHAR(_T("--max-cll"), sMaxCll);
         OPT_CHAR(_T("--master-display"), sMasterDisplay);
+        OPT_LST(_T("--ctu"), hevc_ctu, list_hevc_ctu);
+        OPT_LST(_T("--sao"), hevc_sao, list_hevc_sao);
+        OPT_BOOL(_T("--tskip"), _T("--no-tskip"), bFullrange);
     }
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AVC) {
         OPT_LST(_T("--trellis"), nTrellis, list_avc_trellis_for_options);

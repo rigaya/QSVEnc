@@ -477,7 +477,16 @@ static tstring help() {
         _T("                                 - 2  set MV cost 1/4 of default\n")
         _T("                                 - 3  set MV cost 1/8 of default\n")
         _T("   --slices <int>               number of slices, default 0 (auto)\n")
-        _T("   --no-deblock                 disables H.264 deblock feature\n")
+        _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
+        _T("   --tskip                      [hevc] enable transform skip\n")
+        _T("   --sao <string>               [hevc]\n")
+        _T("                                 - auto    default\n")
+        _T("                                 - none    disable sao\n")
+        _T("                                 - luma    enable sao for luma\n")
+        _T("                                 - chroma  enable sao for chroma\n")
+        _T("                                 - all     enable sao for luma & chroma\n")
+        _T("   --ctu <int>                  [hevc] max ctu size\n")
+        _T("                                 - auto(default), 16, 32, 64\n")
         _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
         QSV_ASYNC_DEPTH_MAX,

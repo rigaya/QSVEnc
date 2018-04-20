@@ -928,7 +928,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
         videoPrm.mfx.GopRefDist = 4;
         CHECK_FEATURE(cop3.WeightedPred,         cop3Out.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.WeightedBiPred,       cop3Out.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
-        CHECK_FEATURE(cop3.FadeDetection,        cop3Out.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_17);
+        CHECK_FEATURE(cop3.FadeDetection,        cop3Out.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         if (codecId == MFX_CODEC_HEVC) {
             CHECK_FEATURE(cop3.GPB,              cop3Out.GPB,                  ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
             CHECK_FEATURE(cop3.EnableQPOffset,   cop3Out.EnableQPOffset,       ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
@@ -941,6 +941,9 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
             videoPrm.mfx.FrameInfo.BitDepthChroma = 0;
             videoPrm.mfx.FrameInfo.Shift = 0;
             videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
+            CHECK_FEATURE(cop3.TransformSkip, cop3Out.TransformSkip, ENC_FEATURE_HEVC_TSKIP, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_26);
+            CHECK_FEATURE(hevc.SampleAdaptiveOffset, hevcOut.SampleAdaptiveOffset, ENC_FEATURE_HEVC_SAO, MFX_SAO_ENABLE_LUMA, MFX_LIB_VERSION_1_26);
+            CHECK_FEATURE(hevc.LCUSize, hevcOut.LCUSize, ENC_FEATURE_HEVC_CTU, 32, MFX_LIB_VERSION_1_26);
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 #undef PICTYPE

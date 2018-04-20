@@ -275,6 +275,7 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         COMPARE_TRI(cop3.MaxFrameSizeI,      0);
         COMPARE_TRI(cop3.MaxFrameSizeP,      0);
         COMPARE_TRI(cop3.EnableQPOffset,     0);
+        COMPARE_TRI(cop3.TransformSkip,      0);
         COMPARE_INT(cop3.QPOffset[0],        0);
         COMPARE_INT(cop3.QPOffset[1],        0);
         COMPARE_INT(cop3.QPOffset[2],        0);
@@ -287,6 +288,10 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         COMPARE_INT(cop3.NumRefActiveBL1[0], 0);
         COMPARE_INT(cop3.NumRefActiveBL1[1], 0);
         COMPARE_INT(cop3.NumRefActiveBL1[2], 0);
+    }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+        COMPARE_TRI(hevc.SampleAdaptiveOffset,  MFX_SAO_UNKNOWN);
+        COMPARE_TRI(hevc.LCUSize, 0);
     }
     return ret;
 }
@@ -714,6 +719,20 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             print_feature_warnings(RGY_LOG_WARN, _T("FadeDetect"));
         }
         pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
+    }
+    if (pInParams->CodecId == MFX_CODEC_HEVC) {
+        if (pInParams->hevc_ctu > 0 && !(availableFeaures & ENC_FEATURE_HEVC_CTU)) {
+            print_feature_warnings(RGY_LOG_WARN, _T("HEVC CTU"));
+            pInParams->hevc_ctu = 0;
+        }
+        if (pInParams->hevc_sao != MFX_SAO_UNKNOWN && !(availableFeaures & ENC_FEATURE_HEVC_SAO)) {
+            print_feature_warnings(RGY_LOG_WARN, _T("HEVC SAO"));
+            pInParams->hevc_sao = MFX_SAO_UNKNOWN;
+        }
+        if (pInParams->hevc_tskip != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_HEVC_TSKIP)) {
+            print_feature_warnings(RGY_LOG_WARN, _T("HEVC tskip"));
+            pInParams->hevc_tskip = MFX_CODINGOPTION_UNKNOWN;
+        }
     }
     bool bQPOffsetUsed = false;
     std::for_each(pInParams->pQPOffset, pInParams->pQPOffset + _countof(pInParams->pQPOffset), [&bQPOffsetUsed](int8_t v){ bQPOffsetUsed |= (v != 0); });
@@ -4861,10 +4880,12 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     mfxExtCodingOption2 cop2;
     mfxExtCodingOption3 cop3;
     mfxExtVP8CodingOption copVp8;
+    mfxExtHEVCParam hevcPrm;
     INIT_MFX_EXT_BUFFER(cop, MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(copVp8, MFX_EXTBUFF_VP8_CODING_OPTION);
+    INIT_MFX_EXT_BUFFER(copVp8, MFX_EXTBUFF_HEVC_PARAM);
 
     std::vector<mfxExtBuffer *> buf;
     buf.push_back((mfxExtBuffer *)&cop);
@@ -4877,6 +4898,9 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
     if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
         buf.push_back((mfxExtBuffer *)&copVp8);
+    }
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC && check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+        buf.push_back((mfxExtBuffer *)&hevcPrm);
     }
 
     mfxVideoParam videoPrm;
@@ -4907,6 +4931,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         prmSetOut.cop    = cop;
         prmSetOut.cop2   = cop2;
         prmSetOut.cop3   = cop3;
+        prmSetOut.hevc   = hevcPrm;
 
         CompareParam(m_prmSetIn, prmSetOut);
     }
@@ -5204,6 +5229,19 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
             if (cop3.RepartitionCheckEnable == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("RepartitionCheck ");
+            }
+        }
+        if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+                if (cop3.TransformSkip == MFX_CODINGOPTION_ON) {
+                    extFeatures += _T("tskip ");
+                }
+                if (hevcPrm.LCUSize != 0) {
+                    extFeatures += strsprintf(_T("ctu:%d "), hevcPrm.LCUSize);
+                }
+                if (hevcPrm.SampleAdaptiveOffset != 0) {
+                    extFeatures += strsprintf(_T("sao:%d "), get_chr_from_value(list_hevc_sao, hevcPrm.SampleAdaptiveOffset));
+                }
             }
         }
         if (extFeatures.length() > 0) {

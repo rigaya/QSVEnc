@@ -301,7 +301,11 @@ struct sInputParams
     int8_t     padding[2];
     char      *sMaxCll;
     char      *sMasterDisplay;
-    int8_t     Reserved[1000];
+
+    int        hevc_ctu;
+    int        hevc_sao;
+    int        hevc_tskip;
+    int8_t     Reserved[988];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -683,6 +687,23 @@ const CX_DESC list_pred_block_size[] = {
     { _T("16x16"),         MFX_BLOCKSIZE_MIN_16X16  },
     { _T("8x8"),           MFX_BLOCKSIZE_MIN_8X8    },
     { _T("4x4"),           MFX_BLOCKSIZE_MIN_4X4    },
+    { NULL, 0 }
+};
+
+const CX_DESC list_hevc_ctu[] = {
+    { _T("auto"), 0 },
+    { _T("16"), 16 },
+    { _T("32"), 32 },
+    { _T("64"), 64 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_hevc_sao[] = {
+    { _T("auto"),   MFX_SAO_UNKNOWN },
+    { _T("none"),   MFX_SAO_DISABLE },
+    { _T("luma"),   MFX_SAO_ENABLE_LUMA },
+    { _T("chroma"), MFX_SAO_ENABLE_CHROMA },
+    { _T("all"),    (uint32_t)MFX_SAO_ENABLE_LUMA | (uint32_t)MFX_SAO_ENABLE_CHROMA },
     { NULL, 0 }
 };
 

@@ -188,6 +188,9 @@ enum : uint64_t {
     ENC_FEATURE_PYRAMID_QP_OFFSET      = 0x0000001000000000,
     ENC_FEATURE_DISABLE_GPB            = 0x0000002000000000,
     ENC_FEATURE_10BIT_DEPTH            = 0x0000004000000000,
+    ENC_FEATURE_HEVC_SAO               = 0x0000008000000000,
+    ENC_FEATURE_HEVC_CTU               = 0x0000010000000000,
+    ENC_FEATURE_HEVC_TSKIP             = 0x0000020000000000,
 };
 
 enum : uint64_t {
@@ -253,6 +256,9 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("PerMBQP(CQP) "), ENC_FEATURE_PERMBQP                },
     { _T("DirectBiasAdj"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
     { _T("MVCostScaling"), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
+    { _T("SAO          "), ENC_FEATURE_HEVC_SAO               },
+    { _T("Max CTU Size "), ENC_FEATURE_HEVC_CTU               },
+    { _T("TSkip        "), ENC_FEATURE_HEVC_TSKIP             },
     { NULL, 0 },
 };
 static const FEATURE_DESC list_vpp_feature[] = {

@@ -407,6 +407,9 @@ namespace QSVEnc {
                 { _T("MBQP(CQP)       "), ENC_FEATURE_PERMBQP                },
                 { _T("ﾀﾞｲﾚｸﾄﾓｰﾄﾞ最適化"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
                 { _T("MVコスト調整    "), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
+                { _T("SAO             "), ENC_FEATURE_HEVC_SAO               },
+                { _T("最大 CTU Size   "), ENC_FEATURE_HEVC_CTU               },
+                { _T("TSkip           "), ENC_FEATURE_HEVC_TSKIP             },
                 { NULL, 0 },
             };
 
