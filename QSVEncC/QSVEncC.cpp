@@ -1211,37 +1211,37 @@ function showTable(idno) {
 }
 
 
-mfxStatus parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
+int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
 
     // process multi-character options
     if (0 == _tcscmp(option_name, _T("help"))) {
         show_version();
         show_help();
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("version"))) {
         show_version();
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
 
     if (0 == _tcscmp(option_name, _T("check-environment"))) {
         show_version();
         _ftprintf(stdout, _T("%s"), getEnviromentInfo(true).c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");
         writeFeatureList(output, false);
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features-auo"))) {
         writeFeatureList(_T(""), true);
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features-html"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");
         writeFeatureList(output, false, FEATURE_LIST_STR_TYPE_HTML);
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-hw"))
         || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
@@ -1249,10 +1249,10 @@ mfxStatus parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
         mfxVersion ver = { 0, 1 };
         if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
             _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
-            return MFX_PRINT_OPTION_DONE;
+            exit(0);
         } else {
             _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable\n"));
-            return MFX_PRINT_OPTION_ERR;
+            exit(1);
         }
     }
     if (0 == _tcscmp(option_name, _T("lib-check"))
@@ -1274,39 +1274,39 @@ mfxStatus parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
             _ftprintf(stdout, _T("libmfxsw%s.dll : v%d.%d\n"), dll_platform, swlib.Major, swlib.Minor);
         else
             _ftprintf(stdout, _T("libmfxsw%s.dll : ----\n"), dll_platform);
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avversion"))) {
         _ftprintf(stdout, _T("%s\n"), getAVVersions().c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-codecs"))) {
         _ftprintf(stdout, _T("%s\n"), getAVCodecs((RGYAVCodecType)(RGY_AVCODEC_DEC | RGY_AVCODEC_ENC)).c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-encoders"))) {
         _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_ENC).c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-decoders"))) {
         _ftprintf(stdout, _T("%s\n"), getAVCodecs(RGY_AVCODEC_DEC).c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-protocols"))) {
         _ftprintf(stdout, _T("%s\n"), getAVProtocols().c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-filters"))) {
         _ftprintf(stdout, _T("%s\n"), getAVFilters().c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-formats"))) {
         _ftprintf(stdout, _T("%s\n"), getAVFormats((RGYAVFormatType)(RGY_AVFORMAT_DEMUX | RGY_AVFORMAT_MUX)).c_str());
-        return MFX_PRINT_OPTION_DONE;
+        return 1;
     }
 #endif //ENABLE_AVSW_READER
-    return MFX_ERR_NONE;
+    return 0;
 }
 
 //Ctrl + C ハンドラ
@@ -1635,9 +1635,9 @@ int run(int argc, TCHAR *argv[]) {
             }
         }
         if (option_name != nullptr) {
-            mfxStatus ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""));
+            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""));
             if (ret != 0) {
-                return ret == MFX_PRINT_OPTION_DONE ? 0 : 1;
+                return ret == 1 ? 0 : 1;
             }
         }
     }
@@ -1649,8 +1649,8 @@ int run(int argc, TCHAR *argv[]) {
     argvCopy.push_back(_T(""));
 
     ParseCmdError err;
-    mfxStatus sts = parse_cmd(&Params, argvCopy.data(), (mfxU8)argc, err);
-    if (sts >= MFX_PRINT_OPTION_DONE) {
+    int ret = parse_cmd(&Params, argvCopy.data(), (mfxU8)argc, err);
+    if (ret >= 1) {
         PrintHelp(err.strAppName, err.strErrorMessage, err.strOptionName, err.strErrorValue);
         return 0;
     }
@@ -1685,7 +1685,7 @@ int run(int argc, TCHAR *argv[]) {
         return MFX_ERR_MEMORY_ALLOC;
     }
 
-    sts = pPipeline->Init(&Params);
+    auto sts = pPipeline->Init(&Params);
     if (sts < MFX_ERR_NONE) return 1;
 
     pPipeline->SetAbortFlagPointer(&g_signal_abort);

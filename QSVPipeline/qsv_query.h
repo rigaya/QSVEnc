@@ -61,6 +61,9 @@ enum {
     CPU_GEN_SKYLAKE,
     CPU_GEN_GOLDMONT,
     CPU_GEN_KABYLAKE,
+    CPU_GEN_GEMINILAKE,
+    CPU_GEN_COFFEELAKE,
+    CPU_GEN_CANNONLAKE,
 };
 
 static const TCHAR *const CPU_GEN_STR[] = {
@@ -74,6 +77,9 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("Skylake"),
     _T("Apollolake"),
     _T("Kabylake"),
+    _T("Geminilake"),
+    _T("Coffeelake"),
+    _T("Cannonlake"),
 };
 
 int getCPUGenCpuid();
@@ -98,6 +104,7 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 17, 1 },
     { 19, 1 },
     { 23, 1 },
+    { 26, 1 },
     { 0, 0 }
 };
 
@@ -123,6 +130,7 @@ static const mfxU32 CODEC_LIST_AUO[] = {
 #define MFX_LIB_VERSION_1_17 LIB_VER_LIST[14]
 #define MFX_LIB_VERSION_1_19 LIB_VER_LIST[15]
 #define MFX_LIB_VERSION_1_23 LIB_VER_LIST[16]
+#define MFX_LIB_VERSION_1_26 LIB_VER_LIST[17]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);

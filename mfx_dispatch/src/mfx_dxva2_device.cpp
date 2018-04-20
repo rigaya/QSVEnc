@@ -1,6 +1,6 @@
 /* ****************************************************************************** *\
 
-Copyright (C) 2012-2015 Intel Corporation.  All rights reserved.
+Copyright (C) 2012-2017 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -104,26 +104,30 @@ void DXDevice::Close(void)
 
 void DXDevice::LoadDLLModule(const wchar_t *pModuleName)
 {
-    DWORD prevErrorMode = 0;
-
     // unload the module if it is required
     UnloadDLLModule();
 
+#if !defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE)
+    DWORD prevErrorMode = 0;
     // set the silent error mode
-#if (_WIN32_WINNT >= 0x0600) && !(__GNUC__) && !defined(WIN_TRESHOLD_MOBILE)
+#if (_WIN32_WINNT >= 0x0600) && !(__GNUC__)
     SetThreadErrorMode(SEM_FAILCRITICALERRORS, &prevErrorMode); 
 #else
     prevErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
-    // load specified library
-	m_hModule = LoadLibraryExW(pModuleName, NULL, 0);
+#endif // !defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE)
 
+    // load specified library
+    m_hModule = LoadLibraryExW(pModuleName, NULL, 0);
+
+#if !defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE)
     // set the previous error mode
-#if (_WIN32_WINNT >= 0x0600) && !(__GNUC__) && !defined(WIN_TRESHOLD_MOBILE)
+#if (_WIN32_WINNT >= 0x0600) && !(__GNUC__)
     SetThreadErrorMode(prevErrorMode, NULL);
 #else
     SetErrorMode(prevErrorMode);
 #endif
+#endif //!defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE)
 
 } // void LoadDLLModule(const wchar_t *pModuleName)
 
@@ -329,15 +333,17 @@ bool DXGI1Device::Init(const mfxU32 adapterNum)
 
     if (m_hModule)
     {
-        DXGICreateFactoryFunc pFunc;
-        IDXGIFactory1 *pFactory;
-        IDXGIAdapter1 *pAdapter;
-        DXGI_ADAPTER_DESC1 desc;
-        mfxU32 curAdapter, maxAdapters;
-        HRESULT hRes;
+        DXGICreateFactoryFunc pFunc = NULL;
+        IDXGIFactory1 *pFactory = NULL;
+        IDXGIAdapter1 *pAdapter = NULL;
+        DXGI_ADAPTER_DESC1 desc = { 0 };
+        mfxU32 curAdapter = 0;
+        mfxU32 maxAdapters = 0;
+        HRESULT hRes = E_FAIL;
 
         // load address of procedure to create DXGI 1.1 factory
         pFunc = (DXGICreateFactoryFunc) GetProcAddress(m_hModule, "CreateDXGIFactory1");
+
         if (NULL == pFunc)
         {
             return false;
@@ -414,6 +420,7 @@ DXVA2Device::DXVA2Device(void)
     m_vendorID = 0;
     m_deviceID = 0;
 
+    m_driverVersion = 0;
 } // DXVA2Device::DXVA2Device(void)
 
 DXVA2Device::~DXVA2Device(void)
@@ -429,6 +436,7 @@ void DXVA2Device::Close(void)
     m_vendorID = 0;
     m_deviceID = 0;
 
+    m_driverVersion = 0;
 } // void DXVA2Device::Close(void)
 
 #ifdef MFX_D3D9_ENABLED
@@ -469,8 +477,8 @@ bool DXVA2Device::InitD3D9(const mfxU32 adapterNum)
 #else // MFX_D3D9_ENABLED
 bool DXVA2Device::InitD3D9(const mfxU32 adapterNum)
 {
-	(void)adapterNum;
-	return false;
+    (void)adapterNum;
+    return false;
 }
 #endif // MFX_D3D9_ENABLED
 

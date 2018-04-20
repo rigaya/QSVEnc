@@ -136,7 +136,7 @@ struct sArgsData {
     uint32_t nTmpInputBuf = 0;
 };
 
-mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData, ParseCmdError& err) {
+int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData, ParseCmdError& err) {
 #define SET_ERR(app_name, errmes, opt_name, err_val) \
     err.strAppName = (app_name) ? app_name : _T(""); \
     err.strErrorMessage = (errmes) ? errmes : _T(""); \
@@ -150,9 +150,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nDstWidth, &pParams->nDstHeight)
             && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nDstWidth, &pParams->nDstHeight)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("input-res"))) {
         i++;
@@ -161,18 +161,18 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &pParams->nWidth, &pParams->nHeight)
             && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &pParams->nWidth, &pParams->nHeight)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("crop"))) {
         i++;
         if (   4 != _stscanf_s(strInput[i], _T("%d,%d,%d,%d"), &pParams->sInCrop.e.left, &pParams->sInCrop.e.up, &pParams->sInCrop.e.right, &pParams->sInCrop.e.bottom)
             && 4 != _stscanf_s(strInput[i], _T("%d:%d:%d:%d"), &pParams->sInCrop.e.left, &pParams->sInCrop.e.up, &pParams->sInCrop.e.right, &pParams->sInCrop.e.bottom)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("codec"))) {
         i++;
@@ -185,41 +185,41 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         if (list_codec[j].desc == nullptr) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("raw"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_RAW;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("y4m"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_Y4M;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("avi"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_AVI;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("avs"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_AVS;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpy"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_VPY;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpy-mt"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_VPY_MT;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("avqsv")) || 0 == _tcscmp(option_name, _T("avhw"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_AVHW;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("avsw"))) {
         pParams->nInputFmt = RGY_INPUT_FMT_AVSW;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (   0 == _tcscmp(option_name, _T("input-analyze"))
         || 0 == _tcscmp(option_name, _T("avqsv-analyze"))) { //互換性のため
@@ -227,25 +227,25 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         } else if (value < 0) {
             SET_ERR(strInput[0], _T("input-analyze requires non-negative value."), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         } else {
             pParams->nAVDemuxAnalyzeSec = (mfxU16)((std::min)(value, USHRT_MAX));
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("input-file"))) {
         i++;
         _tcscpy_s(pParams->strSrcFile, strInput[i]);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-file"))) {
         i++;
         if (!pParams->bBenchmark)
             _tcscpy_s(pParams->strDstFile, strInput[i]);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("trim"))) {
         i++;
@@ -255,7 +255,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             sTrim trim;
             if (2 != _stscanf_s(trim_str.c_str(), _T("%d:%d"), &trim.start, &trim.fin) || (trim.fin > 0 && trim.fin < trim.start)) {
                 SET_ERR(strInput[0], _T("Invalid Value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
             if (trim.fin == 0) {
                 trim.fin = TRIM_MAX;
@@ -276,7 +276,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->pTrimList = (sTrim *)malloc(sizeof(pParams->pTrimList[0]) * trim_list.size());
             memcpy(pParams->pTrimList, &trim_list[0], sizeof(pParams->pTrimList[0]) * trim_list.size());
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("seek"))) {
         i++;
@@ -287,7 +287,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != (ret = _stscanf_s(strInput[i],    _T("%d:%f"),         &mm, &sec))
             && 1 != (ret = _stscanf_s(strInput[i],       _T("%f"),              &sec))) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (ret <= 2) {
             hh = 0;
@@ -297,43 +297,43 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         if (hh < 0 || mm < 0 || sec < 0) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (hh > 0 && mm >= 60) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         mm += hh * 60;
         if (mm > 0 && sec >= 60.0f) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->fSeekSec = sec + mm * 60;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("video-track"))) {
         i++;
         int v = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (v == 0) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nVideoTrack = (int8_t)v;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("video-streamid"))) {
         i++;
         int v = 0;
         if (1 != _stscanf_s(strInput[i], _T("%i"), &v)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nVideoStreamId = v;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-source"))) {
         i++;
@@ -344,7 +344,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         pParams->ppAudioSourceList = (TCHAR **)realloc(pParams->ppAudioSourceList, sizeof(pParams->ppAudioSourceList[0]) * (pParams->nAudioSourceCount + 1));
         pParams->ppAudioSourceList[pParams->nAudioSourceCount] = pAudioSource;
         pParams->nAudioSourceCount++;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-file"))) {
         i++;
@@ -366,7 +366,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         } else if (i <= 0) {
             //トラック番号は1から連番で指定
             SET_ERR(strInput[0], _T("Invalid track number"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         } else {
             audioIdx = getAudioTrackIdx(pParams, trackId);
             if (audioIdx < 0) {
@@ -394,7 +394,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             if (pParams->ppAudioSelectList[j]->pAudioExtractFilename != nullptr
                 && 0 == _tcsicmp(pParams->ppAudioSelectList[j]->pAudioExtractFilename, ptr)) {
                 SET_ERR(strInput[0], _T("Same output file name is used more than twice"), option_name, nullptr);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
         }
 
@@ -407,7 +407,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         pParams->ppAudioSelectList[audioIdx]->pAudioExtractFilename = _tcsdup(ptr);
         argData->nParsedAudioFile++;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (   0 == _tcscmp(option_name, _T("format"))
         || 0 == _tcscmp(option_name, _T("output-format"))) {
@@ -419,18 +419,18 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             }
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("input-format"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             pParams->pAVInputFormat = _tcsdup(strInput[i]);
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
 #if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("audio-copy"))
@@ -444,7 +444,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 int iTrack = 0;
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
                     SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 } else {
                     trackSet.insert(iTrack);
                 }
@@ -474,7 +474,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             }
             argData->nParsedAudioCopy++;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-codec"))) {
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
@@ -497,7 +497,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
                 if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
                     SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
             }
             sAudioSelect *pAudioSelect = nullptr;
@@ -520,9 +520,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             argData->nParsedAudioEncode++;
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-bitrate"))) {
         if (i+1 < nArgNum) {
@@ -540,7 +540,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
                 if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
                     SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
                 ptr++;
             }
@@ -555,7 +555,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             int bitrate = 0;
             if (1 != _stscanf(ptr, _T("%d"), &bitrate)) {
                 SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
             pAudioSelect->nAVAudioEncodeBitrate = bitrate;
 
@@ -569,23 +569,23 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             argData->nParsedAudioBitrate++;
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-ignore-decode-error"))) {
         i++;
         uint32_t value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nAudioIgnoreDecodeError = value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     //互換性のため残す
     if (0 == _tcscmp(option_name, _T("audio-ignore-notrack-error"))) {
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-samplerate"))) {
         if (i+1 < nArgNum) {
@@ -603,7 +603,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
                 if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
                     SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
                 ptr++;
             }
@@ -618,7 +618,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             int bitrate = 0;
             if (1 != _stscanf(ptr, _T("%d"), &bitrate)) {
                 SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
             pAudioSelect->nAudioSamplingRate = bitrate;
 
@@ -632,9 +632,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             argData->nParsedAudioSamplerate++;
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-resampler"))) {
         i++;
@@ -645,14 +645,14 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nAudioResampler = (mfxU8)v;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-stream"))) {
         if (!check_avcodec_dll()) {
             _ftprintf(stderr, _T("%s\n--audio-stream could not be used.\n"), error_mes_avcodec_dll_not_found().c_str());
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         int trackId = -1;
         const TCHAR *ptr = nullptr;
@@ -663,7 +663,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 tstring temp = tstring(strInput[i]).substr(0, ptr - strInput[i]);
                 if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
                     SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
                 ptr++;
             } else {
@@ -687,12 +687,12 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         if (ptr == nullptr) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         } else {
             auto streamSelectList = split(tchar_to_string(ptr), ",");
             if (streamSelectList.size() > _countof(pAudioSelect->pnStreamChannelSelect)) {
                 SET_ERR(strInput[0], _T("Too much streams splitted"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
             static const char *DELIM = ":";
             for (uint32_t j = 0; j < streamSelectList.size(); j++) {
@@ -719,7 +719,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nAudioSelectCount++;
         }
         argData->nParsedAudioSplit++;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-filter"))) {
         if (i+1 < nArgNum) {
@@ -731,7 +731,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
             } else {
                 SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
             int trackId = 1;
             if (ptrDelim == nullptr) {
@@ -744,7 +744,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 tstring temp = tstring(strInput[i]).substr(0, ptrDelim - strInput[i]);
                 if (1 != _stscanf(temp.c_str(), _T("%d"), &trackId)) {
                     SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
             }
             sAudioSelect *pAudioSelect = nullptr;
@@ -770,15 +770,15 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             argData->nParsedAudioFilter++;
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
 #endif //#if ENABLE_AVSW_READER
     if (   0 == _tcscmp(option_name, _T("chapter-copy"))
         || 0 == _tcscmp(option_name, _T("copy-chapter"))) {
         pParams->bCopyChapter = TRUE;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("chapter"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
@@ -786,13 +786,13 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->pChapterFile = _tcsdup(strInput[i]);
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("chapter-no-trim"))) {
         pParams->bChapterNoTrim = TRUE;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (   0 == _tcscmp(option_name, _T("sub-copy"))
         || 0 == _tcscmp(option_name, _T("copy-sub"))) {
@@ -805,7 +805,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 int iTrack = 0;
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
                     SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 } else {
                     trackSet.insert(iTrack);
                 }
@@ -826,7 +826,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         for (auto it = trackSet.begin(); it != trackSet.end(); it++, iTrack++) {
             pParams->pSubtitleSelect[iTrack] = *it;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("avsync"))) {
         int value = 0;
@@ -835,9 +835,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nAVSyncMode = (RGYAVSync)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("mux-option"))) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
@@ -845,7 +845,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             auto ptr = _tcschr(strInput[i], ':');
             if (ptr == nullptr) {
                 SET_ERR(strInput[0], _T("invalid value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             } else {
                 if (pParams->pMuxOpt == nullptr) {
                     pParams->pMuxOpt = new muxOptList();
@@ -854,9 +854,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             }
         } else {
             SET_ERR(strInput[0], _T("invalid option"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("quality"))) {
         i++;
@@ -867,9 +867,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nTargetUsage = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("level"))) {
         if (i+1 < nArgNum) {
@@ -877,9 +877,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             argData->cachedlevel = strInput[i];
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("profile"))) {
         if (i+1 < nArgNum) {
@@ -887,9 +887,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             argData->cachedprofile = strInput[i];
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (   0 == _tcscmp(option_name, _T("sar"))
         || 0 == _tcscmp(option_name, _T("dar"))) {
@@ -901,7 +901,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &value[0], &value[1])) {
             RGY_MEMSET_ZERO(pParams->nPAR);
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (0 == _tcscmp(option_name, _T("dar"))) {
             value[0] = -value[0];
@@ -909,15 +909,15 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         }
         pParams->nPAR[0] = value[0];
         pParams->nPAR[1] = value[1];
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("slices"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nSlices)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("gop-len"))) {
         i++;
@@ -925,85 +925,85 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nGOPLength = 0;
         } else if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nGOPLength)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("open-gop"))) {
         pParams->bopenGOP = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-open-gop"))) {
         pParams->bopenGOP = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("strict-gop"))) {
         pParams->bforceGOPSettings = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-scenechange"))) {
         pParams->bforceGOPSettings = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("scenechange"))) {
         pParams->bforceGOPSettings = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("i-adapt"))) {
         pParams->bAdaptiveI = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-i-adapt"))) {
         pParams->bAdaptiveI = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("b-adapt"))) {
         pParams->bAdaptiveB = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-b-adapt"))) {
         pParams->bAdaptiveB = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("b-pyramid"))) {
         pParams->bBPyramid = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-b-pyramid"))) {
         pParams->bBPyramid = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("weightb"))) {
         pParams->nWeightB = MFX_WEIGHTED_PRED_DEFAULT;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-weightb"))) {
         pParams->nWeightB = MFX_WEIGHTED_PRED_UNKNOWN;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("weightp"))) {
         pParams->nWeightP = MFX_WEIGHTED_PRED_DEFAULT;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-weightp"))) {
         pParams->nWeightP = MFX_WEIGHTED_PRED_UNKNOWN;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("repartition-check"))) {
         pParams->nRepartitionCheck = MFX_CODINGOPTION_ON;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-repartition-check"))) {
         pParams->nRepartitionCheck = MFX_CODINGOPTION_OFF;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("fade-detect"))) {
         pParams->nFadeDetect = MFX_CODINGOPTION_ON;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-fade-detect"))) {
         pParams->nFadeDetect = MFX_CODINGOPTION_OFF;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (   0 == _tcscmp(option_name, _T("lookahead-ds"))
         || 0 == _tcscmp(option_name, _T("la-quality"))) {
@@ -1013,9 +1013,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nLookaheadDS = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("trellis"))) {
         i++;
@@ -1024,17 +1024,17 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nTrellis = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("bluray")) || 0 == _tcscmp(option_name, _T("force-bluray"))) {
         pParams->nBluray = (0 == _tcscmp(option_name, _T("force-bluray"))) ? 2 : 1;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("nv12"))) {
         pParams->ColorFormat = MFX_FOURCC_NV12;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("interlace"))) {
         i++;
@@ -1043,112 +1043,112 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nPicStruct = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("tff"))) {
         pParams->nPicStruct = MFX_PICSTRUCT_FIELD_TFF;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("bff"))) {
         pParams->nPicStruct = MFX_PICSTRUCT_FIELD_BFF;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("la"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("icq"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_ICQ;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-icq"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA_ICQ;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-hrd"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA_HRD;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vcm"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_VCM;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_VBR;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("cbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_CBR;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_AVBR;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("qvbr"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_QVBR;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (   0 == _tcscmp(option_name, _T("qvbr-q"))
         || 0 == _tcscmp(option_name, _T("qvbr-quality"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nQVBRQuality)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_QVBR;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("fallback-rc"))) {
         pParams->nFallback = 1;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (   0 == _tcscmp(option_name, _T("max-bitrate"))
         || 0 == _tcscmp(option_name, _T("maxbitrate"))) //互換性のため
@@ -1156,25 +1156,25 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nMaxBitrate)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-depth"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nLookaheadDepth)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-window-size"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nWinBRCSize)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("cqp")) || 0 == _tcscmp(option_name, _T("vqp"))) {
         i++;
@@ -1186,89 +1186,89 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 pParams->nQPB = pParams->nQPI;
             } else {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
         }
         pParams->nEncMode = (mfxU16)((0 == _tcscmp(option_name, _T("vqp"))) ? MFX_RATECONTROL_VQP : MFX_RATECONTROL_CQP);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr-unitsize"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nAVBRConvergence)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     //if (0 == _tcscmp(option_name, _T("avbr-range")))
     //{
     //    double accuracy;
     //    if (1 != _stscanf_s(strArgument, _T("%f"), &accuracy)) {
     //        SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-    //        return MFX_PRINT_OPTION_ERR;
+    //        return 1;
     //    }
     //    pParams->nAVBRAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
-    //    return MFX_ERR_NONE;
+    //    return 0;
     //}
     else if (0 == _tcscmp(option_name, _T("fixed-func"))) {
         pParams->bUseFixedFunc = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-fixed-func"))) {
         pParams->bUseFixedFunc = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("ref"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nRef)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("bframes"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBframes)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("cavlc"))) {
         pParams->bCAVLC = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("rdo"))) {
         pParams->bRDO = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("extbrc"))) {
         pParams->bExtBRC = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-extbrc"))) {
         pParams->bExtBRC = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("mbbrc"))) {
         pParams->bMBBRC = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-mbbrc"))) {
         pParams->bMBBRC = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-intra-refresh"))) {
         pParams->bIntraRefresh = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("intra-refresh"))) {
         pParams->bIntraRefresh = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-deblock"))) {
         pParams->bNoDeblock = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
         || 0 == _tcscmp(option_name, _T("qp-max")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
@@ -1282,25 +1282,25 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 qpLimit[2] = qpLimit[0];
             } else {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
         }
         uint8_t *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
         for (int j = 0; j < 3; j++) {
             limit[j] = (uint8_t)clamp(qpLimit[j], 0, 51);
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("qp-offset"))) {
         i++;
         auto values = split(strInput[i], _T(":"), true);
         if (values.size() == 0) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (values.size() > 8) {
             SET_ERR(strInput[0], strsprintf(_T("qp-offset value could be set up to 8 layers, but was set for %d layers.\n"), (int)values.size()).c_str(), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         uint32_t iv = 0;
         for (; iv < values.size(); iv++) {
@@ -1308,18 +1308,18 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             int v = _tcstol(values[iv].c_str(), &eptr, 0);
             if (v == 0 && (eptr != nullptr || *eptr == ' ')) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[iv]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
             if (v < -51 || v > 51) {
                 SET_ERR(strInput[0], _T("qp-offset value should be in range of -51 - 51.\n"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
             pParams->pQPOffset[iv] = (int8_t)v;
         }
         for (; iv < _countof(pParams->pQPOffset); iv++) {
             pParams->pQPOffset[iv] = pParams->pQPOffset[iv-1];
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("mv-scaling"))) {
         i++;
@@ -1329,68 +1329,68 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nMVCostScaling = (mfxU8)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("direct-bias-adjust"))) {
         pParams->bDirectBiasAdjust = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-direct-bias-adjust"))) {
         pParams->bDirectBiasAdjust = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("inter-pred"))) {
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nInterPred = (mfxU16)list_pred_block_size[v].value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("intra-pred"))) {
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nIntraPred = (mfxU16)list_pred_block_size[v].value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("mv-precision"))) {
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_mv_presicion) - 1) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nMVPrecision = (mfxU16)list_mv_presicion[v].value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("mv-search"))) {
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->MVSearchWindow.x = (mfxU16)clamp(v, 0, 128);
         pParams->MVSearchWindow.y = (mfxU16)clamp(v, 0, 128);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("sharpness"))) {
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < 8) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nVP8Sharpness = (mfxU8)v;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("fps"))) {
         i++;
@@ -1410,10 +1410,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 }
             } else {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("log-level"))) {
         i++;
@@ -1424,62 +1424,62 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->nLogLevel = (mfxI16)v;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
 #ifdef D3D_SURFACES_SUPPORT
     if (0 == _tcscmp(option_name, _T("disable-d3d"))) {
         pParams->memType = SYSTEM_MEMORY;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("d3d9"))) {
         pParams->memType = D3D9_MEMORY;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #if MFX_D3D11_SUPPORT
     if (0 == _tcscmp(option_name, _T("d3d11"))) {
         pParams->memType = D3D11_MEMORY;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("d3d"))) {
         pParams->memType = HW_MEMORY;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #else
     if (0 == _tcscmp(option_name, _T("d3d"))) {
         pParams->memType = D3D9_MEMORY;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
 #ifdef LIBVA_SUPPORT
     if (0 == _tcscmp(option_name, _T("va"))) {
         pParams->memType = D3D9_MEMORY;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("disable-va"))) {
         pParams->memType = SYSTEM_MEMORY;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #endif //#ifdef LIBVA_SUPPORT
     if (0 == _tcscmp(option_name, _T("aud"))) {
         pParams->bOutputAud = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("pic-struct"))) {
         pParams->bOutputPicStruct = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("async-depth"))) {
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_ASYNC_DEPTH_MAX < v) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nAsyncDepth = (mfxU16)v;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #if ENABLE_SESSION_THREAD_CONFIG
     if (0 == _tcscmp(option_name, _T("session-threads"))) {
@@ -1487,10 +1487,10 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_SESSION_THREAD_MAX < v) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nSessionThreads = (mfxU16)v;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("session-thread-priority"))
         || 0 == _tcscmp(option_name, _T("session-threads-priority"))) {
@@ -1499,21 +1499,21 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         if (PARSE_ERROR_FLAG == (v = get_value_from_chr(list_priority, strInput[i]))
             && 1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_log_level) - 1) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nSessionThreadPriority = (mfxU16)v;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #endif
     if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDenoise)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.bEnable = true;
         pParams->vpp.bUseDenoise = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-denoise"))) {
         pParams->vpp.bUseDenoise = false;
@@ -1521,20 +1521,20 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             i++;
             if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDenoise)) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-detail-enhance"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDetailEnhance)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.bEnable = true;
         pParams->vpp.bUseDetailEnhance = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-detail-enhance"))) {
         pParams->vpp.bUseDetailEnhance = false;
@@ -1542,17 +1542,17 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             i++;
             if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDetailEnhance)) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-deinterlace"))) {
         i++;
         int value = get_value_from_chr(list_deinterlace, strInput[i]);
         if (PARSE_ERROR_FLAG == value) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.bEnable = true;
         pParams->vpp.nDeinterlace = (mfxU16)value;
@@ -1560,7 +1560,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             i++;
             if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             } else {
                 pParams->vpp.nTelecinePattern = (mfxU16)value;
             }
@@ -1569,7 +1569,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && pParams->nPicStruct == MFX_PICSTRUCT_PROGRESSIVE) {
             pParams->nPicStruct = MFX_PICSTRUCT_FIELD_TFF;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-image-stab"))) {
         i++;
@@ -1580,9 +1580,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.nImageStabilizer = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-fps-conv"))) {
         i++;
@@ -1593,13 +1593,13 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.nFPSConversion = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-half-turn"))) {
         pParams->vpp.bHalfTurn = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-rotate"))) {
         i++;
@@ -1608,9 +1608,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.nRotate = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-mirror"))) {
         i++;
@@ -1619,9 +1619,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.nMirrorType = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-scaling"))) {
         i++;
@@ -1630,9 +1630,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.nScalingQuality = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
 #if ENABLE_CUSTOM_VPP
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
@@ -1654,7 +1654,7 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         } else {
             pParams->vpp.subburn.nTrack = 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-sub-charset"))) {
         if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
@@ -1665,9 +1665,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.subburn.pCharEnc = _tcsdup(strInput[i]);
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-sub-shaping"))) {
         i++;
@@ -1678,9 +1678,9 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             pParams->vpp.subburn.nShaping = v;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
 #endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (   0 == _tcscmp(option_name, _T("vpp-delogo"))
@@ -1689,14 +1689,14 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int filename_len = (int)_tcslen(strInput[i]);
         pParams->vpp.delogo.pFilePath = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->vpp.delogo.pFilePath[0]));
         memcpy(pParams->vpp.delogo.pFilePath, strInput[i], sizeof(pParams->vpp.delogo.pFilePath[0]) * filename_len);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-select"))) {
         i++;
         int filename_len = (int)_tcslen(strInput[i]);
         pParams->vpp.delogo.pSelect = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->vpp.delogo.pSelect[0]));
         memcpy(pParams->vpp.delogo.pSelect, strInput[i], sizeof(pParams->vpp.delogo.pSelect[0]) * filename_len);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-pos"))) {
         i++;
@@ -1706,81 +1706,81 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &posOffset.x, &posOffset.y)
             && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &posOffset.x, &posOffset.y)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.delogo.nPosOffset = posOffset;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-depth"))) {
         i++;
         int depth;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &depth)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.delogo.nDepth = (uint8_t)clamp(depth, 0, 255);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-y"))) {
         i++;
         mfxI16 value;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.delogo.nYOffset = value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-cb"))) {
         i++;
         mfxI16 value;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.delogo.nCbOffset = value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-cr"))) {
         i++;
         mfxI16 value;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->vpp.delogo.nCrOffset = value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-add"))) {
         pParams->vpp.delogo.bAdd = 1;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-delogo-add"))) {
         pParams->vpp.delogo.bAdd = 0;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #endif //#if ENABLE_CUSTOM_VPP
     if (0 == _tcscmp(option_name, _T("input-buf"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &argData->nTmpInputBuf)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-buf"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (value < 0) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
-        return MFX_ERR_NONE;
+        return 0;
     }
 #if defined(_WIN32) || defined(_WIN64)
     if (0 == _tcscmp(option_name, _T("mfx-thread"))) {
@@ -1788,14 +1788,14 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (value < -1) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nSessionThreads = (int16_t)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
 #endif
     if (0 == _tcscmp(option_name, _T("input-thread"))) {
@@ -1803,46 +1803,46 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (value < -1 || value >= 2) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nInputThread = (int8_t)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-output-thread"))) {
         pParams->nOutputThread = 0;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-thread"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (value < -1 || value >= 2) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nOutputThread = (int8_t)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-thread"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (value < -1 || value >= 3) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nAudioThread = (int8_t)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("min-memory"))) {
         pParams->nOutputThread = 0;
@@ -1851,87 +1851,87 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
         argData->nTmpInputBuf = 1;
         pParams->nOutputBufSizeMB = 0;
         pParams->nSessionThreads = 2;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("max-procfps"))) {
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         if (value < 0) {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nProcSpeedLimit = (uint16_t)(std::min)(value, (int)UINT16_MAX);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("log"))) {
         i++;
         int filename_len = (int)_tcslen(strInput[i]);
         pParams->pStrLogFile = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pStrLogFile[0]));
         memcpy(pParams->pStrLogFile, strInput[i], sizeof(pParams->pStrLogFile[0]) * filename_len);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("log-framelist"))) {
         i++;
         int filename_len = (int)_tcslen(strInput[i]);
         pParams->pFramePosListLog = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->pFramePosListLog[0]));
         memcpy(pParams->pFramePosListLog, strInput[i], sizeof(pParams->pFramePosListLog[0]) * filename_len);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("log-mux-ts"))) {
         i++;
         pParams->pMuxVidTsLogFile = _tcsdup(strInput[i]);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("log-copy-framedata"))) {
         i++;
         pParams->pLogCopyFrameData = _tcsdup(strInput[i]);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("colormatrix"))) {
         i++;
         int value;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_colormatrix, strInput[i])))
             pParams->ColorMatrix = (mfxU16)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("colorprim"))) {
         i++;
         int value;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_colorprim, strInput[i])))
             pParams->ColorPrim = (mfxU16)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("transfer"))) {
         i++;
         int value;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_transfer, strInput[i])))
             pParams->Transfer = (mfxU16)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("videoformat"))) {
         i++;
         int value;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_videoformat, strInput[i])))
             pParams->VideoFormat = (mfxU16)value;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("fullrange"))) {
         pParams->bFullrange = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("max-cll"))) {
         i++;
         pParams->sMaxCll = strdup(tchar_to_string(strInput[i]).c_str());
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("master-display"))) {
         i++;
         pParams->sMasterDisplay = strdup(tchar_to_string(strInput[i]).c_str());
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("sar"))) {
         i++;
@@ -1940,15 +1940,15 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &pParams->nPAR[0], &pParams->nPAR[1])
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &pParams->nPAR[0], &pParams->nPAR[1])) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("benchmark"))) {
         i++;
         pParams->bBenchmark = TRUE;
         _tcscpy_s(pParams->strDstFile, strInput[i]);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("bench-quality"))) {
         i++;
@@ -1964,11 +1964,11 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                     pParams->nBenchQuality |= 1 << nQuality;
                 } else {
                     SET_ERR(strInput[i], _T("Unknown value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
             }
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("perf-monitor"))) {
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
@@ -1980,22 +1980,22 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 int value = 0;
                 if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_pref_monitor, item.c_str()))) {
                     SET_ERR(item.c_str(), _T("Unknown value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
                 pParams->nPerfMonitorSelect |= value;
             }
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("perf-monitor-interval"))) {
         i++;
         mfxI32 v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nPerfMonitorInterval = std::max(50, v);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("perf-monitor-plot"))) {
         if (strInput[i+1][0] == _T('-') || _tcslen(strInput[i+1]) == 0) {
@@ -2011,35 +2011,35 @@ mfxStatus ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int&
                 int value = 0;
                 if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_pref_monitor, item.c_str()))) {
                     SET_ERR(item.c_str(), _T("Unknown value"), option_name, strInput[i]);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
                 pParams->nPerfMonitorSelectMatplot |= value;
             }
         }
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("python"))) {
         i++;
         pParams->pPythonPath = _tcsdup(strInput[i]);
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("timer-period-tuning"))) {
         pParams->bDisableTimerPeriodTuning = false;
-        return MFX_ERR_NONE;
+        return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-timer-period-tuning"))) {
         pParams->bDisableTimerPeriodTuning = true;
-        return MFX_ERR_NONE;
+        return 0;
     }
     tstring mes = _T("Unknown option: --");
     mes += option_name;
     SET_ERR(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
-    return MFX_PRINT_OPTION_ERR;
+    return 1;
 }
 
-mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err) {
+int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err) {
     if (!pParams) {
-        return MFX_ERR_NONE;
+        return 0;
     }
     sArgsData argsData;
 
@@ -2058,22 +2058,22 @@ mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum,
             } else if (strInput[i][2] == _T('\0')) {
                 if (nullptr == (option_name = cmd_short_opt_to_long(strInput[i][1]))) {
                     SET_ERR(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), NULL, NULL);
-                    return MFX_PRINT_OPTION_ERR;
+                    return 1;
                 }
             } else {
                 if (ignore_parse_err) continue;
                 SET_ERR(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), NULL, NULL);
-                return MFX_PRINT_OPTION_ERR;
+                return 1;
             }
         }
 
         if (option_name == NULL) {
             if (ignore_parse_err) continue;
             SET_ERR(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), NULL, NULL);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData, err);
-        if (!ignore_parse_err && sts != MFX_ERR_NONE) {
+        if (!ignore_parse_err && sts != 0) {
             return sts;
         }
     }
@@ -2106,7 +2106,7 @@ mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum,
         }
         if (!bParsed) {
             SET_ERR(strInput[0], _T("Unknown value"), _T("level"), nullptr);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
     }
     if (argsData.cachedprofile.length() > 0) {
@@ -2116,19 +2116,19 @@ mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum,
             pParams->CodecProfile = (mfxU16)value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), _T("profile"), nullptr);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
     }
 
     // check if all mandatory parameters were set
     if (0 == _tcslen(pParams->strSrcFile)) {
         SET_ERR(strInput[0], _T("Source file name not found"), nullptr, nullptr);
-        return MFX_PRINT_OPTION_ERR;
+        return 1;
     }
 
     if (0 == _tcslen(pParams->strDstFile)) {
         SET_ERR(strInput[0], _T("Destination file name not found"), nullptr, nullptr);
-        return MFX_PRINT_OPTION_ERR;
+        return 1;
     }
 
     pParams->nTargetUsage = clamp(pParams->nTargetUsage, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED);
@@ -2145,7 +2145,7 @@ mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum,
 
     if (pParams->pChapterFile && pParams->bCopyChapter) {
         SET_ERR(strInput[0], _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time."), nullptr, nullptr);
-        return MFX_PRINT_OPTION_ERR;
+        return 1;
     }
 
     //set input buffer size
@@ -2156,14 +2156,14 @@ mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum,
 
     if (pParams->nRotationAngle != 0 && pParams->nRotationAngle != 180) {
         SET_ERR(strInput[0], _T("Angles other than 180 degrees are not supported."), nullptr, nullptr);
-        return MFX_PRINT_OPTION_ERR; // other than 180 are not supported 
+        return 1; // other than 180 are not supported 
     }
 
     // not all options are supported if rotate plugin is enabled
     if (pParams->nRotationAngle == 180) {
         if (MFX_FOURCC_NV12 != pParams->ColorFormat) {
             SET_ERR(strInput[0], _T("Rotation plugin requires NV12 input. Please specify -nv12 option."), nullptr, nullptr);
-            return MFX_PRINT_OPTION_ERR;
+            return 1;
         }
         pParams->nPicStruct = MFX_PICSTRUCT_PROGRESSIVE;
         pParams->nDstWidth = pParams->nWidth;
@@ -2171,19 +2171,19 @@ mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum,
         pParams->memType = SYSTEM_MEMORY;
     }
 
-    return MFX_ERR_NONE;
+    return 0;
 }
 
-mfxStatus parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err) {
+int parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err) {
     init_qsvp_prm(pParams);
     if (cmda == nullptr) {
-        return MFX_ERR_NONE;
+        return 0;
     }
     std::wstring cmd = char_to_wstring(cmda);
     int argc = 0;
     auto argvw = CommandLineToArgvW(cmd.c_str(), &argc);
     if (argc <= 1) {
-        return MFX_ERR_NONE;
+        return 0;
     }
     vector<tstring> argv_tstring;
     for (int i = 0; i < argc; i++) {

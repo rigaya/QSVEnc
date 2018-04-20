@@ -1,4 +1,4 @@
-﻿/* ****************************************************************************** *\
+/* ****************************************************************************** *\
 
 Copyright (C) 2007-2017 Intel Corporation.  All rights reserved.
 
@@ -31,11 +31,6 @@ File Name: mfxvideo.h
 #define __MFXVIDEO_H__
 #include "mfxsession.h"
 #include "mfxvstructures.h"
-
-#define MFX_VERSION_MAJOR 1
-#define MFX_VERSION_MINOR 23
-
-#define MFX_VERSION (MFX_VERSION_MAJOR * 1000 + MFX_VERSION_MINOR)
 
 #ifdef __cplusplus
 extern "C"

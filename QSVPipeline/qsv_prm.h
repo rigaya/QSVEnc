@@ -313,6 +313,10 @@ struct sInputParams
 
 const int MFX_COLOR_VALUE_AUTO = 0x0000ffff; //max of 16bit-integer (unsigned)
 
+enum {
+    MFX_CODEC_RAW = MFX_MAKEFOURCC('R', 'A', 'W', ' '),
+};
+
 const CX_DESC list_codec[] = {
     { _T("h264"),     MFX_CODEC_AVC   },
     { _T("hevc"),     MFX_CODEC_HEVC  },

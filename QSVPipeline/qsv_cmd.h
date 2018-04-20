@@ -42,8 +42,8 @@ struct ParseCmdError {
     tstring strErrorValue;
 };
 
-mfxStatus parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err = false);
-mfxStatus parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err = false);
+int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err = false);
+int parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err = false);
 
 tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm);
 
