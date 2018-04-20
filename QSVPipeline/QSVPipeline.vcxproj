@@ -451,14 +451,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClCompile Include="ram_speed.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_version.cpp" />
-    <ClCompile Include="scene_change_detection.cpp" />
-    <ClCompile Include="scene_change_detection_avx.cpp">
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-    </ClCompile>
-    <ClCompile Include="scene_change_detection_simd.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="api_hook.h" />
@@ -514,8 +506,6 @@ if not %errorlevel% == 0 ( move /y rgy_rev.h.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
     <ClInclude Include="ram_speed.h" />
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_version.h" />
-    <ClInclude Include="scene_change_detection.h" />
-    <ClInclude Include="scene_change_detection_simd.h" />
     <ClInclude Include="vpp_plugins.h" />
   </ItemGroup>
   <ItemGroup>

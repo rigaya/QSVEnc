@@ -761,10 +761,6 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-
-    //Scene change detection
-    fcgCBSceneChange->Enabled = 0 != (available_features & ENC_FEATURE_SCENECHANGE);
-    if (!fcgCBSceneChange->Enabled) fcgCBSceneChange->Checked = false;
     
     //API v1.3 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR));
@@ -1193,7 +1189,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXAspectRatio, (prm_qsv.nPAR[0] < 0));
     SetNUValue(fcgNUAspectRatioX, abs(prm_qsv.nPAR[0]));
     SetNUValue(fcgNUAspectRatioY, abs(prm_qsv.nPAR[1]));
-    fcgCBSceneChange->Checked    = false == prm_qsv.bforceGOPSettings;
     fcgCBOpenGOP->Checked        = prm_qsv.bopenGOP;
 
     SetNUValue(fcgNUSlices,       prm_qsv.nSlices);
@@ -1311,7 +1306,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nLookaheadDepth        = (mfxU16)fcgNULookaheadDepth->Value;
     prm_qsv.nRef                   = (mfxU16)fcgNURef->Value;
     prm_qsv.bopenGOP               = fcgCBOpenGOP->Checked;
-    prm_qsv.bforceGOPSettings      = fcgCBSceneChange->Checked == 0;
     prm_qsv.nGOPLength             = (mfxU16)fcgNUGopLength->Value;
     prm_qsv.nQPI                   = (mfxU16)fcgNUQPI->Value;
     prm_qsv.nQPP                   = (mfxU16)fcgNUQPP->Value;

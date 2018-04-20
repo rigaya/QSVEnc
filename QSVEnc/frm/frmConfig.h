@@ -612,7 +612,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXOutputType;
 
 private: System::Windows::Forms::Label^  fcgLBAVBRAccuarcy2;
 private: System::Windows::Forms::Label^  fcgLBAVBRConvergence2;
-private: System::Windows::Forms::CheckBox^  fcgCBSceneChange;
+
 private: System::Windows::Forms::CheckBox^  fcgCBOpenGOP;
 private: System::Windows::Forms::GroupBox^  fcggroupBoxColor;
 private: System::Windows::Forms::CheckBox^  fcgCBFullrange;
@@ -1196,7 +1196,6 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             this->fcgLBColorPrim = (gcnew System::Windows::Forms::Label());
             this->fcgLBColorMatrix = (gcnew System::Windows::Forms::Label());
             this->fcgCBOpenGOP = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgCBSceneChange = (gcnew System::Windows::Forms::CheckBox());
             this->fcgGroupBoxAspectRatio = (gcnew System::Windows::Forms::GroupBox());
             this->fcgLBAspectRatio = (gcnew System::Windows::Forms::Label());
             this->fcgNUAspectRatioY = (gcnew System::Windows::Forms::NumericUpDown());
@@ -2319,7 +2318,6 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             this->tabPageVideoEnc->Controls->Add(this->fcgLBVideoFormat);
             this->tabPageVideoEnc->Controls->Add(this->fcggroupBoxColor);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBOpenGOP);
-            this->tabPageVideoEnc->Controls->Add(this->fcgCBSceneChange);
             this->tabPageVideoEnc->Controls->Add(this->fcgGroupBoxAspectRatio);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXInterlaced);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBInterlaced);
@@ -2416,7 +2414,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBFadeDetect
             // 
             this->fcgCBFadeDetect->AutoSize = true;
-            this->fcgCBFadeDetect->Location = System::Drawing::Point(49, 485);
+            this->fcgCBFadeDetect->Location = System::Drawing::Point(49, 454);
             this->fcgCBFadeDetect->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBFadeDetect->Name = L"fcgCBFadeDetect";
             this->fcgCBFadeDetect->Size = System::Drawing::Size(96, 22);
@@ -2428,7 +2426,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBWeightB
             // 
             this->fcgCBWeightB->AutoSize = true;
-            this->fcgCBWeightB->Location = System::Drawing::Point(244, 458);
+            this->fcgCBWeightB->Location = System::Drawing::Point(244, 427);
             this->fcgCBWeightB->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBWeightB->Name = L"fcgCBWeightB";
             this->fcgCBWeightB->Size = System::Drawing::Size(132, 22);
@@ -2440,7 +2438,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBWeightP
             // 
             this->fcgCBWeightP->AutoSize = true;
-            this->fcgCBWeightP->Location = System::Drawing::Point(49, 458);
+            this->fcgCBWeightP->Location = System::Drawing::Point(49, 427);
             this->fcgCBWeightP->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBWeightP->Name = L"fcgCBWeightP";
             this->fcgCBWeightP->Size = System::Drawing::Size(131, 22);
@@ -2600,7 +2598,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBBPyramid
             // 
             this->fcgCBBPyramid->AutoSize = true;
-            this->fcgCBBPyramid->Location = System::Drawing::Point(244, 399);
+            this->fcgCBBPyramid->Location = System::Drawing::Point(48, 483);
             this->fcgCBBPyramid->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBBPyramid->Name = L"fcgCBBPyramid";
             this->fcgCBBPyramid->Size = System::Drawing::Size(104, 22);
@@ -2612,7 +2610,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBAdaptiveB
             // 
             this->fcgCBAdaptiveB->AutoSize = true;
-            this->fcgCBAdaptiveB->Location = System::Drawing::Point(244, 428);
+            this->fcgCBAdaptiveB->Location = System::Drawing::Point(244, 397);
             this->fcgCBAdaptiveB->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBAdaptiveB->Name = L"fcgCBAdaptiveB";
             this->fcgCBAdaptiveB->Size = System::Drawing::Size(151, 22);
@@ -2624,7 +2622,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBAdaptiveI
             // 
             this->fcgCBAdaptiveI->AutoSize = true;
-            this->fcgCBAdaptiveI->Location = System::Drawing::Point(49, 428);
+            this->fcgCBAdaptiveI->Location = System::Drawing::Point(49, 397);
             this->fcgCBAdaptiveI->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBAdaptiveI->Name = L"fcgCBAdaptiveI";
             this->fcgCBAdaptiveI->Size = System::Drawing::Size(148, 22);
@@ -2929,7 +2927,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBOpenGOP
             // 
             this->fcgCBOpenGOP->AutoSize = true;
-            this->fcgCBOpenGOP->Location = System::Drawing::Point(244, 487);
+            this->fcgCBOpenGOP->Location = System::Drawing::Point(244, 456);
             this->fcgCBOpenGOP->Margin = System::Windows::Forms::Padding(4);
             this->fcgCBOpenGOP->Name = L"fcgCBOpenGOP";
             this->fcgCBOpenGOP->Size = System::Drawing::Size(99, 22);
@@ -2937,18 +2935,6 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             this->fcgCBOpenGOP->Tag = L"reCmd";
             this->fcgCBOpenGOP->Text = L"open-GOP";
             this->fcgCBOpenGOP->UseVisualStyleBackColor = true;
-            // 
-            // fcgCBSceneChange
-            // 
-            this->fcgCBSceneChange->AutoSize = true;
-            this->fcgCBSceneChange->Location = System::Drawing::Point(49, 399);
-            this->fcgCBSceneChange->Margin = System::Windows::Forms::Padding(4);
-            this->fcgCBSceneChange->Name = L"fcgCBSceneChange";
-            this->fcgCBSceneChange->Size = System::Drawing::Size(131, 22);
-            this->fcgCBSceneChange->TabIndex = 13;
-            this->fcgCBSceneChange->Tag = L"reCmd";
-            this->fcgCBSceneChange->Text = L"シーンチェンジ検出";
-            this->fcgCBSceneChange->UseVisualStyleBackColor = true;
             // 
             // fcgGroupBoxAspectRatio
             // 
@@ -4942,8 +4928,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             // fcgTXCmd
             // 
-            this->fcgTXCmd->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((((System::Windows::Forms::AnchorStyles::Top)
-                | System::Windows::Forms::AnchorStyles::Left)
+            this->fcgTXCmd->Anchor = static_cast<System::Windows::Forms::AnchorStyles>(((System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Left)
                 | System::Windows::Forms::AnchorStyles::Right));
             this->fcgTXCmd->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));

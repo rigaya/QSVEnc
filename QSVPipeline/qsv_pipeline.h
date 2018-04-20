@@ -51,7 +51,6 @@
 #endif
 
 #include "vpp_plugins.h"
-#include "scene_change_detection.h"
 #include "rgy_perf_monitor.h"
 #include "qsv_plugin.h"
 #include "rgy_input.h"
@@ -114,9 +113,7 @@ public:
     shared_ptr<RGYLog> m_pQSVLog;
 
     virtual mfxStatus RunEncode();
-    mfxStatus CheckSceneChange();
     static void RunEncThreadLauncher(void *pParam);
-    static void RunSubThreadLauncher(void *pParam);
     bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
 protected:
     mfxVersion m_mfxVer;
@@ -125,10 +122,6 @@ protected:
     CEncodingThread m_EncThread;
 
     bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する
-
-    CSceneChangeDetect m_SceneChange;
-    mfxU32 m_nExPrm;
-    CQSVFrameTypeSimulation m_frameTypeSim;
 
     vector<shared_ptr<RGYOutput>> m_pFileWriterListAudio;
     shared_ptr<RGYOutput> m_pFileWriter;

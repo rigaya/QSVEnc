@@ -42,7 +42,6 @@
 CEncodingThread::CEncodingThread() {
     m_nFrameBuffer = 0;
     m_bthForceAbort = FALSE;
-    m_bthSubAbort = FALSE;
     m_nFrameSet = 0;
     m_nFrameGet = 0;
     m_InputBuf = NULL;
@@ -64,14 +63,12 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
 
     for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
         if (   NULL == (m_InputBuf[i].heInputDone  = CreateEvent(NULL, FALSE, FALSE, NULL))
-            || NULL == (m_InputBuf[i].heSubStart   = CreateEvent(NULL, FALSE, FALSE, NULL))
             || NULL == (m_InputBuf[i].heInputStart = CreateEvent(NULL, FALSE, FALSE, NULL))) {
             return MFX_ERR_INVALID_HANDLE;
         }
     }
     m_bInit = true;
     m_bthForceAbort = FALSE;
-    m_bthSubAbort = FALSE;
     return MFX_ERR_NONE;
 }
 
@@ -86,17 +83,6 @@ mfxStatus CEncodingThread::RunEncFuncbyThread(void(*func)(void *prm), CQSVPipeli
     return MFX_ERR_NONE;
 }
 
-mfxStatus CEncodingThread::RunSubFuncbyThread(void(*func)(void *prm), CQSVPipeline *pipeline, size_t threadAffinityMask) {
-    if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
-
-    m_thSub = std::thread(func, pipeline);
-
-    if (threadAffinityMask)
-        SetThreadAffinityMask(m_thSub.native_handle(), threadAffinityMask);
-
-    return MFX_ERR_NONE;
-}
-
 //終了を待機する
 mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<RGYLog> pQSVLog) {
     if (!m_bInit) return MFX_ERR_NOT_INITIALIZED;
@@ -107,12 +93,10 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<RGYLog> pQSVLo
     if (sts != MFX_ERR_MORE_DATA) {
         pQSVLog->write(RGY_LOG_DEBUG, _T("WaitToFinish: Encode Aborted, putting abort flag on.\n"));
         m_bthForceAbort++; //m_bthForceAbort = TRUE;
-        m_bthSubAbort++;   //m_bthSubAbort = TRUE;
         if (m_InputBuf) {
             pQSVLog->write(RGY_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
             for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
                 SetEvent(m_InputBuf[i].heInputDone);
-                SetEvent(m_InputBuf[i].heSubStart);
             }
         }
     }
@@ -126,18 +110,10 @@ void CEncodingThread::Close() {
     if (m_thEncode.joinable()) {
         m_thEncode.join();
     }
-    if (m_thSub.joinable()) {
-        m_bthForceAbort++;
-        for (mfxU32 i = 0; i < m_nFrameBuffer; i++)
-            SetEvent(m_InputBuf[i].heSubStart);
-        m_thSub.join();
-    }
     if (m_InputBuf) {
         for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
             if (m_InputBuf[i].heInputDone)
                 CloseEvent(m_InputBuf[i].heInputDone);
-            if (m_InputBuf[i].heSubStart)
-                CloseEvent(m_InputBuf[i].heSubStart);
             if (m_InputBuf[i].heInputStart)
                 CloseEvent(m_InputBuf[i].heInputStart);
         }
@@ -147,7 +123,6 @@ void CEncodingThread::Close() {
     m_nFrameBuffer = 0;
     m_nFrameSet = 0;
     m_nFrameGet = 0;
-    m_bthSubAbort = FALSE;
     m_bthForceAbort = FALSE;
     m_stsThread = MFX_ERR_NONE;
     m_bInit = false;

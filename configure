@@ -596,7 +596,6 @@ rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp \
 rgy_log.cpp                 rgy_output.cpp                  rgy_output_avcodec.cpp \
 rgy_perf_monitor.cpp        rgy_pipe.cpp                    rgy_pipe_linux.cpp \
 rgy_simd.cpp                rgy_util.cpp                    rgy_version.cpp \
-scene_change_detection.cpp  scene_change_detection_avx.cpp  scene_change_detection_simd.cpp \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"

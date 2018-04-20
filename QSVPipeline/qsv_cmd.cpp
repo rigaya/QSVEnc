@@ -941,14 +941,6 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bforceGOPSettings = true;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("no-scenechange"))) {
-        pParams->bforceGOPSettings = true;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("scenechange"))) {
-        pParams->bforceGOPSettings = false;
-        return 0;
-    }
     if (0 == _tcscmp(option_name, _T("i-adapt"))) {
         pParams->bAdaptiveI = true;
         return 0;

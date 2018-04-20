@@ -946,12 +946,8 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
 #undef PICTYPE
 #pragma warning(pop)
         //付随オプション
-        result |= ENC_FEATURE_SCENECHANGE;
         if (result & ENC_FEATURE_B_PYRAMID) {
             result |= ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
-        }
-        if ((ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID) == (result & (ENC_FEATURE_SCENECHANGE | ENC_FEATURE_B_PYRAMID))) {
-            result |= ENC_FEATURE_B_PYRAMID_AND_SC;
         }
         //以下特殊な場合
         if (rc_is_type_lookahead(ratecontrol)) {
@@ -959,18 +955,12 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
             result &= ~ENC_FEATURE_MBBRC;
             result &= ~ENC_FEATURE_EXT_BRC;
             if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
-                //API v1.8以降、LA + scenechangeは不安定(フリーズ)
-                result &= ~ENC_FEATURE_SCENECHANGE;
                 //API v1.8以降、LA + 多すぎるBフレームは不安定(フリーズ)
                 result &= ~ENC_FEATURE_B_PYRAMID_MANY_BFRAMES;
             }
         } else if (MFX_RATECONTROL_CQP == ratecontrol) {
             result &= ~ENC_FEATURE_MBBRC;
             result &= ~ENC_FEATURE_EXT_BRC;
-        }
-        //API v1.8以降では今のところ不安定(フレーム順が入れ替わるなど)
-        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_8)) {
-            result &= ~ENC_FEATURE_B_PYRAMID_AND_SC;
         }
         //Kabylake以前では、不安定でエンコードが途中で終了あるいはフリーズしてしまう
         auto cpu_gen = getCPUGen(&session);
@@ -1029,7 +1019,6 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol, mf
 
     //各モードをチェック
     feature |= ENC_FEATURE_CURRENT_RC;
-    feature |= ENC_FEATURE_SCENECHANGE;
 
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_1)) {
         feature |= ENC_FEATURE_AUD;

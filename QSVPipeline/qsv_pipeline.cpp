@@ -615,10 +615,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
         pInParams->bMBBRC = false;
     }
-    if (!pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_SCENECHANGE)) {
-        print_feature_warnings(RGY_LOG_WARN, _T("Scene change detection"));
-        pInParams->bforceGOPSettings = true;
-    }
     if (   (MFX_RATECONTROL_LA     == pInParams->nEncMode
          || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode)
         && pInParams->nLookaheadDS != MFX_LOOKAHEAD_DS_UNKNOWN
@@ -644,10 +640,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     //if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
     //    PrintMes(RGY_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
     //}
-    if (pInParams->bBPyramid && !pInParams->bforceGOPSettings && !(availableFeaures & ENC_FEATURE_B_PYRAMID_AND_SC)) {
-        PrintMes(RGY_LOG_WARN, _T("B pyramid with scenechange is not supported on current platform, B pyramid disabled.\n"));
-        pInParams->bBPyramid = false;
-    }
     if (pInParams->bBPyramid && pInParams->nBframes >= 10 && !(availableFeaures & ENC_FEATURE_B_PYRAMID_MANY_BFRAMES)) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
@@ -763,38 +755,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     //Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
     if (pInParams->bIntraRefresh) {
-        pInParams->bforceGOPSettings = true; //シーンチェンジ検出オフ
-    }
-
-    //GOP長さが短いならVQPもシーンチェンジ検出も実行しない
-    if (pInParams->nGOPLength != 0 && pInParams->nGOPLength < 4) {
-        if (!pInParams->bforceGOPSettings) {
-            PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with very short GOP length.\n"));
-            pInParams->bforceGOPSettings = true;
-        }
-    }
-    //拡張設定
-    if (!pInParams->bforceGOPSettings) {
-        if (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) {
-            switch (pInParams->vpp.nDeinterlace) {
-            case MFX_DEINTERLACE_NORMAL:
-            case MFX_DEINTERLACE_BOB:
-            case MFX_DEINTERLACE_AUTO_SINGLE:
-            case MFX_DEINTERLACE_AUTO_DOUBLE:
-                break;
-            default:
-                PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with interlaced output, disabled.\n"));
-                pInParams->bforceGOPSettings = true;
-                break;
-            }
-        }
-        if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-            PrintMes(RGY_LOG_WARN, _T("Scene change detection cannot be used with transcoding, disabled.\n"));
-            pInParams->bforceGOPSettings = true;
-        }
-        if (!pInParams->bforceGOPSettings) {
-            m_nExPrm |= MFX_PRM_EX_SCENE_CHANGE;
-        }
+        pInParams->bforceGOPSettings = true;
     }
     //profileを守るための調整
     if (pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
@@ -1063,7 +1024,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_CodingOption.AUDelimiter  = MFX_CODINGOPTION_ON;
         m_CodingOption.PicTimingSEI = MFX_CODINGOPTION_ON;
         m_CodingOption.ResetRefList = MFX_CODINGOPTION_ON;
-        m_nExPrm &= (~MFX_PRM_EX_SCENE_CHANGE);
         //m_CodingOption.EndOfSequence = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0a
         //m_CodingOption.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Adjusted param for Bluray encoding.\n"));
@@ -1097,11 +1057,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_VideoSignalInfo.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
 #undef GET_COLOR_PRM
             m_EncExtParams.push_back((mfxExtBuffer *)&m_VideoSignalInfo);
-    }
-
-    //シーンチェンジ検出をこちらで行う場合は、GOP長を最大に設定する
-    if (m_nExPrm & MFX_PRM_EX_SCENE_CHANGE) {
-        m_mfxEncParams.mfx.GopPicSize = USHRT_MAX;
     }
 
     m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
@@ -1297,7 +1252,6 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         case MFX_DEINTERLACE_NORMAL:
         case MFX_DEINTERLACE_AUTO_SINGLE:
             m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NORMAL) ? MFX_DEINTERLACING_30FPS_OUT : MFX_DEINTERLACING_AUTO_SINGLE);
-            m_nExPrm |= MFX_PRM_EX_DEINT_NORMAL;
             break;
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
@@ -1313,7 +1267,6 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         case MFX_DEINTERLACE_AUTO_DOUBLE:
             m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACING_AUTO_DOUBLE);
             m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
-            m_nExPrm |= MFX_PRM_EX_DEINT_BOB;
             break;
         case MFX_DEINTERLACE_NONE:
         default:
@@ -2148,7 +2101,6 @@ CQSVPipeline::CQSVPipeline() {
     m_memType = SYSTEM_MEMORY;
     m_bExternalAlloc = false;
     m_nAsyncDepth = 0;
-    m_nExPrm = 0x00;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     m_nProcSpeedLimit = 0;
     m_bTimerPeriodTuning = false;
@@ -3261,17 +3213,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOutput(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
-    // シーンチェンジ検出
-    bool input_interlaced = 0 != (pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF));
-    bool deinterlace_enabled = input_interlaced && (pParams->vpp.nDeinterlace != MFX_DEINTERLACE_NONE);
-    bool deinterlace_normal = input_interlaced && (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_NORMAL);
-    if (m_nExPrm & (MFX_PRM_EX_VQP | MFX_PRM_EX_SCENE_CHANGE)) {
-        if (m_SceneChange.Init(80, (deinterlace_enabled) ? m_mfxVppParams.mfx.FrameInfo.PicStruct : m_mfxEncParams.mfx.FrameInfo.PicStruct, pParams->nVQPStrength, pParams->nVQPSensitivity, 3, pParams->nGOPLength, deinterlace_normal)) {
-            QSV_ERR_MES(MFX_ERR_UNDEFINED_BEHAVIOR, _T("Failed to start scenechange detection."));
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("Initialized Scene change detection.\n"));
-    }
-
     //encの作成 (raw出力の場合はエンコードしないので不要)
     if (pParams->CodecId != MFX_CODEC_RAW) {
         m_pmfxENC.reset(new MFXVideoENCODE(m_mfxSession));
@@ -3388,8 +3329,6 @@ void CQSVPipeline::Close() {
     // allocator if used as external for MediaSDK must be deleted after SDK components
     DeleteAllocator();
 
-    m_SceneChange.Close();
-
     PrintMes(RGY_LOG_DEBUG, _T("Closing audio readers (if used)...\n"));
     m_AudioReaders.clear();
 
@@ -3427,7 +3366,6 @@ void CQSVPipeline::Close() {
 
     m_nMFXThreads = -1;
     m_pAbortByUser = NULL;
-    m_nExPrm = 0x00;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     m_nProcSpeedLimit = 0;
 #if ENABLE_AVSW_READER
@@ -3642,63 +3580,8 @@ mfxStatus CQSVPipeline::SynchronizeFirstTask() {
     return sts;
 }
 
-mfxStatus CQSVPipeline::CheckSceneChange() {
-    PrintMes(RGY_LOG_DEBUG, _T("Starting Sub Thread...\n"));
-    mfxStatus sts = MFX_ERR_NONE;
-
-    const int bufferSize = m_EncThread.m_nFrameBuffer;
-    sInputBufSys *pArrayInputBuf = m_EncThread.m_InputBuf;
-    sInputBufSys *pInputBuf;
-
-    mfxVideoParam videoPrm;
-    RGY_MEMSET_ZERO(videoPrm);
-    m_pmfxENC->GetVideoParam(&videoPrm);
-
-    m_frameTypeSim.Init(videoPrm.mfx.GopPicSize, videoPrm.mfx.GopRefDist-1, videoPrm.mfx.QPI, videoPrm.mfx.QPP, videoPrm.mfx.QPB,
-        0 == (videoPrm.mfx.GopOptFlag & MFX_GOP_CLOSED), videoPrm.mfx.FrameInfo.FrameRateExtN / (double)videoPrm.mfx.FrameInfo.FrameRateExtD);
-    //bool bInterlaced = (0 != (videoPrm.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)));
-    mfxU32 lastFrameFlag = 0;
-
-    //入力ループ
-    for (mfxU32 i_frames = 0; !m_EncThread.m_bthSubAbort; i_frames++) {
-        pInputBuf = &pArrayInputBuf[i_frames % bufferSize];
-        WaitForSingleObject(pInputBuf->heSubStart, INFINITE);
-
-        m_EncThread.m_bthSubAbort |= ((m_EncThread.m_stsThread == MFX_ERR_MORE_DATA && i_frames == m_pEncSatusInfo->m_sData.frameIn));
-
-        if (!m_EncThread.m_bthSubAbort) {
-            //フレームタイプとQP値の決定
-            int qp_offset[2] = { 0, 0 };
-            mfxU32 frameFlag = m_SceneChange.Check(&pInputBuf->pFrameSurface->frame(), qp_offset);
-            frameFlag = m_frameTypeSim.GetFrameType(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I));
-            pInputBuf->frameFlag.store((frameFlag & MFX_FRAMETYPE_I) ? frameFlag : 0x00); //frameFlagにはIDR,I,Ref以外は渡してはならない
-            if (m_nExPrm & MFX_PRM_EX_VQP) {
-                pInputBuf->AQP[0].store(m_frameTypeSim.CurrentQP(!!((frameFlag | (lastFrameFlag>>8)) & MFX_FRAMETYPE_I), qp_offset[0]));
-            }
-            m_frameTypeSim.ToNextFrame();
-            if (m_nExPrm & MFX_PRM_EX_DEINT_BOB) {
-                if (m_nExPrm & MFX_PRM_EX_VQP)
-                    pInputBuf->AQP[1].store(m_frameTypeSim.CurrentQP(!!(frameFlag & MFX_FRAMETYPE_xI), qp_offset[1]));
-                m_frameTypeSim.ToNextFrame();
-            }
-            if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {
-                lastFrameFlag = frameFlag;
-            }
-        }
-
-        SetEvent(pInputBuf->heInputDone);
-    }
-    
-    PrintMes(RGY_LOG_DEBUG, _T("Sub Thread: finished.\n"));
-    return sts;
-}
-
 void CQSVPipeline::RunEncThreadLauncher(void *pParam) {
     reinterpret_cast<CQSVPipeline*>(pParam)->RunEncode();
-}
-
-void CQSVPipeline::RunSubThreadLauncher(void *pParam) {
-    reinterpret_cast<CQSVPipeline*>(pParam)->CheckSceneChange();
 }
 
 mfxStatus CQSVPipeline::Run() {
@@ -3710,10 +3593,6 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
     sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
     QSV_ERR_MES(sts, _T("Failed to start encode thread."));
-    if (m_SceneChange.isInitialized()) {
-        sts = m_EncThread.RunSubFuncbyThread(&RunSubThreadLauncher, this, SubThreadAffinityMask);
-        QSV_ERR_MES(sts, _T("Failed to start encode sub thread."));
-    }
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Starting Encode...\n"));
 
 #if ENABLE_AVSW_READER
@@ -3752,11 +3631,6 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
                     PrintMes(RGY_LOG_ERROR, _T("error at encode thread.\n"));
                     sts = MFX_ERR_INVALID_HANDLE;
                 }
-                if (m_SceneChange.isInitialized()
-                    && !CheckThreadAlive(m_EncThread.GetHandleSubThread())) {
-                    PrintMes(RGY_LOG_ERROR, _T("error at sub thread.\n"));
-                    sts = MFX_ERR_INVALID_HANDLE;
-                }
             }
 
             //フレームを読み込み
@@ -3772,7 +3646,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
             }
 
             //フレームの読み込み終了を通知
-            SetEvent((m_SceneChange.isInitialized()) ? pInputBuf->heSubStart : pInputBuf->heInputDone);
+            SetEvent(pInputBuf->heInputDone);
             PrintMes(RGY_LOG_TRACE, _T("Main Thread: Set Done %d.\n"), i);
         }
     } else {
@@ -3863,12 +3737,6 @@ mfxStatus CQSVPipeline::RunEncode() {
     bool bVppMultipleOutput = false;  //bob化などの際にvppが余分にフレームを出力するフラグ
     bool bCheckPtsMultipleOutput = false; //dorcecfrなどにともなって、checkptsが余分にフレームを出力するフラグ
 
-    struct inputBufData {
-        int64_t timestamp;
-        uint32_t frameFlag;
-        int nAQP[2];
-    };
-    std::deque<inputBufData> dTimestampInputBufData;
     int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)  Trimの反映に使用する
 
     struct frameData {
@@ -3902,9 +3770,6 @@ mfxStatus CQSVPipeline::RunEncode() {
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
 #endif
 
-    mfxU16 nLastFrameFlag = 0;
-    int nLastAQ = 0;
-    bool bVppDeintBobFirstFeild = true;
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
 
     m_pEncSatusInfo->SetStart();
@@ -4191,10 +4056,6 @@ mfxStatus CQSVPipeline::RunEncode() {
             nEstimatedPts += nFrameDuration;
             timestamp = nEstimatedPts;
         }
-        if (m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
-            auto pInputBuf = &m_EncThread.m_InputBuf[(int)pNextFrame->Data.TimeStamp];
-            dTimestampInputBufData.push_back({ timestamp, pInputBuf->frameFlag, { pInputBuf->AQP[0], pInputBuf->AQP[1] } });
-        }
 #endif //#if ENABLE_AVSW_READER
         pNextFrame->Data.TimeStamp = timestamp;
         return MFX_ERR_NONE;
@@ -4294,45 +4155,9 @@ mfxStatus CQSVPipeline::RunEncode() {
         }
 
         mfxStatus enc_sts = MFX_ERR_NONE;
-        mfxEncodeCtrl *ptrCtrl = nullptr;
-        mfxEncodeCtrl encCtrl = { 0 };
 
         //以下の処理は
         if (pSurfEncIn) {
-            if (m_nExPrm & (MFX_PRM_EX_SCENE_CHANGE | MFX_PRM_EX_VQP)) {
-                while (dTimestampInputBufData.front().timestamp != (int64_t)pSurfEncIn->Data.TimeStamp) {
-                    dTimestampInputBufData.pop_front();
-                }
-                const auto frameFlag = dTimestampInputBufData.front().frameFlag;
-                const auto frameAQP = dTimestampInputBufData.front().nAQP;
-                if (m_nExPrm & MFX_PRM_EX_DEINT_NORMAL) {
-                    mfxU32 currentFrameFlag = frameFlag;
-                    if (nLastFrameFlag >> 8) {
-                        encCtrl.FrameType = nLastFrameFlag >> 8;
-                        encCtrl.QP = (mfxU16)nLastAQ;
-                    } else {
-                        encCtrl.FrameType = currentFrameFlag & 0xff;
-                        encCtrl.QP = (mfxU16)frameAQP[0];
-                    }
-                    nLastFrameFlag = (mfxU16)currentFrameFlag;
-                    nLastAQ = frameAQP[1];
-                } else if (m_nExPrm & MFX_PRM_EX_DEINT_BOB) {
-                    if (bVppDeintBobFirstFeild) {
-                        nLastFrameFlag = (mfxU16)frameFlag;
-                        nLastAQ = frameAQP[1];
-                        encCtrl.QP = (mfxU16)frameAQP[0];
-                        encCtrl.FrameType = nLastFrameFlag & 0xff;
-                    } else {
-                        encCtrl.FrameType = nLastFrameFlag >> 8;
-                        encCtrl.QP = (mfxU16)nLastAQ;
-                    }
-                    bVppDeintBobFirstFeild ^= true;
-                } else {
-                    encCtrl.FrameType = (mfxU16)frameFlag;
-                    encCtrl.QP = (mfxU16)frameAQP[0];
-                }
-                ptrCtrl = &encCtrl;
-            }
             //TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
             pSurfEncIn->Data.TimeStamp = qsv_rescale(nFramePutToEncoder, outputFpsTimebase, HW_NATIVE_TIMEBASE);
             nFramePutToEncoder++;
@@ -4343,7 +4168,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
         bool bDeviceBusy = false;
         for (int i = 0; ; i++) {
-            enc_sts = m_pmfxENC->EncodeFrameAsync(ptrCtrl, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->encSyncPoint);
+            enc_sts = m_pmfxENC->EncodeFrameAsync(nullptr, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->encSyncPoint);
             bDeviceBusy = false;
 
             if (MFX_ERR_NONE < enc_sts && !pCurrentTask->encSyncPoint) { // repeat the call if warning and no output
@@ -5116,7 +4941,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
         //PRINT_INFO(    _T("Idr Interval    %d\n"), videoPrm.mfx.IdrInterval);
         PRINT_INFO(_T("%s"), _T("Max GOP Length "));
-        PRINT_INT_AUTO(_T("%d frames\n"), (std::min)(videoPrm.mfx.GopPicSize, m_SceneChange.getMaxGOPLen()));
+        PRINT_INT_AUTO(_T("%d frames\n"), videoPrm.mfx.GopPicSize);
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
             //PRINT_INFO(    _T("GOP Structure           "));
             //bool adaptiveIOn = (MFX_CODINGOPTION_ON == cop2.AdaptiveI);
@@ -5140,9 +4965,6 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
         //last line
         tstring extFeatures;
-        if (m_SceneChange.isInitialized()) {
-            extFeatures += _T("SceneChange ");
-        }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
             if (cop2.MBBRC  == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("PerMBRC ");

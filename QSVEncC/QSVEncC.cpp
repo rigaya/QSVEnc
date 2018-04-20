@@ -454,7 +454,6 @@ static tstring help() {
         _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
         _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
         _T("                                  when auto, fps x 10 will be set.\n")
-        _T("   --(no-)scenechange           enables scene change detection\n")
         _T("   --(no-)open-gop              enables open gop (default:off)\n")
         _T("   --strict-gop                 force gop structure\n")
         _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
