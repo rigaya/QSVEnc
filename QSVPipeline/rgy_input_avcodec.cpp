@@ -523,14 +523,26 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 AddMessage(RGY_LOG_DEBUG, _T("checking for stream #%d\n"), streamInfo->nIndex);
                 const AVPacket *pkt1 = nullptr; //最初のパケット
                 const AVPacket *pkt2 = nullptr; //2番目のパケット
-                //それで見つからなかったら、L1キューを探す
-                for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
-                    if (m_Demux.qStreamPktL1[j].stream_index == streamInfo->nIndex) {
+                //まず、L2キューを探す
+                for (int j = 0; j < (int)m_Demux.qStreamPktL2.size(); j++) {
+                    if (m_Demux.qStreamPktL2.get(j)->data.stream_index == streamInfo->nIndex) {
                         if (pkt1) {
-                            pkt2 = &m_Demux.qStreamPktL1[j];
+                            pkt2 = &(m_Demux.qStreamPktL2.get(j)->data);
                             break;
                         }
-                        pkt1 = &m_Demux.qStreamPktL1[j];
+                        pkt1 = &(m_Demux.qStreamPktL2.get(j)->data);
+                    }
+                }
+                if (pkt2 == nullptr) {
+                    //それで見つからなかったら、L1キューを探す
+                    for (int j = 0; j < (int)m_Demux.qStreamPktL1.size(); j++) {
+                        if (m_Demux.qStreamPktL1[j].stream_index == streamInfo->nIndex) {
+                            if (pkt1) {
+                                pkt2 = &m_Demux.qStreamPktL1[j];
+                                break;
+                            }
+                            pkt1 = &m_Demux.qStreamPktL1[j];
+                        }
                     }
                 }
                 if (pkt1 != nullptr) {
