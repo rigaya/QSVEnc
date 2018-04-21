@@ -844,13 +844,10 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 }
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
-    //両方ともnullptrの組み合わせ、つまりInitFormで呼ばれた場合以外では、
     //もしfeatureListが作成できていなければ、チェックを行わない
-    if (sender != nullptr && e != nullptr) {
-        bool featureListAvialable = featuresHW->checkIfGetFeaturesFinished();
-        if (!featureListAvialable)
-            return;
-    }
+    bool featureListAvialable = featuresHW->checkIfGetFeaturesFinished();
+    if (!featureListAvialable)
+        return;
 
     this->SuspendLayout();
 

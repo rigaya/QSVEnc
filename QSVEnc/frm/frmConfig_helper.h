@@ -189,6 +189,7 @@ namespace QSVEnc {
         Thread^ thGetLibVersion;
         Thread^ thGetFeatures;
 
+        array<String^>^ environmentInfo;
         array<mfxU32>^ codecIdList;
         array<array<UInt64>^>^ availableFeatures;
         UInt64 availableVppFeatures;
@@ -203,6 +204,7 @@ namespace QSVEnc {
 
             thGetLibVersion = nullptr;
             thGetFeatures = nullptr;
+            environmentInfo = nullptr;
             hardware = _hardware;
             exePath = _exePath;
             availableFeatures = nullptr;
@@ -218,16 +220,23 @@ namespace QSVEnc {
             for (int i_codec = 0; i_codec < codecCount; i_codec++) {
                 auto codecDataTable = gcnew DataTable();
                 codecDataTable->Columns->Add(L"機能");
-                for (int i_rc = 0; i_rc < _countof(list_rate_control_ry); i_rc++)
+                for (int i_rc = 0; i_rc < _countof(list_rate_control_ry); i_rc++) {
                     codecDataTable->Columns->Add(String(list_rate_control_ry[i_rc].desc).ToString()->TrimEnd());
+                }
                 dataTableQsvCodecFeatures[i_codec] = codecDataTable;
                 codecIdList[i_codec] = list_outtype[i_codec].value;
             }
 
+            availableFeatures = gcnew array<array<UInt64>^>(codecCount);
+            for (int i_codec = 0; i_codec < codecCount; i_codec++) {
+                availableFeatures[i_codec] = gcnew array<UInt64>(_countof(list_rate_control_ry));
+                for (int i_rc = 0; i_rc < _countof(list_rate_control_ry); i_rc++) {
+                    availableFeatures[i_codec][i_rc] = 0;
+                }
+            }
+
             thGetLibVersion = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getLibVersion));
             thGetLibVersion->Start();
-            thGetFeatures = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getFeatures));
-            thGetFeatures->Start();
         }
         ~QSVFeatures() {
             if (thGetLibVersion != nullptr && thGetLibVersion->IsAlive) {
@@ -289,16 +298,19 @@ namespace QSVEnc {
         }
     private:
         System::Void getLibVersion() {
+            if (exePath == nullptr || !System::IO::File::Exists(exePath)) {
+                getFeaturesFinished = true;
+                return;
+            }
+
             char exe_path[1024];
-            char mes[4096];
+            std::vector<char> buffer(64 * 1024);
             GetCHARfromString(exe_path, sizeof(exe_path), exePath);
-            if (exePath != nullptr
-                && System::IO::File::Exists(exePath)
-                && get_exe_message(exe_path, "--check-lib", mes, _countof(mes), AUO_PIPE_MUXED) == RP_SUCCESS) {
-                auto lines = String(mes).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
-                for (int i = 0; i < lines->Length; i++) {
-                    if (lines[i]->Contains(L"libmfxhw") && !lines[i]->Contains(L"----")) {
-                        auto ver = lines[i]->Substring(lines[i]->IndexOf(L":") + 1);
+            if (get_exe_message(exe_path, "--check-environment-auo", buffer.data(), buffer.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
+                environmentInfo = String(buffer.data()).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+                for (int i = 0; i < environmentInfo->Length; i++) {
+                    if (environmentInfo[i]->Contains(L"Hardware API")) {
+                        auto ver = environmentInfo[i]->Substring(environmentInfo[i]->IndexOf(L"Hardware API") + String(L"Hardware API").ToString()->Length + 1);
                         auto ver2 = ver->Substring(ver->IndexOf(L"v") + 1)->Split(String(L".").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
                         try {
                             mfxVersion version;
@@ -312,23 +324,79 @@ namespace QSVEnc {
                     }
                 }
             }
+            thGetFeatures = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getFeatures));
+            thGetFeatures->Start();
         }
         System::Void getFeatures() {
-            std::vector<char> buffer(64 * 1024);
-            availableFeatures = gcnew array<array<UInt64>^>(codecIdList->Length);
+            if (exePath == nullptr || !System::IO::File::Exists(exePath)) {
+                getFeaturesFinished = true;
+                return;
+            }
+
             char exe_path[1024];
             GetCHARfromString(exe_path, sizeof(exe_path), exePath);
+            std::vector<char> buffer(128 * 1024);
 
-            if (exePath != nullptr
-                && System::IO::File::Exists(exePath)
+            //feature情報のキャッシュファイル
+            //先頭に--check-environment-auoの結果
+            //後半に--check-features-auoの結果
+            String^ cacheFile = exePath + L".featureCache.txt";
+
+            bool use_cache = false;
+            auto featureDataLines = gcnew List<String^>();
+            //キャッシュファイルがあれば、そちらを読むことを考える
+            if (System::IO::File::Exists(cacheFile)) {
+                try {
+                    StreamReader^ sr = gcnew StreamReader(cacheFile);
+                    String ^line;
+                    while ((line = sr->ReadLine()) != nullptr) {
+                        featureDataLines->Add(line);
+                    }
+                    sr->Close();
+                } catch (...) {
+
+                }
+                //まず、--check-environment-auoの出力がキャッシュファイルと一致しているか
+                use_cache = true;
+                for (int i = 0; i < environmentInfo->Length; i++) {
+                    //不一致だったらキャッシュファイルは使用しない
+                    if (featureDataLines->Count <= i) {
+                        use_cache = false;
+                        break;
+                    }
+                    int compare_len = environmentInfo[i]->Length;
+                    if (environmentInfo[i]->Contains(L"RAM: ")) {
+                        continue; //使用メモリ量は実行するたびに変わる
+                    }
+                    if (environmentInfo[i]->Contains(L"CPU:")) {
+                        //TBの周波数は取得するタイミングで変わりうる
+                        compare_len = environmentInfo[i]->IndexOf(L"@");
+                    }
+                    if (String::Compare(environmentInfo[i], 0, featureDataLines[i], 0, compare_len) != 0) {
+                        use_cache = false;
+                        break;
+                    }
+                }
+                if (!use_cache) {
+                    featureDataLines = gcnew List<String^>();
+                    featureDataLines->AddRange(environmentInfo);
+                }
+            } else {
+                featureDataLines->AddRange(environmentInfo);
+            }
+            //キャッシュを使用できない場合は、実際に情報を取得する(時間がかかる)
+            if (!use_cache
                 && get_exe_message(exe_path, "--check-features-auo", buffer.data(), buffer.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
                 auto lines = String(buffer.data()).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
+                featureDataLines->AddRange(lines);
+            }
+            if (featureDataLines->Count > 0) {
                 int i_feature = 0;
                 mfxU32 codec = 0;
 
                 array<UInt64>^ codecAvailableFeatures = nullptr;
-                for (int iline = 0; iline < lines->Length; iline++) {
-                    if (lines[iline]->Contains(L"Codec:")) {
+                for (int iline = 0; iline < featureDataLines->Count; iline++) {
+                    if (featureDataLines[iline]->Contains(L"Codec:")) {
                         if (codec != 0) {
                             availableFeatures[getCodecIdIdx(codec)] = codecAvailableFeatures;
                             GenerateTable(codec);
@@ -337,17 +405,18 @@ namespace QSVEnc {
                         for (int i_rate_control = 0; i_rate_control < _countof(list_rate_control_ry); i_rate_control++) {
                             codecAvailableFeatures[i_rate_control] = 0;
                         }
-                        if (lines[iline]->Contains(L"H.264")) {
+                        if (featureDataLines[iline]->Contains(L"H.264")) {
                             codec = MFX_CODEC_AVC;
-                        } else if (lines[iline]->Contains(L"HEVC")) {
+                        } else if (featureDataLines[iline]->Contains(L"HEVC")) {
                             codec = MFX_CODEC_HEVC;
                         }
                         i_feature = 0;
                         iline++;
                     } else if (codec != 0) {
                         int i_rate_control = 0;
-                        for (int j = _tcslen(list_enc_feature[0].desc); j < lines[iline]->Length; j++) {
-                            auto c = lines[iline][j];
+                        for (int j = _tcslen(list_enc_feature[0].desc); j < featureDataLines[iline]->Length; j++) {
+                            auto line = featureDataLines[iline];
+                            auto c = line[j];
                             if (c == L'o') {
                                 codecAvailableFeatures[i_rate_control] |= list_enc_feature[i_feature].value;
                                 i_rate_control++;
@@ -375,6 +444,13 @@ namespace QSVEnc {
                 GenerateTable(codec);
             }
             getFeaturesFinished = true;
+            if (!use_cache && featureDataLines->Count > 0) {
+                StreamWriter^ sw = gcnew StreamWriter(cacheFile, false);
+                for (int iline = 0; iline < featureDataLines->Count; iline++) {
+                    sw->WriteLine(featureDataLines[iline]);
+                }
+                sw->Close();
+            }
         }
         System::Void GenerateTable(mfxU32 codecId) {
             static const FEATURE_DESC list_enc_feature_jp[] = {
