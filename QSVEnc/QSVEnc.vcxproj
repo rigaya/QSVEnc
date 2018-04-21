@@ -1136,15 +1136,6 @@
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
       <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
     </ProjectReference>
-    <ProjectReference Include="..\QSVPlugins\delogo\delogo.vcxproj">
-      <Project>{7bbdaa1c-4f67-4f71-b245-f5d48f5e2142}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\QSVPlugins\rotate\rotate.vcxproj">
-      <Project>{d5ccf0c0-32f6-4777-aa6c-6a249016db26}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\tinyxml2\tinyxml2.vcxproj">
-      <Project>{a34ca86d-6c2b-482f-984e-2687459e65e9}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="auo_version.rc" />
