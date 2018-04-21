@@ -845,6 +845,9 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
     //もしfeatureListが作成できていなければ、チェックを行わない
+    if (featuresHW == nullptr) {
+        return;
+    }
     bool featureListAvialable = featuresHW->checkIfGetFeaturesFinished();
     if (!featureListAvialable)
         return;
@@ -927,7 +930,7 @@ System::Void frmConfig::fcgCheckVppFeatures() {
     UInt64 available_features = (fcgCBHWEncode->Checked) ? featuresHW->getVppFeatures() : featuresSW->getVppFeatures();
     fcgCBVppResize->Enabled = 0 != (available_features & VPP_FEATURE_RESIZE);
     if (!fcgCBVppResize->Enabled) fcgCBVppResize->Checked;
-    
+
     fcgCBVppDenoise->Enabled = 0 != (available_features & VPP_FEATURE_DENOISE);
     if (!fcgCBVppDenoise->Enabled) fcgCBVppDenoise->Checked;
 
@@ -1042,9 +1045,11 @@ System::Void frmConfig::SetInputBufRange() {
 }
 
 System::Void frmConfig::UpdateMfxLibDetection() {
-    UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
-    fcgLBMFXLibDetectionHwValue->Text = (check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version)) ? 
-        L"v" + ((mfxlib_hw>>16).ToString() + L"." + (mfxlib_hw & 0x0000ffff).ToString()) : L"-----";
+    if (featuresHW != nullptr) {
+        UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
+        fcgLBMFXLibDetectionHwValue->Text = (check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version)) ?
+            L"v" + ((mfxlib_hw>>16).ToString() + L"." + (mfxlib_hw & 0x0000ffff).ToString()) : L"-----";
+    }
 }
 
 System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
@@ -1136,6 +1141,7 @@ System::Void frmConfig::InitForm() {
     UpdateFeatures();
     fcgChangeEnabled(nullptr, nullptr);
     fcgChangeVisibleDirectEnc(nullptr, nullptr);
+    fcgRebuildCmd(nullptr, nullptr);
 }
 
 /////////////         データ <-> GUI     /////////////
@@ -1615,7 +1621,7 @@ System::Void frmConfig::SetHelpToolTips() {
     fcgTTEx->SetToolTip(fcgBTAudioEncoderPath, L""
         + L"音声エンコーダの場所を指定します。\n"
         + L"\n"
-        + L"この設定はx264guiEx.confに保存され、\n"
+        + L"この設定はQSVEnc.confに保存され、\n"
         + L"バッチ処理ごとの変更はできません。"
         );
     fcgTTEx->SetToolTip(fcgCXAudioEncMode, L""
@@ -1651,7 +1657,7 @@ System::Void frmConfig::SetHelpToolTips() {
         + L"音声一時ファイルの場所を「カスタム」にした時に\n"
         + L"使用される音声一時ファイルの場所を指定します。\n"
         + L"\n"
-        + L"この設定はx264guiEx.confに保存され、\n"
+        + L"この設定はQSVEnc.confに保存され、\n"
         + L"バッチ処理ごとの変更はできません。"
         );
     //音声バッチファイル実行
@@ -1781,7 +1787,7 @@ System::Void frmConfig::SetHelpToolTips() {
 
     //他
     fcgTTEx->SetToolTip(fcgTXCmd,         L""
-        + L"x264に渡される予定のコマンドラインです。\n"
+        + L"QSVEncCに渡される予定のコマンドラインです。\n"
         + L"エンコード時には更に\n"
         + L"・「追加コマンド」の付加\n"
         + L"・\"auto\"な設定項目の反映\n"
@@ -1835,6 +1841,9 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
 
 System::Void frmConfig::UpdateFeatures() {
     if (fcgCXOutputType->SelectedIndex < 0 || _countof(list_outtype) == fcgCXOutputType->SelectedIndex) {
+        return;
+    }
+    if (featuresHW == nullptr) {
         return;
     }
     //表示更新
