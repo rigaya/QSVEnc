@@ -720,6 +720,29 @@ System::Void frmConfig::InitStgFileList() {
     CheckTSSettingsDropDownItem(nullptr);
 }
 
+System::Void frmConfig::fcgCheckCodec() {
+    if (featuresHW == nullptr) {
+        return;
+    }
+
+    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+
+    for (int codecIdx = 1; list_outtype[codecIdx].desc; codecIdx++) {
+        const mfxU32 codecId = list_outtype[codecIdx].value;
+        const bool codecAvail = featuresHW->getCodecAvail(codecId);
+        if (!codecAvail) {
+            fcgCXOutputType->Items[codecIdx] = L"-----------------";
+            if (fcgCXOutputType->SelectedIndex == codecIdx) {
+                fcgCXOutputType->SelectedIndex = 0;
+            }
+        }
+    }
+
+    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+}
+
 System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported) {
     System::Boolean selected_idx_changed = false;
     int encmode_idx = get_cx_index(list_encmode, rc_mode_target);
@@ -854,6 +877,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
     this->SuspendLayout();
 
+    fcgCheckCodec();
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
 
     mfxVersion mfxlib_target;
@@ -959,6 +983,14 @@ System::Void frmConfig::fcgCBHWLibChanged(System::Object^  sender, System::Event
 }
 
 System::Void frmConfig::fcgCXOutputType_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
+    if (featuresHW != nullptr) {
+        bool codecAvail = featuresHW->getCodecAvail(list_outtype[fcgCXOutputType->SelectedIndex].value);
+        if (!codecAvail) {
+            fcgCXOutputType->SelectedIndex = 0;
+            return;
+        }
+    }
+
     this->SuspendLayout();
 
     setComboBox(fcgCXCodecLevel,   get_level_list(list_outtype[fcgCXOutputType->SelectedIndex].value));

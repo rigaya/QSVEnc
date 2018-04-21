@@ -3180,7 +3180,6 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcgCXOutputType->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXOutputType->FormattingEnabled = true;
-            this->fcgCXOutputType->Items->AddRange(gcnew cli::array< System::Object^  >(2) { L"H.264 / AVC", L"MPEG2" });
             this->fcgCXOutputType->Location = System::Drawing::Point(76, 77);
             this->fcgCXOutputType->Margin = System::Windows::Forms::Padding(4);
             this->fcgCXOutputType->Name = L"fcgCXOutputType";
@@ -5146,6 +5145,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
         System::Boolean fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU64 available_features);
         System::Void fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 available_features);
         System::Boolean fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported);
+        System::Void fcgCheckCodec();
         System::Void UpdateMfxLibDetection();
         System::Void UpdateFeatures();
         System::Void fcgCheckVppFeatures();

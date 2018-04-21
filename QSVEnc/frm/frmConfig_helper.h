@@ -191,6 +191,7 @@ namespace QSVEnc {
 
         array<String^>^ environmentInfo;
         array<mfxU32>^ codecIdList;
+        array<bool>^ codecAvail;
         array<array<UInt64>^>^ availableFeatures;
         UInt64 availableVppFeatures;
         bool hardware;
@@ -235,6 +236,11 @@ namespace QSVEnc {
                 }
             }
 
+            codecAvail = gcnew array<bool>(codecCount);
+            for (int i_codec = 0; i_codec < codecCount; i_codec++) {
+                codecAvail[i_codec] = true;
+            }
+
             thGetLibVersion = gcnew Thread(gcnew ThreadStart(this, &QSVFeatures::getLibVersion));
             thGetLibVersion->Start();
         }
@@ -266,6 +272,16 @@ namespace QSVEnc {
         }
         bool checkIfGetFeaturesFinished() {
             return getFeaturesFinished;
+        }
+        bool getCodecAvail(mfxU32 codecId) {
+            if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
+                thGetFeatures->Join();
+            }
+            int codecIdx = getCodecIdIdx(codecId);
+            if (codecIdx < 0 || availableFeatures->Length <= codecIdx) {
+                return false;
+            }
+            return codecAvail[codecIdx];
         }
         UInt64 getFeatureOfRC(int rc_index, mfxU32 codecId) {
             if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
@@ -393,13 +409,17 @@ namespace QSVEnc {
             if (featureDataLines->Count > 0) {
                 int i_feature = 0;
                 mfxU32 codec = 0;
+                for (int i_codec = 0; i_codec < codecAvail->Length; i_codec++) {
+                    codecAvail[i_codec] = false;
+                }
 
                 array<UInt64>^ codecAvailableFeatures = nullptr;
                 for (int iline = 0; iline < featureDataLines->Count; iline++) {
                     if (featureDataLines[iline]->Contains(L"Codec:")) {
                         if (codec != 0) {
-                            availableFeatures[getCodecIdIdx(codec)] = codecAvailableFeatures;
-                            GenerateTable(codec);
+                            int codecIdx = getCodecIdIdx(codec);
+                            availableFeatures[codecIdx] = codecAvailableFeatures;
+                            codecAvail[codecIdx] = true;
                         }
                         codecAvailableFeatures = gcnew array<UInt64>(_countof(list_rate_control_ry));
                         for (int i_rate_control = 0; i_rate_control < _countof(list_rate_control_ry); i_rate_control++) {
@@ -427,7 +447,11 @@ namespace QSVEnc {
                         i_feature++;
                     }
                 }
-                availableFeatures[getCodecIdIdx(codec)] = codecAvailableFeatures;
+                {
+                    int codecIdx = getCodecIdIdx(codec);
+                    availableFeatures[codecIdx] = codecAvailableFeatures;
+                    codecAvail[codecIdx] = true;
+                }
 
                 for (int codecIdx = 0; codecIdx < availableFeatures->Length; codecIdx++) {
                     uint64_t feat = 0;
@@ -441,7 +465,9 @@ namespace QSVEnc {
                         availableFeatures[codecIdx][i_rate_control] |= feat;
                     }
                 }
-                GenerateTable(codec);
+            }
+            for (int codecIdx = 0; list_outtype[codecIdx].desc; codecIdx++) {
+                GenerateTable(list_outtype[codecIdx].value);
             }
             getFeaturesFinished = true;
             if (!use_cache && featureDataLines->Count > 0) {
@@ -487,6 +513,9 @@ namespace QSVEnc {
             };
 
             const int codecIdx = getCodecIdIdx(codecId);
+            if (codecIdx < 0) {
+                return;
+            }
 
             //第2行以降を連続で追加していく
             for (int i = 0; list_enc_feature_jp[i].desc; i++) {
