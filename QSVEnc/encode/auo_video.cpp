@@ -60,7 +60,6 @@
 #include "auo_convert.h"
 #include "auo_video.h"
 #include "auo_audio_parallel.h"
-#include "auo_pipeline.h"
 
 typedef struct video_output_thread_t {
     CONVERT_CF_DATA *pixel_data;
@@ -548,7 +547,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     pipes.stdErr.mode = AUO_PIPE_ENABLE;
     pipes.stdIn.bufferSize = pixel_data.total_size * 2;
 
-    DWORD tm_start = timeGetTime();
     set_window_title("QSVEnc エンコード", PROGRESSBAR_CONTINUOUS);
     log_process_events();
 

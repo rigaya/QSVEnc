@@ -778,34 +778,6 @@
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
-    <ClCompile Include="encode\auo_pipeline.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-    </ClCompile>
-    <ClCompile Include="encode\auo_qsv_link.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-    </ClCompile>
     <ClCompile Include="encode\auo_runbat.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
@@ -999,8 +971,6 @@
     <ClInclude Include="encode\auo_encode.h" />
     <ClInclude Include="encode\auo_mux.h" />
     <ClInclude Include="encode\auo_pipe.h" />
-    <ClInclude Include="encode\auo_pipeline.h" />
-    <ClInclude Include="encode\auo_qsv_link.h" />
     <ClInclude Include="encode\auo_runbat.h" />
     <ClInclude Include="encode\auo_video.h" />
     <ClInclude Include="encode\convert.h" />

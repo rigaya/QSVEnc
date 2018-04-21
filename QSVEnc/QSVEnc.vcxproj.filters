@@ -54,12 +54,6 @@
     <ClCompile Include="encode\auo_pipe.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
-    <ClCompile Include="encode\auo_pipeline.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
-    <ClCompile Include="encode\auo_qsv_link.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
     <ClCompile Include="encode\auo_runbat.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
@@ -153,12 +147,6 @@
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
     <ClInclude Include="encode\auo_pipe.h">
-      <Filter>ヘッダー ファイル\encode</Filter>
-    </ClInclude>
-    <ClInclude Include="encode\auo_pipeline.h">
-      <Filter>ヘッダー ファイル\encode</Filter>
-    </ClInclude>
-    <ClInclude Include="encode\auo_qsv_link.h">
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
     <ClInclude Include="encode\auo_runbat.h">
