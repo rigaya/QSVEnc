@@ -63,7 +63,7 @@ regex_check()
     return $ret
 }
 
-rm -f config.* .depend QSVPipeline/rgy_config.h QSVPipeline/qsv_rev.h
+rm -f config.* .depend QSVPipeline/rgy_config.h QSVPipeline/rgy_rev.h
 
 PKGCONFIG="pkg-config"
 USE_PKGCONFIG=1
@@ -585,8 +585,8 @@ convert_csp_avx.cpp         convert_csp_avx2.cpp            convert_csp_sse2.cpp
 convert_csp_sse41.cpp       convert_csp_ssse3.cpp           cpu_info.cpp \
 gpu_info.cpp                gpuz_info.cpp                   qsv_allocator.cpp \
 qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp          qsv_allocator_sys.cpp \
-qsv_allocator_va.cpp        qsv_control.cpp                 qsv_hw_d3d11.cpp \
-qsv_hw_d3d9.cpp             qsv_hw_device.cpp               qsv_hw_va.cpp \
+qsv_allocator_va.cpp        qsv_cmd.cpp                     qsv_control.cpp \
+qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp               qsv_hw_va.cpp \
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
 ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp         rgy_bitstream.cpp \

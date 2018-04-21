@@ -25,14 +25,16 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
 #include <set>
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#if defined(_WIN32) || defined(_WIN64)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <shellapi.h>
+#endif
 #include <assert.h>
 #include "rgy_osdep.h"
 #include "qsv_pipeline.h"
@@ -2213,6 +2215,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
     return 0;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 int parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err) {
     init_qsvp_prm(pParams);
     if (cmda == nullptr) {
@@ -2238,6 +2241,7 @@ int parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool 
     const TCHAR **strInput = (const TCHAR **)argv_tchar.data();
     return parse_cmd(pParams, strInput, argc, err, ignore_parse_err);
 }
+#endif
 
 
 #pragma warning (push)
