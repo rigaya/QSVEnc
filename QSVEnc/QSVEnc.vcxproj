@@ -190,7 +190,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -239,7 +240,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -290,7 +292,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -339,7 +342,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -389,7 +393,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -441,7 +446,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -495,7 +501,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
@@ -547,7 +554,8 @@
       <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" C:\ProgramEx\AviutlS\plugins</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>..\QSVPipeline</AdditionalIncludeDirectories>
