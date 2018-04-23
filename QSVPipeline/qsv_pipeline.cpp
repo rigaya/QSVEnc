@@ -353,7 +353,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         );
         const auto inputCodec = m_pFileReader->getInputCodec();
         const auto plugin = std::find_if(codecPluginList.begin(), codecPluginList.end(),
-                [inputCodec](const decltype((codecPluginList[0])) codecPlugin) {
+                [inputCodec](decltype((codecPluginList[0])) codecPlugin) {
             return codecPlugin.first == inputCodec;
         });
         if (plugin != codecPluginList.end()) {
