@@ -155,6 +155,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
+        pParams->vpp.bUseResize = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("input-res"))) {
