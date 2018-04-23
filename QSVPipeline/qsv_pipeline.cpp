@@ -2107,6 +2107,7 @@ CQSVPipeline::CQSVPipeline() {
     m_nMFXThreads = -1;
 
     m_pAbortByUser = NULL;
+    m_heAbort.reset();
 
     m_pEncSatusInfo.reset();
     m_pFileWriterListAudio.clear();
@@ -2792,6 +2793,8 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     if (pParams->nDstHeight != pParams->nHeight || pParams->nDstWidth != pParams->nWidth) {
         pParams->vpp.bEnable = true;
         pParams->vpp.bUseResize = true;
+    } else {
+        pParams->vpp.bUseResize = false;
     }
 
     //必要ならばSAR比の指定を行う
@@ -3590,6 +3593,13 @@ mfxStatus CQSVPipeline::Run() {
 
 mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     mfxStatus sts = MFX_ERR_NONE;
+
+#if defined(_WIN32) || defined(_WIN64)
+    TCHAR handleEvent[256];
+    _stprintf_s(handleEvent, QSVENCC_ABORT_EVENT, GetCurrentProcessId());
+    m_heAbort = unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
+#endif
+
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
     sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
     QSV_ERR_MES(sts, _T("Failed to start encode thread."));
@@ -4206,6 +4216,12 @@ mfxStatus CQSVPipeline::RunEncode() {
             pSurfCheckPts = nullptr;
         }
         speedCtrl.wait(m_pEncSatusInfo->m_sData.frameIn);
+#if defined(_WIN32) || defined(_WIN64)
+        //中断オブジェクトのチェック
+        if (WaitForSingleObject(m_heAbort.get(), 0) == WAIT_OBJECT_0) {
+            m_EncThread.m_bthForceAbort = true;
+        }
+#endif
 
         //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))

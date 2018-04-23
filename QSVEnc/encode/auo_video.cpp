@@ -543,7 +543,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     remove(pe->temp_filename); //ファイルサイズチェックの時に旧ファイルを参照してしまうのを回避
 
     //パイプの設定
-    pipes.stdIn.mode = AUO_PIPE_ENABLE;
+    pipes.stdIn.mode = (conf->oth.link_prm.active) ? AUO_PIPE_DISABLE : AUO_PIPE_ENABLE;
     pipes.stdErr.mode = AUO_PIPE_ENABLE;
     pipes.stdIn.bufferSize = pixel_data.total_size * 2;
 
@@ -580,13 +580,36 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         DWORD tm_vid_enc_start = timeGetTime();
 
         while (ret == AUO_RESULT_SUCCESS) {
-            if (read_from_pipe(&pipes, TRUE) < 0) {
-                write_log_exe_mes(pipes.read_buf, &pipes.buf_len, "QSVEncC", NULL);
+            const int pipe_ret = read_from_pipe(&pipes, TRUE);
+            if (pipe_ret < 0) {
                 break;
             }
+            if (pipe_ret > 0) {
+                write_log_exe_mes(pipes.read_buf, &pipes.buf_len, "QSVEncC", NULL);
+            }
             Sleep(LOG_UPDATE_INTERVAL);
-            ret |= (oip->func_is_abort()) ? AUO_RESULT_ABORT : AUO_RESULT_SUCCESS;
+            if (oip->func_is_abort()) {
+                char handleEvent[256];
+                sprintf_s(handleEvent, QSVENCC_ABORT_EVENT, pi_enc.dwProcessId);
+                HANDLE heAbort = OpenEvent(EVENT_MODIFY_STATE, FALSE, handleEvent);
+                if (heAbort) {
+                    SetEvent(heAbort);
+                }
+                ret |= AUO_RESULT_ABORT;
+            }
             log_process_events();
+        }
+
+        //エンコーダ終了待機
+        while (WaitForSingleObject(pi_enc.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT) {
+            if (read_from_pipe(&pipes, TRUE) > 0)
+                write_log_exe_mes(pipes.read_buf, &pipes.buf_len, "QSVEncC", NULL);
+            log_process_events();
+            Sleep(LOG_UPDATE_INTERVAL);
+        }
+
+        while (read_from_pipe(&pipes, TRUE) > 0) {
+            write_log_exe_mes(pipes.read_buf, &pipes.buf_len, "QSVEncC", NULL);
         }
 
         DWORD tm_vid_enc_fin = timeGetTime();
@@ -723,6 +746,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         write_log_auo_enc_time("QSVEncエンコード時間", tm_vid_enc_fin - tm_vid_enc_start);
     }
     set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
+
+    //解放処理
+    if (pipes.stdErr.mode)
+        CloseHandle(pipes.stdErr.h_read);
+    CloseHandle(pi_enc.hProcess);
+    CloseHandle(pi_enc.hThread);
     
     if (jitter) free(jitter);
 

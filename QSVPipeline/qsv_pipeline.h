@@ -193,6 +193,7 @@ protected:
     uint32_t m_nProcSpeedLimit;
 
     bool *m_pAbortByUser;
+    unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter> m_heAbort;
 
     RGYBitstream m_DecInputBitstream;
 

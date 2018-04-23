@@ -37,6 +37,8 @@
 #include "mfxvp9.h"
 #include "convert_csp.h"
 
+#define QSVENCC_ABORT_EVENT _T("QSVEncC_abort_%u")
+
 enum {
     MFX_DEINTERLACE_NONE        = 0,
     MFX_DEINTERLACE_NORMAL      = 1,
