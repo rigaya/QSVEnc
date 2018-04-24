@@ -197,7 +197,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
         std::make_pair(MFX_CODEC_VP9,  MFX_PLUGINID_VP9D_HW)
         );
     const auto plugin = std::find_if(codecPluginList.begin(), codecPluginList.end(),
-        [codecId](const decltype((codecPluginList[0])) codecPlugin) {
+        [codecId](decltype((codecPluginList[0])) codecPlugin) {
         return codecPlugin.first == codecId;
     });
     auto sessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(session));
