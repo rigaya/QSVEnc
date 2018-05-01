@@ -2279,6 +2279,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             }
             writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
             writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
+            writerPrm.pHEVCHdrSei = &hedrsei;
         }
         if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
