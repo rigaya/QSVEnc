@@ -1736,8 +1736,5 @@ int _tmain(int argc, TCHAR *argv[]) {
     if (0 != (ret = run(argc, argv))) {
         rgy_print_stderr(RGY_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
     }
-#if ENABLE_AVSW_READER
-    avformatNetworkDeinit();
-#endif //#if ENABLE_AVSW_READER
     return ret;
 }
