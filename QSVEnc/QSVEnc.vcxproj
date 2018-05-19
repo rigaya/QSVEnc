@@ -187,7 +187,8 @@
       <TargetMachine>MachineX86</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -237,7 +238,8 @@
       <TargetMachine>MachineX86</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -289,7 +291,8 @@
       <TargetMachine>MachineX64</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -339,7 +342,8 @@
       <TargetMachine>MachineX64</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -390,7 +394,8 @@
       <TargetMachine>MachineX86</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -443,7 +448,8 @@
       <TargetMachine>MachineX86</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -498,7 +504,8 @@
       <TargetMachine>MachineX64</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -551,7 +558,8 @@
       <TargetMachine>MachineX64</TargetMachine>
       <EmbedManagedResourceFile>.\image\folder_open.ico;</EmbedManagedResourceFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-57.dll;avformat-57.dll;avutil-55.dll;avfilter-6.dll;swresample-2.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>
+      </DelayLoadDLLs>
     </Link>
     <PostBuildEvent>
       <Command>
