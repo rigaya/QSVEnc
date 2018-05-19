@@ -1660,7 +1660,8 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("vpp-scaling"))) {
+    if (0 == _tcscmp(option_name, _T("vpp-resize"))
+        || 0 == _tcscmp(option_name, _T("vpp-scaling"))) {
         i++;
         int value = 0;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_scaling_quality, strInput[i]))) {
