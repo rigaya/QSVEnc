@@ -1999,6 +1999,8 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 int nQuality = 0;
                 if (1 == _stscanf(str.c_str(), _T("%d"), &nQuality)) {
                     pParams->nBenchQuality |= 1 << nQuality;
+                } else if ((nQuality = get_value_from_chr(list_quality_for_option, strInput[i])) > 0) {
+                    pParams->nBenchQuality |= 1 << nQuality;
                 } else {
                     SET_ERR(strInput[i], _T("Unknown value"), option_name, strInput[i]);
                     return 1;
