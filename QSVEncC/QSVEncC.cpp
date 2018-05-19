@@ -534,7 +534,7 @@ static tstring help() {
         );
     str += strsprintf(_T("")
 #if defined(_WIN32) || defined(_WIN64)
-        _T("   --mfx-thread <int>          set input thread num (-1 (auto), 2, 3, ...)\n")
+        _T("   --mfx-thread <int>          set mfx thread num (-1 (auto), 2, 3, ...)\n")
         _T("                                 note that mfx thread cannot be less than 2.\n")
 #endif
         _T("   --input-thread <int>        set input thread num\n")
@@ -555,7 +555,7 @@ static tstring help() {
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
         _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
         _T("                                 same as --output-thread 0 --audio-thread 0\n")
-        _T("                                   --mfx-thread -a 1 --input-buf 1 --output-buf 0\n")
+        _T("                                   --mfx-thread 2 -a 1 --input-buf 1 --output-buf 0\n")
         _T("                                 this will cause lower performance!\n")
         _T("   --max-procfps <int>         limit processing speed to lower resource usage.\n")
         _T("                                 default:0 (no limit)\n")
@@ -670,6 +670,17 @@ static tstring help() {
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n")
+        _T("   --vpp-rotate <int>           rotate image\n")
+        _T("                                 90, 180, 270.\n")
+        _T("   --vpp-mirror <string>        mirror image\n")
+        _T("                                 - h   mirror in horizontal direction\n")
+        _T("                                 - v   mirror in vertical   direction\n")
+        _T("   --vpp-half-turn              half turn video image\n")
+        _T("                                 unoptimized and very slow.\n")
+        _T("   --vpp-resize <string>        set scaling quality\n")
+        _T("                                 - auto(default)\n")
+        _T("                                 - simple   use simple scaling\n")
+        _T("                                 - fine     use high quality scaling\n")
 #if ENABLE_CUSTOM_VPP
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-sub [<int>] or [<string>]\n")
@@ -687,19 +698,8 @@ static tstring help() {
         _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
         _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
         _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
-        _T("   --vpp-delogo-add             add logo mode\n")
-#endif //#if ENABLE_CUSTOM_VPP
-        _T("   --vpp-rotate <int>           rotate image\n")
-        _T("                                 90, 180, 270.\n")
-        _T("   --vpp-mirror <string>        mirror image\n")
-        _T("                                 - h   mirror in horizontal direction\n")
-        _T("                                 - v   mirror in vertical   direction\n")
-        _T("   --vpp-scaling <string>       set scaling quality\n")
-        _T("                                 - auto(default)\n")
-        _T("                                 - simple   use simple scaling\n")
-        _T("                                 - fine     use high quality scaling\n")
-        _T("   --vpp-half-turn              half turn video image\n")
-        _T("                                 unoptimized and very slow.\n"),
+        _T("   --vpp-delogo-add             add logo mode\n"),
+#endif //#if ENABLE_CUSTOM_VPP,
         QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
         QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX,
         QSV_DEFAULT_VPP_DELOGO_DEPTH
