@@ -116,6 +116,7 @@ typedef struct AVMuxVideo {
     int                   nFpsBaseNextDts;      //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     FILE                 *fpTsLogFile;          //mux timestampログファイル
     RGYBitstream          seiNal;               //追加のsei nal
+    AVBSFContext         *pBsfc;                //必要なら使用するbitstreamfilter
 } AVMuxVideo;
 
 typedef struct AVMuxAudio {
