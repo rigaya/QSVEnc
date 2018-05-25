@@ -1924,7 +1924,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
                 pBitstream->append(hevc_pps_nal->ptr, hevc_pps_nal->size);
                 pBitstream->append(&m_Mux.video.seiNal);
                 for (const auto& nal : nal_list) {
-                    if (nal.type != NALU_HEVC_VPS || nal.type != NALU_HEVC_SPS || nal.type != NALU_HEVC_PPS) {
+                    if (nal.type != NALU_HEVC_VPS && nal.type != NALU_HEVC_SPS && nal.type != NALU_HEVC_PPS) {
                         pBitstream->append(nal.ptr, nal.size);
                     }
                 }
