@@ -485,4 +485,6 @@ bool check_if_d3d11_necessary();
 int getCPUInfoQSV(TCHAR *buffer, size_t nSize);
 int getCPUInfoQSV(TCHAR *buffer, size_t nSize, mfxSession session);
 
+int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
+
 #endif //_QSV_UTIL_H_
