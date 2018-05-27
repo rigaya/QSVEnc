@@ -589,6 +589,7 @@ mfxStatus ProcessorDelogo::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *fr
 
     m_pIn = frame_in;
     m_pOut = frame_out;
+    m_pOut->Data.TimeStamp = m_pIn->Data.TimeStamp;
     m_sData[0] = &param[0];
     m_sData[1] = &param[1];
 

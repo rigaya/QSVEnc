@@ -1666,7 +1666,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         // VppRequest[0]はvppへの入力, VppRequest[1]はvppからの出力
         sts = m_pmfxVPP->QueryIOSurf(&m_mfxVppParams, VppRequest);
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for vpp."));
-        if (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS) {
+        if (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) {
             //ptsチェック用に使うフレームを追加する
             VppRequest[0].NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
             VppRequest[0].NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
@@ -1678,7 +1678,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
     if (m_pmfxDEC) {
         sts = m_pmfxDEC->QueryIOSurf(&m_mfxDecParams, &DecRequest);
         QSV_ERR_MES(sts, _T("Failed to get required buffer size for decoder."));
-        if (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS) {
+        if (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) {
             //ptsチェック用に使うフレームを追加する
             DecRequest.NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
             DecRequest.NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
@@ -2252,6 +2252,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.nAudioThread  = pParams->nAudioThread;
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
         writerPrm.nAudioResampler = pParams->nAudioResampler;
+        writerPrm.pVidTimestamp = &m_outputTimestamp;
         writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
@@ -2699,6 +2700,10 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     auto trimParam = m_pFileReader->GetTrimParam();
     m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
     if (m_pTrimParam) {
+        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
+            PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
+            return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
+        }
         PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
         for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
             PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
@@ -2963,7 +2968,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 #else
         if (true) {
 #endif
-            PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with aqsv reader, disabled.\n"));
+            PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with avsw/avhw reader, disabled.\n"));
             pParams->nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         }
     }
@@ -3175,6 +3180,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
 
     m_nMFXThreads = pParams->nSessionThreads;
+    m_nAVSyncMode = pParams->nAVSyncMode;
 
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
@@ -3263,7 +3269,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
     m_nProcSpeedLimit = pParams->nProcSpeedLimit;
-    m_nAVSyncMode = pParams->nAVSyncMode;
     m_nAsyncDepth = (mfxU16)clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1), 8);
@@ -3700,31 +3705,6 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     return sts;
 }
 
-int64_t qsv_rescale(int64_t v, const std::pair<int, int>& a, const std::pair<int, int>& b) {
-#if _M_IX86
-#define RESCALE_INT_SIZE 4
-#else
-#define RESCALE_INT_SIZE 2
-#endif
-    ttmath::Int<RESCALE_INT_SIZE> tmp1 = v;
-    tmp1 *= a.first;
-    tmp1 *= b.second;
-    ttmath::Int<RESCALE_INT_SIZE> tmp2 = a.second;
-    tmp2 *= b.first;
-
-    tmp1 = (tmp1 + tmp2 - 1) / tmp2;
-    int64_t ret;
-    tmp1.ToInt(ret);
-    return ret;
-};
-
-#if ENABLE_AVSW_READER
-int64_t inline qsv_rescale(int64_t v, AVRational a, AVRational b) {
-    return qsv_rescale(v,
-        std::make_pair(a.num, a.den), std::make_pair(b.num, b.den));
-};
-#endif
-
 mfxStatus CQSVPipeline::RunEncode() {
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: Starting Encode...\n"));
 
@@ -3748,6 +3728,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     bool bVppMultipleOutput = false;  //bob化などの際にvppが余分にフレームを出力するフラグ
     bool bCheckPtsMultipleOutput = false; //dorcecfrなどにともなって、checkptsが余分にフレームを出力するフラグ
 
+    int nLastCheckPtsFrame = -1;
     int nInputFrameCount = -1; //入力されたフレームの数 (最初のフレームが0になるよう、-1で初期化する)  Trimの反映に使用する
 
     struct frameData {
@@ -3758,21 +3739,23 @@ mfxStatus CQSVPipeline::RunEncode() {
     std::deque<frameData> qDecodeFrames; //デコードされて出てきたsyncpとframe, timestamp
 
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
+    //QSVEncでは、常にTimestampは90kHzベースとする(m_outputTimebaseに設定済み)
+    int64_t nOutFirstPts = -1;  //入力のptsに対する補正 (スケール: calcTimebase)
 #if ENABLE_AVSW_READER
     const bool bAVutilDll = check_avcodec_dll();
-    int64_t nEstimatedPts = AV_NOPTS_VALUE;
-    const AVRational inputFpsTimebase = { (int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN };
-    const AVRational outputFpsTimebase = { (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN };
-
-    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-    const AVRational pktTimebase = (pAVCodecReader != nullptr) ? pAVCodecReader->GetInputVideoStream()->time_base : inputFpsTimebase;
+    int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: calcTimebase)
+    const auto hw_timebase = rgy_rational<int>(1, HW_TIMEBASE);
+    const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
+    const AVStream *pStreamIn = nullptr;
+    RGYInputAvcodec *pAVCodecReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
+    if (pAVCodecReader != nullptr) {
+        pStreamIn = pAVCodecReader->GetInputVideoStream();
+    }
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
-    const int nFrameDuration = (int)qsv_rescale(1, inputFpsTimebase, pktTimebase);
+    const auto calcTimebase = (pStreamIn) ? rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den) : rgy_rational<int>(1, 4) * inputFpsTimebase;
+    const auto nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, inputFpsTimebase, calcTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: calcTimebase)
     vector<AVPacket> packetList;
-    if (pAVCodecReader == nullptr) {
-        m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
-    }
 #else
     const auto pktTimebase = std::make_pair(1, HW_TIMEBASE);
     const auto inputFpsTimebase = std::make_pair((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
@@ -3941,7 +3924,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //GetNextFrameのロックが抜けれらなくなる場合がある。
                 //HWデコード時、本来GetNextFrameのロックは必要ないので、
                 //これを無視する実装も併せて行った。
-                && m_DecInputBitstream.size() <= 1) {
+                && (m_DecInputBitstream.size() <= 1)) {
                 //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
                 auto ret = m_pFileReader->GetNextBitstream(&m_DecInputBitstream);
                 if (ret == RGY_ERR_MORE_BITSTREAM) {
@@ -3961,7 +3944,14 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //デコード前には、デコード用のパラメータでFrameInfoを更新
                 copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
             }
+            if (pInputBitstream != nullptr) {
+                if (pInputBitstream->TimeStamp == AV_NOPTS_VALUE) {
+                    pInputBitstream->TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+                }
+                pInputBitstream->DecodeTimeStamp = MFX_TIMESTAMP_UNKNOWN;
+            }
             pSurfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+            pSurfDecWork->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
 
             for (int i = 0; ; i++) {
                 mfxSyncPoint DecSyncPoint = NULL;
@@ -3970,7 +3960,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
                 if (MFX_ERR_NONE < dec_sts && !DecSyncPoint) {
                     if (MFX_WRN_DEVICE_BUSY == dec_sts)
-                        sleep_hybrid(i); // wait if device is busy
+                        sleep_hybrid(i);
                     if (i > 1024 * 1024 * 30) {
                         PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                         return MFX_ERR_UNKNOWN;
@@ -3982,7 +3972,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
                     break;
                 } else {
-                    break; // not a warning
+                    break;
                 }
             }
 
@@ -3997,28 +3987,49 @@ mfxStatus CQSVPipeline::RunEncode() {
         return dec_sts;
     };
 
+    auto check_trim = [&]() {
+        if (!m_pTrimParam) {
+            return false;
+        }
+        return !frame_inside_range(nInputFrameCount, m_pTrimParam->list);
+    };
+
+    int64_t prevPts = 0; //(calcTimebase基準)
     auto check_pts = [&]() {
-        int64_t timestamp = 0;
+        int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration (calcTimebase基準)
+        int64_t outPts = nOutEstimatedPts; //(calcTimebase基準)
 #if ENABLE_AVSW_READER
-        if (framePosList && pNextFrame) {
+        if (framePosList && pNextFrame && (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR))) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
             if (pos.poc == FRAMEPOS_POC_INVALID) {
                 PrintMes(RGY_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
                 return MFX_ERR_UNKNOWN;
             }
-            timestamp = pos.pts;
-        } else {
-#endif //#if ENABLE_AVSW_READER
-            timestamp = qsv_rescale(nInputFrameCount, inputFpsTimebase, pktTimebase);
-#if ENABLE_AVSW_READER
+            outPts = pos.pts;
+            if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && pos.duration > 0) {
+                outDuration = pos.duration;
+            }
+            if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_pTrimParam->list)) {
+                nOutFirstPts += (outPts - prevPts);
+            }
         }
-        if (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS) {
+        nLastCheckPtsFrame = nInputFrameCount;
+        if (nOutFirstPts == -1) {
+            nOutFirstPts = outPts; //最初のpts
+        }
+        //最初のptsを0に修正
+        outPts -= nOutFirstPts;
+        if (outPts < 0) {
+            outPts = nOutEstimatedPts;
+        }
+
+        if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {
             if (!bCheckPtsMultipleOutput) {
                 //ひとまずデコード結果をキューに格納
                 if (pNextFrame) {
                     //ここでロックしないとキューにためているフレームが勝手に使われてしまう
                     pNextFrame->Data.Locked++;
-                    qDecodeFrames.push_back({ lastSyncP, pNextFrame, timestamp });
+                    qDecodeFrames.push_back({ lastSyncP, pNextFrame, outPts });
                 }
                 //queueが空になったら終了
                 if (qDecodeFrames.size() == 0) {
@@ -4032,15 +4043,13 @@ mfxStatus CQSVPipeline::RunEncode() {
                 return MFX_ERR_UNSUPPORTED;
             }
 
-            if (nEstimatedPts == AV_NOPTS_VALUE) {
-                nEstimatedPts = queueFirstPts;
-            }
-            auto ptsDiff = queueFirstPts - nEstimatedPts;
-            if (std::abs(ptsDiff) >= CHECK_PTS_MAX_INSERT_FRAMES * nFrameDuration) {
+            auto ptsDiff = queueFirstPts - nOutEstimatedPts;
+            if (std::abs(ptsDiff) >= CHECK_PTS_MAX_INSERT_FRAMES * nOutFrameDuration) {
                 //timestampに一定以上の差があればそれを無視する
-                nEstimatedPts = queueFirstPts;
-                PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames (%d - %d), avsync might be corrupted.\n"), nInputFrameCount, nInputFrameCount+1);
-            } else if (ptsDiff >= std::max(1, nFrameDuration * 3 / 4)) {
+                nOutFirstPts += (queueFirstPts - nOutEstimatedPts); //今後の位置合わせのための補正
+                outPts = nOutEstimatedPts;
+                //PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames (%d - %d), avsync might be corrupted.\n"), nInputFrameCount, nInputFrameCount+1);
+            } else if (ptsDiff >= std::max<int64_t>(1, nOutFrameDuration * 3 / 4)) {
                 //水増しが必要 -> 何も(pop)しない
                 bCheckPtsMultipleOutput = true;
                 queueFirstFrame.pSurface->Data.Locked++;
@@ -4051,7 +4060,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             } else {
                 bCheckPtsMultipleOutput = false;
                 qDecodeFrames.pop_front();
-                if (ptsDiff <= std::min(-1, -1 * nFrameDuration * 3 / 4)) {
+                if (ptsDiff <= std::min<int64_t>(-1, -1 * nOutFrameDuration * 3 / 4)) {
                     //間引きが必要 -> フレームを後段に渡さず破棄
                     queueFirstFrame.pSurface->Data.Locked--;
                     pSurfCheckPts = nullptr;
@@ -4064,11 +4073,14 @@ mfxStatus CQSVPipeline::RunEncode() {
             lastSyncP = queueFirstFrame.syncp;
             pNextFrame    = queueFirstFrame.pSurface;
             pSurfCheckPts = queueFirstFrame.pSurface;
-            nEstimatedPts += nFrameDuration;
-            timestamp = nEstimatedPts;
+            outPts = nOutEstimatedPts;
         }
 #endif //#if ENABLE_AVSW_READER
-        pNextFrame->Data.TimeStamp = timestamp;
+        nOutEstimatedPts += outDuration;
+        prevPts = outPts;
+        pNextFrame->Data.TimeStamp = rational_rescale(outPts, calcTimebase, hw_timebase);
+        pNextFrame->Data.DataFlag &= (~MFX_FRAMEDATA_ORIGINAL_TIMESTAMP);
+        m_outputTimestamp.add(pNextFrame->Data.TimeStamp, rational_rescale(outDuration, calcTimebase, hw_timebase));
         return MFX_ERR_NONE;
     };
 
@@ -4104,37 +4116,35 @@ mfxStatus CQSVPipeline::RunEncode() {
     auto vpp_one_frame =[&](mfxFrameSurface1* pSurfVppIn, mfxFrameSurface1* pSurfVppOut) {
         mfxStatus vpp_sts = MFX_ERR_NONE;
         if (m_pmfxVPP) {
-            if (bVppMultipleOutput && pSurfVppIn) {
-                //bob化など、デコーダから出てきたフレームでないフレーム(=TimeStampが計算されていない)を途中ではさむ場合には、
-                //下記のようにTimeStampをUNKNOWNに設定してやることで、自動計算される
-                pSurfVppIn->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-            }
-            mfxSyncPoint VppSyncPoint = NULL; // a sync point associated with an asynchronous vpp call
-            bVppMultipleOutput = false;   // reset the flag before a call to VPP
-            bVppRequireMoreFrame = false; // reset the flag before a call to VPP
+            mfxSyncPoint VppSyncPoint = nullptr;
+            bVppMultipleOutput = false;
+            bVppRequireMoreFrame = false;
 
             //vpp前に、vpp用のパラメータでFrameInfoを更新
             copy_crop_info(pSurfVppIn, &m_mfxVppParams.mfx.FrameInfo);
 
             for (int i = 0; ; i++) {
+                //bob化の際、pSurfVppInに連続で同じフレーム(同じtimestamp)を投入すると、
+                //最初のフレームには設定したtimestamp、次のフレームにはMFX_TIMESTAMP_UNKNOWNが設定されて出てくる
+                //特別pSurfVppOut側のTimestampを設定する必要はなさそう
                 vpp_sts = m_pmfxVPP->RunFrameVPPAsync(pSurfVppIn, pSurfVppOut, NULL, &VppSyncPoint);
                 lastSyncP = VppSyncPoint;
 
-                if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) { // repeat the call if warning and no output
+                if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) {
                     if (MFX_WRN_DEVICE_BUSY == vpp_sts)
-                        sleep_hybrid(i); // wait if device is busy
+                        sleep_hybrid(i);
                     if (i > 1024 * 1024 * 30) {
                         PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                         return MFX_ERR_UNKNOWN;
                     }
                 } else if (MFX_ERR_NONE < vpp_sts && VppSyncPoint) {
-                    vpp_sts = MFX_ERR_NONE; // ignore warnings if output is available
+                    vpp_sts = MFX_ERR_NONE;
                     break;
-                } else
-                    break; // not a warning
+                } else {
+                    break;
+                }
             }
 
-            // process errors
             if (MFX_ERR_MORE_DATA == vpp_sts) {
                 bVppRequireMoreFrame = true;
             } else if (MFX_ERR_MORE_SURFACE == vpp_sts) {
@@ -4142,7 +4152,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                 vpp_sts = MFX_ERR_NONE;
             }
 
-            // save the id of preceding vpp task which will produce input data for the encode task
             if (VppSyncPoint) {
                 pCurrentTask->vppSyncPoint.push_back(VppSyncPoint);
                 VppSyncPoint = NULL;
@@ -4169,12 +4178,12 @@ mfxStatus CQSVPipeline::RunEncode() {
 
         //以下の処理は
         if (pSurfEncIn) {
-            //TimeStampを適切に設定してやると、BitstreamにTimeStamp、DecodeTimeStampが計算される
-            pSurfEncIn->Data.TimeStamp = qsv_rescale(nFramePutToEncoder, outputFpsTimebase, HW_NATIVE_TIMEBASE);
             nFramePutToEncoder++;
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
             pCurrentTask->mfxBS.TimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
             pCurrentTask->mfxBS.DecodeTimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
+            //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
+            pSurfEncIn->Data.TimeStamp = (uint64_t)m_outputTimestamp.check(pSurfEncIn->Data.TimeStamp);
         }
 
         bool bDeviceBusy = false;
@@ -4182,7 +4191,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             enc_sts = m_pmfxENC->EncodeFrameAsync(nullptr, pSurfEncIn, &pCurrentTask->mfxBS, &pCurrentTask->encSyncPoint);
             bDeviceBusy = false;
 
-            if (MFX_ERR_NONE < enc_sts && !pCurrentTask->encSyncPoint) { // repeat the call if warning and no output
+            if (MFX_ERR_NONE < enc_sts && !pCurrentTask->encSyncPoint) {
                 bDeviceBusy = true;
                 if (MFX_WRN_DEVICE_BUSY == enc_sts)
                 sleep_hybrid(i);
@@ -4191,7 +4200,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     return MFX_ERR_UNKNOWN;
                 }
             } else if (MFX_ERR_NONE < enc_sts && pCurrentTask->encSyncPoint) {
-                enc_sts = MFX_ERR_NONE; // ignore warnings if output is available
+                enc_sts = MFX_ERR_NONE;
                 break;
             } else if (MFX_ERR_NOT_ENOUGH_BUFFER == enc_sts) {
                 enc_sts = AllocateSufficientBuffer(&pCurrentTask->mfxBS);
@@ -4200,7 +4209,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                 PrintMes(RGY_LOG_ERROR, _T("EncodeFrameAsync error: %s.\n"), get_err_mes(enc_sts));
                 break;
             } else {
-                // get next surface and new task for 2nd bitstream in ViewOutput mode
                 QSV_IGNORE_STS(enc_sts, MFX_ERR_MORE_BITSTREAM);
                 break;
             }
@@ -4228,7 +4236,6 @@ mfxStatus CQSVPipeline::RunEncode() {
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
 
-        // find free surface for encoder input
         //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
         nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
         if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
@@ -4265,6 +4272,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     if (sts != MFX_ERR_NONE) {
                         break;
                     }
+                    pNextFrame->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
                     //フレーム読み込みの場合には、必要ならここでロックする
                     if (m_bExternalAlloc) {
                         if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))
@@ -4299,6 +4307,9 @@ mfxStatus CQSVPipeline::RunEncode() {
                     break;
             }
 
+            if (check_trim())
+                continue;
+
             sts = check_pts();
             if (sts == MFX_ERR_MORE_SURFACE)
                 continue;
@@ -4316,9 +4327,6 @@ mfxStatus CQSVPipeline::RunEncode() {
 
             pSurfVppIn = pNextFrame;
         }
-
-        if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
-            continue;
 
         sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
         if (bVppRequireMoreFrame)
@@ -4402,7 +4410,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfVppIn = pNextFrame;
             }
 
-            if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
+            if (check_trim())
                 continue;
 
             sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
@@ -4432,7 +4440,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
 
 #if ENABLE_AVSW_READER
-    if (m_pmfxDEC && (m_nAVSyncMode & RGY_AVSYNC_CHECK_PTS)) {
+    if (m_pmfxDEC && (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR)) {
 
         pNextFrame = NULL;
 
@@ -4479,9 +4487,6 @@ mfxStatus CQSVPipeline::RunEncode() {
 
                 pSurfVppIn = pNextFrame;
             }
-
-            if (m_pTrimParam && !frame_inside_range(nInputFrameCount, m_pTrimParam->list))
-                continue;
 
             sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
             if (bVppRequireMoreFrame)

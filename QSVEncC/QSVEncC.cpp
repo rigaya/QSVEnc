@@ -247,7 +247,7 @@ static tstring help() {
         _T("   --vpy-mt                     set input as vpy format in multi-thread\n")
 #endif
 #if ENABLE_AVSW_READER
-        _T("   --avqsv                      set input to use avcodec + qsv\n")
+        _T("   --avhw                       set input to use avcodec + qsv\n")
         _T("   --avsw                       set input to use avcodec + sw decoder\n")
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
@@ -346,8 +346,9 @@ static tstring help() {
         _T("                                 below are optional,\n")
         _T("                                  in [<int>?], specify track number to copy.\n")
         _T("\n")
-        _T("   --avsync <string>            method for AV sync (default: through)\n")
-        _T("                                 through  ... assume cfr, no check but fast\n")
+        _T("   --avsync <string>            method for AV sync (default: cfr)\n")
+        _T("                                 cfr      ... assume cfr\n")
+        _T("                                 vfr      ... pass through timestamp from source\n")
         _T("                                 forcecfr ... check timestamp and force cfr.\n")
         _T("-m,--mux-option <string1>:<string2>\n")
         _T("                                set muxer option name and value.\n")

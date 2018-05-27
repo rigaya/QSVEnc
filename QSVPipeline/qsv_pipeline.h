@@ -131,6 +131,7 @@ protected:
     CQSVTaskControl m_TaskPool;
     mfxU16 m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;
+    RGYTimestamp m_outputTimestamp;
 
     mfxInitParam m_InitParam;
     mfxExtBuffer *m_pInitParamExtBuf[1];

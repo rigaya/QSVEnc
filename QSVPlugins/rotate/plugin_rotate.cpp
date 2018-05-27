@@ -205,6 +205,7 @@ mfxStatus Rotate::Close() {
 mfxStatus ProcessorRotate::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *frame_out, const void *data) {
     m_pIn = frame_in;
     m_pOut = frame_out;
+    m_pOut->Data.TimeStamp = m_pIn->Data.TimeStamp;
 
     return MFX_ERR_NONE;
 }
