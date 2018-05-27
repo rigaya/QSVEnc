@@ -5047,7 +5047,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                     extFeatures += strsprintf(_T("ctu:%d "), hevcPrm.LCUSize);
                 }
                 if (hevcPrm.SampleAdaptiveOffset != 0) {
-                    extFeatures += strsprintf(_T("sao:%d "), get_chr_from_value(list_hevc_sao, hevcPrm.SampleAdaptiveOffset));
+                    extFeatures += strsprintf(_T("sao:%s "), get_chr_from_value(list_hevc_sao, hevcPrm.SampleAdaptiveOffset));
                 }
             }
         }
