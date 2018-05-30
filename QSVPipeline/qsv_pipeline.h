@@ -138,6 +138,7 @@ protected:
     mfxExtThreadsParam m_ThreadsParam;
 
     mfxExtVideoSignalInfo m_VideoSignalInfo;
+    mfxExtChromaLocInfo m_chromalocInfo;
     mfxExtCodingOption m_CodingOption;
     mfxExtCodingOption2 m_CodingOption2;
     mfxExtCodingOption3 m_CodingOption3;

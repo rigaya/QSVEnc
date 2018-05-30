@@ -166,6 +166,7 @@ struct sInputParams
     mfxU16 ColorPrim;     //for API v1.3
     mfxU16 Transfer;      //for API v1.3
     bool   bFullrange;    //for API v1.3
+    int    chromaloc;
 
     mfxU32 ColorFormat;   //YV12 or NV12
     mfxU16 nPicStruct;    //Progressive or interlaced, and other flags
@@ -647,6 +648,15 @@ const CX_DESC list_videoformat[] = {
     { _T("pal"),       1  },
     { _T("secam"),     3  },
     { _T("mac"),       4  },
+    { NULL, 0 }
+};
+const CX_DESC list_chromaloc[] = {
+    { _T("0"), 0  },
+    { _T("1"), 1  },
+    { _T("2"), 2  },
+    { _T("3"), 3  },
+    { _T("4"), 4  },
+    { _T("5"), 5  },
     { NULL, 0 }
 };
 

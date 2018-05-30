@@ -119,7 +119,7 @@ mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
 }
 
 RGY_NOINLINE
-VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui) {
+VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui, const mfxExtChromaLocInfo& chromaloc) {
     VideoInfo info;
     info.codec = codec_enc_to_rgy(mfx.CodecId);
     info.codecLevel = mfx.CodecLevel;
@@ -137,6 +137,7 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
     info.vui.transfer = vui.TransferCharacteristics;
     info.vui.fullrange = vui.VideoFullRange;
     info.vui.format = vui.VideoFormat;
+    info.vui.chromaloc = (chromaloc.ChromaLocInfoPresentFlag && chromaloc.ChromaSampleLocTypeTopField) ? chromaloc.ChromaSampleLocTypeTopField : 0;
     info.picstruct = picstruct_enc_to_rgy(mfx.FrameInfo.PicStruct);
     info.shift = (mfx.FrameInfo.Shift) ? 16 - mfx.FrameInfo.BitDepthLuma : 0;
     info.csp = csp_enc_to_rgy(mfx.FrameInfo.FourCC);

@@ -760,6 +760,7 @@ struct VideoVUIInfo {
     int transfer;
     int format;
     int fullrange;
+    int chromaloc;
 };
 
 struct VideoInfo {

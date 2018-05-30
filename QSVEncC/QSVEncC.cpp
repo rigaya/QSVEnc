@@ -516,6 +516,8 @@ static tstring help() {
     str += strsprintf(_T("")
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
         _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
+        _T("   --chromaloc <int>            set chroma location flag [ 0 ... 5 ]\n")
+        _T("                                  default: 0 = unspecified\n")
         _T("   --fullrange                  set stream as fullrange yuv\n")
         _T("   --max-cll <int>,<int>        set MaxCLL and MaxFall in nits. e.g. \"1000,300\"\n")
         _T("   --master-display <string>    set Mastering display data.\n")

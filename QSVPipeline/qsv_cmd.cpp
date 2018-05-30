@@ -1932,33 +1932,55 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("colormatrix"))) {
         i++;
         int value;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_colormatrix, strInput[i])))
-            pParams->ColorMatrix = (mfxU16)value;
+        if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_colormatrix, strInput[i]))) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->ColorMatrix = (mfxU16)value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("colorprim"))) {
         i++;
         int value;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_colorprim, strInput[i])))
-            pParams->ColorPrim = (mfxU16)value;
+        if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_colorprim, strInput[i]))) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->ColorPrim = (mfxU16)value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("transfer"))) {
         i++;
         int value;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_transfer, strInput[i])))
-            pParams->Transfer = (mfxU16)value;
+        if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_transfer, strInput[i]))) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->Transfer = (mfxU16)value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("videoformat"))) {
         i++;
         int value;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_videoformat, strInput[i])))
-            pParams->VideoFormat = (mfxU16)value;
+        if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_videoformat, strInput[i]))) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->VideoFormat = (mfxU16)value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("fullrange"))) {
         pParams->bFullrange = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("chromaloc"))) {
+        i++;
+        int value;
+        if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_chromaloc, strInput[i]))) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->chromaloc = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("max-cll"))) {
@@ -2475,6 +2497,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_LST(_T("--colormatrix"), ColorMatrix, list_colormatrix);
     OPT_LST(_T("--colorprim"), ColorPrim, list_colorprim);
     OPT_LST(_T("--transfer"), Transfer, list_transfer);
+    OPT_LST(_T("--chromaloc"), chromaloc, list_chromaloc);
     OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->CodecId));
     OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->CodecId));
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {

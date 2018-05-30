@@ -1058,6 +1058,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 #undef GET_COLOR_PRM
             m_EncExtParams.push_back((mfxExtBuffer *)&m_VideoSignalInfo);
     }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)
+        && pInParams->chromaloc != 0) {
+        INIT_MFX_EXT_BUFFER(m_chromalocInfo, MFX_EXTBUFF_CHROMA_LOC_INFO);
+        m_chromalocInfo.ChromaLocInfoPresentFlag = 1;
+        m_chromalocInfo.ChromaSampleLocTypeTopField = (mfxU16)pInParams->chromaloc;
+        m_chromalocInfo.ChromaSampleLocTypeBottomField = (mfxU16)pInParams->chromaloc;
+        m_EncExtParams.push_back((mfxExtBuffer *)&m_chromalocInfo);
+    }
 
     m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
     if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC && m_mfxEncParams.mfx.CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
@@ -2218,7 +2226,7 @@ RGY_CSP CQSVPipeline::EncoderCsp(const sInputParams *pParams, int *pShift) {
 mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     RGY_ERR ret = RGY_ERR_NONE;
     bool stdoutUsed = false;
-    const auto outputVideoInfo = (pParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
+    const auto outputVideoInfo = (pParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo, m_chromalocInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
     HEVCHDRSei hedrsei;
     if (hedrsei.parse(std::string(pParams->sMaxCll ? pParams->sMaxCll : ""), std::string(pParams->sMasterDisplay ? pParams->sMasterDisplay : ""))) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
