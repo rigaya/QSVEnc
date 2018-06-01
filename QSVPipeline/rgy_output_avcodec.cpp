@@ -1958,7 +1958,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     int64_t bs_duration = 0;
     if (m_Mux.video.pTimestamp) {
         while ((bs_duration = m_Mux.video.pTimestamp->get_and_pop(pBitstream->pts())) < 0) {
-            Sleep(1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
 #endif
@@ -3021,7 +3021,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.nFPS);
-    const auto dtsThreshold = std::max(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4ll);
+    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
     WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, INFINITE);
     //bThAudProcessは出力開始した後で取得する(この前だとまだ起動していないことがある)
     const bool bThAudProcess = m_Mux.thread.thAudProcess.joinable();
