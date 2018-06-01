@@ -2326,6 +2326,15 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                         pAudioSelect = pParams->ppAudioSelectList[i];
                     }
                 }
+                if (pAudioSelect == nullptr) {
+                    //一致するTrackIDがなければ、nAudioSelect = 0 (全指定)を探す
+                    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+                        if (pParams->ppAudioSelectList[i]->nAudioSelect == 0
+                            && pParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
+                            pAudioSelect = pParams->ppAudioSelectList[i];
+                        }
+                    }
+                }
                 if (pAudioSelect != nullptr || copyAll || bStreamIsSubtitle) {
                     streamTrackUsed.push_back(stream.nTrackId);
                     if (bStreamIsSubtitle && pParams->vpp.subburn.nTrack != 0) {
