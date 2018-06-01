@@ -2717,10 +2717,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     auto trimParam = m_pFileReader->GetTrimParam();
     m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
     if (m_pTrimParam) {
-        if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
-            PrintMes(RGY_LOG_ERROR, _T("--avsync vfr cannot be used with --trim.\n"));
-            return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
-        }
         PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
         for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
             PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
@@ -3770,7 +3766,8 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
-    const auto calcTimebase = (pStreamIn) ? rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den) : rgy_rational<int>(1, 4) * inputFpsTimebase;
+    const auto srcTimebase = rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den);
+    const auto calcTimebase = (pStreamIn && (m_nAVSyncMode & RGY_AVSYNC_VFR)) ? srcTimebase : rgy_rational<int>(1, 4) * inputFpsTimebase;
     const auto nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, inputFpsTimebase, calcTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: calcTimebase)
     vector<AVPacket> packetList;
 #else
@@ -4022,9 +4019,9 @@ mfxStatus CQSVPipeline::RunEncode() {
                 PrintMes(RGY_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
                 return MFX_ERR_UNKNOWN;
             }
-            outPts = pos.pts;
+            outPts = rational_rescale(pos.pts, srcTimebase, calcTimebase);
             if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && pos.duration > 0) {
-                outDuration = pos.duration;
+                outDuration = rational_rescale(pos.duration, srcTimebase, calcTimebase);
             }
             if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_pTrimParam->list)) {
                 nOutFirstPts += (outPts - prevPts);
