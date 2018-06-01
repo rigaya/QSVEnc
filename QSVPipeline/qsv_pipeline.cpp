@@ -3754,11 +3754,11 @@ mfxStatus CQSVPipeline::RunEncode() {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     //QSVEncでは、常にTimestampは90kHzベースとする(m_outputTimebaseに設定済み)
     int64_t nOutFirstPts = -1;  //入力のptsに対する補正 (スケール: calcTimebase)
-#if ENABLE_AVSW_READER
-    const bool bAVutilDll = check_avcodec_dll();
     int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: calcTimebase)
     const auto hw_timebase = rgy_rational<int>(1, HW_TIMEBASE);
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
+#if ENABLE_AVSW_READER
+    const bool bAVutilDll = check_avcodec_dll();
     const AVStream *pStreamIn = nullptr;
     RGYInputAvcodec *pAVCodecReader = dynamic_cast<RGYInputAvcodec *>(m_pFileReader.get());
     if (pAVCodecReader != nullptr) {
@@ -3768,15 +3768,12 @@ mfxStatus CQSVPipeline::RunEncode() {
     uint32_t framePosListIndex = (uint32_t)-1;
     const auto srcTimebase = rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den);
     const auto calcTimebase = (pStreamIn && (m_nAVSyncMode & RGY_AVSYNC_VFR)) ? srcTimebase : rgy_rational<int>(1, 4) * inputFpsTimebase;
-    const auto nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, inputFpsTimebase, calcTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: calcTimebase)
     vector<AVPacket> packetList;
 #else
-    const auto pktTimebase = std::make_pair(1, HW_TIMEBASE);
-    const auto inputFpsTimebase = std::make_pair((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
-    const auto outputFpsTimebase = std::make_pair((int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtD, (int)m_mfxEncParams.mfx.FrameInfo.FrameRateExtN);
-    const auto HW_NATIVE_TIMEBASE = std::make_pair(1, HW_TIMEBASE);
+    const auto calcTimebase = rgy_rational<int>(1, 4) * inputFpsTimebase;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
 #endif
+    const auto nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, inputFpsTimebase, calcTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: calcTimebase)
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
 
