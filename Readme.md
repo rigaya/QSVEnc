@@ -31,6 +31,10 @@ Debian/Ubuntu (QSVEncC)
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 
+## Usage and options of QSVEncC
+[Option list and details of QSVEncC](./QSVEncC_Options.en.md)
+
+
 ## Major Features
 ### Common to QSVEnc / QSVEncC
 - Encoding using QuickSyncVideo
@@ -149,7 +153,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [ttmath](http://www.ttmath.org/),
   [dtl](https://github.com/cubicdaiya/dtl).
-  For these licenses, please see the header part of the corresponding source and NVEnc_license.txt.
+  For these licenses, please see the header part of the corresponding source and license.txt.
+
+- [How to build](./Build.en.md)
 
 ### ソースの構成
 Windows ... VC build  

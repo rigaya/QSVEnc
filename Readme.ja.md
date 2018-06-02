@@ -33,9 +33,8 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 ## QSVEncCの導入方法
 [QSVEncC 導入・使用方法について＞＞](http://rigaya34589.blog135.fc2.com/blog-entry-704.html)
 
-## QSVEncCのオプション
-[QSVEncCのオプションの説明＞＞](http://rigaya34589.blog135.fc2.com/blog-entry-337.html)
-
+## QSVEncCの使用方法とオプション
+[QSVEncCのオプションの説明＞＞](./QSVEncC_Options.ja.md)
 
 ## 使用出来る主な機能
 ### QSVEnc/QSVEncC共通
