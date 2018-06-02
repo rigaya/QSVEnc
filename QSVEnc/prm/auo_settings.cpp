@@ -263,7 +263,7 @@ void guiEx_settings::load_vid() {
 
     s_vid_mc.init(ini_filesize);
 
-    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", "nvencc", ini_fileName);
+    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", "qsvencc", ini_fileName);
     s_vid.default_cmd  = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_default", "", ini_fileName);
     s_vid.help_cmd     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_help", "", ini_fileName);
 
