@@ -830,27 +830,28 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
         }
     }
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        cmd << _T(" --audio-stream ") << pAudioSelect->nAudioSelect;
-        for (int j = 0; j < MAX_SPLIT_CHANNELS; j++) {
-            if (pAudioSelect->pnStreamChannelSelect[j] == 0) {
-                break;
-            }
-            if (j > 0) cmd << _T(",");
-            if (pAudioSelect->pnStreamChannelSelect[j] != RGY_CHANNEL_AUTO) {
-                char buf[256];
-                av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->pnStreamChannelOut[j]);
-                cmd << char_to_tstring(buf);
-            }
-            if (pAudioSelect->pnStreamChannelOut[j] != RGY_CHANNEL_AUTO) {
-                cmd << _T(":");
-                char buf[256];
-                av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->pnStreamChannelOut[j]);
-                cmd << char_to_tstring(buf);
-            }
-        }
-    }
+    //QSVEnc.auoでは、libavutilの関数 av_get_channel_layout_string()を実行してはならない
+    //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+    //    const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    cmd << _T(" --audio-stream ") << pAudioSelect->nAudioSelect;
+    //    for (int j = 0; j < MAX_SPLIT_CHANNELS; j++) {
+    //        if (pAudioSelect->pnStreamChannelSelect[j] == 0) {
+    //            break;
+    //        }
+    //        if (j > 0) cmd << _T(",");
+    //        if (pAudioSelect->pnStreamChannelSelect[j] != RGY_CHANNEL_AUTO) {
+    //            char buf[256];
+    //            av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->pnStreamChannelOut[j]);
+    //            cmd << char_to_tstring(buf);
+    //        }
+    //        if (pAudioSelect->pnStreamChannelOut[j] != RGY_CHANNEL_AUTO) {
+    //            cmd << _T(":");
+    //            char buf[256];
+    //            av_get_channel_layout_string(buf, _countof(buf), 0, pAudioSelect->pnStreamChannelOut[j]);
+    //            cmd << char_to_tstring(buf);
+    //        }
+    //    }
+    //}
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];

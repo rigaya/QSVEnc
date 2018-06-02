@@ -599,6 +599,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("audio-stream"))) {
+#if !FOR_AUO
         //ここで、av_get_channel_layout()を使うため、チェックする必要がある
         if (!check_avcodec_dll()) {
             _ftprintf(stderr, _T("%s\n--audio-stream could not be used.\n"), error_mes_avcodec_dll_not_found().c_str());
@@ -640,6 +641,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
         }
+#else
+        //QSVEnc.auoでは、dllがあるかわからないので、libavutilの関数 av_get_channel_layout()を実行してはならない
+        return 1;
+#endif
     }
     if (0 == _tcscmp(option_name, _T("audio-filter"))) {
         try {
@@ -2405,7 +2410,6 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_NUM(_T("--session-threads"), nSessionThreads);
     OPT_LST(_T("--session-thread-priority"), nSessionThreadPriority, list_priority);
 #endif //#if ENABLE_SESSION_THREAD_CONFIG
-
 #if ENABLE_AVSW_READER
     OPT_NUM(_T("--input-analyze"), nAVDemuxAnalyzeSec);
     if (pParams->nTrimCount > 0) {
@@ -2457,7 +2461,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
             cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
         }
     }
-
+#if !FOR_AUO //QSVEnc.auoでは、libavutilの関数 av_get_channel_layout_string()を実行してはならない
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         tmp.str(tstring());
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
@@ -2482,6 +2486,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
             cmd << _T(" --audio-stream ") << pAudioSelect->nAudioSelect << _T("?") << tmp.str();
         }
     }
+#endif //#if FOR_AUO
     tmp.str(tstring());
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
