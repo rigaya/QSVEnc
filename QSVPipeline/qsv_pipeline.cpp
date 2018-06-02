@@ -3766,7 +3766,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
-    const auto srcTimebase = rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den);
+    const auto srcTimebase = (pStreamIn) ? rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den) : inputFpsTimebase;
     const auto calcTimebase = (pStreamIn && (m_nAVSyncMode & RGY_AVSYNC_VFR)) ? srcTimebase : rgy_rational<int>(1, 4) * inputFpsTimebase;
     vector<AVPacket> packetList;
 #else
