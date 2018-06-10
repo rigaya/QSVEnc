@@ -38,7 +38,6 @@ RGYInput::RGYInput() :
     m_strReaderName(_T("unknown")),
     m_sTrimParam() {
     memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
-    memset(&m_sTrimParam, 0, sizeof(m_sTrimParam));
 }
 
 RGYInput::~RGYInput() {

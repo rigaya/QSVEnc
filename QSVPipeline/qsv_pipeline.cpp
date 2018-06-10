@@ -2120,7 +2120,8 @@ CQSVPipeline::CQSVPipeline() {
     m_pEncSatusInfo.reset();
     m_pFileWriterListAudio.clear();
 
-    m_pTrimParam = NULL;
+    m_trimParam.list.clear();
+    m_trimParam.offset = 0;
 
 #if ENABLE_MVC_ENCODING
     m_bIsMVC = false;
@@ -2253,9 +2254,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         m_pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
         writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
-        if (m_pTrimParam) {
-            writerPrm.trimList = m_pTrimParam->list;
-        }
+        writerPrm.trimList = m_trimParam.list;
         writerPrm.nOutputThread = pParams->nOutputThread;
         writerPrm.nAudioThread  = pParams->nAudioThread;
         writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
@@ -2443,7 +2442,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 prm.pFilter = pAudioSelect->pAudioFilter;
                 prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
                 prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
-                
+
                 AvcodecWriterPrm writerAudioPrm;
                 writerAudioPrm.nOutputThread   = pParams->nOutputThread;
                 writerAudioPrm.nAudioThread    = pParams->nAudioThread;
@@ -2453,9 +2452,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.nAudioResampler = pParams->nAudioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 writerAudioPrm.pQueueInfo = nullptr;
-                if (m_pTrimParam) {
-                    writerAudioPrm.trimList = m_pTrimParam->list;
-                }
+                writerAudioPrm.trimList = m_trimParam.list;
                 writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
@@ -2714,14 +2711,13 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         m_pFileReader->SetTrimParam(trimParam);
     }
     //trim情報をリーダーから取得する
-    auto trimParam = m_pFileReader->GetTrimParam();
-    m_pTrimParam = (trimParam->list.size()) ? trimParam : nullptr;
-    if (m_pTrimParam) {
+    m_trimParam = *m_pFileReader->GetTrimParam();
+    if (m_trimParam.list.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
-        for (int i = 0; i < (int)m_pTrimParam->list.size(); i++) {
-            PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_pTrimParam->list[i].start, m_pTrimParam->list[i].fin);
+        for (int i = 0; i < (int)m_trimParam.list.size(); i++) {
+            PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_trimParam.list[i].start, m_trimParam.list[i].fin);
         }
-        PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_pTrimParam->offset);
+        PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_trimParam.offset);
     }
     return MFX_ERR_NONE;
 }
@@ -3315,7 +3311,8 @@ void CQSVPipeline::Close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing Plugins...\n"));
     m_SessionPlugins.reset();
 
-    m_pTrimParam = NULL;
+    m_trimParam.list.clear();
+    m_trimParam.offset = 0;
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
     m_pmfxDEC.reset();
@@ -3998,13 +3995,6 @@ mfxStatus CQSVPipeline::RunEncode() {
         return dec_sts;
     };
 
-    auto check_trim = [&]() {
-        if (!m_pTrimParam) {
-            return false;
-        }
-        return !frame_inside_range(nInputFrameCount, m_pTrimParam->list);
-    };
-
     int64_t prevPts = 0; //(calcTimebase基準)
     auto check_pts = [&]() {
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration (calcTimebase基準)
@@ -4020,7 +4010,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && pos.duration > 0) {
                 outDuration = rational_rescale(pos.duration, srcTimebase, calcTimebase);
             }
-            if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_pTrimParam->list)) {
+            if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_trimParam.list)) {
                 nOutFirstPts += (outPts - prevPts);
             }
         }
@@ -4065,9 +4055,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 bCheckPtsMultipleOutput = true;
                 queueFirstFrame.pSurface->Data.Locked++;
                 framePosListIndex--;
-                if (m_pTrimParam) {
-                    rearrange_trim_list(nInputFrameCount, -1, m_pTrimParam->list);
-                }
+                rearrange_trim_list(nInputFrameCount, -1, m_trimParam.list);
             } else {
                 bCheckPtsMultipleOutput = false;
                 qDecodeFrames.pop_front();
@@ -4075,9 +4063,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     //間引きが必要 -> フレームを後段に渡さず破棄
                     queueFirstFrame.pSurface->Data.Locked--;
                     pSurfCheckPts = nullptr;
-                    if (m_pTrimParam) {
-                        rearrange_trim_list(nInputFrameCount, 1, m_pTrimParam->list);
-                    }
+                    rearrange_trim_list(nInputFrameCount, 1, m_trimParam.list);
                     return MFX_ERR_MORE_SURFACE;
                 }
             }
@@ -4318,7 +4304,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     break;
             }
 
-            if (check_trim())
+            if (!frame_inside_range(nInputFrameCount, m_trimParam.list))
                 continue;
 
             sts = check_pts();
@@ -4421,7 +4407,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfVppIn = pNextFrame;
             }
 
-            if (check_trim())
+            if (!frame_inside_range(nInputFrameCount, m_trimParam.list))
                 continue;
 
             sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
@@ -4833,17 +4819,17 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         free(vpp_mes);
         VppExtMes.clear();
     }
-    if (m_pTrimParam != NULL && m_pTrimParam->list.size()
-        && !(m_pTrimParam->list[0].start == 0 && m_pTrimParam->list[0].fin == TRIM_MAX)) {
+    if (m_trimParam.list.size()
+        && !(m_trimParam.list[0].start == 0 && m_trimParam.list[0].fin == TRIM_MAX)) {
         PRINT_INFO(_T("%s"), _T("Trim           "));
-        for (auto trim : m_pTrimParam->list) {
+        for (auto trim : m_trimParam.list) {
             if (trim.fin == TRIM_MAX) {
-                PRINT_INFO(_T("%d-fin "), trim.start + m_pTrimParam->offset);
+                PRINT_INFO(_T("%d-fin "), trim.start + m_trimParam.offset);
             } else {
-                PRINT_INFO(_T("%d-%d "), trim.start + m_pTrimParam->offset, trim.fin + m_pTrimParam->offset);
+                PRINT_INFO(_T("%d-%d "), trim.start + m_trimParam.offset, trim.fin + m_trimParam.offset);
             }
         }
-        PRINT_INFO(_T("[offset: %d]\n"), m_pTrimParam->offset);
+        PRINT_INFO(_T("[offset: %d]\n"), m_trimParam.offset);
     }
     PRINT_INFO(_T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     if (m_pmfxENC) {
