@@ -2245,6 +2245,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->CodecId == MFX_CODEC_RAW) {
         pParams->nAVMux &= ~RGY_MUX_VIDEO;
     }
+    bool audioCopyAll = false;
     if (pParams->nAVMux & RGY_MUX_VIDEO) {
         if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
             PrintMes(RGY_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
@@ -2292,12 +2293,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
             PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
             pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-            bool copyAll = false;
-            for (int i = 0; !copyAll && i < pParams->nAudioSelectCount; i++) {
+            for (int i = 0; !audioCopyAll && i < pParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
-                copyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
+                audioCopyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
             }
-            PrintMes(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (copyAll) ? _T("true") : _T("false"));
+            PrintMes(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (audioCopyAll) ? _T("true") : _T("false"));
             vector<AVDemuxStream> streamList;
             if (pAVCodecReader) {
                 streamList = pAVCodecReader->GetInputStreamInfo();
@@ -2334,14 +2334,14 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                         }
                     }
                 }
-                if (pAudioSelect != nullptr || copyAll || bStreamIsSubtitle) {
+                if (pAudioSelect != nullptr || audioCopyAll || bStreamIsSubtitle) {
                     streamTrackUsed.push_back(stream.nTrackId);
                     if (bStreamIsSubtitle && pParams->vpp.subburn.nTrack != 0) {
                         continue;
                     }
                     AVOutputStreamPrm prm;
                     prm.src = stream;
-                    //pAudioSelect == nullptrは "copyAll" か 字幕ストリーム によるもの
+                    //pAudioSelect == nullptrは "copyAllStreams" か 字幕ストリーム によるもの
                     prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
                     prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
                     prm.pEncodeCodec = (pAudioSelect == nullptr) ? RGY_AVCODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
@@ -2398,14 +2398,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     } //ENABLE_AVSW_READER
 
     //音声の抽出
-    if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount > (int)streamTrackUsed.size()) {
+    if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if ((pParams->nInputFmt != RGY_INPUT_FMT_AVHW
-            && pParams->nInputFmt != RGY_INPUT_FMT_AVSW
-            && pParams->nInputFmt != RGY_INPUT_FMT_AVANY)
-            || pAVCodecReader == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avqsv reader).\n"));
+        if (pAVCodecReader == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avhw/avsw reader).\n"));
             return MFX_ERR_UNSUPPORTED;
         } else {
             auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
