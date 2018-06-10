@@ -1089,7 +1089,7 @@ function showTable(idno) {
                 print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
             }
         } else {
-            const auto codec_feature_list = (for_auo) ? MakeFeatureListStr(0 == impl_type, type, make_vector(CODEC_LIST_AUO)) : MakeFeatureListStr(0 == impl_type, type);
+            const auto codec_feature_list = (for_auo) ? MakeFeatureListStr(type, make_vector(CODEC_LIST_AUO)) : MakeFeatureListStr(type);
             if (codec_feature_list.size() == 0) {
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
                     print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b><br>") : _T("<b>QSV unavailable.</b><br>"), false);
@@ -1157,7 +1157,7 @@ function showTable(idno) {
                 }
                 if (!for_auo) {
                     const auto vppHeader = tstring((bUseJapanese) ? _T("利用可能なVPP") : _T("Supported Vpp features:\n"));
-                    const auto vppFeatures = MakeVppFeatureStr(0 == impl_type, type);
+                    const auto vppFeatures = MakeVppFeatureStr(type);
                     if (type == FEATURE_LIST_STR_TYPE_HTML) {
                         tstring str;
                         str += strsprintf(_T("<div class=table_block id=\"TableOpen%d\">\n"), i);
@@ -1179,7 +1179,7 @@ function showTable(idno) {
                     i++;
 
                     const auto decHeader = tstring((bUseJapanese) ? _T("利用可能なHWデコーダ") : _T("Supported Decode features:\n"));
-                    const auto decFeatures = MakeDecFeatureStr(0 == impl_type, type);
+                    const auto decFeatures = MakeDecFeatureStr(type);
                     if (type == FEATURE_LIST_STR_TYPE_HTML) {
                         tstring str;
                         str += strsprintf(_T("<div class=table_block id=\"TableOpen%d\">\n"), i);

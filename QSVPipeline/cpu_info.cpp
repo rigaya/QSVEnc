@@ -256,7 +256,7 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-const int LOOP_COUNT = 5000;
+const int LOOP_COUNT = 4000;
 const int CLOCKS_FOR_2_INSTRUCTION = 2;
 const int COUNT_OF_REPEAT = 4; //以下のようにCOUNT_OF_REPEAT分マクロ展開する
 #define REPEAT4(instruction) \
@@ -312,7 +312,7 @@ static void getCPUClockMaxSubFunc(uint64_t *ret, int thread_id, THREAD_WAKE *thr
     uint64_t result = ULLONG_MAX;
 
     for (int j = 0; j < 4; j++) {
-        for (int i = 0; i < 800; i++) {
+        for (int i = 0; i < 400; i++) {
             //連続で大量に行うことでTurboBoostを働かせる
             //何回か行って最速値を使用する
             result = (std::min)(result, repeatFunc(&test));

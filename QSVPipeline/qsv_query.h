@@ -282,24 +282,21 @@ enum FeatureListStrType {
 };
 
 mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
-mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
-mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId);
-vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
+mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
+vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 
 tstring MakeFeatureListStr(mfxU64 feature);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType outputType);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType outputType, const vector<mfxU32>& codecIdList);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType, const vector<mfxU32>& codecIdList);
 
 mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver);
-mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver);
-tstring MakeVppFeatureStr(bool hardware);
-tstring MakeVppFeatureStr(bool hardware, FeatureListStrType outputType);
+mfxU64 CheckVppFeatures(mfxVersion ver);
+tstring MakeVppFeatureStr(FeatureListStrType outputType);
 
-std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxU32 codecId);
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId);
-CodecCsp MakeDecodeFeatureList(bool hardware, mfxVersion ver, const vector<mfxU32>& codecIdList);
-tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type);
+CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<mfxU32>& codecIdList);
+tstring MakeDecFeatureStr(FeatureListStrType type);
 CodecCsp getHWDecCodecCsp();
 
 #endif //_QSV_QUERY_H_

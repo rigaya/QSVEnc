@@ -30,6 +30,7 @@
 #include <numeric>
 #include <memory>
 #include <sstream>
+#include <future>
 #include <algorithm>
 #include <type_traits>
 #if (_MSC_VER >= 1800)
@@ -615,7 +616,7 @@ mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver) {
     return feature;
 }
 
-mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
+mfxU64 CheckVppFeatures(mfxVersion ver) {
     mfxU64 feature = 0x00;
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
         //API v1.3未満で実際にチェックする必要は殆ど無いので、
@@ -626,9 +627,9 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
         feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
         feature |= VPP_FEATURE_PROC_AMP;
     } else {
-        MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
+        MemType memType = HW_MEMORY;
         MFXVideoSession session;
-        if (InitSession(session, hardware, memType) == MFX_ERR_NONE) {
+        if (InitSession(session, true, memType) == MFX_ERR_NONE) {
             if (auto hwdevice = InitHWDevice(session, memType)) {
                 feature = CheckVppFeaturesInternal(session, ver);
             }
@@ -637,45 +638,6 @@ mfxU64 CheckVppFeatures(bool hardware, mfxVersion ver) {
     }
 
     return feature;
-}
-
-std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxVersion ver, mfxU32 codecId) {
-    std::vector<RGY_CSP> supportedCsp;
-    //暫定的に、sw libのチェックを無効化する
-    if (!hardware) {
-        return supportedCsp;
-    }
-    switch (codecId) {
-    case MFX_CODEC_HEVC:
-        if (!check_lib_version(ver, MFX_LIB_VERSION_1_8)) {
-            return supportedCsp;
-        }
-        break;
-    case MFX_CODEC_VP8:
-    case MFX_CODEC_VP9:
-    case MFX_CODEC_JPEG:
-        if (!check_lib_version(ver, MFX_LIB_VERSION_1_13)) {
-            return supportedCsp;
-        }
-        break;
-    default:
-        break;
-    }
-
-    MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
-    MFXVideoSession session;
-    if (InitSession(session, hardware, memType) == MFX_ERR_NONE) {
-        if (auto hwdevice = InitHWDevice(session, memType)) {
-            supportedCsp = CheckDecFeaturesInternal(session, ver, codecId);
-        }
-    }
-
-    return supportedCsp;
-}
-
-std::vector<RGY_CSP> CheckDecodeFeature(bool hardware, mfxU32 codecId) {
-    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-    return CheckDecodeFeature(hardware, ver, codecId);
 }
 
 mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
@@ -1062,12 +1024,8 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol, mf
     return feature;
 }
 
-mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId) {
+mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId) {
     mfxU64 feature = 0x00;
-    //暫定的に、sw libのチェックを無効化する
-    if (!hardware) {
-        return feature;
-    }
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_0)) {
         ; //特にすることはない
     } else if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
@@ -1075,32 +1033,20 @@ mfxU64 CheckEncodeFeature(bool hardware, mfxVersion ver, mfxU16 ratecontrol, mfx
         //コードで決められた値を返すようにする
         feature = CheckEncodeFeatureStatic(ver, ratecontrol, codecId);
     } else {
-        MemType memType = (hardware) ? HW_MEMORY : SYSTEM_MEMORY;
-        MFXVideoSession session;
-        if (InitSession(session, hardware, memType) == MFX_ERR_NONE) {
-            if (auto hwdevice = InitHWDevice(session, memType)) {
 
-                CSessionPlugins sessionPlugins(session);
-                if (codecId == MFX_CODEC_HEVC) {
-                    sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1);
-                } else if (codecId == MFX_CODEC_VP8) {
-                    sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1);
-                } else if (codecId == MFX_CODEC_VP9) {
-                    sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
-                }
-                feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
-                sessionPlugins.UnloadPlugins();
-            }
+        CSessionPlugins sessionPlugins(session);
+        if (codecId == MFX_CODEC_HEVC) {
+            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1);
+        } else if (codecId == MFX_CODEC_VP8) {
+            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1);
+        } else if (codecId == MFX_CODEC_VP9) {
+            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
         }
+        feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
+        sessionPlugins.UnloadPlugins();
     }
 
     return feature;
-}
-
-
-mfxU64 CheckEncodeFeature(bool hardware, mfxU16 ratecontrol, mfxU32 codecId) {
-    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-    return CheckEncodeFeature(hardware, ver, ratecontrol, codecId);
 }
 
 const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
@@ -1110,42 +1056,78 @@ const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
     return NULL;
 }
 
-vector<mfxU64> MakeFeatureList(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId) {
+vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId) {
     vector<mfxU64> availableFeatureForEachRC;
     availableFeatureForEachRC.reserve(rateControlList.size());
-    for (const auto& ratecontrol : rateControlList) {
-        mfxU64 ret = CheckEncodeFeature(hardware, ver, (mfxU16)ratecontrol.value, codecId);
-        if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
-            ver = MFX_LIB_VERSION_0_0;
+
+    MemType memType = HW_MEMORY;
+    MFXVideoSession session;
+    if (InitSession(session, true, memType) == MFX_ERR_NONE) {
+        if (auto hwdevice = InitHWDevice(session, memType)) {
+            for (const auto& ratecontrol : rateControlList) {
+                mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, ver, (mfxU16)ratecontrol.value, codecId);
+                if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
+                    ver = MFX_LIB_VERSION_0_0;
+                }
+                availableFeatureForEachRC.push_back(ret);
+            }
         }
-        availableFeatureForEachRC.push_back(ret);
     }
     return std::move(availableFeatureForEachRC);
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
     vector<vector<mfxU64>> codecFeatures;
+    vector<std::future<vector<mfxU64>>> futures;
     for (auto codec : codecIdList) {
-        codecFeatures.push_back(MakeFeatureList(hardware, ver, rateControlList, codec));
+        auto f = std::async(MakeFeatureList, ver, rateControlList, codec);
+        futures.push_back(std::move(f));
+    }
+    for (int i = 0; i < futures.size(); i++) {
+        codecFeatures.push_back(futures[i].get());
     }
     return std::move(codecFeatures);
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(bool hardware, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
-    vector<vector<mfxU64>> codecFeatures;
-    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-    for (auto codec : codecIdList) {
-        codecFeatures.push_back(MakeFeatureList(hardware, ver, rateControlList, codec));
-    }
-    return std::move(codecFeatures);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+    mfxVersion ver = get_mfx_libhw_version();
+    return MakeFeatureListPerCodec(ver, rateControlList, codecIdList);
 }
 
-CodecCsp MakeDecodeFeatureList(bool hardware, mfxVersion ver, const vector<RGY_CODEC>& codecIdList) {
+std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver, mfxU32 codecId) {
+    std::vector<RGY_CSP> supportedCsp;
+    switch (codecId) {
+    case MFX_CODEC_HEVC:
+        if (!check_lib_version(ver, MFX_LIB_VERSION_1_8)) {
+            return supportedCsp;
+        }
+        break;
+    case MFX_CODEC_VP8:
+    case MFX_CODEC_VP9:
+    case MFX_CODEC_JPEG:
+        if (!check_lib_version(ver, MFX_LIB_VERSION_1_13)) {
+            return supportedCsp;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return CheckDecFeaturesInternal(session, ver, codecId);
+}
+
+CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdList) {
     CodecCsp codecFeatures;
-    for (auto codec : codecIdList) {
-        auto features = CheckDecodeFeature(hardware, ver, codec_rgy_to_enc(codec));
-        if (features.size() > 0) {
-            codecFeatures[codec] = features;
+    MFXVideoSession session;
+    MemType memtype = HW_MEMORY;
+    if (InitSession(session, true, memtype) == MFX_ERR_NONE) {
+        if (auto hwdevice = InitHWDevice(session, memtype)) {
+            for (auto codec : codecIdList) {
+                auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
+                if (features.size() > 0) {
+                    codecFeatures[codec] = features;
+                }
+            }
         }
     }
     return std::move(codecFeatures);
@@ -1165,8 +1147,8 @@ tstring MakeFeatureListStr(mfxU64 feature) {
     return str;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType type, const vector<mfxU32>& codecLists) {
-    auto featurePerCodec = MakeFeatureListPerCodec(hardware, make_vector(list_rate_control_ry), codecLists);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type, const vector<mfxU32>& codecLists) {
+    auto featurePerCodec = MakeFeatureListPerCodec(make_vector(list_rate_control_ry), codecLists);
     
     vector<std::pair<vector<mfxU64>, tstring>> strPerCodec;
     
@@ -1253,14 +1235,14 @@ vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, Fea
     return strPerCodec;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(bool hardware, FeatureListStrType type) {
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8, MFX_CODEC_VP9 };
-    return MakeFeatureListStr(hardware, type, codecLists);
+    return MakeFeatureListStr(type, codecLists);
 }
 
-tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {
-    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
-    uint64_t features = CheckVppFeatures(hardware, ver);
+tstring MakeVppFeatureStr(FeatureListStrType type) {
+    mfxVersion ver = get_mfx_libhw_version();
+    uint64_t features = CheckVppFeatures(ver);
     const TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
     tstring str;
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
@@ -1295,14 +1277,14 @@ tstring MakeVppFeatureStr(bool hardware, FeatureListStrType type) {
     return str;
 }
 
-tstring MakeDecFeatureStr(bool hardware, FeatureListStrType type) {
+tstring MakeDecFeatureStr(FeatureListStrType type) {
 #if ENABLE_AVSW_READER
-    mfxVersion ver = (hardware) ? get_mfx_libhw_version() : get_mfx_libsw_version();
+    mfxVersion ver = get_mfx_libhw_version();
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    auto decodeCodecCsp = MakeDecodeFeatureList(hardware, ver, codecLists);
+    auto decodeCodecCsp = MakeDecodeFeatureList(ver, codecLists);
 
     enum : uint32_t {
         DEC_FEATURE_HW    = 0x00000001,
@@ -1419,7 +1401,7 @@ CodecCsp getHWDecCodecCsp() {
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    return MakeDecodeFeatureList(true, get_mfx_libhw_version(), codecLists);
+    return MakeDecodeFeatureList(get_mfx_libhw_version(), codecLists);
 #else
     return CodecCsp();
 #endif
