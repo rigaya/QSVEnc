@@ -1041,7 +1041,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
          pInParams->ColorMatrix != list_colormatrix[0].value ||
          pInParams->bFullrange
         ) ) {
-#define GET_COLOR_PRM(v, list) (mfxU16)((v == MFX_COLOR_VALUE_AUTO) ? ((pInParams->nDstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
+#define GET_COLOR_PRM(v, list) (mfxU16)((v == COLOR_VALUE_AUTO) ? ((pInParams->nDstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
             //色設定 (for API v1.3)
             CHECK_RANGE_LIST(pInParams->VideoFormat,    list_videoformat, "videoformat");
             CHECK_RANGE_LIST(pInParams->ColorPrim,      list_colorprim,   "colorprim");
