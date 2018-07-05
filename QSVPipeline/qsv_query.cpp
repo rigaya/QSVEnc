@@ -1083,7 +1083,7 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_D
         auto f = std::async(MakeFeatureList, ver, rateControlList, codec);
         futures.push_back(std::move(f));
     }
-    for (int i = 0; i < futures.size(); i++) {
+    for (uint32_t i = 0; i < futures.size(); i++) {
         codecFeatures.push_back(futures[i].get());
     }
     return std::move(codecFeatures);
