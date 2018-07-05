@@ -1287,6 +1287,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
                 m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DEINTERLACING);
             }
 #endif
+            m_mfxVppParams.vpp.Out.PicStruct = MFX_PICSTRUCT_PROGRESSIVE;
             VppExtMes += _T("Deinterlace (");
             VppExtMes += get_chr_from_value(list_deinterlace, pInParams->vpp.nDeinterlace);
             if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
