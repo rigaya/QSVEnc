@@ -2346,10 +2346,12 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
                     prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
                     prm.pEncodeCodec = (pAudioSelect == nullptr) ? RGY_AVCODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
+                    prm.pEncodeCodecPrm = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAVAudioEncodeCodecPrm;
                     prm.pFilter = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAudioFilter;
-                    PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s\n"),
+                    PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
-                        stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec);
+                        stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec,
+                        prm.pEncodeCodecPrm ? prm.pEncodeCodecPrm : _T(""));
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }

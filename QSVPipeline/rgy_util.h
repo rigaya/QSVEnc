@@ -993,6 +993,7 @@ static bool isSplitChannelAuto(uint64_t(&pnStreamChannels)[size]) {
 typedef struct sAudioSelect {
     int    nAudioSelect;          //選択した音声トラックのリスト 1,2,...(1から連番で指定)
     TCHAR *pAVAudioEncodeCodec;   //音声エンコードのコーデック
+    TCHAR *pAVAudioEncodeCodecPrm;   //音声エンコードのコーデックのパラメータ
     int    nAVAudioEncodeBitrate; //音声エンコードに選択した音声トラックのビットレート
     int    nAudioSamplingRate;    //サンプリング周波数
     TCHAR *pAudioExtractFilename; //抽出する音声のファイル名のリスト
