@@ -163,8 +163,8 @@ void error_x264_dead() {
 
 void error_x264_version() {
     write_log_line(LOG_ERROR, ""
-        "auo [error]: x264のバージョンが古く、エンコードできません。\n"
-        "             最新のx264をダウンロードし、設定画面で最新版に指定しなおしてください。");
+        "auo [error]: QSVEncCのバージョンが古く、エンコードできません。\n"
+        "             最新のQSVEncCをダウンロードし、設定画面で最新版に指定しなおしてください。");
 }
 
 void error_afs_get_frame() {
