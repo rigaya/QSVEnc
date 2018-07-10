@@ -707,8 +707,9 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
             return RGY_ERR_UNKNOWN;
         }
         AVDictionary *bsfPrm = nullptr;
+        unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
         char sar[128];
-        sprintf(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
+        sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
         av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
         AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1], bsf_name);
         if (0 > (ret = av_opt_set_dict2(m_Mux.video.pBsfc, &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
@@ -1775,6 +1776,7 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *pBitstream) {
     //mp4のmajor_brandをisonからmp42に変更
     //これはmetadataではなく、avformat_write_headerのoptionsに渡す
     //この差ははっきり言って謎
+    unique_ptr<AVDictionary*, decltype(&av_dict_free)> headerOptDeleter(&m_Mux.format.pHeaderOptions, av_dict_free);
     if (m_Mux.video.pStreamOut) {
         if (   0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")
             || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mov")) {
@@ -1791,18 +1793,16 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *pBitstream) {
     int ret = 0;
     if (0 > (ret = avformat_write_header(m_Mux.format.pFormatCtx, &m_Mux.format.pHeaderOptions))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to write header for output file: %s\n"), qsv_av_err2str(ret).c_str());
-        if (m_Mux.format.pHeaderOptions) av_dict_free(&m_Mux.format.pHeaderOptions);
         m_Mux.format.bStreamError = true;
         return RGY_ERR_UNKNOWN;
     }
     //不正なオプションを渡していないかチェック
     for (const AVDictionaryEntry *t = NULL; NULL != (t = av_dict_get(m_Mux.format.pHeaderOptions, "", t, AV_DICT_IGNORE_SUFFIX));) {
-        AddMessage(RGY_LOG_ERROR, _T("Unknown option to muxer: ") + char_to_tstring(t->key) + _T("\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Unknown option to muxer: %s=%s\n"),
+            char_to_tstring(t->key).c_str(),
+            char_to_tstring(t->value).c_str());
         m_Mux.format.bStreamError = true;
         return RGY_ERR_INVALID_PARAM;
-    }
-    if (m_Mux.format.pHeaderOptions) {
-        av_dict_free(&m_Mux.format.pHeaderOptions);
     }
 
     av_dump_format(m_Mux.format.pFormatCtx, 0, m_Mux.format.pFormatCtx->filename, 1);
