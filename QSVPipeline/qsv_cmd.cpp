@@ -2484,6 +2484,14 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0
+            && pAudioSelect->pAVAudioEncodeCodecProfile != nullptr) {
+            cmd << _T(" --audio-profile ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAVAudioEncodeCodecProfile;
+        }
+    }
+
+    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
             cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
         }
