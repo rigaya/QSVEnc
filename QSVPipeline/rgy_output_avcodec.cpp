@@ -2124,7 +2124,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
         //確保したメモリ領域を使いまわすためにキューに格納
         const auto frameI = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
         auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
-        auto queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
+        const size_t queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
         if (qVideoQueueFree.size() > queueFavoredSize) {
             //あまり多すぎると無駄にメモリを使用するので減らす
             pBitstream->clear();
