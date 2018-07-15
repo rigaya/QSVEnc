@@ -622,7 +622,7 @@ const CX_DESC list_colorprim[] = {
     { _T("smpte240m"), 7  },
     { _T("film"),      8  },
     { _T("bt2020"),    9  },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_transfer[] = {
     { _T("undef"),         2  },
@@ -643,7 +643,7 @@ const CX_DESC list_transfer[] = {
     { _T("smpte2084"),     16 },
     { _T("smpte428"),      17 },
     { _T("arib-srd-b67"),  18 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_colormatrix[] = {
     { _T("undef"),     2  },
@@ -657,7 +657,7 @@ const CX_DESC list_colormatrix[] = {
     { _T("GBR"),       0  },
     { _T("bt2020nc"),  9  },
     { _T("bt2020c"),   10 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 const CX_DESC list_videoformat[] = {
     { _T("undef"),     5  },
@@ -666,7 +666,7 @@ const CX_DESC list_videoformat[] = {
     { _T("pal"),       1  },
     { _T("secam"),     3  },
     { _T("mac"),       4  },
-    { NULL, NULL } 
+    { NULL, 0 }
 };
 const CX_DESC list_chromaloc[] = {
     { _T("0"), 0 },
@@ -675,7 +675,7 @@ const CX_DESC list_chromaloc[] = {
     { _T("3"), 3 },
     { _T("4"), 4 },
     { _T("5"), 5 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_interlaced[] = {
