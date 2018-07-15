@@ -308,7 +308,8 @@ struct sInputParams
     int        hevc_ctu;
     int        hevc_sao;
     int        hevc_tskip;
-    int8_t     Reserved[988];
+    int        hevc_tier;
+    int8_t     Reserved[984];
 
     TCHAR strSrcFile[MAX_FILENAME_LEN];
     TCHAR strDstFile[MAX_FILENAME_LEN];
@@ -362,6 +363,12 @@ const CX_DESC list_hevc_profile[] = {
     { _T("main"),     MFX_PROFILE_HEVC_MAIN   },
     { _T("main10"),   MFX_PROFILE_HEVC_MAIN10 },
     //{ _T("mainsp"),   MFX_PROFILE_HEVC_MAINSP },
+    { NULL, 0 }
+};
+
+const CX_DESC list_hevc_tier[] = {
+    { _T("main"),   MFX_TIER_HEVC_MAIN },
+    { _T("high"),   MFX_TIER_HEVC_HIGH },
     { NULL, 0 }
 };
 

@@ -503,6 +503,9 @@ static tstring help() {
           { _T("HEVC"),  list_hevc_profile,  0 },
           { _T("MPEG2"), list_mpeg2_profile, 0 }
         });
+    str += PrintMultipleListOptions(_T("--tier <string>"), _T("set codec tier"),
+        { { _T("HEVC"),  list_hevc_tier,  0 },
+        });
 
     str += strsprintf(_T("\n")
         _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")

@@ -128,7 +128,7 @@ static int getFreeAudioTrack(const sInputParams* pParams) {
 
 struct sArgsData {
     int outputDepth = 8;
-    tstring cachedlevel, cachedprofile;
+    tstring cachedlevel, cachedprofile, cachedtier;
     uint32_t nParsedAudioFile = 0;
     uint32_t nParsedAudioEncode = 0;
     uint32_t nParsedAudioCopy = 0;
@@ -797,6 +797,16 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (i+1 < nArgNum) {
             i++;
             argData->cachedprofile = strInput[i];
+        } else {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("tier"))) {
+        if (i+1 < nArgNum) {
+            i++;
+            argData->cachedtier = strInput[i];
         } else {
             SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
             return 1;
@@ -2092,6 +2102,15 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
             && argsData.outputDepth == 10
             && (pParams->CodecProfile == 0 || pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN)) {
             pParams->CodecProfile = MFX_PROFILE_HEVC_MAIN10;
+        }
+    }
+    if (argsData.cachedtier.length() > 0 && pParams->CodecId == MFX_CODEC_HEVC) {
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_tier, argsData.cachedtier.c_str()))) {
+            pParams->hevc_tier = value;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), _T("level"), nullptr);
+            return 1;
         }
     }
 

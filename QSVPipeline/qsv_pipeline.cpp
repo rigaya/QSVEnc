@@ -942,6 +942,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption2);
     }
 
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+        if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+            if (pInParams->hevc_tier != 0) {
+                m_mfxEncParams.mfx.CodecLevel |= (mfxU16)pInParams->hevc_tier;
+            }
+        }
+    }
+
     //API v1.11の機能
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
         INIT_MFX_EXT_BUFFER(m_CodingOption3, MFX_EXTBUFF_CODING_OPTION3);
@@ -4837,7 +4845,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     if (m_pmfxENC) {
         PRINT_INFO(_T("Output         %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId),
             get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
-            get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel)].desc);
+            get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel & 0xff)].desc);
     }
     PRINT_INFO(_T("%s         %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
         (m_pmfxENC) ? _T("      ") : _T("Output"),
