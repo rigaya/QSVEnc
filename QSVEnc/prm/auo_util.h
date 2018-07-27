@@ -57,7 +57,7 @@ enum : DWORD {
     CODE_PAGE_JIS         = 50220,
     CODE_PAGE_EUC_JP      = 51932,
     CODE_PAGE_UTF8        = CP_UTF8,
-    CODE_PAGE_UTF16_LE    = CP_WINUNICODE, //WindowsのUnicode WCHAR のコードページ
+    CODE_PAGE_UTF16_LE    = 1200, //WindowsのUnicode WCHAR のコードページ
     CODE_PAGE_UTF16_BE    = 1201,
     CODE_PAGE_US_ASCII    = 20127,
     CODE_PAGE_WEST_EUROPE = 1252,  //厄介な西ヨーロッパ言語

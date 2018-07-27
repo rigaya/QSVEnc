@@ -30,10 +30,6 @@
 
 #include "rgy_tchar.h"
 #include <emmintrin.h>
-#if defined(_WIN32) || defined(_WIN64)
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
-#endif
 #include <vector>
 #include <array>
 #include <utility>
@@ -42,6 +38,10 @@
 #include <memory>
 #include <type_traits>
 #include "rgy_osdep.h"
+#if defined(_WIN32) || defined(_WIN64)
+#include <shlwapi.h>
+#pragma comment(lib, "shlwapi.lib")
+#endif
 #include "mfxstructures.h"
 #include "mfxcommon.h"
 #include "mfxsession.h"

@@ -25,14 +25,17 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#include "rgy_osdep.h"
 #include <string.h>
 #include <stdio.h>
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <sstream>
-#include <iomanip> 
+#include <iomanip>
+#include <algorithm>
 #include "auo_util.h"
 #include "auo_conf.h"
-#include "rgy_osdep.h"
 #include "qsv_pipeline.h"
 #include "qsv_query.h"
 #include "rgy_version.h"
@@ -325,7 +328,7 @@ void *guiEx_config::convert_qsvstgv1_to_stgv3(void *_conf, int size) {
     for (int i = 0; i < ((CONF_GUIEX_OLD_V5 *)_conf)->block_count; ++i) {
         BYTE *filedat = (BYTE *)_conf + ((CONF_GUIEX_OLD_V5 *)_conf)->block_head_p[i];
         BYTE *dst = (BYTE *)conf + conf_block_pointer_old5[i];
-        memcpy(dst, filedat, min(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
+        memcpy(dst, filedat, std::min<int>(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
     }
 
     conf->qsv.nBitRate = conf->qsv.__nBitRate;
@@ -347,7 +350,7 @@ void *guiEx_config::convert_qsvstgv2_to_stgv3(void *_conf) {
     for (int i = 0; i < ((CONF_GUIEX_OLD_V5 *)_conf)->block_count; ++i) {
         BYTE *filedat = (BYTE *)_conf + ((CONF_GUIEX_OLD_V5 *)_conf)->block_head_p[i];
         BYTE *dst = (BYTE *)conf + conf_block_pointer_old5[i];
-        memcpy(dst, filedat, min(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
+        memcpy(dst, filedat, std::min<int>(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
     }
 
     static const DWORD OLD_FLAG_AFTER  = 0x01;
@@ -380,7 +383,7 @@ void *guiEx_config::convert_qsvstgv3_to_stgv4(void *_conf) {
     for (int i = 0; i < ((CONF_GUIEX_OLD_V5 *)_conf)->block_count; ++i) {
         BYTE *filedat = (BYTE *)_conf + ((CONF_GUIEX_OLD_V5 *)_conf)->block_head_p[i];
         BYTE *dst = (BYTE *)conf + conf_block_pointer_old5[i];
-        memcpy(dst, filedat, min(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
+        memcpy(dst, filedat, std::min<int>(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
     }
     if (conf->qsv.nOutputBufSizeMB == 0) {
         conf->qsv.nOutputBufSizeMB = QSV_DEFAULT_OUTPUT_BUF_MB;
@@ -400,7 +403,7 @@ void *guiEx_config::convert_qsvstgv4_to_stgv5(void *_conf) {
     for (int i = 0; i < ((CONF_GUIEX_OLD_V5 *)_conf)->block_count; ++i) {
         BYTE *filedat = (BYTE *)_conf + ((CONF_GUIEX_OLD_V5 *)_conf)->block_head_p[i];
         BYTE *dst = (BYTE *)conf + conf_block_pointer_old5[i];
-        memcpy(dst, filedat, min(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
+        memcpy(dst, filedat, std::min<int>(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
     }
     if (conf->qsv.nOutputThread == 0) {
         conf->qsv.nOutputThread = RGY_OUTPUT_THREAD_AUTO;
@@ -423,14 +426,14 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     for (int i = 0; i < ((CONF_GUIEX_OLD_V5 *)_conf)->block_count; ++i) {
         BYTE *filedat = (BYTE *)_conf + ((CONF_GUIEX_OLD_V5 *)_conf)->block_head_p[i];
         BYTE *dst = (BYTE *)conf_old + conf_block_pointer_old5[i];
-        memcpy(dst, filedat, min(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
+        memcpy(dst, filedat, std::min<int>(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
     }
 
     CONF_GUIEX *conf = (CONF_GUIEX *)calloc(sizeof(CONF_GUIEX), 1);
     write_conf_header(conf);
 
     //まずそのままコピーするブロックはそうする
-#define COPY_BLOCK(block, block_idx) { memcpy(&conf->block, ((BYTE *)conf_old) + conf_old->block_head_p[block_idx], min(sizeof(conf->block), conf_old->block_size[block_idx])); }
+#define COPY_BLOCK(block, block_idx) { memcpy(&conf->block, ((BYTE *)conf_old) + conf_old->block_head_p[block_idx], std::min<int>(sizeof(conf->block), conf_old->block_size[block_idx])); }
     COPY_BLOCK(aud, 2);
     COPY_BLOCK(mux, 3);
     COPY_BLOCK(oth, 4);
