@@ -59,6 +59,7 @@ typedef struct EncodeStatusData {
     uint32_t outputFPSRate;
     uint32_t outputFPSScale;
     uint64_t outFileSize;      //出力ファイルサイズ
+    double   totalDuration;    //入力予定の動画の総時間(s)
     uint32_t frameTotal;       //入力予定の全フレーム数
     uint32_t frameOut;         //出力したフレーム数
     uint32_t frameOutIDR;      //出力したIDRフレーム
@@ -100,13 +101,22 @@ public:
         m_pPerfMonitor.reset();
     }
 
-    virtual void Init(uint32_t outputFPSRate, uint32_t outputFPSScale, uint32_t totalOutputFrames, shared_ptr<RGYLog> pRGYLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
+    virtual void Init(uint32_t outputFPSRate, uint32_t outputFPSScale,
+        uint32_t totalOutputFrames, double totalDuration, const sTrimParam& trim,
+        shared_ptr<RGYLog> pRGYLog, shared_ptr<CPerfMonitor> pPerfMonitor) {
         m_pause = false;
         m_pRGYLog = pRGYLog;
         m_pPerfMonitor = pPerfMonitor;
         m_sData.outputFPSRate = outputFPSRate;
         m_sData.outputFPSScale = outputFPSScale;
         m_sData.frameTotal = totalOutputFrames;
+        m_sData.totalDuration = totalDuration;
+        if (trim.list.size() > 0 && trim.list.back().fin != TRIM_MAX) {
+            //途中終了することになる
+            const auto estFrames = std::max((uint32_t)(m_sData.totalDuration * outputFPSRate / outputFPSScale + 0.5), m_sData.frameTotal);
+            m_sData.frameTotal = std::min<uint32_t>(estFrames, trim.list.back().fin);
+            m_sData.totalDuration = std::min(m_sData.totalDuration, trim.list.back().fin * outputFPSScale / (double)outputFPSRate);
+        }
 #if defined(_WIN32) || defined(_WIN64)
         DWORD mode = 0;
         m_bStdErrWriteToConsole = 0 != GetConsoleMode(GetStdHandle(STD_ERROR_HANDLE), &mode); //stderrの出力先がコンソールかどうか
@@ -157,6 +167,14 @@ public:
         fflush(stderr); //リダイレクトした場合でもすぐ読み取れるようflush
     }
 #pragma warning(pop)
+
+    virtual RGY_ERR UpdateDisplayByCurrentDuration(double currentDuration) {
+        double progressPercent = 0.0;
+        if (m_sData.totalDuration > 0.0) {
+            progressPercent = 100.0 * currentDuration / m_sData.totalDuration;
+        }
+        return UpdateDisplay(progressPercent);
+    }
 
     virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
         if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
@@ -283,50 +301,6 @@ public:
         }
         return RGY_ERR_NONE;
     }
-    virtual void WriteLine(const TCHAR *mes) {
-        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
-            return;
-        }
-        m_pRGYLog->write(RGY_LOG_INFO, _T("%s\n"), mes);
-    }
-    virtual void WriteLineDirect(TCHAR *mes) {
-        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
-            return;
-        }
-        m_pRGYLog->write_log(RGY_LOG_INFO, mes);
-    }
-    void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
-        if (count) {
-            TCHAR mes[512] = { 0 };
-            int mes_len = 0;
-            const int header_len = (int)_tcslen(header);
-            memcpy(mes, header, header_len * sizeof(mes[0]));
-            mes_len += header_len;
-
-            for (int i = (std::max)(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++) {
-                mes[mes_len] = _T(' ');
-            }
-            mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%u"), count);
-
-            if (avgQP >= 0.0) {
-                mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T(",  avgQP  %4.2f"), avgQP);
-            }
-
-            if (frameSize > 0) {
-                const TCHAR *TOTAL_SIZE = _T(",  total size  ");
-                memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
-                mes_len += (int)_tcslen(TOTAL_SIZE);
-
-                for (int i = (std::max)(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++) {
-                    mes[mes_len] = _T(' ');
-                }
-
-                mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%.2f MB"), (double)frameSize / (double)(1024 * 1024));
-            }
-
-            WriteLine(mes);
-        }
-    }
     void WriteResults() {
         auto tm_result = std::chrono::system_clock::now();
         const auto time_elapsed64 = std::chrono::duration_cast<std::chrono::milliseconds>(tm_result - m_tmStart).count();
@@ -416,6 +390,51 @@ public:
 public:
     EncodeStatusData m_sData;
 protected:
+    virtual void WriteLine(const TCHAR *mes) {
+        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+            return;
+        }
+        m_pRGYLog->write(RGY_LOG_INFO, _T("%s\n"), mes);
+    }
+    virtual void WriteLineDirect(TCHAR *mes) {
+        if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
+            return;
+        }
+        m_pRGYLog->write_log(RGY_LOG_INFO, mes);
+    }
+    void WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
+        if (count) {
+            TCHAR mes[512] ={ 0 };
+            int mes_len = 0;
+            const int header_len = (int)_tcslen(header);
+            memcpy(mes, header, header_len * sizeof(mes[0]));
+            mes_len += header_len;
+
+            for (int i = (std::max)(0, (int)log10((double)count)); i < (int)log10((double)maxCount) && mes_len < _countof(mes); i++, mes_len++) {
+                mes[mes_len] = _T(' ');
+            }
+            mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%u"), count);
+
+            if (avgQP >= 0.0) {
+                mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T(",  avgQP  %4.2f"), avgQP);
+            }
+
+            if (frameSize > 0) {
+                const TCHAR *TOTAL_SIZE = _T(",  total size  ");
+                memcpy(mes + mes_len, TOTAL_SIZE, _tcslen(TOTAL_SIZE) * sizeof(mes[0]));
+                mes_len += (int)_tcslen(TOTAL_SIZE);
+
+                for (int i = (std::max)(0, (int)log10((double)frameSize / (double)(1024 * 1024))); i < (int)log10((double)maxFrameSize / (double)(1024 * 1024)) && mes_len < _countof(mes); i++, mes_len++) {
+                    mes[mes_len] = _T(' ');
+                }
+
+                mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%.2f MB"), (double)frameSize / (double)(1024 * 1024));
+            }
+
+            WriteLine(mes);
+        }
+    }
+
     bool m_pause;
     shared_ptr<RGYLog> m_pRGYLog;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;

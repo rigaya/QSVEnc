@@ -1678,6 +1678,10 @@ const AVStream *RGYInputAvcodec::GetInputVideoStream() {
     return m_Demux.video.pStream;
 }
 
+double RGYInputAvcodec::GetInputVideoDuration() {
+    return (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE));
+}
+
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
 //必要ならqStreamPktL2に移し、不要ならパケットを開放する
 void RGYInputAvcodec::CheckAndMoveStreamPacketList() {

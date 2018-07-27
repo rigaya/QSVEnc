@@ -2955,7 +2955,14 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     auto gcd = rgy_gcd(OutputFPSRate, OutputFPSScale);
     OutputFPSRate /= gcd;
     OutputFPSScale /= gcd;
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, m_pQSVLog, m_pPerfMonitor);
+    double inputFileDuration = 0.0;
+#if ENABLE_AVSW_READER
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+    if (pAVCodecReader) {
+        inputFileDuration = pAVCodecReader->GetInputVideoDuration();
+    }
+#endif //#if ENABLE_AVSW_READER
+    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, inputFileDuration, m_trimParam, m_pQSVLog, m_pPerfMonitor);
     PrintMes(RGY_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
         pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
         pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
