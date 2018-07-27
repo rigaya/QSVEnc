@@ -961,7 +961,7 @@ enum {
     RGY_MUX_SUBTITLE = 0x04,
 };
 
-static const uint32_t MAX_SPLIT_CHANNELS = 32;
+static const int MAX_SPLIT_CHANNELS = 32;
 static const uint64_t RGY_CHANNEL_AUTO = UINT64_MAX;
 static const int RGY_OUTPUT_BUF_MB_MAX = 128;
 

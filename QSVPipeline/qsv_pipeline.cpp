@@ -3970,7 +3970,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
             }
             if (pInputBitstream != nullptr) {
-                if (pInputBitstream->TimeStamp == AV_NOPTS_VALUE) {
+                if (pInputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE) {
                     pInputBitstream->TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
                 }
                 pInputBitstream->DecodeTimeStamp = MFX_TIMESTAMP_UNKNOWN;

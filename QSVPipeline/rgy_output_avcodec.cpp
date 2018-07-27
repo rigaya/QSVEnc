@@ -1444,12 +1444,6 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *pVideo
 
     av_log_set_level((m_pPrintMes->getLogLevel() == RGY_LOG_DEBUG) ?  AV_LOG_DEBUG : RGY_AV_LOG_LEVEL);
     av_qsv_log_set(m_pPrintMes);
-    for (const auto& stream : prm->inputStreamList) {
-        if (stream.pFilter) {
-            avfilter_register_all();
-            break;
-        }
-    }
 
     if (prm->pOutputFormat != nullptr) {
         AddMessage(RGY_LOG_DEBUG, _T("output format specified: %s\n"), prm->pOutputFormat);
