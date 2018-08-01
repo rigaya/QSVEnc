@@ -4850,9 +4850,10 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
     PRINT_INFO(_T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     if (m_pmfxENC) {
-        PRINT_INFO(_T("Output         %s  %s @ Level %s\n"), CodecIdToStr(videoPrm.mfx.CodecId),
+        PRINT_INFO(_T("Output         %s %s @ Level %s%s\n"), CodecIdToStr(videoPrm.mfx.CodecId),
             get_profile_list(videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecProfile)].desc,
-            get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel & 0xff)].desc);
+            get_level_list(videoPrm.mfx.CodecId)[get_cx_index(get_level_list(videoPrm.mfx.CodecId), videoPrm.mfx.CodecLevel & 0xff)].desc,
+            (videoPrm.mfx.CodecId == MFX_CODEC_HEVC && (videoPrm.mfx.CodecLevel & MFX_TIER_HEVC_HIGH)) ? _T(" (high tier)") : _T(""));
     }
     PRINT_INFO(_T("%s         %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
         (m_pmfxENC) ? _T("      ") : _T("Output"),
