@@ -157,7 +157,7 @@ public:
         return m_bitstream.Data;
     }
 
-    const uint8_t *data() const {
+    uint8_t *data() const {
         return m_bitstream.Data + m_bitstream.DataOffset;
     }
 
