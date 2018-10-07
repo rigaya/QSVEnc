@@ -973,6 +973,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
         }
         m_strReaderName = (m_Demux.video.nHWDecodeDeviceId >= 0) ? _T("av" DECODER_NAME) : _T("avsw");
         m_inputVideoInfo.type = (m_Demux.video.nHWDecodeDeviceId >= 0) ? RGY_INPUT_FMT_AVHW : RGY_INPUT_FMT_AVSW;
+        //念のため初期化
         m_sTrimParam.list.clear();
         m_sTrimParam.offset = 0;
 
@@ -1937,9 +1938,9 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
     //進捗表示
     double progressPercent = 0.0;
     if (m_Demux.format.pFormatCtx->duration) {
-        progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den) / (m_Demux.format.pFormatCtx->duration * (1.0 / (double)AV_TIME_BASE)) * 100.0;
+        progressPercent = m_Demux.frames.duration() * (m_Demux.video.pStream->time_base.num / (double)m_Demux.video.pStream->time_base.den);
     }
-    return m_pEncSatusInfo->UpdateDisplay(progressPercent);
+    return m_pEncSatusInfo->UpdateDisplayByCurrentDuration(progressPercent);
 }
 #pragma warning(pop)
 
