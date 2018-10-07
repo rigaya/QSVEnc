@@ -729,7 +729,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         memset(pInParams->pQPOffset, 0, sizeof(pInParams->pQPOffset));
         bQPOffsetUsed = false;
     }
-    
+
     if (!(availableFeaures & ENC_FEATURE_VUI_INFO)) {
         if (pInParams->bFullrange) {
             print_feature_warnings(RGY_LOG_WARN, _T("fullrange"));
@@ -994,7 +994,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     if (pInParams->nBluray) {
         if (   m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_CBR
             && m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_VBR
-            && m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_LA) {
+            && m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_LA
+            && m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_LA_HRD) {
                 if (pInParams->nBluray == 1) {
                     PrintMes(RGY_LOG_ERROR, _T("")
                         _T("Current encode mode (%s) is not preferred for Bluray encoding,\n")
@@ -1012,11 +1013,16 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
         if (   m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CBR
             || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_VBR
-            || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA) {
+            || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA
+            || m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_LA_HRD) {
                 m_mfxEncParams.mfx.MaxKbps    = (std::min)(m_mfxEncParams.mfx.MaxKbps, (uint16_t)40000);
                 m_mfxEncParams.mfx.TargetKbps = (std::min)(m_mfxEncParams.mfx.TargetKbps, m_mfxEncParams.mfx.MaxKbps);
-                m_mfxEncParams.mfx.BufferSizeInKB = m_mfxEncParams.mfx.MaxKbps / 8;
-                m_mfxEncParams.mfx.InitialDelayInKB = m_mfxEncParams.mfx.BufferSizeInKB / 2;
+                if (m_mfxEncParams.mfx.BufferSizeInKB == 0) {
+                    m_mfxEncParams.mfx.BufferSizeInKB = m_mfxEncParams.mfx.MaxKbps / 8;
+                }
+                if (m_mfxEncParams.mfx.InitialDelayInKB == 0) {
+                    m_mfxEncParams.mfx.InitialDelayInKB = m_mfxEncParams.mfx.BufferSizeInKB / 2;
+                }
         } else {
             m_mfxEncParams.mfx.BufferSizeInKB = 25000 / 8;
         }
@@ -1325,11 +1331,11 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     m_mfxVppParams.vpp.Out.Width = (mfxU16)ALIGN(pInParams->nDstWidth, blocksz);
     m_mfxVppParams.vpp.Out.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.Out.PicStruct)?
         ALIGN(pInParams->nDstHeight, blocksz) : ALIGN(pInParams->nDstHeight, blocksz));
-    
+
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
         && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
             || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC)) {
-        
+
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         m_ExtVppVSI.In.NominalRange    = MFX_NOMINALRANGE_0_255;
         m_ExtVppVSI.In.TransferMatrix  = MFX_TRANSFERMATRIX_UNKNOWN;
@@ -1432,7 +1438,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         INIT_MFX_EXT_BUFFER(m_ExtImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
         m_ExtImageStab.Mode = pParams->vpp.nImageStabilizer;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtImageStab);
-        
+
         vppExtAddMes(strsprintf(_T("Stabilizer, mode %s\n"), get_vpp_image_stab_mode_str(m_ExtImageStab.Mode)));
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
     }
@@ -1622,7 +1628,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     }
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
     PrintMes(RGY_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
-    
+
 #elif LIBVA_SUPPORT
     m_hwdev.reset(CreateVAAPIDevice());
     if (!m_hwdev) {
@@ -1669,7 +1675,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         RGY_MEMSET_ZERO(filter->m_PluginResponse);
     }
     RGY_MEMSET_ZERO(NextRequest);
-    
+
     PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
 
     //各要素が要求するフレーム数を調べる
@@ -1712,7 +1718,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
     //m_nAsyncDepthを考慮して、vppの入力用のフレーム数を決める
     nVppSurfNum = VppRequest[0].NumFrameSuggested + m_nAsyncDepth;
-    
+
     PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: nInputSurfAdd %d frames\n"), nInputSurfAdd);
     PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: nDecSurfAdd   %d frames\n"), nDecSurfAdd);
 
@@ -2152,7 +2158,7 @@ CQSVPipeline::CQSVPipeline() {
     m_hwdev.reset();
 
     RGY_MEMSET_ZERO(m_DecInputBitstream);
-    
+
     RGY_MEMSET_ZERO(m_InitParam);
     RGY_MEMSET_ZERO(m_mfxDecParams);
     RGY_MEMSET_ZERO(m_mfxEncParams);
@@ -3152,7 +3158,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     InitLog(pParams);
 
     mfxStatus sts = MFX_ERR_NONE;
-    
+
     if (pParams->bBenchmark) {
         pParams->nAVMux = RGY_MUX_NONE;
         if (pParams->nAudioSelectCount) {
@@ -3727,7 +3733,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     //ここでファイル出力の完了を確認してから、結果表示(m_pEncSatusInfo->WriteResults)を行う
     m_pFileWriter->WaitFin();
     m_pEncSatusInfo->WriteResults();
-    
+
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
     return sts;
 }
@@ -3876,7 +3882,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
         return sts_set_buffer;
     };
-    
+
     //先読みバッファ用フレームを読み込み側に提供する
     set_surface_to_input_buffer();
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: Set surface to input buffer...\n"));
@@ -4278,7 +4284,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 //    pSurfInputBuf = pSurfEncIn;
                 //    //ppNextFrame = &pSurfEncIn;
                 //}
-                
+
                 if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
                     //読み込み側の該当フレームの読み込み終了を待機(pInputBuf->heInputDone)して、読み込んだフレームを取得
                     //この関数がRGY_ERR_NONE以外を返すことでRunEncodeは終了処理に入る
@@ -4356,10 +4362,10 @@ mfxStatus CQSVPipeline::RunEncode() {
         }
         if (sts != MFX_ERR_NONE)
             break;
-        
+
         sts = encode_one_frame(pNextFrame);
     }
-    
+
     //MFX_ERR_MORE_DATA/MFX_ERR_MORE_BITSTREAMは入力が終了したことを示す
     QSV_IGNORE_STS(sts, (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) ? MFX_ERR_MORE_BITSTREAM : MFX_ERR_MORE_DATA);
     //エラーチェック
@@ -4441,7 +4447,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             }
             if (sts != MFX_ERR_NONE)
                 break;
-        
+
             sts = encode_one_frame(pNextFrame);
         }
 
@@ -4561,7 +4567,7 @@ mfxStatus CQSVPipeline::RunEncode() {
 
             if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
                 break;
-            
+
             get_all_free_surface(pSurfEncIn);
 
             //for (int i_filter = 0; i_filter < (int)m_VppPrePlugins.size(); i_filter++) {
@@ -4636,7 +4642,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     //エラーチェック
     m_EncThread.m_stsThread = sts;
     QSV_ERR_MES(sts, _T("Error in encoding pipeline, synchronizing pipeline."));
-    
+
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished.\n"));
     return sts;
 }
@@ -4880,7 +4886,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
     }
-    
+
     if (m_pmfxENC) {
         PRINT_INFO(_T("Target usage   %s\n"), TargetUsageToStr(videoPrm.mfx.TargetUsage));
         PRINT_INFO(_T("Encode Mode    %s\n"), EncmodeToStr(videoPrm.mfx.RateControlMethod));
