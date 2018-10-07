@@ -71,7 +71,7 @@ enum : uint8_t {
 
 static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, uint32_t size) {
     std::vector<nal_info> nal_list;
-    nal_info nal_start ={ nullptr, 0, 0 };
+    nal_info nal_start = { nullptr, 0, 0 };
     const int i_fin = size - 3;
     for (int i = 0; i < i_fin; i++) {
         if (data[i+0] == 0 && data[i+1] == 0 && data[i+2] == 1) {
@@ -96,7 +96,7 @@ static std::vector<nal_info> parse_nal_unit_h264(const uint8_t *data, uint32_t s
 
 static std::vector<nal_info> parse_nal_unit_hevc(const uint8_t *data, uint32_t size) {
     std::vector<nal_info> nal_list;
-    nal_info nal_start ={ nullptr, 0, 0 };
+    nal_info nal_start = { nullptr, 0, 0 };
     const int i_fin = size - 3;
 
     for (int i = 0; i < i_fin; i++) {

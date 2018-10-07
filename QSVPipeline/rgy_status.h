@@ -37,6 +37,7 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <vector>
 #include <algorithm>
 #include "rgy_log.h"
 #include "cpu_info.h"
@@ -175,7 +176,6 @@ public:
         }
         return UpdateDisplay(progressPercent);
     }
-
     virtual RGY_ERR UpdateDisplay(double progressPercent = 0.0) {
         if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel() > RGY_LOG_INFO) {
             return RGY_ERR_NONE;
@@ -251,7 +251,7 @@ public:
             m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
             if (0 < m_sData.frameTotal || progressPercent > 0.0) {
                 if (progressPercent == 0.0) {
-                    progressPercent = (m_sData.frameOut + m_sData.frameDrop) * 100 / (double)m_sData.frameTotal;
+                    progressPercent = (m_sData.frameIn) * 100 / (double)m_sData.frameTotal;
                 }
                 progressPercent = (std::min)(progressPercent, 100.0);
                 uint32_t remaining_time = (uint32_t)(elapsedTime * (100.0 - progressPercent) / progressPercent + 0.5);
@@ -387,7 +387,6 @@ public:
     EncodeStatusData GetEncodeData() {
         return m_sData;
     }
-public:
     EncodeStatusData m_sData;
 protected:
     virtual void WriteLine(const TCHAR *mes) {

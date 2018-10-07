@@ -99,9 +99,9 @@ static const int RGY_CSP_TO_MFX_FOURCC[] = {
     0, //RGY_CSP_NA
     MFX_FOURCC_NV12, //RGY_CSP_NV12
     MFX_FOURCC_YV12, //RGY_CSP_YV12
-    MFX_FOURCC_YUY2, //RGY_CSP_YUY2 
+    MFX_FOURCC_YUY2, //RGY_CSP_YUY2
     0, //RGY_CSP_YUV422
-    MFX_FOURCC_NV16, //RGY_CSP_YUY2 
+    MFX_FOURCC_NV16, //RGY_CSP_YUY2
     0, //RGY_CSP_YUV444
     MFX_FOURCC_P010, //RGY_CSP_YV12_09
     MFX_FOURCC_P010,
@@ -267,6 +267,13 @@ public:
             m_bitstream.MaxLength = nSize;
         }
         return RGY_ERR_NONE;
+    }
+
+    void trim() {
+        if (m_bitstream.DataOffset > 0 && m_bitstream.DataLength > 0) {
+            memmove(m_bitstream.Data, m_bitstream.Data + m_bitstream.DataOffset, m_bitstream.DataLength);
+            m_bitstream.DataOffset = 0;
+        }
     }
 
     RGY_ERR copy(const uint8_t *setData, uint32_t setSize) {
