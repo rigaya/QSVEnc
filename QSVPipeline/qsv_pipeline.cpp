@@ -784,10 +784,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_mfxEncParams.mfx.ICQQuality      = (mfxU16)clamp_param_int(pInParams->nICQQuality, 1, 51, _T("icq"));
         m_mfxEncParams.mfx.MaxKbps         = 0;
     } else {
-        if (pInParams->nBitRate > USHRT_MAX) {
-            m_mfxEncParams.mfx.BRCParamMultiplier = (mfxU16)((std::max)(pInParams->nBitRate, pInParams->nMaxBitrate) / USHRT_MAX) + 1;
+        auto maxBitrate = (std::max)((std::max)(pInParams->nBitRate, pInParams->nMaxBitrate),
+            pInParams->VBVBufsize / 8 /*これはbyte単位の指定*/);
+        if (maxBitrate > USHRT_MAX) {
+            m_mfxEncParams.mfx.BRCParamMultiplier = (mfxU16)(maxBitrate / USHRT_MAX) + 1;
             pInParams->nBitRate    /= m_mfxEncParams.mfx.BRCParamMultiplier;
             pInParams->nMaxBitrate /= m_mfxEncParams.mfx.BRCParamMultiplier;
+            pInParams->VBVBufsize  /= m_mfxEncParams.mfx.BRCParamMultiplier;
         }
         m_mfxEncParams.mfx.TargetKbps      = (mfxU16)pInParams->nBitRate; // in kbps
         if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
@@ -798,6 +801,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         } else {
             //CBR, VBR
             m_mfxEncParams.mfx.MaxKbps         = (mfxU16)pInParams->nMaxBitrate;
+            m_mfxEncParams.mfx.BufferSizeInKB  = (mfxU16)pInParams->VBVBufsize / 8; //これはbyte単位の指定
+            m_mfxEncParams.mfx.InitialDelayInKB = m_mfxEncParams.mfx.BufferSizeInKB / 2;
         }
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
@@ -4926,6 +4931,9 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 if (m_mfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
                     PRINT_INFO(_T("QVBR Quality   %d\n"), cop3.QVBRQuality);
                 }
+            }
+            if (videoPrm.mfx.BufferSizeInKB > 0) {
+                PRINT_INFO(_T("VBV Bufsize    %d kbps\n"), videoPrm.mfx.BufferSizeInKB * 8 * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {

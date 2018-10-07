@@ -476,6 +476,7 @@ static tstring help() {
         _T("                                 - 2  set MV cost 1/4 of default\n")
         _T("                                 - 3  set MV cost 1/8 of default\n")
         _T("   --slices <int>               number of slices, default 0 (auto)\n")
+        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
         _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
         _T("   --tskip                      [hevc] enable transform skip\n")
         _T("   --sao <string>               [hevc]\n")
@@ -810,7 +811,7 @@ static int writeFeatureList(tstring filename, bool for_auo, FeatureListStrType t
 <meta charset = "UTF-8">
 <title>QSVEncC Check Features</title>
 <style type=text/css>
-   body { 
+   body {
         font-family: "Segoe UI","Meiryo UI", "ＭＳ ゴシック", sans-serif;
         background: #eeeeee;
         margin: 0px 20px 20px;
@@ -1025,7 +1026,7 @@ function showTable(idno) {
                     cpuname = cpuname.substr(cpuname.find(_T("Intel ") + _tcslen(_T("Intel "))));
                     cpuname = cpuname.substr(0, cpuname.find(_T(" @")));
                     cpuname = str_replace(cpuname, _T("Core2"), _T("Core 2"));
-                    
+
                     if (bUseJapanese) {
                         print_tstring(_T("以下の項目を確認してみてください。"), true);
                         print_tstring(_T("<ol>\n"), false);
@@ -1445,7 +1446,7 @@ mfxStatus run_benchmark(sInputParams *params) {
                               " (Target Usage and output resolution will be changed)\n");
             fprintf(fp_bench, "%s\n\n", tchar_to_string(encode_info).c_str());
             fprintf(fp_bench, "%s", tchar_to_string(enviroment_info).c_str());
-            fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n", 
+            fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n",
                 VER_STR_FILEVERSION, tchar_to_string(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor, tchar_to_string(MemTypeToStr(memtype)).c_str());
             fprintf(fp_bench, "\n");
             fclose(fp_bench);
@@ -1635,7 +1636,7 @@ int run(int argc, TCHAR *argv[]) {
         _tsetlocale(LC_ALL, _T("Japanese"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-    
+
     if (argc == 1) {
         show_version();
         show_help();

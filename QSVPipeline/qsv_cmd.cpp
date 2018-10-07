@@ -1085,6 +1085,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("vbv-bufsize"))) {
+        i++;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->VBVBufsize)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("la-depth"))) {
         i++;
         if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nLookaheadDepth)) {
@@ -2150,7 +2158,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
 
     if (pParams->nRotationAngle != 0 && pParams->nRotationAngle != 180) {
         SET_ERR(strInput[0], _T("Angles other than 180 degrees are not supported."), nullptr, nullptr);
-        return 1; // other than 180 are not supported 
+        return 1; // other than 180 are not supported
     }
 
     // not all options are supported if rotate plugin is enabled
@@ -2364,6 +2372,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     if (save_disabled_prm || pParams->nEncMode != MFX_RATECONTROL_CQP) {
         OPT_NUM(_T("--max-bitrate"), nMaxBitrate);
     }
+    OPT_NUM(_T("--vbv-bufsize"), VBVBufsize);
     OPT_BOOL(_T("--fallback-rc"), _T(""), nFallback);
     OPT_QP(_T("--qp-min"), save_disabled_prm, nQPMin[0], nQPMin[1], nQPMin[2]);
     OPT_QP(_T("--qp-max"), save_disabled_prm, nQPMax[0], nQPMax[1], nQPMax[2]);

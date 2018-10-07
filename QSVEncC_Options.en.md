@@ -291,6 +291,9 @@ but the quality will be poor compared to ordinary mode.
 ### --max-bitrate &lt;int&gt;
 Maximum bitrate (in kbps).
 
+### --vbv-bufsize &lt;int&gt;
+VBV buffersize (in kbps).
+
 ### --avbr-unitsize &lt;int&gt;
 Set AVBR calculation period in unit of 100 frames. Default 90 (means the unit is 9000 frames).
 
@@ -432,6 +435,12 @@ Set Mastering display data.
 ```
 Example: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 ```
+
+### --aud
+Insert Access Unit Delimiter NAL.
+
+### --pic-struct
+Insert picture timing SEI.
 
 ### --bluray [H.264 only]
 Perform output for Bluray. (Default: off)

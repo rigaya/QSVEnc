@@ -99,13 +99,13 @@ typedef struct {
 
     bool __unsed2;
     bool __unsed;
-    mfxU16 nRotate;      
+    mfxU16 nRotate;
     bool bUseProAmp;          //not supported
     bool bUseDenoise;         //use vpp denoise
     mfxU16 nDenoise;          // 0 - 100 Denoise Strength
     bool bUseDetailEnhance;   //use vpp detail enhancer
     bool __unsed4;
-    mfxU16 nDetailEnhance;    // 0 - 100 
+    mfxU16 nDetailEnhance;    // 0 - 100
     mfxU16 nDeinterlace;      //set deinterlace mode
 
     mfxU16 nImageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
@@ -145,7 +145,7 @@ struct sInputParams
     mfxU16 nEncMode;      // RateControl
     mfxU16 nTargetUsage;  // Quality
     mfxU32 CodecId;       // H.264 only for this
-    mfxU16 CodecProfile; 
+    mfxU16 CodecProfile;
     mfxU16 CodecLevel;
     mfxU16 nIdrInterval;  // Idr frame interval to I frame, not supported
     mfxU16 nGOPLength;    // (Max) GOP Length
@@ -178,7 +178,7 @@ struct sInputParams
     mfxU16 __nMaxBitrate;
     mfxI16 nLogLevel;     //ログレベル
 
-    mfxU16 nDstWidth;     //output width 
+    mfxU16 nDstWidth;     //output width
     mfxU16 nDstHeight;    //input width
 
     mfxU8 memType;       //use d3d surface
@@ -188,7 +188,7 @@ struct sInputParams
 
     bool   __unused;
     void  *pPrivatePrm;
-    
+
 
     mfxI32     nPAR[2]; //PAR比
     bool       bCAVLC;  //CAVLC
@@ -204,7 +204,8 @@ struct sInputParams
     mfxU16     nVQPStrength;
     mfxU16     nVQPSensitivity;
 
-    mfxU16     reserved__[4];
+    mfxU32     VBVBufsize;
+    mfxU16     reserved__[2];
 
     mfxU16     nQuality; // quality parameter for JPEG encoder
 
@@ -227,7 +228,7 @@ struct sInputParams
     mfxU8      bBenchmark;
 
     mfxU8      bDisableTimerPeriodTuning;
-    
+
     mfxU16     nQVBRQuality;
 
     mfxU8      bIntraRefresh;
@@ -236,7 +237,7 @@ struct sInputParams
     mfxU8      nQPMax[3];
 
     mfxU16     nWinBRCSize;
-    
+
     mfxU8      nMVCostScaling;
     mfxU8      bDirectBiasAdjust;
     mfxU8      bGlobalMotionAdjust;
@@ -252,7 +253,7 @@ struct sInputParams
     mfxU16     nAVDemuxAnalyzeSec;
 
     TCHAR     *pAVMuxOutputFormat;
-    
+
     mfxU8      nAudioSelectCount; //pAudioSelectの数
     sAudioSelect **ppAudioSelectList;
 
@@ -440,7 +441,7 @@ const CX_DESC list_telecine_patterns[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_avc_level[] = { 
+const CX_DESC list_avc_level[] = {
     { _T("auto"), 0                 },
     { _T("1"),    MFX_LEVEL_AVC_1   },
     { _T("1b"),   MFX_LEVEL_AVC_1b  },
@@ -461,7 +462,7 @@ const CX_DESC list_avc_level[] = {
     { _T("5.2"),  MFX_LEVEL_AVC_52  },
     { NULL, 0 }
 };
-const CX_DESC list_hevc_level[] = { 
+const CX_DESC list_hevc_level[] = {
     { _T("auto"), 0                 },
     { _T("1"),    MFX_LEVEL_HEVC_1   },
     { _T("2"),    MFX_LEVEL_HEVC_2   },
@@ -478,7 +479,7 @@ const CX_DESC list_hevc_level[] = {
     { _T("6.2"),  MFX_LEVEL_HEVC_62  },
     { NULL, 0 }
 };
-const CX_DESC list_mpeg2_level[] = { 
+const CX_DESC list_mpeg2_level[] = {
     { _T("auto"),     0                        },
     { _T("low"),      MFX_LEVEL_MPEG2_LOW      },
     { _T("main"),     MFX_LEVEL_MPEG2_MAIN     },
@@ -486,14 +487,14 @@ const CX_DESC list_mpeg2_level[] = {
     { _T("high1440"), MFX_LEVEL_MPEG2_HIGH1440 },
     { NULL, 0 }
 };
-const CX_DESC list_vc1_level[] = { 
+const CX_DESC list_vc1_level[] = {
     { _T("auto"),     0                    },
     { _T("low"),      MFX_LEVEL_VC1_LOW    },
     { _T("median"),   MFX_LEVEL_VC1_MEDIAN },
     { _T("high"),     MFX_LEVEL_VC1_HIGH   },
     { NULL, 0 }
 };
-const CX_DESC list_vc1_level_adv[] = { 
+const CX_DESC list_vc1_level_adv[] = {
     { _T("auto"),  0               },
     { _T("0"),     MFX_LEVEL_VC1_0 },
     { _T("1"),     MFX_LEVEL_VC1_1 },
@@ -502,11 +503,11 @@ const CX_DESC list_vc1_level_adv[] = {
     { _T("4"),     MFX_LEVEL_VC1_4 },
     { NULL, 0 }
 };
-const CX_DESC list_vp8_level[] = { 
+const CX_DESC list_vp8_level[] = {
     { _T("auto"),     0                    },
     { NULL, 0 }
 };
-const CX_DESC list_vp9_level[] = { 
+const CX_DESC list_vp9_level[] = {
     { _T("auto"),     0                    },
     { NULL, 0 }
 };
@@ -518,7 +519,7 @@ const CX_DESC list_avc_trellis[] = {
     { _T("for All frames"), MFX_TRELLIS_I | MFX_TRELLIS_P | MFX_TRELLIS_B },
     { NULL, 0 }
 };
-const CX_DESC list_avc_trellis_for_options[] = { 
+const CX_DESC list_avc_trellis_for_options[] = {
     { _T("auto"), MFX_TRELLIS_UNKNOWN },
     { _T("off"),  MFX_TRELLIS_OFF },
     { _T("i"),    MFX_TRELLIS_I   },
