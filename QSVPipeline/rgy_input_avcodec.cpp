@@ -172,6 +172,7 @@ void RGYInputAvcodec::SetExtraData(AVCodecParameters *pCodecParam, const uint8_t
     pCodecParam->extradata_size = size;
     pCodecParam->extradata      = (uint8_t *)av_malloc(pCodecParam->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(pCodecParam->extradata, data, size);
+    memset(pCodecParam->extradata + size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 };
 
 RGY_CODEC RGYInputAvcodec::checkHWDecoderAvailable(AVCodecID id, AVPixelFormat pixfmt, const CodecCsp *pHWDecCodecCsp) {
@@ -516,7 +517,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
         1001
     };
     const double fpsAvg = av_q2d(m_Demux.video.nAvgFramerate);
-    double fpsDiff = std::numeric_limits<double>::max();;
+    double fpsDiff = std::numeric_limits<double>::max();
     AVRational fpsNear = m_Demux.video.nAvgFramerate;
     auto round_fps = [&fpsDiff, &fpsNear, fpsAvg](const KnownFpsList& known_fps) {
         for (auto b : known_fps.base) {
