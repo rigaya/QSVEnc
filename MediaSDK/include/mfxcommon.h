@@ -1,6 +1,6 @@
 /*******************************************************************************
 
-Copyright (C) 2013-2017 Intel Corporation.  All rights reserved.
+Copyright (C) 2013-2018 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -165,6 +165,7 @@ enum {
     MFX_PLATFORM_GEMINILAKE     = 10,
     MFX_PLATFORM_COFFEELAKE     = 11,
     MFX_PLATFORM_CANNONLAKE     = 20,
+    MFX_PLATFORM_ICELAKE = 30,
 };
 
 typedef struct {

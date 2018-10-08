@@ -64,6 +64,7 @@ enum {
     CPU_GEN_GEMINILAKE,
     CPU_GEN_COFFEELAKE,
     CPU_GEN_CANNONLAKE,
+    CPU_GEN_ICELAKE,
 };
 
 static const TCHAR *const CPU_GEN_STR[] = {
@@ -80,6 +81,7 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("Geminilake"),
     _T("Coffeelake"),
     _T("Cannonlake"),
+    _T("Icelake")
 };
 
 int getCPUGenCpuid();

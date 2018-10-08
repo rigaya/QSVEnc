@@ -128,6 +128,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 ## Intel Media SDK and API
 |Media SDK API version	        | Media SDK version|
 |:--|:--|
+|API v1.27 | Intel Media SDK 2018 R2 |
 |API v1.26 | Intel Media SDK 2018 R1 |
 |API v1.23 | Intel Media SDK 2017 R1 |
 |API v1.19 | Intel Media SDK 2016 Update 2 |

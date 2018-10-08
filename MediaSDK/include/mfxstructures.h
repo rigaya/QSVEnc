@@ -1,6 +1,6 @@
 /******************************************************************************* *\
 
-Copyright (C) 2007-2017 Intel Corporation.  All rights reserved.
+Copyright (C) 2007-2018 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -116,6 +116,8 @@ enum {
     MFX_FOURCC_AYUV         = MFX_MAKEFOURCC('A','Y','U','V'),   /* YUV 4:4:4, AYUV in that order, A channel is 8 MSBs */
     MFX_FOURCC_AYUV_RGB4    = MFX_MAKEFOURCC('A','V','U','Y'),   /* ARGB in that order, A channel is 8 MSBs stored in AYUV surface*/
     MFX_FOURCC_UYVY         = MFX_MAKEFOURCC('U','Y','V','Y'),
+    MFX_FOURCC_Y210         = MFX_MAKEFOURCC('Y','2','1','0'),
+    MFX_FOURCC_Y410         = MFX_MAKEFOURCC('Y','4','1','0'),
 };
 
 /* PicStruct */
@@ -172,6 +174,15 @@ enum {
     MFX_CORRUPTION_REFERENCE_LIST  = 0x0020
 };
 
+#pragma pack(push, 4)
+typedef struct
+{
+    mfxU32 U : 10;
+    mfxU32 Y : 10;
+    mfxU32 V : 10;
+    mfxU32 A :  2;
+} mfxY410;
+#pragma pack(pop)
 
 #pragma pack(push, 4)
 typedef struct
@@ -219,6 +230,7 @@ typedef struct {
         mfxU8   *U;
         mfxU16  *U16;
         mfxU8   *G;
+        mfxY410 *Y410;          /* for Y410 format (merged AVYU) */
     };
     union {
         mfxU8   *Cr;
@@ -699,7 +711,9 @@ typedef struct {
 
     mfxU16      reserved6;
     mfxU16      TransformSkip;  /* tri-state option; HEVC transform_skip_enabled_flag */
-    mfxU16      reserved4[3];
+    mfxU16      TargetChromaFormatPlus1;   /* Minus 1 specifies target encoding chroma format (see ColorFormat enum). May differ from input one. */
+    mfxU16      TargetBitDepthLuma;        /* Target encoding bit depth for luma samples. May differ from input one. */
+    mfxU16      TargetBitDepthChroma;      /* Target encoding bit depth for chroma samples. May differ from input one. */
     mfxU16      BRCPanicMode;              /* tri-state option */
 
     mfxU16      LowDelayBRC;               /* tri-state option */
@@ -708,7 +722,6 @@ typedef struct {
 
     mfxU16      RepartitionCheckEnable;    /* tri-state option */
     mfxU16      reserved5[3];
-
     mfxU16      EncodedUnitsInfo;          /* tri-state option */
     mfxU16      EnableNalUnitType;         /* tri-state option */
     mfxU16      ExtBrcAdaptiveLTR;         /* tri-state option for ExtBRC */
@@ -808,6 +821,7 @@ enum {
     MFX_EXTBUFF_VP9_SEGMENTATION                = MFX_MAKEFOURCC('9', 'S', 'E', 'G'),
     MFX_EXTBUFF_VP9_TEMPORAL_LAYERS             = MFX_MAKEFOURCC('9', 'T', 'M', 'L'),
     MFX_EXTBUFF_VP9_PARAM                       = MFX_MAKEFOURCC('9', 'P', 'A', 'R'),
+    MFX_EXTBUFF_AVC_ROUNDING_OFFSET             = MFX_MAKEFOURCC('R','N','D','O'),
 };
 
 /* VPP Conf: Do not use certain algorithms  */
@@ -1568,6 +1582,17 @@ typedef struct {
     mfxI16       Weights[2][32][3][2];      // [list][list entry][Y, Cb, Cr][weight, offset]
     mfxU16       reserved[58];
 } mfxExtPredWeightTable;
+
+typedef struct {
+    mfxExtBuffer Header;
+
+    mfxU16       EnableRoundingIntra;       // tri-state option
+    mfxU16       RoundingOffsetIntra;       // valid value [0,7]
+    mfxU16       EnableRoundingInter;       // tri-state option
+    mfxU16       RoundingOffsetInter;       // valid value [0,7]
+
+    mfxU16       reserved[24];
+} mfxExtAVCRoundingOffset;
 
 
 typedef struct {

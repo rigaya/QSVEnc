@@ -1,6 +1,6 @@
 /* ****************************************************************************** *\
 
-Copyright (C) 2012-2017 Intel Corporation.  All rights reserved.
+Copyright (C) 2012-2018 Intel Corporation.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -75,9 +75,10 @@ enum
     MFX_CURRENT_USER_KEY        = 0,
     MFX_LOCAL_MACHINE_KEY       = 1,
     MFX_APP_FOLDER              = 2,
-#if !defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE)
+#if defined(MEDIASDK_USE_REGISTRY) || (!defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE))
+    MFX_PATH_MSDK_FOLDER = 3,
     MFX_STORAGE_ID_FIRST    = MFX_CURRENT_USER_KEY,
-    MFX_STORAGE_ID_LAST     = MFX_LOCAL_MACHINE_KEY
+    MFX_STORAGE_ID_LAST     = MFX_PATH_MSDK_FOLDER
 #else
     MFX_PATH_MSDK_FOLDER = 3,
     MFX_STORAGE_ID_FIRST = MFX_PATH_MSDK_FOLDER,
@@ -146,7 +147,7 @@ protected:
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#if !defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE)
+#if defined(MEDIASDK_USE_REGISTRY) || (!defined(MEDIASDK_UWP_LOADER) && !defined(MEDIASDK_UWP_PROCTABLE))
     WinRegKey m_baseRegKey;                                     // (WinRegKey) main registry key
 #endif
 
