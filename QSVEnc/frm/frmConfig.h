@@ -930,6 +930,13 @@ private: System::Windows::Forms::Button^  fcgBTSaveFeatureList;
 private: System::Windows::Forms::Label^  fcgLBFeaturesCurrentAPIVer;
 private: System::Windows::Forms::Label^  fcgLBFeaturesShowCurrentAPI;
 private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
+private: System::Windows::Forms::CheckBox^  fcgCBVppMctf;
+
+private: System::Windows::Forms::GroupBox^  groupBox1;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
+
+
+private: System::Windows::Forms::Label^  label2;
 
 
 
@@ -1365,6 +1372,10 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             this->fcgLBAvqsvInputFile = (gcnew System::Windows::Forms::Label());
             this->fcgCBAvqsv = (gcnew System::Windows::Forms::CheckBox());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
+            this->fcgCBVppMctf = (gcnew System::Windows::Forms::CheckBox());
+            this->groupBox1 = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgNUVppMctf = (gcnew System::Windows::Forms::NumericUpDown());
+            this->label2 = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1426,6 +1437,8 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             this->fcgtabPageAvqsvAudio->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAvqsvAudioBitrate))->BeginInit();
             this->fcggroupBoxAvqsv->SuspendLayout();
+            this->groupBox1->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppMctf))->BeginInit();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -3534,6 +3547,8 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             // fcggroupBoxVpp
             // 
+            this->fcggroupBoxVpp->Controls->Add(this->fcgCBVppMctf);
+            this->fcggroupBoxVpp->Controls->Add(this->groupBox1);
             this->fcggroupBoxVpp->Controls->Add(this->fcgCXRotate);
             this->fcggroupBoxVpp->Controls->Add(this->fcgLBRotate);
             this->fcggroupBoxVpp->Controls->Add(this->fcgCXTelecinePatterns);
@@ -3562,7 +3577,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcgCXRotate->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXRotate->FormattingEnabled = true;
-            this->fcgCXRotate->Location = System::Drawing::Point(410, 175);
+            this->fcgCXRotate->Location = System::Drawing::Point(153, 189);
             this->fcgCXRotate->Name = L"fcgCXRotate";
             this->fcgCXRotate->Size = System::Drawing::Size(117, 22);
             this->fcgCXRotate->TabIndex = 27;
@@ -3571,7 +3586,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgLBRotate
             // 
             this->fcgLBRotate->AutoSize = true;
-            this->fcgLBRotate->Location = System::Drawing::Point(359, 178);
+            this->fcgLBRotate->Location = System::Drawing::Point(17, 192);
             this->fcgLBRotate->Name = L"fcgLBRotate";
             this->fcgLBRotate->Size = System::Drawing::Size(29, 14);
             this->fcgLBRotate->TabIndex = 26;
@@ -3581,7 +3596,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcgCXTelecinePatterns->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXTelecinePatterns->FormattingEnabled = true;
-            this->fcgCXTelecinePatterns->Location = System::Drawing::Point(275, 103);
+            this->fcgCXTelecinePatterns->Location = System::Drawing::Point(275, 141);
             this->fcgCXTelecinePatterns->Name = L"fcgCXTelecinePatterns";
             this->fcgCXTelecinePatterns->Size = System::Drawing::Size(113, 22);
             this->fcgCXTelecinePatterns->TabIndex = 25;
@@ -3592,7 +3607,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcgCXImageStabilizer->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXImageStabilizer->FormattingEnabled = true;
-            this->fcgCXImageStabilizer->Location = System::Drawing::Point(153, 213);
+            this->fcgCXImageStabilizer->Location = System::Drawing::Point(153, 221);
             this->fcgCXImageStabilizer->Name = L"fcgCXImageStabilizer";
             this->fcgCXImageStabilizer->Size = System::Drawing::Size(117, 22);
             this->fcgCXImageStabilizer->TabIndex = 24;
@@ -3602,7 +3617,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgLBImageStabilizer
             // 
             this->fcgLBImageStabilizer->AutoSize = true;
-            this->fcgLBImageStabilizer->Location = System::Drawing::Point(17, 216);
+            this->fcgLBImageStabilizer->Location = System::Drawing::Point(17, 224);
             this->fcgLBImageStabilizer->Name = L"fcgLBImageStabilizer";
             this->fcgLBImageStabilizer->Size = System::Drawing::Size(91, 14);
             this->fcgLBImageStabilizer->TabIndex = 23;
@@ -3612,7 +3627,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgLBFPSConversion
             // 
             this->fcgLBFPSConversion->AutoSize = true;
-            this->fcgLBFPSConversion->Location = System::Drawing::Point(16, 178);
+            this->fcgLBFPSConversion->Location = System::Drawing::Point(306, 216);
             this->fcgLBFPSConversion->Name = L"fcgLBFPSConversion";
             this->fcgLBFPSConversion->Size = System::Drawing::Size(128, 14);
             this->fcgLBFPSConversion->TabIndex = 5;
@@ -3623,7 +3638,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcgCXFPSConversion->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXFPSConversion->FormattingEnabled = true;
-            this->fcgCXFPSConversion->Location = System::Drawing::Point(153, 175);
+            this->fcgCXFPSConversion->Location = System::Drawing::Point(443, 213);
             this->fcgCXFPSConversion->Name = L"fcgCXFPSConversion";
             this->fcgCXFPSConversion->Size = System::Drawing::Size(117, 22);
             this->fcgCXFPSConversion->TabIndex = 22;
@@ -3633,7 +3648,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgLBDeinterlaceDesc
             // 
             this->fcgLBDeinterlaceDesc->AutoSize = true;
-            this->fcgLBDeinterlaceDesc->Location = System::Drawing::Point(86, 131);
+            this->fcgLBDeinterlaceDesc->Location = System::Drawing::Point(86, 166);
             this->fcgLBDeinterlaceDesc->Name = L"fcgLBDeinterlaceDesc";
             this->fcgLBDeinterlaceDesc->Size = System::Drawing::Size(184, 14);
             this->fcgLBDeinterlaceDesc->TabIndex = 13;
@@ -3643,7 +3658,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcgCXDeinterlace->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXDeinterlace->FormattingEnabled = true;
-            this->fcgCXDeinterlace->Location = System::Drawing::Point(84, 103);
+            this->fcgCXDeinterlace->Location = System::Drawing::Point(84, 141);
             this->fcgCXDeinterlace->Name = L"fcgCXDeinterlace";
             this->fcgCXDeinterlace->Size = System::Drawing::Size(186, 22);
             this->fcgCXDeinterlace->TabIndex = 1;
@@ -3653,7 +3668,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgLBDeinterlace
             // 
             this->fcgLBDeinterlace->AutoSize = true;
-            this->fcgLBDeinterlace->Location = System::Drawing::Point(17, 106);
+            this->fcgLBDeinterlace->Location = System::Drawing::Point(17, 144);
             this->fcgLBDeinterlace->Name = L"fcgLBDeinterlace";
             this->fcgLBDeinterlace->Size = System::Drawing::Size(61, 14);
             this->fcgLBDeinterlace->TabIndex = 12;
@@ -3662,7 +3677,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBVppDetail
             // 
             this->fcgCBVppDetail->AutoSize = true;
-            this->fcgCBVppDetail->Location = System::Drawing::Point(436, 25);
+            this->fcgCBVppDetail->Location = System::Drawing::Point(403, 86);
             this->fcgCBVppDetail->Name = L"fcgCBVppDetail";
             this->fcgCBVppDetail->Size = System::Drawing::Size(116, 18);
             this->fcgCBVppDetail->TabIndex = 11;
@@ -3675,9 +3690,9 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcggroupBoxVppDetail->Controls->Add(this->fcgNUVppDetail);
             this->fcggroupBoxVppDetail->Controls->Add(this->fcgLBDetail);
-            this->fcggroupBoxVppDetail->Location = System::Drawing::Point(423, 26);
+            this->fcggroupBoxVppDetail->Location = System::Drawing::Point(394, 87);
             this->fcggroupBoxVppDetail->Name = L"fcggroupBoxVppDetail";
-            this->fcggroupBoxVppDetail->Size = System::Drawing::Size(150, 60);
+            this->fcggroupBoxVppDetail->Size = System::Drawing::Size(175, 60);
             this->fcggroupBoxVppDetail->TabIndex = 12;
             this->fcggroupBoxVppDetail->TabStop = false;
             // 
@@ -3703,7 +3718,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBVppDenoise
             // 
             this->fcgCBVppDenoise->AutoSize = true;
-            this->fcgCBVppDenoise->Location = System::Drawing::Point(268, 24);
+            this->fcgCBVppDenoise->Location = System::Drawing::Point(245, 17);
             this->fcgCBVppDenoise->Name = L"fcgCBVppDenoise";
             this->fcgCBVppDenoise->Size = System::Drawing::Size(72, 18);
             this->fcgCBVppDenoise->TabIndex = 2;
@@ -3716,7 +3731,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // 
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgNUVppDenoise);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgLBVppDenoise);
-            this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(260, 26);
+            this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(237, 19);
             this->fcggroupBoxVppDenoise->Name = L"fcggroupBoxVppDenoise";
             this->fcggroupBoxVppDenoise->Size = System::Drawing::Size(145, 59);
             this->fcggroupBoxVppDenoise->TabIndex = 3;
@@ -3744,7 +3759,7 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             // fcgCBVppResize
             // 
             this->fcgCBVppResize->AutoSize = true;
-            this->fcgCBVppResize->Location = System::Drawing::Point(26, 26);
+            this->fcgCBVppResize->Location = System::Drawing::Point(26, 19);
             this->fcgCBVppResize->Name = L"fcgCBVppResize";
             this->fcgCBVppResize->Size = System::Drawing::Size(58, 18);
             this->fcgCBVppResize->TabIndex = 5;
@@ -3758,9 +3773,9 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             this->fcggroupBoxVppResize->Controls->Add(this->fcgNUVppResizeW);
             this->fcggroupBoxVppResize->Controls->Add(this->fcgNUVppResizeH);
             this->fcggroupBoxVppResize->Controls->Add(this->fcgLBVppResize);
-            this->fcggroupBoxVppResize->Location = System::Drawing::Point(13, 26);
+            this->fcggroupBoxVppResize->Location = System::Drawing::Point(13, 19);
             this->fcggroupBoxVppResize->Name = L"fcggroupBoxVppResize";
-            this->fcggroupBoxVppResize->Size = System::Drawing::Size(228, 59);
+            this->fcggroupBoxVppResize->Size = System::Drawing::Size(216, 59);
             this->fcggroupBoxVppResize->TabIndex = 10;
             this->fcggroupBoxVppResize->TabStop = false;
             // 
@@ -4651,6 +4666,46 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             this->fcgTXCmd->TabIndex = 4;
             this->fcgTXCmd->DoubleClick += gcnew System::EventHandler(this, &frmConfig::fcgTXCmd_DoubleClick);
             // 
+            // fcgCBVppMctf
+            // 
+            this->fcgCBVppMctf->AutoSize = true;
+            this->fcgCBVppMctf->Location = System::Drawing::Point(401, 17);
+            this->fcgCBVppMctf->Name = L"fcgCBVppMctf";
+            this->fcgCBVppMctf->Size = System::Drawing::Size(149, 18);
+            this->fcgCBVppMctf->TabIndex = 28;
+            this->fcgCBVppMctf->Tag = L"reCmd";
+            this->fcgCBVppMctf->Text = L"動き補償付き時間軸フィルタ";
+            this->fcgCBVppMctf->UseVisualStyleBackColor = true;
+            // 
+            // groupBox1
+            // 
+            this->groupBox1->Controls->Add(this->fcgNUVppMctf);
+            this->groupBox1->Controls->Add(this->label2);
+            this->groupBox1->Location = System::Drawing::Point(393, 19);
+            this->groupBox1->Name = L"groupBox1";
+            this->groupBox1->Size = System::Drawing::Size(176, 59);
+            this->groupBox1->TabIndex = 29;
+            this->groupBox1->TabStop = false;
+            // 
+            // fcgNUVppMctf
+            // 
+            this->fcgNUVppMctf->Location = System::Drawing::Point(49, 27);
+            this->fcgNUVppMctf->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 20, 0, 0, 0 });
+            this->fcgNUVppMctf->Name = L"fcgNUVppMctf";
+            this->fcgNUVppMctf->Size = System::Drawing::Size(79, 21);
+            this->fcgNUVppMctf->TabIndex = 4;
+            this->fcgNUVppMctf->Tag = L"reCmd";
+            this->fcgNUVppMctf->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // label2
+            // 
+            this->label2->AutoSize = true;
+            this->label2->Location = System::Drawing::Point(15, 29);
+            this->label2->Name = L"label2";
+            this->label2->Size = System::Drawing::Size(26, 14);
+            this->label2->TabIndex = 0;
+            this->label2->Text = L"強さ";
+            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -4768,6 +4823,9 @@ private: System::Windows::Forms::DataGridView^  fcgDGVFeatures;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAvqsvAudioBitrate))->EndInit();
             this->fcggroupBoxAvqsv->ResumeLayout(false);
             this->fcggroupBoxAvqsv->PerformLayout();
+            this->groupBox1->ResumeLayout(false);
+            this->groupBox1->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppMctf))->EndInit();
             this->ResumeLayout(false);
             this->PerformLayout();
 

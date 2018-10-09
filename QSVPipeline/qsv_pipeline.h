@@ -47,7 +47,7 @@
 #include "mfxplugin++.h"
 
 #ifndef BUILD_AUO
-#pragma comment(lib, "libmfx.lib")
+#pragma comment(lib, "libmfx_vs2015.lib")
 #endif
 
 #include "vpp_plugins.h"
@@ -172,6 +172,7 @@ protected:
     mfxExtVPPDoNotUse m_VppDoNotUse;
     mfxExtVPPDoNotUse m_VppDoUse;
     mfxExtVPPDenoise m_ExtDenoise;
+    mfxExtVppMctf m_ExtMctf;
     mfxExtVPPDetail m_ExtDetail;
     mfxExtVPPDeinterlacing m_ExtDeinterlacing;
     mfxExtVPPFrameRateConversion m_ExtFrameRateConv;

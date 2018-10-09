@@ -631,7 +631,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         pInParams->bRDO = false;
     }
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
-        && pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE
+        && pInParams->vpp.deinterlace == MFX_DEINTERLACE_NONE
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {
         PrintMes(RGY_LOG_ERROR, _T("Interlaced encoding is not supported on current rate control mode.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
@@ -813,7 +813,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     mfxU32 OutputFPSRate = pInParams->nFPSRate;
     mfxU32 OutputFPSScale = pInParams->nFPSScale;
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-        switch (pInParams->vpp.nDeinterlace) {
+        switch (pInParams->vpp.deinterlace) {
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
             OutputFPSRate = OutputFPSRate * 4;
@@ -827,7 +827,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             break;
         }
     } else {
-        switch (pInParams->vpp.nFPSConversion) {
+        switch (pInParams->vpp.fpsConversion) {
         case FPS_CONVERT_MUL2:
             OutputFPSRate = OutputFPSRate * 2;
             break;
@@ -868,7 +868,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     // frame info parameters
     m_mfxEncParams.mfx.FrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-    m_mfxEncParams.mfx.FrameInfo.PicStruct    = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
+    m_mfxEncParams.mfx.FrameInfo.PicStruct    = (pInParams->vpp.deinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
 
     // set sar info
     mfxI32 m_iSAR[2] = { pInParams->nPAR[0], pInParams->nPAR[1] };
@@ -1152,7 +1152,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
     }
 #else
-    if (pInParams->vpp.nRotate) {
+    if (pInParams->vpp.rotate) {
         if (!(availableFeaures & VPP_FEATURE_ROTATE)) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
             return MFX_ERR_UNSUPPORTED;
@@ -1163,19 +1163,19 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         }
     }
     //現時点ではうまく動いてなさそうなので無効化
-    if (FPS_CONVERT_NONE != pInParams->vpp.nFPSConversion) {
+    if (FPS_CONVERT_NONE != pInParams->vpp.fpsConversion) {
         PrintMes(RGY_LOG_WARN, _T("FPS Conversion not supported on this build, disabled.\n"));
-        pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+        pInParams->vpp.fpsConversion = FPS_CONVERT_NONE;
     }
 #endif
 
-    if (pInParams->vpp.nImageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
+    if (pInParams->vpp.imageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
         PrintMes(RGY_LOG_WARN, _T("Image Stabilizer not supported on this platform, disabled.\n"));
-        pInParams->vpp.nImageStabilizer = 0;
+        pInParams->vpp.imageStabilizer = 0;
     }
 
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-        switch (pInParams->vpp.nDeinterlace) {
+        switch (pInParams->vpp.deinterlace) {
         case MFX_DEINTERLACE_IT_MANUAL:
             if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
                 PrintMes(RGY_LOG_ERROR, _T("Deinterlace \"it-manual\" is not supported on this platform.\n"));
@@ -1194,13 +1194,13 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         }
     }
 
-    if (pInParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT
+    if (pInParams->vpp.scalingQuality != MFX_SCALING_MODE_DEFAULT
         && !(availableFeaures & VPP_FEATURE_SCALING_QUALITY)) {
         PrintMes(RGY_LOG_WARN, _T("vpp scaling quality is not supported on this platform, disabled.\n"));
-        pInParams->vpp.nScalingQuality = MFX_SCALING_MODE_DEFAULT;
+        pInParams->vpp.scalingQuality = MFX_SCALING_MODE_DEFAULT;
     }
 
-    if (pInParams->vpp.nMirrorType != MFX_MIRRORING_DISABLED
+    if (pInParams->vpp.mirrorType != MFX_MIRRORING_DISABLED
         && !(availableFeaures & VPP_FEATURE_MIRROR)) {
         PrintMes(RGY_LOG_ERROR, _T("vpp mirroring is not supported on this platform, disabled.\n"));
         return MFX_ERR_UNSUPPORTED;
@@ -1271,20 +1271,20 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         m_mfxVppParams.vpp.Out.BitDepthLuma   = m_mfxEncParams.mfx.FrameInfo.BitDepthLuma;
         m_mfxVppParams.vpp.Out.BitDepthChroma = m_mfxEncParams.mfx.FrameInfo.BitDepthChroma;
         m_mfxVppParams.vpp.Out.Shift          = m_mfxEncParams.mfx.FrameInfo.Shift;
-        m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.nDeinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
+        m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.deinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
     }
     if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
-        switch (pInParams->vpp.nDeinterlace) {
+        switch (pInParams->vpp.deinterlace) {
         case MFX_DEINTERLACE_NORMAL:
         case MFX_DEINTERLACE_AUTO_SINGLE:
-            m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_NORMAL) ? MFX_DEINTERLACING_30FPS_OUT : MFX_DEINTERLACING_AUTO_SINGLE);
+            m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.deinterlace == MFX_DEINTERLACE_NORMAL) ? MFX_DEINTERLACING_30FPS_OUT : MFX_DEINTERLACING_AUTO_SINGLE);
             break;
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
-            if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+            if (pInParams->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL) {
                 m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_FIXED_TELECINE_PATTERN;
-                m_ExtDeinterlacing.TelecinePattern = pInParams->vpp.nTelecinePattern;
+                m_ExtDeinterlacing.TelecinePattern = (mfxU16)pInParams->vpp.telecinePattern;
             } else {
                 m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_24FPS_OUT;
             }
@@ -1292,14 +1292,14 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
             break;
         case MFX_DEINTERLACE_BOB:
         case MFX_DEINTERLACE_AUTO_DOUBLE:
-            m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACING_AUTO_DOUBLE);
+            m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.deinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACING_AUTO_DOUBLE);
             m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
             break;
         case MFX_DEINTERLACE_NONE:
         default:
             break;
         }
-        if (pInParams->vpp.nDeinterlace != MFX_DEINTERLACE_NONE) {
+        if (pInParams->vpp.deinterlace != MFX_DEINTERLACE_NONE) {
 #if ENABLE_ADVANCED_DEINTERLACE
             if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
                 m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtDeinterlacing);
@@ -1308,17 +1308,17 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
 #endif
             m_mfxVppParams.vpp.Out.PicStruct = MFX_PICSTRUCT_PROGRESSIVE;
             VppExtMes += _T("Deinterlace (");
-            VppExtMes += get_chr_from_value(list_deinterlace, pInParams->vpp.nDeinterlace);
-            if (pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+            VppExtMes += get_chr_from_value(list_deinterlace, pInParams->vpp.deinterlace);
+            if (pInParams->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL) {
                 VppExtMes += _T(", ");
-                VppExtMes += get_chr_from_value(list_telecine_patterns, pInParams->vpp.nTelecinePattern);
+                VppExtMes += get_chr_from_value(list_telecine_patterns, pInParams->vpp.telecinePattern);
             }
             VppExtMes += _T(")\n");
             PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp deinterlace enabled.\n"));
         }
-        pInParams->vpp.nFPSConversion = FPS_CONVERT_NONE;
+        pInParams->vpp.fpsConversion = FPS_CONVERT_NONE;
     } else {
-        switch (pInParams->vpp.nFPSConversion) {
+        switch (pInParams->vpp.fpsConversion) {
         case FPS_CONVERT_MUL2:
             m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
             break;
@@ -1373,9 +1373,9 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("CreateVppExtBuffers: %s"), str.c_str());
     };
 
-    if (pParams->vpp.bUseDetailEnhance) {
+    if (pParams->vpp.detail.enable) {
         INIT_MFX_EXT_BUFFER(m_ExtDetail, MFX_EXTBUFF_VPP_DETAIL);
-        m_ExtDetail.DetailFactor = (mfxU16)clamp_param_int(pParams->vpp.nDetailEnhance, QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX, _T("vpp-detail-enhance"));
+        m_ExtDetail.DetailFactor = (mfxU16)clamp_param_int(pParams->vpp.detail.strength, QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX, _T("vpp-detail-enhance"));
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDetail);
 
         vppExtAddMes(strsprintf(_T("Detail Enhancer, strength %d\n"), m_ExtDetail.DetailFactor));
@@ -1384,41 +1384,41 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DETAIL);
     }
 
-    switch (pParams->vpp.nRotate) {
+    switch (pParams->vpp.rotate) {
     case MFX_ANGLE_90:
     case MFX_ANGLE_180:
     case MFX_ANGLE_270:
         INIT_MFX_EXT_BUFFER(m_ExtRotate, MFX_EXTBUFF_VPP_ROTATION);
-        m_ExtRotate.Angle = pParams->vpp.nRotate;
+        m_ExtRotate.Angle = (mfxU16)pParams->vpp.rotate;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtRotate);
 
-        vppExtAddMes(strsprintf(_T("rotate %d\n"), pParams->vpp.nRotate));
+        vppExtAddMes(strsprintf(_T("rotate %d\n"), pParams->vpp.rotate));
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_ROTATION);
         break;
     default:
         break;
     }
 
-    if (pParams->vpp.nMirrorType != MFX_MIRRORING_DISABLED) {
+    if (pParams->vpp.mirrorType != MFX_MIRRORING_DISABLED) {
         INIT_MFX_EXT_BUFFER(m_ExtMirror, MFX_EXTBUFF_VPP_MIRRORING);
-        m_ExtMirror.Type = pParams->vpp.nMirrorType;
+        m_ExtMirror.Type = (mfxU16)pParams->vpp.mirrorType;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtMirror);
 
-        vppExtAddMes(strsprintf(_T("mirroring %s\n"), get_chr_from_value(list_vpp_mirroring, pParams->vpp.nMirrorType)));
+        vppExtAddMes(strsprintf(_T("mirroring %s\n"), get_chr_from_value(list_vpp_mirroring, pParams->vpp.mirrorType)));
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MIRRORING);
     }
 
     if ( (    pParams->nWidth  != pParams->nDstWidth
            || pParams->nHeight != pParams->nDstHeight)
-        && pParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT) {
+        && pParams->vpp.scalingQuality != MFX_SCALING_MODE_DEFAULT) {
         INIT_MFX_EXT_BUFFER(m_ExtScaling, MFX_EXTBUFF_VPP_SCALING);
-        m_ExtScaling.ScalingMode = pParams->vpp.nScalingQuality;
+        m_ExtScaling.ScalingMode = (mfxU16)pParams->vpp.scalingQuality;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtScaling);
 
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_SCALING);
     }
 
-    if (FPS_CONVERT_NONE != pParams->vpp.nFPSConversion) {
+    if (pParams->vpp.fpsConversion != FPS_CONVERT_NONE) {
         INIT_MFX_EXT_BUFFER(m_ExtFrameRateConv, MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
         m_ExtFrameRateConv.Algorithm = MFX_FRCALGM_FRAME_INTERPOLATION;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtFrameRateConv);
@@ -1427,9 +1427,9 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
     }
 
-    if (pParams->vpp.bUseDenoise) {
+    if (pParams->vpp.denoise.enable) {
         INIT_MFX_EXT_BUFFER(m_ExtDenoise, MFX_EXTBUFF_VPP_DENOISE);
-        m_ExtDenoise.DenoiseFactor = (mfxU16)clamp_param_int(pParams->vpp.nDenoise, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX, _T("vpp-denoise"));
+        m_ExtDenoise.DenoiseFactor = (mfxU16)clamp_param_int(pParams->vpp.denoise.strength, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX, _T("vpp-denoise"));
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise);
 
         vppExtAddMes(strsprintf(_T("Denoise, strength %d\n"), m_ExtDenoise.DenoiseFactor));
@@ -1438,10 +1438,21 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
     }
 
-    if (pParams->vpp.nImageStabilizer) {
-        CHECK_RANGE_LIST(pParams->vpp.nImageStabilizer, list_vpp_image_stabilizer, "vpp-image-stab");
+    if (pParams->vpp.mctf.enable) {
+        INIT_MFX_EXT_BUFFER(m_ExtMctf, MFX_EXTBUFF_VPP_MCTF);
+        m_ExtMctf.FilterStrength = (mfxU16)clamp_param_int(pParams->vpp.mctf.strength, QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, _T("vpp-mctf"));
+        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtMctf);
+
+        vppExtAddMes(strsprintf(_T("Mctf, strength %d\n"), m_ExtMctf.FilterStrength));
+        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MCTF);
+    } else {
+        m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_MCTF);
+    }
+
+    if (pParams->vpp.imageStabilizer) {
+        CHECK_RANGE_LIST(pParams->vpp.imageStabilizer, list_vpp_image_stabilizer, "vpp-image-stab");
         INIT_MFX_EXT_BUFFER(m_ExtImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
-        m_ExtImageStab.Mode = pParams->vpp.nImageStabilizer;
+        m_ExtImageStab.Mode = (mfxU16)pParams->vpp.imageStabilizer;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtImageStab);
 
         vppExtAddMes(strsprintf(_T("Stabilizer, mode %s\n"), get_vpp_image_stab_mode_str(m_ExtImageStab.Mode)));
@@ -1452,7 +1463,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
 
     if (   check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3)
         && (pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-            switch (pParams->vpp.nDeinterlace) {
+            switch (pParams->vpp.deinterlace) {
             case MFX_DEINTERLACE_IT:
             case MFX_DEINTERLACE_IT_MANUAL:
             case MFX_DEINTERLACE_BOB:
@@ -1552,8 +1563,8 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
     if (pParams->vpp.delogo.pFilePath) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
-            pParams->vpp.delogo.nPosOffset.x, pParams->vpp.delogo.nPosOffset.y, pParams->vpp.delogo.nDepth,
-            pParams->vpp.delogo.nYOffset, pParams->vpp.delogo.nCbOffset, pParams->vpp.delogo.nCrOffset, pParams->vpp.delogo.bAdd);
+            (short)pParams->vpp.delogo.posOffset.first, (short)pParams->vpp.delogo.posOffset.second, (short)pParams->vpp.delogo.depth,
+            (short)pParams->vpp.delogo.YOffset, (short)pParams->vpp.delogo.CbOffset, (short)pParams->vpp.delogo.CrOffset, pParams->vpp.delogo.add);
         sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), true, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts == MFX_ERR_ABORTED) {
             PrintMes(RGY_LOG_WARN, _T("%s\n"), filter->getMessage().c_str());
@@ -1570,7 +1581,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
             m_VppPrePlugins.push_back(std::move(filter));
         }
     }
-    if (pParams->vpp.bHalfTurn) {
+    if (pParams->vpp.halfTurn) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
         RotateParam param(180);
         sts = filter->Init(m_mfxVer, _T("rotate"), &param, sizeof(param), true, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
@@ -2173,6 +2184,7 @@ CQSVPipeline::CQSVPipeline() {
     RGY_MEMSET_ZERO(m_VppDoNotUse);
     RGY_MEMSET_ZERO(m_VppDoUse);
     RGY_MEMSET_ZERO(m_ExtDenoise);
+    RGY_MEMSET_ZERO(m_ExtMctf);
     RGY_MEMSET_ZERO(m_ExtDetail);
     RGY_MEMSET_ZERO(m_ExtDeinterlacing);
     RGY_MEMSET_ZERO(m_ExtFrameRateConv);
@@ -2783,7 +2795,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     }
 
     int h_mul = 2;
-    bool output_interlaced = ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) != 0 && !pParams->vpp.nDeinterlace);
+    bool output_interlaced = ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) != 0 && !pParams->vpp.deinterlace);
     if (output_interlaced) {
         h_mul *= 2;
     }
@@ -2850,9 +2862,9 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
-    if (pParams->vpp.nRotate) {
+    if (pParams->vpp.rotate) {
 #if defined(_WIN32) || defined(_WIN64)
-        switch (pParams->vpp.nRotate) {
+        switch (pParams->vpp.rotate) {
         case MFX_ANGLE_0:
         case MFX_ANGLE_180:
             break;
@@ -2862,7 +2874,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
             std::swap(pParams->nDstWidth, pParams->nDstHeight);
             break;
         default:
-            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate of %d degree is not supported.\n"), (int)pParams->vpp.nRotate);
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate of %d degree is not supported.\n"), (int)pParams->vpp.rotate);
             return MFX_ERR_UNSUPPORTED;
         }
         //vpp-rotateにはd3d11メモリが必要
@@ -2890,7 +2902,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
             return MFX_ERR_UNSUPPORTED;
         }
         //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-subは競合する
-        if (pParams->vpp.nRotate) {
+        if (pParams->vpp.rotate) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
             PrintMes(RGY_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
             return MFX_ERR_UNSUPPORTED;
@@ -2925,17 +2937,17 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     mfxU32 outputFrames = inputFrameInfo.frames;
 
     if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-        CHECK_RANGE_LIST(pParams->vpp.nDeinterlace, list_deinterlace, "vpp-deinterlace");
+        CHECK_RANGE_LIST(pParams->vpp.deinterlace, list_deinterlace, "vpp-deinterlace");
         if (pParams->nAVSyncMode == RGY_AVSYNC_FORCE_CFR
-            && (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT
-             || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL
-             || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_BOB
-             || pParams->vpp.nDeinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
-            PrintMes(RGY_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, pParams->vpp.nDeinterlace));
+            && (pParams->vpp.deinterlace == MFX_DEINTERLACE_IT
+             || pParams->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL
+             || pParams->vpp.deinterlace == MFX_DEINTERLACE_BOB
+             || pParams->vpp.deinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
+            PrintMes(RGY_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, pParams->vpp.deinterlace));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
 
-        switch (pParams->vpp.nDeinterlace) {
+        switch (pParams->vpp.deinterlace) {
         case MFX_DEINTERLACE_IT:
         case MFX_DEINTERLACE_IT_MANUAL:
             OutputFPSRate = OutputFPSRate * 4;
@@ -2951,7 +2963,7 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
             break;
         }
     }
-    switch (pParams->vpp.nFPSConversion) {
+    switch (pParams->vpp.fpsConversion) {
     case FPS_CONVERT_MUL2:
         OutputFPSRate = OutputFPSRate * 2;
         outputFrames *= 2;
@@ -3276,7 +3288,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         || m_mfxVppParams.vpp.In.BitDepthLuma   != m_mfxVppParams.vpp.Out.BitDepthLuma
         || m_mfxVppParams.vpp.In.BitDepthChroma != m_mfxVppParams.vpp.Out.BitDepthChroma
         || m_mfxVppParams.NumExtParam > 1
-        || pParams->vpp.nDeinterlace) {
+        || pParams->vpp.deinterlace) {
         PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled...\n"));
         m_pmfxVPP.reset(new MFXVideoVPP(m_mfxSession));
         if (!m_pmfxVPP) {
@@ -3291,8 +3303,8 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     if (pParams->nWidth  != pParams->nDstWidth ||
         pParams->nHeight != pParams->nDstHeight) {
         tstring mes = strsprintf(_T("Resizer, %dx%d -> %dx%d"), pParams->nWidth, pParams->nHeight, pParams->nDstWidth, pParams->nDstHeight);
-        if (pParams->vpp.nScalingQuality != MFX_SCALING_MODE_DEFAULT) {
-            mes += tstring(_T(" (")) + get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.nScalingQuality) + _T(")");
+        if (pParams->vpp.scalingQuality != MFX_SCALING_MODE_DEFAULT) {
+            mes += tstring(_T(" (")) + get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.scalingQuality) + _T(")");
         }
         PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
         VppExtMes += mes;

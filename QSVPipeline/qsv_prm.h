@@ -92,52 +92,63 @@ enum {
     QSV_VPP_SUB_COMPLEX,
 };
 
-typedef struct {
+struct VppDenoise {
+    bool enable;
+    int strength; // 0 - 100
+};
+
+struct VppMCTF {
+    bool enable;
+    int strength; // 0 - 20
+};
+
+struct VppDetailEnhance {
+    bool enable;
+    int strength; // 0 - 100
+};
+
+struct VppDelogo {
+    TCHAR     *pFilePath; //ロゴファイル名へのポインタ
+    TCHAR     *pSelect; //選択するロゴ
+    std::pair<int, int> posOffset;
+    int    depth;
+    bool    add;
+    int     YOffset;
+    int     CbOffset;
+    int     CrOffset;
+};
+
+struct VppSubburn {
+    int    nTrack;    //動画ファイルから字幕を抽出する場合の字幕トラック (0で無効)
+    TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
+    TCHAR *pCharEnc;  //字幕の文字コード
+    int    nShaping;  //字幕を焼きこむときのモード
+};
+
+struct sVppParams {
     bool bEnable;             //use vpp
 
     bool bUseResize;          //use vpp resizer
+    int scalingQuality; //MFX_SCALING_MODE_xxx
 
-    bool __unsed2;
-    bool __unsed;
-    mfxU16 nRotate;
-    bool bUseProAmp;          //not supported
-    bool bUseDenoise;         //use vpp denoise
-    mfxU16 nDenoise;          // 0 - 100 Denoise Strength
-    bool bUseDetailEnhance;   //use vpp detail enhancer
-    bool __unsed4;
-    mfxU16 nDetailEnhance;    // 0 - 100
-    mfxU16 nDeinterlace;      //set deinterlace mode
+    int deinterlace;      //set deinterlace mode
+    int telecinePattern;
 
-    mfxU16 nImageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
-    mfxU16 nFPSConversion;    //FPS_CONVERT_xxxx
+    int imageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
+    int fpsConversion;    //FPS_CONVERT_xxxx
 
-    mfxU16 nTelecinePattern;
+    int rotate;
+    bool halfTurn;
+    int mirrorType;
 
-    bool bHalfTurn;
-    bool __unsed3;
+    bool useProAmp;          //not supported
 
-    struct {
-        TCHAR     *pFilePath; //ロゴファイル名へのポインタ
-        TCHAR     *pSelect; //選択するロゴ
-        mfxI16Pair nPosOffset;
-        uint8_t    nDepth;
-        uint8_t    bAdd;
-        mfxI16     nYOffset;
-        mfxI16     nCbOffset;
-        mfxI16     nCrOffset;
-    } delogo;
-
-    struct {
-        int    nTrack;    //動画ファイルから字幕を抽出する場合の字幕トラック (0で無効)
-        TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
-        TCHAR *pCharEnc;  //字幕の文字コード
-        int    nShaping;  //字幕を焼きこむときのモード
-    } subburn;
-
-    mfxU16 nMirrorType;  //MFX_MIRRORING_xxx
-    mfxU16 nScalingQuality; //MFX_SCALING_MODE_xxx
-    mfxU8 Reserved[84];
-} sVppParams;
+    VppDenoise denoise;
+    VppMCTF mctf;
+    VppDetailEnhance detail;
+    VppDelogo delogo;
+    VppSubburn subburn;
+};
 
 struct sInputParams
 {
@@ -826,6 +837,9 @@ const int QSV_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 
 const int QSV_VPP_DENOISE_MIN = 0;
 const int QSV_VPP_DENOISE_MAX = 100;
+const int QSV_VPP_MCTF_AUTO = 0;
+const int QSV_VPP_MCTF_MIN = 1;
+const int QSV_VPP_MCTF_MAX = 20;
 const int QSV_VPP_DETAIL_ENHANCE_MIN = 0;
 const int QSV_VPP_DETAIL_ENHANCE_MAX = 100;
 

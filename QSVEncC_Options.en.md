@@ -738,6 +738,9 @@ Activate GPU deinterlacer.
 ### --vpp-denoise &lt;int&gt;
 Enable vpp denoise, strength 0 - 100.
 
+### --vpp-mctf &lt;int&gt;
+Enable Motion Compensate Temporal Filter (MCTF), strength 1 - 20. (default: 0 as auto)
+
 ### --vpp-detail-enhance &lt;int&gt;
 Enable vpp detail enhancer, strength 0 - 100.
 

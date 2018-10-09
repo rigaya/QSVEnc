@@ -659,6 +659,8 @@ static tstring help() {
 #endif
     str += strsprintf(_T("\nVPP Options:\n")
         _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
+        _T("   --vpp-mctf <int>             use vpp motion compensated temporal filter(mctf)\n")
+        _T("                                  set strength (%d-%d), default: %d (auto)\n")
         _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
         _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
         _T("                                 - none     disable deinterlace\n")
@@ -711,6 +713,7 @@ static tstring help() {
         _T("   --vpp-delogo-add             add logo mode\n"),
 #endif //#if ENABLE_CUSTOM_VPP,
         QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
+        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO,
         QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX,
         QSV_DEFAULT_VPP_DELOGO_DEPTH
         );

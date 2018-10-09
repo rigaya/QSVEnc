@@ -77,9 +77,13 @@ void init_qsvp_prm(sInputParams *prm) {
     prm->nDstWidth          = 0;
     prm->nDstHeight         = 0;
     prm->vpp.bEnable        = true;
-    prm->vpp.nDenoise       = 20;
-    prm->vpp.nDetailEnhance = 20;
-    prm->vpp.delogo.nDepth  = QSV_DEFAULT_VPP_DELOGO_DEPTH;
+    prm->vpp.denoise.enable   = false;
+    prm->vpp.denoise.strength = 20;
+    prm->vpp.mctf.enable      = false;
+    prm->vpp.mctf.strength    = 0;
+    prm->vpp.detail.enable    = false;
+    prm->vpp.detail.strength  = 15;
+    prm->vpp.delogo.depth     = QSV_DEFAULT_VPP_DELOGO_DEPTH;
 
     prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 }

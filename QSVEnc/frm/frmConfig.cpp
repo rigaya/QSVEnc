@@ -1259,15 +1259,17 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBVppResize->Checked                = cnf->vid.resize_enable != 0;
     SetNUValue(fcgNUVppResizeW,              cnf->vid.resize_width);
     SetNUValue(fcgNUVppResizeH,              cnf->vid.resize_height);
-    fcgCBVppDenoise->Checked               = prm_qsv.vpp.bUseDenoise;
-    SetNUValue(fcgNUVppDenoise,              prm_qsv.vpp.nDenoise);
-    fcgCBVppDetail->Checked                = prm_qsv.vpp.bUseDetailEnhance;
-    SetNUValue(fcgNUVppDetail,               prm_qsv.vpp.nDetailEnhance);
-    SetCXIndex(fcgCXDeinterlace,             prm_qsv.vpp.nDeinterlace);
-    SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, prm_qsv.vpp.nTelecinePattern));
-    SetCXIndex(fcgCXImageStabilizer,         prm_qsv.vpp.nImageStabilizer);
-    SetCXIndex(fcgCXFPSConversion,           prm_qsv.vpp.nFPSConversion);
-    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, prm_qsv.vpp.nRotate));
+    fcgCBVppDenoise->Checked               = prm_qsv.vpp.denoise.enable;
+    SetNUValue(fcgNUVppDenoise,              prm_qsv.vpp.denoise.strength);
+    fcgCBVppMctf->Checked                  = prm_qsv.vpp.mctf.enable;
+    SetNUValue(fcgNUVppMctf,                 prm_qsv.vpp.mctf.strength);
+    fcgCBVppDetail->Checked                = prm_qsv.vpp.detail.enable;
+    SetNUValue(fcgNUVppDetail,               prm_qsv.vpp.detail.strength);
+    SetCXIndex(fcgCXDeinterlace,             prm_qsv.vpp.deinterlace);
+    SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, prm_qsv.vpp.telecinePattern));
+    SetCXIndex(fcgCXImageStabilizer,         prm_qsv.vpp.imageStabilizer);
+    SetCXIndex(fcgCXFPSConversion,           prm_qsv.vpp.fpsConversion);
+    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, prm_qsv.vpp.rotate));
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -1421,15 +1423,17 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         prm_qsv.nDstWidth = 0;
         prm_qsv.nDstHeight = 0;
     }
-    prm_qsv.vpp.bUseDenoise         = fcgCBVppDenoise->Checked;
-    prm_qsv.vpp.nDenoise            = (mfxU16)fcgNUVppDenoise->Value;
-    prm_qsv.vpp.bUseDetailEnhance   = fcgCBVppDetail->Checked;
-    prm_qsv.vpp.nDetailEnhance      = (mfxU16)fcgNUVppDetail->Value;
-    prm_qsv.vpp.nDeinterlace        = (mfxU16)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
-    prm_qsv.vpp.nTelecinePattern    = (mfxU16)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
-    prm_qsv.vpp.nImageStabilizer    = (mfxU16)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
-    prm_qsv.vpp.nFPSConversion      = (mfxU16)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
-    prm_qsv.vpp.nRotate             = (mfxU16)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
+    prm_qsv.vpp.denoise.enable      = fcgCBVppDenoise->Checked;
+    prm_qsv.vpp.denoise.strength    = (int)fcgNUVppDenoise->Value;
+    prm_qsv.vpp.detail.enable       = fcgCBVppDetail->Checked;
+    prm_qsv.vpp.detail.strength     = (int)fcgNUVppDetail->Value;
+    prm_qsv.vpp.mctf.enable         = fcgCBVppMctf->Checked;
+    prm_qsv.vpp.mctf.strength       = (int)fcgNUVppMctf->Value;
+    prm_qsv.vpp.deinterlace         = (int)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
+    prm_qsv.vpp.telecinePattern     = (int)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
+    prm_qsv.vpp.imageStabilizer     = (int)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
+    prm_qsv.vpp.fpsConversion       = (int)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
+    prm_qsv.vpp.rotate              = (int)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));

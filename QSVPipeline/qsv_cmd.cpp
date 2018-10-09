@@ -1470,43 +1470,73 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
 #endif
     if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDenoise)) {
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.bEnable = true;
-        pParams->vpp.bUseDenoise = true;
+        pParams->vpp.denoise.enable = true;
+        pParams->vpp.denoise.strength = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-denoise"))) {
-        pParams->vpp.bUseDenoise = false;
+        pParams->vpp.denoise.enable = false;
         if (strInput[i+1][0] != _T('-')) {
             i++;
-            if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDenoise)) {
+            int value = 0;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return 1;
             }
+            pParams->vpp.denoise.strength = value;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-mctf"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->vpp.mctf.enable = true;
+        pParams->vpp.mctf.strength = value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-mctf"))) {
+        pParams->vpp.mctf.enable = false;
+        if (strInput[i+1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return 1;
+            }
+            pParams->vpp.mctf.strength = value;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-detail-enhance"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDetailEnhance)) {
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.bEnable = true;
-        pParams->vpp.bUseDetailEnhance = true;
+        pParams->vpp.detail.enable = true;
+        pParams->vpp.detail.strength = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-detail-enhance"))) {
-        pParams->vpp.bUseDetailEnhance = false;
+        pParams->vpp.detail.enable = false;
         if (strInput[i+1][0] != _T('-')) {
             i++;
-            if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->vpp.nDetailEnhance)) {
+            int value = 0;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return 1;
             }
+            pParams->vpp.detail.strength = value;
         }
         return 0;
     }
@@ -1518,17 +1548,17 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             return 1;
         }
         pParams->vpp.bEnable = true;
-        pParams->vpp.nDeinterlace = (mfxU16)value;
-        if (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+        pParams->vpp.deinterlace = value;
+        if (pParams->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL) {
             i++;
             if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return 1;
             } else {
-                pParams->vpp.nTelecinePattern = (mfxU16)value;
+                pParams->vpp.telecinePattern = value;
             }
         }
-        if (pParams->vpp.nDeinterlace == MFX_DEINTERLACE_NONE
+        if (pParams->vpp.deinterlace == MFX_DEINTERLACE_NONE
             && pParams->nPicStruct == MFX_PICSTRUCT_PROGRESSIVE) {
             pParams->nPicStruct = MFX_PICSTRUCT_FIELD_TFF;
         }
@@ -1538,9 +1568,9 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->vpp.nImageStabilizer = (mfxU16)value;
+            pParams->vpp.imageStabilizer = value;
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_image_stabilizer, strInput[i]))) {
-            pParams->vpp.nImageStabilizer = (mfxU16)value;
+            pParams->vpp.imageStabilizer = value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
@@ -1551,9 +1581,9 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = 0;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->vpp.nFPSConversion = (mfxU16)value;
+            pParams->vpp.fpsConversion = value;
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_fps_conversion, strInput[i]))) {
-            pParams->vpp.nFPSConversion = (mfxU16)value;
+            pParams->vpp.fpsConversion = value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
@@ -1561,14 +1591,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-half-turn"))) {
-        pParams->vpp.bHalfTurn = true;
+        pParams->vpp.halfTurn = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-rotate"))) {
         i++;
         int value = 0;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_rotate_angle, strInput[i]))) {
-            pParams->vpp.nRotate = (mfxU16)value;
+            pParams->vpp.rotate = value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
@@ -1579,7 +1609,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = 0;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_mirroring, strInput[i]))) {
-            pParams->vpp.nMirrorType = (mfxU16)value;
+            pParams->vpp.mirrorType = value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
@@ -1591,7 +1621,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = 0;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_scaling_quality, strInput[i]))) {
-            pParams->vpp.nScalingQuality = (mfxU16)value;
+            pParams->vpp.scalingQuality = value;
         } else {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
@@ -1664,15 +1694,15 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-pos"))) {
         i++;
-        mfxI16Pair posOffset;
-        if (   2 != _stscanf_s(strInput[i], _T("%hdx%hd"), &posOffset.x, &posOffset.y)
-            && 2 != _stscanf_s(strInput[i], _T("%hd,%hd"), &posOffset.x, &posOffset.y)
-            && 2 != _stscanf_s(strInput[i], _T("%hd/%hd"), &posOffset.x, &posOffset.y)
-            && 2 != _stscanf_s(strInput[i], _T("%hd:%hd"), &posOffset.x, &posOffset.y)) {
+        int posOffsetx = 0, posOffsety = 0;
+        if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &posOffsetx, &posOffsety)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.nPosOffset = posOffset;
+        pParams->vpp.delogo.posOffset = std::make_pair(posOffsetx, posOffsety);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-depth"))) {
@@ -1682,45 +1712,45 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.nDepth = (uint8_t)clamp(depth, 0, 255);
+        pParams->vpp.delogo.depth = clamp(depth, 0, 255);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-y"))) {
         i++;
-        mfxI16 value;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
+        int value;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.nYOffset = value;
+        pParams->vpp.delogo.YOffset = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-cb"))) {
         i++;
-        mfxI16 value;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
+        int value;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.nCbOffset = value;
+        pParams->vpp.delogo.CbOffset = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-cr"))) {
         i++;
-        mfxI16 value;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &value)) {
+        int value;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.nCrOffset = value;
+        pParams->vpp.delogo.CrOffset = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-add"))) {
-        pParams->vpp.delogo.bAdd = 1;
+        pParams->vpp.delogo.add = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-delogo-add"))) {
-        pParams->vpp.delogo.bAdd = 0;
+        pParams->vpp.delogo.add = false;
         return 0;
     }
 #endif //#if ENABLE_CUSTOM_VPP
@@ -2600,15 +2630,16 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_LST(_T("--avsync"), nAVSyncMode, list_avsync);
 #endif //#if ENABLE_AVSW_READER
 
-    OPT_LST(_T("--vpp-deinterlace"), vpp.nDeinterlace, list_deinterlace);
-    OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), vpp.bUseDetailEnhance, vpp.nDetailEnhance);
-    OPT_BOOL_VAL(_T("--vpp-denoise"), _T("--no-vpp-denoise"), vpp.bUseDenoise, vpp.nDenoise);
-    OPT_BOOL(_T("--vpp-half-turn"), _T(""), vpp.bHalfTurn);
-    OPT_LST(_T("--vpp-rotate"), vpp.nRotate, list_vpp_rotate_angle);
-    OPT_LST(_T("--vpp-mirror"), vpp.nMirrorType, list_vpp_mirroring);
-    OPT_LST(_T("--vpp-scaling"), vpp.nScalingQuality, list_vpp_scaling_quality);
-    OPT_LST(_T("--vpp-fps-conv"), vpp.nFPSConversion, list_vpp_fps_conversion);
-    OPT_LST(_T("--vpp-image-stab"), vpp.nImageStabilizer, list_vpp_image_stabilizer);
+    OPT_LST(_T("--vpp-deinterlace"), vpp.deinterlace, list_deinterlace);
+    OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), vpp.detail.enable, vpp.detail.strength);
+    OPT_BOOL_VAL(_T("--vpp-denoise"), _T("--no-vpp-denoise"), vpp.denoise.enable, vpp.denoise.strength);
+    OPT_BOOL_VAL(_T("--vpp-mctf"), _T("--no-vpp-mctf"), vpp.mctf.enable, vpp.mctf.strength);
+    OPT_BOOL(_T("--vpp-half-turn"), _T(""), vpp.halfTurn);
+    OPT_LST(_T("--vpp-rotate"), vpp.rotate, list_vpp_rotate_angle);
+    OPT_LST(_T("--vpp-mirror"), vpp.mirrorType, list_vpp_mirroring);
+    OPT_LST(_T("--vpp-scaling"), vpp.scalingQuality, list_vpp_scaling_quality);
+    OPT_LST(_T("--vpp-fps-conv"), vpp.fpsConversion, list_vpp_fps_conversion);
+    OPT_LST(_T("--vpp-image-stab"), vpp.imageStabilizer, list_vpp_image_stabilizer);
 #if ENABLE_CUSTOM_VPP
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     OPT_CHAR_PATH(_T("--vpp-sub"), vpp.subburn.pFilePath);
@@ -2617,13 +2648,13 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     OPT_CHAR_PATH(_T("--vpp-delogo"), vpp.delogo.pFilePath);
     OPT_CHAR(_T("--vpp-delogo-select"), vpp.delogo.pSelect);
-    OPT_NUM(_T("--vpp-delogo-depth"), vpp.delogo.nDepth);
-    if (pParams->vpp.delogo.nPosOffset.x > 0 || pParams->vpp.delogo.nPosOffset.y > 0) {
-        cmd << _T(" --vpp-delogo-pos ") << pParams->vpp.delogo.nPosOffset.x << _T("x") << pParams->vpp.delogo.nPosOffset.y;
+    OPT_NUM(_T("--vpp-delogo-depth"), vpp.delogo.depth);
+    if (pParams->vpp.delogo.posOffset.first > 0 || pParams->vpp.delogo.posOffset.second > 0) {
+        cmd << _T(" --vpp-delogo-pos ") << pParams->vpp.delogo.posOffset.first << _T("x") << pParams->vpp.delogo.posOffset.second;
     }
-    OPT_NUM(_T("--vpp-delogo-y"), vpp.delogo.nYOffset);
-    OPT_NUM(_T("--vpp-delogo-cb"), vpp.delogo.nCbOffset);
-    OPT_NUM(_T("--vpp-delogo-cr"), vpp.delogo.nCrOffset);
+    OPT_NUM(_T("--vpp-delogo-y"), vpp.delogo.YOffset);
+    OPT_NUM(_T("--vpp-delogo-cb"), vpp.delogo.CbOffset);
+    OPT_NUM(_T("--vpp-delogo-cr"), vpp.delogo.CrOffset);
 #endif //#if ENABLE_CUSTOM_VPP
 #if defined(_WIN32) || defined(_WIN64)
     OPT_NUM(_T("--mfx-thread"), nSessionThreads);
