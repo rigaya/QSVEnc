@@ -273,14 +273,14 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                         char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
-                const int new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
-                const int sps_nal_offset = sps_nal->ptr - pBitstream->data();
+                const uint32_t new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
+                const int sps_nal_offset = (int)(sps_nal->ptr - pBitstream->data());
                 const int next_nal_orig_offset = sps_nal_offset + sps_nal->size;
                 const int next_nal_new_offset = sps_nal_offset + pkt.size;
                 const int stream_orig_length = pBitstream->size();
                 if (pBitstream->bufsize() < new_data_size) {
                     pBitstream->changeSize(new_data_size);
-                } else if (pkt.size > sps_nal->size) {
+                } else if (pkt.size > (int)sps_nal->size) {
                     pBitstream->trim();
                 }
                 memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
