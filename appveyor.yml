@@ -1,0 +1,86 @@
+# QSVEnc
+# continuous integration settings
+
+image: Visual Studio 2015
+
+platform:
+ - Win32
+ - x64
+
+configuration:
+ - RelStatic
+
+branches:
+  only:
+    - master
+
+skip_non_tags: true
+
+init:
+  - ps: Set-WinSystemLocale ja-JP
+  - ps: Start-Sleep -s 5
+  - ps: Restart-Computer
+  - git config --global core.autocrlf input
+
+install:
+  - git submodule update --init --recursive
+  - mkdir c:\yasm
+  - if "%PLATFORM%" == "x64"   curl -o "c:\yasm\yasm.exe" http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win64.exe
+  - if "%PLATFORM%" == "Win32" curl -o "c:\yasm\yasm.exe" http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win32.exe
+  - set PATH=c:\yasm;%PATH%
+  - yasm --version
+
+before_build:
+  - git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
+  - git clone -b MT https://github.com/pinterf/AviSynthPlus.git ..\avisynthplus
+  - git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
+  - for /f "usebackq tokens=*" %%i IN (`cd`) DO @set CURRENT_DIR=%%i
+  - set AVISYNTH_SDK=%CURRENT_DIR%\..\AviSynthPlus\avs_core
+  - set VAPOURSYNTH_SDK=%CURRENT_DIR%\..\vapoursynth
+  - set OPENCL_HEADERS=%CURRENT_DIR%\..\openclheaders
+  - echo %CURRENT_DIR%
+  - echo %PLATFORM%
+  - echo %CONFIGURATION%
+  - echo %AVISYNTH_SDK%
+  - echo %VAPOURSYNTH_SDK%
+  - echo %OPENCL_HEADERS%
+  - ps: |
+      $version = $null
+      if (Test-Path Env:APPVEYOR_REPO_TAG_NAME)
+      {
+          $version = (Get-Item Env:APPVEYOR_REPO_TAG_NAME).Value
+      }
+      
+      if ([string]::IsNullOrEmpty($version))
+      {
+          $version = $env:APPVEYOR_BUILD_VERSION + '_Alpha'
+      }
+      $env:BUILD_VERSION=$version
+
+  - echo %BUILD_VERSION%
+  - appveyor UpdateBuild -Version "%BUILD_VERSION%"
+
+build:
+  parallel: true
+  project: QSVEnc.sln
+
+after_build:
+  - mkdir QSVEncC_Release
+  - copy _build\%PLATFORM%\%CONFIGURATION%\QSVEncC*.exe QSVEncC_Release
+  - copy _build\%PLATFORM%\%CONFIGURATION%\*.dll QSVEncC_Release
+  - 7z a -mx9 QSVEncC_%BUILD_VERSION%_%PLATFORM%.7z .\QSVEncC_Release\*
+
+artifacts:
+  - path: QSVEncC_%BUILD_VERSION%_%PLATFORM%.7z
+    name: QSVEncC_%BUILD_VERSION%_%PLATFORM%
+
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: IDRwZWN1uQaTxb64SQnTDNJR5KPtCFPL3Mln9GrdZ7TSiyec/o1KXpOuh/50ZO5A
+  artifact: QSVEncC_%BUILD_VERSION%_%PLATFORM%
+  draft: false
+  prerelease: false
+  on:
+    branch: master
+    appveyor_repo_tag: true
