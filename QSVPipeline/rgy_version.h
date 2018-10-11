@@ -29,9 +29,11 @@
 #ifndef __RGY_VERSION_H__
 #define __RGY_VERSION_H__
 
-#define VER_FILEVERSION             0,3,9,0
-#define VER_STR_FILEVERSION          "3.09"
-#define VER_STR_FILEVERSION_TCHAR _T("3.09")
+#include "rgy_rev.h"
+
+#define VER_FILEVERSION             0,3,10,0
+#define VER_STR_FILEVERSION          "3.10"
+#define VER_STR_FILEVERSION_TCHAR _T("3.10")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -104,12 +106,14 @@ const char *get_encoder_version();
 #define ENABLE_AVSW_READER        1
 #define ENABLE_LIBASS_SUBBURN     1
 #define ENABLE_CUSTOM_VPP         1
-#ifdef _M_IX86
+#ifndef ENABLE_METRIC_FRAMEWORK
+#if defined(_M_IX86)
 #define ENABLE_METRIC_FRAMEWORK   0
 #else
 #define ENABLE_METRIC_FRAMEWORK   1
 #endif
 #endif
+#endif //#ifndef ENABLE_METRIC_FRAMEWORK
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define MFX_D3D11_SUPPORT 0
