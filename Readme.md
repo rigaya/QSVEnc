@@ -2,6 +2,8 @@
 # QSVEnc
 by rigaya
 
+Windows Build [![Build status](https://ci.appveyor.com/api/projects/status/m36t31ggoxfh0ffk/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/qsvenc/branch/master)
+
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 
 This software is meant to investigate performance and image quality of HW encoder (QSV) of Intel.
