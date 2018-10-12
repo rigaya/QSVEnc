@@ -160,7 +160,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 - [How to build](./Build.en.md)
 
-### ソースの構成
+### About source code
 Windows ... VC build  
 Linux ... makefile + gcc/clang build    
 
