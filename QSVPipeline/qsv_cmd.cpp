@@ -1493,22 +1493,30 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-mctf"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
-        }
         pParams->vpp.mctf.enable = true;
-        pParams->vpp.mctf.strength = value;
+        pParams->vpp.mctf.strength = 0;
+        if (strInput[i+1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (_tcsicmp(strInput[i], _T("auto")) == 0) {
+                value = 0;
+            } else if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return 1;
+            }
+            pParams->vpp.mctf.strength = value;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-mctf"))) {
         pParams->vpp.mctf.enable = false;
+        pParams->vpp.mctf.strength = 0;
         if (strInput[i+1][0] != _T('-')) {
             i++;
             int value = 0;
-            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            if (_tcsicmp(strInput[i], _T("auto")) == 0) {
+                value = 0;
+            } if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
                 SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
                 return 1;
             }
@@ -2633,7 +2641,11 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_LST(_T("--vpp-deinterlace"), vpp.deinterlace, list_deinterlace);
     OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), vpp.detail.enable, vpp.detail.strength);
     OPT_BOOL_VAL(_T("--vpp-denoise"), _T("--no-vpp-denoise"), vpp.denoise.enable, vpp.denoise.strength);
-    OPT_BOOL_VAL(_T("--vpp-mctf"), _T("--no-vpp-mctf"), vpp.mctf.enable, vpp.mctf.strength);
+    if (pParams->vpp.mctf.enable && pParams->vpp.mctf.strength == 0) {
+        cmd << _T(" --vpp-mctf auto");
+    } else {
+        OPT_BOOL_VAL(_T("--vpp-mctf"), _T("--no-vpp-mctf"), vpp.mctf.enable, vpp.mctf.strength);
+    }
     OPT_BOOL(_T("--vpp-half-turn"), _T(""), vpp.halfTurn);
     OPT_LST(_T("--vpp-rotate"), vpp.rotate, list_vpp_rotate_angle);
     OPT_LST(_T("--vpp-mirror"), vpp.mirrorType, list_vpp_mirroring);

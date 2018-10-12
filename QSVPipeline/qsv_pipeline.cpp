@@ -1443,7 +1443,11 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_ExtMctf.FilterStrength = (mfxU16)clamp_param_int(pParams->vpp.mctf.strength, 0, QSV_VPP_MCTF_MAX, _T("vpp-mctf"));
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtMctf);
 
-        vppExtAddMes(strsprintf(_T("mctf, strength %d\n"), m_ExtMctf.FilterStrength));
+        if (m_ExtMctf.FilterStrength == 0) {
+            vppExtAddMes(_T("mctf, strength auto\n"));
+        } else {
+            vppExtAddMes(strsprintf(_T("mctf, strength %d\n"), m_ExtMctf.FilterStrength));
+        }
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MCTF);
     } else {
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_MCTF);

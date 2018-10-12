@@ -659,7 +659,7 @@ static tstring help() {
 #endif
     str += strsprintf(_T("\nVPP Options:\n")
         _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
-        _T("   --vpp-mctf <int>             use vpp motion compensated temporal filter(mctf)\n")
+        _T("   --vpp-mctf [\"auto\" or <int>] use vpp motion compensated temporal filter(mctf)\n")
         _T("                                  set strength (%d-%d), default: %d (auto)\n")
         _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
         _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")

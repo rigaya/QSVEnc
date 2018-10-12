@@ -738,8 +738,8 @@ Activate GPU deinterlacer.
 ### --vpp-denoise &lt;int&gt;
 Enable vpp denoise, strength 0 - 100.
 
-### --vpp-mctf &lt;int&gt;
-Enable Motion Compensate Temporal Filter (MCTF), strength 1 - 20. (default: 0 as auto)
+### --vpp-mctf ["auto" or &lt;int&gt;]
+Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then strength will automatically adjusted by the filter. You can also force filter strength by setting value between 1 (week) - 20 (strong). (default: 0 as auto)
 
 ### --vpp-detail-enhance &lt;int&gt;
 Enable vpp detail enhancer, strength 0 - 100.
