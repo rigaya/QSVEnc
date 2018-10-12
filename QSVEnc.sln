@@ -13,8 +13,14 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVPipeline", "QSVPipeline\QSVPipeline.vcxproj", "{A63CE263-8735-4405-8860-011A12A80DEF}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rotate", "QSVPlugins\rotate\rotate.vcxproj", "{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A63CE263-8735-4405-8860-011A12A80DEF} = {A63CE263-8735-4405-8860-011A12A80DEF}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "delogo", "QSVPlugins\delogo\delogo.vcxproj", "{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A63CE263-8735-4405-8860-011A12A80DEF} = {A63CE263-8735-4405-8860-011A12A80DEF}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmfx", "mfx_dispatch\libmfx.vcxproj", "{9E7B3527-11AA-46BA-A82F-C58761F9B56F}"
 EndProject
@@ -25,6 +31,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tinyxml2", "tinyxml2\tinyxml2.vcxproj", "{A34CA86D-6C2B-482F-984E-2687459E65E9}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "subburn", "QSVPlugins\subburn\subburn.vcxproj", "{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A63CE263-8735-4405-8860-011A12A80DEF} = {A63CE263-8735-4405-8860-011A12A80DEF}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
