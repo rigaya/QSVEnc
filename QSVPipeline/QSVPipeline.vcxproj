@@ -156,7 +156,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
@@ -186,7 +186,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
@@ -219,7 +219,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
@@ -252,7 +252,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
@@ -290,7 +290,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
@@ -328,7 +328,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
@@ -368,7 +368,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
@@ -408,7 +408,7 @@ for /f %%i in ('powershell "foreach($p in (get-wmiobject win32_process -filter p
 if %errorlevel% == 0 for /f "usebackq tokens=*" %%A in (`git rev-list HEAD ^| find /c /v ""`) do @set REV=%%A
 echo #pragma once &gt; rgy_rev.h.%PID%.tmp
 echo #define ENCODER_REV "%REV%" &gt;&gt; rgy_rev.h.%PID%.tmp
-if not defined INTEL_METRIC_FRAMEWORK_SDK echo ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
+if not defined INTEL_METRIC_FRAMEWORK_SDK echo #define ENABLE_METRIC_FRAMEWORK 0 &gt;&gt; rgy_rev.h.%PID%.tmp
 fc rgy_rev.h.%PID%.tmp rgy_rev.h &gt; nul 2&gt;&amp;1
 if not %errorlevel% == 0 move /y rgy_rev.h.%PID%.tmp rgy_rev.h  &gt; nul 2&gt;&amp;1
 if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Command>
