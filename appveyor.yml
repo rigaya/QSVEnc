@@ -8,7 +8,7 @@ platform:
  - x64
 
 configuration:
- - RelStatic
+ - ReleaseStatic
 
 branches:
   only:
