@@ -1400,6 +1400,10 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
     }
 
     if (pParams->vpp.mirrorType != MFX_MIRRORING_DISABLED) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
+            PrintMes(RGY_LOG_ERROR, _T("--vpp-mirror not supported on this platform, disabled.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
         INIT_MFX_EXT_BUFFER(m_ExtMirror, MFX_EXTBUFF_VPP_MIRRORING);
         m_ExtMirror.Type = (mfxU16)pParams->vpp.mirrorType;
         m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtMirror);
@@ -1438,29 +1442,43 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
     }
 
-    if (pParams->vpp.mctf.enable) {
-        INIT_MFX_EXT_BUFFER(m_ExtMctf, MFX_EXTBUFF_VPP_MCTF);
-        m_ExtMctf.FilterStrength = (mfxU16)clamp_param_int(pParams->vpp.mctf.strength, 0, QSV_VPP_MCTF_MAX, _T("vpp-mctf"));
-        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtMctf);
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+        if (pParams->vpp.mctf.enable) {
+            INIT_MFX_EXT_BUFFER(m_ExtMctf, MFX_EXTBUFF_VPP_MCTF);
+            m_ExtMctf.FilterStrength = (mfxU16)clamp_param_int(pParams->vpp.mctf.strength, 0, QSV_VPP_MCTF_MAX, _T("vpp-mctf"));
+            m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtMctf);
 
-        if (m_ExtMctf.FilterStrength == 0) {
-            vppExtAddMes(_T("mctf, strength auto\n"));
+            if (m_ExtMctf.FilterStrength == 0) {
+                vppExtAddMes(_T("mctf, strength auto\n"));
+            } else {
+                vppExtAddMes(strsprintf(_T("mctf, strength %d\n"), m_ExtMctf.FilterStrength));
+            }
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MCTF);
         } else {
-            vppExtAddMes(strsprintf(_T("mctf, strength %d\n"), m_ExtMctf.FilterStrength));
+            m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_MCTF);
         }
-        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MCTF);
     } else {
-        m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_MCTF);
+        if (pParams->vpp.mctf.enable) {
+            PrintMes(RGY_LOG_WARN, _T("--vpp-mctf not supported on this platform, disabled.\n"));
+            pParams->vpp.mctf.enable = false;
+        }
     }
 
-    if (pParams->vpp.imageStabilizer) {
-        CHECK_RANGE_LIST(pParams->vpp.imageStabilizer, list_vpp_image_stabilizer, "vpp-image-stab");
-        INIT_MFX_EXT_BUFFER(m_ExtImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
-        m_ExtImageStab.Mode = (mfxU16)pParams->vpp.imageStabilizer;
-        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtImageStab);
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+        if (pParams->vpp.imageStabilizer) {
+            CHECK_RANGE_LIST(pParams->vpp.imageStabilizer, list_vpp_image_stabilizer, "vpp-image-stab");
+            INIT_MFX_EXT_BUFFER(m_ExtImageStab, MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
+            m_ExtImageStab.Mode = (mfxU16)pParams->vpp.imageStabilizer;
+            m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtImageStab);
 
-        vppExtAddMes(strsprintf(_T("Stabilizer, mode %s\n"), get_vpp_image_stab_mode_str(m_ExtImageStab.Mode)));
-        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
+            vppExtAddMes(strsprintf(_T("Stabilizer, mode %s\n"), get_vpp_image_stab_mode_str(m_ExtImageStab.Mode)));
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION);
+        }
+    } else {
+        if (pParams->vpp.imageStabilizer) {
+            PrintMes(RGY_LOG_WARN, _T("--vpp-image-stab not supported on this platform, disabled.\n"));
+            pParams->vpp.imageStabilizer = false;
+        }
     }
 
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_SCENE_ANALYSIS);
