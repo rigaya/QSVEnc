@@ -60,7 +60,7 @@ System::Boolean frmSaveNewStg::checkStgFileName(String^ stgName) {
     String^ fileName;
     if (stgName->Length == 0)
         return false;
-    
+
     if (!ValidiateFileName(stgName)) {
         MessageBox::Show(L"ファイル名に使用できない文字が含まれています。\n保存できません。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
         return false;
@@ -222,17 +222,16 @@ System::Boolean frmConfig::CheckLocalStg() {
     bool error = false;
     String^ err = "";
     //映像エンコーダのチェック
-    String^ VideoEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
-    if (!File::Exists(VideoEncoderPath)) {
+    if (!File::Exists(LocalStg.vidEncPath)) {
         if (!error) err += L"\n\n";
         error = true;
-        err += L"指定された 動画エンコーダ は存在しません。\n [ " + VideoEncoderPath + L" ]\n";
+        err += L"指定された 動画エンコーダ は存在しません。\n [ " + LocalStg.vidEncPath + L" ]\n";
     }
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
     if (LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
         String^ AudioEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
-        if (!File::Exists(AudioEncoderPath) 
-            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->s_aud_faw_index 
+        if (!File::Exists(AudioEncoderPath)
+            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->s_aud_faw_index
                 || !check_if_faw2aac_exists()) ) {
             //音声実行ファイルがない かつ
             //選択された音声がfawでない または fawであってもfaw2aacがない
@@ -258,7 +257,7 @@ System::Boolean frmConfig::CheckLocalStg() {
                 +  L"一度設定画面でFAW(fawcl)へのパスを指定してください。\n";
         }
     }
-    if (error) 
+    if (error)
         MessageBox::Show(this, err, L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
     return error;
 }
@@ -505,8 +504,8 @@ ToolStripMenuItem^ frmConfig::fcgTSSettingsSearchItem(String^ stgPath, ToolStrip
         if (item != nullptr)
             return item;
         item = dynamic_cast<ToolStripMenuItem^>(DropDownItem->DropDownItems[i]);
-        if (item      != nullptr && 
-            item->Tag != nullptr && 
+        if (item      != nullptr &&
+            item->Tag != nullptr &&
             0 == String::Compare(item->Tag->ToString(), stgPath, true))
             return item;
     }
@@ -518,7 +517,7 @@ ToolStripMenuItem^ frmConfig::fcgTSSettingsSearchItem(String^ stgPath) {
 }
 
 System::Void frmConfig::SaveToStgFile(String^ stgName) {
-    size_t nameLen = CountStringBytes(stgName) + 1; 
+    size_t nameLen = CountStringBytes(stgName) + 1;
     char *stg_name = (char *)malloc(nameLen);
     GetCHARfromString(stg_name, nameLen, stgName);
     init_CONF_GUIEX(cnf_stgSelected, FALSE);
@@ -564,7 +563,7 @@ System::Void frmConfig::fcgTSBSaveNew_Click(System::Object^  sender, System::Eve
 System::Void frmConfig::DeleteStgFile(ToolStripMenuItem^ mItem) {
     if (System::Windows::Forms::DialogResult::OK ==
         MessageBox::Show(L"設定ファイル " + mItem->Text + L" を削除してよろしいですか?",
-        L"エラー", MessageBoxButtons::OKCancel, MessageBoxIcon::Exclamation)) 
+        L"エラー", MessageBoxButtons::OKCancel, MessageBoxIcon::Exclamation))
     {
         File::Delete(mItem->Tag->ToString());
         RebuildStgFileDropDown(nullptr);
@@ -648,11 +647,11 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAspectRatio,     list_aspect_ratio);
     setComboBox(fcgCXTrellis,         list_avc_trellis);
     setComboBox(fcgCXLookaheadDS,     list_lookahead_ds);
-    
+
     setComboBox(fcgCXMVPred,          list_mv_presicion);
     setComboBox(fcgCXInterPred,       list_pred_block_size);
     setComboBox(fcgCXIntraPred,       list_pred_block_size);
-    
+
     setComboBox(fcgCXMVCostScaling,   list_mv_cost_scaling);
 
     setComboBox(fcgCXAudioTempDir,    list_audtempdir);
@@ -784,7 +783,7 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-    
+
     //API v1.3 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR));
     fcgLBVideoFormat->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
@@ -805,13 +804,13 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
     fcgCBMBBRC->Enabled  = 0 != (available_features & ENC_FEATURE_MBBRC);
     if (!fcgCBExtBRC->Enabled) fcgCBExtBRC->Checked = false;
     if (!fcgCBMBBRC->Enabled)  fcgCBMBBRC->Checked = false;
-    
+
     //API v1.7 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA));
     fcgLBTrellis->Enabled = 0 != (available_features & ENC_FEATURE_TRELLIS);
     fcgCXTrellis->Enabled = 0 != (available_features & ENC_FEATURE_TRELLIS);
     if (!fcgCXTrellis->Enabled) fcgCXTrellis->SelectedIndex = 0;
-    
+
     //API v1.8 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ));
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)));
@@ -825,7 +824,7 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
     if (!fcgCBAdaptiveI->Enabled)   fcgCBAdaptiveI->Checked = false;
     if (!fcgCBBPyramid->Enabled)    fcgCBBPyramid->Checked  = false;
     if (!fcgCXLookaheadDS->Enabled) fcgCXLookaheadDS->SelectedIndex = 0;
-    
+
     //API v1.9 features
     fcgNUQPMin->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
     fcgNUQPMax->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
@@ -882,7 +881,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
 
     mfxVersion mfxlib_target;
     mfxlib_target.Version = featuresHW->GetmfxLibVer();
-    
+
     mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
     //まず、レート制御モードのみのチェックを行う
     //もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
@@ -1476,7 +1475,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
 
     GetCHARfromString(prm_qsv.strSrcFile, sizeof(prm_qsv.strSrcFile), fcgTXAvqsvInputFile->Text);
-    
+
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;
     cnf->oth.run_bat               |= (fcgCBRunBatAfterAudio->Checked)  ? RUN_BAT_AFTER_AUDIO    : NULL;
@@ -1607,7 +1606,7 @@ System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {
             SetChangedEvent(top->Controls[i], gcnew System::EventHandler(this, &frmConfig::fcgRebuildCmd));
         else if (top->Controls[i]->Tag->ToString()->Contains(L"chValue"))
             SetChangedEvent(top->Controls[i], gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges));
-        else 
+        else
             SetAllCheckChangedEvents(top->Controls[i]);
     }
 }
@@ -1936,7 +1935,7 @@ System::Void frmConfig::SaveQSVFeature() {
             //SaveQSVFeatureAsTxt(SavePath);
         }
     }
-    
+
     Directory::SetCurrentDirectory(CurrentDir);
 }
 
