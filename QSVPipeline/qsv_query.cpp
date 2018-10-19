@@ -352,6 +352,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     mfxExtVPPRotation vppRotate;
     mfxExtVPPMirroring vppMirror;
     mfxExtVPPScaling vppScaleQuality;
+    mfxExtVppMctf vppMctf;
     INIT_MFX_EXT_BUFFER(vppDoUse,        MFX_EXTBUFF_VPP_DOUSE);
     INIT_MFX_EXT_BUFFER(vppDoNotUse,     MFX_EXTBUFF_VPP_DONOTUSE);
     INIT_MFX_EXT_BUFFER(vppFpsConv,      MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
@@ -360,6 +361,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     INIT_MFX_EXT_BUFFER(vppRotate,       MFX_EXTBUFF_VPP_ROTATION);
     INIT_MFX_EXT_BUFFER(vppMirror,       MFX_EXTBUFF_VPP_MIRRORING);
     INIT_MFX_EXT_BUFFER(vppScaleQuality, MFX_EXTBUFF_VPP_SCALING);
+    INIT_MFX_EXT_BUFFER(vppMctf,         MFX_EXTBUFF_VPP_MCTF);
 
     vppFpsConv.Algorithm = MFX_FRCALGM_FRAME_INTERPOLATION;
     vppImageStab.Mode = MFX_IMAGESTAB_MODE_UPSCALE;
@@ -370,6 +372,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     vppRotate.Angle = MFX_ANGLE_180;
     vppMirror.Type = MFX_MIRRORING_HORIZONTAL;
     vppScaleQuality.ScalingMode = MFX_SCALING_MODE_LOWPOWER;
+    vppMctf.FilterStrength = 0;
 
     vector<mfxExtBuffer*> buf;
     buf.push_back((mfxExtBuffer *)&vppDoUse);
@@ -380,7 +383,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
 
     mfxVideoParam videoPrm;
     RGY_MEMSET_ZERO(videoPrm);
-    
+
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
     videoPrm.AsyncDepth           = 3;
@@ -412,7 +415,8 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     mfxExtVPPRotation vppRotateOut;
     mfxExtVPPMirroring vppMirrorOut;
     mfxExtVPPScaling vppScaleQualityOut;
-    
+    mfxExtVppMctf vppMctfOut;
+
     memcpy(&vppDoUseOut,        &vppDoUse,        sizeof(vppDoUse));
     memcpy(&vppDoNotUseOut,     &vppDoNotUse,     sizeof(vppDoNotUse));
     memcpy(&vppFpsConvOut,      &vppFpsConv,      sizeof(vppFpsConv));
@@ -421,7 +425,8 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     memcpy(&vppRotateOut,       &vppRotate,       sizeof(vppRotate));
     memcpy(&vppMirrorOut,       &vppMirror,       sizeof(vppMirror));
     memcpy(&vppScaleQualityOut, &vppScaleQuality, sizeof(vppScaleQuality));
-    
+    memcpy(&vppMctfOut,         &vppMctf,         sizeof(vppMctf));
+
     vector<mfxExtBuffer *> bufOut;
     bufOut.push_back((mfxExtBuffer *)&vppDoUse);
     if (bSetDoNotUseTag) {
@@ -481,7 +486,8 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
     check_feature((mfxExtBuffer *)&vppMirror,       (mfxExtBuffer *)&vppMirrorOut,       MFX_LIB_VERSION_1_19,  VPP_FEATURE_MIRROR,             0x00);
     check_feature((mfxExtBuffer *)&vppScaleQuality, (mfxExtBuffer *)&vppScaleQualityOut, MFX_LIB_VERSION_1_19,  VPP_FEATURE_SCALING_QUALITY,    0x00);
-    
+    check_feature((mfxExtBuffer *)&vppMctf,         (mfxExtBuffer *)&vppMctfOut,         MFX_LIB_VERSION_1_26,  VPP_FEATURE_MCTF,               0x00);
+
     videoPrm.vpp.Out.FrameRateExtN    = 60000;
     videoPrm.vpp.Out.FrameRateExtD    = 1001;
     videoPrmOut.vpp.Out.FrameRateExtN = 60000;
@@ -798,7 +804,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
     videoPrm.ExtParam = &bufOut[0];
 
     mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
-    
+
     mfxU64 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
 
@@ -1150,9 +1156,9 @@ tstring MakeFeatureListStr(mfxU64 feature) {
 
 vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type, const vector<mfxU32>& codecLists) {
     auto featurePerCodec = MakeFeatureListPerCodec(make_vector(list_rate_control_ry), codecLists);
-    
+
     vector<std::pair<vector<mfxU64>, tstring>> strPerCodec;
-    
+
     for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
         tstring str;
         auto& availableFeatureForEachRC = featurePerCodec[i_codec];
@@ -1348,7 +1354,7 @@ tstring MakeDecFeatureStr(FeatureListStrType type) {
         case FEATURE_LIST_STR_TYPE_TXT: str += _T(" ");
             break;
         case FEATURE_LIST_STR_TYPE_CSV:
-            str += _T(","); 
+            str += _T(",");
             break;
         case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
         default: break;
