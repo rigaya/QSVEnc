@@ -119,7 +119,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 |Kabylake	        |Pentium G456x/G46xx	|○|
 |Kabylake	        |Celeron G393x/G395x	|○|
 |Skylake-X	        |Core i7/i9 78xx/79xx	|×|
-|Coffeelake	        |Core i3/i5/i7 8xxx	|○|
+|Coffeelake	        |Core i3/i5/i7/i9 8xxx/9xxx	|○|
 |Coffeelake	        |Pentium G5xxx	|○|
 |Coffeelake	        |Celeron G49xx	|○|
 |Atom系 CPU	|||
