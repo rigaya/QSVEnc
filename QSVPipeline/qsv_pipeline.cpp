@@ -2299,6 +2299,17 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
     if (pParams->CodecId == MFX_CODEC_RAW) {
         pParams->nAVMux &= ~RGY_MUX_VIDEO;
     }
+
+    { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            //caption2ass用の解像度情報の提供
+            //これをしないと入力ファイルのデータをずっとバッファし続けるので注意
+            pAVCodecReader->setOutputVideoInfo(m_mfxEncParams.mfx.FrameInfo.CropW, m_mfxEncParams.mfx.FrameInfo.CropH,
+                m_mfxEncParams.mfx.FrameInfo.AspectRatioW, m_mfxEncParams.mfx.FrameInfo.AspectRatioH,
+                (pParams->nAVMux & RGY_MUX_VIDEO) != 0);
+        }
+    }
+
     bool audioCopyAll = false;
     if (pParams->nAVMux & RGY_MUX_VIDEO) {
         if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {

@@ -1262,15 +1262,11 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
 
 RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pInputSubtitle) {
     AddMessage(RGY_LOG_DEBUG, _T("start initializing subtitle ouput...\n"));
-    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
-        pInputSubtitle->src.nIndex, pInputSubtitle->src.pStream->time_base.num, pInputSubtitle->src.pStream->time_base.den, pInputSubtitle->src.nTrackId);
 
-    if (NULL == (pMuxSub->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
-        return RGY_ERR_NULL_PTR;
-    }
+    AVCodecID codecId = (pInputSubtitle->src.pStream)
+        ? pInputSubtitle->src.pStream->codecpar->codec_id
+        : (pInputSubtitle->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
 
-    AVCodecID codecId = pInputSubtitle->src.pStream->codecpar->codec_id;
     if (   0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mp4")
         || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "mov")
         || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "3gp")
@@ -1279,6 +1275,7 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
         || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "ipod")
         || 0 == strcmp(m_Mux.format.pFormatCtx->oformat->name, "f4v")) {
         if (avcodec_descriptor_get(codecId)->props & AV_CODEC_PROP_TEXT_SUB) {
+            //mp4はmov_text形式しか使用できない
             codecId = AV_CODEC_ID_MOV_TEXT;
         }
     } else if (codecId == AV_CODEC_ID_MOV_TEXT) {
@@ -1293,36 +1290,63 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
         }
     };
 
-    if (codecId != pInputSubtitle->src.pStream->codecpar->codec_id || codecId == AV_CODEC_ID_MOV_TEXT) {
+    auto srcCodecParam = unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>>(
+        avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
+
+    if (pInputSubtitle->src.pStream == nullptr) {
+        //caption2assで生成した字幕を受け取る
+        const auto src_codec_id = (pInputSubtitle->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
+        const auto codec = avcodec_find_decoder(src_codec_id);
+        if (nullptr == (pMuxSub->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, codec))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        if (src_codec_id == AV_CODEC_ID_ASS) {
+            if (pInputSubtitle->src.subtitleHeader == nullptr || pInputSubtitle->src.subtitleHeaderSize == 0) {
+                AddMessage(RGY_LOG_ERROR, _T("subtitle header unknown for track %d.\n"), pInputSubtitle->src.nTrackId);
+                return RGY_ERR_NULL_PTR;
+            }
+            srcCodecParam->extradata_size = pInputSubtitle->src.subtitleHeaderSize;
+            srcCodecParam->extradata = (uint8_t *)av_strdup((char *)pInputSubtitle->src.subtitleHeader);
+        }
+        srcCodecParam->codec_type = codec->type;
+        srcCodecParam->codec_id   = codec->id;
+    } else {
+        avcodec_parameters_copy(srcCodecParam.get(), pInputSubtitle->src.pStream->codecpar);
+
+        if (nullptr == (pMuxSub->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, avcodec_find_decoder(codecId)))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, pkt_timebase %d/%d, trackId %d\n"),
+            pInputSubtitle->src.nIndex, pInputSubtitle->src.pStream->time_base.num, pInputSubtitle->src.pStream->time_base.den, pInputSubtitle->src.nTrackId);
+    }
+    if (srcCodecParam->codec_id != codecId || codecId == AV_CODEC_ID_MOV_TEXT) {
         //setup decoder
-        if (NULL == (pMuxSub->pOutCodecDecode = avcodec_find_decoder(pInputSubtitle->src.pStream->codecpar->codec_id))) {
-            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), pInputSubtitle->src.pStream->codecpar->codec_id));
+        if (nullptr == (pMuxSub->pOutCodecDecode = avcodec_find_decoder(srcCodecParam->codec_id))) {
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find decoder"), srcCodecParam->codec_id));
             AddMessage(RGY_LOG_ERROR, _T("Please use --check-decoders to check available decoder.\n"));
             return RGY_ERR_INVALID_CODEC;
         }
-        if (NULL == (pMuxSub->pOutCodecDecodeCtx = avcodec_alloc_context3(pMuxSub->pOutCodecDecode))) {
-            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), pInputSubtitle->src.pStream->codecpar->codec_id));
+        if (nullptr == (pMuxSub->pOutCodecDecodeCtx = avcodec_alloc_context3(pMuxSub->pOutCodecDecode))) {
+            AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to get decode codec context"), srcCodecParam->codec_id));
             return RGY_ERR_NULL_PTR;
         }
         //設定されていない必須情報があれば設定する
-#define COPY_IF_ZERO(dst, src) { if ((dst)==0) (dst)=(src); }
-        COPY_IF_ZERO(pMuxSub->pOutCodecDecodeCtx->width,  pInputSubtitle->src.pStream->codecpar->width);
-        COPY_IF_ZERO(pMuxSub->pOutCodecDecodeCtx->height, pInputSubtitle->src.pStream->codecpar->height);
-#undef COPY_IF_ZERO
-        pMuxSub->pOutCodecDecodeCtx->pkt_timebase = pInputSubtitle->src.pStream->time_base;
-        SetExtraData(pMuxSub->pOutCodecDecodeCtx, pInputSubtitle->src.pStream->codecpar->extradata, pInputSubtitle->src.pStream->codecpar->extradata_size);
+        pMuxSub->pOutCodecDecodeCtx->pkt_timebase = pInputSubtitle->src.timebase;
+        SetExtraData(pMuxSub->pOutCodecDecodeCtx, srcCodecParam->extradata, srcCodecParam->extradata_size);
         int ret;
-        if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecDecodeCtx, pMuxSub->pOutCodecDecode, NULL))) {
+        if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecDecodeCtx, pMuxSub->pOutCodecDecode, nullptr))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
-                char_to_tstring(avcodec_get_name(pInputSubtitle->src.pStream->codecpar->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
+                char_to_tstring(avcodec_get_name(srcCodecParam->codec_id)).c_str(), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decoder opened\n"));
-        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(pInputSubtitle->src.pStream->codecpar->codec_id)).c_str(),
+        AddMessage(RGY_LOG_DEBUG, _T("Subtitle Decode Info: %s, %dx%d\n"), char_to_tstring(avcodec_get_name(srcCodecParam->codec_id)).c_str(),
             pMuxSub->pOutCodecDecodeCtx->width, pMuxSub->pOutCodecDecodeCtx->height);
 
         //エンコーダを探す
-        if (NULL == (pMuxSub->pOutCodecEncode = avcodec_find_encoder(codecId))) {
+        if (nullptr == (pMuxSub->pOutCodecEncode = avcodec_find_encoder(codecId))) {
             AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to find encoder"), codecId));
             AddMessage(RGY_LOG_ERROR, _T("Please use --check-encoders to find available encoder.\n"));
             return RGY_ERR_INVALID_CODEC;
@@ -1334,7 +1358,15 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
             return RGY_ERR_NULL_PTR;
         }
         pMuxSub->pOutCodecEncodeCtx->time_base = av_make_q(1, 1000);
-        copy_subtitle_header(pMuxSub->pOutCodecEncodeCtx, pInputSubtitle->src.pStream->codec);
+
+        //subtitle_headerをここで設定しないとavcodec_open2に失敗する
+        //基本的にはass形式のヘッダーを設定する
+        if (pInputSubtitle->src.pStream) {
+            copy_subtitle_header(pMuxSub->pOutCodecEncodeCtx, pInputSubtitle->src.pStream->codec);
+        } else if (pInputSubtitle->src.subtitleHeader) {
+            pMuxSub->pOutCodecEncodeCtx->subtitle_header = (uint8_t *)av_strdup((char *)pInputSubtitle->src.subtitleHeader);
+            pMuxSub->pOutCodecEncodeCtx->subtitle_header_size = pInputSubtitle->src.subtitleHeaderSize;
+        }
 
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str(),
             pMuxSub->pOutCodecEncodeCtx->width, pMuxSub->pOutCodecEncodeCtx->height);
@@ -1342,9 +1374,9 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
             //問答無用で使うのだ
             av_opt_set(pMuxSub->pOutCodecEncodeCtx, "strict", "experimental", 0);
         }
-        if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecEncodeCtx, pMuxSub->pOutCodecEncode, NULL))) {
+        if (0 > (ret = avcodec_open2(pMuxSub->pOutCodecEncodeCtx, pMuxSub->pOutCodecEncode, nullptr))) {
             AddMessage(RGY_LOG_ERROR, errorMesForCodec(_T("failed to open encoder"), codecId));
-            AddMessage(RGY_LOG_ERROR, _T("%s\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T(" %s\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_NULL_PTR;
         }
         AddMessage(RGY_LOG_DEBUG, _T("Opened Subtitle Encoder Param: %s\n"), char_to_tstring(pMuxSub->pOutCodecEncode->name).c_str());
@@ -1358,18 +1390,12 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
     pMuxSub->nInTrackId     = pInputSubtitle->src.nTrackId;
     pMuxSub->nStreamIndexIn = pInputSubtitle->src.nIndex;
     pMuxSub->pStreamIn      = pInputSubtitle->src.pStream;
+    pMuxSub->streamInTimebase = pInputSubtitle->src.timebase;
 
-    AVCodecParameters *srcCodecParam = avcodec_parameters_alloc();
     if (pMuxSub->pOutCodecEncodeCtx) {
-        avcodec_parameters_from_context(srcCodecParam, pMuxSub->pOutCodecEncodeCtx);
-    } else {
-        avcodec_parameters_copy(srcCodecParam, pMuxSub->pStreamIn->codecpar);
+        avcodec_parameters_from_context(srcCodecParam.get(), pMuxSub->pOutCodecEncodeCtx);
     }
-    avcodec_get_context_defaults3(pMuxSub->pStreamOut->codec, NULL);
-    copy_subtitle_header(pMuxSub->pStreamOut->codec, (pMuxSub->pOutCodecEncodeCtx) ?  pMuxSub->pOutCodecEncodeCtx : pInputSubtitle->src.pStream->codec);
-    SetExtraData(pMuxSub->pStreamOut->codecpar, srcCodecParam->extradata, srcCodecParam->extradata_size);
-    pMuxSub->pStreamOut->codecpar->codec_type      = srcCodecParam->codec_type;
-    pMuxSub->pStreamOut->codecpar->codec_id        = srcCodecParam->codec_id;
+    avcodec_parameters_copy(pMuxSub->pStreamOut->codecpar, srcCodecParam.get());
     if (!pMuxSub->pStreamOut->codec->codec_tag) {
         uint32_t codec_tag = 0;
         if (!m_Mux.format.pFormatCtx->oformat->codec_tag
@@ -1378,22 +1404,27 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
             pMuxSub->pStreamOut->codecpar->codec_tag = srcCodecParam->codec_tag;
         }
     }
-    pMuxSub->pStreamOut->time_base              = pMuxSub->pStreamIn->time_base;
-    pMuxSub->pStreamOut->start_time             = 0;
-    pMuxSub->pStreamOut->codecpar->width        = srcCodecParam->width;
-    pMuxSub->pStreamOut->codecpar->height       = srcCodecParam->height;
-
-    pMuxSub->pStreamOut->disposition = pInputSubtitle->src.pStream->disposition;
-    if (pInputSubtitle->src.pStream->metadata) {
-        for (AVDictionaryEntry *pEntry = nullptr;
-        nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
-            av_dict_set(&pMuxSub->pStreamOut->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(RGY_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
-        }
-        auto language_data = av_dict_get(pInputSubtitle->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
-        if (language_data) {
-            av_dict_set(&pMuxSub->pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
-            AddMessage(RGY_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+    if (pInputSubtitle->src.pStream) {
+        copy_subtitle_header(pMuxSub->pStreamOut->codec, (pMuxSub->pOutCodecEncodeCtx) ?  pMuxSub->pOutCodecEncodeCtx : pInputSubtitle->src.pStream->codec);
+    } else if (pInputSubtitle->src.subtitleHeader != nullptr) {
+        pMuxSub->pStreamOut->codec->subtitle_header = (uint8_t *)av_strdup((char *)pInputSubtitle->src.subtitleHeader);
+        pMuxSub->pStreamOut->codec->subtitle_header_size = pInputSubtitle->src.subtitleHeaderSize;
+    }
+    pMuxSub->pStreamOut->time_base  = av_make_q(1, 1000);
+    pMuxSub->pStreamOut->start_time = 0;
+    if (pInputSubtitle->src.pStream) {
+        pMuxSub->pStreamOut->disposition = pInputSubtitle->src.pStream->disposition;
+        if (pInputSubtitle->src.pStream->metadata) {
+            for (AVDictionaryEntry *pEntry = nullptr;
+                nullptr != (pEntry = av_dict_get(pInputSubtitle->src.pStream->metadata, "", pEntry, AV_DICT_IGNORE_SUFFIX));) {
+                av_dict_set(&pMuxSub->pStreamOut->metadata, pEntry->key, pEntry->value, AV_DICT_IGNORE_SUFFIX);
+                AddMessage(RGY_LOG_DEBUG, _T("Copy Subtitle Metadata: key %s, value %s\n"), char_to_tstring(pEntry->key).c_str(), char_to_tstring(pEntry->value).c_str());
+            }
+            auto language_data = av_dict_get(pInputSubtitle->src.pStream->metadata, "language", NULL, AV_DICT_MATCH_CASE);
+            if (language_data) {
+                av_dict_set(&pMuxSub->pStreamOut->metadata, language_data->key, language_data->value, AV_DICT_IGNORE_SUFFIX);
+                AddMessage(RGY_LOG_DEBUG, _T("Set Subtitle language: key %s, value %s\n"), char_to_tstring(language_data->key).c_str(), char_to_tstring(language_data->value).c_str());
+            }
         }
     }
     return RGY_ERR_NONE;
@@ -2107,7 +2138,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
     *pWrittenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
     m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, &pkt);
-    
+
     if (m_Mux.video.fpTsLogFile) {
         const uint32_t frameType = pBitstream->frametype();
         const TCHAR *pFrameTypeStr =
@@ -2614,6 +2645,11 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *pMuxAudio, int64_t *pWritten
 }
 
 RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *pkt) {
+    //timescaleの変換が入ると、pts + duration > 次のpts となることがある
+    //オリジナルのptsを使って再計算する
+    const auto org_start_time = pkt->pts;
+    const auto org_end_time = pkt->pts + pkt->duration;
+
     int got_sub = 0;
     AVSubtitle sub = { 0 };
     if (0 > avcodec_decode_subtitle2(pMuxSub->pOutCodecDecodeCtx, &sub, &got_sub, pkt)) {
@@ -2630,6 +2666,7 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
     if (!got_sub || sub.num_rects == 0)
         return RGY_ERR_NONE;
 
+    //AV_CODEC_ID_DVB_SUBTITLEははじめりと終わりで2パケット
     const int nOutPackets = 1 + (pMuxSub->pOutCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE);
     for (int i = 0; i < nOutPackets; i++) {
         sub.pts               += av_rescale_q(sub.start_display_time, av_make_q(1, 1000), av_make_q(1, AV_TIME_BASE));
@@ -2651,8 +2688,10 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxSub *pMuxSub, AVPacket *p
         pktOut.data = pMuxSub->pBuf;
         pktOut.stream_index = pMuxSub->pStreamOut->index;
         pktOut.size = sub_out_size;
-        pktOut.duration = (int)av_rescale_q(sub.end_display_time, av_make_q(1, 1000), pMuxSub->pStreamOut->time_base);
-        pktOut.pts  = av_rescale_q(sub.pts, av_make_q(1, AV_TIME_BASE), pMuxSub->pStreamOut->time_base);
+        // pts + duration <= 次のptsとなるよう、オリジナルのptsを使って再計算する
+        auto end_ts = av_rescale_q(org_end_time,   pMuxSub->pOutCodecDecodeCtx->pkt_timebase, pMuxSub->pStreamOut->time_base);
+        pktOut.pts  = av_rescale_q(org_start_time, pMuxSub->pOutCodecDecodeCtx->pkt_timebase, pMuxSub->pStreamOut->time_base);
+        pktOut.duration = (int)av_rescale_q(end_ts - pktOut.pts, pMuxSub->pOutCodecDecodeCtx->pkt_timebase, pMuxSub->pStreamOut->time_base);
         if (pMuxSub->pOutCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
             pktOut.pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
         }
@@ -2666,20 +2705,24 @@ RGY_ERR RGYOutputAvcodec::SubtitleWritePacket(AVPacket *pkt) {
     //字幕を処理する
     const AVMuxSub *pMuxSub = getSubPacketStreamData(pkt);
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.nFPS);
-    const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxSub->pStreamIn->time_base);
+    const int64_t pts_adjust = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxSub->streamInTimebase);
     //ptsが存在しない場合はないものとすると、AdjustTimestampTrimmedの結果がAV_NOPTS_VALUEとなるのは、
     //Trimによりカットされたときのみ
+    pkt->pts -= pts_adjust;
+    const AVRational timebase_conv = (pMuxSub->pOutCodecDecodeCtx) ? pMuxSub->pOutCodecDecodeCtx->pkt_timebase : pMuxSub->pStreamOut->time_base;
     const int64_t pts_orig = pkt->pts;
-    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts - pts_adjust), pMuxSub->pStreamIn->time_base, pMuxSub->pStreamOut->time_base, false))) {
+    const int64_t pts_adj = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, pMuxSub->streamInTimebase, false);
+    if (AV_NOPTS_VALUE != (pkt->pts = AdjustTimestampTrimmed(std::max(INT64_C(0), pkt->pts), pMuxSub->streamInTimebase, timebase_conv, false))) {
+        //dts側にもpts側に加えたのと同じ分だけの補正をかける
+        pkt->dts -= pts_adjust;
+        pkt->dts -= (pts_orig - pts_adj);
+        //timescaleの変換を行い、負の値をとらないようにする
+        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->streamInTimebase, timebase_conv));
         if (pMuxSub->pOutCodecEncodeCtx) {
             return SubtitleTranscode(pMuxSub, pkt);
         }
-        //dts側にもpts側に加えたのと同じ分だけの補正をかける
-        pkt->dts = pkt->dts + (av_rescale_q(pkt->pts, pMuxSub->pStreamOut->time_base, pMuxSub->pStreamIn->time_base) - pts_orig);
-        //timescaleの変換を行い、負の値をとらないようにする
-        pkt->dts = std::max(INT64_C(0), av_rescale_q(pkt->dts, pMuxSub->pStreamIn->time_base, pMuxSub->pStreamOut->time_base));
         pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
-        pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->pStreamIn->time_base, pMuxSub->pStreamOut->time_base);
+        pkt->duration = (int)av_rescale_q(pkt->duration, pMuxSub->streamInTimebase, pMuxSub->pStreamOut->time_base);
         pkt->stream_index = pMuxSub->pStreamOut->index;
         pkt->pos = -1;
         m_Mux.format.bStreamError |= 0 != av_interleaved_write_frame(m_Mux.format.pFormatCtx, pkt);

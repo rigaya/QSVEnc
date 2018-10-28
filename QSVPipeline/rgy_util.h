@@ -189,6 +189,16 @@ struct handle_deleter {
     }
 };
 
+struct module_deleter {
+    void operator()(void *hmodule) const {
+        if (hmodule) {
+#if defined(_WIN32) || defined(_WIN64)
+            FreeLibrary((HMODULE)hmodule);
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        }
+    }
+};
+
 template<typename T>
 static inline T rgy_gcd(T a, T b) {
     static_assert(std::is_integral<T>::value, "rgy_gcd is defined only for integer.");

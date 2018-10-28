@@ -740,6 +740,25 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("caption2ass"))) {
+        if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            C2AFormat format = FORMAT_INVALID;
+            if (PARSE_ERROR_FLAG != (format = (C2AFormat)get_value_from_chr(list_caption2ass, strInput[i]))) {
+                pParams->caption2ass = format;
+            } else {
+                SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                return 1;
+            }
+        } else {
+            pParams->caption2ass = FORMAT_ASS;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
+        pParams->caption2ass = FORMAT_INVALID;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("avsync"))) {
         int value = 0;
         i++;
@@ -2632,6 +2651,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         cmd << _T(" --sub-copy ") << tmp.str().substr(1);
     }
     tmp.str(tstring());
+    OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
     OPT_CHAR_PATH(_T("--chapter"), pChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
