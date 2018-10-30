@@ -34,16 +34,19 @@ before_build:
   - git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
   - git clone -b MT https://github.com/pinterf/AviSynthPlus.git ..\avisynthplus
   - git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
+  - git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
   - for /f "usebackq tokens=*" %%i IN (`cd`) DO @set CURRENT_DIR=%%i
   - set AVISYNTH_SDK=%CURRENT_DIR%\..\AviSynthPlus\avs_core
   - set VAPOURSYNTH_SDK=%CURRENT_DIR%\..\vapoursynth
   - set OPENCL_HEADERS=%CURRENT_DIR%\..\openclheaders
+  - set CAPTION2ASS_SRC=%CURRENT_DIR%\..\caption2ass\src
   - echo %CURRENT_DIR%
   - echo %PLATFORM%
   - echo %CONFIGURATION%
   - echo %AVISYNTH_SDK%
   - echo %VAPOURSYNTH_SDK%
   - echo %OPENCL_HEADERS%
+  - echo %CAPTION2ASS_SRC%
   - ps: |
       $version = $null
       if (Test-Path Env:APPVEYOR_REPO_TAG_NAME)
