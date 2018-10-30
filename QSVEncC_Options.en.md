@@ -485,6 +485,11 @@ If audio / subtitle tracks etc. are not detected properly, try increasing this v
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.
 
+```
+Example 1: --trim 0:1000,2000:3000    (encode frame #0 - #1000 and frame #2000 - #3000)
+Example 2: --trim 2000:0              (encode frame #2000 to the end)
+```
+
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 The format is hh:mm:ss.ms. "hh" or "mm" could be omitted. The transcode will start from the time specified.
 
