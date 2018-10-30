@@ -751,7 +751,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 return 1;
             }
         } else {
-            pParams->caption2ass = FORMAT_ASS;
+            pParams->caption2ass = FORMAT_SRT;
         }
         return 0;
     }

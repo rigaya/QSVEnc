@@ -1277,6 +1277,10 @@ RGY_ERR RGYOutputAvcodec::InitSubtitle(AVMuxSub *pMuxSub, AVOutputStreamPrm *pIn
         if (avcodec_descriptor_get(codecId)->props & AV_CODEC_PROP_TEXT_SUB) {
             //mp4はmov_text形式しか使用できない
             codecId = AV_CODEC_ID_MOV_TEXT;
+            if (pInputSubtitle->src.pStream == nullptr && pInputSubtitle->src.caption2ass != FORMAT_SRT) {
+                AddMessage(RGY_LOG_ERROR, _T("When output format is mp4, please select \"srt\" for caption2ass format.\n"));
+                return RGY_ERR_INVALID_FORMAT;
+            }
         }
     } else if (codecId == AV_CODEC_ID_MOV_TEXT) {
         codecId = AV_CODEC_ID_ASS;
