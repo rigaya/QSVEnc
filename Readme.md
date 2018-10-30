@@ -154,8 +154,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
   [ffmpeg](https://ffmpeg.org/),
   [libass](https://github.com/libass/libass),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
-  [ttmath](http://www.ttmath.org/),
-  [dtl](https://github.com/cubicdaiya/dtl).
+  [dtl](https://github.com/cubicdaiya/dtl),
+  [ttmath](http://www.ttmath.org/) &
+  [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR).
   For these licenses, please see the header part of the corresponding source and license.txt.
 
 - [How to build](./Build.en.md)
