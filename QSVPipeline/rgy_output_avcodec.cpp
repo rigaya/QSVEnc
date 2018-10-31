@@ -475,6 +475,8 @@ tstring RGYOutputAvcodec::AudioGetCodecProfileStr(int profile, AVCodecID codecId
     return _T("default");
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const AvcodecWriterPrm *prm) {
     m_Mux.format.pFormatCtx->video_codec_id = getAVCodecId(pVideoOutputInfo->codec);
     if (m_Mux.format.pFormatCtx->video_codec_id == AV_CODEC_ID_NONE) {
@@ -743,6 +745,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *pVideoOutputInfo, const Avc
     AddMessage(RGY_LOG_DEBUG, _T("bDtsUnavailable: %s\n"), (m_Mux.video.bDtsUnavailable) ? _T("on") : _T("off"));
     return RGY_ERR_NONE;
 }
+#pragma warning (pop)
 
 //音声フィルタの初期化
 RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt) {
@@ -2023,6 +2026,8 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *pBitstream) {
     return WriteNextFrameInternal(pBitstream, &dts);
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64_t *pWrittenDts) {
     if (!m_Mux.format.bFileHeaderWritten) {
 #if ENCODER_QSV
@@ -2196,6 +2201,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *pBitstream, int64
     m_Mux.format.bFileHeaderWritten = true;
     return (m_Mux.format.bStreamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
+#pragma warning (pop)
 
 RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *pSurface) {
     UNREFERENCED_PARAMETER(pSurface);
