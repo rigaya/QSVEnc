@@ -201,27 +201,27 @@ public:
         UNREFERENCED_PARAMETER(frameIdx);
     }
 
-    uint32_t size() const {
+    size_t size() const {
         return m_bitstream.DataLength;
     }
 
-    void setSize(uint32_t size) {
-        m_bitstream.DataLength = size;
+    void setSize(size_t size) {
+        m_bitstream.DataLength = (uint32_t)size;
     }
 
-    uint32_t offset() const {
+    size_t offset() const {
         return m_bitstream.DataOffset;
     }
 
-    void addOffset(uint32_t add) {
-        m_bitstream.DataOffset += add;
+    void addOffset(size_t add) {
+        m_bitstream.DataOffset += (uint32_t)add;
     }
 
-    void setOffset(uint32_t offset) {
-        m_bitstream.DataOffset = offset;
+    void setOffset(size_t offset) {
+        m_bitstream.DataOffset = (uint32_t)offset;
     }
 
-    uint32_t bufsize() const {
+    size_t bufsize() const {
         return m_bitstream.MaxLength;
     }
 
@@ -256,7 +256,7 @@ public:
         memset(&m_bitstream, 0, sizeof(m_bitstream));
     }
 
-    RGY_ERR init(uint32_t nSize) {
+    RGY_ERR init(size_t nSize) {
         clear();
 
         if (nSize > 0) {
@@ -264,7 +264,7 @@ public:
                 return RGY_ERR_NULL_PTR;
             }
 
-            m_bitstream.MaxLength = nSize;
+            m_bitstream.MaxLength = (uint32_t)nSize;
         }
         return RGY_ERR_NONE;
     }
@@ -276,7 +276,7 @@ public:
         }
     }
 
-    RGY_ERR copy(const uint8_t *setData, uint32_t setSize) {
+    RGY_ERR copy(const uint8_t *setData, size_t setSize) {
         if (setData == nullptr || setSize == 0) {
             return RGY_ERR_MORE_BITSTREAM;
         }
@@ -287,13 +287,13 @@ public:
                 return sts;
             }
         }
-        m_bitstream.DataLength = setSize;
+        m_bitstream.DataLength = (uint32_t)setSize;
         m_bitstream.DataOffset = 0;
         memcpy(m_bitstream.Data, setData, setSize);
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR copy(const uint8_t *setData, uint32_t setSize, int64_t dts, int64_t pts) {
+    RGY_ERR copy(const uint8_t *setData, size_t setSize, int64_t dts, int64_t pts) {
         auto sts = copy(setData, setSize);
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -323,13 +323,13 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR changeSize(uint32_t nNewSize) {
+    RGY_ERR changeSize(size_t nNewSize) {
         uint8_t *pData = (uint8_t *)_aligned_malloc(nNewSize, 32);
         if (pData == nullptr) {
             return RGY_ERR_NULL_PTR;
         }
 
-        auto nDataLen = m_bitstream.DataLength;
+        size_t nDataLen = m_bitstream.DataLength;
         if (m_bitstream.DataLength) {
             memcpy(pData, m_bitstream.Data + m_bitstream.DataOffset, (std::min)(nDataLen, nNewSize));
         }
@@ -337,15 +337,15 @@ public:
 
         m_bitstream.Data       = pData;
         m_bitstream.DataOffset = 0;
-        m_bitstream.DataLength = nDataLen;
-        m_bitstream.MaxLength  = nNewSize;
+        m_bitstream.DataLength = (uint32_t)nDataLen;
+        m_bitstream.MaxLength  = (uint32_t)nNewSize;
 
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR append(const uint8_t *appendData, uint32_t appendSize) {
+    RGY_ERR append(const uint8_t *appendData, size_t appendSize) {
         if (appendData) {
-            const uint32_t new_data_length = appendSize + m_bitstream.DataLength;
+            const auto new_data_length = appendSize + m_bitstream.DataLength;
             if (m_bitstream.MaxLength < new_data_length) {
                 auto sts = changeSize(new_data_length);
                 if (sts != RGY_ERR_NONE) {
@@ -358,7 +358,7 @@ public:
                 m_bitstream.DataOffset = 0;
             }
             memcpy(m_bitstream.Data + m_bitstream.DataLength + m_bitstream.DataOffset, appendData, appendSize);
-            m_bitstream.DataLength = new_data_length;
+            m_bitstream.DataLength = (uint32_t)new_data_length;
         }
         return RGY_ERR_NONE;
     }
