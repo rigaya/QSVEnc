@@ -30,9 +30,7 @@
 #define __RGY_LOG_H__
 
 #include <cstdint>
-#include <thread>
 #include <string>
-#include <mutex>
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 

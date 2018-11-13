@@ -26,6 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #include <algorithm>
+#include <thread>
+#include <mutex>
 #include "rgy_log.h"
 #include "rgy_version.h"
 
