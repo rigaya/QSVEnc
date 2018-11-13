@@ -126,8 +126,8 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_HANDLE;
     }
 
-    const auto interface_ver = (m_sAvisynth.f_is_420 && m_sAvisynth.f_is_422 && m_sAvisynth.f_is_444) ? AVISYNTH_INTERFACE_VERSION : 5;
-    if (nullptr == (m_sAVSenv = m_sAvisynth.f_create_script_environment(AVISYNTH_INTERFACE_VERSION))) {
+    const auto interface_ver = (m_sAvisynth.f_is_420 && m_sAvisynth.f_is_422 && m_sAvisynth.f_is_444) ? AVISYNTH_INTERFACE_VERSION : RGY_AVISYNTH_INTERFACE_25;
+    if (nullptr == (m_sAVSenv = m_sAvisynth.f_create_script_environment(interface_ver))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to init avisynth enviroment.\n"));
         return RGY_ERR_INVALID_HANDLE;
     }
