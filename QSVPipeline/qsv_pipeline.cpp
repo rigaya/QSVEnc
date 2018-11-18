@@ -2769,7 +2769,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
 #endif
 
-    if (!m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN
+    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN
         && pParams->pTrimList && pParams->nTrimCount > 0) {
         //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
