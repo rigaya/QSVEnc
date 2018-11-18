@@ -2706,8 +2706,9 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
                 avcodecReaderPrm.pHWDecCodecCsp = &HWDecCodecCsp;
                 avcodecReaderPrm.bVideoDetectPulldown = pParams->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
+                avcodecReaderPrm.caption2ass = pParams->caption2ass;
                 input_option = &avcodecReaderPrm;
-                PrintMes(RGY_LOG_DEBUG, _T("Input: avqsv/avsw reader selected.\n"));
+                PrintMes(RGY_LOG_DEBUG, _T("Input: avhw/avsw reader selected.\n"));
                 break;
 #endif
 #if ENABLE_RAW_READER
