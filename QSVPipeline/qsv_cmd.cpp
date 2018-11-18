@@ -141,10 +141,10 @@ struct sArgsData {
 
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData, ParseCmdError& err) {
 #define SET_ERR(app_name, errmes, opt_name, err_val) \
-    err.strAppName = (app_name) ? app_name : _T(""); \
-    err.strErrorMessage = (errmes) ? errmes : _T(""); \
-    err.strOptionName = (opt_name) ? opt_name : _T(""); \
-    err.strErrorValue = (err_val) ? err_val : _T("");
+    err.strAppName = (app_name != nullptr) ? app_name : _T(""); \
+    err.strErrorMessage = (errmes != nullptr) ? errmes : _T(""); \
+    err.strOptionName = (opt_name != nullptr) ? opt_name : _T(""); \
+    err.strErrorValue = (err_val != nullptr) ? err_val : _T("");
 
     if (0 == _tcscmp(option_name, _T("output-res"))) {
         i++;
@@ -2078,7 +2078,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     tstring mes = _T("Unknown option: --");
     mes += option_name;
-    SET_ERR(strInput[0], (TCHAR *)mes.c_str(), NULL, strInput[i]);
+    SET_ERR(strInput[0], (TCHAR *)mes.c_str(), nullptr, strInput[i]);
     return 1;
 }
 
@@ -2102,19 +2102,19 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
                 if (nullptr == (option_name = cmd_short_opt_to_long(strInput[i][1]))) {
-                    SET_ERR(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), NULL, NULL);
+                    SET_ERR(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
                     return 1;
                 }
             } else {
                 if (ignore_parse_err) continue;
-                SET_ERR(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), NULL, NULL);
+                SET_ERR(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
                 return 1;
             }
         }
 
         if (option_name == NULL) {
             if (ignore_parse_err) continue;
-            SET_ERR(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), NULL, NULL);
+            SET_ERR(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
             return 1;
         }
         auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData, err);
