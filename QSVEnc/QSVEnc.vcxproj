@@ -156,7 +156,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>BUILD_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -209,7 +209,7 @@ exit /B 0</Command>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -265,7 +265,7 @@ exit /B 0</Command>
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -318,7 +318,7 @@ exit /B 0</Command>
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -373,7 +373,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>BUILD_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -429,7 +429,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -488,7 +488,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -544,7 +544,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
