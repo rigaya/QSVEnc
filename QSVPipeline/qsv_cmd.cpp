@@ -141,10 +141,10 @@ struct sArgsData {
 
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData, ParseCmdError& err) {
 #define SET_ERR(app_name, errmes, opt_name, err_val) \
-    err.strAppName = (app_name != nullptr) ? app_name : _T(""); \
-    err.strErrorMessage = (errmes != nullptr) ? errmes : _T(""); \
-    err.strOptionName = (opt_name != nullptr) ? opt_name : _T(""); \
-    err.strErrorValue = (err_val != nullptr) ? err_val : _T("");
+    err.strAppName = (app_name) ? app_name : _T(""); \
+    err.strErrorMessage = (errmes) ? errmes : _T(""); \
+    err.strOptionName = (opt_name) ? opt_name : _T(""); \
+    err.strErrorValue = (err_val) ? err_val : _T("");
 
     if (0 == _tcscmp(option_name, _T("output-res"))) {
         i++;
