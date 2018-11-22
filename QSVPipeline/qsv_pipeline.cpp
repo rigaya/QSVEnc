@@ -2383,6 +2383,17 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
 
             for (auto& stream : streamList) {
                 bool bStreamIsSubtitle = stream.nTrackId < 0;
+                //audio-fileで別ファイルとして抽出するものは除く
+                bool usedInAudioFile = false;
+                for (int i = 0; i < (int)pParams->nAudioSelectCount; i++) {
+                    if (stream.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
+                        && pParams->ppAudioSelectList[i]->pAudioExtractFilename != nullptr) {
+                        usedInAudioFile = true;
+                    }
+                }
+                if (usedInAudioFile) {
+                    continue;
+                }
                 const sAudioSelect *pAudioSelect = nullptr;
                 for (int i = 0; i < pParams->nAudioSelectCount; i++) {
                     if (stream.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
