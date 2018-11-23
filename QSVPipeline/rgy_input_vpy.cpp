@@ -221,8 +221,6 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
 
-    const RGY_CSP prefered_csp = m_inputVideoInfo.csp;
-
     struct CSPMap {
         int fmtID;
         RGY_CSP in, out;
@@ -251,6 +249,10 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
                 m_inputVideoInfo.csp = csp.out;
             } else {
                 m_inputVideoInfo.csp = (get_convert_csp_func(m_InputCsp, prefered_csp, false) != nullptr) ? prefered_csp : csp.out;
+                //QSVではNV16->P010がサポートされていない
+                if (ENCODER_QSV && m_inputVideoInfo.csp == RGY_CSP_NV16 && prefered_csp == RGY_CSP_P010) {
+                    m_inputVideoInfo.csp = RGY_CSP_P210;
+                }
                 //なるべく軽いフォーマットでGPUに転送するように
                 if (ENCODER_NVENC
                     && RGY_CSP_BIT_PER_PIXEL[csp.out] < RGY_CSP_BIT_PER_PIXEL[prefered_csp]

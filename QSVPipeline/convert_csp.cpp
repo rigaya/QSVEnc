@@ -112,6 +112,7 @@ void convert_yv12_09_to_p010_sse2(void **dst, const void **src, int width, int s
 #endif
 
 void convert_yuv422_to_nv16_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
+void convert_yuv422_to_p210_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yuv422_09_to_p210_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yuv422_10_to_p210_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
 void convert_yuv422_12_to_p210_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int *crop);
@@ -989,6 +990,7 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_YV12_09,   RGY_CSP_YUV444_16, false, convert_yv12_09_p_to_yuv444_16bit,   convert_yv12_09_i_to_yuv444_16bit, NONE )
     FUNC_SSE(  RGY_CSP_YUV422,    RGY_CSP_YUV444,    false, convert_yuv422_to_yuv444,            convert_yuv422_to_yuv444,  NONE )
     FUNC_SSE(  RGY_CSP_YUV422,    RGY_CSP_NV16,      false, convert_yuv422_to_nv16_sse2,         convert_yuv422_to_nv16_sse2,    SSE2)
+    FUNC_SSE(  RGY_CSP_YUV422,    RGY_CSP_P210,      false, convert_yuv422_to_p210_sse2,         convert_yuv422_to_p210_sse2,    SSE2)
     FUNC_SSE(  RGY_CSP_YUV422_16, RGY_CSP_P210,      false, convert_yuv422_16_to_p210_sse2,      convert_yuv422_16_to_p210_sse2, SSE2)
     FUNC_SSE(  RGY_CSP_YUV422_14, RGY_CSP_P210,      false, convert_yuv422_14_to_p210_sse2,      convert_yuv422_14_to_p210_sse2, SSE2)
     FUNC_SSE(  RGY_CSP_YUV422_12, RGY_CSP_P210,      false, convert_yuv422_12_to_p210_sse2,      convert_yuv422_12_to_p210_sse2, SSE2)
