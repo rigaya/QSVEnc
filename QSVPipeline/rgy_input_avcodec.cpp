@@ -694,6 +694,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
 
 #pragma warning(push)
 #pragma warning(disable:4100)
+#pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     const AvcodecReaderPrm *input_prm = (const AvcodecReaderPrm *)prm;
 

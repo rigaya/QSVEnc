@@ -117,6 +117,8 @@ RGY_ERR RGYInputAvs::load_avisynth() {
     return RGY_ERR_NONE;
 }
 
+#pragma warning(push)
+#pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(prm);
     memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
@@ -264,6 +266,7 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     *pInputInfo = m_inputVideoInfo;
     return RGY_ERR_NONE;
 }
+#pragma warning(pop)
 
 void RGYInputAvs::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
