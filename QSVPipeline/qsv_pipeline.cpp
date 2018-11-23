@@ -2780,9 +2780,12 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
 #endif
 
-    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN
-        && pParams->pTrimList && pParams->nTrimCount > 0) {
-        //avqsvリーダー以外は、trimは自分ではセットされないので、ここでセットする
+    if (
+#if ENABLE_AVSW_READER
+        std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr &&
+#endif
+        pParams->pTrimList && pParams->nTrimCount > 0) {
+        //avhw/avswリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
         trimParam.list = make_vector(pParams->pTrimList, pParams->nTrimCount);
         trimParam.offset = 0;
