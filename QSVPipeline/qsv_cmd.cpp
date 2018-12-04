@@ -53,7 +53,7 @@ tstring GetQSVEncVersion() {
     if (ENABLE_AVI_READER)         version += _T(", avi");
     if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && !FOR_AUO
     version += strsprintf(_T(", avqsv [%s]"), getHWDecSupportedCodecList().c_str());
 #endif
 #if !(defined(_WIN32) || defined(_WIN64))
