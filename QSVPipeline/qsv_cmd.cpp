@@ -2577,7 +2577,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
+        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0
+            && pAudioSelect->nAVAudioEncodeBitrate > 0) {
             cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
         }
     }
@@ -2611,7 +2612,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
+        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0
+            && pAudioSelect->nAudioSamplingRate > 0) {
             cmd << _T(" --audio-samplerate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAudioSamplingRate;
         }
     }
@@ -2619,7 +2621,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
         const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
+        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0
+            && pAudioSelect->pAudioFilter != nullptr) {
             cmd << _T(" --audio-filter ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAudioFilter;
         }
     }
