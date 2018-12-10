@@ -132,7 +132,14 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
 
 static int calc_input_frame_size(int width, int height, int color_format) {
     width = (color_format == CF_RGB) ? (width+3) & ~3 : (width+1) & ~1;
-    return width * height * COLORFORMATS[color_format].size;
+    //widthが割り切れない場合、多めにアクセスが発生するので、そのぶんを確保しておく
+    const DWORD pixel_size = COLORFORMATS[color_format].size;
+    const DWORD simd_check = get_availableSIMD();
+    const DWORD align_size = (simd_check & AUO_SIMD_SSE2) ? ((simd_check & AUO_SIMD_AVX2) ? 64 : 32) : 1;
+#define ALIGN_NEXT(i, align) (((i) + (align-1)) & (~(align-1))) //alignは2の累乗(1,2,4,8,16,32...)
+    const DWORD frame_size = ALIGN_NEXT(width * height * pixel_size + (ALIGN_NEXT(width, align_size / pixel_size) - width) * 2 * pixel_size, align_size);
+#undef ALIGN_NEXT
+    return frame_size;
 }
 
 BOOL setup_afsvideo(const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat, CONF_GUIEX *conf, PRM_ENC *pe) {
@@ -271,7 +278,7 @@ AUO_RESULT aud_parallel_task(const OUTPUT_INFO *oip, PRM_ENC *pe) {
                     aud_p->buf_max_size = 0; //ここのmallocエラーは次の分岐でAUO_RESULT_ERRORに設定
             }
             void *data_ptr = NULL;
-            if (NULL == aud_p->buffer || 
+            if (NULL == aud_p->buffer ||
                 NULL == (data_ptr = oip->func_get_audio(aud_p->start, aud_p->get_length, &aud_p->get_length))) {
                 ret = AUO_RESULT_ERROR; //mallocエラーかget_audioのエラー
             } else {
@@ -748,7 +755,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
         if (!(ret & AUO_RESULT_ERROR) && afs)
             write_log_auo_line_fmt(LOG_INFO, "drop %d / %d frames", pe->drop_count, i);
-        
+
         write_log_auo_line_fmt(LOG_INFO, "CPU使用率: Aviutl: %.2f%% / QSVEnc: %.2f%%", GetProcessAvgCPUUsage(pe->h_p_aviutl, &time_aviutl), GetProcessAvgCPUUsage(pi_enc.hProcess));
         write_log_auo_line_fmt(LOG_INFO, "Aviutl 平均フレーム取得時間: %.3f ms", time_get_frame * 1000.0 / oip->n);
         write_log_auo_enc_time("QSVEncエンコード時間", tm_vid_enc_fin - tm_vid_enc_start);
@@ -760,7 +767,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         CloseHandle(pipes.stdErr.h_read);
     CloseHandle(pi_enc.hProcess);
     CloseHandle(pi_enc.hThread);
-    
+
     if (jitter) free(jitter);
 
     return ret;
@@ -787,7 +794,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     //sts = ParseInputString(argv, (mfxU8)argc, &Params);
     //MSDK_CHECK_PARSE_RESULT(sts, MFX_ERR_NONE, 1);
 
-    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CQSVPipeline); 
+    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CQSVPipeline);
     pPipeline.reset(new AuoPipeline);
     //MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
     if (!pPipeline.get()) {
