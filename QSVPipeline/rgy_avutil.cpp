@@ -369,6 +369,16 @@ tstring getChannelLayoutString(int channels, uint64_t channel_layout) {
     return char_to_tstring(getChannelLayoutChar(channels, channel_layout));
 }
 
+std::string getTimestampChar(int64_t ts, const AVRational& timebase) {
+    char buf[AV_TS_MAX_STRING_SIZE];
+    AVRational tb = timebase;
+    return std::string(av_ts_make_time_string(buf, ts, &tb));
+}
+
+tstring getTimestampString(int64_t ts, const AVRational& timebase) {
+    return char_to_tstring(getTimestampChar(ts, timebase));
+}
+
 vector<std::string> getAVProtocolList(int bOutput) {
     vector<std::string> protocols;
 
