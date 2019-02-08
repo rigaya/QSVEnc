@@ -33,6 +33,13 @@ You will need to build Intel Metric Framework using cmake for Visual Studio 2015
 As this library is only used for getting GPU/MFX usage, you might want to just disable this feature and skip building this library,
 by setting macro ENABLE_METRIC_FRAMEWORK to 0 in QSVPipeline/rgy_version.h.
 
+You will also need source code of Caption2Ass_PCR.
+
+```Batchfile
+git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
+setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+```
+
 
 ## 1. Download source code
 

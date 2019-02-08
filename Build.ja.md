@@ -34,6 +34,13 @@ Intel Metric Framework SDKの環境変数は、"INTEL_METRIC_FRAMEWORK_SDK"で�
 無効化して使わずにおくのもありです。
 その場合は、QSVPipeline/rgy_version.hのマクロ "ENABLE_METRIC_FRAMEWORK" を 0 に変更してください。
 
+さらにビルドに必要なCaption2Ass_PCRをcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
+
+```Batchfile
+git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
+setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+```
+
 ## 1. ソースのダウンロード
 
 ```Batchfile
