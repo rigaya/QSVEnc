@@ -663,9 +663,9 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                         AddMessage(RGY_LOG_DEBUG, _T("      first pts videoIdx: %d\n"), vidIndex);
                         if (vidIndex >= 0) {
                             //音声の遅れているフレーム数分のdurationを足し上げる
-                            int delayOfStream = (frame_inside_range(vidIndex, trimList)) ? (int)(pkt1->pts - m_Demux.frames.list(vidIndex).pts) : 0;
+                            int delayOfStream = (frame_inside_range(vidIndex, trimList).first) ? (int)(pkt1->pts - m_Demux.frames.list(vidIndex).pts) : 0;
                             for (int iFrame = m_sTrimParam.offset; iFrame < vidIndex; iFrame++) {
-                                if (frame_inside_range(iFrame, trimList)) {
+                                if (frame_inside_range(iFrame, trimList).first) {
                                     delayOfStream += m_Demux.frames.list(iFrame).duration;
                                 }
                             }
@@ -1540,8 +1540,8 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
     const int64_t aud_start = pkt->pts;
     const int64_t aud_fin   = pkt->pts + pkt->duration;
 
-    const bool frame_is_in_range = frame_inside_range(pStream->nLastVidIndex,     m_sTrimParam.list);
-    const bool next_is_in_range  = frame_inside_range(pStream->nLastVidIndex + 1, m_sTrimParam.list);
+    const bool frame_is_in_range = frame_inside_range(pStream->nLastVidIndex,     m_sTrimParam.list).first;
+    const bool next_is_in_range  = frame_inside_range(pStream->nLastVidIndex + 1, m_sTrimParam.list).first;
 
     bool result = true; //動画に含まれる音声かどうか
 

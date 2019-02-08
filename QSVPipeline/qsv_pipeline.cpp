@@ -4098,7 +4098,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && pos.duration > 0) {
                 outDuration = rational_rescale(pos.duration, srcTimebase, calcTimebase);
             }
-            if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_trimParam.list)) {
+            if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_trimParam.list).first) {
                 nOutFirstPts += (outPts - prevPts);
             }
         }
@@ -4392,7 +4392,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     break;
             }
 
-            if (!frame_inside_range(nInputFrameCount, m_trimParam.list))
+            if (!frame_inside_range(nInputFrameCount, m_trimParam.list).first)
                 continue;
 
             sts = check_pts();
@@ -4495,7 +4495,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 pSurfVppIn = pNextFrame;
             }
 
-            if (!frame_inside_range(nInputFrameCount, m_trimParam.list))
+            if (!frame_inside_range(nInputFrameCount, m_trimParam.list).first)
                 continue;
 
             sts = vpp_one_frame(pSurfVppIn, (m_VppPostPlugins.size()) ? pSurfVppPostFilter[0] : pSurfEncIn);
