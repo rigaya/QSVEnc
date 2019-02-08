@@ -32,6 +32,10 @@
 
 #include "rgy_avutil.h"
 
+extern "C" {
+#include <libavutil/timestamp.h>
+}
+
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to) {
     return av_rescale_q(v, av_make_q(from), av_make_q(to));
 }
