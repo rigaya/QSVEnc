@@ -714,8 +714,10 @@ typedef struct AVDemuxStream {
     AVStream                 *pStream;                //音声・字幕のストリーム (caption2assから字幕生成の場合、nullptrとなる)
     int                       nLastVidIndex;          //音声の直前の相当する動画の位置
     int64_t                   nExtractErrExcess;      //音声抽出のあまり (音声が多くなっていれば正、足りなくなっていれば負)
+    int64_t                   trimOffset;             //trimによる補正量 (stream timebase基準)
+    int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
+    int                       appliedTrimBlock;       //trim blockをどこまで適用したか
     AVPacket                  pktSample;              //サンプル用の音声・字幕データ
-    int                       nDelayOfStream;         //音声側の遅延 (pkt_timebase基準)
     uint64_t                  pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t                  pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
     AVRational                timebase;               //streamのtimebase [pStream = nullptrの場合でも使えるように]
@@ -942,7 +944,6 @@ typedef struct AvcodecReaderPrm {
     C2AFormat      caption2ass;              //caption2assの処理の有効化
 } AvcodecReaderPrm;
 
-
 class RGYInputAvcodec : public RGYInput
 {
 public:
@@ -1027,7 +1028,7 @@ protected:
     int getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe = false);
 
     //対象・字幕の音声パケットを追加するかどうか
-    bool checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *pStream);
+    bool checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *pStream);
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);

@@ -45,6 +45,7 @@
 //#include "qsv_allocator.h"
 //#endif //#if LIBVA_SUPPORT
 
+
 #if ENABLE_AVSW_READER
 #if USE_CUSTOM_INPUT
 static int funcReadPacket(void *opaque, uint8_t *buf, int buf_size) {
@@ -148,6 +149,8 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *pStream) {
         av_free(pStream->subtitleHeader);
     }
     memset(pStream, 0, sizeof(pStream[0]));
+    pStream->appliedTrimBlock = -1;
+    pStream->aud0_fin = AV_NOPTS_VALUE;
     pStream->nIndex = -1;
 }
 
@@ -654,27 +657,6 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 if (pkt1 != nullptr) {
                     //1パケット目はたまにおかしいので、可能なら2パケット目を使用する
                     av_copy_packet(&streamInfo->pktSample, (pkt2) ? pkt2 : pkt1);
-                    if (m_Demux.video.nStreamPtsInvalid & RGY_PTS_ALL_INVALID) {
-                        streamInfo->nDelayOfStream = 0;
-                    } else {
-                        //その音声の属する動画フレーム番号
-                        const int vidIndex = getVideoFrameIdx(pkt1->pts, streamInfo->pStream->time_base, 0);
-                        AddMessage(RGY_LOG_DEBUG, _T("audio track %d first pts: %I64d\n"), streamInfo->nTrackId, pkt1->pts);
-                        AddMessage(RGY_LOG_DEBUG, _T("      first pts videoIdx: %d\n"), vidIndex);
-                        if (vidIndex >= 0) {
-                            //音声の遅れているフレーム数分のdurationを足し上げる
-                            int delayOfStream = (frame_inside_range(vidIndex, trimList).first) ? (int)(pkt1->pts - m_Demux.frames.list(vidIndex).pts) : 0;
-                            for (int iFrame = m_sTrimParam.offset; iFrame < vidIndex; iFrame++) {
-                                if (frame_inside_range(iFrame, trimList).first) {
-                                    delayOfStream += m_Demux.frames.list(iFrame).duration;
-                                }
-                            }
-                            streamInfo->nDelayOfStream = delayOfStream;
-                            AddMessage(RGY_LOG_DEBUG, _T("audio track %d delay: %d (timebase=%d/%d)\n"),
-                                streamInfo->nIndex, streamInfo->nTrackId,
-                                streamInfo->nDelayOfStream, streamInfo->pStream->time_base.num, streamInfo->pStream->time_base.den);
-                        }
-                    }
                 } else {
                     //音声の最初のサンプルを取得できていない
                     AddMessage(RGY_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->nIndex);
@@ -964,6 +946,10 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
                     stream.nSubStreamId = iSubStream;
                     stream.pStream = m_Demux.format.pFormatCtx->streams[stream.nIndex];
                     stream.timebase = stream.pStream->time_base;
+                    stream.nExtractErrExcess = 0;
+                    stream.appliedTrimBlock = -1;
+                    stream.trimOffset = 0;
+                    stream.aud0_fin = AV_NOPTS_VALUE;
                     if (pAudioSelect) {
                         memcpy(stream.pnStreamChannelSelect, pAudioSelect->pnStreamChannelSelect, sizeof(stream.pnStreamChannelSelect));
                         memcpy(stream.pnStreamChannelOut,    pAudioSelect->pnStreamChannelOut,    sizeof(stream.pnStreamChannelOut));
@@ -1360,7 +1346,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
             }
             if (m_sConvert == nullptr) {
                 AddMessage(RGY_LOG_ERROR, _T("color conversion not supported: %s -> %s.\n"),
-                    RGY_CSP_NAMES[pixCspConv], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
+                     RGY_CSP_NAMES[pixCspConv], RGY_CSP_NAMES[m_inputVideoInfo.csp]);
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
             if (m_inputVideoInfo.csp != prefered_csp) {
@@ -1419,7 +1405,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, c
 
         //スレッド関連初期化
         m_Demux.thread.bAbortInput = false;
-#if ENCODER_QSV
+#if 1
         auto nPrmInputThread = input_prm->nInputThread;
         m_Demux.thread.nInputThread = ((nPrmInputThread == RGY_INPUT_THREAD_AUTO) | (m_Demux.video.pStream != nullptr)) ? 0 : nPrmInputThread;
 #else
@@ -1526,7 +1512,7 @@ int64_t RGYInputAvcodec::convertTimebaseVidToStream(int64_t pts, const AVDemuxSt
     return av_rescale_q(pts, vid_pkt_timebase, pStream->timebase);
 }
 
-bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream *pStream) {
+bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *pStream) {
     pStream->nLastVidIndex = getVideoFrameIdx(pkt->pts, pStream->timebase, pStream->nLastVidIndex);
 
     //該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
@@ -1535,44 +1521,92 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(const AVPacket *pkt, AVDemuxStream 
     }
 
     const auto vidFramePos = &m_Demux.frames.list((std::max)(pStream->nLastVidIndex, 0));
-    const int64_t vid_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
+    const int64_t vid1_fin = convertTimebaseVidToStream(vidFramePos->pts + ((pStream->nLastVidIndex >= 0) ? vidFramePos->duration : 0), pStream);
+    const int64_t vid2_start = convertTimebaseVidToStream(m_Demux.frames.list((std::max)(pStream->nLastVidIndex+1, 0)).pts, pStream);
 
-    const int64_t aud_start = pkt->pts;
-    const int64_t aud_fin   = pkt->pts + pkt->duration;
+    int64_t aud1_start = pkt->pts;
+    int64_t aud1_fin   = pkt->pts + pkt->duration;
 
-    const bool frame_is_in_range = frame_inside_range(pStream->nLastVidIndex,     m_sTrimParam.list).first;
-    const bool next_is_in_range  = frame_inside_range(pStream->nLastVidIndex + 1, m_sTrimParam.list).first;
+    //block index (空白がtrimで削除された領域)
+    //       #0       #0         #1         #1       #2    #2
+    //   |        |----------|         |----------|     |------
+    const auto frame_is_in_range = frame_inside_range(pStream->nLastVidIndex,     m_sTrimParam.list);
+    const auto next_is_in_range  = frame_inside_range(pStream->nLastVidIndex + 1, m_sTrimParam.list);
+    const auto frame_trim_block_index = frame_is_in_range.second;
+    const auto next_trim_block_index  = next_is_in_range.second;
 
     bool result = true; //動画に含まれる音声かどうか
 
-    if (frame_is_in_range) {
-        if (aud_fin < vid_fin || next_is_in_range) {
+    if (frame_is_in_range.first) {
+        if (aud1_fin < vid1_fin || next_is_in_range.first) {
             ; //完全に動画フレームの範囲内か、次のフレームも範囲内なら、その音声パケットは含まれる
-              //              vid_fin
+              //              vid1_fin
               //動画 <-----------|
               //音声      |-----------|
-              //     aud_start     aud_fin
-        } else if (pkt->duration / 2 > (aud_fin - vid_fin + pStream->nExtractErrExcess)) {
+              //     aud1_start     aud1_fin
+        } else if (pkt->duration / 2 > (aud1_fin - vid1_fin + pStream->nExtractErrExcess)) {
             //はみ出した領域が少ないなら、その音声パケットは含まれる
-            pStream->nExtractErrExcess += aud_fin - vid_fin;
+            if (pStream->pStream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+                //字幕の場合は表示時間を調整する
+                pkt->duration -= vid1_fin - aud1_fin;
+                aud1_fin       = vid1_fin;
+            } else {
+                pStream->nExtractErrExcess += aud1_fin - vid1_fin;
+            }
         } else {
             //はみ出した領域が多いなら、その音声パケットは含まれない
-            pStream->nExtractErrExcess -= vid_fin - aud_start;
+            pStream->nExtractErrExcess -= vid1_fin - aud1_start;
             result = false;
         }
-    } else if (next_is_in_range && aud_fin > vid_fin) {
-        //             vid_fin
+    } else if (next_is_in_range.first && aud1_fin > vid2_start) {
+        //             vid2_start
         //動画             |------------>
         //音声      |-----------|
-        //     aud_start     aud_fin
-        if (pkt->duration / 2 > (vid_fin - aud_start + pStream->nExtractErrExcess)) {
-            pStream->nExtractErrExcess += vid_fin - aud_start;
+        //     aud1_start     aud1_fin
+        if (pkt->duration / 2 > (vid2_start - aud1_start + pStream->nExtractErrExcess)) {
+            if (pStream->pStream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+                //字幕の場合は表示時間を調整する
+                pkt->pts      += vid2_start - aud1_start;
+                pkt->duration -= vid2_start - aud1_start;
+                aud1_start     = vid2_start;
+            } else {
+                pStream->nExtractErrExcess += vid2_start - aud1_start;
+            }
         } else {
-            pStream->nExtractErrExcess -= aud_fin - vid_fin;
+            pStream->nExtractErrExcess -= aud1_fin - vid2_start;
             result = false;
         }
     } else {
         result = false;
+    }
+    if (result) {
+        if (pStream->appliedTrimBlock < frame_trim_block_index) {
+            pStream->appliedTrimBlock = frame_trim_block_index;
+            if (pStream->aud0_fin == AV_NOPTS_VALUE) {
+                //まだ一度も音声のパケットが渡されていない
+                //基本的には動画の情報を基準に情報を修正する
+                const int first_vid_frame = (m_sTrimParam.list.size() > 0) ? m_sTrimParam.list[0].start : 0;
+                const int64_t vid0_start = convertTimebaseVidToStream(m_Demux.frames.list(first_vid_frame).pts, pStream);
+                pStream->trimOffset += std::min(aud1_start, vid0_start) - m_Demux.video.nStreamFirstKeyPts;
+            } else {
+                assert(frame_trim_block_index > 0);
+                const int last_valid_vid_frame = m_sTrimParam.list[frame_trim_block_index-1].start;
+                assert(last_valid_vid_frame >= 0);
+                const int64_t vid0_fin = convertTimebaseVidToStream(m_Demux.frames.list(last_valid_vid_frame).pts, pStream);
+                const int64_t vid1_start = convertTimebaseVidToStream(vidFramePos->pts, pStream);
+                const int64_t vid_start = (frame_is_in_range.first) ? vid1_start : vid2_start;
+                if (vid_start - vid0_fin > aud1_start - pStream->aud0_fin) {
+                    pStream->trimOffset += aud1_start - pStream->aud0_fin;
+                } else {
+                    pStream->trimOffset += vid_start - vid0_fin - pStream->nExtractErrExcess;
+                    pStream->nExtractErrExcess = 0;
+                }
+            }
+        }
+        pStream->aud0_fin = aud1_fin;
+        //最終的に時刻を補正
+        pkt->pts -= pStream->trimOffset;
+        pkt->dts -= pStream->trimOffset;
     }
     return result;
 }
