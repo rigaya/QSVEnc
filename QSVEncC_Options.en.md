@@ -520,7 +520,13 @@ Set video track to encode by resolution. Will be active when used with avhw/avsw
     ...
     
 ### --video-streamid &lt;int&gt;
-Set video track to encode in stream id。
+Set video track to encode in stream id.
+
+### --video-tag <string>
+Specify video tag.
+```
+ -o test.mp4 -c hevc --video-tag hvc1
+```
 
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy audio track into output file. Available only when avhw / avsw reader is used.

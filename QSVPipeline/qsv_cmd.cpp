@@ -339,6 +339,11 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->nVideoStreamId = v;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("video-tag"))) {
+        i++;
+        pParams->videoCodecTag = strdup(tchar_to_string(strInput[i]).c_str());
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("audio-source"))) {
         i++;
         pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
@@ -2533,6 +2538,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_CHAR(_T("--output-format"), pAVMuxOutputFormat);
     OPT_NUM(_T("--video-track"), nVideoTrack);
     OPT_NUM(_T("--video-streamid"), nVideoStreamId);
+    OPT_CHAR(_T("--video-tag"), videoCodecTag);
     if (pParams->pMuxOpt) {
         for (uint32_t i = 0; i < pParams->pMuxOpt->size(); i++) {
             cmd << _T(" -m ") << pParams->pMuxOpt->at(i).first << _T(":") << pParams->pMuxOpt->at(i).second;

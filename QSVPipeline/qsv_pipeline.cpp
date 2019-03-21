@@ -636,6 +636,16 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         PrintMes(RGY_LOG_ERROR, _T("Interlaced encoding is not supported on current rate control mode.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
+    if (pInParams->CodecId == MFX_CODEC_AVC
+        && (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
+        && pInParams->vpp.deinterlace == MFX_DEINTERLACE_NONE
+        && pInParams->nBframes > 0
+        && getCPUGen(&m_mfxSession) == CPU_GEN_HASWELL
+        && m_memType == D3D11_MEMORY) {
+        PrintMes(RGY_LOG_WARN, _T("H.264 interlaced encoding with B frames on d3d11 mode results fuzzy outputs on Haswell CPUs.\n"));
+        PrintMes(RGY_LOG_WARN, _T("B frames will be disabled.\n"));
+        pInParams->nBframes = 0;
+    }
     //最近のドライバでは問題ない模様
     //if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
     //    PrintMes(RGY_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
@@ -2330,6 +2340,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
         writerPrm.pMuxVidTsLogFile = pParams->pMuxVidTsLogFile;
+        writerPrm.videoCodecTag = (pParams->videoCodecTag) ? pParams->videoCodecTag : "";
         if (pParams->pMuxOpt) {
             writerPrm.vMuxOpt = *pParams->pMuxOpt;
         }

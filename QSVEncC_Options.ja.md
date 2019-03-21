@@ -540,6 +540,12 @@ muxerに出力フォーマットを指定して出力する。
 ### --video-streamid &lt;int&gt;
 エンコード対象の映像トラックをstream idで選択。
 
+### --video-tag <string>
+映像のcodec tagの指定。
+```
+ -o test.mp4 -c hevc --video-tag hvc1
+```
+
 ### --audio-copy [&lt;int&gt;[,&lt;int&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
 

@@ -303,6 +303,7 @@ struct sInputParams
     uint32_t   nFallback;
     int        nVideoStreamId;
     int8_t     nVideoTrack;
+    char      *videoCodecTag;
     int8_t     bOutputAud;
     int8_t     bOutputPicStruct;
     int8_t     bChapterNoTrim;
