@@ -222,7 +222,8 @@ struct sInputParams
     mfxU16     nQuality; // quality parameter for JPEG encoder
 
     mfxU8      bMBBRC;
-    mfxU8      bExtBRC;
+    bool       extBRC;
+    bool       extBrcAdaptiveLTR;
 
     mfxU16     nLookaheadDepth;
     mfxU16     nTrellis;

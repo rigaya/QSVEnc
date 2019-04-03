@@ -607,9 +607,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("CAVLC"));
         pInParams->bCAVLC = false;
     }
-    if (pInParams->bExtBRC && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
+    if (pInParams->extBRC && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
-        pInParams->bExtBRC = false;
+        pInParams->extBRC = false;
+    }
+    if (pInParams->extBrcAdaptiveLTR && !(availableFeaures & ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveLTR"));
+        pInParams->extBrcAdaptiveLTR = false;
     }
     if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
@@ -927,9 +931,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption2.Trellis = pInParams->nTrellis;
         }
         if (pInParams->bMBBRC) {
-            m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
+            m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
         }
 
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)
+            && pInParams->extBrcAdaptiveLTR) {
+            m_CodingOption2.BitrateLimit = MFX_CODINGOPTION_OFF;
+        }
         //if (pInParams->bExtBRC) {
         //    m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
         //}
@@ -1001,6 +1009,9 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
             m_CodingOption3.RepartitionCheckEnable = pInParams->nRepartitionCheck;
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+            m_CodingOption3.ExtBrcAdaptiveLTR = (mfxU16)(pInParams->extBrcAdaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
@@ -5125,6 +5136,11 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
             if (cop3.EnableQPOffset == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("QPOffset ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+            if (cop3.ExtBrcAdaptiveLTR == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("AdaptiveLTR ");
             }
         }
         //if (cop.AUDelimiter == MFX_CODINGOPTION_ON) {

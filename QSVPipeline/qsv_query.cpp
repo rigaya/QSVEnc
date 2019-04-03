@@ -868,7 +868,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
         CHECK_FEATURE(cop.PicTimingSEI,          copOut.PicTimingSEI,          ENC_FEATURE_PIC_STRUCT,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
         CHECK_FEATURE(cop.RateDistortionOpt,     copOut.RateDistortionOpt,     ENC_FEATURE_RDO,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
         CHECK_FEATURE(cop.CAVLC,                 copOut.CAVLC,                 ENC_FEATURE_CAVLC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-        //CHECK_FEATURE(cop2.ExtBRC,               cop2Out.ExtBRC,               ENC_FEATURE_EXT_BRC,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
+        CHECK_FEATURE(cop2.ExtBRC,               cop2Out.ExtBRC,               ENC_FEATURE_EXT_BRC,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
         CHECK_FEATURE(cop2.MBBRC,                cop2Out.MBBRC,                ENC_FEATURE_MBBRC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
         CHECK_FEATURE(cop2.Trellis,              cop2Out.Trellis,              ENC_FEATURE_TRELLIS,       MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
         cop2.IntRefCycleSize = 16;
@@ -895,6 +895,11 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
         CHECK_FEATURE(cop3.WeightedPred,         cop3Out.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.WeightedBiPred,       cop3Out.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.FadeDetection,        cop3Out.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
+        cop2.ExtBRC = MFX_CODINGOPTION_UNKNOWN;
+        cop2.BitrateLimit = MFX_CODINGOPTION_OFF;
+        CHECK_FEATURE(cop3.ExtBrcAdaptiveLTR,    cop3Out.ExtBrcAdaptiveLTR,    ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR, MFX_CODINGOPTION_ON,    MFX_LIB_VERSION_1_26);
+        cop2.ExtBRC = MFX_CODINGOPTION_UNKNOWN;
+        cop2.BitrateLimit = MFX_CODINGOPTION_UNKNOWN;
         if (codecId == MFX_CODEC_HEVC) {
             CHECK_FEATURE(cop3.GPB,              cop3Out.GPB,                  ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
             CHECK_FEATURE(cop3.EnableQPOffset,   cop3Out.EnableQPOffset,       ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);

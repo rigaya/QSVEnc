@@ -468,6 +468,7 @@ static tstring help() {
         _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
         _T("   --(no-)weightp               enable weighted prediction for P frame\n")
         _T("   --(no-)weightb               enable weighted prediction for B frame\n")
+        _T("   --(no-)adapt-ltr             enable adaptive LTR frames\n")
         _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
 #if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")

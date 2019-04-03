@@ -363,6 +363,9 @@ Enable weighted B frames.
 ### --weightp
 Enable weighted P frames.
 
+### --adapt-ltr
+Enable adaptive LTR frames.
+
 ### --mv-scaling &lt;string&gt;
 Set mv cost scaling.
 - 0  set MV cost to be 0
