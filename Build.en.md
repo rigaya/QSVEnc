@@ -5,7 +5,7 @@ by rigaya
 ## 0. Requirements
 To build QSVEnc, components below are required.
 
-- Visual Studio 2015
+- Visual Studio 2019
 - yasm
 - Avisynth SDK
 - VapourSynth SDK
@@ -29,7 +29,6 @@ setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 The environment variable for Intel OpenCL SDK "INTELOCLSDKROOT" should be set by the installer.
 
 The environment variable for Intel Metric Framework SDK is "INTEL_METRIC_FRAMEWORK_SDK".
-You will need to build Intel Metric Framework using cmake for Visual Studio 2015.
 As this library is only used for getting GPU/MFX usage, you might want to just disable this feature and skip building this library,
 by setting macro ENABLE_METRIC_FRAMEWORK to 0 in QSVPipeline/rgy_version.h.
 

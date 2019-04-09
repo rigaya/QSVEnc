@@ -1215,7 +1215,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBBPyramid->Checked      = prm_qsv.bBPyramid != 0;
     SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, prm_qsv.nLookaheadDS));
     fcgCBMBBRC->Checked         = prm_qsv.bMBBRC != 0;
-    fcgCBExtBRC->Checked        = prm_qsv.bExtBRC != 0;
+    //fcgCBExtBRC->Checked        = prm_qsv.bExtBRC != 0;
     SetNUValue(fcgNUWinBRCSize,       prm_qsv.nWinBRCSize);
     SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced_mfx, prm_qsv.nPicStruct));
     if (prm_qsv.nPAR[0] * prm_qsv.nPAR[1] <= 0)
@@ -1359,7 +1359,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.bBPyramid              = fcgCBBPyramid->Checked;
     prm_qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
     prm_qsv.bMBBRC                 = fcgCBMBBRC->Checked;
-    prm_qsv.bExtBRC                = fcgCBExtBRC->Checked;
+    //prm_qsv.bExtBRC                = fcgCBExtBRC->Checked;
     prm_qsv.nWinBRCSize            = (mfxU16)fcgNUWinBRCSize->Value;
     prm_qsv.bUseFixedFunc          = fcgCBFixedFunc->Checked;
     prm_qsv.memType                = (mfxU8)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);

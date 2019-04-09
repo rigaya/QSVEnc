@@ -1,7 +1,7 @@
 # QSVEnc
 # continuous integration settings
 
-image: Visual Studio 2015
+image: Visual Studio 2017
 
 platform:
  - Win32

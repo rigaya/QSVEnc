@@ -5,7 +5,7 @@ by rigaya
 ## 0. 準備
 ビルドには、下記のものが必要です。
 
-- Visual Studio 2015
+- Visual Studio 2019
 - yasm
 - Avisynth SDK
 - VapourSynth SDK
