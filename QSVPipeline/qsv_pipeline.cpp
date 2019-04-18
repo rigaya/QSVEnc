@@ -4072,6 +4072,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             pSurfDecWork->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
 
             for (int i = 0; ; i++) {
+                const auto inputDataLen = (pInputBitstream) ? pInputBitstream->DataLength : 0;
                 mfxSyncPoint DecSyncPoint = NULL;
                 dec_sts = m_pmfxDEC->DecodeFrameAsync(pInputBitstream, pSurfDecWork, &pSurfDecOut, &DecSyncPoint);
                 lastSyncP = DecSyncPoint;
@@ -4090,6 +4091,14 @@ mfxStatus CQSVPipeline::RunEncode() {
                     PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
                     break;
                 } else {
+                    //pInputBitstreamの長さがDecodeFrameAsyncを経ても全く変わっていない場合は、そのデータは捨てる
+                    //これを行わないとデコードが止まってしまう
+                    if (dec_sts == MFX_ERR_MORE_DATA && pInputBitstream && pInputBitstream->DataLength == inputDataLen) {
+                        PrintMes((inputDataLen >= 10) ? RGY_LOG_WARN : RGY_LOG_DEBUG,
+                            _T("DecodeFrameAsync: removing %d bytes from input bitstream not read by decoder.\n"), inputDataLen);
+                        pInputBitstream->DataLength = 0;
+                        pInputBitstream->DataOffset = 0;
+                    }
                     break;
                 }
             }
