@@ -651,7 +651,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
     if (codecId == MFX_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
         return 0x00;
     }
-    const std::vector<std::pair<mfxU16, mfxVersion>> rc_list = {
+    const std::vector<std::pair<int, mfxVersion>> rc_list = {
         { MFX_RATECONTROL_VBR,    MFX_LIB_VERSION_1_1  },
         { MFX_RATECONTROL_CBR,    MFX_LIB_VERSION_1_1  },
         { MFX_RATECONTROL_CQP,    MFX_LIB_VERSION_1_1  },

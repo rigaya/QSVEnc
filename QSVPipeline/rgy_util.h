@@ -482,6 +482,12 @@ std::wstring lstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n"
 std::wstring rstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 
+static inline char chartolower(char in) {
+    if (in<='Z' && in>='A')
+        return in-('Z'-'z');
+    return in;
+}
+
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
 bool rgy_get_filesize(const char *filepath, uint64_t *filesize);

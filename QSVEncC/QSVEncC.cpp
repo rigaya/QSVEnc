@@ -1419,7 +1419,7 @@ mfxStatus run_benchmark(sInputParams *params) {
     basic_string<TCHAR> benchmarkLogFile = params->strDstFile;
 
     //テストする解像度
-    const vector<pair<mfxU16, mfxU16>> test_resolution = { { 1920, 1080 }, { 1280, 720 } };
+    const vector<pair<int, int>> test_resolution = { { 1920, 1080 }, { 1280, 720 } };
 
     //初回出力
     {
@@ -1500,8 +1500,8 @@ mfxStatus run_benchmark(sInputParams *params) {
 
     //ベンチマークの集計データ
     typedef struct benchmark_t {
-        pair<mfxU16, mfxU16> resolution;
-        mfxU16 targetUsage;
+        pair<int, int> resolution;
+        int targetUsage;
         double fps;
         double bitrate;
         double cpuUsagePercent;
@@ -1523,7 +1523,7 @@ mfxStatus run_benchmark(sInputParams *params) {
     benchmark_result.reserve(test_resolution.size() * list_target_quality.size());
 
     for (uint32_t i = 0; MFX_ERR_NONE == sts && !g_signal_abort && i < list_target_quality.size(); i++) {
-        params->nTargetUsage = (mfxU16)list_target_quality[i].value;
+        params->nTargetUsage = list_target_quality[i].value;
         vector<benchmark_t> benchmark_per_target_usage;
         for (const auto& resolution : test_resolution) {
             params->nDstWidth = resolution.first;
@@ -1564,7 +1564,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             benchmark_t result;
             result.resolution      = resolution;
-            result.targetUsage     = (mfxU16)list_target_quality[i].value;
+            result.targetUsage     = list_target_quality[i].value;
             result.fps             = data.encodeFps;
             result.bitrate         = data.bitrateKbps;
             result.cpuUsagePercent = data.CPUUsagePercent;

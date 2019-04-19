@@ -737,7 +737,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         }
     }
     bool bQPOffsetUsed = false;
-    std::for_each(pInParams->pQPOffset, pInParams->pQPOffset + _countof(pInParams->pQPOffset), [&bQPOffsetUsed](int8_t v){ bQPOffsetUsed |= (v != 0); });
+    std::for_each(pInParams->pQPOffset, pInParams->pQPOffset + _countof(pInParams->pQPOffset), [&bQPOffsetUsed](decltype(pInParams->pQPOffset[0]) v){ bQPOffsetUsed |= (v != 0); });
     if (bQPOffsetUsed && !(availableFeaures & ENC_FEATURE_PYRAMID_QP_OFFSET)) {
         print_feature_warnings(RGY_LOG_WARN, _T("QPOffset"));
         memset(pInParams->pQPOffset, 0, sizeof(pInParams->pQPOffset));
