@@ -119,11 +119,11 @@ int chapter_file::write_chapter_apple_header(std::ostream& ostream) {
 
     ostream.write((const char *)UTF8_BOM, sizeof(UTF8_BOM));
     ostream << to_utf8(
-    L"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n" 
-    L"<TextStream version=\"1.1\">\r\n" 
+    L"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n"
+    L"<TextStream version=\"1.1\">\r\n"
     L"<TextStreamHeader>\r\n"
     L"<TextSampleDescription>\r\n"
-    L"</TextSampleDescription>\r\n" 
+    L"</TextSampleDescription>\r\n"
     L"</TextStreamHeader>\r\n");
     return sts;
 }
@@ -183,7 +183,7 @@ int chapter_file::write_chapter_nero(const char *out_filepath, bool utf8) {
             const DWORD chapter_name_length = chap->name.length() + 1;
             if (char_buffer.size() < chapter_name_length * 4)
                 char_buffer.resize(chapter_name_length * 4);
-            std::fill(char_buffer.begin(), char_buffer.end(), 0);
+            std::fill(char_buffer.begin(), char_buffer.end(), '\0');
 
             DWORD encMode = 0;
             UINT buf_len_in_byte = char_buffer.size();
@@ -323,7 +323,7 @@ int chapter_file::read_chapter_nero() {
     const wchar_t delim = (string::npos != wchar_filedata.find(L"\n")) ? L'\n' : L'\r'; //適切な改行コードを見つける
     auto pw_line = split(wchar_filedata, delim);
 
-    
+
     //読み取り
     static const wchar_t * const CHAP_KEY = L"CHAPTER";
     const wchar_t *pw_key[] = { CHAP_KEY, nullptr, nullptr }; // 時間行, 名前行, ダミー
@@ -335,7 +335,7 @@ int chapter_file::read_chapter_nero() {
         if (string::npos == pw_line[i].find(pw_key[i&1], 0, wcslen(pw_key[i&1])))
             return AUO_CHAP_ERR_INVALID_FMT;
         pw_key[(i&1) + 1] = &pw_line[i][0];//CHAPTER KEY名を保存
-        pw_data[i&1] = wcschr(&pw_line[i][0], L'='); 
+        pw_data[i&1] = wcschr(&pw_line[i][0], L'=');
         *pw_data[i&1] = L'\0'; //CHAPTER KEY名を一つの文字列として扱えるように
         pw_data[i&1]++; //データは'='の次から
         if (i&1) {
@@ -432,7 +432,7 @@ int chapter_file::read_chapter_apple() {
             }
         }
     }
-    
+
     //リソース解放
     if (pReader)
         pReader->Release();
