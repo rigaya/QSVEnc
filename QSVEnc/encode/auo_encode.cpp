@@ -224,21 +224,21 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
 
     if (pe->video_out_type != VIDEO_OUTPUT_DISABLED && !conf->oth.link_prm.active) {
-        //ESで出力するので拡張子を変更
-        //check_muxer_to_be_usedの前に拡張子を変更しないと音声なしのときにmuxされない
-        const char *ext = ".tmp";
-        switch (conf->qsv.codec) {
-        case MFX_CODEC_AVC:     ext = ".264"; break;
-        case MFX_CODEC_MPEG2:   ext = ".m2v"; break;
-        case MFX_CODEC_VC1:     ext = ".vc1"; break;
-        case MFX_CODEC_HEVC:    ext = ".265"; break;
-        case MFX_CODEC_VP8:     ext = ".vp8"; break;
-        case MFX_CODEC_VP9:     ext = ".vp9"; break;
-        case MFX_CODEC_RAW:
-        case MFX_CODEC_CAPTURE:
-        default:                break;
-        }
-        change_ext(pe->temp_filename, _countof(pe->temp_filename), ext);
+        ////ESで出力するので拡張子を変更
+        ////check_muxer_to_be_usedの前に拡張子を変更しないと音声なしのときにmuxされない
+        //const char *ext = ".tmp";
+        //switch (conf->qsv.codec) {
+        //case MFX_CODEC_AVC:     ext = ".264"; break;
+        //case MFX_CODEC_MPEG2:   ext = ".m2v"; break;
+        //case MFX_CODEC_VC1:     ext = ".vc1"; break;
+        //case MFX_CODEC_HEVC:    ext = ".265"; break;
+        //case MFX_CODEC_VP8:     ext = ".vp8"; break;
+        //case MFX_CODEC_VP9:     ext = ".vp9"; break;
+        //case MFX_CODEC_RAW:
+        //case MFX_CODEC_CAPTURE:
+        //default:                break;
+        //}
+        //change_ext(pe->temp_filename, _countof(pe->temp_filename), ext);
     }
 
     pe->muxer_to_be_used = check_muxer_to_be_used(conf, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
