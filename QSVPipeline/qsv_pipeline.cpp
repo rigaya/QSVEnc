@@ -931,7 +931,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption2.Trellis = pInParams->nTrellis;
         }
         if (pInParams->bMBBRC) {
-            m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
+            m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
         }
 
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)
