@@ -1598,7 +1598,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 pParams->vpp.telecinePattern = value;
             }
         }
-        if (pParams->vpp.deinterlace == MFX_DEINTERLACE_NONE
+        if (pParams->vpp.deinterlace != MFX_DEINTERLACE_NONE
             && pParams->nPicStruct == MFX_PICSTRUCT_PROGRESSIVE) {
             pParams->nPicStruct = MFX_PICSTRUCT_FIELD_TFF;
         }
