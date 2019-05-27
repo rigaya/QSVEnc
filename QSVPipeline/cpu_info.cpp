@@ -64,7 +64,7 @@ int getCPUName(char *buffer, size_t nSize) {
             default:
                 continue;
         }
-        memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo)); 
+        memcpy(buffer + offset, CPUInfo, sizeof(CPUInfo));
     }
     auto remove_string =[](char *target_str, const char *remove_str) {
         char *ptr = strstr(target_str, remove_str);
@@ -187,7 +187,7 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
 
         case RelationCache:
         {
-            // Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
+            // Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache.
             PCACHE_DESCRIPTOR Cache = &ptr->Cache;
             if (1 <= Cache->Level && Cache->Level <= _countof(cpu_info->caches)) {
                 cache_info_t *cache = &cpu_info->caches[Cache->Level-1];
@@ -255,6 +255,12 @@ bool get_cpu_info(cpu_info_t *cpu_info) {
     return true;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+cpu_info_t get_cpu_info() {
+    cpu_info_t cpu;
+    get_cpu_info(&cpu);
+    return cpu;
+}
 
 const int LOOP_COUNT = 4000;
 const int CLOCKS_FOR_2_INSTRUCTION = 2;

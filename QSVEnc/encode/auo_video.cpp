@@ -373,12 +373,14 @@ static unsigned __stdcall video_output_thread_func(void *prm) {
     CONVERT_CF_DATA *pixel_data = thread_data->pixel_data;
     WaitForSingleObject(thread_data->he_out_start, INFINITE);
     while (false == thread_data->abort) {
-        const char *FRAME_HEADER = "FRAME\n";
-        _fwrite_nolock(FRAME_HEADER, 1, strlen(FRAME_HEADER), thread_data->f_out);
         //映像データをパイプに
-        for (int i = 0; i < 1 + thread_data->repeat; i++)
-            for (int j = 0; j < pixel_data->count; j++)
+        for (int i = 0; i < 1 + thread_data->repeat; i++) {
+            const char *FRAME_HEADER = "FRAME\n";
+            _fwrite_nolock(FRAME_HEADER, 1, strlen(FRAME_HEADER), thread_data->f_out);
+            for (int j = 0; j < pixel_data->count; j++) {
                 _fwrite_nolock((void *)pixel_data->data[j], 1, pixel_data->size[j], thread_data->f_out);
+            }
+        }
 
         thread_data->repeat = 0;
         SetEvent(thread_data->he_out_fin);

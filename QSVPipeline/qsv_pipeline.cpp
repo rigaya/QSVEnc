@@ -2695,9 +2695,9 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
 
     if (m_pFileReader == nullptr) {
-        const void *input_option = nullptr;
+        const RGYInputPrm *input_option = nullptr;
 #if ENABLE_AVSW_READER
-        AvcodecReaderPrm avcodecReaderPrm = { 0 };
+        RGYInputAvcodecPrm avcodecReaderPrm;
         DeviceCodecCsp HWDecCodecCsp;
         HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp()));
 #endif
@@ -2771,7 +2771,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         auto videoInfo = inputVideo;
 
         for (int i = 0; i < pParams->nAudioSourceCount; i++) {
-            AvcodecReaderPrm avcodecReaderPrm = { 0 };
+            RGYInputAvcodecPrm avcodecReaderPrm;
             avcodecReaderPrm.memType = pParams->memType;
             avcodecReaderPrm.bReadVideo = false;
             avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;

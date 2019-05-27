@@ -939,7 +939,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *pMuxAudio, int channels, u
 RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pInputAudio, uint32_t nAudioIgnoreDecodeError) {
     pMuxAudio->pStreamIn = pInputAudio->src.pStream;
     AddMessage(RGY_LOG_DEBUG, _T("start initializing audio ouput...\n"));
-    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d, \n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId);
+    AddMessage(RGY_LOG_DEBUG, _T("output stream index %d, trackId %d.%d\n"), pInputAudio->src.nIndex, pInputAudio->src.nTrackId, pInputAudio->src.nSubStreamId);
     AddMessage(RGY_LOG_DEBUG, _T("samplerate %d, stream pkt_timebase %d/%d\n"), pMuxAudio->pStreamIn->codecpar->sample_rate, pMuxAudio->pStreamIn->time_base.num, pMuxAudio->pStreamIn->time_base.den);
 
     if (NULL == (pMuxAudio->pStreamOut = avformat_new_stream(m_Mux.format.pFormatCtx, NULL))) {
@@ -1189,7 +1189,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
         avformat_transfer_internal_stream_timing_info(m_Mux.format.pFormatCtx->oformat, pMuxAudio->pStreamOut, pInputAudio->src.pStream, AVFMT_TBCF_AUTO);
 
         if (pMuxAudio->pStreamOut->codecpar->codec_id == AV_CODEC_ID_MP3) {
-            if (pMuxAudio->pStreamOut->codecpar->block_align == 1
+            if (   pMuxAudio->pStreamOut->codecpar->block_align == 1
                 || pMuxAudio->pStreamOut->codecpar->block_align == 576
                 || pMuxAudio->pStreamOut->codecpar->block_align == 1152) {
                 pMuxAudio->pStreamOut->codecpar->block_align = 0;
@@ -1212,6 +1212,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     }
     pMuxAudio->pStreamOut->time_base = av_make_q(1, pMuxAudio->pStreamOut->codecpar->sample_rate);
     pMuxAudio->pStreamOut->disposition = pInputAudio->src.pStream->disposition;
+
     if (pInputAudio->src.nSubStreamId != 0) {
         //substream(--audio-filterなどによる複製stream)の場合はデフォルトstreamではない
         pMuxAudio->pStreamOut->disposition &= (~AV_DISPOSITION_DEFAULT);
@@ -2315,7 +2316,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *pMuxAudio, AVPacket 
     //durationについて、sample数から出力ストリームのtimebaseに変更する
     pkt->stream_index = pMuxAudio->pStreamOut->index;
     pkt->flags = AV_PKT_FLAG_KEY; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
-    const AVRational samplerate ={ 1, (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx->sample_rate : pMuxAudio->pStreamIn->codecpar->sample_rate };
+    const AVRational samplerate = { 1, (pMuxAudio->pOutCodecEncodeCtx) ? pMuxAudio->pOutCodecEncodeCtx->sample_rate : pMuxAudio->pStreamIn->codecpar->sample_rate };
     if (!pMuxAudio->pOutCodecEncodeCtx) {
         if (samples > 0) {
             pkt->pts = av_rescale_delta(pMuxAudio->pStreamIn->time_base, pkt->pts, samplerate, samples, &pMuxAudio->dec_rescale_delta, pMuxAudio->pStreamOut->time_base);

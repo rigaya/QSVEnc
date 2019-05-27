@@ -189,6 +189,11 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     LOAD_NVML_FUNC(nvmlDeviceGetDecoderUtilization);
     LOAD_NVML_FUNC(nvmlDeviceGetMemoryInfo);
     LOAD_NVML_FUNC(nvmlDeviceGetClockInfo);
+    LOAD_NVML_FUNC(nvmlDeviceGetPcieThroughput);
+    LOAD_NVML_FUNC(nvmlDeviceGetCurrPcieLinkGeneration);
+    LOAD_NVML_FUNC(nvmlDeviceGetCurrPcieLinkWidth);
+    LOAD_NVML_FUNC(nvmlDeviceGetMaxPcieLinkGeneration);
+    LOAD_NVML_FUNC(nvmlDeviceGetMaxPcieLinkWidth);
     LOAD_NVML_FUNC(nvmlSystemGetDriverVersion);
     LOAD_NVML_FUNC(nvmlSystemGetNVMLVersion);
 
@@ -214,7 +219,7 @@ nvmlReturn_t NVMLMonitor::Init(const std::string& pciBusId) {
 }
 
 nvmlReturn_t NVMLMonitor::getData(NVMLMonitorInfo *info) {
-    info->bDataValid = false;
+    info->dataValid = false;
     if (m_hDll == NULL || m_func.f_nvmlInit == NULL || m_device == NULL) {
         return NVML_ERROR_FUNCTION_NOT_FOUND;
     }
@@ -223,37 +228,57 @@ nvmlReturn_t NVMLMonitor::getData(NVMLMonitorInfo *info) {
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    info->dGPULoad = utilData.gpu;
+    info->GPULoad = utilData.gpu;
     uint32_t value, sample;
     ret = m_func.f_nvmlDeviceGetEncoderUtilization(m_device, &value, &sample);
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    info->dVEELoad = value;
+    info->VEELoad = value;
     ret = m_func.f_nvmlDeviceGetDecoderUtilization(m_device, &value, &sample);
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    info->dVEDLoad = value;
+    info->VEDLoad = value;
     ret = m_func.f_nvmlDeviceGetClockInfo(m_device, NVML_CLOCK_GRAPHICS, &value);
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    info->dGPUFreq = value;
+    info->GPUFreq = value;
     ret = m_func.f_nvmlDeviceGetClockInfo(m_device, NVML_CLOCK_VIDEO, &value);
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    info->dVEFreq = value;
+    info->VEFreq = value;
+    ret = m_func.f_nvmlDeviceGetCurrPcieLinkGeneration(m_device, &value);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->pcieGen = value;
+    ret = m_func.f_nvmlDeviceGetCurrPcieLinkWidth(m_device, &value);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->pcieLink = value;
+    ret = m_func.f_nvmlDeviceGetPcieThroughput(m_device, NVML_PCIE_UTIL_TX_BYTES, &value);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->pcieLoadTX = value;
+    ret = m_func.f_nvmlDeviceGetPcieThroughput(m_device, NVML_PCIE_UTIL_RX_BYTES, &value);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    info->pcieLoadRX = value;
     nvmlMemory_t mem;
     ret = m_func.f_nvmlDeviceGetMemoryInfo(m_device, &mem);
     if (ret != NVML_SUCCESS) {
         return ret;
     }
-    info->nMemFree = mem.free;
-    info->nMemUsage = mem.used;
-    info->nMemMax = mem.total;
-    info->bDataValid = true;
+    info->memFree = mem.free;
+    info->memUsage = mem.used;
+    info->memMax = mem.total;
+    info->dataValid = true;
     return ret;
 }
 
@@ -272,6 +297,21 @@ nvmlReturn_t NVMLMonitor::getDriverVersionx1000(int& ver) {
         return NVML_ERROR_UNKNOWN;
     }
     return NVML_SUCCESS;
+}
+
+nvmlReturn_t NVMLMonitor::getMaxPCIeLink(int& gen, int& width) {
+    uint32_t val = 0;
+    auto ret = m_func.f_nvmlDeviceGetMaxPcieLinkGeneration(m_device, &val);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    gen = (int)val;
+    ret = m_func.f_nvmlDeviceGetMaxPcieLinkWidth(m_device, &val);
+    if (ret != NVML_SUCCESS) {
+        return ret;
+    }
+    width = (int)val;
+    return ret;
 }
 
 void NVMLMonitor::Close() {
@@ -333,21 +373,21 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
                 if (pos_gpu != std::string::npos) {
                     auto str_gpu = trim(gpu_str.substr(pos_gpu, gpu_str.find("\n", pos_gpu) - pos_gpu));
                     if (str_gpu.length() > 0) {
-                        sscanf_s(str_gpu.c_str(), "gpu : %lf %%", &info->dGPULoad);
+                        sscanf_s(str_gpu.c_str(), "gpu : %lf %%", &info->GPULoad);
                     }
                 }
                 auto pos_enc = gpu_str.find("encoder", pos_utilization);
                 if (pos_enc != std::string::npos) {
                     auto str_enc = trim(gpu_str.substr(pos_enc, gpu_str.find("\n", pos_enc) - pos_enc));
                     if (str_enc.length() > 0) {
-                        sscanf_s(str_enc.c_str(), "encoder : %lf %%", &info->dVEELoad);
+                        sscanf_s(str_enc.c_str(), "encoder : %lf %%", &info->VEELoad);
                     }
                 }
                 auto pos_dec = gpu_str.find("decoder", pos_utilization);
                 if (pos_dec != std::string::npos) {
                     auto str_dec = trim(gpu_str.substr(pos_dec, gpu_str.find("\n", pos_dec) - pos_dec));
                     if (str_dec.length() > 0) {
-                        sscanf_s(str_dec.c_str(), "decoder : %lf %%", &info->dVEDLoad);
+                        sscanf_s(str_dec.c_str(), "decoder : %lf %%", &info->VEDLoad);
                     }
                 }
             }
@@ -359,13 +399,13 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
                     if (str_total.length() > 0) {
                         int value = 0;
                         if (       1 == sscanf_s(str_total.c_str(), "total : %d k", &value)) {
-                            info->nMemMax = value * (int64_t)1024;
+                            info->memMax = value * (int64_t)1024;
                         } else if (1 == sscanf_s(str_total.c_str(), "total : %d m", &value)) {
-                            info->nMemMax = value * (int64_t)(1024 * 1024);
+                            info->memMax = value * (int64_t)(1024 * 1024);
                         } else if (1 == sscanf_s(str_total.c_str(), "total : %d g", &value)) {
-                            info->nMemMax = value * (int64_t)(1024 * 1024 * 1024);
+                            info->memMax = value * (int64_t)(1024 * 1024 * 1024);
                         } else {
-                            info->nMemMax = 0;
+                            info->memMax = 0;
                         }
                     }
                 }
@@ -375,13 +415,13 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
                     if (str_used.length() > 0) {
                         int value = 0;
                         if (       1 == sscanf_s(str_used.c_str(), "used : %d k", &value)) {
-                            info->nMemUsage = value * (int64_t)1024;
+                            info->memUsage = value * (int64_t)1024;
                         } else if (1 == sscanf_s(str_used.c_str(), "used : %d m", &value)) {
-                            info->nMemUsage = value * (int64_t)(1024 * 1024);
+                            info->memUsage = value * (int64_t)(1024 * 1024);
                         } else if (1 == sscanf_s(str_used.c_str(), "used : %d g", &value)) {
-                            info->nMemUsage = value * (int64_t)(1024 * 1024 * 1024);
+                            info->memUsage = value * (int64_t)(1024 * 1024 * 1024);
                         } else {
-                            info->nMemUsage = 0;
+                            info->memUsage = 0;
                         }
                     }
                 }
@@ -391,13 +431,13 @@ int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
                     if (str_free.length() > 0) {
                         int value = 0;
                         if (       1 == sscanf_s(str_free.c_str(), "free : %df k", &value)) {
-                            info->nMemFree = value * (int64_t)1024;
+                            info->memFree = value * (int64_t)1024;
                         } else if (1 == sscanf_s(str_free.c_str(), "free : %d m", &value)) {
-                            info->nMemFree = value * (int64_t)(1024 * 1024);
+                            info->memFree = value * (int64_t)(1024 * 1024);
                         } else if (1 == sscanf_s(str_free.c_str(), "free : %d g", &value)) {
-                            info->nMemFree = value * (int64_t)(1024 * 1024 * 1024);
+                            info->memFree = value * (int64_t)(1024 * 1024 * 1024);
                         } else {
-                            info->nMemFree = 0;
+                            info->memFree = 0;
                         }
                     }
                 }
@@ -570,6 +610,9 @@ void CPerfMonitor::write_header(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_VE_CLOCK) {
         str += ",video engine clock (MHz)";
+    }
+    if (nSelect & PERF_MONITOR_PCIE_LOAD) {
+        str += ",pcie link,pcie tx, pci rx";
     }
     if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
         str += ",queue vid in";
@@ -881,13 +924,23 @@ void CPerfMonitor::check() {
     pInfoNew->ve_clock = 0.0;
     pInfoNew->vee_load_percent = 0.0;
     pInfoNew->ved_load_percent = 0.0;
-    if (m_nvmlMonitor.getData(&m_nvmlInfo) == NVML_SUCCESS) {
+    pInfoNew->pcie_gen = 0;
+    pInfoNew->pcie_link = 0;
+    pInfoNew->pcie_throughput_tx_per_sec = 0;
+    pInfoNew->pcie_throughput_rx_per_sec = 0;
+    NVMLMonitorInfo nvmlInfo;
+    if (m_nvmlMonitor.getData(&nvmlInfo) == NVML_SUCCESS) {
+        m_nvmlInfo = nvmlInfo;
         pInfoNew->gpu_info_valid   = TRUE;
-        pInfoNew->gpu_clock        = m_nvmlInfo.dGPUFreq;
-        pInfoNew->gpu_load_percent = m_nvmlInfo.dGPULoad;
-        pInfoNew->ve_clock         = m_nvmlInfo.dVEFreq;
-        pInfoNew->vee_load_percent = m_nvmlInfo.dVEELoad;
-        pInfoNew->ved_load_percent = m_nvmlInfo.dVEDLoad;
+        pInfoNew->gpu_clock        = m_nvmlInfo.GPUFreq;
+        pInfoNew->gpu_load_percent = m_nvmlInfo.GPULoad;
+        pInfoNew->ve_clock         = m_nvmlInfo.VEFreq;
+        pInfoNew->vee_load_percent = m_nvmlInfo.VEELoad;
+        pInfoNew->ved_load_percent = m_nvmlInfo.VEDLoad;
+        pInfoNew->pcie_gen         = m_nvmlInfo.pcieGen;
+        pInfoNew->pcie_link        = m_nvmlInfo.pcieLink;
+        pInfoNew->pcie_throughput_tx_per_sec = m_nvmlInfo.pcieLoadTX;
+        pInfoNew->pcie_throughput_rx_per_sec = m_nvmlInfo.pcieLoadRX;
     } else {
 #endif //#if ENABLE_NVML
         pInfoNew->gpu_clock = 0.0;
@@ -895,6 +948,10 @@ void CPerfMonitor::check() {
         pInfoNew->ve_clock = 0.0;
         pInfoNew->vee_load_percent = 0.0;
         pInfoNew->ved_load_percent = 0.0;
+        pInfoNew->pcie_gen = 0;
+        pInfoNew->pcie_link = 0;
+        pInfoNew->pcie_throughput_tx_per_sec = 0;
+        pInfoNew->pcie_throughput_rx_per_sec = 0;
 #if ENABLE_GPUZ_INFO
         memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
         if (0 == get_gpuz_info(&m_GPUZInfo)) {
@@ -1128,6 +1185,11 @@ void CPerfMonitor::write(FILE *fp, int nSelect) {
     }
     if (nSelect & PERF_MONITOR_VE_CLOCK) {
         str += strsprintf(",%lf", pInfo->ve_clock);
+    }
+    if (nSelect & PERF_MONITOR_PCIE_LOAD) {
+        str += strsprintf(",PCIe %dx%d", pInfo->pcie_gen, pInfo->pcie_link);
+        str += strsprintf(",%lf", pInfo->pcie_throughput_tx_per_sec);
+        str += strsprintf(",%lf", pInfo->pcie_throughput_rx_per_sec);
     }
     if (nSelect & PERF_MONITOR_QUEUE_VID_IN) {
         str += strsprintf(",%d", (int)m_QueueInfo.usage_vid_in);

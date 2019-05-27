@@ -493,7 +493,7 @@ public:
 protected:
     //ptsでソート
     void sortPts(uint32_t index, uint32_t len) {
-#if !defined(_MSC_VER) && __cplusplus <= 201103
+#if (!defined(_MSC_VER) && __cplusplus <= 201103) || defined(__NVCC__)
         FramePos *pStart = (FramePos *)m_list.get(index);
         FramePos *pEnd = (FramePos *)m_list.get(index + len);
         std::sort(pStart, pEnd, CompareFramePos());
@@ -913,7 +913,8 @@ protected:
 };
 #endif //#if ENABLE_CAPTION2ASS
 
-typedef struct AvcodecReaderPrm {
+class RGYInputAvcodecPrm : public RGYInputPrm {
+public:
     uint8_t        memType;                 //使用するメモリの種類
     const TCHAR   *pInputFormat;            //入力フォーマット
     bool           bReadVideo;              //映像の読み込みを行うかどうか
@@ -942,7 +943,10 @@ typedef struct AvcodecReaderPrm {
     DeviceCodecCsp *pHWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
     bool           bVideoDetectPulldown;     //pulldownの検出を試みるかどうか
     C2AFormat      caption2ass;              //caption2assの処理の有効化
-} AvcodecReaderPrm;
+
+    RGYInputAvcodecPrm();
+    virtual ~RGYInputAvcodecPrm() {};
+};
 
 class RGYInputAvcodec : public RGYInput
 {
@@ -1010,7 +1014,7 @@ public:
     int64_t seek(int64_t offset, int whence);
 #endif //USE_CUSTOM_INPUT
 protected:
-    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const void *prm) override;
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
 
     void SetExtraData(AVCodecParameters *pCodecParam, const uint8_t *data, uint32_t size);
 

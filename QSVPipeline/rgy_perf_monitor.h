@@ -89,6 +89,7 @@ enum : int {
     PERF_MONITOR_VE_CLOCK      = 0x02000000,
     PERF_MONITOR_VEE_LOAD      = 0x04000000,
     PERF_MONITOR_VED_LOAD      = 0x08000000,
+    PERF_MONITOR_PCIE_LOAD     = 0x10000000,
     PERF_MONITOR_ALL         = (int)UINT_MAX,
 };
 
@@ -115,7 +116,7 @@ static const CX_DESC list_pref_monitor[] = {
     { _T("bitrate"),     PERF_MONITOR_BITRATE },
     { _T("bitrate_avg"), PERF_MONITOR_BITRATE_AVG },
     { _T("frame_out"),   PERF_MONITOR_FRAME_OUT },
-    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VEE_LOAD | PERF_MONITOR_VED_LOAD | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_VE_CLOCK },
+    { _T("gpu"),         PERF_MONITOR_GPU_LOAD | PERF_MONITOR_VEE_LOAD | PERF_MONITOR_VED_LOAD | PERF_MONITOR_GPU_CLOCK | PERF_MONITOR_VE_CLOCK | PERF_MONITOR_PCIE_LOAD },
     { _T("gpu_load"),    PERF_MONITOR_GPU_LOAD },
     { _T("gpu_clock"),   PERF_MONITOR_GPU_CLOCK },
 #if ENABLE_METRIC_FRAMEWORK
@@ -123,6 +124,7 @@ static const CX_DESC list_pref_monitor[] = {
 #endif
     { _T("vee_load"),    PERF_MONITOR_VEE_LOAD },
     { _T("ved_load"),    PERF_MONITOR_VEE_LOAD },
+    { _T("pcie_load"),   PERF_MONITOR_PCIE_LOAD },
     { _T("ve_clock"),    PERF_MONITOR_VE_CLOCK },
     { _T("queue"),       PERF_MONITOR_QUEUE_VID_IN | PERF_MONITOR_QUEUE_VID_OUT | PERF_MONITOR_QUEUE_AUD_IN | PERF_MONITOR_QUEUE_AUD_OUT },
     { nullptr, 0 }
@@ -178,6 +180,11 @@ struct PerfInfo {
     double  vee_load_percent;
     double  ved_load_percent;
     double  ve_clock;
+
+    int pcie_gen;
+    int pcie_link;
+    int pcie_throughput_tx_per_sec;
+    int pcie_throughput_rx_per_sec;
 };
 
 struct PerfOutputInfo {
@@ -233,15 +240,34 @@ private:
 #endif //#if ENABLE_METRIC_FRAMEWORK
 
 struct NVMLMonitorInfo {
-    bool bDataValid;
-    double dGPULoad;
-    double dGPUFreq;
-    double dVEELoad;
-    double dVEDLoad;
-    double dVEFreq;
-    int64_t nMemFree;
-    int64_t nMemUsage;
-    int64_t nMemMax;
+    bool dataValid;
+    double GPULoad;
+    double GPUFreq;
+    double VEELoad;
+    double VEDLoad;
+    double VEFreq;
+    int64_t memFree;
+    int64_t memUsage;
+    int64_t memMax;
+    uint32_t pcieGen;
+    uint32_t pcieLink;
+    int pcieLoadTX;
+    int pcieLoadRX;
+
+    NVMLMonitorInfo() :
+        dataValid(false),
+        GPULoad(0.0),
+        GPUFreq(0.0),
+        VEELoad(0.0),
+        VEDLoad(0.0),
+        VEFreq(0.0),
+        memFree(0),
+        memMax(0),
+        pcieGen(0),
+        pcieLink(0),
+        pcieLoadTX(0),
+        pcieLoadRX(0) {
+    };
 };
 
 #if ENABLE_NVML
@@ -259,6 +285,11 @@ NVML_FUNCPTR(nvmlDeviceGetEncoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetDecoderUtilization);
 NVML_FUNCPTR(nvmlDeviceGetMemoryInfo);
 NVML_FUNCPTR(nvmlDeviceGetClockInfo);
+NVML_FUNCPTR(nvmlDeviceGetPcieThroughput);
+NVML_FUNCPTR(nvmlDeviceGetCurrPcieLinkGeneration);
+NVML_FUNCPTR(nvmlDeviceGetCurrPcieLinkWidth);
+NVML_FUNCPTR(nvmlDeviceGetMaxPcieLinkGeneration);
+NVML_FUNCPTR(nvmlDeviceGetMaxPcieLinkWidth);
 NVML_FUNCPTR(nvmlSystemGetDriverVersion);
 NVML_FUNCPTR(nvmlSystemGetNVMLVersion);
 
@@ -277,6 +308,11 @@ struct NVMLFuncList {
     NVML_FUNC(nvmlDeviceGetDecoderUtilization)
     NVML_FUNC(nvmlDeviceGetMemoryInfo)
     NVML_FUNC(nvmlDeviceGetClockInfo)
+    NVML_FUNC(nvmlDeviceGetPcieThroughput)
+    NVML_FUNC(nvmlDeviceGetCurrPcieLinkGeneration)
+    NVML_FUNC(nvmlDeviceGetCurrPcieLinkWidth)
+    NVML_FUNC(nvmlDeviceGetMaxPcieLinkGeneration)
+    NVML_FUNC(nvmlDeviceGetMaxPcieLinkWidth)
     NVML_FUNC(nvmlSystemGetDriverVersion)
     NVML_FUNC(nvmlSystemGetNVMLVersion)
 };
@@ -298,6 +334,7 @@ public:
     nvmlReturn_t Init(const std::string& pciBusId);
     nvmlReturn_t getData(NVMLMonitorInfo *info);
     nvmlReturn_t getDriverVersionx1000(int& ver);
+    nvmlReturn_t getMaxPCIeLink(int& gen, int& width);
 };
 
 #endif //#if ENABLE_NVML
@@ -339,8 +376,8 @@ public:
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_NVML
     bool GetNVMLInfo(NVMLMonitorInfo *info) {
-        memcpy(info, &m_nvmlInfo, sizeof(m_nvmlInfo));
-        return m_nvmlInfo.bDataValid;
+        *info = m_nvmlInfo;
+        return m_nvmlInfo.dataValid;
     }
 #endif //#if ENABLE_METRIC_FRAMEWORK
 #if ENABLE_GPUZ_INFO
