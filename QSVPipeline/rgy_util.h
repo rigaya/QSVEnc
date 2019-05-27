@@ -111,6 +111,10 @@ template<typename T, size_t size>
 std::vector<T> make_vector(const T(&ptr)[size]) {
     return std::vector<T>(ptr, ptr + size);
 }
+template<typename T, typename... ArgTypes>
+std::vector<T> make_vector(ArgTypes... args) {
+    return std::vector<T>{ reinterpret_cast<T>(args)... };
+}
 template<typename T0, typename T1>
 std::vector<T0> make_vector(const T0 *ptr, T1 size) {
     static_assert(std::is_integral<T1>::value == true, "T1 should be integral");
@@ -439,8 +443,37 @@ public:
 #define to_tstring to_string
 #endif
 
-typedef std::basic_string<TCHAR> tstring;
 typedef std::basic_stringstream<TCHAR> TStringStream;
+
+#pragma warning (push)
+#pragma warning (disable: 4244)
+static inline std::string tolowercase(const std::string& str) {
+    std::string str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), tolower);
+    return str_copy;
+}
+static inline std::string touppercase(const std::string &str) {
+    std::string str_copy = str;
+    std::transform(str_copy.cbegin(), str_copy.cend(), str_copy.begin(), toupper);
+    return str_copy;
+}
+#if defined(_WIN32) || defined(_WIN64)
+static inline std::wstring tolowercase(const std::wstring &str) {
+    auto temp = wcsdup(str.data());
+    _wcslwr(temp);
+    std::wstring str_lo = temp;
+    free(temp);
+    return str_lo;
+}
+static inline std::wstring touppercase(const std::wstring &str) {
+    auto temp = wcsdup(str.data());
+    _wcsupr(temp);
+    std::wstring str_lo = temp;
+    free(temp);
+    return str_lo;
+}
+#endif //#if defined(_WIN32) || defined(_WIN64)
+#pragma warning (pop)
 
 unsigned int wstring_to_string(const wchar_t *wstr, std::string& str, uint32_t codepage = CP_THREAD_ACP);
 std::string wstring_to_string(const wchar_t *wstr, uint32_t codepage = CP_THREAD_ACP);
@@ -460,7 +493,8 @@ std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename)
 std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
-#endif
+tstring getExeDir();
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
 std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
@@ -482,12 +516,6 @@ std::string trim(const std::string& string, const char* trim = " \t\v\r\n");
 std::wstring lstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 std::wstring rstrip(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
 std::wstring trim(const std::wstring& string, const WCHAR* trim = L" \t\v\r\n");
-
-static inline char chartolower(char in) {
-    if (in<='Z' && in>='A')
-        return in-('Z'-'z');
-    return in;
-}
 
 std::string str_replace(std::string str, const std::string& from, const std::string& to);
 std::string GetFullPath(const char *path);
@@ -780,6 +808,236 @@ static const TCHAR *get_cx_desc(const CX_DESC * list, int v) {
     return nullptr;
 }
 
+class vec3 {
+public:
+    vec3() : v() {
+        for (int i = 0; i < 3; i++)
+            v[i] = 0.0;
+    }
+    vec3(const vec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); }
+    vec3(double a0, double a1, double a2) {
+        v[0] = a0;
+        v[1] = a1;
+        v[2] = a2;
+    }
+    vec3 &operator=(const vec3 &m) { memcpy(&v[0], &m.v[0], sizeof(v)); return *this; }
+    const vec3 &m() const {
+        return *this;
+    }
+    double &operator()(int i) {
+        return v[i];
+    }
+    const double &operator()(int i) const {
+        return v[i];
+    }
+    vec3 &operator+= (const vec3 &a) {
+        for (int i = 0; i < 3; i++)
+            v[i] += a.v[i];
+        return *this;
+    }
+    vec3 &operator-= (const vec3 &a) {
+        for (int i = 0; i < 3; i++)
+            v[i] -= a.v[i];
+        return *this;
+    }
+    vec3 amdal(const vec3 &a) const {
+        return vec3(
+            v[0] * a.v[0],
+            v[1] * a.v[1],
+            v[2] * a.v[2]
+        );
+    }
+    double dot(const vec3 &a) const {
+        return a.v[0] * v[0] + a.v[1] * v[1] + a.v[2] * v[2];
+    }
+    vec3 cross(const vec3 &a) const {
+        return vec3(
+            v[1] * a.v[2] - v[2] * a.v[1],
+            v[2] * a.v[0] - v[0] * a.v[2],
+            v[0] * a.v[1] - v[1] * a.v[0]
+        );
+    }
+    bool operator== (const vec3 &r) const {
+        return memcmp(&v[0], &r.v[0], sizeof(v)) == 0;
+    }
+    bool operator!= (const vec3 &r) const {
+        return memcmp(&v[0], &r.v[0], sizeof(v)) != 0;
+    }
+private:
+    double v[3];
+};
+
+class mat3x3 {
+public:
+    mat3x3() : mat() {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] = 0.0;
+    }
+    mat3x3(const vec3 &col0, const vec3 &col1, const vec3 &col2) : mat() {
+        for (int i = 0; i < 3; i++) {
+            mat[0][i] = col0(i);
+            mat[1][i] = col1(i);
+            mat[2][i] = col2(i);
+        }
+    }
+    mat3x3(const mat3x3 &m) { memcpy(&this->mat[0][0], &m.mat[0][0], sizeof(mat)); }
+    mat3x3(double a00, double a01, double a02, double a10, double a11, double a12, double a20, double a21, double a22) {
+        mat[0][0] = a00;
+        mat[0][1] = a01;
+        mat[0][2] = a02;
+        mat[1][0] = a10;
+        mat[1][1] = a11;
+        mat[1][2] = a12;
+        mat[2][0] = a20;
+        mat[2][1] = a21;
+        mat[2][2] = a22;
+    }
+    mat3x3 &operator=(const mat3x3 &m) { memcpy(&this->mat[0][0], &m.mat[0][0], sizeof(mat)); return *this; }
+
+    const mat3x3 &m() const {
+        return *this;
+    }
+    //(行,列)
+    double &operator()(int i, int j) {
+        return mat[i][j];
+    }
+    //(行,列)
+    const double &operator()(int i, int j) const {
+        return mat[i][j];
+    }
+
+    mat3x3 &operator+= (const mat3x3& a) {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] += a.mat[j][i];
+        return *this;
+    }
+    mat3x3 &operator-= (const mat3x3 &a) {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] -= a.mat[j][i];
+        return *this;
+    }
+    mat3x3 &operator*= (const double a) {
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                mat[j][i] *= a;
+        return *this;
+    }
+    mat3x3 &operator*= (const mat3x3 &r) {
+        *this = mul(*this, r);
+        return *this;
+    }
+    mat3x3 &operator/= (const double a) {
+        *this *= (1.0 / a);
+        return *this;
+    }
+    mat3x3 &operator/= (const mat3x3 &r) {
+        *this = mul(*this, r.inv());
+        return *this;
+    }
+
+    template<typename Arg>
+    mat3x3 operator + (const Arg &a) const {
+        mat3x3 t(*this);
+        t += a;
+        return t;
+    }
+    template<typename Arg>
+    mat3x3 operator - (const Arg &a) const {
+        mat3x3 t(*this);
+        t -= a;
+        return t;
+    }
+    mat3x3 operator * (const mat3x3 &a) const {
+        mat3x3 t(*this);
+        t *= a;
+        return t;
+    }
+    mat3x3 operator * (const double &a) const {
+        mat3x3 t(*this);
+        t *= a;
+        return t;
+    }
+    vec3 operator * (const vec3 &a) const {
+        vec3 v;
+        for (int j = 0; j < 3; j++) {
+            double d = 0.0;
+            for (int i = 0; i < 3; i++) {
+                d += mat[j][i] * a(i);
+            }
+            v(j) = d;
+        }
+        return v;
+    }
+    template<typename Arg>
+    mat3x3 operator / (const Arg &a) const {
+        mat3x3 t(*this);
+        t /= a;
+        return t;
+    }
+    bool operator== (const mat3x3&r) const {
+        return memcmp(&mat[0][0], &r.mat[0][0], sizeof(mat)) == 0;
+    }
+    bool operator!= (const mat3x3& r) const {
+        return memcmp(&mat[0][0], &r.mat[0][0], sizeof(mat)) != 0;
+    }
+    double det() const {
+        const double determinant =
+            +mat[0][0]*(mat[1][1]*mat[2][2]-mat[2][1]*mat[1][2])
+            -mat[0][1]*(mat[1][0]*mat[2][2]-mat[1][2]*mat[2][0])
+            +mat[0][2]*(mat[1][0]*mat[2][1]-mat[1][1]*mat[2][0]);
+        return determinant;
+    }
+    double det2(double a00, double a01, double a10, double a11) const {
+        return a00 * a11 - a01 * a10;
+    }
+    mat3x3 inv() const {
+        const double invdet = 1.0 / det();
+
+        mat3x3 ret;
+        ret.mat[0][0] = det2(mat[1][1], mat[1][2], mat[2][1], mat[2][2]) * invdet;
+        ret.mat[0][1] = det2(mat[0][2], mat[0][1], mat[2][2], mat[2][1]) * invdet;
+        ret.mat[0][2] = det2(mat[0][1], mat[0][2], mat[1][1], mat[1][2]) * invdet;
+        ret.mat[1][0] = det2(mat[1][2], mat[1][0], mat[2][2], mat[2][0]) * invdet;
+        ret.mat[1][1] = det2(mat[0][0], mat[0][2], mat[2][0], mat[2][2]) * invdet;
+        ret.mat[1][2] = det2(mat[0][2], mat[0][0], mat[1][2], mat[1][0]) * invdet;
+        ret.mat[2][0] = det2(mat[1][0], mat[1][1], mat[2][0], mat[2][1]) * invdet;
+        ret.mat[2][1] = det2(mat[0][1], mat[0][0], mat[2][1], mat[2][0]) * invdet;
+        ret.mat[2][2] = det2(mat[0][0], mat[0][1], mat[1][0], mat[1][1]) * invdet;
+        return ret;
+    }
+    mat3x3 trans() const {
+        mat3x3 ret;
+        for (int j = 0; j < 3; j++)
+            for (int i = 0; i < 3; i++)
+                ret.mat[j][i] = mat[i][j];
+        return ret;
+    }
+    mat3x3 mul(const mat3x3& a, const mat3x3& b) {
+        mat3x3 ret;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                double accum = 0;
+                for (int k = 0; k < 3; k++) {
+                    accum += a.mat[i][k] * b.mat[k][j];
+                }
+                ret(i,j) = accum;
+            }
+        }
+        return ret;
+    }
+    static mat3x3 identity() {
+        mat3x3 ret;
+        for (int i = 0; i < 3; i++) {
+            ret.mat[i][i] = 1.0;
+        }
+        return ret;
+    }
+private:
+    double mat[3][3]; //[行][列]
+};
 
 const int COLOR_VALUE_AUTO = INT_MAX;
 const int HD_HEIGHT_THRESHOLD = 720;
@@ -1231,7 +1489,7 @@ enum {
     RGY_MUX_SUBTITLE = 0x04,
 };
 
-static const int MAX_SPLIT_CHANNELS = 32;
+static const uint32_t MAX_SPLIT_CHANNELS = 32;
 static const uint64_t RGY_CHANNEL_AUTO = UINT64_MAX;
 static const int RGY_OUTPUT_BUF_MB_MAX = 128;
 

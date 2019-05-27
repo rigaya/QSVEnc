@@ -132,9 +132,9 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
     info.sar[0] = mfx.FrameInfo.AspectRatioW;
     info.sar[1] = mfx.FrameInfo.AspectRatioH;
     info.vui.descriptpresent = vui.ColourDescriptionPresent;
-    info.vui.colorprim = vui.ColourPrimaries;
-    info.vui.matrix = vui.MatrixCoefficients;
-    info.vui.transfer = vui.TransferCharacteristics;
+    info.vui.colorprim = (CspColorprim)vui.ColourPrimaries;
+    info.vui.matrix = (CspMatrix)vui.MatrixCoefficients;
+    info.vui.transfer = (CspTransfer)vui.TransferCharacteristics;
     info.vui.fullrange = vui.VideoFullRange;
     info.vui.format = vui.VideoFormat;
     info.vui.chromaloc = (chromaloc.ChromaLocInfoPresentFlag && chromaloc.ChromaSampleLocTypeTopField) ? chromaloc.ChromaSampleLocTypeTopField : 0;

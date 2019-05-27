@@ -405,9 +405,7 @@ vector<std::string> getAVProtocolList(int bOutput) {
     void *opaque = nullptr;
     const char *name = nullptr;
     while (nullptr != (name = avio_enum_protocols(&opaque, bOutput))) {
-        std::string data = name;
-        std::transform(data.begin(), data.end(), data.begin(), chartolower);
-        protocols.push_back(data);
+        protocols.push_back(tolowercase(name));
     }
     return protocols;
 }
@@ -463,7 +461,7 @@ bool usingAVProtocols(std::string filename, int bOutput) {
     const auto pos = filename.find_first_of(':');
     if (pos != std::string::npos) {
         std::string check = filename.substr(0, pos);
-        std::transform(check.begin(), check.end(), check.begin(), chartolower);
+        check = tolowercase(check);
         if (std::find(protocolList.begin(), protocolList.end(), check) != protocolList.end()) {
             return true;
         }
