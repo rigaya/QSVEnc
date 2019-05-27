@@ -780,14 +780,248 @@ static const TCHAR *get_cx_desc(const CX_DESC * list, int v) {
     return nullptr;
 }
 
+
+const int COLOR_VALUE_AUTO = INT_MAX;
+const int HD_HEIGHT_THRESHOLD = 720;
+const int HD_INDEX = 2;
+const int SD_INDEX = 3;
+
+enum CspMatrix {
+    RGY_MATRIX_RGB         = 0,
+    RGY_MATRIX_BT709       = 1,
+    RGY_MATRIX_UNSPECIFIED = 2,
+    RGY_MATRIX_FCC         = 4,
+    RGY_MATRIX_BT470_BG    = 5,
+    RGY_MATRIX_ST170_M     = 6,
+    RGY_MATRIX_ST240_M     = 7,
+    RGY_MATRIX_YCGCO       = 8,
+    RGY_MATRIX_BT2020_NCL  = 9,
+    RGY_MATRIX_BT2020_CL   = 10,
+    RGY_MATRIX_DERIVED_NCL = 12,
+    RGY_MATRIX_DERIVED_CL  = 13,
+    RGY_MATRIX_ICTCP       = 14,
+    RGY_MATRIX_2100_LMS,
+};
+
+static const auto CspMatrixList = make_array<CspMatrix>(
+    RGY_MATRIX_RGB,
+    RGY_MATRIX_BT709,
+    RGY_MATRIX_UNSPECIFIED,
+    RGY_MATRIX_FCC,
+    RGY_MATRIX_BT470_BG,
+    RGY_MATRIX_ST170_M,
+    RGY_MATRIX_ST240_M,
+    RGY_MATRIX_YCGCO,
+    RGY_MATRIX_BT2020_NCL,
+    RGY_MATRIX_BT2020_CL,
+    RGY_MATRIX_DERIVED_NCL,
+    RGY_MATRIX_DERIVED_CL,
+    RGY_MATRIX_ICTCP,
+    RGY_MATRIX_2100_LMS
+);
+
+const CX_DESC list_colormatrix[] = {
+    { _T("undef"),       RGY_MATRIX_UNSPECIFIED  },
+    { _T("auto"),        COLOR_VALUE_AUTO },
+    { _T("bt709"),       RGY_MATRIX_BT709  },
+    { _T("smpte170m"),   RGY_MATRIX_ST170_M  },
+    { _T("bt470bg"),     RGY_MATRIX_BT470_BG  },
+    { _T("smpte240m"),   RGY_MATRIX_ST240_M  },
+    { _T("YCgCo"),       RGY_MATRIX_YCGCO  },
+    { _T("fcc"),         RGY_MATRIX_FCC  },
+    { _T("GBR"),         RGY_MATRIX_RGB  },
+    { _T("bt2020nc"),    RGY_MATRIX_BT2020_NCL  },
+    { _T("bt2020c"),     RGY_MATRIX_BT2020_CL },
+    { _T("derived-ncl"), RGY_MATRIX_DERIVED_NCL },
+    { _T("derived-cl"),  RGY_MATRIX_DERIVED_CL },
+    { _T("ictco"),       RGY_MATRIX_ICTCP },
+    { _T("2100-lms"),    RGY_MATRIX_2100_LMS },
+    { NULL, NULL }
+};
+
+enum CspTransfer {
+    RGY_TRANSFER_BT709        = 1,
+    RGY_TRANSFER_UNSPECIFIED  = 2,
+    RGY_TRANSFER_BT470_M      = 4,
+    RGY_TRANSFER_BT470_BG     = 5,
+    RGY_TRANSFER_BT601        = 6,  //BT709
+    RGY_TRANSFER_ST240_M      = 7,
+    RGY_TRANSFER_LINEAR       = 8,
+    RGY_TRANSFER_LOG_100      = 9,
+    RGY_TRANSFER_LOG_316      = 10,
+    RGY_TRANSFER_IEC61966_2_4 = 11, //XVYCC
+    RGY_TRANSFER_IEC61966_2_1 = 13, //SRGB
+    RGY_TRANSFER_BT2020_10    = 14, //BT709
+    RGY_TRANSFER_BT2020_12    = 15, //BT709
+    RGY_TRANSFER_ST2084       = 16,
+    RGY_TRANSFER_ARIB_B67     = 18
+};
+
+static const auto CspTransferList = make_array<CspTransfer>(
+    RGY_TRANSFER_BT709,
+    RGY_TRANSFER_UNSPECIFIED,
+    RGY_TRANSFER_BT470_M,
+    RGY_TRANSFER_BT470_BG,
+    RGY_TRANSFER_BT601,  //BT709
+    RGY_TRANSFER_ST240_M,
+    RGY_TRANSFER_LINEAR,
+    RGY_TRANSFER_LOG_100,
+    RGY_TRANSFER_LOG_316,
+    RGY_TRANSFER_IEC61966_2_4, //XVYCC
+    RGY_TRANSFER_IEC61966_2_1, //SRGB
+    RGY_TRANSFER_BT2020_10, //BT709
+    RGY_TRANSFER_BT2020_12, //BT709
+    RGY_TRANSFER_ST2084,
+    RGY_TRANSFER_ARIB_B67
+);
+
+const CX_DESC list_transfer[] = {
+    { _T("undef"),         RGY_TRANSFER_UNSPECIFIED  },
+    { _T("auto"),          COLOR_VALUE_AUTO },
+    { _T("bt709"),         RGY_TRANSFER_BT709  },
+    { _T("smpte170m"),     RGY_TRANSFER_BT601  },
+    { _T("bt470m"),        RGY_TRANSFER_BT470_M  },
+    { _T("bt470bg"),       RGY_TRANSFER_BT470_BG  },
+    { _T("smpte240m"),     RGY_TRANSFER_ST240_M  },
+    { _T("linear"),        RGY_TRANSFER_LINEAR  },
+    { _T("log100"),        RGY_TRANSFER_LOG_100  },
+    { _T("log316"),        RGY_TRANSFER_LOG_316 },
+    { _T("iec61966-2-4"),  RGY_TRANSFER_IEC61966_2_4 },
+    { _T("bt1361e"),       12 },
+    { _T("iec61966-2-1"),  RGY_TRANSFER_IEC61966_2_1 },
+    { _T("bt2020-10"),     RGY_TRANSFER_BT2020_10 },
+    { _T("bt2020-12"),     RGY_TRANSFER_BT2020_12 },
+    { _T("smpte2084"),     RGY_TRANSFER_ST2084 },
+    { _T("smpte428"),      17 },
+    { _T("arib-srd-b67"),  RGY_TRANSFER_ARIB_B67 },
+    { NULL, NULL }
+};
+
+enum CspColorprim {
+    RGY_PRIM_BT709       = 1,
+    RGY_PRIM_UNSPECIFIED = 2,
+    RGY_PRIM_BT470_M     = 4,
+    RGY_PRIM_BT470_BG    = 5,
+    RGY_PRIM_ST170_M     = 6,
+    RGY_PRIM_ST240_M     = 7,
+    RGY_PRIM_FILM        = 8,
+    RGY_PRIM_BT2020      = 9,
+    RGY_PRIM_ST428, //XYZ
+    RGY_PRIM_ST431_2, //DCI_P3
+    RGY_PRIM_ST432_1, //DCI_P3_D65
+    RGY_PRIM_EBU3213_E //JEDEC_P22
+};
+
+static const auto CspColorprimList = make_array<CspColorprim>(
+    RGY_PRIM_BT709,
+    RGY_PRIM_UNSPECIFIED,
+    RGY_PRIM_BT470_M,
+    RGY_PRIM_BT470_BG,
+    RGY_PRIM_ST170_M,
+    RGY_PRIM_ST240_M,
+    RGY_PRIM_FILM,
+    RGY_PRIM_BT2020,
+    RGY_PRIM_ST428, //XYZ
+    RGY_PRIM_ST431_2, //DCI_P3
+    RGY_PRIM_ST432_1, //DCI_P3_D65
+    RGY_PRIM_EBU3213_E //JEDEC_P22
+);
+
+const CX_DESC list_colorprim[] = {
+    { _T("undef"),     RGY_PRIM_UNSPECIFIED  },
+    { _T("auto"),      COLOR_VALUE_AUTO   },
+    { _T("bt709"),     RGY_PRIM_BT709     },
+    { _T("smpte170m"), RGY_PRIM_ST170_M   },
+    { _T("bt470m"),    RGY_PRIM_BT470_M   },
+    { _T("bt470bg"),   RGY_PRIM_BT470_BG  },
+    { _T("smpte240m"), RGY_PRIM_ST240_M   },
+    { _T("film"),      RGY_PRIM_FILM      },
+    { _T("bt2020"),    RGY_PRIM_BT2020    },
+    { _T("st428"),     RGY_PRIM_ST428     },
+    { _T("st431-2"),   RGY_PRIM_ST431_2   },
+    { _T("st432-1"),   RGY_PRIM_ST432_1   },
+    { _T("ebu3213-e"), RGY_PRIM_EBU3213_E },
+    { NULL, NULL }
+};
+
+const CX_DESC list_videoformat[] = {
+    { _T("undef"),     5  },
+    { _T("ntsc"),      2  },
+    { _T("component"), 0  },
+    { _T("pal"),       1  },
+    { _T("secam"),     3  },
+    { _T("mac"),       4  },
+    { NULL, NULL }
+};
+const CX_DESC list_chromaloc[] = {
+    { _T("0"), 0 },
+    { _T("1"), 1 },
+    { _T("2"), 2 },
+    { _T("3"), 3 },
+    { _T("4"), 4 },
+    { _T("5"), 5 },
+    { NULL, NULL }
+};
+const CX_DESC list_colorrange[] = {
+    { _T("limited"), 0 },
+    { _T("full"), 1 },
+    { _T("tv"), 0 },
+    { _T("pc"), 1 },
+    { NULL, NULL }
+};
+
 struct VideoVUIInfo {
     int descriptpresent;
-    int colorprim;
-    int matrix;
-    int transfer;
+    CspColorprim colorprim;
+    CspMatrix matrix;
+    CspTransfer transfer;
     int format;
     int fullrange;
     int chromaloc;
+
+    VideoVUIInfo() :
+        descriptpresent(0),
+        colorprim((CspColorprim)get_cx_value(list_colorprim, _T("undef"))),
+        matrix((CspMatrix)get_cx_value(list_colormatrix, _T("undef"))),
+        transfer((CspTransfer)get_cx_value(list_transfer, _T("undef"))),
+        format(get_cx_value(list_videoformat, _T("undef"))),
+        fullrange(0),
+        chromaloc(0) {
+
+    }
+    VideoVUIInfo to(CspMatrix csp_matrix) const {
+        auto ret = *this;
+        ret.matrix = csp_matrix;
+        return ret;
+    }
+    VideoVUIInfo to(CspTransfer csp_transfer) const {
+        auto ret = *this;
+        ret.transfer = csp_transfer;
+        return ret;
+    }
+    VideoVUIInfo to(CspColorprim prim) const {
+        auto ret = *this;
+        ret.colorprim = prim;
+        return ret;
+    }
+    tstring print_main() const {
+        return tstring(_T("matrix:")) + get_cx_desc(list_colormatrix, matrix) + _T(",")
+            + tstring(_T("colorprim:")) + get_cx_desc(list_colorprim, colorprim) + _T(",")
+            + tstring(_T("transfer:")) + get_cx_desc(list_transfer, transfer);
+    }
+
+    bool operator==(const VideoVUIInfo &x) const {
+        return descriptpresent == x.descriptpresent
+            && colorprim == x.colorprim
+            && matrix == x.matrix
+            && transfer == x.transfer
+            && format == x.format
+            && fullrange == x.fullrange
+            && chromaloc == x.chromaloc;
+    }
+    bool operator!=(const VideoVUIInfo &x) const {
+        return !(*this == x);
+    }
 };
 
 struct VideoInfo {
