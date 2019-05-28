@@ -543,7 +543,7 @@ muxerに出力フォーマットを指定して出力する。
 ### --video-streamid &lt;int&gt;
 エンコード対象の映像トラックをstream idで選択。
 
-### --video-tag <string>
+### --video-tag &lt;string&gt;
 映像のcodec tagの指定。
 ```
  -o test.mp4 -c hevc --video-tag hvc1
@@ -585,7 +585,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
 ```
 
-### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [&lt;int&gt;?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。
 
 ### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]

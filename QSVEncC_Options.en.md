@@ -525,7 +525,7 @@ Set video track to encode by resolution. Will be active when used with avhw/avsw
 ### --video-streamid &lt;int&gt;
 Set video track to encode in stream id.
 
-### --video-tag <string>
+### --video-tag &lt;string&gt;
 Specify video tag.
 ```
  -o test.mp4 -c hevc --video-tag hvc1
@@ -572,7 +572,7 @@ Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
-### --audio-profile [[&lt;int&gt;?]&lt;string&gt;
+### --audio-profile [&lt;int&gt;?]&lt;string&gt;
 Specify audio codec profile when encoding audio.
 
 ### --audio-stream [&lt;int&gt;?][&lt;string1&gt;][:&lt;string2&gt;]
