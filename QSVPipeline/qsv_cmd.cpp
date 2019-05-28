@@ -1878,6 +1878,31 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->nAudioThread = (int8_t)value;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("thread-csp"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        if (value < -1 || value >= 2) {
+            SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+        pParams->threadCsp = value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("simd-csp"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_simd, strInput[i]))) {
+            pParams->vpp.rotate = value;
+        } else {
+            SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("min-memory"))) {
         pParams->nOutputThread = 0;
         pParams->nAudioThread = 0;
@@ -2714,6 +2739,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_NUM(_T("--output-thread"), nOutputThread);
     OPT_NUM(_T("--input-thread"), nInputThread);
     OPT_NUM(_T("--audio-thread"), nAudioThread);
+    OPT_NUM(_T("--thread-csp"), threadCsp);
+    OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), nProcSpeedLimit);
     OPT_CHAR_PATH(_T("--log"), pStrLogFile);
     OPT_LST(_T("--log-level"), nLogLevel, list_log_level);

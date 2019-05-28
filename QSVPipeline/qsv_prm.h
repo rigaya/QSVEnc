@@ -37,6 +37,7 @@
 #include "mfxvp9.h"
 #include "convert_csp.h"
 #include "rgy_caption.h"
+#include "rgy_simd.h"
 
 #define QSVENCC_ABORT_EVENT _T("QSVEncC_abort_%u")
 
@@ -291,6 +292,8 @@ struct sInputParams
     mfxU32     nBenchQuality; //ベンチマークの対象
     int8_t     nOutputThread;
     int8_t     nAudioThread;
+    int        threadCsp;
+    int        simdCsp;
 
     muxOptList *pMuxOpt;
     TCHAR     *pChapterFile;
@@ -729,6 +732,18 @@ const CX_DESC list_vpp_scaling_quality[] = {
     { _T("simple"), MFX_SCALING_MODE_LOWPOWER },
     { _T("fine"),   MFX_SCALING_MODE_QUALITY  },
     { NULL, 0 }
+};
+
+const CX_DESC list_simd[] = {
+    { _T("auto"),     -1  },
+    { _T("none"),     NONE },
+    { _T("sse2"),     SSE2 },
+    { _T("sse3"),     SSE3|SSE2 },
+    { _T("ssse3"),    SSSE3|SSE3|SSE2 },
+    { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
+    { NULL, NULL }
 };
 
 //define defaults

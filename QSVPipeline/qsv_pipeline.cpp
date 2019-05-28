@@ -2695,9 +2695,12 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
 
     if (m_pFileReader == nullptr) {
-        const RGYInputPrm *input_option = nullptr;
+        RGYInputPrm inputPrm;
+        inputPrm.threadCsp = pParams->threadCsp;
+        inputPrm.simdCsp = pParams->simdCsp;
+        RGYInputPrm *pInputPrm = &inputPrm;
 #if ENABLE_AVSW_READER
-        RGYInputAvcodecPrm avcodecReaderPrm;
+        RGYInputAvcodecPrm avcodecReaderPrm(inputPrm);
         DeviceCodecCsp HWDecCodecCsp;
         HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp()));
 #endif
