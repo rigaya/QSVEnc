@@ -683,9 +683,9 @@ Mux an external audio file specified.
 
 ### --chapter &lt;string&gt;
 Set chapter in the (separate) chapter file.
-The chapter file could be either in nero format or apple format. Cannot be used with --chapter-copy.
+The chapter file could be in nero format, apple format or matroska format. Cannot be used with --chapter-copy.
 
-nero format
+nero format  
 ```
 CHAPTER01=00:00:39.706
 CHAPTER01NAME=chapter-1
@@ -695,7 +695,7 @@ CHAPTER03=00:01:28.288
 CHAPTER03NAME=chapter-3
 ```
 
-apple format (should be in utf-8)
+apple format (should be in utf-8)  
 ```
 <?xml version="1.0" encoding="UTF-8" ?>
   <TextStream version="1.1">
@@ -708,6 +708,41 @@ apple format (should be in utf-8)
   <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
   <TextSample sampleTime="00:01:28.289" text="" />
 </TextStream>
+```
+
+matroska形式 (hould be in utf-8)  
+[Other Samples&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<Chapters>
+  <EditionEntry>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-0</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-1</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+      <ChapterDisplay>
+        <ChapterString>chapter-2</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+    <ChapterAtom>
+      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+      <ChapterDisplay>
+        <ChapterString>chapter-3</ChapterString>
+      </ChapterDisplay>
+    </ChapterAtom>
+  </EditionEntry>
+</Chapters>
 ```
 
 ### --chapter-copy
