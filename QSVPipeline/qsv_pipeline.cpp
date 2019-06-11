@@ -2658,6 +2658,11 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
+    RGYInputPrm inputPrm;
+    inputPrm.threadCsp = pParams->threadCsp;
+    inputPrm.simdCsp = pParams->simdCsp;
+    RGYInputPrm *pInputPrm = &inputPrm;
+
     //まずavs or vpy readerをためす
     m_pFileReader = nullptr;
     if (   inputVideo.type == RGY_INPUT_FMT_VPY
@@ -2678,7 +2683,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             //aviリーダーに切り替え再試行する
             inputVideo.type = RGY_INPUT_FMT_AVI;
         } else {
-            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, nullptr, m_pQSVLog, m_pEncSatusInfo);
+            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, pInputPrm, m_pQSVLog, m_pEncSatusInfo);
             if (ret == RGY_ERR_INVALID_COLOR_FORMAT) {
                 //入力色空間の制限で使用できない場合はaviリーダーに切り替え再試行する
                 PrintMes(RGY_LOG_WARN, m_pFileReader->GetInputMessage());
@@ -2695,10 +2700,6 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     }
 
     if (m_pFileReader == nullptr) {
-        RGYInputPrm inputPrm;
-        inputPrm.threadCsp = pParams->threadCsp;
-        inputPrm.simdCsp = pParams->simdCsp;
-        RGYInputPrm *pInputPrm = &inputPrm;
 #if ENABLE_AVSW_READER
         RGYInputAvcodecPrm avcodecReaderPrm(inputPrm);
         DeviceCodecCsp HWDecCodecCsp;
@@ -2729,6 +2730,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
                 avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(pParams->nFPSRate, pParams->nFPSScale);
                 avcodecReaderPrm.nAudioTrackStart = (mfxU8)sourceAudioTrackIdStart;
+                avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
                 avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
                 avcodecReaderPrm.pSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &pParams->vpp.subburn.nTrack : pParams->pSubtitleSelect;
@@ -2743,7 +2745,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.pHWDecCodecCsp = &HWDecCodecCsp;
                 avcodecReaderPrm.bVideoDetectPulldown = pParams->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
                 avcodecReaderPrm.caption2ass = pParams->caption2ass;
-                input_option = &avcodecReaderPrm;
+                pInputPrm = &avcodecReaderPrm;
                 PrintMes(RGY_LOG_DEBUG, _T("Input: avhw/avsw reader selected.\n"));
                 break;
 #endif
@@ -2758,7 +2760,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 PrintMes(RGY_LOG_DEBUG, _T("Failed to select reader.\n"));
                 return MFX_ERR_NOT_FOUND;
         }
-        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, input_option, m_pQSVLog, m_pEncSatusInfo);
+        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, pInputPrm, m_pQSVLog, m_pEncSatusInfo);
     }
     if (ret != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
@@ -2774,7 +2776,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         auto videoInfo = inputVideo;
 
         for (int i = 0; i < pParams->nAudioSourceCount; i++) {
-            RGYInputAvcodecPrm avcodecReaderPrm;
+            RGYInputAvcodecPrm avcodecReaderPrm(inputPrm);
             avcodecReaderPrm.memType = pParams->memType;
             avcodecReaderPrm.bReadVideo = false;
             avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
