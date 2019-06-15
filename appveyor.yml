@@ -18,8 +18,9 @@ skip_non_tags: true
 
 init:
   - ps: Set-WinSystemLocale ja-JP
-  - ps: Start-Sleep -s 5
+  - ps: Start-Sleep -s 15
   - ps: Restart-Computer
+  - ps: Start-Sleep -s 15
   - git config --global core.autocrlf input
 
 install:
