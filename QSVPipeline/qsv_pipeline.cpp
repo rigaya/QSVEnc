@@ -2340,7 +2340,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
         m_pFileWriter = std::make_shared<RGYOutputAvcodec>();
         AvcodecWriterPrm writerPrm;
-        writerPrm.pOutputFormat = pParams->pAVMuxOutputFormat;
+        writerPrm.outputFormat = (pParams->pAVMuxOutputFormat) ? pParams->pAVMuxOutputFormat : _T("");
         writerPrm.trimList = m_trimParam.list;
         writerPrm.nOutputThread = pParams->nOutputThread;
         writerPrm.nAudioThread  = pParams->nAudioThread;
@@ -2350,7 +2350,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
         writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
         writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
         writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
-        writerPrm.pMuxVidTsLogFile = pParams->pMuxVidTsLogFile;
+        writerPrm.muxVidTsLogFile = (pParams->pMuxVidTsLogFile) ? pParams->pMuxVidTsLogFile : _T("");
         writerPrm.videoCodecTag = (pParams->videoCodecTag) ? pParams->videoCodecTag : "";
         if (pParams->pMuxOpt) {
             writerPrm.vMuxOpt = *pParams->pMuxOpt;
@@ -2382,7 +2382,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             for (int i = 0; !audioCopyAll && i < pParams->nAudioSelectCount; i++) {
                 //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
-                audioCopyAll = (pParams->ppAudioSelectList[i]->nAudioSelect == 0);
+                audioCopyAll = (pParams->ppAudioSelectList[i]->trackID == 0);
             }
             PrintMes(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (audioCopyAll) ? _T("true") : _T("false"));
             vector<AVDemuxStream> streamList;
@@ -2408,27 +2408,45 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 //audio-fileで別ファイルとして抽出するものは除く
                 bool usedInAudioFile = false;
                 for (int i = 0; i < (int)pParams->nAudioSelectCount; i++) {
-                    if (stream.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
-                        && pParams->ppAudioSelectList[i]->pAudioExtractFilename != nullptr) {
+                    if (stream.nTrackId == pParams->ppAudioSelectList[i]->trackID
+                        && pParams->ppAudioSelectList[i]->extractFilename.length() > 0) {
                         usedInAudioFile = true;
                     }
                 }
                 if (usedInAudioFile) {
                     continue;
                 }
-                const sAudioSelect *pAudioSelect = nullptr;
+                const AudioSelect *pAudioSelect = nullptr;
                 for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                    if (stream.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
-                        && pParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
+                    if (stream.nTrackId == pParams->ppAudioSelectList[i]->trackID
+                        && pParams->ppAudioSelectList[i]->extractFilename.length() == 0) {
                         pAudioSelect = pParams->ppAudioSelectList[i];
                     }
                 }
                 if (pAudioSelect == nullptr) {
-                    //一致するTrackIDがなければ、nAudioSelect = 0 (全指定)を探す
+                    //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
                     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                        if (pParams->ppAudioSelectList[i]->nAudioSelect == 0
-                            && pParams->ppAudioSelectList[i]->pAudioExtractFilename == nullptr) {
+                        if (pParams->ppAudioSelectList[i]->trackID == 0
+                            && pParams->ppAudioSelectList[i]->extractFilename.length() == 0) {
                             pAudioSelect = pParams->ppAudioSelectList[i];
+                            break;
+                        }
+                    }
+                }
+                const SubtitleSelect *pSubtitleSelect = nullptr;
+                if (bStreamIsSubtitle) {
+                    for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
+                        if (std::abs(stream.nTrackId) == pParams->ppSubtitleSelectList[i]->trackID) {
+                            pSubtitleSelect = pParams->ppSubtitleSelectList[i];
+                        }
+                    }
+                    if (pSubtitleSelect == nullptr) {
+                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                        for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
+                            if (pParams->ppAudioSelectList[i]->trackID == 0) {
+                                pSubtitleSelect = pParams->ppSubtitleSelectList[i];
+                                break;
+                            }
                         }
                     }
                 }
@@ -2440,17 +2458,25 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     AVOutputStreamPrm prm;
                     prm.src = stream;
                     //pAudioSelect == nullptrは "copyAllStreams" か 字幕ストリーム によるもの
-                    prm.nBitrate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAVAudioEncodeBitrate;
-                    prm.nSamplingRate = (pAudioSelect == nullptr) ? 0 : pAudioSelect->nAudioSamplingRate;
-                    prm.pEncodeCodec = (pAudioSelect == nullptr) ? RGY_AVCODEC_COPY : pAudioSelect->pAVAudioEncodeCodec;
-                    prm.pEncodeCodecPrm = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAVAudioEncodeCodecPrm;
-                    prm.pEncodeCodecProfile = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAVAudioEncodeCodecProfile;
-                    prm.pFilter = (pAudioSelect == nullptr) ? nullptr : pAudioSelect->pAudioFilter;
+                    if (pAudioSelect != nullptr) {
+                        prm.decodeCodecPrm = pAudioSelect->decCodecPrm;
+                        prm.bitrate = pAudioSelect->encBitrate;
+                        prm.samplingRate = pAudioSelect->encSamplingRate;
+                        prm.encodeCodec = pAudioSelect->encCodec;
+                        prm.encodeCodecPrm = pAudioSelect->encCodecPrm;
+                        prm.encodeCodecProfile = pAudioSelect->encCodecProfile;
+                        prm.filter = pAudioSelect->filter;
+                    }
+                    if (pSubtitleSelect != nullptr) {
+                        prm.encodeCodec = pSubtitleSelect->encCodec;
+                        prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
+                        prm.asdata = pSubtitleSelect->asdata;
+                    }
                     PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
                         (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
-                        stream.nTrackId, stream.nIndex, prm.nBitrate, prm.pEncodeCodec,
-                        prm.pEncodeCodecProfile ? prm.pEncodeCodecProfile : _T(""),
-                        prm.pEncodeCodecPrm ? prm.pEncodeCodecPrm : _T(""));
+                        stream.nTrackId, stream.nIndex, prm.bitrate, prm.encodeCodec.c_str(),
+                        prm.encodeCodecProfile.c_str(),
+                        prm.encodeCodecPrm.c_str());
                     writerPrm.inputStreamList.push_back(std::move(prm));
                 }
             }
@@ -2520,10 +2546,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 if (bTrackAlreadyUsed) {
                     continue;
                 }
-                const sAudioSelect *pAudioSelect = nullptr;
+                const AudioSelect *pAudioSelect = nullptr;
                 for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                    if (audioTrack.nTrackId == pParams->ppAudioSelectList[i]->nAudioSelect
-                        && pParams->ppAudioSelectList[i]->pAudioExtractFilename != nullptr) {
+                    if (audioTrack.nTrackId == pParams->ppAudioSelectList[i]->trackID
+                        && pParams->ppAudioSelectList[i]->extractFilename.length() > 0) {
                         pAudioSelect = pParams->ppAudioSelectList[i];
                     }
                 }
@@ -2532,21 +2558,21 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     return MFX_ERR_INVALID_AUDIO_PARAM;
                 }
                 PrintMes(RGY_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
-                    audioTrack.nTrackId, audioTrack.nIndex, pAudioSelect->pAudioExtractFilename, pAudioSelect->pAudioExtractFormat, pAudioSelect->pAVAudioEncodeCodec, pAudioSelect->nAVAudioEncodeBitrate);
+                    audioTrack.nTrackId, audioTrack.nIndex, pAudioSelect->extractFilename.c_str(), pAudioSelect->extractFormat.c_str(), pAudioSelect->encCodec.c_str(), pAudioSelect->encBitrate);
 
                 AVOutputStreamPrm prm;
                 prm.src = audioTrack;
                 //pAudioSelect == nullptrは "copyAll" によるもの
-                prm.nBitrate = pAudioSelect->nAVAudioEncodeBitrate;
-                prm.pFilter = pAudioSelect->pAudioFilter;
-                prm.pEncodeCodec = pAudioSelect->pAVAudioEncodeCodec;
-                prm.nSamplingRate = pAudioSelect->nAudioSamplingRate;
+                prm.bitrate = pAudioSelect->encBitrate;
+                prm.filter = pAudioSelect->filter;
+                prm.encodeCodec = pAudioSelect->encCodec;
+                prm.samplingRate = pAudioSelect->encSamplingRate;
 
                 AvcodecWriterPrm writerAudioPrm;
                 writerAudioPrm.nOutputThread   = pParams->nOutputThread;
                 writerAudioPrm.nAudioThread    = pParams->nAudioThread;
                 writerAudioPrm.nBufSizeMB      = pParams->nOutputBufSizeMB;
-                writerAudioPrm.pOutputFormat   = pAudioSelect->pAudioExtractFormat;
+                writerAudioPrm.outputFormat   = pAudioSelect->extractFormat;
                 writerAudioPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
                 writerAudioPrm.nAudioResampler = pParams->nAudioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
@@ -2556,7 +2582,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
 
                 shared_ptr<RGYOutput> pWriter(new RGYOutputAvcodec());
-                ret = pWriter->Init(pAudioSelect->pAudioExtractFilename, nullptr, &writerAudioPrm, m_pQSVLog, m_pEncSatusInfo);
+                ret = pWriter->Init(pAudioSelect->extractFilename.c_str(), nullptr, &writerAudioPrm, m_pQSVLog, m_pEncSatusInfo);
                 if (ret != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
                     return err_to_mfx(ret);
@@ -2699,6 +2725,9 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
     }
 
+    auto subBurnTrack = std::make_unique<SubtitleSelect>();
+    subBurnTrack->trackID = pParams->vpp.subburn.nTrack;
+    SubtitleSelect *subBurnTrackPtr = subBurnTrack.get();
     if (m_pFileReader == nullptr) {
 #if ENABLE_AVSW_READER
         RGYInputAvcodecPrm avcodecReaderPrm(inputPrm);
@@ -2729,11 +2758,11 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
                 avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
                 avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(pParams->nFPSRate, pParams->nFPSScale);
-                avcodecReaderPrm.nAudioTrackStart = (mfxU8)sourceAudioTrackIdStart;
+                avcodecReaderPrm.nAudioTrackStart = sourceAudioTrackIdStart;
                 avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
                 avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
-                avcodecReaderPrm.pSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &pParams->vpp.subburn.nTrack : pParams->pSubtitleSelect;
+                avcodecReaderPrm.ppSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &subBurnTrackPtr : pParams->ppSubtitleSelectList;
                 avcodecReaderPrm.nSubtitleSelectCount = (pParams->vpp.subburn.nTrack) ? 1 : pParams->nSubtitleSelectCount;
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
                 avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
@@ -3262,7 +3291,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
             PrintMes(RGY_LOG_WARN, _T("audio copy or audio encoding disabled on benchmark mode.\n"));
         }
         if (pParams->nSubtitleSelectCount) {
-            rgy_free(pParams->pSubtitleSelect);
             pParams->nSubtitleSelectCount = 0;
             PrintMes(RGY_LOG_WARN, _T("subtitle copy disabled on benchmark mode.\n"));
         }

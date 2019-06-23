@@ -269,7 +269,7 @@ struct sInputParams
     TCHAR     *pAVMuxOutputFormat;
 
     mfxU8      nAudioSelectCount; //pAudioSelectの数
-    sAudioSelect **ppAudioSelectList;
+    AudioSelect **ppAudioSelectList;
 
     mfxI16     nSessionThreads;
     mfxU16     nSessionThreadPriority;
@@ -283,8 +283,8 @@ struct sInputParams
     mfxU16     nWeightP;
     mfxU16     nWeightB;
     mfxU16     nFadeDetect;
-    mfxU16     nSubtitleSelectCount;
-    int       *pSubtitleSelect;
+    int        nSubtitleSelectCount;
+    SubtitleSelect **ppSubtitleSelectList;
     int64_t    nPerfMonitorSelect;
     int64_t    nPerfMonitorSelectMatplot;
     int        nPerfMonitorInterval;

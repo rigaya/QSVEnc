@@ -546,12 +546,12 @@ Example: Extract track numbers #1 and #2
 --audio-copy 1,2
 ```
 
-### --audio-codec [[&lt;int&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;],...]
+### --audio-codec [[&lt;int&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;][#&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;],...]
 Encode audio track with the codec specified. If codec is not set, most suitable codec will be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
 
 You can also specify the audio track (1, 2, ...) to extract.
 
-Also, you can specify params for audio encoder.
+Also, after ":" you can specify params for audio encoder,  after "#" you can specify params for audio decoder.
 ```
 Example 1: encode all audio tracks to mp3
 --audio-codec libmp3lame
@@ -561,6 +561,9 @@ Example 2: encode the 2nd track of audio to aac
 
 Example 3: set param "aac_coder" to "twoloop" which will improve quality at low bitrate for aac encoder
 --audio-codec aac:aac_coder=twoloop
+
+Example 4: set param "dual_mono_mode" to "main" for audio decoder
+--audio-codec aac#dual_mono_mode=main
 ```
 
 ### --audio-bitrate [&lt;int&gt;?]&lt;int&gt;
@@ -758,6 +761,9 @@ Supported subtitles are PGS / srt / txt / ttxt.
 Example: Copy subtitle track #1 and #2
 --sub-copy 1,2
 ```
+
+### --sub-codec [&lt;int&gt;?]&lt;string&gt;
+Encode subtitle track to the codec specified.
 
 ### --caption2ass [&lt;string&gt;]
 Enable internal caption2ass process. This feature requires Caption.dll.  

@@ -559,12 +559,15 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 --audio-copy 1,2
 ```
 
-### --audio-codec [[&lt;int&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;]...]
+### --audio-codec [[&lt;int&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;][#&lt;string&gt;=&lt;string&gt;][,&lt;string&gt;=&lt;string&gt;]...]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
 
 [&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
 
-さらに、[&lt;string&gt;=&lt;string&gt;]の形式で、音声エンコーダのオプションを指定することもできる。
+また、
+- ":"のあとに[&lt;string&gt;=&lt;string&gt;]で音声エンコーダのオプション
+- "#"のあとに[&lt;string&gt;=&lt;string&gt;]で音声デコーダのオプション
+を指定できる。
 ```
 例1: 音声をmp3に変換
 --audio-codec libmp3lame
@@ -574,6 +577,9 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 
 例3: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
 --audio-codec aac:aac_coder=twoloop
+
+例2: 音声デコーダにdual_mono_mode=mainを指定
+--audio-codec aac#dual_mono_mode=main
 ```
 
 ### --audio-bitrate [&lt;int&gt;?]&lt;int&gt;
@@ -764,6 +770,9 @@ matroska形式 (UTF-8であること)
 例: 字幕トラック #1と#2をコピー
 --sub-copy 1,2
 ```
+
+### --sub-codec [&lt;int&gt;?]&lt;string&gt;
+字幕トラックを指定のコーデックにエンコードする。
 
 ### --caption2ass &lt;string&gt;
 caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。

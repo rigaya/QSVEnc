@@ -43,6 +43,20 @@
 #include "qsv_cmd.h"
 #include "qsv_cmd.h"
 
+typedef struct sAudioSelectOld {
+    int    nAudioSelect;               //選択した音声トラックのリスト 1,2,...(1から連番で指定)
+    TCHAR *pAVAudioEncodeCodec;        //音声エンコードのコーデック
+    TCHAR *pAVAudioEncodeCodecPrm;     //音声エンコードのコーデックのパラメータ
+    TCHAR *pAVAudioEncodeCodecProfile; //音声エンコードのコーデックのプロファイル
+    int    nAVAudioEncodeBitrate;      //音声エンコードに選択した音声トラックのビットレート
+    int    nAudioSamplingRate;         //サンプリング周波数
+    TCHAR *pAudioExtractFilename;      //抽出する音声のファイル名のリスト
+    TCHAR *pAudioExtractFormat;        //抽出する音声ファイルのフォーマット
+    TCHAR *pAudioFilter;               //音声フィルタ
+    uint64_t pnStreamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
+    uint64_t pnStreamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+} sAudioSelectOld;
+
 #pragma pack(push, 4)
 typedef struct {
     bool bEnable;             //use vpp
@@ -57,7 +71,7 @@ typedef struct {
     mfxU16 nDenoise;          // 0 - 100 Denoise Strength
     bool bUseDetailEnhance;   //use vpp detail enhancer
     bool __unsed4;
-    mfxU16 nDetailEnhance;    // 0 - 100 
+    mfxU16 nDetailEnhance;    // 0 - 100
     mfxU16 nDeinterlace;      //set deinterlace mode
 
     mfxU16 nImageStabilizer;  //MFX_IMAGESTAB_MODE_UPSCALE, MFX_IMAGESTAB_MODE_BOXED
@@ -128,7 +142,7 @@ struct sInputParamsOld {
     mfxU16 __nMaxBitrate;
     mfxI16 nLogLevel;     //ログレベル
 
-    mfxU16 nDstWidth;     //output width 
+    mfxU16 nDstWidth;     //output width
     mfxU16 nDstHeight;    //input width
 
     mfxU8 memType;       //use d3d surface
@@ -204,7 +218,7 @@ struct sInputParamsOld {
     TCHAR     *pAVMuxOutputFormat;
 
     mfxU8      nAudioSelectCount; //pAudioSelectの数
-    sAudioSelect **ppAudioSelectList;
+    sAudioSelectOld **ppAudioSelectList;
 
     mfxI16     nSessionThreads;
     mfxU16     nSessionThreadPriority;
@@ -336,7 +350,7 @@ void *guiEx_config::convert_qsvstgv1_to_stgv3(void *_conf, int size) {
     conf->qsv.__nBitRate = 0;
     conf->qsv.__nMaxBitrate = 0;
     strcpy_s(conf->conf_name, CONF_NAME_OLD_2);
-    
+
     memset(((BYTE *)conf) + size - 2056, 0, 2056);
     strcpy_s(conf->conf_name, CONF_NAME_OLD_3);
     return conf;
@@ -360,7 +374,7 @@ void *guiEx_config::convert_qsvstgv2_to_stgv3(void *_conf) {
     char bat_path_after_process[1024];
     strcpy_s(bat_path_after_process,  conf->oth.batfiles[0]);
     strcpy_s(bat_path_before_process, conf->oth.batfiles[2]);
-    
+
     DWORD old_run_bat_flags = conf->oth.run_bat;
     conf->oth.run_bat  = 0x00;
     conf->oth.run_bat |= (old_run_bat_flags & OLD_FLAG_BEFORE) ? RUN_BAT_BEFORE_PROCESS : 0x00;
@@ -804,7 +818,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     }
     tmp.str(tstring());
     for (uint32_t i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) == 0) {
             tmp << pAudioSelect->nAudioSelect << _T(",");
         }
@@ -817,7 +831,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     tmp.str(tstring());
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
             cmd << _T(" --audio-codec ") << pAudioSelect->nAudioSelect;
             if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_AUTO) != 0) {
@@ -827,7 +841,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     }
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
             cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
         }
@@ -835,7 +849,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
 
     //QSVEnc.auoでは、libavutilの関数 av_get_channel_layout_string()を実行してはならない
     //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-    //    const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
     //    cmd << _T(" --audio-stream ") << pAudioSelect->nAudioSelect;
     //    for (int j = 0; j < MAX_SPLIT_CHANNELS; j++) {
     //        if (pAudioSelect->pnStreamChannelSelect[j] == 0) {
@@ -857,7 +871,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     //}
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
             cmd << _T(" --audio-samplerate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAudioSamplingRate;
         }
@@ -865,13 +879,13 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_LST(_T("--audio-resampler"), nAudioResampler, list_resampler);
 
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
         if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
             cmd << _T(" --audio-filter ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAudioFilter;
         }
     }
     for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelect *pAudioSelect = pParams->ppAudioSelectList[i];
+        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
         if (pAudioSelect->pAudioExtractFilename) {
             cmd << _T(" --audio-file ") << pAudioSelect->nAudioSelect << _T("?");
             if (pAudioSelect->pAudioExtractFormat) {

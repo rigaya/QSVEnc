@@ -419,9 +419,9 @@ static void video_output_close_thread(video_output_thread_t *thread_data, AUO_RE
 
 struct AVQSV_PARM {
     int nSubtitleCopyAll;
-    sAudioSelect audioSelect;
+    AudioSelect audioSelect;
     char audioCodec[128];
-    std::vector<sAudioSelect *> audioSelectList;
+    std::vector<AudioSelect *> audioSelectList;
 };
 
 void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
@@ -443,18 +443,18 @@ static void set_conf_qsvp_avqsv_prm(sInputParams *enc_prm, const CONF_GUIEX *con
         break;
     case QSV_AUD_ENC_COPY:
         enc_prm->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        avqsv_prm->audioSelect.nAudioSelect = 1;
-        avqsv_prm->audioSelect.pAVAudioEncodeCodec = avqsv_prm->audioCodec;
+        avqsv_prm->audioSelect.trackID = 1;
+        avqsv_prm->audioSelect.encCodec = char_to_tstring(avqsv_prm->audioCodec);
         strcpy_s(avqsv_prm->audioCodec, RGY_AVCODEC_COPY);
         enc_prm->ppAudioSelectList = avqsv_prm->audioSelectList.data();
         enc_prm->nAudioSelectCount = 1;
         break;
     default:
         enc_prm->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-        avqsv_prm->audioSelect.nAudioSelect = 1;
-        avqsv_prm->audioSelect.pAVAudioEncodeCodec = avqsv_prm->audioCodec;
+        avqsv_prm->audioSelect.trackID = 1;
+        avqsv_prm->audioSelect.encCodec = char_to_tstring(avqsv_prm->audioCodec);
         strcpy_s(avqsv_prm->audioCodec, list_avqsv_aud_encoder[get_cx_index(list_avqsv_aud_encoder, conf->aud_avqsv.encoder)].desc);
-        avqsv_prm->audioSelect.nAVAudioEncodeBitrate = conf->aud_avqsv.bitrate;
+        avqsv_prm->audioSelect.encBitrate = conf->aud_avqsv.bitrate;
         enc_prm->ppAudioSelectList = avqsv_prm->audioSelectList.data();
         enc_prm->nAudioSelectCount = 1;
         break;
@@ -462,9 +462,12 @@ static void set_conf_qsvp_avqsv_prm(sInputParams *enc_prm, const CONF_GUIEX *con
     enc_prm->nTrimCount = (uint16_t)conf->oth.link_prm.trim_count;
     enc_prm->pTrimList = (enc_prm->nTrimCount) ? (sTrim *)conf->oth.link_prm.trim : nullptr;
 
-    if (enc_prm->nSubtitleSelectCount) {
+    if (avqsv_prm->nSubtitleCopyAll) {
         enc_prm->nSubtitleSelectCount = 1;
-        enc_prm->pSubtitleSelect = &avqsv_prm->nSubtitleCopyAll;
+        enc_prm->ppSubtitleSelectList = (SubtitleSelect **)malloc(sizeof(enc_prm->ppSubtitleSelectList));
+        enc_prm->ppSubtitleSelectList[0] = new SubtitleSelect();
+        enc_prm->ppSubtitleSelectList[0]->encCodec = RGY_AVCODEC_COPY;
+        enc_prm->ppSubtitleSelectList[0]->trackID = 0;
     }
     strcpy_s(enc_prm->strDstFile, pe->temp_filename);
 
