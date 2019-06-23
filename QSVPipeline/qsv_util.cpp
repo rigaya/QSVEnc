@@ -99,7 +99,7 @@ RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct) {
 RGY_NOINLINE
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
     mfxFrameInfo mfx = { 0 };
-    mfx.FourCC = RGY_CSP_TO_MFX_FOURCC[info.csp];
+    mfx.FourCC = csp_rgy_to_enc(info.csp);
     mfx.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[info.csp]);
     mfx.BitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[info.csp] - info.shift);
     mfx.BitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[info.csp] - info.shift);

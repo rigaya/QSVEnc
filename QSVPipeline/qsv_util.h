@@ -95,38 +95,6 @@ static inline uint16_t frametype_rgy_to_enc(const RGY_FRAMETYPE frametype) {
     return (uint16_t)type;
 }
 
-static const int RGY_CSP_TO_MFX_FOURCC[] = {
-    0, //RGY_CSP_NA
-    MFX_FOURCC_NV12, //RGY_CSP_NV12
-    MFX_FOURCC_YV12, //RGY_CSP_YV12
-    MFX_FOURCC_YUY2, //RGY_CSP_YUY2
-    0, //RGY_CSP_YUV422
-    MFX_FOURCC_NV16, //RGY_CSP_YUY2
-    0, //RGY_CSP_YUV444
-    MFX_FOURCC_P010, //RGY_CSP_YV12_09
-    MFX_FOURCC_P010,
-    MFX_FOURCC_P010,
-    MFX_FOURCC_P010,
-    MFX_FOURCC_P010, //RGY_CSP_YV12_16
-    MFX_FOURCC_P010, //RGY_CSP_P010
-    0, //RGY_CSP_YUV422_09
-    0,
-    0,
-    0,
-    0, //RGY_CSP_YUV422_16
-    MFX_FOURCC_P210, //RGY_CSP_P210
-    0, //RGY_CSP_YUV444_09
-    0,
-    0,
-    0,
-    0, //RGY_CSP_YUV444_16
-    MFX_FOURCC_RGB3,
-    MFX_FOURCC_RGB4,
-    MFX_FOURCC_RGB3,
-    MFX_FOURCC_RGB4,
-    0 //RGY_CSP_YC48
-};
-
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
 
 tstring qsv_memtype_str(uint16_t memtype);
