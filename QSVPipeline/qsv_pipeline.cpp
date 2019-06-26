@@ -2404,11 +2404,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
             }
 
             for (auto& stream : streamList) {
-                bool bStreamIsSubtitle = stream.nTrackId < 0;
+                const auto streamMediaType = trackMediaType(stream.nTrackId);
                 //audio-fileで別ファイルとして抽出するものは除く
                 bool usedInAudioFile = false;
                 for (int i = 0; i < (int)pParams->nAudioSelectCount; i++) {
-                    if (stream.nTrackId == pParams->ppAudioSelectList[i]->trackID
+                    if (trackID(stream.nTrackId) == pParams->ppAudioSelectList[i]->trackID
                         && pParams->ppAudioSelectList[i]->extractFilename.length() > 0) {
                         usedInAudioFile = true;
                     }
@@ -2418,7 +2418,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 }
                 const AudioSelect *pAudioSelect = nullptr;
                 for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                    if (stream.nTrackId == pParams->ppAudioSelectList[i]->trackID
+                    if (trackID(stream.nTrackId) == pParams->ppAudioSelectList[i]->trackID
                         && pParams->ppAudioSelectList[i]->extractFilename.length() == 0) {
                         pAudioSelect = pParams->ppAudioSelectList[i];
                     }
@@ -2434,9 +2434,9 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     }
                 }
                 const SubtitleSelect *pSubtitleSelect = nullptr;
-                if (bStreamIsSubtitle) {
+                if (streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
                     for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
-                        if (std::abs(stream.nTrackId) == pParams->ppSubtitleSelectList[i]->trackID) {
+                        if (trackID(stream.nTrackId) == pParams->ppSubtitleSelectList[i]->trackID) {
                             pSubtitleSelect = pParams->ppSubtitleSelectList[i];
                         }
                     }
@@ -2450,9 +2450,26 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                         }
                     }
                 }
-                if (pAudioSelect != nullptr || audioCopyAll || bStreamIsSubtitle) {
+                const DataSelect *pDataSelect = nullptr;
+                if (streamMediaType == AVMEDIA_TYPE_DATA) {
+                    for (int i = 0; i < pParams->nDataSelectCount; i++) {
+                        if (trackID(stream.nTrackId) == pParams->ppDataSelectList[i]->trackID) {
+                            pDataSelect = pParams->ppDataSelectList[i];
+                        }
+                    }
+                    if (pSubtitleSelect == nullptr) {
+                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                        for (int i = 0; i < pParams->nDataSelectCount; i++) {
+                            if (pParams->ppDataSelectList[i]->trackID == 0) {
+                                pDataSelect = pParams->ppDataSelectList[i];
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
                     streamTrackUsed.push_back(stream.nTrackId);
-                    if (bStreamIsSubtitle && pParams->vpp.subburn.nTrack != 0) {
+                    if (streamMediaType == AVMEDIA_TYPE_SUBTITLE && pParams->vpp.subburn.nTrack != 0) {
                         continue;
                     }
                     AVOutputStreamPrm prm;
@@ -2473,8 +2490,8 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                         prm.asdata = pSubtitleSelect->asdata;
                     }
                     PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
-                        (bStreamIsSubtitle) ? _T("sub") : _T("audio"),
-                        stream.nTrackId, stream.nIndex, prm.bitrate, prm.encodeCodec.c_str(),
+                        char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
+                        trackID(stream.nTrackId), stream.nIndex, prm.bitrate, prm.encodeCodec.c_str(),
                         prm.encodeCodecProfile.c_str(),
                         prm.encodeCodecPrm.c_str());
                     writerPrm.inputStreamList.push_back(std::move(prm));
@@ -2539,7 +2556,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 for (auto usedTrack : streamTrackUsed) {
                     if (usedTrack == audioTrack.nTrackId) {
                         bTrackAlreadyUsed = true;
-                        PrintMes(RGY_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), audioTrack.nTrackId);
+                        PrintMes(RGY_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), trackID(audioTrack.nTrackId));
                         break;
                     }
                 }
@@ -2548,17 +2565,17 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                 }
                 const AudioSelect *pAudioSelect = nullptr;
                 for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                    if (audioTrack.nTrackId == pParams->ppAudioSelectList[i]->trackID
+                    if (trackID(audioTrack.nTrackId) == pParams->ppAudioSelectList[i]->trackID
                         && pParams->ppAudioSelectList[i]->extractFilename.length() > 0) {
                         pAudioSelect = pParams->ppAudioSelectList[i];
                     }
                 }
                 if (pAudioSelect == nullptr) {
-                    PrintMes(RGY_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), audioTrack.nTrackId);
+                    PrintMes(RGY_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), trackID(audioTrack.nTrackId));
                     return MFX_ERR_INVALID_AUDIO_PARAM;
                 }
                 PrintMes(RGY_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
-                    audioTrack.nTrackId, audioTrack.nIndex, pAudioSelect->extractFilename.c_str(), pAudioSelect->extractFormat.c_str(), pAudioSelect->encCodec.c_str(), pAudioSelect->encBitrate);
+                    trackID(audioTrack.nTrackId), audioTrack.nIndex, pAudioSelect->extractFilename.c_str(), pAudioSelect->extractFormat.c_str(), pAudioSelect->encCodec.c_str(), pAudioSelect->encBitrate);
 
                 AVOutputStreamPrm prm;
                 prm.src = audioTrack;
@@ -2587,7 +2604,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
                     PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
                     return err_to_mfx(ret);
                 }
-                PrintMes(RGY_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), audioTrack.nTrackId);
+                PrintMes(RGY_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), trackID(audioTrack.nTrackId));
                 bool audioStdout = pWriter->outputStdout();
                 if (ret != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
@@ -2607,6 +2624,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
 
     int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
     int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
+    int sourceDataTrackIdStart = 1; //トラック番号は1スタート
     if (!m_pEncSatusInfo) {
         m_pEncSatusInfo = std::make_shared<EncodeStatus>();
     }
@@ -2753,6 +2771,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nVideoStreamId = pParams->nVideoStreamId;
                 avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
                 avcodecReaderPrm.bReadSubtitle = pParams->nSubtitleSelectCount + pParams->vpp.subburn.nTrack > 0;
+                avcodecReaderPrm.bReadData = pParams->nDataSelectCount > 0;
                 avcodecReaderPrm.pTrimList = pParams->pTrimList;
                 avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
                 avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
@@ -2760,10 +2779,13 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(pParams->nFPSRate, pParams->nFPSScale);
                 avcodecReaderPrm.nAudioTrackStart = sourceAudioTrackIdStart;
                 avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
+                avcodecReaderPrm.nDataTrackStart = sourceDataTrackIdStart;
                 avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
                 avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
                 avcodecReaderPrm.ppSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &subBurnTrackPtr : pParams->ppSubtitleSelectList;
                 avcodecReaderPrm.nSubtitleSelectCount = (pParams->vpp.subburn.nTrack) ? 1 : pParams->nSubtitleSelectCount;
+                avcodecReaderPrm.ppDataSelect = pParams->ppDataSelectList;
+                avcodecReaderPrm.nDataSelectCount = pParams->nDataSelectCount;
                 avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
                 avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
                 avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
@@ -2799,6 +2821,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
     PrintMes(RGY_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
     sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
     sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
+    sourceDataTrackIdStart += m_pFileReader->GetDataTrackCount();
 
 #if ENABLE_AVSW_READER
     if (pParams->nAudioSourceCount && pParams->ppAudioSourceList) {
@@ -2815,6 +2838,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(videoInfo.fpsN, videoInfo.fpsD);
             avcodecReaderPrm.nAudioTrackStart = sourceAudioTrackIdStart;
             avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
+            avcodecReaderPrm.nDataTrackStart = sourceDataTrackIdStart;
             avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
             avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
             avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
@@ -2830,7 +2854,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 return err_to_mfx(ret);
             }
             sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
-            sourceSubtitleTrackIdStart += audioReader->GetSubtitleTrackCount();
+            sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
+            sourceDataTrackIdStart += m_pFileReader->GetDataTrackCount();
             m_AudioReaders.push_back(std::move(audioReader));
         }
     }
@@ -2999,13 +3024,13 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         if (!check_OS_Win8orLater()) {
             memType &= (~D3D11_MEMORY);
         }
-        //d3d11モードが必要なら、vpp-subは実行できない
+        //d3d11モードが必要なら、vpp-otherは実行できない
         if (HW_MEMORY == (memType & HW_MEMORY) && check_if_d3d11_necessary()) {
             memType &= (~D3D11_MEMORY);
             PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode required on this system, but vpp-sub does not support d3d11 mode.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
-        //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-subは競合する
+        //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-otherは競合する
         if (pParams->vpp.rotate) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
             PrintMes(RGY_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
@@ -4034,7 +4059,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             }
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
-                const int nTrackId = (int16_t)(packetList[i].flags >> 16);
+                const int nTrackId = (int)((uint32_t)packetList[i].flags >> 16);
                 if (pWriterForAudioStreams.count(nTrackId)) {
                     auto pWriter = pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {

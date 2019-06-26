@@ -285,6 +285,8 @@ struct sInputParams
     mfxU16     nFadeDetect;
     int        nSubtitleSelectCount;
     SubtitleSelect **ppSubtitleSelectList;
+    int        nDataSelectCount;
+    DataSelect **ppDataSelectList;
     int64_t    nPerfMonitorSelect;
     int64_t    nPerfMonitorSelectMatplot;
     int        nPerfMonitorInterval;

@@ -134,6 +134,15 @@ static int getSubTrackIdx(const sInputParams *pParams, int iTrack) {
     return -1;
 }
 
+static int getDataTrackIdx(const sInputParams *pParams, int iTrack) {
+    for (int i = 0; i < pParams->nDataSelectCount; i++) {
+        if (iTrack == pParams->ppDataSelectList[i]->trackID) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 
 struct sArgsData {
     int outputDepth = 8;
@@ -867,6 +876,46 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("no-caption2ass"))) {
         pParams->caption2ass = FORMAT_INVALID;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("data-copy"))) {
+        pParams->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
+        std::map<int, DataSelect> trackSet; //重複しないように
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
+            i++;
+            auto trackListStr = split(strInput[i], _T(","));
+            for (auto str : trackListStr) {
+                int iTrack = 0;
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                    return 1;
+                } else {
+                    trackSet[iTrack].trackID = iTrack;
+                }
+            }
+        } else {
+            trackSet[0].trackID = 0;
+        }
+
+        for (auto it = trackSet.begin(); it != trackSet.end(); it++) {
+            int trackId = it->first;
+            DataSelect *pDataSelect = nullptr;
+            int dataIdx = getDataTrackIdx(pParams, trackId);
+            if (dataIdx < 0) {
+                pDataSelect = new DataSelect();
+            } else {
+                pDataSelect = pParams->ppDataSelectList[dataIdx];
+            }
+            pDataSelect[0] = it->second;
+
+            if (dataIdx < 0) {
+                dataIdx = pParams->nDataSelectCount;
+                //新たに要素を追加
+                pParams->ppDataSelectList = (DataSelect **)realloc(pParams->ppDataSelectList, sizeof(pParams->ppDataSelectList[0]) * (pParams->nDataSelectCount + 1));
+                pParams->ppDataSelectList[pParams->nDataSelectCount] = pDataSelect;
+                pParams->nDataSelectCount++;
+            }
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avsync"))) {

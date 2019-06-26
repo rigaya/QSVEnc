@@ -783,6 +783,9 @@ mp4にmuxする際は、必ずsrt形式を選択してください。内部で�
 - srt (デフォルト)
 - ass
 
+### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
+データストリームをコピーする。avhw/avswリーダー使用時のみ有効。
+
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
