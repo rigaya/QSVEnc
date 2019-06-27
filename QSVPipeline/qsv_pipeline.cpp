@@ -2832,6 +2832,9 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
             avcodecReaderPrm.memType = pParams->memType;
             avcodecReaderPrm.bReadVideo = false;
             avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
+            avcodecReaderPrm.bReadSubtitle = false;
+            avcodecReaderPrm.bReadChapter = false;
+            avcodecReaderPrm.bReadData = false;
             avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
             avcodecReaderPrm.pTrimList = pParams->pTrimList;
             avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
@@ -2854,8 +2857,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
                 return err_to_mfx(ret);
             }
             sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
-            sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
-            sourceDataTrackIdStart += m_pFileReader->GetDataTrackCount();
+            sourceSubtitleTrackIdStart += audioReader->GetSubtitleTrackCount();
+            sourceDataTrackIdStart += audioReader->GetDataTrackCount();
             m_AudioReaders.push_back(std::move(audioReader));
         }
     }
@@ -3024,13 +3027,13 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
         if (!check_OS_Win8orLater()) {
             memType &= (~D3D11_MEMORY);
         }
-        //d3d11モードが必要なら、vpp-otherは実行できない
+        //d3d11モードが必要なら、vpp-subは実行できない
         if (HW_MEMORY == (memType & HW_MEMORY) && check_if_d3d11_necessary()) {
             memType &= (~D3D11_MEMORY);
             PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode required on this system, but vpp-sub does not support d3d11 mode.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
-        //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-otherは競合する
+        //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-subは競合する
         if (pParams->vpp.rotate) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
             PrintMes(RGY_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
