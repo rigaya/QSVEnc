@@ -2852,6 +2852,16 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     }
     tmp.str(tstring());
     OPT_LST(_T("--caption2ass"), caption2ass, list_caption2ass);
+
+    tmp.str(tstring());
+    for (int i = 0; i < pParams->nDataSelectCount; i++) {
+        tmp << _T(",") << pParams->ppDataSelectList[i]->trackID;
+    }
+    if (!tmp.str().empty()) {
+        cmd << _T(" --data-copy ") << tmp.str().substr(1);
+    }
+    tmp.str(tstring());
+
     OPT_CHAR_PATH(_T("--chapter"), pChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
