@@ -129,7 +129,7 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         return MFX_ERR_INVALID_HANDLE;
     }
 
-    uint32_t WidthAlign  = ALIGN(fs->info.Width, 128/*並列化のため*/);
+    uint32_t WidthAlign  = ALIGN32(fs->info.Width);
     uint32_t HeightAlign = ALIGN32(fs->info.Height);
     ptr->B = ptr->Y = (uint8_t *)fs + ALIGN32(sizeof(sFrame));
 
