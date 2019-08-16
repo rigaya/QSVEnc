@@ -1555,7 +1555,6 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
     tstring vppPreMes = _T("");
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
-        int nCrop[4] = { 0 };
         AVDemuxStream targetSubStream = { 0 };
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
         if (pParams->vpp.subburn.nTrack) {

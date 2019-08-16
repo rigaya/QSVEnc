@@ -356,7 +356,6 @@ double getCPUDefaultClockOpenCL() {
     return 0.0;
 #else
     int frequency = 0;
-    char buffer[1024] = { 0 };
     cl_func_t cl = { 0 };
     cl_data_t data = { 0 };
     if (CL_SUCCESS == cl_get_func(&cl)
