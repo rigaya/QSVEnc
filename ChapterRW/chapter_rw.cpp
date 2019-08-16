@@ -30,6 +30,7 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 
 #include <tinyxml2.h>
 
@@ -38,7 +39,7 @@
 #include <shlwapi.h>
 #pragma comment (lib, "shlwapi.lib")
 #else
-#include "qsv_osdep.h"
+#include "rgy_osdep.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <iconv.h>
@@ -696,7 +697,7 @@ int ChapterRW::read_chapter_apple() {
             chap->m  = time[1];
             chap->s  = time[2];
             chap->ms = time[3];
-            m_duration = max(m_duration, chap->get_ms());
+            m_duration = std::max<decltype(m_duration)>(m_duration, chap->get_ms());
             if (element->GetText()) {
                 chap->name = char_to_wstring(element->GetText(), CP_UTF8);
                 chapters.push_back(std::move(chap));
@@ -747,7 +748,7 @@ int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, in
                 chap->m  = time[1];
                 chap->s  = time[2];
                 chap->ms = time[3];
-                m_duration = max(m_duration, chap->get_ms());
+                m_duration = std::max<decltype(m_duration)>(m_duration, chap->get_ms());
                 if (chapterDisplay && chapterDisplay->FirstChildElement(CHAPTER_STRING)) {
                     chap->name = char_to_wstring(chapterDisplay->FirstChildElement(CHAPTER_STRING)->GetText(), CP_UTF8);
                     chapters.push_back(std::move(chap));
@@ -768,7 +769,7 @@ int ChapterRW::read_chapter_matroska_chapter_atom(tinyxml2::XMLElement *elem, in
                 chap.m  = time[1];
                 chap.s  = time[2];
                 chap.ms = time[3];
-                m_duration = max(m_duration, chap.get_ms());
+                m_duration = std::max<decltype(m_duration)>(m_duration, chap.get_ms());
             }
         }
         addedCount += count;

@@ -2743,7 +2743,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
         }
     }
 
-    auto subBurnTrack = std::make_unique<SubtitleSelect>();
+    auto subBurnTrack = std::unique_ptr<SubtitleSelect>(new SubtitleSelect());
     subBurnTrack->trackID = pParams->vpp.subburn.nTrack;
     SubtitleSelect *subBurnTrackPtr = subBurnTrack.get();
     if (m_pFileReader == nullptr) {

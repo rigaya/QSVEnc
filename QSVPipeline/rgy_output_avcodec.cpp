@@ -2711,8 +2711,8 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.nFPS);
     const int64_t pts_offset = av_rescale_q(m_Mux.video.nInputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
     const AVRational timebase_conv = (pMuxOther->pOutCodecDecodeCtx) ? pMuxOther->pOutCodecDecodeCtx->pkt_timebase : pMuxOther->pStreamOut->time_base;
-    pkt->pts = av_rescale_q(std::max(0ll, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
-    pkt->dts = av_rescale_q(std::max(0ll, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
+    pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     pkt->flags &= 0x0000ffff; //元のpacketの上位16bitにはトラック番号を紛れ込ませているので、av_interleaved_write_frame前に消すこと
     pkt->duration = (int)av_rescale_q(pkt->duration, pMuxOther->streamInTimebase, pMuxOther->pStreamOut->time_base);
     pkt->stream_index = pMuxOther->pStreamOut->index;
@@ -3087,7 +3087,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.nFPS);
-    const auto dtsThreshold = std::max(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4ll);
+    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
     //syncIgnoreDtsは映像と音声の同期を行う必要がないことを意味する
     //dtsThresholdを加算したときにオーバーフローしないよう、dtsThresholdを引いておく
     const int64_t syncIgnoreDts = INT64_MAX - dtsThreshold;

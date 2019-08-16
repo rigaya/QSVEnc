@@ -217,7 +217,7 @@ if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
     X86_64=0
 fi
 
-CXXFLAGS="-Wall -Wno-attributes -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath"
+CXXFLAGS="-Wall -Wno-attributes -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath"
 LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
@@ -610,7 +610,7 @@ SRC_TINYXML2="tinyxml2.cpp"
 
 SRC_CHAPTER_RW="chapter_rw.cpp"
 
-ASM_QSVPIPELINE="ram_speed_x64.asm"
+ASM_QSVPIPELINE="ram_speed_x64.asm cpu_info_x64.asm"
 
 PYW_PERF_MONITOR="perf_monitor.pyw"
 
