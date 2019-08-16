@@ -92,7 +92,7 @@ static BOOL isJis(const void *str, uint32_t size_in_byte) {
         if (*chr > 0x7F)
             return FALSE;
         for (int i = 0; ESCAPE[i][0]; i++) {
-            if (str_fin - chr > ESCAPE[i][0] && 
+            if (str_fin - chr > ESCAPE[i][0] &&
                 memcmp(chr, &ESCAPE[i][1], ESCAPE[i][0]) == 0)
                 return TRUE;
         }
@@ -149,8 +149,8 @@ static uint32_t jpn_check(const void *str, uint32_t size_in_byte) {
             score_euc += 2; chr++;
         } else if (
             str_fin - chr > 2 &&
-            chr[0] == 0x8F && 
-            (0xA1 <= chr[1] && chr[1] <= 0xFE) && 
+            chr[0] == 0x8F &&
+            (0xA1 <= chr[1] && chr[1] <= 0xFE) &&
             (0xA1 <= chr[2] && chr[2] <= 0xFE)) {
             score_euc += 3; chr += 2;
         }
@@ -683,8 +683,8 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
     }
 
     memcpy(&m_SubBurnParam, pSubBurnPar, sizeof(m_SubBurnParam));
-    if (m_SubBurnParam.src.nTrackId != 0) {
-        m_pluginName += strsprintf(_T(" track #%d"), std::abs(m_SubBurnParam.src.nTrackId));
+    if (m_SubBurnParam.src.trackId != 0) {
+        m_pluginName += strsprintf(_T(" track #%d"), trackID(m_SubBurnParam.src.trackId));
     } else {
         AddMessage(RGY_LOG_DEBUG, _T("input file path \"%s\".\n"), m_SubBurnParam.pFilePath);
         std::wstring sFilename = tchar_to_wstring(PathFindFileName(m_SubBurnParam.pFilePath));
@@ -703,14 +703,14 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_vProcessData[i].sCrop = m_SubBurnParam.sCrop;
         m_vProcessData[i].nAssShaping = mShapingLevel[m_SubBurnParam.nShaping];
         m_vProcessData[i].frameInfo = m_SubBurnParam.frameInfo;
-        m_vProcessData[i].nInTrackId = m_SubBurnParam.src.nTrackId;
-        m_vProcessData[i].nStreamIndexIn = (m_SubBurnParam.src.pStream) ? m_SubBurnParam.src.pStream->index : -1;
+        m_vProcessData[i].nInTrackId = m_SubBurnParam.src.trackId;
+        m_vProcessData[i].nStreamIndexIn = (m_SubBurnParam.src.stream) ? m_SubBurnParam.src.stream->index : -1;
         m_vProcessData[i].nVideoInputFirstKeyPts = m_SubBurnParam.nVideoInputFirstKeyPts;
         m_vProcessData[i].pAssLibrary = nullptr;
         m_vProcessData[i].pAssRenderer = nullptr;
         m_vProcessData[i].pAssTrack = nullptr;
         m_vProcessData[i].pBuf = nullptr;
-        m_vProcessData[i].pStreamIn = m_SubBurnParam.src.pStream;
+        m_vProcessData[i].pStreamIn = m_SubBurnParam.src.stream;
         m_vProcessData[i].pVideoInputStream = m_SubBurnParam.pVideoInputStream;
         m_vProcessData[i].nSimdAvail = m_nSimdAvail;
         m_vProcessData[i].qSubPackets.init();
@@ -844,7 +844,7 @@ mfxStatus SubBurn::Close() {
             pluginOpaqueAlloc->Out.Type, pluginOpaqueAlloc->Out.Surfaces);
         if (sts < MFX_ERR_NONE) return sts;
     }
-    
+
     m_message.clear();
     m_bInited = false;
 

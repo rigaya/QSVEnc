@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
@@ -23,33 +23,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_HW_DEVICE_H__
-#define __QSV_HW_DEVICE_H__
-
-#include <cstdint>
-#include <memory>
-#include "mfxvideo++.h"
+#include "rgy_def.h"
 #include "rgy_log.h"
-#include "rgy_version.h"
 
-#if MFX_D3D11_SUPPORT
-#include <sdkddkver.h>
-#pragma comment(lib, "d3d11.lib")
-#pragma comment(lib, "dxgi.lib")
-#endif //#if MFX_D3D11_SUPPORT
-
-class CQSVHWDevice {
-public:
-    CQSVHWDevice() {};
-    virtual ~CQSVHWDevice() { }
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, std::shared_ptr<RGYLog> pQSVLog) = 0;
-    virtual mfxStatus Reset() = 0;
-    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) = 0;
-    virtual void      Close() = 0;
-protected:
-    std::shared_ptr<RGYLog> m_pQSVLog;
+const CX_DESC list_log_level[7] = {
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
+    { NULL, 0 }
 };
 
-#endif //#ifndef __QSV_HW_DEVICE_H__

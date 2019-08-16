@@ -117,9 +117,13 @@ public:
     bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
 protected:
     mfxVersion m_mfxVer;
-    shared_ptr<EncodeStatus> m_pEncSatusInfo;
+    shared_ptr<EncodeStatus> m_pStatus;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
     CEncodingThread m_EncThread;
+
+    rgy_rational<int> m_inputFps;
+    rgy_rational<int> m_encFps;
+    rgy_rational<int> m_outputTimebase;
 
     bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する
 
@@ -160,7 +164,7 @@ protected:
     mfxVideoParam m_mfxVppParams;
 
     mfxParamSet m_prmSetIn;
-    
+
     unique_ptr<MFXVideoUSER>  m_pUserModule;
 
     vector<mfxExtBuffer*> m_DecExtParams;
@@ -184,7 +188,7 @@ protected:
     vector<mfxU32> m_VppDoNotUseList;
     vector<mfxU32> m_VppDoUseList;
 #if ENABLE_AVSW_READER
-    vector<unique_ptr<AVChapter>> m_AVChapterFromFile;
+    vector<unique_ptr<AVChapter>> m_Chapters;
 #endif
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;
@@ -217,13 +221,16 @@ protected:
 
     virtual mfxStatus InitSessionInitParam(mfxU16 threads, mfxU16 priority);
     virtual mfxStatus InitLog(sInputParams *pParams);
+    virtual mfxStatus InitPerfMonitor(const sInputParams *pParams);
     virtual mfxStatus InitInput(sInputParams *pParams);
-    virtual mfxStatus InitOutput(sInputParams *pParams);
-    virtual mfxStatus InitMfxDecParams(sInputParams *pInParams);
-    virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
+    virtual mfxStatus InitChapters(const sInputParams *inputParam);
+    virtual mfxStatus InitFilters(sInputParams *inputParam);
     virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
     virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
     virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);
+    virtual mfxStatus InitOutput(sInputParams *pParams);
+    virtual mfxStatus InitMfxDecParams(sInputParams *pInParams);
+    virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
     virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);
     virtual RGY_CSP EncoderCsp(const sInputParams *pParams, int *pShift);
     //virtual void InitVppExtParam();

@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2019 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,33 +23,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 
-#ifndef __QSV_HW_DEVICE_H__
-#define __QSV_HW_DEVICE_H__
+#pragma once
+#ifndef __RGY_HDR10PLUS_H__
+#define __RGY_HDR10PLUS_H__
 
-#include <cstdint>
+#include <string>
 #include <memory>
-#include "mfxvideo++.h"
-#include "rgy_log.h"
-#include "rgy_version.h"
+#include "rgy_err.h"
+#include "rgy_pipe.h"
+#include "rgy_util.h"
 
-#if MFX_D3D11_SUPPORT
-#include <sdkddkver.h>
-#pragma comment(lib, "d3d11.lib")
-#pragma comment(lib, "dxgi.lib")
-#endif //#if MFX_D3D11_SUPPORT
-
-class CQSVHWDevice {
+class RGYHDR10Plus {
 public:
-    CQSVHWDevice() {};
-    virtual ~CQSVHWDevice() { }
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, std::shared_ptr<RGYLog> pQSVLog) = 0;
-    virtual mfxStatus Reset() = 0;
-    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) = 0;
-    virtual void      Close() = 0;
+    static const TCHAR *HDR10PLUS_GEN_EXE_NAME;
+    RGYHDR10Plus();
+    virtual ~RGYHDR10Plus();
+
+    RGY_ERR init(const tstring& inputJson);
+    const vector<uint8_t> *getData(int iframe);
+    const tstring &inputJson() const { return m_inputJson; };
 protected:
-    std::shared_ptr<RGYLog> m_pQSVLog;
+    tstring m_inputJson;
+    std::unique_ptr<RGYPipeProcess> m_proc;
+    ProcessPipe m_pipes;
+    std::unique_ptr<FILE, decltype(&fclose)> m_fpStdOut;
+    std::pair<int, std::vector<uint8_t>> m_buffer;
 };
 
-#endif //#ifndef __QSV_HW_DEVICE_H__
+#endif //__RGY_HDR10PLUS_H__

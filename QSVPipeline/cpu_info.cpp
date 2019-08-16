@@ -406,7 +406,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize
             }
         }
         _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
-#if ENCODER_QSV
+#if ENCODER_QSV && !FOR_AUO
         int cpuGen = getCPUGen(pSession);
         if (cpuGen != CPU_GEN_UNKNOWN) {
             _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" <%s>"), CPU_GEN_STR[cpuGen]);

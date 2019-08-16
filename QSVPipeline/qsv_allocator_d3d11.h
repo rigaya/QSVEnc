@@ -123,7 +123,7 @@ public:
     QSVAllocatorD3D11();
     virtual ~QSVAllocatorD3D11();
 
-    virtual mfxStatus Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> pQSVLog) override;
+    virtual mfxStatus Init(mfxAllocatorParams *pParams, std::shared_ptr<RGYLog> pQSVLog) override;
     virtual mfxStatus Close() override;
     virtual ID3D11Device * GetD3D11Device() {
         return m_initParams.pDevice;

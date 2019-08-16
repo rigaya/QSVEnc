@@ -59,7 +59,7 @@ public:
     QSVAllocatorD3D9();
     virtual ~QSVAllocatorD3D9();
 
-    virtual mfxStatus Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog> pQSVLog) override;
+    virtual mfxStatus Init(mfxAllocatorParams *pParams, std::shared_ptr<RGYLog> pQSVLog) override;
     virtual mfxStatus Close() override;
 
     virtual IDirect3DDeviceManager9* GetDeviceManager() {

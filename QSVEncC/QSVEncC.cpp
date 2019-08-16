@@ -1380,11 +1380,6 @@ int run_encode(sInputParams *params) {
     sts = pPipeline->Init(params);
     if (sts < MFX_ERR_NONE) return sts;
 
-    if (params->pStrLogFile) {
-        free(params->pStrLogFile);
-        params->pStrLogFile = NULL;
-    }
-
     pPipeline->SetAbortFlagPointer(&g_signal_abort);
     set_signal_handler();
 
@@ -1417,15 +1412,15 @@ int run_encode(sInputParams *params) {
 mfxStatus run_benchmark(sInputParams *params) {
     using namespace std;
     mfxStatus sts = MFX_ERR_NONE;
-    basic_string<TCHAR> benchmarkLogFile = params->strDstFile;
+    tstring benchmarkLogFile = params->common.outputFilename;
 
     //テストする解像度
     const vector<pair<int, int>> test_resolution = { { 1920, 1080 }, { 1280, 720 } };
 
     //初回出力
     {
-        params->nDstWidth = test_resolution[0].first;
-        params->nDstHeight = test_resolution[0].second;
+        params->input.dstWidth = test_resolution[0].first;
+        params->input.dstHeight = test_resolution[0].second;
         params->nTargetUsage = MFX_TARGETUSAGE_BEST_SPEED;
 
         unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
@@ -1462,7 +1457,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         } else {
             fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
                 1900 + local_time->tm_year, local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
-            fprintf(fp_bench, "Input File: %s\n", tchar_to_string(params->strSrcFile).c_str());
+            fprintf(fp_bench, "Input File: %s\n", tchar_to_string(params->common.inputFilename).c_str());
             fprintf(fp_bench, "Basic parameters of the benchmark\n"
                               " (Target Usage and output resolution will be changed)\n");
             fprintf(fp_bench, "%s\n\n", tchar_to_string(encode_info).c_str());
@@ -1527,8 +1522,8 @@ mfxStatus run_benchmark(sInputParams *params) {
         params->nTargetUsage = list_target_quality[i].value;
         vector<benchmark_t> benchmark_per_target_usage;
         for (const auto& resolution : test_resolution) {
-            params->nDstWidth = resolution.first;
-            params->nDstHeight = resolution.second;
+            params->input.dstWidth = resolution.first;
+            params->input.dstHeight = resolution.second;
 
             unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
             if (!pPipeline) {
@@ -1685,8 +1680,7 @@ int run(int argc, TCHAR *argv[]) {
         }
     }
 
-    sInputParams Params = { 0 };
-    init_qsvp_prm(&Params);
+    sInputParams Params;
 
     vector<const TCHAR *> argvCopy(argv, argv + argc);
     argvCopy.push_back(_T(""));
@@ -1700,7 +1694,7 @@ int run(int argc, TCHAR *argv[]) {
 
 #if defined(_WIN32) || defined(_WIN64)
     //set stdin to binary mode when using pipe input
-    if (_tcscmp(Params.strSrcFile, _T("-")) == NULL) {
+    if (Params.common.inputFilename == _T("-")) {
         if (_setmode( _fileno( stdin ), _O_BINARY ) == 1) {
             PrintHelp(argv[0], _T("failed to switch stdin to binary mode."), _T(""), _T(""));
             return 1;
@@ -1708,7 +1702,7 @@ int run(int argc, TCHAR *argv[]) {
     }
 
     //set stdout to binary mode when using pipe output
-    if (_tcscmp(Params.strDstFile, _T("-")) == NULL) {
+    if (Params.common.outputFilename == _T("-")) {
         if (_setmode( _fileno( stdout ), _O_BINARY ) == 1) {
             PrintHelp(argv[0], _T("failed to switch stdout to binary mode."), _T(""), _T(""));
             return 1;

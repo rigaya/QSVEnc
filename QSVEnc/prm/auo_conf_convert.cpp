@@ -482,7 +482,6 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     tstring cmd_full = gen_cmd_oldv5(&conf_old->qsv, true);
 
     sInputParams prm;
-    init_qsvp_prm(&prm);
 
     ParseCmdError err;
     parse_cmd(&prm, cmd_full.c_str(), err, true);

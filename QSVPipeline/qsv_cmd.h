@@ -29,18 +29,11 @@
 #define __QSV_CMD_H__
 
 #include "rgy_tchar.h"
+#include "rgy_cmd.h"
 #include "qsv_prm.h"
 
 const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 tstring GetQSVEncVersion();
-
-
-struct ParseCmdError {
-    tstring strAppName;
-    tstring strErrorMessage;
-    tstring strOptionName;
-    tstring strErrorValue;
-};
 
 int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err = false);
 #if defined(_WIN32) || defined(_WIN64)

@@ -104,7 +104,7 @@ static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, con
 
 #endif //ENABLE_OPENCL
 
-#if defined(_WIN32) || defined(_WIN64)
+#if (defined(_WIN32) || defined(_WIN64)) && !FOR_AUO
 int getIntelGPUInfo(IntelDeviceInfo *info) {
     memset(info, 0, sizeof(info[0]));
 
@@ -168,12 +168,12 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
         _tcscpy_s(buffer, buffer_size, _T("Intel HD Graphics"));
         opencl_error = true;
     }
-
+#if !FOR_AUO
     if (!driver_version_only && 0 != getIntelGPUInfo(&info)) {
         _tcscpy_s(buffer, buffer_size, _T("Failed to get GPU Info."));
         intel_error = true;
     }
-
+#endif
 
     if (driver_version_only) {
         if (!opencl_error) {

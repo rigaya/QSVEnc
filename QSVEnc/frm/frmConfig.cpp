@@ -1180,7 +1180,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
     sInputParams prm_qsv;
-    init_qsvp_prm(&prm_qsv);
     ParseCmdError err;
     parse_cmd(&prm_qsv, cnf->qsv.cmd, err);
 
@@ -1217,7 +1216,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBMBBRC->Checked         = prm_qsv.bMBBRC != 0;
     //fcgCBExtBRC->Checked        = prm_qsv.bExtBRC != 0;
     SetNUValue(fcgNUWinBRCSize,       prm_qsv.nWinBRCSize);
-    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced_mfx, prm_qsv.nPicStruct));
+    SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, prm_qsv.input.picstruct));
     if (prm_qsv.nPAR[0] * prm_qsv.nPAR[1] <= 0)
         prm_qsv.nPAR[0] = prm_qsv.nPAR[1] = 0;
     SetCXIndex(fcgCXAspectRatio, (prm_qsv.nPAR[0] < 0));
@@ -1310,8 +1309,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBTrim->Checked                 = cnf->oth.link_prm.use_trim != 0;
         SetCXIndex(fcgCXAvqsvAudioEncoder,   get_cx_index(list_avqsv_aud_encoder, conf->aud_avqsv.encoder));
         SetNUValue(fcgNUAvqsvAudioBitrate,   conf->aud_avqsv.bitrate);
-        fcgCBCopyChapter->Checked          = prm_qsv.bCopyChapter != 0;
-        fcgCBCopySubtitle->Checked         = prm_qsv.nSubtitleSelectCount != 0;
+        fcgCBCopyChapter->Checked          = prm_qsv.common.copyChapter != 0;
+        fcgCBCopySubtitle->Checked         = prm_qsv.common.nSubtitleSelectCount != 0;
 
         fcgCBRunBatBefore->Checked         =(cnf->oth.run_bat & RUN_BAT_BEFORE_PROCESS) != 0;
         fcgCBRunBatAfter->Checked          =(cnf->oth.run_bat & RUN_BAT_AFTER_PROCESS)  != 0;
@@ -1329,7 +1328,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     //これもひたすら書くだけ。めんどい
     sInputParams prm_qsv;
-    init_qsvp_prm(&prm_qsv);
 
     prm_qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
     cnf->qsv.codec                 = prm_qsv.CodecId;
@@ -1350,7 +1348,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nQVBRQuality           = (mfxU16)fcgNUQVBR->Value;
     prm_qsv.nBframes               = (mfxI16)fcgNUBframes->Value;
     prm_qsv.nTrellis               = (mfxU16)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
-    prm_qsv.nPicStruct             = (mfxU16)list_interlaced_mfx[fcgCXInterlaced->SelectedIndex].value;
+    prm_qsv.input.picstruct        = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
     prm_qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
     prm_qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
     prm_qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
@@ -1396,10 +1394,10 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.VideoFormat            = (mfxU16)list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
     prm_qsv.bFullrange             = fcgCBFullrange->Checked;
 
-    prm_qsv.nHeight                = 0;
-    prm_qsv.nWidth                 = 0;
-    prm_qsv.nFPSRate               = 0;
-    prm_qsv.nFPSScale              = 0;
+    prm_qsv.input.srcHeight        = 0;
+    prm_qsv.input.srcWidth         = 0;
+    prm_qsv.input.fpsN             = 0;
+    prm_qsv.input.fpsD             = 0;
 
     prm_qsv.nPAR[0]                = (int)fcgNUAspectRatioX->Value;
     prm_qsv.nPAR[1]                = (int)fcgNUAspectRatioY->Value;
@@ -1416,11 +1414,11 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vid.resize_width           = (int)fcgNUVppResizeW->Value;
     cnf->vid.resize_height          = (int)fcgNUVppResizeH->Value;
     if (cnf->vid.resize_enable) {
-        prm_qsv.nDstWidth = (mfxU16)cnf->vid.resize_width;
-        prm_qsv.nDstHeight = (mfxU16)cnf->vid.resize_height;
+        prm_qsv.input.dstWidth = cnf->vid.resize_width;
+        prm_qsv.input.dstHeight = cnf->vid.resize_height;
     } else {
-        prm_qsv.nDstWidth = 0;
-        prm_qsv.nDstHeight = 0;
+        prm_qsv.input.dstWidth = 0;
+        prm_qsv.input.dstHeight = 0;
     }
     prm_qsv.vpp.denoise.enable      = fcgCBVppDenoise->Checked;
     prm_qsv.vpp.denoise.strength    = (int)fcgNUVppDenoise->Value;
@@ -1471,10 +1469,10 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->oth.link_prm.use_trim      = fcgCBTrim->Checked;
     conf->aud_avqsv.encoder         = list_avqsv_aud_encoder[fcgCXAvqsvAudioEncoder->SelectedIndex].value;
     conf->aud_avqsv.bitrate         = (int)fcgNUAvqsvAudioBitrate->Value;
-    prm_qsv.bCopyChapter           = fcgCBCopyChapter->Checked;
-    prm_qsv.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
+    prm_qsv.common.copyChapter           = fcgCBCopyChapter->Checked;
+    prm_qsv.common.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
 
-    GetCHARfromString(prm_qsv.strSrcFile, sizeof(prm_qsv.strSrcFile), fcgTXAvqsvInputFile->Text);
+    prm_qsv.common.inputFilename = GetCHARfromString(fcgTXAvqsvInputFile->Text);
 
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;

@@ -29,66 +29,162 @@
 #include "qsv_pipeline.h"
 #include "qsv_query.h"
 
-void init_qsvp_prm(sInputParams *prm) {
-    memset(prm, 0, sizeof(sInputParams));
-    prm->CodecId           = MFX_CODEC_AVC;
-    prm->nTargetUsage      = QSV_DEFAULT_QUALITY;
-    prm->nEncMode          = MFX_RATECONTROL_CQP;
+VppDenoise::VppDenoise() :
+    enable(false),
+    strength(20) {
+
+}
+
+VppMCTF::VppMCTF() :
+    enable(false),
+    strength(0) {
+
+}
+
+VppDetailEnhance::VppDetailEnhance() :
+    enable(false),
+    strength(15) {
+
+}
+
+VppDelogo::VppDelogo() :
+    pFilePath(nullptr),
+    pSelect(nullptr),
+    posOffset(std::make_pair(0, 0)),
+    depth(QSV_DEFAULT_VPP_DELOGO_DEPTH),
+    add(false),
+    YOffset(0),
+    CbOffset(0),
+    CrOffset(0) {
+}
+
+VppSubburn::VppSubburn() :
+    nTrack(0),
+    pFilePath(nullptr),
+    pCharEnc(nullptr),
+    nShaping(0) {
+
+}
+
+sVppParams::sVppParams() :
+    bEnable(true),
+    bUseResize(false),
+    scalingQuality(MFX_SCALING_MODE_DEFAULT),
+    deinterlace(0),
+    telecinePattern(0),
+    imageStabilizer(0),
+    fpsConversion(0),
+    rotate(0),
+    halfTurn(false),
+    mirrorType(0),
+    useProAmp(false),
+    denoise(),
+    mctf(),
+    detail(),
+    delogo(),
+    subburn() {
+
+}
+
+sInputParams::sInputParams() :
+    input(),
+    common(),
+    ctrl(),
+    vpp(),
+    nEncMode(MFX_RATECONTROL_CQP),
+    nTargetUsage(QSV_DEFAULT_QUALITY),
+    CodecId(MFX_CODEC_AVC),
+    CodecProfile(0),
+    CodecLevel(0),
+    nIdrInterval(0),
+    nGOPLength(QSV_DEFAULT_GOP_LEN),
+    bopenGOP(false),
+    bforceGOPSettings(QSV_DEFAULT_FORCE_GOP_LEN),
+    nBframes(QSV_BFRAMES_AUTO),
+    nRef(QSV_DEFAULT_REF),
+    nBitRate(6000),
+    nMaxBitrate(15000),
+    VBVBufsize(0),
+    nQPI(QSV_DEFAULT_QPI),
+    nQPP(QSV_DEFAULT_QPP),
+    nQPB(QSV_DEFAULT_QPB),
+    nQPMin(),
+    nQPMax(),
+    nAVBRAccuarcy(QSV_DEFAULT_ACCURACY),
+    nAVBRConvergence(QSV_DEFAULT_CONVERGENCE),
+    nICQQuality(QSV_DEFAULT_ICQ),
+    nQVBRQuality(QSV_DEFAULT_QVBR),
+    nSlices(0),
+    VideoFormat(get_cx_value(list_videoformat, _T("undef"))),
+    ColorMatrix(get_cx_value(list_colormatrix, _T("undef"))),
+    ColorPrim(get_cx_value(list_colorprim, _T("undef"))),
+    Transfer(get_cx_value(list_transfer, _T("undef"))),
+    bFullrange(false),
+    chromaloc(0),
+    ColorFormat(MFX_FOURCC_NV12),
 #if defined(_WIN32) || defined(_WIN64)
-    prm->memType           = HW_MEMORY;
+    memType(HW_MEMORY),
 #else
-    prm->memType           = SYSTEM_MEMORY;
+    memType(SYSTEM_MEMORY),
 #endif
-    prm->ColorFormat       = MFX_FOURCC_NV12;
-    prm->nPicStruct        = MFX_PICSTRUCT_PROGRESSIVE;
-    prm->nBitRate          = 6000;
-    prm->nMaxBitrate       = 15000;
-    prm->nFPSRate          = 0;
-    prm->nFPSScale         = 0;
-    prm->nQPI              = QSV_DEFAULT_QPI;
-    prm->nQPP              = QSV_DEFAULT_QPP;
-    prm->nQPB              = QSV_DEFAULT_QPB;
-    prm->nICQQuality       = QSV_DEFAULT_ICQ;
-    prm->nQVBRQuality      = QSV_DEFAULT_QVBR;
-    prm->nAVBRAccuarcy     = QSV_DEFAULT_ACCURACY;
-    prm->nAVBRConvergence  = QSV_DEFAULT_CONVERGENCE;
-    prm->nIdrInterval      = 0;
-    prm->nBframes          = QSV_BFRAMES_AUTO;
-    prm->nGOPLength        = QSV_DEFAULT_GOP_LEN;
-    prm->nRef              = QSV_DEFAULT_REF;
-    prm->bopenGOP          = false;
-    prm->bBPyramid         = getCPUGenCpuid() >= CPU_GEN_HASWELL;
-    prm->bforceGOPSettings = QSV_DEFAULT_FORCE_GOP_LEN;
-    prm->ColorPrim         = (mfxU16)list_colorprim[0].value;
-    prm->ColorMatrix       = (mfxU16)list_colormatrix[0].value;
-    prm->Transfer          = (mfxU16)list_transfer[0].value;
-    prm->VideoFormat       = (mfxU16)list_videoformat[0].value;
-    prm->bRDO              = false;
-    prm->nBenchQuality     = QSV_DEFAULT_BENCH;
+    nInputBufSize(QSV_DEFAULT_INPUT_BUF_HW),
+    nPAR(),
+    bCAVLC(false),
+    nInterPred(0),
+    nIntraPred(0),
+    bRDO(false),
+    nMVPrecision(0),
+    MVSearchWindow(),
+    MVC_flags(0),
+    nBluray(0),
+    bMBBRC(false),
+    extBRC(false),
+    extBrcAdaptiveLTR(false),
+    nLookaheadDepth(0),
+    nTrellis(0),
+    nAsyncDepth(0),
+    nOutputBufSizeMB(QSV_DEFAULT_OUTPUT_BUF_MB),
+#if FOR_AUO
+    bBPyramid(true),
+#else
+    bBPyramid(getCPUGenCpuid() >= CPU_GEN_HASWELL),
+#endif
+    bAdaptiveI(false),
+    bAdaptiveB(false),
+    nLookaheadDS(),
+    bDisableTimerPeriodTuning(false),
+    bIntraRefresh(false),
+    bNoDeblock(false),
+    nWinBRCSize(0),
+    nMVCostScaling(0),
+    bDirectBiasAdjust(false),
+    bGlobalMotionAdjust(false),
+    bUseFixedFunc(false),
+    nSessionThreads(0),
+    nSessionThreadPriority(get_value_from_chr(list_priority, _T("normal"))),
+    nVP8Sharpness(0),
+    nWeightP(0),
+    nWeightB(0),
+    nFadeDetect(0),
+    nFallback(0),
+    bOutputAud(false),
+    bOutputPicStruct(false),
+    pQPOffset(),
+    nRepartitionCheck(0),
+    padding(),
+    hevc_ctu(0),
+    hevc_sao(0),
+    hevc_tskip(0),
+    hevc_tier(0),
+    pythonPath(),
+    bBenchmark(false),
+    nBenchQuality(QSV_DEFAULT_BENCH)
+{
+    memset(nQPMin, 0, sizeof(nQPMin));
+    memset(nQPMax, 0, sizeof(nQPMax));
+    memset(pQPOffset, 0, sizeof(pQPOffset));
+}
 
-    prm->nVQPStrength      = QSV_DEFAULT_VQP_STRENGTH;
-    prm->nVQPSensitivity   = QSV_DEFAULT_VQP_SENSITIVITY;
-    prm->nPerfMonitorInterval = QSV_DEFAULT_PERF_MONITOR_INTERVAL;
-    prm->nOutputBufSizeMB  = QSV_DEFAULT_OUTPUT_BUF_MB;
-    prm->nInputBufSize     = QSV_DEFAULT_INPUT_BUF_HW;
-    prm->nOutputThread     = RGY_OUTPUT_THREAD_AUTO;
-    prm->nAudioThread      = RGY_AUDIO_THREAD_AUTO;
-    prm->threadCsp         = 1;
-    prm->simdCsp           = get_cx_value(list_simd, _T("auto"));
-    prm->nAudioIgnoreDecodeError = QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR;
+sInputParams::~sInputParams() {
 
-    prm->caption2ass = FORMAT_INVALID;
-
-    prm->nDstWidth          = 0;
-    prm->nDstHeight         = 0;
-    prm->vpp.bEnable        = true;
-    prm->vpp.denoise.enable   = false;
-    prm->vpp.denoise.strength = 20;
-    prm->vpp.mctf.enable      = false;
-    prm->vpp.mctf.strength    = 0;
-    prm->vpp.detail.enable    = false;
-    prm->vpp.detail.strength  = 15;
-    prm->vpp.delogo.depth     = QSV_DEFAULT_VPP_DELOGO_DEPTH;
-
-    prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 }

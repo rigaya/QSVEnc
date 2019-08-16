@@ -170,12 +170,55 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     16, //RGY_CSP_Y16
 };
 
+static const uint8_t RGY_CSP_PLANES[] = {
+     0, //RGY_CSP_NA
+     2, //RGY_CSP_NV12
+     3, //RGY_CSP_YV12
+     1, //RGY_CSP_YUY2
+     3, //RGY_CSP_YUV422
+     2, //RGY_CSP_NV16
+     3, //RGY_CSP_YUV444
+     3, //RGY_CSP_YV12_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YV12_16
+     2, //RGY_CSP_P010
+     3, //RGY_CSP_YUV422_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YUV422_16
+     2, //RGY_CSP_P210
+     3, //RGY_CSP_YUV444_09
+     3,
+     3,
+     3,
+     3, //RGY_CSP_YUV444_16
+     4, //RGY_CSP_YUVA444
+     4, //RGY_CSP_YUVA444_16
+     1, //RGY_CSP_RGB24R
+     1, //RGY_CSP_RGB32R
+     1, //RGY_CSP_RGB24
+     1, //RGY_CSP_RGB32
+     1, //RGY_CSP_BGR24
+     1, //RGY_CSP_BGR32
+     3, //RGY_CSP_RGB
+     3, //RGY_CSP_RGBA
+     3, //RGY_CSP_GBR
+     3, //RGY_CSP_GBRA
+     1, //RGY_CSP_YC48
+     1, //RGY_CSP_Y8
+     1, //RGY_CSP_Y16
+};
+
 enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_UNKNOWN = 0,
     RGY_CHROMAFMT_MONOCHROME = 0,
     RGY_CHROMAFMT_YUV420,
     RGY_CHROMAFMT_YUV422,
     RGY_CHROMAFMT_YUV444,
+    RGY_CHROMAFMT_YUVA444,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB,
 };
@@ -205,8 +248,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_16
-    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444
-    RGY_CHROMAFMT_YUV444, //RGY_CSP_YUVA444_16
+    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
+    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
@@ -344,6 +387,7 @@ struct FrameInfo {
     bool deivce_mem;
     RGY_PICSTRUCT picstruct;
     RGY_FRAME_FLAGS flags;
+    int inputFrameId;
 };
 
 static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
@@ -365,6 +409,52 @@ static bool interlaced(const FrameInfo& FrameInfo) {
 FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
 
 FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane);
+
+#pragma warning(push)
+#pragma warning(disable: 4201)
+typedef union sInputCrop {
+    struct {
+        int left, up, right, bottom;
+    } e;
+    int c[4];
+} sInputCrop;
+#pragma warning(pop)
+
+static inline bool cropEnabled(const sInputCrop &crop) {
+    return 0 != (crop.c[0] | crop.c[1] | crop.c[2] | crop.c[3]);
+}
+
+static inline sInputCrop initCrop() {
+    sInputCrop crop = { 0 };
+    return crop;
+}
+
+static sInputCrop getPlane(const sInputCrop *crop, const RGY_CSP csp, const RGY_PLANE plane) {
+    sInputCrop planeCrop = *crop;
+    if (plane == RGY_PLANE_Y
+        || csp == RGY_CSP_YUY2
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB_PACKED
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV444
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_MONOCHROME) {
+        return planeCrop;
+    }
+    if (csp == RGY_CSP_NV12 || csp == RGY_CSP_P010) {
+        planeCrop.e.up >>= 1;
+        planeCrop.e.bottom >>= 1;
+    } else if (csp == RGY_CSP_NV16 || csp == RGY_CSP_P210) {
+        ;
+    } else if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420) {
+        planeCrop.e.up >>= 1;
+        planeCrop.e.bottom >>= 1;
+        planeCrop.e.left >>= 1;
+        planeCrop.e.right >>= 1;
+    } else if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV422) {
+        planeCrop.e.left >>= 1;
+        planeCrop.e.right >>= 1;
+    }
+    return planeCrop;
+}
 
 struct THREAD_Y_RANGE {
     int start_src;

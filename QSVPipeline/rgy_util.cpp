@@ -39,6 +39,9 @@
 #include <iconv.h>
 #endif
 #include "rgy_util.h"
+#include "rgy_log.h"
+#include "cpu_info.h"
+#include "gpu_info.h"
 #include "rgy_tchar.h"
 #include "rgy_osdep.h"
 #include "ram_speed.h"
@@ -871,7 +874,7 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed) {
 #endif //#if defined(_WIN32) || defined(_WIN64)
 }
 
-tstring getEnviromentInfo(bool add_ram_info) {
+tstring getEnviromentInfo(bool add_ram_info, int device_id) {
     tstring buf;
 
     TCHAR cpu_info[1024] = { 0 };
@@ -1024,6 +1027,27 @@ std::pair<int, int> get_sar(unsigned int width, unsigned int height, unsigned in
     return std::make_pair<int, int>(x / b, y / b);
 }
 
+int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODULE hModule) {
+    *data = nullptr;
+    //埋め込みデータを使用する
+    if (hModule == NULL) {
+        hModule = GetModuleHandle(NULL);
+    }
+    if (hModule == NULL) {
+        return 0;
+    }
+    HRSRC hResource = FindResource(hModule, name, type);
+    if (hResource == NULL) {
+        return 0;
+    }
+    HGLOBAL hResourceData = LoadResource(hModule, hResource);
+    if (hResourceData == NULL) {
+        return 0;
+    }
+    *data = LockResource(hResourceData);
+    return (int)SizeofResource(hModule, hResource);
+}
+
 #include "rgy_simd.h"
 #include <immintrin.h>
 
@@ -1037,35 +1061,4 @@ RGY_NOINLINE int rgy_avx_dummy_if_avail(int bAVXAvail) {
     ret = _mm_cvtsi128_si32(_mm256_castsi256_si128(_mm256_castps_si256(y0)));
     _mm256_zeroupper();
     return ret;
-}
-
-AudioSelect::AudioSelect() :
-    trackID(0),
-    decCodecPrm(),
-    encCodec(),
-    encCodecPrm(),
-    encCodecProfile(),
-    encBitrate(0),
-    encSamplingRate(0),
-    extractFilename(),
-    extractFormat(),
-    filter(),
-    pnStreamChannelSelect(),
-    pnStreamChannelOut() {
-    memset(pnStreamChannelSelect, 0, sizeof(pnStreamChannelSelect));
-    memset(pnStreamChannelOut, 0, sizeof(pnStreamChannelOut));
-}
-
-SubtitleSelect::SubtitleSelect() :
-    trackID(0),
-    encCodec(),
-    encCodecPrm(),
-    decCodecPrm(),
-    asdata(false) {
-
-}
-
-DataSelect::DataSelect() :
-    trackID(0) {
-
 }

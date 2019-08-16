@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2019 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,33 +23,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------
 
-#ifndef __QSV_HW_DEVICE_H__
-#define __QSV_HW_DEVICE_H__
+#pragma once
+#ifndef __RGY_CODEPAGE_H__
+#define __RGY_CODEPAGE_H__
 
-#include <cstdint>
-#include <memory>
-#include "mfxvideo++.h"
-#include "rgy_log.h"
-#include "rgy_version.h"
-
-#if MFX_D3D11_SUPPORT
-#include <sdkddkver.h>
-#pragma comment(lib, "d3d11.lib")
-#pragma comment(lib, "dxgi.lib")
-#endif //#if MFX_D3D11_SUPPORT
-
-class CQSVHWDevice {
-public:
-    CQSVHWDevice() {};
-    virtual ~CQSVHWDevice() { }
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, std::shared_ptr<RGYLog> pQSVLog) = 0;
-    virtual mfxStatus Reset() = 0;
-    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) = 0;
-    virtual void      Close() = 0;
-protected:
-    std::shared_ptr<RGYLog> m_pQSVLog;
+//日本語環境の一般的なコードページ一覧
+enum : uint32_t {
+    CODE_PAGE_SJIS        = 932, //Shift-JIS
+    CODE_PAGE_JIS         = 50220,
+    CODE_PAGE_EUC_JP      = 51932,
+    CODE_PAGE_UTF8        = 65001,
+    CODE_PAGE_UTF16_LE    = 1200, //WindowsのUnicode WCHAR のコードページ
+    CODE_PAGE_UTF16_BE    = 1201,
+    CODE_PAGE_US_ASCII    = 20127,
+    CODE_PAGE_WEST_EUROPE = 1252,  //厄介な西ヨーロッパ言語
+    CODE_PAGE_UNSET       = 0xffffffff,
 };
 
-#endif //#ifndef __QSV_HW_DEVICE_H__
+uint32_t get_code_page(const void *str, uint32_t size_in_byte);
+
+#endif //__RGY_CODEPAGE_H__

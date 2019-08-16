@@ -142,8 +142,29 @@ int GetAdapterID(mfxSession session);
 mfxVersion get_mfx_libhw_version();
 mfxVersion get_mfx_libsw_version();
 mfxVersion get_mfx_lib_version(mfxIMPL impl);
-BOOL check_lib_version(mfxVersion value, mfxVersion required);
-BOOL check_lib_version(mfxU32 _value, mfxU32 _required);
+
+static BOOL check_lib_version(mfxVersion value, mfxVersion required) {
+    if (value.Major < required.Major)
+        return FALSE;
+    if (value.Major > required.Major)
+        return TRUE;
+    if (value.Minor < required.Minor)
+        return FALSE;
+    return TRUE;
+}
+
+static BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
+    mfxVersion value, required;
+    value.Version = _value;
+    required.Version = _required;
+    if (value.Major < required.Major)
+        return FALSE;
+    if (value.Major > required.Major)
+        return TRUE;
+    if (value.Minor < required.Minor)
+        return FALSE;
+    return TRUE;
+}
 
 static bool inline rc_is_type_lookahead(int rc) {
     return ((rc == MFX_RATECONTROL_LA)

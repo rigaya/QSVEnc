@@ -416,8 +416,8 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 #if 0
         const auto enc_fourcc = csp_rgy_to_enc(EncoderCsp(pInParams, nullptr));
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)
-            && ( m_mfxDecParams.mfx.FrameInfo.CropW  != pInParams->nDstWidth
-              || m_mfxDecParams.mfx.FrameInfo.CropH  != pInParams->nDstHeight
+            && ( m_mfxDecParams.mfx.FrameInfo.CropW  != pInParams->input.dstWidth
+              || m_mfxDecParams.mfx.FrameInfo.CropH  != pInParams->input.dstHeight
               || m_mfxDecParams.mfx.FrameInfo.FourCC != enc_fourcc)
             && pInParams->vpp.nScalingQuality == MFX_SCALING_MODE_LOWPOWER
             && enc_fourcc == MFX_FOURCC_NV12
@@ -433,19 +433,19 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 
             m_DecVidProc.Out.FourCC = enc_fourcc;
             m_DecVidProc.Out.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-            m_DecVidProc.Out.Width  = std::max<mfxU16>(ALIGN16(pInParams->nDstWidth), m_mfxDecParams.mfx.FrameInfo.Width);
-            m_DecVidProc.Out.Height = std::max<mfxU16>(ALIGN16(pInParams->nDstHeight), m_mfxDecParams.mfx.FrameInfo.Height);
+            m_DecVidProc.Out.Width  = std::max<mfxU16>(ALIGN16(pInParams->input.dstWidth), m_mfxDecParams.mfx.FrameInfo.Width);
+            m_DecVidProc.Out.Height = std::max<mfxU16>(ALIGN16(pInParams->input.dstHeight), m_mfxDecParams.mfx.FrameInfo.Height);
             m_DecVidProc.Out.CropX = 0;
             m_DecVidProc.Out.CropY = 0;
-            m_DecVidProc.Out.CropW = pInParams->nDstWidth;
-            m_DecVidProc.Out.CropH = pInParams->nDstHeight;
+            m_DecVidProc.Out.CropW = pInParams->input.dstWidth;
+            m_DecVidProc.Out.CropH = pInParams->input.dstHeight;
 
             m_DecExtParams.push_back((mfxExtBuffer *)&m_DecVidProc);
             m_mfxDecParams.ExtParam = &m_DecExtParams[0];
             m_mfxDecParams.NumExtParam = (mfxU16)m_DecExtParams.size();
 
-            pInParams->nWidth = pInParams->nDstWidth;
-            pInParams->nHeight = pInParams->nDstHeight;
+            pInParams->input.srcWidth = pInParams->input.dstWidth;
+            pInParams->input.srcHeight = pInParams->input.dstHeight;
         }
 #endif
         sts = m_pmfxDEC->Init(&m_mfxDecParams);
@@ -634,14 +634,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("RDO"));
         pInParams->bRDO = false;
     }
-    if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
+    if (((pInParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0)
         && pInParams->vpp.deinterlace == MFX_DEINTERLACE_NONE
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {
         PrintMes(RGY_LOG_ERROR, _T("Interlaced encoding is not supported on current rate control mode.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (pInParams->CodecId == MFX_CODEC_AVC
-        && (pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))
+        && ((pInParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0)
         && pInParams->vpp.deinterlace == MFX_DEINTERLACE_NONE
         && pInParams->nBframes > 0
         && getCPUGen(&m_mfxSession) == CPU_GEN_HASWELL
@@ -824,44 +824,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     }
     m_mfxEncParams.mfx.TargetUsage             = (mfxU16)clamp_param_int(pInParams->nTargetUsage, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED, _T("quality")); // trade-off between quality and speed
 
-    mfxU32 OutputFPSRate = pInParams->nFPSRate;
-    mfxU32 OutputFPSScale = pInParams->nFPSScale;
-    if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-        switch (pInParams->vpp.deinterlace) {
-        case MFX_DEINTERLACE_IT:
-        case MFX_DEINTERLACE_IT_MANUAL:
-            OutputFPSRate = OutputFPSRate * 4;
-            OutputFPSScale = OutputFPSScale * 5;
-            break;
-        case MFX_DEINTERLACE_BOB:
-        case MFX_DEINTERLACE_AUTO_DOUBLE:
-            OutputFPSRate = OutputFPSRate * 2;
-            break;
-        default:
-            break;
-        }
-    } else {
-        switch (pInParams->vpp.fpsConversion) {
-        case FPS_CONVERT_MUL2:
-            OutputFPSRate = OutputFPSRate * 2;
-            break;
-        case FPS_CONVERT_MUL2_5:
-            OutputFPSRate = OutputFPSRate * 5 / 2;
-            break;
-        default:
-            break;
-        }
-    }
-    auto gcd = rgy_gcd(OutputFPSRate, OutputFPSScale);
-    OutputFPSRate /= gcd;
-    OutputFPSScale /= gcd;
-    PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Output FPS %d/%d\n"), OutputFPSRate, OutputFPSScale);
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Output FPS %d/%d\n"), m_encFps.n(), m_encFps.d());
     if (pInParams->nGOPLength == 0) {
-        pInParams->nGOPLength = (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 10;
+        pInParams->nGOPLength = (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10;
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Auto GOP Length: %d\n"), pInParams->nGOPLength);
     }
-    m_mfxEncParams.mfx.FrameInfo.FrameRateExtN = OutputFPSRate;
-    m_mfxEncParams.mfx.FrameInfo.FrameRateExtD = OutputFPSScale;
+    m_mfxEncParams.mfx.FrameInfo.FrameRateExtN = m_encFps.n();
+    m_mfxEncParams.mfx.FrameInfo.FrameRateExtD = m_encFps.d();
     m_mfxEncParams.mfx.EncodedOrder            = 0;
     m_mfxEncParams.mfx.NumSlice                = pInParams->nSlices;
 
@@ -870,7 +839,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.CodecProfile            = pInParams->CodecProfile;
     m_mfxEncParams.mfx.GopOptFlag              = 0;
     m_mfxEncParams.mfx.GopOptFlag             |= (!pInParams->bopenGOP) ? MFX_GOP_CLOSED : 0x00;
-    m_mfxEncParams.mfx.IdrInterval             = (!pInParams->bopenGOP) ? 0 : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 20 / pInParams->nGOPLength;
+    m_mfxEncParams.mfx.IdrInterval             = (!pInParams->bopenGOP) ? 0 : (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 20 / pInParams->nGOPLength;
     //MFX_GOP_STRICTにより、インタレ保持時にフレームが壊れる場合があるため、無効とする
     //m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
@@ -882,11 +851,11 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     // frame info parameters
     m_mfxEncParams.mfx.FrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-    m_mfxEncParams.mfx.FrameInfo.PicStruct    = (pInParams->vpp.deinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
+    m_mfxEncParams.mfx.FrameInfo.PicStruct    = (pInParams->vpp.deinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : picstruct_rgy_to_enc(pInParams->input.picstruct);
 
     // set sar info
     mfxI32 m_iSAR[2] = { pInParams->nPAR[0], pInParams->nPAR[1] };
-    adjust_sar(&m_iSAR[0], &m_iSAR[1], pInParams->nDstWidth, pInParams->nDstHeight);
+    adjust_sar(&m_iSAR[0], &m_iSAR[1], pInParams->input.dstWidth, pInParams->input.dstHeight);
     m_mfxEncParams.mfx.FrameInfo.AspectRatioW = (mfxU16)m_iSAR[0];
     m_mfxEncParams.mfx.FrameInfo.AspectRatioH = (mfxU16)m_iSAR[1];
 
@@ -943,7 +912,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         //}
         if (pInParams->bIntraRefresh) {
             m_CodingOption2.IntRefType = 1;
-            m_CodingOption2.IntRefCycleSize = (pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale) * 10;
+            m_CodingOption2.IntRefCycleSize = (pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10;
         }
         if (pInParams->bNoDeblock) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
@@ -980,7 +949,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption3.QVBRQuality = (mfxU16)clamp_param_int(pInParams->nQVBRQuality, 1, 51, _T("qvbr-q"));
         }
         if (0 != pInParams->nMaxBitrate) {
-            m_CodingOption3.WinBRCSize = (0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : (mfxU16)((OutputFPSRate + OutputFPSScale - 1) / OutputFPSScale);
+            m_CodingOption3.WinBRCSize = (0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d());
             m_CodingOption3.WinBRCMaxAvgKbps = (mfxU16)pInParams->nMaxBitrate;
         }
 
@@ -1081,7 +1050,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
          pInParams->ColorMatrix != list_colormatrix[0].value ||
          pInParams->bFullrange
         ) ) {
-#define GET_COLOR_PRM(v, list) (mfxU16)((v == COLOR_VALUE_AUTO) ? ((pInParams->nDstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
+#define GET_COLOR_PRM(v, list) (mfxU16)((v == COLOR_VALUE_AUTO) ? ((pInParams->input.dstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
             //色設定 (for API v1.3)
             CHECK_RANGE_LIST(pInParams->VideoFormat,    list_videoformat, "videoformat");
             CHECK_RANGE_LIST(pInParams->ColorPrim,      list_colorprim,   "colorprim");
@@ -1114,14 +1083,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = 10;
         m_mfxEncParams.mfx.FrameInfo.Shift = 1;
     }
-    m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->nDstWidth, blocksz);
+    m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->input.dstWidth, blocksz);
     m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct)?
-        ALIGN(pInParams->nDstHeight, blocksz) : ALIGN(pInParams->nDstHeight, blocksz * 2));
+        ALIGN(pInParams->input.dstHeight, blocksz) : ALIGN(pInParams->input.dstHeight, blocksz * 2));
 
     m_mfxEncParams.mfx.FrameInfo.CropX = 0;
     m_mfxEncParams.mfx.FrameInfo.CropY = 0;
-    m_mfxEncParams.mfx.FrameInfo.CropW = pInParams->nDstWidth;
-    m_mfxEncParams.mfx.FrameInfo.CropH = pInParams->nDstHeight;
+    m_mfxEncParams.mfx.FrameInfo.CropW = pInParams->input.dstWidth;
+    m_mfxEncParams.mfx.FrameInfo.CropH = pInParams->input.dstHeight;
 
     // In case of HEVC when height and/or width divided with 8 but not divided with 16
     // add extended parameter to increase performance
@@ -1138,13 +1107,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
         m_ExtVP8CodingOption.SharpnessLevel = (mfxU16)clamp_param_int(pInParams->nVP8Sharpness, 0, 8, _T("sharpness"));
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP8CodingOption);
-    }
-
-    if (MFX_CODEC_JPEG == pInParams->CodecId) {
-        m_mfxEncParams.mfx.Interleaved = 1;
-        m_mfxEncParams.mfx.Quality = pInParams->nQuality;
-        m_mfxEncParams.mfx.RestartInterval = 0;
-        RGY_MEMSET_ZERO(m_mfxEncParams.mfx.reserved5);
     }
 
     if (!m_EncExtParams.empty()) {
@@ -1178,7 +1140,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
-        if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+        if (pInParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported with interlaced output.\n"));
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
@@ -1195,7 +1157,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         pInParams->vpp.imageStabilizer = 0;
     }
 
-    if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+    if (pInParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
         switch (pInParams->vpp.deinterlace) {
         case MFX_DEINTERLACE_IT_MANUAL:
             if (!(availableFeaures & VPP_FEATURE_DEINTERLACE_IT_MANUAL)) {
@@ -1235,9 +1197,9 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY :
         MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
 
-    m_mfxVppParams.vpp.In.PicStruct = pInParams->nPicStruct;
-    m_mfxVppParams.vpp.In.FrameRateExtN = pInParams->nFPSRate;
-    m_mfxVppParams.vpp.In.FrameRateExtD = pInParams->nFPSScale;
+    m_mfxVppParams.vpp.In.PicStruct = picstruct_rgy_to_enc(pInParams->input.picstruct);
+    m_mfxVppParams.vpp.In.FrameRateExtN = pInParams->input.fpsN;
+    m_mfxVppParams.vpp.In.FrameRateExtD = pInParams->input.fpsD;
     m_mfxVppParams.vpp.In.AspectRatioW  = (mfxU16)pInParams->nPAR[0];
     m_mfxVppParams.vpp.In.AspectRatioH  = (mfxU16)pInParams->nPAR[1];
 
@@ -1245,14 +1207,14 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     if (inputFrameInfo.FourCC == 0 || inputFrameInfo.FourCC == MFX_FOURCC_NV12) {
         m_mfxVppParams.vpp.In.FourCC       = MFX_FOURCC_NV12;
         m_mfxVppParams.vpp.In.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-        m_mfxVppParams.vpp.In.Width     = (mfxU16)ALIGN(pInParams->nWidth, blocksz);
+        m_mfxVppParams.vpp.In.Width     = (mfxU16)ALIGN(pInParams->input.srcWidth, blocksz);
         m_mfxVppParams.vpp.In.Height    = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.In.PicStruct)?
-            ALIGN(pInParams->nHeight, blocksz) : ALIGN(pInParams->nHeight, blocksz));
+            ALIGN(pInParams->input.srcHeight, blocksz) : ALIGN(pInParams->input.srcHeight, blocksz));
     } else {
         m_mfxVppParams.vpp.In.FourCC         = inputFrameInfo.FourCC;
         m_mfxVppParams.vpp.In.ChromaFormat   = inputFrameInfo.ChromaFormat;
-        m_mfxVppParams.vpp.In.BitDepthLuma   = (pInParams->inputBitDepthLuma) ? pInParams->inputBitDepthLuma : inputFrameInfo.BitDepthLuma;
-        m_mfxVppParams.vpp.In.BitDepthChroma = (pInParams->inputBitDepthChroma) ? pInParams->inputBitDepthChroma : inputFrameInfo.BitDepthChroma;
+        m_mfxVppParams.vpp.In.BitDepthLuma   = inputFrameInfo.BitDepthLuma;
+        m_mfxVppParams.vpp.In.BitDepthChroma = inputFrameInfo.BitDepthChroma;
         if (m_mfxVppParams.vpp.In.ChromaFormat == MFX_CHROMAFORMAT_YUV422) {
             //10を指定しないとおかしな変換が行われる
             if (m_mfxVppParams.vpp.In.BitDepthLuma > 8) m_mfxVppParams.vpp.In.BitDepthLuma = 10;
@@ -1268,15 +1230,15 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
             ALIGN(inputFrameInfo.CropH, blocksz) : ALIGN(inputFrameInfo.CropH, blocksz * 2));
     }
 
-    m_mfxVppParams.vpp.In.CropW = pInParams->nWidth;
-    m_mfxVppParams.vpp.In.CropH = pInParams->nHeight;
+    m_mfxVppParams.vpp.In.CropW = pInParams->input.srcWidth;
+    m_mfxVppParams.vpp.In.CropH = pInParams->input.srcHeight;
 
     //QSVデコードを行う場合、CropはVppで行う
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        m_mfxVppParams.vpp.In.CropX = (mfxU16)pInParams->sInCrop.e.left;
-        m_mfxVppParams.vpp.In.CropY = (mfxU16)pInParams->sInCrop.e.up;
-        m_mfxVppParams.vpp.In.CropW -= (mfxU16)(pInParams->sInCrop.e.left   + pInParams->sInCrop.e.right);
-        m_mfxVppParams.vpp.In.CropH -= (mfxU16)(pInParams->sInCrop.e.bottom + pInParams->sInCrop.e.up);
+        m_mfxVppParams.vpp.In.CropX = (mfxU16)pInParams->input.crop.e.left;
+        m_mfxVppParams.vpp.In.CropY = (mfxU16)pInParams->input.crop.e.up;
+        m_mfxVppParams.vpp.In.CropW -= (mfxU16)(pInParams->input.crop.e.left   + pInParams->input.crop.e.right);
+        m_mfxVppParams.vpp.In.CropH -= (mfxU16)(pInParams->input.crop.e.bottom + pInParams->input.crop.e.up);
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp crop enabled.\n"));
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp input frame %dx%d (%d,%d,%d,%d)\n"),
@@ -1285,16 +1247,23 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), m_mfxVppParams.vpp.In.ChromaFormat, m_mfxVppParams.vpp.In.BitDepthLuma, m_mfxVppParams.vpp.In.Shift);
 
     memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
-
-    if (m_mfxEncParams.mfx.FrameInfo.FourCC) {
-        m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
-        m_mfxVppParams.vpp.Out.FourCC         = m_mfxEncParams.mfx.FrameInfo.FourCC;
-        m_mfxVppParams.vpp.Out.BitDepthLuma   = m_mfxEncParams.mfx.FrameInfo.BitDepthLuma;
-        m_mfxVppParams.vpp.Out.BitDepthChroma = m_mfxEncParams.mfx.FrameInfo.BitDepthChroma;
-        m_mfxVppParams.vpp.Out.Shift          = m_mfxEncParams.mfx.FrameInfo.Shift;
-        m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.deinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : pInParams->nPicStruct;
+    
+    m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
+    if (pInParams->CodecId == MFX_CODEC_HEVC && pInParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+        m_mfxVppParams.vpp.Out.FourCC = MFX_FOURCC_P010;
+        m_mfxVppParams.vpp.Out.BitDepthLuma = 10;
+        m_mfxVppParams.vpp.Out.BitDepthChroma = 10;
+        m_mfxVppParams.vpp.Out.Shift = 1;
+    } else {
+        m_mfxVppParams.vpp.Out.FourCC = MFX_FOURCC_NV12;
+        m_mfxVppParams.vpp.Out.BitDepthLuma = 0;
+        m_mfxVppParams.vpp.Out.BitDepthChroma = 0;
+        m_mfxVppParams.vpp.Out.Shift = 0;
     }
-    if ((pInParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+    m_mfxVppParams.vpp.Out.ChromaFormat   = MFX_CHROMAFORMAT_YUV420;
+    m_mfxVppParams.vpp.Out.PicStruct = (pInParams->vpp.deinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : picstruct_rgy_to_enc(pInParams->input.picstruct);
+
+    if ((pInParams->input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0) {
         INIT_MFX_EXT_BUFFER(m_ExtDeinterlacing, MFX_EXTBUFF_VPP_DEINTERLACING);
         switch (pInParams->vpp.deinterlace) {
         case MFX_DEINTERLACE_NORMAL:
@@ -1314,7 +1283,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         case MFX_DEINTERLACE_BOB:
         case MFX_DEINTERLACE_AUTO_DOUBLE:
             m_ExtDeinterlacing.Mode = (uint16_t)((pInParams->vpp.deinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACING_AUTO_DOUBLE);
-            m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
+            m_mfxVppParams.vpp.Out.FrameRateExtN *= 2;
             break;
         case MFX_DEINTERLACE_NONE:
         default:
@@ -1341,7 +1310,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     } else {
         switch (pInParams->vpp.fpsConversion) {
         case FPS_CONVERT_MUL2:
-            m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 2;
+            m_mfxVppParams.vpp.Out.FrameRateExtN *= 2;
             break;
         case FPS_CONVERT_MUL2_5:
             m_mfxVppParams.vpp.Out.FrameRateExtN = m_mfxVppParams.vpp.Out.FrameRateExtN * 5 / 2;
@@ -1352,11 +1321,11 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     }
     m_mfxVppParams.vpp.Out.CropX = 0;
     m_mfxVppParams.vpp.Out.CropY = 0;
-    m_mfxVppParams.vpp.Out.CropW = pInParams->nDstWidth;
-    m_mfxVppParams.vpp.Out.CropH = pInParams->nDstHeight;
-    m_mfxVppParams.vpp.Out.Width = (mfxU16)ALIGN(pInParams->nDstWidth, blocksz);
+    m_mfxVppParams.vpp.Out.CropW = pInParams->input.dstWidth;
+    m_mfxVppParams.vpp.Out.CropH = pInParams->input.dstHeight;
+    m_mfxVppParams.vpp.Out.Width = (mfxU16)ALIGN(pInParams->input.dstWidth, blocksz);
     m_mfxVppParams.vpp.Out.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.Out.PicStruct)?
-        ALIGN(pInParams->nDstHeight, blocksz) : ALIGN(pInParams->nDstHeight, blocksz));
+        ALIGN(pInParams->input.dstHeight, blocksz) : ALIGN(pInParams->input.dstHeight, blocksz));
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
         && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
@@ -1433,8 +1402,8 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_MIRRORING);
     }
 
-    if ( (    pParams->nWidth  != pParams->nDstWidth
-           || pParams->nHeight != pParams->nDstHeight)
+    if ( (    pParams->input.srcWidth  != pParams->input.dstWidth
+           || pParams->input.srcHeight != pParams->input.dstHeight)
         && pParams->vpp.scalingQuality != MFX_SCALING_MODE_DEFAULT) {
         INIT_MFX_EXT_BUFFER(m_ExtScaling, MFX_EXTBUFF_VPP_SCALING);
         m_ExtScaling.ScalingMode = (mfxU16)pParams->vpp.scalingQuality;
@@ -1505,7 +1474,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_SCENE_ANALYSIS);
 
     if (   check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3)
-        && (pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+        && (pParams->input.picstruct & RGY_PICSTRUCT_INTERLACED)) {
             switch (pParams->vpp.deinterlace) {
             case MFX_DEINTERLACE_IT:
             case MFX_DEINTERLACE_IT_MANUAL:
@@ -1563,12 +1532,12 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
                 return MFX_ERR_UNSUPPORTED;
             }
             for (const auto& stream : pAVCodecReader->GetInputStreamInfo()) {
-                if (stream.nTrackId == -1 * pParams->vpp.subburn.nTrack) {
+                if (trackID(stream.trackId) == pParams->vpp.subburn.nTrack) {
                     targetSubStream = stream;
                     break;
                 }
             }
-            if (targetSubStream.pStream == nullptr) {
+            if (targetSubStream.stream == nullptr) {
                 PrintMes(RGY_LOG_ERROR, _T("--vpp-sub-burn: subtitile track #%d not found.\n"), pParams->vpp.subburn.nTrack);
                 return MFX_ERR_UNSUPPORTED;
             }
@@ -1586,7 +1555,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
             (pAVCodecReader && !pParams->vpp.subburn.nTrack) ? pAVCodecReader->GetVideoFirstKeyPts() : 0,
             targetSubStream,
             //avqsvリーダー使用時以外はcropは読み込み段階ですでに行われている
-            (pAVCodecReader) ? &(pParams->sInCrop) : nullptr);
+            (pAVCodecReader) ? &(pParams->input.crop) : nullptr);
         uint16_t nVppSubAsyncDepth = (pParams->nAsyncDepth) ? (uint16_t)(std::min<int>)(pParams->nAsyncDepth, 6) : 3;
         sts = filter->Init(m_mfxVer, _T("subburn"), &param, sizeof(param), true, m_memType, m_hwdev, m_pMFXAllocator.get(), nVppSubAsyncDepth, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
         if (sts != MFX_ERR_NONE) {
@@ -1604,7 +1573,7 @@ mfxStatus CQSVPipeline::InitVppPrePlugins(sInputParams *pParams) {
 #endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (pParams->vpp.delogo.pFilePath) {
         unique_ptr<CVPPPlugin> filter(new CVPPPlugin());
-        DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->strSrcFile,
+        DelogoParam param(m_pMFXAllocator.get(), m_memType, pParams->vpp.delogo.pFilePath, pParams->vpp.delogo.pSelect, pParams->common.inputFilename.c_str(),
             (short)pParams->vpp.delogo.posOffset.first, (short)pParams->vpp.delogo.posOffset.second, (short)pParams->vpp.delogo.depth,
             (short)pParams->vpp.delogo.YOffset, (short)pParams->vpp.delogo.CbOffset, (short)pParams->vpp.delogo.CrOffset, pParams->vpp.delogo.add);
         sts = filter->Init(m_mfxVer, _T("delogo"), &param, sizeof(param), true, m_memType, m_hwdev, m_pMFXAllocator.get(), 3, m_mfxVppParams.vpp.In, m_mfxVppParams.IOPattern, m_pQSVLog);
@@ -2190,7 +2159,7 @@ CQSVPipeline::CQSVPipeline() {
     m_pAbortByUser = NULL;
     m_heAbort.reset();
 
-    m_pEncSatusInfo.reset();
+    m_pStatus.reset();
     m_pFileWriterListAudio.clear();
 
     m_trimParam.list.clear();
@@ -2261,7 +2230,7 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
         PrintMes(RGY_LOG_ERROR, _T("no chapter found from chapter file: \"%s\".\n"), chapfile.c_str());
         return MFX_ERR_UNKNOWN;
     }
-    m_AVChapterFromFile.clear();
+    m_Chapters.clear();
     const auto& chapter_list = chapter.chapterlist();
     tstring chap_log;
     for (size_t i = 0; i < chapter_list.size(); i++) {
@@ -2269,13 +2238,13 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
         avchap->time_base = av_make_q(1, 1000);
         avchap->start = chapter_list[i]->get_ms();
         avchap->end = (i < chapter_list.size()-1) ? chapter_list[i+1]->get_ms() : avchap->start + 1;
-        avchap->id = (int)m_AVChapterFromFile.size();
+        avchap->id = (int)m_Chapters.size();
         avchap->metadata = nullptr;
         av_dict_set(&avchap->metadata, "title", wstring_to_string(chapter_list[i]->name, CP_UTF8).c_str(), 0);
         chap_log += strsprintf(_T("chapter #%02d [%d.%02d.%02d.%03d]: %s.\n"),
             avchap->id, chapter_list[i]->h, chapter_list[i]->m, chapter_list[i]->s, chapter_list[i]->ms,
             wstring_to_tstring(chapter_list[i]->name).c_str());
-        m_AVChapterFromFile.push_back(std::move(avchap));
+        m_Chapters.push_back(std::move(avchap));
     }
     PrintMes(RGY_LOG_DEBUG, _T("%s"), chap_log.c_str());
     return MFX_ERR_NONE;
@@ -2283,6 +2252,39 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
     PrintMes(RGY_LOG_ERROR, _T("chater reading unsupportted in this build"));
     return MFX_ERR_UNKNOWN;
 #endif //#if ENABLE_AVSW_READER
+}
+
+mfxStatus CQSVPipeline::InitChapters(const sInputParams *inputParam) {
+#if ENABLE_AVSW_READER
+    m_Chapters.clear();
+    if (inputParam->common.chapterFile.length() > 0) {
+        //チャプターファイルを読み込む
+        auto chap_sts = readChapterFile(inputParam->common.chapterFile);
+        if (chap_sts != MFX_ERR_NONE) {
+            return chap_sts;
+        }
+    }
+    if (m_Chapters.size() == 0) {
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            auto chapterList = pAVCodecReader->GetChapterList();
+            //入力ファイルのチャプターをコピーする
+            for (uint32_t i = 0; i < chapterList.size(); i++) {
+                unique_ptr<AVChapter> avchap(new AVChapter);
+                *avchap = *chapterList[i];
+                m_Chapters.push_back(std::move(avchap));
+            }
+        }
+    }
+    if (m_Chapters.size() > 0) {
+        //if (inputParam->common.keyOnChapter && m_trimParam.list.size() > 0) {
+        //    PrintMes(RGY_LOG_WARN, _T("--key-on-chap not supported when using --trim.\n"));
+        //} else {
+        //    m_keyOnChapter = inputParam->common.keyOnChapter;
+        //}
+    }
+#endif //#if ENABLE_AVSW_READER
+    return MFX_ERR_NONE;
 }
 
 RGY_CSP CQSVPipeline::EncoderCsp(const sInputParams *pParams, int *pShift) {
@@ -2298,831 +2300,167 @@ RGY_CSP CQSVPipeline::EncoderCsp(const sInputParams *pParams, int *pShift) {
     return RGY_CSP_NV12;
 }
 
-mfxStatus CQSVPipeline::InitOutput(sInputParams *pParams) {
-    RGY_ERR ret = RGY_ERR_NONE;
+mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
     bool stdoutUsed = false;
-    const auto outputVideoInfo = (pParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo, m_chromalocInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
-    HEVCHDRSei hedrsei;
-    if (hedrsei.parse(std::string(pParams->sMaxCll ? pParams->sMaxCll : ""), std::string(pParams->sMasterDisplay ? pParams->sMasterDisplay : ""))) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
-        return MFX_ERR_UNSUPPORTED;
+    const auto outputVideoInfo = (inputParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo, m_chromalocInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
+    if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
+        inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
     }
-#if ENABLE_AVSW_READER
-    vector<int> streamTrackUsed; //使用した音声/字幕のトラックIDを保存する
-    bool useH264ESOutput =
-        ((pParams->pAVMuxOutputFormat && 0 == _tcscmp(pParams->pAVMuxOutputFormat, _T("raw")))) //--formatにrawが指定されている
-        || (PathFindExtension(pParams->strDstFile) == nullptr || PathFindExtension(pParams->strDstFile)[0] != '.') //拡張子がしない
-        || check_ext(pParams->strDstFile, { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc" }); //特定の拡張子
-    if (!useH264ESOutput) {
-        pParams->nAVMux |= RGY_MUX_VIDEO;
+    int subburnTrackId = 0;
+    //for (const auto &subburn : inputParams->vpp.subburn) {
+    //    if (subburn.trackId > 0) {
+    //        subburnTrackId = subburn.trackId;
+    //        break;
+    //    }
+    //}
+
+    auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
+        &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
+        m_trimParam, m_outputTimebase, m_Chapters, subburnTrackId, false, false, m_pStatus, m_pPerfMonitor, m_pQSVLog);
+    if (sts != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
+        return err_to_mfx(sts);
     }
-    if (pParams->CodecId == MFX_CODEC_RAW) {
-        pParams->nAVMux &= ~RGY_MUX_VIDEO;
-    }
-
-    { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if (pAVCodecReader != nullptr) {
-            //caption2ass用の解像度情報の提供
-            //これをしないと入力ファイルのデータをずっとバッファし続けるので注意
-            pAVCodecReader->setOutputVideoInfo(m_mfxEncParams.mfx.FrameInfo.CropW, m_mfxEncParams.mfx.FrameInfo.CropH,
-                m_mfxEncParams.mfx.FrameInfo.AspectRatioW, m_mfxEncParams.mfx.FrameInfo.AspectRatioH,
-                (pParams->nAVMux & RGY_MUX_VIDEO) != 0);
-        }
-    }
-
-    bool audioCopyAll = false;
-    if (pParams->nAVMux & RGY_MUX_VIDEO) {
-        if (pParams->CodecId == MFX_CODEC_VP8 || pParams->CodecId == MFX_CODEC_VP9) {
-            PrintMes(RGY_LOG_ERROR, _T("Output: muxing not supported with %s.\n"), CodecIdToStr(pParams->CodecId));
-            return MFX_ERR_UNSUPPORTED;
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("Output: Using avformat writer.\n"));
-        m_pFileWriter = std::make_shared<RGYOutputAvcodec>();
-        AvcodecWriterPrm writerPrm;
-        writerPrm.outputFormat = (pParams->pAVMuxOutputFormat) ? pParams->pAVMuxOutputFormat : _T("");
-        writerPrm.trimList = m_trimParam.list;
-        writerPrm.nOutputThread = pParams->nOutputThread;
-        writerPrm.nAudioThread  = pParams->nAudioThread;
-        writerPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
-        writerPrm.nAudioResampler = pParams->nAudioResampler;
-        writerPrm.pVidTimestamp = &m_outputTimestamp;
-        writerPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
-        writerPrm.bVideoDtsUnavailable = !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6);
-        writerPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
-        writerPrm.muxVidTsLogFile = (pParams->pMuxVidTsLogFile) ? pParams->pMuxVidTsLogFile : _T("");
-        writerPrm.videoCodecTag = (pParams->videoCodecTag) ? pParams->videoCodecTag : "";
-        if (pParams->pMuxOpt) {
-            writerPrm.vMuxOpt = *pParams->pMuxOpt;
-        }
-        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if (pAVCodecReader != nullptr) {
-            writerPrm.pInputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
-            writerPrm.bChapterNoTrim = false;
-            if (pParams->pChapterFile) {
-                //チャプターファイルを読み込む
-                if (MFX_ERR_NONE != readChapterFile(pParams->pChapterFile)) {
-                    return MFX_ERR_UNKNOWN;
-                }
-                writerPrm.chapterList.clear();
-                for (uint32_t i = 0; i < m_AVChapterFromFile.size(); i++) {
-                    writerPrm.chapterList.push_back(m_AVChapterFromFile[i].get());
-                }
-                writerPrm.bChapterNoTrim = pParams->bChapterNoTrim != 0;
-            } else {
-                //入力ファイルのチャプターをコピーする
-                writerPrm.chapterList = pAVCodecReader->GetChapterList();
-            }
-            writerPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-            writerPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
-            writerPrm.pHEVCHdrSei = &hedrsei;
-        }
-        if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
-            PrintMes(RGY_LOG_DEBUG, _T("Output: Audio/Subtitle muxing enabled.\n"));
-            pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-            for (int i = 0; !audioCopyAll && i < pParams->nAudioSelectCount; i++) {
-                //トラック"0"が指定されていれば、すべてのトラックをコピーするということ
-                audioCopyAll = (pParams->ppAudioSelectList[i]->trackID == 0);
-            }
-            PrintMes(RGY_LOG_DEBUG, _T("Output: CopyAll=%s\n"), (audioCopyAll) ? _T("true") : _T("false"));
-            vector<AVDemuxStream> streamList;
-            if (pAVCodecReader) {
-                streamList = pAVCodecReader->GetInputStreamInfo();
-            }
-            for (const auto& audioReader : m_AudioReaders) {
-                if (audioReader->GetAudioTrackCount()) {
-                    auto pAVCodecAudioReader = std::dynamic_pointer_cast<RGYInputAvcodec>(audioReader);
-                    if (pAVCodecAudioReader) {
-                        vector_cat(streamList, pAVCodecAudioReader->GetInputStreamInfo());
-                    }
-                    //もしavqsvリーダーでないなら、音声リーダーから情報を取得する必要がある
-                    if (pAVCodecReader == nullptr) {
-                        writerPrm.nVideoInputFirstKeyPts = pAVCodecAudioReader->GetVideoFirstKeyPts();
-                        writerPrm.pVideoInputStream = pAVCodecAudioReader->GetInputVideoStream();
-                    }
-                }
-            }
-
-            for (auto& stream : streamList) {
-                const auto streamMediaType = trackMediaType(stream.nTrackId);
-                //audio-fileで別ファイルとして抽出するものは除く
-                bool usedInAudioFile = false;
-                for (int i = 0; i < (int)pParams->nAudioSelectCount; i++) {
-                    if (trackID(stream.nTrackId) == pParams->ppAudioSelectList[i]->trackID
-                        && pParams->ppAudioSelectList[i]->extractFilename.length() > 0) {
-                        usedInAudioFile = true;
-                    }
-                }
-                if (usedInAudioFile) {
-                    continue;
-                }
-                const AudioSelect *pAudioSelect = nullptr;
-                for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                    if (trackID(stream.nTrackId) == pParams->ppAudioSelectList[i]->trackID
-                        && pParams->ppAudioSelectList[i]->extractFilename.length() == 0) {
-                        pAudioSelect = pParams->ppAudioSelectList[i];
-                    }
-                }
-                if (pAudioSelect == nullptr) {
-                    //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
-                    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                        if (pParams->ppAudioSelectList[i]->trackID == 0
-                            && pParams->ppAudioSelectList[i]->extractFilename.length() == 0) {
-                            pAudioSelect = pParams->ppAudioSelectList[i];
-                            break;
-                        }
-                    }
-                }
-                const SubtitleSelect *pSubtitleSelect = nullptr;
-                if (streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
-                    for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
-                        if (trackID(stream.nTrackId) == pParams->ppSubtitleSelectList[i]->trackID) {
-                            pSubtitleSelect = pParams->ppSubtitleSelectList[i];
-                        }
-                    }
-                    if (pSubtitleSelect == nullptr) {
-                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
-                        for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
-                            if (pParams->ppAudioSelectList[i]->trackID == 0) {
-                                pSubtitleSelect = pParams->ppSubtitleSelectList[i];
-                                break;
-                            }
-                        }
-                    }
-                }
-                const DataSelect *pDataSelect = nullptr;
-                if (streamMediaType == AVMEDIA_TYPE_DATA) {
-                    for (int i = 0; i < pParams->nDataSelectCount; i++) {
-                        if (trackID(stream.nTrackId) == pParams->ppDataSelectList[i]->trackID) {
-                            pDataSelect = pParams->ppDataSelectList[i];
-                        }
-                    }
-                    if (pSubtitleSelect == nullptr) {
-                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
-                        for (int i = 0; i < pParams->nDataSelectCount; i++) {
-                            if (pParams->ppDataSelectList[i]->trackID == 0) {
-                                pDataSelect = pParams->ppDataSelectList[i];
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
-                    streamTrackUsed.push_back(stream.nTrackId);
-                    if (streamMediaType == AVMEDIA_TYPE_SUBTITLE && pParams->vpp.subburn.nTrack != 0) {
-                        continue;
-                    }
-                    AVOutputStreamPrm prm;
-                    prm.src = stream;
-                    //pAudioSelect == nullptrは "copyAllStreams" か 字幕ストリーム によるもの
-                    if (pAudioSelect != nullptr) {
-                        prm.decodeCodecPrm = pAudioSelect->decCodecPrm;
-                        prm.bitrate = pAudioSelect->encBitrate;
-                        prm.samplingRate = pAudioSelect->encSamplingRate;
-                        prm.encodeCodec = pAudioSelect->encCodec;
-                        prm.encodeCodecPrm = pAudioSelect->encCodecPrm;
-                        prm.encodeCodecProfile = pAudioSelect->encCodecProfile;
-                        prm.filter = pAudioSelect->filter;
-                    }
-                    if (pSubtitleSelect != nullptr) {
-                        prm.encodeCodec = pSubtitleSelect->encCodec;
-                        prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
-                        prm.asdata = pSubtitleSelect->asdata;
-                    }
-                    PrintMes(RGY_LOG_DEBUG, _T("Output: Added %s track#%d (stream idx %d) for mux, bitrate %d, codec: %s %s %s\n"),
-                        char_to_tstring(av_get_media_type_string(streamMediaType)).c_str(),
-                        trackID(stream.nTrackId), stream.nIndex, prm.bitrate, prm.encodeCodec.c_str(),
-                        prm.encodeCodecProfile.c_str(),
-                        prm.encodeCodecPrm.c_str());
-                    writerPrm.inputStreamList.push_back(std::move(prm));
-                }
-            }
-        }
-        ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &writerPrm, m_pQSVLog, m_pEncSatusInfo);
-        if (ret != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-            return err_to_mfx(ret);
-        } else if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
-            m_pFileWriterListAudio.push_back(m_pFileWriter);
-        }
-        stdoutUsed = m_pFileWriter->outputStdout();
-        PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized avformat writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-    } else if (pParams->nAVMux & (RGY_MUX_AUDIO | RGY_MUX_SUBTITLE)) {
-        PrintMes(RGY_LOG_ERROR, _T("Audio mux cannot be used alone, should be use with video mux.\n"));
-        return MFX_ERR_UNSUPPORTED;
-    } else {
-#endif
-        if (pParams->CodecId == MFX_CODEC_RAW) {
-            m_pFileWriter.reset(new CQSVOutFrame());
-            YUVWriterParam param;
-            param.bY4m = true;
-            param.memType = m_memType;
-            ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &param, m_pQSVLog, m_pEncSatusInfo);
-            if (ret != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-                return err_to_mfx(ret);
-            }
-            stdoutUsed = m_pFileWriter->outputStdout();
-            PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-        } else {
-            m_pFileWriter = std::make_shared<RGYOutputRaw>();
-            RGYOutputRawPrm rawPrm = { 0 };
-            rawPrm.bBenchmark = pParams->bBenchmark != 0;
-            rawPrm.nBufSizeMB = pParams->nOutputBufSizeMB;
-            rawPrm.codecId = codec_enc_to_rgy(pParams->CodecId);
-            rawPrm.seiNal = hedrsei.gen_nal();
-            ret = m_pFileWriter->Init(pParams->strDstFile, &outputVideoInfo, &rawPrm, m_pQSVLog, m_pEncSatusInfo);
-            if (ret != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, m_pFileWriter->GetOutputMessage());
-                return err_to_mfx(ret);
-            }
-            stdoutUsed = m_pFileWriter->outputStdout();
-            PrintMes(RGY_LOG_DEBUG, _T("Output: Initialized bitstream writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-        }
-#if ENABLE_AVSW_READER
-    } //ENABLE_AVSW_READER
-
-    //音声の抽出
-    if (pParams->nAudioSelectCount + pParams->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
-        PrintMes(RGY_LOG_DEBUG, _T("Output: Audio file output enabled.\n"));
-        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if (pAVCodecReader == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("Audio output is only supported with transcoding (avhw/avsw reader).\n"));
-            return MFX_ERR_UNSUPPORTED;
-        } else {
-            auto inutAudioInfoList = pAVCodecReader->GetInputStreamInfo();
-            for (auto& audioTrack : inutAudioInfoList) {
-                bool bTrackAlreadyUsed = false;
-                for (auto usedTrack : streamTrackUsed) {
-                    if (usedTrack == audioTrack.nTrackId) {
-                        bTrackAlreadyUsed = true;
-                        PrintMes(RGY_LOG_DEBUG, _T("Audio track #%d is already set to be muxed, so cannot be extracted to file.\n"), trackID(audioTrack.nTrackId));
-                        break;
-                    }
-                }
-                if (bTrackAlreadyUsed) {
-                    continue;
-                }
-                const AudioSelect *pAudioSelect = nullptr;
-                for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                    if (trackID(audioTrack.nTrackId) == pParams->ppAudioSelectList[i]->trackID
-                        && pParams->ppAudioSelectList[i]->extractFilename.length() > 0) {
-                        pAudioSelect = pParams->ppAudioSelectList[i];
-                    }
-                }
-                if (pAudioSelect == nullptr) {
-                    PrintMes(RGY_LOG_ERROR, _T("Audio track #%d is not used anyware, this should not happen.\n"), trackID(audioTrack.nTrackId));
-                    return MFX_ERR_INVALID_AUDIO_PARAM;
-                }
-                PrintMes(RGY_LOG_DEBUG, _T("Output: Output audio track #%d (stream index %d) to \"%s\", format: %s, codec %s, bitrate %d\n"),
-                    trackID(audioTrack.nTrackId), audioTrack.nIndex, pAudioSelect->extractFilename.c_str(), pAudioSelect->extractFormat.c_str(), pAudioSelect->encCodec.c_str(), pAudioSelect->encBitrate);
-
-                AVOutputStreamPrm prm;
-                prm.src = audioTrack;
-                //pAudioSelect == nullptrは "copyAll" によるもの
-                prm.bitrate = pAudioSelect->encBitrate;
-                prm.filter = pAudioSelect->filter;
-                prm.encodeCodec = pAudioSelect->encCodec;
-                prm.samplingRate = pAudioSelect->encSamplingRate;
-
-                AvcodecWriterPrm writerAudioPrm;
-                writerAudioPrm.nOutputThread   = pParams->nOutputThread;
-                writerAudioPrm.nAudioThread    = pParams->nAudioThread;
-                writerAudioPrm.nBufSizeMB      = pParams->nOutputBufSizeMB;
-                writerAudioPrm.outputFormat   = pAudioSelect->extractFormat;
-                writerAudioPrm.nAudioIgnoreDecodeError = pParams->nAudioIgnoreDecodeError;
-                writerAudioPrm.nAudioResampler = pParams->nAudioResampler;
-                writerAudioPrm.inputStreamList.push_back(prm);
-                writerAudioPrm.pQueueInfo = nullptr;
-                writerAudioPrm.trimList = m_trimParam.list;
-                writerAudioPrm.nVideoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
-                writerAudioPrm.pVideoInputStream = pAVCodecReader->GetInputVideoStream();
-
-                shared_ptr<RGYOutput> pWriter(new RGYOutputAvcodec());
-                ret = pWriter->Init(pAudioSelect->extractFilename.c_str(), nullptr, &writerAudioPrm, m_pQSVLog, m_pEncSatusInfo);
-                if (ret != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, pWriter->GetOutputMessage());
-                    return err_to_mfx(ret);
-                }
-                PrintMes(RGY_LOG_DEBUG, _T("Output: Intialized audio output for track #%d.\n"), trackID(audioTrack.nTrackId));
-                bool audioStdout = pWriter->outputStdout();
-                if (ret != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Multiple stream outputs are set to stdout, please remove conflict.\n"));
-                    return err_to_mfx(ret);
-                }
-                stdoutUsed |= audioStdout;
-                m_pFileWriterListAudio.push_back(std::move(pWriter));
-            }
-        }
-    }
-#endif //ENABLE_AVSW_READER
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::InitInput(sInputParams *pParams) {
-    RGY_ERR ret = RGY_ERR_NONE;
-
-    int sourceAudioTrackIdStart = 1;    //トラック番号は1スタート
-    int sourceSubtitleTrackIdStart = 1; //トラック番号は1スタート
-    int sourceDataTrackIdStart = 1; //トラック番号は1スタート
-    if (!m_pEncSatusInfo) {
-        m_pEncSatusInfo = std::make_shared<EncodeStatus>();
-    }
-    VideoInfo inputVideo;
-    memset(&inputVideo, 0, sizeof(inputVideo));
-    inputVideo.type = (RGY_INPUT_FMT)pParams->nInputFmt;
-    inputVideo.srcWidth = pParams->nWidth;
-    inputVideo.srcHeight = pParams->nHeight;
-    inputVideo.dstWidth = pParams->nDstWidth;
-    inputVideo.dstHeight = pParams->nDstHeight;
-    inputVideo.csp = EncoderCsp(pParams, &inputVideo.shift);
-    inputVideo.sar[0] = pParams->nPAR[0];
-    inputVideo.sar[1] = pParams->nPAR[1];
-    inputVideo.fpsN = pParams->nFPSRate;
-    inputVideo.fpsD = pParams->nFPSScale;
-    inputVideo.crop = pParams->sInCrop;
-    inputVideo.picstruct = picstruct_enc_to_rgy(pParams->nPicStruct);
-
-    //ファイル拡張子により自動的に設定
-    if (inputVideo.type == RGY_INPUT_FMT_AUTO) {
-        if (check_ext(pParams->strSrcFile, { ".y4m" }))
-            inputVideo.type = RGY_INPUT_FMT_Y4M;
-        else if (check_ext(pParams->strSrcFile, { ".yuv" }))
-            inputVideo.type = RGY_INPUT_FMT_RAW;
-#if ENABLE_AVISYNTH_READER
-        else
-        if (check_ext(pParams->strSrcFile, { ".avs" }))
-            inputVideo.type = RGY_INPUT_FMT_AVS;
-        else
-#endif //ENABLE_AVISYNTH_READER
-#if ENABLE_VAPOURSYNTH_READER
-        if (check_ext(pParams->strSrcFile, { ".vpy" }))
-            inputVideo.type = RGY_INPUT_FMT_VPY;
-        else
-#endif //ENABLE_VAPOURSYNTH_READER
-#if ENABLE_AVI_READER
-        if (check_ext(pParams->strSrcFile, { ".avi", ".avs", ".vpy" }))
-            inputVideo.type = RGY_INPUT_FMT_AVI;
-        else
-#endif //ENABLE_AVI_READER
-#if ENABLE_AVSW_READER
-            inputVideo.type = RGY_INPUT_FMT_AVANY;
-#else
-            inputVideo.type = RGY_INPUT_FMT_RAW;
-#endif //ENABLE_AVSW_READER
-    }
-
-    //ビルドに指定リーダーが含まれているかを確認する
-    //avs/vpy等はビルドに含まれていなければ、aviで代用する
-    if (inputVideo.type == RGY_INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
-        inputVideo.type = RGY_INPUT_FMT_AVI;
-        PrintMes(RGY_LOG_WARN, _T("avs reader not compiled in this binary.\n"));
-        PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
-    }
-    if (inputVideo.type == RGY_INPUT_FMT_VPY && !ENABLE_VAPOURSYNTH_READER) {
-        inputVideo.type = RGY_INPUT_FMT_AVI;
-        PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
-        PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
-    }
-    if (inputVideo.type == RGY_INPUT_FMT_VPY_MT && !ENABLE_VAPOURSYNTH_READER) {
-        inputVideo.type = RGY_INPUT_FMT_AVI;
-        PrintMes(RGY_LOG_WARN, _T("vpy reader not compiled in this binary.\n"));
-        PrintMes(RGY_LOG_WARN, _T("switching to avi reader.\n"));
-    }
-    if (inputVideo.type == RGY_INPUT_FMT_AVI && !ENABLE_AVI_READER) {
-        PrintMes(RGY_LOG_ERROR, _T("avi reader not compiled in this binary.\n"));
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
-    }
-    if (inputVideo.type == RGY_INPUT_FMT_AVHW && !ENABLE_AVSW_READER) {
-        PrintMes(RGY_LOG_ERROR, _T("avcodec + QSV reader not compiled in this binary.\n"));
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
-    }
-    if (inputVideo.type == RGY_INPUT_FMT_AVSW && !ENABLE_AVSW_READER) {
-        PrintMes(RGY_LOG_ERROR, _T("avcodec reader not compiled in this binary.\n"));
-        return MFX_ERR_INCOMPATIBLE_VIDEO_PARAM;
-    }
-
-    RGYInputPrm inputPrm;
-    inputPrm.threadCsp = pParams->threadCsp;
-    inputPrm.simdCsp = pParams->simdCsp;
-    RGYInputPrm *pInputPrm = &inputPrm;
-
-    //まずavs or vpy readerをためす
-    m_pFileReader = nullptr;
-    if (   inputVideo.type == RGY_INPUT_FMT_VPY
-        || inputVideo.type == RGY_INPUT_FMT_VPY_MT
-        || inputVideo.type == RGY_INPUT_FMT_AVS) {
-        if (inputVideo.type == RGY_INPUT_FMT_VPY || inputVideo.type == RGY_INPUT_FMT_VPY_MT) {
-#if ENABLE_VAPOURSYNTH_READER
-            m_pFileReader = std::make_shared<RGYInputVpy>();
-            PrintMes(RGY_LOG_DEBUG, _T("Input: vpy reader selected.\n"));
-#endif
-        } else {
-#if ENABLE_AVISYNTH_READER
-            m_pFileReader = std::make_shared<RGYInputAvs>();
-            PrintMes(RGY_LOG_DEBUG, _T("Input: avs reader selected.\n"));
-#endif
-        }
-        if (NULL == m_pFileReader) {
-            //aviリーダーに切り替え再試行する
-            inputVideo.type = RGY_INPUT_FMT_AVI;
-        } else {
-            ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, pInputPrm, m_pQSVLog, m_pEncSatusInfo);
-            if (ret == RGY_ERR_INVALID_COLOR_FORMAT) {
-                //入力色空間の制限で使用できない場合はaviリーダーに切り替え再試行する
-                PrintMes(RGY_LOG_WARN, m_pFileReader->GetInputMessage());
-                m_pFileReader.reset();
-                ret = RGY_ERR_NONE;
-                PrintMes(RGY_LOG_WARN, _T("Input: switching to avi reader.\n"));
-                inputVideo.type = RGY_INPUT_FMT_AVI;
-            }
-            if (ret != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
-                return err_to_mfx(ret);
-            }
-        }
-    }
-
-    auto subBurnTrack = std::unique_ptr<SubtitleSelect>(new SubtitleSelect());
-    subBurnTrack->trackID = pParams->vpp.subburn.nTrack;
-    SubtitleSelect *subBurnTrackPtr = subBurnTrack.get();
-    if (m_pFileReader == nullptr) {
-#if ENABLE_AVSW_READER
-        RGYInputAvcodecPrm avcodecReaderPrm(inputPrm);
-        DeviceCodecCsp HWDecCodecCsp;
-        HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp()));
-#endif
-        switch (inputVideo.type) {
-#if ENABLE_AVI_READER
-            case RGY_INPUT_FMT_AVI:
-                m_pFileReader = std::make_shared<RGYInputAvi>();
-                PrintMes(RGY_LOG_DEBUG, _T("Input: avi reader selected.\n"));
-                break;
-#endif
-#if ENABLE_AVSW_READER
-            case RGY_INPUT_FMT_AVHW:
-            case RGY_INPUT_FMT_AVSW:
-            case RGY_INPUT_FMT_AVANY:
-                m_pFileReader = std::make_shared<RGYInputAvcodec>();
-                avcodecReaderPrm.memType = pParams->memType;
-                avcodecReaderPrm.pInputFormat = pParams->pAVInputFormat;
-                avcodecReaderPrm.bReadVideo = true;
-                avcodecReaderPrm.nVideoTrack = pParams->nVideoTrack;
-                avcodecReaderPrm.nVideoStreamId = pParams->nVideoStreamId;
-                avcodecReaderPrm.bReadChapter = !!pParams->bCopyChapter;
-                avcodecReaderPrm.bReadSubtitle = pParams->nSubtitleSelectCount + pParams->vpp.subburn.nTrack > 0;
-                avcodecReaderPrm.bReadData = pParams->nDataSelectCount > 0;
-                avcodecReaderPrm.pTrimList = pParams->pTrimList;
-                avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-                avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
-                avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
-                avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(pParams->nFPSRate, pParams->nFPSScale);
-                avcodecReaderPrm.nAudioTrackStart = sourceAudioTrackIdStart;
-                avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
-                avcodecReaderPrm.nDataTrackStart = sourceDataTrackIdStart;
-                avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
-                avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
-                avcodecReaderPrm.ppSubtitleSelect = (pParams->vpp.subburn.nTrack) ? &subBurnTrackPtr : pParams->ppSubtitleSelectList;
-                avcodecReaderPrm.nSubtitleSelectCount = (pParams->vpp.subburn.nTrack) ? 1 : pParams->nSubtitleSelectCount;
-                avcodecReaderPrm.ppDataSelect = pParams->ppDataSelectList;
-                avcodecReaderPrm.nDataSelectCount = pParams->nDataSelectCount;
-                avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
-                avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
-                avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
-                avcodecReaderPrm.pFramePosListLog = pParams->pFramePosListLog;
-                avcodecReaderPrm.nInputThread = pParams->nInputThread;
-                avcodecReaderPrm.pQueueInfo = (m_pPerfMonitor) ? m_pPerfMonitor->GetQueueInfoPtr() : nullptr;
-                avcodecReaderPrm.pLogCopyFrameData = pParams->pLogCopyFrameData;
-                avcodecReaderPrm.pHWDecCodecCsp = &HWDecCodecCsp;
-                avcodecReaderPrm.bVideoDetectPulldown = pParams->nAVSyncMode == RGY_AVSYNC_ASSUME_CFR;
-                avcodecReaderPrm.caption2ass = pParams->caption2ass;
-                pInputPrm = &avcodecReaderPrm;
-                PrintMes(RGY_LOG_DEBUG, _T("Input: avhw/avsw reader selected.\n"));
-                break;
-#endif
+mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
 #if ENABLE_RAW_READER
-            case RGY_INPUT_FMT_Y4M:
-            case RGY_INPUT_FMT_RAW:
-                m_pFileReader = std::make_shared<RGYInputRaw>();
-                PrintMes(RGY_LOG_DEBUG, _T("Input: yuv reader selected (%s).\n"), (inputVideo.type == RGY_INPUT_FMT_Y4M) ? _T("y4m") : _T("raw"));
-                break;
-#endif
-            default:
-                PrintMes(RGY_LOG_DEBUG, _T("Failed to select reader.\n"));
-                return MFX_ERR_NOT_FOUND;
-        }
-        ret = m_pFileReader->Init(pParams->strSrcFile, &inputVideo, pInputPrm, m_pQSVLog, m_pEncSatusInfo);
-    }
-    if (ret != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, m_pFileReader->GetInputMessage());
-        return err_to_mfx(ret);
-    }
-    m_pEncSatusInfo->m_sData.frameTotal = inputVideo.frames;
-    PrintMes(RGY_LOG_DEBUG, _T("Input: reader initialization successful.\n"));
-    sourceAudioTrackIdStart    += m_pFileReader->GetAudioTrackCount();
-    sourceSubtitleTrackIdStart += m_pFileReader->GetSubtitleTrackCount();
-    sourceDataTrackIdStart += m_pFileReader->GetDataTrackCount();
-
 #if ENABLE_AVSW_READER
-    if (pParams->nAudioSourceCount && pParams->ppAudioSourceList) {
-        auto videoInfo = inputVideo;
+    DeviceCodecCsp HWDecCodecCsp;
+    HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp()));
+#endif
+    m_pStatus.reset(new EncodeStatus());
 
-        for (int i = 0; i < pParams->nAudioSourceCount; i++) {
-            RGYInputAvcodecPrm avcodecReaderPrm(inputPrm);
-            avcodecReaderPrm.memType = pParams->memType;
-            avcodecReaderPrm.bReadVideo = false;
-            avcodecReaderPrm.nReadAudio |= pParams->nAudioSelectCount > 0;
-            avcodecReaderPrm.bReadSubtitle = false;
-            avcodecReaderPrm.bReadChapter = false;
-            avcodecReaderPrm.bReadData = false;
-            avcodecReaderPrm.nAnalyzeSec = pParams->nAVDemuxAnalyzeSec;
-            avcodecReaderPrm.pTrimList = pParams->pTrimList;
-            avcodecReaderPrm.nTrimCount = pParams->nTrimCount;
-            avcodecReaderPrm.nVideoAvgFramerate = std::make_pair(videoInfo.fpsN, videoInfo.fpsD);
-            avcodecReaderPrm.nAudioTrackStart = sourceAudioTrackIdStart;
-            avcodecReaderPrm.nSubtitleTrackStart = sourceSubtitleTrackIdStart;
-            avcodecReaderPrm.nDataTrackStart = sourceDataTrackIdStart;
-            avcodecReaderPrm.ppAudioSelect = pParams->ppAudioSelectList;
-            avcodecReaderPrm.nAudioSelectCount = pParams->nAudioSelectCount;
-            avcodecReaderPrm.nProcSpeedLimit = pParams->nProcSpeedLimit;
-            avcodecReaderPrm.nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
-            avcodecReaderPrm.fSeekSec = pParams->fSeekSec;
-            avcodecReaderPrm.nInputThread = 0;
-            avcodecReaderPrm.pQueueInfo = nullptr;
-
-            unique_ptr<RGYInput> audioReader(new RGYInputAvcodec());
-            ret = audioReader->Init(pParams->ppAudioSourceList[i], &videoInfo, &avcodecReaderPrm, m_pQSVLog, nullptr);
-            if (ret != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, audioReader->GetInputMessage());
-                return err_to_mfx(ret);
-            }
-            sourceAudioTrackIdStart += audioReader->GetAudioTrackCount();
-            sourceSubtitleTrackIdStart += audioReader->GetSubtitleTrackCount();
-            sourceDataTrackIdStart += audioReader->GetDataTrackCount();
-            m_AudioReaders.push_back(std::move(audioReader));
+    int subburnTrackId = 0;
+#if ENCODER_NVENC
+    if (inputParam->common.nSubtitleSelectCount > 0 && inputParam->vpp.subburn.size() > 0) {
+        PrintMes(RGY_LOG_ERROR, _T("--sub-copy and --vpp-subburn should not be set at the same time.\n"));
+        return MFX_ERR_UNKNOWN;
+    }
+    for (const auto &subburn : inputParam->vpp.subburn) {
+        if (subburn.trackId > 0) {
+            subburnTrackId = subburn.trackId;
+            break;
         }
     }
 #endif
+
+    auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input,
+        m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
+#if ENCODER_NVENC
+        inputParam->vpp.rff, inputParam->vpp.afs.enable,
+#else
+        false, false,
+#endif
+        m_pPerfMonitor.get(), m_pQSVLog);
+    if (sts != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
+        return err_to_mfx(sts);
+    }
+
+    m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
+    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+    if (pAVCodecReader && (m_nAVSyncMode & RGY_AVSYNC_VFR)) {
+        //avsync vfr時は、入力streamのtimebaseをそのまま使用する
+        m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
+    }
 
     if (
 #if ENABLE_AVSW_READER
         std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr &&
 #endif
-        pParams->pTrimList && pParams->nTrimCount > 0) {
+        inputParam->common.pTrimList && inputParam->common.nTrimCount > 0) {
         //avhw/avswリーダー以外は、trimは自分ではセットされないので、ここでセットする
         sTrimParam trimParam;
-        trimParam.list = make_vector(pParams->pTrimList, pParams->nTrimCount);
+        trimParam.list = make_vector(inputParam->common.pTrimList, inputParam->common.nTrimCount);
         trimParam.offset = 0;
         m_pFileReader->SetTrimParam(trimParam);
     }
     //trim情報をリーダーから取得する
-    m_trimParam = *m_pFileReader->GetTrimParam();
-    if (m_trimParam.list.size()) {
+    m_trimParam = m_pFileReader->GetTrimParam();
+    if (m_trimParam.list.size() > 0) {
         PrintMes(RGY_LOG_DEBUG, _T("Input: trim options\n"));
         for (int i = 0; i < (int)m_trimParam.list.size(); i++) {
             PrintMes(RGY_LOG_DEBUG, _T("%d-%d "), m_trimParam.list[i].start, m_trimParam.list[i].fin);
         }
         PrintMes(RGY_LOG_DEBUG, _T(" (offset: %d)\n"), m_trimParam.offset);
     }
+
+#if ENABLE_AVSW_READER
+    if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR))
+#if ENCODER_NVENC
+        || inputParam->vpp.rff
+#endif
+        ) {
+        tstring err_target;
+        if (m_nAVSyncMode & RGY_AVSYNC_VFR)       err_target += _T("avsync vfr, ");
+        if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) err_target += _T("avsync forcecfr, ");
+#if ENCODER_NVENC
+        if (inputParam->vpp.rff)                  err_target += _T("vpp-rff, ");
+#endif
+        err_target = err_target.substr(0, err_target.length()-2);
+
+        if (pAVCodecReader) {
+            //timestampになんらかの問題がある場合、vpp-rffとavsync vfrは使用できない
+            const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
+            if ((timestamp_status & (~RGY_PTS_NORMAL)) != 0) {
+
+                tstring err_sts;
+                if (timestamp_status & RGY_PTS_SOMETIMES_INVALID) err_sts += _T("SOMETIMES_INVALID, "); //時折、無効なptsを得る
+                if (timestamp_status & RGY_PTS_HALF_INVALID)      err_sts += _T("HALF_INVALID, "); //PAFFなため、半分のフレームのptsやdtsが無効
+                if (timestamp_status & RGY_PTS_ALL_INVALID)       err_sts += _T("ALL_INVALID, "); //すべてのフレームのptsやdtsが無効
+                if (timestamp_status & RGY_PTS_NONKEY_INVALID)    err_sts += _T("NONKEY_INVALID, "); //キーフレーム以外のフレームのptsやdtsが無効
+                if (timestamp_status & RGY_PTS_DUPLICATE)         err_sts += _T("PTS_DUPLICATE, "); //重複するpts/dtsが存在する
+                if (timestamp_status & RGY_DTS_SOMETIMES_INVALID) err_sts += _T("DTS_SOMETIMES_INVALID, "); //時折、無効なdtsを得る
+                err_sts = err_sts.substr(0, err_sts.length()-2);
+
+                PrintMes(RGY_LOG_ERROR, _T("timestamp not acquired successfully from input stream, %s cannot be used. \n  [0x%x] %s\n"),
+                    err_target.c_str(), (uint32_t)timestamp_status, err_sts.c_str());
+                return MFX_ERR_UNKNOWN;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("timestamp check: 0x%x\n"), timestamp_status);
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("%s can only be used with avhw /avsw reader.\n"), err_target.c_str());
+            return MFX_ERR_UNKNOWN;
+        }
+    } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
+        m_nAVSyncMode |= RGY_AVSYNC_VFR;
+        const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
+        if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
+#if ENCODER_NVENC
+            if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff) {
+                m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 8);
+            }
+#endif
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
+    }
+#if 0
+    if (inputParam->common.dynamicHdr10plusJson.length() > 0) {
+        m_hdr10plus = initDynamicHDR10Plus(inputParam->common.dynamicHdr10plusJson, m_pNVLog);
+        if (!m_hdr10plus) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to initialize hdr10plus reader.\n"));
+            return MFX_ERR_UNKNOWN;
+        }
+    }
+#endif
+#endif //#if ENABLE_AVSW_READER
     return MFX_ERR_NONE;
+#else
+    return MFX_ERR_UNSUPPORTED;
+#endif //#if ENABLE_RAW_READER
 }
 
 mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
-    auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
-    auto cropInfo = m_pFileReader->GetInputCropInfo();
+    const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
 
     if ((pParams->memType & HW_MEMORY)
         && (inputFrameInfo.csp == RGY_CSP_NV16 || inputFrameInfo.csp == RGY_CSP_P210)) {
         PrintMes(RGY_LOG_WARN, _T("Currently yuv422 surfaces are not supported by d3d9/d3d11 memory.\n"));
         PrintMes(RGY_LOG_WARN, _T("Switching to system memory.\n"));
         pParams->memType = SYSTEM_MEMORY;
-    }
-
-    //読み込み時に取得されていれば、それを使用する
-    if (inputFrameInfo.srcWidth) {
-        pParams->nWidth = (mfxU16)inputFrameInfo.srcWidth;
-    }
-
-    if (inputFrameInfo.srcHeight) {
-        pParams->nHeight = (mfxU16)inputFrameInfo.srcHeight;
-    }
-
-    if (pParams->nPicStruct == RGY_PICSTRUCT_UNKNOWN) {
-        pParams->nPicStruct = (mfxU16)picstruct_rgy_to_enc(inputFrameInfo.picstruct);
-    }
-
-    if ((!pParams->nFPSRate || !pParams->nFPSScale) && inputFrameInfo.fpsN && inputFrameInfo.fpsD) {
-        pParams->nFPSRate = inputFrameInfo.fpsN;
-        pParams->nFPSScale = inputFrameInfo.fpsD;
-    }
-
-    if (RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] > 8) {
-        pParams->inputBitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] - inputFrameInfo.shift);
-        pParams->inputBitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputFrameInfo.csp] - inputFrameInfo.shift);
-    }
-
-    //picstructが設定されていない場合、プログレッシブとして扱う
-    if (pParams->nPicStruct == MFX_PICSTRUCT_UNKNOWN) {
-        pParams->nPicStruct = MFX_PICSTRUCT_PROGRESSIVE;
-    }
-
-    int h_mul = 2;
-    bool output_interlaced = ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) != 0 && !pParams->vpp.deinterlace);
-    if (output_interlaced) {
-        h_mul *= 2;
-    }
-    //crop設定の確認
-    if (pParams->sInCrop.e.left % 2 != 0 || pParams->sInCrop.e.right % 2 != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (pParams->sInCrop.e.bottom % h_mul != 0 || pParams->sInCrop.e.up % h_mul != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (0 == pParams->nWidth || 0 == pParams->nHeight) {
-        PrintMes(RGY_LOG_ERROR, _T("--input-res must be specified with raw input.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (pParams->nFPSRate == 0 || pParams->nFPSScale == 0) {
-        PrintMes(RGY_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (   pParams->nWidth < (pParams->sInCrop.e.left + pParams->sInCrop.e.right)
-        || pParams->nHeight < (pParams->sInCrop.e.bottom + pParams->sInCrop.e.up)) {
-            PrintMes(RGY_LOG_ERROR, _T("crop size is too big.\n"));
-            return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-
-    //出力解像度が設定されていない場合は、入力解像度と同じにする
-    if (pParams->nDstWidth == 0) {
-        pParams->nDstWidth = pParams->nWidth -  (mfxU16)(pParams->sInCrop.e.left + pParams->sInCrop.e.right);
-    }
-
-    if (pParams->nDstHeight == 0) {
-        pParams->nDstHeight = pParams->nHeight - (mfxU16)(pParams->sInCrop.e.bottom + pParams->sInCrop.e.up);
-    }
-
-    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-        //QSVデコードを使わない場合には、入力段階でCropが行われる
-        pParams->nWidth -= (mfxU16)(pParams->sInCrop.e.left + pParams->sInCrop.e.right);
-        pParams->nHeight -= (mfxU16)(pParams->sInCrop.e.bottom + pParams->sInCrop.e.up);
-    }
-
-    //入力解像度と出力解像度が一致しないときはリサイズが必要なので、vppを有効にする
-    if (pParams->nDstHeight != pParams->nHeight || pParams->nDstWidth != pParams->nWidth) {
-        pParams->vpp.bEnable = true;
-        pParams->vpp.bUseResize = true;
-    } else {
-        pParams->vpp.bUseResize = false;
-    }
-
-    //必要ならばSAR比の指定を行う
-    if ((!pParams->nPAR[0] || !pParams->nPAR[1]) //SAR比の指定がない
-        && inputFrameInfo.sar[0] && inputFrameInfo.sar[1] //入力側からSAR比を取得ずみ
-        && !pParams->vpp.bUseResize) { //リサイズは行われない
-        pParams->nPAR[0] = inputFrameInfo.sar[0];
-        pParams->nPAR[1] = inputFrameInfo.sar[1];
-    }
-
-    if (pParams->nDstWidth % 2 != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("output width should be a multiple of 2."));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-
-    if (pParams->nDstHeight % h_mul != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (pParams->vpp.rotate) {
-#if defined(_WIN32) || defined(_WIN64)
-        switch (pParams->vpp.rotate) {
-        case MFX_ANGLE_0:
-        case MFX_ANGLE_180:
-            break;
-        case MFX_ANGLE_90:
-        case MFX_ANGLE_270:
-            //縦横の解像度を入れ替える
-            std::swap(pParams->nDstWidth, pParams->nDstHeight);
-            break;
-        default:
-            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate of %d degree is not supported.\n"), (int)pParams->vpp.rotate);
-            return MFX_ERR_UNSUPPORTED;
-        }
-        //vpp-rotateにはd3d11メモリが必要
-        if (!(pParams->memType & D3D11_MEMORY) || (pParams->memType & D3D9_MEMORY)) {
-            PrintMes(RGY_LOG_WARN, _T("vpp-rotate requires d3d11 surface, forcing d3d11 surface.\n"));
-        }
-        pParams->memType = D3D11_MEMORY;
-#else
-        PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
-        return MFX_ERR_UNSUPPORTED;
-#endif
-    }
-    if (pParams->vpp.subburn.nTrack || pParams->vpp.subburn.pFilePath) {
-#if defined(_WIN32) || defined(_WIN64)
-#if MFX_D3D11_SUPPORT
-        uint8_t memType = pParams->memType;
-        //d3d11モードはWin8以降
-        if (!check_OS_Win8orLater()) {
-            memType &= (~D3D11_MEMORY);
-        }
-        //d3d11モードが必要なら、vpp-subは実行できない
-        if (HW_MEMORY == (memType & HW_MEMORY) && check_if_d3d11_necessary()) {
-            memType &= (~D3D11_MEMORY);
-            PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode required on this system, but vpp-sub does not support d3d11 mode.\n"));
-            return MFX_ERR_UNSUPPORTED;
-        }
-        //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-subは競合する
-        if (pParams->vpp.rotate) {
-            PrintMes(RGY_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
-            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
-            return MFX_ERR_UNSUPPORTED;
-        }
-#endif //#if MFX_D3D11_SUPPORT
-#else
-        //Linuxでのカスタムvppには systemメモリが必要
-        if (pParams->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
-            PrintMes(RGY_LOG_WARN, _T("vpp-sub requires system surface, forcing system surface.\n"));
-            pParams->memType = SYSTEM_MEMORY;
-        }
-#endif
-    }
-
-#if !(defined(_WIN32) || defined(_WIN64))
-    //Linuxでのカスタムvppには systemメモリが必要
-    if (pParams->vpp.delogo.pFilePath) {
-        if (pParams->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
-            PrintMes(RGY_LOG_WARN, _T("vpp-delogo requires system surface, forcing system surface.\n"));
-            pParams->memType = SYSTEM_MEMORY;
-        }
-    }
-#endif
-
-    //フレームレートのチェック
-    if (pParams->nFPSRate == 0 || pParams->nFPSScale == 0) {
-        PrintMes(RGY_LOG_ERROR, _T("unable to parse fps data.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    mfxU32 OutputFPSRate = pParams->nFPSRate;
-    mfxU32 OutputFPSScale = pParams->nFPSScale;
-    mfxU32 outputFrames = inputFrameInfo.frames;
-
-    if ((pParams->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-        CHECK_RANGE_LIST(pParams->vpp.deinterlace, list_deinterlace, "vpp-deinterlace");
-        if (pParams->nAVSyncMode == RGY_AVSYNC_FORCE_CFR
-            && (pParams->vpp.deinterlace == MFX_DEINTERLACE_IT
-             || pParams->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL
-             || pParams->vpp.deinterlace == MFX_DEINTERLACE_BOB
-             || pParams->vpp.deinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
-            PrintMes(RGY_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, pParams->vpp.deinterlace));
-            return MFX_ERR_INVALID_VIDEO_PARAM;
-        }
-
-        switch (pParams->vpp.deinterlace) {
-        case MFX_DEINTERLACE_IT:
-        case MFX_DEINTERLACE_IT_MANUAL:
-            OutputFPSRate = OutputFPSRate * 4;
-            OutputFPSScale = OutputFPSScale * 5;
-            outputFrames = (outputFrames * 4) / 5;
-            break;
-        case MFX_DEINTERLACE_BOB:
-        case MFX_DEINTERLACE_AUTO_DOUBLE:
-            OutputFPSRate = OutputFPSRate * 2;
-            outputFrames *= 2;
-            break;
-        default:
-            break;
-        }
-    }
-    switch (pParams->vpp.fpsConversion) {
-    case FPS_CONVERT_MUL2:
-        OutputFPSRate = OutputFPSRate * 2;
-        outputFrames *= 2;
-        break;
-    case FPS_CONVERT_MUL2_5:
-        OutputFPSRate = OutputFPSRate * 5 / 2;
-        outputFrames = outputFrames * 5 / 2;
-        break;
-    default:
-        break;
-    }
-    auto gcd = rgy_gcd(OutputFPSRate, OutputFPSScale);
-    OutputFPSRate /= gcd;
-    OutputFPSScale /= gcd;
-    double inputFileDuration = 0.0;
-#if ENABLE_AVSW_READER
-    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-    if (pAVCodecReader) {
-        inputFileDuration = pAVCodecReader->GetInputVideoDuration();
-    }
-#endif //#if ENABLE_AVSW_READER
-    m_pEncSatusInfo->Init(OutputFPSRate, OutputFPSScale, outputFrames, inputFileDuration, m_trimParam, m_pQSVLog, m_pPerfMonitor);
-    PrintMes(RGY_LOG_DEBUG, _T("CheckParam: %dx%d%s, %d:%d, %d/%d, %d frames\n"),
-        pParams->nDstWidth, pParams->nDstHeight, (output_interlaced) ? _T("i") : _T("p"),
-        pParams->nPAR[0], pParams->nPAR[1], OutputFPSRate, OutputFPSScale, outputFrames);
-
-    if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
-        m_pPerfMonitor->SetEncStatus(m_pEncSatusInfo);
     }
 
     //デコードを行う場合は、入力バッファサイズを常に1に設定する (そうしないと正常に動かない)
@@ -3142,16 +2480,209 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     //入力バッファサイズの範囲チェック
     pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
 
-    if (pParams->nAVSyncMode) {
+    if (pParams->common.AVSyncMode) {
 #if ENABLE_AVSW_READER
         if (std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr) {
 #else
         if (true) {
 #endif
             PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with avsw/avhw reader, disabled.\n"));
-            pParams->nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
+            pParams->common.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         }
     }
+
+    return MFX_ERR_NONE;
+}
+
+mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
+    int h_mul = 2;
+    bool output_interlaced = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0 && !inputParam->vpp.deinterlace);
+    if (output_interlaced) {
+        h_mul *= 2;
+    }
+    //crop設定の確認
+    if (inputParam->input.crop.e.left % 2 != 0 || inputParam->input.crop.e.right % 2 != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (inputParam->input.crop.e.bottom % h_mul != 0 || inputParam->input.crop.e.up % h_mul != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (0 == inputParam->input.srcWidth || 0 == inputParam->input.srcHeight) {
+        PrintMes(RGY_LOG_ERROR, _T("--input-res must be specified with raw input.\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (   inputParam->input.srcWidth < (inputParam->input.crop.e.left + inputParam->input.crop.e.right)
+        || inputParam->input.srcHeight < (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up)) {
+            PrintMes(RGY_LOG_ERROR, _T("crop size is too big.\n"));
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+
+    //出力解像度が設定されていない場合は、入力解像度と同じにする
+    if (inputParam->input.dstWidth == 0) {
+        inputParam->input.dstWidth = inputParam->input.srcWidth - (inputParam->input.crop.e.left + inputParam->input.crop.e.right);
+    }
+
+    if (inputParam->input.dstHeight == 0) {
+        inputParam->input.dstHeight = inputParam->input.srcHeight - (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up);
+    }
+
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+        //QSVデコードを使わない場合には、入力段階でCropが行われる
+        inputParam->input.srcWidth -= (inputParam->input.crop.e.left + inputParam->input.crop.e.right);
+        inputParam->input.srcHeight -= (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up);
+    }
+
+    //入力解像度と出力解像度が一致しないときはリサイズが必要なので、vppを有効にする
+    if (inputParam->input.dstHeight != inputParam->input.srcHeight
+        || inputParam->input.dstWidth != inputParam->input.srcWidth) {
+        inputParam->vpp.bEnable = true;
+        inputParam->vpp.bUseResize = true;
+    } else {
+        inputParam->vpp.bUseResize = false;
+    }
+
+    if (inputParam->input.dstWidth % 2 != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("output width should be a multiple of 2."));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+
+    if (inputParam->input.dstHeight % h_mul != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (inputParam->vpp.rotate) {
+#if defined(_WIN32) || defined(_WIN64)
+        switch (inputParam->vpp.rotate) {
+        case MFX_ANGLE_0:
+        case MFX_ANGLE_180:
+            break;
+        case MFX_ANGLE_90:
+        case MFX_ANGLE_270:
+            //縦横の解像度を入れ替える
+            std::swap(inputParam->input.dstWidth, inputParam->input.dstHeight);
+            break;
+        default:
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate of %d degree is not supported.\n"), (int)inputParam->vpp.rotate);
+            return MFX_ERR_UNSUPPORTED;
+        }
+        //vpp-rotateにはd3d11メモリが必要
+        if (!(inputParam->memType & D3D11_MEMORY) || (inputParam->memType & D3D9_MEMORY)) {
+            PrintMes(RGY_LOG_WARN, _T("vpp-rotate requires d3d11 surface, forcing d3d11 surface.\n"));
+        }
+        inputParam->memType = D3D11_MEMORY;
+#else
+        PrintMes(RGY_LOG_ERROR, _T("vpp-rotate is not supported on this platform.\n"));
+        return MFX_ERR_UNSUPPORTED;
+#endif
+    }
+    if (inputParam->vpp.subburn.nTrack || inputParam->vpp.subburn.pFilePath) {
+#if defined(_WIN32) || defined(_WIN64)
+#if MFX_D3D11_SUPPORT
+        uint8_t memType = inputParam->memType;
+        //d3d11モードはWin8以降
+        if (!check_OS_Win8orLater()) {
+            memType &= (~D3D11_MEMORY);
+        }
+        //d3d11モードが必要なら、vpp-subは実行できない
+        if (HW_MEMORY == (memType & HW_MEMORY) && check_if_d3d11_necessary()) {
+            memType &= (~D3D11_MEMORY);
+            PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode required on this system, but vpp-sub does not support d3d11 mode.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+        //d3d11を要求するvpp-rotateとd3d11では実行できないvpp-subは競合する
+        if (inputParam->vpp.rotate) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-sub could not be used with vpp-rotate.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rotate requires d3d11 mode, but vpp-sub does not support d3d11 mode.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+#endif //#if MFX_D3D11_SUPPORT
+#else
+        //Linuxでのカスタムvppには systemメモリが必要
+        if (inputParam->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
+            PrintMes(RGY_LOG_WARN, _T("vpp-sub requires system surface, forcing system surface.\n"));
+            inputParam->memType = SYSTEM_MEMORY;
+        }
+#endif
+    }
+
+#if !(defined(_WIN32) || defined(_WIN64))
+    //Linuxでのカスタムvppには systemメモリが必要
+    if (inputParam->vpp.delogo.pFilePath) {
+        if (inputParam->memType & (D3D9_MEMORY | D3D11_MEMORY)) {
+            PrintMes(RGY_LOG_WARN, _T("vpp-delogo requires system surface, forcing system surface.\n"));
+            inputParam->memType = SYSTEM_MEMORY;
+        }
+    }
+#endif
+
+    //フレームレートのチェック
+    if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("unable to parse fps data.\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+    m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
+
+    if (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
+        CHECK_RANGE_LIST(inputParam->vpp.deinterlace, list_deinterlace, "vpp-deinterlace");
+        if (inputParam->common.AVSyncMode == RGY_AVSYNC_FORCE_CFR
+            && (inputParam->vpp.deinterlace == MFX_DEINTERLACE_IT
+             || inputParam->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL
+             || inputParam->vpp.deinterlace == MFX_DEINTERLACE_BOB
+             || inputParam->vpp.deinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
+            PrintMes(RGY_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, inputParam->vpp.deinterlace));
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
+
+        switch (inputParam->vpp.deinterlace) {
+        case MFX_DEINTERLACE_IT:
+        case MFX_DEINTERLACE_IT_MANUAL:
+            m_encFps *= rgy_rational<int>(4, 5);
+            break;
+        case MFX_DEINTERLACE_BOB:
+        case MFX_DEINTERLACE_AUTO_DOUBLE:
+            m_encFps *= 2;
+            break;
+        default:
+            break;
+        }
+    }
+    switch (inputParam->vpp.fpsConversion) {
+    case FPS_CONVERT_MUL2:
+        m_encFps *= 2;
+        break;
+    case FPS_CONVERT_MUL2_5:
+        m_encFps *= rgy_rational<int>(5, 2);
+        break;
+    default:
+        break;
+    }
+    double inputFileDuration = 0.0;
+#if ENABLE_AVSW_READER
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+    if (pAVCodecReader) {
+        inputFileDuration = pAVCodecReader->GetInputVideoDuration();
+    }
+#endif //#if ENABLE_AVSW_READER
+
+    mfxStatus sts = MFX_ERR_NONE;
+
+    sts = InitMfxVppParams(inputParam);
+    if (sts < MFX_ERR_NONE) return sts;
+
+    sts = CreateVppExtBuffers(inputParam);
+    if (sts < MFX_ERR_NONE) return sts;
+
+    sts = InitVppPrePlugins(inputParam);
+    if (sts < MFX_ERR_NONE) return sts;
+
+    sts = InitVppPostPlugins(inputParam);
+    if (sts < MFX_ERR_NONE) return sts;
 
     return MFX_ERR_NONE;
 }
@@ -3291,9 +2822,30 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
 
 mfxStatus CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
-    m_pQSVLog.reset(new RGYLog(pParams->pStrLogFile, pParams->nLogLevel));
-    if (pParams->pStrLogFile) {
-        m_pQSVLog->writeFileHeader(pParams->strDstFile);
+    m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel));
+    if (pParams->ctrl.logfile.length() > 0) {
+        m_pQSVLog->writeFileHeader(pParams->common.outputFilename.c_str());
+    }
+    return MFX_ERR_NONE;
+}
+
+mfxStatus CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
+    const bool bLogOutput = inputParam->ctrl.perfMonitorSelect || inputParam->ctrl.perfMonitorSelectMatplot;
+    tstring perfMonLog;
+    if (bLogOutput) {
+        perfMonLog = inputParam->common.outputFilename + _T("_perf.csv");
+    }
+    CPerfMonitorPrm perfMonitorPrm = { 0 };
+    if (m_pPerfMonitor->init(perfMonLog.c_str(), inputParam->pythonPath.c_str(), (bLogOutput) ? inputParam->ctrl.perfMonitorInterval : 1000,
+        (int)inputParam->ctrl.perfMonitorSelect, (int)inputParam->ctrl.perfMonitorSelectMatplot,
+#if defined(_WIN32) || defined(_WIN64)
+        std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
+#else
+        nullptr,
+#endif
+        m_pQSVLog, &perfMonitorPrm)) {
+        PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
+        m_pPerfMonitor.reset();
     }
     return MFX_ERR_NONE;
 }
@@ -3307,29 +2859,28 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
 
     mfxStatus sts = MFX_ERR_NONE;
 
+    pParams->input.csp = EncoderCsp(pParams, &pParams->input.shift);
+
     if (pParams->bBenchmark) {
-        pParams->nAVMux = RGY_MUX_NONE;
-        if (pParams->nAudioSelectCount) {
-            for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-                rgy_free(pParams->ppAudioSelectList[i]);
+        pParams->common.AVMuxTarget = RGY_MUX_NONE;
+        if (pParams->common.nAudioSelectCount) {
+            for (int i = 0; i < pParams->common.nAudioSelectCount; i++) {
+                rgy_free(pParams->common.ppAudioSelectList[i]);
             }
-            rgy_free(pParams->ppAudioSelectList);
-            pParams->nAudioSelectCount = 0;
+            rgy_free(pParams->common.ppAudioSelectList);
+            pParams->common.nAudioSelectCount = 0;
             PrintMes(RGY_LOG_WARN, _T("audio copy or audio encoding disabled on benchmark mode.\n"));
         }
-        if (pParams->nSubtitleSelectCount) {
-            pParams->nSubtitleSelectCount = 0;
+        if (pParams->common.nSubtitleSelectCount) {
+            pParams->common.nSubtitleSelectCount = 0;
             PrintMes(RGY_LOG_WARN, _T("subtitle copy disabled on benchmark mode.\n"));
         }
-        if (pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot) {
-            pParams->nPerfMonitorSelect = 0;
-            pParams->nPerfMonitorSelectMatplot = 0;
+        if (pParams->ctrl.perfMonitorSelect || pParams->ctrl.perfMonitorSelectMatplot) {
+            pParams->ctrl.perfMonitorSelect = 0;
+            pParams->ctrl.perfMonitorSelectMatplot = 0;
             PrintMes(RGY_LOG_WARN, _T("performance monitor disabled on benchmark mode.\n"));
         }
-        static const TCHAR *RAW_FORMAT = _T("raw");
-        static const size_t RAW_FORMAT_LEN = _tcslen(RAW_FORMAT) + 1;
-        pParams->pAVMuxOutputFormat = (TCHAR *)realloc(pParams->pAVMuxOutputFormat, RAW_FORMAT_LEN * sizeof(RAW_FORMAT[0]));
-        _tcscpy_s(pParams->pAVMuxOutputFormat, RAW_FORMAT_LEN, RAW_FORMAT);
+        pParams->common.muxOutputFormat = _T("raw");
         PrintMes(RGY_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
 
@@ -3338,31 +2889,14 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
         pParams->memType = SYSTEM_MEMORY;
     }
-    if (true) {
-        m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
-        const bool bLogOutput = pParams->nPerfMonitorSelect || pParams->nPerfMonitorSelectMatplot;
-        tstring perfMonLog;
-        if (bLogOutput) {
-            perfMonLog = tstring(pParams->strDstFile) + _T("_perf.csv");
-        }
-        if (m_pPerfMonitor->init(perfMonLog.c_str(), pParams->pPythonPath, (bLogOutput) ? pParams->nPerfMonitorInterval : 1000,
-            (int)pParams->nPerfMonitorSelect, (int)pParams->nPerfMonitorSelectMatplot,
-#if defined(_WIN32) || defined(_WIN64)
-            std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),
-#else
-            nullptr,
-#endif
-            m_pQSVLog, nullptr)) {
-            PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
-            m_pPerfMonitor.reset();
-        }
-    }
 
     m_nMFXThreads = pParams->nSessionThreads;
-    m_nAVSyncMode = pParams->nAVSyncMode;
+    m_nAVSyncMode = pParams->common.AVSyncMode;
 
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
+
+    m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
 
     sts = InitInput(pParams);
     if (sts < MFX_ERR_NONE) return sts;
@@ -3384,19 +2918,16 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitMfxDecParams(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
+    sts = InitFilters(pParams);
+    if (sts < MFX_ERR_NONE) return sts;
+
     sts = InitMfxEncParams(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
-    sts = InitMfxVppParams(pParams);
+    sts = InitChapters(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
-    sts = CreateVppExtBuffers(pParams);
-    if (sts < MFX_ERR_NONE) return sts;
-
-    sts = InitVppPrePlugins(pParams);
-    if (sts < MFX_ERR_NONE) return sts;
-
-    sts = InitVppPostPlugins(pParams);
+    sts = InitPerfMonitor(pParams);
     if (sts < MFX_ERR_NONE) return sts;
 
     sts = InitOutput(pParams);
@@ -3410,10 +2941,9 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         }
     }
 
-
     //必要な場合にはvppを作成する
-    if (   pParams->nWidth  != pParams->nDstWidth
-        || pParams->nHeight != pParams->nDstHeight
+    if (   pParams->input.srcWidth  != pParams->input.dstWidth
+        || pParams->input.srcHeight != pParams->input.dstHeight
         || m_mfxVppParams.vpp.In.FourCC         != m_mfxVppParams.vpp.Out.FourCC
         || m_mfxVppParams.vpp.In.BitDepthLuma   != m_mfxVppParams.vpp.Out.BitDepthLuma
         || m_mfxVppParams.vpp.In.BitDepthChroma != m_mfxVppParams.vpp.Out.BitDepthChroma
@@ -3430,9 +2960,9 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
         VppExtMes += mes;
     }
-    if (pParams->nWidth  != pParams->nDstWidth ||
-        pParams->nHeight != pParams->nDstHeight) {
-        tstring mes = strsprintf(_T("Resizer, %dx%d -> %dx%d"), pParams->nWidth, pParams->nHeight, pParams->nDstWidth, pParams->nDstHeight);
+    if (pParams->input.srcWidth  != pParams->input.dstWidth ||
+        pParams->input.srcHeight != pParams->input.dstHeight) {
+        tstring mes = strsprintf(_T("Resizer, %dx%d -> %dx%d"), pParams->input.srcWidth, pParams->input.srcHeight, pParams->input.dstWidth, pParams->input.dstHeight);
         if (pParams->vpp.scalingQuality != MFX_SCALING_MODE_DEFAULT) {
             mes += tstring(_T(" (")) + get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.scalingQuality) + _T(")");
         }
@@ -3447,7 +2977,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
     PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
-    m_nProcSpeedLimit = pParams->nProcSpeedLimit;
+    m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
     m_nAsyncDepth = (mfxU16)clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1), 8);
@@ -3473,7 +3003,7 @@ void CQSVPipeline::Close() {
     //PrintMes(RGY_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
-    m_pEncSatusInfo.reset();
+    m_pStatus.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_EncThread...\n"));
     m_EncThread.Close();
@@ -3718,7 +3248,7 @@ mfxStatus CQSVPipeline::GetNextFrame(mfxFrameSurface1 **pSurface) {
         return m_EncThread.m_stsThread;
     }
     //読み込み完了による終了
-    if (m_EncThread.m_stsThread == MFX_ERR_MORE_DATA && m_EncThread.m_nFrameGet == m_pEncSatusInfo->m_sData.frameIn) {
+    if (m_EncThread.m_stsThread == MFX_ERR_MORE_DATA && m_EncThread.m_nFrameGet == m_pStatus->m_sData.frameIn) {
         PrintMes(RGY_LOG_DEBUG, _T("GetNextFrame: Frame read finished.\n"));
         return m_EncThread.m_stsThread;
     }
@@ -3877,9 +3407,9 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 
     m_EncThread.Close();
 
-    //ここでファイル出力の完了を確認してから、結果表示(m_pEncSatusInfo->WriteResults)を行う
+    //ここでファイル出力の完了を確認してから、結果表示(m_pStatus->WriteResults)を行う
     m_pFileWriter->WaitFin();
-    m_pEncSatusInfo->WriteResults();
+    m_pStatus->WriteResults();
 
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
     return sts;
@@ -3920,8 +3450,8 @@ mfxStatus CQSVPipeline::RunEncode() {
 
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     //QSVEncでは、常にTimestampは90kHzベースとする(m_outputTimebaseに設定済み)
-    int64_t nOutFirstPts = -1;  //入力のptsに対する補正 (スケール: calcTimebase)
-    int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: calcTimebase)
+    int64_t nOutFirstPts = -1;  //入力のptsに対する補正 (スケール: m_outputTimebase)
+    int64_t nOutEstimatedPts = 0; //固定fpsを仮定した時のfps (スケール: m_outputTimebase)
     const auto hw_timebase = rgy_rational<int>(1, HW_TIMEBASE);
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
 #if ENABLE_AVSW_READER
@@ -3934,17 +3464,16 @@ mfxStatus CQSVPipeline::RunEncode() {
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
     const auto srcTimebase = (pStreamIn) ? rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den) : inputFpsTimebase;
-    const auto calcTimebase = (pStreamIn && (m_nAVSyncMode & RGY_AVSYNC_VFR)) ? srcTimebase : rgy_rational<int>(1, 4) * inputFpsTimebase;
     vector<AVPacket> packetList;
 #else
-    const auto calcTimebase = rgy_rational<int>(1, 4) * inputFpsTimebase;
+    const auto m_outputTimebase = rgy_rational<int>(1, 4) * inputFpsTimebase;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
 #endif
-    const auto nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, inputFpsTimebase, calcTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: calcTimebase)
+    const auto nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, inputFpsTimebase, m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
 
-    m_pEncSatusInfo->SetStart();
+    m_pStatus->SetStart();
 
 #if ENABLE_AVSW_READER
     //streamのindexから必要なwriteへのポインタを返すテーブルを作成
@@ -4174,10 +3703,10 @@ mfxStatus CQSVPipeline::RunEncode() {
         return dec_sts;
     };
 
-    int64_t prevPts = 0; //(calcTimebase基準)
+    int64_t prevPts = 0; //(m_outputTimebase基準)
     auto check_pts = [&]() {
-        int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration (calcTimebase基準)
-        int64_t outPts = nOutEstimatedPts; //(calcTimebase基準)
+        int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration (m_outputTimebase基準)
+        int64_t outPts = nOutEstimatedPts; //(m_outputTimebase基準)
 #if ENABLE_AVSW_READER
         if (framePosList && pNextFrame && (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR))) {
             auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
@@ -4185,9 +3714,9 @@ mfxStatus CQSVPipeline::RunEncode() {
                 PrintMes(RGY_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
                 return MFX_ERR_UNKNOWN;
             }
-            outPts = rational_rescale(pos.pts, srcTimebase, calcTimebase);
+            outPts = rational_rescale(pos.pts, srcTimebase, m_outputTimebase);
             if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && pos.duration > 0) {
-                outDuration = rational_rescale(pos.duration, srcTimebase, calcTimebase);
+                outDuration = rational_rescale(pos.duration, srcTimebase, m_outputTimebase);
             }
             if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_trimParam.list).first) {
                 nOutFirstPts += (outPts - prevPts);
@@ -4254,9 +3783,9 @@ mfxStatus CQSVPipeline::RunEncode() {
 #endif //#if ENABLE_AVSW_READER
         nOutEstimatedPts += outDuration;
         prevPts = outPts;
-        pNextFrame->Data.TimeStamp = rational_rescale(outPts, calcTimebase, hw_timebase);
+        pNextFrame->Data.TimeStamp = rational_rescale(outPts, m_outputTimebase, hw_timebase);
         pNextFrame->Data.DataFlag &= (~MFX_FRAMEDATA_ORIGINAL_TIMESTAMP);
-        m_outputTimestamp.add(pNextFrame->Data.TimeStamp, rational_rescale(outDuration, calcTimebase, hw_timebase));
+        m_outputTimestamp.add(pNextFrame->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
         return MFX_ERR_NONE;
     };
 
@@ -4400,7 +3929,7 @@ mfxStatus CQSVPipeline::RunEncode() {
             pSurfCheckPts->Data.Locked--;
             pSurfCheckPts = nullptr;
         }
-        speedCtrl.wait(m_pEncSatusInfo->m_sData.frameIn);
+        speedCtrl.wait(m_pStatus->m_sData.frameIn);
 #if defined(_WIN32) || defined(_WIN64)
         //中断オブジェクトのチェック
         if (WaitForSingleObject(m_heAbort.get(), 0) == WAIT_OBJECT_0) {
@@ -4845,10 +4374,10 @@ mfxStatus CQSVPipeline::GetEncodeStatusData(EncodeStatusData *data) {
     if (NULL == data)
         return MFX_ERR_NULL_PTR;
 
-    if (NULL == m_pEncSatusInfo)
+    if (NULL == m_pStatus)
         return MFX_ERR_NOT_INITIALIZED;
 
-    *data = m_pEncSatusInfo->GetEncodeData();
+    *data = m_pStatus->GetEncodeData();
     return MFX_ERR_NONE;
 }
 

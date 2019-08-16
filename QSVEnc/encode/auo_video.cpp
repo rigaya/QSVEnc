@@ -71,9 +71,9 @@ typedef struct video_output_thread_t {
     int repeat;
 } video_output_thread_t;
 
-static int getLwiRealPath(char *path, size_t size) {
+static int getLwiRealPath(std::string& path) {
     int ret = 1;
-    FILE *fp = fopen(path, "rb");
+    FILE *fp = fopen(path.c_str(), "rb");
     if (fp) {
         char buffer[2048] = { 0 };
         while (nullptr != fgets(buffer, _countof(buffer), fp)) {
@@ -92,7 +92,7 @@ static int getLwiRealPath(char *path, size_t size) {
                 if (ptr != nullptr && qtr != nullptr) {
                     ptr++;
                     *qtr = '\0';
-                    strcpy_s(path, size, trim(ptr).c_str());
+                    path = trim(ptr);
                     ret = 0;
                     break;
                 }
@@ -435,47 +435,47 @@ void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
 static void set_conf_qsvp_avqsv_prm(sInputParams *enc_prm, const CONF_GUIEX *conf, const PRM_ENC *pe, AVQSV_PARM *avqsv_prm) {
     init_avqsv_prm(avqsv_prm);
 #if ENABLE_AVSW_READER
-    enc_prm->nInputFmt = RGY_INPUT_FMT_AVHW;
+    enc_prm->input.type = RGY_INPUT_FMT_AVHW;
 
     avqsv_prm->audioSelectList.push_back(&avqsv_prm->audioSelect);
     switch (conf->aud_avqsv.encoder) {
     case QSV_AUD_ENC_NONE:
         break;
     case QSV_AUD_ENC_COPY:
-        enc_prm->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        enc_prm->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         avqsv_prm->audioSelect.trackID = 1;
         avqsv_prm->audioSelect.encCodec = char_to_tstring(avqsv_prm->audioCodec);
         strcpy_s(avqsv_prm->audioCodec, RGY_AVCODEC_COPY);
-        enc_prm->ppAudioSelectList = avqsv_prm->audioSelectList.data();
-        enc_prm->nAudioSelectCount = 1;
+        enc_prm->common.ppAudioSelectList = avqsv_prm->audioSelectList.data();
+        enc_prm->common.nAudioSelectCount = 1;
         break;
     default:
-        enc_prm->nAVMux |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
+        enc_prm->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
         avqsv_prm->audioSelect.trackID = 1;
         avqsv_prm->audioSelect.encCodec = char_to_tstring(avqsv_prm->audioCodec);
         strcpy_s(avqsv_prm->audioCodec, list_avqsv_aud_encoder[get_cx_index(list_avqsv_aud_encoder, conf->aud_avqsv.encoder)].desc);
         avqsv_prm->audioSelect.encBitrate = conf->aud_avqsv.bitrate;
-        enc_prm->ppAudioSelectList = avqsv_prm->audioSelectList.data();
-        enc_prm->nAudioSelectCount = 1;
+        enc_prm->common.ppAudioSelectList = avqsv_prm->audioSelectList.data();
+        enc_prm->common.nAudioSelectCount = 1;
         break;
     }
-    enc_prm->nTrimCount = (uint16_t)conf->oth.link_prm.trim_count;
-    enc_prm->pTrimList = (enc_prm->nTrimCount) ? (sTrim *)conf->oth.link_prm.trim : nullptr;
+    enc_prm->common.nTrimCount = (uint16_t)conf->oth.link_prm.trim_count;
+    enc_prm->common.pTrimList = (enc_prm->common.nTrimCount) ? (sTrim *)conf->oth.link_prm.trim : nullptr;
 
     if (avqsv_prm->nSubtitleCopyAll) {
-        enc_prm->nSubtitleSelectCount = 1;
-        enc_prm->ppSubtitleSelectList = (SubtitleSelect **)malloc(sizeof(enc_prm->ppSubtitleSelectList));
-        enc_prm->ppSubtitleSelectList[0] = new SubtitleSelect();
-        enc_prm->ppSubtitleSelectList[0]->encCodec = RGY_AVCODEC_COPY;
-        enc_prm->ppSubtitleSelectList[0]->trackID = 0;
+        enc_prm->common.nSubtitleSelectCount = 1;
+        enc_prm->common.ppSubtitleSelectList = (SubtitleSelect **)malloc(sizeof(enc_prm->common.ppSubtitleSelectList));
+        enc_prm->common.ppSubtitleSelectList[0] = new SubtitleSelect();
+        enc_prm->common.ppSubtitleSelectList[0]->encCodec = RGY_AVCODEC_COPY;
+        enc_prm->common.ppSubtitleSelectList[0]->trackID = 0;
     }
-    strcpy_s(enc_prm->strDstFile, pe->temp_filename);
+    enc_prm->common.outputFilename = pe->temp_filename;
 
-    if ((enc_prm->nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) == FALSE) {
+    if ((enc_prm->input.picstruct & (RGY_PICSTRUCT_INTERLACED)) == FALSE) {
         enc_prm->vpp.deinterlace = MFX_DEINTERLACE_NONE;
     }
-    if (check_ext(enc_prm->strSrcFile, { ".lwi" })) {
-        getLwiRealPath(enc_prm->strSrcFile, sizeof(enc_prm->strSrcFile));
+    if (check_ext(enc_prm->common.inputFilename.c_str(), { ".lwi" })) {
+        getLwiRealPath(enc_prm->common.inputFilename);
     }
 #endif //#if ENABLE_AVSW_READER
 }
@@ -489,18 +489,17 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
     ParseCmdError err;
     sInputParams enc_prm;
-    init_qsvp_prm(&enc_prm);
     parse_cmd(&enc_prm, conf->qsv.cmd, err);
     enc_prm.nBluray += (enc_prm.nBluray == 1 && sys_dat->exstg->s_local.force_bluray);
     enc_prm.bDisableTimerPeriodTuning = !sys_dat->exstg->s_local.timer_period_tuning;
-    enc_prm.nLogLevel = (mfxI16)sys_dat->exstg->s_log.log_level;
-    enc_prm.nHeight = 0;
-    enc_prm.nWidth = 0;
-    enc_prm.nFPSRate = 0;
-    enc_prm.nFPSScale = 0;
+    enc_prm.ctrl.loglevel = sys_dat->exstg->s_log.log_level;
+    enc_prm.input.srcHeight = 0;
+    enc_prm.input.srcWidth = 0;
+    enc_prm.input.fpsN = 0;
+    enc_prm.input.fpsD = 0;
     if (!enc_prm.vpp.bUseResize) {
-        enc_prm.nDstWidth = 0;
-        enc_prm.nDstHeight = 0;
+        enc_prm.input.dstWidth = 0;
+        enc_prm.input.dstHeight = 0;
     }
 
 #if ENABLE_AUO_LINK
@@ -530,7 +529,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     RGY_CSP rgy_output_csp;
     bool output_highbit_depth;
     get_csp_and_bitdepth(output_highbit_depth, rgy_output_csp, conf);
-    const bool interlaced = ((enc_prm.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) != 0;
+    const bool interlaced = ((enc_prm.input.picstruct & RGY_PICSTRUCT_INTERLACED)) != 0;
 
     CONVERT_CF_DATA pixel_data ={ 0 };
     set_pixel_data(&pixel_data, conf, oip->w, oip->h, output_highbit_depth, rgy_output_csp);

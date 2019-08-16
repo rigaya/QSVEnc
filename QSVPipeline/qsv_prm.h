@@ -38,6 +38,7 @@
 #include "convert_csp.h"
 #include "rgy_caption.h"
 #include "rgy_simd.h"
+#include "rgy_prm.h"
 
 #define QSVENCC_ABORT_EVENT _T("QSVEncC_abort_%u")
 
@@ -97,16 +98,25 @@ enum {
 struct VppDenoise {
     bool enable;
     int strength; // 0 - 100
+
+    VppDenoise();
+    ~VppDenoise() {};
 };
 
 struct VppMCTF {
     bool enable;
     int strength; // 0 - 20
+
+    VppMCTF();
+    ~VppMCTF() {};
 };
 
 struct VppDetailEnhance {
     bool enable;
     int strength; // 0 - 100
+
+    VppDetailEnhance();
+    ~VppDetailEnhance() {};
 };
 
 struct VppDelogo {
@@ -118,6 +128,9 @@ struct VppDelogo {
     int     YOffset;
     int     CbOffset;
     int     CrOffset;
+
+    VppDelogo();
+    ~VppDelogo() {};
 };
 
 struct VppSubburn {
@@ -125,6 +138,9 @@ struct VppSubburn {
     TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
     TCHAR *pCharEnc;  //字幕の文字コード
     int    nShaping;  //字幕を焼きこむときのモード
+
+    VppSubburn();
+    ~VppSubburn() {};
 };
 
 struct sVppParams {
@@ -150,11 +166,17 @@ struct sVppParams {
     VppDetailEnhance detail;
     VppDelogo delogo;
     VppSubburn subburn;
+
+    sVppParams();
+    ~sVppParams() {};
 };
 
-struct sInputParams
-{
-    mfxU16 nInputFmt;     // RGY_INUPT_FMT_xxx
+struct sInputParams {
+    VideoInfo input;              //入力する動画の情報
+    RGYParamCommon common;
+    RGYParamControl ctrl;
+    sVppParams vpp;
+
     mfxU16 nEncMode;      // RateControl
     mfxU16 nTargetUsage;  // Quality
     mfxU32 CodecId;       // H.264 only for this
@@ -166,11 +188,19 @@ struct sInputParams
     bool   bforceGOPSettings; // if true, GOP_STRICT is set
     mfxI16 nBframes;      // set sequential Bframes num, -1 is auto.
     mfxU16 nRef;          // set ref frames num.
+    mfxU32     nBitRate;
+    mfxU32     nMaxBitrate;
+    mfxU32     VBVBufsize;
     mfxU16 nQPI;          // QP for I frames
     mfxU16 nQPP;          // QP for P frames
     mfxU16 nQPB;          // QP for B frames
+    mfxU8  nQPMin[3];
+    mfxU8  nQPMax[3];
     mfxU16 nAVBRAccuarcy;    // param for AVBR algorithm, for API v1.3
     mfxU16 nAVBRConvergence; // param for AVBR algorithm, for API v1.3
+
+    mfxU16     nICQQuality;
+    mfxU16     nQVBRQuality;
 
     mfxU16 nSlices;       // number of slices, 0 is auto
 
@@ -182,26 +212,10 @@ struct sInputParams
     int    chromaloc;
 
     mfxU32 ColorFormat;   //YV12 or NV12
-    mfxU16 nPicStruct;    //Progressive or interlaced, and other flags
-    mfxU16 nWidth;        //width of input
-    mfxU16 nHeight;       //height of input
-    mfxU32 nFPSRate;      //fps rate of input
-    mfxU32 nFPSScale;     //fps scale of input
-    mfxU16 __nBitRate;
-    mfxU16 __nMaxBitrate;
-    mfxI16 nLogLevel;     //ログレベル
-
-    mfxU16 nDstWidth;     //output width
-    mfxU16 nDstHeight;    //input width
 
     mfxU8 memType;       //use d3d surface
-    bool __unused2;       //use QSV (hw encoding)
 
     mfxU16 nInputBufSize; //input buf size
-
-    bool   __unused;
-    void  *pPrivatePrm;
-
 
     mfxI32     nPAR[2]; //PAR比
     bool       bCAVLC;  //CAVLC
@@ -214,132 +228,62 @@ struct sInputParams
     mfxU16     MVC_flags;
     mfxU8      nBluray;
 
-    mfxU16     nVQPStrength;
-    mfxU16     nVQPSensitivity;
-
-    mfxU32     VBVBufsize;
-    mfxU16     reserved__[2];
-
-    mfxU16     nQuality; // quality parameter for JPEG encoder
-
-    mfxU8      bMBBRC;
+    bool       bMBBRC;
     bool       extBRC;
     bool       extBrcAdaptiveLTR;
 
     mfxU16     nLookaheadDepth;
     mfxU16     nTrellis;
 
-    TCHAR     *pStrLogFile; //ログファイル名へのポインタ
     mfxU16     nAsyncDepth;
     mfxI16     nOutputBufSizeMB;
 
-    mfxU16     bBPyramid;
-    mfxU8      bAdaptiveI;
-    mfxU8      bAdaptiveB;
+    bool       bBPyramid;
+    bool       bAdaptiveI;
+    bool       bAdaptiveB;
     mfxU16     nLookaheadDS;
 
-    mfxU16     nICQQuality;
-    mfxU8      bBenchmark;
+    bool       bDisableTimerPeriodTuning;
 
-    mfxU8      bDisableTimerPeriodTuning;
-
-    mfxU16     nQVBRQuality;
-
-    mfxU8      bIntraRefresh;
-    mfxU8      bNoDeblock;
-    mfxU8      nQPMin[3];
-    mfxU8      nQPMax[3];
+    bool       bIntraRefresh;
+    bool       bNoDeblock;
 
     mfxU16     nWinBRCSize;
 
     mfxU8      nMVCostScaling;
-    mfxU8      bDirectBiasAdjust;
-    mfxU8      bGlobalMotionAdjust;
-    mfxU8      bUseFixedFunc;
-    mfxU32     nBitRate;
-    mfxU32     nMaxBitrate;
-
-    mfxU16     nTrimCount;
-    sTrim     *pTrimList;
-    mfxU16     inputBitDepthLuma;
-    mfxU16     inputBitDepthChroma;
-    mfxU8      nAVMux; //RGY_MUX_xxx
-    mfxU16     nAVDemuxAnalyzeSec;
-
-    TCHAR     *pAVMuxOutputFormat;
-
-    mfxU8      nAudioSelectCount; //pAudioSelectの数
-    AudioSelect **ppAudioSelectList;
+    bool       bDirectBiasAdjust;
+    bool       bGlobalMotionAdjust;
+    bool       bUseFixedFunc;
 
     mfxI16     nSessionThreads;
     mfxU16     nSessionThreadPriority;
 
-    mfxU8      bCopyChapter;
-    mfxU8      nAudioResampler;
     mfxU8      nVP8Sharpness;
-    mfxU8      nAudioSourceCount;
-    TCHAR      **ppAudioSourceList;
 
     mfxU16     nWeightP;
     mfxU16     nWeightB;
     mfxU16     nFadeDetect;
-    int        nSubtitleSelectCount;
-    SubtitleSelect **ppSubtitleSelectList;
-    int        nDataSelectCount;
-    DataSelect **ppDataSelectList;
-    int64_t    nPerfMonitorSelect;
-    int64_t    nPerfMonitorSelectMatplot;
-    int        nPerfMonitorInterval;
-    TCHAR     *pPythonPath;
-    mfxU32     nBenchQuality; //ベンチマークの対象
-    int8_t     nOutputThread;
-    int8_t     nAudioThread;
-    int        threadCsp;
-    int        simdCsp;
 
-    muxOptList *pMuxOpt;
-    TCHAR     *pChapterFile;
-    uint32_t   nAudioIgnoreDecodeError;
-    RGYAVSync  nAVSyncMode;     //avsyncの方法 (RGY_AVSYNC_xxx)
-    uint16_t   nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
-    int8_t     nInputThread;
-    int8_t     unused;
-    float      fSeekSec; //指定された秒数分先頭を飛ばす
-    TCHAR     *pFramePosListLog;
     uint32_t   nFallback;
-    int        nVideoStreamId;
-    int8_t     nVideoTrack;
-    char      *videoCodecTag;
-    int8_t     bOutputAud;
-    int8_t     bOutputPicStruct;
-    int8_t     bChapterNoTrim;
+    bool       bOutputAud;
+    bool       bOutputPicStruct;
     int16_t    pQPOffset[8];
-    TCHAR     *pMuxVidTsLogFile;
-    TCHAR     *pAVInputFormat;
-    TCHAR     *pLogCopyFrameData;
-
-    sInputCrop sInCrop;
 
     mfxU16     nRepartitionCheck;
     int8_t     padding[2];
-    char      *sMaxCll;
-    char      *sMasterDisplay;
 
     int        hevc_ctu;
     int        hevc_sao;
     int        hevc_tskip;
     int        hevc_tier;
 
-    C2AFormat  caption2ass;
+    tstring    pythonPath;
 
-    int8_t     Reserved[980];
+    bool       bBenchmark;
+    mfxU32     nBenchQuality; //ベンチマークの対象
 
-    TCHAR strSrcFile[MAX_FILENAME_LEN];
-    TCHAR strDstFile[MAX_FILENAME_LEN];
-
-    mfxU16 nRotationAngle; //not supported
-
-    sVppParams vpp;
+    sInputParams();
+    ~sInputParams();
 };
 
 enum {
@@ -630,13 +574,6 @@ static inline const CX_DESC *get_profile_list(int CodecID) {
     }
 }
 
-const CX_DESC list_interlaced[] = {
-    { _T("none"), MFX_PICSTRUCT_PROGRESSIVE },
-    { _T("tff"),  MFX_PICSTRUCT_FIELD_TFF },
-    { _T("bff"),  MFX_PICSTRUCT_FIELD_BFF },
-    { NULL, 0 }
-};
-
 //表示用
 const CX_DESC list_quality[] = {
     { _T(" 1 - best quality"), MFX_TARGETUSAGE_BEST_QUALITY },
@@ -736,18 +673,6 @@ const CX_DESC list_vpp_scaling_quality[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_simd[] = {
-    { _T("auto"),     -1  },
-    { _T("none"),     NONE },
-    { _T("sse2"),     SSE2 },
-    { _T("sse3"),     SSE3|SSE2 },
-    { _T("ssse3"),    SSSE3|SSE3|SSE2 },
-    { _T("sse41"),    SSE41|SSSE3|SSE3|SSE2 },
-    { _T("avx"),      AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
-    { _T("avx2"),     AVX2|AVX|SSE42|SSE41|SSSE3|SSE3|SSE2 },
-    { NULL, 0 }
-};
-
 //define defaults
 const int QSV_DEFAULT_REF = 0;
 const int QSV_DEFAULT_GOP_LEN = 0;
@@ -794,7 +719,5 @@ const int QSV_VPP_MCTF_MIN = 1;
 const int QSV_VPP_MCTF_MAX = 20;
 const int QSV_VPP_DETAIL_ENHANCE_MIN = 0;
 const int QSV_VPP_DETAIL_ENHANCE_MAX = 100;
-
-void init_qsvp_prm(sInputParams *prm);
 
 #endif //_QSV_PRM_H_

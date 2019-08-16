@@ -175,16 +175,6 @@ mfxVersion get_mfx_libsw_version() {
     return get_mfx_lib_version(MFX_IMPL_SOFTWARE);
 }
 
-BOOL check_lib_version(mfxVersion value, mfxVersion required) {
-    if (value.Major < required.Major)
-        return FALSE;
-    if (value.Major > required.Major)
-        return TRUE;
-    if (value.Minor < required.Minor)
-        return FALSE;
-    return TRUE;
-}
-
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId) {
     std::vector<RGY_CSP> supportedCsp;
     MFXVideoDECODE dec(session);
@@ -1417,19 +1407,6 @@ CodecCsp getHWDecCodecCsp() {
 #else
     return CodecCsp();
 #endif
-}
-
-BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
-    mfxVersion value, required;
-    value.Version = _value;
-    required.Version = _required;
-    if (value.Major < required.Major)
-        return FALSE;
-    if (value.Major > required.Major)
-        return TRUE;
-    if (value.Minor < required.Minor)
-        return FALSE;
-    return TRUE;
 }
 
 int getCPUGen() {
