@@ -953,7 +953,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *pMuxAudio, AVOutputStreamPrm *pI
     pMuxAudio->nStreamIndexIn = pInputAudio->src.nIndex;
     pMuxAudio->nLastPtsIn = AV_NOPTS_VALUE;
     pMuxAudio->nLastPtsOut = AV_NOPTS_VALUE;
-    pMuxAudio->pFilter = _tcsdup(pInputAudio->filter.c_str());
+    pMuxAudio->pFilter = pInputAudio->filter.length() > 0 ? _tcsdup(pInputAudio->filter.c_str()) : nullptr;
     memcpy(pMuxAudio->pnStreamChannelSelect, pInputAudio->src.pnStreamChannelSelect, sizeof(pInputAudio->src.pnStreamChannelSelect));
     memcpy(pMuxAudio->pnStreamChannelOut,    pInputAudio->src.pnStreamChannelOut,    sizeof(pInputAudio->src.pnStreamChannelOut));
 
@@ -1931,7 +1931,7 @@ tstring RGYOutputAvcodec::GetWriterMes() {
                     audiostr += strsprintf(":%s", getChannelLayoutChar(av_get_channel_layout_nb_channels(audioStream.pnStreamChannelSelect[audioStream.nInSubStream]), audioStream.pnStreamChannelSelect[audioStream.nInSubStream]).c_str());
                 }
                 //フィルタ情報
-                if (audioStream.pFilter) {
+                if (audioStream.pFilter && _tcslen(audioStream.pFilter) > 0) {
                     audiostr += ":";
                     std::string filter_str;
                     auto filters = split(tchar_to_string(audioStream.pFilter, CP_UTF8), ",");
