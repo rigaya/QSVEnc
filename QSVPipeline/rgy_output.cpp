@@ -658,20 +658,22 @@ RGY_ERR initWriters(
                     continue;
                 }
                 const AudioSelect *pAudioSelect = nullptr;
-                for (int i = 0; i < (int)common->nAudioSelectCount; i++) {
-                    if (trackID(stream.trackId) == common->ppAudioSelectList[i]->trackID
-                        && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
-                        pAudioSelect = common->ppAudioSelectList[i];
-                        break;
-                    }
-                }
-                if (pAudioSelect == nullptr) {
-                    //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
-                    for (int i = 0; i < common->nAudioSelectCount; i++) {
-                        if (common->ppAudioSelectList[i]->trackID == 0
+                if (streamMediaType == AVMEDIA_TYPE_AUDIO) {
+                    for (int i = 0; i < (int)common->nAudioSelectCount; i++) {
+                        if (trackID(stream.trackId) == common->ppAudioSelectList[i]->trackID
                             && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
                             pAudioSelect = common->ppAudioSelectList[i];
                             break;
+                        }
+                    }
+                    if (pAudioSelect == nullptr) {
+                        //一致するTrackIDがなければ、trackID = 0 (全指定)を探す
+                        for (int i = 0; i < common->nAudioSelectCount; i++) {
+                            if (common->ppAudioSelectList[i]->trackID == 0
+                                && common->ppAudioSelectList[i]->extractFilename.length() == 0) {
+                                pAudioSelect = common->ppAudioSelectList[i];
+                                break;
+                            }
                         }
                     }
                 }
