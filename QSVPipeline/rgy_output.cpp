@@ -829,6 +829,7 @@ RGY_ERR initWriters(
         return RGY_ERR_UNKNOWN;
     } else {
 #endif //ENABLE_AVSW_READER
+#if ENCODER_QSV
         if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
             pFileWriter = std::make_shared<RGYOutFrame>();
             YUVWriterParam param;
@@ -840,7 +841,9 @@ RGY_ERR initWriters(
             }
             stdoutUsed = pFileWriter->outputStdout();
             log->write(RGY_LOG_DEBUG, _T("Output: Initialized yuv frame writer%s.\n"), (stdoutUsed) ? _T("using stdout") : _T(""));
-        } else {
+        } else
+#endif
+        {
             pFileWriter = std::make_shared<RGYOutputRaw>();
             RGYOutputRawPrm rawPrm;
             rawPrm.bufSizeMB = common->outputBufSizeMB;
