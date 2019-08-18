@@ -854,10 +854,15 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.FrameInfo.PicStruct    = (pInParams->vpp.deinterlace) ? MFX_PICSTRUCT_PROGRESSIVE : picstruct_rgy_to_enc(pInParams->input.picstruct);
 
     // set sar info
-    mfxI32 m_iSAR[2] = { pInParams->nPAR[0], pInParams->nPAR[1] };
-    adjust_sar(&m_iSAR[0], &m_iSAR[1], pInParams->input.dstWidth, pInParams->input.dstHeight);
-    m_mfxEncParams.mfx.FrameInfo.AspectRatioW = (mfxU16)m_iSAR[0];
-    m_mfxEncParams.mfx.FrameInfo.AspectRatioH = (mfxU16)m_iSAR[1];
+    auto par = std::make_pair(pInParams->nPAR[0], pInParams->nPAR[1]);
+    if ((!pInParams->nPAR[0] || !pInParams->nPAR[1]) //SAR比の指定がない
+        && pInParams->input.sar[0] && pInParams->input.sar[1] //入力側からSAR比を取得ずみ
+        && (pInParams->input.dstWidth == pInParams->input.srcWidth && pInParams->input.dstHeight == pInParams->input.srcHeight)) {//リサイズは行われない
+        par = std::make_pair(pInParams->input.sar[0], pInParams->input.sar[1]);
+    }
+    adjust_sar(&par.first, &par.second, pInParams->input.dstWidth, pInParams->input.dstHeight);
+    m_mfxEncParams.mfx.FrameInfo.AspectRatioW = (mfxU16)par.first;
+    m_mfxEncParams.mfx.FrameInfo.AspectRatioH = (mfxU16)par.second;
 
     RGY_MEMSET_ZERO(m_CodingOption);
     m_CodingOption.Header.BufferId = MFX_EXTBUFF_CODING_OPTION;
@@ -2316,7 +2321,10 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
 
     auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, m_outputTimebase, m_Chapters, subburnTrackId, false, false, m_pStatus, m_pPerfMonitor, m_pQSVLog);
+        m_trimParam, rgy_rational<int>(), m_Chapters, subburnTrackId,
+        !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
+        inputParams->bBenchmark,
+        m_pStatus, m_pPerfMonitor, m_pQSVLog);
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return err_to_mfx(sts);
@@ -3466,7 +3474,6 @@ mfxStatus CQSVPipeline::RunEncode() {
     const auto srcTimebase = (pStreamIn) ? rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den) : inputFpsTimebase;
     vector<AVPacket> packetList;
 #else
-    const auto m_outputTimebase = rgy_rational<int>(1, 4) * inputFpsTimebase;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
 #endif
     const auto nOutFrameDuration = std::max<int64_t>(1, rational_rescale(1, inputFpsTimebase, m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
@@ -3782,7 +3789,7 @@ mfxStatus CQSVPipeline::RunEncode() {
         }
 #endif //#if ENABLE_AVSW_READER
         nOutEstimatedPts += outDuration;
-        prevPts = outPts;
+        prevPts = outPts + outDuration;
         pNextFrame->Data.TimeStamp = rational_rescale(outPts, m_outputTimebase, hw_timebase);
         pNextFrame->Data.DataFlag &= (~MFX_FRAMEDATA_ORIGINAL_TIMESTAMP);
         m_outputTimestamp.add(pNextFrame->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
