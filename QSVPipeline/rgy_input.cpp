@@ -405,7 +405,7 @@ RGY_ERR initReaders(
         inputInfoAVAudioReader.readSubtitle = false;
         inputInfoAVAudioReader.readChapter = false;
         inputInfoAVAudioReader.readData = false;
-        inputInfoAVAudioReader.videoAvgFramerate = std::make_pair(pStatus->m_sData.outputFPSRate, pStatus->m_sData.outputFPSScale);
+        inputInfoAVAudioReader.videoAvgFramerate = std::make_pair(inputInfo.fpsN, inputInfo.fpsD);
         inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
         inputInfoAVAudioReader.nTrimCount = common->nTrimCount;
         inputInfoAVAudioReader.pTrimList = common->pTrimList;
