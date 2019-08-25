@@ -597,13 +597,15 @@ qsv_allocator_va.cpp        qsv_cmd.cpp                     qsv_control.cpp \
 qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp               qsv_hw_va.cpp \
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
-ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp         rgy_bitstream.cpp \
+ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
+rgy_bitstream.cpp           rgy_cmd.cpp                     rgy_def.cpp \
 rgy_err.cpp                 rgy_event.cpp                   rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp           rgy_input_avi.cpp \
 rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp \
 rgy_log.cpp                 rgy_output.cpp                  rgy_output_avcodec.cpp \
 rgy_perf_monitor.cpp        rgy_pipe.cpp                    rgy_pipe_linux.cpp \
-rgy_simd.cpp                rgy_util.cpp                    rgy_version.cpp \
+rgy_prm.cpp                 rgy_simd.cpp                    rgy_status.cpp \
+rgy_util.cpp                rgy_version.cpp \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"

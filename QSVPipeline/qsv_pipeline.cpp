@@ -2321,7 +2321,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
 
     auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, rgy_rational<int>(), m_Chapters, subburnTrackId,
+        m_trimParam, rgy_rational<int>(),
+#if ENABLE_AVSW_READER
+        m_Chapters,
+#endif //#if ENABLE_AVSW_READER
+        subburnTrackId,
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark,
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
