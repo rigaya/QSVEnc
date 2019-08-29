@@ -1474,7 +1474,7 @@ tstring gen_cmd_help_input() {
         _T("   --vpy-mt                     set input as vpy(mt) format\n")
 #endif
 #if ENABLE_AVSW_READER
-        _T("   --avhw [<string>]            use libavformat + hw decode for input\n")
+        _T("   --avhw                       use libavformat + hw decode for input\n")
         _T("   --avsw                       set input to use avcodec + sw decoder\n")
 #endif
         _T("   --input-res <int>x<int>        set input resolution\n")
