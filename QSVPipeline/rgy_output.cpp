@@ -29,6 +29,8 @@
 #include "rgy_bitstream.h"
 #include <smmintrin.h>
 
+#if ENCODER_QSV
+
 static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
     char buffer[256] = { 0 };
     char *ptr = buffer;
@@ -50,6 +52,8 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
     strcpy_s(ptr+len, sizeof(buffer)-len, "C420mpeg2\n"); len += (mfxU32)strlen("C420mpeg2\n");
     return (len == fwrite(buffer, 1, len, fp)) ? RGY_ERR_NONE : RGY_ERR_UNDEFINED_BEHAVIOR;
 }
+
+#endif //#if ENCODER_QSV
 
 #define WRITE_CHECK(writtenBytes, expected) { \
     if (writtenBytes != expected) { \
@@ -363,6 +367,8 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYFrame *pSurface) {
     return RGY_ERR_UNSUPPORTED;
 }
 
+#if ENCODER_QSV
+
 RGYOutFrame::RGYOutFrame() : m_bY4m(true) {
     m_strWriterName = _T("yuv writer");
     m_OutType = OUT_TYPE_SURFACE;
@@ -539,6 +545,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     return RGY_ERR_NONE;
 }
 
+#endif //#if ENCODER_QSV
 
 #include "rgy_input_avcodec.h"
 #include "rgy_output_avcodec.h"

@@ -39,7 +39,15 @@
 #include "rgy_status.h"
 #include "rgy_avutil.h"
 #include "rgy_input.h"
+#if ENCODER_NVENC
+#include "NVEncUtil.h"
+#endif //#if ENCODER_NVENC
+#if ENCODER_QSV
 #include "qsv_util.h"
+#endif //#if ENCODER_QSV
+#if ENCODER_VCEENC
+#include "vce_util.h"
+#endif //#if ENCODER_VCEENC
 
 using std::unique_ptr;
 using std::shared_ptr;
@@ -217,6 +225,7 @@ RGY_ERR initWriters(
     shared_ptr<RGYLog> log
 );
 
+#if ENCODER_QSV
 
 struct YUVWriterParam {
     bool bY4m;
@@ -235,5 +244,7 @@ protected:
 
     bool m_bY4m;
 };
+
+#endif //#if ENCODER_QSV
 
 #endif //__RGY_OUTPUT_H__
