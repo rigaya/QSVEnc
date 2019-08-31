@@ -33,10 +33,7 @@
 #include <future>
 #include <algorithm>
 #include <type_traits>
-#if (_MSC_VER >= 1800)
-#include <Windows.h>
-#include <VersionHelpers.h>
-#endif
+#include "rgy_osdep.h"
 #ifndef _MSC_VER
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>

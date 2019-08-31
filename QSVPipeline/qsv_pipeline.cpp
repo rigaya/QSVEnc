@@ -1252,7 +1252,7 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), m_mfxVppParams.vpp.In.ChromaFormat, m_mfxVppParams.vpp.In.BitDepthLuma, m_mfxVppParams.vpp.In.Shift);
 
     memcpy(&m_mfxVppParams.vpp.Out, &m_mfxVppParams.vpp.In, sizeof(mfxFrameInfo));
-    
+
     m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
     if (pInParams->CodecId == MFX_CODEC_HEVC && pInParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
         m_mfxVppParams.vpp.Out.FourCC = MFX_FOURCC_P010;

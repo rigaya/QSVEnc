@@ -25,6 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <string.h>
 #include <ctype.h>
@@ -64,7 +66,7 @@ static BOOL isJis(const void *str, DWORD size_in_byte) {
         if (*chr > 0x7F)
             return FALSE;
         for (int i = 0; ESCAPE[i][0]; i++) {
-            if (str_fin - chr > ESCAPE[i][0] && 
+            if (str_fin - chr > ESCAPE[i][0] &&
                 memcmp(chr, &ESCAPE[i][1], ESCAPE[i][0]) == NULL)
                 return TRUE;
         }
@@ -119,8 +121,8 @@ DWORD jpn_check(const void *str, DWORD size_in_byte) {
                 score_euc += 2; chr++;
         } else if (
             str_fin - chr > 2 &&
-            chr[0] == 0x8F && 
-            (0xA1 <= chr[1] && chr[1] <= 0xFE) && 
+            chr[0] == 0x8F &&
+            (0xA1 <= chr[1] && chr[1] <= 0xFE) &&
             (0xA1 <= chr[2] && chr[2] <= 0xFE)) {
                 score_euc += 3; chr += 2;
         }
@@ -207,7 +209,7 @@ BOOL del_arg(char *cmd, char *target_arg, int del_arg_delta) {
     //文字列の移動
     if (del_arg_delta < 0)
         std::swap(p_start, ptr);
-        
+
     memmove(p_start, ptr, (cmd_fin - ptr + 1) * sizeof(cmd[0]));
     return TRUE;
 }
@@ -355,7 +357,7 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
     PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
     while (FALSE == glpi(buffer, &returnLength)) {
         if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-            if (buffer) 
+            if (buffer)
                 free(buffer);
             if (NULL == (buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(returnLength)))
                 return FALSE;
@@ -385,7 +387,7 @@ BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_
 
         case RelationCache:
             {
-            // Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache. 
+            // Cache data is in ptr->Cache, one CACHE_DESCRIPTOR structure for each cache.
             PCACHE_DESCRIPTOR Cache = &ptr->Cache;
             processorL1CacheCount += (Cache->Level == 1);
             processorL2CacheCount += (Cache->Level == 2);
@@ -426,7 +428,7 @@ int getCPUNameAuo(char *buf, size_t nSize) {
             case 0x80000003: offset = 16; break;
             case 0x80000004: offset = 32; break;
         }
-        memcpy(buf + offset, CPUInfo, sizeof(CPUInfo)); 
+        memcpy(buf + offset, CPUInfo, sizeof(CPUInfo));
     }
     const int str_len = strlen(buf);
     for (int i = 0; i < str_len; i++) {

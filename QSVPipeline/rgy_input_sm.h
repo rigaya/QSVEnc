@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
@@ -25,16 +25,51 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef _AUO_MUX_H_
-#define _AUO_MUX_H_
+#pragma once
+#ifndef __RGY_INPUT_SM_H__
+#define __RGY_INPUT_SM_H__
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include "output.h"
-#include "auo_conf.h"
-#include "auo_system.h"
+#include "rgy_input.h"
+#include "rgy_shared_mem.h"
 
-AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat); //muxを実行
+static const char *RGYInputSMPrmSM       = "RGYInputSMPrmSM";
+static const char *RGYInputSMBuffer      = "RGYInputSMBuffer";
+static const char *RGYInputSMEventEmpty  = "RGYInputSMEventEmpty";
+static const char *RGYInputSMEventFilled = "RGYInputSMEventFilled";
 
-#endif //_AUO_MUX_H_
+#pragma pack(push)
+#pragma pack(1)
+struct RGYInputSMPrm {
+    int w, h;
+    int fpsN, fpsD;
+    int pitch;
+    RGY_CSP csp;
+    RGY_PICSTRUCT picstruct;
+    int frames;
+    uint32_t bufSize;
+    bool abort;
+};
+#pragma pack(pop)
+
+#if ENABLE_SM_READER
+
+class RGYInputSM : public RGYInput {
+public:
+    RGYInputSM();
+    virtual ~RGYInputSM();
+
+    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
+    virtual void Close() override;
+
+protected:
+    virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
+
+    std::unique_ptr<RGYSharedMemWin> m_prm;
+    std::unique_ptr<RGYSharedMem> m_sm;
+    std::unique_ptr<void, handle_deleter> m_buf_empty;
+    std::unique_ptr<void, handle_deleter> m_buf_filled;
+};
+
+#endif //#if ENABLE_SM_READER
+
+#endif //__RGY_INPUT_RAW_H__

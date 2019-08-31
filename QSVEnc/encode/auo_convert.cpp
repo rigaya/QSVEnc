@@ -7,6 +7,8 @@
 //   以上に了解して頂ける場合、本ソースコードの使用、複製、改変、再頒布を行って頂いて構いません。
 //  -----------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <malloc.h>
 #include <stdlib.h>
@@ -29,6 +31,8 @@ func_audio_16to8 get_audio_16to8_func(BOOL split) {
         simd = check_sse2();
     return FUNC_CONVERT_AUDIO[simd][!!split];
 }
+
+#if 0
 
 enum eInterlace {
     A = -1, //区別の必要なし
@@ -329,3 +333,5 @@ void free_pixel_data(CONVERT_CF_DATA *pixel_data) {
         _mm_free(pixel_data->data[0]);
     ZeroMemory(pixel_data, sizeof(CONVERT_CF_DATA));
 }
+
+#endif

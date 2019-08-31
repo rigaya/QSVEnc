@@ -28,6 +28,8 @@
 #ifndef _AUO_UTIL_H_
 #define _AUO_UTIL_H_
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #if (_MSC_VER >= 1800)
 #include <VersionHelpers.h>

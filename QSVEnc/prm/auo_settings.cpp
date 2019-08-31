@@ -25,6 +25,8 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
 #include <Math.h>
 #include <string.h>
@@ -232,7 +234,7 @@ BOOL guiEx_settings::get_init_success(BOOL no_message) {
         char mes[1024];
         char title[256];
         strcpy_s(mes, _countof(mes), AUO_NAME);
-        sprintf_s(PathFindExtension(mes), _countof(mes) - strlen(mes), 
+        sprintf_s(PathFindExtension(mes), _countof(mes) - strlen(mes),
             ".iniが存在しないか、iniファイルが古いです。\n%s を開始できません。\n"
             "iniファイルを更新してみてください。",
             AUO_FULL_NAME);
@@ -393,7 +395,7 @@ void guiEx_settings::load_mux() {
 
     static const int MUX_COUNT = 5;
     static const char * MUXER_TYPE[MUX_COUNT]    = { "MUXER_MP4", "MUXER_MKV", "MUXER_TC2MP4", "MUXER_MPG", "MUXER_MP4_RAW" };
-    static const char * MUXER_OUT_EXT[MUX_COUNT] = {      ".mp4",      ".mkv",         ".mp4",      ".mpg",          ".mp4" }; 
+    static const char * MUXER_OUT_EXT[MUX_COUNT] = {      ".mp4",      ".mkv",         ".mp4",      ".mpg",          ".mp4" };
 
     clear_mux();
 
@@ -491,7 +493,7 @@ void guiEx_settings::load_local() {
     s_local.perf_monitor              = GetPrivateProfileInt(   ini_section_main, "perf_monitor",             DEFAULT_PERF_MONITOR,          conf_fileName);
     s_local.perf_monitor_plot         = GetPrivateProfileInt(   ini_section_main, "perf_monitor_plot",        DEFAULT_PERF_MONITOR_PLOT,     conf_fileName);
 
-    
+
     GetFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
 
     GetPrivateProfileString(ini_section_main, "custom_tmp_dir",        "", s_local.custom_tmp_dir,        _countof(s_local.custom_tmp_dir),        conf_fileName);
@@ -507,7 +509,7 @@ void guiEx_settings::load_local() {
 
 
     s_local.large_cmdbox = 0;
-    s_local.audio_buffer_size   = min(GetPrivateProfileInt(ini_section_main, "audio_buffer",        AUDIO_BUFFER_DEFAULT, conf_fileName), AUDIO_BUFFER_MAX);
+    s_local.audio_buffer_size   = std::min<DWORD>(GetPrivateProfileInt(ini_section_main, "audio_buffer",        AUDIO_BUFFER_DEFAULT, conf_fileName), AUDIO_BUFFER_MAX);
 
     GetPrivateProfileString(INI_SECTION_VID, "QSVENCC", "", s_vid.fullpath, _countof(s_vid.fullpath), conf_fileName);
     for (int i = 0; i < s_aud_count; i++)
