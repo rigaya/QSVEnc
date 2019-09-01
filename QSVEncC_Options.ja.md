@@ -760,6 +760,9 @@ matroska形式 (UTF-8であること)
 ### --chapter-no-trim
 チャプター読み込みの際、trimを反映させず、そのまま適用する。
 
+### --sub-source &lt;string&gt;
+指定のファイルから字幕を読み込みmuxする。
+
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する字幕トラック(1,2,...)を指定することもできる。

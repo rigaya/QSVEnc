@@ -751,6 +751,9 @@ matroska形式 (hould be in utf-8)
 ### --chapter-copy
 Copy chapters from input file.
 
+### --sub-source &lt;string&gt;
+Read subtitle from the specified file and mux into the output file.
+
 ### --sub-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
 It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;int&gt;].

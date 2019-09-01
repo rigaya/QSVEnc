@@ -3583,20 +3583,20 @@ mfxStatus CQSVPipeline::RunEncode() {
         }
     };
 
-    auto extract_audio = [&]() {
+    auto extract_audio = [&](int inputFrames) {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
         if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
             auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             vector<AVPacket> packetList;
             if (pAVCodecReader != nullptr) {
-                packetList = pAVCodecReader->GetStreamDataPackets();
+                packetList = pAVCodecReader->GetStreamDataPackets(inputFrames);
             }
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
                 auto pReader = std::dynamic_pointer_cast<RGYInputAvcodec>(reader);
                 if (pReader != nullptr) {
-                    vector_cat(packetList, pReader->GetStreamDataPackets());
+                    vector_cat(packetList, pReader->GetStreamDataPackets(inputFrames));
                 }
             }
             //パケットを各Writerに分配する
@@ -4009,7 +4009,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                     }
                 }
 
-                auto ret = extract_audio();
+                auto ret = extract_audio(nInputFrameCount);
                 if (ret != RGY_ERR_NONE) {
                     sts = err_to_mfx(ret);
                     break;
@@ -4070,7 +4070,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: finished main loop.\n"));
 
     if (m_pmfxDEC) {
-        auto ret = extract_audio();
+        auto ret = extract_audio(nInputFrameCount);
         RGY_ERR_MES(ret, _T("Error on extracting audio."));
 
         pNextFrame = NULL;
