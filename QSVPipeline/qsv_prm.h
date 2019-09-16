@@ -31,10 +31,10 @@
 #include <climits>
 #include <vector>
 #include "rgy_version.h"
-#include "qsv_util.h"
 #include "mfxcommon.h"
 #include "mfxvp8.h"
 #include "mfxvp9.h"
+#include "mfxstructures.h"
 #include "convert_csp.h"
 #include "rgy_caption.h"
 #include "rgy_simd.h"

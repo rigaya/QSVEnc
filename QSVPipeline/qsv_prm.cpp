@@ -26,8 +26,9 @@
 // --------------------------------------------------------------------------------------------
 
 #include "qsv_prm.h"
-#include "qsv_pipeline.h"
+#if !FOR_AUO
 #include "qsv_query.h"
+#endif
 
 VppDenoise::VppDenoise() :
     enable(false),
