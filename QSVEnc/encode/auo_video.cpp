@@ -64,7 +64,7 @@
 #include "auo_video.h"
 #include "auo_audio_parallel.h"
 
-static const int MAX_CONV_THREADS = 2;
+static const int MAX_CONV_THREADS = 4;
 
 static int getLwiRealPath(std::string& path) {
     int ret = 1;
