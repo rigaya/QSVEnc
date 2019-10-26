@@ -3589,17 +3589,11 @@ mfxStatus CQSVPipeline::RunEncode() {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
         if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
-            auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-            vector<AVPacket> packetList;
-            if (pAVCodecReader != nullptr) {
-                packetList = pAVCodecReader->GetStreamDataPackets(inputFrames);
-            }
+            packetList = m_pFileReader->GetStreamDataPackets(inputFrames);
+
             //音声ファイルリーダーからのトラックを結合する
             for (const auto& reader : m_AudioReaders) {
-                auto pReader = std::dynamic_pointer_cast<RGYInputAvcodec>(reader);
-                if (pReader != nullptr) {
-                    vector_cat(packetList, pReader->GetStreamDataPackets(inputFrames));
-                }
+                vector_cat(packetList, reader->GetStreamDataPackets(inputFrames));
             }
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
