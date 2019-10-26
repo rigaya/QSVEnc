@@ -201,7 +201,7 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
 
     double elapsedTime = (double)duration_cast<std::chrono::milliseconds>(tm - m_tmStart).count();
     if (m_sData.frameOut + m_sData.frameDrop >= 30) {
-        TCHAR mes[256] ={ 0 };
+        TCHAR mes[256] = { 0 };
 
         int consoleWidth = 0;
 #if defined(_WIN32) || defined(_WIN64)
