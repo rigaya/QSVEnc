@@ -2373,10 +2373,9 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
-    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-    if (pAVCodecReader && (m_nAVSyncMode & RGY_AVSYNC_VFR)) {
+    if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
         //avsync vfr時は、入力streamのtimebaseをそのまま使用する
-        m_outputTimebase = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
+        m_outputTimebase = m_pFileReader->getInputTimebase();
     }
 
     if (
@@ -2401,6 +2400,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
     }
 
 #if ENABLE_AVSW_READER
+    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR))
 #if ENCODER_NVENC
         || inputParam->vpp.rff
@@ -2433,8 +2433,8 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
                 return MFX_ERR_UNKNOWN;
             }
             PrintMes(RGY_LOG_DEBUG, _T("timestamp check: 0x%x\n"), timestamp_status);
-        } else {
-            PrintMes(RGY_LOG_ERROR, _T("%s can only be used with avhw /avsw reader.\n"), err_target.c_str());
+        } else if (m_outputTimebase.n() == 0 || !m_outputTimebase.is_valid()) {
+            PrintMes(RGY_LOG_ERROR, _T("%s cannot be used with current reader.\n"), err_target.c_str());
             return MFX_ERR_UNKNOWN;
         }
     } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
@@ -2493,17 +2493,6 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
 
     //入力バッファサイズの範囲チェック
     pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
-
-    if (pParams->common.AVSyncMode) {
-#if ENABLE_AVSW_READER
-        if (std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader) == nullptr) {
-#else
-        if (true) {
-#endif
-            PrintMes(RGY_LOG_WARN, _T("avsync is supportted only with avsw/avhw reader, disabled.\n"));
-            pParams->common.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
-        }
-    }
 
     return MFX_ERR_NONE;
 }
@@ -3269,7 +3258,9 @@ mfxStatus CQSVPipeline::GetNextFrame(mfxFrameSurface1 **pSurface) {
     //フレーム読み込みでない場合は、フレーム関連の処理は行わない
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
         *pSurface = (mfxFrameSurface1 *)pInputBuf->pFrameSurface;
-        (*pSurface)->Data.TimeStamp = inputBufIdx;
+        if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) == 0) {
+            (*pSurface)->Data.TimeStamp = inputBufIdx;
+        }
         (*pSurface)->Data.Locked = FALSE;
         m_EncThread.m_nFrameGet++;
     }
@@ -3477,7 +3468,7 @@ mfxStatus CQSVPipeline::RunEncode() {
     }
     FramePosList *framePosList = (pAVCodecReader != nullptr) ? pAVCodecReader->GetFramePosList() : nullptr;
     uint32_t framePosListIndex = (uint32_t)-1;
-    const auto srcTimebase = (pStreamIn) ? rgy_rational<int>(pStreamIn->time_base.num, pStreamIn->time_base.den) : inputFpsTimebase;
+    const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
     vector<AVPacket> packetList;
 #else
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
@@ -3715,18 +3706,26 @@ mfxStatus CQSVPipeline::RunEncode() {
         int64_t outDuration = nOutFrameDuration; //入力fpsに従ったduration (m_outputTimebase基準)
         int64_t outPts = nOutEstimatedPts; //(m_outputTimebase基準)
 #if ENABLE_AVSW_READER
-        if (framePosList && pNextFrame && (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR))) {
-            auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
-            if (pos.poc == FRAMEPOS_POC_INVALID) {
-                PrintMes(RGY_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
-                return MFX_ERR_UNKNOWN;
-            }
-            outPts = rational_rescale(pos.pts, srcTimebase, m_outputTimebase);
-            if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && pos.duration > 0) {
-                outDuration = rational_rescale(pos.duration, srcTimebase, m_outputTimebase);
-            }
-            if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_trimParam.list).first) {
-                nOutFirstPts += (outPts - prevPts);
+        if (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) {
+            if (pNextFrame) {
+                if (framePosList) {
+                    auto pos = framePosList->copy(nInputFrameCount, &framePosListIndex);
+                    if (pos.poc == FRAMEPOS_POC_INVALID) {
+                        PrintMes(RGY_LOG_ERROR, _T("Encode Thread: failed to get timestamp.\n"));
+                        return MFX_ERR_UNKNOWN;
+                    }
+                    outPts = rational_rescale(pos.pts, srcTimebase, m_outputTimebase);
+                    if ((m_nAVSyncMode & RGY_AVSYNC_VFR) && pos.duration > 0) {
+                        outDuration = rational_rescale(pos.duration, srcTimebase, m_outputTimebase);
+                    }
+                    if (nOutFirstPts >= 0 && !frame_inside_range(nInputFrameCount - 1, m_trimParam.list).first) {
+                        nOutFirstPts += (outPts - prevPts);
+                    }
+                } else {
+                    outPts = rational_rescale(pNextFrame->Data.TimeStamp, srcTimebase, m_outputTimebase);
+                    outDuration = rational_rescale(((RGYFrame *)pNextFrame)->duration(), srcTimebase, m_outputTimebase);
+                    ((RGYFrame *)pNextFrame)->setDuration(0);
+                }
             }
         }
         nLastCheckPtsFrame = nInputFrameCount;
@@ -3984,7 +3983,6 @@ mfxStatus CQSVPipeline::RunEncode() {
                     if (sts != MFX_ERR_NONE) {
                         break;
                     }
-                    pNextFrame->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
                     //フレーム読み込みの場合には、必要ならここでロックする
                     if (m_bExternalAlloc) {
                         if (MFX_ERR_NONE != (sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, (pNextFrame)->Data.MemId, &((pNextFrame)->Data))))

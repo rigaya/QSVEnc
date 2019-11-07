@@ -225,7 +225,7 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
         //出力ファイル
         sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
         //入力
-        sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm -i -");
+        sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --avsync vfr --sm -i -");
     }
 }
 
@@ -713,6 +713,12 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         (input_csp == RGY_CSP_YC48) ? oip->w : oip->w >> 1,
                         prmsm->pitch, oip->h, oip->h, dummy);
                 }
+                prmsm->timestamp = (int64_t)i * 4;
+                prmsm->duration = 4;
+                if (jitter) {
+                    prmsm->timestamp += next_jitter[-1];
+                    prmsm->duration += next_jitter[0] - next_jitter[-1];
+                }
 
                 //完了通知
                 SetEvent(heBufFilled);
@@ -751,7 +757,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         release_audio_parallel_events(pe);
 
         //タイムコード出力
-        if (!ret && (afs || conf->vid.auo_tcfile_out))
+        if (!ret && (afs && pe->muxer_to_be_used != MUXER_DISABLED) || conf->vid.auo_tcfile_out)
             tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, afs, pe);
 
         //エンコーダ終了待機

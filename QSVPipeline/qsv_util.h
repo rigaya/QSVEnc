@@ -410,13 +410,11 @@ public:
     void setTimestamp(uint64_t timestamp) {
         m_surface.Data.TimeStamp = timestamp;
     }
-    int64_t duration() {
-        //QSVEncでは使用しない
-        return 0;
+    uint32_t duration() {
+        return m_surface.Data.FrameOrder;
     }
-    void setDuration(int64_t frame_duration) {
-        UNREFERENCED_PARAMETER(frame_duration);
-        //QSVEncでは使用しない
+    void setDuration(uint32_t frame_duration) {
+        m_surface.Data.FrameOrder = frame_duration;
     }
 };
 
@@ -426,7 +424,6 @@ static inline RGYFrame RGYFrameInit() {
     return frame;
 }
 
-static_assert(sizeof(RGYFrame) == sizeof(mfxFrameSurface1), "RGYFrame size should equal to mfxFrameSurface1 size.");
 static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
 
 const TCHAR *get_low_power_str(mfxU16 LowPower);

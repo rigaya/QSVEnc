@@ -199,7 +199,9 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     sys_dat->exstg->load_fn_replace();
 
     pe->video_out_type = check_video_ouput(conf, oip);
+    pe->drop_count = 0;
     memcpy(&pe->append, &sys_dat->exstg->s_append, sizeof(FILE_APPENDIX));
+    ZeroMemory(&pe->append.aud, sizeof(pe->append.aud));
 
     char filename_replace[MAX_PATH_LEN];
 
@@ -224,24 +226,6 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     strcpy_s(filename_replace, _countof(filename_replace), PathFindFileName(oip->savefile));
     sys_dat->exstg->apply_fn_replace(filename_replace, _countof(filename_replace));
     PathCombineLong(pe->temp_filename, _countof(pe->temp_filename), pe->temp_filename, filename_replace);
-
-    if (pe->video_out_type != VIDEO_OUTPUT_DISABLED && !conf->oth.link_prm.active) {
-        ////ESで出力するので拡張子を変更
-        ////check_muxer_to_be_usedの前に拡張子を変更しないと音声なしのときにmuxされない
-        //const char *ext = ".tmp";
-        //switch (conf->qsv.codec) {
-        //case MFX_CODEC_AVC:     ext = ".264"; break;
-        //case MFX_CODEC_MPEG2:   ext = ".m2v"; break;
-        //case MFX_CODEC_VC1:     ext = ".vc1"; break;
-        //case MFX_CODEC_HEVC:    ext = ".265"; break;
-        //case MFX_CODEC_VP8:     ext = ".vp8"; break;
-        //case MFX_CODEC_VP9:     ext = ".vp9"; break;
-        //case MFX_CODEC_RAW:
-        //case MFX_CODEC_CAPTURE:
-        //default:                break;
-        //}
-        //change_ext(pe->temp_filename, _countof(pe->temp_filename), ext);
-    }
 
     pe->muxer_to_be_used = check_muxer_to_be_used(conf, sys_dat, pe->temp_filename, pe->video_out_type, (oip->flag & OUTPUT_INFO_FLAG_AUDIO) != 0);
 
@@ -567,7 +551,7 @@ int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, c
     }
     int muxer_to_be_used = MUXER_DISABLED;
     if (video_output_type == VIDEO_OUTPUT_MP4 && !conf->mux.disable_mp4ext)
-        muxer_to_be_used = (conf->vid.afs) ? MUXER_TC2MP4 : MUXER_MP4;
+        muxer_to_be_used = MUXER_MP4;
     else if (video_output_type == VIDEO_OUTPUT_MKV && !conf->mux.disable_mkvext)
         muxer_to_be_used = MUXER_MKV;
     else if (video_output_type == VIDEO_OUTPUT_MPEG2 && !conf->mux.disable_mpgext)
