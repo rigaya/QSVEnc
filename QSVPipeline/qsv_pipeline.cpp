@@ -2321,7 +2321,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
 
     auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
-        m_trimParam, rgy_rational<int>(),
+        m_trimParam, m_outputTimebase,
 #if ENABLE_AVSW_READER
         m_Chapters,
 #endif //#if ENABLE_AVSW_READER
