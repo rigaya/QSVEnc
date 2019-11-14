@@ -519,7 +519,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     AddMessage(RGY_LOG_DEBUG, _T("opened video avcodec\n"));
 
     m_Mux.video.bitstreamTimebase    = (av_isvalid_q(prm->bitstreamTimebase)) ? prm->bitstreamTimebase : HW_NATIVE_TIMEBASE;
-    m_Mux.video.streamOut->time_base = (av_isvalid_q(prm->bitstreamTimebase)) ? prm->bitstreamTimebase : av_mul_q(av_inv_q(m_Mux.video.outputFps), av_make_q(1, 4));
+    m_Mux.video.streamOut->time_base = (av_isvalid_q(prm->bitstreamTimebase)) ? prm->bitstreamTimebase : av_inv_q(m_Mux.video.outputFps);
     if (m_Mux.format.isMatroska) {
         m_Mux.video.streamOut->time_base = av_make_q(1, 1000);
     }
