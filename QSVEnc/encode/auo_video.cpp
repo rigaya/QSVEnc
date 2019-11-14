@@ -451,6 +451,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         enc_prm.input.dstWidth = 0;
         enc_prm.input.dstHeight = 0;
     }
+    enc_prm.common.disableMp4Opt = pe->muxer_to_be_used != MUXER_DISABLED;
 
 #if ENABLE_AUO_LINK
     AVQSV_PARM avqsv_prm = { 0 };
