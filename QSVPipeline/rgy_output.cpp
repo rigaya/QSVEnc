@@ -601,11 +601,13 @@ RGY_ERR initWriters(
     }
     }
     bool isAfs = false;
+#if ENABLE_SM_READER
     { auto pReaderSM = std::dynamic_pointer_cast<RGYInputSM>(pFileReader);
     if (pReaderSM) {
         isAfs = pReaderSM->isAfs();
     }
     }
+#endif //#if ENABLE_SM_READER
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->AVMuxTarget &= ~RGY_MUX_VIDEO;
     //}
