@@ -72,7 +72,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
   - MPEG2
   - H.264/AVC
   - HEVC
-  - VC-1
   - VP8
   - VP9
 - Supports various formats such as avs, vpy, y4m, and raw
