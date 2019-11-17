@@ -447,7 +447,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     enc_prm.input.srcWidth = 0;
     enc_prm.input.fpsN = 0;
     enc_prm.input.fpsD = 0;
-    if (!enc_prm.vpp.bUseResize) {
+    if (!conf->vid.resize_enable) { //enc_prm.vpp.bUseResizeではなく、vid.resize_enableをチェックすること
         enc_prm.input.dstWidth = 0;
         enc_prm.input.dstHeight = 0;
     }
