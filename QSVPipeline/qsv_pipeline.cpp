@@ -2535,6 +2535,20 @@ mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
         inputParam->input.dstHeight = inputParam->input.srcHeight - (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up);
     }
 
+    auto outpar = std::make_pair(inputParam->nPAR[0], inputParam->nPAR[1]);
+    if ((!inputParam->nPAR[0] || !inputParam->nPAR[1]) //SAR比の指定がない
+        && inputParam->input.sar[0] && inputParam->input.sar[1] //入力側からSAR比を取得ずみ
+        && (inputParam->input.dstWidth == inputParam->input.srcWidth && inputParam->input.dstHeight == inputParam->input.srcHeight)) {//リサイズは行われない
+        outpar = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
+    }
+    if (inputParam->input.dstWidth < 0 && inputParam->input.dstHeight < 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Either one of output resolution must be positive value.\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+
+    set_auto_resolution(inputParam->input.dstWidth, inputParam->input.dstHeight, outpar.first, outpar.second,
+        inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], inputParam->input.crop);
+
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
         //QSVデコードを使わない場合には、入力段階でCropが行われる
         inputParam->input.srcWidth -= (inputParam->input.crop.e.left + inputParam->input.crop.e.right);
@@ -2551,12 +2565,12 @@ mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
     }
 
     if (inputParam->input.dstWidth % 2 != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("output width should be a multiple of 2."));
+        PrintMes(RGY_LOG_ERROR, _T("output width should be a multiple of 2.\n"));
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
 
     if (inputParam->input.dstHeight % h_mul != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d."), h_mul);
+        PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d.\n"), h_mul);
         return MFX_ERR_INVALID_VIDEO_PARAM;
     }
     if (inputParam->vpp.rotate) {
