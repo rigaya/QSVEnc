@@ -38,12 +38,12 @@
 #include "qsv_prm.h"
 
 const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
-    sizeof(sInputParams),
-    sizeof(CONF_VIDEO),
-    sizeof(CONF_AUDIO),
-    sizeof(CONF_MUX),
-    sizeof(CONF_OTHER),
-    sizeof(CONF_AUDIO_DIRECT)
+    sizeof(CONF_GUIEX::qsv),
+    sizeof(CONF_GUIEX::vid),
+    sizeof(CONF_GUIEX::aud),
+    sizeof(CONF_GUIEX::mux),
+    sizeof(CONF_GUIEX::oth),
+    sizeof(CONF_GUIEX::aud_avqsv)
 };
 
 const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
