@@ -500,7 +500,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
         if (i+1 < nArgNum) {
-            if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
+            int test_val = 0;
+            if ((strInput[i+1][0] != _T('-') || (_stscanf_s(strInput[i+1], _T("%d"), &test_val) == 1 && test_val < 0)) && strInput[i+1][0] != _T('\0')) {
                 i++;
                 ptrDelim = _tcschr(strInput[i], _T('?'));
                 ptr = (ptrDelim == nullptr) ? strInput[i] : ptrDelim+1;
@@ -687,6 +688,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     pAudioSelect->encBitrate = std::stoi(prmstr);
                 }
             });
+            return ret;
+        } catch (...) {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            return 1;
+        }
+    }
+    if (IS_OPTION("audio-delay")) {
+        try {
+            auto ret = set_audio_prm([](AudioSelect* pAudioSelect, int trackId, const TCHAR* prmstr) {
+                if (trackId != 0 || pAudioSelect->addDelayMs == 0) {
+                    pAudioSelect->addDelayMs = std::stoi(prmstr);
+                }
+                });
             return ret;
         } catch (...) {
             CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
@@ -1387,6 +1401,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->addDelayMs > 0) {
+            cmd << _T(" --audio-delay ") << pAudioSelect->trackID << _T("?") << pAudioSelect->addDelayMs;
+        }
+    }
+    for (int i = 0; i < param->nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->extractFilename.length() > 0) {
             cmd << _T(" --audio-file ") << pAudioSelect->trackID << _T("?");
             if (pAudioSelect->extractFormat.length() > 0) {
@@ -1494,8 +1515,8 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_BOOL(_T("--key-on-chapter"), _T(""), keyOnChapter);
     OPT_STR_PATH(_T("--keyfile"), keyFile);
 #endif //#if ENABLE_AVSW_READER
-    OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
     OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
+    OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
 
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);
@@ -1628,6 +1649,7 @@ tstring gen_cmd_help_common() {
         _T("                                  in [<int>?], specify track number of audio.\n")
         _T("   --audio-resampler <string>   set audio resampler.\n")
         _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
+        _T("   --audio-delay [<int>?]<int>  set audio delay (ms).\n")
         _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
         _T("       set audio streams in channels.\n")
         _T("         in [<int>?], specify track number to split.\n")

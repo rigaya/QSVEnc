@@ -654,6 +654,9 @@ Specify the engine used for mixing audio channels and sampling frequency convers
 - swr ... swresampler (default)
 - soxr ... sox resampler (libsoxr)
 
+### --audio-delay [&lt;int&gt;?]&lt;int&gt;
+Specify audio delay in milli seconds.
+
 ### --audio-file [&lt;int&gt;?][&lt;string&gt;]&lt;string&gt;
 Extract audio track to the specified path. The output format is determined automatically from the output extension. Available only when avhw / avsw reader is used.
 
