@@ -75,6 +75,8 @@ const char *get_encoder_version();
 
 #define ENABLE_OPENCL 1
 
+#define ENABLE_PERF_COUNTER 1
+
 #define ENABLE_AVCODEC_OUT_THREAD 1
 #define ENABLE_AVCODEC_AUDPROCESS_THREAD 1
 #define ENABLE_CPP_REGEX 1
@@ -120,6 +122,7 @@ const char *get_encoder_version();
 #else //#if defined(WIN32) || defined(WIN64)
 #define MFX_D3D11_SUPPORT 0
 #define ENABLE_METRIC_FRAMEWORK 0
+#define ENABLE_PERF_COUNTER 0
 #include "rgy_config.h"
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"
