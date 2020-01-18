@@ -19,9 +19,9 @@ QSVEncC.exe … 上記のコマンドライン版です。
 [QSVが利用可能なCPU一覧＞＞](#qsv_cpu_list)
 
 ### Windows
-Windows 7, 8, 8.1, 10 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)  
-Windows 7, 8, 8.1, 10 (x64) (QSVEncC.exe x64版)  
-Aviutl 0.99g4 以降 (QSVEnc.auo)  
+Windows 10 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)  
+Windows 10 (x64) (QSVEncC.exe x64版)  
+Aviutl 1.00 以降 (QSVEnc.auo)  
 
 ### Linux
 CentOS/Readhat系 (QSVEncC)  

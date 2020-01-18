@@ -20,8 +20,8 @@ There are 2 types of software developed, one is command line version that runs i
 [CPUs supporting QSV＞＞](#qsv_cpu_list)
 
 ### Windows
-Windows 7, 8, 8.1, 10 (x86/x64)  
-Aviutl 0.99g4 or later (QSVEnc.auo)  
+Windows 10 (x86/x64)  
+Aviutl 1.00 or later (QSVEnc.auo)  
 
 ### Linux
 CentOS/Readhat (QSVEncC)  
