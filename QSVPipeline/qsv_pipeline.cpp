@@ -744,28 +744,39 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         bQPOffsetUsed = false;
     }
 
+    m_encVUI = pInParams->common.out_vui;
+    apply_auto_color_characteristic(m_encVUI.colorprim, list_colorprim,   pInParams->input.dstHeight, pInParams->input.vui.colorprim);
+    apply_auto_color_characteristic(m_encVUI.transfer,  list_transfer,    pInParams->input.dstHeight, pInParams->input.vui.transfer);
+    apply_auto_color_characteristic(m_encVUI.matrix,    list_colormatrix, pInParams->input.dstHeight, pInParams->input.vui.matrix);
+    apply_auto_color_characteristic(m_encVUI.fullrange, list_colorrange,  pInParams->input.dstHeight, pInParams->input.vui.fullrange);
+    apply_auto_color_characteristic(m_encVUI.chromaloc, list_chromaloc,   pInParams->input.dstHeight, pInParams->input.vui.chromaloc);
+
     if (!(availableFeaures & ENC_FEATURE_VUI_INFO)) {
-        if (pInParams->bFullrange) {
+        if (m_encVUI.fullrange) {
             print_feature_warnings(RGY_LOG_WARN, _T("fullrange"));
-            pInParams->bFullrange = false;
+            m_encVUI.fullrange = false;
         }
-        if (pInParams->Transfer) {
+        if (m_encVUI.transfer != get_cx_value(list_transfer, _T("undef"))) {
             print_feature_warnings(RGY_LOG_WARN, _T("transfer"));
-            pInParams->Transfer = (mfxU16)list_transfer[0].value;
+            m_encVUI.transfer = (CspTransfer)get_cx_value(list_transfer, _T("undef"));
         }
-        if (pInParams->VideoFormat) {
+        if (m_encVUI.format != get_cx_value(list_videoformat, _T("undef"))) {
             print_feature_warnings(RGY_LOG_WARN, _T("videoformat"));
-            pInParams->VideoFormat = (mfxU16)list_videoformat[0].value;
+            m_encVUI.format = get_cx_value(list_videoformat, _T("undef"));
         }
-        if (pInParams->ColorMatrix) {
+        if (m_encVUI.matrix != get_cx_value(list_colormatrix, _T("undef"))) {
             print_feature_warnings(RGY_LOG_WARN, _T("colormatrix"));
-            pInParams->ColorMatrix = (mfxU16)list_colormatrix[0].value;
+            m_encVUI.matrix = (CspMatrix)get_cx_value(list_colormatrix, _T("undef"));
         }
-        if (pInParams->ColorPrim) {
+        if (m_encVUI.colorprim != get_cx_value(list_colorprim, _T("undef"))) {
             print_feature_warnings(RGY_LOG_WARN, _T("colorprim"));
-            pInParams->ColorPrim = (mfxU16)list_colorprim[0].value;
+            m_encVUI.colorprim = (CspColorprim)get_cx_value(list_colorprim, _T("undef"));
         }
     }
+    m_encVUI.descriptpresent =
+           (int)m_encVUI.matrix != get_cx_value(list_colormatrix, _T("undef"))
+        || (int)m_encVUI.colorprim != get_cx_value(list_colorprim, _T("undef"))
+        || (int)m_encVUI.transfer != get_cx_value(list_transfer, _T("undef"));
 
     //Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
     if (pInParams->bIntraRefresh) {
@@ -1049,35 +1060,35 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     //m_mfxEncParams.mfx.ExtendedPicStruct = pInParams->nPicStruct;
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3) &&
-        (pInParams->VideoFormat != list_videoformat[0].value ||
-         pInParams->ColorPrim   != list_colorprim[0].value ||
-         pInParams->Transfer    != list_transfer[0].value ||
-         pInParams->ColorMatrix != list_colormatrix[0].value ||
-         pInParams->bFullrange
+        (m_encVUI.format    != get_cx_value(list_videoformat, _T("undef")) ||
+         m_encVUI.colorprim != get_cx_value(list_colorprim, _T("undef")) ||
+         m_encVUI.transfer  != get_cx_value(list_transfer, _T("undef")) ||
+         m_encVUI.matrix    != get_cx_value(list_colormatrix, _T("undef")) ||
+         m_encVUI.fullrange
         ) ) {
 #define GET_COLOR_PRM(v, list) (mfxU16)((v == COLOR_VALUE_AUTO) ? ((pInParams->input.dstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
             //色設定 (for API v1.3)
-            CHECK_RANGE_LIST(pInParams->VideoFormat,    list_videoformat, "videoformat");
-            CHECK_RANGE_LIST(pInParams->ColorPrim,      list_colorprim,   "colorprim");
-            CHECK_RANGE_LIST(pInParams->Transfer,       list_transfer,    "transfer");
-            CHECK_RANGE_LIST(pInParams->ColorMatrix,    list_colormatrix, "colormatrix");
+            CHECK_RANGE_LIST(m_encVUI.format,    list_videoformat, "videoformat");
+            CHECK_RANGE_LIST(m_encVUI.colorprim, list_colorprim,   "colorprim");
+            CHECK_RANGE_LIST(m_encVUI.transfer,  list_transfer,    "transfer");
+            CHECK_RANGE_LIST(m_encVUI.matrix,    list_colormatrix, "colormatrix");
 
             INIT_MFX_EXT_BUFFER(m_VideoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
             m_VideoSignalInfo.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
-            m_VideoSignalInfo.VideoFormat              = pInParams->VideoFormat;
-            m_VideoSignalInfo.VideoFullRange           = pInParams->bFullrange != 0;
-            m_VideoSignalInfo.ColourPrimaries          = GET_COLOR_PRM(pInParams->ColorPrim,   list_colorprim);
-            m_VideoSignalInfo.TransferCharacteristics  = GET_COLOR_PRM(pInParams->Transfer,    list_transfer);
-            m_VideoSignalInfo.MatrixCoefficients       = GET_COLOR_PRM(pInParams->ColorMatrix, list_colormatrix);
+            m_VideoSignalInfo.VideoFormat              = m_encVUI.format;
+            m_VideoSignalInfo.VideoFullRange           = m_encVUI.fullrange != 0;
+            m_VideoSignalInfo.ColourPrimaries          = m_encVUI.colorprim;
+            m_VideoSignalInfo.TransferCharacteristics  = m_encVUI.transfer;
+            m_VideoSignalInfo.MatrixCoefficients       = m_encVUI.matrix;
 #undef GET_COLOR_PRM
             m_EncExtParams.push_back((mfxExtBuffer *)&m_VideoSignalInfo);
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)
-        && pInParams->chromaloc != 0) {
+        && m_encVUI.chromaloc != 0) {
         INIT_MFX_EXT_BUFFER(m_chromalocInfo, MFX_EXTBUFF_CHROMA_LOC_INFO);
         m_chromalocInfo.ChromaLocInfoPresentFlag = 1;
-        m_chromalocInfo.ChromaSampleLocTypeTopField = (mfxU16)pInParams->chromaloc;
-        m_chromalocInfo.ChromaSampleLocTypeBottomField = (mfxU16)pInParams->chromaloc;
+        m_chromalocInfo.ChromaSampleLocTypeTopField = (mfxU16)m_encVUI.chromaloc;
+        m_chromalocInfo.ChromaSampleLocTypeBottomField = (mfxU16)m_encVUI.chromaloc;
         m_EncExtParams.push_back((mfxExtBuffer *)&m_chromalocInfo);
     }
 
@@ -1339,11 +1350,11 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         m_ExtVppVSI.In.NominalRange    = MFX_NOMINALRANGE_0_255;
         m_ExtVppVSI.In.TransferMatrix  = MFX_TRANSFERMATRIX_UNKNOWN;
-        m_ExtVppVSI.Out.NominalRange   = (mfxU16)((pInParams->bFullrange) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
+        m_ExtVppVSI.Out.NominalRange   = (mfxU16)((m_encVUI.fullrange != 0) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
         m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_UNKNOWN;
-        if (pInParams->ColorMatrix == get_cx_index(list_colormatrix, _T("bt709"))) {
+        if (m_encVUI.matrix == get_cx_index(list_colormatrix, _T("bt709"))) {
             m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT709;
-        } else if (pInParams->ColorMatrix == get_cx_index(list_colormatrix, _T("bt601"))) {
+        } else if (m_encVUI.matrix == get_cx_index(list_colormatrix, _T("bt601"))) {
             m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT601;
         }
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
@@ -2163,6 +2174,8 @@ CQSVPipeline::CQSVPipeline() {
 
     m_pAbortByUser = NULL;
     m_heAbort.reset();
+
+    m_encVUI = VideoVUIInfo();
 
     m_pStatus.reset();
     m_pFileWriterListAudio.clear();

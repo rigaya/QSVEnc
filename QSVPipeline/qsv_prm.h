@@ -204,13 +204,6 @@ struct sInputParams {
 
     mfxU16 nSlices;       // number of slices, 0 is auto
 
-    mfxU16 VideoFormat;   //for API v1.3
-    mfxU16 ColorMatrix;   //for API v1.3
-    mfxU16 ColorPrim;     //for API v1.3
-    mfxU16 Transfer;      //for API v1.3
-    bool   bFullrange;    //for API v1.3
-    int    chromaloc;
-
     mfxU32 ColorFormat;   //YV12 or NV12
 
     mfxU8 memType;       //use d3d surface

@@ -1244,11 +1244,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBDeblock->Checked        = prm_qsv.bNoDeblock == 0;
     fcgCBIntraRefresh->Checked   = prm_qsv.bIntraRefresh != 0;
 
-    SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer, prm_qsv.Transfer));
-    SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, prm_qsv.ColorMatrix));
-    SetCXIndex(fcgCXColorPrim,   get_cx_index(list_colorprim,   prm_qsv.ColorPrim));
-    SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, prm_qsv.VideoFormat));
-    fcgCBFullrange->Checked      = prm_qsv.bFullrange;
+    SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer,    prm_qsv.common.out_vui.transfer));
+    SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, prm_qsv.common.out_vui.matrix));
+    SetCXIndex(fcgCXColorPrim,   get_cx_index(list_colorprim,   prm_qsv.common.out_vui.colorprim));
+    SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, prm_qsv.common.out_vui.format));
+    fcgCBFullrange->Checked      = prm_qsv.common.out_vui.fullrange != 0;
 
     fcgCBOutputAud->Checked       = prm_qsv.bOutputAud != 0;
     fcgCBOutputPicStruct->Checked = prm_qsv.bOutputPicStruct != 0;
@@ -1388,11 +1388,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value > 0;
     prm_qsv.nMVCostScaling         = (mfxU8)((prm_qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
 
-    prm_qsv.ColorMatrix            = (mfxU16)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
-    prm_qsv.ColorPrim              = (mfxU16)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
-    prm_qsv.Transfer               = (mfxU16)list_transfer[fcgCXTransfer->SelectedIndex].value;
-    prm_qsv.VideoFormat            = (mfxU16)list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
-    prm_qsv.bFullrange             = fcgCBFullrange->Checked;
+    prm_qsv.common.out_vui.matrix    = (CspMatrix)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
+    prm_qsv.common.out_vui.colorprim = (CspColorprim)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
+    prm_qsv.common.out_vui.transfer  = (CspTransfer)list_transfer[fcgCXTransfer->SelectedIndex].value;
+    prm_qsv.common.out_vui.format    = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
+    prm_qsv.common.out_vui.fullrange = fcgCBFullrange->Checked;
+    prm_qsv.common.out_vui.descriptpresent = 1;
 
     prm_qsv.input.srcHeight        = 0;
     prm_qsv.input.srcWidth         = 0;

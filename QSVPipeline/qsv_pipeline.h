@@ -124,6 +124,7 @@ protected:
     rgy_rational<int> m_inputFps;
     rgy_rational<int> m_encFps;
     rgy_rational<int> m_outputTimebase;
+    VideoVUIInfo m_encVUI;
 
     bool m_bTimerPeriodTuning; //timeBeginPeriodを使ったかどうか記憶する
 

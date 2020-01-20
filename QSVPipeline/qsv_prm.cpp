@@ -116,12 +116,6 @@ sInputParams::sInputParams() :
     nICQQuality(QSV_DEFAULT_ICQ),
     nQVBRQuality(QSV_DEFAULT_QVBR),
     nSlices(0),
-    VideoFormat(get_cx_value(list_videoformat, _T("undef"))),
-    ColorMatrix(get_cx_value(list_colormatrix, _T("undef"))),
-    ColorPrim(get_cx_value(list_colorprim, _T("undef"))),
-    Transfer(get_cx_value(list_transfer, _T("undef"))),
-    bFullrange(false),
-    chromaloc(0),
     ColorFormat(MFX_FOURCC_NV12),
 #if defined(_WIN32) || defined(_WIN64)
     memType(HW_MEMORY),
@@ -184,6 +178,7 @@ sInputParams::sInputParams() :
     memset(nQPMin, 0, sizeof(nQPMin));
     memset(nQPMax, 0, sizeof(nQPMax));
     memset(pQPOffset, 0, sizeof(pQPOffset));
+    input.vui = VideoVUIInfo();
 }
 
 sInputParams::~sInputParams() {
