@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc/NVEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2011-2020 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -1310,6 +1310,19 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->perfMonitorInterval = std::max(50, v);
         return 0;
     }
+    if (IS_OPTION("parent-pid")) {
+        i++;
+        try {
+            ctrl->parentProcessID = std::stoul(strInput[i], nullptr, 16);
+            if (ctrl->parentProcessID < 0) {
+                CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            }
+        } catch (...) {
+            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     return -10;
 }
 
@@ -1635,6 +1648,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         }
     }
     OPT_NUM(_T("--perf-monitor-interval"), perfMonitorInterval);
+    OPT_NUM(_T("--parent-pid"), parentProcessID);
     return cmd.str();
 }
 
