@@ -2853,7 +2853,7 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
 mfxStatus CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
     m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel));
-    if (pParams->ctrl.logfile.length() > 0) {
+    if ((pParams->ctrl.logfile.length() > 0 || pParams->common.outputFilename.length() > 0) && pParams->input.type != RGY_INPUT_FMT_SM) {
         m_pQSVLog->writeFileHeader(pParams->common.outputFilename.c_str());
     }
     return MFX_ERR_NONE;
