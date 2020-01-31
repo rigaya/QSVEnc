@@ -4973,6 +4973,22 @@ private: System::Windows::Forms::Label^  label2;
             CX->EndUpdate();
         }
     private:
+        System::Void setComboBox(ComboBox ^CX, const CX_DESC *list, const TCHAR *ignore) {
+            CX->BeginUpdate();
+            CX->Items->Clear();
+            for (int i = 0; list[i].desc; i++) {
+                if (ignore && strcmp(ignore, list[i].desc) == 0) {
+                    //インデックスの順番を保持するため、途中の場合は"-----"をいれておく
+                    if (list[i + 1].desc) {
+                        CX->Items->Add(String("-----").ToString());
+                    }
+                } else {
+                    CX->Items->Add(String(list[i].desc).ToString());
+                }
+            }
+            CX->EndUpdate();
+        }
+    private:
         System::Void setComboBox(ComboBox^ CX, const char * const * list) {
             CX->BeginUpdate();
             CX->Items->Clear();

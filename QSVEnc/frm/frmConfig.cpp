@@ -658,10 +658,10 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXMP4BoxTempDir,   list_mp4boxtempdir);
     setComboBox(fcgCXTempDir,         list_tempdir);
 
-    setComboBox(fcgCXColorPrim,       list_colorprim);
-    setComboBox(fcgCXColorMatrix,     list_colormatrix);
-    setComboBox(fcgCXTransfer,        list_transfer);
-    setComboBox(fcgCXVideoFormat,     list_videoformat);
+    setComboBox(fcgCXColorPrim,       list_colorprim, "auto");
+    setComboBox(fcgCXColorMatrix,     list_colormatrix, "auto");
+    setComboBox(fcgCXTransfer,        list_transfer, "auto");
+    setComboBox(fcgCXVideoFormat,     list_videoformat, "auto");
 
     setComboBox(fcgCXDeinterlace,     list_deinterlace_ja);
     setComboBox(fcgCXTelecinePatterns,list_telecine_patterns);

@@ -415,30 +415,42 @@ Set SAR ratio (pixel aspect ratio).
 ### --dar &lt;int&gt;:&lt;int&gt;
 Set DAR ratio (screen aspect ratio).
 
-### --fulllrange
+### --fullrange
 Encode as full range YUV.
 
-### --videoformat &lt;string&gt;
+### --colorrange &lt;string&gt;
+"--colorrange full" is same as "--fullrange".
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
 ```
-  undef, ntsc, component, pal, secam, mac
-```
-### --colormatrix &lt;string&gt;
-```
-  undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
-```
-### --colorprim &lt;string&gt;
-```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
-```
-### --transfer &lt;string&gt;
-```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
-  log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
+  limited, full, auto
 ```
 
-### --chromaloc &lt;int&gt;
+### --videoformat &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
+```
+  undef, auto, ntsc, component, pal, secam, mac
+```
+### --colormatrix &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
+```
+  undef, auto, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+```
+### --colorprim &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
+```
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+```
+### --transfer &lt;string&gt;
+"auto" will copy characteristic from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader).
+```
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
+```
+
+### --chromaloc &lt;int&gt; or "auto"
 Set chroma location flag of the output bitstream from values 0 ... 5.  
+"auto" will copy from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 default: 0 = unspecified
 
 ### --max-cll &lt;int&gt;,&lt;int&gt; [HEVC only]

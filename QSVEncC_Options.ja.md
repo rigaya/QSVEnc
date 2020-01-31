@@ -438,26 +438,37 @@ DAR比 (画面アスペクト比) の指定。
 ### --fullrange
 フルレンジYUVとしてエンコードする。
 
-### --videoformat &lt;string&gt;
+### --colorrange &lt;string&gt;
+"--colorrange full"は"--fullrange"に同じ。
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, ntsc, component, pal, secam, mac
+  limited, full, auto
+```
+
+### --videoformat &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
+```
+  undef, auto, ntsc, component, pal, secam, mac
 ```
 ### --colormatrix &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
+  undef, auto, bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c
 ```
 ### --colorprim &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020
 ```
 ### --transfer &lt;string&gt;
+"auto"を指定することで、入力ファイルの値をそのまま反映できます。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)
 ```
-  undef, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  undef, auto, bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
   log100, log316, iec61966-2-4, bt1361e, iec61966-2-1,
-  bt2020-10, bt2020-12, smpte2084, smpte428, arib-srd-b67
+  bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
-### --chromaloc &lt;int&gt;
+### --chromaloc &lt;int&gt; or "auto"
 出力データのchroma location flagを 0 ～ 5 の範囲で指定する。  
 デフォルト = 0 (unspecified)
 
