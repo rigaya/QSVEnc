@@ -104,7 +104,8 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     HWDecCodecCsp(nullptr),
     videoDetectPulldown(false),
     caption2ass(FORMAT_INVALID),
-    pasrseHDRmetadata(false) {
+    pasrseHDRmetadata(false),
+    interlaceAutoFrame(false) {
 
 }
 
@@ -1617,7 +1618,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.num;
         m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.den;
         m_inputVideoInfo.shift       = ((m_inputVideoInfo.csp == RGY_CSP_P010 || m_inputVideoInfo.csp == RGY_CSP_P210) && m_inputVideoInfo.shift) ? m_inputVideoInfo.shift : 0;
-        m_inputVideoInfo.picstruct   = m_Demux.frames.getVideoPicStruct();
+        m_inputVideoInfo.picstruct   = (input_prm->interlaceAutoFrame) ? RGY_PICSTRUCT_AUTO : m_Demux.frames.getVideoPicStruct();
         m_inputVideoInfo.frames      = 0;
         //getFirstFramePosAndFrameRateをもとにfpsを決定
         m_inputVideoInfo.fpsN        = m_Demux.video.nAvgFramerate.num;
@@ -2370,6 +2371,9 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         }
         pSurface->setTimestamp(m_Demux.video.frame->pts);
         pSurface->setDuration(m_Demux.video.frame->pkt_duration);
+        if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
+            pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
+        }
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);

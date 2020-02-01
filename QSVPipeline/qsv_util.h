@@ -352,6 +352,9 @@ public:
     mfxFrameSurface1& frame() {
         return m_surface;
     }
+    const mfxFrameSurface1 &frame() const {
+        return m_surface;
+    }
     void ptrArray(void *array[3], bool bRGB) {
         array[0] = (bRGB) ? ptrRGB() : m_surface.Data.Y;
         array[1] = m_surface.Data.UV;
@@ -372,16 +375,16 @@ public:
     uint8_t *ptrRGB() {
         return (std::min)((std::min)(m_surface.Data.R, m_surface.Data.G), m_surface.Data.B);
     }
-    uint32_t pitch() {
+    uint32_t pitch() const {
         return m_surface.Data.Pitch;
     }
-    uint32_t width() {
+    uint32_t width() const {
         return m_surface.Info.CropW;
     }
-    uint32_t height() {
+    uint32_t height() const {
         return m_surface.Info.CropH;
     }
-    sInputCrop crop() {
+    sInputCrop crop() const {
         sInputCrop cr;
         cr.e.left = m_surface.Info.CropX;
         cr.e.up = m_surface.Info.CropY;
@@ -389,10 +392,10 @@ public:
         cr.e.bottom = m_surface.Info.Height - m_surface.Info.CropH - m_surface.Info.CropY;
         return cr;
     }
-    RGY_CSP csp() {
+    RGY_CSP csp() const {
         return csp_enc_to_rgy(m_surface.Info.FourCC);
     }
-    int locked() {
+    int locked() const {
         return m_surface.Data.Locked;
     }
     void lockIncrement() {
@@ -404,17 +407,23 @@ public:
     void setLocked(int locked) {
         m_surface.Data.Locked = (uint16_t)locked;
     }
-    uint64_t timestamp() {
+    uint64_t timestamp() const {
         return m_surface.Data.TimeStamp;
     }
     void setTimestamp(uint64_t timestamp) {
         m_surface.Data.TimeStamp = timestamp;
     }
-    uint32_t duration() {
+    uint32_t duration() const {
         return m_surface.Data.FrameOrder;
     }
     void setDuration(uint32_t frame_duration) {
         m_surface.Data.FrameOrder = frame_duration;
+    }
+    RGY_PICSTRUCT picstruct() const {
+        return picstruct_enc_to_rgy(m_surface.Info.PicStruct);
+    }
+    void setPicstruct(RGY_PICSTRUCT picstruct) {
+        m_surface.Info.PicStruct = picstruct_rgy_to_enc(picstruct);
     }
 };
 

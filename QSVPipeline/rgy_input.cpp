@@ -368,6 +368,7 @@ RGY_ERR initReaders(
         return RGY_ERR_UNSUPPORTED;
     }
     if (!check_if_avhw_or_avsw(input->type)) {
+        if (check_avhw_avsw_only(input->picstruct,          RGY_PICSTRUCT_AUTO, "--interlace auto",      log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.chromaloc, COLOR_VALUE_AUTO,   "--chromaloc auto",      log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.format,    COLOR_VALUE_AUTO,   "--videoformat auto",    log.get())) return RGY_ERR_UNSUPPORTED;
         if (check_avhw_avsw_only(common->out_vui.matrix,    RGY_MATRIX_AUTO,    "--colormatrix auto",    log.get())) return RGY_ERR_UNSUPPORTED;
@@ -455,6 +456,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.videoDetectPulldown = !vpp_rff && !vpp_afs && common->AVSyncMode == RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.caption2ass = common->caption2ass;
         inputInfoAVCuvid.pasrseHDRmetadata = common->maxCll == maxCLLSource || common->masterDisplay == masterDisplaySource;
+        inputInfoAVCuvid.interlaceAutoFrame = input->picstruct == RGY_PICSTRUCT_AUTO;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());
