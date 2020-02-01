@@ -1124,12 +1124,6 @@ exit /B 0</Command>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ChapterRW\ChapterRW.vcxproj">
-      <Project>{6a9832b8-fe45-415c-a162-7d07e5e4fa2b}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\mfx_dispatch\libmfx.vcxproj">
-      <Project>{9e7b3527-11aa-46ba-a82f-c58761f9b56f}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\QSVPipeline\QSVPipeline.vcxproj">
       <Project>{a63ce263-8735-4405-8860-011a12a80def}</Project>
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
