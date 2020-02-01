@@ -2335,6 +2335,11 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
     //        break;
     //    }
     //}
+    m_HDRSei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, m_pFileReader.get());
+    if (!m_HDRSei) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
+        return MFX_ERR_UNSUPPORTED;
+    }
 
     auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
@@ -2342,6 +2347,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
 #if ENABLE_AVSW_READER
         m_Chapters,
 #endif //#if ENABLE_AVSW_READER
+        m_HDRSei.get(),
         subburnTrackId,
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark,
@@ -4726,6 +4732,29 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
         if (videoPrm.mfx.CodecId == MFX_CODEC_VP8) {
             PRINT_INFO(_T("Sharpness      %d\n"), copVp8.SharpnessLevel);
+        }
+        { const auto &vui_str = m_encVUI.print_all();
+        if (vui_str.length() > 0) {
+            PRINT_INFO(_T("VUI            %s\n"), vui_str.c_str());
+        }
+        }
+        if (m_HDRSei) {
+            const auto masterdisplay = m_HDRSei->print_masterdisplay();
+            const auto maxcll = m_HDRSei->print_maxcll();
+            if (masterdisplay.length() > 0) {
+                const tstring tstr = char_to_tstring(masterdisplay);
+                const auto splitpos = tstr.find(_T("WP("));
+                if (splitpos == std::string::npos) {
+                    PRINT_INFO(_T("MasteringDisp  %s\n"), tstr.c_str());
+                } else {
+                    PRINT_INFO(_T("MasteringDisp  %s\n")
+                               _T("               %s\n"),
+                        tstr.substr(0, splitpos-1).c_str(), tstr.substr(splitpos).c_str());
+                }
+            }
+            if (maxcll.length() > 0) {
+                PRINT_INFO(_T("MaxCLL/MaxFALL %s\n"), char_to_tstring(maxcll).c_str());
+            }
         }
 
         //last line

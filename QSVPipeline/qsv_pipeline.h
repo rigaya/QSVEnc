@@ -52,6 +52,7 @@
 
 #include "vpp_plugins.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_bitstream.h"
 #include "qsv_plugin.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
@@ -191,6 +192,7 @@ protected:
 #if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_Chapters;
 #endif
+    std::unique_ptr<HEVCHDRSei> m_HDRSei;
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;
     unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;
