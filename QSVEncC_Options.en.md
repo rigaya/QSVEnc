@@ -942,23 +942,6 @@ Adjustment of logo transparency. Default 128.
 ### --vpp-delogo-cr &lt;int&gt;
 Adjustment of each color component of the logo.
 
-### --vpp-sub &lt;int&gt; or &lt;string&gt;
-Burns in subtitles into frame.
-Set sub track number in input file by integer, or set external sub file path by string.
-
-Warnings...
-- Support text mode subtitles only.
-- Cannot be used with --sub-copy.
-- Cannot be used with features which requires d3d9/d3d11 memory mode, such as --vpp-rotate.
-
-### --vpp-sub-shaping &lt;string&gt;
-Specifies libass shaping option.
-- simple (default)
-- complex
-
-### --vpp-sub-charset &lt;string&gt;
-Specifies char code of subtitles.
-
 ## Other Options
 
 ### --async-depth &lt;int&gt;

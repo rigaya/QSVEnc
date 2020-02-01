@@ -31,9 +31,9 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,3,29,0
-#define VER_STR_FILEVERSION          "3.29"
-#define VER_STR_FILEVERSION_TCHAR _T("3.29")
+#define VER_FILEVERSION             0,3,30,0
+#define VER_STR_FILEVERSION          "3.30"
+#define VER_STR_FILEVERSION_TCHAR _T("3.30")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -108,7 +108,7 @@ const char *get_encoder_version();
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVSW_READER        1
 #define ENABLE_SM_READER          1
-#define ENABLE_LIBASS_SUBBURN     1
+#define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_CUSTOM_VPP         1
 #ifndef ENABLE_METRIC_FRAMEWORK
 #if defined(_M_IX86)
