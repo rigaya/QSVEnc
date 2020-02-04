@@ -509,7 +509,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     if (videoOutputInfo->vui.descriptpresent) {
         m_Mux.video.streamOut->codecpar->color_space         = (AVColorSpace)videoOutputInfo->vui.matrix;
         m_Mux.video.streamOut->codecpar->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
-        m_Mux.video.streamOut->codecpar->color_range         = (AVColorRange)(videoOutputInfo->vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+        m_Mux.video.streamOut->codecpar->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
         m_Mux.video.streamOut->codecpar->color_trc           = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
     }
     if (0 > avcodec_open2(m_Mux.video.streamOut->codec, m_Mux.video.codec, NULL)) {
@@ -697,13 +697,13 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         codecpar->profile                 = videoOutputInfo->codecProfile;
         codecpar->sample_aspect_ratio.num = videoOutputInfo->sar[0];
         codecpar->sample_aspect_ratio.den = videoOutputInfo->sar[1];
-        codecpar->chroma_location         = AVCHROMA_LOC_LEFT;
+        codecpar->chroma_location         = (AVChromaLocation)videoOutputInfo->vui.chromaloc;
         codecpar->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
         codecpar->video_delay             = videoOutputInfo->videoDelay;
         if (videoOutputInfo->vui.descriptpresent) {
             codecpar->color_space         = (AVColorSpace)videoOutputInfo->vui.matrix;
             codecpar->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
-            codecpar->color_range         = (AVColorRange)(videoOutputInfo->vui.fullrange ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG);
+            codecpar->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
             codecpar->color_trc           = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
         }
         int ret = 0;

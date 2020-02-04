@@ -1248,7 +1248,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, prm_qsv.common.out_vui.matrix));
     SetCXIndex(fcgCXColorPrim,   get_cx_index(list_colorprim,   prm_qsv.common.out_vui.colorprim));
     SetCXIndex(fcgCXVideoFormat, get_cx_index(list_videoformat, prm_qsv.common.out_vui.format));
-    fcgCBFullrange->Checked      = prm_qsv.common.out_vui.fullrange != 0;
+    fcgCBFullrange->Checked      = prm_qsv.common.out_vui.colorrange == RGY_COLORRANGE_FULL;
 
     fcgCBOutputAud->Checked       = prm_qsv.bOutputAud != 0;
     fcgCBOutputPicStruct->Checked = prm_qsv.bOutputPicStruct != 0;
@@ -1392,7 +1392,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.common.out_vui.colorprim = (CspColorprim)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
     prm_qsv.common.out_vui.transfer  = (CspTransfer)list_transfer[fcgCXTransfer->SelectedIndex].value;
     prm_qsv.common.out_vui.format    = list_videoformat[fcgCXVideoFormat->SelectedIndex].value;
-    prm_qsv.common.out_vui.fullrange = fcgCBFullrange->Checked;
+    prm_qsv.common.out_vui.colorrange = fcgCBFullrange->Checked ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
     prm_qsv.common.out_vui.descriptpresent = 1;
 
     prm_qsv.input.srcHeight        = 0;
