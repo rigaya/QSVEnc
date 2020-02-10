@@ -1719,6 +1719,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_Mux.format.streamError = false;
 
 #if ENABLE_AVCODEC_OUT_THREAD
+    m_Mux.thread.streamOutMaxDts = 0;
     m_Mux.thread.queueInfo = prm->queueInfo;
     //スレッドの使用数を設定
     if (prm->threadOutput == RGY_OUTPUT_THREAD_AUTO) {
@@ -2470,6 +2471,9 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     }
     muxAudio->lastPtsOut = pkt->pts;
     *writtenDts = av_rescale_q(pkt->dts, muxAudio->streamOut->time_base, QUEUE_DTS_TIMEBASE);
+    if (*writtenDts != AV_NOPTS_VALUE) {
+        atomic_max(m_Mux.thread.streamOutMaxDts, *writtenDts);
+    }
     //av_interleaved_write_frameに渡ったパケットは開放する必要がない
     m_Mux.format.streamError |= 0 != av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
     muxAudio->outputSamples += samples;
@@ -2800,6 +2804,9 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     pkt->duration = (int)av_rescale_q(pkt->duration, pMuxOther->streamInTimebase, pMuxOther->streamOut->time_base);
     pkt->stream_index = pMuxOther->streamOut->index;
     pkt->pos = -1;
+    if (pkt->dts != AV_NOPTS_VALUE) {
+        atomic_max(m_Mux.thread.streamOutMaxDts, av_rescale_q(pkt->dts, timebase_conv, QUEUE_DTS_TIMEBASE));
+    }
     m_Mux.format.streamError |= 0 != av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
@@ -3216,24 +3223,32 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                 && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr))) {
                 WriteNextFrameInternal(&bitstream, &videoDts);
                 nWaitVideo = 0;
-                //AddMessage(RGY_LOG_TRACE, _T("videoDts=%8lld.\n"), videoDts);
+                const int log_level = RGY_LOG_TRACE;
+                if (m_printMes && log_level >= m_printMes->getLogLevel()) {
+                    AddMessage(log_level, _T("videoDts=%8lld: %s.\n"), videoDts, getTimestampString(videoDts, QUEUE_DTS_TIMEBASE).c_str());
+                }
             }
             AVPktMuxData pktData = { 0 };
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
                 && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
                 if (pktData.muxAudio && pktData.muxAudio->streamIn) {
                     audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt.duration) + 0.5));
-                    if ((int)m_Mux.thread.qAudioPacketOut.capacity() < audPacketsPerSec * 4) {
-                        m_Mux.thread.qAudioPacketOut.set_capacity(audPacketsPerSec * 4);
+                    const auto videoDelay = (audioDts - videoDts) * av_q2d(QUEUE_DTS_TIMEBASE);
+                    const auto streamQueueCapacity = (int)(audPacketsPerSec * std::max(5.0, videoDelay * 1.5) * std::max((int)m_Mux.audio.size(), 1) + 0.5);
+                    if ((int)m_Mux.thread.qAudioPacketOut.capacity() < streamQueueCapacity) {
+                        m_Mux.thread.qAudioPacketOut.set_capacity(streamQueueCapacity);
                     }
                 }
                 const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : syncIgnoreDts;
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
                 (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
                 //複数のstreamがあり得るので最大値をとる
-                audioDts = (std::max)(audioDts, pktData.dts);
+                audioDts = (std::max)(audioDts, (std::max)(pktData.dts, m_Mux.thread.streamOutMaxDts.load()));
                 nWaitAudio = 0;
-                //AddMessage(RGY_LOG_TRACE, _T("audioDts=%8lld, maxDst=%8lld.\n"), audioDts, maxDts);
+                const int log_level = RGY_LOG_TRACE;
+                if (m_printMes && log_level >= m_printMes->getLogLevel()) {
+                    AddMessage(log_level, _T("audioDts=%8lld: %s, maxDst=%8lld.\n"), audioDts, getTimestampString(audioDts, QUEUE_DTS_TIMEBASE).c_str(), maxDts);
+                }
             }
             //一定以上の動画フレームがキューにたまっており、音声キューになにもなければ、
             //音声を無視して動画フレームの処理を開始させる
@@ -3245,10 +3260,12 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
                     //なのである程度連続でパケットが来ていないときのみ無視するようにする
                     //このようにすることで適切に同期がとれる
+                    //また、映像キューのサイズが足りないことが考えられるので、拡大する
+                    m_Mux.thread.qVideobitstream.set_capacity(m_Mux.thread.qVideobitstream.capacity() + 50);
                     break;
                 }
                 audioDts = videoDts;
-                //AddMessage(RGY_LOG_TRACE, _T("audio not coming.\n"));
+                AddMessage(RGY_LOG_TRACE, _T("audio not coming.\n"));
             }
             //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
             //動画を無視して音声フレームの処理を開始させる
@@ -3259,10 +3276,12 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc() {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
                     //なのである程度連続でパケットが来ていないときのみ無視するようにする
                     //このようにすることで適切に同期がとれる
+                    //また、音声キューのサイズが足りないことが考えられるので、拡大する
+                    m_Mux.thread.qAudioPacketOut.set_capacity(m_Mux.thread.qAudioPacketOut.capacity() * 3 / 2);
                     break;
                 }
                 videoDts = audioDts;
-                //AddMessage(RGY_LOG_TRACE, _T("video not coming.\n"));
+                AddMessage(RGY_LOG_TRACE, _T("video not coming.\n"));
             }
         } while (bAudioExists || bVideoExists); //両方のキューがひとまず空になるか、映像・音声の同期待ちが必要になるまで回す
                                                 //次のフレーム・パケットが送られてくるまで待機する

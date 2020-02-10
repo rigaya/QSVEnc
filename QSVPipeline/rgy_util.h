@@ -443,6 +443,13 @@ static int64_t rgy_change_scale(int64_t t, const rgy_rational<int>& scale_in, co
     return n;
 }
 
+template<typename T>
+void atomic_max(std::atomic<T> &maximum_value, T const &value) noexcept {
+    T prev_value = maximum_value;
+    while (prev_value < value &&
+        !maximum_value.compare_exchange_weak(prev_value, value));
+}
+
 #if UNICODE
 #define to_tstring to_wstring
 #else
