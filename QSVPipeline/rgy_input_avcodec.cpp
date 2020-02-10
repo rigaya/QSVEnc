@@ -1976,6 +1976,9 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
                     //だが、これが原因でtrimの値とずれを生じてしまう
                     //そこで、そのぶんのずれを記録しておき、Trim値などに補正をかける
                     m_trimParam.offset = i_samples;
+                    AddMessage(RGY_LOG_DEBUG, _T("found first key frame: timestamp %lld (%s), offset %d\n"),
+                        (long long int)m_Demux.video.streamFirstKeyPts, getTimestampString(m_Demux.video.streamFirstKeyPts, m_Demux.video.stream->time_base).c_str(),
+                        m_trimParam.offset);
                 }
 #if ENCODER_NVENC
                 //NVENCのhwデコーダでは、opengopなどでキーフレームのパケットよりあとにその前のフレームが来た場合、
