@@ -1647,6 +1647,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             }
             AddMessage(RGY_LOG_DEBUG, m_inputInfo);
         }
+        AddMessage(RGY_LOG_DEBUG, m_inputVideoInfo.vui.print_all());
         AddMessage(RGY_LOG_DEBUG, _T("sar %d:%d, shift %d\n"),
             m_inputVideoInfo.sar[0], m_inputVideoInfo.sar[1], m_inputVideoInfo.shift);
 
