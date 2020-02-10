@@ -135,9 +135,9 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
     info.vui.colorprim = (CspColorprim)vui.ColourPrimaries;
     info.vui.matrix = (CspMatrix)vui.MatrixCoefficients;
     info.vui.transfer = (CspTransfer)vui.TransferCharacteristics;
-    info.vui.fullrange = vui.VideoFullRange;
+    info.vui.colorrange = vui.VideoFullRange ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_UNSPECIFIED;
     info.vui.format = vui.VideoFormat;
-    info.vui.chromaloc = (chromaloc.ChromaLocInfoPresentFlag && chromaloc.ChromaSampleLocTypeTopField) ? chromaloc.ChromaSampleLocTypeTopField : 0;
+    info.vui.chromaloc = (chromaloc.ChromaLocInfoPresentFlag && chromaloc.ChromaSampleLocTypeTopField) ? (CspChromaloc)(chromaloc.ChromaSampleLocTypeTopField+1) : RGY_CHROMALOC_UNSPECIFIED;
     info.picstruct = picstruct_enc_to_rgy(mfx.FrameInfo.PicStruct);
     info.shift = (mfx.FrameInfo.Shift) ? 16 - mfx.FrameInfo.BitDepthLuma : 0;
     info.csp = csp_enc_to_rgy(mfx.FrameInfo.FourCC);

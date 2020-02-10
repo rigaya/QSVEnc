@@ -1075,20 +1075,20 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
             INIT_MFX_EXT_BUFFER(m_VideoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
             m_VideoSignalInfo.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
-            m_VideoSignalInfo.VideoFormat              = m_encVUI.format;
+            m_VideoSignalInfo.VideoFormat              = (mfxU16)m_encVUI.format;
             m_VideoSignalInfo.VideoFullRange           = m_encVUI.colorrange == RGY_COLORRANGE_FULL;
-            m_VideoSignalInfo.ColourPrimaries          = m_encVUI.colorprim;
-            m_VideoSignalInfo.TransferCharacteristics  = m_encVUI.transfer;
-            m_VideoSignalInfo.MatrixCoefficients       = m_encVUI.matrix;
+            m_VideoSignalInfo.ColourPrimaries          = (mfxU16)m_encVUI.colorprim;
+            m_VideoSignalInfo.TransferCharacteristics  = (mfxU16)m_encVUI.transfer;
+            m_VideoSignalInfo.MatrixCoefficients       = (mfxU16)m_encVUI.matrix;
 #undef GET_COLOR_PRM
             m_EncExtParams.push_back((mfxExtBuffer *)&m_VideoSignalInfo);
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)
-        && m_encVUI.chromaloc != 0) {
+        && m_encVUI.chromaloc != RGY_CHROMALOC_UNSPECIFIED) {
         INIT_MFX_EXT_BUFFER(m_chromalocInfo, MFX_EXTBUFF_CHROMA_LOC_INFO);
         m_chromalocInfo.ChromaLocInfoPresentFlag = 1;
-        m_chromalocInfo.ChromaSampleLocTypeTopField = (mfxU16)m_encVUI.chromaloc;
-        m_chromalocInfo.ChromaSampleLocTypeBottomField = (mfxU16)m_encVUI.chromaloc;
+        m_chromalocInfo.ChromaSampleLocTypeTopField = (mfxU16)(m_encVUI.chromaloc-1);
+        m_chromalocInfo.ChromaSampleLocTypeBottomField = (mfxU16)(m_encVUI.chromaloc-1);
         m_EncExtParams.push_back((mfxExtBuffer *)&m_chromalocInfo);
     }
 
@@ -2319,7 +2319,6 @@ RGY_CSP CQSVPipeline::EncoderCsp(const sInputParams *pParams, int *pShift) {
 }
 
 mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
-    bool stdoutUsed = false;
     const auto outputVideoInfo = (inputParams->CodecId != MFX_CODEC_RAW) ? videooutputinfo(m_mfxEncParams.mfx, m_VideoSignalInfo, m_chromalocInfo) : videooutputinfo(m_mfxVppParams.vpp.Out);
     if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
