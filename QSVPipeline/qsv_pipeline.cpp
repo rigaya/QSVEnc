@@ -2871,7 +2871,7 @@ mfxStatus CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
     if (bLogOutput) {
         perfMonLog = inputParam->common.outputFilename + _T("_perf.csv");
     }
-    CPerfMonitorPrm perfMonitorPrm = { 0 };
+    CPerfMonitorPrm perfMonitorPrm;
     if (m_pPerfMonitor->init(perfMonLog.c_str(), inputParam->pythonPath.c_str(), (bLogOutput) ? inputParam->ctrl.perfMonitorInterval : 1000,
         (int)inputParam->ctrl.perfMonitorSelect, (int)inputParam->ctrl.perfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)
