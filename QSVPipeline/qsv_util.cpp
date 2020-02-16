@@ -196,7 +196,7 @@ const TCHAR *get_err_mes(int sts) {
 }
 
 RGY_NOINLINE
-const TCHAR *get_low_power_str(mfxU16 LowPower) {
+const TCHAR *get_low_power_str(uint32_t LowPower) {
     switch (LowPower) {
     case MFX_CODINGOPTION_OFF: return _T(" PG");
     case MFX_CODINGOPTION_ON:  return _T(" FF");
@@ -205,7 +205,7 @@ const TCHAR *get_low_power_str(mfxU16 LowPower) {
 }
 
 RGY_NOINLINE
-tstring qsv_memtype_str(uint16_t memtype) {
+tstring qsv_memtype_str(uint32_t memtype) {
     tstring str;
     if (memtype & MFX_MEMTYPE_INTERNAL_FRAME)         str += _T("internal,");
     if (memtype & MFX_MEMTYPE_EXTERNAL_FRAME)         str += _T("external,");

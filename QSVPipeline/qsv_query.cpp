@@ -634,7 +634,7 @@ mfxU64 CheckVppFeatures(mfxVersion ver) {
     return feature;
 }
 
-mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
+mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratecontrol, mfxU32 codecId) {
     if (codecId == MFX_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
         return 0x00;
     }
@@ -651,7 +651,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
         { MFX_RATECONTROL_QVBR,   MFX_LIB_VERSION_1_11 },
     };
     for (auto rc : rc_list) {
-        if (ratecontrol == rc.first) {
+        if ((mfxU16)ratecontrol == rc.first) {
             if (!check_lib_version(mfxVer, rc.second)) {
                 return 0x00;
             }
@@ -719,7 +719,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
     videoPrm.AsyncDepth                  = 3;
     videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
     videoPrm.mfx.CodecId                 = codecId;
-    videoPrm.mfx.RateControlMethod       = ratecontrol;
+    videoPrm.mfx.RateControlMethod       = (mfxU16)ratecontrol;
     switch (codecId) {
     case MFX_CODEC_HEVC:
         videoPrm.mfx.CodecLevel          = MFX_LEVEL_UNKNOWN;
@@ -940,7 +940,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, mfxU16 ra
 //サポートする機能のチェックをAPIバージョンのみで行う
 //API v1.6以降はCheckEncodeFeatureを使うべき
 //同一のAPIバージョンでも環境により異なることが多くなるため
-static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol, mfxU32 codecId) {
+static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, int ratecontrol, mfxU32 codecId) {
     mfxU64 feature = 0x00;
     if (codecId != MFX_CODEC_AVC && codecId != MFX_CODEC_MPEG2) {
         return feature;
@@ -1023,7 +1023,7 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, mfxU16 ratecontrol, mf
     return feature;
 }
 
-mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId) {
+mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId) {
     mfxU64 feature = 0x00;
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_0)) {
         ; //特にすることはない

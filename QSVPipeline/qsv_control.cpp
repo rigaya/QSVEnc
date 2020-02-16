@@ -52,7 +52,7 @@ CEncodingThread::~CEncodingThread() {
     Close();
 }
 
-mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
+mfxStatus CEncodingThread::Init(int bufferSize) {
     Close();
 
     m_nFrameBuffer = bufferSize;
@@ -61,7 +61,7 @@ mfxStatus CEncodingThread::Init(mfxU16 bufferSize) {
 
     memset(m_InputBuf, 0, m_nFrameBuffer * sizeof(sInputBufSys));
 
-    for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
+    for (int i = 0; i < m_nFrameBuffer; i++) {
         if (   NULL == (m_InputBuf[i].heInputDone  = CreateEvent(NULL, FALSE, FALSE, NULL))
             || NULL == (m_InputBuf[i].heInputStart = CreateEvent(NULL, FALSE, FALSE, NULL))) {
             return MFX_ERR_INVALID_HANDLE;
@@ -95,7 +95,7 @@ mfxStatus CEncodingThread::WaitToFinish(mfxStatus sts, shared_ptr<RGYLog> pQSVLo
         m_bthForceAbort++; //m_bthForceAbort = TRUE;
         if (m_InputBuf) {
             pQSVLog->write(RGY_LOG_DEBUG, _T("WaitToFinish: Settings event on.\n"));
-            for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
+            for (int i = 0; i < m_nFrameBuffer; i++) {
                 SetEvent(m_InputBuf[i].heInputDone);
             }
         }
@@ -111,7 +111,7 @@ void CEncodingThread::Close() {
         m_thEncode.join();
     }
     if (m_InputBuf) {
-        for (mfxU32 i = 0; i < m_nFrameBuffer; i++) {
+        for (int i = 0; i < m_nFrameBuffer; i++) {
             if (m_InputBuf[i].heInputDone)
                 CloseEvent(m_InputBuf[i].heInputDone);
             if (m_InputBuf[i].heInputStart)

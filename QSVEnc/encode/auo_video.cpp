@@ -117,9 +117,8 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 }
 
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
-    ParseCmdError err;
     sInputParams enc_prm;
-    parse_cmd(&enc_prm, conf->qsv.cmd, err);
+    parse_cmd(&enc_prm, conf->qsv.cmd);
 
     use_highbit = enc_prm.CodecId == MFX_CODEC_HEVC && enc_prm.CodecProfile == MFX_PROFILE_HEVC_MAIN10;
     csp = (use_highbit) ? RGY_CSP_P010 : RGY_CSP_NV12;
@@ -433,9 +432,8 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     if (pe->video_out_type == VIDEO_OUTPUT_DISABLED)
         return AUO_RESULT_SUCCESS;
 
-    ParseCmdError err;
     sInputParams enc_prm;
-    parse_cmd(&enc_prm, conf->qsv.cmd, err);
+    parse_cmd(&enc_prm, conf->qsv.cmd);
     enc_prm.nBluray += (enc_prm.nBluray == 1 && sys_dat->exstg->s_local.force_bluray);
     enc_prm.bDisableTimerPeriodTuning = !sys_dat->exstg->s_local.timer_period_tuning;
     enc_prm.ctrl.loglevel = sys_dat->exstg->s_log.log_level;

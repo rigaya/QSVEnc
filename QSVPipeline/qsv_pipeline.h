@@ -135,7 +135,7 @@ protected:
     shared_ptr<RGYInput> m_pFileReader;
 
     CQSVTaskControl m_TaskPool;
-    mfxU16 m_nAsyncDepth;
+    int m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;
     RGYTimestamp m_outputTimestamp;
 
@@ -222,7 +222,7 @@ protected:
 
     shared_ptr<CQSVHWDevice> m_hwdev;
 
-    virtual mfxStatus InitSessionInitParam(mfxU16 threads, mfxU16 priority);
+    virtual mfxStatus InitSessionInitParam(int threads, int priority);
     virtual mfxStatus InitLog(sInputParams *pParams);
     virtual mfxStatus InitPerfMonitor(const sInputParams *pParams);
     virtual mfxStatus InitInput(sInputParams *pParams);
@@ -234,7 +234,7 @@ protected:
     virtual mfxStatus InitOutput(sInputParams *pParams);
     virtual mfxStatus InitMfxDecParams(sInputParams *pInParams);
     virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
-    virtual mfxStatus InitSession(bool useHWLib, mfxU16 memType);
+    virtual mfxStatus InitSession(bool useHWLib, uint32_t memType);
     virtual RGY_CSP EncoderCsp(const sInputParams *pParams, int *pShift);
     //virtual void InitVppExtParam();
     virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);

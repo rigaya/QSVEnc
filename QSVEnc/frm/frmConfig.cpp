@@ -1180,8 +1180,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
     sInputParams prm_qsv;
-    ParseCmdError err;
-    parse_cmd(&prm_qsv, cnf->qsv.cmd, err);
+    parse_cmd(&prm_qsv, cnf->qsv.cmd);
 
     SetCXIndex(fcgCXOutputType,   get_cx_index(list_outtype, prm_qsv.CodecId));
     SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.nEncMode));
@@ -1233,7 +1232,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
     fcgCBCABAC->Checked          = !prm_qsv.bCAVLC;
     fcgCBRDO->Checked            = prm_qsv.bRDO;
-    SetNUValue(fcgNUMVSearchWindow, prm_qsv.MVSearchWindow.x);
+    SetNUValue(fcgNUMVSearchWindow, prm_qsv.MVSearchWindow.first);
     SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion,    prm_qsv.nMVPrecision));
     SetCXIndex(fcgCXInterPred,   get_cx_index(list_pred_block_size, prm_qsv.nInterPred));
     SetCXIndex(fcgCXIntraPred,   get_cx_index(list_pred_block_size, prm_qsv.nIntraPred));
@@ -1331,45 +1330,45 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     prm_qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
     cnf->qsv.codec                 = prm_qsv.CodecId;
-    prm_qsv.nEncMode               = (mfxU16)list_encmode[fcgCXEncMode->SelectedIndex].value;
-    prm_qsv.nTargetUsage           = (mfxU16)list_quality[fcgCXQuality->SelectedIndex].value;
-    prm_qsv.CodecProfile           = (mfxU16)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
-    prm_qsv.CodecLevel             = (mfxU16)get_level_list(prm_qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
-    prm_qsv.nBitRate               = (mfxU16)fcgNUBitrate->Value;
-    prm_qsv.nMaxBitrate            = (mfxU16)fcgNUMaxkbps->Value;
-    prm_qsv.nLookaheadDepth        = (mfxU16)fcgNULookaheadDepth->Value;
-    prm_qsv.nRef                   = (mfxU16)fcgNURef->Value;
+    prm_qsv.nEncMode               = (int)list_encmode[fcgCXEncMode->SelectedIndex].value;
+    prm_qsv.nTargetUsage           = (int)list_quality[fcgCXQuality->SelectedIndex].value;
+    prm_qsv.CodecProfile           = (int)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
+    prm_qsv.CodecLevel             = (int)get_level_list(prm_qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
+    prm_qsv.nBitRate               = (int)fcgNUBitrate->Value;
+    prm_qsv.nMaxBitrate            = (int)fcgNUMaxkbps->Value;
+    prm_qsv.nLookaheadDepth        = (int)fcgNULookaheadDepth->Value;
+    prm_qsv.nRef                   = (int)fcgNURef->Value;
     prm_qsv.bopenGOP               = fcgCBOpenGOP->Checked;
-    prm_qsv.nGOPLength             = (mfxU16)fcgNUGopLength->Value;
-    prm_qsv.nQPI                   = (mfxU16)fcgNUQPI->Value;
-    prm_qsv.nQPP                   = (mfxU16)fcgNUQPP->Value;
-    prm_qsv.nQPB                   = (mfxU16)fcgNUQPB->Value;
-    prm_qsv.nICQQuality            = (mfxU16)fcgNUICQQuality->Value;
-    prm_qsv.nQVBRQuality           = (mfxU16)fcgNUQVBR->Value;
-    prm_qsv.nBframes               = (mfxI16)fcgNUBframes->Value;
-    prm_qsv.nTrellis               = (mfxU16)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
+    prm_qsv.nGOPLength             = (int)fcgNUGopLength->Value;
+    prm_qsv.nQPI                   = (int)fcgNUQPI->Value;
+    prm_qsv.nQPP                   = (int)fcgNUQPP->Value;
+    prm_qsv.nQPB                   = (int)fcgNUQPB->Value;
+    prm_qsv.nICQQuality            = (int)fcgNUICQQuality->Value;
+    prm_qsv.nQVBRQuality           = (int)fcgNUQVBR->Value;
+    prm_qsv.nBframes               = (int)fcgNUBframes->Value;
+    prm_qsv.nTrellis               = (int)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
     prm_qsv.input.picstruct        = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
     prm_qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
     prm_qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
-    prm_qsv.nWeightP               = (mfxU16)(fcgCBWeightP->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
-    prm_qsv.nWeightB               = (mfxU16)(fcgCBWeightB->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
-    prm_qsv.nFadeDetect            = (mfxU16)(fcgCBFadeDetect->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+    prm_qsv.nWeightP               = (int)(fcgCBWeightP->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
+    prm_qsv.nWeightB               = (int)(fcgCBWeightB->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
+    prm_qsv.nFadeDetect            = (int)(fcgCBFadeDetect->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
     prm_qsv.bBPyramid              = fcgCBBPyramid->Checked;
-    prm_qsv.nLookaheadDS           = (mfxU16)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
+    prm_qsv.nLookaheadDS           = (int)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
     prm_qsv.bMBBRC                 = fcgCBMBBRC->Checked;
     //prm_qsv.bExtBRC                = fcgCBExtBRC->Checked;
-    prm_qsv.nWinBRCSize            = (mfxU16)fcgNUWinBRCSize->Value;
+    prm_qsv.nWinBRCSize            = (int)fcgNUWinBRCSize->Value;
     prm_qsv.bUseFixedFunc          = fcgCBFixedFunc->Checked;
-    prm_qsv.memType                = (mfxU8)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
-    prm_qsv.nAVBRAccuarcy          = (mfxU16)(fcgNUAVBRAccuarcy->Value * 10);
-    prm_qsv.nAVBRConvergence       = (mfxU16)fcgNUAVBRConvergence->Value;
-    prm_qsv.nSlices                = (mfxU16)fcgNUSlices->Value;
-    prm_qsv.nQPMin[0]              = (mfxU8)fcgNUQPMin->Value;
-    prm_qsv.nQPMin[1]              = (mfxU8)fcgNUQPMin->Value;
-    prm_qsv.nQPMin[2]              = (mfxU8)fcgNUQPMin->Value;
-    prm_qsv.nQPMax[0]              = (mfxU8)fcgNUQPMax->Value;
-    prm_qsv.nQPMax[1]              = (mfxU8)fcgNUQPMax->Value;
-    prm_qsv.nQPMax[2]              = (mfxU8)fcgNUQPMax->Value;
+    prm_qsv.memType                = (uint32_t)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
+    prm_qsv.nAVBRAccuarcy          = (int)(fcgNUAVBRAccuarcy->Value * 10);
+    prm_qsv.nAVBRConvergence       = (int)fcgNUAVBRConvergence->Value;
+    prm_qsv.nSlices                = (int)fcgNUSlices->Value;
+    prm_qsv.nQPMin[0]              = (int)fcgNUQPMin->Value;
+    prm_qsv.nQPMin[1]              = (int)fcgNUQPMin->Value;
+    prm_qsv.nQPMin[2]              = (int)fcgNUQPMin->Value;
+    prm_qsv.nQPMax[0]              = (int)fcgNUQPMax->Value;
+    prm_qsv.nQPMax[1]              = (int)fcgNUQPMax->Value;
+    prm_qsv.nQPMax[2]              = (int)fcgNUQPMax->Value;
 
     prm_qsv.nBluray                = fcgCBBlurayCompat->Checked;
 
@@ -1378,15 +1377,15 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     prm_qsv.bCAVLC                 = !fcgCBCABAC->Checked;
     prm_qsv.bRDO                   = fcgCBRDO->Checked;
-    prm_qsv.MVSearchWindow.x       = (mfxI16)fcgNUMVSearchWindow->Value;
-    prm_qsv.MVSearchWindow.y       = (mfxI16)fcgNUMVSearchWindow->Value;
-    prm_qsv.nMVPrecision           = (mfxU16)list_mv_presicion[fcgCXMVPred->SelectedIndex].value;
-    prm_qsv.nInterPred             = (mfxU16)list_pred_block_size[fcgCXInterPred->SelectedIndex].value;
-    prm_qsv.nIntraPred             = (mfxU16)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
+    prm_qsv.MVSearchWindow.first   = (int)fcgNUMVSearchWindow->Value;
+    prm_qsv.MVSearchWindow.second  = (int)fcgNUMVSearchWindow->Value;
+    prm_qsv.nMVPrecision           = (int)list_mv_presicion[fcgCXMVPred->SelectedIndex].value;
+    prm_qsv.nInterPred             = (int)list_pred_block_size[fcgCXInterPred->SelectedIndex].value;
+    prm_qsv.nIntraPred             = (int)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
 
     prm_qsv.bDirectBiasAdjust      = fcgCBDirectBiasAdjust->Checked;
     prm_qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value > 0;
-    prm_qsv.nMVCostScaling         = (mfxU8)((prm_qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
+    prm_qsv.nMVCostScaling         = (int)((prm_qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
 
     prm_qsv.common.out_vui.matrix    = (CspMatrix)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
     prm_qsv.common.out_vui.colorprim = (CspColorprim)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
@@ -1436,7 +1435,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
     cnf->oth.temp_dir               = fcgCXTempDir->SelectedIndex;
-    prm_qsv.nInputBufSize          = (mfxU16)fcgNUInputBufSize->Value;
+    prm_qsv.nInputBufSize          = (int)fcgNUInputBufSize->Value;
     cnf->vid.auo_tcfile_out         = (enable_tc2mp4_muxer) ? fcgCBAuoTcfileout->Checked : false;
     cnf->vid.afs                    = (enable_tc2mp4_muxer) ? fcgCBAFS->Checked : false;
 

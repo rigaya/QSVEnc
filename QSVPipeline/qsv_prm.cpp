@@ -129,7 +129,7 @@ sInputParams::sInputParams() :
     nIntraPred(0),
     bRDO(false),
     nMVPrecision(0),
-    MVSearchWindow(),
+    MVSearchWindow(std::make_pair(0,0)),
     MVC_flags(0),
     nBluray(0),
     bMBBRC(false),

@@ -97,7 +97,7 @@ static inline uint16_t frametype_rgy_to_enc(const RGY_FRAMETYPE frametype) {
 
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
 
-tstring qsv_memtype_str(uint16_t memtype);
+tstring qsv_memtype_str(uint32_t memtype);
 
 static inline uint16_t check_coding_option(uint16_t value) {
     if (value == MFX_CODINGOPTION_UNKNOWN
@@ -435,7 +435,7 @@ static inline RGYFrame RGYFrameInit() {
 
 static_assert(std::is_pod<RGYFrame>::value == true, "RGYFrame should be POD type.");
 
-const TCHAR *get_low_power_str(mfxU16 LowPower);
+const TCHAR *get_low_power_str(uint32_t LowPower);
 const TCHAR *get_err_mes(int sts);
 static void print_err_mes(int sts) {
     _ftprintf(stderr, _T("%s"), get_err_mes(sts));

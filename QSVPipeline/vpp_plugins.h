@@ -133,7 +133,7 @@ public:
         if (pluginName == nullptr || pPluginParam == nullptr) {
             return MFX_ERR_NULL_PTR;
         }
-        
+
 #if GPU_FILTER
         m_hwdev = phwdev;
 #endif
@@ -146,7 +146,7 @@ public:
         m_pQSVLog->write(RGY_LOG_DEBUG, _T("CVPPPluginInit: initialized session for plugin.\n"));
 
         m_mfxSession.SetFrameAllocator(pAllocator);
-        
+
         if (0 == _tcsicmp(pluginName, _T("rotate"))) {
             m_pUsrPlugin.reset(new Rotate());
         } else if (0 == _tcsicmp(pluginName, _T("delogo"))) {
@@ -239,7 +239,7 @@ private:
         m_mfxSession.QueryVersion(&m_mfxVer);
         return sts;
     }
-    
+
 private:
     virtual mfxStatus InitMfxPluginParam(mfxU16 nAsyncDepth, const mfxFrameInfo& frameIn, mfxU16 IOPattern) {
         RGY_MEMSET_ZERO(m_pluginVideoParams);
@@ -252,7 +252,7 @@ private:
     }
 public:
     mfxVideoParam                  m_pluginVideoParams;   //カスタムVPP用の入出力パラメータ
-    mfxU16                         m_nSurfNum;            //保持しているSurfaceの枚数
+    int                            m_nSurfNum;            //保持しているSurfaceの枚数
     mfxFrameAllocRequest           m_PluginRequest;       //AllocatorへのRequest
     mfxFrameAllocResponse          m_PluginResponse;      //AllocatorからのResponse
     unique_ptr<mfxFrameSurface1[]> m_pPluginSurfaces;     //保持しているSurface配列へのポインタ
@@ -268,7 +268,7 @@ private:
     shared_ptr<CQSVHWDevice>       m_hwdev;               //使用しているデバイス
 #endif
     tstring                        m_message;             //このカスタムVPPからのメッセージ
-    shared_ptr<RGYLog>            m_pQSVLog;            //ログ出力用関数オブジェクト
+    shared_ptr<RGYLog>             m_pQSVLog;            //ログ出力用関数オブジェクト
 };
 
 #endif //__VPP_PLUGINS_H__

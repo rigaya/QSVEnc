@@ -177,92 +177,92 @@ struct sInputParams {
     RGYParamControl ctrl;
     sVppParams vpp;
 
-    mfxU16 nEncMode;      // RateControl
-    mfxU16 nTargetUsage;  // Quality
-    mfxU32 CodecId;       // H.264 only for this
-    mfxU16 CodecProfile;
-    mfxU16 CodecLevel;
-    mfxU16 nIdrInterval;  // Idr frame interval to I frame, not supported
-    mfxU16 nGOPLength;    // (Max) GOP Length
-    bool   bopenGOP;      // if false, GOP_CLOSED is set
-    bool   bforceGOPSettings; // if true, GOP_STRICT is set
-    mfxI16 nBframes;      // set sequential Bframes num, -1 is auto.
-    mfxU16 nRef;          // set ref frames num.
-    mfxU32     nBitRate;
-    mfxU32     nMaxBitrate;
-    mfxU32     VBVBufsize;
-    mfxU16 nQPI;          // QP for I frames
-    mfxU16 nQPP;          // QP for P frames
-    mfxU16 nQPB;          // QP for B frames
-    mfxU8  nQPMin[3];
-    mfxU8  nQPMax[3];
-    mfxU16 nAVBRAccuarcy;    // param for AVBR algorithm, for API v1.3
-    mfxU16 nAVBRConvergence; // param for AVBR algorithm, for API v1.3
+    int nEncMode;      // RateControl
+    int nTargetUsage;  // Quality
+    uint32_t CodecId;       // H.264 only for this
+    int CodecProfile;
+    int CodecLevel;
+    int nIdrInterval;  // Idr frame interval to I frame, not supported
+    int nGOPLength;    // (Max) GOP Length
+    bool bopenGOP;      // if false, GOP_CLOSED is set
+    bool bforceGOPSettings; // if true, GOP_STRICT is set
+    int nBframes;      // set sequential Bframes num, -1 is auto.
+    int nRef;          // set ref frames num.
+    int nBitRate;
+    int nMaxBitrate;
+    int VBVBufsize;
+    int nQPI;          // QP for I frames
+    int nQPP;          // QP for P frames
+    int nQPB;          // QP for B frames
+    int nQPMin[3];
+    int nQPMax[3];
+    int nAVBRAccuarcy;    // param for AVBR algorithm, for API v1.3
+    int nAVBRConvergence; // param for AVBR algorithm, for API v1.3
 
-    mfxU16     nICQQuality;
-    mfxU16     nQVBRQuality;
+    int         nICQQuality;
+    int         nQVBRQuality;
 
-    mfxU16 nSlices;       // number of slices, 0 is auto
+    int        nSlices;       // number of slices, 0 is auto
 
-    mfxU32 ColorFormat;   //YV12 or NV12
+    uint32_t ColorFormat;   //YV12 or NV12
 
-    mfxU8 memType;       //use d3d surface
+    uint32_t memType;       //use d3d surface
 
-    mfxU16 nInputBufSize; //input buf size
+    int nInputBufSize; //input buf size
 
-    mfxI32     nPAR[2]; //PAR比
+    int        nPAR[2]; //PAR比
     bool       bCAVLC;  //CAVLC
-    mfxU16     nInterPred;
-    mfxU16     nIntraPred;
+    int        nInterPred;
+    int        nIntraPred;
     bool       bRDO;
-    mfxU16     nMVPrecision;
-    mfxI16Pair MVSearchWindow;
+    int        nMVPrecision;
+    std::pair<int,int> MVSearchWindow;
 
-    mfxU16     MVC_flags;
-    mfxU8      nBluray;
+    int        MVC_flags;
+    int        nBluray;
 
     bool       bMBBRC;
     bool       extBRC;
     bool       extBrcAdaptiveLTR;
 
-    mfxU16     nLookaheadDepth;
-    mfxU16     nTrellis;
+    int        nLookaheadDepth;
+    int        nTrellis;
 
-    mfxU16     nAsyncDepth;
-    mfxI16     nOutputBufSizeMB;
+    int        nAsyncDepth;
+    int        nOutputBufSizeMB;
 
     bool       bBPyramid;
     bool       bAdaptiveI;
     bool       bAdaptiveB;
-    mfxU16     nLookaheadDS;
+    int        nLookaheadDS;
 
     bool       bDisableTimerPeriodTuning;
 
     bool       bIntraRefresh;
     bool       bNoDeblock;
 
-    mfxU16     nWinBRCSize;
+    int        nWinBRCSize;
 
-    mfxU8      nMVCostScaling;
+    int        nMVCostScaling;
     bool       bDirectBiasAdjust;
     bool       bGlobalMotionAdjust;
     bool       bUseFixedFunc;
 
-    mfxI16     nSessionThreads;
-    mfxU16     nSessionThreadPriority;
+    int        nSessionThreads;
+    int        nSessionThreadPriority;
 
-    mfxU8      nVP8Sharpness;
+    int        nVP8Sharpness;
 
-    mfxU16     nWeightP;
-    mfxU16     nWeightB;
-    mfxU16     nFadeDetect;
+    int        nWeightP;
+    int        nWeightB;
+    int        nFadeDetect;
 
     uint32_t   nFallback;
     bool       bOutputAud;
     bool       bOutputPicStruct;
     int16_t    pQPOffset[8];
 
-    mfxU16     nRepartitionCheck;
+    int        nRepartitionCheck;
     int8_t     padding[2];
 
     int        hevc_ctu;
@@ -688,20 +688,20 @@ const int QSV_DEFAULT_FORCE_GOP_LEN = 1;
 const int QSV_DEFAULT_OUTPUT_BUF_MB = 8;
 const uint32_t QSV_DEFAULT_BENCH = (1 << 1) | (1 << 4) | (1 << 7);
 
-const mfxU16 QSV_DEFAULT_VQP_STRENGTH = 10;
-const mfxU16 QSV_DEFAULT_VQP_SENSITIVITY = 50;
-const mfxU16 QSV_DEFAULT_SC_SENSITIVITY = 80;
+const int QSV_DEFAULT_VQP_STRENGTH = 10;
+const int QSV_DEFAULT_VQP_SENSITIVITY = 50;
+const int QSV_DEFAULT_SC_SENSITIVITY = 80;
 
-const mfxU16 QSV_DEFAULT_ASYNC_DEPTH = 4;
-const mfxU16 QSV_ASYNC_DEPTH_MAX = 64;
-const mfxU16 QSV_SESSION_THREAD_MAX = 64;
+const int QSV_DEFAULT_ASYNC_DEPTH = 4;
+const int QSV_ASYNC_DEPTH_MAX = 64;
+const int QSV_SESSION_THREAD_MAX = 64;
 
 const int QSV_LOOKAHEAD_DEPTH_MIN = 10;
 const int QSV_LOOKAHEAD_DEPTH_MAX = 100;
 
 const uint32_t QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR = 10;
 
-const mfxI16 QSV_DEFAULT_VPP_DELOGO_DEPTH = 128;
+const int QSV_DEFAULT_VPP_DELOGO_DEPTH = 128;
 
 const int QSV_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 

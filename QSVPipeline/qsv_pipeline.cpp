@@ -798,7 +798,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     //設定開始
     m_mfxEncParams.mfx.CodecId                 = pInParams->CodecId;
-    m_mfxEncParams.mfx.RateControlMethod       = pInParams->nEncMode;
+    m_mfxEncParams.mfx.RateControlMethod       = (mfxU16)pInParams->nEncMode;
     if (MFX_RATECONTROL_CQP == m_mfxEncParams.mfx.RateControlMethod) {
         //CQP
         m_mfxEncParams.mfx.QPI             = (mfxU16)clamp_param_int(pInParams->nQPI, 0, 51, _T("qp-i"));
@@ -822,7 +822,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             //AVBR
             //m_mfxEncParams.mfx.Accuracy        = pInParams->nAVBRAccuarcy;
             m_mfxEncParams.mfx.Accuracy        = 500;
-            m_mfxEncParams.mfx.Convergence     = pInParams->nAVBRConvergence;
+            m_mfxEncParams.mfx.Convergence     = (mfxU16)pInParams->nAVBRConvergence;
         } else {
             //CBR, VBR
             m_mfxEncParams.mfx.MaxKbps         = (mfxU16)pInParams->nMaxBitrate;
@@ -843,18 +843,18 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.FrameInfo.FrameRateExtN = m_encFps.n();
     m_mfxEncParams.mfx.FrameInfo.FrameRateExtD = m_encFps.d();
     m_mfxEncParams.mfx.EncodedOrder            = 0;
-    m_mfxEncParams.mfx.NumSlice                = pInParams->nSlices;
+    m_mfxEncParams.mfx.NumSlice                = (mfxU16)pInParams->nSlices;
 
     m_mfxEncParams.mfx.NumRefFrame             = (mfxU16)clamp_param_int(pInParams->nRef, 0, 16, _T("ref"));
-    m_mfxEncParams.mfx.CodecLevel              = pInParams->CodecLevel;
-    m_mfxEncParams.mfx.CodecProfile            = pInParams->CodecProfile;
+    m_mfxEncParams.mfx.CodecLevel              = (mfxU16)pInParams->CodecLevel;
+    m_mfxEncParams.mfx.CodecProfile            = (mfxU16)pInParams->CodecProfile;
     m_mfxEncParams.mfx.GopOptFlag              = 0;
     m_mfxEncParams.mfx.GopOptFlag             |= (!pInParams->bopenGOP) ? MFX_GOP_CLOSED : 0x00;
-    m_mfxEncParams.mfx.IdrInterval             = (!pInParams->bopenGOP) ? 0 : (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 20 / pInParams->nGOPLength;
+    m_mfxEncParams.mfx.IdrInterval             = (mfxU16)((!pInParams->bopenGOP) ? 0 : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 20 / pInParams->nGOPLength);
     //MFX_GOP_STRICTにより、インタレ保持時にフレームが壊れる場合があるため、無効とする
     //m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
-    m_mfxEncParams.mfx.GopPicSize              = (pInParams->bIntraRefresh) ? 0 : pInParams->nGOPLength;
+    m_mfxEncParams.mfx.GopPicSize              = (pInParams->bIntraRefresh) ? 0 : (mfxU16)pInParams->nGOPLength;
     m_mfxEncParams.mfx.GopRefDist              = (mfxU16)(clamp_param_int(pInParams->nBframes, -1, 16, _T("bframes")) + 1);
 
     // specify memory type
@@ -907,13 +907,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
 
             CHECK_RANGE_LIST(pInParams->nLookaheadDS, list_lookahead_ds, "la-quality");
-            m_CodingOption2.LookAheadDS = pInParams->nLookaheadDS;
+            m_CodingOption2.LookAheadDS = (mfxU16)pInParams->nLookaheadDS;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-            m_CodingOption2.LookAheadDepth = (pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : (mfxU16)clamp_param_int(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX, _T("la-depth"));
+            m_CodingOption2.LookAheadDepth = (mfxU16)((pInParams->nLookaheadDepth == 0) ? pInParams->nLookaheadDepth : clamp_param_int(pInParams->nLookaheadDepth, QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX, _T("la-depth")));
 
             CHECK_RANGE_LIST(pInParams->nTrellis, list_avc_trellis_for_options, "trellis");
-            m_CodingOption2.Trellis = pInParams->nTrellis;
+            m_CodingOption2.Trellis = (mfxU16)pInParams->nTrellis;
         }
         if (pInParams->bMBBRC) {
             m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
@@ -928,25 +928,25 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         //}
         if (pInParams->bIntraRefresh) {
             m_CodingOption2.IntRefType = 1;
-            m_CodingOption2.IntRefCycleSize = (pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10;
+            m_CodingOption2.IntRefCycleSize = (mfxU16)((pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10);
         }
         if (pInParams->bNoDeblock) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
         for (int i = 0; i < 3; i++) {
-            pInParams->nQPMin[i] = (mfxU8)clamp_param_int(pInParams->nQPMin[i], 0, 51, _T("qp min"));
-            pInParams->nQPMax[i] = (mfxU8)clamp_param_int(pInParams->nQPMax[i], 0, 51, _T("qp max"));
-            mfxU8 qpMin = (std::min)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
-            mfxU8 qpMax = (std::max)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+            pInParams->nQPMin[i] = clamp_param_int(pInParams->nQPMin[i], 0, 51, _T("qp min"));
+            pInParams->nQPMax[i] = clamp_param_int(pInParams->nQPMax[i], 0, 51, _T("qp max"));
+            const int qpMin = (std::min)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
+            const int qpMax = (std::max)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
             pInParams->nQPMin[i] = (0 == pInParams->nQPMin[i]) ? 0 : qpMin;
             pInParams->nQPMax[i] = (0 == pInParams->nQPMax[i]) ? 0 : qpMax;
         }
-        m_CodingOption2.MaxQPI = pInParams->nQPMax[0];
-        m_CodingOption2.MaxQPP = pInParams->nQPMax[1];
-        m_CodingOption2.MaxQPB = pInParams->nQPMax[2];
-        m_CodingOption2.MinQPI = pInParams->nQPMin[0];
-        m_CodingOption2.MinQPP = pInParams->nQPMin[1];
-        m_CodingOption2.MinQPB = pInParams->nQPMin[2];
+        m_CodingOption2.MaxQPI = (mfxU8)pInParams->nQPMax[0];
+        m_CodingOption2.MaxQPP = (mfxU8)pInParams->nQPMax[1];
+        m_CodingOption2.MaxQPB = (mfxU8)pInParams->nQPMax[2];
+        m_CodingOption2.MinQPI = (mfxU8)pInParams->nQPMin[0];
+        m_CodingOption2.MinQPP = (mfxU8)pInParams->nQPMin[1];
+        m_CodingOption2.MinQPB = (mfxU8)pInParams->nQPMin[2];
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption2);
     }
 
@@ -965,7 +965,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption3.QVBRQuality = (mfxU16)clamp_param_int(pInParams->nQVBRQuality, 1, 51, _T("qvbr-q"));
         }
         if (0 != pInParams->nMaxBitrate) {
-            m_CodingOption3.WinBRCSize = (0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d());
+            m_CodingOption3.WinBRCSize = (mfxU16)((0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()));
             m_CodingOption3.WinBRCMaxAvgKbps = (mfxU16)pInParams->nMaxBitrate;
         }
 
@@ -975,25 +975,25 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption3.GlobalMotionBiasAdjustment = (mfxU16)((pInParams->bGlobalMotionAdjust) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
             if (pInParams->bGlobalMotionAdjust) {
                 CHECK_RANGE_LIST(pInParams->nMVCostScaling, list_mv_cost_scaling, "mv-scaling");
-                m_CodingOption3.MVCostScalingFactor    = pInParams->nMVCostScaling;
+                m_CodingOption3.MVCostScalingFactor    = (mfxU16)pInParams->nMVCostScaling;
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
-            m_CodingOption3.WeightedBiPred = pInParams->nWeightB;
-            m_CodingOption3.WeightedPred   = pInParams->nWeightP;
+            m_CodingOption3.WeightedBiPred = (mfxU16)pInParams->nWeightB;
+            m_CodingOption3.WeightedPred   = (mfxU16)pInParams->nWeightP;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
-            m_CodingOption3.FadeDetection = check_coding_option(pInParams->nFadeDetect);
+            m_CodingOption3.FadeDetection = check_coding_option((mfxU16)pInParams->nFadeDetect);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
             if (bQPOffsetUsed) {
                 m_CodingOption3.EnableQPOffset = MFX_CODINGOPTION_ON;
                 memcpy(m_CodingOption3.QPOffset, pInParams->pQPOffset, sizeof(pInParams->pQPOffset));
             }
-            m_CodingOption3.FadeDetection = check_coding_option(pInParams->nFadeDetect);
+            m_CodingOption3.FadeDetection = check_coding_option((mfxU16)pInParams->nFadeDetect);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
-            m_CodingOption3.RepartitionCheckEnable = pInParams->nRepartitionCheck;
+            m_CodingOption3.RepartitionCheckEnable = (mfxU16)pInParams->nRepartitionCheck;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
             m_CodingOption3.ExtBrcAdaptiveLTR = (mfxU16)(pInParams->extBrcAdaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
@@ -1105,8 +1105,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
     m_mfxEncParams.mfx.FrameInfo.CropX = 0;
     m_mfxEncParams.mfx.FrameInfo.CropY = 0;
-    m_mfxEncParams.mfx.FrameInfo.CropW = pInParams->input.dstWidth;
-    m_mfxEncParams.mfx.FrameInfo.CropH = pInParams->input.dstHeight;
+    m_mfxEncParams.mfx.FrameInfo.CropW = (mfxU16)pInParams->input.dstWidth;
+    m_mfxEncParams.mfx.FrameInfo.CropH = (mfxU16)pInParams->input.dstHeight;
 
     // In case of HEVC when height and/or width divided with 8 but not divided with 16
     // add extended parameter to increase performance
@@ -1246,8 +1246,8 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
             ALIGN(inputFrameInfo.CropH, blocksz) : ALIGN(inputFrameInfo.CropH, blocksz * 2));
     }
 
-    m_mfxVppParams.vpp.In.CropW = pInParams->input.srcWidth;
-    m_mfxVppParams.vpp.In.CropH = pInParams->input.srcHeight;
+    m_mfxVppParams.vpp.In.CropW = (mfxU16)pInParams->input.srcWidth;
+    m_mfxVppParams.vpp.In.CropH = (mfxU16)pInParams->input.srcHeight;
 
     //QSVデコードを行う場合、CropはVppで行う
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
@@ -1337,8 +1337,8 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
     }
     m_mfxVppParams.vpp.Out.CropX = 0;
     m_mfxVppParams.vpp.Out.CropY = 0;
-    m_mfxVppParams.vpp.Out.CropW = pInParams->input.dstWidth;
-    m_mfxVppParams.vpp.Out.CropH = pInParams->input.dstHeight;
+    m_mfxVppParams.vpp.Out.CropW = (mfxU16)pInParams->input.dstWidth;
+    m_mfxVppParams.vpp.Out.CropH = (mfxU16)pInParams->input.dstHeight;
     m_mfxVppParams.vpp.Out.Width = (mfxU16)ALIGN(pInParams->input.dstWidth, blocksz);
     m_mfxVppParams.vpp.Out.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxVppParams.vpp.Out.PicStruct)?
         ALIGN(pInParams->input.dstHeight, blocksz) : ALIGN(pInParams->input.dstHeight, blocksz));
@@ -1698,14 +1698,14 @@ mfxStatus CQSVPipeline::AllocFrames() {
     mfxFrameAllocRequest VppRequest[2];
     mfxFrameAllocRequest NextRequest; //出力されてくるフレーム情報とフレームタイプを記録する
 
-    uint16_t nEncSurfNum = 0; // enc用のフレーム数
-    uint16_t nVppSurfNum = 0; // vpp用のフレーム数
+    int nEncSurfNum = 0; // enc用のフレーム数
+    int nVppSurfNum = 0; // vpp用のフレーム数
 
-    uint16_t nInputSurfAdd   = 0;
-    uint16_t nDecSurfAdd     = 0; // dec用のフレーム数
-    uint16_t nVppPreSurfAdd  = 0; // vpp pre用のフレーム数
-    uint16_t nVppSurfAdd     = 0;
-    uint16_t nVppPostSurfAdd = 0; // vpp post用のフレーム数
+    int nInputSurfAdd   = 0;
+    int nDecSurfAdd     = 0; // dec用のフレーム数
+    int nVppPreSurfAdd  = 0; // vpp pre用のフレーム数
+    int nVppSurfAdd     = 0;
+    int nVppPostSurfAdd = 0; // vpp post用のフレーム数
 
     RGY_MEMSET_ZERO(DecRequest);
     RGY_MEMSET_ZERO(EncRequest);
@@ -1752,7 +1752,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
     }
 
-    nInputSurfAdd = (std::max<uint16_t>)(m_EncThread.m_nFrameBuffer, 1);
+    nInputSurfAdd = std::max(m_EncThread.m_nFrameBuffer, 1);
 
     nDecSurfAdd = DecRequest.NumFrameSuggested;
 
@@ -1771,20 +1771,20 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
     //VppPrePlugins
     if (m_VppPrePlugins.size()) {
-        for (mfxU32 i = 0; i < (mfxU32)m_VppPrePlugins.size(); i++) {
-            mfxU16 mem_type = (mfxU16)((HW_MEMORY & m_memType) ? MFX_MEMTYPE_EXTERNAL_FRAME : MFX_MEMTYPE_SYSTEM_MEMORY);
+        for (int i = 0; i < (int)m_VppPrePlugins.size(); i++) {
+            uint32_t mem_type = ((HW_MEMORY & m_memType) ? MFX_MEMTYPE_EXTERNAL_FRAME : MFX_MEMTYPE_SYSTEM_MEMORY);
             m_VppPrePlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
                 mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
-                m_VppPrePlugins[i]->m_nSurfNum += (uint16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
+                m_VppPrePlugins[i]->m_nSurfNum += (std::max)(1, (int)nInputSurfAdd + nDecSurfAdd - m_nAsyncDepth + 1);
             } else {
                 //surfaceが2つの要素c1とc2に共有されるとき、NumSurf = c1_out + c2_in - AsyncDepth + 1
                 mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
                 m_VppPrePlugins[i]->m_nSurfNum += m_VppPrePlugins[i-1]->m_nSurfNum - m_nAsyncDepth + 1;
             }
-            m_VppPrePlugins[i]->m_PluginRequest.Type = mem_type;
-            m_VppPrePlugins[i]->m_PluginRequest.NumFrameMin = m_VppPrePlugins[i]->m_nSurfNum;
-            m_VppPrePlugins[i]->m_PluginRequest.NumFrameSuggested = m_VppPrePlugins[i]->m_nSurfNum;
+            m_VppPrePlugins[i]->m_PluginRequest.Type = (mfxU16)mem_type;
+            m_VppPrePlugins[i]->m_PluginRequest.NumFrameMin = (mfxU16)m_VppPrePlugins[i]->m_nSurfNum;
+            m_VppPrePlugins[i]->m_PluginRequest.NumFrameSuggested = (mfxU16)m_VppPrePlugins[i]->m_nSurfNum;
             memcpy(&m_VppPrePlugins[i]->m_PluginRequest.Info, &(m_VppPrePlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
             if (m_pmfxDEC && nDecSurfAdd) {
                 m_VppPrePlugins[i]->m_PluginRequest.Info.Width  = DecRequest.Info.Width;
@@ -1810,11 +1810,11 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
     //Vpp
     if (m_pmfxVPP) {
-        nVppSurfNum += (int16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd - m_nAsyncDepth + 1);
+        nVppSurfNum += (std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd - m_nAsyncDepth + 1);
 
         //VppRequest[0]の準備
-        VppRequest[0].NumFrameMin = nVppSurfNum;
-        VppRequest[0].NumFrameSuggested = nVppSurfNum;
+        VppRequest[0].NumFrameMin = (mfxU16)nVppSurfNum;
+        VppRequest[0].NumFrameSuggested = (mfxU16)nVppSurfNum;
         memcpy(&VppRequest[0].Info, &(m_mfxVppParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
         if (m_pmfxDEC && nDecSurfAdd) {
             VppRequest[0].Type = DecRequest.Type;
@@ -1835,7 +1835,7 @@ mfxStatus CQSVPipeline::AllocFrames() {
         nInputSurfAdd = 0;
         nDecSurfAdd = 0;
         nVppPreSurfAdd = 0;
-        nVppSurfAdd = (std::max<uint16_t>)(VppRequest[1].NumFrameSuggested, 1);
+        nVppSurfAdd = (std::max<int>)(VppRequest[1].NumFrameSuggested, 1);
         NextRequest = VppRequest[1];
         memcpy(&NextRequest.Info, &(m_mfxVppParams.vpp.Out), sizeof(mfxFrameInfo));
         PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Vpp type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
@@ -1846,20 +1846,20 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
     //VppPostPlugins
     if (m_VppPostPlugins.size()) {
-        for (mfxU32 i = 0; i < (mfxU32)m_VppPostPlugins.size(); i++) {
-            mfxU16 mem_type = (mfxU16)((HW_MEMORY & m_memType) ? MFX_MEMTYPE_EXTERNAL_FRAME : MFX_MEMTYPE_SYSTEM_MEMORY);
+        for (int i = 0; i < (int)m_VppPostPlugins.size(); i++) {
+            uint32_t mem_type = ((HW_MEMORY & m_memType) ? MFX_MEMTYPE_EXTERNAL_FRAME : MFX_MEMTYPE_SYSTEM_MEMORY);
             m_VppPostPlugins[i]->m_nSurfNum += m_nAsyncDepth;
             if (i == 0) {
                 mem_type |= (nDecSurfAdd) ? (MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET | MFX_MEMTYPE_FROM_DECODE) : (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT);
-                m_VppPostPlugins[i]->m_nSurfNum += (uint16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
+                m_VppPostPlugins[i]->m_nSurfNum += (std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd - m_nAsyncDepth + 1);
             } else {
                 //surfaceが2つの要素c1とc2に共有されるとき、NumSurf = c1_out + c2_in - AsyncDepth + 1
                 mem_type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET | MFX_MEMTYPE_FROM_VPPOUT;
                 m_VppPostPlugins[i]->m_nSurfNum += m_VppPostPlugins[i-1]->m_nSurfNum - m_nAsyncDepth + 1;
             }
-            m_VppPostPlugins[i]->m_PluginRequest.Type = mem_type;
-            m_VppPostPlugins[i]->m_PluginRequest.NumFrameMin = m_VppPostPlugins[i]->m_nSurfNum;
-            m_VppPostPlugins[i]->m_PluginRequest.NumFrameSuggested = m_VppPostPlugins[i]->m_nSurfNum;
+            m_VppPostPlugins[i]->m_PluginRequest.Type = (mfxU16)mem_type;
+            m_VppPostPlugins[i]->m_PluginRequest.NumFrameMin = (mfxU16)m_VppPostPlugins[i]->m_nSurfNum;
+            m_VppPostPlugins[i]->m_PluginRequest.NumFrameSuggested = (mfxU16)m_VppPostPlugins[i]->m_nSurfNum;
             memcpy(&m_VppPostPlugins[i]->m_PluginRequest.Info, &(m_VppPostPlugins[i]->m_pluginVideoParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
             if (m_pmfxDEC && nDecSurfAdd) {
                 m_VppPostPlugins[i]->m_PluginRequest.Type = DecRequest.Type;
@@ -1888,15 +1888,15 @@ mfxStatus CQSVPipeline::AllocFrames() {
 
     //Enc、エンコーダが有効でない場合は出力フレーム
     {
-        nEncSurfNum += (uint16_t)(std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
+        nEncSurfNum += (std::max)(1, (int)nInputSurfAdd + nDecSurfAdd + nVppPreSurfAdd + nVppSurfAdd + nVppPostSurfAdd - m_nAsyncDepth + 1);
         if (m_pmfxENC == nullptr) {
             EncRequest = NextRequest;
             nEncSurfNum += (m_nAsyncDepth - 1);
         } else {
             memcpy(&EncRequest.Info, &(m_mfxEncParams.mfx.FrameInfo), sizeof(mfxFrameInfo));
         }
-        EncRequest.NumFrameMin = nEncSurfNum;
-        EncRequest.NumFrameSuggested = nEncSurfNum;
+        EncRequest.NumFrameMin = (mfxU16)nEncSurfNum;
+        EncRequest.NumFrameSuggested = (mfxU16)nEncSurfNum;
         if (m_pmfxDEC && nDecSurfAdd) {
             EncRequest.Type |= MFX_MEMTYPE_FROM_DECODE;
             EncRequest.Info.Width = std::max(EncRequest.Info.Width, DecRequest.Info.Width);
@@ -2619,7 +2619,7 @@ mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (inputParam->vpp.subburn.nTrack || inputParam->vpp.subburn.pFilePath) {
 #if defined(_WIN32) || defined(_WIN64)
 #if MFX_D3D11_SUPPORT
-        uint8_t memType = inputParam->memType;
+        uint32_t memType = inputParam->memType;
         //d3d11モードはWin8以降
         if (!check_OS_Win8orLater()) {
             memType &= (~D3D11_MEMORY);
@@ -2722,7 +2722,7 @@ mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::InitSessionInitParam(mfxU16 threads, mfxU16 priority) {
+mfxStatus CQSVPipeline::InitSessionInitParam(int threads, int priority) {
     INIT_MFX_EXT_BUFFER(m_ThreadsParam, MFX_EXTBUFF_THREADS_PARAM);
     m_ThreadsParam.NumThread = (mfxU16)clamp_param_int(threads, 0, QSV_SESSION_THREAD_MAX, _T("session-threads"));
     m_ThreadsParam.Priority = (mfxU16)clamp_param_int(priority, MFX_PRIORITY_LOW, MFX_PRIORITY_HIGH, _T("priority"));
@@ -2753,7 +2753,7 @@ void __stdcall GetSystemInfoHook(LPSYSTEM_INFO lpSystemInfo) {
 }
 #endif
 
-mfxStatus CQSVPipeline::InitSession(bool useHWLib, mfxU16 memType) {
+mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
     mfxStatus sts = MFX_ERR_NONE;
     m_SessionPlugins.reset();
     m_mfxSession.Close();
@@ -3013,9 +3013,9 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
     m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
-    m_nAsyncDepth = (mfxU16)clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
+    m_nAsyncDepth = clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
-        m_nAsyncDepth = (mfxU16)(std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1), 8);
+        m_nAsyncDepth = (std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1), 8);
         PrintMes(RGY_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
     }
 

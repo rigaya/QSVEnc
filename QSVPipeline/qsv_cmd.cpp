@@ -28,6 +28,7 @@
 #include <set>
 #include <sstream>
 #include <iomanip>
+#include <numeric>
 #include <vector>
 #if defined(_WIN32) || defined(_WIN64)
 #define WIN32_LEAN_AND_MEAN
@@ -65,6 +66,604 @@ tstring GetQSVEncVersion() {
 #endif
     version += _T("\n");
     return version;
+}
+
+typedef struct ListData {
+    const TCHAR *name;
+    const CX_DESC *list;
+    int default_index;
+} ListData;
+
+static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *option_desc, const vector<ListData>& listDatas) {
+    tstring str;
+    const TCHAR *indent_space = _T("                                ");
+    const int indent_len = (int)_tcslen(indent_space);
+    const int max_len = 79;
+    str += strsprintf(_T("   %s "), option_name);
+    while ((int)str.length() < indent_len) {
+        str += _T(" ");
+    }
+    str += strsprintf(_T("%s\n"), option_desc);
+    const auto data_name_max_len = indent_len + 4 + std::accumulate(listDatas.begin(), listDatas.end(), 0,
+        [](const int max_len, const ListData data) { return (std::max)(max_len, (int)_tcslen(data.name)); });
+
+    for (const auto& data : listDatas) {
+        tstring line = strsprintf(_T("%s- %s: "), indent_space, data.name);
+        while ((int)line.length() < data_name_max_len) {
+            line += strsprintf(_T(" "));
+        }
+        for (int i = 0; data.list[i].desc; i++) {
+            if (i > 0 && data.list[i].value == data.list[i - 1].value) {
+                continue; //連続で同じ値を示す文字列があるときは、先頭のみ表示する
+            }
+            const int desc_len = (int)(_tcslen(data.list[i].desc) + _tcslen(_T(", ")) + ((i == data.default_index) ? _tcslen(_T("(default)")) : 0));
+            if (line.length() + desc_len >= max_len) {
+                str += line + _T("\n");
+                line = indent_space;
+                while ((int)line.length() < data_name_max_len) {
+                    line += strsprintf(_T(" "));
+                }
+            } else {
+                if (i) {
+                    line += strsprintf(_T(", "));
+                }
+            }
+            line += strsprintf(_T("%s%s"), data.list[i].desc, (i == data.default_index) ? _T("(default)") : _T(""));
+        }
+        str += line + _T("\n");
+    }
+    return str;
+}
+
+tstring encoder_help() {
+    tstring str;
+    str += strsprintf(_T("Usage: QSVEncC [Options] -i <filename> -o <filename>\n"));
+    str += strsprintf(_T("\n")
+#if ENABLE_AVSW_READER
+        _T("When video codec could be decoded by QSV, any format or protocol supported\n")
+        _T("by ffmpeg library could be used as a input.\n")
+#endif
+        _T("%s input can be %s%s%sraw YUV or YUV4MPEG2(y4m) format.\n")
+        _T("when raw(default), fps, input-res are also necessary.\n")
+        _T("\n")
+        _T("output format will be automatically set by the output extension.\n")
+        _T("when output filename is set to \"-\", H.264/AVC ES output is thrown to stdout.\n")
+        _T("\n")
+        _T("Example:\n")
+        _T("  QSVEncC -i \"<avsfilename>\" -o \"<outfilename>\"\n")
+        _T("  avs2pipemod -y4mp \"<avsfile>\" | QSVEncC --y4m -i - -o \"<outfilename>\"\n")
+        _T("\n")
+        _T("Example for Benchmark:\n")
+        _T("  QSVEncC -i \"<avsfilename>\" --benchmark \"<benchmark_result.txt>\"\n")
+        ,
+        (ENABLE_AVSW_READER) ? _T("Also, ") : _T(""),
+        (ENABLE_AVI_READER)         ? _T("avi, ") : _T(""),
+        (ENABLE_AVISYNTH_READER)    ? _T("avs, ") : _T(""),
+        (ENABLE_VAPOURSYNTH_READER) ? _T("vpy, ") : _T(""));
+    str += strsprintf(_T("\n")
+        _T("Information Options: \n")
+        _T("-h,-? --help                    show help\n")
+        _T("-v,--version                    show version info\n")
+        _T("   --check-hw                   check if QuickSyncVideo is available\n")
+        _T("   --check-lib                  check lib API version installed\n")
+        _T("   --check-features [<string>]  check encode/vpp features\n")
+        _T("                                 with no option value, result will on stdout,\n")
+        _T("                                 otherwise, it is written to file path set\n")
+        _T("                                 and opened by default application.\n")
+        _T("                                 when writing to file, txt/html/csv format\n")
+        _T("                                 is available, chosen by the extension\n")
+        _T("                                 of the output file.\n")
+        _T("   --check-features-html [<string>]\n")
+        _T("                                check encode/vpp features and write html report to\n")
+        _T("                                 specified path. With no value, \"qsv_check.html\"\n")
+        _T("                                 will be created to current directory.\n")
+        _T("   --check-environment          check environment info\n")
+#if ENABLE_AVSW_READER
+        _T("   --check-avversion            show dll version\n")
+        _T("   --check-codecs               show codecs available\n")
+        _T("   --check-encoders             show audio encoders available\n")
+        _T("   --check-decoders             show audio decoders available\n")
+        _T("   --check-profiles <string>    show profile names available for specified audio codec\n")
+        _T("   --check-formats              show in/out formats available\n")
+        _T("   --check-protocols            show in/out protocols available\n")
+        _T("   --check-filters              show filters available\n")
+#endif
+        _T("\n"));
+
+    str += strsprintf(_T("\n")
+        _T("Basic Encoding Options: \n")
+        _T("-c,--codec <string>             set encode codec\n")
+        _T("                                 - h264(default), hevc, mpeg2, raw\n")
+        _T("-i,--input-file <filename>      set input file name\n")
+        _T("-o,--output-file <filename>     set ouput file name\n")
+#if ENABLE_AVSW_READER
+        _T("                                 for extension mp4/mkv/mov,\n")
+        _T("                                 avcodec muxer will be used.\n")
+#endif
+        _T("\n")
+        _T(" Input formats (will be estimated from extension if not set.)\n")
+        _T("   --raw                        set input as raw format\n")
+        _T("   --y4m                        set input as y4m format\n")
+#if ENABLE_AVI_READER
+        _T("   --avi                        set input as avi format\n")
+#endif
+#if ENABLE_AVISYNTH_READER
+        _T("   --avs                        set input as avs format\n")
+#endif
+#if ENABLE_VAPOURSYNTH_READER
+        _T("   --vpy                        set input as vpy format\n")
+        _T("   --vpy-mt                     set input as vpy format in multi-thread\n")
+#endif
+#if ENABLE_AVSW_READER
+        _T("   --avhw                       set input to use avcodec + qsv\n")
+        _T("   --avsw                       set input to use avcodec + sw decoder\n")
+        _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
+        _T("                                 default: 5 (seconds).\n")
+        _T("                                 could be only used with avqsv/avsw reader.\n")
+        _T("                                 use if reader fails to detect audio stream.\n")
+        _T("   --video-track <int>          set video track to encode in track id\n")
+        _T("                                 1 (default)  highest resolution video track\n")
+        _T("                                 2            next high resolution video track\n")
+        _T("                                   ... \n")
+        _T("                                 -1           lowest resolution video track\n")
+        _T("                                 -2           next low resolution video track\n")
+        _T("                                   ... \n")
+        _T("   --video-streamid <int>       set video track to encode in stream id\n")
+        _T("   --audio-source <string>      input extra audio file\n")
+        _T("   --audio-file [<int>?][<string>:]<string>\n")
+        _T("                                extract audio into file.\n")
+        _T("                                 could be only used with avqsv reader.\n")
+        _T("                                 below are optional,\n")
+        _T("                                  in [<int>?], specify track number to extract.\n")
+        _T("                                  in [<string>?], specify output format.\n")
+        _T("   --trim <int>:<int>[,<int>:<int>]...\n")
+        _T("                                trim video for the frame range specified.\n")
+        _T("                                 frame range should not overwrap each other.\n")
+        _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+        _T("                                skip video for the time specified,\n")
+        _T("                                 seek will be inaccurate but fast.\n")
+        _T("   --input-format <string>      set input format of input file.\n")
+        _T("                                 this requires use of avqsv/avsw reader.\n")
+        _T("-f,--output-format <string>     set output format of output file.\n")
+        _T("                                 if format is not specified, output format will\n")
+        _T("                                 be guessed from output file extension.\n")
+        _T("                                 set \"raw\" for H.264/ES output.\n")
+        _T("   --audio-copy [<int>[,...]]   mux audio with video during output.\n")
+        _T("                                 could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 by default copies all audio tracks.\n")
+        _T("                                 \"--audio-copy 1,2\" will extract\n")
+        _T("                                 audio track #1 and #2.\n")
+        _T("   --audio-codec [<int>?]<string>\n")
+        _T("                                encode audio to specified format.\n")
+        _T("                                  in [<int>?], specify track number to encode.\n")
+        _T("   --audio-bitrate [<int>?]<int>\n")
+        _T("                                set encode bitrate for audio (kbps).\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-profile [<int>?]<string>\n")
+        _T("                                specify audio profile.\n")
+        _T("                                  in [<int>?], specify track number to apply.\n")
+        _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
+        _T("                                set numbers of continuous packets of audio\n")
+        _T("                                 decode error to ignore, replaced by silence.\n")
+        _T("   --audio-samplerate [<int>?]<int>\n")
+        _T("                                set sampling rate for audio (Hz).\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-resampler <string>   set audio resampler.\n")
+        _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
+        _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
+        _T("       set audio streams in channels.\n")
+        _T("         in [<int>?], specify track number to split.\n")
+        _T("         in <string1>, set input channels to use from source stream.\n")
+        _T("           if unset, all input channels will be used.\n")
+        _T("         in <string2>, set output channels to mix.\n")
+        _T("           if unset, all input channels will be copied without mixing.\n")
+        _T("       example1: --audio-stream FL,FR\n")
+        _T("         splitting dual mono audio to each stream.\n")
+        _T("       example2: --audio-stream :stereo\n")
+        _T("         mixing input channels to stereo.\n")
+        _T("       example3: --audio-stream 5.1,5.1:stereo\n")
+        _T("         keeping 5.1ch audio and also adding downmixed stereo stream.\n")
+        _T("       usable symbols\n")
+        _T("         mono       = FC\n")
+        _T("         stereo     = FL + FR\n")
+        _T("         2.1        = FL + FR + LFE\n")
+        _T("         3.0        = FL + FR + FC\n")
+        _T("         3.0(back)  = FL + FR + BC\n")
+        _T("         3.1        = FL + FR + FC + LFE\n")
+        _T("         4.0        = FL + FR + FC + BC\n")
+        _T("         quad       = FL + FR + BL + BR\n")
+        _T("         quad(side) = FL + FR + SL + SR\n")
+        _T("         5.0        = FL + FR + FC + SL + SR\n")
+        _T("         5.1        = FL + FR + FC + LFE + SL + SR\n")
+        _T("         6.0        = FL + FR + FC + BC + SL + SR\n")
+        _T("         6.0(front) = FL + FR + FLC + FRC + SL + SR\n")
+        _T("         hexagonal  = FL + FR + FC + BL + BR + BC\n")
+        _T("         6.1        = FL + FR + FC + LFE + BC + SL + SR\n")
+        _T("         6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR\n")
+        _T("         7.0        = FL + FR + FC + BL + BR + SL + SR\n")
+        _T("         7.0(front) = FL + FR + FC + FLC + FRC + SL + SR\n")
+        _T("         7.1        = FL + FR + FC + LFE + BL + BR + SL + SR\n")
+        _T("         7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR\n")
+        _T("   --audio-filter [<int>?]<string>\n")
+        _T("                                set audio filter.\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --chapter-copy               copy chapter to output file.\n")
+        _T("   --chapter <string>           set chapter from file specified.\n")
+        _T("   --chapter-no-trim            do not apply trim to chapter file.\n")
+        _T("   --sub-copy [<int>[,...]]     copy subtitle to output file.\n")
+        _T("                                 these could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n")
+        _T("                                 below are optional,\n")
+        _T("                                  in [<int>?], specify track number to copy.\n")
+        _T("   --caption2ass [<string>]     enable caption2ass during encode.\n")
+        _T("                                  !! This feature requires Caption.dll !!\n")
+        _T("                                 supported formats ... srt (default), ass\n")
+        _T("   --data-copy [<int>[,...]]    copy data stream to output file.\n")
+        _T("\n")
+        _T("   --avsync <string>            method for AV sync (default: cfr)\n")
+        _T("                                 cfr      ... assume cfr\n")
+        _T("                                 vfr      ... pass through timestamp from source\n")
+        _T("                                 forcecfr ... check timestamp and force cfr.\n")
+        _T("-m,--mux-option <string1>:<string2>\n")
+        _T("                                set muxer option name and value.\n")
+        _T("                                 these could be only used with\n")
+        _T("                                 avqsv reader and avcodec muxer.\n"),
+        QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR
+#endif
+    );
+    str += strsprintf(_T("\n")
+        _T("   --nv12                       set raw input as NV12 color format,\n")
+        _T("                                if not specified YV12 is expected\n")
+        _T("   --tff                        set as interlaced, top field first\n")
+        _T("   --bff                        set as interlaced, bottom field first\n")
+        _T("   --fps <int>/<int> or <float> video frame rate (frames per second)\n")
+        _T("\n")
+        _T("   --input-res <int>x<int>      input resolution\n")
+        _T("   --output-res <int>x<int>     output resolution\n")
+        _T("                                if different from input, uses vpp resizing\n")
+        _T("                                if not set, output resolution will be same\n")
+        _T("                                as input (no resize will be done).\n")
+        _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
+        _T("\n"));
+    str += strsprintf(_T("Frame buffer Options:\n")
+        _T(" frame buffers are selected automatically by default.\n")
+#ifdef D3D_SURFACES_SUPPORT
+        _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
+        _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
+        _T(" On particular cases, such as runnning on a system with dGPU, or running\n")
+        _T(" vpp-rotate, will require the uses of d3d11 surface.\n")
+        _T(" Options below will change this default behavior.\n")
+        _T("\n")
+        _T("   --disable-d3d                disable using d3d surfaces\n")
+#if MFX_D3D11_SUPPORT
+        _T("   --d3d                        use d3d9/d3d11 surfaces\n")
+        _T("   --d3d9                       use d3d9 surfaces\n")
+        _T("   --d3d11                      use d3d11 surfaces\n")
+#else
+        str += strsprintf(_T("")
+            _T("   --d3d                        use d3d9 surfaces\n")
+#endif //MFX_D3D11_SUPPORT
+#endif //D3D_SURFACES_SUPPORT
+#ifdef LIBVA_SUPPORT
+            _T("   --disable-va                 disable using va surfaces\n")
+            _T("   --va                         use va surfaces\n")
+#endif //#ifdef LIBVA_SUPPORT
+            _T("\n"));
+    str += strsprintf(_T("Encode Mode Options:\n")
+        _T(" EncMode default: --cqp\n")
+        _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
+        _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
+        _T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
+        _T("   --la-hrd <int>               set bitrate in HRD-Lookahead mode (kbps)\n")
+        _T("   --icq <int>                  encode in Intelligent Const. Quality mode\n")
+        _T("                                  default value: %d\n")
+        _T("   --la-icq <int>               encode in ICQ mode with Lookahead\n")
+        _T("                                  default value: %d\n")
+        _T("   --cbr <int>                  set bitrate in CBR mode (kbps)\n")
+        _T("   --vbr <int>                  set bitrate in VBR mode (kbps)\n")
+        _T("   --avbr <int>                 set bitrate in AVBR mode (kbps)\n")
+        _T("                                 AVBR mode is only supported with API v1.3\n")
+        _T("   --avbr-unitsize <int>        avbr calculation period in x100 frames\n")
+        _T("                                 default %d (= unit size %d00 frames)\n")
+        //_T("   --avbr-range <float>           avbr accuracy range from bitrate set\n)"
+        //_T("                                   in percentage, defalut %.1f(%%)\n)"
+        _T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
+        _T("                                 requires --qvbr-q option to be set as well\n")
+        _T("   --qvbr-q <int>  or           set quality used in qvbr mode. default: %d\n")
+        _T("   --qvbr-quality <int>          QVBR mode is only supported with API v1.11\n")
+        _T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
+        _T("\n"),
+        QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
+        QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
+        QSV_DEFAULT_ICQ, QSV_DEFAULT_ICQ,
+        QSV_DEFAULT_CONVERGENCE, QSV_DEFAULT_CONVERGENCE,
+        QSV_DEFAULT_QVBR);
+    str += strsprintf(_T("Other Encode Options:\n")
+        _T("   --fallback-rc                enable fallback of ratecontrol mode, when\n")
+        _T("                                 platform does not support new ratecontrol modes.\n")
+        _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
+        _T("                                 default: 0 (=auto, 4+2*(extra pipeline step))\n")
+        _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
+        _T("   --qp-min <int> or            set min QP, default 0 (= unset)\n")
+        _T("           <int>:<int>:<int>\n")
+        _T("   --qp-max <int> or            set max QP, default 0 (= unset)\n")
+        _T("           <int>:<int>:<int>\n")
+        _T("   --qp-offset <int>[:<int>][:<int>]...\n")
+        _T("                                set qp offset of each pyramid reference layers.\n")
+        _T("                                 default 0 (= unset).\n")
+        _T("-u,--quality <string>           encode quality\n")
+        _T("                                  - best, higher, high, balanced(default)\n")
+        _T("                                    fast, faster, fastest\n")
+        _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
+        _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
+        _T("                                  and set the window size in frames.\n")
+        _T("   --la-quality <string>        set lookahead quality.\n")
+        _T("                                 - auto(default), fast, medium, slow\n")
+        _T("   --(no-)mbbrc                 enables per macro block rate control\n")
+        _T("                                 default: auto\n")
+        _T("   --ref <int>                  reference frames\n")
+        _T("                                  default %d (auto)\n")
+        _T("-b,--bframes <int>              number of sequential b frames\n")
+        _T("                                  default %d(HEVC) / %d(others)\n")
+        _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
+        _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
+        _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
+        _T("                                  when auto, fps x 10 will be set.\n")
+        _T("   --(no-)open-gop              enables open gop (default:off)\n")
+        _T("   --strict-gop                 force gop structure\n")
+        _T("   --(no-)i-adapt               enables adaptive I frame insert (default:off)\n")
+        _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
+        _T("   --(no-)weightp               enable weighted prediction for P frame\n")
+        _T("   --(no-)weightb               enable weighted prediction for B frame\n")
+        _T("   --(no-)adapt-ltr             enable adaptive LTR frames\n")
+        _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
+#if ENABLE_FADE_DETECT
+        _T("   --(no-)fade-detect           enable fade detection\n")
+#endif //#if ENABLE_FADE_DETECT
+        _T("   --trellis <string>           set trellis mode used in encoding\n")
+        _T("                                 - auto(default), off, i, ip, all\n")
+        _T("   --mv-scaling                 set mv cost scaling\n")
+        _T("                                 - 0  set MV cost to be 0\n")
+        _T("                                 - 1  set MV cost 1/2 of default\n")
+        _T("                                 - 2  set MV cost 1/4 of default\n")
+        _T("                                 - 3  set MV cost 1/8 of default\n")
+        _T("   --slices <int>               number of slices, default 0 (auto)\n")
+        _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
+        _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
+        _T("   --tskip                      [hevc] enable transform skip\n")
+        _T("   --sao <string>               [hevc]\n")
+        _T("                                 - auto    default\n")
+        _T("                                 - none    disable sao\n")
+        _T("                                 - luma    enable sao for luma\n")
+        _T("                                 - chroma  enable sao for chroma\n")
+        _T("                                 - all     enable sao for luma & chroma\n")
+        _T("   --ctu <int>                  [hevc] max ctu size\n")
+        _T("                                 - auto(default), 16, 32, 64\n")
+        _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
+        _T("\n"),
+        QSV_ASYNC_DEPTH_MAX,
+        QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
+        QSV_DEFAULT_REF,
+        QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
+        QSV_DEFAULT_GOP_LEN);
+    str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
+        { { _T("H.264"), list_avc_level,   0 },
+          { _T("HEVC"),  list_hevc_level,  0 },
+          { _T("MPEG2"), list_mpeg2_level, 0 }
+        });
+    str += PrintMultipleListOptions(_T("--profile <string>"), _T("set codec profile"),
+        { { _T("H.264"), list_avc_profile,   0 },
+          { _T("HEVC"),  list_hevc_profile,  0 },
+          { _T("MPEG2"), list_mpeg2_profile, 0 }
+        });
+    str += PrintMultipleListOptions(_T("--tier <string>"), _T("set codec tier"),
+        { { _T("HEVC"),  list_hevc_tier,  0 },
+        });
+
+    str += strsprintf(_T("\n")
+        _T("   --sar <int>:<int>            set Sample Aspect Ratio\n")
+        _T("   --dar <int>:<int>            set Display Aspect Ratio\n")
+        _T("   --bluray                     for H.264 bluray encoding\n")
+        _T("\n")
+        _T("   --crop <int>,<int>,<int>,<int>\n")
+        _T("                                set crop pixels of left, up, right, bottom.\n")
+        _T("\n"));
+    str += strsprintf(_T("")
+        _T("   --aud                        insert aud nal unit to ouput stream.\n")
+        _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
+        _T("   --max-cll <int>,<int>        set MaxCLL and MaxFall in nits. e.g. \"1000,300\"\n")
+        _T("   --master-display <string>    set Mastering display data.\n")
+        _T("      e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
+    str += strsprintf(_T("\n")
+        //_T("   --sw                         use software encoding, instead of QSV (hw)\n")
+        _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
+        _T("                                 default   hw: %d,  sw: %d\n")
+        _T("                                 cannot be used with avqsv reader.\n"),
+        QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX,
+        QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
+        );
+    str += strsprintf(_T("")
+        _T("   --output-buf <int>           buffer size for output in MByte\n")
+        _T("                                 default %d MB (0-%d)\n"),
+        QSV_DEFAULT_OUTPUT_BUF_MB, RGY_OUTPUT_BUF_MB_MAX
+        );
+    str += strsprintf(_T("")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("   --mfx-thread <int>          set mfx thread num (-1 (auto), 2, 3, ...)\n")
+        _T("                                 note that mfx thread cannot be less than 2.\n")
+#endif
+        _T("   --input-thread <int>        set input thread num\n")
+        _T("                                  0: disable (slow, but less cpu usage)\n")
+        _T("                                  1: use one thread\n")
+#if ENABLE_AVCODEC_OUT_THREAD
+        _T("   --output-thread <int>        set output thread num\n")
+        _T("                                 -1: auto (= default)\n")
+        _T("                                  0: disable (slow, but less memory usage)\n")
+        _T("                                  1: use one thread\n")
+#if 0
+        _T("   --audio-thread <int>         set audio thread num, available only with output thread\n")
+        _T("                                 -1: auto (= default)\n")
+        _T("                                  0: disable (slow, but less memory usage)\n")
+        _T("                                  1: use one thread\n")
+        _T("                                  2: use two thread\n")
+#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
+#endif //#if ENABLE_AVCODEC_OUT_THREAD
+        _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
+        _T("                                 same as --output-thread 0 --audio-thread 0\n")
+        _T("                                   --mfx-thread 2 -a 1 --input-buf 1 --output-buf 0\n")
+        _T("                                 this will cause lower performance!\n")
+        _T("   --max-procfps <int>         limit processing speed to lower resource usage.\n")
+        _T("                                 default:0 (no limit)\n")
+        );
+    str += strsprintf(
+        _T("   --log <string>               output log to file (txt or html).\n")
+        _T("   --log-level <string>         set output log level\n")
+        _T("                                 info(default), warn, error, debug\n")
+        _T("   --log-framelist <string>     output frame info for avqsv reader (for debug)\n")
+#if _DEBUG
+        _T("   --log-mus-ts <string>         (for debug)\n")
+        _T("   --log-copy-framedata <string> (for debug)\n")
+#endif
+        );
+#if ENABLE_SESSION_THREAD_CONFIG
+    str += strsprintf(_T("")
+        _T("   --session-threads            set num of threads for QSV session. (0-%d)\n")
+        _T("                                 default: 0 (=auto)\n")
+        _T("   --session-thread-priority    set thread priority for QSV session.\n")
+        _T("                                  - low, normal(default), high\n"),
+        QSV_SESSION_THREAD_MAX);
+#endif
+    str += strsprintf(_T("\n")
+        _T("   --benchmark <string>         run in benchmark mode\n")
+        _T("                                 and write result in txt file\n")
+        _T("   --bench-quality \"all\" or <string>[,<string>][,<string>]...\n")
+        _T("                                 default: \"best,balanced,fastest\"\n")
+        _T("                                list of target quality to check on benchmark\n")
+        _T("   --perf-monitor [<string>][,<string>]...\n")
+        _T("       check performance info of QSVEncC and output to log file\n")
+        _T("       select counter from below, default = all\n")
+        _T("   --perf-monitor-plot [<string>][,<string>]...\n")
+        _T("       plot perf monitor realtime (required python, pyqtgraph)\n")
+        _T("       select counter from below, default = cpu,bitrate\n")
+        _T("                                 \n")
+        _T("     counters for perf-monitor, perf-monitor-plot\n")
+        _T("                                 all          ... monitor all info\n")
+        _T("                                 cpu_total    ... cpu total usage (%%)\n")
+        _T("                                 cpu_kernel   ... cpu kernel usage (%%)\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 cpu_main     ... cpu main thread usage (%%)\n")
+        _T("                                 cpu_enc      ... cpu encode thread usage (%%)\n")
+        _T("                                 cpu_in       ... cpu input thread usage (%%)\n")
+        _T("                                 cpu_out      ... cpu output thread usage (%%)\n")
+        _T("                                 cpu_aud_proc ... cpu aud proc thread usage (%%)\n")
+        _T("                                 cpu_aud_enc  ... cpu aud enc thread usage (%%)\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 cpu          ... monitor all cpu info\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 gpu_load    ... gpu usage (%%)\n")
+        _T("                                 gpu_clock   ... gpu avg clock (%%)\n")
+        _T("                                 gpu         ... monitor all gpu info\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        _T("                                 queue       ... queue usage\n")
+        _T("                                 mem_private ... private memory (MB)\n")
+        _T("                                 mem_virtual ... virtual memory (MB)\n")
+        _T("                                 mem         ... monitor all memory info\n")
+        _T("                                 io_read     ... io read  (MB/s)\n")
+        _T("                                 io_write    ... io write (MB/s)\n")
+        _T("                                 io          ... monitor all io info\n")
+        _T("                                 fps         ... encode speed (fps)\n")
+        _T("                                 fps_avg     ... encode avg. speed (fps)\n")
+        _T("                                 bitrate     ... encode bitrate (kbps)\n")
+        _T("                                 bitrate_avg ... encode avg. bitrate (kbps)\n")
+        _T("                                 frame_out   ... written_frames\n")
+        _T("                                 \n")
+        _T("   --python <string>            set python path for --perf-monitor-plot\n")
+        _T("                                 default: python\n")
+        _T("   --perf-monitor-interval <int> set perf monitor check interval (millisec)\n")
+        _T("                                 default 250, must be 50 or more\n")
+#if defined(_WIN32) || defined(_WIN64)
+        _T("   --(no-)timer-period-tuning   enable(disable) timer period tuning\n")
+        _T("                                  default: enabled\n")
+#endif //#if defined(_WIN32) || defined(_WIN64)
+        );
+#if 0
+    str += strsprintf(_T("\n")
+        _T(" Settings below are available only for software ecoding.\n")
+        _T("   --cavlc                      use cavlc instead of cabac\n")
+        _T("   --rdo                        use rate distortion optmization\n")
+        _T("   --inter-pred <int>           set minimum block size used for\n")
+        _T("   --intra-pred <int>           inter/intra prediction\n")
+        _T("                                  0: auto(default)   1: 16x16\n")
+        _T("                                  2: 8x8             3: 4x4\n")
+        _T("   --mv-search <int>            set window size for mv search\n")
+        _T("                                  default: 0 (auto)\n")
+        _T("   --mv-precision <int>         set precision of mv search\n")
+        _T("                                  0: auto(default)   1: full-pell\n")
+        _T("                                  2: half-pell       3: quater-pell\n")
+        );
+#endif
+    str += strsprintf(_T("\nVPP Options:\n")
+        _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
+        _T("   --vpp-mctf [\"auto\" or <int>] use vpp motion compensated temporal filter(mctf)\n")
+        _T("                                  set strength (%d-%d), default: %d (auto)\n")
+        _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
+        _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
+        _T("                                 - none     disable deinterlace\n")
+        _T("                                 - normal   normal deinterlace\n")
+        _T("                                 - it       inverse telecine\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+        _T("                                 - it-manual <string>\n")
+        _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
+#endif
+        _T("                                 - bob      double framerate\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+        _T("                                 - auto     auto deinterlace\n")
+        _T("                                 - auto-bob auto bob deinterlace\n")
+#endif
+#if ENABLE_FPS_CONVERSION
+        _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
+        _T("                                enabled only when input is progressive\n")
+        _T("                                 - none, x2, x2.5\n")
+#endif
+        _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
+        _T("                                 - none, upscale, box\n")
+        _T("   --vpp-rotate <int>           rotate image\n")
+        _T("                                 90, 180, 270.\n")
+        _T("   --vpp-mirror <string>        mirror image\n")
+        _T("                                 - h   mirror in horizontal direction\n")
+        _T("                                 - v   mirror in vertical   direction\n")
+        _T("   --vpp-half-turn              half turn video image\n")
+        _T("                                 unoptimized and very slow.\n")
+        _T("   --vpp-resize <string>        set scaling quality\n")
+        _T("                                 - auto(default)\n")
+        _T("                                 - simple   use simple scaling\n")
+        _T("                                 - fine     use high quality scaling\n")
+#if ENABLE_CUSTOM_VPP
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
+        _T("   --vpp-sub [<int>] or [<string>]\n")
+        _T("                                burn in subtitle into frame\n")
+        _T("                                set sub track number in input file by integer\n")
+        _T("                                or set external sub file path by string.\n")
+        _T("   --vpp-sub-charset [<string>] set subtitle char set\n")
+        _T("   --vpp-sub-shaping <string>   simple(default), complex\n")
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
+        _T("   --vpp-delogo <string>        set delogo file path\n")
+        _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
+        _T("                                 or logo index starting from 1.\n")
+        _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
+        _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
+        _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
+        _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
+        _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
+        _T("   --vpp-delogo-add             add logo mode\n"),
+#endif //#if ENABLE_CUSTOM_VPP,
+        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
+        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO,
+        QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX,
+        QSV_DEFAULT_VPP_DELOGO_DEPTH
+        );
+    return str;
 }
 
 const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
@@ -107,7 +706,7 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
     return option_name;
 }
 
-int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData, ParseCmdError& err) {
+int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
     if (0 == _tcscmp(option_name, _T("codec"))) {
         i++;
         int j = 0;
@@ -118,7 +717,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             }
         }
         if (list_codec[j].desc == nullptr) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_codec);
             return 1;
         }
         return 0;
@@ -127,11 +726,11 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = MFX_TARGETUSAGE_BALANCED;
         if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->nTargetUsage = (mfxU16)clamp(value, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED);
+            pParams->nTargetUsage = clamp(value, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED);
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_quality_for_option, strInput[i]))) {
-            pParams->nTargetUsage = (mfxU16)value;
+            pParams->nTargetUsage = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_quality_for_option);
             return 1;
         }
         return 0;
@@ -141,7 +740,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             i++;
             argData->cachedlevel = strInput[i];
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -151,7 +750,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             i++;
             argData->cachedprofile = strInput[i];
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -161,7 +760,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             i++;
             argData->cachedtier = strInput[i];
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -172,7 +771,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_output_depth, strInput[i]))) {
             argData->outputDepth = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_output_depth);
             return 1;
         }
         return 0;
@@ -186,7 +785,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &value[0], &value[1])) {
             RGY_MEMSET_ZERO(pParams->nPAR);
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         if (0 == _tcscmp(option_name, _T("dar"))) {
@@ -199,8 +798,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("slices"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nSlices)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nSlices = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -209,9 +810,13 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         if (0 == _tcsnccmp(strInput[i], _T("auto"), _tcslen(_T("auto")))) {
             pParams->nGOPLength = 0;
-        } else if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nGOPLength)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-            return 1;
+        } else {
+            try {
+                pParams->nGOPLength = std::stoi(strInput[i]);
+            } catch (...) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
         }
         return 0;
     }
@@ -288,9 +893,9 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = MFX_LOOKAHEAD_DS_UNKNOWN;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_lookahead_ds, strInput[i]))) {
-            pParams->nLookaheadDS = (mfxU16)value;
+            pParams->nLookaheadDS = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_lookahead_ds);
             return 1;
         }
         return 0;
@@ -299,9 +904,9 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = MFX_TRELLIS_UNKNOWN;
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_avc_trellis_for_options, strInput[i]))) {
-            pParams->nTrellis = (mfxU16)value;
+            pParams->nTrellis = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_avc_trellis_for_options);
             return 1;
         }
         return 0;
@@ -316,8 +921,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("la"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBitRate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA;
@@ -325,8 +932,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("icq"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nICQQuality = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_ICQ;
@@ -334,8 +943,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("la-icq"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nICQQuality)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nICQQuality = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA_ICQ;
@@ -343,8 +954,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("la-hrd"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBitRate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_LA_HRD;
@@ -352,8 +965,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("vcm"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBitRate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_VCM;
@@ -361,8 +976,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("vbr"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBitRate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_VBR;
@@ -370,8 +987,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("cbr"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBitRate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_CBR;
@@ -379,8 +998,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("avbr"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBitRate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_AVBR;
@@ -388,8 +1009,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("qvbr"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nBitRate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBitRate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_QVBR;
@@ -398,8 +1021,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (   0 == _tcscmp(option_name, _T("qvbr-q"))
         || 0 == _tcscmp(option_name, _T("qvbr-quality"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nQVBRQuality)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nQVBRQuality = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->nEncMode = MFX_RATECONTROL_QVBR;
@@ -413,56 +1038,64 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         || 0 == _tcscmp(option_name, _T("maxbitrate"))) //互換性のため
     {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->nMaxBitrate)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nMaxBitrate = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vbv-bufsize"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &pParams->VBVBufsize)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->VBVBufsize = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-depth"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nLookaheadDepth)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nLookaheadDepth = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-window-size"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nWinBRCSize)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nWinBRCSize = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("cqp"))) {
         i++;
-        if (   3 != _stscanf_s(strInput[i], _T("%hd:%hd:%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)
-            && 3 != _stscanf_s(strInput[i], _T("%hd,%hd,%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)
-            && 3 != _stscanf_s(strInput[i], _T("%hd/%hd/%hd"), &pParams->nQPI, &pParams->nQPP, &pParams->nQPB)) {
-            if (1 == _stscanf_s(strInput[i], _T("%hd"), &pParams->nQPI)) {
-                pParams->nQPP = pParams->nQPI;
-                pParams->nQPB = pParams->nQPI;
-            } else {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return 1;
-            }
+        int a[3] = { 0 };
+        int ret = parse_qp(a, strInput[i]);
+        if (ret == 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
         }
-        pParams->nEncMode = (mfxU16)MFX_RATECONTROL_CQP;
+        pParams->nQPI = a[0];
+        pParams->nQPP = a[1];
+        pParams->nQPB = a[2];
+        pParams->nEncMode = MFX_RATECONTROL_CQP;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr-unitsize"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nAVBRConvergence)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nAVBRConvergence = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -471,7 +1104,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     //{
     //    double accuracy;
     //    if (1 != _stscanf_s(strArgument, _T("%f"), &accuracy)) {
-    //        CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+    //        print_cmd_error_invalid_value(option_name, strInput[i]);
     //        return 1;
     //    }
     //    pParams->nAVBRAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
@@ -487,16 +1120,20 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("ref"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nRef)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nRef = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("bframes"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%hd"), &pParams->nBframes)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nBframes = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -551,7 +1188,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_ctu, strInput[i]))) {
             pParams->hevc_ctu = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_ctu);
             return 1;
         }
         return 0;
@@ -562,7 +1199,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_sao, strInput[i]))) {
             pParams->hevc_sao = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_sao);
             return 1;
         }
         return 0;
@@ -579,20 +1216,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         || 0 == _tcscmp(option_name, _T("qp-max")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
         i++;
         int qpLimit[3] = { 0 };
-        if (   3 != _stscanf_s(strInput[i], _T("%d:%d:%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])
-            && 3 != _stscanf_s(strInput[i], _T("%d,%d,%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])
-            && 3 != _stscanf_s(strInput[i], _T("%d/%d/%d"), &qpLimit[0], &qpLimit[1], &qpLimit[2])) {
-            if (1 == _stscanf_s(strInput[i], _T("%d"), &qpLimit[0])) {
-                qpLimit[1] = qpLimit[0];
-                qpLimit[2] = qpLimit[0];
-            } else {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
-                return 1;
-            }
+        int ret = parse_qp(qpLimit, strInput[i]);
+        if (ret == 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
         }
-        uint8_t *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
+        int *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
         for (int j = 0; j < 3; j++) {
-            limit[j] = (uint8_t)clamp(qpLimit[j], 0, 51);
+            limit[j] = clamp(qpLimit[j], 0, 51);
         }
         return 0;
     }
@@ -600,23 +1231,23 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         auto values = split(strInput[i], _T(":"), true);
         if (values.size() == 0) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         if (values.size() > 8) {
-            CMD_PARSE_SET_ERR(strInput[0], strsprintf(_T("qp-offset value could be set up to 8 layers, but was set for %d layers.\n"), (int)values.size()).c_str(), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], strsprintf(_T("qp-offset value could be set up to 8 layers, but was set for %d layers.\n"), (int)values.size()));
             return 1;
         }
-        uint32_t iv = 0;
-        for (; iv < values.size(); iv++) {
+        int iv = 0;
+        for (; iv < (int)values.size(); iv++) {
             TCHAR *eptr = nullptr;
             int v = _tcstol(values[iv].c_str(), &eptr, 0);
             if (v == 0 && (eptr != nullptr || *eptr == ' ')) {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[iv]);
+                print_cmd_error_invalid_value(option_name, strInput[iv]);
                 return 1;
             }
             if (v < -51 || v > 51) {
-                CMD_PARSE_SET_ERR(strInput[0], _T("qp-offset value should be in range of -51 - 51.\n"), option_name, strInput[i]);
+                print_cmd_error_invalid_value(option_name, strInput[i], _T("qp-offset value should be in range of -51 - 51.\n"));
                 return 1;
             }
             pParams->pQPOffset[iv] = (int8_t)v;
@@ -628,12 +1259,11 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("mv-scaling"))) {
         i++;
-        int value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+        try {
+            pParams->nMVCostScaling = std::stoi(strInput[i]);
             pParams->bGlobalMotionAdjust = true;
-            pParams->nMVCostScaling = (mfxU8)value;
-        } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -648,53 +1278,57 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("inter-pred"))) {
         i++;
-        mfxI32 v;
+        int v = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_pred_block_size);
             return 1;
         }
-        pParams->nInterPred = (mfxU16)list_pred_block_size[v].value;
+        pParams->nInterPred = list_pred_block_size[v].value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("intra-pred"))) {
         i++;
-        mfxI32 v;
+        int v = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_pred_block_size);
             return 1;
         }
-        pParams->nIntraPred = (mfxU16)list_pred_block_size[v].value;
+        pParams->nIntraPred = list_pred_block_size[v].value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("mv-precision"))) {
         i++;
-        mfxI32 v;
+        int v = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_mv_presicion) - 1) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_mv_presicion);
             return 1;
         }
-        pParams->nMVPrecision = (mfxU16)list_mv_presicion[v].value;
+        pParams->nMVPrecision = list_mv_presicion[v].value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("mv-search"))) {
         i++;
-        mfxI32 v;
+        int v = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->MVSearchWindow.x = (mfxU16)clamp(v, 0, 128);
-        pParams->MVSearchWindow.y = (mfxU16)clamp(v, 0, 128);
+        pParams->MVSearchWindow.first = clamp(v, 0, 128);
+        pParams->MVSearchWindow.second = clamp(v, 0, 128);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("sharpness"))) {
         i++;
-        mfxI32 v;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < 8) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nVP8Sharpness = std::stoi(strInput[i]);
+            if (pParams->nVP8Sharpness < 0 || 7 < pParams->nVP8Sharpness) {
+                print_cmd_error_invalid_value(option_name, strInput[i], _T("Sharpness should be in range of 0 - 7."));
+                return 1;
+            }
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nVP8Sharpness = (mfxU8)v;
         return 0;
     }
 #ifdef D3D_SURFACES_SUPPORT
@@ -743,11 +1377,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("async-depth"))) {
         i++;
         int v;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_ASYNC_DEPTH_MAX < v) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        } else if (v < 0 || QSV_ASYNC_DEPTH_MAX < v) {
+            print_cmd_error_invalid_value(option_name, strInput[i], strsprintf(_T("async-depth should be in range of 0 - %d."), QSV_ASYNC_DEPTH_MAX));
             return 1;
         }
-        pParams->nAsyncDepth = (mfxU16)v;
+        pParams->nAsyncDepth = v;
         return 0;
     }
 #if ENABLE_SESSION_THREAD_CONFIG
@@ -755,10 +1392,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int v;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || QSV_SESSION_THREAD_MAX < v) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nSessionThreads = (mfxU16)v;
+        pParams->nSessionThreads = v;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("session-thread-priority"))
@@ -767,10 +1404,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         mfxI32 v;
         if (PARSE_ERROR_FLAG == (v = get_value_from_chr(list_priority, strInput[i]))
             && 1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_log_level) - 1) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nSessionThreadPriority = (mfxU16)v;
+        pParams->nSessionThreadPriority = v;
         return 0;
     }
 #endif
@@ -778,7 +1415,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->vpp.denoise.enable = true;
@@ -791,7 +1428,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             i++;
             int value = 0;
             if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
             }
             pParams->vpp.denoise.strength = value;
@@ -807,7 +1444,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             if (_tcsicmp(strInput[i], _T("auto")) == 0) {
                 value = 0;
             } else if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
             }
             pParams->vpp.mctf.strength = value;
@@ -823,7 +1460,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             if (_tcsicmp(strInput[i], _T("auto")) == 0) {
                 value = 0;
             } if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
             }
             pParams->vpp.mctf.strength = value;
@@ -834,7 +1471,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = 0;
         if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->vpp.detail.enable = true;
@@ -847,7 +1484,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             i++;
             int value = 0;
             if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
             }
             pParams->vpp.detail.strength = value;
@@ -858,7 +1495,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         int value = get_value_from_chr(list_deinterlace, strInput[i]);
         if (PARSE_ERROR_FLAG == value) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->vpp.bEnable = true;
@@ -866,7 +1503,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (pParams->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL) {
             i++;
             if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
-                CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+                print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
             } else {
                 pParams->vpp.telecinePattern = value;
@@ -886,7 +1523,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_image_stabilizer, strInput[i]))) {
             pParams->vpp.imageStabilizer = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -899,7 +1536,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_fps_conversion, strInput[i]))) {
             pParams->vpp.fpsConversion = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -914,7 +1551,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_rotate_angle, strInput[i]))) {
             pParams->vpp.rotate = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -925,7 +1562,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_mirroring, strInput[i]))) {
             pParams->vpp.mirrorType = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -937,7 +1574,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_scaling_quality, strInput[i]))) {
             pParams->vpp.scalingQuality = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -972,7 +1609,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             }
             pParams->vpp.subburn.pCharEnc = _tcsdup(strInput[i]);
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -985,7 +1622,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_vpp_sub_shaping) - 1) {
             pParams->vpp.subburn.nShaping = v;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         return 0;
@@ -1013,7 +1650,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &posOffsetx, &posOffsety)
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &posOffsetx, &posOffsety)
             && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &posOffsetx, &posOffsety)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
         pParams->vpp.delogo.posOffset = std::make_pair(posOffsetx, posOffsety);
@@ -1021,42 +1658,42 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-depth"))) {
         i++;
-        int depth;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &depth)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->vpp.delogo.depth = clamp(std::stoi(strInput[i]), 0, 255);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.depth = clamp(depth, 0, 255);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-y"))) {
         i++;
-        int value;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->vpp.delogo.YOffset = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.YOffset = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-cb"))) {
         i++;
-        int value;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->vpp.delogo.CbOffset = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.CbOffset = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-cr"))) {
         i++;
-        int value;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->vpp.delogo.CrOffset = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->vpp.delogo.CrOffset = value;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vpp-delogo-add"))) {
@@ -1070,39 +1707,45 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
 #endif //#if ENABLE_CUSTOM_VPP
     if (0 == _tcscmp(option_name, _T("input-buf"))) {
         i++;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &argData->nTmpInputBuf)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            argData->nTmpInputBuf = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if (argData->nTmpInputBuf < 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("output-buf should be positive value."));
             return 1;
         }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("output-buf"))) {
         i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nOutputBufSizeMB = std::min(std::stoi(strInput[i]), RGY_OUTPUT_BUF_MB_MAX);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        if (value < 0) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+        if (pParams->nOutputBufSizeMB < 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("output-buf should be positive value."));
             return 1;
         }
-        pParams->nOutputBufSizeMB = (int16_t)(std::min)(value, RGY_OUTPUT_BUF_MB_MAX);
         return 0;
     }
 #if defined(_WIN32) || defined(_WIN64)
     if (0 == _tcscmp(option_name, _T("mfx-thread"))) {
         i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), option_name, strInput[i]);
+        try {
+            pParams->nSessionThreads = std::min(std::stoi(strInput[i]), RGY_OUTPUT_BUF_MB_MAX);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        if (value < -1) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Invalid value"), option_name, strInput[i]);
+        if (pParams->nSessionThreads < -1) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("output-buf should be positive value."));
             return 1;
         }
-        pParams->nSessionThreads = (int16_t)value;
         return 0;
     }
 #endif
@@ -1117,13 +1760,13 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("benchmark"))) {
         i++;
-        pParams->bBenchmark = TRUE;
+        pParams->bBenchmark = true;
         pParams->common.outputFilename = strInput[i];
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("bench-quality"))) {
         i++;
-        pParams->bBenchmark = TRUE;
+        pParams->bBenchmark = true;
         if (0 == _tcscmp(strInput[i], _T("all"))) {
             pParams->nBenchQuality = 0xffffffff;
         } else {
@@ -1136,7 +1779,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 } else if ((nQuality = get_value_from_chr(list_quality_for_option, strInput[i])) > 0) {
                     pParams->nBenchQuality |= 1 << nQuality;
                 } else {
-                    CMD_PARSE_SET_ERR(strInput[i], _T("Unknown value"), option_name, strInput[i]);
+                    print_cmd_error_invalid_value(option_name, strInput[i], list_quality_for_option);
                     return 1;
                 }
             }
@@ -1157,22 +1800,20 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
 
-    auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, argData, err);
+    auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, argData);
     if (ret >= 0) return ret;
 
-    ret = parse_one_common_option(option_name, strInput, i, nArgNum, &pParams->common, argData, err);
+    ret = parse_one_common_option(option_name, strInput, i, nArgNum, &pParams->common, argData);
     if (ret >= 0) return ret;
 
-    ret = parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData, err);
+    ret = parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData);
     if (ret >= 0) return ret;
 
-    tstring mes = _T("Unknown option: --");
-    mes += option_name;
-    CMD_PARSE_SET_ERR(strInput[0], (TCHAR *)mes.c_str(), nullptr, strInput[i]);
+    print_cmd_error_unknown_opt(strInput[i]);
     return 1;
 }
 
-int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err) {
+int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool ignore_parse_err) {
     if (!pParams) {
         return 0;
     }
@@ -1192,22 +1833,22 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
                 option_name = &strInput[i][2];
             } else if (strInput[i][2] == _T('\0')) {
                 if (nullptr == (option_name = cmd_short_opt_to_long(strInput[i][1]))) {
-                    CMD_PARSE_SET_ERR(strInput[0], strsprintf(_T("Unknown options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
+                    print_cmd_error_invalid_value(tstring(), tstring(), strsprintf(_T("Unknown option: \"%s\""), strInput[i]));
                     return 1;
                 }
             } else {
                 if (ignore_parse_err) continue;
-                CMD_PARSE_SET_ERR(strInput[0], strsprintf(_T("Invalid options: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
+                print_cmd_error_invalid_value(tstring(), tstring(), strsprintf(_T("Invalid option: \"%s\""), strInput[i]));
                 return 1;
             }
         }
 
-        if (option_name == NULL) {
+        if (option_name == nullptr) {
             if (ignore_parse_err) continue;
-            CMD_PARSE_SET_ERR(strInput[0], strsprintf(_T("Unknown option: \"%s\""), strInput[i]).c_str(), nullptr, nullptr);
+            print_cmd_error_unknown_opt(strInput[i]);
             return 1;
         }
-        auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData, err);
+        auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData);
         if (!ignore_parse_err && sts != 0) {
             return sts;
         }
@@ -1220,19 +1861,19 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
         bool bParsed = false;
         if (desc != nullptr) {
             if (PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, argsData.cachedlevel.c_str()))) {
-                pParams->CodecLevel = (mfxU16)value;
+                pParams->CodecLevel = value;
                 bParsed = true;
             } else {
                 double val_float = 0.0;
                 if (1 == _stscanf_s(argsData.cachedlevel.c_str(), _T("%lf"), &val_float)) {
                     value = (int)(val_float * 10 + 0.5);
                     if (value == desc[get_cx_index(desc, value)].value) {
-                        pParams->CodecLevel = (mfxU16)value;
+                        pParams->CodecLevel = value;
                         bParsed = true;
                     } else {
                         value = (int)(val_float + 0.5);
                         if (value == desc[get_cx_index(desc, value)].value) {
-                            pParams->CodecLevel = (mfxU16)value;
+                            pParams->CodecLevel = value;
                             bParsed = true;
                         }
                     }
@@ -1240,7 +1881,10 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
             }
         }
         if (!bParsed) {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), _T("level"), nullptr);
+            print_cmd_error_invalid_value(_T("level"), argsData.cachedlevel, std::vector<std::pair<RGY_CODEC, const CX_DESC *>>{
+                { RGY_CODEC_H264, list_avc_level },
+                { RGY_CODEC_HEVC, list_hevc_level }
+            });
             return 1;
         }
     }
@@ -1248,9 +1892,12 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
         const auto desc = get_profile_list(pParams->CodecId);
         int value = 0;
         if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, argsData.cachedprofile.c_str()))) {
-            pParams->CodecProfile = (mfxU16)value;
+            pParams->CodecProfile = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), _T("profile"), nullptr);
+            print_cmd_error_invalid_value(_T("profile"), argsData.cachedprofile, std::vector<std::pair<RGY_CODEC, const CX_DESC *>>{
+                { RGY_CODEC_H264, list_avc_profile },
+                { RGY_CODEC_HEVC, list_hevc_profile }
+            });
             return 1;
         }
         if (pParams->CodecId == MFX_CODEC_HEVC
@@ -1264,20 +1911,27 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
         if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_tier, argsData.cachedtier.c_str()))) {
             pParams->hevc_tier = value;
         } else {
-            CMD_PARSE_SET_ERR(strInput[0], _T("Unknown value"), _T("level"), nullptr);
+            print_cmd_error_invalid_value(_T("tier"), argsData.cachedtier, list_hevc_tier);
             return 1;
         }
     }
 
-    // check if all mandatory parameters were set
-    if (pParams->common.inputFilename.length() == 0) {
-        CMD_PARSE_SET_ERR(strInput[0], _T("Source file name not found"), nullptr, nullptr);
-        return 1;
-    }
+    if (!FOR_AUO) {
+        // check if all mandatory parameters were set
+        if (pParams->common.inputFilename.length() == 0) {
+            _ftprintf(stderr, _T("Source file name not found.\n"));
+            return 1;
+        }
 
-    if (pParams->common.outputFilename.length() == 0) {
-        CMD_PARSE_SET_ERR(strInput[0], _T("Destination file name not found"), nullptr, nullptr);
-        return 1;
+        if (pParams->common.outputFilename.length() == 0) {
+            _ftprintf(stderr, _T("Destination file name not found.\n"));
+            return 1;
+        }
+
+        if (pParams->common.chapterFile.length() > 0 && pParams->common.copyChapter) {
+            _ftprintf(stderr, _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time."));
+            return 1;
+        }
     }
 
     pParams->nTargetUsage = clamp(pParams->nTargetUsage, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED);
@@ -1285,11 +1939,6 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
     // if nv12 option isn't specified, input YUV file is expected to be in YUV420 color format
     if (!pParams->ColorFormat) {
         pParams->ColorFormat = MFX_FOURCC_YV12;
-    }
-
-    if (pParams->common.chapterFile.length() > 0 && pParams->common.copyChapter) {
-        CMD_PARSE_SET_ERR(strInput[0], _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time."), nullptr, nullptr);
-        return 1;
     }
 
     //set input buffer size
@@ -1302,7 +1951,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, Parse
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-int parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err) {
+int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
     if (cmda == nullptr) {
         return 0;
     }
@@ -1324,7 +1973,7 @@ int parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool 
     }
     argv_tchar.push_back(_T(""));
     const TCHAR **strInput = (const TCHAR **)argv_tchar.data();
-    return parse_cmd(pParams, strInput, argc, err, ignore_parse_err);
+    return parse_cmd(pParams, strInput, argc, ignore_parse_err);
 }
 #endif
 
@@ -1507,7 +2156,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         OPT_NUM(_T("--gop-len"), nGOPLength);
     }
     OPT_LST(_T("--mv-precision"), nMVPrecision, list_mv_presicion);
-    OPT_NUM(_T("--mv-search"), MVSearchWindow.x);
+    OPT_NUM(_T("--mv-search"), MVSearchWindow.first);
     if (pParams->bGlobalMotionAdjust) {
         cmd << _T(" --mv-scaling ") << pParams->nMVCostScaling;
     }

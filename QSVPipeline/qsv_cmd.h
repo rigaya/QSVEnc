@@ -35,9 +35,9 @@
 const TCHAR *cmd_short_opt_to_long(TCHAR short_opt);
 tstring GetQSVEncVersion();
 
-int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, ParseCmdError& err, bool ignore_parse_err = false);
+int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool ignore_parse_err = false);
 #if defined(_WIN32) || defined(_WIN64)
-int parse_cmd(sInputParams *pParams, const char *cmda, ParseCmdError& err, bool ignore_parse_err = false);
+int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err = false);
 #endif
 
 tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm);

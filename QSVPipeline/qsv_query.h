@@ -309,8 +309,8 @@ enum FeatureListStrType {
     FEATURE_LIST_STR_TYPE_HTML,
 };
 
-mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
-mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, mfxU16 ratecontrol, mfxU32 codecId);
+mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId);
+mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId);
 vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId);
 vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
 

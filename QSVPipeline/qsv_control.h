@@ -73,7 +73,7 @@ public:
     CEncodingThread();
     ~CEncodingThread();
 
-    mfxStatus Init(mfxU16 bufferSize);
+    mfxStatus Init(int bufferSize);
     void Close();
     //終了を待機する
     mfxStatus WaitToFinish(mfxStatus sts, shared_ptr<RGYLog> pQSVLog);
@@ -85,10 +85,10 @@ public:
 
     std::atomic_int m_bthForceAbort;
     sInputBufSys *m_InputBuf;
-    mfxU32 m_nFrameSet;
-    mfxU32 m_nFrameGet;
+    uint32_t m_nFrameSet;
+    uint32_t m_nFrameGet;
     mfxStatus m_stsThread;
-    mfxU16  m_nFrameBuffer;
+    int  m_nFrameBuffer;
 protected:
     std::thread m_thEncode;
     bool m_bInit;
