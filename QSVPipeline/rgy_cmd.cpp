@@ -34,6 +34,7 @@
 #include "rgy_cmd.h"
 #include "rgy_perf_monitor.h"
 
+#if !FOR_AUO
 #if ENABLE_CPP_REGEX
 #include <regex>
 #endif //#if ENABLE_CPP_REGEX
@@ -41,7 +42,6 @@
 #include <dtl/dtl.hpp>
 #endif //#if ENABLE_DTL
 
-#if !FOR_AUO
 #if ENABLE_CPP_REGEX
 static vector<std::pair<std::string, std::string>> createOptionList() {
     vector<std::pair<std::string, std::string>> optionList;
