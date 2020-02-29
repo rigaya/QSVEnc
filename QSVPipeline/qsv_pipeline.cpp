@@ -2383,7 +2383,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
 #else
         false, false,
 #endif
-        m_pPerfMonitor.get(), m_pQSVLog);
+        nullptr, m_pPerfMonitor.get(), m_pQSVLog);
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return err_to_mfx(sts);
