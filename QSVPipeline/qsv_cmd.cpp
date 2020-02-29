@@ -873,8 +873,8 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             return 1;
         }
         pParams->nQPI = a[0];
-        pParams->nQPP = a[1];
-        pParams->nQPB = a[2];
+        pParams->nQPP = (ret > 1) ? a[1] : a[ret - 1];
+        pParams->nQPB = (ret > 2) ? a[2] : a[ret - 1];
         pParams->nEncMode = MFX_RATECONTROL_CQP;
         return 0;
     }
@@ -1011,7 +1011,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         int *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
         for (int j = 0; j < 3; j++) {
-            limit[j] = clamp(qpLimit[j], 0, 51);
+            limit[j] = clamp((ret > j) ? qpLimit[j] : qpLimit[ret-1], 0, 51);
         }
         return 0;
     }
