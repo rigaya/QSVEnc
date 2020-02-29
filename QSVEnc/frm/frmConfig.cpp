@@ -940,7 +940,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcggroupBoxVppResize->Enabled = fcgCBVppResize->Checked;
     fcggroupBoxVppDenoise->Enabled = fcgCBVppDenoise->Checked;
     fcggroupBoxVppDetail->Enabled = fcgCBVppDetail->Checked;
-    fcgCXTelecinePatterns->Visible = fcgCXDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, MFX_DEINTERLACE_IT_MANUAL);
+    fcgCXTelecinePatterns->Visible = false; // fcgCXDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, MFX_DEINTERLACE_IT_MANUAL);
 
     this->ResumeLayout();
     this->PerformLayout();
