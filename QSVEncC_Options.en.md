@@ -959,12 +959,6 @@ If a protocol other than "file" is used, then this output buffer will not be use
 ### --mfx-thread &lt;int&gt;
 Set number of threads for QSV pipeline (must be more than 2). 
 
-### --input-thread &lt;int&gt;
-Specify whether to use a separate thread for input.
-- 0 ... do not use input thread
-- 1 ... use input thread  
-Using input thread increases memory usage, but sometimes improves encoding speed.
-
 ### --output-thread &lt;int&gt;
 Specify whether to use a separate thread for output.
 - -1 ... auto (default)
