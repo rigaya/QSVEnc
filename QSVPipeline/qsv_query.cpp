@@ -1416,7 +1416,7 @@ int getCPUGen() {
     session.QueryVersion(&mfxVer);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
         session.QueryPlatform(&platform);
-        return cpu_gen_rgy_to_enc(platform.CodeName);
+        return cpu_gen_enc_to_rgy(platform.CodeName);
     } else {
         return getCPUGenCpuid();
     }
@@ -1432,7 +1432,7 @@ int getCPUGen(MFXVideoSession *pSession) {
     pSession->QueryVersion(&mfxVer);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
         pSession->QueryPlatform(&platform);
-        return cpu_gen_rgy_to_enc(platform.CodeName);
+        return cpu_gen_enc_to_rgy(platform.CodeName);
     } else {
         return getCPUGenCpuid();
     }
