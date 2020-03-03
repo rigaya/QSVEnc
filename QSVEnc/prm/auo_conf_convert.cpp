@@ -242,7 +242,7 @@ struct sInputParamsOld {
     int8_t     nOutputThread;
     int8_t     nAudioThread;
 
-    muxOptList *pMuxOpt;
+    RGYOptList *pMuxOpt;
     TCHAR     *pChapterFile;
     uint32_t   nAudioIgnoreDecodeError;
     RGYAVSync  nAVSyncMode;     //avsyncの方法 (RGY_AVSYNC_xxx)
