@@ -1367,6 +1367,237 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
+
+    if (IS_OPTION("vpp-colorspace")) {
+        pParams->vpp.colorspace.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{
+            "matrix", "colormatrix", "range"/*, "colorprim", "transfer", "colorrange", "source_peak", "approx_gamma",
+            "hdr2sdr", "ldr_nits", "a", "b", "c", "d", "e", "f", "contrast", "peak"*/ };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto parse = [](int *from, int *to, tstring param_val, const CX_DESC *list) {
+                    auto from_to = split(param_val, _T(":"));
+                    if (from_to.size() == 2
+                        && get_list_value(list, from_to[0].c_str(), from)
+                        && get_list_value(list, from_to[1].c_str(), to)) {
+                        return true;
+                    }
+                    return false;
+                };
+                if (pParams->vpp.colorspace.convs.size() == 0) {
+                    pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                }
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("matrix") || param_arg == _T("colormatrix")) {
+                    auto& conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.matrix != conv.to.matrix) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.matrix, (int *)&conv.to.matrix, param_val, list_colormatrix)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colormatrix);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (false && param_arg == _T("colorprim")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.colorprim != conv.to.colorprim) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.colorprim, (int *)&conv.to.colorprim, param_val, list_colorprim)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorprim);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (false && param_arg == _T("transfer")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.transfer != conv.to.transfer) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.transfer, (int *)&conv.to.transfer, param_val, list_transfer)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_transfer);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("range") || param_arg == _T("colorrange")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    if (conv.from.colorrange != conv.to.colorrange) {
+                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
+                        conv = pParams->vpp.colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.colorrange, (int *)&conv.to.colorrange, param_val, list_colorrange)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorrange);
+                        return 1;
+                    }
+                    continue;
+                }
+#if 0
+                if (param_arg == _T("source_peak")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.hdr_source_peak = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("approx_gamma")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        conv.approx_gamma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scene_ref")) {
+                    auto &conv = pParams->vpp.colorspace.convs.back();
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        conv.scene_ref = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hdr2sdr")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_hdr2sdr, param_val.c_str(), &value)) {
+                        pParams->vpp.colorspace.hdr2sdr.tonemap = (HDR2SDRToneMap)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_hdr2sdr);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ldr_nits")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.ldr_nits = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("a")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.hable.a = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("b")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.hable.b = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("c")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.hable.c = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("d")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.hable.d = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("e")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.hable.e = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("f")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.hable.f = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("w")) {
+                    continue;
+                }
+                if (param_arg == _T("transition")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.mobius.transition = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("contrast")) {
+                    try {
+                        pParams->vpp.colorspace.hdr2sdr.reinhard.contrast = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("peak")) {
+                    try {
+                        float peak = std::stof(param_val);
+                        pParams->vpp.colorspace.hdr2sdr.mobius.peak = peak;
+                        pParams->vpp.colorspace.hdr2sdr.reinhard.peak = peak;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+#endif
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+#if 0
+                if (param == _T("hdr2sdr")) {
+                    pParams->vpp.colorspace.hdr2sdr.tonemap = HDR2SDR_HABLE;
+                    continue;
+                }
+#endif
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
 #if ENABLE_CUSTOM_VPP
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     if (0 == _tcscmp(option_name, _T("vpp-sub"))) {
@@ -2006,6 +2237,64 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_LST(_T("--vpp-scaling"), vpp.scalingQuality, list_vpp_scaling_quality);
     OPT_LST(_T("--vpp-fps-conv"), vpp.fpsConversion, list_vpp_fps_conversion);
     OPT_LST(_T("--vpp-image-stab"), vpp.imageStabilizer, list_vpp_image_stabilizer);
+
+    if (pParams->vpp.colorspace != encPrmDefault.vpp.colorspace) {
+        tmp.str(tstring());
+        if (!pParams->vpp.colorspace.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->vpp.colorspace.enable || save_disabled_prm) {
+            for (int i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
+                auto from = pParams->vpp.colorspace.convs[i].from;
+                auto to = pParams->vpp.colorspace.convs[i].to;
+                if (from.matrix != to.matrix) {
+                    tmp << _T(",matrix=");
+                    tmp << get_cx_desc(list_colormatrix, from.matrix);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colormatrix, to.matrix);
+                }
+                if (false && from.colorprim != to.colorprim) {
+                    tmp << _T(",colorprim=");
+                    tmp << get_cx_desc(list_colorprim, from.colorprim);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorprim, to.colorprim);
+                }
+                if (false && from.transfer != to.transfer) {
+                    tmp << _T(",transfer=");
+                    tmp << get_cx_desc(list_transfer, from.transfer);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_transfer, to.transfer);
+                }
+                if (from.colorrange != to.colorrange) {
+                    tmp << _T(",range=");
+                    tmp << get_cx_desc(list_colorrange, from.colorrange);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorrange, to.colorrange);
+                }
+#if 0
+                ADD_BOOL(_T("approx_gamma"), vpp.colorspace.convs[i].approx_gamma);
+                ADD_BOOL(_T("scene_ref"), vpp.colorspace.convs[i].scene_ref);
+                ADD_LST(_T("hdr2sdr"), vpp.colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
+                ADD_FLOAT(_T("ldr_nits"), vpp.colorspace.hdr2sdr.ldr_nits, 1);
+                ADD_FLOAT(_T("source_peak"), vpp.colorspace.hdr2sdr.hdr_source_peak, 1);
+                ADD_FLOAT(_T("a"), vpp.colorspace.hdr2sdr.hable.a, 3);
+                ADD_FLOAT(_T("b"), vpp.colorspace.hdr2sdr.hable.b, 3);
+                ADD_FLOAT(_T("c"), vpp.colorspace.hdr2sdr.hable.c, 3);
+                ADD_FLOAT(_T("d"), vpp.colorspace.hdr2sdr.hable.d, 3);
+                ADD_FLOAT(_T("e"), vpp.colorspace.hdr2sdr.hable.e, 3);
+                ADD_FLOAT(_T("f"), vpp.colorspace.hdr2sdr.hable.f, 3);
+                ADD_FLOAT(_T("transition"), vpp.colorspace.hdr2sdr.mobius.transition, 3);
+                ADD_FLOAT(_T("peak"), vpp.colorspace.hdr2sdr.mobius.peak, 3);
+                ADD_FLOAT(_T("contrast"), vpp.colorspace.hdr2sdr.reinhard.contrast, 3);
+#endif
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-colorspace ") << tmp.str().substr(1);
+        } else if (pParams->vpp.colorspace.enable) {
+            cmd << _T(" --vpp-colorspace");
+        }
+    }
 #if ENABLE_CUSTOM_VPP
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     OPT_CHAR_PATH(_T("--vpp-sub"), vpp.subburn.pFilePath);

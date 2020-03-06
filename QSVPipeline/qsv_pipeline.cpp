@@ -1345,18 +1345,27 @@ mfxStatus CQSVPipeline::InitMfxVppParams(sInputParams *pInParams) {
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
         && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
-            || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC)) {
+            || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC
+            || pInParams->vpp.colorspace.enable)) {
+
+        const bool inputRGB = m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB3 || m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB4;
+        VideoVUIInfo vuiFrom = pInParams->vpp.colorspace.convs.begin()->from;
+        VideoVUIInfo vuiTo   = pInParams->vpp.colorspace.convs.begin()->to;
+        if (vuiTo.colorrange == RGY_COLORRANGE_UNSPECIFIED) {
+            vuiTo.colorrange = m_encVUI.colorrange;
+        }
+        if (vuiTo.matrix == RGY_MATRIX_UNSPECIFIED) {
+            vuiTo.matrix = m_encVUI.matrix;
+        }
+        vuiFrom.apply_auto(pInParams->input.vui, pInParams->input.srcHeight);
+        vuiTo.apply_auto(vuiFrom, pInParams->input.dstHeight);
 
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
-        m_ExtVppVSI.In.NominalRange    = MFX_NOMINALRANGE_0_255;
-        m_ExtVppVSI.In.TransferMatrix  = MFX_TRANSFERMATRIX_UNKNOWN;
-        m_ExtVppVSI.Out.NominalRange   = (mfxU16)((m_encVUI.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
-        m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_UNKNOWN;
-        if (m_encVUI.matrix == get_cx_index(list_colormatrix, _T("bt709"))) {
-            m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT709;
-        } else if (m_encVUI.matrix == get_cx_index(list_colormatrix, _T("bt601"))) {
-            m_ExtVppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT601;
-        }
+        m_ExtVppVSI.In.NominalRange    = (mfxU16)((inputRGB || vuiFrom.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
+        m_ExtVppVSI.In.TransferMatrix  = vuiFrom.matrix == RGY_MATRIX_ST170_M ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709;
+        m_ExtVppVSI.Out.NominalRange   = (mfxU16)((vuiTo.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
+        m_ExtVppVSI.Out.TransferMatrix = vuiTo.matrix == RGY_MATRIX_ST170_M ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709;
+        m_encVUI.apply_auto(vuiFrom, pInParams->input.dstHeight);
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp colorspace conversion enabled.\n"));

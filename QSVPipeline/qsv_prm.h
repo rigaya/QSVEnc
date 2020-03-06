@@ -143,6 +143,84 @@ struct VppSubburn {
     ~VppSubburn() {};
 };
 
+
+enum HDR2SDRToneMap {
+    HDR2SDR_DISABLED,
+    HDR2SDR_HABLE,
+    HDR2SDR_MOBIUS,
+    HDR2SDR_REINHARD
+};
+
+const CX_DESC list_vpp_hdr2sdr[] = {
+    { _T("none"),     HDR2SDR_DISABLED },
+    { _T("hable"),    HDR2SDR_HABLE },
+    { _T("mobius"),   HDR2SDR_MOBIUS },
+    { _T("reinhard"), HDR2SDR_REINHARD },
+    { NULL, NULL }
+};
+
+struct ColorspaceConv {
+    VideoVUIInfo from, to;
+    double sdr_source_peak;
+    bool approx_gamma;
+    bool scene_ref;
+
+    ColorspaceConv();
+    void set(const VideoVUIInfo& csp_from, const VideoVUIInfo& csp_to) {
+        from = csp_from;
+        to = csp_to;
+    }
+    bool operator==(const ColorspaceConv& x) const;
+    bool operator!=(const ColorspaceConv& x) const;
+};
+
+struct TonemapHable {
+    double a, b, c, d, e, f;
+
+    TonemapHable();
+    bool operator==(const TonemapHable& x) const;
+    bool operator!=(const TonemapHable& x) const;
+};
+
+struct TonemapMobius {
+    double transition, peak;
+
+    TonemapMobius();
+    bool operator==(const TonemapMobius& x) const;
+    bool operator!=(const TonemapMobius& x) const;
+};
+
+struct TonemapReinhard {
+    double contrast, peak;
+
+    TonemapReinhard();
+    bool operator==(const TonemapReinhard& x) const;
+    bool operator!=(const TonemapReinhard& x) const;
+};
+
+struct HDR2SDRParams {
+    HDR2SDRToneMap tonemap;
+    TonemapHable hable;
+    TonemapMobius mobius;
+    TonemapReinhard reinhard;
+    double ldr_nits;
+    double hdr_source_peak;
+
+    HDR2SDRParams();
+    bool operator==(const HDR2SDRParams& x) const;
+    bool operator!=(const HDR2SDRParams& x) const;
+};
+
+struct VppColorspace {
+    bool enable;
+    HDR2SDRParams hdr2sdr;
+    vector<ColorspaceConv> convs;
+
+    VppColorspace();
+    bool operator==(const VppColorspace& x) const;
+    bool operator!=(const VppColorspace& x) const;
+};
+
 struct sVppParams {
     bool bEnable;             //use vpp
 
@@ -166,6 +244,7 @@ struct sVppParams {
     VppDetailEnhance detail;
     VppDelogo delogo;
     VppSubburn subburn;
+    VppColorspace colorspace;
 
     sVppParams();
     ~sVppParams() {};
