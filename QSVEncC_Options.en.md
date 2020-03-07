@@ -906,6 +906,28 @@ Specify the resizing algorithm.
 | fine | use high quality scaling |
 
 
+
+    
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Converts colorspace of the video. 
+
+**parameters**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+  
+```
+  bt709, smpte170m
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full, auto
+```
+
+```
+example1: convert from BT.601 -> BT.709
+--vpp-colorspace matrix=smpte170m:bt709
+```
+
 ### --vpp-delogo &lt;string&gt;
 Specify a logo file. Corresponds to ".lgd", ".ldp", ".ldp2".
 

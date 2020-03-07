@@ -379,6 +379,13 @@ tstring encoder_help() {
         _T("                                 - auto(default)\n")
         _T("                                 - simple   use simple scaling\n")
         _T("                                 - fine     use high quality scaling\n")
+        _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Converts colorspace of the video.\n")
+        _T("    params\n")
+        _T("      matrix=<from>:<to>\n")
+        _T("        bt709, smpte170m\n")
+        _T("      range=<from>:<to>\n")
+        _T("        limited, full\n")
 #if ENABLE_CUSTOM_VPP
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
         _T("   --vpp-sub [<int>] or [<string>]\n")

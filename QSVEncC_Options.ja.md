@@ -918,7 +918,28 @@ image stabilizerのモードの指定。
 | simple | HWによるシンプルなリサイズ |
 | fine | 高品質なリサイズ |
 
+
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+色空間変換を行う。
+
+**パラメータ**
+- matrix=&lt;from&gt;:&lt;to&gt;  
   
+```
+  bt709, smpte170m
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full, auto
+```
+
+
+```
+例1: BT.709(fullrange) -> BT.601 への変換
+--vpp-colorspace matrix=smpte170m:bt709,range=full:limited
+```
+
 ### --vpp-delogo &lt;string&gt;
 ロゴファイルを指定する。".lgd",".ldp",".ldp2"に対応。
 
