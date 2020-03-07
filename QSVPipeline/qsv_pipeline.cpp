@@ -1366,22 +1366,35 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
             || pParams->vpp.colorspace.enable)) {
 
         const bool inputRGB = m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB3 || m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB4;
-        VideoVUIInfo vuiFrom = pParams->vpp.colorspace.convs.begin()->from;
-        VideoVUIInfo vuiTo   = pParams->vpp.colorspace.convs.begin()->to;
+        VideoVUIInfo vuiFrom = VideoVUIInfo(); 
+        VideoVUIInfo vuiTo   = VideoVUIInfo();
+        if (pParams->vpp.colorspace.enable && pParams->vpp.colorspace.convs.size() > 0) {
+            vuiFrom = pParams->vpp.colorspace.convs.begin()->from;
+            vuiTo = pParams->vpp.colorspace.convs.begin()->to;
+        }
         if (vuiTo.colorrange == RGY_COLORRANGE_UNSPECIFIED) {
             vuiTo.colorrange = m_encVUI.colorrange;
+            if (vuiTo.colorrange == RGY_COLORRANGE_UNSPECIFIED) {
+                vuiTo.colorrange = RGY_COLORRANGE_AUTO;
+            }
         }
         if (vuiTo.matrix == RGY_MATRIX_UNSPECIFIED) {
             vuiTo.matrix = m_encVUI.matrix;
+            if (vuiTo.matrix == RGY_MATRIX_UNSPECIFIED) {
+                vuiTo.matrix = RGY_MATRIX_AUTO;
+            }
         }
         vuiFrom.apply_auto(pParams->input.vui, pParams->input.srcHeight);
         vuiTo.apply_auto(vuiFrom, pParams->input.dstHeight);
+        if (inputRGB) {
+            vuiFrom.colorrange = RGY_COLORRANGE_FULL;
+        }
 
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
-        m_ExtVppVSI.In.NominalRange    = (mfxU16)((inputRGB || vuiFrom.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
-        m_ExtVppVSI.In.TransferMatrix  = vuiFrom.matrix == RGY_MATRIX_ST170_M ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709;
+        m_ExtVppVSI.In.NominalRange    = (mfxU16)((vuiFrom.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
+        m_ExtVppVSI.In.TransferMatrix  = (mfxU16)((vuiFrom.matrix == RGY_MATRIX_ST170_M) ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);
         m_ExtVppVSI.Out.NominalRange   = (mfxU16)((vuiTo.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
-        m_ExtVppVSI.Out.TransferMatrix = vuiTo.matrix == RGY_MATRIX_ST170_M ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709;
+        m_ExtVppVSI.Out.TransferMatrix = (mfxU16)((vuiTo.matrix == RGY_MATRIX_ST170_M) ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);
         m_encVUI.apply_auto(vuiFrom, pParams->input.dstHeight);
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
