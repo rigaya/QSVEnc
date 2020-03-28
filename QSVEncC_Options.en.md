@@ -347,10 +347,10 @@ Specify quality of lookahead.
 ### --mbbrc
 Enable per macro block rate control.
 
-### --i-apapt
+### --i-adapt
 Enable adaptive I frame insertion.
 
-### --b-apapt
+### --b-adapt
 Enable adaptive B frame insertion.
 
 ### --strict-gop
