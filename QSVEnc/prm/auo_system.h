@@ -43,10 +43,13 @@
 #define ALIGN_PTR __declspec(align(8))
 #endif
 
+class std::mutex;
+
 typedef struct ALIGN_PTR {
     HANDLE ALIGN_PTR he_aud_start; //InterlockedExchangeを使用するため、__declspec(align(4))が必要
     HANDLE ALIGN_PTR he_vid_start; //InterlockedExchangeを使用するため、__declspec(align(4))が必要
     HANDLE th_aud;
+    std::mutex *mtx_aud;
     void  *buffer;
     DWORD  buf_len;
     DWORD  buf_max_size;

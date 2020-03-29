@@ -45,12 +45,18 @@ static const char * const PIPE_FN = "-";
 
 static const char * const VID_FILE_APPENDIX = "_vid";
 
+static const char * const AUO_NAMED_PIPE_BASE = "\\\\.\\pipe\\Aviutl%08x_AuoAudioPipe%d";
+
 typedef AUO_RESULT (*encode_task) (CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
+
+const MUXER_CMD_EX *get_muxer_mode(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, int muxer_to_be_used);
+
+void get_audio_pipe_name(char *pipename, size_t nSize, int audIdx);
 
 BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const guiEx_settings *exstg);
 void open_log_window(const char *savefile, const SYSTEM_DATA *sys_dat, int current_pass, int total_pass);
-void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat);
 void auto_save_log(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
+void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SYSTEM_DATA *sys_dat);
 
 int additional_vframe_for_aud_delay_cut(double fps, int audio_rate, int audio_delay);
 int additional_silence_for_aud_delay_cut(double fps, int audio_rate, int audio_delay, int vframe_added = -1);
@@ -68,7 +74,7 @@ DWORD GetExePriority(DWORD set, HANDLE h_aviutl); //実行ファイルに指定�
 AUO_RESULT getLogFilePath(char *log_file_path, size_t nSize, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const CONF_GUIEX *conf, const OUTPUT_INFO *oip);
 
 int check_video_ouput(const CONF_GUIEX *conf, const OUTPUT_INFO *oip);
-int check_muxer_to_be_used(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output);
+int check_muxer_to_be_used(const CONF_GUIEX *conf, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output);
 
 double get_duration(const OUTPUT_INFO *oip, const PRM_ENC *pe);
 

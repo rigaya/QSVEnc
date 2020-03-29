@@ -285,6 +285,11 @@ typedef struct {
 } CONF_VIDEO_OLD_V5; //動画用設定(qsv以外)
 
 typedef struct {
+    int  encoder;             //使用する音声エンコーダ
+    int  bitrate;             //ビットレート指定モード
+} CONF_AUDIO_DIRECT;
+
+typedef struct {
     char        conf_name[CONF_NAME_BLOCK_LEN];  //保存時に使用
     int         size_all;                        //保存時: CONF_GUIEXの全サイズ / 設定中、エンコ中: CONF_INITIALIZED
     int         head_size;                       //ヘッダ部分の全サイズ
@@ -335,8 +340,6 @@ void *guiEx_config::convert_qsvstgv1_to_stgv3(void *_conf, int size) {
     write_conf_header_old5(conf);
     static_assert(sizeof(conf->qsv) == 3560, "sizeof(conf->qsv) not equal to 3560, which will break convert_qsvstgv2_to_stgv3().");
     static_assert(sizeof(conf->vid) == 16,   "sizeof(conf->vid) not equal to 16,   which will break convert_qsvstgv2_to_stgv3().");
-    static_assert(sizeof(conf->aud) == 44,   "sizeof(conf->aud) not equal to 44,   which will break convert_qsvstgv2_to_stgv3().");
-    static_assert(sizeof(conf->mux) == 40,   "sizeof(conf->mux) not equal to 40,   which will break convert_qsvstgv2_to_stgv3().");
 
     //ブロック部分のコピー
     for (int i = 0; i < ((CONF_GUIEX_OLD_V5 *)_conf)->block_count; ++i) {
@@ -451,7 +454,6 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     COPY_BLOCK(aud, 2);
     COPY_BLOCK(mux, 3);
     COPY_BLOCK(oth, 4);
-    COPY_BLOCK(aud_avqsv, 5);
 #undef COPY_BLOCK
 
     conf->qsv.codec          = conf_old->qsv.CodecId;

@@ -92,11 +92,11 @@ int chapter_file::get_result() {
     return sts;
 }
 
- int chapter_file::read_file(const char *chap_filepath, DWORD chap_code_page, double file_duration) {
+ int chapter_file::read_file(const char *chap_filepath, DWORD chap_code_page, double vid_duration) {
     init();
     this->filepath = chap_filepath;
     this->code_page = chap_code_page;
-    this->duration = file_duration;
+    this->duration = vid_duration;
     return read_file();
 }
 

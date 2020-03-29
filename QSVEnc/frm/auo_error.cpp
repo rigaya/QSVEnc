@@ -172,7 +172,7 @@ void error_afs_auo_link() {
 }
 
 void error_afs_interlace_stg() {
-    write_log_line(LOG_ERROR, 
+    write_log_line(LOG_ERROR,
         "auo [error]: 自動フィールドシフトとインターレース設定が両方オンになっており、設定が矛盾しています。\n"
         "             設定を見なおしてください。");
 }
@@ -200,7 +200,7 @@ void error_no_wavefile() {
 }
 
 void warning_audio_length() {
-    write_log_line(LOG_WARNING, 
+    write_log_line(LOG_WARNING,
         "auo [warning]: 音声の長さが動画の長さと大きく異なるようです。\n"
         "               これが意図したものでない場合、音声が正常に出力されていないかもしれません。\n"
         "               この問題は圧縮音声をソースとしていると発生することがあります。\n"

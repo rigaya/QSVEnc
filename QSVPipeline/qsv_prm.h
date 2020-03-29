@@ -605,19 +605,6 @@ enum {
     QSV_AUD_ENC_AC3,
 };
 
-const CX_DESC list_avqsv_aud_encoder[] = {
-    { _T("none"),       QSV_AUD_ENC_NONE },
-    { _T("copy"),       QSV_AUD_ENC_COPY },
-    { _T("aac"),        QSV_AUD_ENC_AAC },
-    { _T("libmp3lame"), QSV_AUD_ENC_MP3 },
-    { _T("libtwolame"), QSV_AUD_ENC_MP2 },
-    { _T("libvorbis"),  QSV_AUD_ENC_VORBIS },
-    { _T("pcm_s16le"),  QSV_AUD_ENC_WAV },
-    { _T("libopus"),    QSV_AUD_ENC_OPUS },
-    { _T("ac3"),        QSV_AUD_ENC_AC3 },
-    { NULL, 0 }
-};
-
 static inline const CX_DESC *get_level_list(int CodecID) {
     switch (CodecID) {
         case MFX_CODEC_AVC:     return list_avc_level;

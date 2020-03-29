@@ -42,8 +42,7 @@ const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
     sizeof(CONF_GUIEX::vid),
     sizeof(CONF_GUIEX::aud),
     sizeof(CONF_GUIEX::mux),
-    sizeof(CONF_GUIEX::oth),
-    sizeof(CONF_GUIEX::aud_avqsv)
+    sizeof(CONF_GUIEX::oth)
 };
 
 const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
@@ -51,8 +50,7 @@ const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
     offsetof(CONF_GUIEX, vid),
     offsetof(CONF_GUIEX, aud),
     offsetof(CONF_GUIEX, mux),
-    offsetof(CONF_GUIEX, oth),
-    offsetof(CONF_GUIEX, aud_avqsv)
+    offsetof(CONF_GUIEX, oth)
 };
 
 //v0.03以降このデータは不要

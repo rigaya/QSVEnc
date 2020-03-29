@@ -109,7 +109,7 @@ typedef struct {
     BOOL resize_enable;
     int resize_width;
     int resize_height;
-} CONF_VIDEO; //動画用設定(qsv以外)
+} CONF_VIDEO;
 
 typedef struct {
     int  encoder;             //使用する音声エンコーダ
@@ -123,6 +123,12 @@ typedef struct {
     int  aud_temp_dir;        //音声専用一時フォルダ
     int  audio_encode_timing; //音声を先にエンコード
     int  delay_cut;           //エンコード遅延の削除
+} CONF_AUDIO_BASE; //音声用設定
+
+typedef struct {
+    CONF_AUDIO_BASE ext;
+    CONF_AUDIO_BASE in;
+    BOOL use_internal;
 } CONF_AUDIO; //音声用設定
 
 typedef struct {
@@ -136,20 +142,17 @@ typedef struct {
     BOOL apple_mode;      //Apple用モード(mp4系専用)
     BOOL disable_mpgext;  //mpg出力時、外部muxerを使用する
     int  mpg_mode;        //mpg 外部muxer用追加コマンドの設定
+    BOOL use_internal;    //内蔵muxerの使用
+    int  internal_mode;   //内蔵muxer用のオプション
 } CONF_MUX; //muxer用設定
-
-typedef struct {
-    int  encoder;             //使用する音声エンコーダ
-    int  bitrate;             //ビットレート指定モード
-} CONF_AUDIO_DIRECT;
 
 typedef struct {
     //BOOL disable_guicmd;         //GUIによるコマンドライン生成を停止(CLIモード)
     int  temp_dir;               //一時ディレクトリ
     BOOL out_audio_only;         //音声のみ出力
     char notes[128];             //メモ
-    DWORD run_bat;                //バッチファイルを実行するかどうか
-    DWORD dont_wait_bat_fin;      //バッチファイルの処理終了待機をするかどうか
+    DWORD run_bat;                //バッチファイルを実行するかどうか (RUN_BAT_xxx)
+    DWORD dont_wait_bat_fin;      //バッチファイルの処理終了待機をするかどうか (RUN_BAT_xxx)
     union {
         char batfiles[4][512];        //バッチファイルのパス
         struct {
@@ -174,7 +177,6 @@ typedef struct {
     CONF_AUDIO  aud;                             //音声についての設定
     CONF_MUX    mux;                             //muxについての設定
     CONF_OTHER  oth;                             //その他の設定
-    CONF_AUDIO_DIRECT aud_avqsv;                 //音声についての設定
 } CONF_GUIEX;
 #pragma pack(pop)
 
@@ -202,7 +204,7 @@ void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit); //初期化し、デフ�
 //filterがNULLならauoのOUTPUT_PLUGIN_TABLE用のフィルタを書き換える
 void make_file_filter(char *filter, size_t nSize, int default_index);
 
-void overwrite_aviutl_ini_name();
 void overwrite_aviutl_ini_file_filter(int idx);
+void overwrite_aviutl_ini_name();
 
 #endif //_AUO_CONF_H_

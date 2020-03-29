@@ -171,7 +171,7 @@
       <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <PreLinkEvent>
@@ -391,6 +391,7 @@ exit /B 0</Command>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/Zc:inline /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
