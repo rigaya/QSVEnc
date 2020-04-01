@@ -62,7 +62,6 @@ const int WAVE_SIZE_POS    = WAVE_HEADER_SIZE - 4;
 
 inline void *get_audio_data(const OUTPUT_INFO *oip, PRM_ENC *pe, int start, int length, int *readed) {
     if (pe->aud_parallel.th_aud) {
-        std::lock_guard<std::mutex> lock(*pe->aud_parallel.mtx_aud);
         pe->aud_parallel.start = start;
         pe->aud_parallel.get_length = length;
         if_valid_set_event(pe->aud_parallel.he_vid_start);
@@ -284,7 +283,9 @@ static void show_audio_enc_info(const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO_
     char *use2pass = (cnf_aud->use_2pass) ? ", 2pass" : "";
     write_log_auo_line_fmt(LOG_INFO, "%s%s で音声エンコードを行います。%s%s%s", aud_stg->dispname, ver_str.c_str(), aud_stg->mode[cnf_aud->enc_mode].name, bitrate, use2pass);
     show_audio_delay_cut_info(cnf_aud->delay_cut, pe);
-    write_log_auo_line(LOG_MORE, aud_dat->args);
+    if (strlen(aud_dat->args) > 0) {
+        write_log_auo_line(LOG_DEBUG, aud_dat->args);
+    }
 }
 
 static void recalculate_audio_delay_cut_for_afs(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const AUDIO_SETTINGS *aud_stg, const CONF_AUDIO_BASE *cnf_aud) {

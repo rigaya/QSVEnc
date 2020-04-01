@@ -1366,7 +1366,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
             || pParams->vpp.colorspace.enable)) {
 
         const bool inputRGB = m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB3 || m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB4;
-        VideoVUIInfo vuiFrom = VideoVUIInfo(); 
+        VideoVUIInfo vuiFrom = VideoVUIInfo();
         VideoVUIInfo vuiTo   = VideoVUIInfo();
         if (pParams->vpp.colorspace.enable && pParams->vpp.colorspace.convs.size() > 0) {
             vuiFrom = pParams->vpp.colorspace.convs.begin()->from;
@@ -1399,7 +1399,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp colorspace conversion enabled.\n"));
-    } else {
+    } else if(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
     }
 
