@@ -4205,7 +4205,6 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgtabPageAudioMain->Padding = System::Windows::Forms::Padding(3);
             this->fcgtabPageAudioMain->Size = System::Drawing::Size(376, 269);
             this->fcgtabPageAudioMain->TabIndex = 0;
-            this->fcgtabPageAudioMain->Tag = L"NoDirect";
             this->fcgtabPageAudioMain->Text = L"音声";
             this->fcgtabPageAudioMain->UseVisualStyleBackColor = true;
             // 
@@ -4216,7 +4215,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgCBAudioUseExt->Name = L"fcgCBAudioUseExt";
             this->fcgCBAudioUseExt->Size = System::Drawing::Size(136, 18);
             this->fcgCBAudioUseExt->TabIndex = 78;
-            this->fcgCBAudioUseExt->Tag = L"chValue";
+            this->fcgCBAudioUseExt->Tag = L"chValue,NoDirect";
             this->fcgCBAudioUseExt->Text = L"外部エンコーダを使用する";
             this->fcgCBAudioUseExt->UseVisualStyleBackColor = true;
             this->fcgCBAudioUseExt->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBAudioUseExt_CheckedChanged);

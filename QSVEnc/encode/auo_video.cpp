@@ -475,7 +475,6 @@ struct AVQSV_PARM {
 
 void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
     avqsv_prm->nSubtitleCopyAll = 0;
-    memset(&avqsv_prm->audioSelect, 0, sizeof(avqsv_prm->audioSelect));
     memset(&avqsv_prm->audioCodec,  0, sizeof(avqsv_prm->audioCodec));
     avqsv_prm->audioSelectList.clear();
 }
@@ -545,7 +544,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     enc_prm.common.disableMp4Opt = pe->muxer_to_be_used != MUXER_DISABLED;
 
 #if ENABLE_AUO_LINK
-    AVQSV_PARM avqsv_prm = { 0 };
+    AVQSV_PARM avqsv_prm;
     if (conf->oth.link_prm.active) {
         set_conf_qsvp_avqsv_prm(&enc_prm, conf, pe, sys_dat, &avqsv_prm);
     } else

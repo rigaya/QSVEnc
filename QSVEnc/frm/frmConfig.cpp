@@ -1174,6 +1174,7 @@ System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
     if (!auoLinkEnabled) {
         memset(&cnf->oth.link_prm, 0, sizeof(cnf->oth.link_prm));
         fcgCBAvqsv->Checked = false;
+        fcgCBAudioUseExt->Enabled = true;
     } else {
         memcpy(&cnf->oth.link_prm, &link_data.prm, sizeof(link_data.prm));
         memcpy(conf_link_prm, &link_data.prm, sizeof(link_data.prm));
@@ -1645,6 +1646,7 @@ System::Void frmConfig::fcgChangeVisibleDirectEnc(System::Object^  sender, Syste
     if (fcgCBAvqsv->Checked) {
         fcgCBAudioUseExt->Checked = false;
     }
+    fcgCBAudioUseExt->Enabled = !fcgCBAvqsv->Checked;
     const int index = fcgCXAudioEncoderInternal->SelectedIndex;
     fcgCXAudioEncoderInternal->BeginUpdate();
     fcgCXAudioEncoderInternal->Items->Clear();
@@ -1660,6 +1662,9 @@ System::Void frmConfig::fcgChangeVisibleDirectEnc(System::Object^  sender, Syste
 
     fcggroupBoxAvqsv->Enabled  = fcgCBAvqsv->Checked;
     fcgLBAvqsvEncWarn->Visible = fcgCBAvqsv->Checked;
+
+    fcgCBCopySubtitle->Visible = fcgCBAvqsv->Checked;
+    fcgCBCopyChapter->Visible = fcgCBAvqsv->Checked;
     ChangeVisiableDirectEncPerControl(this, !fcgCBAvqsv->Checked);
 }
 
