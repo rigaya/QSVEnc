@@ -82,7 +82,7 @@ const CX_DESC list_deinterlace_ja[] = {
     { "インタレ解除 (自動)",        MFX_DEINTERLACE_AUTO_SINGLE },
     { "インタレ解除 (自動Bob化)",   MFX_DEINTERLACE_AUTO_DOUBLE },
 #endif
-    { NULL, NULL } 
+    { NULL, NULL }
 };
 
 const CX_DESC list_encmode[] = {
@@ -447,7 +447,7 @@ namespace QSVEnc {
                         i_feature++;
                     }
                 }
-                {
+                if (codec != 0) {
                     int codecIdx = getCodecIdIdx(codec);
                     availableFeatures[codecIdx] = codecAvailableFeatures;
                     codecAvail[codecIdx] = true;
