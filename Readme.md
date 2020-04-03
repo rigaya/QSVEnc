@@ -22,7 +22,6 @@ There are 2 types of software developed, one is command line version that runs i
 ### Windows
 Windows 10 (x86/x64)  
 Aviutl 1.00 or later (QSVEnc.auo)  
-Intel Haswell Gen or later
 
 ### Linux
 CentOS/Readhat (QSVEncC)  
@@ -88,7 +87,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 ## CPUs supporting QSV
 
 ○ ... QSV avail  
-△ ... QSV avail, but might not move
 × ... QSV unavail  
 ?  ... differs by SKU or driver versions  
 
@@ -96,9 +94,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 |:--|:--|:-:|
 |Penrynn or before	    |Core2 xxx	|×|
 |Nehalem/LynnField	|Core i3/i5/i7 xxx	|×|
-|SandyBridge	    |Core i3/i5/i7 2xxx	|△|
+|SandyBridge	    |Core i3/i5/i7 2xxx	|○|
 |SandyBridge-E	    |Core i7 3xxx	|×|
-|IvyBridge	        |Core i3/i5/i7 3xxx	|△|
+|IvyBridge	        |Core i3/i5/i7 3xxx	|○|
 |IvyBridge-E	    |Core i7 4xxx	|×|
 |Haswell	        |Core i3/i5/i7 4xxx	|○|
 |Haswell	        |Pentium G3xxx	|○|

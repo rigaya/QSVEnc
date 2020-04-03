@@ -22,7 +22,6 @@ QSVEncC.exe … 上記のコマンドライン版です。
 Windows 10 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)  
 Windows 10 (x64) (QSVEncC.exe x64版)  
 Aviutl 1.00 以降 (QSVEnc.auo)  
-Haswell以降のIntel CPU
 
 ### Linux
 CentOS/Readhat系 (QSVEncC)  
@@ -97,15 +96,15 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 <a name ="qsv_cpu_list">
 ## QSVの使用できるCPU一覧
 
-○　... 使用可能 / △ ... 動作するかも? /× ... 使用不可 / ? ... 型番、ドライバにより異なる
+○　... 使用可能 / × ... 使用不可 / ? ... 型番、ドライバにより異なる
 
 |Core系 CPU	        || QSVの使用|
 |:--|:--|:-:|
 |Penrynn以前	    |Core2 xxx	|×|
 |Nehalem/LynnField	|Core i3/i5/i7 xxx	|×|
-|SandyBridge	    |Core i3/i5/i7 2xxx	|△|
+|SandyBridge	    |Core i3/i5/i7 2xxx	|○|
 |SandyBridge-E	    |Core i7 3xxx	|×|
-|IvyBridge	        |Core i3/i5/i7 3xxx	|△|
+|IvyBridge	        |Core i3/i5/i7 3xxx	|○|
 |IvyBridge-E	    |Core i7 4xxx	|×|
 |Haswell	        |Core i3/i5/i7 4xxx	|○|
 |Haswell	        |Pentium G3xxx	|○|
