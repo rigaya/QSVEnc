@@ -417,8 +417,9 @@ System::Void frmConfig::setAudioExtDisplay() {
     fcgTXAudioEncoderPath->SelectionStart = fcgTXAudioEncoderPath->Text->Length;
     fcgCXAudioEncMode->BeginUpdate();
     fcgCXAudioEncMode->Items->Clear();
-    for (int i = 0; i < astg->mode_count; i++)
+    for (int i = 0; i < astg->mode_count; i++) {
         fcgCXAudioEncMode->Items->Add(String(astg->mode[i].name).ToString());
+    }
     fcgCXAudioEncMode->EndUpdate();
     bool pipe_enabled = (astg->pipe_input && (!(fcgCBAudio2pass->Checked && astg->mode[fcgCXAudioEncMode->SelectedIndex].enc_2pass != 0)));
     CurrentPipeEnabled = pipe_enabled;
@@ -528,22 +529,24 @@ System::Void frmConfig::setAudioIntDisplay() {
         fcgCXAudioEncModeInternal->SelectedIndex = 0;
 }
 System::Void frmConfig::AudioIntEncodeModeChanged() {
-    int index = fcgCXAudioEncMode->SelectedIndex;
-    AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
-    if (astg->mode[index].bitrate) {
-        fcgCXAudioEncMode->Width = fcgCXAudioEncModeSmallWidth;
-        fcgLBAudioBitrateInternal->Visible = true;
-        fcgNUAudioBitrateInternal->Visible = true;
-        fcgNUAudioBitrateInternal->Minimum = astg->mode[index].bitrate_min;
-        fcgNUAudioBitrateInternal->Maximum = astg->mode[index].bitrate_max;
-        fcgNUAudioBitrateInternal->Increment = astg->mode[index].bitrate_step;
-        SetNUValue(fcgNUAudioBitrateInternal, (conf->aud.in.bitrate != 0) ? conf->aud.in.bitrate : astg->mode[index].bitrate_default);
-    } else {
-        fcgCXAudioEncMode->Width = fcgCXAudioEncModeLargeWidth;
-        fcgLBAudioBitrateInternal->Visible = false;
-        fcgNUAudioBitrateInternal->Visible = false;
-        fcgNUAudioBitrateInternal->Minimum = 0;
-        fcgNUAudioBitrateInternal->Maximum = 65536;
+    const int imode = fcgCXAudioEncModeInternal->SelectedIndex;
+    if (imode >= 0 && fcgCXAudioEncoderInternal->SelectedIndex >= 0) {
+        AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
+        if (astg->mode[imode].bitrate) {
+            fcgCXAudioEncModeInternal->Width = fcgCXAudioEncModeSmallWidth;
+            fcgLBAudioBitrateInternal->Visible = true;
+            fcgNUAudioBitrateInternal->Visible = true;
+            fcgNUAudioBitrateInternal->Minimum = astg->mode[imode].bitrate_min;
+            fcgNUAudioBitrateInternal->Maximum = astg->mode[imode].bitrate_max;
+            fcgNUAudioBitrateInternal->Increment = astg->mode[imode].bitrate_step;
+            SetNUValue(fcgNUAudioBitrateInternal, (conf->aud.in.bitrate > 0) ? conf->aud.in.bitrate : astg->mode[imode].bitrate_default);
+        } else {
+            fcgCXAudioEncModeInternal->Width = fcgCXAudioEncModeLargeWidth;
+            fcgLBAudioBitrateInternal->Visible = false;
+            fcgNUAudioBitrateInternal->Visible = false;
+            fcgNUAudioBitrateInternal->Minimum = 0;
+            fcgNUAudioBitrateInternal->Maximum = 65536;
+        }
     }
     SetfbcBTABEnable(fcgNUAudioBitrateInternal->Visible, (int)fcgNUAudioBitrateInternal->Maximum);
 }
