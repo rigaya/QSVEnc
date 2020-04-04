@@ -1259,6 +1259,7 @@ System::Void frmConfig::InitForm() {
     UpdateFeatures();
     fcgChangeEnabled(nullptr, nullptr);
     fcgChangeVisibleDirectEnc(nullptr, nullptr);
+    fcgCBAudioUseExt_CheckedChanged(nullptr, nullptr);
     fcgRebuildCmd(nullptr, nullptr);
 }
 
