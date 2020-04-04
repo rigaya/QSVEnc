@@ -72,6 +72,7 @@ typedef struct {
     int drop_count;                        //ドロップ数
     BOOL afs_init;                         //動画入力の準備ができているか
     HANDLE h_p_aviutl;                     //優先度取得用のAviutlのハンドル
+    HANDLE h_p_videnc;                     //動画エンコーダのハンドル
     char temp_filename[MAX_PATH_LEN];      //一時ファイル名
     char muxed_vid_filename[MAX_PATH_LEN]; //mux後に退避された動画のみファイル
     int  aud_count;                        //音声ファイル数...音声エンコード段階で設定する
