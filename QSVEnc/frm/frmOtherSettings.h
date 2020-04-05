@@ -655,9 +655,9 @@ namespace QSVEnc {
             fosCBGetRelativePath->Checked           = fos_ex_stg->s_local.get_relative_path != 0;
             fosCXDefaultOutExt->SelectedIndex       = fos_ex_stg->s_local.default_output_ext;
             if (fos_ex_stg->s_local.default_audenc_use_in) {
-                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_in, 0, fos_ex_stg->s_aud_int_count);
+                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_in, 0, fos_ex_stg->s_aud_int_count-1);
             } else {
-                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_ext, 0, fos_ex_stg->s_aud_ext_count) + fos_ex_stg->s_aud_int_count;
+                fosCXDefaultAudioEncoder->SelectedIndex = clamp(fos_ex_stg->s_local.default_audio_encoder_ext, 0, fos_ex_stg->s_aud_ext_count-1) + fos_ex_stg->s_aud_int_count;
             }
             fosCBPerfMonitor->Checked               = fos_ex_stg->s_local.perf_monitor != 0;
             fosCBPerfMonitorPlot->Checked           = fos_ex_stg->s_local.perf_monitor_plot != 0;
