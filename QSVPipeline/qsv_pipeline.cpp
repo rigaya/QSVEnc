@@ -1400,7 +1400,7 @@ mfxStatus CQSVPipeline::CreateVppExtBuffers(sInputParams *pParams) {
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxVppParams: vpp colorspace conversion enabled.\n"));
-    } else if(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+    } else if(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) { //なんかMFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFOを設定すると古い環境ではvppの初期化に失敗するらしい。
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
     }
 
