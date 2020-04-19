@@ -28,6 +28,7 @@
 #include "qsv_util.h"
 #include "rgy_err.h"
 #include "rgy_osdep.h"
+#include "rgy_frame.h"
 #include <mfxjpeg.h>
 
 static const auto RGY_CODEC_TO_MFX = make_array<std::pair<RGY_CODEC, mfxU32>>(
@@ -221,6 +222,29 @@ tstring qsv_memtype_str(uint32_t memtype) {
     return str.substr(0, str.length()-1);
 }
 
+void RGYBitstream::addFrameData(RGYFrameData *frameData) {
+    if (frameData != nullptr) {
+        frameDataNum++;
+        frameDataList = (RGYFrameData **)realloc(frameDataList, frameDataNum * sizeof(frameDataList[0]));
+        frameDataList[frameDataNum - 1] = frameData;
+    }
+}
+
+void RGYBitstream::clearFrameDataList() {
+    frameDataNum = 0;
+    if (frameDataList) {
+        for (int i = 0; i < frameDataNum; i++) {
+            if (frameDataList[i]) {
+                delete frameDataList[i];
+            }
+        }
+        free(frameDataList);
+        frameDataList = nullptr;
+    }
+}
+std::vector<RGYFrameData *> RGYBitstream::getFrameDataList() {
+    return make_vector(frameDataList, frameDataNum);
+}
 
 mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize) {
     mfxBitstreamClear(pBitstream);

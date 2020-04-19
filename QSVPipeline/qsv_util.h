@@ -57,6 +57,8 @@ using std::vector;
 using std::unique_ptr;
 using std::shared_ptr;
 
+class RGYFrameData;
+
 #define INIT_MFX_EXT_BUFFER(x, id) { RGY_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, mfxU32);
@@ -115,9 +117,14 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
 struct RGYBitstream {
 private:
     mfxBitstream m_bitstream;
+    RGYFrameData **frameDataList;
+    int frameDataNum;
 
 public:
     mfxBitstream& bitstream() {
+        return m_bitstream;
+    }
+    const mfxBitstream &bitstream() const {
         return m_bitstream;
     }
 
@@ -334,6 +341,9 @@ public:
     RGY_ERR append(RGYBitstream *pBitstream) {
         return append(pBitstream->data(), pBitstream->size());
     }
+    void addFrameData(RGYFrameData *frameData);
+    void clearFrameDataList();
+    std::vector<RGYFrameData *> getFrameDataList();
 };
 
 static inline RGYBitstream RGYBitstreamInit() {
@@ -342,7 +352,6 @@ static inline RGYBitstream RGYBitstreamInit() {
     return bitstream;
 }
 
-static_assert(sizeof(mfxBitstream) == sizeof(RGYBitstream), "RGYFrame size should equal to mfxFrameSurface1 size.");
 static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
 
 struct RGYFrame {

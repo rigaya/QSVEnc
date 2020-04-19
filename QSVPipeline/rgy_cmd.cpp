@@ -1440,7 +1440,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     }
     if (IS_OPTION("dhdr10-info")) {
         i++;
-        common->dynamicHdr10plusJson = strInput[i];
+        if (strInput[i] == tstring(_T("copy"))) {
+            common->hdr10plusMetadataCopy = true;
+        } else {
+            common->dynamicHdr10plusJson = strInput[i];
+        }
         return 0;
     }
     return -10;
@@ -1894,7 +1898,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_LST(_T("--videoformat"), out_vui.format, list_videoformat);
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);
-    OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
+    if (param->hdr10plusMetadataCopy) {
+        cmd << _T("--dhdr10-info copy");
+    } else {
+        OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
+    }
 
     OPT_NUM(_T("--output-buf"), outputBufSizeMB);
     return cmd.str();
@@ -2009,7 +2017,8 @@ tstring gen_cmd_help_common() {
         _T("   --master-display <string>    set Mastering display data.\n")
         _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n")
         _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
-        _T("   --input-analyze <int>       set time (sec) which reader analyze input file.\n")
+        _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n")
+        _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avhw/avsw reader.\n")
         _T("                                 use if reader fails to detect audio stream.\n")
