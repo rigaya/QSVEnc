@@ -37,7 +37,7 @@
 #include "../base/plugin_base.h"
 #include "logo.h"
 
-typedef struct {
+struct ProcessDataDelogo {
     unique_ptr<mfxI16, aligned_malloc_deleter> pLogoPtr;
     mfxU32 pitch;
     mfxU32 i_start;
@@ -50,7 +50,21 @@ typedef struct {
     short  yc48_2_nv12_add;
     short  offset[2];
     int    fade;
-} ProcessDataDelogo;
+
+    ProcessDataDelogo() : pLogoPtr(),
+            pitch(0),
+            i_start(0),
+            height(0),
+            j_start(0),
+            depth(0),
+            nv12_2_yc48_mul(0),
+            nv12_2_yc48_sub(0),
+            yc48_2_nv12_mul(0),
+            yc48_2_nv12_add(0),
+            offset(),
+            fade(0) {};
+    ~ProcessDataDelogo(){};
+};
 
 class ProcessorDelogo : public Processor
 {
@@ -107,15 +121,23 @@ enum {
 };
 
 
-typedef struct LogoData {
+struct LogoData {
     LOGO_HEADER header;
     vector<LOGO_PIXEL> logoPixel;
-} LogoData;
 
-typedef struct LOGO_SELECT_KEY {
+    LogoData() : header(), logoPixel() {};
+    ~LogoData() {};
+};
+
+struct LOGO_SELECT_KEY {
     std::string key;
     char logoname[LOGO_MAX_NAME];
-} LOGO_SELECT_KEY;
+
+    LOGO_SELECT_KEY() : key(), logoname() {
+        memset(logoname, 0, sizeof(logoname));
+    }
+    ~LOGO_SELECT_KEY(){};
+};
 
 class Delogo : public QSVEncPlugin
 {

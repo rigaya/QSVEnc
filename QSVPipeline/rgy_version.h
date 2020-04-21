@@ -121,6 +121,7 @@ const char *get_encoder_version();
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define MFX_D3D11_SUPPORT 0
+#define FOR_AUO 0
 #define ENABLE_METRIC_FRAMEWORK 0
 #define ENABLE_PERF_COUNTER 0
 #include "rgy_config.h"

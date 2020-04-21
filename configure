@@ -104,8 +104,10 @@ LIBASS_CFLAGS=""
 LIBASS_LIBS=""
 ENABLE_LIBASS=1
 
-DTL_CFLAGS=""
+DTL_CFLAGS="-I./dtl"
 ENABLE_DTL=1
+
+CPPCODEC_CFLAGS="-I./cppcodec"
 
 print_help()
 {
@@ -240,11 +242,11 @@ else
 fi
 echo "OK"
 
-printf "checking for c++11 support..."
-if cxx_check "${CXXFLAGS} -std=c++11 ${LDFLAGS}" ; then
-    CXXFLAGS="$CXXFLAGS -std=c++11"
+printf "checking for c++14 support..."
+if cxx_check "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -std=c++14"
 else
-    echo $CXX does not work with -std=c++11
+    echo $CXX does not work with -std=c++14
     exit 1
 fi
 echo "OK"
@@ -599,7 +601,7 @@ qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
 ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
 rgy_bitstream.cpp           rgy_cmd.cpp                     rgy_def.cpp \
-rgy_err.cpp                 rgy_event.cpp                   rgy_ini.cpp \
+rgy_err.cpp                 rgy_event.cpp                   rgy_frame.cpp                    rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp           rgy_input_avi.cpp \
 rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp \
 rgy_log.cpp                 rgy_output.cpp                  rgy_output_avcodec.cpp \
@@ -683,7 +685,7 @@ write_config_mak "LD  = $LD"
 write_config_mak "AS  = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"

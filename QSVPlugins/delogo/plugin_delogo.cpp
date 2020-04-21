@@ -42,10 +42,10 @@
 
 /* Delogo class implementation */
 Delogo::Delogo() :
+    m_DelogoParam(),
     m_nSimdAvail(0x00),
-    m_nLogoIdx(-1) {
-    memset(&m_DelogoParam, 0, sizeof(m_DelogoParam));
-    memset(&m_sProcessData, 0, sizeof(m_sProcessData));
+    m_nLogoIdx(-1),
+    m_sProcessData() {
     m_nSimdAvail = get_availableSIMD();
     m_pluginName = _T("delogo");
 }
@@ -175,7 +175,6 @@ mfxStatus Delogo::readLogoFile() {
         m_sLogoDataList.resize(logonum);
 
         for (int i = 0; i < logonum; i++) {
-            memset(&m_sLogoDataList[i], 0, sizeof(m_sLogoDataList[i]));
             if (logo_header_size != fread(&m_sLogoDataList[i].header, 1, logo_header_size, fp.get())) {
                 m_message += _T("invalid logo file.\n");
                 sts = MFX_ERR_UNSUPPORTED;
@@ -538,8 +537,6 @@ mfxStatus Delogo::Close() {
 
     if (!m_bInited)
         return MFX_ERR_NONE;
-
-    memset(&m_DelogoParam, 0, sizeof(m_DelogoParam));
 
     m_sTasks.clear();
     m_sChunks.clear();

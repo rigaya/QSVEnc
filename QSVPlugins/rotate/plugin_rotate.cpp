@@ -33,8 +33,7 @@
 
 #define SWAP_BYTES(a, b) {mfxU8 tmp; tmp = a; a = b; b = tmp;}
 
-Rotate::Rotate() {
-    memset(&m_Param, 0, sizeof(m_Param));
+Rotate::Rotate() : m_Param() {
     m_pluginName = _T("rotate");
 }
 
@@ -169,8 +168,6 @@ mfxStatus Rotate::Close() {
 
     if (!m_bInited)
         return MFX_ERR_NONE;
-
-    memset(&m_Param, 0, sizeof(RotateParam));
 
     mfxStatus sts = MFX_ERR_NONE;
 

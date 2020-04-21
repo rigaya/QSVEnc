@@ -2251,7 +2251,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
             tmp << _T(",enable=false");
         }
         if (pParams->vpp.colorspace.enable || save_disabled_prm) {
-            for (int i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
+            for (size_t i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
                 auto from = pParams->vpp.colorspace.convs[i].from;
                 auto to = pParams->vpp.colorspace.convs[i].to;
                 if (from.matrix != to.matrix) {

@@ -3646,8 +3646,12 @@ mfxStatus CQSVPipeline::RunEncode() {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
         if (m_pFileWriterListAudio.size() + pFilterForStreams.size() > 0) {
+#if ENABLE_SM_READER
             RGYInputSM *pReaderSM = dynamic_cast<RGYInputSM *>(m_pFileReader.get());
             const int droppedInAviutl = (pReaderSM != nullptr) ? pReaderSM->droppedFrames() : 0;
+#else
+            const int droppedInAviutl = 0;
+#endif
 
             packetList = m_pFileReader->GetStreamDataPackets(inputFrames + droppedInAviutl);
 
@@ -4546,7 +4550,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     mfxU32 info_len = 0;
 
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
-#define PRINT_INT_AUTO(fmt, i) { if (i) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
+#define PRINT_INT_AUTO(fmt, i) { if ((i) != 0) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
     PRINT_INFO(    _T("%s\n"), get_encoder_version());
 #if defined(_WIN32) || defined(_WIN64)
     OSVERSIONINFOEXW osversioninfo = { 0 };

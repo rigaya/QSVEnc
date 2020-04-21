@@ -281,8 +281,6 @@ void RGYInputAvcodec::Close() {
     }
     m_Demux.frames.clear();
     AddMessage(RGY_LOG_DEBUG, _T("Cleared frame pos list.\n"));
-
-    memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
@@ -744,7 +742,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 }
                 if (pkt1 != nullptr) {
                     //1パケット目はたまにおかしいので、可能なら2パケット目を使用する
-                    av_copy_packet(&streamInfo->pktSample, (pkt2) ? pkt2 : pkt1);
+                    av_packet_ref(&streamInfo->pktSample, (pkt2) ? pkt2 : pkt1);
                 } else {
                     //音声の最初のサンプルを取得できていない
                     AddMessage(RGY_LOG_WARN, _T("failed to find stream #%d in preread.\n"), streamInfo->index);
@@ -838,7 +836,7 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
 
     std::unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> frameDec(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
     bool got_frame = false;
-    for (int i = 0; i < m_Demux.qVideoPkt.size() && !got_frame; i++) {
+    for (uint32_t i = 0; i < m_Demux.qVideoPkt.size() && !got_frame; i++) {
         AVPacket *pkt = &m_Demux.qVideoPkt.get(i)->data;
         ret = avcodec_send_packet(codecCtxDec.get(), pkt);
 

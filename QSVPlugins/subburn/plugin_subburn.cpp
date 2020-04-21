@@ -766,8 +766,6 @@ mfxStatus SubBurn::Close() {
     if (!m_bInited)
         return MFX_ERR_NONE;
 
-    memset(&m_SubBurnParam, 0, sizeof(m_SubBurnParam));
-
     mfxStatus sts = MFX_ERR_NONE;
 
 
