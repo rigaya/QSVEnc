@@ -996,9 +996,9 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     m_Demux.video.readVideo = input_prm->readVideo;
     m_Demux.thread.queueInfo = input_prm->queueInfo;
     if (input_prm->readVideo) {
-        memcpy(&m_inputVideoInfo, inputInfo, sizeof(m_inputVideoInfo));
+        m_inputVideoInfo = *inputInfo;
     } else {
-        memset(&m_inputVideoInfo, 0, sizeof(m_inputVideoInfo));
+        m_inputVideoInfo = VideoInfo();
     }
 
     if (!check_avcodec_dll()) {
@@ -2286,7 +2286,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
 
             //最初のパケットは参照用にコピーしておく
             if (pStream->pktSample.data == nullptr) {
-                av_copy_packet(&pStream->pktSample, &pkt);
+                av_packet_ref(&pStream->pktSample, &pkt);
             }
             auto pktt = (pkt.pts == AV_NOPTS_VALUE) ? pkt.dts : pkt.pts;
             auto pkt_dist = pktt - pStream->pktSample.pts;
