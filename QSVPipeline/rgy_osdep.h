@@ -148,7 +148,7 @@ static inline void __cpuid(int cpuInfo[4], int param) {
     cpuInfo[3] = edx;
 }
 
-#if NO_XGETBV_INTRIN
+#if NO_XGETBV_INTRIN && defined(__AVX__)
 static inline unsigned long long _xgetbv(unsigned int index) {
   unsigned int eax, edx;
   __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
