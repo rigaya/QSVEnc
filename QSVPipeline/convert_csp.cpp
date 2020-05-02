@@ -994,8 +994,8 @@ static const ConvertCSP funcList[] = {
     FUNC_AVX(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_avx,      convert_rgb32r_to_rgb32_avx,      AVX )
     FUNC_SSE(  RGY_CSP_RGB32,  RGY_CSP_RGB32, false, convert_rgb32_to_rgb32_sse2,      convert_rgb32_to_rgb32_sse2,      SSE2 )
     FUNC_SSE(  RGY_CSP_RGB32R, RGY_CSP_RGB32, false, convert_rgb32r_to_rgb32_sse2,     convert_rgb32r_to_rgb32_sse2,     SSE2 )
-    FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
-    FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_avx2,     convert_rgb24r_to_rgb24_avx2,     AVX2|AVX)
+    FUNC_AVX2( RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_avx2,      convert_rgb24_to_rgb24_avx2,      AVX2|AVX)
+    FUNC_AVX2( RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_avx2,     convert_rgb24r_to_rgb24_avx2,     AVX2|AVX)
     FUNC_SSE(  RGY_CSP_RGB24,  RGY_CSP_RGB24, false, convert_rgb24_to_rgb24_sse2,      convert_rgb24_to_rgb24_sse2,      SSE2 )
     FUNC_SSE(  RGY_CSP_RGB24R, RGY_CSP_RGB24, false, convert_rgb24r_to_rgb24_sse2,     convert_rgb24r_to_rgb24_sse2,     SSE2 )
 
