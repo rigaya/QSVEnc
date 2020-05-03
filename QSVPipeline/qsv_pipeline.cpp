@@ -60,7 +60,8 @@
 #include "qsv_allocator.h"
 #include "qsv_allocator_sys.h"
 #include "rgy_avlog.h"
-#include "chapter_rw.h"
+#include "rgy_chapter.h"
+#include "rgy_codepage.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include "api_hook.h"
 #endif
@@ -2283,10 +2284,10 @@ mfxStatus CQSVPipeline::readChapterFile(tstring chapfile) {
         avchap->end = (i < chapter_list.size()-1) ? chapter_list[i+1]->get_ms() : avchap->start + 1;
         avchap->id = (int)m_Chapters.size();
         avchap->metadata = nullptr;
-        av_dict_set(&avchap->metadata, "title", wstring_to_string(chapter_list[i]->name, CP_UTF8).c_str(), 0);
+        av_dict_set(&avchap->metadata, "title", chapter_list[i]->name.c_str(), 0);
         chap_log += strsprintf(_T("chapter #%02d [%d.%02d.%02d.%03d]: %s.\n"),
             avchap->id, chapter_list[i]->h, chapter_list[i]->m, chapter_list[i]->s, chapter_list[i]->ms,
-            wstring_to_tstring(chapter_list[i]->name).c_str());
+            char_to_tstring(chapter_list[i]->name, CODE_PAGE_UTF8).c_str());
         m_Chapters.push_back(std::move(avchap));
     }
     PrintMes(RGY_LOG_DEBUG, _T("%s"), chap_log.c_str());

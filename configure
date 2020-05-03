@@ -3,10 +3,10 @@
 #-----------------------------------------------------------------------------------------
 #    QSVEnc by rigaya
 #  -----------------------------------------------------------------------------------------
-#   ã‚½ãƒ¼ã‚¹ã‚³ãƒ¼ãƒ‰ã«ã¤ã„ã¦
-#   ãƒ»ç„¡ä¿è¨¼ã§ã™ã€‚
-#   ãƒ»æœ¬ã‚½ãƒ¼ã‚¹ã‚³ãƒ¼ãƒ‰ã‚’ä½¿ç”¨ã—ãŸã“ã¨ã«ã‚ˆã‚‹ã„ã‹ãªã‚‹æå®³ãƒ»ãƒˆãƒ©ãƒ–ãƒ«ã«ã¤ã„ã¦rigayaã¯è²¬ä»»ã‚’è² ã„ã¾ã›ã‚“ã€‚
-#   ä»¥ä¸Šã«äº†è§£ã—ã¦é ‚ã‘ã‚‹å ´åˆã€æœ¬ã‚½ãƒ¼ã‚¹ã‚³ãƒ¼ãƒ‰ã®ä½¿ç”¨ã€è¤‡è£½ã€æ”¹å¤‰ã€å†é ’å¸ƒã‚’è¡Œã£ã¦é ‚ã„ã¦æ§‹ã„ã¾ã›ã‚“ã€‚
+#   ƒ\[ƒXƒR[ƒh‚É‚Â‚¢‚Ä
+#   E–³•ÛØ‚Å‚·B
+#   E–{ƒ\[ƒXƒR[ƒh‚ğg—p‚µ‚½‚±‚Æ‚É‚æ‚é‚¢‚©‚È‚é‘¹ŠQEƒgƒ‰ƒuƒ‹‚É‚Â‚¢‚Ärigaya‚ÍÓ”C‚ğ•‰‚¢‚Ü‚¹‚ñB
+#   ˆÈã‚É—¹‰ğ‚µ‚Ä’¸‚¯‚éê‡A–{ƒ\[ƒXƒR[ƒh‚Ìg—pA•¡»A‰ü•ÏAÄ”Ğ•z‚ğs‚Á‚Ä’¸‚¢‚Ä\‚¢‚Ü‚¹‚ñB
 #  -----------------------------------------------------------------------------------------
 
 write_config_mak()
@@ -537,7 +537,6 @@ if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     fi
 fi
 
-
 if [ $ENABLE_AVXSYNTH -ne 0 ]; then
     printf "checking avxsynth with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_AVXSYNTH_NAMES} ; then
@@ -618,7 +617,7 @@ qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp   
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
 ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
-rgy_bitstream.cpp           rgy_cmd.cpp                     rgy_def.cpp \
+rgy_bitstream.cpp           rgy_chapter.cpp                 rgy_cmd.cpp                     rgy_def.cpp \
 rgy_err.cpp                 rgy_event.cpp                   rgy_frame.cpp                    rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp           rgy_input_avi.cpp \
 rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp \
@@ -629,8 +628,6 @@ rgy_util.cpp                rgy_version.cpp \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"
-
-SRC_CHAPTER_RW="chapter_rw.cpp"
 
 ASM_QSVPIPELINE="ram_speed_x64.asm cpu_info_x64.asm"
 
@@ -668,10 +665,6 @@ done
 
 for src in $SRC_TINYXML2; do
     SRCS="$SRCS tinyxml2/$src"
-done
-
-for src in $SRC_CHAPTER_RW; do
-    SRCS="$SRCS ChapterRW/$src"
 done
 
 for src in $SRC_PLUGIN_ROTATE; do
