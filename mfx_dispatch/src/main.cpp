@@ -43,6 +43,8 @@ File Name: main.cpp
 #include "mfx_load_plugin.h"
 #include "mfx_plugin_hive.h"
 
+#pragma GCC diagnostic ignored "-Waddress"
+
 // module-local definitions
 namespace
 {

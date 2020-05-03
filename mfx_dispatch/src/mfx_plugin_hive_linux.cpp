@@ -267,7 +267,7 @@ MFXPluginsInFS::MFXPluginsInFS(mfxVersion currentAPIVersion)
         {
             PluginDescriptionRecord descriptionRecord;
             descriptionRecord.onlyVersionRegistered = true;
-            char cfgName[MAX_PLUGIN_PATH];
+            char cfgName[MAX_PLUGIN_PATH+512];
             snprintf(cfgName, sizeof(cfgName), "%s/%s/%s", selfName, namelist[i]->d_name, pluginCfgFileName);
             if ( strlen(selfName) + strlen("/") + strlen(namelist[i]->d_name) >= MAX_PLUGIN_PATH)
             {
