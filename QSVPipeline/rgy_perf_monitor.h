@@ -274,6 +274,10 @@ struct NVMLMonitorInfo {
         pcieLoadTX(0),
         pcieLoadRX(0) {
     };
+
+    void clear() {
+        *this = NVMLMonitorInfo();
+    }
 };
 
 #if ENABLE_NVML

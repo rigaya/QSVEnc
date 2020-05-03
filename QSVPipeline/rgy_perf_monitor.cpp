@@ -326,7 +326,7 @@ void NVMLMonitor::Close() {
 #endif //#if ENABLE_NVML
 
 int NVSMIInfo::getData(NVMLMonitorInfo *info, const std::string& gpu_pcibusid) {
-    memset(info, 0, sizeof(info[0]));
+    info->clear();
 
     RGYPipeProcessWin process;
     ProcessPipe pipes = { 0 };
@@ -522,9 +522,6 @@ CPerfMonitor::CPerfMonitor() :
 #if ENABLE_METRIC_FRAMEWORK
     m_pManager = nullptr;
 #endif //#if ENABLE_METRIC_FRAMEWORK
-#if ENABLE_NVML
-    memset(&m_nvmlInfo, 0, sizeof(m_nvmlInfo));
-#endif
 #if ENABLE_GPUZ_INFO
     memset(&m_GPUZInfo, 0, sizeof(m_GPUZInfo));
 #endif //#if ENABLE_GPUZ_INFO
