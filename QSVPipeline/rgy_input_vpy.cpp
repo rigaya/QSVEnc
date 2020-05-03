@@ -73,7 +73,7 @@ int RGYInputVpy::load_vapoursynth() {
     if (NULL == (m_sVS.hVSScriptDLL = LoadLibrary(vsscript_dll_name))) {
 #else
     const TCHAR *vsscript_dll_name = _T("libvapoursynth-script.so");
-    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY))) {
+    if (NULL == (m_sVS.hVSScriptDLL = dlopen(vsscript_dll_name, RTLD_LAZY|RTLD_GLOBAL))) {
 #endif
         AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), vsscript_dll_name);
         return 1;
@@ -187,14 +187,20 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     const VSVideoInfo *vsvideoinfo = nullptr;
     const VSCoreInfo *vscoreinfo = nullptr;
-    if (   !m_sVS.init()
-        || initAsyncEvents()
-        || nullptr == (m_sVSapi = m_sVS.getVSApi())
-        || m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
+    if (!m_sVS.init()) {
+        AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
+        return RGY_ERR_NULL_PTR;
+    } else if (initAsyncEvents()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to initialize async events.\n"));
+        return RGY_ERR_NULL_PTR;
+    } else if ((m_sVSapi = m_sVS.getVSApi()) == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to get VapourSynth APIs.\n"));
+        return RGY_ERR_NULL_PTR;
+    } else if (m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
         || nullptr == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
         || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
         || nullptr == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
-        AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("VapourSynth script error.\n"));
         if (m_sVSscript) {
             AddMessage(RGY_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
