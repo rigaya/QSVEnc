@@ -509,8 +509,8 @@ std::wstring PathCombineS(const std::wstring& dir, const std::wstring& filename)
 std::string PathCombineS(const std::string& dir, const std::string& filename);
 bool CreateDirectoryRecursive(const WCHAR *dir);
 std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir);
-tstring getExeDir();
 #endif //#if defined(_WIN32) || defined(_WIN64)
+tstring getExeDir();
 
 std::wstring tchar_to_wstring(const tstring& tstr, uint32_t codepage = CP_THREAD_ACP);
 std::wstring tchar_to_wstring(const TCHAR *tstr, uint32_t codepage = CP_THREAD_ACP);
@@ -607,7 +607,8 @@ static BOOL _tcheck_ext(const TCHAR *filename, const TCHAR *ext) {
 int rgy_print_stderr(int log_level, const TCHAR *mes, HANDLE handle = NULL);
 
 #if defined(_WIN32) || defined(_WIN64)
-tstring getOSVersion(OSVERSIONINFOEXW *osinfo = nullptr);
+tstring getOSVersion(OSVERSIONINFOEXW *osinfo);
+tstring getOSVersion();
 #else
 tstring getOSVersion();
 #endif
@@ -1006,7 +1007,6 @@ public:
         offset_ += add;
         data_length_ -= add;
         assert(offset_ >= 0);
-        assert(data_length_ >= 0);
     }
 
     void clear() {

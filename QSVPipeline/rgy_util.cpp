@@ -631,6 +631,15 @@ tstring getExeDir() {
     GetModuleFileName(NULL, exePath, _countof(exePath));
     return PathRemoveFileSpecFixed(tstring(exePath)).second;
 }
+#else
+tstring getExeDir() {
+    char prg_path[4096];
+    auto ret = readlink("/proc/self/exe", prg_path, sizeof(prg_path));
+    if (ret <= 0) {
+        prg_path[0] = '\0';
+    }
+    return char_to_tstring(PathRemoveFileSpecFixed(prg_path).second);
+}
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
@@ -705,7 +714,7 @@ size_t malloc_degeneracy(void **ptr, size_t nSize, size_t nMinSize) {
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#include <Windows.h>
+#include "rgy_osdep.h"
 #include <process.h>
 #include <VersionHelpers.h>
 
@@ -749,6 +758,8 @@ BOOL check_OS_Win8orLater() {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
+#pragma warning(push)
+#pragma warning(disable:4996) // warning C4996: 'GetVersionExW': が古い形式として宣言されました。
 tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
     const TCHAR *ptr = _T("Unknown");
     OSVERSIONINFOW info = { 0 };
@@ -828,6 +839,15 @@ tstring getOSVersion(OSVERSIONINFOEXW *osinfo) {
         break;
     }
     return tstring(ptr);
+}
+#pragma warning(pop)
+
+tstring getOSVersion() {
+    OSVERSIONINFOEXW osversioninfo = { 0 };
+    tstring osversionstr = getOSVersion(&osversioninfo);
+    osversionstr += strsprintf(_T(" %s (%d)"), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber);
+    return osversionstr;
+}
 #else //#if defined(_WIN32) || defined(_WIN64)
 tstring getOSVersion() {
     std::string str = "";
@@ -861,8 +881,8 @@ tstring getOSVersion() {
         str += buf.release;
     }
     return char_to_tstring(trim(str));
-#endif //#if defined(_WIN32) || defined(_WIN64)
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 BOOL rgy_is_64bit_os() {
 #if defined(_WIN32) || defined(_WIN64)
