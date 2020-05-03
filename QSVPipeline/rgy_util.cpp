@@ -263,7 +263,7 @@ std::wstring strsprintf(const WCHAR* format, ...) {
     const size_t len = _vscwprintf(format, args) + 1;
 
     std::vector<WCHAR> buffer(len, 0);
-    vswprintf(buffer.data(), format, args);
+    vswprintf(buffer.data(), buffer.size(), format, args);
     va_end(args);
     std::wstring retStr = std::wstring(buffer.data());
     return retStr;
@@ -276,7 +276,7 @@ std::string str_replace(std::string str, const std::string& from, const std::str
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -286,7 +286,7 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
         str.replace(pos, from.length(), to);
         pos += to.length();
     }
-    return std::move(str);
+    return str;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
