@@ -82,6 +82,8 @@ const char *get_encoder_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
+#define ENABLE_AVCODEC_ITERATE 1
+
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
 #define DECODER_NAME             "qsv"

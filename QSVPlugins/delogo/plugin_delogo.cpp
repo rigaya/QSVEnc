@@ -25,7 +25,6 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#define _CRT_SECURE_NO_WARNINGS
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -148,7 +147,7 @@ std::string Delogo::logoNameList() {
 
 mfxStatus Delogo::readLogoFile() {
     mfxStatus sts = MFX_ERR_NONE;
-    
+
     if (m_DelogoParam.logoFilePath == NULL) {
         return MFX_ERR_NULL_PTR;
     }
@@ -405,7 +404,7 @@ mfxStatus Delogo::SetAuxParams(void *auxParam, int auxParamSize) {
     m_sProcessData[0].nv12_2_yc48_sub = 299;
     m_sProcessData[1].nv12_2_yc48_mul = 18725;
     m_sProcessData[1].nv12_2_yc48_sub = 2340;
-    
+
     //YC48->nv12パラメータ
     m_sProcessData[0].yc48_2_nv12_mul = 3504;
     m_sProcessData[0].yc48_2_nv12_add = 301;
@@ -570,7 +569,7 @@ mfxStatus Delogo::Close() {
     m_sLogoDataList.clear();
     memset(&m_sProcessData, 0, sizeof(m_sProcessData));
     m_nLogoIdx = LOGO_AUTO_SELECT_INVALID;
-    
+
     m_message.clear();
     m_bInited = false;
 

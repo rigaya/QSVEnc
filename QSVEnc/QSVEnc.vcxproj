@@ -159,7 +159,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>BUILD_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -168,7 +168,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
@@ -212,7 +212,7 @@ exit /B 0</Command>
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -221,7 +221,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
@@ -268,7 +268,7 @@ exit /B 0</Command>
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QSVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -277,7 +277,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
@@ -321,7 +321,7 @@ exit /B 0</Command>
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -330,7 +330,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
@@ -376,7 +376,7 @@ exit /B 0</Command>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>BUILD_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -387,7 +387,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -433,7 +433,7 @@ exit /B 0</Command>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -444,7 +444,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -492,7 +492,7 @@ exit /B 0</Command>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -502,7 +502,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -548,7 +548,7 @@ exit /B 0</Command>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\MediaSDK\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -558,7 +558,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4996;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>

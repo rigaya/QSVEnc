@@ -162,12 +162,12 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>BUILD_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MinimalRebuild>false</MinimalRebuild>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -182,13 +182,13 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -203,12 +203,12 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>QSVENC_AUO;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <MinimalRebuild>false</MinimalRebuild>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -223,13 +223,13 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -246,7 +246,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>BUILD_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -256,7 +256,7 @@
       <StringPooling>true</StringPooling>
       <FloatingPointModel>Fast</FloatingPointModel>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -275,7 +275,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -286,7 +286,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -305,7 +305,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>QSVENC_AUO;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -314,7 +314,7 @@
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <StringPooling>true</StringPooling>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
@@ -333,7 +333,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -343,7 +343,7 @@
       <StringPooling>true</StringPooling>
       <FloatingPointModel>Fast</FloatingPointModel>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <DisableSpecificWarnings>4505;4996;4091;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4091;</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <AssemblerOutput>All</AssemblerOutput>
     </ClCompile>
