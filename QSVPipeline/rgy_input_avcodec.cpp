@@ -363,7 +363,7 @@ vector<int> RGYInputAvcodec::getStreamIndex(AVMediaType type, const vector<int> 
             return nearestVidA.first < nearestVidB.first;
         });
     }
-    return std::move(streams);
+    return streams;
 }
 
 bool RGYInputAvcodec::vc1StartCodeExists(uint8_t *ptr) {
@@ -887,7 +887,7 @@ RGY_ERR RGYInputAvcodec::parseHDRData() {
 }
 
 RGY_ERR RGYInputAvcodec::parseHDR10plus(AVPacket *pkt) {
-    if (m_Demux.video.stream->codec->codec_id != AV_CODEC_ID_HEVC) {
+    if (m_Demux.video.stream->codecpar->codec_id != AV_CODEC_ID_HEVC) {
         return RGY_ERR_NONE;
     }
     const auto nal_list = parse_nal_unit_hevc(pkt->data, pkt->size);
@@ -1191,7 +1191,21 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         }
         AddMessage(RGY_LOG_DEBUG, _T("found video stream, stream idx %d\n"), m_Demux.video.index);
 
-        m_Demux.video.stream = m_Demux.format.formatCtx->streams[m_Demux.video.index];
+        auto stream = m_Demux.format.formatCtx->streams[m_Demux.video.index];
+        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
+#if 0
+        if (stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+            AVDictionary *pDict = nullptr;
+            av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
+            if (0 > (ret = av_opt_set_dict(stream->codec, &pDict))) {
+                AddMessage(RGY_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
+            } else {
+                AddMessage(RGY_LOG_DEBUG, _T("set log_level_offset for HEVC codec reader.\n"));
+            }
+            av_dict_free(&pDict);
+        }
+#endif
+        m_Demux.video.stream = stream;
     }
 
     //音声ストリームを探す
@@ -1406,18 +1420,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         m_trimParam.list.clear();
         m_trimParam.offset = 0;
 
-        //HEVC入力の際に大量にメッセージが出て劇的に遅くなることがあるのを回避
-        if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
-            AVDictionary *pDict = nullptr;
-            av_dict_set_int(&pDict, "log_level_offset", AV_LOG_ERROR, 0);
-            if (0 > (ret = av_opt_set_dict(m_Demux.video.stream->codec, &pDict))) {
-                AddMessage(RGY_LOG_WARN, _T("failed to set log_level_offset for HEVC codec reader.\n"));
-            } else {
-                AddMessage(RGY_LOG_DEBUG, _T("set log_level_offset for HEVC codec reader.\n"));
-            }
-            av_dict_free(&pDict);
-        }
-
         //必要ならbitstream filterを初期化
         if (m_Demux.video.stream->codecpar->extradata && m_Demux.video.stream->codecpar->extradata[0] == 1) {
             if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
@@ -1444,7 +1446,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     return RGY_ERR_NULL_PTR;
                 }
                 m_Demux.video.bsfcCtx->time_base_in = av_stream_get_codec_timebase(m_Demux.video.stream);
-                if (0 > (ret = avcodec_parameters_from_context(m_Demux.video.bsfcCtx->par_in, m_Demux.video.stream->codec))) {
+                if (0 > (ret = avcodec_parameters_copy(m_Demux.video.bsfcCtx->par_in, m_Demux.video.stream->codecpar))) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to set parameter for %s: %s.\n"), char_to_tstring(filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_NULL_PTR;
                 }
@@ -1511,7 +1513,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             unique_ptr_custom<AVCodecParameters> codecParamCopy(avcodec_parameters_alloc(), [](AVCodecParameters *pCodecPar) {
                 avcodec_parameters_free(&pCodecPar);
             });
-            if (0 > (ret = avcodec_parameters_from_context(codecParamCopy.get(), m_Demux.video.stream->codec))) {
+            if (0 > (ret = avcodec_parameters_copy(codecParamCopy.get(), m_Demux.video.stream->codecpar))) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy codec param to context for parser: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
             }
@@ -2363,7 +2365,7 @@ vector<AVPacket> RGYInputAvcodec::GetStreamDataPackets(int inputFrame) {
     while (m_Demux.qStreamPktL2.front_copy_and_pop_no_lock(&pkt, (m_Demux.thread.queueInfo) ? &m_Demux.thread.queueInfo->usage_aud_in : nullptr)) {
         packets.push_back(pkt);
     }
-    return std::move(packets);
+    return packets;
 }
 
 vector<AVDemuxStream> RGYInputAvcodec::GetInputStreamInfo() {
@@ -2512,7 +2514,13 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (m_Demux.video.qpTableListRef != nullptr) {
             int qp_stride = 0;
             int qscale_type = 0;
+            #pragma warning(push)
+            #pragma warning(disable:4996) // warning C4996: 'av_frame_get_qp_table': が古い形式として宣言されました。
+            RGY_DISABLE_WARNING_PUSH
+            RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
             const auto qp_table = av_frame_get_qp_table(m_Demux.video.frame, &qp_stride, &qscale_type);
+            RGY_DISABLE_WARNING_POP
+            #pragma warning(pop)
             if (qp_table != nullptr) {
                 auto table = m_Demux.video.qpTableListRef->get();
                 const int qpw = (qp_stride) ? qp_stride : (pSurface->width() + 15) / 16;

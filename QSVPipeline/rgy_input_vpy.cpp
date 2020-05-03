@@ -165,7 +165,7 @@ int RGYInputVpy::getRevInfo(const char *vsVersionString) {
 #pragma warning(push)
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) {
-    memcpy(&m_inputVideoInfo, pInputInfo, sizeof(m_inputVideoInfo));
+    m_inputVideoInfo = *pInputInfo;
 
     if (load_vapoursynth()) {
         return RGY_ERR_NULL_PTR;

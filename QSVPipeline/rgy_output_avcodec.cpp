@@ -448,7 +448,7 @@ int RGYOutputAvcodec::AudioGetCodecProfile(tstring profile, AVCodecID codecId) {
         for (auto avprofile = codecDesc->profiles;
             avprofile != nullptr && avprofile->profile != FF_PROFILE_UNKNOWN;
             avprofile++) {
-            if (stricmp(avprofile->name, codec_profile.c_str()) == 0) {
+            if (_stricmp(avprofile->name, codec_profile.c_str()) == 0) {
                 selectedProfile = avprofile->profile;
                 break;
             }
@@ -1427,6 +1427,10 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         }
         muxSub->outCodecEncodeCtx->time_base = av_make_q(1, 1000);
 
+        #pragma warning(push)
+        #pragma warning(disable:4996) // warning C4996: 'codec': が古い形式として宣言されました。
+        RGY_DISABLE_WARNING_PUSH
+        RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
         //subtitle_headerをここで設定しないとavcodec_open2に失敗する
         //基本的にはass形式のヘッダーを設定する
         if (inputStream->src.stream) {
@@ -1435,6 +1439,8 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             muxSub->outCodecEncodeCtx->subtitle_header = (uint8_t *)av_strdup((char *)inputStream->src.subtitleHeader);
             muxSub->outCodecEncodeCtx->subtitle_header_size = inputStream->src.subtitleHeaderSize;
         }
+        RGY_DISABLE_WARNING_POP
+        #pragma warning(pop)
 
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(muxSub->outCodecEncode->name).c_str(),
             muxSub->outCodecEncodeCtx->width, muxSub->outCodecEncodeCtx->height);
@@ -1463,7 +1469,15 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
     if (muxSub->outCodecEncodeCtx) {
         avcodec_parameters_from_context(srcCodecParam.get(), muxSub->outCodecEncodeCtx);
     }
-    avcodec_parameters_copy(muxSub->streamOut->codecpar, srcCodecParam.get());
+    if (avcodec_parameters_copy(muxSub->streamOut->codecpar, srcCodecParam.get()) < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Could not copy the stream parameters.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+
+    #pragma warning(push)
+    #pragma warning(disable:4996) // warning C4996: 'codec': が古い形式として宣言されました。
+    RGY_DISABLE_WARNING_PUSH
+    RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
     if (!muxSub->streamOut->codec->codec_tag) {
         uint32_t codec_tag = 0;
         if (!m_Mux.format.formatCtx->oformat->codec_tag
@@ -1478,6 +1492,9 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         muxSub->streamOut->codec->subtitle_header = (uint8_t *)av_strdup((char *)inputStream->src.subtitleHeader);
         muxSub->streamOut->codec->subtitle_header_size = inputStream->src.subtitleHeaderSize;
     }
+    RGY_DISABLE_WARNING_POP
+    #pragma warning(pop)
+
     muxSub->streamOut->time_base  = (mediaType == AVMEDIA_TYPE_SUBTITLE) ? av_make_q(1, 1000) : muxSub->streamInTimebase;
     muxSub->streamOut->start_time = 0;
     if (inputStream->src.stream) {
@@ -1895,7 +1912,7 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
             char_to_tstring(t->value).c_str());
     }
 
-    av_dump_format(m_Mux.format.formatCtx, 0, m_Mux.format.formatCtx->url, 1);
+    av_dump_format(m_Mux.format.formatCtx, 0, tchar_to_string(m_Mux.format.filename, CP_UTF8).c_str(), 1);
 
     //frame_sizeを表示
     for (const auto& audio : m_Mux.audio) {
@@ -2335,7 +2352,7 @@ vector<int> RGYOutputAvcodec::GetStreamTrackIdList() {
     for (auto sub : m_Mux.other) {
         streamTrackId.push_back(sub.inTrackId);
     }
-    return std::move(streamTrackId);
+    return streamTrackId;
 }
 
 AVMuxAudio *RGYOutputAvcodec::getAudioPacketStreamData(const AVPacket *pkt) {
@@ -2533,7 +2550,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVPktMuxData *pktData, int64_t *
 vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecodePacket(AVMuxAudio *muxAudio, AVPacket *pkt) {
     vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> decodedFrames;
     if (muxAudio->decodeError > muxAudio->ignoreDecodeError) {
-        return std::move(decodedFrames);
+        return decodedFrames;
     }
     AVPacket pktInInfo;
     av_packet_copy_props(&pktInInfo, pkt);
@@ -2757,7 +2774,7 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDt
         WriteNextPacketToAudioSubtracks(std::move(audioFrames));
     }
     if (muxAudio->filterGraph) {
-        WriteNextPacketAudioFrame(std::move(AudioFilterFrameFlush(muxAudio)));
+        WriteNextPacketAudioFrame(AudioFilterFrameFlush(muxAudio));
     }
     while (muxAudio->outCodecEncodeCtx) {
         auto encPktDatas = AudioEncodeFrame(muxAudio, nullptr);
@@ -3107,7 +3124,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketToAudioSubtracks(vector<AVPktMuxData> a
             audioFrames.push_back(pktDataCopy);
         }
     }
-    return WriteNextPacketAudioFrame(std::move(AudioFilterFrame(std::move(audioFrames))));
+    return WriteNextPacketAudioFrame(AudioFilterFrame(audioFrames));
 }
 
 //フレームをresampleして後段に渡す
