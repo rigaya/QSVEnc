@@ -3,10 +3,10 @@
 #-----------------------------------------------------------------------------------------
 #    QSVEnc by rigaya
 #  -----------------------------------------------------------------------------------------
-#   ƒ\[ƒXƒR[ƒh‚É‚Â‚¢‚Ä
-#   E–³•ÛØ‚Å‚·B
-#   E–{ƒ\[ƒXƒR[ƒh‚ðŽg—p‚µ‚½‚±‚Æ‚É‚æ‚é‚¢‚©‚È‚é‘¹ŠQEƒgƒ‰ƒuƒ‹‚É‚Â‚¢‚Ärigaya‚ÍÓ”C‚ð•‰‚¢‚Ü‚¹‚ñB
-#   ˆÈã‚É—¹‰ð‚µ‚Ä’¸‚¯‚éê‡A–{ƒ\[ƒXƒR[ƒh‚ÌŽg—pA•¡»A‰ü•ÏAÄ”Ð•z‚ðs‚Á‚Ä’¸‚¢‚Ä\‚¢‚Ü‚¹‚ñB
+#   ã‚½ãƒ¼ã‚¹ã‚³ãƒ¼ãƒ‰ã«ã¤ã„ã¦
+#   ãƒ»ç„¡ä¿è¨¼ã§ã™ã€‚
+#   ãƒ»æœ¬ã‚½ãƒ¼ã‚¹ã‚³ãƒ¼ãƒ‰ã‚’ä½¿ç”¨ã—ãŸã“ã¨ã«ã‚ˆã‚‹ã„ã‹ãªã‚‹æå®³ãƒ»ãƒˆãƒ©ãƒ–ãƒ«ã«ã¤ã„ã¦rigayaã¯è²¬ä»»ã‚’è² ã„ã¾ã›ã‚“ã€‚
+#   ä»¥ä¸Šã«äº†è§£ã—ã¦é ‚ã‘ã‚‹å ´åˆã€æœ¬ã‚½ãƒ¼ã‚¹ã‚³ãƒ¼ãƒ‰ã®ä½¿ç”¨ã€è¤‡è£½ã€æ”¹å¤‰ã€å†é ’å¸ƒã‚’è¡Œã£ã¦é ‚ã„ã¦æ§‹ã„ã¾ã›ã‚“ã€‚
 #  -----------------------------------------------------------------------------------------
 
 write_config_mak()
@@ -15,13 +15,13 @@ write_config_mak()
     echo $1 >> config.mak
 }
 
-write_qsv_config()
+write_enc_config()
 {
     echo $1
     echo $1 >> QSVPipeline/rgy_config.h
 }
 
-write_qsv_rev()
+write_app_rev()
 {
     echo $1
     echo $1 >> QSVPipeline/rgy_rev.h
@@ -69,11 +69,11 @@ PKGCONFIG="pkg-config"
 USE_PKGCONFIG=1
 
 ENABLE_DEBUG=0
-CXX=g++
-LD=g++
-AS=yasm
+CXX=${CXX:-g++}
+LD=${LD:-g++}
+AS=${AS:-yasm}
 PROGRAM=qsvencc
-PREFIX="/usr/local"
+PREFIX=${PREFIX:-/usr/local}
 EXTRACXXFLAGS=""
 EXTRALDFLAGS=""
 SRCS=""
@@ -130,7 +130,6 @@ options:
   --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
 
   --disable-libva          disable libva support [auto]
-  --disable-libav          disable libav support [auto]
   --disable-vapoursynth    disable vapoursynth support [auto]
   --disable-libass         disable libass support [auto]
   --disable-dtl            disable dtl support [auto]
@@ -175,9 +174,6 @@ for opt; do
         --disable-libva)
             LIBVA_SUPPORT=0
             ;;
-        --disable-libav)
-            ENABLE_AVSW_READER=0
-            ;;
         --disable-vapoursynth)
             ENABLE_VAPOURSYNTH=0
             ;;
@@ -221,7 +217,11 @@ if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
     X86_64=0
 fi
 
-CXXFLAGS="-Wall -Wno-attributes -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath"
+CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
+-DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
+-I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins \
+-I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
+"
 LDFLAGS="-L. -ldl -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
@@ -249,82 +249,6 @@ if cxx_check "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
     CXXFLAGS="$CXXFLAGS -std=c++14"
 else
     echo $CXX does not work with -std=c++14
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <chrono>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "chrono" "" "auto start = std::chrono::system_clock::now();" ; then
-    echo "<chrono> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <thread>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "thread" "" "std::thread th;" ; then
-    echo "<thread> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <mutex>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "mutex" "" "std::mutex mtx;" ; then
-    echo "<mutex> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <atomic>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "atomic" "" "std::atomic<int> value(0);" ; then
-    echo "<atomic> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <type_traits>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "type_traits" "" "std::cout << std::is_integral<int>::value << std::endl;" ; then
-    echo "<type_traits> not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for <regex>..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "regex" "" "" ; then
-    echo "<regex> not supported with this compiler." 
-    exit 1
-else
-    if ! regex_check "${CXXFLAGS} ${LDFLAGS}"; then
-        echo "no, disable feature using regex."
-        ENABLE_CPP_REGEX=0
-    else
-        echo "OK"
-    fi
-fi
-
-printf "checking for lambda..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto test = []() { std::cout << \"Hello C++11!!\" << std::endl; };" ; then
-    echo "lambda not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for nullptr..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "auto ptr = nullptr;" ; then
-    echo "nullptr not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for range based for..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "vector" "" "std::vector<int> v = { 1, 2, 3 }; for (auto i : v) { std::cout << i << std::endl; }" ; then
-    echo "range based for not supported with this compiler." 
-    exit 1
-fi
-echo "OK"
-
-printf "checking for alignas(n)..."
-if ! cxx_check "${CXXFLAGS} ${LDFLAGS}" "" "" "alignas(16) int value[8] = { 0 };" ; then
-    echo "alignas(n) not supported with this compiler." 
     exit 1
 fi
 echo "OK"
@@ -375,9 +299,6 @@ else
     CXXFLAGS="${CXXFLAGS} -O3 -DNDEBUG=1"
     if cxx_check "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -mfpmath=sse"
-    fi
-    if cxx_check "${CXXFLAGS} -fexcess-precision=fast ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -fexcess-precision=fast"
     fi
     if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -ffast-math"
@@ -503,8 +424,8 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
         echo "yes"
     fi
     if [ $ENABLE_AVSW_READER -eq 0 ]; then
-        LIBAV_CFLAGS=""
-        LIBAV_LIBS=""
+        echo "libavutil, libavcodec, libavformat, libavfilter, libswresample are required to build qsvencc."
+        exit 1
     fi
 fi
 
@@ -613,12 +534,13 @@ convert_csp_sse41.cpp       convert_csp_ssse3.cpp           cpu_info.cpp \
 gpu_info.cpp                gpuz_info.cpp                   qsv_allocator.cpp \
 qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp          qsv_allocator_sys.cpp \
 qsv_allocator_va.cpp        qsv_cmd.cpp                     qsv_control.cpp \
-qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp               qsv_hw_va.cpp \
+qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp             qsv_hw_va.cpp \
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
 ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
-rgy_bitstream.cpp           rgy_chapter.cpp                 rgy_cmd.cpp                     rgy_def.cpp \
-rgy_err.cpp                 rgy_event.cpp                   rgy_frame.cpp                    rgy_ini.cpp \
+rgy_bitstream.cpp           rgy_chapter.cpp                 rgy_cmd.cpp \
+rgy_codepage.cpp            rgy_def.cpp                     rgy_err.cpp \
+rgy_event.cpp               rgy_frame.cpp                   rgy_hdr10plus.cpp             rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp           rgy_input_avi.cpp \
 rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp \
 rgy_log.cpp                 rgy_output.cpp                  rgy_output_avcodec.cpp \
@@ -701,25 +623,25 @@ write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
-write_qsv_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
-write_qsv_config "#define ENABLE_AVI_READER             0"
-write_qsv_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
-write_qsv_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
-write_qsv_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER" 
-write_qsv_config "#define ENABLE_AVCODEC_ITERATE        $ENABLE_AVCODEC_ITERATE"
-write_qsv_config "#define NOCONST_GET_SIDE_DATA         $NOCONST_GET_SIDE_DATA"
-write_qsv_config "#define ENABLE_SM_READER              0"
-write_qsv_config "#define ENABLE_CUSTOM_VPP             1"
-write_qsv_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"         
-write_qsv_config "#define ENABLE_ADVANCED_DEINTERLACE   0"
-write_qsv_config "#define ENABLE_MVC_ENCODING           0"
-write_qsv_config "#define ENABLE_FPS_CONVERSION         0"
-write_qsv_config "#define ENABLE_OPENCL                 0"
-write_qsv_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
-write_qsv_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
-write_qsv_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
-write_qsv_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
-write_qsv_config "#define ENABLE_DTL                    $ENABLE_DTL"
+write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
+write_enc_config "#define ENABLE_AVI_READER             0"
+write_enc_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
+write_enc_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"
+write_enc_config "#define ENABLE_AVSW_READER            $ENABLE_AVSW_READER" 
+write_enc_config "#define ENABLE_AVCODEC_ITERATE        $ENABLE_AVCODEC_ITERATE"
+write_enc_config "#define NOCONST_GET_SIDE_DATA         $NOCONST_GET_SIDE_DATA"
+write_enc_config "#define ENABLE_SM_READER              0"
+write_enc_config "#define ENABLE_CUSTOM_VPP             1"
+write_enc_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"         
+write_enc_config "#define ENABLE_ADVANCED_DEINTERLACE   0"
+write_enc_config "#define ENABLE_MVC_ENCODING           0"
+write_enc_config "#define ENABLE_FPS_CONVERSION         0"
+write_enc_config "#define ENABLE_OPENCL                 0"
+write_enc_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
+write_enc_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
+write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
+write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
+write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 
 echo successfully generated config.mak, rgy_config.h
 

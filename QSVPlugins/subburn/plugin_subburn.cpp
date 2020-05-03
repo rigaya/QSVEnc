@@ -481,7 +481,7 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
             AddMessage(RGY_LOG_ERROR, _T("no subtitle stream found in \"%s\".\n"), char_to_tstring(filename_char, CP_UTF8).c_str());
             return MFX_ERR_NULL_PTR; // Couldn't open file
         }
-        inputCodecId = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codec->codec_id;
+        inputCodecId = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codecpar->codec_id;
         AddMessage(RGY_LOG_DEBUG, _T("found subtitle in stream #%d (%s).\n"), pProcData->nSubtitleStreamIndex, char_to_tstring(avcodec_get_name(inputCodecId)).c_str());
     } else {
         inputCodecId = pProcData->pStreamIn->codecpar->codec_id;
@@ -517,8 +517,8 @@ mfxStatus SubBurn::InitAvcodec(ProcessDataSubBurn *pProcData) {
         SetExtraData(pProcData->pOutCodecDecodeCtx, pProcData->pStreamIn->codecpar->extradata, pProcData->pStreamIn->codecpar->extradata_size);
     } else {
         pProcData->pOutCodecDecodeCtx->pkt_timebase = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->time_base;
-        auto *pCodecCtx = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codec;
-        SetExtraData(pProcData->pOutCodecDecodeCtx, pCodecCtx->extradata, pCodecCtx->extradata_size);
+        auto codecpar = pProcData->pFormatCtx->streams[pProcData->nSubtitleStreamIndex]->codecpar;
+        SetExtraData(pProcData->pOutCodecDecodeCtx, codecpar->extradata, codecpar->extradata_size);
     }
 
     int ret;

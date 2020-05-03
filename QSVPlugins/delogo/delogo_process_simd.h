@@ -93,23 +93,23 @@ alignas(MEM_ALIGN) static const uint16_t MASK_16BIT[] = {
 alignas(MEM_ALIGN) static const unsigned int ARRAY_0x00008000[8] = {
     0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000, 0x00008000,
 };
-static __forceinline __m256i cvtlo256_epi16_epi32(__m256i y0) {
+static RGY_FORCEINLINE __m256i cvtlo256_epi16_epi32(__m256i y0) {
     __m256i yWordsHi = _mm256_cmpgt_epi16(_mm256_setzero_si256(), y0);
     return _mm256_unpacklo_epi16(y0, yWordsHi);
 }
 
-static __forceinline __m256i cvthi256_epi16_epi32(__m256i y0) {
+static RGY_FORCEINLINE __m256i cvthi256_epi16_epi32(__m256i y0) {
     __m256i yWordsHi = _mm256_cmpgt_epi16(_mm256_setzero_si256(), y0);
     return _mm256_unpackhi_epi16(y0, yWordsHi);
 }
 
-static __forceinline __m256i _mm256_neg_epi32(__m256i y) {
+static RGY_FORCEINLINE __m256i _mm256_neg_epi32(__m256i y) {
     return _mm256_sub_epi32(_mm256_setzero_si256(), y);
 }
-static __forceinline __m256i _mm256_neg_epi16(__m256i y) {
+static RGY_FORCEINLINE __m256i _mm256_neg_epi16(__m256i y) {
     return _mm256_sub_epi16(_mm256_setzero_si256(), y);
 }
-static __forceinline __m256 _mm256_rcp_ps_hp(__m256 y0) {
+static RGY_FORCEINLINE __m256 _mm256_rcp_ps_hp(__m256 y0) {
     __m256 y1, y2;
     y1 = _mm256_rcp_ps(y0);
     y0 = _mm256_mul_ps(y0, y1);
@@ -127,13 +127,13 @@ static __forceinline __m256 _mm256_rcp_ps_hp(__m256 y0) {
 alignas(MEM_ALIGN) static const unsigned int ARRAY_0x00008000[4] = {
     0x00008000, 0x00008000, 0x00008000, 0x00008000,
 };
-static __forceinline __m128i _mm_neg_epi32(__m128i y) {
+static RGY_FORCEINLINE __m128i _mm_neg_epi32(__m128i y) {
     return _mm_sub_epi32(_mm_setzero_si128(), y);
 }
-static __forceinline __m128i _mm_neg_epi16(__m128i y) {
+static RGY_FORCEINLINE __m128i _mm_neg_epi16(__m128i y) {
     return _mm_sub_epi16(_mm_setzero_si128(), y);
 }
-static __forceinline __m128 _mm_rcp_ps_hp(__m128 x0) {
+static RGY_FORCEINLINE __m128 _mm_rcp_ps_hp(__m128 x0) {
     __m128 x1, x2;
     x1 = _mm_rcp_ps(x0);
     x0 = _mm_mul_ps(x0, x1);
@@ -143,7 +143,7 @@ static __forceinline __m128 _mm_rcp_ps_hp(__m128 x0) {
     return x2;
 }
 
-static __forceinline __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
+static RGY_FORCEINLINE __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 #if USE_SSE41
     return _mm_packus_epi32(a, b);
 #else
@@ -163,7 +163,7 @@ static __forceinline __m128i _mm_packus_epi32_simd(__m128i a, __m128i b) {
 }
 
 
-static __forceinline __m128i _mm_mullo_epi32_simd(__m128i x0, __m128i x1) {
+static RGY_FORCEINLINE __m128i _mm_mullo_epi32_simd(__m128i x0, __m128i x1) {
 #if USE_SSE41
     return _mm_mullo_epi32(x0, x1);
 #else
@@ -177,7 +177,7 @@ static __forceinline __m128i _mm_mullo_epi32_simd(__m128i x0, __m128i x1) {
 #endif
 }
 
-static __forceinline __m128i cvtlo_epi16_epi32(__m128i x0) {
+static RGY_FORCEINLINE __m128i cvtlo_epi16_epi32(__m128i x0) {
 #if USE_SSE41
     return _mm_cvtepi16_epi32(x0);
 #else
@@ -186,7 +186,7 @@ static __forceinline __m128i cvtlo_epi16_epi32(__m128i x0) {
 #endif
 }
 
-static __forceinline __m128i cvthi_epi16_epi32(__m128i x0) {
+static RGY_FORCEINLINE __m128i cvthi_epi16_epi32(__m128i x0) {
 #if USE_SSE41
     return _mm_cvtepi16_epi32(_mm_srli_si128(x0, 8));
 #else
@@ -195,7 +195,7 @@ static __forceinline __m128i cvthi_epi16_epi32(__m128i x0) {
 #endif
 }
 
-static __forceinline __m128i blendv_epi8_simd(__m128i a, __m128i b, __m128i mask) {
+static RGY_FORCEINLINE __m128i blendv_epi8_simd(__m128i a, __m128i b, __m128i mask) {
 #if USE_SSE41
     return _mm_blendv_epi8(a, b, mask);
 #else
@@ -205,7 +205,7 @@ static __forceinline __m128i blendv_epi8_simd(__m128i a, __m128i b, __m128i mask
 #endif
 
 template<mfxU32 step, bool ignore_fraction>
-static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 width) {
+static RGY_FORCEINLINE void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 width) {
 #if USE_AVX
     static_assert(step % 32 == 0, "step should be mod32.");
 #else
@@ -298,7 +298,7 @@ static __forceinline void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU32 
 }
 
 template<mfxU32 step, bool ignore_fraction>
-static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU32 width) {
+static RGY_FORCEINLINE void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU32 width) {
 #if USE_AVX
     static_assert(step % 32 == 0, "step should be mod32.");
 #else
@@ -386,7 +386,7 @@ static __forceinline void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU
 #define delogo_rcpps    _mm_rcp_ps_hp
 #endif
 
-static __forceinline void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_i_width,
+static RGY_FORCEINLINE void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_i_width,
     CONST_MR(nv12_2_yc48_mul), CONST_MR(nv12_2_yc48_sub), CONST_MR(yc48_2_nv12_mul), CONST_MR(yc48_2_nv12_add),
     CONST_MR(offset), CONST_MR(depth_mul_fade_slft_3)) {
     mfxU8 *ptr_buf_fin = ptr_buf + logo_i_width;
@@ -576,7 +576,7 @@ static __forceinline void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_
 
 //dstで示される画像フレームをsrcにコピーしつつ、ロゴ部分を消去する
 //height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
-static __forceinline void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
+static RGY_FORCEINLINE void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
     mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
     mfxU8 *src_line = src;
     mfxU8 *dst_line = dst;
@@ -615,7 +615,7 @@ static __forceinline void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitc
 //template引数stepはロゴ部分を一時バッファにロードする単位
 //height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
 template<mfxU32 step>
-static __forceinline void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
+static RGY_FORCEINLINE void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *buffer, mfxU32 height_start, mfxU32 height_fin, const ProcessDataDelogo *data) {
     mfxU8 *ptr_line = ptr;
     short *data_ptr = data->pLogoPtr.get();
     const mfxU32 logo_j_start  = data->j_start;
@@ -652,7 +652,7 @@ static __forceinline void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8 *
 }
 
 #if !USE_AVX
-static __forceinline void logo_add_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_i_width,
+static RGY_FORCEINLINE void logo_add_line(mfxU8 *ptr_buf, short *ptr_logo, int logo_i_width,
     CONST_MR(nv12_2_yc48_mul), CONST_MR(nv12_2_yc48_sub), CONST_MR(yc48_2_nv12_mul), CONST_MR(yc48_2_nv12_add),
     CONST_MR(offset), CONST_MR(depth_mul_fade_slft_3)) {
     mfxU8 *ptr_buf_fin = ptr_buf + logo_i_width;
@@ -748,7 +748,7 @@ static __forceinline void logo_add_line(mfxU8 *ptr_buf, short *ptr_logo, int log
 
 //dstで示される画像フレームをsrcにコピーしつつ、ロゴ部分を消去する
 //height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
-static __forceinline void process_logo_add_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
+static RGY_FORCEINLINE void process_logo_add_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
     mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
     mfxU8 *src_line = src;
     mfxU8 *dst_line = dst;
@@ -787,7 +787,7 @@ static __forceinline void process_logo_add_frame(mfxU8 *dst, const mfxU32 dst_pi
 //template引数stepはロゴ部分を一時バッファにロードする単位
 //height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
 template<uint32_t step>
-static __forceinline void process_logo_add(mfxU8 *ptr, const uint32_t pitch, mfxU8 *buffer, uint32_t height_start, uint32_t height_fin, const ProcessDataDelogo *data) {
+static RGY_FORCEINLINE void process_logo_add(mfxU8 *ptr, const uint32_t pitch, mfxU8 *buffer, uint32_t height_start, uint32_t height_fin, const ProcessDataDelogo *data) {
     mfxU8 *ptr_line = ptr;
     short *data_ptr = data->pLogoPtr.get();
     const uint32_t logo_j_start  = data->j_start;

@@ -3,7 +3,7 @@
 
 .depend
 rgy_rev.h
-qsv_config.h
+rgy_config.h
 config.mak
 .project
 .cproject

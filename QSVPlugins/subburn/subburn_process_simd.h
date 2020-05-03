@@ -208,7 +208,7 @@ static RGY_FORCEINLINE __m128i blendv_epi8_simd(__m128i a, __m128i b, __m128i ma
 
 
 template<uint32_t step, bool ignore_fraction>
-static __forceinline void load_line_to_buffer(uint8_t *buffer, uint8_t *src, uint32_t width) {
+static RGY_FORCEINLINE void load_line_to_buffer(uint8_t *buffer, uint8_t *src, uint32_t width) {
 #if USE_AVX
     static_assert(step % 32 == 0, "step should be mod32.");
 #else
@@ -301,7 +301,7 @@ static __forceinline void load_line_to_buffer(uint8_t *buffer, uint8_t *src, uin
 }
 
 template<uint32_t step, bool ignore_fraction>
-static __forceinline void store_line_from_buffer(uint8_t *dst, uint8_t *buffer, uint32_t width) {
+static RGY_FORCEINLINE void store_line_from_buffer(uint8_t *dst, uint8_t *buffer, uint32_t width) {
 #if USE_AVX
     static_assert(step % 32 == 0, "step should be mod32.");
 #else
