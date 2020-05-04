@@ -1072,7 +1072,7 @@ vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateContro
             }
         }
     }
-    return std::move(availableFeatureForEachRC);
+    return availableFeatureForEachRC;
 }
 
 vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
@@ -1085,7 +1085,7 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_D
     for (uint32_t i = 0; i < futures.size(); i++) {
         codecFeatures.push_back(futures[i].get());
     }
-    return std::move(codecFeatures);
+    return codecFeatures;
 }
 
 vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
@@ -1129,7 +1129,7 @@ CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdL
             }
         }
     }
-    return std::move(codecFeatures);
+    return codecFeatures;
 }
 
 static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] = { _T("×"), _T("○") };
