@@ -257,7 +257,7 @@ public:
     }
     virtual void Release() override {}
     // methods to be called by application
-    virtual mfxStatus QueryIOSurf(mfxVideoParam *par, mfxFrameAllocRequest *in, mfxFrameAllocRequest *out) overridemake {
+    virtual mfxStatus QueryIOSurf(mfxVideoParam *par, mfxFrameAllocRequest *in, mfxFrameAllocRequest *out) override {
         in->Info = par->vpp.In;
         in->NumFrameSuggested = in->NumFrameMin = par->AsyncDepth + 1;
 
@@ -358,7 +358,7 @@ protected:
 
     bool m_bIsInOpaque;
     bool m_bIsOutOpaque;
-    
+
     tstring m_pluginName;
     tstring m_message;
     shared_ptr<RGYLog> m_pPrintMes; //ログ出力用オブジェクト
