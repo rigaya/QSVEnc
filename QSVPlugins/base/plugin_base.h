@@ -211,11 +211,11 @@ public:
     }
 
     // methods to be called by Media SDK
-    virtual mfxStatus PluginInit(mfxCoreInterface *core) {
+    virtual mfxStatus PluginInit(mfxCoreInterface *core) override {
         m_mfxCore = MFXCoreInterface(*core);
         return MFX_ERR_NONE;
     }
-    virtual mfxStatus PluginClose() {
+    virtual mfxStatus PluginClose() override {
         m_pPrintMes.reset();
         return MFX_ERR_NONE;
     }
@@ -224,7 +224,7 @@ public:
 
         return MFX_ERR_NONE;
     }
-    virtual mfxStatus Execute(mfxThreadTask task, mfxU32 uid_p, mfxU32 uid_a) {
+    virtual mfxStatus Execute(mfxThreadTask task, mfxU32 uid_p, mfxU32 uid_a) override {
         if (!m_bInited) return MFX_ERR_NOT_INITIALIZED;
 
         mfxStatus sts = MFX_ERR_NONE;
@@ -243,7 +243,7 @@ public:
 
         return sts;
     }
-    virtual mfxStatus FreeResources(mfxThreadTask task, mfxStatus sts) {
+    virtual mfxStatus FreeResources(mfxThreadTask task, mfxStatus sts) override {
         if (!m_bInited) return MFX_ERR_NOT_INITIALIZED;
 
         PluginTask *current_task = (PluginTask *)task;
@@ -255,9 +255,9 @@ public:
 
         return MFX_ERR_NONE;
     }
-    virtual void Release(){}
+    virtual void Release() override {}
     // methods to be called by application
-    virtual mfxStatus QueryIOSurf(mfxVideoParam *par, mfxFrameAllocRequest *in, mfxFrameAllocRequest *out) {
+    virtual mfxStatus QueryIOSurf(mfxVideoParam *par, mfxFrameAllocRequest *in, mfxFrameAllocRequest *out) overridemake {
         in->Info = par->vpp.In;
         in->NumFrameSuggested = in->NumFrameMin = par->AsyncDepth + 1;
 

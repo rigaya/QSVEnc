@@ -289,7 +289,7 @@ function showTable(idno) {
                     char buffer[1024] = { 0 };
                     getCPUName(buffer, _countof(buffer));
                     tstring cpuname = char_to_tstring(buffer);
-                    cpuname = cpuname.substr(cpuname.find(_T("Intel ") + _tcslen(_T("Intel "))));
+                    cpuname = cpuname.substr(cpuname.find(_T("Intel ")) + _tcslen(_T("Intel ")));
                     cpuname = cpuname.substr(0, cpuname.find(_T(" @")));
                     cpuname = str_replace(cpuname, _T("Core2"), _T("Core 2"));
 
@@ -370,7 +370,7 @@ function showTable(idno) {
                     char buffer[1024] = { 0 };
                     getCPUName(buffer, _countof(buffer));
                     tstring cpuname = char_to_tstring(buffer);
-                    cpuname = cpuname.substr(cpuname.find(_T("Intel ") + _tcslen(_T("Intel "))));
+                    cpuname = cpuname.substr(cpuname.find(_T("Intel ")) + _tcslen(_T("Intel ")));
                     cpuname = cpuname.substr(0, cpuname.find(_T(" @")));
 
                     if (bUseJapanese) {

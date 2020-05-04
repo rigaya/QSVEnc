@@ -180,7 +180,7 @@ public:
 
     virtual mfxStatus SendData(int nType, void *pData) override;
 
-    virtual mfxStatus Close();
+    virtual mfxStatus Close() override;
 
     virtual int getTargetTrack() override {
         return m_vProcessData[0].nInTrackId;

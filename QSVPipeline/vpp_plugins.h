@@ -59,7 +59,7 @@ public:
         RGY_MEMSET_ZERO(m_pluginVideoParams);
     };
 public:
-    ~CVPPPlugin() {
+    virtual ~CVPPPlugin() {
         Close();
     };
 public:

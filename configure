@@ -300,6 +300,9 @@ else
     if cxx_check "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -mfpmath=sse"
     fi
+    if cxx_check "${CXXFLAGS} -fPIE ${LDFLAGS}" ; then
+        CXXFLAGS="$CXXFLAGS -fPIE"
+    fi
     if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -ffast-math"
     fi
