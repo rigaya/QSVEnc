@@ -99,6 +99,7 @@ const char *get_encoder_version();
 #define ENABLE_CUSTOM_VPP         1
 #define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_METRIC_FRAMEWORK   0
+#define ENABLE_CAPTION2ASS        0
 #else
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"
@@ -118,6 +119,7 @@ const char *get_encoder_version();
 #else
 #define ENABLE_METRIC_FRAMEWORK   1
 #endif
+#define ENABLE_CAPTION2ASS        1
 #endif
 #endif //#ifndef ENABLE_METRIC_FRAMEWORK
 
@@ -126,6 +128,7 @@ const char *get_encoder_version();
 #define FOR_AUO 0
 #define ENABLE_METRIC_FRAMEWORK 0
 #define ENABLE_PERF_COUNTER 0
+#define ENABLE_CAPTION2ASS 0
 #include "rgy_config.h"
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"
