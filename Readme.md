@@ -2,7 +2,7 @@
 # QSVEnc
 by rigaya
 
-Windows Build [![Build status](https://ci.appveyor.com/api/projects/status/m36t31ggoxfh0ffk/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/qsvenc/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/m36t31ggoxfh0ffk/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/qsvenc/branch/master)  [![Build Status](https://travis-ci.org/rigaya/QSVEnc.svg?branch=master)](https://travis-ci.org/rigaya/QSVEnc)  
 
 **[日本語版はこちら＞＞](./Readme.ja.md)**
 
