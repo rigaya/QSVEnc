@@ -710,6 +710,31 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
 ```
 
+### --audio-disposition [&lt;int&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
+音声のdispositionを指定する。
+
+```
+ default
+ dub
+ original
+ comment
+ lyrics
+ karaoke
+ forced
+ hearing_impaired
+ visual_impaired
+ clean_effects
+ attached_pic
+ captions
+ descriptions
+ dependent
+ metadata
+ copy
+
+例:
+--audio-disposition 2?default,forced
+```
+
 ### --audio-ignore-decode-error &lt;int&gt;
 指定した連続する音声のデコードエラーの数をカウントし、閾値以内ならエラーを無視して処理を継続し、エラーの箇所は無音に置き換える。
 
@@ -828,6 +853,28 @@ matroska形式 (UTF-8であること)
 ```
 例: 字幕トラック #1と#2をコピー
 --sub-copy 1,2
+```
+
+### --sub-disposition [&lt;int&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
+字幕のdispositionを指定する。
+
+```
+ default
+ dub
+ original
+ comment
+ lyrics
+ karaoke
+ forced
+ hearing_impaired
+ visual_impaired
+ clean_effects
+ attached_pic
+ captions
+ descriptions
+ dependent
+ metadata
+ copy
 ```
 
 ### --sub-codec [&lt;int&gt;?]&lt;string&gt;
