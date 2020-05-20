@@ -43,7 +43,7 @@
 #endif //#if ENABLE_DTL
 
 #if ENABLE_CPP_REGEX
-static vector<std::pair<std::string, std::string>> createOptionList() {
+std::vector<std::pair<std::string, std::string>> createOptionList() {
     vector<std::pair<std::string, std::string>> optionList;
     const auto helpLines = split(tchar_to_string(encoder_help()), "\n");
     std::regex re1(R"(^\s{2,6}--([A-Za-z0-9][A-Za-z0-9-_]+)\s+.*)");

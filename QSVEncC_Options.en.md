@@ -72,6 +72,9 @@ Show help
 ### -v, --version
 Show version of QSVEncC
 
+### --option-list
+Show option list.
+
 ### --check-hw
 Check whether the specified device is able to run QSVEnc.
 
