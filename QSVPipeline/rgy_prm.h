@@ -101,6 +101,8 @@ struct DataSelect {
     ~DataSelect() {};
 };
 
+using AttachmentSelect = DataSelect;
+
 struct RGYParamCommon {
     tstring inputFilename;        //入力ファイル名
     tstring outputFilename;       //出力ファイル名
@@ -122,6 +124,8 @@ struct RGYParamCommon {
     AudioSelect **ppAudioSelectList;
     int        nDataSelectCount;
     DataSelect **ppDataSelectList;
+    int        nAttachmentSelectCount;
+    AttachmentSelect **ppAttachmentSelectList;
     int audioResampler;
     int demuxAnalyzeSec;
     int AVMuxTarget;                       //RGY_MUX_xxx
