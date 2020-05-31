@@ -454,7 +454,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.seekSec = common->seekSec;
-        inputInfoAVCuvid.logFramePosList = ctrl->logFramePosList.c_str();
+        inputInfoAVCuvid.logFramePosList = (ctrl->logFramePosList) ? common->outputFilename + _T(".framelist.csv") : _T("");
         inputInfoAVCuvid.threadInput = ctrl->threadInput;
         inputInfoAVCuvid.queueInfo = (perfMonitor) ? perfMonitor->GetQueueInfoPtr() : nullptr;
         inputInfoAVCuvid.HWDecCodecCsp = &HWDecCodecCsp;
