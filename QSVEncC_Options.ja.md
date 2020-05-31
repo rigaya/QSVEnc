@@ -259,7 +259,7 @@ AVBRはAPI v1.3以降で、より柔軟なビットレート配分が行える�
 Lookaheadは更に多くのフレームをあらかじめ解析し、より最適なビットレート配分を行う。
 
 ### --qvbr &lt;int&gt;, --qvbr-q &lt;int&gt; (QVBR, 品質ベース可変ビットレート)
-### --qvbr-qで指定した品質(デフォルト 23)をベースに、--qvbrで指定したビットレートでエンコードを行う。
+### --qvbr-qualityで指定した品質(デフォルト 23)をベースに、--qvbrで指定したビットレートでエンコードを行う。
 設定値は低い値ほど高品質になる。
 
 ### --icq &lt;int&gt; (ICQ, 固定品質モード: デフォルト 23)
@@ -325,6 +325,9 @@ GPUに負荷をかけることなく、低電力でエンコード可能だが�
 
 ### --vbv-bufsize &lt;int&gt;
 VBVバッファサイズ (kbps単位).
+
+### --qvbr-quality &lt;int&gt;
+--qvbr使用時の品質の指定。--qvbrと併せて使用する。 (0 - 51, default = 23)
 
 ### --avbr-unitsize &lt;int&gt;
 AVBRモード時のビットレート配分単位を、100フレーム単位で指定する。デフォルトは90(=9000フレーム)。Intel Media SDKにもあまり説明がなく、正直よくわからない。
@@ -1096,6 +1099,8 @@ logo14= (BS11).,BS11 1920x1080 v3
 ### --vpp-delogo-cb &lt;int&gt;
 ### --vpp-delogo-cr &lt;int&gt;
 ロゴの各色成分の補正。Aviutlで言うところの &lt;Y&gt;, &lt;Cb&gt;, &lt;Cr&gt;。
+### --vpp-delogo-add
+ロゴ付加モード。
 
 
 ## 制御系のオプション

@@ -246,7 +246,7 @@ Generally, it is recommended to specify the QP value to be I &lt; P &lt; B.
 Encode in bitrate(kbps) specified.
 
 ### --qvbr &lt;int&gt;, --qvbr-q &lt;int&gt; (QVBR, Quality based VBR mode)
-Encode in bitrate specified with "--qvbr", based on quality specified by "--qvbr-q" (default: 23, lower value => high quality).
+Encode in bitrate specified with "--qvbr", based on quality specified by "--qvbr-quality" (default: 23, lower value => high quality).
 
 ### --icq &lt;int&gt; (ICQ, Intelligent Const. Quality mode, default: 23)
 ### --la-icq &lt;int&gt; (LA-ICQ, Lookahead based ICQ mode: default: 23)
@@ -313,6 +313,9 @@ Maximum bitrate (in kbps).
 
 ### --vbv-bufsize &lt;int&gt;
 VBV buffersize (in kbps).
+
+### --qvbr-quality &lt;int&gt;
+Set quality used in qvbr mode, should be used with --qvbr. (0 - 51, default = 23)
 
 ### --avbr-unitsize &lt;int&gt;
 Set AVBR calculation period in unit of 100 frames. Default 90 (means the unit is 9000 frames).
@@ -1088,6 +1091,8 @@ Adjustment of logo transparency. Default 128.
 ### --vpp-delogo-cb &lt;int&gt;
 ### --vpp-delogo-cr &lt;int&gt;
 Adjustment of each color component of the logo.
+### --vpp-delogo-add
+Add logo.
 
 ## Other Options
 

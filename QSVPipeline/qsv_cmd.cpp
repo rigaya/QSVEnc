@@ -237,8 +237,7 @@ tstring encoder_help() {
         //_T("                                   in percentage, defalut %.1f(%%)\n)"
         _T("   --qvbr <int>                 set bitrate in Quality VBR mode.\n")
         _T("                                 requires --qvbr-q option to be set as well\n")
-        _T("   --qvbr-q <int>  or           set quality used in qvbr mode. default: %d\n")
-        _T("   --qvbr-quality <int>          QVBR mode is only supported with API v1.11\n")
+        _T("   --qvbr-quality <int>         set quality used in qvbr mode. default: %d\n")
         _T("   --vcm <int>                  set bitrate in VCM mode (kbps)\n")
         _T("\n"),
         QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB,
@@ -2072,7 +2071,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         }
     }
     if (save_disabled_prm || pParams->nEncMode == MFX_RATECONTROL_QVBR) {
-        OPT_NUM(_T("--qvbr-q"), nQVBRQuality);
+        OPT_NUM(_T("--qvbr-quality"), nQVBRQuality);
     }
     if (save_disabled_prm) {
         switch (pParams->nEncMode) {
