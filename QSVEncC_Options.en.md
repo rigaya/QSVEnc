@@ -1102,6 +1102,9 @@ Add logo.
 ### --async-depth &lt;int&gt;
 set async depth for QSV pipeline. default: 0 (=auto, 4+2*(extra pipeline step))
 
+### --input-buf &lt;int&gt;
+Buffer size for input in frames.　(default = 3)
+
 ### --output-buf &lt;int&gt;
 Specify the output buffer size in MB. The default is 8 and the maximum value is 128.
 
