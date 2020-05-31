@@ -406,6 +406,9 @@ Bフレームピラミッド参照を有効にする。
 ### --weightp
 重み付きPフレームを使用する。
 
+### --direct-bias-adjust
+B frame Direct/Skipの使用を最適化する。
+
 ### --adapt-ltr
 Adaptive LTRを有効にする。
 

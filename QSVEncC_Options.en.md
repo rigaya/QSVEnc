@@ -386,6 +386,9 @@ Enable weighted B frames.
 ### --weightp
 Enable weighted P frames.
 
+### --direct-bias-adjust
+Lower usage of B frame Direct/Skip type.
+
 ### --adapt-ltr
 Enable adaptive LTR frames.
 

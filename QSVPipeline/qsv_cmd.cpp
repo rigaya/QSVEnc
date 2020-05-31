@@ -273,7 +273,7 @@ tstring encoder_help() {
         _T("-b,--bframes <int>              number of sequential b frames\n")
         _T("                                  default %d(HEVC) / %d(others)\n")
         _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
-        _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type\n")
+        _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type.\n")
         _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
         _T("                                  when auto, fps x 10 will be set.\n")
         _T("   --(no-)open-gop              enables open gop (default:off)\n")
