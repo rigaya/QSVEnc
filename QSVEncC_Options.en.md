@@ -78,6 +78,9 @@ Show option list.
 ### --check-hw
 Check whether the specified device is able to run QSVEnc.
 
+### --check-lib
+Show the API version of Media SDK installed on the system.
+
 ### --check-features
 Show the information of features supported.
 

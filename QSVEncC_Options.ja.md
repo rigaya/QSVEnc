@@ -97,6 +97,9 @@ remuxer.exe -i "<video mp4file>" -i "<m4a(ALAC in mp4)file>" -o "<muxed mp4 file
 ### --check-hw
 ハードウェアエンコの可否の表示。
 
+### --check-lib
+インストールされているMedia SDKのAPIバージョンの表示。
+
 ### --check-features
 QSVEncの使用可能なエンコード機能を表示する。
 
