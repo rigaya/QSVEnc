@@ -267,7 +267,7 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVAudioReader.seekSec = common->seekSec;
-        inputInfoAVAudioReader.logFramePosList = ctrl->logFramePosList.c_str();
+        inputInfoAVAudioReader.logFramePosList = (ctrl->logFramePosList) ? src.filename + _T(".framelist.csv") : _T("");
         inputInfoAVAudioReader.threadInput = 0;
 
         shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
