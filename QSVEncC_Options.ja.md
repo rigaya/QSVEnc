@@ -927,9 +927,6 @@ matroska形式 (UTF-8であること)
 --sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
 ```
 
-### --sub-codec [&lt;int&gt;?]&lt;string&gt;
-字幕トラックを指定のコーデックにエンコードする。
-
 ### --caption2ass &lt;string&gt;
 caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。
 

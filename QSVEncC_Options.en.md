@@ -922,9 +922,6 @@ Example3: set metadata
 --sub-metadata 1?title="subtitle title" --sub-metadata 1?language=jpn
 ```
 
-### --sub-codec [&lt;int&gt;?]&lt;string&gt;
-Encode subtitle track to the codec specified.
-
 ### --caption2ass [&lt;string&gt;]
 Enable internal caption2ass process. This feature requires Caption.dll.  
 
