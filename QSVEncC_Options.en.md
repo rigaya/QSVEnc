@@ -291,6 +291,9 @@ To enhance stability, system memory is used.
 ### --disable-va (Linux)
 Disable use of graphics memory. (Use system memory.)
 
+### --d3d
+Use d3d9 or d3d11 memory mode. (Windows only)
+
 ### --d3d9
 Use d3d9 memory mode. (Windows only)
 
