@@ -841,9 +841,6 @@ matroska形式 (UTF-8であること)
 ### --chapter-copy
 チャプターをコピーする。
 
-### --chapter-no-trim
-チャプター読み込みの際、trimを反映させず、そのまま適用する。
-
 ### --sub-source &lt;string&gt;
 指定のファイルから字幕を読み込みmuxする。
 
