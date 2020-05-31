@@ -371,6 +371,9 @@ Force fixed GOP length.
 ### --gop-len &lt;int&gt;
 Set maximum GOP length. 
 
+### --open-gop
+Enable open gop.
+
 ### -b, --bframes &lt;int&gt;
 Set the number of consecutive B frames.
 

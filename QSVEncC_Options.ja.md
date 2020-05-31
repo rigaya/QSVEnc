@@ -391,6 +391,9 @@ mediumやfastでは、先行探索を縮小されたフレームで行い、高�
 ### --gop-len &lt;int&gt;
 最大GOP長。
 
+### --open-gop
+オープン GOPを使用する。
+
 ### -b, --bframes &lt;int&gt;
 連続Bフレーム数。
 
