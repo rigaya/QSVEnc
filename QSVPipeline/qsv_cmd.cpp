@@ -306,7 +306,7 @@ tstring encoder_help() {
         _T("                                 - all     enable sao for luma & chroma\n")
         _T("   --ctu <int>                  [hevc] max ctu size\n")
         _T("                                 - auto(default), 16, 32, 64\n")
-        _T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
+        //_T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
         QSV_ASYNC_DEPTH_MAX,
         QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
