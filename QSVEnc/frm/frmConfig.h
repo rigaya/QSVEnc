@@ -1385,14 +1385,14 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
             this->fcgtabControlAudio = (gcnew System::Windows::Forms::TabControl());
             this->fcgtabPageAudioMain = (gcnew System::Windows::Forms::TabPage());
-            this->fcgCBAudioUseExt = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgCBFAWCheck = (gcnew System::Windows::Forms::CheckBox());
             this->fcgPNAudioInternal = (gcnew System::Windows::Forms::Panel());
             this->fcgLBAudioBitrateInternal = (gcnew System::Windows::Forms::Label());
             this->fcgNUAudioBitrateInternal = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgCXAudioEncModeInternal = (gcnew System::Windows::Forms::ComboBox());
             this->label4 = (gcnew System::Windows::Forms::Label());
             this->fcgCXAudioEncoderInternal = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCBAudioUseExt = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBFAWCheck = (gcnew System::Windows::Forms::CheckBox());
             this->fcgPNAudioExt = (gcnew System::Windows::Forms::Panel());
             this->fcgCXAudioDelayCut = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioDelayCut = (gcnew System::Windows::Forms::Label());
@@ -3900,7 +3900,8 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgNUVppResizeW
             // 
             this->fcgNUVppResizeW->Location = System::Drawing::Point(18, 24);
-            this->fcgNUVppResizeW->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1920, 0, 0, 0 });
+            this->fcgNUVppResizeW->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
+            this->fcgNUVppResizeW->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65536, 0, 0, System::Int32::MinValue });
             this->fcgNUVppResizeW->Name = L"fcgNUVppResizeW";
             this->fcgNUVppResizeW->Size = System::Drawing::Size(79, 21);
             this->fcgNUVppResizeW->TabIndex = 0;
@@ -3910,7 +3911,8 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgNUVppResizeH
             // 
             this->fcgNUVppResizeH->Location = System::Drawing::Point(122, 24);
-            this->fcgNUVppResizeH->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1088, 0, 0, 0 });
+            this->fcgNUVppResizeH->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
+            this->fcgNUVppResizeH->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65536, 0, 0, System::Int32::MinValue });
             this->fcgNUVppResizeH->Name = L"fcgNUVppResizeH";
             this->fcgNUVppResizeH->Size = System::Drawing::Size(79, 21);
             this->fcgNUVppResizeH->TabIndex = 1;
@@ -4208,29 +4210,6 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgtabPageAudioMain->Text = L"音声";
             this->fcgtabPageAudioMain->UseVisualStyleBackColor = true;
             // 
-            // fcgCBAudioUseExt
-            // 
-            this->fcgCBAudioUseExt->AutoSize = true;
-            this->fcgCBAudioUseExt->Location = System::Drawing::Point(15, 3);
-            this->fcgCBAudioUseExt->Name = L"fcgCBAudioUseExt";
-            this->fcgCBAudioUseExt->Size = System::Drawing::Size(136, 18);
-            this->fcgCBAudioUseExt->TabIndex = 78;
-            this->fcgCBAudioUseExt->Tag = L"chValue,NoDirect";
-            this->fcgCBAudioUseExt->Text = L"外部エンコーダを使用する";
-            this->fcgCBAudioUseExt->UseVisualStyleBackColor = true;
-            this->fcgCBAudioUseExt->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBAudioUseExt_CheckedChanged);
-            // 
-            // fcgCBFAWCheck
-            // 
-            this->fcgCBFAWCheck->AutoSize = true;
-            this->fcgCBFAWCheck->Location = System::Drawing::Point(267, 3);
-            this->fcgCBFAWCheck->Name = L"fcgCBFAWCheck";
-            this->fcgCBFAWCheck->Size = System::Drawing::Size(81, 18);
-            this->fcgCBFAWCheck->TabIndex = 36;
-            this->fcgCBFAWCheck->Tag = L"chValue";
-            this->fcgCBFAWCheck->Text = L"FAWCheck";
-            this->fcgCBFAWCheck->UseVisualStyleBackColor = true;
-            // 
             // fcgPNAudioInternal
             // 
             this->fcgPNAudioInternal->Controls->Add(this->fcgLBAudioBitrateInternal);
@@ -4292,6 +4271,29 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgCXAudioEncoderInternal->TabIndex = 70;
             this->fcgCXAudioEncoderInternal->Tag = L"chValue";
             this->fcgCXAudioEncoderInternal->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXAudioEncoderInternal_SelectedIndexChanged);
+            // 
+            // fcgCBAudioUseExt
+            // 
+            this->fcgCBAudioUseExt->AutoSize = true;
+            this->fcgCBAudioUseExt->Location = System::Drawing::Point(15, 3);
+            this->fcgCBAudioUseExt->Name = L"fcgCBAudioUseExt";
+            this->fcgCBAudioUseExt->Size = System::Drawing::Size(136, 18);
+            this->fcgCBAudioUseExt->TabIndex = 78;
+            this->fcgCBAudioUseExt->Tag = L"chValue,NoDirect";
+            this->fcgCBAudioUseExt->Text = L"外部エンコーダを使用する";
+            this->fcgCBAudioUseExt->UseVisualStyleBackColor = true;
+            this->fcgCBAudioUseExt->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBAudioUseExt_CheckedChanged);
+            // 
+            // fcgCBFAWCheck
+            // 
+            this->fcgCBFAWCheck->AutoSize = true;
+            this->fcgCBFAWCheck->Location = System::Drawing::Point(267, 3);
+            this->fcgCBFAWCheck->Name = L"fcgCBFAWCheck";
+            this->fcgCBFAWCheck->Size = System::Drawing::Size(81, 18);
+            this->fcgCBFAWCheck->TabIndex = 36;
+            this->fcgCBFAWCheck->Tag = L"chValue";
+            this->fcgCBFAWCheck->Text = L"FAWCheck";
+            this->fcgCBFAWCheck->UseVisualStyleBackColor = true;
             // 
             // fcgPNAudioExt
             // 
