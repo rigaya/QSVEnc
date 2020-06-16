@@ -36,11 +36,9 @@
 #if USE_SSE41
 #include <smmintrin.h>
 #endif
-#if USE_AVX
-#include <immintrin.h>
-#endif
 
 #if USE_AVX2
+#include <immintrin.h>
 #define MEM_ALIGN 32
 #else
 #define MEM_ALIGN 16
@@ -298,17 +296,17 @@ static RGY_FORCEINLINE void load_line_to_buffer(mfxU8 *buffer, mfxU8 *src, mfxU3
 
 template<mfxU32 step, bool ignore_fraction>
 static RGY_FORCEINLINE void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mfxU32 width) {
-#if USE_AVX
+#if USE_AVX2
     static_assert(step % 32 == 0, "step should be mod32.");
 #else
     static_assert(step % 16 == 0, "step should be mod16.");
 #endif
-    const bool use_avx = USE_AVX && (0 == ((size_t)dst & 0x10));
+    const bool use_avx = USE_AVX2 && (0 == ((size_t)dst & 0x10));
     const mfxU32 align = ((use_avx) ? 32 : 16);
     const mfxU32 increment = (std::min)(step, ((use_avx) ? 256u : 128u));
     mfxU8 *dst_fin = dst + ((increment == align || ignore_fraction) ? width : (width & ~(increment-1)));
     mfxU8 *dst_ptr = dst, *buf_ptr = buffer;
-#if USE_AVX
+#if USE_AVX2
     if (!use_avx) {
 #endif
         for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
@@ -330,7 +328,7 @@ static RGY_FORCEINLINE void store_line_from_buffer(mfxU8 *dst, mfxU8 *buffer, mf
             if (step >= 112) _mm_store_si128((__m128i *)(dst_ptr +  96), x6);
             if (step >= 128) _mm_store_si128((__m128i *)(dst_ptr + 112), x7);
         }
-#if USE_AVX
+#if USE_AVX2
     } else {
         for (; dst_ptr < dst_fin; dst_ptr += increment, buf_ptr += increment) {
             __m256 y0, y1, y2, y3, y4, y5, y6, y7;
@@ -605,7 +603,7 @@ static RGY_FORCEINLINE void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pi
         }
         store_line_from_buffer<256, false>(dst_line, buffer, width);
     }
-#if USE_AVX
+#if USE_AVX2
     _mm256_zeroupper();
 #endif
 }
@@ -645,7 +643,7 @@ static RGY_FORCEINLINE void process_delogo(mfxU8 *ptr, const mfxU32 pitch, mfxU8
 
         store_line_from_buffer<step, true>(ptr_line + logo_i_start, buffer, logo_i_width);
     }
-#if USE_AVX
+#if USE_AVX2
     _mm256_zeroupper();
 #endif
 }
