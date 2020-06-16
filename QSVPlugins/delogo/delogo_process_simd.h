@@ -39,7 +39,6 @@
 #if USE_AVX
 #include <immintrin.h>
 #endif
-#include "rgy_simd.h"
 
 #if USE_AVX2
 #define MEM_ALIGN 32
@@ -169,10 +168,10 @@ static RGY_FORCEINLINE __m128i _mm_mullo_epi32_simd(__m128i x0, __m128i x1) {
 #else
     __m128i x2 = _mm_mul_epu32(x0, x1);
     __m128i x3 = _mm_mul_epu32(_mm_shuffle_epi32(x0, 0xB1), _mm_shuffle_epi32(x1, 0xB1));
-    
+
     x2 = _mm_shuffle_epi32(x2, 0xD8);
     x3 = _mm_shuffle_epi32(x3, 0xD8);
-    
+
     return _mm_unpacklo_epi32(x2, x3);
 #endif
 }
@@ -426,7 +425,7 @@ static RGY_FORCEINLINE void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int log
         yDp1 = _mm256_sub_epi32(_mm256_add_epi16(yDp1, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
         yDp2 = _mm256_sub_epi32(_mm256_add_epi16(yDp2, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
         yDp3 = _mm256_sub_epi32(_mm256_add_epi16(yDp3, _mm256_load_si256((__m256i *)ARRAY_0x00008000)), _mm256_load_si256((__m256i *)ARRAY_0x00008000));
-            
+
         //lgp->dp_y * logo_depth_mul_fade)/128 /LOGO_FADE_MAX;
         yDp0 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp0, yC_depth_mul_fade), 15);
         yDp1 = _mm256_srai_epi32(_mm256_mullo_epi32(yDp1, yC_depth_mul_fade), 15);
@@ -487,13 +486,13 @@ static RGY_FORCEINLINE void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int log
         x1   = _mm_load_si128((__m128i *)(ptr_logo +  8));
         x2   = _mm_load_si128((__m128i *)(ptr_logo + 16));
         x3   = _mm_load_si128((__m128i *)(ptr_logo + 24));
-            
+
         // 不透明度情報のみ取り出し
         xDp0 = _mm_and_si128(x0, _mm_load_si128((__m128i *)MASK_16BIT));
         xDp1 = _mm_and_si128(x1, _mm_load_si128((__m128i *)MASK_16BIT));
         xDp2 = _mm_and_si128(x2, _mm_load_si128((__m128i *)MASK_16BIT));
         xDp3 = _mm_and_si128(x3, _mm_load_si128((__m128i *)MASK_16BIT));
-            
+
         //ロゴ色データの取り出し
         x0   = _mm_packs_epi32(_mm_srai_epi32(x0, 16), _mm_srai_epi32(x1, 16));
         x1   = _mm_packs_epi32(_mm_srai_epi32(x2, 16), _mm_srai_epi32(x3, 16));
@@ -525,7 +524,7 @@ static RGY_FORCEINLINE void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int log
         xDp0 = _mm_packs_epi32(xDp0, xDp1);
         xDp1 = _mm_packs_epi32(xDp2, xDp3);
 #endif
-            
+
         //dp -= (dp==LOGO_MAX_DP)
         //dp = -dp
         xDp0 = _mm_neg_epi16(_mm_add_epi16(xDp0, _mm_cmpeq_epi16(xDp0, _mm_set1_epi16(LOGO_MAX_DP)))); // -dp
@@ -550,7 +549,7 @@ static RGY_FORCEINLINE void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int log
 
         xDp0 = _mm_adds_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp0); // LOGO_MAX_DP + (-dp)
         xDp1 = _mm_adds_epi16(_mm_set1_epi16(LOGO_MAX_DP), xDp1); // LOGO_MAX_DP + (-dp)
-            
+
         //(ycp->y * LOGO_MAX_DP + yc * (-dp)) / (LOGO_MAX_DP +(-dp));
         x0 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x0), delogo_rcpps(_mm_cvtepi32_ps(cvtlo_epi16_epi32(xDp0)))));
         x1 = _mm_cvtps_epi32(_mm_mul_ps(_mm_cvtepi32_ps(x1), delogo_rcpps(_mm_cvtepi32_ps(cvthi_epi16_epi32(xDp0)))));
@@ -576,7 +575,7 @@ static RGY_FORCEINLINE void delogo_line(mfxU8 *ptr_buf, short *ptr_logo, int log
 
 //dstで示される画像フレームをsrcにコピーしつつ、ロゴ部分を消去する
 //height_start, height_finは処理する範囲(NV12なら、色差を処理するときは、高さは半分になることに注意する)
-static RGY_FORCEINLINE void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer, 
+static RGY_FORCEINLINE void process_delogo_frame(mfxU8 *dst, const mfxU32 dst_pitch, mfxU8 *buffer,
     mfxU8 *src, const mfxU32 src_pitch, const mfxU32 width, const mfxU32 height_start, const mfxU32 height_fin, const ProcessDataDelogo *data) {
     mfxU8 *src_line = src;
     mfxU8 *dst_line = dst;
@@ -724,7 +723,7 @@ static RGY_FORCEINLINE void logo_add_line(mfxU8 *ptr_buf, short *ptr_logo, int l
         x0 = _mm_madd_epi16(_mm_unpacklo_epi16(xSrc0, x0), _mm_unpacklo_epi16(xDp2, xDp0)); //xSrc0 * (LOGO_MAX_DP-logo_depth[i]) + x0 * xDp0
 
         //(ycp->y * (LOGO_MAX_DP-logo_depth[i]) + yc * (-dp)) / (LOGO_MAX_DP);
-        // 1 / LOGO_MAX_DP = 131 / 131072 = 131 / (1<<17) 
+        // 1 / LOGO_MAX_DP = 131 / 131072 = 131 / (1<<17)
         x0 = _mm_srai_epi32(_mm_mullo_epi32_simd(x0, _mm_set1_epi32(131)), 17);
         x1 = _mm_srai_epi32(_mm_mullo_epi32_simd(x1, _mm_set1_epi32(131)), 17);
         x2 = _mm_srai_epi32(_mm_mullo_epi32_simd(x2, _mm_set1_epi32(131)), 17);

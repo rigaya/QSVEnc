@@ -56,7 +56,7 @@ void ProcessorSubBurnAVX::CopyFrameY() {
     const int h = m_pIn->Info.CropH;
     const int pitch = m_pIn->Data.Pitch;
     for (int y = 0; y < h; y++, pFrameSrc += pitch, pFrameOut += pitch) {
-        sse_memcpy(pFrameOut, pFrameSrc, w);
+        memcpy(pFrameOut, pFrameSrc, w);
     }
 }
 
@@ -67,7 +67,7 @@ void ProcessorSubBurnAVX::CopyFrameUV() {
     const int h = m_pIn->Info.CropH;
     const int pitch = m_pIn->Data.Pitch;
     for (int y = 0; y < h; y += 2, pFrameSrc += pitch, pFrameOut += pitch) {
-        sse_memcpy(pFrameOut, pFrameSrc, w);
+        memcpy(pFrameOut, pFrameSrc, w);
     }
 }
 

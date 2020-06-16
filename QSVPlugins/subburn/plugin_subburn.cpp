@@ -865,7 +865,6 @@ mfxStatus ProcessorSubBurn::Init(mfxFrameSurface1 *frame_in, mfxFrameSurface1 *f
 
 mfxStatus ProcessorSubBurn::ProcessSubText(uint8_t *pBuffer) {
     const uint32_t nSimdAvail = m_pProcData->nSimdAvail;
-    rgy_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
     const bool d3dSurface = !!(m_pProcData->memType & D3D9_MEMORY);
     mfxStatus sts = MFX_ERR_NONE;
@@ -899,7 +898,6 @@ mfxStatus ProcessorSubBurn::ProcessSubText(uint8_t *pBuffer) {
         avsubtitle_free(&sub);
         av_packet_unref(&pkt);
     }
-    rgy_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
     const auto frameTimebase = (m_pProcData->pVideoInputStream) ? m_pProcData->pVideoInputStream->time_base : HW_NATIVE_TIMEBASE;
     const double dTimeMs = (m_pIn->Data.TimeStamp - m_pProcData->nVideoInputFirstKeyPts) * av_q2d(frameTimebase) * 1000.0;
@@ -939,7 +937,6 @@ mfxStatus ProcessorSubBurn::ProcessSubText(uint8_t *pBuffer) {
 
 mfxStatus ProcessorSubBurn::ProcessSubBitmap(uint8_t *pBuffer) {
     const uint32_t nSimdAvail = m_pProcData->nSimdAvail;
-    rgy_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
     const bool d3dSurface = !!(m_pProcData->memType & D3D9_MEMORY);
     mfxStatus sts = MFX_ERR_NONE;
@@ -976,7 +973,6 @@ mfxStatus ProcessorSubBurn::ProcessSubBitmap(uint8_t *pBuffer) {
         }
         av_packet_unref(&pkt);
     }
-    rgy_avx_dummy_if_avail(nSimdAvail & (AVX|AVX2));
 
     //いまなんらかの字幕情報がデコード済みなら、その有効期限をチェックする
     if (m_pProcData->subtitle.num_rects) {
