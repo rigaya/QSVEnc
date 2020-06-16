@@ -276,7 +276,7 @@ int RGYGPUCounterWin::init() {
 
 int RGYGPUCounterWin::refreshCounters() {
     auto hr = S_OK;
-    if (pRefresher != nullptr) {
+    if (pRefresher == nullptr) {
         initialized = false;
         return 1;
     }
