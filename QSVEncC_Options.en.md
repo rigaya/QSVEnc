@@ -416,8 +416,8 @@ mpeg2: auto, low, main, high, high1440
 ### --profile &lt;string&gt;
 Specify the profile of the codec to be encoded. If not specified, it will be automatically set.
 ```
-h264:  auto, baseline, main, high, high444
-hevc:  auto, main, main10, main444
+h264:  auto, baseline, main, high
+hevc:  auto, main, main10
 mpeg2: auto, Simple, Main, High
 ```
 

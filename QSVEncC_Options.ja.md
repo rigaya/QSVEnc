@@ -436,8 +436,8 @@ mpeg2: auto, low, main, high, high1440
 ### --profile &lt;string&gt;
 エンコードするコーデックのプロファイルを指定する。指定しない場合は自動的に決定される。
 ```
-h264:  auto, baseline, main, high, high444
-hevc:  auto, main, main10, main444
+h264:  auto, baseline, main, high
+hevc:  auto, main, main10
 mpeg2: auto, Simple, Main, High
 ```
 
