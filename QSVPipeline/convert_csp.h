@@ -29,6 +29,8 @@
 #define _CONVERT_CSP_H_
 
 #include <cstdint>
+#include <vector>
+#include <memory>
 #include "rgy_tchar.h"
 
 #if defined(_MSC_VER)

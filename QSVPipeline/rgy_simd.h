@@ -35,7 +35,7 @@
 #define __forceinline __attribute__((always_inline))
 #endif
 
-#endif
+#endif //#ifndef _MSC_VER
 
 enum {
     NONE   = 0x0000,
