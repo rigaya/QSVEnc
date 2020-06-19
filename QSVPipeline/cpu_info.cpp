@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2011-2020 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,9 @@
 #include "rgy_util.h"
 #include "rgy_version.h"
 #include "cpu_info.h"
+#if ENCODER_QSV
+#include "qsv_query.h"
+#endif
 
 int getCPUName(char *buffer, size_t nSize) {
     int CPUInfo[4] = {-1};
@@ -345,39 +348,9 @@ double getCPUMaxTurboClock() {
     return (tick_per_sec / tick_per_clock) * 1e-9;
 }
 
-#if ENABLE_OPENCL
-#include "cl_func.h"
-#endif
-
-#pragma warning (push)
-#pragma warning (disable: 4100)
-double getCPUDefaultClockOpenCL() {
-#if !ENABLE_OPENCL
-    return 0.0;
-#else
-    int frequency = 0;
-    cl_func_t cl = { 0 };
-    cl_data_t data = { 0 };
-    if (CL_SUCCESS == cl_get_func(&cl)
-        && CL_SUCCESS == cl_get_platform_and_device(nullptr, CL_DEVICE_TYPE_CPU, &data, &cl)) {
-        frequency = cl_get_device_max_clock_frequency_mhz(&data, &cl);
-    }
-    cl_release(&data, &cl);
-    return frequency / 1000.0;
-#endif // !ENABLE_OPENCL
-}
-#pragma warning (pop)
-
 double getCPUDefaultClock() {
-    double defautlClock = getCPUDefaultClockFromCPUName();
-    if (0 >= defautlClock)
-        defautlClock = getCPUDefaultClockOpenCL();
-    return defautlClock;
+    return getCPUDefaultClockFromCPUName();
 }
-
-#if ENCODER_QSV
-#include "qsv_query.h"
-#endif
 
 int getCPUInfo(TCHAR *buffer, size_t nSize
 #if ENCODER_QSV
@@ -391,10 +364,9 @@ int getCPUInfo(TCHAR *buffer, size_t nSize
         buffer[0] = _T('\0');
         ret = 1;
     } else {
+#if defined(_WIN32) || defined(_WIN64) //Linuxでは環境によっては、正常に動作しない場合がある
         double defaultClock = getCPUDefaultClockFromCPUName();
         bool noDefaultClockInCPUName = (0.0 >= defaultClock);
-        if (noDefaultClockInCPUName)
-            defaultClock = getCPUDefaultClockOpenCL();
         if (defaultClock > 0.0) {
             if (noDefaultClockInCPUName) {
                 _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" @ %.2fGHz"), defaultClock);
@@ -405,6 +377,7 @@ int getCPUInfo(TCHAR *buffer, size_t nSize
                 _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" [TB: %.2fGHz]"), maxFrequency);
             }
         }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         _stprintf_s(buffer + _tcslen(buffer), nSize - _tcslen(buffer), _T(" (%dC/%dT)"), cpu_info.physical_cores, cpu_info.logical_cores);
 #if ENCODER_QSV && !FOR_AUO
         int cpuGen = getCPUGen(pSession);
