@@ -1843,6 +1843,21 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
     if (!pParams) {
         return 0;
     }
+
+    bool debug_cmd_parser = false;
+    for (int i = 1; i < nArgNum; i++) {
+        if (tstring(strInput[i]) == _T("--debug-cmd-parser")) {
+            debug_cmd_parser = true;
+            break;
+        }
+    }
+
+    if (debug_cmd_parser) {
+        for (int i = 1; i < nArgNum; i++) {
+            _ftprintf(stderr, _T("arg[%3d]: %s\n"), i, strInput[i]);
+        }
+    }
+
     sArgsData argsData;
 
     for (int i = 1; i < nArgNum; i++) {
@@ -1873,6 +1888,9 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             if (ignore_parse_err) continue;
             print_cmd_error_unknown_opt(strInput[i]);
             return 1;
+        }
+        if (debug_cmd_parser) {
+            _ftprintf(stderr, _T("parsing %3d: %s\n"), i, strInput[i]);
         }
         auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData);
         if (!ignore_parse_err && sts != 0) {
