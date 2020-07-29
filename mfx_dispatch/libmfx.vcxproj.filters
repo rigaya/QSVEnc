@@ -42,19 +42,7 @@
     <ClCompile Include="src\mfx_win_reg_key.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\mfx_critical_section_linux.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\mfx_library_iterator_linux.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\mfx_load_dll_linux.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\mfx_plugin_cfg_parser.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\mfx_plugin_hive_linux.cpp">
+    <ClCompile Include="C:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2020 R1\Software Development Kit\opensource\mfx_dispatch\src\mfx_driver_store_loader.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
@@ -93,9 +81,6 @@
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\mfx_win_reg_key.h">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="include\mfx_plugin_cfg_parser.h">
       <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="include\mfxaudio_exposed_functions_list.h">

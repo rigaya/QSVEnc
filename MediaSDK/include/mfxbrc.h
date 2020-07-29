@@ -1,32 +1,22 @@
-/******************************************************************************* *\
-
-Copyright (C) 2016-2018 Intel Corporation.  All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-- Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.
-- Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
-- Neither the name of Intel Corporation nor the names of its contributors
-may be used to endorse or promote products derived from this software
-without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY INTEL CORPORATION "AS IS" AND ANY EXPRESS OR
-IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL INTEL CORPORATION BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-File Name: mfxbrc.h
-
-*******************************************************************************/
+// Copyright (c) 2019 Intel Corporation
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 #ifndef __MFXBRC_H__
 #define __MFXBRC_H__
 
@@ -42,11 +32,16 @@ enum {
     MFX_EXTBUFF_BRC = MFX_MAKEFOURCC('E','B','R','C')
 };
 
+MFX_PACK_BEGIN_STRUCT_W_PTR()
 typedef struct {
+#if (MFX_VERSION >= 1026)
     mfxU32 reserved[23];
     mfxU16 SceneChange;     // Frame is Scene Chg frame
     mfxU16 LongTerm;        // Frame is long term refrence
     mfxU32 FrameCmplx;      // Frame Complexity
+#else
+    mfxU32 reserved[25];
+#endif
     mfxU32 EncodedOrder;    // Frame number in a sequence of reordered frames starting from encoder Init()
     mfxU32 DisplayOrder;    // Frame number in a sequence of frames in display order starting from last IDR
     mfxU32 CodedFrameSize;  // Size of frame in bytes after encoding
@@ -56,12 +51,26 @@ typedef struct {
     mfxU16 NumExtParam;
     mfxExtBuffer** ExtParam;
 } mfxBRCFrameParam;
+MFX_PACK_END()
 
+MFX_PACK_BEGIN_STRUCT_W_PTR()
 typedef struct {
     mfxI32 QpY;             // Frame-level Luma QP
+#if (MFX_VERSION >= 1029)
+    mfxU32 InitialCpbRemovalDelay;
+    mfxU32 InitialCpbRemovalOffset;
+    mfxU32 reserved1[7];
+    mfxU32 MaxFrameSize;    // Max frame size in bytes (used for rePak)
+    mfxU8  DeltaQP[8];      // deltaQP[i] is adding to QP value while i-rePak
+    mfxU16 MaxNumRepak;     // Max number of rePak to provide MaxFrameSize (from 0 to 8)
+    mfxU16 NumExtParam;
+    mfxExtBuffer** ExtParam;   // extension buffer list
+#else
     mfxU32 reserved1[13];
     mfxHDL reserved2;
+#endif
 } mfxBRCFrameCtrl;
+MFX_PACK_END()
 
 /* BRCStatus */
 enum {
@@ -72,16 +81,19 @@ enum {
     MFX_BRC_PANIC_SMALL_FRAME = 4  // Coded frame is too small, no further recoding possible - required padding to MinFrameSize
 };
 
+MFX_PACK_BEGIN_USUAL_STRUCT()
 typedef struct {
     mfxU32 MinFrameSize;    // Size in bytes, coded frame must be padded to when Status = MFX_BRC_PANIC_SMALL_FRAME
     mfxU16 BRCStatus;       // See BRCStatus enumerator
     mfxU16 reserved[25];
     mfxHDL reserved1;
 } mfxBRCFrameStatus;
+MFX_PACK_END()
 
 /* Structure contains set of callbacks to perform external bit-rate control.
 Can be attached to mfxVideoParam structure during encoder initialization.
 Turn mfxExtCodingOption2::ExtBRC option ON to make encoder use external BRC instead of native one. */
+MFX_PACK_BEGIN_STRUCT_W_PTR()
 typedef struct {
     mfxExtBuffer Header;
 
@@ -107,6 +119,7 @@ typedef struct {
 
     mfxHDL reserved1[10];
 } mfxExtBRC;
+MFX_PACK_END()
 
 #ifdef __cplusplus
 } // extern "C"
