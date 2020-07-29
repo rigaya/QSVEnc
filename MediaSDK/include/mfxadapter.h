@@ -1,15 +1,15 @@
-// Copyright (c) 2018-2019 Intel Corporation
-// 
+// Copyright (c) 2019 Intel Corporation
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -17,37 +17,24 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-#ifndef __MFXVP9_H__
-#define __MFXVP9_H__
 
 #include "mfxdefs.h"
+#if (MFX_VERSION >= 1031)
+#ifndef __MFXADAPTER_H__
+#define __MFXADAPTER_H__
+
+#include "mfxstructures.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
-
-#if (MFX_VERSION >= MFX_VERSION_NEXT)
-
-/* Extended Buffer Ids */
-enum {
-    MFX_EXTBUFF_VP9_DECODED_FRAME_INFO = MFX_MAKEFOURCC('9','D','F','I')
-};
-
-MFX_PACK_BEGIN_USUAL_STRUCT()
-typedef struct {
-    mfxExtBuffer Header;
-
-    mfxU16       DisplayWidth;
-    mfxU16       DisplayHeight;
-    mfxU16       reserved[58];
-} mfxExtVP9DecodedFrameInfo;
-MFX_PACK_END()
-
-#endif
-
+mfxStatus MFXQueryAdapters(mfxComponentInfo* input_info, mfxAdaptersInfo* adapters);
+mfxStatus MFXQueryAdaptersDecode(mfxBitstream* bitstream, mfxU32 codec_id, mfxAdaptersInfo* adapters);
+mfxStatus MFXQueryAdaptersNumber(mfxU32* num_adapters);
 #ifdef __cplusplus
 } // extern "C"
 #endif
 
+#endif // __MFXADAPTER_H__
 #endif
-
