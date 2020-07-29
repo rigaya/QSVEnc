@@ -1091,7 +1091,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         m_chromalocInfo.ChromaLocInfoPresentFlag = 1;
         m_chromalocInfo.ChromaSampleLocTypeTopField = (mfxU16)(m_encVUI.chromaloc-1);
         m_chromalocInfo.ChromaSampleLocTypeBottomField = (mfxU16)(m_encVUI.chromaloc-1);
-        m_EncExtParams.push_back((mfxExtBuffer *)&m_chromalocInfo);
+        ////HWエンコーダではこれはサポートされていない模様なので無効化する
+        //m_EncExtParams.push_back((mfxExtBuffer *)&m_chromalocInfo);
     }
 
     m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;

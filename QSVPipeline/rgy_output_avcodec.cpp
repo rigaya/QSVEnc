@@ -749,6 +749,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     if ((ENCODER_NVENC
         && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
         && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0)
+        || (ENCODER_QSV
+            && videoOutputInfo->vui.chromaloc != 0)
         || (ENCODER_VCEENC
             && (videoOutputInfo->vui.format != 5
                 || videoOutputInfo->vui.colorprim != 2

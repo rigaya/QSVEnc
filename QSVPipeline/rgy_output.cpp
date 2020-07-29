@@ -165,6 +165,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         if ((ENCODER_NVENC
             && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
             && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0)
+            || (ENCODER_QSV
+                && pVideoOutputInfo->vui.chromaloc != 0)
             || (ENCODER_VCEENC
                 && (pVideoOutputInfo->vui.format != 5
                     || pVideoOutputInfo->vui.colorprim != 2
