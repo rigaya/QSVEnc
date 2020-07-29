@@ -665,10 +665,12 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     mfxExtCodingOption2 cop2;
     mfxExtCodingOption3 cop3;
     mfxExtHEVCParam hevc;
+    mfxExtVP9Param vp9;
     INIT_MFX_EXT_BUFFER(cop,  MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(hevc, MFX_EXTBUFF_HEVC_PARAM);
+    INIT_MFX_EXT_BUFFER(vp9, MFX_EXTBUFF_VP9_PARAM);
 
     std::vector<mfxExtBuffer *> buf;
     buf.push_back((mfxExtBuffer *)&cop);
@@ -682,6 +684,10 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)
         && codecId == MFX_CODEC_HEVC) {
         buf.push_back((mfxExtBuffer *)&hevc);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)
+        && codecId == MFX_CODEC_VP9) {
+        buf.push_back((mfxExtBuffer *)&vp9);
     }
 #endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
 
@@ -720,27 +726,11 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
     videoPrm.mfx.CodecId                 = codecId;
     videoPrm.mfx.RateControlMethod       = (mfxU16)ratecontrol;
-    switch (codecId) {
-    case MFX_CODEC_HEVC:
-        videoPrm.mfx.CodecLevel          = MFX_LEVEL_UNKNOWN;
-        videoPrm.mfx.CodecProfile        = MFX_PROFILE_HEVC_MAIN;
-        break;
-    case MFX_CODEC_VP8:
-        break;
-    case MFX_CODEC_VP9:
-        videoPrm.mfx.CodecProfile        = MFX_PROFILE_VP9_0;
-        break;
-    default:
-    case MFX_CODEC_AVC:
-        videoPrm.mfx.CodecLevel          = MFX_LEVEL_AVC_41;
-        videoPrm.mfx.CodecProfile        = MFX_PROFILE_AVC_HIGH;
-        break;
-    }
     videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BALANCED;
     videoPrm.mfx.EncodedOrder            = 0;
     videoPrm.mfx.NumSlice                = 1;
     videoPrm.mfx.NumRefFrame             = 0;
-    videoPrm.mfx.GopPicSize              = 300;
+    videoPrm.mfx.GopPicSize              = 30;
     videoPrm.mfx.IdrInterval             = 0;
     videoPrm.mfx.GopOptFlag              = 0;
     videoPrm.mfx.GopRefDist              = 4;
@@ -757,12 +747,34 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     videoPrm.mfx.FrameInfo.CropY         = 0;
     videoPrm.mfx.FrameInfo.CropW         = 1920;
     videoPrm.mfx.FrameInfo.CropH         = 1080;
+    switch (codecId) {
+    case MFX_CODEC_HEVC:
+        videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
+        videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
+        break;
+    case MFX_CODEC_VP8:
+        break;
+    case MFX_CODEC_VP9:
+        videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
+        videoPrm.mfx.CodecProfile = MFX_PROFILE_VP9_0;
+        videoPrm.mfx.GopRefDist = 3;
+        videoPrm.mfx.NumRefFrame = 1;
+        videoPrm.AsyncDepth = 0;
+        videoPrm.IOPattern = MFX_IOPATTERN_IN_OPAQUE_MEMORY;
+        break;
+    default:
+    case MFX_CODEC_AVC:
+        videoPrm.mfx.CodecLevel = MFX_LEVEL_AVC_41;
+        videoPrm.mfx.CodecProfile = MFX_PROFILE_AVC_HIGH;
+        break;
+    }
     set_default_quality_prm();
 
     mfxExtCodingOption copOut;
     mfxExtCodingOption2 cop2Out;
     mfxExtCodingOption3 cop3Out;
     mfxExtHEVCParam hevcOut;
+    mfxExtVP9Param vp9Out;
     std::vector<mfxExtBuffer *> bufOut;
     bufOut.push_back((mfxExtBuffer *)&copOut);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
@@ -778,6 +790,12 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
         hevc.PicHeightInLumaSamples = videoPrm.mfx.FrameInfo.CropH;
         bufOut.push_back((mfxExtBuffer*)&hevcOut);
     }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)
+        && codecId == MFX_CODEC_VP9) {
+        vp9.FrameWidth = videoPrm.mfx.FrameInfo.Width;
+        vp9.FrameHeight = videoPrm.mfx.FrameInfo.Height;
+        bufOut.push_back((mfxExtBuffer *)&vp9Out);
+    }
 #endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
     mfxVideoParam videoPrmOut;
     //In, Outのパラメータが同一となっているようにきちんとコピーする
@@ -786,6 +804,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     memcpy(&cop2Out, &cop2, sizeof(cop2));
     memcpy(&cop3Out, &cop3, sizeof(cop3));
     memcpy(&hevcOut, &hevc, sizeof(hevc));
+    memcpy(&vp9Out, &vp9, sizeof(vp9));
     memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
     videoPrm.NumExtParam = (mfxU16)bufOut.size();
     videoPrm.ExtParam = &bufOut[0];
@@ -805,6 +824,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
                 memcpy(&cop2Out, &cop2, sizeof(cop2));
                 memcpy(&cop3Out, &cop3, sizeof(cop3));
                 memcpy(&hevcOut, &hevc, sizeof(hevc));
+                memcpy(&vp9Out,  &vp9,  sizeof(vp9));
                 memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
                 videoPrm.NumExtParam = (mfxU16)bufOut.size();
                 videoPrm.ExtParam = &bufOut[0];
