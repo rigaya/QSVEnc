@@ -109,10 +109,17 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 |Kabylake	        |Core i3/i5/i7 7xxx	|○|
 |Kabylake	        |Pentium G456x/G46xx	|○|
 |Kabylake	        |Celeron G393x/G395x	|○|
-|Skylake-X	        |Core i7/i9 78xx/79xx	|×|
+|Skylake-X	        |Core i7/i9 78xxX/79xxX/98xxX/99xxX	|×|
 |Coffeelake	        |Core i3/i5/i7/i9 8xxx/9xxx	|○|
 |Coffeelake	        |Pentium G5xxx	|○|
 |Coffeelake	        |Celeron G49xx	|○|
+|Commetlake	        |Core i3/i5/i7/i9 10xxx	|○|
+|Commetlake	        |Pentium G6xxx	|○|
+|Commetlake	        |Celeron G5xxx	|○|
+|Icelake	        |Core i3/i5/i7 10xxGx	|○|
+|CascadeLake-X	    |Core i9 109xxX	|×|
+|TigerLake	        |???	|○|
+|RocketLake	        |???	|○|
 |Intel Atom CPUs	|||
 |Bonnell	        |Atom	        |×|
 |Saltwell	        |Atom	        |×|
@@ -124,11 +131,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 |Airmont	        |Atom x7/x5/x3	|○|
 |GeminiLake	        |Pentium N5xxx/J5xxx	|○|
 |GeminiLake	        |Celeron N4xxx/J4xxx	|○|
+|JasperLake	        |???	|○|
+|ElkhartLake	    |???	|○|
 
 
 ## Intel Media SDK and API
 |Media SDK API version	        | Media SDK version|
 |:--|:--|
+|API v1.32 | Intel Media SDK 2020 R1 |
+|API v1.29 | Intel Media SDK 2019 R1 |
 |API v1.27 | Intel Media SDK 2018 R2 |
 |API v1.26 | Intel Media SDK 2018 R1 |
 |API v1.23 | Intel Media SDK 2017 R1 |

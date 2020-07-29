@@ -120,7 +120,14 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 |Skylake-X	        |Core i7/i9 78xx/79xx	|×|
 |Coffeelake	        |Core i3/i5/i7/i9 8xxx/9xxx	|○|
 |Coffeelake	        |Pentium G5xxx	|○|
-|Coffeelake	        |Celeron G49xx	|○|
+|Coffeelake	        |Celeron G4xxx	|○|
+|Commetlake	        |Core i3/i5/i7/i9 10xxx	|○|
+|Commetlake	        |Pentium G6xxx	|○|
+|Commetlake	        |Celeron G5xxx	|○|
+|Icelake	        |Core i3/i5/i7 10xxGx	|○|
+|CascadeLake-X	    |Core i9 109xxX	|×|
+|TigerLake	        |???	|○|
+|RocketLake	        |???	|○|
 |Atom系 CPU	|||
 |Bonnell	        |Atom	        |×|
 |Saltwell	        |Atom	        |×|
@@ -132,11 +139,15 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 |Airmont	        |Atom x7/x5/x3	|○|
 |GeminiLake	        |Pentium N5xxx/J5xxx	|○|
 |GeminiLake	        |Celeron N4xxx/J4xxx	|○|
+|JasperLake	        |???	|○|
+|ElkhartLake	    |???	|○|
 
 
 ## Intel Media SDKとAPIの対応関係
 |Media SDK API バージョン	        | Media SDK バージョン|
 |:--|:--|
+|API v1.32 | Intel Media SDK 2020 R1 |
+|API v1.29 | Intel Media SDK 2019 R1 |
 |API v1.27 | Intel Media SDK 2018 R2 |
 |API v1.26 | Intel Media SDK 2018 R1 |
 |API v1.23 | Intel Media SDK 2017 R1 |
