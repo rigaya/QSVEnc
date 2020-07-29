@@ -2226,6 +2226,7 @@ CQSVPipeline::CQSVPipeline() {
     INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,       MFX_EXTBUFF_HEVC_PARAM);
     INIT_MFX_EXT_BUFFER(m_ThreadsParam,       MFX_EXTBUFF_THREADS_PARAM);
+    INIT_MFX_EXT_BUFFER(m_chromalocInfo,      MFX_EXTBUFF_CHROMA_LOC_INFO);
 
     m_hwdev.reset();
 
