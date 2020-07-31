@@ -24,53 +24,68 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-File Name: mfx_critical_section.h
+File Name: mfx_critical_section_linux.cpp
 
 \* ****************************************************************************** */
 
-#if !defined(__MFX_CRITICAL_SECTION_H)
-#define __MFX_CRITICAL_SECTION_H
+#if !defined(_WIN32) && !defined(_WIN64)
 
-#include <mfxdefs.h>
+#include "mfx_critical_section.h"
+#include <sched.h>
+
+#define MFX_WAIT() sched_yield()
+
+// static section of the file
+namespace
+{
+
+enum
+{
+    MFX_SC_IS_FREE = 0,
+    MFX_SC_IS_TAKEN = 1
+};
+
+} // namespace
 
 namespace MFX
 {
 
-// Just set "critical section" instance to zero for initialization.
-typedef volatile mfxL32 mfxCriticalSection;
-
-// Enter the global critical section.
-void mfxEnterCriticalSection(mfxCriticalSection *pCSection);
-
-// Leave the global critical section.
-void mfxLeaveCriticalSection(mfxCriticalSection *pCSection);
-
-class MFXAutomaticCriticalSection
+mfxU32 mfxInterlockedCas32(mfxCriticalSection *pCSection, mfxU32 value_to_exchange, mfxU32 value_to_compare)
 {
-public:
-    // Constructor
-    explicit MFXAutomaticCriticalSection(mfxCriticalSection *pCSection)
+    mfxU32 previous_value;
+
+    asm volatile ("lock; cmpxchgl %1,%2"
+                  : "=a" (previous_value)
+                  : "r" (value_to_exchange), "m" (*pCSection), "0" (value_to_compare)
+                  : "memory", "cc");
+    return previous_value;
+}
+
+mfxU32 mfxInterlockedXchg32(mfxCriticalSection *pCSection, mfxU32 value)
+{
+    mfxU32 previous_value = value;
+
+    asm volatile ("lock; xchgl %0,%1"
+                  : "=r" (previous_value), "+m" (*pCSection)
+                  : "0" (previous_value));
+    return previous_value;
+}
+
+void mfxEnterCriticalSection(mfxCriticalSection *pCSection)
+{
+    while (MFX_SC_IS_TAKEN == mfxInterlockedCas32(pCSection,
+                                                  MFX_SC_IS_TAKEN,
+                                                  MFX_SC_IS_FREE))
     {
-        m_pCSection = pCSection;
-        mfxEnterCriticalSection(m_pCSection);
+        MFX_WAIT();
     }
+} // void mfxEnterCriticalSection(mfxCriticalSection *pCSection)
 
-    // Destructor
-    ~MFXAutomaticCriticalSection()
-    {
-        mfxLeaveCriticalSection(m_pCSection);
-    }
-
-protected:
-    // Pointer to a critical section
-    mfxCriticalSection *m_pCSection;
-
-private:
-    // unimplemented by intent to make this class non-copyable
-    MFXAutomaticCriticalSection(const MFXAutomaticCriticalSection &);
-    void operator=(const MFXAutomaticCriticalSection &);
-};
+void mfxLeaveCriticalSection(mfxCriticalSection *pCSection)
+{
+    mfxInterlockedXchg32(pCSection, MFX_SC_IS_FREE);
+} // void mfxLeaveCriticalSection(mfxCriticalSection *pCSection)
 
 } // namespace MFX
 
-#endif // __MFX_CRITICAL_SECTION_H
+#endif // #if !defined(_WIN32) && !defined(_WIN64)
