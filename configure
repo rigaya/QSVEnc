@@ -84,6 +84,8 @@ NO_RDTSCP_INTRIN=0
 ENABLE_CPP_REGEX=1
 
 LIBVA_SUPPORT=1
+LIBVA_X11_SUPPORT=1
+LIBVA_DRM_SUPPORT=1
 
 CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
 LIBAV_CFLAGS=""
@@ -217,7 +219,7 @@ fi
 
 CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
--I${SRCDIR} -I${SRCDIR}/mfx_dispatch/include -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins \
+-I${SRCDIR} -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins \
 -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
 "
 LDFLAGS="-L. -ldl -lstdc++"
@@ -310,11 +312,59 @@ else
     LDFLAGS="$LDFLAGS -Wl,-s"
 fi
 
+printf "checking for libmfx..."
+if cxx_check "${CXXFLAGS} ${LDFLAGS} -lmfx" ; then
+    LDFLAGS="$LDFLAGS -lmfx"
+    echo "yes"
+else
+    LIBVA_SUPPORT=0
+    echo "no"
+fi
+
+printf "checking for libva_drm..."
+if [ $LIBVA_SUPPORT -ne 0 ]; then
+    if cxx_check "${CXXFLAGS} ${LDFLAGS} -lva-drm -ldrm -lva" "" "va/va_drm.h" "" ; then
+        LDFLAGS="$LDFLAGS -lva-drm"
+        CXXFLAGS="$CXXFLAGS -DLIBVA_DRM_SUPPORT"
+        echo "yes"
+    else
+        LIBVA_DRM_SUPPORT=0
+        echo "no"
+    fi
+fi
+
+printf "checking for libva_x11..."
+if [ $LIBVA_SUPPORT -ne 0 ]; then
+    if cxx_check "${CXXFLAGS} ${LDFLAGS} -lva-x11 -lva" "" "va/va_x11.h" "" ; then
+        LDFLAGS="$LDFLAGS -lva-x11"
+        CXXFLAGS="$CXXFLAGS -DLIBVA_X11_SUPPORT"
+        echo "yes"
+    else
+        LIBVA_X11_SUPPORT=0
+        echo "no"
+    fi
+fi
+
 printf "checking for libva..."
 if [ $LIBVA_SUPPORT -ne 0 ]; then
-    if cxx_check "${CXXFLAGS} ${LDFLAGS} -lva-drm -ldrm -lva" ; then
-        LDFLAGS="$LDFLAGS -lva-drm -ldrm -lva"
-        CXXFLAGS="$CXXFLAGS -DLIBVA_SUPPORT -DLIBVA_DRM_SUPPORT"
+    if cxx_check "${CXXFLAGS} ${LDFLAGS} -lva" "" "va/va.h" "" ; then
+        LDFLAGS="$LDFLAGS -lva"
+        CXXFLAGS="$CXXFLAGS -DLIBVA_SUPPORT"
+        echo "yes"
+    else
+        LIBVA_SUPPORT=0
+        echo "no"
+    fi
+fi
+
+printf "checking for drm..."
+if [ $LIBVA_SUPPORT -ne 0 ]; then
+    if cxx_check "${CXXFLAGS} ${LDFLAGS} -ldrm" "" "drm.h" "" ; then
+        LDFLAGS="$LDFLAGS -ldrm"
+        echo "yes"
+    elif cxx_check "${CXXFLAGS} -I/usr/include/libdrm ${LDFLAGS} -ldrm" "" "drm.h" "" ; then
+        LDFLAGS="$LDFLAGS -ldrm"
+        CXXFLAGS="$CXXFLAGS -I/usr/include/libdrm"
         echo "yes"
     else
         LIBVA_SUPPORT=0
@@ -503,15 +553,6 @@ if [ $ENABLE_DTL -ne 0 ]; then
     fi
 fi
 
-SRC_MFX_DISPATCH=" \
-main.cpp                   mfx_critical_section.cpp  mfx_critical_section_linux.cpp \
-mfx_dispatcher.cpp         mfx_dispatcher_log.cpp    mfx_dxva2_device.cpp \
-mfx_function_table.cpp     mfx_library_iterator.cpp  mfx_library_iterator_linux.cpp \
-mfx_load_dll.cpp           mfx_load_dll_linux.cpp    mfx_load_plugin.cpp \
-mfx_plugin_cfg_parser.cpp  mfx_plugin_hive.cpp       mfx_plugin_hive_linux.cpp \
-mfx_win_reg_key.cpp \
-"
-
 SRC_QSVPIPELINE=" \
 DeviceId.cpp                cl_func.cpp                     convert_csp.cpp \
 convert_csp_avx.cpp         convert_csp_avx2.cpp            convert_csp_sse2.cpp \
@@ -519,7 +560,9 @@ convert_csp_sse41.cpp       convert_csp_ssse3.cpp           cpu_info.cpp \
 gpu_info.cpp                gpuz_info.cpp                   qsv_allocator.cpp \
 qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp          qsv_allocator_sys.cpp \
 qsv_allocator_va.cpp        qsv_cmd.cpp                     qsv_control.cpp \
-qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp             qsv_hw_va.cpp \
+qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp  \
+qsv_hw_va.cpp               qsv_hw_va_utils.cpp             qsv_hw_va_utils_drm.cpp \
+qsv_hw_va_utils_x11.cpp  \
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
 ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
@@ -554,9 +597,9 @@ SRC_PLUGIN_ROTATE="plugin_rotate.cpp"
 
 SRC_QSVENCC="QSVEncC.cpp"
 
-for src in $SRC_MFX_DISPATCH; do
-    SRCS="$SRCS mfx_dispatch/src/$src"
-done
+# for src in $SRC_MFX_DISPATCH; do
+#     SRCS="$SRCS mfx_dispatch/src/$src"
+# done
 
 for src in $SRC_QSVPIPELINE; do
     SRCS="$SRCS QSVPipeline/$src"
@@ -609,6 +652,7 @@ write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
 write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
+write_enc_config "#define ENABLE_RAW_READER             1"
 write_enc_config "#define ENABLE_AVI_READER             0"
 write_enc_config "#define ENABLE_AVISYNTH_READER        $ENABLE_AVXSYNTH"
 write_enc_config "#define ENABLE_VAPOURSYNTH_READER     $ENABLE_VAPOURSYNTH"

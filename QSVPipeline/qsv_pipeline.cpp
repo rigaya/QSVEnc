@@ -1672,18 +1672,18 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     if (m_memType) {
 #if MFX_D3D11_SUPPORT
         if (m_memType == D3D11_MEMORY
-            && (m_hwdev = std::make_shared<CQSVD3D11Device>())) {
+            && (m_hwdev = std::make_shared<CQSVD3D11Device>(m_pQSVLog))) {
             m_memType = D3D11_MEMORY;
             PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
-            sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession), m_pQSVLog);
+            sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession));
             if (sts != MFX_ERR_NONE) {
                 m_hwdev.reset();
                 PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
-        if (!m_hwdev && (m_hwdev = std::make_shared<CQSVD3D9Device>())) {
+        if (!m_hwdev && (m_hwdev = std::make_shared<CQSVD3D9Device>(m_pQSVLog))) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (m_memType != D3D9_MEMORY) {
@@ -1693,18 +1693,18 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
             }
 
             PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d9 - initializing...\n"));
-            sts = m_hwdev->Init(window, GetAdapterID(m_mfxSession), m_pQSVLog);
+            sts = m_hwdev->Init(window, GetAdapterID(m_mfxSession));
         }
     }
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
     PrintMes(RGY_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
 
 #elif LIBVA_SUPPORT
-    m_hwdev.reset(CreateVAAPIDevice());
+    m_hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, m_pQSVLog));
     if (!m_hwdev) {
         return MFX_ERR_MEMORY_ALLOC;
     }
-    sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession), m_pQSVLog);
+    sts = m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession));
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
 #endif
     return MFX_ERR_NONE;
@@ -2108,7 +2108,7 @@ mfxStatus CQSVPipeline::CreateAllocator() {
             return MFX_ERR_MEMORY_ALLOC;
         }
 
-        QSVAllocatorParamsVA *p_vaapiAllocParams = new QSVAllocatorParamsVA;
+        QSVAllocatorParamsVA *p_vaapiAllocParams = new QSVAllocatorParamsVA();
         if (!p_vaapiAllocParams) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiAllocatorParams.\n"));
             return MFX_ERR_MEMORY_ALLOC;
@@ -2416,6 +2416,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return err_to_mfx(sts);
     }
+    PrintMes(RGY_LOG_DEBUG, _T("initReaders: Success.\n"));
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
@@ -2958,20 +2959,25 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
 
     sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
     if (sts < MFX_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitSessionInitParam: Success.\n"));
 
     m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
 
     sts = InitInput(pParams);
     if (sts < MFX_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
     sts = CheckParam(pParams);
     if (sts != MFX_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
     sts = m_EncThread.Init(pParams->nInputBufSize);
     QSV_ERR_MES(sts, _T("Failed to allocate memory for thread control."));
+    PrintMes(RGY_LOG_DEBUG, _T("m_EncThread.Init: Success.\n"));
 
     sts = InitSession(true, pParams->memType);
     QSV_ERR_MES(sts, _T("Failed to initialize encode session."));
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
     m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));
 

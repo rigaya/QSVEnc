@@ -1,57 +1,86 @@
-﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
-// -----------------------------------------------------------------------------------------
-// The MIT License
-//
-// Copyright (c) 2011-2016 rigaya
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-// --------------------------------------------------------------------------------------------
+﻿/******************************************************************************\
+Copyright (c) 2005-2019, Intel Corporation
+All rights reserved.
 
-#ifndef __QSV_ALLOCATOR_VA_H__
-#define __QSV_ALLOCATOR_VA_H__
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+This sample was distributed or derived from the Intel's Media Samples package.
+The original version of this sample may be obtained from https://software.intel.com/en-us/intel-media-server-studio
+or https://software.intel.com/en-us/media-client-solutions-support.
+\**********************************************************************************/
+
+#ifndef __VAAPI_ALLOCATOR_H__
+#define __VAAPI_ALLOCATOR_H__
 
 #if defined(LIBVA_SUPPORT)
 
 #include <stdlib.h>
 #include <va/va.h>
+#include <va/va_drmcommon.h>
 
 #include "qsv_allocator.h"
+#include "qsv_hw_va_utils.h"
 
 // VAAPI Allocator internal Mem ID
-struct vaapiMemId {
-    VASurfaceID *m_surface;
+struct vaapiMemId
+{
+    VASurfaceID* m_surface;
     VAImage      m_image;
-    // variables for VAAPI Allocator inernal color convertion
+    // variables for VAAPI Allocator internal color conversion
     unsigned int m_fourcc;
-    mfxU8       *m_sys_buffer;
-    mfxU8       *m_va_buffer;
+    mfxU8*       m_sys_buffer;
+    mfxU8*       m_va_buffer;
+    // buffer info to support surface export
+    VABufferInfo m_buffer_info;
+    // pointer to private export data
+    void*        m_custom;
 };
 
-class QSVAllocatorParamsVA : public mfxAllocatorParams {
-public:
+namespace MfxLoader
+{
+    class VA_Proxy;
+}
+
+struct QSVAllocatorParamsVA : mfxAllocatorParams
+{
+    enum {
+      DONOT_EXPORT = 0,
+      FLINK = 0x01,
+      PRIME = 0x02,
+      NATIVE_EXPORT_MASK = FLINK | PRIME,
+      CUSTOM = 0x100,
+      CUSTOM_FLINK = CUSTOM | FLINK,
+      CUSTOM_PRIME = CUSTOM | PRIME
+    };
+    class Exporter
+    {
+    public:
+      virtual ~Exporter(){}
+      virtual void* acquire(mfxMemId mid) = 0;
+      virtual void release(mfxMemId mid, void * hdl) = 0;
+    };
+
+    QSVAllocatorParamsVA()
+      : m_dpy(NULL)
+      , m_export_mode(DONOT_EXPORT)
+      , m_exporter(NULL)
+    {}
+
     VADisplay m_dpy;
+    mfxU32 m_export_mode;
+    Exporter* m_exporter;
 };
 
-class QSVAllocatorVA : public QSVAllocator {
+class QSVAllocatorVA: public QSVAllocator
+{
 public:
     QSVAllocatorVA();
     virtual ~QSVAllocatorVA();
@@ -60,6 +89,8 @@ public:
     virtual mfxStatus Close() override;
 
 protected:
+    DISALLOW_COPY_AND_ASSIGN(QSVAllocatorVA);
+
     virtual mfxStatus FrameLock(mfxMemId mid, mfxFrameData *ptr) override;
     virtual mfxStatus FrameUnlock(mfxMemId mid, mfxFrameData *ptr) override;
     virtual mfxStatus GetFrameHDL(mfxMemId mid, mfxHDL *handle) override;
@@ -67,10 +98,14 @@ protected:
     virtual mfxStatus CheckRequestType(mfxFrameAllocRequest *request) override;
     virtual mfxStatus ReleaseResponse(mfxFrameAllocResponse *response) override;
     virtual mfxStatus AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllocResponse *response) override;
+    virtual mfxStatus ReallocImpl(mfxMemId midIn, const mfxFrameInfo *info, mfxU16 memType, mfxMemId *midOut);
 
     VADisplay m_dpy;
+    MfxLoader::VA_Proxy * m_libva;
+    mfxU32 m_export_mode;
+    QSVAllocatorParamsVA::Exporter* m_exporter;
 };
 
 #endif //#if defined(LIBVA_SUPPORT)
 
-#endif // __QSV_ALLOCATOR_VA_H__
+#endif // __VAAPI_ALLOCATOR_H__

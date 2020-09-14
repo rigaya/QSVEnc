@@ -31,7 +31,8 @@
 
 #if MFX_D3D11_SUPPORT
 
-CQSVD3D11Device::CQSVD3D11Device():
+CQSVD3D11Device::CQSVD3D11Device(std::shared_ptr<RGYLog> pQSVLog):
+    CQSVHWDevice(pQSVLog),
     m_nViews(0),
     m_bDefaultStereoEnabled(FALSE),
     m_bIsA2rgb10(FALSE),
@@ -56,11 +57,10 @@ void CQSVD3D11Device::SetSCD1(DXGI_SWAP_CHAIN_DESC1& scd1) {
     scd1.Flags              = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 }
 
-mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<RGYLog> pQSVLog) {
+mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) {
     HRESULT hr = 0;
-    pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: Init...\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D11Device: Init...\n"));
     m_HandleWindow = (HWND)hWindow;
-    m_pQSVLog = pQSVLog;
     if (FAILED(hr = CreateDXGIFactory(__uuidof(IDXGIFactory2), (void**)(&m_pDXGIFactory)))) {
         m_pQSVLog->write(RGY_LOG_ERROR, _T("D3D11Device: CreateDXGIFactory: %d\n"), hr);
         return MFX_ERR_DEVICE_FAILED;

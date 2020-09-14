@@ -29,7 +29,7 @@
 #if defined(WIN32) || defined(WIN64)
 #pragma warning(disable:4068)
 
-CQSVD3D9Device::CQSVD3D9Device() {
+CQSVD3D9Device::CQSVD3D9Device(shared_ptr<RGYLog> pQSVLog) : CQSVHWDevice(pQSVLog) {
     RGY_MEMSET_ZERO(m_D3DPresentPrm);
     m_resetToken = 0;
 
@@ -76,11 +76,10 @@ CQSVD3D9Device::CQSVD3D9Device() {
     m_bIsA2rgb10 = FALSE;
 }
 
-mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<RGYLog> pQSVLog) {
+mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) {
     mfxStatus sts = MFX_ERR_NONE;
-    pQSVLog->write(RGY_LOG_DEBUG, _T("D3D9Device: Init...\n"));
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D9Device: Init...\n"));
 
-    m_pQSVLog = pQSVLog;
     HRESULT hr = 0;
     IDirect3D9Ex *pD3D9 = nullptr;
     if (FAILED(hr = Direct3DCreate9Ex(D3D_SDK_VERSION, &pD3D9))) {

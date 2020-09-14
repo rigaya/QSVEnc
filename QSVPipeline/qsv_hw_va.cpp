@@ -1,347 +1,562 @@
-﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
-// -----------------------------------------------------------------------------------------
-// The MIT License
-//
-// Copyright (c) 2011-2016 rigaya
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
-// ------------------------------------------------------------------------------------------
+﻿/******************************************************************************\
+Copyright (c) 2005-2019, Intel Corporation
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+This sample was distributed or derived from the Intel's Media Samples package.
+The original version of this sample may be obtained from https://software.intel.com/en-us/intel-media-server-studio
+or https://software.intel.com/en-us/media-client-solutions-support.
+\**********************************************************************************/
+
+#if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT) || defined(LIBVA_ANDROID_SUPPORT)
 
 #include "qsv_hw_va.h"
 
-#if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT)
-#include <va/va.h>
-
-mfxStatus va_to_mfx_status(VAStatus va_res) {
-    switch (va_res) {
-    case VA_STATUS_SUCCESS:
-        return MFX_ERR_NONE;
-    case VA_STATUS_ERROR_ALLOCATION_FAILED:
-        return MFX_ERR_MEMORY_ALLOC;
-    case VA_STATUS_ERROR_ATTR_NOT_SUPPORTED:
-    case VA_STATUS_ERROR_UNSUPPORTED_PROFILE:
-    case VA_STATUS_ERROR_UNSUPPORTED_ENTRYPOINT:
-    case VA_STATUS_ERROR_UNSUPPORTED_RT_FORMAT:
-    case VA_STATUS_ERROR_UNSUPPORTED_BUFFERTYPE:
-    case VA_STATUS_ERROR_FLAG_NOT_SUPPORTED:
-    case VA_STATUS_ERROR_RESOLUTION_NOT_SUPPORTED:
-        return MFX_ERR_UNSUPPORTED;
-    case VA_STATUS_ERROR_INVALID_DISPLAY:
-    case VA_STATUS_ERROR_INVALID_CONFIG:
-    case VA_STATUS_ERROR_INVALID_CONTEXT:
-    case VA_STATUS_ERROR_INVALID_SURFACE:
-    case VA_STATUS_ERROR_INVALID_BUFFER:
-    case VA_STATUS_ERROR_INVALID_IMAGE:
-    case VA_STATUS_ERROR_INVALID_SUBPICTURE:
-        return MFX_ERR_NOT_INITIALIZED;
-    case VA_STATUS_ERROR_INVALID_PARAMETER:
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    default:
-        return MFX_ERR_UNKNOWN;
-    }
-}
-CLibVA *CreateLibVA() {
-#if defined(LIBVA_DRM_SUPPORT)
-    return new DRMLibVA();
-#elif defined(LIBVA_X11_SUPPORT)
-    return new X11LibVA();
+#if defined(LIBVA_WAYLAND_SUPPORT)
+#include "class_wayland.h"
 #endif
-    return nullptr;
-}
-
-CQSVHWDevice *CreateVAAPIDevice() {
-#if defined(LIBVA_DRM_SUPPORT)
-    return new CQSVHWVADeviceDRM();
-#elif defined(LIBVA_X11_SUPPORT)
-    return new CQSVHWVADeviceX11();
-#else
-    return nullptr;
-#endif
-}
-#endif // #if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT)
-
-
-
-
-#if defined(LIBVA_DRM_SUPPORT)
-
-#include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-#include <dirent.h>
-#include <stdexcept>
-
-#define MFX_PCI_DIR "/sys/bus/pci/devices"
-#define MFX_DRI_DIR "/dev/dri/"
-#define MFX_PCI_DISPLAY_CONTROLLER_CLASS 0x03
-
-struct mfx_disp_adapters {
-    mfxU32 vendor_id;
-    mfxU32 device_id;
-};
-
-static int mfx_dir_filter(const struct dirent* dir_ent) {
-    if (!dir_ent) return 0;
-    if (!strcmp(dir_ent->d_name, ".")) return 0;
-    if (!strcmp(dir_ent->d_name, "..")) return 0;
-    return 1;
-}
-
-typedef int (*fsort)(const struct dirent**, const struct dirent**);
-
-static mfxU32 mfx_init_adapters(struct mfx_disp_adapters **p_adapters) {
-    mfxU32 adapters_num = 0;
-    struct mfx_disp_adapters* adapters = NULL;
-    struct dirent** dir_entries = NULL;
-    int entries_num = scandir(MFX_PCI_DIR, &dir_entries, mfx_dir_filter, (fsort)alphasort);
-
-    for (int i = 0; i < entries_num; i++) {
-        long int class_id = 0, vendor_id = 0, device_id = 0;
-
-        if (dir_entries[i]) {
-            char file_name[300] = {0};
-            snprintf(file_name, _countof(file_name), "%s/%s/%s", MFX_PCI_DIR, dir_entries[i]->d_name, "class");
-            FILE *file = fopen(file_name, "r");
-            if (file) {
-                char str[16] = {0};
-                if (fgets(str, sizeof(str), file)) {
-                    class_id = strtol(str, NULL, 16);
-                }
-                fclose(file);
-
-                if (MFX_PCI_DISPLAY_CONTROLLER_CLASS == (class_id >> 16)) {
-                    // obtaining device vendor id
-                    snprintf(file_name, _countof(file_name), "%s/%s/%s", MFX_PCI_DIR, dir_entries[i]->d_name, "vendor");
-                    file = fopen(file_name, "r");
-                    if (file) {
-                        if (fgets(str, sizeof(str), file)) {
-                            vendor_id = strtol(str, NULL, 16);
-                        }
-                        fclose(file);
-                    }
-                    // obtaining device id
-                    snprintf(file_name, _countof(file_name), "%s/%s/%s", MFX_PCI_DIR, dir_entries[i]->d_name, "device");
-                    file = fopen(file_name, "r");
-                    if (file) {
-                        if (fgets(str, sizeof(str), file)) {
-                            device_id = strtol(str, NULL, 16);
-                        }
-                        fclose(file);
-                    }
-                    // adding valid adapter to the list
-                    if (vendor_id && device_id) {
-                        struct mfx_disp_adapters* tmp_adapters =
-                            (mfx_disp_adapters*)realloc(adapters, (adapters_num+1)*sizeof(struct mfx_disp_adapters));
-                        if (tmp_adapters) {
-                            adapters = tmp_adapters;
-                            adapters[adapters_num].vendor_id = vendor_id;
-                            adapters[adapters_num].device_id = device_id;
-                            adapters_num++;
-                        }
-                    }
-                }
-            }
-            free(dir_entries[i]);
-        }
-    }
-    if (entries_num) free(dir_entries);
-    if (p_adapters) *p_adapters = adapters;
-
-    return adapters_num;
-}
-
-DRMLibVA::DRMLibVA(void) : m_fd(-1) {
-    const mfxU32 IntelVendorID = 0x8086;
-    //the first Intel adapter is only required now, the second - in the future
-    const mfxU32 numberOfRequiredIntelAdapter = 1;
-    const char nodesNames[][8] = {"renderD", "card"};
-
-    VAStatus va_res = VA_STATUS_SUCCESS;
-    mfxStatus sts = MFX_ERR_NONE;
-    int major_version = 0, minor_version = 0;
-
-    mfx_disp_adapters* adapters = NULL;
-    int adapters_num = mfx_init_adapters(&adapters);
-
-    // Search for the required display adapter
-    int i = 0, nFoundAdapters = 0;
-    int nodesNumbers[] = {0,0};
-    while ((i < adapters_num) && (nFoundAdapters != numberOfRequiredIntelAdapter)) {
-        if (adapters[i].vendor_id == IntelVendorID) {
-            nFoundAdapters++;
-            nodesNumbers[0] = i+128; //for render nodes
-            nodesNumbers[1] = i;     //for card
-        }
-        i++;
-    }
-    if (adapters_num) free(adapters);
-    // If Intel adapter with specified number wasn't found, throws exception
-    if (nFoundAdapters != numberOfRequiredIntelAdapter)
-        throw std::range_error("The Intel adapter with a specified number wasn't found");
-
-    // Initialization of paths to the device nodes
-    char** adapterPaths = new char* [2];
-    for (int i=0; i<2; i++) {
-        adapterPaths[i] = new char[sizeof(MFX_DRI_DIR) + sizeof(nodesNames[i]) + 3];
-        sprintf(adapterPaths[i], "%s%s%d", MFX_DRI_DIR, nodesNames[i], nodesNumbers[i]);
-    }
-
-    // Loading display. At first trying to open render nodes, then card.
-    for (int i=0; i<2; i++) {
-        sts = MFX_ERR_NONE;
-        m_fd = open(adapterPaths[i], O_RDWR);
-
-        if (m_fd < 0) sts = MFX_ERR_NOT_INITIALIZED;
-        if (MFX_ERR_NONE == sts) {
-            m_va_dpy = vaGetDisplayDRM(m_fd);
-            if (!m_va_dpy) {
-                close(m_fd);
-                sts = MFX_ERR_NULL_PTR;
-            }
-        }
-
-        if (MFX_ERR_NONE == sts) {
-            va_res = vaInitialize(m_va_dpy, &major_version, &minor_version);
-            sts = va_to_mfx_status(va_res);
-            if (MFX_ERR_NONE != sts) {
-                close(m_fd);
-                m_fd = -1;
-            }
-        }
-
-        if (MFX_ERR_NONE == sts) break;
-    }
-
-    for (int i=0; i<2; i++) {
-        delete [] adapterPaths[i];
-    }
-    delete [] adapterPaths;
-
-    if (MFX_ERR_NONE != sts) {
-        throw std::invalid_argument("Loading of VA display was failed");
-    }
-}
-
-DRMLibVA::~DRMLibVA(void) {
-    if (m_va_dpy) {
-        vaTerminate(m_va_dpy);
-    }
-    if (m_fd >= 0) {
-        close(m_fd);
-    }
-}
-
-#endif // #if defined(LIBVA_DRM_SUPPORT)
-
-
-
-
-
 
 #if defined(LIBVA_X11_SUPPORT)
 
+#include <va/va_x11.h>
 #include <X11/Xlib.h>
 
+#include "qsv_allocator_va.h"
+#if defined(X11_DRI3_SUPPORT)
+#include <fcntl.h>
 
-#define VAAPI_X_DEFAULT_DISPLAY ":0.0"
+#define ALIGN(x, y) (((x) + (y)-1) & -(y))
+#define PAGE_ALIGN(x) ALIGN(x, 4096)
+#endif // X11_DRI3_SUPPORT
 
-X11LibVA::X11LibVA(void) {
-    VAStatus va_res = VA_STATUS_SUCCESS;
-    mfxStatus sts = MFX_ERR_NONE;
-    int major_version = 0, minor_version = 0;
-    char *currentDisplay = getenv("DISPLAY");
+#define VAAPI_GET_X_DISPLAY(_display) (Display *)(_display)
+#define VAAPI_GET_X_WINDOW(_window) (Window *)(_window)
 
-    m_display = (currentDisplay) ? XOpenDisplay(currentDisplay) : XOpenDisplay(VAAPI_X_DEFAULT_DISPLAY);
-
-    if (m_display == NULL) {
-        throw std::bad_alloc();
-    }
-    m_va_dpy = vaGetDisplay(m_display);
-    if (!m_va_dpy) {
-        XCloseDisplay(m_display);
-        throw std::bad_alloc();
-    }
-    va_res = vaInitialize(m_va_dpy, &major_version, &minor_version);
-    sts = va_to_mfx_status(va_res);
-    if (MFX_ERR_NONE != sts) {
-        XCloseDisplay(m_display);
-        throw std::bad_alloc();
-    }
-}
-
-X11LibVA::~X11LibVA(void) {
-    if (m_va_dpy) {
-        vaTerminate(m_va_dpy);
-    }
-    if (m_display) {
-        XCloseDisplay(m_display);
-    }
-}
-
-
-#define VAAPI_GET_X_DISPLAY(_display) (Display*)(_display)
-#define VAAPI_GET_X_WINDOW(_window) (Window*)(_window)
-
-CQSVHWVADeviceX11::~CQSVHWVADeviceX11(void) {
+CVAAPIDeviceX11::~CVAAPIDeviceX11(void)
+{
     Close();
 }
 
-mfxStatus CQSVHWVADeviceX11::Init(mfxHDL hWindow, mfxU32 nAdapterNum, shared_ptr<RGYLog> pQSVLog) {
+mfxStatus CVAAPIDeviceX11::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum)
+{
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("VAAPIDeviceX11: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
     mfxStatus mfx_res = MFX_ERR_NONE;
-    m_pRGYLog = pQSVLog;
-    Window* window = NULL;
+    Window *window = NULL;
+
+    if (nViews)
+    {
+        if (MFX_ERR_NONE == mfx_res)
+        {
+            m_window = window = (Window *)malloc(sizeof(Window));
+            if (!m_window)
+                mfx_res = MFX_ERR_MEMORY_ALLOC;
+        }
+        if (MFX_ERR_NONE == mfx_res)
+        {
+            Display *display = VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay());
+            MfxLoader::XLib_Proxy &x11lib = m_X11LibVA.GetX11();
+            mfxU32 screen_number = DefaultScreen(display);
+
+            *window = x11lib.XCreateSimpleWindow(
+                display,
+                RootWindow(display, screen_number),
+                m_bRenderWin ? m_nRenderWinX : 0,
+                m_bRenderWin ? m_nRenderWinY : 0,
+                100,
+                100,
+                0,
+                0,
+                BlackPixel(display, screen_number));
+
+            if (!(*window))
+                mfx_res = MFX_ERR_UNKNOWN;
+            else
+            {
+                x11lib.XMapWindow(display, *window);
+                x11lib.XSync(display, False);
+            }
+        }
+    }
+#if defined(X11_DRI3_SUPPORT)
+    MfxLoader::DrmIntel_Proxy &drmintellib = m_X11LibVA.GetDrmIntelX11();
+    MfxLoader::X11_Xcb_Proxy &x11xcblib = m_X11LibVA.GetX11XcbX11();
+
+    m_xcbconn = x11xcblib.XGetXCBConnection(VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay()));
+
+    // it's enough to pass render node, because we only request
+    // information from kernel via m_dri_fd
+    m_dri_fd = open("/dev/dri/renderD128", O_RDWR);
+    if (m_dri_fd < 0)
+    {
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("ed to open dri device\n"));
+        return MFX_ERR_NOT_INITIALIZED;
+    }
+
+    m_bufmgr = drmintellib.drm_intel_bufmgr_gem_init(m_dri_fd, 4096);
+    if (!m_bufmgr)
+    {
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to get buffer manager\n"));
+        return MFX_ERR_NOT_INITIALIZED;
+    }
+
+#endif
+
     return mfx_res;
 }
 
-void CQSVHWVADeviceX11::Close() {
-    if (m_window) {
-        Display* display = VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay());
-        Window* window = VAAPI_GET_X_WINDOW(m_window);
-        XDestroyWindow(display, *window);
+void CVAAPIDeviceX11::Close(void)
+{
+    if (m_window)
+    {
+        Display *display = VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay());
+        Window *window = VAAPI_GET_X_WINDOW(m_window);
+
+        MfxLoader::XLib_Proxy &x11lib = m_X11LibVA.GetX11();
+        x11lib.XDestroyWindow(display, *window);
 
         free(m_window);
         m_window = NULL;
     }
-    m_pRGYLog.reset();
+#if defined(X11_DRI3_SUPPORT)
+    if (m_dri_fd)
+    {
+        close(m_dri_fd);
+    }
+#endif
 }
 
-mfxStatus CQSVHWVADeviceX11::Reset() {
+mfxStatus CVAAPIDeviceX11::Reset(void)
+{
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVHWVADeviceX11::GetHandle(mfxHandleType type, mfxHDL *pHdl) {
-    if ((MFX_HANDLE_VA_DISPLAY == type) && (nullptr != pHdl)) {
+mfxStatus CVAAPIDeviceX11::GetHandle(mfxHandleType type, mfxHDL *pHdl)
+{
+    if ((MFX_HANDLE_VA_DISPLAY == type) && (NULL != pHdl))
+    {
         *pHdl = m_X11LibVA.GetVADisplay();
 
         return MFX_ERR_NONE;
     }
+
     return MFX_ERR_UNSUPPORTED;
 }
 
-mfxStatus CVAAPIDeviceX11::SetHandle(mfxHandleType type, mfxHDL hdl) {
+mfxStatus CVAAPIDeviceX11::SetHandle(mfxHandleType type, mfxHDL hdl)
+{
     return MFX_ERR_UNSUPPORTED;
 }
 
-mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAllocator *pmfxAlloc) {
+mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAllocator * /*pmfxAlloc*/)
+{
+    mfxStatus mfx_res = MFX_ERR_NONE;
+    vaapiMemId *memId = NULL;
+
+#if !defined(X11_DRI3_SUPPORT)
+    VAStatus va_res = VA_STATUS_SUCCESS;
+    VASurfaceID surface;
+    Display *display = VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay());
+    Window *window = VAAPI_GET_X_WINDOW(m_window);
+
+    if (!window || !(*window))
+        mfx_res = MFX_ERR_NOT_INITIALIZED;
+    // should MFX_ERR_NONE be returned below considering situation as EOS?
+    if ((MFX_ERR_NONE == mfx_res) && NULL == pSurface)
+        mfx_res = MFX_ERR_NULL_PTR;
+    if (MFX_ERR_NONE == mfx_res)
+    {
+        memId = (vaapiMemId *)(pSurface->Data.MemId);
+        if (!memId || !memId->m_surface)
+            mfx_res = MFX_ERR_NULL_PTR;
+    }
+    if (MFX_ERR_NONE == mfx_res)
+    {
+        VADisplay dpy = m_X11LibVA.GetVADisplay();
+        VADisplay rnddpy = m_X11LibVA.GetVADisplay();
+        VASurfaceID rndsrf;
+        void *ctx;
+
+        surface = *memId->m_surface;
+
+        va_res = m_X11LibVA.AcquireVASurface(&ctx, dpy, surface, rnddpy, &rndsrf);
+        mfx_res = va_to_mfx_status(va_res);
+        if (MFX_ERR_NONE != mfx_res)
+            return mfx_res;
+
+        MfxLoader::XLib_Proxy &x11lib = m_X11LibVA.GetX11();
+        x11lib.XResizeWindow(display, *window, pSurface->Info.CropW, pSurface->Info.CropH);
+
+        MfxLoader::VA_X11Proxy &vax11lib = m_X11LibVA.GetVAX11();
+        va_res = vax11lib.vaPutSurface(rnddpy,
+                                       rndsrf,
+                                       *window,
+                                       pSurface->Info.CropX,
+                                       pSurface->Info.CropY,
+                                       pSurface->Info.CropX + pSurface->Info.CropW,
+                                       pSurface->Info.CropY + pSurface->Info.CropH,
+                                       pSurface->Info.CropX,
+                                       pSurface->Info.CropY,
+                                       pSurface->Info.CropX + pSurface->Info.CropW,
+                                       pSurface->Info.CropY + pSurface->Info.CropH,
+                                       NULL,
+                                       0,
+                                       VA_FRAME_PICTURE);
+
+        mfx_res = va_to_mfx_status(va_res);
+        x11lib.XSync(display, False);
+
+        m_X11LibVA.ReleaseVASurface(ctx, dpy, surface, rnddpy, rndsrf);
+    }
+    return mfx_res;
+#else //\/ X11_DRI3_SUPPORT
+    Window *window = VAAPI_GET_X_WINDOW(m_window);
+    Window root;
+    drm_intel_bo *bo = NULL;
+    unsigned int border, depth, stride, size,
+        width, height;
+    int fd = 0, bpp = 0, x, y;
+
+    MfxLoader::Xcb_Proxy &xcblib = m_X11LibVA.GetXcbX11();
+    MfxLoader::XLib_Proxy &x11lib = m_X11LibVA.GetX11();
+    MfxLoader::DrmIntel_Proxy &drmintellib = m_X11LibVA.GetDrmIntelX11();
+    MfxLoader::Xcbpresent_Proxy &xcbpresentlib = m_X11LibVA.GetXcbpresentX11();
+    MfxLoader::XCB_Dri3_Proxy &dri3lib = m_X11LibVA.GetXCBDri3X11();
+
+    if (!window || !(*window))
+        mfx_res = MFX_ERR_NOT_INITIALIZED;
+    // should MFX_ERR_NONE be returned below considering situation as EOS?
+    if ((MFX_ERR_NONE == mfx_res) && NULL == pSurface)
+        mfx_res = MFX_ERR_NULL_PTR;
+    if (MFX_ERR_NONE == mfx_res)
+    {
+        memId = (vaapiMemId *)(pSurface->Data.MemId);
+        if (!memId || !memId->m_surface)
+            mfx_res = MFX_ERR_NULL_PTR;
+    }
+
+    if (memId && memId->m_buffer_info.mem_type != VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME)
+    {
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("Memory type invalid!\n"));
+        return MFX_ERR_UNSUPPORTED;
+    }
+
+    if (MFX_ERR_NONE == mfx_res)
+    {
+        x11lib.XResizeWindow(VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay()),
+                             *window, pSurface->Info.CropW, pSurface->Info.CropH);
+        x11lib.XGetGeometry(VAAPI_GET_X_DISPLAY(m_X11LibVA.GetXDisplay()),
+                            *window, &root, &x, &y, &width, &height, &border, &depth);
+
+        switch (depth)
+        {
+        case 8:
+            bpp = 8;
+            break;
+        case 15:
+        case 16:
+            bpp = 16;
+            break;
+        case 24:
+        case 32:
+            bpp = 32;
+            break;
+        default:
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("Invalid depth\n"));
+        }
+
+        width = pSurface->Info.CropX + pSurface->Info.CropW;
+        height = pSurface->Info.CropY + pSurface->Info.CropH;
+
+        stride = width * bpp / 8;
+        size = PAGE_ALIGN(stride * height);
+
+        bo = drmintellib.drm_intel_bo_gem_create_from_prime(m_bufmgr, memId->m_buffer_info.handle, size);
+        if (!bo)
+        {
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to create buffer object\n"));
+            return MFX_ERR_MEMORY_ALLOC;
+        }
+
+        drmintellib.drm_intel_bo_gem_export_to_prime(bo, &fd);
+        if (!fd)
+        {
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("Invalid fd\n"));
+            return MFX_ERR_INVALID_HANDLE;
+        }
+
+        xcb_pixmap_t pixmap = xcblib.xcb_generate_id(m_xcbconn);
+        xcb_void_cookie_t cookie;
+        xcb_generic_error_t *error;
+
+        cookie = dri3lib.xcb_dri3_pixmap_from_buffer_checked(m_xcbconn, pixmap, root, size, width, height, stride, depth, bpp, fd);
+        if ((error = xcblib.xcb_request_check(m_xcbconn, cookie)))
+        {
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to create xcb pixmap from the %s surface: try another color format (e.g. RGB4)\n"),
+                        ColorFormatToStr(pSurface->Info.FourCC));
+            free(error);
+            return MFX_ERR_INVALID_HANDLE;
+        }
+
+        cookie = xcbpresentlib.xcb_present_pixmap_checked(m_xcbconn,
+                                                          *window, pixmap,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          None,
+                                                          None,
+                                                          None,
+                                                          XCB_PRESENT_OPTION_NONE,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          0, NULL);
+        if ((error = xcblib.xcb_request_check(m_xcbconn, cookie)))
+        {
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to present pixmap\n"));
+            free(error);
+            return MFX_ERR_UNKNOWN;
+        }
+
+        xcblib.xcb_free_pixmap(m_xcbconn, pixmap);
+        xcblib.xcb_flush(m_xcbconn);
+    }
+
+    return mfx_res;
+
+#endif // X11_DRI3_SUPPORT
+}
+#endif
+
+#if defined(LIBVA_WAYLAND_SUPPORT)
+#include "wayland-drm-client-protocol.h"
+
+CVAAPIDeviceWayland::~CVAAPIDeviceWayland(void)
+{
+    Close();
+}
+
+mfxStatus CVAAPIDeviceWayland::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum)
+{
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("VAAPIDeviceWayland: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
+    mfxStatus mfx_res = MFX_ERR_NONE;
+
+    if (nViews)
+    {
+        m_Wayland = (Wayland *)m_WaylandClient.WaylandCreate();
+        if (!m_Wayland->InitDisplay())
+        {
+            return MFX_ERR_DEVICE_FAILED;
+        }
+
+        if (NULL == m_Wayland->GetDisplay())
+        {
+            mfx_res = MFX_ERR_UNKNOWN;
+            return mfx_res;
+        }
+        if (-1 == m_Wayland->DisplayRoundtrip())
+        {
+            mfx_res = MFX_ERR_UNKNOWN;
+            return mfx_res;
+        }
+        if (!m_Wayland->CreateSurface())
+        {
+            mfx_res = MFX_ERR_UNKNOWN;
+            return mfx_res;
+        }
+    }
+    return mfx_res;
+}
+
+mfxStatus CVAAPIDeviceWayland::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAllocator * /*pmfxAlloc*/)
+{
+    uint32_t drm_format = 0;
+    int offsets[3], pitches[3];
+    mfxStatus mfx_res = MFX_ERR_NONE;
+    vaapiMemId *memId = NULL;
+    struct wl_buffer *m_wl_buffer = NULL;
+    if (NULL == pSurface)
+    {
+        mfx_res = MFX_ERR_UNKNOWN;
+        return mfx_res;
+    }
+    m_Wayland->Sync();
+    memId = (vaapiMemId *)(pSurface->Data.MemId);
+
+    if (pSurface->Info.FourCC == MFX_FOURCC_NV12)
+    {
+        drm_format = WL_DRM_FORMAT_NV12;
+    }
+    else if (pSurface->Info.FourCC == MFX_FOURCC_RGB4)
+    {
+        drm_format = WL_DRM_FORMAT_ARGB8888;
+
+        if (m_isMondelloInputEnabled)
+        {
+            drm_format = WL_DRM_FORMAT_XBGR8888;
+        }
+    }
+
+    offsets[0] = memId->m_image.offsets[0];
+    offsets[1] = memId->m_image.offsets[1];
+    offsets[2] = memId->m_image.offsets[2];
+    pitches[0] = memId->m_image.pitches[0];
+    pitches[1] = memId->m_image.pitches[1];
+    pitches[2] = memId->m_image.pitches[2];
+    m_wl_buffer = m_Wayland->CreatePrimeBuffer(memId->m_buffer_info.handle, pSurface->Info.CropW, pSurface->Info.CropH, drm_format, offsets, pitches);
+    if (NULL == m_wl_buffer)
+    {
+        m_pQSVLog->write(RGY_LOG_ERROR, _T("\nCan't wrap flink to wl_buffer\n"));
+        mfx_res = MFX_ERR_UNKNOWN;
+        return mfx_res;
+    }
+
+    m_Wayland->RenderBuffer(m_wl_buffer, pSurface->Info.CropW, pSurface->Info.CropH);
+
+    return mfx_res;
+}
+
+void CVAAPIDeviceWayland::Close(void)
+{
+    m_Wayland->FreeSurface();
+}
+
+CHWDevice *CreateVAAPIDevice(void)
+{
+    return new CVAAPIDeviceWayland();
+}
+
+#endif // LIBVA_WAYLAND_SUPPORT
+
+#if defined(LIBVA_DRM_SUPPORT)
+
+CVAAPIDeviceDRM::CVAAPIDeviceDRM(const std::string &devicePath, int type, std::shared_ptr<RGYLog> pQSVLog)
+    : CQSVHWDevice(pQSVLog), m_DRMLibVA(devicePath, type), m_rndr(NULL)
+{
+}
+
+CVAAPIDeviceDRM::~CVAAPIDeviceDRM(void)
+{
+    if (m_rndr) delete m_rndr;
+}
+
+mfxStatus CVAAPIDeviceDRM::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum)
+{
+    m_pQSVLog->write(RGY_LOG_DEBUG, _T("VAAPIDeviceDRM: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
+    if (0 == nViews)
+    {
+        return MFX_ERR_NONE;
+    }
+    if (1 == nViews)
+    {
+        if (m_DRMLibVA.getBackendType() == MFX_LIBVA_DRM_RENDERNODE)
+        {
+            return MFX_ERR_NONE;
+        }
+        mfxI32 *monitorType = (mfxI32 *)hWindow;
+        if (!monitorType)
+            return MFX_ERR_INVALID_VIDEO_PARAM;
+        try
+        {
+            m_rndr = new drmRenderer(m_DRMLibVA.getFD(), *monitorType, m_pQSVLog);
+        }
+        catch (...)
+        {
+            m_pQSVLog->write(RGY_LOG_ERROR, _T("vaapi_device: failed to initialize drmrender\n"));
+            return MFX_ERR_UNKNOWN;
+        }
+        return MFX_ERR_NONE;
+    }
+    m_pQSVLog->write(RGY_LOG_ERROR, _T("VAAPIDeviceDRM: nViews > 1 not supported.\n"));
     return MFX_ERR_UNSUPPORTED;
 }
 
-#endif //#if defined(LIBVA_X11_SUPPORT)
+mfxStatus CVAAPIDeviceDRM::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAllocator *pmfxAlloc)
+{
+    return (m_rndr) ? m_rndr->render(pSurface) : MFX_ERR_NONE;
+}
+
+#endif
+
+#if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT) || defined(LIBVA_WAYLAND_SUPPORT)
+
+CQSVHWDevice *CreateVAAPIDevice(const std::string &devicePath, int type, std::shared_ptr<RGYLog> log)
+{
+    CQSVHWDevice *device = NULL;
+
+    switch (type)
+    {
+    case MFX_LIBVA_DRM_RENDERNODE:
+    case MFX_LIBVA_DRM_MODESET:
+#if defined(LIBVA_DRM_SUPPORT)
+        try
+        {
+            device = new CVAAPIDeviceDRM(devicePath, type, log);
+        }
+        catch (std::exception &)
+        {
+            device = NULL;
+        }
+#endif
+        break;
+
+    case MFX_LIBVA_X11:
+#if defined(LIBVA_X11_SUPPORT)
+        try
+        {
+            device = new CVAAPIDeviceX11(log);
+        }
+        catch (std::exception &)
+        {
+            device = NULL;
+        }
+#endif
+        break;
+    case MFX_LIBVA_WAYLAND:
+#if defined(LIBVA_WAYLAND_SUPPORT)
+        device = new CVAAPIDeviceWayland;
+#endif
+        break;
+    case MFX_LIBVA_AUTO:
+#if defined(LIBVA_X11_SUPPORT)
+        try
+        {
+            device = new CVAAPIDeviceX11(log);
+        }
+        catch (std::exception &)
+        {
+            device = NULL;
+        }
+#endif
+#if defined(LIBVA_DRM_SUPPORT)
+        if (!device)
+        {
+            try
+            {
+                device = new CVAAPIDeviceDRM(devicePath, type, log);
+            }
+            catch (std::exception &)
+            {
+                device = NULL;
+            }
+        }
+#endif
+        break;
+    } // switch(type)
+
+    return device;
+}
+
+#endif
+
+#endif //#if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT) || defined(LIBVA_ANDROID_SUPPORT)

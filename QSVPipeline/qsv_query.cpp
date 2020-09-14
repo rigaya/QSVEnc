@@ -555,7 +555,7 @@ mfxStatus InitSession(MFXVideoSession& session, bool useHWLib, MemType& memType)
 std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& memType) {
     mfxStatus sts = MFX_ERR_NONE;
     std::unique_ptr<CQSVHWDevice> hwdev;
-    std::shared_ptr<RGYLog> pQSVLog(new RGYLog(nullptr, RGY_LOG_ERROR));
+    std::shared_ptr<RGYLog> pQSVLog(new RGYLog(nullptr, RGY_LOG_DEBUG));
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
     HWND window = WindowFromPoint(point);
@@ -563,7 +563,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
     if (memType) {
 #if MFX_D3D11_SUPPORT
         if (memType == D3D11_MEMORY
-            && (hwdev = std::make_unique<CQSVD3D11Device>())) {
+            && (hwdev = std::make_unique<CQSVD3D11Device>(pQSVLog))) {
             memType = D3D11_MEMORY;
 
             sts = hwdev->Init(NULL, GetAdapterID(session), pQSVLog);
@@ -572,7 +572,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
-        if (!hwdev && (hwdev = std::make_unique<CQSVD3D9Device>())) {
+        if (!hwdev && (hwdev = std::make_unique<CQSVD3D9Device>(pQSVLog))) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (memType != D3D9_MEMORY) {
@@ -580,15 +580,20 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
                 InitSession(session, true, memType);
             }
 
-            sts = hwdev->Init(window, GetAdapterID(session), pQSVLog);
+            sts = hwdev->Init(window, GetAdapterID(session));
         }
     }
 
 #elif LIBVA_SUPPORT
-    hwdev.reset(CreateVAAPIDevice());
+    hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, pQSVLog));
     if (hwdev) {
-        sts = hwdev->Init(NULL, GetAdapterID(session), pQSVLog);
+        sts = hwdev->Init(NULL, 0, GetAdapterID(session));
     }
+    mfxHDL hdl = NULL;
+    sts = hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
+
+    //ハンドルを渡す
+    sts = session.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
 #endif
     if (sts != MFX_ERR_NONE) {
         hwdev.reset();
@@ -813,6 +818,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     videoPrm.ExtParam = &bufOut[0];
 
     mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
+    fprintf(stderr, "ret: %d\n", ret);
 
     mfxU64 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
@@ -1064,6 +1070,7 @@ mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver
         } else if (codecId == MFX_CODEC_VP9) {
             sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
         }
+        fprintf(stderr, "CheckEncodeFeature: codecId = %s\n", CodecIdToStr(codecId));  
         feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
         sessionPlugins.UnloadPlugins();
     }
@@ -1081,17 +1088,18 @@ const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
 vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId) {
     vector<mfxU64> availableFeatureForEachRC;
     availableFeatureForEachRC.reserve(rateControlList.size());
-
-    MemType memType = HW_MEMORY;
-    MFXVideoSession session;
-    if (InitSession(session, true, memType) == MFX_ERR_NONE) {
-        if (auto hwdevice = InitHWDevice(session, memType)) {
-            for (const auto& ratecontrol : rateControlList) {
-                mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, ver, (mfxU16)ratecontrol.value, codecId);
-                if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
-                    ver = MFX_LIB_VERSION_0_0;
+    if (codecId != MFX_CODEC_MPEG2) {
+        MemType memType = HW_MEMORY;
+        MFXVideoSession session;
+        if (InitSession(session, true, memType) == MFX_ERR_NONE) {
+            if (auto hwdevice = InitHWDevice(session, memType)) {
+                for (const auto& ratecontrol : rateControlList) {
+                    mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, ver, (mfxU16)ratecontrol.value, codecId);
+                    if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
+                        ver = MFX_LIB_VERSION_0_0;
+                    }
+                    availableFeatureForEachRC.push_back(ret);
                 }
-                availableFeatureForEachRC.push_back(ret);
             }
         }
     }

@@ -48,10 +48,10 @@ struct IUnknown_release {
 
 class CQSVD3D9Device : public CQSVHWDevice {
 public:
-    CQSVD3D9Device();
+    CQSVD3D9Device(shared_ptr<RGYLog> pQSVLog);
     virtual ~CQSVD3D9Device();
 
-    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nAdapterNum, shared_ptr<RGYLog> pQSVLog) override;
+    virtual mfxStatus Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) override;
     virtual mfxStatus Reset();
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
     virtual void      Close() override;
