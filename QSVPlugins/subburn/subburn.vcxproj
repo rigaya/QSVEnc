@@ -38,7 +38,7 @@
     <ProjectGuid>{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>subburn</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>subburn</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

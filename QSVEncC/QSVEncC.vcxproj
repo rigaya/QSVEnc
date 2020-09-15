@@ -38,7 +38,7 @@
     <ProjectGuid>{09239F87-B73E-4EC0-98BF-1BF4795912AF}</ProjectGuid>
     <RootNamespace>QSVEncC</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <UseMultiToolTask>true</UseMultiToolTask>
     <EnforceProcessCountAcrossBuilds>true</EnforceProcessCountAcrossBuilds>
   </PropertyGroup>

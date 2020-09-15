@@ -4,9 +4,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.28729.10
 MinimumVisualStudioVersion = 11.0.50727.42
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVEnc", "QSVEnc\QSVEnc.vcxproj", "{05D4409E-70DD-489B-9A83-268E6CB1B4C5}"
-	ProjectSection(ProjectDependencies) = postProject
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F} = {9E7B3527-11AA-46BA-A82F-C58761F9B56F}
-	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVEncC", "QSVEncC\QSVEncC.vcxproj", "{09239F87-B73E-4EC0-98BF-1BF4795912AF}"
 EndProject
@@ -21,8 +18,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "delogo", "QSVPlugins\delogo
 	ProjectSection(ProjectDependencies) = postProject
 		{A63CE263-8735-4405-8860-011A12A80DEF} = {A63CE263-8735-4405-8860-011A12A80DEF}
 	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmfx", "mfx_dispatch\libmfx.vcxproj", "{9E7B3527-11AA-46BA-A82F-C58761F9B56F}"
 EndProject
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "PerfMonitor", "PerfMonitor\PerfMonitor.pyproj", "{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}"
 EndProject
@@ -129,18 +124,6 @@ Global
 		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
 		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Debug|Any CPU.ActiveCfg = Debug|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Debug|Win32.ActiveCfg = Debug|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Debug|x64.ActiveCfg = Debug|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.DebugStatic|Any CPU.ActiveCfg = DebugStatic|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.DebugStatic|Win32.ActiveCfg = DebugStatic|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.DebugStatic|x64.ActiveCfg = Debug|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Release|Any CPU.ActiveCfg = Release|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Release|Win32.ActiveCfg = Release|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.Release|x64.ActiveCfg = Release|x64
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.ReleaseStatic|Any CPU.ActiveCfg = ReleaseStatic|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.ReleaseStatic|Win32.ActiveCfg = ReleaseStatic|Win32
-		{9E7B3527-11AA-46BA-A82F-C58761F9B56F}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 		{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}.Debug|Win32.ActiveCfg = Debug|Any CPU
 		{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}.Debug|x64.ActiveCfg = Debug|Any CPU
