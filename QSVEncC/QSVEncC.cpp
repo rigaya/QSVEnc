@@ -557,10 +557,10 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
         mfxVersion ver = { 0, 1 };
         if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
             _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
-            exit(0);
+            return 1;
         } else {
             _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable\n"));
-            exit(1);
+            return -1;
         }
     }
     if (0 == _tcscmp(option_name, _T("lib-check"))
@@ -574,15 +574,13 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
 #else
         const TCHAR *dll_platform = _T("64");
 #endif
-        if (check_lib_version(hwlib, test))
+        if (check_lib_version(hwlib, test)) {
             _ftprintf(stdout, _T("libmfxhw%s.dll : v%d.%d\n"), dll_platform, hwlib.Major, hwlib.Minor);
-        else
+            return 1;
+        } else {
             _ftprintf(stdout, _T("libmfxhw%s.dll : ----\n"), dll_platform);
-        if (check_lib_version(swlib, test))
-            _ftprintf(stdout, _T("libmfxsw%s.dll : v%d.%d\n"), dll_platform, swlib.Major, swlib.Minor);
-        else
-            _ftprintf(stdout, _T("libmfxsw%s.dll : ----\n"), dll_platform);
-        return 1;
+            return -1;
+        }
     }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avversion"))) {
