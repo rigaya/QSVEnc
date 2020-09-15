@@ -2404,7 +2404,14 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
     }
 #endif
 
-    auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input,
+    //--input-cspの値 (raw読み込み用の入力色空間)
+    //この後上書きするので、ここで保存する
+    const auto inputCspOfRawReader = inputParam->input.csp;
+
+    //入力モジュールが、エンコーダに返すべき色空間をセット
+    inputParam->input.csp = EncoderCsp(inputParam, &inputParam->input.shift);
+
+    auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
 #if ENCODER_NVENC
         inputParam->vpp.rff, inputParam->vpp.afs.enable,
@@ -2922,8 +2929,6 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     InitLog(pParams);
 
     mfxStatus sts = MFX_ERR_NONE;
-
-    pParams->input.csp = EncoderCsp(pParams, &pParams->input.shift);
 
     if (pParams->bBenchmark) {
         pParams->common.AVMuxTarget = RGY_MUX_NONE;
