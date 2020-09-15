@@ -1676,7 +1676,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
             m_memType = D3D11_MEMORY;
             PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
-            sts = m_hwdev->Init(NULL, GetAdapterID(m_mfxSession));
+            sts = m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession));
             if (sts != MFX_ERR_NONE) {
                 m_hwdev.reset();
                 PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
@@ -1693,7 +1693,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
             }
 
             PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d9 - initializing...\n"));
-            sts = m_hwdev->Init(window, GetAdapterID(m_mfxSession));
+            sts = m_hwdev->Init(window, 0, GetAdapterID(m_mfxSession));
         }
     }
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));

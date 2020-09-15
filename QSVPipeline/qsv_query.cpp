@@ -566,7 +566,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
             && (hwdev = std::make_unique<CQSVD3D11Device>(pQSVLog))) {
             memType = D3D11_MEMORY;
 
-            sts = hwdev->Init(NULL, GetAdapterID(session), pQSVLog);
+            sts = hwdev->Init(NULL, 0, GetAdapterID(session));
             if (sts != MFX_ERR_NONE) {
                 hwdev.reset();
             }
@@ -580,7 +580,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
                 InitSession(session, true, memType);
             }
 
-            sts = hwdev->Init(window, GetAdapterID(session));
+            sts = hwdev->Init(window, 0, GetAdapterID(session));
         }
     }
 
@@ -818,7 +818,6 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     videoPrm.ExtParam = &bufOut[0];
 
     mfxStatus ret = encode.Query(&videoPrm, &videoPrmOut);
-    fprintf(stderr, "ret: %d\n", ret);
 
     mfxU64 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
@@ -1070,7 +1069,6 @@ mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver
         } else if (codecId == MFX_CODEC_VP9) {
             sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
         }
-        fprintf(stderr, "CheckEncodeFeature: codecId = %s\n", CodecIdToStr(codecId));  
         feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
         sessionPlugins.UnloadPlugins();
     }
