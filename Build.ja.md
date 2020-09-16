@@ -1,8 +1,14 @@
 
 # QSVEncのビルド方法
-by rigaya  
 
-## 0. 準備
+- [Windows](./Build.en.md#windows)
+- Linux
+  - [Linux (Ubuntu 20.04)](./Build.en.md#linux-ubuntu-2004)
+  - [Intel Drivers for Linux](/Build.en.md#Intel-Drivers-for-Linux)
+
+## Windows 
+
+### 0. 準備
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2019
@@ -41,13 +47,13 @@ git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
 setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
 ```
 
-## 1. ソースのダウンロード
+### 1. ソースのダウンロード
 
 ```Batchfile
 git clone https://github.com/rigaya/QSVEnc --recursive
 ```
 
-## 2. QSVEnc.auo / QSVEncC のビルド
+### 2. QSVEnc.auo / QSVEncC のビルド
 
 QSVEnc.slnを開きます。
 
@@ -57,3 +63,140 @@ QSVEnc.slnを開きます。
 |:---------------------|:------|:--------|
 |QSVEnc.auo (win32のみ) | Debug | Release |
 |QSVEncC(64).exe | DebugStatic | RelStatic |
+
+
+## Linux (Ubuntu 20.04)
+
+### 0. ビルドに必要なもの
+
+- C++14 Compiler
+- Intel Driver
+- yasm
+- git
+- libraries
+  - libva, libdrm, libmfx 
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - libass9
+  - [Optional] VapourSynth
+
+### 1. コンパイラ等のインストール
+
+```Shell
+sudo apt install build-essential libtool git yasm
+```
+
+### 2. Intel ドライバのインストール
+
+```Shell
+sudo apt install intel-media-va-driver-non-free
+```
+
+### 3. ビルドに必要なライブラリのインストール
+
+```Shell
+sudo apt install \
+  libmfx1 \
+  libmfx-dev \
+  libmfx-tools \
+  libva-drm2 \
+  libva-x11-2 \
+  libva-glx2 \
+  libx11-dev \
+  libigfxcmrt7 \
+  libva-dev \
+  libdrm-dev
+
+sudo apt install ffmpeg \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libass9 libass-dev
+```
+
+### 4. [オプション] VapourSynthのビルド
+VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
+
+必要のない場合は 5. QSVEncCのビルド に進んでください。
+
+<details><summary>VapourSynthのビルドの詳細はこちら</summary>
+
+#### 4.1 ビルドに必要なツールのインストール
+```Shell
+sudo apt install python3-pip autoconf automake libtool meson
+```
+
+#### 4.2 zimgのインストール
+```Shell
+git clone https://github.com/sekrit-twc/zimg.git
+cd zimg
+./autogen.sh
+./configure
+sudo make install -j16
+cd ..
+```
+
+#### 4.3 cythonのインストール
+```Shell
+sudo pip3 install Cython
+```
+
+#### 4.4 VapourSynthのビルド
+```Shell
+git clone https://github.com/vapoursynth/vapoursynth.git
+cd vapoursynth
+./autogen.sh
+./configure
+make -j16
+sudo make install
+
+# vapoursynthが自動的にロードされるようにする
+# "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.7でした
+sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
+sudo ldconfig
+```
+
+#### 4.5 VapourSynthの動作確認
+エラーが出ずにバージョンが表示されればOK。
+```Shell
+vspipe --version
+```
+
+#### 4.6 [おまけ] vslsmashsourceのビルド
+```Shell
+# lsmashのビルド
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+sudo make install -j16
+cd ..
+ 
+# vslsmashsourceのビルド
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works/VapourSynth
+meson build
+cd build
+sudo ninja install
+cd ../../../
+```
+
+</details>
+
+### 5. QSVEncCのビルド
+```Shell
+git clone https://github.com/rigaya/QSVEnc --recursive
+cd QSVEnc
+./configure
+make -j8
+```
+Check if it works properly.
+```Shell
+./qsvencc --check-hw
+```
+
+You shall get results below if Quick Sync Video works properly.
+```
+Success: QuickSyncVideo (hw encoding) available
+```
+
+## Intel Drivers for Linux
+各Linux distributionのIntelドライバのパッケージについては、Intel Media SDK Wikiの[こちら](https://github.com/Intel-Media-SDK/MediaSDK/wiki/Media-SDK-in-Linux-Distributions)を参照してください。
+
+またドライバの詳細については、Ubuntuの例になりますが、[こちら]((https://github.com/Intel-Media-SDK/MediaSDK/wiki/Intel-media-stack-on-Ubuntu))をご覧ください。
