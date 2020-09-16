@@ -170,6 +170,8 @@ cd ..
  
 # vslsmashsourceのビルド
 git clone https://github.com/HolyWu/L-SMASH-Works.git
+# ffmpegのバージョンが合わないので、下記バージョンを取得する
+git checkout -b 20200531 refs/tags/20200531
 cd L-SMASH-Works/VapourSynth
 meson build
 cd build
@@ -186,12 +188,12 @@ cd QSVEnc
 ./configure
 make -j8
 ```
-Check if it works properly.
+動作するか確認します。
 ```Shell
 ./qsvencc --check-hw
 ```
 
-You shall get results below if Quick Sync Video works properly.
+うまく動作するようなら下記のように表示されます。
 ```
 Success: QuickSyncVideo (hw encoding) available
 ```

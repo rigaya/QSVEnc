@@ -167,6 +167,8 @@ cd ..
  
 # Install vslsmashsource
 git clone https://github.com/HolyWu/L-SMASH-Works.git
+# As the latest version requires more recent ffmpeg libs, checkout the older version
+git checkout -b 20200531 refs/tags/20200531
 cd L-SMASH-Works/VapourSynth
 meson build
 cd build
