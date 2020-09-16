@@ -37,11 +37,11 @@ public:
     virtual ~CVAAPIDeviceDRM(void);
 
     virtual mfxStatus Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) override;
-    virtual mfxStatus Reset(void) { return MFX_ERR_NONE; }
-    virtual void Close(void) { }
+    virtual mfxStatus Reset(void) override { return MFX_ERR_NONE; }
+    virtual void Close(void) override { }
 
     virtual mfxStatus SetHandle(mfxHandleType type, mfxHDL hdl) { return MFX_ERR_UNSUPPORTED; }
-    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl)
+    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override
     {
         if ((MFX_HANDLE_VA_DISPLAY == type) && (NULL != pHdl))
         {
@@ -91,11 +91,11 @@ public:
     virtual ~CVAAPIDeviceX11(void);
 
     virtual mfxStatus Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) override;
-    virtual mfxStatus Reset(void);
-    virtual void Close(void);
+    virtual mfxStatus Reset(void) override;
+    virtual void Close(void) override;
 
     virtual mfxStatus SetHandle(mfxHandleType type, mfxHDL hdl);
-    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl);
+    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
 
     virtual mfxStatus RenderFrame(mfxFrameSurface1 * pSurface, mfxFrameAllocator * pmfxAlloc);
     virtual void      UpdateTitle(double fps) { }
@@ -141,11 +141,11 @@ public:
     virtual ~CVAAPIDeviceWayland(void);
 
     virtual mfxStatus Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) override;
-    virtual mfxStatus Reset(void) { return MFX_ERR_NONE; }
-    virtual void Close(void);
+    virtual mfxStatus Reset(void) override { return MFX_ERR_NONE; }
+    virtual void Close(void) override;
 
     virtual mfxStatus SetHandle(mfxHandleType type, mfxHDL hdl) { return MFX_ERR_UNSUPPORTED; }
-    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl)
+    virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override
     {
         if((MFX_HANDLE_VA_DISPLAY == type) && (NULL != pHdl)) {
             *pHdl = m_DRMLibVA.GetVADisplay();
