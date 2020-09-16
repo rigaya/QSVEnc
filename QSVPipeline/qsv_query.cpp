@@ -1086,7 +1086,7 @@ const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
 vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId) {
     vector<mfxU64> availableFeatureForEachRC;
     availableFeatureForEachRC.reserve(rateControlList.size());
-    if (codecId != MFX_CODEC_MPEG2) {
+    if (codecId != MFX_CODEC_MPEG2 || !LIBVA_SUPPORT) {
         MemType memType = HW_MEMORY;
         MFXVideoSession session;
         if (InitSession(session, true, memType) == MFX_ERR_NONE) {
