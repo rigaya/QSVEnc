@@ -140,16 +140,16 @@ reader used will be selected depending on the extension of input file.
 
 **color format supported by reader**  
 
-| reader | yuv420 | yuy2 | yuv422 | yuv444 | rgb24 | rgb32 |
+| 入力方法の対応色空間 | yuv420 | yuy2 | yuv422(*) | yuv444 | rgb24 | rgb32 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| raw | ◎ |  | ◎ | ◎ |  |  |
-| y4m | ◎ |  | ◎ | ◎ |  |  |
-| avi | ○ | ○ |  |  | ○ | ○ |
-| avs | ◎ | ○ | ◎ | ◎ |  |  |
-| vpy | ◎ |  | ◎ | ◎ |  |  |
-| avhw | ◎ |  |  |  |  |  |
-| avsw | ◎ |  | ◎ | ◎ | ○ | ○ |
-
+| raw               |   ◎   |      |   ◎   |   ◎   |        |       |
+| y4m               |   ◎   |      |   ◎   |   ◎   |        |       |
+| avi               |   ○   |  ○  |        |        |   ○   |   ○  |
+| avs               |   ◎   |  ○  |   ◎   |   ◎   |        |       |
+| vpy               |   ◎   |      |   ◎   |   ◎   |        |       |
+| avhw              |   ◎   |      |        |       |        |       |
+| avsw              |   ◎   |      |   ◎   |   ◎   |   ○   |   ○   |
+(*) yuv422 is not supported on linux environment.
 ◎ ... 8bit / 9bit / 10bit / 12bit / 14bit / 16bit supported  
 ○ ... support only 8 bits
 
@@ -1023,7 +1023,7 @@ Set image stabilizer mode.
 - box
 
 ### --vpp-rotate &lt;int&gt;
-Rotate image by specified degree. Degree could be selected from 90, 180, 270. Requires d3d11 mode.
+Rotate image by specified degree. Degree could be selected from 90, 180, 270. Requires d3d11 mode (not supported on linux).
 
 ### --vpp-mirror &lt;string&gt;
 Mirror image.
@@ -1129,7 +1129,7 @@ On the other hand, setting too much buffer size could decrease performance, sinc
 If a protocol other than "file" is used, then this output buffer will not be used.
 
 ### --mfx-thread &lt;int&gt;
-Set number of threads for QSV pipeline (must be more than 2). 
+Set number of threads for QSV pipeline (must be more than 2). This option is supported only on Windows.
 
 ### --output-thread &lt;int&gt;
 Specify whether to use a separate thread for output.
