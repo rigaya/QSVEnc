@@ -552,10 +552,9 @@ mfxStatus InitSession(MFXVideoSession& session, bool useHWLib, MemType& memType)
     return sts;
 }
 
-std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& memType) {
+std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& memType, std::shared_ptr<RGYLog> log) {
     mfxStatus sts = MFX_ERR_NONE;
     std::unique_ptr<CQSVHWDevice> hwdev;
-    std::shared_ptr<RGYLog> pQSVLog(new RGYLog(nullptr, RGY_LOG_DEBUG));
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
     HWND window = WindowFromPoint(point);
@@ -563,7 +562,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
     if (memType) {
 #if MFX_D3D11_SUPPORT
         if (memType == D3D11_MEMORY
-            && (hwdev = std::make_unique<CQSVD3D11Device>(pQSVLog))) {
+            && (hwdev = std::make_unique<CQSVD3D11Device>(log))) {
             memType = D3D11_MEMORY;
 
             sts = hwdev->Init(NULL, 0, GetAdapterID(session));
@@ -572,7 +571,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
-        if (!hwdev && (hwdev = std::make_unique<CQSVD3D9Device>(pQSVLog))) {
+        if (!hwdev && (hwdev = std::make_unique<CQSVD3D9Device>(log))) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (memType != D3D9_MEMORY) {
@@ -618,7 +617,7 @@ mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver) {
     return feature;
 }
 
-mfxU64 CheckVppFeatures(mfxVersion ver) {
+mfxU64 CheckVppFeatures(mfxVersion ver, std::shared_ptr<RGYLog> log) {
     mfxU64 feature = 0x00;
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
         //API v1.3未満で実際にチェックする必要は殆ど無いので、
@@ -632,7 +631,7 @@ mfxU64 CheckVppFeatures(mfxVersion ver) {
         MemType memType = HW_MEMORY;
         MFXVideoSession session;
         if (InitSession(session, true, memType) == MFX_ERR_NONE) {
-            if (auto hwdevice = InitHWDevice(session, memType)) {
+            if (auto hwdevice = InitHWDevice(session, memType, log)) {
                 feature = CheckVppFeaturesInternal(session, ver);
             }
         }
@@ -1081,7 +1080,7 @@ const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
     return NULL;
 }
 
-vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId) {
+vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log) {
     vector<mfxU64> availableFeatureForEachRC;
     availableFeatureForEachRC.reserve(rateControlList.size());
 #if LIBVA_SUPPORT
@@ -1090,7 +1089,7 @@ vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateContro
         MemType memType = HW_MEMORY;
         MFXVideoSession session;
         if (InitSession(session, true, memType) == MFX_ERR_NONE) {
-            if (auto hwdevice = InitHWDevice(session, memType)) {
+            if (auto hwdevice = InitHWDevice(session, memType, log)) {
                 for (const auto& ratecontrol : rateControlList) {
                     mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, ver, (mfxU16)ratecontrol.value, codecId);
                     if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
@@ -1106,11 +1105,11 @@ vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateContro
     return availableFeatureForEachRC;
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
     vector<vector<mfxU64>> codecFeatures;
     vector<std::future<vector<mfxU64>>> futures;
     for (auto codec : codecIdList) {
-        auto f = std::async(MakeFeatureList, ver, rateControlList, codec);
+        auto f = std::async(MakeFeatureList, ver, rateControlList, codec, log);
         futures.push_back(std::move(f));
     }
     for (uint32_t i = 0; i < futures.size(); i++) {
@@ -1119,9 +1118,9 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_D
     return codecFeatures;
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList) {
+vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
     mfxVersion ver = get_mfx_libhw_version();
-    return MakeFeatureListPerCodec(ver, rateControlList, codecIdList);
+    return MakeFeatureListPerCodec(ver, rateControlList, codecIdList, log);
 }
 
 std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver, mfxU32 codecId) {
@@ -1146,12 +1145,12 @@ std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver
     return CheckDecFeaturesInternal(session, ver, codecId);
 }
 
-CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdList) {
+CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
     CodecCsp codecFeatures;
     MFXVideoSession session;
     MemType memtype = HW_MEMORY;
     if (InitSession(session, true, memtype) == MFX_ERR_NONE) {
-        if (auto hwdevice = InitHWDevice(session, memtype)) {
+        if (auto hwdevice = InitHWDevice(session, memtype, log)) {
             for (auto codec : codecIdList) {
                 auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
                 if (features.size() > 0) {
@@ -1177,8 +1176,8 @@ tstring MakeFeatureListStr(mfxU64 feature) {
     return str;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type, const vector<mfxU32>& codecLists) {
-    auto featurePerCodec = MakeFeatureListPerCodec(make_vector(list_rate_control_ry), codecLists);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type, const vector<mfxU32>& codecLists, std::shared_ptr<RGYLog> log) {
+    auto featurePerCodec = MakeFeatureListPerCodec(make_vector(list_rate_control_ry), codecLists, log);
 
     vector<std::pair<vector<mfxU64>, tstring>> strPerCodec;
 
@@ -1265,14 +1264,14 @@ vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType
     return strPerCodec;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type) {
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8, MFX_CODEC_VP9 };
-    return MakeFeatureListStr(type, codecLists);
+    return MakeFeatureListStr(type, codecLists, log);
 }
 
-tstring MakeVppFeatureStr(FeatureListStrType type) {
+tstring MakeVppFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
     mfxVersion ver = get_mfx_libhw_version();
-    uint64_t features = CheckVppFeatures(ver);
+    uint64_t features = CheckVppFeatures(ver, log);
     const TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
     tstring str;
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
@@ -1307,14 +1306,14 @@ tstring MakeVppFeatureStr(FeatureListStrType type) {
     return str;
 }
 
-tstring MakeDecFeatureStr(FeatureListStrType type) {
+tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
 #if ENABLE_AVSW_READER
     mfxVersion ver = get_mfx_libhw_version();
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    auto decodeCodecCsp = MakeDecodeFeatureList(ver, codecLists);
+    auto decodeCodecCsp = MakeDecodeFeatureList(ver, codecLists, log);
 
     enum : uint32_t {
         DEC_FEATURE_HW    = 0x00000001,
@@ -1425,13 +1424,13 @@ tstring MakeDecFeatureStr(FeatureListStrType type) {
 #endif
 }
 
-CodecCsp getHWDecCodecCsp() {
+CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log) {
 #if ENABLE_AVSW_READER
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    return MakeDecodeFeatureList(get_mfx_libhw_version(), codecLists);
+    return MakeDecodeFeatureList(get_mfx_libhw_version(), codecLists, log);
 #else
     return CodecCsp();
 #endif

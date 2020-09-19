@@ -317,20 +317,20 @@ enum FeatureListStrType {
 
 mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId);
-vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList);
+vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
 
 tstring MakeFeatureListStr(mfxU64 feature);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType, const vector<mfxU32>& codecIdList);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
 
 mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver);
-mfxU64 CheckVppFeatures(mfxVersion ver);
-tstring MakeVppFeatureStr(FeatureListStrType outputType);
+mfxU64 CheckVppFeatures(mfxVersion ver, std::shared_ptr<RGYLog> log);
+tstring MakeVppFeatureStr(FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
 
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId);
-CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<mfxU32>& codecIdList);
-tstring MakeDecFeatureStr(FeatureListStrType type);
-CodecCsp getHWDecCodecCsp();
+CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log);
+CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log);
 
 #endif //_QSV_QUERY_H_
