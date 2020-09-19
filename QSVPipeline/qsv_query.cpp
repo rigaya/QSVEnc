@@ -584,7 +584,7 @@ std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& me
     }
 
 #elif LIBVA_SUPPORT
-    hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, pQSVLog));
+    hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, log));
     if (hwdev) {
         sts = hwdev->Init(NULL, 0, GetAdapterID(session));
     }
