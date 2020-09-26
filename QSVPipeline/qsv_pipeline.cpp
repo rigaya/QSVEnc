@@ -3031,9 +3031,9 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
         }
     }
     if (m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC) {
-        tstring mes = strsprintf(_T("ColorFmtConvertion: %s -> %s\n"), ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC));
+        tstring mes = strsprintf(_T("ColorFmtConvertion: %s -> %s"), ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC));
         PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
-        VppExtMes += mes;
+        VppExtMes += mes + _T("\n");
     }
     if (pParams->input.srcWidth  != pParams->input.dstWidth ||
         pParams->input.srcHeight != pParams->input.dstHeight) {
@@ -3042,12 +3042,12 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
             mes += tstring(_T(" (")) + get_chr_from_value(list_vpp_scaling_quality, pParams->vpp.scalingQuality) + _T(")");
         }
         PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
-        VppExtMes += mes;
+        VppExtMes += mes + _T("\n");
     }
     if (pParams->vpp.colorspace.enable) {
         tstring mes = strsprintf(_T("Colorspace"));
         PrintMes(RGY_LOG_DEBUG, _T("Vpp Enabled: %s\n"), mes.c_str());
-        VppExtMes += mes;
+        VppExtMes += mes + _T("\n");
     }
 
     const int nPipelineElements = !!m_pmfxDEC + !!m_pmfxVPP + !!m_pmfxENC + (int)m_VppPrePlugins.size() + (int)m_VppPostPlugins.size();
