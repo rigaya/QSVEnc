@@ -24,6 +24,7 @@ matrix:
       - CXX=clang++
 
 before_install:
+  - sudo apt update
   - sudo apt -y install yasm libmfx1 libmfx-dev libmfx-tools libva-drm2 libva-x11-2 libva-glx2 libx11-dev libigfxcmrt7 libva-dev libdrm-dev libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libass9 libass-dev
   - $CXX --version
 
