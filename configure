@@ -218,7 +218,7 @@ CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -I${SRCDIR} -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins \
 -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
 "
-LDFLAGS="-L. -ldl -lstdc++"
+LDFLAGS="-L. -ldl -lm -lstdc++"
 ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
     ASFLAGS="${ASFLAGS} -f elf64 -DARCH_X86_64=1"
@@ -299,8 +299,15 @@ else
     if cxx_check "${CXXFLAGS} -fPIE ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -fPIE"
     fi
-    if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -ffast-math"
+    if ${CXX} -dM -E -x c /dev/null | grep "__clang__" > /dev/null; then
+        IS_CLANG=1
+    else
+        IS_CLANG=0
+    fi
+    if [ $IS_CLANG -eq 0 ]; then
+        if cxx_check "${CXXFLAGS} -ffast-math ${LDFLAGS}" ; then
+            CXXFLAGS="$CXXFLAGS -ffast-math"
+        fi
     fi
     if cxx_check "${CXXFLAGS} -fomit-frame-pointer ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"
