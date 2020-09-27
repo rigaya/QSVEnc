@@ -764,10 +764,14 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     case MFX_CODEC_VP9:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_VP9_0;
-        videoPrm.mfx.GopRefDist = 3;
+        videoPrm.mfx.GopRefDist = 1;
         videoPrm.mfx.NumRefFrame = 1;
         videoPrm.AsyncDepth = 0;
         videoPrm.IOPattern = MFX_IOPATTERN_IN_OPAQUE_MEMORY;
+        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_9)) {
+            videoPrm.mfx.FrameInfo.BitDepthLuma = 8;
+            videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
+        }
         break;
     default:
     case MFX_CODEC_AVC:
