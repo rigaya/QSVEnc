@@ -93,6 +93,21 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 - libavcodec/libavformatを利用した音声処理に対応
 - libavcodec/libavformatを利用し、muxしながら出力が可能
 
+## 各GPUで使用可能な機能
+下記はGPU、GPUドライバ、QSVEncのバージョンにより異なります。
+
+| CPU Gen     | Windows                                                 | Linux | 
+|:--          |:--                                                      |:--    |
+| SandyBridge | [i5 2410M](./GPUFeatures/QSVEnc_Win_SND_i5_2410M.txt)   |  |
+| IvyBridge   |                                                         |  |
+| Haswell     | [i3 4170](./GPUFeatures/QSVEnc_Win_HSW_i3_4170.txt)     |  |
+| Broadwell   | [i7 5500U](./GPUFeatures/QSVEnc_Win_BDW_i7_5500U.txt)   |  |
+| SkyLake     |                                                         |  |
+| KabyLake    | [i7 7700K](./GPUFeatures/QSVEnc_Win_KBL_i7_7700K.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_Ubuntu2004_KBL_i7_7700K.txt)  |
+| CoffeeLake  |                                                         |  |
+| CommetLake  |                                                         |  |
+| IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_Win_ICL_i5_1035G7.txt) |  |
+
 <a name ="qsv_cpu_list">
 ## QSVの使用できるCPU一覧
 

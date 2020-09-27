@@ -83,6 +83,22 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Mux audio and chapter
 - afs (Automatic field shift) support
 
+## Supported Features
+This depends on the version of QSVEnc, the generation of the GPU, and also the GPU driver.
+
+| CPU Gen     | Windows                                                 | Linux | 
+|:--          |:--                                                      |:--    |
+| SandyBridge | [i5 2410M](./GPUFeatures/QSVEnc_Win_SND_i5_2410M.txt)   |  |
+| IvyBridge   |                                                         |  |
+| Haswell     | [i3 4170](./GPUFeatures/QSVEnc_Win_HSW_i3_4170.txt)     |  |
+| Broadwell   | [i7 5500U](./GPUFeatures/QSVEnc_Win_BDW_i7_5500U.txt)   |  |
+| SkyLake     |                                                         |  |
+| KabyLake    | [i7 7700K](./GPUFeatures/QSVEnc_Win_KBL_i7_7700K.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_Ubuntu2004_KBL_i7_7700K.txt)  |
+| CoffeeLake  |                                                         |  |
+| CommetLake  |                                                         |  |
+| IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_Win_ICL_i5_1035G7.txt) |  |
+
+
 <a name ="qsv_cpu_list">
 ## CPUs supporting QSV
 
@@ -103,20 +119,20 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 |Haswell	        |Celeron G1xxx	|○|
 |Haswell-E	        |Core i7 5xxx	|×|
 |Broadwell	        |Core M/i3/i5/i7 5xxx	|○|
-|Skylake	        |Core i3/i5/i7 6xxx	|○|
-|Skylake	        |Pentium G44xx/G450x/G452x	|○|
-|Skylake	        |Celeron G390x/G392x	|○|
-|Kabylake	        |Core i3/i5/i7 7xxx	|○|
-|Kabylake	        |Pentium G456x/G46xx	|○|
-|Kabylake	        |Celeron G393x/G395x	|○|
-|Skylake-X	        |Core i7/i9 78xxX/79xxX/98xxX/99xxX	|×|
-|Coffeelake	        |Core i3/i5/i7/i9 8xxx/9xxx	|○|
-|Coffeelake	        |Pentium G5xxx	|○|
-|Coffeelake	        |Celeron G49xx	|○|
-|Commetlake	        |Core i3/i5/i7/i9 10xxx	|○|
-|Commetlake	        |Pentium G6xxx	|○|
-|Commetlake	        |Celeron G5xxx	|○|
-|Icelake	        |Core i3/i5/i7 10xxGx	|○|
+|SkyLake	        |Core i3/i5/i7 6xxx	|○|
+|SkyLake	        |Pentium G44xx/G450x/G452x	|○|
+|SkyLake	        |Celeron G390x/G392x	|○|
+|KabyLake	        |Core i3/i5/i7 7xxx	|○|
+|KabyLake	        |Pentium G456x/G46xx	|○|
+|KabyLake	        |Celeron G393x/G395x	|○|
+|SkyLake-X	        |Core i7/i9 78xxX/79xxX/98xxX/99xxX	|×|
+|CoffeeLake	        |Core i3/i5/i7/i9 8xxx/9xxx	|○|
+|CoffeeLake	        |Pentium G5xxx	|○|
+|CoffeeLake	        |Celeron G49xx	|○|
+|CommetLake	        |Core i3/i5/i7/i9 10xxx	|○|
+|CommetLake	        |Pentium G6xxx	|○|
+|CommetLake	        |Celeron G5xxx	|○|
+|IceLake	        |Core i3/i5/i7 10xxGx	|○|
 |CascadeLake-X	    |Core i9 109xxX	|×|
 |TigerLake	        |???	|○|
 |RocketLake	        |???	|○|

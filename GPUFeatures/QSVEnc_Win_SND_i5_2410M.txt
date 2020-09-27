@@ -1,0 +1,103 @@
+QSVEncC (x64) 4.07 (r1930) by rigaya, Sep 26 2020 08:46:32 (VC 1927/Win/avx2)
+ reader: raw, avi, avs, vpy, avqsv [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9]
+Environment Info
+OS : Windows 8.1 x64 (9600)
+CPU: Intel Core i5-2410M @ 2.30GHz [TB: 2.89GHz] (2C/4T) <SandyBridge>
+RAM: Used 1155 MB, Total 4011 MB
+GPU: Intel HD Graphics 650-1200MHz
+
+Media SDK Version: Hardware API v1.4
+
+Supported Enc features:
+Codec: H.264/AVC
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     o     x     o     x     x     x     x     x    
+10bit depth   x     x     x     x     x     x     x     x     x     x    
+Fixed Func    x     x     x     x     x     x     x     x     x     x    
+Interlace     o     o     o     x     o     x     x     x     x     x    
+VUI info      o     o     o     x     o     x     x     x     x     x    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     x     x     x     x     x     x     x     x     x     x    
+ +ManyBframes x     x     x     x     x     x     x     x     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+MBBRC         x     x     x     x     x     x     x     x     x     x    
+ExtBRC        x     x     x     x     x     x     x     x     x     x    
+Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+
+
+
+Codec: MPEG2
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     o     x     o     x     x     x     x     x    
+10bit depth   x     x     x     x     x     x     x     x     x     x    
+Fixed Func    x     x     x     x     x     x     x     x     x     x    
+Interlace     o     o     o     x     o     x     x     x     x     x    
+VUI info      o     o     o     x     o     x     x     x     x     x    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     x     x     x     x     x     x     x     x     x     x    
+ +ManyBframes x     x     x     x     x     x     x     x     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+MBBRC         x     x     x     x     x     x     x     x     x     x    
+ExtBRC        x     x     x     x     x     x     x     x     x     x    
+Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+
+
+
+Supported Vpp features:
+
+Resize                o
+Deinterlace           o
+Scaling Quality       x
+Denoise               o
+Mctf                  x
+Rotate                x
+Mirror                x
+Detail Enhancement    o
+Proc Amp.             o
+Image Stabilization   x
+Video Signal Info     x
+FPS Conversion        x
+FPS Conversion (Adv.) x
+
+
+Supported Decode features:
+
+            H.264 HEVC MPEG2 VP8  VP9  
+HW Decode      o    x    o    x    x 
+10bit depth    x    x    x    x    x 
+
+
