@@ -29,4 +29,4 @@ before_install:
   - $CXX --version
 
 script:
-    - ./configure && make && ./qsvencc --version && ./check_options.py
+    - ./configure && make && ./qsvencc --version && python3 check_options.py
