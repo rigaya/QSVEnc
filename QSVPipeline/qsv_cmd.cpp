@@ -1944,11 +1944,11 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             });
             return 1;
         }
-        if (pParams->CodecId == MFX_CODEC_HEVC
-            && argsData.outputDepth == 10
-            && (pParams->CodecProfile == 0 || pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN)) {
-            pParams->CodecProfile = MFX_PROFILE_HEVC_MAIN10;
-        }
+    }
+    if (pParams->CodecId == MFX_CODEC_HEVC
+        && argsData.outputDepth == 10
+        && (pParams->CodecProfile == 0 || pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN)) {
+        pParams->CodecProfile = MFX_PROFILE_HEVC_MAIN10;
     }
     if (argsData.cachedtier.length() > 0 && pParams->CodecId == MFX_CODEC_HEVC) {
         int value = 0;
