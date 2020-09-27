@@ -392,13 +392,24 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
         m_mfxDecParams.mfx.FrameInfo.Shift = inputVideoInfo.shift ? 1 : 0; //mfxFrameInfoのShiftはシフトすべきかどうかの 1 か 0 のみ。
-        if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 8)   m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = 0;
-        if (m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 8) m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = 0;
+        if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
+            || (inputCodec != RGY_CODEC_VP8 && inputCodec != RGY_CODEC_VP9)) { // VP8/VP9ではこの処理は不要
+            if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 8)   m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = 0;
+            if (m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 8) m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = 0;
+        }
         if (m_mfxDecParams.mfx.FrameInfo.Shift
             && m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 0
             && m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 0) {
             PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Bit shift required but bitdepth not set.\n"));
             return MFX_ERR_INVALID_VIDEO_PARAM;
+        }
+        if (m_mfxDecParams.mfx.FrameInfo.FrameRateExtN == 0
+            && m_mfxDecParams.mfx.FrameInfo.FrameRateExtD == 0) {
+            auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
+            if (inputFrameInfo.fpsN > 0 && inputFrameInfo.fpsD > 0) {
+                m_mfxDecParams.mfx.FrameInfo.FrameRateExtN = inputFrameInfo.fpsN;
+                m_mfxDecParams.mfx.FrameInfo.FrameRateExtD = inputFrameInfo.fpsD;
+            }
         }
 
         if (!bGotHeader) {
@@ -3735,6 +3746,13 @@ mfxStatus CQSVPipeline::RunEncode() {
             if (!m_mfxDecParams.mfx.FrameInfo.FourCC) {
                 //デコード前には、デコード用のパラメータでFrameInfoを更新
                 copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
+            }
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
+                && m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP8 || m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP9) { // VP8/VP9ではこの処理が必要
+                if (pSurfDecWork->Info.BitDepthLuma == 0 || pSurfDecWork->Info.BitDepthChroma == 0) {
+                    pSurfDecWork->Info.BitDepthLuma = m_mfxDecParams.mfx.FrameInfo.BitDepthLuma;
+                    pSurfDecWork->Info.BitDepthChroma = m_mfxDecParams.mfx.FrameInfo.BitDepthChroma;
+                }
             }
             if (pInputBitstream != nullptr) {
                 if (pInputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE) {
