@@ -3748,7 +3748,7 @@ mfxStatus CQSVPipeline::RunEncode() {
                 copy_crop_info(pSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
             }
             if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
-                && m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP8 || m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP9) { // VP8/VP9ではこの処理が必要
+                && (m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP8 || m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP9)) { // VP8/VP9ではこの処理が必要
                 if (pSurfDecWork->Info.BitDepthLuma == 0 || pSurfDecWork->Info.BitDepthChroma == 0) {
                     pSurfDecWork->Info.BitDepthLuma = m_mfxDecParams.mfx.FrameInfo.BitDepthLuma;
                     pSurfDecWork->Info.BitDepthChroma = m_mfxDecParams.mfx.FrameInfo.BitDepthChroma;
