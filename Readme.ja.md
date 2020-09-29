@@ -98,17 +98,17 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 
 | CPU Gen     | Windows                                                 | Linux | 
 |:--          |:--                                                      |:--    |
-| SandyBridge | [i5 2410M](./GPUFeatures/QSVEnc_Win_SND_i5_2410M.txt)   |  |
+| SandyBridge | [i5 2410M](./GPUFeatures/QSVEnc_SND_i5_2410M_Win.txt)   |  |
 | IvyBridge   |                                                         |  |
-| Haswell     | [i3 4170](./GPUFeatures/QSVEnc_Win_HSW_i3_4170.txt)     |  |
-| Broadwell   | [i7 5500U](./GPUFeatures/QSVEnc_Win_BDW_i7_5500U.txt)   |  |
+| Haswell     | [i3 4170](./GPUFeatures/QSVEnc_HSW_i3_4170_Win.txt)     |  |
+| Broadwell   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Win.txt)   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Ubuntu2004.txt)  |
 | SkyLake     |                                                         |  |
-| KabyLake    | [i7 7700K](./GPUFeatures/QSVEnc_Win_KBL_i7_7700K.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_Ubuntu2004_KBL_i7_7700K.txt)  |
+| KabyLake    | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Win.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Ubuntu2004.txt)  |
 | CoffeeLake  |                                                         |  |
 | CommetLake  |                                                         |  |
-| IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_Win_ICL_i5_1035G7.txt) |  |
+| IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
 
-<a name ="qsv_cpu_list">
+<a name ="qsv_cpu_list"></a>
 ## QSVの使用できるCPU一覧
 
 ○　... 使用可能 / × ... 使用不可 / ? ... 型番、ドライバにより異なる
