@@ -1,7 +1,7 @@
 # QSVEnc
 # continuous integration settings
 
-image: Visual Studio 2017
+image: Visual Studio 2019
 
 platform:
  - Win32
