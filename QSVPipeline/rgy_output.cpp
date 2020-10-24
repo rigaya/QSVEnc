@@ -785,7 +785,7 @@ RGY_ERR initWriters(
                 }
                 if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
                     streamTrackUsed.push_back(stream.trackId);
-                    if (streamMediaType == AVMEDIA_TYPE_SUBTITLE && subburnTrackId > 0) {
+                    if (pSubtitleSelect == nullptr && streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
                         continue;
                     }
                     AVOutputStreamPrm prm;
