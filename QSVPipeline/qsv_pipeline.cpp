@@ -2397,7 +2397,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
 #if ENABLE_RAW_READER
 #if ENABLE_AVSW_READER
     DeviceCodecCsp HWDecCodecCsp;
-    HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp(m_pQSVLog)));
+    HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp(m_pQSVLog, inputParam->ctrl.skipHWDecodeCheck)));
 #endif
     m_pStatus.reset(new EncodeStatus());
 

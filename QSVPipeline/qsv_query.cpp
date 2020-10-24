@@ -1149,16 +1149,24 @@ std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver
     return CheckDecFeaturesInternal(session, ver, codecId);
 }
 
-CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
+CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
     CodecCsp codecFeatures;
     MFXVideoSession session;
     MemType memtype = HW_MEMORY;
     if (InitSession(session, true, memtype) == MFX_ERR_NONE) {
         if (auto hwdevice = InitHWDevice(session, memtype, log)) {
             for (auto codec : codecIdList) {
-                auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
-                if (features.size() > 0) {
-                    codecFeatures[codec] = features;
+                if (skipHWDecodeCheck) {
+                    codecFeatures[codec] = {
+                        RGY_CSP_NV12, RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16,
+                        RGY_CSP_YUV422, RGY_CSP_YUV422_09, RGY_CSP_YUV422_10, RGY_CSP_YUV422_12, RGY_CSP_YUV422_14, RGY_CSP_YUV422_16,
+                        RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16
+                    };
+                } else {
+                    auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
+                    if (features.size() > 0) {
+                        codecFeatures[codec] = features;
+                    }
                 }
             }
         }
@@ -1317,7 +1325,7 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    auto decodeCodecCsp = MakeDecodeFeatureList(ver, codecLists, log);
+    auto decodeCodecCsp = MakeDecodeFeatureList(ver, codecLists, log, false);
 
     enum : uint32_t {
         DEC_FEATURE_HW    = 0x00000001,
@@ -1428,13 +1436,13 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
 #endif
 }
 
-CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log) {
+CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
 #if ENABLE_AVSW_READER
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    return MakeDecodeFeatureList(get_mfx_libhw_version(), codecLists, log);
+    return MakeDecodeFeatureList(get_mfx_libhw_version(), codecLists, log, skipHWDecodeCheck);
 #else
     return CodecCsp();
 #endif

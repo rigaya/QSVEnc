@@ -329,8 +329,8 @@ mfxU64 CheckVppFeatures(mfxVersion ver, std::shared_ptr<RGYLog> log);
 tstring MakeVppFeatureStr(FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
 
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId);
-CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log);
-CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log);
+CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 
 #endif //_QSV_QUERY_H_
