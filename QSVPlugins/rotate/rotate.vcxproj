@@ -158,7 +158,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -194,7 +194,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -233,7 +233,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -268,7 +268,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -299,7 +299,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PrecompiledHeader>
@@ -343,7 +343,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>
@@ -392,7 +392,7 @@
     <ClCompile>
       <Optimization>Full</Optimization>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;WIN64;_WINDOWS;_NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PrecompiledHeader>
@@ -434,7 +434,7 @@
     <ClCompile>
       <Optimization>Full</Optimization>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;.\include;src;$(SolutionDir)MediaSDK\api\include;$(SolutionDir)QSVPipeline;$(SolutionDir)ffmpeg_lgpl\include;$(INTELOCLSDKROOT)include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;_WINDOWS;_NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>

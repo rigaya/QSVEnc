@@ -1,0 +1,2 @@
+call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars32.bat" %1
+MSBuild "MediaSDK\api\mfx_dispatch\windows\libmfx_vs2015.vcxproj" /property:WindowsTargetPlatformVersion=10.0;PlatformToolset=v142;Configuration="Release";Platform=%1;WholeProgramOptimization=true;ConfigurationType=StaticLibrary;ForceImportBeforeCppTargets="BuildMfx.props" /p:BuildProjectReferences=true /p:SpectreMitigation=false
