@@ -7,3 +7,6 @@
 [submodule "cppcodec"]
 	path = cppcodec
 	url = https://github.com/tplgy/cppcodec.git
+[submodule "MediaSDK"]
+	path = MediaSDK
+	url = https://github.com/Intel-Media-SDK/MediaSDK.git
