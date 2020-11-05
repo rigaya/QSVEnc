@@ -736,7 +736,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
     videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BALANCED;
     videoPrm.mfx.EncodedOrder            = 0;
     videoPrm.mfx.NumSlice                = 1;
-    videoPrm.mfx.NumRefFrame             = 0;
+    videoPrm.mfx.NumRefFrame             = 1;
     videoPrm.mfx.GopPicSize              = 30;
     videoPrm.mfx.IdrInterval             = 0;
     videoPrm.mfx.GopOptFlag              = 0;
@@ -805,6 +805,8 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
         && codecId == MFX_CODEC_VP9) {
         vp9.FrameWidth = videoPrm.mfx.FrameInfo.Width;
         vp9.FrameHeight = videoPrm.mfx.FrameInfo.Height;
+        vp9.NumTileRows = 1;
+        vp9.NumTileColumns = 1;
         bufOut.push_back((mfxExtBuffer *)&vp9Out);
     }
 #endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
