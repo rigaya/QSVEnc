@@ -17,6 +17,9 @@ The original version of this sample may be obtained from https://software.intel.
 or https://software.intel.com/en-us/media-client-solutions-support.
 \**********************************************************************************/
 
+#ifndef __QSV_HW_VA_H__
+#define __QSV_HW_VA_H__
+
 #if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT) || defined(LIBVA_ANDROID_SUPPORT) || defined(LIBVA_WAYLAND_SUPPORT)
 
 #include "qsv_hw_device.h"
@@ -186,3 +189,4 @@ private:
 #endif
 
 #endif //#if defined(LIBVA_DRM_SUPPORT) || defined(LIBVA_X11_SUPPORT) || defined(LIBVA_ANDROID_SUPPORT)
+#endif //__QSV_HW_VA_H__
