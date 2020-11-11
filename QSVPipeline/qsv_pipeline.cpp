@@ -2855,6 +2855,7 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
 #endif //#if MFX_D3D11_SUPPORT
                 //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
                 for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
+#if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
                     if (D3D11_MEMORY & memType) {
                         if (0 == i_try_d3d11) {
@@ -2867,11 +2868,12 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
                             m_memType = D3D9_MEMORY;
                             PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d9 mode.\n"));
                         }
-                    }
-#endif
+                    } else
+#endif //#if MFX_D3D11_SUPPORT
                     if (D3D9_MEMORY & memType) {
                         impl |= MFX_IMPL_VIA_D3D9; //d3d11モードも試す場合は、まずd3d11モードをチェック
                     }
+#endif //#if D3D_SURFACES_SUPPORT
                     mfxVersion verRequired = MFX_LIB_VERSION_1_1;
 
                     sts = InitSessionEx(impl, &verRequired);
