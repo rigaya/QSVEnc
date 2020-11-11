@@ -65,6 +65,11 @@
 #include "qsv_allocator_d3d11.h"
 #endif
 
+#ifdef LIBVA_SUPPORT
+#include "qsv_hw_va.h"
+#include "qsv_allocator_va.h"
+#endif
+
 #if 1
 int getCPUGenCpuid() {
     int CPUInfo[4] = {-1};
@@ -162,7 +167,7 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl) {
     if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
         auto hwdev = std::make_unique<CQSVD3D11Device>(log);
         sts = hwdev->Init(NULL, 0, GetAdapterID(*test.get()));
-    } else 
+    } else
 #endif // #if MFX_D3D11_SUPPORT
     if ((impl & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9) {
         auto hwdev = std::make_unique<CQSVD3D9Device>(log);
