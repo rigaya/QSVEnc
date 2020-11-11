@@ -57,6 +57,14 @@
 #include "qsv_hw_device.h"
 #include "cpu_info.h"
 
+#if D3D_SURFACES_SUPPORT
+#include "qsv_hw_d3d9.h"
+#include "qsv_hw_d3d11.h"
+
+#include "qsv_allocator_d3d9.h"
+#include "qsv_allocator_d3d11.h"
+#endif
+
 #if 1
 int getCPUGenCpuid() {
     int CPUInfo[4] = {-1};
@@ -145,6 +153,27 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl) {
         return LIB_VER_LIST[0];
     }
     sts = test->QueryVersion(&ver);
+    if (sts != MFX_ERR_NONE) {
+        return LIB_VER_LIST[0];
+    }
+    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR);
+#if D3D_SURFACES_SUPPORT
+#if MFX_D3D11_SUPPORT
+    if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
+        auto hwdev = std::make_unique<CQSVD3D11Device>(log);
+        sts = hwdev->Init(NULL, 0, GetAdapterID(*test.get()));
+    } else 
+#endif // #if MFX_D3D11_SUPPORT
+    if ((impl & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9) {
+        auto hwdev = std::make_unique<CQSVD3D9Device>(log);
+        sts = hwdev->Init(NULL, 0, GetAdapterID(*test.get()));
+    }
+#elif LIBVA_SUPPORT
+     {
+        auto hwdev = std::make_unique<CQSVHWDevice>(CreateVAAPIDevice("", MFX_LIBVA_DRM, log));
+        sts = hwdev->Init(NULL, 0, GetAdapterID(*test.get()));
+    }
+#endif
     return (sts == MFX_ERR_NONE) ? ver : LIB_VER_LIST[0];
 }
 
@@ -526,10 +555,14 @@ mfxStatus InitSession(MFXVideoSession& session, bool useHWLib, MemType& memType)
                     memType = D3D11_MEMORY;
                 } else {
                     impl &= ~MFX_IMPL_VIA_D3D11; //d3d11をオフにして再度テストする
+                    impl |= MFX_IMPL_VIA_D3D9;
                     memType = D3D9_MEMORY;
                 }
-            }
+            } else
 #endif
+            if (D3D9_MEMORY & memType) {
+                impl |= MFX_IMPL_VIA_D3D9; //d3d11モードも試す場合は、まずd3d11モードをチェック
+            }
             mfxVersion verRequired = MFX_LIB_VERSION_1_1;
             sts = session.Init(impl, &verRequired);
 
