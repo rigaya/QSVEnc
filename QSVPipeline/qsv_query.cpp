@@ -520,20 +520,6 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     return result;
 }
 
-#if D3D_SURFACES_SUPPORT
-#include "qsv_hw_d3d9.h"
-#include "qsv_hw_d3d11.h"
-
-#include "qsv_allocator_d3d9.h"
-#include "qsv_allocator_d3d11.h"
-#endif
-
-#ifdef LIBVA_SUPPORT
-#include "qsv_hw_va.h"
-#include "qsv_allocator_va.h"
-#endif
-
-
 mfxStatus InitSession(MFXVideoSession& session, bool useHWLib, MemType& memType) {
     mfxStatus sts = MFX_ERR_INVALID_HANDLE;
     if (useHWLib) {
