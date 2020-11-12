@@ -175,7 +175,7 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl) {
     }
 #elif LIBVA_SUPPORT
      {
-        auto hwdev = std::make_unique<CQSVHWDevice>(CreateVAAPIDevice("", MFX_LIBVA_DRM, log));
+        auto hwdev = std::unique_ptr<CQSVHWDevice>(CreateVAAPIDevice("", MFX_LIBVA_DRM, log));
         sts = hwdev->Init(NULL, 0, GetAdapterID(*test.get()));
     }
 #endif
