@@ -14,13 +14,13 @@
 To build QSVEnc, components below are required.
 
 - Visual Studio 2019
-- yasm
+- nasm
 - Avisynth SDK
 - VapourSynth SDK
 - Intel OpenCL SDK
 - Intel Metric Framework SDK (included in Intel Platform Analysis Library)
 
-Please set yasm to your environment PATH.
+Please set nasm to your environment PATH.
 
 Install Avisynth+ and VapourSynth, with the SDKs.
 

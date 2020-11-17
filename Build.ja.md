@@ -14,13 +14,13 @@
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2019
-- yasm
+- nasm
 - Avisynth SDK
 - VapourSynth SDK
 - Intel OpenCL SDK
 - Intel Metric Framework SDK (Intel Platform Analysis Libraryに同梱)
 
-yasmはパスに追加しておきます。
+nasmはパスに追加しておきます。
 
 Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
 
