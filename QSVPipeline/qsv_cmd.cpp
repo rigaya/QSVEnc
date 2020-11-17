@@ -266,6 +266,7 @@ tstring encoder_help() {
         _T("                                  and set the window size in frames.\n")
         _T("   --la-quality <string>        set lookahead quality.\n")
         _T("                                 - auto(default), fast, medium, slow\n")
+        _T("   --(no-)extbrc                enables extbrc\n")
         _T("   --(no-)mbbrc                 enables per macro block rate control\n")
         _T("                                 default: auto\n")
         _T("   --ref <int>                  reference frames\n")
@@ -283,6 +284,7 @@ tstring encoder_help() {
         _T("   --(no-)weightp               enable weighted prediction for P frame\n")
         _T("   --(no-)weightb               enable weighted prediction for B frame\n")
         _T("   --(no-)adapt-ltr             enable adaptive LTR frames\n")
+        _T("                                 --extbrc is also required.\n")
         _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
 #if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")
@@ -941,14 +943,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bRDO = true;
         return 0;
     }
-    //if (0 == _tcscmp(option_name, _T("extbrc"))) {
-    //    pParams->bExtBRC = true;
-    //    return 0;
-    //}
-    //if (0 == _tcscmp(option_name, _T("no-extbrc"))) {
-    //    pParams->bExtBRC = false;
-    //    return 0;
-    //}
+    if (0 == _tcscmp(option_name, _T("extbrc"))) {
+        pParams->extBRC = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-extbrc"))) {
+        pParams->extBRC = false;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("adapt-ltr"))) {
         pParams->extBrcAdaptiveLTR = true;
         return 0;
@@ -2210,7 +2212,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         cmd << _T(" --dar ") << -1 * pParams->nPAR[0] << _T(":") << -1 * pParams->nPAR[1];
     }
 
-    //OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), bExtBRC);
+    OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
     OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
     OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), extBrcAdaptiveLTR);
     OPT_BOOL(_T("--intra-refresh"), _T("--no-intra-refresh"), bIntraRefresh);

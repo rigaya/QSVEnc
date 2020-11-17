@@ -364,6 +364,9 @@ Specify quality of lookahead.
 - medium
 - slow
 
+### --extbrc
+Enable Ext rate control, required for --adapt-ltr.
+
 ### --mbbrc
 Enable per macro block rate control.
 
@@ -401,7 +404,7 @@ Enable weighted P frames.
 Lower usage of B frame Direct/Skip type.
 
 ### --adapt-ltr
-Enable adaptive LTR frames.
+Enable adaptive LTR frames, --extbrc is required.
 
 ### --mv-scaling &lt;string&gt;
 Set mv cost scaling.

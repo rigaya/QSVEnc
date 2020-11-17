@@ -940,7 +940,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
         CHECK_FEATURE(cop3.WeightedPred,         cop3Out.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.WeightedBiPred,       cop3Out.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.FadeDetection,        cop3Out.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
-        cop2.ExtBRC = MFX_CODINGOPTION_UNKNOWN;
+        cop2.ExtBRC = MFX_CODINGOPTION_ON;
         cop2.BitrateLimit = MFX_CODINGOPTION_OFF;
         CHECK_FEATURE(cop3.ExtBrcAdaptiveLTR,    cop3Out.ExtBrcAdaptiveLTR,    ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR, MFX_CODINGOPTION_ON,    MFX_LIB_VERSION_1_26);
         cop2.ExtBRC = MFX_CODINGOPTION_UNKNOWN;

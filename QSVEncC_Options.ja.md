@@ -385,6 +385,9 @@ mediumやfastでは、先行探索を縮小されたフレームで行い、高�
 - slow　... 等倍のフレームで高品質な分析を行う。
 
 ### --mbbrc
+ExtBRCを有効にする。--adapt-ltrに必要。
+
+### --mbbrc
 マクロブロック単位でのレート制御を有効にする。デフォルトでは"-u"オプションに従い自動的にオン/オフが切り替わる。
 
 ### --i-adapt
@@ -421,7 +424,7 @@ Bフレームピラミッド参照を有効にする。
 B frame Direct/Skipの使用を最適化する。
 
 ### --adapt-ltr
-Adaptive LTRを有効にする。
+Adaptive LTRを有効にする。合わせて--extbrcの指定が必要。
 
 ### --mv-scaling &lt;string&gt;
 動きベクトルのコストの調整。

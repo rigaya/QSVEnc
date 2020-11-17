@@ -936,9 +936,9 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             && pInParams->extBrcAdaptiveLTR) {
             m_CodingOption2.BitrateLimit = MFX_CODINGOPTION_OFF;
         }
-        //if (pInParams->bExtBRC) {
-        //    m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
-        //}
+        if (pInParams->extBRC) {
+            m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
+        }
         if (pInParams->bIntraRefresh) {
             m_CodingOption2.IntRefType = 1;
             m_CodingOption2.IntRefCycleSize = (mfxU16)((pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10);
