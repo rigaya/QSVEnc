@@ -2369,7 +2369,7 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
     //        break;
     //    }
     //}
-    m_HDRSei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, m_pFileReader.get());
+    m_HDRSei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, inputParams->common.atcSei, m_pFileReader.get());
     if (!m_HDRSei) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
         return MFX_ERR_UNSUPPORTED;
