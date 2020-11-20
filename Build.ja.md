@@ -14,9 +14,9 @@
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2019
-- nasm
-- Avisynth SDK
-- VapourSynth SDK
+- [nasm](https://www.nasm.us/)
+- [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
+- [VapourSynth](http://www.vapoursynth.com/) SDK
 - Intel OpenCL SDK
 - Intel Metric Framework SDK (Intel Platform Analysis Libraryに同梱)
 
@@ -42,11 +42,11 @@ Intel Metric Framework SDKの環境変数は、"INTEL_METRIC_FRAMEWORK_SDK"で�
 無効化して使わずにおくのもありです。
 その場合は、QSVPipeline/rgy_version.hのマクロ "ENABLE_METRIC_FRAMEWORK" を 0 に変更してください。
 
-さらにビルドに必要なCaption2Ass_PCRをcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
+さらにビルドに必要な[Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR)をcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
 
 ```Batchfile
 git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
-setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+setx CAPTION2ASS_SRC <path-to-clone>/src
 ```
 
 ### 1. ソースのダウンロード
@@ -73,7 +73,7 @@ QSVEnc.slnを開きます。
 
 - C++14 Compiler
 - Intel Driver
-- yasm
+- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -84,7 +84,7 @@ QSVEnc.slnを開きます。
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential libtool git yasm
+sudo apt install build-essential libtool git nasm
 ```
 
 ### 2. Intel ドライバのインストール
@@ -210,7 +210,7 @@ Ubuntu 18.04では、自分でlibmfx, libva, media-driverをビルド・イン�
 
 - C++14 Compiler
 - Intel Driver
-- yasm
+- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -221,7 +221,7 @@ Ubuntu 18.04では、自分でlibmfx, libva, media-driverをビルド・イン�
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential meson automake libtool cmake pkg-config git yasm
+sudo apt install build-essential meson automake libtool cmake pkg-config git nasm
 ```
 
 ### 2. libvaのインストール
@@ -487,7 +487,7 @@ Success: QuickSyncVideo (hw encoding) available
 
 - C++14 Compiler
 - Intel Driver
-- yasm
+- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -498,7 +498,7 @@ Success: QuickSyncVideo (hw encoding) available
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo dnf install @development-tools yasm
+sudo dnf install @development-tools nasm
 ```
 
 ### 2. ビルドに必要なライブラリのインストール

@@ -14,9 +14,9 @@
 To build QSVEnc, components below are required.
 
 - Visual Studio 2019
-- nasm
-- Avisynth SDK
-- VapourSynth SDK
+- [nasm](https://www.nasm.us/)
+- [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
+- [VapourSynth](http://www.vapoursynth.com/) SDK
 - Intel OpenCL SDK
 - Intel Metric Framework SDK (included in Intel Platform Analysis Library)
 
@@ -40,11 +40,11 @@ The environment variable for Intel Metric Framework SDK is "INTEL_METRIC_FRAMEWO
 As this library is only used for getting GPU/MFX usage, you might want to just disable this feature and skip building this library,
 by setting macro ENABLE_METRIC_FRAMEWORK to 0 in QSVPipeline/rgy_version.h.
 
-You will also need source code of Caption2Ass_PCR.
+You will also need source code of [Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR).
 
 ```Batchfile
 git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
-setx CAPTION2ASS_SRC Caption2Ass_PCR <path-to-clone>/src
+setx CAPTION2ASS_SRC <path-to-clone>/src
 ```
 
 
@@ -70,7 +70,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 
 - C++14 Compiler
 - Intel Driver
-- yasm
+- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -81,7 +81,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 ### 1. Install build tools
 
 ```Shell
-sudo apt install build-essential libtool pkg-config git yasm
+sudo apt install build-essential libtool pkg-config git nasm
 ```
 
 ### 2. Install Intel driver
@@ -205,7 +205,7 @@ In Ubuntu 18.04, you may additionally need to build libva, libmfx and media-driv
 ### 0. Requirements
 
 - C++14 Compiler
-- yasm
+- nasm
 - git
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -215,7 +215,7 @@ In Ubuntu 18.04, you may additionally need to build libva, libmfx and media-driv
 ### 1. Install build tools
 
 ```Shell
-sudo apt install build-essential meson automake libtool cmake pkg-config git yasm
+sudo apt install build-essential meson automake libtool cmake pkg-config git nasm
 ```
 
 ### 2. Install libva
@@ -481,7 +481,7 @@ Success: QuickSyncVideo (hw encoding) available
 
 - C++14 Compiler
 - Intel Driver
-- yasm
+- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -492,7 +492,7 @@ Success: QuickSyncVideo (hw encoding) available
 ### 1. Install build tools
 
 ```Shell
-sudo dnf install @development-tools yasm
+sudo dnf install @development-tools nasm
 ```
 
 ### 2. Install required libraries
