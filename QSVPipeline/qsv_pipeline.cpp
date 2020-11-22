@@ -978,7 +978,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         //これを行わないとInvalid Parametersとなる場合がある
         static const auto WinBRCTargetRC = make_array<int>(MFX_RATECONTROL_VBR, MFX_RATECONTROL_LA, MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_QVBR);
         if (std::find(WinBRCTargetRC.begin(), WinBRCTargetRC.end(), pInParams->nEncMode) != WinBRCTargetRC.end()
-            && pInParams->nMaxBitrate != 0) {
+            && pInParams->nMaxBitrate != 0
+            && !pInParams->extBRC) { // extbrcはWinBRCと併用できない模様
             m_CodingOption3.WinBRCSize = (mfxU16)((0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()));
             m_CodingOption3.WinBRCMaxAvgKbps = (mfxU16)pInParams->nMaxBitrate;
         }
