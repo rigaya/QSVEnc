@@ -287,11 +287,17 @@ mfxStatus SubBurn::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mf
 
     if (m_sTasks[ind].pProcessor.get() == nullptr) {
         const bool d3dSurface = !!(m_SubBurnParam.memType & D3D9_MEMORY);
+#if defined(_MSC_VER) || defined(__AVX2__)
         if ((m_nSimdAvail & AVX2) == AVX2) {
             m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new ProcessorSubBurnD3DAVX2) : static_cast<Processor *>(new ProcessorSubBurnAVX2));
-        } else if (m_nSimdAvail & AVX) {
+        } else
+#endif //#if defined(_MSC_VER) || defined(__AVX2__)
+#if defined(_MSC_VER) || defined(__AVX__)
+        if (m_nSimdAvail & AVX) {
             m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new ProcessorSubBurnD3DAVX) : static_cast<Processor *>(new ProcessorSubBurnAVX));
-        } else if (m_nSimdAvail & SSE41) {
+        } else
+#endif //#if defined(_MSC_VER) || defined(__AVX__)
+        if (m_nSimdAvail & SSE41) {
             if (m_nCpuGen == CPU_GEN_AIRMONT || m_nCpuGen == CPU_GEN_SILVERMONT) {
                 m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new ProcessorSubBurnD3DSSE41PshufbSlow) : static_cast<Processor *>(new ProcessorSubBurnSSE41PshufbSlow));
             } else {
