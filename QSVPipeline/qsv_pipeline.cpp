@@ -974,7 +974,11 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
             m_CodingOption3.QVBRQuality = (mfxU16)clamp_param_int(pInParams->nQVBRQuality, 1, 51, _T("qvbr-q"));
         }
-        if (0 != pInParams->nMaxBitrate) {
+        //WinBRCの対象のレート制御モードかどうかをチェックする
+        //これを行わないとInvalid Parametersとなる場合がある
+        static const auto WinBRCTargetRC = make_array<int>(MFX_RATECONTROL_VBR, MFX_RATECONTROL_LA, MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_QVBR);
+        if (std::find(WinBRCTargetRC.begin(), WinBRCTargetRC.end(), pInParams->nEncMode) != WinBRCTargetRC.end()
+            && pInParams->nMaxBitrate != 0) {
             m_CodingOption3.WinBRCSize = (mfxU16)((0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()));
             m_CodingOption3.WinBRCMaxAvgKbps = (mfxU16)pInParams->nMaxBitrate;
         }
@@ -1000,7 +1004,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
                 m_CodingOption3.EnableQPOffset = MFX_CODINGOPTION_ON;
                 memcpy(m_CodingOption3.QPOffset, pInParams->pQPOffset, sizeof(pInParams->pQPOffset));
             }
-            m_CodingOption3.FadeDetection = check_coding_option((mfxU16)pInParams->nFadeDetect);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
             m_CodingOption3.RepartitionCheckEnable = (mfxU16)pInParams->nRepartitionCheck;
