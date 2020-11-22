@@ -113,6 +113,7 @@ static inline uint16_t check_coding_option(uint16_t value) {
 
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui);
 
+bool isRCBitrateMode(int encmode);
 
 struct RGYBitstream {
 private:

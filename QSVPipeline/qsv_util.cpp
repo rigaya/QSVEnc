@@ -222,6 +222,12 @@ tstring qsv_memtype_str(uint32_t memtype) {
     return str.substr(0, str.length()-1);
 }
 
+//ビットレート指定モードかどうか
+bool isRCBitrateMode(int encmode) {
+    static const auto RC_NON_BITRATE = make_array<int>(MFX_RATECONTROL_CQP, MFX_RATECONTROL_ICQ, MFX_RATECONTROL_LA_ICQ);
+    return (std::find(RC_NON_BITRATE.begin(), RC_NON_BITRATE.end(), encmode) == RC_NON_BITRATE.end());
+}
+
 void RGYBitstream::addFrameData(RGYFrameData *frameData) {
     if (frameData != nullptr) {
         frameDataNum++;

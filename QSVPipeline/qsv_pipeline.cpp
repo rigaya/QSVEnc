@@ -541,9 +541,6 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             return MFX_ERR_INVALID_VIDEO_PARAM;
         }
         //fallback
-        const int RC_BITRATE[] = { MFX_RATECONTROL_CBR, MFX_RATECONTROL_VBR, MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VCM, MFX_RATECONTROL_LA, MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_LA_EXT, MFX_RATECONTROL_QVBR };
-        //ビットレート指定モードかどうか
-        bool bSelectedRCBitrate = std::find(RC_BITRATE, RC_BITRATE + _countof(RC_BITRATE), pInParams->nEncMode) != (RC_BITRATE + _countof(RC_BITRATE));
         //fallbackの候補リスト、優先度の高い順にセットする
         vector<int> check_rc_list;
         //現在のレート制御モードは使用できないので、それ以外を確認する
@@ -555,7 +552,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
 
         //品質指定系の場合、若干補正をかけた値を設定する
         int nAdjustedQP[3] = { QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB };
-        if (bSelectedRCBitrate) {
+        if (isRCBitrateMode(pInParams->nEncMode)) {
             //ビットレートモードなら、QVBR->VBRをチェックする
             check_rc_add(MFX_RATECONTROL_QVBR);
             check_rc_add(MFX_RATECONTROL_VBR);
