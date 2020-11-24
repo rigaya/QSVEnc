@@ -217,18 +217,10 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
     const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
-    static const auto codecPluginList = make_array<std::pair<mfxU32, mfxPluginUID>>(
-        std::make_pair(MFX_CODEC_HEVC, MFX_PLUGINID_HEVCD_HW),
-        std::make_pair(MFX_CODEC_VP8,  MFX_PLUGINID_VP8D_HW),
-        std::make_pair(MFX_CODEC_VP9,  MFX_PLUGINID_VP9D_HW)
-        );
-    const auto plugin = std::find_if(codecPluginList.begin(), codecPluginList.end(),
-        [codecId](decltype((codecPluginList[0])) codecPlugin) {
-        return codecPlugin.first == codecId;
-    });
     auto sessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(session));
-    if (plugin != codecPluginList.end()) {
-        if (MFX_ERR_NONE != sessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, plugin->second, 1)) {
+    auto plugin = getMFXPluginUID(MFXComponentType::DECODE, codecId, false);
+    if (plugin != nullptr) {
+        if (MFX_ERR_NONE != sessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, *plugin, 1)) {
             return supportedCsp;
         }
     }
@@ -1091,12 +1083,9 @@ mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver
     } else {
 
         CSessionPlugins sessionPlugins(session);
-        if (codecId == MFX_CODEC_HEVC) {
-            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1);
-        } else if (codecId == MFX_CODEC_VP8) {
-            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1);
-        } else if (codecId == MFX_CODEC_VP9) {
-            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1);
+        auto plugin = getMFXPluginUID(MFXComponentType::ENCODE, codecId, false);
+        if (plugin != nullptr) {
+            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, *plugin, 1);
         }
         feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
         sessionPlugins.UnloadPlugins();

@@ -45,6 +45,7 @@
 #include "mfxstructures.h"
 #include "mfxcommon.h"
 #include "mfxsession.h"
+#include "mfxplugin.h"
 #include "rgy_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
@@ -96,6 +97,15 @@ static inline uint16_t frametype_rgy_to_enc(const RGY_FRAMETYPE frametype) {
     type |=  (RGY_FRAMETYPE_xB   & frametype) ? MFX_FRAMETYPE_xB   : MFX_FRAMETYPE_UNKNOWN;
     return (uint16_t)type;
 }
+
+enum class MFXComponentType {
+    DECODE = 0x0001,
+    ENCODE = 0x0002,
+    VPP = 0x0004,
+    ENC = 0x0008,
+    FEI = 0x1000,
+};
+const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, const bool software);
 
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
 
