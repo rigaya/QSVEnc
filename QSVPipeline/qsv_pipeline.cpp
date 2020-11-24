@@ -2856,7 +2856,7 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
                         m_ThreadsParam.Priority = get_value_from_chr(list_priority, _T("normal"));
                     }
                 }
-#endif
+#endif //#if ENABLE_SESSION_THREAD_CONFIG
                 return m_mfxSession.Init(impl, verRequired);
             };
 
@@ -2931,6 +2931,9 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
     //使用できる最大のversionをチェック
     m_mfxSession.QueryVersion(&m_mfxVer);
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
+
+    //pluginのロードを可能に
+    m_SessionPlugins = std::make_unique<CSessionPlugins>(m_mfxSession);
     return sts;
 }
 
@@ -3005,11 +3008,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     m_nMFXThreads = pParams->nSessionThreads;
     m_nAVSyncMode = pParams->common.AVSyncMode;
 
-    sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
-    if (sts < MFX_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_DEBUG, _T("InitSessionInitParam: Success.\n"));
-
-    m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
+    m_pPerfMonitor = std::make_unique<CPerfMonitor>();
 
     sts = InitInput(pParams);
     if (sts < MFX_ERR_NONE) return sts;
@@ -3023,11 +3022,13 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     QSV_ERR_MES(sts, _T("Failed to allocate memory for thread control."));
     PrintMes(RGY_LOG_DEBUG, _T("m_EncThread.Init: Success.\n"));
 
+    sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
+    if (sts < MFX_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitSessionInitParam: Success.\n"));
+
     sts = InitSession(true, pParams->memType);
     QSV_ERR_MES(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
-
-    m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));
 
     sts = CreateAllocator();
     if (sts < MFX_ERR_NONE) return sts;
