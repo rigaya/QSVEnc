@@ -2363,13 +2363,6 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
     if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
     }
-    int subburnTrackId = 0;
-    //for (const auto &subburn : inputParams->vpp.subburn) {
-    //    if (subburn.trackId > 0) {
-    //        subburnTrackId = subburn.trackId;
-    //        break;
-    //    }
-    //}
     m_HDRSei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, inputParams->common.atcSei, m_pFileReader.get());
     if (!m_HDRSei) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
@@ -2383,7 +2376,6 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
         m_Chapters,
 #endif //#if ENABLE_AVSW_READER
         m_HDRSei.get(),
-        subburnTrackId,
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark,
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
