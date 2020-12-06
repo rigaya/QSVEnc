@@ -860,7 +860,18 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.CodecProfile            = (mfxU16)pInParams->CodecProfile;
     m_mfxEncParams.mfx.GopOptFlag              = 0;
     m_mfxEncParams.mfx.GopOptFlag             |= (!pInParams->bopenGOP) ? MFX_GOP_CLOSED : 0x00;
-    m_mfxEncParams.mfx.IdrInterval             = (mfxU16)((!pInParams->bopenGOP) ? 0 : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 20 / pInParams->nGOPLength);
+
+    /* For H.264, IdrInterval specifies IDR-frame interval in terms of I-frames; if IdrInterval = 0, then every I-frame is an IDR-frame. If IdrInterval = 1, then every other I-frame is an IDR-frame, etc.
+     * For HEVC, if IdrInterval = 0, then only first I-frame is an IDR-frame. If IdrInterval = 1, then every I-frame is an IDR-frame. If IdrInterval = 2, then every other I-frame is an IDR-frame, etc.
+     * For MPEG2, IdrInterval defines sequence header interval in terms of I-frames. If IdrInterval = N, SDK inserts the sequence header before every Nth I-frame. If IdrInterval = 0 (default), SDK inserts the sequence header once at the beginning of the stream.
+     * If GopPicSize or GopRefDist is zero, IdrInterval is undefined. */
+    if (pInParams->CodecId == MFX_CODEC_HEVC) {
+        m_mfxEncParams.mfx.IdrInterval = (mfxU16)((!pInParams->bopenGOP) ? 1 : 1 + ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 20 / pInParams->nGOPLength);
+    } else if (pInParams->CodecId == MFX_CODEC_AVC) {
+        m_mfxEncParams.mfx.IdrInterval = (mfxU16)((!pInParams->bopenGOP) ? 0 : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 20 / pInParams->nGOPLength);
+    } else {
+        m_mfxEncParams.mfx.IdrInterval = 0;
+    }
     //MFX_GOP_STRICTにより、インタレ保持時にフレームが壊れる場合があるため、無効とする
     //m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
