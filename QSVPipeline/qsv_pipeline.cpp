@@ -61,6 +61,7 @@
 #include "qsv_allocator_sys.h"
 #include "rgy_avlog.h"
 #include "rgy_chapter.h"
+#include "rgy_timecode.h"
 #include "rgy_codepage.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include "api_hook.h"
@@ -2229,6 +2230,7 @@ CQSVPipeline::CQSVPipeline() {
 
     m_pStatus.reset();
     m_pFileWriterListAudio.clear();
+    m_timecode.reset();
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
@@ -2393,6 +2395,15 @@ mfxStatus CQSVPipeline::InitOutput(sInputParams *inputParams) {
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
         return err_to_mfx(sts);
+    }
+    if (inputParams->common.timecode) {
+        m_timecode = std::make_unique<RGYTimecode>();
+        const auto tcfilename = (inputParams->common.timecodeFile.length() > 0) ? inputParams->common.timecodeFile : PathRemoveExtensionS(inputParams->common.outputFilename) + _T(".timecode.txt");
+        auto err = m_timecode->init(tcfilename);
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to open timecode file: \"%s\".\n"), tcfilename.c_str());
+            return MFX_ERR_INVALID_HANDLE;
+        }
     }
     return MFX_ERR_NONE;
 }
@@ -3183,6 +3194,8 @@ void CQSVPipeline::Close() {
         PrintMes(RGY_LOG_DEBUG, _T("timeEndPeriod(1)\n"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+    m_timecode.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
     m_pPerfMonitor.reset();
@@ -4010,6 +4023,9 @@ mfxStatus CQSVPipeline::RunEncode() {
             pCurrentTask->mfxBS.DecodeTimeStamp = (uint64_t)MFX_TIMESTAMP_UNKNOWN;
             //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
             pSurfEncIn->Data.TimeStamp = (uint64_t)m_outputTimestamp.check(pSurfEncIn->Data.TimeStamp);
+            if (m_timecode) {
+                m_timecode->write(pSurfEncIn->Data.TimeStamp, m_outputTimebase);
+            }
         }
 
         bool bDeviceBusy = false;

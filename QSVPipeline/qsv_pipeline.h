@@ -65,6 +65,7 @@
 #include <iostream>
 
 struct AVChapter;
+class RGYTimecode;
 
 enum {
     MFX_PRM_EX_SCENE_CHANGE = 0x01,
@@ -192,6 +193,7 @@ protected:
 #if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_Chapters;
 #endif
+    std::unique_ptr<RGYTimecode> m_timecode;
     std::unique_ptr<HEVCHDRSei> m_HDRSei;
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;

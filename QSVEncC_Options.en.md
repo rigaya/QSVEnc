@@ -1007,6 +1007,9 @@ Example3: set metadata
 
   - vfr  
     Honor source timestamp and enable vfr output. Only available for avsw/avhw reader, and could not be used with --trim.
+    
+### --timecode [&lt;string&gt;]  
+  Write timecode file to the specified path. If the path is not set, it will be written to "&lt;output file path&gt;.timecode.txt".
 
 ## Vpp Options
 
