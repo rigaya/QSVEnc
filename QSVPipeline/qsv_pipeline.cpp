@@ -353,24 +353,32 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             return MFX_ERR_MEMORY_ALLOC;
         }
 
+        static const auto codecPluginList = make_array<std::pair<RGY_CODEC, mfxPluginUID>>(
+            std::make_pair(RGY_CODEC_HEVC, MFX_PLUGINID_HEVCD_HW),
+            std::make_pair(RGY_CODEC_VP8,  MFX_PLUGINID_VP8D_HW),
+            std::make_pair(RGY_CODEC_VP9,  MFX_PLUGINID_VP9D_HW)
+        );
         const auto inputCodec = m_pFileReader->getInputCodec();
-        const auto plugin = getMFXPluginUID(MFXComponentType::DECODE, codec_rgy_to_enc(inputCodec), false);
-        if (plugin != nullptr) {
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), CodecToStr(inputCodec).c_str());
-            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, *plugin, 1)) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), CodecToStr(inputCodec).c_str());
+        const auto plugin = std::find_if(codecPluginList.begin(), codecPluginList.end(),
+                [inputCodec](decltype((codecPluginList[0])) codecPlugin) {
+            return codecPlugin.first == inputCodec;
+        });
+        if (plugin != codecPluginList.end()) {
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), CodecToStr(plugin->first).c_str());
+            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, plugin->second, 1)) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), CodecToStr(plugin->first).c_str());
                 return MFX_ERR_UNSUPPORTED;
             }
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), CodecToStr(inputCodec).c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), CodecToStr(plugin->first).c_str());
         }
 
-        if (inputCodec == RGY_CODEC_H264 || inputCodec == RGY_CODEC_HEVC) {
+        if (m_pFileReader->getInputCodec() == RGY_CODEC_H264 || m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
             //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
             const uint32_t IDR = 0x65010000;
             m_DecInputBitstream.append((uint8_t *)&IDR, sizeof(IDR));
         }
         memset(&m_mfxDecParams, 0, sizeof(m_mfxDecParams));
-        m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(inputCodec);
+        m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(m_pFileReader->getInputCodec());
         m_mfxDecParams.IOPattern = (uint16_t)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         sts = m_pmfxDEC->DecodeHeader(&m_DecInputBitstream.bitstream(), &m_mfxDecParams);
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
@@ -476,15 +484,24 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
 
-    const auto plugin = getMFXPluginUID(MFXComponentType::ENCODE, pInParams->CodecId, false);
-    if (plugin != nullptr) {
-        PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Loading %s encoder plugin..."), CodecIdToStr(pInParams->CodecId));
-        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, *plugin, 1)) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s encoder.\n"), CodecIdToStr(pInParams->CodecId));
-            PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
+    if (pInParams->CodecId == MFX_CODEC_HEVC) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1)) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("hevc encoding is not supported on current platform.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
-        PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Loaded %s encoder plugin.\n"), CodecIdToStr(pInParams->CodecId));
+    } else if (pInParams->CodecId == MFX_CODEC_VP8) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1)) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vp8 encoding is not supported on current platform.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+    } else if (pInParams->CodecId == MFX_CODEC_VP9) {
+        if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1)) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("vp9 encoding is not supported on current platform.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
     }
     const int encodeBitDepth = getEncoderBitdepth(pInParams);
     if (encodeBitDepth <= 0) {
@@ -2856,7 +2873,7 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
                         m_ThreadsParam.Priority = get_value_from_chr(list_priority, _T("normal"));
                     }
                 }
-#endif //#if ENABLE_SESSION_THREAD_CONFIG
+#endif
                 return m_mfxSession.Init(impl, verRequired);
             };
 
@@ -2931,9 +2948,6 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
     //使用できる最大のversionをチェック
     m_mfxSession.QueryVersion(&m_mfxVer);
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
-
-    //pluginのロードを可能に
-    m_SessionPlugins = std::make_unique<CSessionPlugins>(m_mfxSession);
     return sts;
 }
 
@@ -3008,7 +3022,11 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     m_nMFXThreads = pParams->nSessionThreads;
     m_nAVSyncMode = pParams->common.AVSyncMode;
 
-    m_pPerfMonitor = std::make_unique<CPerfMonitor>();
+    sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
+    if (sts < MFX_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitSessionInitParam: Success.\n"));
+
+    m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
 
     sts = InitInput(pParams);
     if (sts < MFX_ERR_NONE) return sts;
@@ -3022,13 +3040,11 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     QSV_ERR_MES(sts, _T("Failed to allocate memory for thread control."));
     PrintMes(RGY_LOG_DEBUG, _T("m_EncThread.Init: Success.\n"));
 
-    sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
-    if (sts < MFX_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_DEBUG, _T("InitSessionInitParam: Success.\n"));
-
     sts = InitSession(true, pParams->memType);
     QSV_ERR_MES(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
+
+    m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));
 
     sts = CreateAllocator();
     if (sts < MFX_ERR_NONE) return sts;
