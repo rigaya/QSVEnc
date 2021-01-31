@@ -108,7 +108,7 @@ mfxStatus Delogo::Submit(const mfxHDL *in, mfxU32 in_num, const mfxHDL *out, mfx
             }
         } else {
 #if defined(_MSC_VER) || defined(__AVX2__)
-            if ((m_nSimdAvail & (AVX2 | FMA3)) == (AVX2 | FMA3)) {
+            if ((m_nSimdAvail & (AVX2)) == (AVX2)) {
                 m_sTasks[ind].pProcessor.reset((d3dSurface) ? static_cast<Processor *>(new DelogoProcessD3DAVX2) : new DelogoProcessAVX2);
             } else
 #endif //#if defined(_MSC_VER) || defined(__AVX2__)
@@ -507,7 +507,7 @@ mfxStatus Delogo::SetAuxParams(void *auxParam, int auxParamSize) {
         }
     }
 
-    if ((m_nSimdAvail & (AVX2 | FMA3)) == (AVX2 | FMA3)) {
+    if ((m_nSimdAvail & (AVX2)) == (AVX2)) {
         m_pluginName = _T("delogo[AVX2]");
     } else if (m_nSimdAvail & AVX) {
         m_pluginName = _T("delogo[AVX]");
