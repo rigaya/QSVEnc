@@ -14,13 +14,10 @@
 ビルドには、下記のものが必要です。
 
 - Visual Studio 2019
-- [nasm](https://www.nasm.us/)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
 - Intel OpenCL SDK
 - Intel Metric Framework SDK (Intel Platform Analysis Libraryに同梱)
-
-nasmはパスに追加しておきます。
 
 Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
 
@@ -73,7 +70,6 @@ QSVEnc.slnを開きます。
 
 - C++14 Compiler
 - Intel Driver
-- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -84,7 +80,7 @@ QSVEnc.slnを開きます。
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential libtool git nasm
+sudo apt install build-essential libtool git
 ```
 
 ### 2. Intel ドライバのインストール
@@ -210,7 +206,6 @@ Ubuntu 18.04では、自分でlibmfx, libva, media-driverをビルド・イン�
 
 - C++14 Compiler
 - Intel Driver
-- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -221,7 +216,7 @@ Ubuntu 18.04では、自分でlibmfx, libva, media-driverをビルド・イン�
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential meson automake libtool cmake pkg-config git nasm
+sudo apt install build-essential meson automake libtool cmake pkg-config git
 ```
 
 ### 2. libvaのインストール
@@ -487,7 +482,6 @@ Success: QuickSyncVideo (hw encoding) available
 
 - C++14 Compiler
 - Intel Driver
-- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -498,7 +492,7 @@ Success: QuickSyncVideo (hw encoding) available
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo dnf install @development-tools nasm
+sudo dnf install @development-tools
 ```
 
 ### 2. ビルドに必要なライブラリのインストール

@@ -99,13 +99,11 @@ USE_PKGCONFIG=1
 ENABLE_DEBUG=0
 CXX=${CXX:-g++}
 LD=${LD:-g++}
-AS=${AS:-nasm}
 PROGRAM=qsvencc
 PREFIX=${PREFIX:-/usr/local}
 EXTRACXXFLAGS=""
 EXTRALDFLAGS=""
 SRCS=""
-ASMS=""
 X86_64=1
 NO_RDTSCP_INTRIN=0
 
@@ -150,7 +148,6 @@ options:
   --prefix=PREFIX          install qsvencc into PREFIX/bin [${PREFIX}]
 
   --cxx=CXX                set C++ compiler path [${CXX}]
-  --asm=AS                 set assembler path [${AS}]
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
 
@@ -185,9 +182,6 @@ for opt; do
         --cxx=*)
             CXX="$optarg"
             LD="$optarg"
-            ;;
-        --asm=*)
-            AS="$optarg"
             ;;
         --extra-cxxflags=*)
             EXTRACXXFLAGS="$optarg"
@@ -224,7 +218,6 @@ echo "PKGCONFIG=${PKGCONFIG}" >> ${CNF_LOG}
 echo "USE_PKGCONFIG=${USE_PKGCONFIG}" >> ${CNF_LOG}
 echo "ENABLE_DEBUG=${ENABLE_DEBUG}" >> ${CNF_LOG}
 echo "CXX=${CXX}" >> ${CNF_LOG}
-echo "AS=${AS}" >> ${CNF_LOG}
 echo "PROGRAM=${PROGRAM}" >> ${CNF_LOG}
 echo "PREFIX=${PREFIX}" >> ${CNF_LOG}
 echo "EXTRACXXFLAGS=${EXTRACXXFLAGS}" >> ${CNF_LOG}
@@ -238,7 +231,7 @@ echo "ENABLE_AVXSYNTH=${ENABLE_AVXSYNTH}" >> ${CNF_LOG}
 echo "ENABLE_LIBASS=${ENABLE_LIBASS}" >> ${CNF_LOG}
 echo "ENABLE_DTL=${ENABLE_DTL}" >> ${CNF_LOG}
 
-for file in "${CXX}" "${LD}" "${AS}"; do
+for file in "${CXX}" "${LD}"; do
     if [ ! `which $file 2> /dev/null` ]; then
         cnf_write $file not found
         exit 1
@@ -268,13 +261,10 @@ CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
 "
 LDFLAGS="-L. -ldl -lm -lstdc++"
-ASFLAGS="-I. -DLINUX=1"
 if [ $X86_64 -ne 0 ]; then
-    ASFLAGS="${ASFLAGS} -f elf64 -DARCH_X86_64=1"
     CXXFLAGS="${CXXFLAGS} -DLINUX64 -m64"
     LDFLAGS="${LDFLAGS} -m64"
 else
-    ASFLAGS="${ASFLAGS} -f elf32"
     CXXFLAGS="${CXXFLAGS} -DLINUX32 -m32"
     LDFLAGS="${LDFLAGS} -m32"
 fi
@@ -648,8 +638,6 @@ rgy_util.cpp                rgy_version.cpp \
 
 SRC_TINYXML2="tinyxml2.cpp"
 
-ASM_QSVPIPELINE="ram_speed_x64.asm cpu_info_x64.asm"
-
 PYW_PERF_MONITOR="perf_monitor.pyw"
 
 SRC_PLUGIN_DELOGO=" \
@@ -672,10 +660,6 @@ SRC_QSVENCC="QSVEncC.cpp"
 
 for src in $SRC_QSVPIPELINE; do
     SRCS="$SRCS QSVPipeline/$src"
-done
-
-for asm in $ASM_QSVPIPELINE; do
-    ASMS="$ASMS QSVPipeline/$asm"
 done
 
 for pyw in $PYW_PERF_MONITOR; do
@@ -707,17 +691,14 @@ ENCODER_REV=`git rev-list HEAD | wc --lines`
 cnf_write ""
 cnf_write "Creating config.mak, rgy_config.h..."
 echo "SRCS = $SRCS" >> config.mak
-echo "ASMS = $ASMS" >> config.mak
 echo "PYWS = $PYWS" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
 write_config_mak "CXX = $CXX"
 write_config_mak "LD  = $LD"
-write_config_mak "AS  = $AS"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
 write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVXSYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
-write_config_mak "ASFLAGS = $ASFLAGS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
 write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""

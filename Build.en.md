@@ -14,13 +14,10 @@
 To build QSVEnc, components below are required.
 
 - Visual Studio 2019
-- [nasm](https://www.nasm.us/)
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
 - Intel OpenCL SDK
 - Intel Metric Framework SDK (included in Intel Platform Analysis Library)
-
-Please set nasm to your environment PATH.
 
 Install Avisynth+ and VapourSynth, with the SDKs.
 
@@ -70,7 +67,6 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 
 - C++14 Compiler
 - Intel Driver
-- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -81,7 +77,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 ### 1. Install build tools
 
 ```Shell
-sudo apt install build-essential libtool pkg-config git nasm
+sudo apt install build-essential libtool pkg-config git
 ```
 
 ### 2. Install Intel driver
@@ -205,7 +201,6 @@ In Ubuntu 18.04, you may additionally need to build libva, libmfx and media-driv
 ### 0. Requirements
 
 - C++14 Compiler
-- nasm
 - git
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -215,7 +210,7 @@ In Ubuntu 18.04, you may additionally need to build libva, libmfx and media-driv
 ### 1. Install build tools
 
 ```Shell
-sudo apt install build-essential meson automake libtool cmake pkg-config git nasm
+sudo apt install build-essential meson automake libtool cmake pkg-config git
 ```
 
 ### 2. Install libva
@@ -481,7 +476,6 @@ Success: QuickSyncVideo (hw encoding) available
 
 - C++14 Compiler
 - Intel Driver
-- nasm
 - git
 - libraries
   - libva, libdrm, libmfx 
@@ -492,7 +486,7 @@ Success: QuickSyncVideo (hw encoding) available
 ### 1. Install build tools
 
 ```Shell
-sudo dnf install @development-tools nasm
+sudo dnf install @development-tools
 ```
 
 ### 2. Install required libraries

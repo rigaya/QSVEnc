@@ -1,7 +1,6 @@
 include config.mak
 
 vpath %.cpp $(SRCDIR)
-vpath %.asm $(SRCDIR)
 
 OBJS  = $(SRCS:%.cpp=%.o)
 OBJASMS = $(ASMS:%.asm=%.o)
@@ -9,14 +8,11 @@ OBJPYWS = $(PYWS:%.pyw=%.o)
 
 all: $(PROGRAM)
 
-$(PROGRAM): .depend $(OBJS) $(OBJASMS) $(OBJPYWS)
-	$(LD) $(OBJS) $(OBJASMS) $(OBJPYWS) $(LDFLAGS) -o $(PROGRAM)
+$(PROGRAM): .depend $(OBJS) $(OBJPYWS)
+	$(LD) $(OBJS) $(OBJPYWS) $(LDFLAGS) -o $(PROGRAM)
 
 %.o: %.cpp .depend
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
-
-%.o: %.asm
-	$(AS) $(ASFLAGS) -o $@ $<
 
 %.o: %.pyw
 	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
@@ -31,7 +27,7 @@ include .depend
 endif
 
 clean:
-	rm -f $(OBJS) $(OBJASMS) $(PROGRAM) .depend
+	rm -f $(OBJS) $(PROGRAM) .depend
 
 distclean: clean
 	rm -f config.mak QSVPipeline/qsv_config.h
