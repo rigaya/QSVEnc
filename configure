@@ -624,7 +624,7 @@ qsv_hw_va.cpp               qsv_hw_va_utils.cpp             qsv_hw_va_utils_drm.
 qsv_hw_va_utils_x11.cpp  \
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
 qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
-ram_speed.cpp               rgy_avlog.cpp                   rgy_avutil.cpp \
+rgy_avlog.cpp               rgy_avutil.cpp \
 rgy_bitstream.cpp           rgy_chapter.cpp                 rgy_cmd.cpp \
 rgy_codepage.cpp            rgy_def.cpp                     rgy_err.cpp \
 rgy_event.cpp               rgy_frame.cpp                   rgy_hdr10plus.cpp             rgy_ini.cpp \
