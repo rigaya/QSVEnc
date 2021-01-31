@@ -275,7 +275,7 @@ function showTable(idno) {
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(_T("<hr>\n"), false);
     }
-    tstring environmentInfo = getEnviromentInfo(false);
+    tstring environmentInfo = getEnviromentInfo();
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         environmentInfo = str_replace(environmentInfo, _T("Environment Info\n"), _T(""));
     }
@@ -525,12 +525,12 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
     }
     if (0 == _tcscmp(option_name, _T("check-environment"))) {
         show_version();
-        _ftprintf(stdout, _T("%s"), getEnviromentInfo(true).c_str());
+        _ftprintf(stdout, _T("%s"), getEnviromentInfo().c_str());
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-environment-auo"))) {
         show_version();
-        _ftprintf(stdout, _T("%s"), getEnviromentInfo(false).c_str());
+        _ftprintf(stdout, _T("%s"), getEnviromentInfo().c_str());
         mfxVersion lib = get_mfx_libhw_version();
         mfxVersion test = { 0, 1 };
         if (check_lib_version(lib, test)) {
