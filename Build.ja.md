@@ -68,7 +68,7 @@ QSVEnc.slnを開きます。
 
 ### 0. ビルドに必要なもの
 
-- C++14 Compiler
+- C++17 Compiler
 - Intel Driver
 - git
 - libraries
@@ -204,7 +204,7 @@ Ubuntu 18.04では、自分でlibmfx, libva, media-driverをビルド・イン�
 
 ### 0. ビルドに必要なもの
 
-- C++14 Compiler
+- C++17 Compiler
 - Intel Driver
 - git
 - libraries
@@ -480,7 +480,7 @@ Success: QuickSyncVideo (hw encoding) available
 
 ### 0. ビルドに必要なもの
 
-- C++14 Compiler
+- C++17 Compiler
 - Intel Driver
 - git
 - libraries

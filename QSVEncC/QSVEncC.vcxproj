@@ -162,6 +162,7 @@
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -218,6 +219,7 @@ BuildMfx.bat x86</Command>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -277,6 +279,7 @@ BuildMfx.bat x86</Command>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -335,6 +338,7 @@ BuildMfx.bat x64</Command>
       <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -397,6 +401,7 @@ BuildMfx.bat x64</Command>
       <DisableSpecificWarnings>4505;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -463,6 +468,7 @@ BuildMfx.bat x86</Command>
       <DisableSpecificWarnings>4505;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -531,6 +537,7 @@ BuildMfx.bat x86</Command>
       <DisableSpecificWarnings>4505;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -598,6 +605,7 @@ BuildMfx.bat x64</Command>
       <DisableSpecificWarnings>4505;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AssemblerOutput>All</AssemblerOutput>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

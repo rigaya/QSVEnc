@@ -260,7 +260,7 @@ CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -I${SRCDIR} -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins \
 -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
 "
-LDFLAGS="-L. -ldl -lm -lstdc++"
+LDFLAGS="-L. -ldl -lm -lstdc++ -lstdc++fs"
 if [ $X86_64 -ne 0 ]; then
     CXXFLAGS="${CXXFLAGS} -DLINUX64 -m64"
     LDFLAGS="${LDFLAGS} -m64"
@@ -278,10 +278,10 @@ else
 fi
 cnf_write "OK"
 
-if cxx_check "c++14" "${CXXFLAGS} -std=c++14 ${LDFLAGS}" ; then
-    CXXFLAGS="$CXXFLAGS -std=c++14"
+if cxx_check "c++17" "${CXXFLAGS} -std=c++17 ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -std=c++17"
 else
-    cnf_write "${CXX} does not work with -std=c++14"
+    cnf_write "${CXX} does not work with -std=c++17"
     exit 1
 fi
 cnf_write "OK"

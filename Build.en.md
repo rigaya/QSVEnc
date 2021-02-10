@@ -65,7 +65,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 
 ### 0. Requirements
 
-- C++14 Compiler
+- C++17 Compiler
 - Intel Driver
 - git
 - libraries
@@ -200,7 +200,7 @@ In Ubuntu 18.04, you may additionally need to build libva, libmfx and media-driv
 
 ### 0. Requirements
 
-- C++14 Compiler
+- C++17 Compiler
 - git
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
@@ -474,7 +474,7 @@ Success: QuickSyncVideo (hw encoding) available
 
 ### 0. Requirements
 
-- C++14 Compiler
+- C++17 Compiler
 - Intel Driver
 - git
 - libraries
