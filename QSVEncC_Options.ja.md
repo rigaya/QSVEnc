@@ -843,11 +843,17 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 - filter=&lt;string&gt;  
   音声エンコード時のフィルタを指定する。
+  
+- disposition=&lt;string&gt;  
+  音声のdispositionを指定する。
+  
+- metadata=&lt;string1&gt;=&lt;string2&gt;  
+  音声のmetadataを指定する。
 
 ```
 例1: --audio-source "<audio_file>":copy
 例2: --audio-source "<audio_file>":codec=aac
-例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192
+例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
 ```
 
 ### --chapter &lt;string&gt;
@@ -917,8 +923,20 @@ matroska形式 (UTF-8であること)
 ### --chapter-copy
 チャプターをコピーする。
 
-### --sub-source &lt;string&gt;
+### --sub-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
 指定のファイルから字幕を読み込みmuxする。
+
+**パラメータ** 
+- disposition=&lt;string&gt;  
+  字幕のdispositionを指定する。
+  
+- metadata=&lt;string1&gt;=&lt;string2&gt;  
+  字幕のmetadataを指定する。
+
+```
+例1: --sub-source "<sub_file>"
+例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+```
 
 ### --sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
