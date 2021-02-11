@@ -498,7 +498,7 @@ function showTable(idno) {
         fclose(fp);
 #if defined(_WIN32) || defined(_WIN64)
         TCHAR exePath[1024] = { 0 };
-        if (32 <= (size_t)FindExecutable(filename.c_str(), nullptr, exePath) && _tcslen(exePath) && PathFileExists(exePath)) {
+        if (32 <= (size_t)FindExecutable(filename.c_str(), nullptr, exePath) && _tcslen(exePath) && rgy_file_exists(exePath)) {
             ShellExecute(NULL, _T("open"), filename.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)

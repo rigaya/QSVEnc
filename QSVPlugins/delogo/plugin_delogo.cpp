@@ -238,7 +238,7 @@ int Delogo::selectLogo(const TCHAR *selectStr) {
 
     //自動ロゴ選択ファイルか?
     std::string logoName = GetFullPath(tchar_to_string(selectStr).c_str());
-    if (!PathFileExists(selectStr)) {
+    if (!rgy_file_exists(selectStr)) {
         m_message += _T("")
             _T("--vpp-delogo-select option has invalid param.\n")
             _T("Please set logo name or logo index (starting from 1),\n")
