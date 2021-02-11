@@ -32,6 +32,7 @@
 #include <map>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 #include "qsv_util.h"
 #include "qsv_query.h"
 #include "rgy_simd.h"
@@ -693,7 +694,7 @@ mfxStatus SubBurn::SetAuxParams(void *auxParam, int auxParamSize) {
         m_pluginName += strsprintf(_T(" track #%d"), trackID(m_SubBurnParam.src.trackId));
     } else {
         AddMessage(RGY_LOG_DEBUG, _T("input file path \"%s\".\n"), m_SubBurnParam.pFilePath);
-        std::wstring sFilename = tchar_to_wstring(PathFindFileName(m_SubBurnParam.pFilePath));
+        std::wstring sFilename = std::filesystem::path(m_SubBurnParam.pFilePath).filename().wstring();
         if (sFilename.length() > 23) {
             sFilename = sFilename.substr(0, 20) + L"...";
         }
