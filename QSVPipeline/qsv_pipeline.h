@@ -237,7 +237,8 @@ protected:
     virtual mfxStatus InitMfxDecParams(sInputParams *pInParams);
     virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
     virtual mfxStatus InitSession(bool useHWLib, uint32_t memType);
-    virtual RGY_CSP EncoderCsp(const sInputParams *pParams, int *pShift);
+    int getEncoderBitdepth(const sInputParams *pParams);
+    RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift);
     //virtual void InitVppExtParam();
     virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
 

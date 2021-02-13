@@ -432,7 +432,7 @@ mfxStatus CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         memset(&m_DecVidProc, 0, sizeof(m_DecVidProc));
         m_DecExtParams.clear();
 #if 0
-        const auto enc_fourcc = csp_rgy_to_enc(EncoderCsp(pInParams, nullptr));
+        const auto enc_fourcc = csp_rgy_to_enc(getEncoderCsp(pInParams, nullptr));
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)
             && ( m_mfxDecParams.mfx.FrameInfo.CropW  != pInParams->input.dstWidth
               || m_mfxDecParams.mfx.FrameInfo.CropH  != pInParams->input.dstHeight
@@ -503,6 +503,14 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             return MFX_ERR_UNSUPPORTED;
         }
     }
+    const int encodeBitDepth = getEncoderBitdepth(pInParams);
+    if (encodeBitDepth <= 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
+        return MFX_ERR_UNSUPPORTED;
+    }
+    const int codecMaxQP = 51 + (encodeBitDepth - 8) * 6;
+    PrintMes(RGY_LOG_DEBUG, _T("encodeBitDepth: %d, codecMaxQP: %d.\n"), encodeBitDepth, codecMaxQP);
+
     //エンコードモードのチェック
     auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
     PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%d, %s, %s\n%s\n"),
@@ -583,13 +591,13 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
                 pInParams->nEncMode = (uint16_t)check_rc_list[i];
                 if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
-                    pInParams->nICQQuality = (uint16_t)clamp(nAdjustedQP[1] + 6, 1, 51);
+                    pInParams->nICQQuality = (uint16_t)clamp(nAdjustedQP[1] + 6, 1, codecMaxQP);
                 } else if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
-                    pInParams->nICQQuality = (uint16_t)clamp(nAdjustedQP[1], 1, 51);
+                    pInParams->nICQQuality = (uint16_t)clamp(nAdjustedQP[1], 1, codecMaxQP);
                 } else if (pInParams->nEncMode == MFX_RATECONTROL_CQP) {
-                    pInParams->nQPI = (uint16_t)clamp(nAdjustedQP[0], 0, 51);
-                    pInParams->nQPP = (uint16_t)clamp(nAdjustedQP[1], 0, 51);
-                    pInParams->nQPB = (uint16_t)clamp(nAdjustedQP[2], 0, 51);
+                    pInParams->nQPI = (uint16_t)clamp(nAdjustedQP[0], 0, codecMaxQP);
+                    pInParams->nQPP = (uint16_t)clamp(nAdjustedQP[1], 0, codecMaxQP);
+                    pInParams->nQPB = (uint16_t)clamp(nAdjustedQP[2], 0, codecMaxQP);
                 }
                 bFallbackSuccess = true;
                 availableFeaures = availRCFeatures;
@@ -812,12 +820,12 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.RateControlMethod       = (mfxU16)pInParams->nEncMode;
     if (MFX_RATECONTROL_CQP == m_mfxEncParams.mfx.RateControlMethod) {
         //CQP
-        m_mfxEncParams.mfx.QPI             = (mfxU16)clamp_param_int(pInParams->nQPI, 0, 51, _T("qp-i"));
-        m_mfxEncParams.mfx.QPP             = (mfxU16)clamp_param_int(pInParams->nQPP, 0, 51, _T("qp-p"));
-        m_mfxEncParams.mfx.QPB             = (mfxU16)clamp_param_int(pInParams->nQPB, 0, 51, _T("qp-b"));
+        m_mfxEncParams.mfx.QPI             = (mfxU16)clamp_param_int(pInParams->nQPI, 0, codecMaxQP, _T("qp-i"));
+        m_mfxEncParams.mfx.QPP             = (mfxU16)clamp_param_int(pInParams->nQPP, 0, codecMaxQP, _T("qp-p"));
+        m_mfxEncParams.mfx.QPB             = (mfxU16)clamp_param_int(pInParams->nQPB, 0, codecMaxQP, _T("qp-b"));
     } else if (MFX_RATECONTROL_ICQ    == m_mfxEncParams.mfx.RateControlMethod
             || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
-        m_mfxEncParams.mfx.ICQQuality      = (mfxU16)clamp_param_int(pInParams->nICQQuality, 1, 51, _T("icq"));
+        m_mfxEncParams.mfx.ICQQuality      = (mfxU16)clamp_param_int(pInParams->nICQQuality, 1, codecMaxQP, _T("icq"));
         m_mfxEncParams.mfx.MaxKbps         = 0;
     } else {
         auto maxBitrate = (std::max)((std::max)(pInParams->nBitRate, pInParams->nMaxBitrate),
@@ -956,8 +964,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
         for (int i = 0; i < 3; i++) {
-            pInParams->nQPMin[i] = clamp_param_int(pInParams->nQPMin[i], 0, 51, _T("qp min"));
-            pInParams->nQPMax[i] = clamp_param_int(pInParams->nQPMax[i], 0, 51, _T("qp max"));
+            pInParams->nQPMin[i] = clamp_param_int(pInParams->nQPMin[i], 0, codecMaxQP, _T("qp min"));
+            pInParams->nQPMax[i] = clamp_param_int(pInParams->nQPMax[i], 0, codecMaxQP, _T("qp max"));
             const int qpMin = (std::min)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
             const int qpMax = (std::max)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
             pInParams->nQPMin[i] = (0 == pInParams->nQPMin[i]) ? 0 : qpMin;
@@ -984,7 +992,7 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
         INIT_MFX_EXT_BUFFER(m_CodingOption3, MFX_EXTBUFF_CODING_OPTION3);
         if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
-            m_CodingOption3.QVBRQuality = (mfxU16)clamp_param_int(pInParams->nQVBRQuality, 1, 51, _T("qvbr-q"));
+            m_CodingOption3.QVBRQuality = (mfxU16)clamp_param_int(pInParams->nQVBRQuality, 1, codecMaxQP, _T("qvbr-q"));
         }
         //WinBRCの対象のレート制御モードかどうかをチェックする
         //これを行わないとInvalid Parametersとなる場合がある
@@ -1120,10 +1128,10 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     }
 
     m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
-    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC && m_mfxEncParams.mfx.CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+    if (encodeBitDepth > 8) {
         m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
-        m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = 10;
-        m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = 10;
+        m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = encodeBitDepth;
+        m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = encodeBitDepth;
         m_mfxEncParams.mfx.FrameInfo.Shift = 1;
     }
     m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->input.dstWidth, blocksz);
@@ -2358,7 +2366,27 @@ mfxStatus CQSVPipeline::InitChapters(const sInputParams *inputParam) {
     return MFX_ERR_NONE;
 }
 
-RGY_CSP CQSVPipeline::EncoderCsp(const sInputParams *pParams, int *pShift) {
+int CQSVPipeline::getEncoderBitdepth(const sInputParams *pParams) {
+    int encodeBitDepth = 8;
+    switch (pParams->CodecId) {
+    case MFX_CODEC_AVC: break;
+    case MFX_CODEC_VP8: break;
+    case MFX_CODEC_VP9: break;
+    case MFX_CODEC_MPEG2: break;
+    case MFX_CODEC_VC1: break;
+    case MFX_CODEC_HEVC:
+        if (m_mfxEncParams.mfx.CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+            encodeBitDepth = 10;
+        }
+        break;
+    default:
+        PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
+        return 0;
+    }
+    return encodeBitDepth;
+}
+
+RGY_CSP CQSVPipeline::getEncoderCsp(const sInputParams *pParams, int *pShift) {
     if (pParams->CodecId == MFX_CODEC_HEVC && pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
         if (pShift) {
             *pShift = 6;
@@ -2435,7 +2463,7 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
     const auto inputCspOfRawReader = inputParam->input.csp;
 
     //入力モジュールが、エンコーダに返すべき色空間をセット
-    inputParam->input.csp = EncoderCsp(inputParam, &inputParam->input.shift);
+    inputParam->input.csp = getEncoderCsp(inputParam, &inputParam->input.shift);
 
     auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
