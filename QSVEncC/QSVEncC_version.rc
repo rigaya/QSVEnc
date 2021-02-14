@@ -13,6 +13,8 @@
 //CLDATA    KERNEL_DATA DISCARDABLE "..\QSVPipeline\src\gpu_info_dummy_calc.cl"
 PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 
+APP_OSCODEPAGE_MANIFEST EXE_DATA DISCARDABLE "QSVEncC.oscodepage.manifest"
+
 //
 // Version Information
 //
