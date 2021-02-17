@@ -401,5 +401,8 @@
     <ClInclude Include="rgy_language.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="qsv_pipeline_ctrl.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

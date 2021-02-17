@@ -132,6 +132,12 @@ private:
     int frameDataNum;
 
 public:
+    mfxBitstream *bsptr() {
+        return &m_bitstream;
+    }
+    const mfxBitstream *bsptr() const {
+        return &m_bitstream;
+    }
     mfxBitstream& bitstream() {
         return m_bitstream;
     }

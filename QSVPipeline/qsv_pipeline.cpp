@@ -45,6 +45,7 @@
 #pragma warning(pop)
 #include "rgy_osdep.h"
 #include "qsv_pipeline.h"
+#include "qsv_pipeline_ctrl.h"
 #include "qsv_query.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
@@ -3456,7 +3457,8 @@ mfxStatus CQSVPipeline::Run() {
 
 mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     mfxStatus sts = MFX_ERR_NONE;
-
+    return (mfxStatus)RunEncode2();
+#if 0
 #if defined(_WIN32) || defined(_WIN64)
     TCHAR handleEvent[256];
     _stprintf_s(handleEvent, QSVENCC_ABORT_EVENT, GetCurrentProcessId());
@@ -3560,6 +3562,81 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
     return sts;
+#endif
+}
+
+
+RGY_ERR CQSVPipeline::RunEncode2() {
+    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: RunEncode2...\n"));
+
+    std::vector<std::unique_ptr<PipelineTask>> pipelineTasks;
+    pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, &m_pEncSurfaces, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+
+    RGYTimestamp timestamp;
+    const int64_t outFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
+    const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
+    const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
+    const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
+    pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(srcTimebase, m_outputTimebase, timestamp, outFrameDuration, m_nAVSyncMode, 0, m_mfxVer, m_pQSVLog));
+
+    pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, timestamp, m_pQSVLog));
+
+    auto checkContinue = [](RGY_ERR err) { return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;  };
+
+    RGY_ERR err = RGY_ERR_NONE;
+    while (checkContinue(err)) {
+        std::vector<std::unique_ptr<PipelineTaskOutput>> data;
+        data.push_back(nullptr); // デコード実行用
+        for (size_t itask = 0; checkContinue(err) && itask < pipelineTasks.size(); itask++) {
+            err = RGY_ERR_NONE;
+            auto& task = pipelineTasks[itask];
+            for (auto& d : data) {
+                err = task->sendFrame(d);
+                if (!checkContinue(err)) break;
+            }
+            data.clear();
+            if (err == RGY_ERR_NONE) {
+                const bool lastTask = itask + 1 == pipelineTasks.size();
+                const bool sync = (lastTask) ? true : task->requireSync(pipelineTasks[itask + 1]->taskType());
+                data = task->getOutput(sync);
+                if (data.size() == 0) break;
+            }
+        }
+        for (auto& d : data) {
+            if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("failed to write output.\n"));
+                break;
+            }
+        }
+    }
+    // flush
+    if (err == RGY_ERR_MORE_BITSTREAM) {
+        for (auto& task : pipelineTasks) {
+            task->setOutputMaxQueueSize(0); //flushのため
+        }
+
+        for (size_t flushedTask = 0; err == RGY_ERR_NONE && flushedTask < pipelineTasks.size(); flushedTask++) {
+            std::vector<std::unique_ptr<PipelineTaskOutput>> data;
+            data.push_back(nullptr); // flush用
+            for (size_t itask = flushedTask; itask < pipelineTasks.size(); itask++) {
+                auto& task = pipelineTasks[itask];
+                for (auto& d : data) {
+                    if ((err = task->sendFrame(d)) != RGY_ERR_NONE) {
+                        break;
+                    }
+                }
+                data.clear();
+
+                const bool lastTask = itask + 1 == pipelineTasks.size();
+                const bool sync = (lastTask) ? true : task->requireSync(pipelineTasks[itask + 1]->taskType());
+                data = task->getOutput(sync);
+                if (data.size() == 0) {
+                    break;
+                }
+            }
+        }
+    }
+    return RGY_ERR_NONE;
 }
 
 mfxStatus CQSVPipeline::RunEncode() {
@@ -4103,10 +4180,12 @@ mfxStatus CQSVPipeline::RunEncode() {
 #endif
 
         //空いているフレームバッファを取得、空いていない場合は待機して、出力ストリームの書き出しを待ってから取得
+        //encTaskによるsyncPointを完了してsyncPointがnullになっているものを探す
         if (MFX_ERR_NONE != (sts = GetFreeTask(&pCurrentTask)))
             break;
 
         //空いているフレームバッファを取得、空いていない場合は待機して、空くまで待ってから取得
+        //具体的には、Lockされていないフレームを取得する
         nEncSurfIdx = GetFreeSurface(m_pEncSurfaces.data(), m_EncResponse.NumFrameActual);
         if (nEncSurfIdx == MSDK_INVALID_SURF_IDX) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to get free surface for enc.\n"));

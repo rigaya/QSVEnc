@@ -114,6 +114,7 @@ public:
     virtual void PrintMes(int log_level, const TCHAR *format, ...);
     shared_ptr<RGYLog> m_pQSVLog;
 
+    virtual RGY_ERR RunEncode2();
     virtual mfxStatus RunEncode();
     static void RunEncThreadLauncher(void *pParam);
     bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);

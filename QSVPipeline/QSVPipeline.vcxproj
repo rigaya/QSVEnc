@@ -706,6 +706,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="qsv_hw_va.h" />
     <ClInclude Include="qsv_pipeline.h" />
     <ClInclude Include="qsv_control.h" />
+    <ClInclude Include="qsv_pipeline_ctrl.h" />
     <ClInclude Include="qsv_plugin.h" />
     <ClInclude Include="qsv_prm.h" />
     <ClInclude Include="qsv_query.h" />
