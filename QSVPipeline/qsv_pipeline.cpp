@@ -2375,7 +2375,7 @@ int CQSVPipeline::getEncoderBitdepth(const sInputParams *pParams) {
     case MFX_CODEC_MPEG2: break;
     case MFX_CODEC_VC1: break;
     case MFX_CODEC_HEVC:
-        if (m_mfxEncParams.mfx.CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+        if (pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
             encodeBitDepth = 10;
         }
         break;
