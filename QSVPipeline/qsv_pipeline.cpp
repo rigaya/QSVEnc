@@ -1130,8 +1130,8 @@ mfxStatus CQSVPipeline::InitMfxEncParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
     if (encodeBitDepth > 8) {
         m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
-        m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = encodeBitDepth;
-        m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = encodeBitDepth;
+        m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)encodeBitDepth;
+        m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)encodeBitDepth;
         m_mfxEncParams.mfx.FrameInfo.Shift = 1;
     }
     m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->input.dstWidth, blocksz);
