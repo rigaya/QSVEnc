@@ -3581,49 +3581,57 @@ RGY_ERR CQSVPipeline::RunEncode2() {
 
     pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, timestamp, m_pQSVLog));
 
-    auto checkContinue = [](RGY_ERR err) { return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;  };
+    m_pStatus->SetStart();
 
     RGY_ERR err = RGY_ERR_NONE;
-    while (checkContinue(err)) {
-        std::vector<std::unique_ptr<PipelineTaskOutput>> data;
-        data.push_back(nullptr); // デコード実行用
-        for (size_t itask = 0; checkContinue(err) && itask < pipelineTasks.size(); itask++) {
-            err = RGY_ERR_NONE;
-            auto& task = pipelineTasks[itask];
+    {
+        auto checkContinue = [](RGY_ERR err) { return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE; };
+        while (checkContinue(err)) {
+            std::vector<std::unique_ptr<PipelineTaskOutput>> data;
+            data.push_back(nullptr); // デコード実行用
+            for (size_t itask = 0; checkContinue(err) && itask < pipelineTasks.size(); itask++) {
+                err = RGY_ERR_NONE;
+                auto& task = pipelineTasks[itask];
+                for (auto& d : data) {
+                    err = task->sendFrame(d);
+                    if (!checkContinue(err)) break;
+                }
+                data.clear();
+                if (err == RGY_ERR_NONE) {
+                    const bool lastTask = itask + 1 == pipelineTasks.size();
+                    const bool sync = (lastTask) ? true : task->requireSync(pipelineTasks[itask + 1]->taskType());
+                    data = task->getOutput(sync);
+                    if (data.size() == 0) break;
+                }
+            }
             for (auto& d : data) {
-                err = task->sendFrame(d);
-                if (!checkContinue(err)) break;
-            }
-            data.clear();
-            if (err == RGY_ERR_NONE) {
-                const bool lastTask = itask + 1 == pipelineTasks.size();
-                const bool sync = (lastTask) ? true : task->requireSync(pipelineTasks[itask + 1]->taskType());
-                data = task->getOutput(sync);
-                if (data.size() == 0) break;
-            }
-        }
-        for (auto& d : data) {
-            if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("failed to write output.\n"));
-                break;
+                if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("failed to write output.\n"));
+                    break;
+                }
             }
         }
     }
     // flush
     if (err == RGY_ERR_MORE_BITSTREAM) {
+        err = RGY_ERR_NONE;
         for (auto& task : pipelineTasks) {
             task->setOutputMaxQueueSize(0); //flushのため
         }
-
-        for (size_t flushedTask = 0; err == RGY_ERR_NONE && flushedTask < pipelineTasks.size(); flushedTask++) {
+        auto checkContinue = [](RGY_ERR err) { return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_SURFACE; };
+        for (size_t flushedTask = 0; flushedTask < pipelineTasks.size(); ) {
+            err = RGY_ERR_NONE;
             std::vector<std::unique_ptr<PipelineTaskOutput>> data;
             data.push_back(nullptr); // flush用
-            for (size_t itask = flushedTask; itask < pipelineTasks.size(); itask++) {
+            for (size_t itask = flushedTask; checkContinue(err) && itask < pipelineTasks.size(); itask++) {
+                err = RGY_ERR_NONE;
                 auto& task = pipelineTasks[itask];
                 for (auto& d : data) {
-                    if ((err = task->sendFrame(d)) != RGY_ERR_NONE) {
+                    err = task->sendFrame(d);
+                    if (!checkContinue(err)) {
+                        if (itask == flushedTask) flushedTask++;
                         break;
-                    }
+                    };
                 }
                 data.clear();
 

@@ -86,8 +86,10 @@ public:
     bool operator !() const {
         return get() == nullptr;
     }
-    bool operator !=(const PipelineTaskSurface* obj) const { return get() != obj->get(); }
-    bool operator ==(const PipelineTaskSurface* obj) const { return get() == obj->get(); }
+    bool operator !=(const PipelineTaskSurface& obj) const { return get() != obj.get(); }
+    bool operator ==(const PipelineTaskSurface& obj) const { return get() == obj.get(); }
+    bool operator !=(nullptr_t) const { return get() != nullptr; }
+    bool operator ==(nullptr_t) const { return get() == nullptr; }
     const mfxFrameSurface1 *get() const { return surf; }
     mfxFrameSurface1 *get() { return surf; }
 };
@@ -241,7 +243,7 @@ protected:
 public:
     PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0) {};
     PipelineTask(PipelineTaskType type, std::vector<mfxFrameSurface1> *workSurfs, int outMaxQueueSize, MFXVideoSession *mfxSession, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        m_type(type), m_outQeueue(), m_workSurfs(workSurfs), m_mfxSession(mfxSession), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log) {
+        m_type(type), m_outQeueue(), m_workSurfs(workSurfs), m_mfxSession(mfxSession), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log) {
     };
     virtual ~PipelineTask() {}
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
@@ -327,8 +329,13 @@ public:
             //HWデコード時、本来GetNextFrameのロックは必要ないので、
             //これを無視する実装も併せて行った。
             && (m_decInputBitstream.size() <= 1)) {
+            auto ret = m_input->LoadNextFrame(nullptr);
+            if (ret != RGY_ERR_NONE && ret != MFX_ERR_MORE_DATA && ret != RGY_ERR_MORE_BITSTREAM) {
+                m_log->write(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
+                return ret;
+            }
             //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
-            auto ret = m_input->GetNextBitstream(&m_decInputBitstream);
+            ret = m_input->GetNextBitstream(&m_decInputBitstream);
             if (ret == RGY_ERR_MORE_BITSTREAM) {
                 m_getNextBitstream = false;
                 return ret; //入力ビットストリームは終了
@@ -425,15 +432,19 @@ protected:
 public:
     PipelineTaskCheckPTS(rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, RGYTimestamp& timestamp, int64_t outFrameDuration, RGYAVSync avsync, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CHECKPTS, nullptr, outMaxQueueSize, nullptr, mfxVer, log),
-        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_timestamp(timestamp), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(-1), m_tsPrev(-1) {
+        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_timestamp(timestamp), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
     static const int MAX_FORCECFR_INSERT_FRAMES = 16;
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (!frame) {
+            return RGY_ERR_MORE_DATA;
+        }
         const bool vpp_rff = false;
         const bool vpp_afs_rff_aware = false;
+        const rgy_rational<int> hw_timebase = rgy_rational<int>(1, HW_TIMEBASE);
         int64_t outPtsSource = m_tsOutEstimated; //(m_outputTimebase基準)
         int64_t outDuration = m_outFrameDuration; //入力fpsに従ったduration
 
@@ -534,9 +545,9 @@ public:
         m_inFrames++;
         m_tsOutEstimated += outDuration;
         m_tsPrev = outPtsSource;
-        taskSurf->surf()->Data.TimeStamp = outPtsSource;
+        taskSurf->surf()->Data.TimeStamp = rational_rescale(outPtsSource, m_outputTimebase, hw_timebase);
         taskSurf->surf()->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-        m_timestamp.add(outPtsSource, outDuration);
+        m_timestamp.add(taskSurf->surf()->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
         return RGY_ERR_NONE;
     }
