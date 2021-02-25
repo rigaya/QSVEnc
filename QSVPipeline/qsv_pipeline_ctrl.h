@@ -325,8 +325,9 @@ public:
         }
         auto err = m_input->LoadNextFrame((RGYFrame *)mfxSurf);
         if (err != RGY_ERR_NONE) {
-            if (err == RGY_ERR_MORE_DATA) {
-                err = RGY_ERR_MORE_BITSTREAM; // EOF
+            //Unlockする必要があるので、ここに入ってもすぐにreturnしてはいけない
+            if (err == RGY_ERR_MORE_DATA) { // EOF
+                err = RGY_ERR_MORE_BITSTREAM; // EOF を PipelineTaskMFXDecode のreturnコードに合わせる
             } else {
                 m_log->write(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
