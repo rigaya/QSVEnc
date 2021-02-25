@@ -3570,7 +3570,12 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: RunEncode2...\n"));
 
     std::vector<std::unique_ptr<PipelineTask>> pipelineTasks;
-    pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, &m_pEncSurfaces, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+        pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), &m_pEncSurfaces, 0, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+    } else {
+        pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, &m_pEncSurfaces, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+    }
 
     RGYTimestamp timestamp;
     const int64_t outFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
@@ -3642,8 +3647,19 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     break;
                 }
             }
+            for (auto& d : data) {
+                if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("failed to write output.\n"));
+                    break;
+                }
+            }
         }
     }
+    pipelineTasks.clear();
+    m_pFileWriter->WaitFin();
+    m_pStatus->WriteResults();
+
+    PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
     return RGY_ERR_NONE;
 }
 

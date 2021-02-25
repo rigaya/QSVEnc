@@ -224,9 +224,9 @@ enum class PipelineTaskType {
     MFXDEC,
     MFXENC,
     MFXENCODE,
+    INPUT,
     CHECKPTS,
     OPENCL,
-    INPUT,
 };
 
 class PipelineTask {
@@ -301,6 +301,45 @@ public:
     int outputMaxQueueSize() const { return m_outMaxQueueSize; }
 };
 
+class PipelineTaskInput : public PipelineTask {
+    RGYInput *m_input;
+    QSVAllocator *m_allocator;
+public:
+    PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, std::vector<mfxFrameSurface1> *workSurfs, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::MFXDEC, workSurfs, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator) {
+
+    };
+    virtual ~PipelineTaskInput() {};
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        auto surfWork = getWorkSurf();
+        if (surfWork == nullptr) {
+            m_log->write(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
+            return RGY_ERR_NOT_ENOUGH_BUFFER;
+        }
+        auto mfxSurf = surfWork.get();
+        if (mfxSurf->Data.MemId) {
+            auto sts = m_allocator->Lock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            if (sts < MFX_ERR_NONE) {
+                return err_to_rgy(sts);
+            }
+        }
+        auto err = m_input->LoadNextFrame((RGYFrame *)mfxSurf);
+        if (err != RGY_ERR_NONE) {
+            if (err == RGY_ERR_MORE_DATA) {
+                err = RGY_ERR_MORE_BITSTREAM; // EOF
+            } else {
+                m_log->write(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
+            }
+        }
+        if (mfxSurf->Data.MemId) {
+            m_allocator->Unlock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+        }
+        if (err == RGY_ERR_NONE) {
+            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfWork, nullptr));
+        }
+        return err;
+    }
+};
 
 class PipelineTaskMFXDecode : public PipelineTask {
 protected:
@@ -654,7 +693,9 @@ public:
         RGYTimecode *timecode, rgy_rational<int> outputTimebase, RGYTimestamp& timestamp, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, nullptr, outMaxQueueSize, mfxSession, mfxVer, log),
         m_encode(mfxencode), m_mfxEncParams(encParams), m_timecode(timecode), m_outputTimebase(outputTimebase), m_timestamp(timestamp) {};
-    virtual ~PipelineTaskMFXEncode() {};
+    virtual ~PipelineTaskMFXEncode() {
+        m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
+    };
     void setEnc(MFXVideoENCODE *mfxencode) { m_encode = mfxencode; };
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
