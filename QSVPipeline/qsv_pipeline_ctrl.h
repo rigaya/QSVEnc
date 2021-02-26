@@ -241,7 +241,7 @@ protected:
     mfxVersion m_mfxVer;
     std::shared_ptr<RGYLog> m_log;
 public:
-    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0) {};
+    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_inFrames(0), m_outFrames(0), m_mfxVer({ 0 }), m_outMaxQueueSize(0) {};
     PipelineTask(PipelineTaskType type, std::vector<mfxFrameSurface1> *workSurfs, int outMaxQueueSize, MFXVideoSession *mfxSession, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         m_type(type), m_outQeueue(), m_workSurfs(workSurfs), m_mfxSession(mfxSession), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log) {
     };

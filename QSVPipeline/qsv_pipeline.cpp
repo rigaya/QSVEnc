@@ -3459,11 +3459,6 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
     mfxStatus sts = MFX_ERR_NONE;
     return (mfxStatus)RunEncode2();
 #if 0
-#if defined(_WIN32) || defined(_WIN64)
-    TCHAR handleEvent[256];
-    _stprintf_s(handleEvent, QSVENCC_ABORT_EVENT, GetCurrentProcessId());
-    m_heAbort = unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
-#endif
 
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
     sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
@@ -3569,6 +3564,15 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 RGY_ERR CQSVPipeline::RunEncode2() {
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: RunEncode2...\n"));
 
+#if defined(_WIN32) || defined(_WIN64)
+    TCHAR handleEvent[256];
+    _stprintf_s(handleEvent, QSVENCC_ABORT_EVENT, GetCurrentProcessId());
+    auto heAbort = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
+    auto checkAbort = [&heAbort]() { return (WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
+#else
+    auto checkAbort = []() { return false; }
+#endif
+
     std::vector<std::unique_ptr<PipelineTask>> pipelineTasks;
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -3590,7 +3594,10 @@ RGY_ERR CQSVPipeline::RunEncode2() {
 
     RGY_ERR err = RGY_ERR_NONE;
     {
-        auto checkContinue = [](RGY_ERR err) { return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE; };
+        auto checkContinue = [&checkAbort](RGY_ERR& err) {
+            if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
+            return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
+        };
         while (checkContinue(err)) {
             std::vector<std::unique_ptr<PipelineTaskOutput>> data;
             data.push_back(nullptr); // デコード実行用
@@ -3623,7 +3630,10 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         for (auto& task : pipelineTasks) {
             task->setOutputMaxQueueSize(0); //flushのため
         }
-        auto checkContinue = [](RGY_ERR err) { return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_SURFACE; };
+        auto checkContinue = [&checkAbort](RGY_ERR& err) {
+            if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
+            return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_SURFACE;
+        };
         for (size_t flushedTask = 0; flushedTask < pipelineTasks.size(); ) {
             err = RGY_ERR_NONE;
             std::vector<std::unique_ptr<PipelineTaskOutput>> data;
