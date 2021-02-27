@@ -108,8 +108,8 @@ public:
     }
     void setSurfaces(std::vector<mfxFrameSurface1>& surfs) {
         clear();
-        m_surfaces.resize(m_surfaces.size());
-        for (int i = 0; i < surfs.size(); i++) {
+        m_surfaces.resize(surfs.size());
+        for (int i = 0; i < m_surfaces.size(); i++) {
             m_surfaces[i].first = surfs[i];
             m_surfaces[i].second = 0;
         }
@@ -258,6 +258,20 @@ static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     }
 }
 
+// Alllocするときの優先度 値が高い方が優先
+static const int getPipelineTaskAllocPriority(PipelineTaskType type) {
+    switch (type) {
+    case PipelineTaskType::MFXENCODE: return 4;
+    case PipelineTaskType::MFXENC:    return 3;
+    case PipelineTaskType::MFXDEC:    return 2;
+    case PipelineTaskType::MFXVPP:    return 1;
+    case PipelineTaskType::INPUT:
+    case PipelineTaskType::CHECKPTS:
+    case PipelineTaskType::OPENCL:
+    default: return 0;
+    }
+}
+
 class PipelineTask {
 protected:
     PipelineTaskType m_type;
@@ -272,9 +286,9 @@ protected:
     mfxVersion m_mfxVer;
     std::shared_ptr<RGYLog> m_log;
 public:
-    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocResponse(), m_inFrames(0), m_outFrames(0), m_mfxVer({ 0 }), m_outMaxQueueSize(0) {};
+    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_mfxVer({ 0 }), m_outMaxQueueSize(0) {};
     PipelineTask(PipelineTaskType type, int outMaxQueueSize, MFXVideoSession *mfxSession, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        m_type(type), m_outQeueue(), m_allocResponse(), m_mfxSession(mfxSession), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log) {
+        m_type(type), m_outQeueue(), m_workSurfs(), m_mfxSession(mfxSession), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log) {
     };
     virtual ~PipelineTask() {
         if (m_allocator) {
@@ -309,10 +323,16 @@ public:
     }
     // mfx関連とそうでないtaskのやり取りでロックが必要
     bool requireSync(const PipelineTaskType nextTaskType) const {
-        return isMFXTask(m_type) == isMFXTask(nextTaskType);
+        return isMFXTask(m_type) != isMFXTask(nextTaskType);
+    }
+    int workSurfacesAllocPriority() const {
+        return getPipelineTaskAllocPriority(m_type);
+    }
+    size_t workSurfacesCount() const {
+        return m_workSurfs.bufCount();
     }
 protected:
-    RGY_ERR clearWorkSurfaces() {
+    RGY_ERR workSurfacesClear() {
         if (m_outQeueue.size() != 0) {
             return RGY_ERR_UNSUPPORTED;
         }
@@ -329,28 +349,19 @@ protected:
         m_allocator = nullptr;
         return RGY_ERR_NONE;
     }
-
-    RGY_ERR setWorkSurfaces(std::vector<mfxFrameSurface1>& workSurfs) {
-        auto err = clearWorkSurfaces();
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-        m_workSurfs.setSurfaces(workSurfs);
-        return RGY_ERR_NONE;
-    }
 public:
-    RGY_ERR allocWorkSurfaces(mfxFrameAllocRequest& allocRequest, const bool externalAlloc, QSVAllocator *allocator) {
-        auto sts = clearWorkSurfaces();
+    RGY_ERR workSurfacesAlloc(mfxFrameAllocRequest& allocRequest, const bool externalAlloc, QSVAllocator *allocator) {
+        auto sts = workSurfacesClear();
         if (sts != RGY_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old surfaces: %s."), get_err_mes(sts));
+            m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old surfaces: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s."), get_err_mes(sts));
+        m_log->write(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s.\n"), get_err_mes(sts));
 
         m_allocator = allocator;
         sts = err_to_rgy(m_allocator->Alloc(m_allocator->pthis, &allocRequest, &m_allocResponse));
         if (sts != RGY_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to allocate frames: %s."), get_err_mes(sts));
+            m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to allocate frames: %s.\n"), get_err_mes(sts));
             return sts;
         }
         m_log->write(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   allocated %d frames.\n"), allocRequest.NumFrameSuggested);
@@ -365,12 +376,13 @@ public:
             } else {
                 sts = err_to_rgy(m_allocator->Lock(m_allocator->pthis, m_allocResponse.mids[i], &(workSurfs[i].Data)));
                 if (sts != RGY_ERR_NONE) {
-                    m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to lock frame #%d: %s."), i, get_err_mes(sts));
+                    m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to lock frame #%d: %s.\n"), i, get_err_mes(sts));
                     return sts;
                 }
             }
         }
-        return setWorkSurfaces(workSurfs);
+        m_workSurfs.setSurfaces(workSurfs);
+        return RGY_ERR_NONE;
     }
 
     // surfの対応するPipelineTaskSurfaceを見つけ、これから使用するために参照を増やす
@@ -407,7 +419,7 @@ class PipelineTaskInput : public PipelineTask {
     QSVAllocator *m_allocator;
 public:
     PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator) {
+        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator) {
 
     };
     virtual ~PipelineTaskInput() {};
@@ -470,7 +482,7 @@ public:
             m_log->write(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return std::nullopt;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer size: %d\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested);
+        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
@@ -728,7 +740,9 @@ protected:
             m_log->write(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return err;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer size in: %d, out %d\n"), getPipelineTaskTypeName(m_type), allocRequest[0].NumFrameSuggested, allocRequest[1].NumFrameSuggested);
+        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer in: %d [%s], out %d [%s]\n"), getPipelineTaskTypeName(m_type),
+            allocRequest[0].NumFrameSuggested, qsv_memtype_str(allocRequest[0].Type).c_str(),
+            allocRequest[1].NumFrameSuggested, qsv_memtype_str(allocRequest[1].Type).c_str());
         return err;
     }
 public:
@@ -754,7 +768,7 @@ public:
 
         mfxStatus vpp_sts = MFX_ERR_NONE;
 
-        m_inFrames++;
+        if (frame) m_inFrames++;
 
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
@@ -787,7 +801,7 @@ public:
                 }
             }
 
-            if (vpp_sts == MFX_ERR_MORE_DATA) {
+            if (surfVppIn && vpp_sts == MFX_ERR_MORE_DATA) {
                 vpp_sts = MFX_ERR_NONE;
             } else if (vpp_sts == MFX_ERR_MORE_SURFACE) {
                 vppMoreOutput = true;
@@ -849,7 +863,7 @@ public:
             m_log->write(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return std::nullopt;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer size: %d\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested);
+        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };

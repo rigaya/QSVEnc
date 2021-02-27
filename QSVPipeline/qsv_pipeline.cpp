@@ -33,6 +33,7 @@
 #include <map>
 #include <unordered_map>
 #include <algorithm>
+#include <numeric>
 #include <cassert>
 #include <climits>
 #include <deque>
@@ -1763,7 +1764,7 @@ RGY_ERR CQSVPipeline::allocFrames() {
     mfxFrameAllocRequest VppRequest[2];
 
     PrintMes(RGY_LOG_DEBUG, _T("allocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
-
+#if 0
     //各要素が要求するフレーム数を調べる
     if (m_pmfxENC) {
         auto sts = err_to_rgy(m_pmfxENC->QueryIOSurf(&m_mfxEncParams, &EncRequest));
@@ -1784,6 +1785,7 @@ RGY_ERR CQSVPipeline::allocFrames() {
         RGY_ERR(sts, _T("Failed to get required buffer size for decoder."));
         PrintMes(RGY_LOG_DEBUG, _T("allocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
     }
+#endif
 
     PipelineTask *t0 = m_pipelineTasks[0].get();
     for (size_t ip = 1; ip < m_pipelineTasks.size(); ip++) {
@@ -1796,26 +1798,29 @@ RGY_ERR CQSVPipeline::allocFrames() {
         for (; ip < m_pipelineTasks.size(); ip++) {
             if (!m_pipelineTasks[ip]->isPassThrough()) { // isPassThroughがtrueなtaskはスキップ
                 t1 = m_pipelineTasks[ip].get();
+                break;
             }
         }
         if (t1 == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("allocFrames: invalid pipeline, t1 not found!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
+        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: %s-%s\n"), t0->print().c_str(), t1->print().c_str());
 
         const auto t0Alloc = t0->requiredSurfOut();
         const auto t1Alloc = t1->requiredSurfIn();
         int t0RequestNumFrame = 0;
         int t1RequestNumFrame = 0;
         mfxFrameAllocRequest allocRequest;
-        if (t0Alloc.has_value()) {
+        if (t0Alloc.has_value() && t1Alloc.has_value()) {
+            t0RequestNumFrame = t0Alloc.value().NumFrameSuggested;
+            t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
+            allocRequest = (t0->workSurfacesAllocPriority() >= t1->workSurfacesAllocPriority()) ? t0Alloc.value() : t1Alloc.value();
+            allocRequest.Info.Width = std::max(t0Alloc.value().Info.Width, t1Alloc.value().Info.Width);
+            allocRequest.Info.Height = std::max(t0Alloc.value().Info.Height, t1Alloc.value().Info.Height);
+        } else if (t0Alloc.has_value()) {
             allocRequest = t0Alloc.value();
             t0RequestNumFrame = t0Alloc.value().NumFrameSuggested;
-            if (t1Alloc.has_value()) {
-                t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
-                allocRequest.Info.Width = std::max(allocRequest.Info.Width, t1Alloc.value().Info.Width);
-                allocRequest.Info.Height = std::max(allocRequest.Info.Height, t1Alloc.value().Info.Height);
-            }
         } else if (t1Alloc.has_value()) {
             allocRequest = t1Alloc.value();
             t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
@@ -1830,6 +1835,13 @@ RGY_ERR CQSVPipeline::allocFrames() {
         case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
         default: break;
         }
+        switch (t1->taskType()) {
+        case PipelineTaskType::MFXDEC:    allocRequest.Type |= MFX_MEMTYPE_FROM_DECODE; break;
+        case PipelineTaskType::MFXVPP:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPIN;  break;
+        case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
+        case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
+        default: break;
+        }
 
         allocRequest.NumFrameSuggested = std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
         allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
@@ -1838,7 +1850,7 @@ RGY_ERR CQSVPipeline::allocFrames() {
             allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
             allocRequest.NumFrameSuggested);
 
-        auto sts = t0->allocWorkSurfaces(allocRequest, m_bExternalAlloc, m_pMFXAllocator.get());
+        auto sts = t0->workSurfacesAlloc(allocRequest, m_bExternalAlloc, m_pMFXAllocator.get());
         if (sts != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("allocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
         }
@@ -3708,6 +3720,7 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 
 
 RGY_ERR CQSVPipeline::createPipeline() {
+    m_outputTimestamp.clear();
     m_pipelineTasks.clear();
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -3716,19 +3729,18 @@ RGY_ERR CQSVPipeline::createPipeline() {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     }
 
-    RGYTimestamp timestamp;
     const int64_t outFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(srcTimebase, m_outputTimebase, timestamp, outFrameDuration, m_nAVSyncMode, 0, m_mfxVer, m_pQSVLog));
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(srcTimebase, m_outputTimebase, m_outputTimestamp, outFrameDuration, m_nAVSyncMode, 0, m_mfxVer, m_pQSVLog));
 
     if (m_pmfxVPP) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_mfxSession, 1, m_pmfxVPP.get(), m_mfxVppParams, m_mfxVer, m_pQSVLog));
     }
 
     if (m_pmfxENC) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, timestamp, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_outputTimestamp, m_pQSVLog));
     }
 
     PrintMes(RGY_LOG_DEBUG, _T("Created pipeline.\n"));
@@ -4893,6 +4905,11 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         DstPicInfo = videoPrm.mfx.FrameInfo;
     }
 
+    const int workSurfaceCount = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), 0, [](int sum, std::unique_ptr<PipelineTask>& task) {
+        return sum + (int)task->workSurfacesCount();
+        });
+
+
     if (m_pmfxENC) {
         mfxParamSet prmSetOut;
         prmSetOut.vidprm = videoPrm;
@@ -4937,7 +4954,7 @@ mfxStatus CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     }
     PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);
-    PRINT_INFO(    _T("Buffer Memory  %s, %d input buffer, %d work buffer\n"), MemTypeToStr(m_memType), m_EncThread.m_nFrameBuffer, m_EncResponse.NumFrameActual + m_VppResponse.NumFrameActual + m_DecResponse.NumFrameActual);
+    PRINT_INFO(    _T("Buffer Memory  %s, %d work buffer\n"), MemTypeToStr(m_memType), workSurfaceCount);
     //PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
     //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced_mfx[get_cx_index(list_interlaced_mfx, SrcPicInfo.PicStruct)].desc);
     tstring inputMes = m_pFileReader->GetInputMessage();
