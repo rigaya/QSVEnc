@@ -480,6 +480,7 @@ mfxStatus mfxBitstreamAppend(mfxBitstream *pBitstream, const uint8_t *data, uint
 void mfxBitstreamClear(mfxBitstream *pBitstream);
 
 #define QSV_IGNORE_STS(sts, err)                { if ((err) == (sts)) {(sts) = MFX_ERR_NONE; } }
+#define RGY_IGNORE_STS(sts, err)                { if ((err) == (sts)) {(sts) = RGY_ERR_NONE; } }
 
 mfxExtBuffer *GetExtBuffer(mfxExtBuffer **ppExtBuf, int nCount, uint32_t targetBufferId);
 

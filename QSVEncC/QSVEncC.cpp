@@ -766,7 +766,7 @@ int run_encode(sInputParams *params) {
             sts = pPipeline->ResetDevice();
             if (sts < MFX_ERR_NONE) return sts;
 
-            sts = pPipeline->ResetMFXComponents(params);
+            sts = err_to_mfx(pPipeline->ResetMFXComponents(params));
             if (sts < MFX_ERR_NONE) return sts;
             continue;
         } else {
@@ -852,7 +852,7 @@ mfxStatus run_benchmark(sInputParams *params) {
             if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
                 pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
                 if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
-                    || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
+                    || MFX_ERR_NONE != (sts = err_to_mfx(pPipeline->ResetMFXComponents(params))))
                     break;
             } else {
                 break;
@@ -917,7 +917,7 @@ mfxStatus run_benchmark(sInputParams *params) {
                 if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
                     pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
                     if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
-                        || MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(params)))
+                        || MFX_ERR_NONE != (sts = err_to_mfx(pPipeline->ResetMFXComponents(params))))
                         break;
                 } else {
                     break;
@@ -1131,7 +1131,7 @@ int run(int argc, TCHAR *argv[]) {
             sts = pPipeline->ResetDevice();
             if (sts < MFX_ERR_NONE) return sts;
 
-            sts = pPipeline->ResetMFXComponents(&Params);
+            sts = err_to_mfx(pPipeline->ResetMFXComponents(&Params));
             if (sts < MFX_ERR_NONE) return sts;
             continue;
         } else {

@@ -57,6 +57,7 @@
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "qsv_task.h"
+#include "qsv_pipeline_ctrl.h"
 #include "qsv_control.h"
 
 #include <vector>
@@ -100,7 +101,7 @@ public:
     virtual mfxStatus Run();
     virtual mfxStatus Run(size_t SubThreadAffinityMask);
     virtual void Close();
-    virtual mfxStatus ResetMFXComponents(sInputParams* pParams);
+    virtual RGY_ERR ResetMFXComponents(sInputParams* pParams);
     virtual mfxStatus ResetDevice();
     virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
@@ -136,7 +137,7 @@ protected:
     vector<shared_ptr<RGYInput>> m_AudioReaders;
     shared_ptr<RGYInput> m_pFileReader;
 
-    CQSVTaskControl m_TaskPool;
+    CQSVTaskControl m_TaskPool; // 廃止予定
     int m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;
     RGYTimestamp m_outputTimestamp;
@@ -201,7 +202,6 @@ protected:
     unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;
     int m_nMFXThreads;
     MemType m_memType;
-    bool m_bd3dAlloc;
     bool m_bExternalAlloc;
     uint32_t m_nProcSpeedLimit;
 
@@ -224,6 +224,7 @@ protected:
     //mfxExtVPPDoNotUse m_VppDoNotUse;
 
     shared_ptr<CQSVHWDevice> m_hwdev;
+    std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
 
     virtual mfxStatus InitSessionInitParam(int threads, int priority);
     virtual mfxStatus InitLog(sInputParams *pParams);
@@ -254,16 +255,23 @@ protected:
     virtual mfxStatus CreateHWDevice();
     virtual void DeleteHWDevice();
 
-    virtual mfxStatus AllocFrames();
+    virtual RGY_ERR allocFrames();
     virtual void DeleteFrames();
+
+    virtual RGY_ERR initMFXEncode();
+    virtual RGY_ERR initMFXVpp();
+    virtual RGY_ERR initMFXDec();
 
     virtual mfxStatus AllocateSufficientBuffer(mfxBitstream* pBS);
 
     virtual mfxStatus GetFreeTask(QSVTask **ppTask);
     virtual mfxStatus SynchronizeFirstTask();
 
+    RGY_ERR createPipeline();
+
     mfxStatus CheckParamList(int value, const CX_DESC *list, const char *param_name);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
+    int logTemporarilyIgnoreErrorMes();
 };
 
 #endif // __PIPELINE_ENCODE_H__

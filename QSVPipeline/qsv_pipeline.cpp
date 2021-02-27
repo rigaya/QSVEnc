@@ -82,6 +82,7 @@
 #endif
 
 #define RGY_ERR_MES(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return err_to_mfx(ret);}}
+#define RGY_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
 #define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
 #define CHECK_RANGE_LIST(value, list, name)    { if (CheckParamList((value), (list), (name)) != MFX_ERR_NONE) { return MFX_ERR_INVALID_VIDEO_PARAM; } }
 
@@ -1751,13 +1752,99 @@ mfxStatus CQSVPipeline::ResetDevice() {
     return MFX_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::AllocFrames() {
-    mfxStatus sts = MFX_ERR_NONE;
+RGY_ERR CQSVPipeline::allocFrames() {
+    if (m_pipelineTasks.size() == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("allocFrames: pipeline not defined!\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+
     mfxFrameAllocRequest DecRequest;
     mfxFrameAllocRequest EncRequest;
     mfxFrameAllocRequest VppRequest[2];
-    mfxFrameAllocRequest NextRequest; //出力されてくるフレーム情報とフレームタイプを記録する
 
+    PrintMes(RGY_LOG_DEBUG, _T("allocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
+
+    //各要素が要求するフレーム数を調べる
+    if (m_pmfxENC) {
+        auto sts = err_to_rgy(m_pmfxENC->QueryIOSurf(&m_mfxEncParams, &EncRequest));
+        RGY_ERR(sts, _T("Failed to get required buffer size for encoder."));
+        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: Enc query - %d frames\n"), EncRequest.NumFrameSuggested);
+    }
+
+    if (m_pmfxVPP) {
+        // VppRequest[0]はvppへの入力, VppRequest[1]はvppからの出力
+        auto sts = err_to_rgy(m_pmfxVPP->QueryIOSurf(&m_mfxVppParams, VppRequest));
+        RGY_ERR(sts, _T("Failed to get required buffer size for vpp."));
+        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: Vpp query[0] - %d frames\n"), VppRequest[0].NumFrameSuggested);
+        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: Vpp query[1] - %d frames\n"), VppRequest[1].NumFrameSuggested);
+    }
+
+    if (m_pmfxDEC) {
+        auto sts = err_to_rgy(m_pmfxDEC->QueryIOSurf(&m_mfxDecParams, &DecRequest));
+        RGY_ERR(sts, _T("Failed to get required buffer size for decoder."));
+        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
+    }
+
+    PipelineTask *t0 = m_pipelineTasks[0].get();
+    for (size_t ip = 1; ip < m_pipelineTasks.size(); ip++) {
+        if (t0->isPassThrough()) {
+            PrintMes(RGY_LOG_ERROR, _T("allocFrames: t0 cannot be path through task!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        // 次のtaskを見つける
+        PipelineTask *t1 = nullptr;
+        for (; ip < m_pipelineTasks.size(); ip++) {
+            if (!m_pipelineTasks[ip]->isPassThrough()) { // isPassThroughがtrueなtaskはスキップ
+                t1 = m_pipelineTasks[ip].get();
+            }
+        }
+        if (t1 == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("allocFrames: invalid pipeline, t1 not found!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        const auto t0Alloc = t0->requiredSurfOut();
+        const auto t1Alloc = t1->requiredSurfIn();
+        int t0RequestNumFrame = 0;
+        int t1RequestNumFrame = 0;
+        mfxFrameAllocRequest allocRequest;
+        if (t0Alloc.has_value()) {
+            allocRequest = t0Alloc.value();
+            t0RequestNumFrame = t0Alloc.value().NumFrameSuggested;
+            if (t1Alloc.has_value()) {
+                t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
+                allocRequest.Info.Width = std::max(allocRequest.Info.Width, t1Alloc.value().Info.Width);
+                allocRequest.Info.Height = std::max(allocRequest.Info.Height, t1Alloc.value().Info.Height);
+            }
+        } else if (t1Alloc.has_value()) {
+            allocRequest = t1Alloc.value();
+            t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("allocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        switch (t0->taskType()) {
+        case PipelineTaskType::MFXDEC:    allocRequest.Type |= MFX_MEMTYPE_FROM_DECODE; break;
+        case PipelineTaskType::MFXVPP:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; break;
+        case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
+        case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
+        default: break;
+        }
+
+        allocRequest.NumFrameSuggested = std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
+        allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
+        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: %s-%s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+            t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(),
+            allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
+            allocRequest.NumFrameSuggested);
+
+        auto sts = t0->allocWorkSurfaces(allocRequest, m_bExternalAlloc, m_pMFXAllocator.get());
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("allocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
+        }
+        t0 = t1;
+    }
+#if 0
     int nEncSurfNum = 0; // enc用のフレーム数
     int nVppSurfNum = 0; // vpp用のフレーム数
 
@@ -1778,39 +1865,6 @@ mfxStatus CQSVPipeline::AllocFrames() {
         RGY_MEMSET_ZERO(filter->m_PluginResponse);
     }
     RGY_MEMSET_ZERO(NextRequest);
-
-    PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
-
-    //各要素が要求するフレーム数を調べる
-    if (m_pmfxENC) {
-        sts = m_pmfxENC->QueryIOSurf(&m_mfxEncParams, &EncRequest);
-        QSV_ERR_MES(sts, _T("Failed to get required buffer size for encoder."));
-        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Enc query - %d frames\n"), EncRequest.NumFrameSuggested);
-    }
-
-    if (m_pmfxVPP) {
-        // VppRequest[0]はvppへの入力, VppRequest[1]はvppからの出力
-        sts = m_pmfxVPP->QueryIOSurf(&m_mfxVppParams, VppRequest);
-        QSV_ERR_MES(sts, _T("Failed to get required buffer size for vpp."));
-        if (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) {
-            //ptsチェック用に使うフレームを追加する
-            VppRequest[0].NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
-            VppRequest[0].NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Vpp query[0] - %d frames\n"), VppRequest[0].NumFrameSuggested);
-        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Vpp query[1] - %d frames\n"), VppRequest[1].NumFrameSuggested);
-    }
-
-    if (m_pmfxDEC) {
-        sts = m_pmfxDEC->QueryIOSurf(&m_mfxDecParams, &DecRequest);
-        QSV_ERR_MES(sts, _T("Failed to get required buffer size for decoder."));
-        if (m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) {
-            //ptsチェック用に使うフレームを追加する
-            DecRequest.NumFrameMin       += CHECK_PTS_MAX_INSERT_FRAMES;
-            DecRequest.NumFrameSuggested += CHECK_PTS_MAX_INSERT_FRAMES;
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Dec query - %d frames\n"), DecRequest.NumFrameSuggested);
-    }
 
     nInputSurfAdd = std::max(m_EncThread.m_nFrameBuffer, 1);
 
@@ -2040,8 +2094,8 @@ mfxStatus CQSVPipeline::AllocFrames() {
         }
         PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Allocated surface for %s\n"), filter->getFilterName().c_str());
     }
-
-    return MFX_ERR_NONE;
+#endif
+    return RGY_ERR_NONE;
 }
 
 mfxStatus CQSVPipeline::CreateAllocator() {
@@ -2223,26 +2277,93 @@ void CQSVPipeline::DeleteAllocator() {
     DeleteHWDevice();
 }
 
-CQSVPipeline::CQSVPipeline() {
-    m_memType = SYSTEM_MEMORY;
-    m_bExternalAlloc = false;
-    m_nAsyncDepth = 0;
-    m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
-    m_nProcSpeedLimit = 0;
-    m_bTimerPeriodTuning = false;
-    m_nMFXThreads = -1;
-
-    m_pAbortByUser = NULL;
-    m_heAbort.reset();
-
-    m_encVUI = VideoVUIInfo();
-
-    m_pStatus.reset();
-    m_pFileWriterListAudio.clear();
-    m_timecode.reset();
-
-    m_trimParam.list.clear();
+CQSVPipeline::CQSVPipeline() :
+    m_mfxVer({ 0 }),
+    m_pStatus(),
+    m_pPerfMonitor(),
+    m_EncThread(),
+    m_inputFps(),
+    m_encFps(),
+    m_outputTimebase(),
+    m_encVUI(),
+    m_bTimerPeriodTuning(false),
+    m_pFileWriterListAudio(),
+    m_pFileWriter(),
+    m_AudioReaders(),
+    m_pFileReader(),
+    m_TaskPool(),
+    m_nAsyncDepth(0),
+    m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    m_outputTimestamp(),
+    m_InitParam(),
+    m_pInitParamExtBuf(),
+    m_ThreadsParam(),
+    m_VideoSignalInfo(),
+    m_chromalocInfo(),
+    m_CodingOption(),
+    m_CodingOption2(),
+    m_CodingOption3(),
+    m_ExtVP8CodingOption(),
+    m_ExtHEVCParam(),
+    m_mfxSession(),
+    m_pmfxDEC(),
+    m_pmfxENC(),
+    m_pmfxVPP(),
+    m_SessionPlugins(),
+    m_VppPrePlugins(),
+    m_VppPostPlugins(),
+    m_trimParam(),
+    m_mfxDecParams(),
+    m_mfxEncParams(),
+    m_mfxVppParams(),
+    m_prmSetIn(),
+    m_pUserModule(),
+    m_DecExtParams(),
+    m_EncExtParams(),
+    m_VppExtParams(),
+    VppExtMes(),
+    m_DecVidProc(),
+    m_VppDoNotUse(),
+    m_VppDoUse(),
+    m_ExtDenoise(),
+    m_ExtMctf(),
+    m_ExtDetail(),
+    m_ExtDeinterlacing(),
+    m_ExtFrameRateConv(),
+    m_ExtRotate(),
+    m_ExtVppVSI(),
+    m_ExtImageStab(),
+    m_ExtMirror(),
+    m_ExtScaling(),
+    m_VppDoNotUseList(),
+    m_VppDoUseList(),
+#if ENABLE_AVSW_READER
+    m_Chapters(),
+#endif
+    m_timecode(),
+    m_HDRSei(),
+    m_pMFXAllocator(),
+    m_pmfxAllocatorParams(),
+    m_nMFXThreads(-1),
+    m_memType(SYSTEM_MEMORY),
+    m_bExternalAlloc(false),
+    m_nProcSpeedLimit(0),
+    m_pAbortByUser(nullptr),
+    m_heAbort(),
+    m_DecInputBitstream(),
+    m_pEncSurfaces(),
+    m_pVppSurfaces(),
+    m_pDecSurfaces(),
+    m_EncResponse(),
+    m_VppResponse(),
+    m_DecResponse(),
+    m_hwdev(),
+    m_pipelineTasks() {
     m_trimParam.offset = 0;
+
+    for (size_t i = 0; i < _countof(m_pInitParamExtBuf); i++) {
+        m_pInitParamExtBuf[i] = nullptr;
+    }
 
 #if ENABLE_MVC_ENCODING
     m_bIsMVC = false;
@@ -2252,21 +2373,19 @@ CQSVPipeline::CQSVPipeline() {
     m_MVCSeqDesc.Header.BufferId = MFX_EXTBUFF_MVC_SEQ_DESC;
     m_MVCSeqDesc.Header.BufferSz = sizeof(m_MVCSeqDesc);
 #endif
+    RGY_MEMSET_ZERO(m_InitParam);
     INIT_MFX_EXT_BUFFER(m_VppDoNotUse,        MFX_EXTBUFF_VPP_DONOTUSE);
     INIT_MFX_EXT_BUFFER(m_VideoSignalInfo,    MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
+    INIT_MFX_EXT_BUFFER(m_chromalocInfo,      MFX_EXTBUFF_CHROMA_LOC_INFO);
     INIT_MFX_EXT_BUFFER(m_CodingOption,       MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(m_CodingOption2,      MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(m_CodingOption3,      MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,       MFX_EXTBUFF_HEVC_PARAM);
     INIT_MFX_EXT_BUFFER(m_ThreadsParam,       MFX_EXTBUFF_THREADS_PARAM);
-    INIT_MFX_EXT_BUFFER(m_chromalocInfo,      MFX_EXTBUFF_CHROMA_LOC_INFO);
-
-    m_hwdev.reset();
 
     RGY_MEMSET_ZERO(m_DecInputBitstream);
 
-    RGY_MEMSET_ZERO(m_InitParam);
     RGY_MEMSET_ZERO(m_mfxDecParams);
     RGY_MEMSET_ZERO(m_mfxEncParams);
     RGY_MEMSET_ZERO(m_mfxVppParams);
@@ -3136,7 +3255,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-    sts = ResetMFXComponents(pParams);
+    sts = err_to_mfx(ResetMFXComponents(pParams));
     if (sts < MFX_ERR_NONE) return sts;
 
     return MFX_ERR_NONE;
@@ -3144,6 +3263,7 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
 
 void CQSVPipeline::Close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing pipeline...\n"));
+    m_pipelineTasks.clear();
     //PrintMes(RGY_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
@@ -3230,7 +3350,7 @@ void CQSVPipeline::Close() {
     m_pPerfMonitor.reset();
 
     m_nMFXThreads = -1;
-    m_pAbortByUser = NULL;
+    m_pAbortByUser = nullptr;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     m_nProcSpeedLimit = 0;
 #if ENABLE_AVSW_READER
@@ -3243,32 +3363,104 @@ void CQSVPipeline::Close() {
     }
 }
 
-mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
+int CQSVPipeline::logTemporarilyIgnoreErrorMes() {
+    //MediaSDK内のエラーをRGY_LOG_DEBUG以下の時以外には一時的に無視するようにする。
+    //RGY_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
+    const auto log_level = m_pQSVLog->getLogLevel();
+    if (log_level >= RGY_LOG_MORE) {
+        m_pQSVLog->setLogLevel(RGY_LOG_QUIET); //一時的にエラーを無視
+    } else {
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
+    }
+    return log_level;
+}
+
+RGY_ERR CQSVPipeline::initMFXEncode() {
+    if (!m_pmfxENC) {
+        return RGY_ERR_NONE;
+    }
+    const auto log_level = logTemporarilyIgnoreErrorMes();
+    m_prmSetIn.vidprm = m_mfxEncParams;
+    m_prmSetIn.cop = m_CodingOption;
+    m_prmSetIn.cop2 = m_CodingOption2;
+    m_prmSetIn.cop3 = m_CodingOption3;
+    m_prmSetIn.hevc = m_ExtHEVCParam;
+    auto sts = err_to_rgy(m_pmfxENC->Init(&m_mfxEncParams));
+    m_pQSVLog->setLogLevel(log_level);
+    if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
+        PrintMes(RGY_LOG_WARN, _T("partial acceleration on Encoding.\n"));
+        sts = RGY_ERR_NONE;
+    }
+    RGY_ERR(sts, _T("Failed to initialize encoder."));
+    PrintMes(RGY_LOG_DEBUG, _T("Encoder initialized.\n"));
+    return sts;
+}
+
+RGY_ERR CQSVPipeline::initMFXVpp() {
+    if (!m_pmfxVPP) {
+        return RGY_ERR_NONE;
+    }
+    //ここでの内部エラーは最終的にはmfxライブラリ内部で解決される場合もあり、これをログ上は無視するようにする。
+    //具体的にはSandybridgeでd3dメモリでVPPを使用する際、m_pmfxVPP->Init()実行時に
+    //"QSVAllocator: Failed CheckRequestType: undeveloped feature"と表示されるが、
+    //m_pmfxVPP->Initの戻り値自体はMFX_ERR_NONEであるので、内部で解決されたものと思われる。
+    //もちろん、m_pmfxVPP->Init自体がエラーを返した時にはきちんとログに残す。
+    const auto log_level = logTemporarilyIgnoreErrorMes();
+    auto sts = err_to_rgy(m_pmfxVPP->Init(&m_mfxVppParams));
+    m_pQSVLog->setLogLevel(log_level);
+    if (sts == MFX_WRN_PARTIAL_ACCELERATION) {
+        PrintMes(RGY_LOG_WARN, _T("partial acceleration on vpp.\n"));
+        sts = RGY_ERR_NONE;
+    }
+    RGY_ERR(sts, _T("Failed to initialize vpp."));
+    PrintMes(RGY_LOG_DEBUG, _T("Vpp initialized.\n"));
+    return sts;
+}
+
+RGY_ERR CQSVPipeline::initMFXDec() {
+    if (!m_pmfxDEC) {
+        return RGY_ERR_NONE;
+    }
+    const auto log_level = logTemporarilyIgnoreErrorMes();
+    auto sts = err_to_rgy(m_pmfxDEC->Init(&m_mfxDecParams));
+    m_pQSVLog->setLogLevel(log_level);
+    if (sts == MFX_WRN_PARTIAL_ACCELERATION) {
+        PrintMes(RGY_LOG_WARN, _T("partial acceleration on decoding.\n"));
+        sts = RGY_ERR_NONE;
+    }
+    RGY_ERR(sts, _T("Failed to initialize decoder.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Dec initialized.\n"));
+    return sts;
+}
+
+RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     if (!pParams) {
-        return MFX_ERR_NULL_PTR;
+        return RGY_ERR_NULL_PTR;
     }
 
-    mfxStatus sts = MFX_ERR_NONE;
+    auto err = RGY_ERR_NONE;
     PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Start...\n"));
 
+    m_pipelineTasks.clear();
+
     if (m_pmfxENC) {
-        sts = m_pmfxENC->Close();
-        QSV_IGNORE_STS(sts, MFX_ERR_NOT_INITIALIZED);
-        QSV_ERR_MES(sts, _T("Failed to reset encoder (fail on closing)."));
+        err = err_to_rgy(m_pmfxENC->Close());
+        RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
+        RGY_ERR(err, _T("Failed to reset encoder (fail on closing)."));
         PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Enc closed.\n"));
     }
 
     if (m_pmfxVPP) {
-        sts = m_pmfxVPP->Close();
-        QSV_IGNORE_STS(sts, MFX_ERR_NOT_INITIALIZED);
-        QSV_ERR_MES(sts, _T("Failed to reset vpp (fail on closing)."));
+        err = err_to_rgy(m_pmfxVPP->Close());
+        RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
+        RGY_ERR(err, _T("Failed to reset vpp (fail on closing)."));
         PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp closed.\n"));
     }
 
     if (m_pmfxDEC) {
-        sts = m_pmfxDEC->Close();
-        QSV_IGNORE_STS(sts, MFX_ERR_NOT_INITIALIZED);
-        QSV_ERR_MES(sts, _T("Failed to reset decoder (fail on closing)."));
+        err = err_to_rgy(m_pmfxDEC->Close());
+        RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
+        RGY_ERR(err, _T("Failed to reset decoder (fail on closing)."));
         PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Dec closed.\n"));
     }
 
@@ -3278,75 +3470,29 @@ mfxStatus CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
 
     m_TaskPool.Close();
 
-    sts = AllocFrames();
-    if (sts < MFX_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Frames allocated.\n"));
-
-    //MediaSDK内のエラーをRGY_LOG_DEBUG以下の時以外には一時的に無視するようにする。
-    //RGY_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
-    auto logIgnoreMFXLibraryInternalErrors = [this]() {
-        const auto log_level = m_pQSVLog->getLogLevel();
-        if (log_level >= RGY_LOG_MORE) {
-            m_pQSVLog->setLogLevel(RGY_LOG_QUIET); //一時的にエラーを無視
-        } else {
-            PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
-        }
-        return log_level;
-    };
-
-    if (m_pmfxENC) {
-        const auto log_level = logIgnoreMFXLibraryInternalErrors();
-        m_prmSetIn.vidprm = m_mfxEncParams;
-        m_prmSetIn.cop    = m_CodingOption;
-        m_prmSetIn.cop2   = m_CodingOption2;
-        m_prmSetIn.cop3   = m_CodingOption3;
-        m_prmSetIn.hevc   = m_ExtHEVCParam;
-        sts = m_pmfxENC->Init(&m_mfxEncParams);
-        m_pQSVLog->setLogLevel(log_level);
-        if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
-            PrintMes(RGY_LOG_WARN, _T("ResetMFXComponents: partial acceleration on Encoding.\n"));
-            QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
-        }
-        QSV_ERR_MES(sts, _T("Failed to initialize encoder."));
-        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Enc initialized.\n"));
+    if ((err = createPipeline()) != RGY_ERR_NONE) {
+        return err;
     }
-
-    if (m_pmfxVPP) {
-        //ここでの内部エラーは最終的にはmfxライブラリ内部で解決される場合もあり、これをログ上は無視するようにする。
-        //具体的にはSandybridgeでd3dメモリでVPPを使用する際、m_pmfxVPP->Init()実行時に
-        //"QSVAllocator: Failed CheckRequestType: undeveloped feature"と表示されるが、
-        //m_pmfxVPP->Initの戻り値自体はMFX_ERR_NONEであるので、内部で解決されたものと思われる。
-        //もちろん、m_pmfxVPP->Init自体がエラーを返した時にはきちんとログに残す。
-        const auto log_level = logIgnoreMFXLibraryInternalErrors();
-        sts = m_pmfxVPP->Init(&m_mfxVppParams);
-        m_pQSVLog->setLogLevel(log_level);
-        if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
-            PrintMes(RGY_LOG_WARN, _T("ResetMFXComponents: partial acceleration on vpp.\n"));
-            QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
-        }
-        QSV_ERR_MES(sts, _T("Failed to initialize vpp."));
-        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp initialized.\n"));
+    if ((err = allocFrames()) != RGY_ERR_NONE) {
+        return err;
     }
-
-    if (m_pmfxDEC) {
-        const auto log_level = logIgnoreMFXLibraryInternalErrors();
-        sts = m_pmfxDEC->Init(&m_mfxDecParams);
-        m_pQSVLog->setLogLevel(log_level);
-        if (MFX_WRN_PARTIAL_ACCELERATION == sts) {
-            PrintMes(RGY_LOG_WARN, _T("ResetMFXComponents: partial acceleration on decoding.\n"));
-            QSV_IGNORE_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
-        }
-        QSV_ERR_MES(sts, _T("Failed to initialize decoder.\n"));
-        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Dec initialized.\n"));
+    if ((err = initMFXEncode()) != RGY_ERR_NONE) {
+        return err;
     }
-
+    if ((err = initMFXVpp()) != RGY_ERR_NONE) {
+        return err;
+    }
+    if ((err = initMFXDec()) != RGY_ERR_NONE) {
+        return err;
+    }
+#if 0
     mfxU32 nEncodedDataBufferSize = m_mfxEncParams.mfx.FrameInfo.Width * m_mfxEncParams.mfx.FrameInfo.Height * 4;
     PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Creating task pool, poolSize %d, bufsize %d KB.\n"), m_nAsyncDepth, nEncodedDataBufferSize >> 10);
-    sts = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator.get(), m_pFileWriter, m_nAsyncDepth, nEncodedDataBufferSize);
-    QSV_ERR_MES(sts, _T("Failed to initialize task pool for encoding."));
+    err = m_TaskPool.Init(&m_mfxSession, m_pMFXAllocator.get(), m_pFileWriter, m_nAsyncDepth, nEncodedDataBufferSize);
+    QSV_ERR_MES(err, _T("Failed to initialize task pool for encoding."));
     PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Created task pool.\n"));
-
-    return MFX_ERR_NONE;
+#endif
+    return RGY_ERR_NONE;
 }
 
 mfxStatus CQSVPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
@@ -3561,24 +3707,13 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 }
 
 
-RGY_ERR CQSVPipeline::RunEncode2() {
-    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: RunEncode2...\n"));
-
-#if defined(_WIN32) || defined(_WIN64)
-    TCHAR handleEvent[256];
-    _stprintf_s(handleEvent, QSVENCC_ABORT_EVENT, GetCurrentProcessId());
-    auto heAbort = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
-    auto checkAbort = [&heAbort]() { return (WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
-#else
-    auto checkAbort = []() { return false; }
-#endif
-
-    std::vector<std::unique_ptr<PipelineTask>> pipelineTasks;
+RGY_ERR CQSVPipeline::createPipeline() {
+    m_pipelineTasks.clear();
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-        pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), &m_pEncSurfaces, 0, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), 0, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     } else {
-        pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, &m_pEncSurfaces, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     }
 
     RGYTimestamp timestamp;
@@ -3586,9 +3721,40 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(srcTimebase, m_outputTimebase, timestamp, outFrameDuration, m_nAVSyncMode, 0, m_mfxVer, m_pQSVLog));
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(srcTimebase, m_outputTimebase, timestamp, outFrameDuration, m_nAVSyncMode, 0, m_mfxVer, m_pQSVLog));
 
-    pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, timestamp, m_pQSVLog));
+    if (m_pmfxVPP) {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_mfxSession, 1, m_pmfxVPP.get(), m_mfxVppParams, m_mfxVer, m_pQSVLog));
+    }
+
+    if (m_pmfxENC) {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, timestamp, m_pQSVLog));
+    }
+
+    PrintMes(RGY_LOG_DEBUG, _T("Created pipeline.\n"));
+    for (auto& p : m_pipelineTasks) {
+        PrintMes(RGY_LOG_DEBUG, _T("  %s\n"), p->print().c_str());
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("\n"));
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR CQSVPipeline::RunEncode2() {
+    PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: RunEncode2...\n"));
+
+#if defined(_WIN32) || defined(_WIN64)
+    TCHAR handleEvent[256];
+    _stprintf_s(handleEvent, QSVENCC_ABORT_EVENT, GetCurrentProcessId());
+    auto heAbort = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
+    auto checkAbort = [pabort = m_pAbortByUser, &heAbort]() { return ((pabort != nullptr && *pabort) || WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
+#else
+    auto checkAbort = [pabort = m_pAbortByUser]() { return  (pabort != nullptr && *pabort); }
+#endif
+
+    if (m_pipelineTasks.size() == 0) {
+        PrintMes(RGY_LOG_DEBUG, _T("Failed to create pipeline: size = 0.\n"));
+        return RGY_ERR_INVALID_OPERATION;
+    }
 
     m_pStatus->SetStart();
 
@@ -3601,22 +3767,22 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         while (checkContinue(err)) {
             std::vector<std::unique_ptr<PipelineTaskOutput>> data;
             data.push_back(nullptr); // デコード実行用
-            for (size_t itask = 0; checkContinue(err) && itask < pipelineTasks.size(); itask++) {
+            for (size_t itask = 0; checkContinue(err) && itask < m_pipelineTasks.size(); itask++) {
                 err = RGY_ERR_NONE;
-                auto& task = pipelineTasks[itask];
+                auto& task = m_pipelineTasks[itask];
                 for (auto& d : data) {
                     err = task->sendFrame(d);
                     if (!checkContinue(err)) break;
                 }
                 data.clear();
                 if (err == RGY_ERR_NONE) {
-                    const bool lastTask = itask + 1 == pipelineTasks.size();
-                    const bool sync = (lastTask) ? true : task->requireSync(pipelineTasks[itask + 1]->taskType());
+                    const bool lastTask = itask + 1 == m_pipelineTasks.size();
+                    const bool sync = (lastTask) ? true : task->requireSync(m_pipelineTasks[itask + 1]->taskType());
                     data = task->getOutput(sync);
                     if (data.size() == 0) break;
                 }
             }
-            for (auto& d : data) {
+            for (auto& d : data) { // pipelineの最終的なデータを出力
                 if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("failed to write output.\n"));
                     break;
@@ -3625,22 +3791,22 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         }
     }
     // flush
-    if (err == RGY_ERR_MORE_BITSTREAM) {
+    if (err == RGY_ERR_MORE_BITSTREAM) { // 読み込みの完了を示すフラグ
         err = RGY_ERR_NONE;
-        for (auto& task : pipelineTasks) {
+        for (auto& task : m_pipelineTasks) {
             task->setOutputMaxQueueSize(0); //flushのため
         }
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
             if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_SURFACE;
         };
-        for (size_t flushedTask = 0; flushedTask < pipelineTasks.size(); ) {
+        for (size_t flushedTask = 0; flushedTask < m_pipelineTasks.size(); ) { // taskを前方からひとつづつflushしていく
             err = RGY_ERR_NONE;
             std::vector<std::unique_ptr<PipelineTaskOutput>> data;
             data.push_back(nullptr); // flush用
-            for (size_t itask = flushedTask; checkContinue(err) && itask < pipelineTasks.size(); itask++) {
+            for (size_t itask = flushedTask; checkContinue(err) && itask < m_pipelineTasks.size(); itask++) {
                 err = RGY_ERR_NONE;
-                auto& task = pipelineTasks[itask];
+                auto& task = m_pipelineTasks[itask];
                 for (auto& d : data) {
                     err = task->sendFrame(d);
                     if (!checkContinue(err)) {
@@ -3650,14 +3816,14 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                 }
                 data.clear();
 
-                const bool lastTask = itask + 1 == pipelineTasks.size();
-                const bool sync = (lastTask) ? true : task->requireSync(pipelineTasks[itask + 1]->taskType());
+                const bool lastTask = itask + 1 == m_pipelineTasks.size();
+                const bool sync = (lastTask) ? true : task->requireSync(m_pipelineTasks[itask + 1]->taskType());
                 data = task->getOutput(sync);
                 if (data.size() == 0) {
                     break;
                 }
             }
-            for (auto& d : data) {
+            for (auto& d : data) { // pipelineの最終的なデータを出力
                 if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("failed to write output.\n"));
                     break;
@@ -3665,7 +3831,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             }
         }
     }
-    pipelineTasks.clear();
+    m_pipelineTasks.clear();
     m_pFileWriter->WaitFin();
     m_pStatus->WriteResults();
 
