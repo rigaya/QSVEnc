@@ -776,6 +776,7 @@ public:
 
         bool vppMoreOutput = false;
         do {
+            vppMoreOutput = false;
             auto surfVppOut = getWorkSurf();
             mfxSyncPoint lastSyncPoint = nullptr;
             for (int i = 0; ; i++) {
@@ -813,7 +814,6 @@ public:
             if (lastSyncPoint != nullptr) {
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
             }
-            surfVppIn = nullptr;
         } while (vppMoreOutput);
         return err_to_rgy(vpp_sts);
     }
