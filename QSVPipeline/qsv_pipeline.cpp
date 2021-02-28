@@ -1759,12 +1759,13 @@ RGY_ERR CQSVPipeline::allocFrames() {
         return RGY_ERR_INVALID_CALL;
     }
 
+    PrintMes(RGY_LOG_DEBUG, _T("allocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
+
+#if 0
     mfxFrameAllocRequest DecRequest;
     mfxFrameAllocRequest EncRequest;
     mfxFrameAllocRequest VppRequest[2];
 
-    PrintMes(RGY_LOG_DEBUG, _T("allocFrames: m_nAsyncDepth - %d frames\n"), m_nAsyncDepth);
-#if 0
     //各要素が要求するフレーム数を調べる
     if (m_pmfxENC) {
         auto sts = err_to_rgy(m_pmfxENC->QueryIOSurf(&m_mfxEncParams, &EncRequest));
@@ -3727,6 +3728,9 @@ RGY_ERR CQSVPipeline::createPipeline() {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), 0, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+    }
+    if (m_pFileWriterListAudio.size() > 0) {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, 0, m_mfxVer, m_pQSVLog));
     }
 
     const int64_t outFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)

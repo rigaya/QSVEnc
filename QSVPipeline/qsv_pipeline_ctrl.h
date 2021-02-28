@@ -46,6 +46,10 @@
 #include "rgy_util.h"
 #include "rgy_thread.h"
 #include "rgy_timecode.h"
+#include "rgy_input.h"
+#include "rgy_input_sm.h"
+#include "rgy_output.h"
+#include "rgy_output_avcodec.h"
 
 static void copy_crop_info(mfxFrameSurface1 *dst, const mfxFrameInfo *src) {
     if (dst != nullptr) {
@@ -242,6 +246,7 @@ enum class PipelineTaskType {
     MFXENCODE,
     INPUT,
     CHECKPTS,
+    AUDIO,
     OPENCL,
 };
 
@@ -254,6 +259,7 @@ static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     case PipelineTaskType::INPUT:     return _T("INPUT");
     case PipelineTaskType::CHECKPTS:  return _T("CHECKPTS");
     case PipelineTaskType::OPENCL:    return _T("OPENCL");
+    case PipelineTaskType::AUDIO:     return _T("AUDIO");
     default: return _T("UNKNOWN");
     }
 }
@@ -268,6 +274,7 @@ static const int getPipelineTaskAllocPriority(PipelineTaskType type) {
     case PipelineTaskType::INPUT:
     case PipelineTaskType::CHECKPTS:
     case PipelineTaskType::OPENCL:
+    case PipelineTaskType::AUDIO:
     default: return 0;
     }
 }
@@ -721,6 +728,115 @@ public:
         return RGY_ERR_NONE;
     }
 };
+
+
+class PipelineTaskAudio : public PipelineTask {
+protected:
+    RGYInput *m_input;
+    std::map<int, std::shared_ptr<RGYOutputAvcodec>> m_pWriterForAudioStreams;
+    std::vector<std::shared_ptr<RGYInput>> m_audioReaders;
+    std::map<int, std::shared_ptr<QSVEncPlugin>> m_filterForStreams;
+public:
+    PipelineTaskAudio(RGYInput *input, std::vector<std::shared_ptr<RGYInput>>& audioReaders, std::vector<std::shared_ptr<RGYOutput>>& fileWriterListAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::CHECKPTS, outMaxQueueSize, nullptr, mfxVer, log),
+        m_input(input), m_audioReaders(audioReaders) {
+        //streamのindexから必要なwriteへのポインタを返すテーブルを作成
+        for (auto writer : fileWriterListAudio) {
+            auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(writer);
+            if (pAVCodecWriter) {
+                auto trackIdList = pAVCodecWriter->GetStreamTrackIdList();
+                for (auto trackID : trackIdList) {
+                    m_pWriterForAudioStreams[trackID] = pAVCodecWriter;
+                }
+            }
+        }
+#if 0
+        //streamのtrackIdからパケットを送信するvppフィルタへのポインタを返すテーブルを作成
+        for (const auto& pPlugins : m_VppPrePlugins) {
+            const int trackId = pPlugins->getTargetTrack();
+            if (trackId != 0) {
+                m_filterForStreams[trackId] = pPlugins->getPluginHandle();
+            }
+        }
+        for (const auto& pPlugins : m_VppPostPlugins) {
+            const int trackId = pPlugins->getTargetTrack();
+            if (trackId != 0) {
+                m_filterForStreams[trackId] = pPlugins->getPluginHandle();
+            }
+        }
+#endif
+    };
+    virtual ~PipelineTaskAudio() {};
+
+    virtual bool isPassThrough() const override { return true; }
+
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+
+    RGY_ERR extractAudio(int inputFrames) {
+        RGY_ERR ret = RGY_ERR_NONE;
+#if ENABLE_AVSW_READER
+        if (m_pWriterForAudioStreams.size() + m_filterForStreams.size() > 0) {
+#if ENABLE_SM_READER
+            RGYInputSM *pReaderSM = dynamic_cast<RGYInputSM *>(m_input);
+            const int droppedInAviutl = (pReaderSM != nullptr) ? pReaderSM->droppedFrames() : 0;
+#else
+            const int droppedInAviutl = 0;
+#endif
+
+            auto packetList = m_input->GetStreamDataPackets(inputFrames + droppedInAviutl);
+
+            //音声ファイルリーダーからのトラックを結合する
+            for (const auto& reader : m_audioReaders) {
+                vector_cat(packetList, reader->GetStreamDataPackets(inputFrames + droppedInAviutl));
+            }
+            //パケットを各Writerに分配する
+            for (uint32_t i = 0; i < packetList.size(); i++) {
+                const int nTrackId = (int)((uint32_t)packetList[i].flags >> 16);
+                if (m_pWriterForAudioStreams.count(nTrackId)) {
+                    auto pWriter = m_pWriterForAudioStreams[nTrackId];
+                    if (pWriter == nullptr) {
+                        m_log->write(RGY_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
+                        return RGY_ERR_NULL_PTR;
+                    }
+                    if (RGY_ERR_NONE != (ret = pWriter->WriteNextPacket(&packetList[i]))) {
+                        return ret;
+                    }
+                } else if (m_filterForStreams.count(nTrackId)) {
+                    auto pFilter = m_filterForStreams[nTrackId];
+                    if (pFilter == nullptr) {
+                        m_log->write(RGY_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
+                        return RGY_ERR_NULL_PTR;
+                    }
+                    auto sts = pFilter->SendData(PLUGIN_SEND_DATA_AVPACKET, &packetList[i]);
+                    if (sts != MFX_ERR_NONE) {
+                        return err_to_rgy(sts);
+                    }
+                } else {
+                    m_log->write(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
+                    return RGY_ERR_NOT_FOUND;
+                }
+            }
+        }
+#endif //ENABLE_AVSW_READER
+        return ret;
+    };
+
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (!frame) {
+            return RGY_ERR_MORE_DATA;
+        }
+        m_inFrames++;
+        auto err = extractAudio(m_inFrames);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
+        return RGY_ERR_NONE;
+    }
+};
+
 
 class PipelineTaskMFXVpp : public PipelineTask {
 protected:
