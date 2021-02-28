@@ -3772,6 +3772,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         return RGY_ERR_INVALID_OPERATION;
     }
 
+    CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     m_pStatus->SetStart();
 
     RGY_ERR err = RGY_ERR_NONE;
@@ -3781,6 +3782,8 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
         };
         while (checkContinue(err)) {
+            speedCtrl.wait(m_pipelineTasks.front()->outputFrames());
+
             std::vector<std::unique_ptr<PipelineTaskOutput>> data;
             data.push_back(nullptr); // デコード実行用
             for (size_t itask = 0; checkContinue(err) && itask < m_pipelineTasks.size(); itask++) {
