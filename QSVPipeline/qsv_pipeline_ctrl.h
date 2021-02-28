@@ -246,6 +246,7 @@ enum class PipelineTaskType {
     MFXENCODE,
     INPUT,
     CHECKPTS,
+    TRIM,
     AUDIO,
     OPENCL,
 };
@@ -258,6 +259,7 @@ static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     case PipelineTaskType::MFXENCODE: return _T("MFXENCODE");
     case PipelineTaskType::INPUT:     return _T("INPUT");
     case PipelineTaskType::CHECKPTS:  return _T("CHECKPTS");
+    case PipelineTaskType::TRIM:      return _T("TRIM");
     case PipelineTaskType::OPENCL:    return _T("OPENCL");
     case PipelineTaskType::AUDIO:     return _T("AUDIO");
     default: return _T("UNKNOWN");
@@ -273,6 +275,7 @@ static const int getPipelineTaskAllocPriority(PipelineTaskType type) {
     case PipelineTaskType::MFXVPP:    return 1;
     case PipelineTaskType::INPUT:
     case PipelineTaskType::CHECKPTS:
+    case PipelineTaskType::TRIM:
     case PipelineTaskType::OPENCL:
     case PipelineTaskType::AUDIO:
     default: return 0;
@@ -729,7 +732,6 @@ public:
     }
 };
 
-
 class PipelineTaskAudio : public PipelineTask {
 protected:
     RGYInput *m_input;
@@ -738,7 +740,7 @@ protected:
     std::map<int, std::shared_ptr<QSVEncPlugin>> m_filterForStreams;
 public:
     PipelineTaskAudio(RGYInput *input, std::vector<std::shared_ptr<RGYInput>>& audioReaders, std::vector<std::shared_ptr<RGYOutput>>& fileWriterListAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::CHECKPTS, outMaxQueueSize, nullptr, mfxVer, log),
+        PipelineTask(PipelineTaskType::AUDIO, outMaxQueueSize, nullptr, mfxVer, log),
         m_input(input), m_audioReaders(audioReaders) {
         //streamのindexから必要なwriteへのポインタを返すテーブルを作成
         for (auto writer : fileWriterListAudio) {
@@ -837,6 +839,32 @@ public:
     }
 };
 
+class PipelineTaskTrim : public PipelineTask {
+protected:
+    const sTrimParam &m_trimParam;
+public:
+    PipelineTaskTrim(const sTrimParam &trimParam, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::TRIM, outMaxQueueSize, nullptr, mfxVer, log),
+        m_trimParam(trimParam) {
+    };
+    virtual ~PipelineTaskTrim() {};
+
+    virtual bool isPassThrough() const override { return true; }
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (!frame) {
+            return RGY_ERR_MORE_DATA;
+        }
+        if (!frame_inside_range(m_inFrames++, m_trimParam.list).first) {
+            return RGY_ERR_NONE;
+        }
+        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
+        return RGY_ERR_NONE;
+    }
+};
 
 class PipelineTaskMFXVpp : public PipelineTask {
 protected:

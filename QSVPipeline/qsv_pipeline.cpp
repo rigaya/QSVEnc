@@ -3732,6 +3732,9 @@ RGY_ERR CQSVPipeline::createPipeline() {
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, 0, m_mfxVer, m_pQSVLog));
     }
+    if (m_trimParam.list.size() > 0) {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, 0, m_mfxVer, m_pQSVLog));
+    }
 
     const int64_t outFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
