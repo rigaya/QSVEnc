@@ -405,37 +405,89 @@ static RGY_FRAME_FLAGS operator~(RGY_FRAME_FLAGS a) {
     return (RGY_FRAME_FLAGS)(~((uint64_t)a));
 }
 
+static const int RGY_MAX_PLANES = 4;
+
+enum RGY_MEM_TYPE {
+    RGY_MEM_TYPE_CPU = 0,
+    RGY_MEM_TYPE_GPU,
+    RGY_MEM_TYPE_GPU_IMAGE
+};
+
+class RGYFrameData;
+
 struct FrameInfo {
-    uint8_t *ptr;
+    uint8_t *ptr[RGY_MAX_PLANES];
     RGY_CSP csp;
-    int width, height, pitch;
+    int width, height, pitch[RGY_MAX_PLANES];
     int64_t timestamp;
     int64_t duration;
-    bool deivce_mem;
+    RGY_MEM_TYPE mem_type;
     RGY_PICSTRUCT picstruct;
     RGY_FRAME_FLAGS flags;
     int inputFrameId;
+    std::vector<std::shared_ptr<RGYFrameData>> dataList;
+
+    FrameInfo() :
+        ptr(),
+        csp(RGY_CSP_NA),
+        width(0),
+        height(0),
+        pitch(),
+        timestamp(0),
+        duration(0),
+        mem_type(RGY_MEM_TYPE_CPU),
+        picstruct(RGY_PICSTRUCT_UNKNOWN),
+        flags(RGY_FRAME_FLAG_NONE),
+        inputFrameId(-1),
+        dataList() {
+        memset(ptr, 0, sizeof(ptr));
+        memset(pitch, 0, sizeof(pitch));
+    };
 };
 
-static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
-    return pA->csp != pB->csp
-        || pA->width != pB->width
-        || pA->height != pB->height
-        || pA->deivce_mem != pB->deivce_mem
-        || pA->pitch != pB->pitch;
+static FrameInfo getPlane(const FrameInfo *frameInfo, RGY_PLANE plane) {
+    FrameInfo planeInfo = *frameInfo;
+    if (frameInfo->csp == RGY_CSP_YUY2
+        || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_RGB_PACKED
+        || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_MONOCHROME) {
+        return planeInfo; //何もしない
+    }
+    if (frameInfo->csp == RGY_CSP_GBR || frameInfo->csp == RGY_CSP_GBRA) {
+        switch (plane) {
+        case RGY_PLANE_R: plane = RGY_PLANE_G; break;
+        case RGY_PLANE_G: plane = RGY_PLANE_R; break;
+        default:
+            break;
+        }
+    }
+    if (plane == RGY_PLANE_Y) {
+        for (int i = 1; i < RGY_MAX_PLANES; i++) {
+            planeInfo.ptr[i] = nullptr;
+            planeInfo.pitch[i] = 0;
+        }
+        return planeInfo;
+    }
+    auto const ptr = planeInfo.ptr[plane];
+    const auto pitch = planeInfo.pitch[plane];
+    for (int i = 0; i < RGY_MAX_PLANES; i++) {
+        planeInfo.ptr[i] = nullptr;
+        planeInfo.pitch[i] = 0;
+    }
+    planeInfo.ptr[0] = ptr;
+    planeInfo.pitch[0] = pitch;
+
+    if (frameInfo->csp == RGY_CSP_NV12 || frameInfo->csp == RGY_CSP_P010) {
+        planeInfo.height >>= 1;
+    } else if (frameInfo->csp == RGY_CSP_NV16 || frameInfo->csp == RGY_CSP_P210) {
+        ;
+    } else if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_YUV420) {
+        planeInfo.width >>= 1;
+        planeInfo.height >>= 1;
+    } else if (RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_YUV422) {
+        planeInfo.width >>= 1;
+    }
+    return planeInfo;
 }
-
-struct FrameInfoExtra {
-    int width_byte, height_total, frame_size;
-};
-
-static bool interlaced(const FrameInfo& FrameInfo) {
-    return (FrameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
-}
-
-FrameInfoExtra getFrameInfoExtra(const FrameInfo *pFrameInfo);
-
-FrameInfo getPlane(const FrameInfo *frameInfo, const RGY_PLANE plane);
 
 #pragma warning(push)
 #pragma warning(disable: 4201)

@@ -56,6 +56,7 @@
 #include "qsv_plugin.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
+#include "rgy_opencl.h"
 #include "qsv_task.h"
 #include "qsv_pipeline_ctrl.h"
 #include "qsv_control.h"
@@ -223,7 +224,8 @@ protected:
     // for disabling VPP algorithms
     //mfxExtVPPDoNotUse m_VppDoNotUse;
 
-    shared_ptr<CQSVHWDevice> m_hwdev;
+    std::shared_ptr<RGYOpenCLContext> m_cl;
+    std::shared_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
 
     virtual mfxStatus InitSessionInitParam(int threads, int priority);
@@ -249,10 +251,11 @@ protected:
     virtual mfxStatus AllocAndInitVppDoNotUse();
     virtual void FreeVppDoNotUse();
 
-    virtual mfxStatus CreateAllocator();
+    virtual RGY_ERR initOpenCL();
+    virtual RGY_ERR CreateHWDevice();
+    virtual RGY_ERR CreateAllocator();
     virtual void DeleteAllocator();
 
-    virtual mfxStatus CreateHWDevice();
     virtual void DeleteHWDevice();
 
     virtual RGY_ERR allocFrames();

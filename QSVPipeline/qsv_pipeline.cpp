@@ -1696,8 +1696,71 @@ mfxStatus CQSVPipeline::InitVppPostPlugins(sInputParams *pParams) {
 }
 #pragma warning (pop)
 
-mfxStatus CQSVPipeline::CreateHWDevice() {
-    mfxStatus sts = MFX_ERR_NONE;
+RGY_ERR CQSVPipeline::initOpenCL() {
+    mfxHandleType hdl_t = (mfxHandleType)0;
+    switch (m_memType) {
+#if D3D_SURFACES_SUPPORT
+    case D3D9_MEMORY:  hdl_t = MFX_HANDLE_D3D9_DEVICE_MANAGER; break;
+    case D3D11_MEMORY: hdl_t = MFX_HANDLE_D3D11_DEVICE; break;
+#elif LIBVA_SUPPORT
+    case VA_MEMORY: {
+        PrintMes(RGY_LOG_DEBUG, _T("Unknown GPU memory type.\n"));
+        return RGY_ERR_UNSUPPORTED;
+        hdl_t = MFX_HANDLE_VA_DISPLAY; break;
+    }
+#endif
+    default:
+        break;
+    }
+    mfxHDL hdl = nullptr;
+    if (hdl_t) {
+        auto sts = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
+        RGY_ERR(sts, _T("Failed to get HW device handle."));
+        PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
+    }
+
+    RGYOpenCL cl(m_pQSVLog);
+    auto platforms = cl.getPlatforms("Intel");
+    if (platforms.size() == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to find OpenCL platforms.\n"));
+        return RGY_ERR_DEVICE_LOST;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("Created Intel OpenCL platform.\n"));
+
+    auto& platform = platforms[0];
+    if (m_memType == D3D9_MEMORY) {
+        if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to find d3d9 device.\n"));
+            return RGY_ERR_DEVICE_LOST;
+        }
+    } else if (m_memType == D3D11_MEMORY) {
+        if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to find d3d11 device.\n"));
+            return RGY_ERR_DEVICE_LOST;
+        }
+    } else {
+        if (platform->createDeviceList(CL_DEVICE_TYPE_GPU) != CL_SUCCESS || platform->devs().size() == 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to find gpu device.\n"));
+            return RGY_ERR_DEVICE_LOST;
+        }
+    }
+    auto devices = platform->devs();
+    if ((int)devices.size() == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to OpenCL device.\n"));
+        return RGY_ERR_DEVICE_LOST;
+    }
+    platform->setDev(devices[0]);
+
+    m_cl = std::make_shared<RGYOpenCLContext>(platform, m_pQSVLog);
+    if (m_cl->createContext() != CL_SUCCESS) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to create OpenCL context.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR CQSVPipeline::CreateHWDevice() {
+    auto sts = RGY_ERR_NONE;
 
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
@@ -1711,7 +1774,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
             m_memType = D3D11_MEMORY;
             PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
-            sts = m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession));
+            sts = err_to_rgy(m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession)));
             if (sts != MFX_ERR_NONE) {
                 m_hwdev.reset();
                 PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
@@ -1728,11 +1791,11 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
             }
 
             PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d9 - initializing...\n"));
-            sts = m_hwdev->Init(window, 0, GetAdapterID(m_mfxSession));
+            sts = err_to_rgy(m_hwdev->Init(window, 0, GetAdapterID(m_mfxSession)));
         }
     }
-    QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
-    PrintMes(RGY_LOG_DEBUG, _T("HWDevice: initializing success.\n"));
+    RGY_ERR(sts, _T("Failed to initialize HW Device."));
+    PrintMes(RGY_LOG_DEBUG, _T("HWDevice: initializing device success.\n"));
 
 #elif LIBVA_SUPPORT
     m_hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, m_pQSVLog));
@@ -1742,7 +1805,7 @@ mfxStatus CQSVPipeline::CreateHWDevice() {
     sts = m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession));
     QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
 #endif
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 mfxStatus CQSVPipeline::ResetDevice() {
@@ -2111,14 +2174,14 @@ RGY_ERR CQSVPipeline::allocFrames() {
     return RGY_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::CreateAllocator() {
-    mfxStatus sts = MFX_ERR_NONE;
+RGY_ERR CQSVPipeline::CreateAllocator() {
+    auto sts = RGY_ERR_NONE;
     PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
 
     if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType || HW_MEMORY == m_memType) {
 #if D3D_SURFACES_SUPPORT
         sts = CreateHWDevice();
-        QSV_ERR_MES(sts, _T("Failed to CreateHWDevice."));
+        RGY_ERR(sts, _T("Failed to CreateHWDevice."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateHWDevice success.\n"));
 
         mfxHDL hdl = NULL;
@@ -2127,16 +2190,16 @@ mfxStatus CQSVPipeline::CreateAllocator() {
 #else
         mfxHandleType hdl_t = MFX_HANDLE_D3D9_DEVICE_MANAGER;
 #endif
-        sts = m_hwdev->GetHandle(hdl_t, &hdl);
-        QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
+        sts = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
+        RGY_ERR(sts, _T("Failed to get HW device handle."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
 
         mfxIMPL impl = 0;
         m_mfxSession.QueryIMPL(&impl);
         if (impl != MFX_IMPL_SOFTWARE) {
             // hwエンコード時のみハンドルを渡す
-            sts = m_mfxSession.SetHandle(hdl_t, hdl);
-            QSV_ERR_MES(sts, _T("Failed to set HW device handle to encode session."));
+            sts = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
+            RGY_ERR(sts, _T("Failed to set HW device handle to encode session."));
             PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: set HW device handle to encode session.\n"));
         }
 
@@ -2147,13 +2210,13 @@ mfxStatus CQSVPipeline::CreateAllocator() {
             m_pMFXAllocator.reset(new QSVAllocatorD3D11);
             if (!m_pMFXAllocator) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
-                return MFX_ERR_MEMORY_ALLOC;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
             QSVAllocatorParamsD3D11 *pd3dAllocParams = new QSVAllocatorParamsD3D11;
             if (!pd3dAllocParams) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11AllocatorParams.\n"));
-                return MFX_ERR_MEMORY_ALLOC;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             pd3dAllocParams->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
             PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: d3d11...\n"));
@@ -2166,13 +2229,13 @@ mfxStatus CQSVPipeline::CreateAllocator() {
             m_pMFXAllocator.reset(new QSVAllocatorD3D9);
             if (!m_pMFXAllocator) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
-                return MFX_ERR_MEMORY_ALLOC;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
             QSVAllocatorParamsD3D9 *pd3dAllocParams = new QSVAllocatorParamsD3D9;
             if (!pd3dAllocParams) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for pd3dAllocParams.\n"));
-                return MFX_ERR_MEMORY_ALLOC;
+                return RGY_ERR_MEMORY_ALLOC;
             }
             pd3dAllocParams->pManager = reinterpret_cast<IDirect3DDeviceManager9 *>(hdl);
             PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: d3d9...\n"));
@@ -2182,24 +2245,24 @@ mfxStatus CQSVPipeline::CreateAllocator() {
 
         //GPUメモリ使用時には external allocatorを使用する必要がある
         //mfxSessionにallocatorを渡してやる必要がある
-        sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get());
-        QSV_ERR_MES(sts, _T("Failed to set frame allocator to encode session."));
+        sts = err_to_rgy(m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get()));
+        RGY_ERR(sts, _T("Failed to set frame allocator to encode session."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
 
         m_bExternalAlloc = true;
 #endif
 #ifdef LIBVA_SUPPORT
         sts = CreateHWDevice();
-        QSV_ERR_MES(sts, _T("Failed to CreateHWDevice."));
+        RGY_ERR(sts, _T("Failed to CreateHWDevice."));
 
         mfxHDL hdl = NULL;
         sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
-        QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
+        RGY_ERR(sts, _T("Failed to get HW device handle."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
         //ハンドルを渡す
-        sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
-        QSV_ERR_MES(sts, _T("Failed to set HW device handle to encode session."));
+        sts = err_to_rgy(m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl));
+        RGY_ERR(sts, _T("Failed to set HW device handle to encode session."));
 
         //VAAPI allocatorを作成
         m_pMFXAllocator.reset(new QSVAllocatorVA());
@@ -2219,8 +2282,8 @@ mfxStatus CQSVPipeline::CreateAllocator() {
 
         //GPUメモリ使用時には external allocatorを使用する必要がある
         //mfxSessionにallocatorを渡してやる必要がある
-        sts = m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get());
-        QSV_ERR_MES(sts, _T("Failed to set frame allocator to encode session."));
+        sts = err_to_rgy(m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get()));
+        RGY_ERR(sts, _T("Failed to set frame allocator to encode session."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
 
         m_bExternalAlloc = true;
@@ -2233,34 +2296,34 @@ mfxStatus CQSVPipeline::CreateAllocator() {
 
         if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
             sts = CreateHWDevice();
-            QSV_ERR_MES(sts, _T("Failed to CreateHWDevice."));
+            RGY_ERR(sts, _T("Failed to CreateHWDevice."));
 
             mfxHDL hdl = NULL;
-            sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
-            QSV_ERR_MES(sts, _T("Failed to get HW device handle."));
+            sts = err_to_rgy(m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
+            RGY_ERR(sts, _T("Failed to get HW device handle."));
             PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
             //ハンドルを渡す
-            sts = m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
-            QSV_ERR_MES(sts, _T("Failed to set HW device handle to encode session."));
+            sts = err_to_rgy(m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl));
+            RGY_ERR(sts, _T("Failed to set HW device handle to encode session."));
         }
 #endif
         //system memory allocatorを作成
         m_pMFXAllocator.reset(new QSVAllocatorSys);
         if (!m_pMFXAllocator) {
-            return MFX_ERR_MEMORY_ALLOC;
+            return RGY_ERR_MEMORY_ALLOC;
         }
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: sys mem allocator...\n"));
     }
 
     //メモリallocatorの初期化
-    if (MFX_ERR_NONE > (sts = m_pMFXAllocator->Init(m_pmfxAllocatorParams.get(), m_pQSVLog))) {
+    if (MFX_ERR_NONE > (sts = err_to_rgy(m_pMFXAllocator->Init(m_pmfxAllocatorParams.get(), m_pQSVLog)))) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(m_memType), get_err_mes(sts));
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator initialized.\n"));
 
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 void CQSVPipeline::DeleteFrames() {
@@ -3179,7 +3242,10 @@ mfxStatus CQSVPipeline::Init(sInputParams *pParams) {
 
     m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));
 
-    sts = CreateAllocator();
+    sts = err_to_mfx(CreateAllocator());
+    if (sts < MFX_ERR_NONE) return sts;
+
+    sts = err_to_mfx(initOpenCL());
     if (sts < MFX_ERR_NONE) return sts;
 
     sts = InitMfxDecParams(pParams);
