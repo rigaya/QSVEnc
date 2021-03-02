@@ -300,6 +300,16 @@ int initOpenCLGlobal() {
     LOAD_NO_CHECK(clGetKernelSubGroupInfo);
     LOAD_NO_CHECK(clGetKernelSubGroupInfoKHR);
 
+    LOAD(clCreateFromDX9MediaSurfaceKHR);
+    LOAD(clEnqueueAcquireDX9MediaSurfacesKHR);
+    LOAD(clEnqueueReleaseDX9MediaSurfacesKHR);
+
+    LOAD(clCreateFromD3D11BufferKHR);
+    LOAD(clCreateFromD3D11Texture2DKHR);
+    LOAD(clCreateFromD3D11Texture3DKHR);
+    LOAD(clEnqueueAcquireD3D11ObjectsKHR);
+    LOAD(clEnqueueReleaseD3D11ObjectsKHR);
+
     return 0;
 }
 
@@ -796,7 +806,56 @@ RGY_ERR RGYCLFrame::unmapBuffer() {
 RGY_ERR RGYCLFrame::unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     return (m_mapped) ? m_mapped->unmap(queue, wait_events) : RGY_ERR_NONE;
 }
+void RGYCLFrame::clear() {
+    m_mapped.reset();
+    for (int i = 0; i < _countof(frame.ptr); i++) {
+        if (mem(i)) {
+            clReleaseMemObject(mem(i));
+        }
+        mem(i) = nullptr;
+        frame.pitch[i] = 0;
+    }
+}
 
+RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events) {
+    std::vector<cl_event> v_wait_list = toVec(wait_events);
+    cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
+    cl_int err = CL_SUCCESS;
+    if (m_interop == RGY_INTEROP_DX9) {
+        err = clEnqueueAcquireDX9MediaSurfacesKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, (int)wait_events.size(), wait_list, nullptr);
+    } else if (m_interop == RGY_INTEROP_DX11) {
+        err = clEnqueueAcquireD3D11ObjectsKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, (int)wait_events.size(), wait_list, nullptr);
+    } else {
+        m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Unknown interop type!\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (err != 0) {
+        m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
+        return err_cl_to_rgy(err);
+    }
+    m_acquired = true;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYCLFrameInterop::release() {
+    if (m_acquired) {
+        cl_int err = CL_SUCCESS;
+        if (m_interop == RGY_INTEROP_DX9) {
+            err = clEnqueueReleaseDX9MediaSurfacesKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, nullptr);
+        } else if (m_interop == RGY_INTEROP_DX11) {
+            err = clEnqueueReleaseD3D11ObjectsKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, nullptr);
+        } else {
+            m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::release: Unknown interop type!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (err != 0) {
+            m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
+            return err_cl_to_rgy(err);
+        }
+        m_acquired = false;
+    }
+    return RGY_ERR_NONE;
+}
 
 RGYOpenCLQueue::RGYOpenCLQueue() : m_queue(nullptr, clReleaseCommandQueue), m_devid(0) {};
 
@@ -1265,7 +1324,7 @@ unique_ptr<RGYCLFrame> RGYOpenCLContext::createImageFromFrameBuffer(const FrameI
                     frameImage.ptr[j] = nullptr;
                 }
             }
-            return std::make_unique<RGYCLFrame>();
+            return std::unique_ptr<RGYCLFrame>();
         }
         frameImage.ptr[i] = (uint8_t *)image;
     }
@@ -1301,8 +1360,8 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo&
     FrameInfo clframe = frame;
     clframe.mem_type = RGY_MEM_TYPE_GPU;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
-        clframe.ptr[0] = nullptr;
-        clframe.pitch[0] = 0;
+        clframe.ptr[i] = nullptr;
+        clframe.pitch[i] = 0;
     }
     for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
         const auto plane = getPlane(&clframe, (RGY_PLANE)i);
@@ -1318,12 +1377,68 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo&
                     clframe.ptr[j] = nullptr;
                 }
             }
-            return std::make_unique<RGYCLFrame>();
+            return std::unique_ptr<RGYCLFrame>();
         }
         clframe.pitch[i] = memPitch;
         clframe.ptr[i] = (uint8_t *)mem;
     }
     return std::make_unique<RGYCLFrame>(clframe, flags);
+}
+
+unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+    if (m_platform->d3d9dev() == nullptr) {
+        m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d9 device.\n"));
+        return std::unique_ptr<RGYCLFrameInterop>();
+    }
+    FrameInfo clframe = frame;
+    clframe.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+    for (int i = 0; i < _countof(clframe.ptr); i++) {
+        clframe.ptr[0] = nullptr;
+        clframe.pitch[0] = 0;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+        cl_int err = CL_SUCCESS;
+        clframe.ptr[i] = (uint8_t *)clCreateFromDX9MediaSurfaceKHR(m_context.get(), flags, CL_CONTEXT_ADAPTER_D3D9EX_KHR, surf, i, &err);
+        if (err != CL_SUCCESS) {
+            m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from DX9 memory: %s\n"), cl_errmes(err));
+            for (int j = i - 1; j >= 0; j--) {
+                if (clframe.ptr[j] != nullptr) {
+                    clReleaseMemObject((cl_mem)clframe.ptr[j]);
+                    clframe.ptr[j] = nullptr;
+                }
+            }
+            return std::unique_ptr<RGYCLFrameInterop>();
+        }
+    }
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX9, queue, m_pLog);
+}
+
+unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+    if (m_platform->d3d11dev() == nullptr) {
+        m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d11 device.\n"));
+        return std::unique_ptr<RGYCLFrameInterop>();
+    }
+    FrameInfo clframe = frame;
+    clframe.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+    for (int i = 0; i < _countof(clframe.ptr); i++) {
+        clframe.ptr[0] = nullptr;
+        clframe.pitch[0] = 0;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+        cl_int err = CL_SUCCESS;
+        clframe.ptr[i] = (uint8_t *)clCreateFromD3D11Texture2DKHR(m_context.get(), flags, (ID3D11Texture2D *)surf, i, &err);
+        if (err != CL_SUCCESS) {
+            m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from DX11 texture 2D: %s\n"), cl_errmes(err));
+            for (int j = i - 1; j >= 0; j--) {
+                if (clframe.ptr[j] != nullptr) {
+                    clReleaseMemObject((cl_mem)clframe.ptr[j]);
+                    clframe.ptr[j] = nullptr;
+                }
+            }
+            return std::unique_ptr<RGYCLFrameInterop>();
+        }
+    }
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_pLog);
 }
 
 RGYOpenCL::RGYOpenCL() : m_pLog(std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR)) {

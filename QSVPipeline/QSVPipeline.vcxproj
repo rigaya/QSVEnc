@@ -583,6 +583,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter.cpp" />
+    <ClCompile Include="rgy_filter_crop.cpp" />
     <ClCompile Include="rgy_frame.cpp" />
     <ClCompile Include="rgy_hdr10plus.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -705,6 +707,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="qsv_hw_d3d9.h" />
     <ClInclude Include="qsv_hw_device.h" />
     <ClInclude Include="qsv_hw_va.h" />
+    <ClInclude Include="qsv_opencl.h" />
     <ClInclude Include="qsv_pipeline.h" />
     <ClInclude Include="qsv_control.h" />
     <ClInclude Include="qsv_pipeline_ctrl.h" />
@@ -722,6 +725,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_codepage.h" />
     <ClInclude Include="rgy_def.h" />
     <ClInclude Include="rgy_event.h" />
+    <ClInclude Include="rgy_filter.h" />
     <ClInclude Include="rgy_frame.h" />
     <ClInclude Include="rgy_hdr10plus.h" />
     <ClInclude Include="rgy_ini.h" />
@@ -753,6 +757,9 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_err.h" />
     <ClInclude Include="rgy_version.h" />
     <ClInclude Include="vpp_plugins.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="rgy_filter.cl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

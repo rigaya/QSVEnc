@@ -35,6 +35,7 @@
 #include "rgy_thread.h"
 #include "rgy_event.h"
 #include "rgy_log.h"
+#include "rgy_filter.h"
 
 #include "qsv_hw_device.h"
 
@@ -225,6 +226,9 @@ protected:
     //mfxExtVPPDoNotUse m_VppDoNotUse;
 
     std::shared_ptr<RGYOpenCLContext> m_cl;
+    std::vector<std::unique_ptr<RGYFilter>> m_vpFilters;
+    std::shared_ptr<RGYFilterParam> m_pLastFilterParam;
+
     std::shared_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
 
@@ -237,12 +241,13 @@ protected:
     virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
     virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
     virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);
+    virtual RGY_ERR   initVppFilters(sInputParams *inputParam);
     virtual mfxStatus InitOutput(sInputParams *pParams);
     virtual mfxStatus InitMfxDecParams(sInputParams *pInParams);
     virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
     virtual mfxStatus InitSession(bool useHWLib, uint32_t memType);
     int getEncoderBitdepth(const sInputParams *pParams);
-    RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift);
+    RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift = nullptr);
     //virtual void InitVppExtParam();
     virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
 

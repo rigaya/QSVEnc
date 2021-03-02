@@ -2433,6 +2433,9 @@ CQSVPipeline::CQSVPipeline() :
     m_EncResponse(),
     m_VppResponse(),
     m_DecResponse(),
+    m_cl(),
+    m_vpFilters(),
+    m_pLastFilterParam(),
     m_hwdev(),
     m_pipelineTasks() {
     m_trimParam.offset = 0;
@@ -2799,6 +2802,166 @@ mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
     pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
 
     return MFX_ERR_NONE;
+}
+
+RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
+    bool resizeRequired = false;
+    bool cropRequired = true;
+
+    FrameInfo inputFrame;
+    inputFrame.width = inputParam->input.srcWidth;
+    inputFrame.height = inputParam->input.srcHeight;
+    inputFrame.csp = inputParam->input.csp;
+    const int croppedWidth = inputFrame.width - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    const int croppedHeight = inputFrame.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    if (!cropRequired) {
+        //入力時にcrop済み
+        inputFrame.width = croppedWidth;
+        inputFrame.height = croppedHeight;
+    }
+    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
+        inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+    }
+
+    //フィルタが必要
+    if (resizeRequired
+        || cropRequired) {
+        //swデコードならGPUに上げる必要がある
+        if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+            unique_ptr<RGYFilter> filterCrop(new RGYFilterCspCrop(m_cl));
+            shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
+            param->frameIn = inputFrame;
+            param->frameOut.csp = param->frameIn.csp;
+            param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            auto sts = filterCrop->init(param, m_pQSVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterCrop));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<RGYFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        const auto encCsp = getEncoderCsp(inputParam);
+        if (encCsp == RGY_CSP_NA) {
+            PrintMes(RGY_LOG_ERROR, _T("Unknown Error in GetEncoderCSP().\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        auto filterCsp = encCsp;
+        switch (filterCsp) {
+        case RGY_CSP_NV12: filterCsp = RGY_CSP_YV12; break;
+        case RGY_CSP_P010: filterCsp = RGY_CSP_YV12_16; break;
+        default: break;
+        }
+#if 0
+        if (inputParam->vpp.afs.enable && RGY_CSP_CHROMA_FORMAT[inputFrame.csp] == RGY_CHROMAFMT_YUV444) {
+            filterCsp = (RGY_CSP_BIT_DEPTH[inputFrame.csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+        }
+        //colorspace
+        if (inputParam->vpp.colorspace.enable) {
+            amf::AMFContext::AMFOpenCLLocker locker(m_dev->context());
+            unique_ptr<RGYFilterColorspace> filter(new RGYFilterColorspace(m_dev->cl()));
+            shared_ptr<RGYFilterParamColorspace> param(new RGYFilterParamColorspace());
+            param->colorspace = inputParam->vpp.colorspace;
+            param->encCsp = encCsp;
+            param->VuiIn = VuiFiltered;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->baseFps = m_encFps;
+            auto sts = filter->init(param, m_pLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            VuiFiltered = filter->VuiOut();
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filter));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<RGYFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+#endif
+        if (filterCsp != inputFrame.csp
+            || cropRequired) { //cropが必要ならただちに適用する
+            unique_ptr<RGYFilter> filterCrop(new RGYFilterCspCrop(m_cl));
+            shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
+            param->frameIn = inputFrame;
+            param->frameOut.csp = encCsp;
+            switch (param->frameOut.csp) {
+            case RGY_CSP_NV12:
+                param->frameOut.csp = RGY_CSP_YV12;
+                break;
+            case RGY_CSP_P010:
+                param->frameOut.csp = RGY_CSP_YV12_16;
+                break;
+            default:
+                break;
+            }
+            if (cropRequired) {
+                param->crop = inputParam->input.crop;
+            }
+            param->baseFps = m_encFps;
+            param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+            param->bOutOverwrite = false;
+            auto sts = filterCrop->init(param, m_pQSVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //フィルタチェーンに追加
+            m_vpFilters.push_back(std::move(filterCrop));
+            //パラメータ情報を更新
+            m_pLastFilterParam = std::dynamic_pointer_cast<RGYFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+    }
+    //最後のフィルタ
+    {
+        //もし入力がCPUメモリで色空間が違うなら、一度そのままGPUに転送する必要がある
+        if (inputFrame.mem_type == RGY_MEM_TYPE_CPU && inputFrame.csp != getEncoderCsp(inputParam)) {
+            unique_ptr<RGYFilter> filterCrop(new RGYFilterCspCrop(m_cl));
+            shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
+            param->frameIn = inputFrame;
+            param->frameOut.csp = param->frameIn.csp;
+            param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            auto sts = filterCrop->init(param, m_pLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            m_vpFilters.push_back(std::move(filterCrop));
+            m_pLastFilterParam = std::dynamic_pointer_cast<RGYFilterParam>(param);
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+        }
+        unique_ptr<RGYFilter> filterCrop(new RGYFilterCspCrop(m_cl));
+        shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
+        param->frameIn = inputFrame;
+        param->frameOut.csp = getEncoderCsp(inputParam);
+        //インタレ保持であれば、CPU側にフレームを戻す必要がある
+        //色空間が同じなら、ここでやってしまう
+        param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filterCrop->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_vpFilters.push_back(std::move(filterCrop));
+        m_pLastFilterParam = std::dynamic_pointer_cast<RGYFilterParam>(param);
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+    }
 }
 
 mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {

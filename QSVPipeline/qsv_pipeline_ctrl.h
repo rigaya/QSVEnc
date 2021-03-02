@@ -40,6 +40,8 @@
 #include "mfxplugin.h"
 #include "mfxplugin++.h"
 #include "qsv_hw_device.h"
+#include "rgy_opencl.h"
+#include "qsv_opencl.h"
 #include "qsv_query.h"
 #include "qsv_allocator.h"
 #include "qsv_control.h"
@@ -176,6 +178,7 @@ public:
         m_syncpoint = nullptr;
         return err_to_rgy(err);
     }
+    virtual void depend_clear() {};
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
     virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator) {
@@ -189,11 +192,25 @@ public:
 class PipelineTaskOutputSurf : public PipelineTaskOutput {
 protected:
     PipelineTaskSurface m_surf;
+    std::unique_ptr<PipelineTaskOutput> m_dependencyFrame;
+    std::unique_ptr<RGYCLFrameInterop> m_dependencyInterop;
 public:
-    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint) : PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf) { };
+    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint) :
+        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_dependencyFrame(), m_dependencyInterop() { };
+    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, std::unique_ptr<RGYCLFrameInterop>& dependencyInterop) :
+        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, nullptr),
+        m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_dependencyInterop(std::move(dependencyInterop)) { };
     virtual ~PipelineTaskOutputSurf() { m_surf.reset(); };
 
     PipelineTaskSurface& surf() { return m_surf; }
+
+    virtual void depend_clear() override {
+        if (m_dependencyInterop) {
+            m_dependencyInterop->release();
+            m_dependencyInterop.reset();
+        }
+        m_dependencyFrame.reset();
+    }
 
     virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
@@ -319,7 +336,7 @@ public:
             if (sync) {
                 out->waitsync();
             }
-            //out->depend_clear();
+            out->depend_clear();
             m_outFrames++;
             output.push_back(std::move(out));
         }
@@ -340,6 +357,32 @@ public:
     }
     size_t workSurfacesCount() const {
         return m_workSurfs.bufCount();
+    }
+
+    void PrintMes(int log_level, const TCHAR *format, ...) {
+        if (m_log.get() == nullptr) {
+            if (log_level <= RGY_LOG_INFO) {
+                return;
+            }
+        } else if (log_level < m_log->getLogLevel()) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        vector<TCHAR> buffer(len, 0);
+        _vstprintf_s(buffer.data(), len, format, args);
+        va_end(args);
+
+        tstring mes = getPipelineTaskTypeName(m_type) + tstring(_T(": ")) + buffer.data();
+
+        if (m_log.get() != nullptr) {
+            PrintMes(log_level, mes.c_str());
+        } else {
+            _ftprintf(stderr, _T("%s"), mes.c_str());
+        }
     }
 protected:
     RGY_ERR workSurfacesClear() {
@@ -363,18 +406,18 @@ public:
     RGY_ERR workSurfacesAlloc(mfxFrameAllocRequest& allocRequest, const bool externalAlloc, QSVAllocator *allocator) {
         auto sts = workSurfacesClear();
         if (sts != RGY_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old surfaces: %s.\n"), get_err_mes(sts));
+            PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old surfaces: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s.\n"), get_err_mes(sts));
+        PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s.\n"), get_err_mes(sts));
 
         m_allocator = allocator;
         sts = err_to_rgy(m_allocator->Alloc(m_allocator->pthis, &allocRequest, &m_allocResponse));
         if (sts != RGY_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to allocate frames: %s.\n"), get_err_mes(sts));
+            PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to allocate frames: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   allocated %d frames.\n"), allocRequest.NumFrameSuggested);
+        PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   allocated %d frames.\n"), allocRequest.NumFrameSuggested);
 
         std::vector<mfxFrameSurface1> workSurfs(m_allocResponse.NumFrameActual);
         for (size_t i = 0; i < workSurfs.size(); i++) {
@@ -386,7 +429,7 @@ public:
             } else {
                 sts = err_to_rgy(m_allocator->Lock(m_allocator->pthis, m_allocResponse.mids[i], &(workSurfs[i].Data)));
                 if (sts != RGY_ERR_NONE) {
-                    m_log->write(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to lock frame #%d: %s.\n"), i, get_err_mes(sts));
+                    PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to lock frame #%d: %s.\n"), i, get_err_mes(sts));
                     return sts;
                 }
             }
@@ -438,7 +481,7 @@ public:
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         auto surfWork = getWorkSurf();
         if (surfWork == nullptr) {
-            m_log->write(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
         auto mfxSurf = surfWork.get();
@@ -454,7 +497,7 @@ public:
             if (err == RGY_ERR_MORE_DATA) { // EOF
                 err = RGY_ERR_MORE_BITSTREAM; // EOF を PipelineTaskMFXDecode のreturnコードに合わせる
             } else {
-                m_log->write(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
+                PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
         if (mfxSurf->Data.MemId) {
@@ -489,10 +532,10 @@ public:
         mfxFrameAllocRequest allocRequest = { 0 };
         auto err = err_to_rgy(m_dec->QueryIOSurf(&m_mfxDecParams, &allocRequest));
         if (err != RGY_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
+            PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return std::nullopt;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
@@ -507,7 +550,7 @@ public:
             && (m_decInputBitstream.size() <= 1)) {
             auto ret = m_input->LoadNextFrame(nullptr);
             if (ret != RGY_ERR_NONE && ret != MFX_ERR_MORE_DATA && ret != RGY_ERR_MORE_BITSTREAM) {
-                m_log->write(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
+                PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
                 return ret;
             }
             //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
@@ -517,7 +560,7 @@ public:
                 return ret; //入力ビットストリームは終了
             }
             if (ret != RGY_ERR_NONE) {
-                m_log->write(RGY_LOG_ERROR, _T("Error on getting video bitstream: %s.\n"), get_err_mes(ret));
+                PrintMes(RGY_LOG_ERROR, _T("Error on getting video bitstream: %s.\n"), get_err_mes(ret));
                 return ret;
             }
         }
@@ -527,7 +570,7 @@ public:
         //デコードも行う場合は、デコード用のフレームをpSurfVppInかpSurfEncInから受け取る
         auto surfDecWork = getWorkSurf();
         if (surfDecWork == nullptr) {
-            m_log->write(RGY_LOG_ERROR, _T("failed to get work surface for decoder.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for decoder.\n"));
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
         mfxBitstream *inputBitstream = (m_getNextBitstream) ? &m_decInputBitstream.bitstream() : nullptr;
@@ -566,20 +609,20 @@ public:
                 if (MFX_WRN_DEVICE_BUSY == dec_sts)
                     sleep_hybrid(i);
                 if (i > 1024 * 1024 * 30) {
-                    m_log->write(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                    PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                     return RGY_ERR_GPU_HANG;
                 }
             } else if (MFX_ERR_NONE < dec_sts && decSyncPoint) {
                 dec_sts = MFX_ERR_NONE; //出力があれば、警告は無視する
                 break;
             } else if (dec_sts < MFX_ERR_NONE && (dec_sts != MFX_ERR_MORE_DATA && dec_sts != MFX_ERR_MORE_SURFACE)) {
-                m_log->write(RGY_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
+                PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
                 break;
             } else {
                 //pInputBitstreamの長さがDecodeFrameAsyncを経ても全く変わっていない場合は、そのデータは捨てる
                 //これを行わないとデコードが止まってしまう
                 if (dec_sts == MFX_ERR_MORE_DATA && inputBitstream && inputBitstream->DataLength == inputDataLen) {
-                    m_log->write((inputDataLen >= 10) ? RGY_LOG_WARN : RGY_LOG_DEBUG,
+                    PrintMes((inputDataLen >= 10) ? RGY_LOG_WARN : RGY_LOG_DEBUG,
                         _T("DecodeFrameAsync: removing %d bytes from input bitstream not read by decoder.\n"), inputDataLen);
                     inputBitstream->DataLength = 0;
                     inputBitstream->DataOffset = 0;
@@ -629,7 +672,7 @@ public:
 
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
         if (taskSurf == nullptr) {
-            m_log->write(RGY_LOG_ERROR, _T("Invalid frame type: failed to cast to PipelineTaskOutputSurf.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Invalid frame type: failed to cast to PipelineTaskOutputSurf.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
 
@@ -639,10 +682,10 @@ public:
             const auto srcTimestamp = taskSurf->surf()->Data.TimeStamp;
             outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
         }
-        m_log->write(RGY_LOG_TRACE, _T("check_pts(%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
+        PrintMes(RGY_LOG_TRACE, _T("check_pts(%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
         if (m_tsOutFirst < 0) {
             m_tsOutFirst = outPtsSource; //最初のpts
-            m_log->write(RGY_LOG_TRACE, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
+            PrintMes(RGY_LOG_TRACE, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
         }
         //最初のptsを0に修正
         outPtsSource -= m_tsOutFirst;
@@ -651,16 +694,16 @@ public:
         if ((m_avsync & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) {
             if (vpp_rff || vpp_afs_rff_aware) {
                 if (std::abs(outPtsSource - nOutEstimatedPts) >= 32 * m_outFrameDuration) {
-                    m_log->write(RGY_LOG_TRACE, _T("check_pts: detected gap %lld, changing offset.\n"), outPtsSource, std::abs(outPtsSource - nOutEstimatedPts));
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts: detected gap %lld, changing offset.\n"), outPtsSource, std::abs(outPtsSource - nOutEstimatedPts));
                     //timestampに一定以上の差があればそれを無視する
                     m_tsOutFirst += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
                     outPtsSource = nOutEstimatedPts;
-                    m_log->write(RGY_LOG_TRACE, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
                 }
                 auto ptsDiff = outPtsSource - nOutEstimatedPts;
                 if (ptsDiff <= std::min<int64_t>(-1, -1 * m_outFrameDuration * 7 / 8)) {
                     //間引きが必要
-                    m_log->write(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
                     return RGY_ERR_MORE_SURFACE;
                 }
             }
@@ -669,11 +712,11 @@ public:
                 const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), m_srcTimebase, to_rgy(streamIn->time_base));
                 //ptsからフレーム情報を取得する
                 const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
-                m_log->write(RGY_LOG_TRACE, _T("check_pts(%d):   estimetaed orig_pts %lld, framePos %d\n"), pInputFrame->getFrameInfo().inputFrameId, orig_pts, framePos.poc);
+                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   estimetaed orig_pts %lld, framePos %d\n"), pInputFrame->getFrameInfo().inputFrameId, orig_pts, framePos.poc);
                 if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
                     //有効な値ならオリジナルのdurationを使用する
                     outDuration = rational_rescale(framePos.duration, to_rgy(streamIn->time_base), m_outputTimebase);
-                    m_log->write(RGY_LOG_TRACE, _T("check_pts(%d):   changing duration to original: %d\n"), pInputFrame->getFrameInfo().inputFrameId, outDuration);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   changing duration to original: %d\n"), pInputFrame->getFrameInfo().inputFrameId, outDuration);
                 }
             }
         }
@@ -682,13 +725,13 @@ public:
                 //timestampに一定以上の差があればそれを無視する
                 m_tsOutFirst += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
                 outPtsSource = nOutEstimatedPts;
-                m_log->write(RGY_LOG_WARN, _T("Big Gap was found between 2 frames, avsync might be corrupted.\n"));
-                m_log->write(RGY_LOG_TRACE, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
+                PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames, avsync might be corrupted.\n"));
+                PrintMes(RGY_LOG_TRACE, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
             }
             auto ptsDiff = outPtsSource - nOutEstimatedPts;
             if (ptsDiff <= std::min<int64_t>(-1, -1 * m_outFrameDuration * 7 / 8)) {
                 //間引きが必要
-                m_log->write(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (assume_cfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
+                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (assume_cfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
                 return RGY_ERR_MORE_SURFACE;
             }
             while (ptsDiff >= std::max<int64_t>(1, m_outFrameDuration * 7 / 8)) {
@@ -701,19 +744,19 @@ public:
         }
         if (m_tsPrev >= outPtsSource) {
             if (m_tsPrev - outPtsSource >= MAX_FORCECFR_INSERT_FRAMES * m_outFrameDuration) {
-                m_log->write(RGY_LOG_DEBUG, _T("check_pts: previous pts %lld, current pts %lld, estimated pts %lld, m_tsOutFirst %lld, changing offset.\n"), m_tsPrev, outPtsSource, nOutEstimatedPts, m_tsOutFirst);
+                PrintMes(RGY_LOG_DEBUG, _T("check_pts: previous pts %lld, current pts %lld, estimated pts %lld, m_tsOutFirst %lld, changing offset.\n"), m_tsPrev, outPtsSource, nOutEstimatedPts, m_tsOutFirst);
                 m_tsOutFirst += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
                 outPtsSource = nOutEstimatedPts;
-                m_log->write(RGY_LOG_DEBUG, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
+                PrintMes(RGY_LOG_DEBUG, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
             } else {
                 if (m_avsync & RGY_AVSYNC_FORCE_CFR) {
                     //間引きが必要
-                    m_log->write(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), pInputFrame->getFrameInfo().inputFrameId, m_tsPrev, outPtsSource);
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), pInputFrame->getFrameInfo().inputFrameId, m_tsPrev, outPtsSource);
                     return RGY_ERR_MORE_SURFACE;
                 } else {
                     const auto origPts = outPtsSource;
                     outPtsSource = m_tsPrev + std::max<int64_t>(1, m_outFrameDuration / 8);
-                    m_log->write(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
                         pInputFrame->getFrameInfo().inputFrameId, origPts, outPtsSource, m_tsPrev);
                 }
             }
@@ -798,7 +841,7 @@ public:
                 if (m_pWriterForAudioStreams.count(nTrackId)) {
                     auto pWriter = m_pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
-                        m_log->write(RGY_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
                         return RGY_ERR_NULL_PTR;
                     }
                     if (RGY_ERR_NONE != (ret = pWriter->WriteNextPacket(&packetList[i]))) {
@@ -807,7 +850,7 @@ public:
                 } else if (m_filterForStreams.count(nTrackId)) {
                     auto pFilter = m_filterForStreams[nTrackId];
                     if (pFilter == nullptr) {
-                        m_log->write(RGY_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
                         return RGY_ERR_NULL_PTR;
                     }
                     auto sts = pFilter->SendData(PLUGIN_SEND_DATA_AVPACKET, &packetList[i]);
@@ -815,7 +858,7 @@ public:
                         return err_to_rgy(sts);
                     }
                 } else {
-                    m_log->write(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
                     return RGY_ERR_NOT_FOUND;
                 }
             }
@@ -881,10 +924,10 @@ protected:
         // allocRequest[0]はvppへの入力, allocRequest[1]はvppからの出力
         auto err = err_to_rgy(m_vpp->QueryIOSurf(&m_mfxVppParams, allocRequest));
         if (err != RGY_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
+            PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return err;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer in: %d [%s], out %d [%s]\n"), getPipelineTaskTypeName(m_type),
+        PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer in: %d [%s], out %d [%s]\n"), getPipelineTaskTypeName(m_type),
             allocRequest[0].NumFrameSuggested, qsv_memtype_str(allocRequest[0].Type).c_str(),
             allocRequest[1].NumFrameSuggested, qsv_memtype_str(allocRequest[1].Type).c_str());
         return err;
@@ -906,7 +949,7 @@ public:
     };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
-            m_log->write(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
 
@@ -935,7 +978,7 @@ public:
                     if (MFX_WRN_DEVICE_BUSY == vpp_sts)
                         sleep_hybrid(i);
                     if (i > 1024 * 1024 * 30) {
-                        m_log->write(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                        PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                         return RGY_ERR_GPU_HANG;
                     }
                 } else if (MFX_ERR_NONE < vpp_sts && VppSyncPoint) {
@@ -974,7 +1017,7 @@ public:
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
-            m_log->write(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
     }
@@ -1004,16 +1047,16 @@ public:
         mfxFrameAllocRequest allocRequest = { 0 };
         auto err = err_to_rgy(m_encode->QueryIOSurf(&m_mfxEncParams, &allocRequest));
         if (err != RGY_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
+            PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return std::nullopt;
         }
-        m_log->write(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
-            m_log->write(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
 
@@ -1065,7 +1108,7 @@ public:
                     sleep_hybrid(i);
                 }
                 if (i > 65536 * 1024 * 30) {
-                    m_log->write(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                    PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                     return RGY_ERR_GPU_HANG;
                 }
             } else if (MFX_ERR_NONE < enc_sts && lastSyncP != nullptr) {
@@ -1075,7 +1118,7 @@ public:
                 enc_sts = mfxBitstreamExtend(bsOut->bsptr(), (uint32_t)bsOut->bufsize() * 3 / 2);
                 if (enc_sts < MFX_ERR_NONE) return err_to_rgy(enc_sts);
             } else if (enc_sts < MFX_ERR_NONE && (enc_sts != MFX_ERR_MORE_DATA && enc_sts != MFX_ERR_MORE_SURFACE)) {
-                m_log->write(RGY_LOG_ERROR, _T("EncodeFrameAsync error: %s.\n"), get_err_mes(enc_sts));
+                PrintMes(RGY_LOG_ERROR, _T("EncodeFrameAsync error: %s.\n"), get_err_mes(enc_sts));
                 break;
             } else {
                 QSV_IGNORE_STS(enc_sts, MFX_ERR_MORE_BITSTREAM);
@@ -1090,21 +1133,118 @@ public:
 
 };
 class PipelineTaskOpenCL : public PipelineTask {
+protected:
+    RGYOpenCLContext *m_cl;
+    std::vector<std::unique_ptr<RGYFilter>>& m_vpFilters;
+    MemType m_memType;
 public:
-    PipelineTaskOpenCL(MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log) {};
+    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYOpenCLContext *cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_memType(memType) {
+        m_allocator = allocator;
+    };
     virtual ~PipelineTaskOpenCL() {};
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+
+        deque<std::pair<FrameInfo, uint32_t>> filterframes;
+        std::unique_ptr<RGYCLFrameInterop> clFrameInInterop;
+
+        bool drain = !frame;
+        if (!frame) {
+            filterframes.push_back(std::make_pair(FrameInfo(), 0u));
+        } else {
+            mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get();
+            clFrameInInterop = getOpenCLFrameInterop(surfVppIn, m_memType, m_allocator, m_cl, m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            if (!clFrameInInterop) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            auto err = clFrameInInterop->acquire(m_cl->queue(), CL_MEM_READ_ONLY);
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                return RGY_ERR_NULL_PTR;
+            }
+            filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
+        }
+
+        //フィルタリングするならここ
+        for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
+            int nOutFrames = 0;
+            FrameInfo *outInfo[16] = { 0 };
+            auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+            if (sts_filter != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
+                return sts_filter;
+            }
+            if (nOutFrames == 0) {
+                if (drain) {
+                    filterframes.front().second++;
+                    continue;
+                }
+                return RGY_ERR_NONE;
+            }
+            filterframes.pop_front();
+            drain = false; //途中でフレームが出てきたら、drain完了していない
+
+            //最初に出てきたフレームは先頭に追加する
+            for (int jframe = nOutFrames - 1; jframe >= 0; jframe--) {
+                filterframes.push_front(std::make_pair(*outInfo[jframe], ifilter + 1));
+            }
+        }
+        if (drain) {
+            return RGY_ERR_NONE; //最後までdrain = trueなら、drain完了
+        }
+        {
+            auto surfVppOut = getWorkSurf();
+            auto clFrameOutInterop = getOpenCLFrameInterop(surfVppOut.get(), m_memType, m_allocator, m_cl, m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            if (!clFrameOutInterop) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            auto err = clFrameOutInterop->acquire(m_cl->queue(), CL_MEM_READ_ONLY);
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
+                return RGY_ERR_NULL_PTR;
+            }
+            //エンコードバッファにコピー
+            auto &lastFilter = m_vpFilters[m_vpFilters.size() - 1];
+            //最後のフィルタはRGYFilterCspCropでなければならない
+            if (typeid(*lastFilter.get()) != typeid(RGYFilterCspCrop)) {
+                PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
+                return RGY_ERR_INVALID_PARAM;
+            }
+            //エンコードバッファのポインタを渡す
+            int nOutFrames = 0;
+            auto encSurfaceInfo = clFrameOutInterop->frameInfo();
+            FrameInfo *outInfo[1];
+            outInfo[0] = &encSurfaceInfo;
+            auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+            filterframes.pop_front();
+            if (sts_filter != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
+                return sts_filter;
+            }
+#if 0
+            if (m_ssim) {
+                int dummy = 0;
+                m_ssim->filter(&encSurfaceInfo, nullptr, &dummy);
+            }
+#endif
+            err = m_cl->queue().finish();
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
+                return sts_filter;
+            }
+            surfVppOut->Data.TimeStamp = encSurfaceInfo.timestamp;
+            surfVppOut->Data.FrameOrder = encSurfaceInfo.inputFrameId;
+            surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(encSurfaceInfo.picstruct);
+
+            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clFrameInInterop));
+        }
         return RGY_ERR_NONE;
     }
-
-};
-
-class PipelineTaskCtrl {
-    std::vector<PipelineTask> tasks;
 };
 
 

@@ -113,4 +113,6 @@ protected:
     std::shared_ptr<RGYLog> m_pQSVLog;
 };
 
+void *getSurfaceHandle(mfxFrameSurface1 *surface);
+
 #endif // __QSV_ALLOCATOR_H__

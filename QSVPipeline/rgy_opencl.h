@@ -114,6 +114,16 @@ CL_EXTERN cl_int(CL_API_CALL *f_clFinish)(cl_command_queue command_queue);
 CL_EXTERN cl_int(CL_API_CALL *f_clGetKernelSubGroupInfo)(cl_kernel kernel, cl_device_id device, cl_kernel_sub_group_info param_name, size_t input_value_size, const void *input_value, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clGetKernelSubGroupInfoKHR)(cl_kernel kernel, cl_device_id device, cl_kernel_sub_group_info param_name, size_t input_value_size, const void *input_value, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 
+CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromDX9MediaSurfaceKHR)(cl_context context, cl_mem_flags flags, cl_dx9_media_adapter_type_khr adapter_type, void *surface_info, cl_uint plane, cl_int *errcode_ret);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueAcquireDX9MediaSurfacesKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseDX9MediaSurfacesKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+
+CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11BufferKHR)(cl_context context, cl_mem_flags flags, ID3D11Buffer *resource, cl_int *errcode_ret);
+CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11Texture2DKHR)(cl_context context, cl_mem_flags flags, ID3D11Texture2D *resource, UINT subresource, cl_int *errcode_ret);
+CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11Texture3DKHR)(cl_context context, cl_mem_flags flags, ID3D11Texture3D *resource, UINT subresource, cl_int *errcode_ret);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueAcquireD3D11ObjectsKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseD3D11ObjectsKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+
 #define clGetExtensionFunctionAddressForPlatform f_clGetExtensionFunctionAddressForPlatform
 
 #define clGetPlatformIDs f_clGetPlatformIDs
@@ -175,6 +185,16 @@ CL_EXTERN cl_int(CL_API_CALL *f_clGetKernelSubGroupInfoKHR)(cl_kernel kernel, cl
 
 #define clGetKernelSubGroupInfo f_clGetKernelSubGroupInfo
 #define clGetKernelSubGroupInfoKHR f_clGetKernelSubGroupInfoKHR
+
+#define clCreateFromDX9MediaSurfaceKHR f_clCreateFromDX9MediaSurfaceKHR
+#define clEnqueueAcquireDX9MediaSurfacesKHR f_clEnqueueAcquireDX9MediaSurfacesKHR
+#define clEnqueueReleaseDX9MediaSurfacesKHR f_clEnqueueReleaseDX9MediaSurfacesKHR
+
+#define clCreateFromD3D11BufferKHR f_clCreateFromD3D11BufferKHR
+#define clCreateFromD3D11Texture2DKHR f_clCreateFromD3D11Texture2DKHR
+#define clCreateFromD3D11Texture3DKHR f_clCreateFromD3D11Texture3DKHR
+#define clEnqueueAcquireD3D11ObjectsKHR f_clEnqueueAcquireD3D11ObjectsKHR
+#define clEnqueueReleaseD3D11ObjectsKHR f_clEnqueueReleaseD3D11ObjectsKHR
 
 MAP_PAIR_0_1_PROTO(err, rgy, RGY_ERR, cl, cl_int);
 
@@ -344,6 +364,13 @@ protected:
     RGYOpenCLEvent m_eventMap;
 };
 
+enum RGYCLFrameInteropType {
+    RGY_INTEROP_NONE,
+    RGY_INTEROP_DX9,
+    RGY_INTEROP_DX11,
+    RGY_INTEROP_VA,
+};
+
 struct RGYCLFrame {
 public:
     FrameInfo frame;
@@ -364,22 +391,36 @@ protected:
     RGYCLFrame(const RGYCLFrame &) = delete;
     void operator =(const RGYCLFrame &) = delete;
 public:
+    const FrameInfo& frameInfo() const { return frame; }
     cl_mem& mem(int i) {
         return (cl_mem&)frame.ptr[i];
     }
-    void clear() {
-        m_mapped.reset();
-        for (int i = 0; i < _countof(frame.ptr); i++) {
-            if (mem(i)) {
-                clReleaseMemObject(mem(i));
-                mem(i) = nullptr;
-            }
-            frame.pitch[i] = 0;
-        }
-    }
-    ~RGYCLFrame() {
+    void clear();
+    virtual ~RGYCLFrame() {
         m_mapped.reset();
         clear();
+    }
+};
+
+struct RGYCLFrameInterop : public RGYCLFrame {
+protected:
+    RGYCLFrameInteropType m_interop;
+    RGYOpenCLQueue& m_interop_queue;
+    std::shared_ptr<RGYLog> m_log;
+    bool m_acquired;
+public:
+    RGYCLFrameInterop(const FrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, shared_ptr<RGYLog> log)
+        : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_log(log), m_acquired(false) {
+    };
+    RGY_ERR acquire(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {});
+protected:
+    RGYCLFrameInterop(const RGYCLFrameInterop &) = delete;
+    void operator =(const RGYCLFrameInterop &) = delete;
+public:
+    const RGYCLFrameInteropType interop() const { return m_interop; }
+    RGY_ERR release();
+    virtual ~RGYCLFrameInterop() {
+        release();
     }
 };
 
@@ -632,6 +673,8 @@ public:
     unique_ptr<RGYCLFrame> createImageFromFrameBuffer(const FrameInfo &frame, bool normalized, cl_mem_flags flags);
     unique_ptr<RGYCLFrame> createFrameBuffer(int width, int height, RGY_CSP csp, cl_mem_flags flags = CL_MEM_READ_WRITE);
     unique_ptr<RGYCLFrame> createFrameBuffer(const FrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    unique_ptr<RGYCLFrameInterop> createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);

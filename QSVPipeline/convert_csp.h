@@ -558,6 +558,14 @@ static inline THREAD_Y_RANGE thread_y_range(int y_start, int y_end, int thread_i
     return y_range;
 }
 
+static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
+    return pA->csp != pB->csp
+        || pA->width != pB->width
+        || pA->height != pB->height
+        || pA->mem_type != pB->mem_type
+        || pA->pitch != pB->pitch;
+}
+
 #ifdef __CUDACC__
 #define CU_DEV_HOST_CODE __device__ __host__
 #elif defined(_MSC_VER)

@@ -201,6 +201,7 @@ mfxStatus CQSVD3D9Device::GetHandle(mfxHandleType type, mfxHDL *pHdl) {
     return MFX_ERR_UNSUPPORTED;
 }
 
+
 mfxStatus CQSVD3D9Device::CreateVideoProcessors() {
     m_pDXVAVProcessor.reset();
     m_pQSVLog->write(RGY_LOG_DEBUG, _T("D3D9Device: CreateVideoProcessors...\n"));
