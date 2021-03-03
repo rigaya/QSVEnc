@@ -299,17 +299,6 @@ int initOpenCLGlobal() {
 
     LOAD_NO_CHECK(clGetKernelSubGroupInfo);
     LOAD_NO_CHECK(clGetKernelSubGroupInfoKHR);
-
-    LOAD(clCreateFromDX9MediaSurfaceKHR);
-    LOAD(clEnqueueAcquireDX9MediaSurfacesKHR);
-    LOAD(clEnqueueReleaseDX9MediaSurfacesKHR);
-
-    LOAD(clCreateFromD3D11BufferKHR);
-    LOAD(clCreateFromD3D11Texture2DKHR);
-    LOAD(clCreateFromD3D11Texture3DKHR);
-    LOAD(clEnqueueAcquireD3D11ObjectsKHR);
-    LOAD(clEnqueueReleaseD3D11ObjectsKHR);
-
     return 0;
 }
 
@@ -358,6 +347,21 @@ tstring RGYOpenCLDevice::infostr() {
 RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog> pLog) : m_platform(platform), m_d3d9dev(nullptr), m_d3d11dev(nullptr), m_devices(), m_pLog(pLog) {
 }
 
+#define LOAD_KHR(name) \
+    if ((name) == nullptr) { \
+        try { \
+            f_##name = (decltype(f_##name))clGetExtensionFunctionAddressForPlatform(m_platform, #name); \
+            if ((name) == nullptr) { \
+                m_pLog->write(RGY_LOG_ERROR, _T("Failed to load function %s\n"), char_to_tstring(#name).c_str()); \
+                return RGY_ERR_NOT_FOUND; \
+            } \
+        }  catch (...) { \
+            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetExtensionFunctionAddressForPlatform)\n")); \
+            RGYOpenCL::openCLCrush = true; \
+            return RGY_ERR_OPENCL_CRUSH; \
+        } \
+    }
+
 RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, void *d3d11dev) {
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
@@ -366,9 +370,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
 
     auto ret = RGY_ERR_NONE;
     cl_uint device_count = 0;
-    if (d3d11dev && clGetDeviceIDsFromD3D11KHR == nullptr) {
-        f_clGetDeviceIDsFromD3D11KHR = (decltype(f_clGetDeviceIDsFromD3D11KHR))clGetExtensionFunctionAddressForPlatform(m_platform, "clGetDeviceIDsFromD3D11KHR");
-        m_pLog->write(RGY_LOG_DEBUG, _T("f_clGetDeviceIDsFromD3D11KHR = %p\n"), f_clGetDeviceIDsFromD3D11KHR);
+    if (d3d11dev) {
+        LOAD_KHR(clGetDeviceIDsFromD3D11KHR);
+        LOAD_KHR(clCreateFromD3D11BufferKHR);
+        LOAD_KHR(clCreateFromD3D11Texture2DKHR);
+        LOAD_KHR(clCreateFromD3D11Texture3DKHR);
+        LOAD_KHR(clEnqueueAcquireD3D11ObjectsKHR);
+        LOAD_KHR(clEnqueueReleaseD3D11ObjectsKHR);
     }
     if (d3d11dev && clGetDeviceIDsFromD3D11KHR) {
         m_d3d11dev = d3d11dev;
@@ -412,9 +420,11 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
 
     auto ret = RGY_ERR_NONE;
     cl_uint device_count = 1;
-    if (d3d9dev && clGetDeviceIDsFromDX9MediaAdapterKHR == nullptr) {
-        f_clGetDeviceIDsFromDX9MediaAdapterKHR = (decltype(f_clGetDeviceIDsFromDX9MediaAdapterKHR))clGetExtensionFunctionAddressForPlatform(m_platform, "clGetDeviceIDsFromDX9MediaAdapterKHR");
-        m_pLog->write(RGY_LOG_DEBUG, _T("f_clGetDeviceIDsFromDX9MediaAdapterKHR = %p\n"), f_clGetDeviceIDsFromDX9MediaAdapterKHR);
+    if (d3d9dev) {
+        LOAD_KHR(clGetDeviceIDsFromDX9MediaAdapterKHR);
+        LOAD_KHR(clCreateFromDX9MediaSurfaceKHR);
+        LOAD_KHR(clEnqueueAcquireDX9MediaSurfacesKHR);
+        LOAD_KHR(clEnqueueReleaseDX9MediaSurfacesKHR);
     }
     if (d3d9dev && clGetDeviceIDsFromDX9MediaAdapterKHR) {
         m_d3d9dev = d3d9dev;

@@ -1134,11 +1134,11 @@ public:
 };
 class PipelineTaskOpenCL : public PipelineTask {
 protected:
-    RGYOpenCLContext *m_cl;
+    std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<std::unique_ptr<RGYFilter>>& m_vpFilters;
     MemType m_memType;
 public:
-    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYOpenCLContext *cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, std::shared_ptr<RGYOpenCLContext> cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_memType(memType) {
         m_allocator = allocator;
     };
@@ -1156,7 +1156,7 @@ public:
             filterframes.push_back(std::make_pair(FrameInfo(), 0u));
         } else {
             mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get();
-            clFrameInInterop = getOpenCLFrameInterop(surfVppIn, m_memType, m_allocator, m_cl, m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            clFrameInInterop = getOpenCLFrameInterop(surfVppIn, m_memType, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
             if (!clFrameInInterop) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
                 return RGY_ERR_NULL_PTR;
@@ -1198,7 +1198,7 @@ public:
         }
         {
             auto surfVppOut = getWorkSurf();
-            auto clFrameOutInterop = getOpenCLFrameInterop(surfVppOut.get(), m_memType, m_allocator, m_cl, m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            auto clFrameOutInterop = getOpenCLFrameInterop(surfVppOut.get(), m_memType, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
             if (!clFrameOutInterop) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
                 return RGY_ERR_NULL_PTR;

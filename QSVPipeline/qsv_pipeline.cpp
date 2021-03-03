@@ -2933,7 +2933,7 @@ RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
             param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
-            auto sts = filterCrop->init(param, m_pLog);
+            auto sts = filterCrop->init(param, m_pQSVLog);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -2962,6 +2962,7 @@ RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
     }
+    return RGY_ERR_NONE;
 }
 
 mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
@@ -3166,6 +3167,9 @@ mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (sts < MFX_ERR_NONE) return sts;
 
     sts = InitVppPostPlugins(inputParam);
+    if (sts < MFX_ERR_NONE) return sts;
+
+    sts = err_to_mfx(initVppFilters(inputParam));
     if (sts < MFX_ERR_NONE) return sts;
 
     return MFX_ERR_NONE;
@@ -3973,6 +3977,10 @@ RGY_ERR CQSVPipeline::createPipeline() {
 
     if (m_pmfxVPP) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_mfxSession, 1, m_pmfxVPP.get(), m_mfxVppParams, m_mfxVer, m_pQSVLog));
+    }
+
+    if (m_vpFilters.size() > 0) {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(m_vpFilters, m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 1, m_pQSVLog));
     }
 
     if (m_pmfxENC) {
