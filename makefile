@@ -27,7 +27,7 @@ include .depend
 endif
 
 clean:
-	rm -f $(OBJS) $(PROGRAM) .depend
+	rm -f $(OBJS) $(OBJPYWS) $(PROGRAM) .depend
 
 distclean: clean
 	rm -f config.mak QSVPipeline/qsv_config.h
