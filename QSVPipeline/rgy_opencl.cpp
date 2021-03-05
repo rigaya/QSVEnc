@@ -635,7 +635,10 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
         } else {
             auto err = err_cl_to_rgy(clSetKernelArg(m_kernel, i, arg_size[i], arg_ptrs[i]));
             if (err != CL_SUCCESS) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg to kernel \"%s\": %s\n"), i, char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
+                uint64_t argvalue = *(uint64_t *)arg_ptrs[i];
+                argvalue &= std::numeric_limits<uint64_t>::max() >> ((8 - arg_size[i]) * 8);
+                m_pLog->write(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg to kernel \"%s\": %s, size: %d, ptr 0x%p, ptrvalue 0x%p\n"),
+                    i, char_to_tstring(m_kernelName).c_str(), cl_errmes(err), arg_size[i], arg_ptrs[i], argvalue);
                 return err;
             }
         }
@@ -719,6 +722,176 @@ std::vector<uint8_t> RGYOpenCLProgram::getBinary() {
     return binary;
 }
 
+
+static const auto RGY_CLMEMOBJ_TO_STR = make_array<std::pair<cl_mem_object_type, const TCHAR *>>(
+    std::make_pair(CL_MEM_OBJECT_BUFFER,         _T("buffer")),
+    std::make_pair(CL_MEM_OBJECT_IMAGE2D,        _T("image2d")),
+    std::make_pair(CL_MEM_OBJECT_IMAGE3D,        _T("image3d")),
+    std::make_pair(CL_MEM_OBJECT_IMAGE2D_ARRAY,  _T("image2darray")),
+    std::make_pair(CL_MEM_OBJECT_IMAGE1D,        _T("image1d")),
+    std::make_pair(CL_MEM_OBJECT_IMAGE1D_ARRAY,  _T("image1darray")),
+    std::make_pair(CL_MEM_OBJECT_IMAGE1D_BUFFER, _T("image1dbuffer")),
+    std::make_pair(CL_MEM_OBJECT_PIPE,           _T("pipe"))
+);
+
+MAP_PAIR_0_1(clmemobj, cl, cl_mem_object_type, str, const TCHAR *, RGY_CLMEMOBJ_TO_STR, 0, _T("unknown"));
+
+static const tstring getRGYCLMemFlagsStr(cl_mem_flags mem_flags) {
+    tstring str;
+    if (mem_flags & CL_MEM_READ_WRITE)             str += _T(", rw");
+    if (mem_flags & CL_MEM_WRITE_ONLY)             str += _T(", r");
+    if (mem_flags & CL_MEM_READ_ONLY)              str += _T(", w");
+    if (mem_flags & CL_MEM_USE_HOST_PTR)           str += _T(", use host ptr");
+    if (mem_flags & CL_MEM_ALLOC_HOST_PTR)         str += _T(", alloc host ptr");
+    if (mem_flags & CL_MEM_COPY_HOST_PTR)          str += _T(", copy host ptr");
+    if (mem_flags & CL_MEM_HOST_WRITE_ONLY)        str += _T(", host write only");
+    if (mem_flags & CL_MEM_HOST_READ_ONLY)         str += _T(", host read only");
+    if (mem_flags & CL_MEM_HOST_NO_ACCESS)         str += _T(", host no access");
+    if (mem_flags & CL_MEM_SVM_FINE_GRAIN_BUFFER)  str += _T(", svm fine grain buf");
+    if (mem_flags & CL_MEM_SVM_ATOMICS)            str += _T(", svm atomics");
+    if (mem_flags & CL_MEM_KERNEL_READ_AND_WRITE)  str += _T(", kernel rw");
+    return (str.length() > 0) ? str.substr(2) : _T("");
+}
+
+static const auto RGY_CHANNELORDER_TO_STR = make_array<std::pair<cl_channel_order, const TCHAR *>>(
+    std::make_pair(CL_R,         _T("R")),
+    std::make_pair(CL_A,         _T("A")),
+    std::make_pair(CL_RA,        _T("RA")),
+    std::make_pair(CL_RGB,       _T("RGB")),
+    std::make_pair(CL_RGBA,      _T("RGBA")),
+    std::make_pair(CL_BGRA,      _T("BGRA")),
+    std::make_pair(CL_ARGB,      _T("ARGB")),
+    std::make_pair(CL_INTENSITY, _T("INTENSITY")),
+    std::make_pair(CL_Rx,         _T("Rx")),
+    std::make_pair(CL_RGx,        _T("RGx")),
+    std::make_pair(CL_RGBx,       _T("RGBx")),
+    std::make_pair(CL_DEPTH,      _T("DEPTH")),
+    std::make_pair(CL_DEPTH_STENCIL, _T("DEPTH_STENCIL")),
+    std::make_pair(CL_sRGB,       _T("sRGB")),
+    std::make_pair(CL_sRGBx,      _T("sRGBx")),
+    std::make_pair(CL_sRGBA,      _T("sRGBA")),
+    std::make_pair(CL_sBGRA,      _T("sBGRA")),
+    std::make_pair(CL_ABGR,       _T("ABGR"))
+);
+
+MAP_PAIR_0_1(clchannelorder, cl, cl_channel_order, str, const TCHAR *, RGY_CHANNELORDER_TO_STR, 0, _T("unknown"));
+
+
+static const auto RGY_CHANNELTYPE_TO_STR = make_array<std::pair<cl_channel_type, const TCHAR *>>(
+    std::make_pair(CL_SNORM_INT8,         _T("int8n")),
+    std::make_pair(CL_SNORM_INT16,        _T("int16n")),
+    std::make_pair(CL_UNORM_INT8,         _T("uint8n")),
+    std::make_pair(CL_UNORM_INT16,        _T("uint16n")),
+    std::make_pair(CL_UNORM_SHORT_565,    _T("ushort565n")),
+    std::make_pair(CL_UNORM_SHORT_555,    _T("ushort555n")),
+    std::make_pair(CL_UNORM_INT_101010,   _T("uint101010n")),
+    std::make_pair(CL_SIGNED_INT8,        _T("int8")),
+    std::make_pair(CL_SIGNED_INT16,       _T("int16")),
+    std::make_pair(CL_SIGNED_INT32,       _T("int32")),
+    std::make_pair(CL_UNSIGNED_INT8,      _T("uint8")),
+    std::make_pair(CL_UNSIGNED_INT16,     _T("uint16")),
+    std::make_pair(CL_UNSIGNED_INT32,     _T("uint32")),
+    std::make_pair(CL_HALF_FLOAT,         _T("fp16")),
+    std::make_pair(CL_FLOAT,              _T("fp32")),
+    std::make_pair(CL_UNORM_INT24,        _T("uint24")),
+    std::make_pair(CL_UNORM_INT_101010_2, _T("uint101010"))
+);
+
+MAP_PAIR_0_1(clchanneltype, cl, cl_channel_type, str, const TCHAR *, RGY_CHANNELTYPE_TO_STR, 0, _T("unknown"));
+
+
+static const auto RGY_DX9_ADAPTER_TYPE_TO_STR = make_array<std::pair<cl_dx9_media_adapter_type_khr, const TCHAR *>>(
+    std::make_pair(0,                      _T("none")),
+    std::make_pair(CL_ADAPTER_D3D9_KHR,    _T("d3d9")),
+    std::make_pair(CL_ADAPTER_D3D9EX_KHR,  _T("d3d9ex")),
+    std::make_pair(CL_ADAPTER_DXVA_KHR,    _T("dxva"))
+);
+
+MAP_PAIR_0_1(cldx9adaptertype, cl, cl_dx9_media_adapter_type_khr, str, const TCHAR *, RGY_DX9_ADAPTER_TYPE_TO_STR, 0, _T("unknown"));
+
+static RGYCLMemObjInfo getRGYCLMemObjectInfo(cl_mem mem) {
+    if (mem == 0) {
+        return RGYCLMemObjInfo();
+    }
+    RGYCLMemObjInfo info;
+    clGetMemObjectInfo(mem, CL_MEM_TYPE, sizeof(info.memtype), &info.memtype, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_FLAGS, sizeof(info.memflags), &info.memflags, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_SIZE, sizeof(info.size), &info.size, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_HOST_PTR, sizeof(info.host_ptr), &info.host_ptr, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_MAP_COUNT, sizeof(info.map_count), &info.map_count, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_REFERENCE_COUNT, sizeof(info.ref_count), &info.ref_count, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_OFFSET, sizeof(info.mem_offset), &info.mem_offset, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_CONTEXT, sizeof(info.context), &info.context, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_ASSOCIATED_MEMOBJECT, sizeof(info.associated_mem), &info.associated_mem, nullptr);
+    //clGetMemObjectInfo(mem, CL_​MEM_​USES_​SVM_​POINTER, sizeof(info.is_svm_ptr), &info.is_svm_ptr, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_DX9_MEDIA_ADAPTER_TYPE_KHR, sizeof(info.d3d9_adapter_type), &info.d3d9_adapter_type, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_DX9_MEDIA_SURFACE_INFO_KHR, sizeof(info.d3d9_surf_type), &info.d3d9_surf_type, nullptr);
+    clGetMemObjectInfo(mem, CL_MEM_D3D11_RESOURCE_KHR, sizeof(info.d3d11resource), &info.d3d11resource, nullptr);
+
+    switch (info.memtype) {
+    case CL_MEM_OBJECT_IMAGE2D:
+    case CL_MEM_OBJECT_IMAGE3D:
+    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+    case CL_MEM_OBJECT_IMAGE1D:
+    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+        clGetImageInfo(mem, CL_IMAGE_FORMAT, sizeof(info.image_format), &info.image_format, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_ELEMENT_SIZE, sizeof(info.image_elem_size), &info.image_elem_size, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_ROW_PITCH, sizeof(info.image.image_row_pitch), &info.image.image_row_pitch, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_SLICE_PITCH, sizeof(info.image.image_slice_pitch), &info.image.image_slice_pitch, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_WIDTH, sizeof(info.image.image_width), &info.image.image_width, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_HEIGHT, sizeof(info.image.image_height), &info.image.image_height, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_DEPTH, sizeof(info.image.image_depth), &info.image.image_depth, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_ARRAY_SIZE, sizeof(info.image.image_array_size), &info.image.image_array_size, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_BUFFER, sizeof(info.image.buffer), &info.image.buffer, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_NUM_MIP_LEVELS, sizeof(info.image.num_mip_levels), &info.image.num_mip_levels, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_NUM_SAMPLES, sizeof(info.image.num_samples), &info.image.num_samples, nullptr);
+        //clGetImageInfo(mem, CL_IMAGE_D3D10_SUBRESOURCE_KHR, sizeof(info.d3d11resource), &info.d3d11resource, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_DX9_MEDIA_PLANE_KHR, sizeof(info.d3d9_media_plane), &info.d3d9_media_plane, nullptr);
+        //clGetImageInfo(mem, CL_IMAGE_DX9_MEDIA_SURFACE_PLANE_KHR, sizeof(info.d3d11resource), &info.d3d11resource, nullptr);
+        clGetImageInfo(mem, CL_IMAGE_D3D11_SUBRESOURCE_KHR, sizeof(info.d3d11subresource), &info.d3d11subresource, nullptr);
+        break;
+    default:
+        break;
+    }
+    return info;
+}
+
+tstring RGYCLMemObjInfo::print() const {
+    tstring str;
+    str += strsprintf(_T("memtype:          %s\n"), clmemobj_cl_to_str(memtype));
+    str += strsprintf(_T("flags:            %s\n"), getRGYCLMemFlagsStr(memtype).c_str());
+    str += strsprintf(_T("size:             %zu\n"), size);
+    str += strsprintf(_T("map count:        %d\n"), map_count);
+    str += strsprintf(_T("ref count:        %d\n"), ref_count);
+    str += strsprintf(_T("offset:           %zu\n"), mem_offset);
+    str += strsprintf(_T("host ptr:         0x%p\n"), host_ptr);
+    str += strsprintf(_T("context:          0x%p\n"), context);
+    str += strsprintf(_T("associated mem:   0x%p\n"), associated_mem);
+    str += strsprintf(_T("is_svm_ptr:       %s\n"), is_svm_ptr ? _T("yes") : _T("no"));
+    str += strsprintf(_T("dx9 adapter type: %s\n"), cldx9adaptertype_cl_to_str(d3d9_adapter_type));
+    str += strsprintf(_T("dx9 resource:     %p\n"), d3d9_surf_type.resource);
+    str += strsprintf(_T("dx11 resource:    %p\n"), d3d11resource);
+    if (image_format.image_channel_order != 0) {
+        str += strsprintf(_T("image\n"));
+        str += strsprintf(_T("data type:        %s\n"), clchanneltype_cl_to_str(image_format.image_channel_data_type));
+        str += strsprintf(_T("channel order:    %s\n"), clchannelorder_cl_to_str(image_format.image_channel_order));
+        str += strsprintf(_T("elem size:        %zu\n"), image_elem_size);
+        str += strsprintf(_T("width:            %zu\n"), image.image_width);
+        str += strsprintf(_T("height:           %zu\n"), image.image_height);
+        str += strsprintf(_T("depth:            %zu\n"), image.image_depth);
+        str += strsprintf(_T("row pitch:        %zu\n"), image.image_row_pitch);
+        str += strsprintf(_T("slice pitch:      %zu\n"), image.image_slice_pitch);
+        str += strsprintf(_T("array size:       %zu\n"), image.image_array_size);
+        str += strsprintf(_T("buffer:           0x%p\n"), image.buffer);
+        str += strsprintf(_T("num mip levels:   %zu\n"), image.num_mip_levels);
+        str += strsprintf(_T("num samples:      %zu\n"), image.num_samples);
+        str += strsprintf(_T("dx9 plane:        %d\n"), d3d9_media_plane);
+        str += strsprintf(_T("dx11 subresource: 0x%p\n"), d3d11subresource);
+    }
+    return str;
+}
+
 RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, cl_command_queue queue) {
     return map(map_flags, size, queue, {});
 }
@@ -757,6 +930,10 @@ RGY_ERR RGYCLBuf::unmapBuffer() {
 }
 RGY_ERR RGYCLBuf::unmapBuffer(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     return m_mapped.unmap(queue, wait_events);
+}
+
+RGYCLMemObjInfo RGYCLBuf::getMemObjectInfo() const {
+    return getRGYCLMemObjectInfo(m_mem);
 }
 
 RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue& queue) {
@@ -825,6 +1002,10 @@ void RGYCLFrame::clear() {
         mem(i) = nullptr;
         frame.pitch[i] = 0;
     }
+}
+
+RGYCLMemObjInfo RGYCLFrame::getMemObjectInfo() const {
+    return getRGYCLMemObjectInfo(mem(0));
 }
 
 RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events) {
@@ -940,9 +1121,9 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                         RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
                         RGY_CSP_BIT_DEPTH[planeSrc.csp],
                         RGY_CSP_BIT_DEPTH[planeDst.csp]);
-                    m_copyB2B = buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+                    m_copyB2B = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                     if (!m_copyB2B) {
-                        m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_copyB2B)\n"));
+                        m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyB2B)\n"));
                         return RGY_ERR_OPENCL_CRUSH;
                     }
                 }
@@ -961,9 +1142,9 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                     RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
                     RGY_CSP_BIT_DEPTH[planeSrc.csp],
                     RGY_CSP_BIT_DEPTH[planeDst.csp]);
-                m_copyB2I = buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+                m_copyB2I = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                 if (!m_copyB2I) {
-                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_copyB2I)\n"));
+                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyB2I)\n"));
                     return RGY_ERR_OPENCL_CRUSH;
                 }
             }
@@ -988,9 +1169,9 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                     RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
                     RGY_CSP_BIT_DEPTH[planeSrc.csp],
                     RGY_CSP_BIT_DEPTH[planeDst.csp]);
-                m_copyI2B = buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+                m_copyI2B = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                 if (!m_copyI2B) {
-                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_copyI2B)\n"));
+                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyI2B)\n"));
                     return RGY_ERR_OPENCL_CRUSH;
                 }
             }
@@ -1012,9 +1193,9 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                         RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
                         RGY_CSP_BIT_DEPTH[planeSrc.csp],
                         RGY_CSP_BIT_DEPTH[planeDst.csp]);
-                    m_copyI2I = buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+                    m_copyI2I = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                     if (!m_copyI2I) {
-                        m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_copyI2I)\n"));
+                        m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyI2I)\n"));
                         return RGY_ERR_OPENCL_CRUSH;
                     }
                 }
@@ -1143,9 +1324,9 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *planeDst, const sInputC
             planeDst->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
             RGY_CSP_BIT_DEPTH[planeDst->csp], //dummy
             RGY_CSP_BIT_DEPTH[planeDst->csp]);
-        m_setB = buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+        m_setB = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_setB) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_setB)\n"));
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_setB)\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
     }
@@ -1403,12 +1584,13 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
     FrameInfo clframe = frame;
     clframe.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
-        clframe.ptr[0] = nullptr;
-        clframe.pitch[0] = 0;
+        clframe.ptr[i] = nullptr;
+        clframe.pitch[i] = 0;
     }
+    cl_dx9_surface_info_khr surfInfo = { (IDirect3DSurface9 *)surf, nullptr };
     for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
-        cl_int err = CL_SUCCESS;
-        clframe.ptr[i] = (uint8_t *)clCreateFromDX9MediaSurfaceKHR(m_context.get(), flags, CL_CONTEXT_ADAPTER_D3D9EX_KHR, surf, i, &err);
+        cl_int err = 0;
+        clframe.ptr[i] = (uint8_t *)clCreateFromDX9MediaSurfaceKHR(m_context.get(), flags, CL_CONTEXT_ADAPTER_D3D9EX_KHR, &surfInfo, i, &err);
         if (err != CL_SUCCESS) {
             m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from DX9 memory: %s\n"), cl_errmes(err));
             for (int j = i - 1; j >= 0; j--) {
@@ -1420,7 +1602,8 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
             return std::unique_ptr<RGYCLFrameInterop>();
         }
     }
-    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX9, queue, m_pLog);
+    auto ptr = std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_pLog));;
+    return ptr;
 }
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
@@ -1431,8 +1614,8 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
     FrameInfo clframe = frame;
     clframe.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
-        clframe.ptr[0] = nullptr;
-        clframe.pitch[0] = 0;
+        clframe.ptr[i] = nullptr;
+        clframe.pitch[i] = 0;
     }
     for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
         cl_int err = CL_SUCCESS;

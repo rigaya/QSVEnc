@@ -379,7 +379,7 @@ public:
         tstring mes = getPipelineTaskTypeName(m_type) + tstring(_T(": ")) + buffer.data();
 
         if (m_log.get() != nullptr) {
-            PrintMes(log_level, mes.c_str());
+            m_log->write(log_level, mes.c_str());
         } else {
             _ftprintf(stderr, _T("%s"), mes.c_str());
         }
@@ -1203,7 +1203,7 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            auto err = clFrameOutInterop->acquire(m_cl->queue(), CL_MEM_READ_ONLY);
+            auto err = clFrameOutInterop->acquire(m_cl->queue(), CL_MEM_READ_WRITE);
             if (err != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
                 return RGY_ERR_NULL_PTR;

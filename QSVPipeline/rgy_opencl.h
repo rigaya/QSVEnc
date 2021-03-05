@@ -280,6 +280,35 @@ private:
     std::shared_ptr<cl_event> event_;
 };
 
+struct RGYCLMemObjInfo {
+    cl_mem_object_type memtype;
+    cl_mem_flags memflags;
+    size_t size;
+    void *host_ptr;
+    cl_uint map_count;
+    cl_uint ref_count;
+    size_t  mem_offset;
+    cl_context context;
+    cl_mem associated_mem;
+    cl_bool is_svm_ptr;
+    cl_dx9_media_adapter_type_khr d3d9_adapter_type;
+    cl_dx9_surface_info_khr d3d9_surf_type;
+    ID3D11Resource *d3d11resource;
+    ID3D11Resource *d3d11subresource;
+    cl_image_desc image;
+    cl_image_format image_format;
+    size_t image_elem_size;
+    cl_uint d3d9_media_plane;
+
+    RGYCLMemObjInfo() : memtype(0), memflags(0), size(0), host_ptr(nullptr), map_count(0), ref_count(0),
+        mem_offset(0), context(nullptr), associated_mem(nullptr), is_svm_ptr(false),
+        d3d9_adapter_type(0), d3d9_surf_type({ 0 }), d3d11resource(nullptr), d3d11subresource(nullptr),
+        image(), image_elem_size(0), d3d9_media_plane(0) {
+        memset(&image, 0, sizeof(image));
+    };
+    tstring print() const;
+};
+
 class RGYCLBufMap {
 public:
     RGYCLBufMap(cl_mem mem) : m_mem(mem), m_queue(RGYDefaultQueue), m_hostPtr(nullptr), m_eventMap() {};
@@ -330,6 +359,7 @@ public:
     void *mappedPtr() { return m_mapped.ptr(); }
     RGY_ERR unmapBuffer();
     RGY_ERR unmapBuffer(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
+    RGYCLMemObjInfo getMemObjectInfo() const;
 protected:
     RGYCLBuf(const RGYCLBuf &) = delete;
     void operator =(const RGYCLBuf &) = delete;
@@ -387,12 +417,16 @@ public:
     RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
     const RGYOpenCLEvent &mapEvent() const { return m_mapped->event(); }
     const FrameInfo &mappedHost() const { return m_mapped->host(); }
+    RGYCLMemObjInfo getMemObjectInfo() const;
 protected:
     RGYCLFrame(const RGYCLFrame &) = delete;
     void operator =(const RGYCLFrame &) = delete;
 public:
     const FrameInfo& frameInfo() const { return frame; }
     cl_mem& mem(int i) {
+        return (cl_mem&)frame.ptr[i];
+    }
+    cl_mem& mem(int i) const {
         return (cl_mem&)frame.ptr[i];
     }
     void clear();
@@ -411,6 +445,7 @@ protected:
 public:
     RGYCLFrameInterop(const FrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, shared_ptr<RGYLog> log)
         : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_log(log), m_acquired(false) {
+        frame;
     };
     RGY_ERR acquire(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {});
 protected:

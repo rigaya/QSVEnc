@@ -68,9 +68,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fram
                 pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
                 RGY_CSP_BIT_DEPTH[planeDst.csp]);
-            m_cropY = m_cl->buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+            m_cropY = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
             if (!m_cropY) {
-                m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_cropY)\n"));
+                m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropY)\n"));
                 return RGY_ERR_OPENCL_CRUSH;
             }
         }
@@ -94,9 +94,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fram
             pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
-        m_cropUV = m_cl->buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+        m_cropUV = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_cropUV) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_cropUV)\n"));
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropUV)\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
     }
@@ -192,9 +192,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fram
                 pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
                 RGY_CSP_BIT_DEPTH[planeDst.csp]);
-            m_cropY = m_cl->buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+            m_cropY = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
             if (!m_cropY) {
-                m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_cropY)\n"));
+                m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropY)\n"));
                 return RGY_ERR_OPENCL_CRUSH;
             }
         }
@@ -219,9 +219,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fram
             pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
-        m_cropUV = m_cl->buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+        m_cropUV = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_cropUV) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_cropUV)\n"));
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropUV)\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
     }
@@ -320,9 +320,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const Fr
                 pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
                 RGY_CSP_BIT_DEPTH[planeDst.csp]);
-            m_cropY = m_cl->buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+            m_cropY = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
             if (!m_cropY) {
-                m_pLog->write(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_cropY)\n"));
+                m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropY)\n"));
                 return RGY_ERR_OPENCL_CRUSH;
             }
         }
@@ -347,9 +347,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const Fr
             pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
-        m_cropUV = m_cl->buildResource(_T("VCE_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+        m_cropUV = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_cropUV) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load VCE_FILTER_CL(m_cropUV)\n"));
+            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropUV)\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
     }
