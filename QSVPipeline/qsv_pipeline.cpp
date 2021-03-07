@@ -3268,6 +3268,8 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
                     if (D3D11_MEMORY & memType) {
                         if (0 == i_try_d3d11) {
                             impl |= MFX_IMPL_VIA_D3D11; //d3d11モードも試す場合は、まずd3d11モードをチェック
+                            impl &= (~MFX_IMPL_HARDWARE_ANY); //d3d11モードでは、MFX_IMPL_HARDWAREをまず試す
+                            impl |= MFX_IMPL_HARDWARE;
                             m_memType = D3D11_MEMORY;
                             PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d11 mode.\n"));
                         } else {
@@ -3286,10 +3288,17 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
 
                     sts = InitSessionEx(impl, &verRequired);
 
-                    //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
+                   
                     if (MFX_ERR_NONE != sts) {
+                        if (impl & MFX_IMPL_HARDWARE_ANY) {  //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
+                            impl &= (~MFX_IMPL_HARDWARE_ANY);
+                            impl |= MFX_IMPL_HARDWARE;
+                        } else if (impl & MFX_IMPL_HARDWARE) {  //MFX_IMPL_HARDWAREで失敗したら、MFX_IMPL_HARDWARE_ANYでもう一回試す
+                            impl &= (~MFX_IMPL_HARDWARE);
+                            impl |= MFX_IMPL_HARDWARE_ANY;
+                        }
                         PrintMes(RGY_LOG_DEBUG, _T("InitSession: failed to init session for multi GPU mode, retry by single GPU mode.\n"));
-                        sts = m_mfxSession.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
+                        sts = m_mfxSession.Init(impl, &verRequired);
                     }
 
                     //成功したらループを出る
@@ -3312,7 +3321,9 @@ mfxStatus CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
 
     //使用できる最大のversionをチェック
     m_mfxSession.QueryVersion(&m_mfxVer);
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
+    mfxIMPL impl;
+    m_mfxSession.QueryIMPL(&impl);
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl 0x%x\n"), m_mfxVer.Major, m_mfxVer.Minor, impl);
     return sts;
 }
 
