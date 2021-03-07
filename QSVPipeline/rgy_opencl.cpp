@@ -380,10 +380,14 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
     }
     if (d3d11dev && clGetDeviceIDsFromD3D11KHR) {
         m_d3d11dev = d3d11dev;
+        int select_dev_type = CL_PREFERRED_DEVICES_FOR_D3D11_KHR;
         try {
-            if ((ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, 0, NULL, &device_count))) != RGY_ERR_NONE) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromD3D11KHR): %s\n"), get_err_mes(ret));
-                return ret;
+            if ((ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
+                select_dev_type = CL_ALL_DEVICES_FOR_D3D11_KHR;
+                if ((ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
+                    m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromD3D11KHR): %s\n"), get_err_mes(ret));
+                    return ret;
+                }
             }
             m_pLog->write(RGY_LOG_DEBUG, _T("D3D11 device count = %d\n"), device_count);
         } catch (...) {
@@ -394,7 +398,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
         if (device_count > 0) {
             std::vector<cl_device_id> devs(device_count, 0);
             try {
-                ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, CL_PREFERRED_DEVICES_FOR_D3D11_KHR, device_count, devs.data(), &device_count));
+                ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, device_count, devs.data(), &device_count));
             } catch (...) {
                 m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromD3D11KHR)\n"));
                 RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
