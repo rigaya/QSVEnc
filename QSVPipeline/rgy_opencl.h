@@ -307,6 +307,7 @@ struct RGYCLMemObjInfo {
         memset(&image, 0, sizeof(image));
     };
     tstring print() const;
+    bool isImageNormalizedType() const;
 };
 
 class RGYCLBufMap {

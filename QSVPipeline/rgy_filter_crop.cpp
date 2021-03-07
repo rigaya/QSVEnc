@@ -61,11 +61,11 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fram
         auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
         auto planeSrc = getPlane(pInputFrame,  RGY_PLANE_Y);
         if (!m_cropY) {
-            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=%d -D IMAGE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                 RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
-                pInputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
-                pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
+                pInputFrame->mem_type,
+                pOutputFrame->mem_type,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
                 RGY_CSP_BIT_DEPTH[planeDst.csp]);
             m_cropY = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -87,11 +87,11 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fram
         }
     }
     if (!m_cropUV) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=%d -D IMAGE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? "ushort" : "uchar",
-            pInputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
-            pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
+            pInputFrame->mem_type,
+            pOutputFrame->mem_type,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
         m_cropUV = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -185,11 +185,11 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fram
         auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
         auto planeSrc = getPlane(pInputFrame, RGY_PLANE_Y);
         if (!m_cropY) {
-            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=%d -D IMAGE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                 RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
-                pInputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
-                pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
+                pInputFrame->mem_type,
+                pOutputFrame->mem_type,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
                 RGY_CSP_BIT_DEPTH[planeDst.csp]);
             m_cropY = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -212,11 +212,11 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fram
     }
 
     if (!m_cropUV) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=%d -D IMAGE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? "ushort" : "uchar",
-            pInputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
-            pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
+            pInputFrame->mem_type,
+            pOutputFrame->mem_type,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
         m_cropUV = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -313,11 +313,11 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const Fr
         auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
         auto planeSrc = getPlane(pInputFrame, RGY_PLANE_Y);
         if (!m_cropY) {
-            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=%d -D IMAGE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                 RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
-                pInputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
-                pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
+                pInputFrame->mem_type,
+                pOutputFrame->mem_type,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
                 RGY_CSP_BIT_DEPTH[planeDst.csp]);
             m_cropY = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -340,11 +340,11 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const Fr
     }
 
     if (!m_cropUV) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=%d -D IMAGE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? "ushort" : "uchar",
-            pInputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
-            pOutputFrame->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
+            pInputFrame->mem_type,
+            pOutputFrame->mem_type,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
             RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
         m_cropUV = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());

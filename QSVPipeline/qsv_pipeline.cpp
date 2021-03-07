@@ -2822,7 +2822,7 @@ RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
         inputFrame.height = croppedHeight;
     }
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+        inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
     }
 
     //フィルタが必要
@@ -2932,7 +2932,7 @@ RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
             shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
             param->frameIn = inputFrame;
             param->frameOut.csp = param->frameIn.csp;
-            param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+            param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             auto sts = filterCrop->init(param, m_pQSVLog);
@@ -2951,7 +2951,7 @@ RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
         param->frameOut.csp = getEncoderCsp(inputParam);
         //インタレ保持であれば、CPU側にフレームを戻す必要がある
         //色空間が同じなら、ここでやってしまう
-        param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+        param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         auto sts = filterCrop->init(param, m_pQSVLog);

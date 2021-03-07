@@ -803,6 +803,15 @@ static const auto RGY_CHANNELTYPE_TO_STR = make_array<std::pair<cl_channel_type,
 
 MAP_PAIR_0_1(clchanneltype, cl, cl_channel_type, str, const TCHAR *, RGY_CHANNELTYPE_TO_STR, 0, _T("unknown"));
 
+static bool clchannel_type_is_normalized_type(cl_channel_type type) {
+    static const auto RGY_CHANNELTYPE_NORMALIZED_TYPE = make_array<cl_channel_type>(
+        (cl_channel_type)CL_SNORM_INT8, (cl_channel_type)CL_SNORM_INT16,
+        (cl_channel_type)CL_UNORM_INT8, (cl_channel_type)CL_UNORM_INT16,
+        (cl_channel_type)CL_UNORM_SHORT_565, (cl_channel_type)CL_UNORM_SHORT_555,
+        (cl_channel_type)CL_UNORM_INT_101010);
+    return std::find(RGY_CHANNELTYPE_NORMALIZED_TYPE.begin(), RGY_CHANNELTYPE_NORMALIZED_TYPE.end(), type) != RGY_CHANNELTYPE_NORMALIZED_TYPE.end();
+}
+
 
 static const auto RGY_DX9_ADAPTER_TYPE_TO_STR = make_array<std::pair<cl_dx9_media_adapter_type_khr, const TCHAR *>>(
     std::make_pair(0,                      _T("none")),
@@ -894,6 +903,11 @@ tstring RGYCLMemObjInfo::print() const {
         str += strsprintf(_T("dx11 subresource: 0x%p\n"), d3d11subresource);
     }
     return str;
+}
+
+bool RGYCLMemObjInfo::isImageNormalizedType() const {
+    if (image_format.image_channel_order == 0) return false;
+    return clchannel_type_is_normalized_type(image_format.image_channel_data_type);
 }
 
 RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, cl_command_queue queue) {
@@ -1120,9 +1134,11 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                     region, planeSrc.pitch[0], 0, planeDst.pitch[0], 0, wait_count, wait_list, event_ptr);
             } else {
                 if (!m_copyB2B) {
-                    const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=0 -D IMAGE_DST=0 -D in_bit_depth=%d -D out_bit_depth=%d",
+                    const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                         RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
                         RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                        planeSrc.mem_type,
+                        planeDst.mem_type,
                         RGY_CSP_BIT_DEPTH[planeSrc.csp],
                         RGY_CSP_BIT_DEPTH[planeDst.csp]);
                     m_copyB2B = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -1139,11 +1155,13 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                     planeSrc.width, planeSrc.height);
                 err = err_rgy_to_cl(rgy_err);
             }
-        } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE) {
+        } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
             if (!m_copyB2I) {
-                const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=0 -D IMAGE_DST=1 -D in_bit_depth=%d -D out_bit_depth=%d",
+                const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                     RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
                     RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                    planeSrc.mem_type,
+                    planeDst.mem_type,
                     RGY_CSP_BIT_DEPTH[planeSrc.csp],
                     RGY_CSP_BIT_DEPTH[planeDst.csp]);
                 m_copyB2I = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -1165,12 +1183,14 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
         } else {
             return RGY_ERR_UNSUPPORTED;
         }
-    } else if (planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE) {
+    } else if (planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
         if (planeDst.mem_type == RGY_MEM_TYPE_GPU) {
             if (!m_copyI2B) {
-                const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=1 -D IMAGE_DST=0 -D in_bit_depth=%d -D out_bit_depth=%d",
+                const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                     RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
                     RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                    planeSrc.mem_type,
+                    planeDst.mem_type,
                     RGY_CSP_BIT_DEPTH[planeSrc.csp],
                     RGY_CSP_BIT_DEPTH[planeDst.csp]);
                 m_copyI2B = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -1186,15 +1206,17 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                 (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1],
                 planeSrc.width, planeSrc.height);
             err = err_rgy_to_cl(rgy_err);
-        } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE) {
+        } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
             if (planeDst.csp == planeSrc.csp) {
                 clGetImageInfo((cl_mem)planeDst.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
                 err = clEnqueueCopyImage(queue.get(), (cl_mem)planeSrc.ptr[0], (cl_mem)planeDst.ptr[0], src_origin, dst_origin, region, wait_count, wait_list, event_ptr);
             } else {
                 if (!m_copyI2I) {
-                    const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=1 -D IMAGE_DST=1 -D in_bit_depth=%d -D out_bit_depth=%d",
+                    const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                         RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
                         RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                        planeSrc.mem_type,
+                        planeDst.mem_type,
                         RGY_CSP_BIT_DEPTH[planeSrc.csp],
                         RGY_CSP_BIT_DEPTH[planeDst.csp]);
                     m_copyI2I = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -1322,10 +1344,10 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *planeDst, const sInputC
         return RGY_ERR_NONE;
     }
     if (!m_setB) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=0 -D IMAGE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=1 -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort" : "uchar", //dummy
             RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort" : "uchar",
-            planeDst->mem_type == RGY_MEM_TYPE_GPU_IMAGE ? 1 : 0,
+            planeDst->mem_type,
             RGY_CSP_BIT_DEPTH[planeDst->csp], //dummy
             RGY_CSP_BIT_DEPTH[planeDst->csp]);
         m_setB = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
@@ -1606,8 +1628,9 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
             return std::unique_ptr<RGYCLFrameInterop>();
         }
     }
-    auto ptr = std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_pLog));;
-    return ptr;
+    auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
+    clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
+    return std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_pLog));
 }
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
@@ -1616,7 +1639,6 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
         return std::unique_ptr<RGYCLFrameInterop>();
     }
     FrameInfo clframe = frame;
-    clframe.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
         clframe.ptr[i] = nullptr;
         clframe.pitch[i] = 0;
@@ -1635,6 +1657,8 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
             return std::unique_ptr<RGYCLFrameInterop>();
         }
     }
+    auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
+    clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
     return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_pLog);
 }
 

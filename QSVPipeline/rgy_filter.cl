@@ -1,11 +1,18 @@
 ﻿// TypeIn
 // TypeOut
-// IMAGE_SRC
-// IMAGE_DST
+// MEM_TYPE_SRC
+// MEM_TYPE_DST
 // in_bit_depth
 // out_bit_depth
 
 const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+
+// samplerでnormalizeした場合、0 -> 0.0f, 255 -> 1.0f
+
+#define RGY_MEM_TYPE_CPU                    (0)
+#define RGY_MEM_TYPE_GPU                    (1)
+#define RGY_MEM_TYPE_GPU_IMAGE              (2)
+#define RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED   (3)
 
 #ifndef __OPENCL_VERSION__
 #define __kernel
@@ -45,6 +52,9 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
     }
 }
 
+#define NORM_SCALE_IN  (float)((1<<(sizeof(TypeIn)*8))-1)
+#define NORM_SCALE_OUT (1.0f/(float)((1<<(sizeof(TypeOut)*8))-1))
+
 #define BIT_DEPTH_CONV(x) (TypeOut)conv_bit_depth((x), in_bit_depth, out_bit_depth, 0)
 
 #define BIT_DEPTH_CONV_FLOAT(x) (TypeOut)((out_bit_depth == in_bit_depth) \
@@ -70,10 +80,24 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
     (src_u) = LOAD((src), ((ix)<<1) + 0 + (cropX), (iy) + ((cropY)>>1)); \
     (src_v) = LOAD((src), ((ix)<<1) + 1 + (cropX), (iy) + ((cropY)>>1)); \
 }
-#if IMAGE_SRC
+
+#define LOAD_IMG_NORM(src, ix, iy) (TypeIn)(read_imagef((src), sampler, (int2)((ix), (iy))).x * NORM_SCALE_IN + 0.5f)
+#define LOAD_IMG_NORM_NV12_UV(src, src_u, src_v, ix, iy, cropX, cropY) { \
+    float4 ret = read_imagef((src), sampler, (int2)((ix) + ((cropX)>>1), (iy) + ((cropY)>>1))); \
+    (src_u) = (TypeIn)(ret.x * NORM_SCALE_IN + 0.5f); \
+    (src_v) = (TypeIn)(ret.y * NORM_SCALE_IN + 0.5f); \
+}
+
+#if MEM_TYPE_SRC == RGY_MEM_TYPE_GPU_IMAGE
+#define IMAGE_SRC    1
 #define LOAD         LOAD_IMG
 #define LOAD_NV12_UV LOAD_IMG_NV12_UV
+#elif MEM_TYPE_SRC == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED
+#define IMAGE_SRC    1
+#define LOAD         LOAD_IMG_NORM
+#define LOAD_NV12_UV LOAD_IMG_NORM_NV12_UV
 #else
+#define IMAGE_SRC    0
 #define LOAD         LOAD_BUF
 #define LOAD_NV12_UV LOAD_BUF_NV12_UV
 #endif
@@ -81,7 +105,13 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #define STORE_IMG(dst, ix, iy, val) write_imageui((dst), (int2)((ix), (iy)), (val))
 #define STORE_IMG_NV12_UV(dst, ix, iy, val_u, val_v) { \
     uint4 val = (uint4)(val_u, val_v, val_v, val_v); \
-    STORE((dst), (ix), (iy), val); \
+    write_imageui((dst), (int2)((ix), (iy)), (val)); \
+}
+
+#define STORE_IMG_NORM(dst, ix, iy, val) write_imagef((dst), (int2)((ix), (iy)), (val * NORM_SCALE_OUT))
+#define STORE_IMG_NORM_NV12_UV(dst, ix, iy, val_u, val_v) { \
+    float4 val = (float4)(val_u * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT); \
+    write_imagef((dst), (int2)((ix), (iy)), (val)); \
 }
 #define STORE_BUF(dst, ix, iy, val)  { \
     __global TypeOut *ptr = (__global TypeOut *)(&(dst)[(iy) * dstPitch + (ix) * sizeof(TypeOut)]); \
@@ -91,13 +121,20 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
     STORE(dst, ((ix) << 1) + 0, (iy), val_u); \
     STORE(dst, ((ix) << 1) + 1, (iy), val_v); \
 }
-#if IMAGE_DST
+#if MEM_TYPE_DST == RGY_MEM_TYPE_GPU_IMAGE
+#define IMAGE_DST     1
 #define STORE         STORE_IMG
 #define STORE_NV12_UV STORE_IMG_NV12_UV
+#elif MEM_TYPE_DST == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED
+#define IMAGE_DST     1
+#define STORE         STORE_IMG_NORM
+#define STORE_NV12_UV STORE_IMG_NORM_NV12_UV
 #else
+#define IMAGE_DST     0
 #define STORE         STORE_BUF
 #define STORE_NV12_UV STORE_BUF_NV12_UV
 #endif
+
 
 void conv_c_yuv420_yuv444(
 #if IMAGE_DST

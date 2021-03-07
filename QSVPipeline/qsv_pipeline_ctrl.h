@@ -205,10 +205,7 @@ public:
     PipelineTaskSurface& surf() { return m_surf; }
 
     virtual void depend_clear() override {
-        if (m_dependencyInterop) {
-            m_dependencyInterop->release();
-            m_dependencyInterop.reset();
-        }
+        m_dependencyInterop.reset();
         m_dependencyFrame.reset();
     }
 
@@ -1168,7 +1165,6 @@ public:
             }
             filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
         }
-
         //フィルタリングするならここ
         for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
             int nOutFrames = 0;
@@ -1194,7 +1190,7 @@ public:
             }
         }
         if (drain) {
-            return RGY_ERR_NONE; //最後までdrain = trueなら、drain完了
+            return RGY_ERR_MORE_DATA; //最後までdrain = trueなら、drain完了
         }
         {
             auto surfVppOut = getWorkSurf();
@@ -1232,6 +1228,7 @@ public:
                 m_ssim->filter(&encSurfaceInfo, nullptr, &dummy);
             }
 #endif
+            clFrameOutInterop->release();
             err = m_cl->queue().finish();
             if (err != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
@@ -1242,6 +1239,9 @@ public:
             surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(encSurfaceInfo.picstruct);
 
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clFrameInInterop));
+        }
+        if (clFrameInInterop) {
+            clFrameInInterop->release();
         }
         return RGY_ERR_NONE;
     }
