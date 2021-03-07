@@ -1166,7 +1166,6 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
                 return RGY_ERR_NULL_PTR;
             }
-            PrintMes(RGY_LOG_INFO, _T("%s\n"), clFrameInInterop->getMemObjectInfo().print().c_str());
             filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
         }
 
@@ -1209,7 +1208,6 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
                 return RGY_ERR_NULL_PTR;
             }
-            PrintMes(RGY_LOG_INFO, _T("%s\n"), clFrameOutInterop->getMemObjectInfo().print().c_str());
             //エンコードバッファにコピー
             auto &lastFilter = m_vpFilters[m_vpFilters.size() - 1];
             //最後のフィルタはRGYFilterCspCropでなければならない
