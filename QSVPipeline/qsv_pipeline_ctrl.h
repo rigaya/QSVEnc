@@ -1156,16 +1156,17 @@ public:
             filterframes.push_back(std::make_pair(FrameInfo(), 0u));
         } else {
             mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get();
-            clFrameInInterop = getOpenCLFrameInterop(surfVppIn, m_memType, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            clFrameInInterop = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
             if (!clFrameInInterop) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            auto err = clFrameInInterop->acquire(m_cl->queue(), CL_MEM_READ_ONLY);
+            auto err = clFrameInInterop->acquire(m_cl->queue());
             if (err != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
                 return RGY_ERR_NULL_PTR;
             }
+            PrintMes(RGY_LOG_INFO, _T("%s\n"), clFrameInInterop->getMemObjectInfo().print().c_str());
             filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
         }
 
@@ -1198,16 +1199,17 @@ public:
         }
         {
             auto surfVppOut = getWorkSurf();
-            auto clFrameOutInterop = getOpenCLFrameInterop(surfVppOut.get(), m_memType, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            auto clFrameOutInterop = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
             if (!clFrameOutInterop) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            auto err = clFrameOutInterop->acquire(m_cl->queue(), CL_MEM_READ_WRITE);
+            auto err = clFrameOutInterop->acquire(m_cl->queue());
             if (err != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
                 return RGY_ERR_NULL_PTR;
             }
+            PrintMes(RGY_LOG_INFO, _T("%s\n"), clFrameOutInterop->getMemObjectInfo().print().c_str());
             //エンコードバッファにコピー
             auto &lastFilter = m_vpFilters[m_vpFilters.size() - 1];
             //最後のフィルタはRGYFilterCspCropでなければならない

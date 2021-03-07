@@ -1008,7 +1008,7 @@ RGYCLMemObjInfo RGYCLFrame::getMemObjectInfo() const {
     return getRGYCLMemObjectInfo(mem(0));
 }
 
-RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events) {
+RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     std::vector<cl_event> v_wait_list = toVec(wait_events);
     cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     cl_int err = CL_SUCCESS;
@@ -1590,7 +1590,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
     cl_dx9_surface_info_khr surfInfo = { (IDirect3DSurface9 *)surf, nullptr };
     for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
         cl_int err = 0;
-        clframe.ptr[i] = (uint8_t *)clCreateFromDX9MediaSurfaceKHR(m_context.get(), flags, CL_CONTEXT_ADAPTER_D3D9EX_KHR, &surfInfo, i, &err);
+        clframe.ptr[i] = (uint8_t *)clCreateFromDX9MediaSurfaceKHR(m_context.get(), flags, CL_ADAPTER_D3D9EX_KHR, &surfInfo, i, &err);
         if (err != CL_SUCCESS) {
             m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from DX9 memory: %s\n"), cl_errmes(err));
             for (int j = i - 1; j >= 0; j--) {

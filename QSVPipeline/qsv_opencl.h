@@ -34,7 +34,7 @@
 #include "qsv_allocator_d3d9.h"
 #include "qsv_allocator_d3d11.h"
 
-static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1 *mfxSurf, MemType memType, QSVAllocator *allocator, RGYOpenCLContext *cl, RGYOpenCLQueue& queue, const FrameInfo& frameInfo) {
+static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1 *mfxSurf, MemType memType, cl_mem_flags flags, QSVAllocator *allocator, RGYOpenCLContext *cl, RGYOpenCLQueue& queue, const FrameInfo& frameInfo) {
     mfxMemId mid = mfxSurf->Data.MemId;
     if (memType == D3D11_MEMORY) {
         mfxHDLPair mid_pair = { 0 };
@@ -43,7 +43,7 @@ static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1
             return std::unique_ptr<RGYCLFrameInterop>();
         }
         ID3D11Texture2D *surf = (ID3D11Texture2D*)mid_pair.first;
-        return cl->createFrameFromD3D11Surface(surf, frameInfo, queue, CL_MEM_READ_ONLY);
+        return cl->createFrameFromD3D11Surface(surf, frameInfo, queue, flags);
     } else if (memType == D3D9_MEMORY) {
         mfxHDLPair mid_pair = { 0 };
         auto err = err_to_rgy(allocator->GetHDL(allocator->pthis, mid, reinterpret_cast<mfxHDL*>(&mid_pair)));
@@ -51,7 +51,7 @@ static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1
             return std::unique_ptr<RGYCLFrameInterop>();
         }
         IDirect3DSurface9 *surf = (IDirect3DSurface9*)mid_pair.first;
-        return cl->createFrameFromD3D9Surface(surf, frameInfo, queue, CL_MEM_READ_ONLY);
+        return cl->createFrameFromD3D9Surface(surf, frameInfo, queue, flags);
     } else {
         return std::unique_ptr<RGYCLFrameInterop>();
     }

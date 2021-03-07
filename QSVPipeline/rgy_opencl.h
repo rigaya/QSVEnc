@@ -447,7 +447,7 @@ public:
         : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_log(log), m_acquired(false) {
         frame;
     };
-    RGY_ERR acquire(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {});
+    RGY_ERR acquire(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
 protected:
     RGYCLFrameInterop(const RGYCLFrameInterop &) = delete;
     void operator =(const RGYCLFrameInterop &) = delete;
