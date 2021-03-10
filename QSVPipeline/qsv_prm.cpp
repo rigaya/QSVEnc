@@ -206,8 +206,7 @@ sVppParams::sVppParams() :
     mctf(),
     detail(),
     delogo(),
-    subburn(),
-    colorspace() {
+    subburn() {
 
 }
 
@@ -216,6 +215,7 @@ sInputParams::sInputParams() :
     common(),
     ctrl(),
     vpp(),
+    vppmfx(),
     nEncMode(MFX_RATECONTROL_CQP),
     nTargetUsage(QSV_DEFAULT_QUALITY),
     CodecId(MFX_CODEC_AVC),

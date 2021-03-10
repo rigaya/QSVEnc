@@ -98,7 +98,7 @@ public:
     CQSVPipeline();
     virtual ~CQSVPipeline();
 
-    virtual mfxStatus CheckParam(sInputParams *pParams);
+    virtual RGY_ERR CheckParam(sInputParams *pParams);
     virtual mfxStatus Init(sInputParams *pParams);
     virtual mfxStatus Run();
     virtual mfxStatus Run(size_t SubThreadAffinityMask);
@@ -127,6 +127,9 @@ protected:
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
     CEncodingThread m_EncThread;
 
+    int m_encWidth;
+    int m_encHeight;
+    RGY_PICSTRUCT m_encPicstruct;
     rgy_rational<int> m_inputFps;
     rgy_rational<int> m_encFps;
     rgy_rational<int> m_outputTimebase;
@@ -237,7 +240,7 @@ protected:
     virtual mfxStatus InitPerfMonitor(const sInputParams *pParams);
     virtual mfxStatus InitInput(sInputParams *pParams);
     virtual mfxStatus InitChapters(const sInputParams *inputParam);
-    virtual mfxStatus InitFilters(sInputParams *inputParam);
+    virtual RGY_ERR   InitFilters(sInputParams *inputParam);
     virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
     virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
     virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);

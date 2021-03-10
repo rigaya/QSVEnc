@@ -115,6 +115,49 @@ static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *o
     return str;
 }
 
+tstring gen_cmd_help_vppmfx() {
+    tstring str = strsprintf(_T("")
+        _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
+        _T("   --vpp-mctf [\"auto\" or <int>] use vpp motion compensated temporal filter(mctf)\n")
+        _T("                                  set strength (%d-%d), default: %d (auto)\n")
+        _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
+        _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
+        _T("                                 - none     disable deinterlace\n")
+        _T("                                 - normal   normal deinterlace\n")
+        _T("                                 - it       inverse telecine\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+        _T("                                 - it-manual <string>\n")
+        _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
+#endif
+        _T("                                 - bob      double framerate\n")
+#if ENABLE_ADVANCED_DEINTERLACE
+        _T("                                 - auto     auto deinterlace\n")
+        _T("                                 - auto-bob auto bob deinterlace\n")
+#endif
+#if ENABLE_FPS_CONVERSION
+        _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
+        _T("                                enabled only when input is progressive\n")
+        _T("                                 - none, x2, x2.5\n")
+#endif
+        _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
+        _T("                                 - none, upscale, box\n")
+        _T("   --vpp-rotate <int>           rotate image\n")
+        _T("                                 90, 180, 270.\n")
+        _T("   --vpp-mirror <string>        mirror image\n")
+        _T("                                 - h   mirror in horizontal direction\n")
+        _T("                                 - v   mirror in vertical   direction\n")
+        _T("   --vpp-half-turn              half turn video image\n")
+        _T("                                 unoptimized and very slow.\n")
+        _T("   --vpp-resize <string>        set scaling quality\n")
+        _T("                                 - auto(default)\n")
+        _T("                                 - simple   use simple scaling\n")
+        _T("                                 - fine     use high quality scaling\n"),
+        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
+        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO,
+        QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX);
+    return str;
+}
+
 tstring encoder_help() {
     tstring str;
     str += strsprintf(_T("Usage: QSVEncC [Options] -i <filename> -o <filename>\n"));
@@ -345,42 +388,9 @@ tstring encoder_help() {
     str += gen_cmd_help_common();
     str += _T("\n");
 
-    str += strsprintf(_T("\nVPP Options:\n")
-        _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
-        _T("   --vpp-mctf [\"auto\" or <int>] use vpp motion compensated temporal filter(mctf)\n")
-        _T("                                  set strength (%d-%d), default: %d (auto)\n")
-        _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
-        _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
-        _T("                                 - none     disable deinterlace\n")
-        _T("                                 - normal   normal deinterlace\n")
-        _T("                                 - it       inverse telecine\n")
-#if ENABLE_ADVANCED_DEINTERLACE
-        _T("                                 - it-manual <string>\n")
-        _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
-#endif
-        _T("                                 - bob      double framerate\n")
-#if ENABLE_ADVANCED_DEINTERLACE
-        _T("                                 - auto     auto deinterlace\n")
-        _T("                                 - auto-bob auto bob deinterlace\n")
-#endif
-#if ENABLE_FPS_CONVERSION
-        _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
-        _T("                                enabled only when input is progressive\n")
-        _T("                                 - none, x2, x2.5\n")
-#endif
-        _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-        _T("                                 - none, upscale, box\n")
-        _T("   --vpp-rotate <int>           rotate image\n")
-        _T("                                 90, 180, 270.\n")
-        _T("   --vpp-mirror <string>        mirror image\n")
-        _T("                                 - h   mirror in horizontal direction\n")
-        _T("                                 - v   mirror in vertical   direction\n")
-        _T("   --vpp-half-turn              half turn video image\n")
-        _T("                                 unoptimized and very slow.\n")
-        _T("   --vpp-resize <string>        set scaling quality\n")
-        _T("                                 - auto(default)\n")
-        _T("                                 - simple   use simple scaling\n")
-        _T("                                 - fine     use high quality scaling\n")
+    str += strsprintf(_T("\nVPP Options:\n"));
+    str += gen_cmd_help_vppmfx();
+    str += strsprintf(_T("")
         _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Converts colorspace of the video.\n")
         _T("    params\n")
@@ -407,9 +417,6 @@ tstring encoder_help() {
         _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
         _T("   --vpp-delogo-add             add logo mode\n"),
 #endif //#if ENABLE_CUSTOM_VPP,
-        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
-        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO,
-        QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX,
         QSV_DEFAULT_VPP_DELOGO_DEPTH
     );
 
@@ -501,6 +508,530 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
         break;
     }
     return option_name;
+}
+
+int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, sVppParams *vppmfx, sArgsData *argData) {
+    
+    if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        vppmfx->denoise.enable = true;
+        vppmfx->denoise.strength = value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-denoise"))) {
+        vppmfx->denoise.enable = false;
+        if (strInput[i+1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+            vppmfx->denoise.strength = value;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-mctf"))) {
+        vppmfx->mctf.enable = true;
+        vppmfx->mctf.strength = 0;
+        if (strInput[i+1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (_tcsicmp(strInput[i], _T("auto")) == 0) {
+                value = 0;
+            } else if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+            vppmfx->mctf.strength = value;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-mctf"))) {
+        vppmfx->mctf.enable = false;
+        vppmfx->mctf.strength = 0;
+        if (strInput[i+1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (_tcsicmp(strInput[i], _T("auto")) == 0) {
+                value = 0;
+            } if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+            vppmfx->mctf.strength = value;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-detail-enhance"))) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        vppmfx->detail.enable = true;
+        vppmfx->detail.strength = value;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-detail-enhance"))) {
+        vppmfx->detail.enable = false;
+        if (strInput[i+1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+            vppmfx->detail.strength = value;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-deinterlace"))) {
+        i++;
+        int value = get_value_from_chr(list_deinterlace, strInput[i]);
+        if (PARSE_ERROR_FLAG == value) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        vppmfx->bEnable = true;
+        vppmfx->deinterlace = value;
+        if (vppmfx->deinterlace == MFX_DEINTERLACE_IT_MANUAL) {
+            i++;
+            if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            } else {
+                vppmfx->telecinePattern = value;
+            }
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-image-stab"))) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            vppmfx->imageStabilizer = value;
+        } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_image_stabilizer, strInput[i]))) {
+            vppmfx->imageStabilizer = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-fps-conv"))) {
+        i++;
+        int value = 0;
+        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
+            vppmfx->fpsConversion = value;
+        } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_fps_conversion, strInput[i]))) {
+            vppmfx->fpsConversion = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-half-turn"))) {
+        vppmfx->halfTurn = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-rotate"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_rotate_angle, strInput[i]))) {
+            vppmfx->rotate = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-mirror"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_mirroring, strInput[i]))) {
+            vppmfx->mirrorType = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-resize"))
+        || 0 == _tcscmp(option_name, _T("vpp-scaling"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_scaling_quality, strInput[i]))) {
+            vppmfx->scalingQuality = value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+#if 0
+    if (IS_OPTION("vpp-colorspace")) {
+        vppmfx->colorspace.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{
+            "matrix", "colormatrix", "range"/*, "colorprim", "transfer", "colorrange", "source_peak", "approx_gamma",
+            "hdr2sdr", "ldr_nits", "a", "b", "c", "d", "e", "f", "contrast", "peak"*/ };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto parse = [](int *from, int *to, tstring param_val, const CX_DESC *list) {
+                    auto from_to = split(param_val, _T(":"));
+                    if (from_to.size() == 2
+                        && get_list_value(list, from_to[0].c_str(), from)
+                        && get_list_value(list, from_to[1].c_str(), to)) {
+                        return true;
+                    }
+                    return false;
+                };
+                if (vppmfx->colorspace.convs.size() == 0) {
+                    vppmfx->colorspace.convs.push_back(ColorspaceConv());
+                }
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("matrix") || param_arg == _T("colormatrix")) {
+                    auto& conv = vppmfx->colorspace.convs.back();
+                    if (conv.from.matrix != conv.to.matrix) {
+                        vppmfx->colorspace.convs.push_back(ColorspaceConv());
+                        conv = vppmfx->colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.matrix, (int *)&conv.to.matrix, param_val, list_colormatrix)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colormatrix);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (false && param_arg == _T("colorprim")) {
+                    auto &conv = vppmfx->colorspace.convs.back();
+                    if (conv.from.colorprim != conv.to.colorprim) {
+                        vppmfx->colorspace.convs.push_back(ColorspaceConv());
+                        conv = vppmfx->colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.colorprim, (int *)&conv.to.colorprim, param_val, list_colorprim)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorprim);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (false && param_arg == _T("transfer")) {
+                    auto &conv = vppmfx->colorspace.convs.back();
+                    if (conv.from.transfer != conv.to.transfer) {
+                        vppmfx->colorspace.convs.push_back(ColorspaceConv());
+                        conv = vppmfx->colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.transfer, (int *)&conv.to.transfer, param_val, list_transfer)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_transfer);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("range") || param_arg == _T("colorrange")) {
+                    auto &conv = vppmfx->colorspace.convs.back();
+                    if (conv.from.colorrange != conv.to.colorrange) {
+                        vppmfx->colorspace.convs.push_back(ColorspaceConv());
+                        conv = vppmfx->colorspace.convs.back();
+                    }
+                    if (!parse((int *)&conv.from.colorrange, (int *)&conv.to.colorrange, param_val, list_colorrange)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorrange);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("source_peak")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.hdr_source_peak = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("approx_gamma")) {
+                    auto &conv = vppmfx->colorspace.convs.back();
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        conv.approx_gamma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scene_ref")) {
+                    auto &conv = vppmfx->colorspace.convs.back();
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        conv.scene_ref = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hdr2sdr")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_hdr2sdr, param_val.c_str(), &value)) {
+                        vppmfx->colorspace.hdr2sdr.tonemap = (HDR2SDRToneMap)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_hdr2sdr);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ldr_nits")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.ldr_nits = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("a")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.hable.a = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("b")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.hable.b = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("c")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.hable.c = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("d")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.hable.d = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("e")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.hable.e = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("f")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.hable.f = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("w")) {
+                    continue;
+                }
+                if (param_arg == _T("transition")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.mobius.transition = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("contrast")) {
+                    try {
+                        vppmfx->colorspace.hdr2sdr.reinhard.contrast = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("peak")) {
+                    try {
+                        float peak = std::stof(param_val);
+                        vppmfx->colorspace.hdr2sdr.mobius.peak = peak;
+                        vppmfx->colorspace.hdr2sdr.reinhard.peak = peak;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+#if 0
+                if (param == _T("hdr2sdr")) {
+                    vppmfx->colorspace.hdr2sdr.tonemap = HDR2SDR_HABLE;
+                    continue;
+                }
+#endif
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+#endif
+#if ENABLE_CUSTOM_VPP
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
+    if (0 == _tcscmp(option_name, _T("vpp-sub"))) {
+        if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
+            i++;
+            TCHAR *endPtr = nullptr;
+            int nSubTrack = _tcstol(strInput[i], &endPtr, 10);
+            if (vppmfx->subburn.pFilePath) {
+                free(vppmfx->subburn.pFilePath);
+            }
+            if (0 < nSubTrack && (endPtr == nullptr || *endPtr == _T('\0'))) {
+                vppmfx->subburn.nTrack = nSubTrack;
+                vppmfx->subburn.pFilePath = nullptr;
+            } else {
+                vppmfx->subburn.nTrack = 0;
+                vppmfx->subburn.pFilePath = _tcsdup(strInput[i]);
+            }
+        } else {
+            vppmfx->subburn.nTrack = 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-sub-charset"))) {
+        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
+            i++;
+            if (vppmfx->subburn.pCharEnc) {
+                free(vppmfx->subburn.pCharEnc);
+            }
+            vppmfx->subburn.pCharEnc = _tcsdup(strInput[i]);
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-sub-shaping"))) {
+        i++;
+        int v;
+        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_vpp_sub_shaping, strInput[i]))) {
+            vppmfx->subburn.nShaping = v;
+        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_vpp_sub_shaping) - 1) {
+            vppmfx->subburn.nShaping = v;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
+    if (   0 == _tcscmp(option_name, _T("vpp-delogo"))
+        || 0 == _tcscmp(option_name, _T("vpp-delogo-file"))) {
+        i++;
+        int filename_len = (int)_tcslen(strInput[i]);
+        vppmfx->delogo.pFilePath = (TCHAR *)calloc(filename_len + 1, sizeof(vppmfx->delogo.pFilePath[0]));
+        memcpy(vppmfx->delogo.pFilePath, strInput[i], sizeof(vppmfx->delogo.pFilePath[0]) * filename_len);
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-select"))) {
+        i++;
+        int filename_len = (int)_tcslen(strInput[i]);
+        vppmfx->delogo.pSelect = (TCHAR *)calloc(filename_len + 1, sizeof(vppmfx->delogo.pSelect[0]));
+        memcpy(vppmfx->delogo.pSelect, strInput[i], sizeof(vppmfx->delogo.pSelect[0]) * filename_len);
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-pos"))) {
+        i++;
+        int posOffsetx = 0, posOffsety = 0;
+        if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &posOffsetx, &posOffsety)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        vppmfx->delogo.posOffset = std::make_pair(posOffsetx, posOffsety);
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-depth"))) {
+        i++;
+        try {
+            vppmfx->delogo.depth = clamp(std::stoi(strInput[i]), 0, 255);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-y"))) {
+        i++;
+        try {
+            vppmfx->delogo.YOffset = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-cb"))) {
+        i++;
+        try {
+            vppmfx->delogo.CbOffset = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-cr"))) {
+        i++;
+        try {
+            vppmfx->delogo.CrOffset = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-delogo-add"))) {
+        vppmfx->delogo.add = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-delogo-add"))) {
+        vppmfx->delogo.add = false;
+        return 0;
+    }
+#endif //#if ENABLE_CUSTOM_VPP
 }
 
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
@@ -1208,531 +1739,6 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
 #endif
-    if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        pParams->vpp.denoise.enable = true;
-        pParams->vpp.denoise.strength = value;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-vpp-denoise"))) {
-        pParams->vpp.denoise.enable = false;
-        if (strInput[i+1][0] != _T('-')) {
-            i++;
-            int value = 0;
-            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                print_cmd_error_invalid_value(option_name, strInput[i]);
-                return 1;
-            }
-            pParams->vpp.denoise.strength = value;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-mctf"))) {
-        pParams->vpp.mctf.enable = true;
-        pParams->vpp.mctf.strength = 0;
-        if (strInput[i+1][0] != _T('-')) {
-            i++;
-            int value = 0;
-            if (_tcsicmp(strInput[i], _T("auto")) == 0) {
-                value = 0;
-            } else if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                print_cmd_error_invalid_value(option_name, strInput[i]);
-                return 1;
-            }
-            pParams->vpp.mctf.strength = value;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-vpp-mctf"))) {
-        pParams->vpp.mctf.enable = false;
-        pParams->vpp.mctf.strength = 0;
-        if (strInput[i+1][0] != _T('-')) {
-            i++;
-            int value = 0;
-            if (_tcsicmp(strInput[i], _T("auto")) == 0) {
-                value = 0;
-            } if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                print_cmd_error_invalid_value(option_name, strInput[i]);
-                return 1;
-            }
-            pParams->vpp.mctf.strength = value;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-detail-enhance"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        pParams->vpp.detail.enable = true;
-        pParams->vpp.detail.strength = value;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-vpp-detail-enhance"))) {
-        pParams->vpp.detail.enable = false;
-        if (strInput[i+1][0] != _T('-')) {
-            i++;
-            int value = 0;
-            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                print_cmd_error_invalid_value(option_name, strInput[i]);
-                return 1;
-            }
-            pParams->vpp.detail.strength = value;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-deinterlace"))) {
-        i++;
-        int value = get_value_from_chr(list_deinterlace, strInput[i]);
-        if (PARSE_ERROR_FLAG == value) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        pParams->vpp.bEnable = true;
-        pParams->vpp.deinterlace = value;
-        if (pParams->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL) {
-            i++;
-            if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
-                print_cmd_error_invalid_value(option_name, strInput[i]);
-                return 1;
-            } else {
-                pParams->vpp.telecinePattern = value;
-            }
-        }
-        if (pParams->vpp.deinterlace != MFX_DEINTERLACE_NONE
-            && pParams->input.picstruct == RGY_PICSTRUCT_FRAME) {
-            pParams->input.picstruct = RGY_PICSTRUCT_FRAME_TFF;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-image-stab"))) {
-        i++;
-        int value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->vpp.imageStabilizer = value;
-        } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_image_stabilizer, strInput[i]))) {
-            pParams->vpp.imageStabilizer = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-fps-conv"))) {
-        i++;
-        int value = 0;
-        if (1 == _stscanf_s(strInput[i], _T("%d"), &value)) {
-            pParams->vpp.fpsConversion = value;
-        } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_fps_conversion, strInput[i]))) {
-            pParams->vpp.fpsConversion = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-half-turn"))) {
-        pParams->vpp.halfTurn = true;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-rotate"))) {
-        i++;
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_rotate_angle, strInput[i]))) {
-            pParams->vpp.rotate = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-mirror"))) {
-        i++;
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_mirroring, strInput[i]))) {
-            pParams->vpp.mirrorType = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-resize"))
-        || 0 == _tcscmp(option_name, _T("vpp-scaling"))) {
-        i++;
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_scaling_quality, strInput[i]))) {
-            pParams->vpp.scalingQuality = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-
-    if (IS_OPTION("vpp-colorspace")) {
-        pParams->vpp.colorspace.enable = true;
-        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-
-        const auto paramList = std::vector<std::string>{
-            "matrix", "colormatrix", "range"/*, "colorprim", "transfer", "colorrange", "source_peak", "approx_gamma",
-            "hdr2sdr", "ldr_nits", "a", "b", "c", "d", "e", "f", "contrast", "peak"*/ };
-
-        for (const auto &param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto parse = [](int *from, int *to, tstring param_val, const CX_DESC *list) {
-                    auto from_to = split(param_val, _T(":"));
-                    if (from_to.size() == 2
-                        && get_list_value(list, from_to[0].c_str(), from)
-                        && get_list_value(list, from_to[1].c_str(), to)) {
-                        return true;
-                    }
-                    return false;
-                };
-                if (pParams->vpp.colorspace.convs.size() == 0) {
-                    pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
-                }
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos+1);
-                param_arg = tolowercase(param_arg);
-                if (param_arg == _T("matrix") || param_arg == _T("colormatrix")) {
-                    auto& conv = pParams->vpp.colorspace.convs.back();
-                    if (conv.from.matrix != conv.to.matrix) {
-                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
-                        conv = pParams->vpp.colorspace.convs.back();
-                    }
-                    if (!parse((int *)&conv.from.matrix, (int *)&conv.to.matrix, param_val, list_colormatrix)) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colormatrix);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (false && param_arg == _T("colorprim")) {
-                    auto &conv = pParams->vpp.colorspace.convs.back();
-                    if (conv.from.colorprim != conv.to.colorprim) {
-                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
-                        conv = pParams->vpp.colorspace.convs.back();
-                    }
-                    if (!parse((int *)&conv.from.colorprim, (int *)&conv.to.colorprim, param_val, list_colorprim)) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorprim);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (false && param_arg == _T("transfer")) {
-                    auto &conv = pParams->vpp.colorspace.convs.back();
-                    if (conv.from.transfer != conv.to.transfer) {
-                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
-                        conv = pParams->vpp.colorspace.convs.back();
-                    }
-                    if (!parse((int *)&conv.from.transfer, (int *)&conv.to.transfer, param_val, list_transfer)) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_transfer);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("range") || param_arg == _T("colorrange")) {
-                    auto &conv = pParams->vpp.colorspace.convs.back();
-                    if (conv.from.colorrange != conv.to.colorrange) {
-                        pParams->vpp.colorspace.convs.push_back(ColorspaceConv());
-                        conv = pParams->vpp.colorspace.convs.back();
-                    }
-                    if (!parse((int *)&conv.from.colorrange, (int *)&conv.to.colorrange, param_val, list_colorrange)) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("should be specified by <string>:<string>."), list_colorrange);
-                        return 1;
-                    }
-                    continue;
-                }
-#if 0
-                if (param_arg == _T("source_peak")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hdr_source_peak = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("approx_gamma")) {
-                    auto &conv = pParams->vpp.colorspace.convs.back();
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        conv.approx_gamma = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("scene_ref")) {
-                    auto &conv = pParams->vpp.colorspace.convs.back();
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        conv.scene_ref = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("hdr2sdr")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_hdr2sdr, param_val.c_str(), &value)) {
-                        pParams->vpp.colorspace.hdr2sdr.tonemap = (HDR2SDRToneMap)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_hdr2sdr);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("ldr_nits")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.ldr_nits = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("a")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hable.a = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("b")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hable.b = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("c")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hable.c = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("d")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hable.d = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("e")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hable.e = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("f")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.hable.f = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("w")) {
-                    continue;
-                }
-                if (param_arg == _T("transition")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.mobius.transition = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("contrast")) {
-                    try {
-                        pParams->vpp.colorspace.hdr2sdr.reinhard.contrast = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("peak")) {
-                    try {
-                        float peak = std::stof(param_val);
-                        pParams->vpp.colorspace.hdr2sdr.mobius.peak = peak;
-                        pParams->vpp.colorspace.hdr2sdr.reinhard.peak = peak;
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-#endif
-                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            } else {
-#if 0
-                if (param == _T("hdr2sdr")) {
-                    pParams->vpp.colorspace.hdr2sdr.tonemap = HDR2SDR_HABLE;
-                    continue;
-                }
-#endif
-                print_cmd_error_unknown_opt_param(option_name, param, paramList);
-                return 1;
-            }
-        }
-        return 0;
-    }
-#if ENABLE_CUSTOM_VPP
-#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-    if (0 == _tcscmp(option_name, _T("vpp-sub"))) {
-        if (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0')) {
-            i++;
-            TCHAR *endPtr = nullptr;
-            int nSubTrack = _tcstol(strInput[i], &endPtr, 10);
-            if (pParams->vpp.subburn.pFilePath) {
-                free(pParams->vpp.subburn.pFilePath);
-            }
-            if (0 < nSubTrack && (endPtr == nullptr || *endPtr == _T('\0'))) {
-                pParams->vpp.subburn.nTrack = nSubTrack;
-                pParams->vpp.subburn.pFilePath = nullptr;
-            } else {
-                pParams->vpp.subburn.nTrack = 0;
-                pParams->vpp.subburn.pFilePath = _tcsdup(strInput[i]);
-            }
-        } else {
-            pParams->vpp.subburn.nTrack = 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-sub-charset"))) {
-        if (i+1 < nArgNum && (strInput[i+1][0] != _T('-') && strInput[i+1][0] != _T('\0'))) {
-            i++;
-            if (pParams->vpp.subburn.pCharEnc) {
-                free(pParams->vpp.subburn.pCharEnc);
-            }
-            pParams->vpp.subburn.pCharEnc = _tcsdup(strInput[i]);
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-sub-shaping"))) {
-        i++;
-        int v;
-        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_vpp_sub_shaping, strInput[i]))) {
-            pParams->vpp.subburn.nShaping = v;
-        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_vpp_sub_shaping) - 1) {
-            pParams->vpp.subburn.nShaping = v;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-    if (   0 == _tcscmp(option_name, _T("vpp-delogo"))
-        || 0 == _tcscmp(option_name, _T("vpp-delogo-file"))) {
-        i++;
-        int filename_len = (int)_tcslen(strInput[i]);
-        pParams->vpp.delogo.pFilePath = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->vpp.delogo.pFilePath[0]));
-        memcpy(pParams->vpp.delogo.pFilePath, strInput[i], sizeof(pParams->vpp.delogo.pFilePath[0]) * filename_len);
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-delogo-select"))) {
-        i++;
-        int filename_len = (int)_tcslen(strInput[i]);
-        pParams->vpp.delogo.pSelect = (TCHAR *)calloc(filename_len + 1, sizeof(pParams->vpp.delogo.pSelect[0]));
-        memcpy(pParams->vpp.delogo.pSelect, strInput[i], sizeof(pParams->vpp.delogo.pSelect[0]) * filename_len);
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-delogo-pos"))) {
-        i++;
-        int posOffsetx = 0, posOffsety = 0;
-        if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &posOffsetx, &posOffsety)
-            && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &posOffsetx, &posOffsety)
-            && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &posOffsetx, &posOffsety)
-            && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &posOffsetx, &posOffsety)) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        pParams->vpp.delogo.posOffset = std::make_pair(posOffsetx, posOffsety);
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-delogo-depth"))) {
-        i++;
-        try {
-            pParams->vpp.delogo.depth = clamp(std::stoi(strInput[i]), 0, 255);
-        } catch (...) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-delogo-y"))) {
-        i++;
-        try {
-            pParams->vpp.delogo.YOffset = std::stoi(strInput[i]);
-        } catch (...) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-delogo-cb"))) {
-        i++;
-        try {
-            pParams->vpp.delogo.CbOffset = std::stoi(strInput[i]);
-        } catch (...) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-delogo-cr"))) {
-        i++;
-        try {
-            pParams->vpp.delogo.CrOffset = std::stoi(strInput[i]);
-        } catch (...) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-delogo-add"))) {
-        pParams->vpp.delogo.add = true;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-vpp-delogo-add"))) {
-        pParams->vpp.delogo.add = false;
-        return 0;
-    }
-#endif //#if ENABLE_CUSTOM_VPP
     if (0 == _tcscmp(option_name, _T("input-buf"))) {
         i++;
         try {
@@ -1835,6 +1841,9 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (ret >= 0) return ret;
 
     ret = parse_one_ctrl_option(option_name, strInput, i, nArgNum, &pParams->ctrl, argData);
+    if (ret >= 0) return ret;
+
+    ret = parse_one_vppmfx_option(option_name, strInput, i, nArgNum, &pParams->vppmfx, argData);
     if (ret >= 0) return ret;
 
     print_cmd_error_unknown_opt(strInput[i]);
@@ -2023,6 +2032,130 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
 }
 #endif
 
+
+tstring gen_cmd_vppmfx(const sVppParams *param, const sVppParams *defaultPrm, bool save_disabled_prm) {
+#define OPT_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << std::setprecision(prec) << (param->opt);
+#define OPT_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(param->opt);
+#define OPT_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (param->opt));
+#define OPT_BOOL(str_true, str_false, opt) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << ((param->opt) ? (str_true) : (str_false));
+#define OPT_BOOL_VAL(str_true, str_false, opt, val) { \
+    if ((param->opt) != (defaultPrm->opt) || (save_disabled_prm && (param->val) != (defaultPrm->val))) { \
+        cmd << _T(" ") << ((param->opt) ? (str_true) : (str_false)) <<  _T(" ") << (param->val); \
+    } \
+}
+
+#define OPT_TCHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" ") << (param->opt);
+#define OPT_TSTR(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << param->opt.c_str();
+#define OPT_CHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(param->opt);
+#define OPT_STR(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << char_to_tstring(param->opt).c_str();
+#define OPT_CHAR_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" \"") << (param->opt) << _T("\"");
+#define OPT_STR_PATH(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (param->opt.c_str()) << _T("\"");
+
+    std::basic_stringstream<TCHAR> tmp;
+    std::basic_stringstream<TCHAR> cmd;
+
+    OPT_LST(_T("--vpp-deinterlace"), deinterlace, list_deinterlace);
+    OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), detail.enable, detail.strength);
+    OPT_BOOL_VAL(_T("--vpp-denoise"), _T("--no-vpp-denoise"), denoise.enable, denoise.strength);
+    if (param->mctf.enable && param->mctf.strength == 0) {
+        cmd << _T(" --vpp-mctf auto");
+    } else {
+        OPT_BOOL_VAL(_T("--vpp-mctf"), _T("--no-vpp-mctf"), mctf.enable, mctf.strength);
+    }
+    OPT_BOOL(_T("--vpp-half-turn"), _T(""), halfTurn);
+    OPT_LST(_T("--vpp-rotate"), rotate, list_vpp_rotate_angle);
+    OPT_LST(_T("--vpp-mirror"), mirrorType, list_vpp_mirroring);
+    OPT_LST(_T("--vpp-scaling"), scalingQuality, list_vpp_scaling_quality);
+    OPT_LST(_T("--vpp-fps-conv"), fpsConversion, list_vpp_fps_conversion);
+    OPT_LST(_T("--vpp-image-stab"), imageStabilizer, list_vpp_image_stabilizer);
+
+#if 0
+    if (param->colorspace != defaultPrm->colorspace) {
+        tmp.str(tstring());
+        if (!pParams->colorspace.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->colorspace.enable || save_disabled_prm) {
+            for (size_t i = 0; i < pParams->colorspace.convs.size(); i++) {
+                auto from = pParams->colorspace.convs[i].from;
+                auto to = pParams->colorspace.convs[i].to;
+                if (from.matrix != to.matrix) {
+                    tmp << _T(",matrix=");
+                    tmp << get_cx_desc(list_colormatrix, from.matrix);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colormatrix, to.matrix);
+                }
+                if (false && from.colorprim != to.colorprim) {
+                    tmp << _T(",colorprim=");
+                    tmp << get_cx_desc(list_colorprim, from.colorprim);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorprim, to.colorprim);
+                }
+                if (false && from.transfer != to.transfer) {
+                    tmp << _T(",transfer=");
+                    tmp << get_cx_desc(list_transfer, from.transfer);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_transfer, to.transfer);
+                }
+                if (from.colorrange != to.colorrange) {
+                    tmp << _T(",range=");
+                    tmp << get_cx_desc(list_colorrange, from.colorrange);
+                    tmp << _T(":");
+                    tmp << get_cx_desc(list_colorrange, to.colorrange);
+                }
+                ADD_BOOL(_T("approx_gamma"), colorspace.convs[i].approx_gamma);
+                ADD_BOOL(_T("scene_ref"), colorspace.convs[i].scene_ref);
+                ADD_LST(_T("hdr2sdr"), colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
+                ADD_FLOAT(_T("ldr_nits"), colorspace.hdr2sdr.ldr_nits, 1);
+                ADD_FLOAT(_T("source_peak"), colorspace.hdr2sdr.hdr_source_peak, 1);
+                ADD_FLOAT(_T("a"), colorspace.hdr2sdr.hable.a, 3);
+                ADD_FLOAT(_T("b"), colorspace.hdr2sdr.hable.b, 3);
+                ADD_FLOAT(_T("c"), colorspace.hdr2sdr.hable.c, 3);
+                ADD_FLOAT(_T("d"), colorspace.hdr2sdr.hable.d, 3);
+                ADD_FLOAT(_T("e"), colorspace.hdr2sdr.hable.e, 3);
+                ADD_FLOAT(_T("f"), colorspace.hdr2sdr.hable.f, 3);
+                ADD_FLOAT(_T("transition"), colorspace.hdr2sdr.mobius.transition, 3);
+                ADD_FLOAT(_T("peak"), colorspace.hdr2sdr.mobius.peak, 3);
+                ADD_FLOAT(_T("contrast"), colorspace.hdr2sdr.reinhard.contrast, 3);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-colorspace ") << tmp.str().substr(1);
+        } else if (pParams->colorspace.enable) {
+            cmd << _T(" --vpp-colorspace");
+        }
+    }
+#if ENABLE_CUSTOM_VPP
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
+    OPT_CHAR_PATH(_T("--vpp-sub"), subburn.pFilePath);
+    OPT_CHAR_PATH(_T("--vpp-sub-charset"), subburn.pCharEnc);
+    OPT_LST(_T("--vpp-sub-shaping"), subburn.nShaping, list_vpp_sub_shaping);
+#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
+    OPT_CHAR_PATH(_T("--vpp-delogo"), delogo.pFilePath);
+    OPT_CHAR(_T("--vpp-delogo-select"), delogo.pSelect);
+    OPT_NUM(_T("--vpp-delogo-depth"), delogo.depth);
+    if (pParams->delogo.posOffset.first > 0 || pParams->delogo.posOffset.second > 0) {
+        cmd << _T(" --vpp-delogo-pos ") << pParams->delogo.posOffset.first << _T("x") << pParams->delogo.posOffset.second;
+    }
+    OPT_NUM(_T("--vpp-delogo-y"), delogo.YOffset);
+    OPT_NUM(_T("--vpp-delogo-cb"), delogo.CbOffset);
+    OPT_NUM(_T("--vpp-delogo-cr"), delogo.CrOffset);
+#endif //#if ENABLE_CUSTOM_VPP
+#endif
+    return cmd.str();
+
+#undef OPT_FLOAT
+#undef OPT_NUM
+#undef OPT_LST
+#undef OPT_BOOL
+#undef OPT_BOOL_VAL
+#undef OPT_TCHAR
+#undef OPT_TSTR
+#undef OPT_CHAR
+#undef OPT_STR
+#undef OPT_CHAR_PATH
+#undef OPT_STR_PATH
+}
 
 #pragma warning (push)
 #pragma warning (disable: 4127)
@@ -2249,95 +2382,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #endif //#if ENABLE_SESSION_THREAD_CONFIG
 
     cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm);
+    cmd << gen_cmd_vppmfx(&pParams->vppmfx, &encPrmDefault.vppmfx, save_disabled_prm);
 
-    OPT_LST(_T("--vpp-deinterlace"), vpp.deinterlace, list_deinterlace);
-    OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), vpp.detail.enable, vpp.detail.strength);
-    OPT_BOOL_VAL(_T("--vpp-denoise"), _T("--no-vpp-denoise"), vpp.denoise.enable, vpp.denoise.strength);
-    if (pParams->vpp.mctf.enable && pParams->vpp.mctf.strength == 0) {
-        cmd << _T(" --vpp-mctf auto");
-    } else {
-        OPT_BOOL_VAL(_T("--vpp-mctf"), _T("--no-vpp-mctf"), vpp.mctf.enable, vpp.mctf.strength);
-    }
-    OPT_BOOL(_T("--vpp-half-turn"), _T(""), vpp.halfTurn);
-    OPT_LST(_T("--vpp-rotate"), vpp.rotate, list_vpp_rotate_angle);
-    OPT_LST(_T("--vpp-mirror"), vpp.mirrorType, list_vpp_mirroring);
-    OPT_LST(_T("--vpp-scaling"), vpp.scalingQuality, list_vpp_scaling_quality);
-    OPT_LST(_T("--vpp-fps-conv"), vpp.fpsConversion, list_vpp_fps_conversion);
-    OPT_LST(_T("--vpp-image-stab"), vpp.imageStabilizer, list_vpp_image_stabilizer);
-
-    if (pParams->vpp.colorspace != encPrmDefault.vpp.colorspace) {
-        tmp.str(tstring());
-        if (!pParams->vpp.colorspace.enable && save_disabled_prm) {
-            tmp << _T(",enable=false");
-        }
-        if (pParams->vpp.colorspace.enable || save_disabled_prm) {
-            for (size_t i = 0; i < pParams->vpp.colorspace.convs.size(); i++) {
-                auto from = pParams->vpp.colorspace.convs[i].from;
-                auto to = pParams->vpp.colorspace.convs[i].to;
-                if (from.matrix != to.matrix) {
-                    tmp << _T(",matrix=");
-                    tmp << get_cx_desc(list_colormatrix, from.matrix);
-                    tmp << _T(":");
-                    tmp << get_cx_desc(list_colormatrix, to.matrix);
-                }
-                if (false && from.colorprim != to.colorprim) {
-                    tmp << _T(",colorprim=");
-                    tmp << get_cx_desc(list_colorprim, from.colorprim);
-                    tmp << _T(":");
-                    tmp << get_cx_desc(list_colorprim, to.colorprim);
-                }
-                if (false && from.transfer != to.transfer) {
-                    tmp << _T(",transfer=");
-                    tmp << get_cx_desc(list_transfer, from.transfer);
-                    tmp << _T(":");
-                    tmp << get_cx_desc(list_transfer, to.transfer);
-                }
-                if (from.colorrange != to.colorrange) {
-                    tmp << _T(",range=");
-                    tmp << get_cx_desc(list_colorrange, from.colorrange);
-                    tmp << _T(":");
-                    tmp << get_cx_desc(list_colorrange, to.colorrange);
-                }
-#if 0
-                ADD_BOOL(_T("approx_gamma"), vpp.colorspace.convs[i].approx_gamma);
-                ADD_BOOL(_T("scene_ref"), vpp.colorspace.convs[i].scene_ref);
-                ADD_LST(_T("hdr2sdr"), vpp.colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
-                ADD_FLOAT(_T("ldr_nits"), vpp.colorspace.hdr2sdr.ldr_nits, 1);
-                ADD_FLOAT(_T("source_peak"), vpp.colorspace.hdr2sdr.hdr_source_peak, 1);
-                ADD_FLOAT(_T("a"), vpp.colorspace.hdr2sdr.hable.a, 3);
-                ADD_FLOAT(_T("b"), vpp.colorspace.hdr2sdr.hable.b, 3);
-                ADD_FLOAT(_T("c"), vpp.colorspace.hdr2sdr.hable.c, 3);
-                ADD_FLOAT(_T("d"), vpp.colorspace.hdr2sdr.hable.d, 3);
-                ADD_FLOAT(_T("e"), vpp.colorspace.hdr2sdr.hable.e, 3);
-                ADD_FLOAT(_T("f"), vpp.colorspace.hdr2sdr.hable.f, 3);
-                ADD_FLOAT(_T("transition"), vpp.colorspace.hdr2sdr.mobius.transition, 3);
-                ADD_FLOAT(_T("peak"), vpp.colorspace.hdr2sdr.mobius.peak, 3);
-                ADD_FLOAT(_T("contrast"), vpp.colorspace.hdr2sdr.reinhard.contrast, 3);
-#endif
-            }
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-colorspace ") << tmp.str().substr(1);
-        } else if (pParams->vpp.colorspace.enable) {
-            cmd << _T(" --vpp-colorspace");
-        }
-    }
-#if ENABLE_CUSTOM_VPP
-#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-    OPT_CHAR_PATH(_T("--vpp-sub"), vpp.subburn.pFilePath);
-    OPT_CHAR_PATH(_T("--vpp-sub-charset"), vpp.subburn.pCharEnc);
-    OPT_LST(_T("--vpp-sub-shaping"), vpp.subburn.nShaping, list_vpp_sub_shaping);
-#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-    OPT_CHAR_PATH(_T("--vpp-delogo"), vpp.delogo.pFilePath);
-    OPT_CHAR(_T("--vpp-delogo-select"), vpp.delogo.pSelect);
-    OPT_NUM(_T("--vpp-delogo-depth"), vpp.delogo.depth);
-    if (pParams->vpp.delogo.posOffset.first > 0 || pParams->vpp.delogo.posOffset.second > 0) {
-        cmd << _T(" --vpp-delogo-pos ") << pParams->vpp.delogo.posOffset.first << _T("x") << pParams->vpp.delogo.posOffset.second;
-    }
-    OPT_NUM(_T("--vpp-delogo-y"), vpp.delogo.YOffset);
-    OPT_NUM(_T("--vpp-delogo-cb"), vpp.delogo.CbOffset);
-    OPT_NUM(_T("--vpp-delogo-cr"), vpp.delogo.CrOffset);
-#endif //#if ENABLE_CUSTOM_VPP
 #if defined(_WIN32) || defined(_WIN64)
     OPT_NUM(_T("--mfx-thread"), nSessionThreads);
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -2349,3 +2395,4 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     return cmd.str();
 }
 #pragma warning (pop)
+

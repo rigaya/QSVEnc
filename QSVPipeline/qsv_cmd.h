@@ -42,4 +42,6 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err = f
 
 tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm);
 
+tstring gen_cmd_help_vppmfx();
+
 #endif //__QSV_CMD_H__

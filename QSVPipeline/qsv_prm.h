@@ -143,82 +143,42 @@ struct VppSubburn {
     ~VppSubburn() {};
 };
 
+enum class VppType {
+    VPP_NONE,
 
-enum HDR2SDRToneMap {
-    HDR2SDR_DISABLED,
-    HDR2SDR_HABLE,
-    HDR2SDR_MOBIUS,
-    HDR2SDR_REINHARD
-};
+    MFX_COLORSPACE,
+    MFX_CROP,
+    MFX_DEINTERLACE,
+    MFX_MCTF,
+    MFX_DENOISE,
+    MFX_RESIZE,
+    MFX_DETAIL_ENHANCE,
 
-const CX_DESC list_vpp_hdr2sdr[] = {
-    { _T("none"),     HDR2SDR_DISABLED },
-    { _T("hable"),    HDR2SDR_HABLE },
-    { _T("mobius"),   HDR2SDR_MOBIUS },
-    { _T("reinhard"), HDR2SDR_REINHARD },
-    { NULL, 0 }
-};
+    MFX_MAX,
 
-struct ColorspaceConv {
-    VideoVUIInfo from, to;
-    double sdr_source_peak;
-    bool approx_gamma;
-    bool scene_ref;
+    CL_MIN = MFX_MAX,
 
-    ColorspaceConv();
-    void set(const VideoVUIInfo& csp_from, const VideoVUIInfo& csp_to) {
-        from = csp_from;
-        to = csp_to;
-    }
-    bool operator==(const ColorspaceConv& x) const;
-    bool operator!=(const ColorspaceConv& x) const;
-};
+    CL_CROP,
+    CL_AFS,
+    CL_NNEDI,
+    CL_YADIF,
+    CL_COLORSPACE,
+    CL_DELOGO,
+    CL_ROTATE,
 
-struct TonemapHable {
-    double a, b, c, d, e, f;
+    CL_DENOISE_PMD,
+    CL_DENOISE_KNN,
+    CL_DENOISE_SMOOTH,
 
-    TonemapHable();
-    bool operator==(const TonemapHable& x) const;
-    bool operator!=(const TonemapHable& x) const;
-};
+    CL_RESIZE,
+    CL_SUBBURN,
+    CL_UNSHARP,
+    CL_WARPSHARP,
+    CL_EDGELEVEL,
 
-struct TonemapMobius {
-    double transition, peak;
+    CL_DEBAND,
 
-    TonemapMobius();
-    bool operator==(const TonemapMobius& x) const;
-    bool operator!=(const TonemapMobius& x) const;
-};
-
-struct TonemapReinhard {
-    double contrast, peak;
-
-    TonemapReinhard();
-    bool operator==(const TonemapReinhard& x) const;
-    bool operator!=(const TonemapReinhard& x) const;
-};
-
-struct HDR2SDRParams {
-    HDR2SDRToneMap tonemap;
-    TonemapHable hable;
-    TonemapMobius mobius;
-    TonemapReinhard reinhard;
-    double ldr_nits;
-    double hdr_source_peak;
-
-    HDR2SDRParams();
-    bool operator==(const HDR2SDRParams& x) const;
-    bool operator!=(const HDR2SDRParams& x) const;
-};
-
-struct VppColorspace {
-    bool enable;
-    HDR2SDRParams hdr2sdr;
-    vector<ColorspaceConv> convs;
-
-    VppColorspace();
-    bool operator==(const VppColorspace& x) const;
-    bool operator!=(const VppColorspace& x) const;
+    CL_MAX,
 };
 
 struct sVppParams {
@@ -244,7 +204,6 @@ struct sVppParams {
     VppDetailEnhance detail;
     VppDelogo delogo;
     VppSubburn subburn;
-    VppColorspace colorspace;
 
     sVppParams();
     ~sVppParams() {};
@@ -254,7 +213,8 @@ struct sInputParams {
     VideoInfo input;              //入力する動画の情報
     RGYParamCommon common;
     RGYParamControl ctrl;
-    sVppParams vpp;
+    RGYParamVpp vpp;
+    sVppParams vppmfx;
 
     int nEncMode;      // RateControl
     int nTargetUsage;  // Quality

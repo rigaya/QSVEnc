@@ -2360,6 +2360,9 @@ CQSVPipeline::CQSVPipeline() :
     m_pStatus(),
     m_pPerfMonitor(),
     m_EncThread(),
+    m_encWidth(0),
+    m_encHeight(0),
+    m_encPicstruct(RGY_PICSTRUCT_UNKNOWN),
     m_inputFps(),
     m_encFps(),
     m_outputTimebase(),
@@ -2776,34 +2779,89 @@ mfxStatus CQSVPipeline::InitInput(sInputParams *inputParam) {
 #endif //#if ENABLE_RAW_READER
 }
 
-mfxStatus CQSVPipeline::CheckParam(sInputParams *pParams) {
+RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
 
-    if ((pParams->memType & HW_MEMORY)
+    if ((inputParam->memType & HW_MEMORY)
         && (inputFrameInfo.csp == RGY_CSP_NV16 || inputFrameInfo.csp == RGY_CSP_P210)) {
         PrintMes(RGY_LOG_WARN, _T("Currently yuv422 surfaces are not supported by d3d9/d3d11 memory.\n"));
         PrintMes(RGY_LOG_WARN, _T("Switching to system memory.\n"));
-        pParams->memType = SYSTEM_MEMORY;
+        inputParam->memType = SYSTEM_MEMORY;
     }
 
     //デコードを行う場合は、入力バッファサイズを常に1に設定する (そうしないと正常に動かない)
     //また、バッファサイズを拡大しても特に高速化しない
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        pParams->nInputBufSize = 1;
+        inputParam->nInputBufSize = 1;
         //Haswell以前はHEVCデコーダを使用する場合はD3D11メモリを使用しないと正常に稼働しない (4080ドライバ)
         if (getCPUGen(&m_mfxSession) <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
-            if (pParams->memType & D3D9_MEMORY) {
-                pParams->memType &= ~D3D9_MEMORY;
-                pParams->memType |= D3D11_MEMORY;
+            if (inputParam->memType & D3D9_MEMORY) {
+                inputParam->memType &= ~D3D9_MEMORY;
+                inputParam->memType |= D3D11_MEMORY;
             }
             PrintMes(RGY_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC decoding on Haswell.\n"));
         }
     }
 
-    //入力バッファサイズの範囲チェック
-    pParams->nInputBufSize = (mfxU16)clamp_param_int(pParams->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
+    // 解像度の条件とcrop
+    int h_mul = 2;
+    bool output_interlaced = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0 && !inputParam->vppmfx.deinterlace);
+    if (output_interlaced) {
+        h_mul *= 2;
+    }
+    // crop設定の確認
+    if (inputParam->input.crop.e.left % 2 != 0 || inputParam->input.crop.e.right % 2 != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (inputParam->input.crop.e.bottom % h_mul != 0 || inputParam->input.crop.e.up % h_mul != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (0 == inputParam->input.srcWidth || 0 == inputParam->input.srcHeight) {
+        PrintMes(RGY_LOG_ERROR, _T("--input-res must be specified with raw input.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+    if (inputParam->input.srcWidth < (inputParam->input.crop.e.left + inputParam->input.crop.e.right)
+        || inputParam->input.srcHeight < (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up)) {
+        PrintMes(RGY_LOG_ERROR, _T("crop size is too big.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
 
-    return MFX_ERR_NONE;
+    //解像度の自動設定
+    auto outpar = std::make_pair(inputParam->nPAR[0], inputParam->nPAR[1]);
+    if ((!inputParam->nPAR[0] || !inputParam->nPAR[1]) //SAR比の指定がない
+        && inputParam->input.sar[0] && inputParam->input.sar[1] //入力側からSAR比を取得ずみ
+        && (inputParam->input.dstWidth == inputParam->input.srcWidth && inputParam->input.dstHeight == inputParam->input.srcHeight)) {//リサイズは行われない
+        outpar = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
+    }
+    if (inputParam->input.dstWidth < 0 && inputParam->input.dstHeight < 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Either one of output resolution must be positive value.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+
+    set_auto_resolution(inputParam->input.dstWidth, inputParam->input.dstHeight, outpar.first, outpar.second,
+        inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], inputParam->input.crop);
+
+    // 解像度の条件とcrop
+    if (inputParam->input.dstWidth % 2 != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("output width should be a multiple of 2.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+
+    if (inputParam->input.dstHeight % h_mul != 0) {
+        PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d.\n"), h_mul);
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+
+    //入力バッファサイズの範囲チェック
+    inputParam->nInputBufSize = (mfxU16)clamp_param_int(inputParam->nInputBufSize, QSV_INPUT_BUF_MIN, QSV_INPUT_BUF_MAX, _T("input-buf"));
+
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
@@ -2967,82 +3025,120 @@ RGY_ERR CQSVPipeline::initVppFilters(sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
-    int h_mul = 2;
-    bool output_interlaced = ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0 && !inputParam->vpp.deinterlace);
-    if (output_interlaced) {
-        h_mul *= 2;
-    }
-    //crop設定の確認
-    if (inputParam->input.crop.e.left % 2 != 0 || inputParam->input.crop.e.right % 2 != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("crop width should be a multiple of 2.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (inputParam->input.crop.e.bottom % h_mul != 0 || inputParam->input.crop.e.up % h_mul != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("crop height should be a multiple of %d.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (0 == inputParam->input.srcWidth || 0 == inputParam->input.srcHeight) {
-        PrintMes(RGY_LOG_ERROR, _T("--input-res must be specified with raw input.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {
-        PrintMes(RGY_LOG_ERROR, _T("--fps must be specified with raw input.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    if (   inputParam->input.srcWidth < (inputParam->input.crop.e.left + inputParam->input.crop.e.right)
-        || inputParam->input.srcHeight < (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up)) {
-            PrintMes(RGY_LOG_ERROR, _T("crop size is too big.\n"));
-            return MFX_ERR_INVALID_VIDEO_PARAM;
+RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
+    const bool cropRequired = cropEnabled(inputParam->input.crop)
+        && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
+
+    FrameInfo inputFrame;
+    inputFrame.width = inputParam->input.srcWidth;
+    inputFrame.height = inputParam->input.srcHeight;
+    inputFrame.csp = inputParam->input.csp;
+    inputFrame.picstruct = inputParam->input.picstruct;
+    const int croppedWidth = inputFrame.width - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
+    const int croppedHeight = inputFrame.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
+    if (!cropRequired) {
+        //入力時にcrop済み
+        inputFrame.width = croppedWidth;
+        inputFrame.height = croppedHeight;
     }
 
     //出力解像度が設定されていない場合は、入力解像度と同じにする
     if (inputParam->input.dstWidth == 0) {
-        inputParam->input.dstWidth = inputParam->input.srcWidth - (inputParam->input.crop.e.left + inputParam->input.crop.e.right);
+        inputParam->input.dstWidth = croppedWidth;
     }
-
     if (inputParam->input.dstHeight == 0) {
-        inputParam->input.dstHeight = inputParam->input.srcHeight - (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up);
+        inputParam->input.dstHeight = croppedHeight;
+    }
+    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
+        inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
     }
 
-    auto outpar = std::make_pair(inputParam->nPAR[0], inputParam->nPAR[1]);
-    if ((!inputParam->nPAR[0] || !inputParam->nPAR[1]) //SAR比の指定がない
-        && inputParam->input.sar[0] && inputParam->input.sar[1] //入力側からSAR比を取得ずみ
-        && (inputParam->input.dstWidth == inputParam->input.srcWidth && inputParam->input.dstHeight == inputParam->input.srcHeight)) {//リサイズは行われない
-        outpar = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
-    }
-    if (inputParam->input.dstWidth < 0 && inputParam->input.dstHeight < 0) {
-        PrintMes(RGY_LOG_ERROR, _T("Either one of output resolution must be positive value.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-
-    set_auto_resolution(inputParam->input.dstWidth, inputParam->input.dstHeight, outpar.first, outpar.second,
-        inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], inputParam->input.crop);
-
-    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-        //QSVデコードを使わない場合には、入力段階でCropが行われる
-        inputParam->input.srcWidth -= (inputParam->input.crop.e.left + inputParam->input.crop.e.right);
-        inputParam->input.srcHeight -= (inputParam->input.crop.e.bottom + inputParam->input.crop.e.up);
+    //リサイザの出力すべきサイズ
+    int resizeWidth = croppedWidth;
+    int resizeHeight = croppedHeight;
+    m_encWidth = resizeWidth;
+    m_encHeight = resizeHeight;
+    if (inputParam->vpp.pad.enable) {
+        m_encWidth += inputParam->vpp.pad.right + inputParam->vpp.pad.left;
+        m_encHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
     }
 
-    //入力解像度と出力解像度が一致しないときはリサイズが必要なので、vppを有効にする
-    if (inputParam->input.dstHeight != inputParam->input.srcHeight
-        || inputParam->input.dstWidth != inputParam->input.srcWidth) {
-        inputParam->vpp.bEnable = true;
-        inputParam->vpp.bUseResize = true;
-    } else {
-        inputParam->vpp.bUseResize = false;
+    //指定のリサイズがあればそのサイズに設定する
+    if (inputParam->input.dstWidth > 0 && inputParam->input.dstHeight > 0) {
+        m_encWidth = inputParam->input.dstWidth;
+        m_encHeight = inputParam->input.dstHeight;
+        resizeWidth = m_encWidth;
+        resizeHeight = m_encHeight;
+        if (inputParam->vpp.pad.enable) {
+            resizeWidth -= (inputParam->vpp.pad.right + inputParam->vpp.pad.left);
+            resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
+        }
+    }
+    bool resizeRequired = false;
+    if (croppedWidth != resizeWidth || croppedHeight != resizeHeight) {
+        resizeRequired = true;
     }
 
-    if (inputParam->input.dstWidth % 2 != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("output width should be a multiple of 2.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
+    //フレームレートのチェック
+    if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("unable to parse fps data.\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+    m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
+
+    if (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
+        if (CheckParamList(inputParam->vppmfx.deinterlace, list_deinterlace, "vpp-deinterlace") != MFX_ERR_NONE) {
+            return RGY_ERR_INVALID_VIDEO_PARAM;
+        }
+        if (inputParam->common.AVSyncMode == RGY_AVSYNC_FORCE_CFR
+            && (inputParam->vppmfx.deinterlace == MFX_DEINTERLACE_IT
+                || inputParam->vppmfx.deinterlace == MFX_DEINTERLACE_IT_MANUAL
+                || inputParam->vppmfx.deinterlace == MFX_DEINTERLACE_BOB
+                || inputParam->vppmfx.deinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
+            PrintMes(RGY_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, inputParam->vppmfx.deinterlace));
+            return RGY_ERR_INVALID_VIDEO_PARAM;
+        }
+
+        switch (inputParam->vppmfx.deinterlace) {
+        case MFX_DEINTERLACE_IT:
+        case MFX_DEINTERLACE_IT_MANUAL:
+            m_encFps *= rgy_rational<int>(4, 5);
+            break;
+        case MFX_DEINTERLACE_BOB:
+        case MFX_DEINTERLACE_AUTO_DOUBLE:
+            m_encFps *= 2;
+            break;
+        default:
+            break;
+        }
+    }
+    switch (inputParam->vppmfx.fpsConversion) {
+    case FPS_CONVERT_MUL2:
+        m_encFps *= 2;
+        break;
+    case FPS_CONVERT_MUL2_5:
+        m_encFps *= rgy_rational<int>(5, 2);
+        break;
+    default:
+        break;
     }
 
-    if (inputParam->input.dstHeight % h_mul != 0) {
-        PrintMes(RGY_LOG_ERROR, _T("output height should be a multiple of %d.\n"), h_mul);
-        return MFX_ERR_INVALID_VIDEO_PARAM;
+    //インタレ解除の個数をチェック
+    int deinterlacer = 0;
+    if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE) deinterlacer++;
+    if (inputParam->vpp.afs.enable) deinterlacer++;
+    if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    //if (inputParam->vpp.yadif.enable) deinterlacer++;
+    if (deinterlacer >= 2) {
+        PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
+        return RGY_ERR_UNSUPPORTED;
     }
+    //picStructの設定
+    m_encPicstruct = (deinterlacer > 0) ? RGY_PICSTRUCT_FRAME : inputParam->input.picstruct;
+
+
+
+#if 0 // このあたりは廃止予定
     if (inputParam->vpp.rotate) {
 #if defined(_WIN32) || defined(_WIN64)
         switch (inputParam->vpp.rotate) {
@@ -3107,55 +3203,7 @@ mfxStatus CQSVPipeline::InitFilters(sInputParams *inputParam) {
         }
     }
 #endif
-
-    //フレームレートのチェック
-    if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {
-        PrintMes(RGY_LOG_ERROR, _T("unable to parse fps data.\n"));
-        return MFX_ERR_INVALID_VIDEO_PARAM;
-    }
-    m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
-
-    if (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
-        CHECK_RANGE_LIST(inputParam->vpp.deinterlace, list_deinterlace, "vpp-deinterlace");
-        if (inputParam->common.AVSyncMode == RGY_AVSYNC_FORCE_CFR
-            && (inputParam->vpp.deinterlace == MFX_DEINTERLACE_IT
-             || inputParam->vpp.deinterlace == MFX_DEINTERLACE_IT_MANUAL
-             || inputParam->vpp.deinterlace == MFX_DEINTERLACE_BOB
-             || inputParam->vpp.deinterlace == MFX_DEINTERLACE_AUTO_DOUBLE)) {
-            PrintMes(RGY_LOG_ERROR, _T("--avsync forcecfr cannnot be used with deinterlace %s.\n"), get_chr_from_value(list_deinterlace, inputParam->vpp.deinterlace));
-            return MFX_ERR_INVALID_VIDEO_PARAM;
-        }
-
-        switch (inputParam->vpp.deinterlace) {
-        case MFX_DEINTERLACE_IT:
-        case MFX_DEINTERLACE_IT_MANUAL:
-            m_encFps *= rgy_rational<int>(4, 5);
-            break;
-        case MFX_DEINTERLACE_BOB:
-        case MFX_DEINTERLACE_AUTO_DOUBLE:
-            m_encFps *= 2;
-            break;
-        default:
-            break;
-        }
-    }
-    switch (inputParam->vpp.fpsConversion) {
-    case FPS_CONVERT_MUL2:
-        m_encFps *= 2;
-        break;
-    case FPS_CONVERT_MUL2_5:
-        m_encFps *= rgy_rational<int>(5, 2);
-        break;
-    default:
-        break;
-    }
-    double inputFileDuration = 0.0;
-#if ENABLE_AVSW_READER
-    auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-    if (pAVCodecReader) {
-        inputFileDuration = pAVCodecReader->GetInputVideoDuration();
-    }
-#endif //#if ENABLE_AVSW_READER
+#endif
 
     mfxStatus sts = MFX_ERR_NONE;
 
