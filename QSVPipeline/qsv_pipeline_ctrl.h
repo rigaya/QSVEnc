@@ -3,7 +3,7 @@
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2021 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -1048,6 +1048,9 @@ public:
             return std::nullopt;
         }
         PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
+        const int blocksz = (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) ? 32 : 16;
+        allocRequest.Info.Width  = ALIGN(allocRequest.Info.Width,  blocksz);
+        allocRequest.Info.Height = ALIGN(allocRequest.Info.Height, blocksz);
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };

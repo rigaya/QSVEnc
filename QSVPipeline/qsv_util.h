@@ -69,6 +69,7 @@ MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, mfxU32);
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct);
 RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct);
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info);
+mfxFrameInfo frameinfo_rgy_to_enc(const FrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize);
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui, const mfxExtChromaLocInfo& chromaloc);
 VideoInfo videooutputinfo(const mfxFrameInfo& frameinfo);
 
@@ -110,6 +111,8 @@ const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, con
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
 
 tstring qsv_memtype_str(uint32_t memtype);
+
+mfxHandleType mfxHandleTypeFromMemType(const MemType memType);
 
 static inline uint16_t check_coding_option(uint16_t value) {
     if (value == MFX_CODINGOPTION_UNKNOWN

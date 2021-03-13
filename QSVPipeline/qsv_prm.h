@@ -143,16 +143,20 @@ struct VppSubburn {
     ~VppSubburn() {};
 };
 
-enum class VppType {
+enum class VppType : int {
     VPP_NONE,
 
     MFX_COLORSPACE,
     MFX_CROP,
+    MFX_ROTATE,
+    MFX_MIRROR,
     MFX_DEINTERLACE,
     MFX_MCTF,
     MFX_DENOISE,
     MFX_RESIZE,
     MFX_DETAIL_ENHANCE,
+    MFX_IMAGE_STABILIZATION,
+    MFX_FPS_CONV,
 
     MFX_MAX,
 
@@ -164,22 +168,37 @@ enum class VppType {
     CL_YADIF,
     CL_COLORSPACE,
     CL_DELOGO,
-    CL_ROTATE,
+    CL_TRANSFORM,
 
     CL_DENOISE_PMD,
     CL_DENOISE_KNN,
     CL_DENOISE_SMOOTH,
 
     CL_RESIZE,
+
     CL_SUBBURN,
+
     CL_UNSHARP,
-    CL_WARPSHARP,
     CL_EDGELEVEL,
+    CL_WARPSHARP,
+
+    CL_TWEAK,
 
     CL_DEBAND,
 
+    CL_PAD,
+
     CL_MAX,
 };
+
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_OPENCL };
+
+static VppFilterType getVppFilterType(VppType vpptype) {
+    if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
+    if (vpptype < VppType::MFX_MAX) return VppFilterType::FILTER_MFX;
+    if (vpptype < VppType::CL_MAX) return VppFilterType::FILTER_OPENCL;
+    return VppFilterType::FILTER_NONE;
+}
 
 struct sVppParams {
     bool bEnable;             //use vpp

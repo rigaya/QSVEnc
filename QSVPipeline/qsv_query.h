@@ -315,6 +315,28 @@ enum FeatureListStrType {
     FEATURE_LIST_STR_TYPE_HTML,
 };
 
+struct QSVVideoParam {
+    mfxVersion mfxVer;
+    bool isVppParam;
+    mfxVideoParam videoPrmVpp;
+    mfxVideoParam videoPrm;
+    std::vector<mfxExtBuffer *> buf;
+
+    uint8_t spsbuf[256];
+    uint8_t ppsbuf[256];
+    mfxExtCodingOptionSPSPPS spspps;
+    mfxExtCodingOption cop;
+    mfxExtCodingOption2 cop2;
+    mfxExtCodingOption3 cop3;
+    mfxExtVP8CodingOption copVp8;
+    mfxExtHEVCParam hevcPrm;
+
+    QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);
+    QSVVideoParam(const QSVVideoParam&) = delete;             // 禁止
+    QSVVideoParam &operator=(const QSVVideoParam &) = delete; // 禁止
+    ~QSVVideoParam() {};
+};
+
 mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId);
 vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log);

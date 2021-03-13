@@ -59,6 +59,7 @@
 #include "rgy_output.h"
 #include "rgy_opencl.h"
 #include "qsv_task.h"
+#include "qsv_vpp_mfx.h"
 #include "qsv_pipeline_ctrl.h"
 #include "qsv_control.h"
 
@@ -90,6 +91,15 @@ struct mfxParamSet {
     mfxExtHEVCParam hevc;
 };
 
+struct VppVilterBlock {
+    VppFilterType type;
+    std::unique_ptr<QSVVppMfx> vppmfx;
+    std::vector<std::unique_ptr<RGYFilter>> vppcl;
+
+    VppVilterBlock(std::unique_ptr<QSVVppMfx>& filter) : type(VppFilterType::FILTER_MFX), vppmfx(std::move(filter)), vppcl() {};
+    VppVilterBlock(std::vector<std::unique_ptr<RGYFilter>>& filter) : type(), vppmfx(), vppcl(std::move(filter)) {};
+};
+
 const uint32_t QSV_PTS_SORT_SIZE = 16u;
 
 class CQSVPipeline
@@ -99,13 +109,13 @@ public:
     virtual ~CQSVPipeline();
 
     virtual RGY_ERR CheckParam(sInputParams *pParams);
-    virtual mfxStatus Init(sInputParams *pParams);
+    virtual RGY_ERR Init(sInputParams *pParams);
     virtual mfxStatus Run();
     virtual mfxStatus Run(size_t SubThreadAffinityMask);
     virtual void Close();
     virtual RGY_ERR ResetMFXComponents(sInputParams* pParams);
     virtual mfxStatus ResetDevice();
-    virtual mfxStatus CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
+    virtual RGY_ERR CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
     virtual void SetAbortFlagPointer(bool *abort);
 
@@ -118,7 +128,6 @@ public:
     shared_ptr<RGYLog> m_pQSVLog;
 
     virtual RGY_ERR RunEncode2();
-    virtual mfxStatus RunEncode();
     static void RunEncThreadLauncher(void *pParam);
     bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
 protected:
@@ -161,42 +170,21 @@ protected:
     MFXVideoSession m_mfxSession;
     unique_ptr<MFXVideoDECODE> m_pmfxDEC;
     unique_ptr<MFXVideoENCODE> m_pmfxENC;
-    unique_ptr<MFXVideoVPP>    m_pmfxVPP;
+    std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
 
     unique_ptr<CSessionPlugins> m_SessionPlugins;
-    vector<unique_ptr<CVPPPlugin>> m_VppPrePlugins;
-    vector<unique_ptr<CVPPPlugin>> m_VppPostPlugins;
 
     sTrimParam m_trimParam;
 
     mfxVideoParam m_mfxDecParams;
     mfxVideoParam m_mfxEncParams;
-    mfxVideoParam m_mfxVppParams;
 
     mfxParamSet m_prmSetIn;
 
-    unique_ptr<MFXVideoUSER>  m_pUserModule;
-
     vector<mfxExtBuffer*> m_DecExtParams;
     vector<mfxExtBuffer*> m_EncExtParams;
-    vector<mfxExtBuffer*> m_VppExtParams;
-    tstring VppExtMes;
 
     mfxExtDecVideoProcessing m_DecVidProc;
-    mfxExtVPPDoNotUse m_VppDoNotUse;
-    mfxExtVPPDoNotUse m_VppDoUse;
-    mfxExtVPPDenoise m_ExtDenoise;
-    mfxExtVppMctf m_ExtMctf;
-    mfxExtVPPDetail m_ExtDetail;
-    mfxExtVPPDeinterlacing m_ExtDeinterlacing;
-    mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
-    mfxExtVPPRotation m_ExtRotate;
-    mfxExtVPPVideoSignalInfo m_ExtVppVSI;
-    mfxExtVPPImageStab m_ExtImageStab;
-    mfxExtVPPMirroring m_ExtMirror;
-    mfxExtVPPScaling m_ExtScaling;
-    vector<mfxU32> m_VppDoNotUseList;
-    vector<mfxU32> m_VppDoUseList;
 #if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_Chapters;
 #endif
@@ -215,13 +203,6 @@ protected:
 
     RGYBitstream m_DecInputBitstream;
 
-    vector<mfxFrameSurface1> m_pEncSurfaces; //enc input用のフレーム (vpp output, decoder output)
-    vector<mfxFrameSurface1> m_pVppSurfaces; //vpp input用のフレーム (decoder output)
-    vector<mfxFrameSurface1> m_pDecSurfaces; //dec input用のフレーム
-    mfxFrameAllocResponse m_EncResponse;  //enc用 memory allocation response
-    mfxFrameAllocResponse m_VppResponse;  //vpp用 memory allocation response
-    mfxFrameAllocResponse m_DecResponse;  //dec用 memory allocation response
-
     mfxStatus GetNextFrame(mfxFrameSurface1 **pSurface);
     mfxStatus SetNextSurface(mfxFrameSurface1 *pSurface);
 
@@ -229,35 +210,33 @@ protected:
     //mfxExtVPPDoNotUse m_VppDoNotUse;
 
     std::shared_ptr<RGYOpenCLContext> m_cl;
-    std::vector<std::unique_ptr<RGYFilter>> m_vpFilters;
-    std::shared_ptr<RGYFilterParam> m_pLastFilterParam;
+    std::vector<VppVilterBlock> m_vpFilters;
 
     std::shared_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
 
-    virtual mfxStatus InitSessionInitParam(int threads, int priority);
-    virtual mfxStatus InitLog(sInputParams *pParams);
-    virtual mfxStatus InitPerfMonitor(const sInputParams *pParams);
-    virtual mfxStatus InitInput(sInputParams *pParams);
-    virtual mfxStatus InitChapters(const sInputParams *inputParam);
-    virtual RGY_ERR   InitFilters(sInputParams *inputParam);
-    virtual mfxStatus InitMfxVppParams(sInputParams *pParams);
-    virtual mfxStatus InitVppPrePlugins(sInputParams *pParams);
-    virtual mfxStatus InitVppPostPlugins(sInputParams *pParams);
-    virtual RGY_ERR   initVppFilters(sInputParams *inputParam);
-    virtual mfxStatus InitOutput(sInputParams *pParams);
-    virtual mfxStatus InitMfxDecParams(sInputParams *pInParams);
-    virtual mfxStatus InitMfxEncParams(sInputParams *pParams);
-    virtual mfxStatus InitSession(bool useHWLib, uint32_t memType);
+    virtual RGY_ERR InitSessionInitParam(int threads, int priority);
+    virtual RGY_ERR InitLog(sInputParams *pParams);
+    virtual RGY_ERR InitPerfMonitor(const sInputParams *pParams);
+    virtual RGY_ERR InitInput(sInputParams *pParams);
+    virtual RGY_ERR InitChapters(const sInputParams *inputParam);
+    virtual RGY_ERR InitFilters(sInputParams *inputParam);
+    virtual std::vector<VppType> InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const bool resizeRequired);
+    virtual std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> AddFilterMFX(
+        FrameInfo& frameInfo, VideoVUIInfo& vuiIn, rgy_rational<int>& fps,
+        const VppType vppType, const sVppParams *params, sInputCrop *crop, const int blockSize);
+    virtual std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> AddFilterOpenCL(
+        FrameInfo& frameInfo, rgy_rational<int>& fps,  VppType vppType, RGYParamVpp *params);
+    virtual RGY_ERR InitOutput(sInputParams *pParams);
+    virtual RGY_ERR InitMfxDecParams(sInputParams *pInParams);
+    virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams);
+    virtual RGY_ERR InitMfxDec();
+    virtual RGY_ERR InitMfxEncode();
+    virtual RGY_ERR InitSession(bool useHWLib, uint32_t memType);
     int getEncoderBitdepth(const sInputParams *pParams);
     RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift = nullptr);
-    //virtual void InitVppExtParam();
-    virtual mfxStatus CreateVppExtBuffers(sInputParams *pParams);
 
-    virtual mfxStatus readChapterFile(tstring chapfile);
-
-    virtual mfxStatus AllocAndInitVppDoNotUse();
-    virtual void FreeVppDoNotUse();
+    virtual RGY_ERR readChapterFile(tstring chapfile);
 
     virtual RGY_ERR initOpenCL();
     virtual RGY_ERR CreateHWDevice();
@@ -266,21 +245,17 @@ protected:
 
     virtual void DeleteHWDevice();
 
-    virtual RGY_ERR allocFrames();
-    virtual void DeleteFrames();
+    virtual RGY_ERR AllocFrames();
 
-    virtual RGY_ERR initMFXEncode();
-    virtual RGY_ERR initMFXVpp();
-    virtual RGY_ERR initMFXDec();
-
-    virtual mfxStatus AllocateSufficientBuffer(mfxBitstream* pBS);
+    virtual RGY_ERR AllocateSufficientBuffer(mfxBitstream* pBS);
 
     virtual mfxStatus GetFreeTask(QSVTask **ppTask);
     virtual mfxStatus SynchronizeFirstTask();
 
-    RGY_ERR createPipeline();
+    RGY_ERR CreatePipeline();
+    std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> GetOutputVideoInfo();
 
-    mfxStatus CheckParamList(int value, const CX_DESC *list, const char *param_name);
+    RGY_ERR CheckParamList(int value, const CX_DESC *list, const char *param_name);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
     int logTemporarilyIgnoreErrorMes();
 };

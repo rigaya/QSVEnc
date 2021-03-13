@@ -209,6 +209,44 @@ mfxVersion get_mfx_libsw_version() {
     return get_mfx_lib_version(MFX_IMPL_SOFTWARE);
 }
 
+QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
+    mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), spsbuf(), ppsbuf(), spspps(), cop(), cop2(), cop3(), copVp8(), hevcPrm() {
+    memset(spsbuf, 0, sizeof(spsbuf));
+    memset(ppsbuf, 0, sizeof(ppsbuf));
+    INIT_MFX_EXT_BUFFER(spspps, MFX_EXTBUFF_CODING_OPTION_SPSPPS);
+    spspps.SPSBuffer = spsbuf;
+    spspps.SPSBufSize = sizeof(spsbuf);
+    spspps.PPSBuffer = ppsbuf;
+    spspps.PPSBufSize = sizeof(ppsbuf);
+
+    INIT_MFX_EXT_BUFFER(cop, MFX_EXTBUFF_CODING_OPTION);
+    INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
+    INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
+    INIT_MFX_EXT_BUFFER(copVp8, MFX_EXTBUFF_VP8_CODING_OPTION);
+    INIT_MFX_EXT_BUFFER(hevcPrm, MFX_EXTBUFF_HEVC_PARAM);
+
+    buf.push_back((mfxExtBuffer *)&cop);
+    buf.push_back((mfxExtBuffer *)&spspps);
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
+        buf.push_back((mfxExtBuffer *)&cop2);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
+        buf.push_back((mfxExtBuffer *)&cop3);
+    }
+    if (CodecId == MFX_CODEC_VP8) {
+        buf.push_back((mfxExtBuffer *)&copVp8);
+    }
+    if (CodecId == MFX_CODEC_HEVC && check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)) {
+        buf.push_back((mfxExtBuffer *)&hevcPrm);
+    }
+
+    RGY_MEMSET_ZERO(videoPrm);
+    videoPrm.NumExtParam = (mfxU16)buf.size();
+    videoPrm.ExtParam = &buf[0];
+
+    RGY_MEMSET_ZERO(videoPrmVpp);
+};
+
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId) {
     std::vector<RGY_CSP> supportedCsp;
     MFXVideoDECODE dec(session);

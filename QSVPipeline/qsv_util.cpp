@@ -120,6 +120,28 @@ mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
 }
 
 RGY_NOINLINE
+mfxFrameInfo frameinfo_rgy_to_enc(const FrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize) {
+    mfxFrameInfo mfx = { 0 };
+    mfx.FourCC = csp_rgy_to_enc(info.csp);
+    mfx.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[info.csp]);
+    mfx.BitDepthLuma = (mfxU16)info.bitdepth;
+    mfx.BitDepthChroma = (mfxU16)info.bitdepth;
+    mfx.Shift = RGY_CSP_BIT_DEPTH[info.csp] - info.bitdepth > 0 ? 1 : 0;
+    mfx.Width = (mfxU16)ALIGN(info.width, blockSize);
+    mfx.Height = (mfxU16)ALIGN(info.height, blockSize);
+    mfx.CropX = (mfxU16)0;
+    mfx.CropY = (mfxU16)0;
+    mfx.CropW = (mfxU16)info.width;
+    mfx.CropH = (mfxU16)info.height;
+    mfx.FrameRateExtN = fps.n();
+    mfx.FrameRateExtD = fps.d();
+    mfx.AspectRatioW = (mfxU16)sar.n();
+    mfx.AspectRatioH = (mfxU16)sar.d();
+    mfx.PicStruct = picstruct_rgy_to_enc(info.picstruct);
+    return mfx;
+}
+
+RGY_NOINLINE
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui, const mfxExtChromaLocInfo& chromaloc) {
     VideoInfo info;
     info.codec = codec_enc_to_rgy(mfx.CodecId);
@@ -259,6 +281,26 @@ tstring qsv_memtype_str(uint32_t memtype) {
     if (memtype & MFX_MEMTYPE_FROM_VPPOUT)            str += _T("vppout,");
     if (memtype == 0)                                 str += _T("none,");
     return str.substr(0, str.length()-1);
+}
+
+RGY_NOINLINE
+mfxHandleType mfxHandleTypeFromMemType(const MemType memType) {
+    mfxHandleType hdl_t = (mfxHandleType)0;
+    switch (memType) {
+#if D3D_SURFACES_SUPPORT
+    case D3D9_MEMORY:  hdl_t = MFX_HANDLE_D3D9_DEVICE_MANAGER; break;
+    case D3D11_MEMORY: hdl_t = MFX_HANDLE_D3D11_DEVICE; break;
+#elif LIBVA_SUPPORT
+    case VA_MEMORY: {
+        PrintMes(RGY_LOG_DEBUG, _T("Unknown GPU memory type.\n"));
+        return RGY_ERR_UNSUPPORTED;
+        hdl_t = MFX_HANDLE_VA_DISPLAY; break;
+    }
+#endif
+    default:
+        break;
+    }
+    return hdl_t;
 }
 
 //ビットレート指定モードかどうか

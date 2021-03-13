@@ -420,6 +420,7 @@ struct FrameInfo {
     uint8_t *ptr[RGY_MAX_PLANES];
     RGY_CSP csp;
     int width, height, pitch[RGY_MAX_PLANES];
+    int bitdepth;
     int64_t timestamp;
     int64_t duration;
     RGY_MEM_TYPE mem_type;
@@ -434,6 +435,7 @@ struct FrameInfo {
         width(0),
         height(0),
         pitch(),
+        bitdepth(0),
         timestamp(0),
         duration(0),
         mem_type(RGY_MEM_TYPE_CPU),
