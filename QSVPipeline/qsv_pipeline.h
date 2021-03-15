@@ -113,6 +113,7 @@ public:
     virtual RGY_ERR Run();
     virtual void Close();
     virtual RGY_ERR ResetDevice();
+    virtual RGY_ERR ResetMFXComponents(sInputParams* pParams);
     virtual RGY_ERR CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
     virtual void SetAbortFlagPointer(bool *abort);
@@ -229,6 +230,7 @@ protected:
     virtual RGY_ERR InitMfxDecParams(sInputParams *pInParams);
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams);
     virtual RGY_ERR InitMfxDec();
+    virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();
     virtual RGY_ERR InitSession(bool useHWLib, uint32_t memType);
     int getEncoderBitdepth(const sInputParams *pParams);

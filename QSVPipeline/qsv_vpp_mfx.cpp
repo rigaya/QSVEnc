@@ -119,7 +119,7 @@ void QSVVppMfx::clear() {
     m_log.reset();
 }
 
-RGY_ERR QSVVppMfx::Init(
+RGY_ERR QSVVppMfx::SetParam(
     sVppParams& params,
     const VppColorspace& colorsapce,
     const FrameInfo& frameOut, const VideoVUIInfo& VUIOut,
@@ -155,24 +155,40 @@ RGY_ERR QSVVppMfx::Init(
     if ((err = SetVppExtBuffers(params, colorsapce, VUIOut, VUIIn)) != RGY_ERR_NONE) {
         return err;
     }
+    PrintMes(RGY_LOG_DEBUG, _T("Vpp SetParam success.\n"));
+    return err;
+}
+
+RGY_ERR QSVVppMfx::Init() {
     //ここでの内部エラーは最終的にはmfxライブラリ内部で解決される場合もあり、これをログ上は無視するようにする。
     //具体的にはSandybridgeでd3dメモリでVPPを使用する際、m_pmfxVPP->Init()実行時に
     //"QSVAllocator: Failed CheckRequestType: undeveloped feature"と表示されるが、
     //m_pmfxVPP->Initの戻り値自体はMFX_ERR_NONEであるので、内部で解決されたものと思われる。
     //もちろん、m_pmfxVPP->Init自体がエラーを返した時にはきちんとログに残す。
     const auto log_level = logTemporarilyIgnoreErrorMes();
-    err = err_to_rgy(m_mfxVPP->Init(&m_mfxVppParams));
+    auto err = err_to_rgy(m_mfxVPP->Init(&m_mfxVppParams));
     m_log->setLogLevel(log_level);
     if (err == MFX_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on vpp.\n"));
         err = RGY_ERR_NONE;
     }
     if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_WARN, _T("Failed to initialize vpp: %s.\n"), get_err_mes(err));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to initialize vpp: %s.\n"), get_err_mes(err));
         return err;
     }
     PrintMes(RGY_LOG_DEBUG, _T("Vpp initialized.\n"));
-    return err;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR QSVVppMfx::Close() {
+    auto err = err_to_rgy(m_mfxVPP->Close());
+    RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
+    if (err != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to reset encoder (fail on closing): %s."), get_err_mes(err));
+        return err;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("Vpp Closed.\n"));
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR QSVVppMfx::InitSession() {

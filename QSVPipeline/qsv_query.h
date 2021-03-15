@@ -332,6 +332,7 @@ struct QSVVideoParam {
     mfxExtHEVCParam hevcPrm;
 
     QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);
+    QSVVideoParam() = delete;
     QSVVideoParam(const QSVVideoParam&) = delete;             // 禁止
     QSVVideoParam &operator=(const QSVVideoParam &) = delete; // 禁止
     ~QSVVideoParam() {};

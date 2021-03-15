@@ -1157,6 +1157,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: enc input color format %s, chroma %d, bitdepth %d, shift %d\n"),
         ColorFormatToStr(m_mfxEncParams.mfx.FrameInfo.FourCC), m_mfxEncParams.mfx.FrameInfo.ChromaFormat, m_mfxEncParams.mfx.FrameInfo.BitDepthLuma, m_mfxEncParams.mfx.FrameInfo.Shift);
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: set all enc params.\n"));
+
+    m_pmfxENC.reset(new MFXVideoENCODE(m_mfxSession));
+    if (!m_pmfxENC) {
+        return RGY_ERR_MEMORY_ALLOC;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -1834,10 +1839,10 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             }
         }
         if (t1 == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("allocFrames: invalid pipeline, t1 not found!\n"));
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline, t1 not found!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: %s-%s\n"), t0->print().c_str(), t1->print().c_str());
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s\n"), t0->print().c_str(), t1->print().c_str());
 
         const auto t0Alloc = t0->requiredSurfOut();
         const auto t1Alloc = t1->requiredSurfIn();
@@ -1857,7 +1862,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             allocRequest = t1Alloc.value();
             t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
         } else {
-            PrintMes(RGY_LOG_ERROR, _T("allocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
         switch (t0->taskType()) {
@@ -1879,14 +1884,15 @@ RGY_ERR CQSVPipeline::AllocFrames() {
 
         allocRequest.NumFrameSuggested = (mfxU16)std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
         allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
-        PrintMes(RGY_LOG_DEBUG, _T("allocFrames: %s-%s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
             t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(),
             allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
             allocRequest.NumFrameSuggested);
 
         auto sts = t0->workSurfacesAlloc(allocRequest, m_bExternalAlloc, m_pMFXAllocator.get());
         if (sts != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("allocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
+            PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
+            return sts;
         }
         t0 = t1;
     }
@@ -2849,7 +2855,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
     auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
-    auto err = mfxvpp->Init(vppParams, {}, frameInfo, m_encVUI, frameIn, vuiIn, (vppType == VppType::MFX_CROP) ? crop : nullptr, rgy_rational<int>(1,1), fps, blockSize);
+    auto err = mfxvpp->SetParam(vppParams, {}, frameInfo, m_encVUI, frameIn, vuiIn, (vppType == VppType::MFX_CROP) ? crop : nullptr, rgy_rational<int>(1,1), fps, blockSize);
     if (err != RGY_ERR_NONE) {
         return { err, std::unique_ptr<QSVVppMfx>() };
     }
@@ -3701,16 +3707,10 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitMfxDecParams(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
-    sts = InitMfxDec();
-    if (sts < RGY_ERR_NONE) return sts;
-
     sts = InitFilters(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitMfxEncodeParams(pParams);
-    if (sts < RGY_ERR_NONE) return sts;
-
-    sts = InitMfxEncode();
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitChapters(pParams);
@@ -3721,14 +3721,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     sts = InitOutput(pParams);
     if (sts < RGY_ERR_NONE) return sts;
-
-    //encの作成 (raw出力の場合はエンコードしないので不要)
-    if (pParams->CodecId != MFX_CODEC_RAW) {
-        m_pmfxENC.reset(new MFXVideoENCODE(m_mfxSession));
-        if (!m_pmfxENC) {
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-    }
 
     const int nPipelineElements = !!m_pmfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC;
     if (nPipelineElements == 0) {
@@ -3755,10 +3747,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-    if ((sts = CreatePipeline()) != RGY_ERR_NONE) {
-        return sts;
-    }
-    if ((sts = AllocFrames()) != RGY_ERR_NONE) {
+    if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
     }
     return RGY_ERR_NONE;
@@ -3891,6 +3880,18 @@ RGY_ERR CQSVPipeline::InitMfxEncode() {
     return sts;
 }
 
+RGY_ERR CQSVPipeline::InitMfxVpp() {
+    for (auto& filterBlock : m_vpFilters) {
+        if (filterBlock.type == VppFilterType::FILTER_MFX) {
+            auto err = filterBlock.vppmfx->Init();
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::InitMfxDec() {
     if (!m_pmfxDEC) {
         return RGY_ERR_NONE;
@@ -3907,7 +3908,6 @@ RGY_ERR CQSVPipeline::InitMfxDec() {
     return sts;
 }
 
-#if 0
 RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     if (!pParams) {
         return RGY_ERR_NULL_PTR;
@@ -3925,11 +3925,13 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Enc closed.\n"));
     }
 
-    if (m_pmfxVPP) {
-        err = err_to_rgy(m_pmfxVPP->Close());
-        RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
-        RGY_ERR(err, _T("Failed to reset vpp (fail on closing)."));
-        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp closed.\n"));
+    for (auto& filterBlock : m_vpFilters) {
+        if (filterBlock.type == VppFilterType::FILTER_MFX) {
+            err = filterBlock.vppmfx->Close();
+            RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
+            RGY_ERR(err, _T("Failed to reset vpp (fail on closing)."));
+            PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp closed.\n"));
+        }
     }
 
     if (m_pmfxDEC) {
@@ -3940,24 +3942,24 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     }
 
     // free allocated frames
-    DeleteFrames();
-    PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Frames deleted.\n"));
+    //DeleteFrames();
+    //PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Frames deleted.\n"));
 
     m_TaskPool.Close();
 
-    if ((err = createPipeline()) != RGY_ERR_NONE) {
+    if ((err = CreatePipeline()) != RGY_ERR_NONE) {
         return err;
     }
-    if ((err = allocFrames()) != RGY_ERR_NONE) {
+    if ((err = AllocFrames()) != RGY_ERR_NONE) {
         return err;
     }
-    if ((err = initMFXEncode()) != RGY_ERR_NONE) {
+    if ((err = InitMfxEncode()) != RGY_ERR_NONE) {
         return err;
     }
-    if ((err = initMFXVpp()) != RGY_ERR_NONE) {
+    if ((err = InitMfxVpp()) != RGY_ERR_NONE) {
         return err;
     }
-    if ((err = initMFXDec()) != RGY_ERR_NONE) {
+    if ((err = InitMfxDec()) != RGY_ERR_NONE) {
         return err;
     }
 #if 0
@@ -3969,7 +3971,6 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
 #endif
     return RGY_ERR_NONE;
 }
-#endif
 
 RGY_ERR CQSVPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
     if (!pBS) {
@@ -5351,6 +5352,10 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
     auto prmset = std::make_unique<QSVVideoParam>(m_mfxEncParams.mfx.CodecId, m_mfxVer);
     if (m_pmfxENC) {
         auto sts = err_to_rgy(m_pmfxENC->GetVideoParam(&prmset->videoPrm));
+        if (sts == RGY_ERR_NOT_INITIALIZED) { // 未初期化の場合、設定しようとしたパラメータで代用する
+            prmset->videoPrm = m_mfxEncParams;
+            sts = RGY_ERR_NONE;
+        }
         return { sts, std::move(prmset) };
     }
     if (m_vpFilters.size() > 0) {
@@ -5358,6 +5363,10 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
         auto& lastFilter = m_vpFilters.back();
         if (lastFilter.type == VppFilterType::FILTER_MFX) {
             auto sts = err_to_rgy(lastFilter.vppmfx->mfxvpp()->GetVideoParam(&prmset->videoPrmVpp));
+            if (sts == RGY_ERR_NOT_INITIALIZED) { // 未初期化の場合、設定しようとしたパラメータで代用する
+                prmset->videoPrm = lastFilter.vppmfx->mfxparams();
+                sts = RGY_ERR_NONE;
+            }
             return { sts, std::move(prmset) };
         } else if (lastFilter.type == VppFilterType::FILTER_OPENCL) {
             auto& frameOut = lastFilter.vppcl.back()->GetFilterParam()->frameOut;
@@ -5370,6 +5379,10 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
     }
     if (m_pmfxDEC) {
         auto sts = err_to_rgy(m_pmfxDEC->GetVideoParam(&prmset->videoPrm));
+        if (sts == RGY_ERR_NOT_INITIALIZED) { // 未初期化の場合、設定しようとしたパラメータで代用する
+            prmset->videoPrm = m_mfxDecParams;
+            sts = RGY_ERR_NONE;
+        }
         return { sts, std::move(prmset) };
     }
     PrintMes(RGY_LOG_ERROR, _T("GetOutputVideoInfo: None of the pipeline elements are detected!\n"));

@@ -43,10 +43,12 @@ public:
     QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
     virtual ~QSVVppMfx();
 
-    RGY_ERR Init(sVppParams& params, const VppColorspace& colorsapce,
+    RGY_ERR SetParam(sVppParams& params, const VppColorspace& colorsapce,
         const FrameInfo& frameOut, const VideoVUIInfo& VUIOut,
         const FrameInfo& frameIn, const VideoVUIInfo& VUIIn,
         const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
+    RGY_ERR Init();
+    RGY_ERR Close();
 
     void clear();
 
