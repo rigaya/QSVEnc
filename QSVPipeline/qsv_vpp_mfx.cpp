@@ -56,6 +56,7 @@ QSVVppMfx::QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, mfxVersion mfxVer, mfx
     m_mfxVPP(),
     m_mfxVppParams(),
     m_VppDoNotUse(),
+    m_VppDoUse(),
     m_ExtDenoise(),
     m_ExtMctf(),
     m_ExtDetail(),
@@ -88,14 +89,6 @@ void QSVVppMfx::InitStructs() {
     RGY_MEMSET_ZERO(m_ExtImageStab);
     RGY_MEMSET_ZERO(m_ExtMirror);
     RGY_MEMSET_ZERO(m_ExtScaling);
-
-    INIT_MFX_EXT_BUFFER(m_VppDoNotUse, MFX_EXTBUFF_VPP_DONOTUSE);
-
-    RGY_MEMSET_ZERO(m_VppDoNotUse);
-    m_VppDoNotUse.Header.BufferId = MFX_EXTBUFF_VPP_DONOTUSE;
-    m_VppDoNotUse.Header.BufferSz = sizeof(mfxExtVPPDoNotUse);
-    m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
-    m_VppDoNotUse.AlgList = &m_VppDoNotUseList[0];
 }
 
 QSVVppMfx::~QSVVppMfx() { clear(); };
@@ -613,6 +606,9 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params, const VppColorspace& col
 
     //Haswell以降では、DONOTUSEをセットするとdetail enhancerの効きが固定になるなど、よくわからない挙動を示す。
     if (m_VppDoNotUseList.size() > 0 && getCPUGen(&m_mfxSession) < CPU_GEN_HASWELL) {
+        INIT_MFX_EXT_BUFFER(m_VppDoNotUse, MFX_EXTBUFF_VPP_DONOTUSE);
+        m_VppDoNotUse.NumAlg = (mfxU32)m_VppDoNotUseList.size();
+        m_VppDoNotUse.AlgList = &m_VppDoNotUseList[0];
         m_VppExtParams.push_back((mfxExtBuffer *)&m_VppDoNotUse);
         for (const auto& extParam : m_VppDoNotUseList) {
             PrintMes(RGY_LOG_DEBUG, _T("CreateVppExtBuffers: set DoNotUse %s.\n"), fourccToStr(extParam).c_str());
