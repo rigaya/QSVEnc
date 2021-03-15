@@ -110,16 +110,14 @@ public:
 
     virtual RGY_ERR CheckParam(sInputParams *pParams);
     virtual RGY_ERR Init(sInputParams *pParams);
-    virtual mfxStatus Run();
-    virtual mfxStatus Run(size_t SubThreadAffinityMask);
+    virtual RGY_ERR Run();
     virtual void Close();
-    virtual RGY_ERR ResetMFXComponents(sInputParams* pParams);
-    virtual mfxStatus ResetDevice();
+    virtual RGY_ERR ResetDevice();
     virtual RGY_ERR CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
     virtual void SetAbortFlagPointer(bool *abort);
 
-    virtual mfxStatus GetEncodeStatusData(EncodeStatusData *data);
+    virtual RGY_ERR GetEncodeStatusData(EncodeStatusData *data);
     virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
     virtual const TCHAR *GetInputMessage();
     virtual MemType GetMemType();

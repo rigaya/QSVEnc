@@ -1776,12 +1776,12 @@ RGY_ERR CQSVPipeline::CreateHWDevice() {
     return RGY_ERR_NONE;
 }
 
-mfxStatus CQSVPipeline::ResetDevice() {
+RGY_ERR CQSVPipeline::ResetDevice() {
     if (m_memType & (D3D9_MEMORY | D3D11_MEMORY)) {
         PrintMes(RGY_LOG_DEBUG, _T("HWDevice: reset.\n"));
-        return m_hwdev->Reset();
+        return err_to_rgy(m_hwdev->Reset());
     }
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR CQSVPipeline::AllocFrames() {
@@ -4073,14 +4073,13 @@ void CQSVPipeline::RunEncThreadLauncher(void *pParam) {
     //reinterpret_cast<CQSVPipeline*>(pParam)->RunEncode();
 }
 
-mfxStatus CQSVPipeline::Run() {
-    return Run(0);
+RGY_ERR CQSVPipeline::Run() {
+    return RunEncode2();
 }
 
-mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
-    mfxStatus sts = MFX_ERR_NONE;
-    return (mfxStatus)RunEncode2();
 #if 0
+RGY_ERR CQSVPipeline::Run(size_t SubThreadAffinityMask) {
+    mfxStatus sts = MFX_ERR_NONE;
 
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: Lauching encode thread...\n"));
     sts = m_EncThread.RunEncFuncbyThread(&RunEncThreadLauncher, this, SubThreadAffinityMask);
@@ -4179,9 +4178,8 @@ mfxStatus CQSVPipeline::Run(size_t SubThreadAffinityMask) {
 
     PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
     return sts;
-#endif
 }
-
+#endif
 
 RGY_ERR CQSVPipeline::CreatePipeline() {
     m_outputTimestamp.clear();
@@ -5334,15 +5332,15 @@ MemType CQSVPipeline::GetMemType() {
     return m_memType;
 }
 
-mfxStatus CQSVPipeline::GetEncodeStatusData(EncodeStatusData *data) {
-    if (NULL == data)
-        return MFX_ERR_NULL_PTR;
+RGY_ERR CQSVPipeline::GetEncodeStatusData(EncodeStatusData *data) {
+    if (data == nullptr)
+        return RGY_ERR_NULL_PTR;
 
-    if (NULL == m_pStatus)
-        return MFX_ERR_NOT_INITIALIZED;
+    if (m_pStatus == nullptr)
+        return RGY_ERR_NOT_INITIALIZED;
 
     *data = m_pStatus->GetEncodeData();
-    return MFX_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 const TCHAR *CQSVPipeline::GetInputMessage() {

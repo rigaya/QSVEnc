@@ -740,39 +740,26 @@ static int run_on_os_codepage() {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-int run_encode(sInputParams *params) {
-    mfxStatus sts = MFX_ERR_NONE; // return value check
+RGY_ERR run_encode(sInputParams *params) {
+    RGY_ERR sts = RGY_ERR_NONE; // return value check
 
     unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
     if (!pPipeline) {
-        return MFX_ERR_MEMORY_ALLOC;
+        return RGY_ERR_MEMORY_ALLOC;
     }
 
     sts = pPipeline->Init(params);
-    if (sts < MFX_ERR_NONE) return sts;
+    if (sts < RGY_ERR_NONE) return sts;
 
     pPipeline->SetAbortFlagPointer(&g_signal_abort);
     set_signal_handler();
 
-    if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
+    if (RGY_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
         return sts;
     }
 
-    for (;;) {
-        sts = pPipeline->Run();
-
-        if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-            _ftprintf(stderr, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
-            sts = pPipeline->ResetDevice();
-            if (sts < MFX_ERR_NONE) return sts;
-
-            sts = err_to_mfx(pPipeline->ResetMFXComponents(params));
-            if (sts < MFX_ERR_NONE) return sts;
-            continue;
-        } else {
-            if (sts < MFX_ERR_NONE) return sts;
-            break;
-        }
+    if (RGY_ERR_NONE != (sts = pPipeline->Run())) {
+        return sts;
     }
 
     pPipeline->Close();
@@ -780,9 +767,9 @@ int run_encode(sInputParams *params) {
     return sts;
 }
 
-mfxStatus run_benchmark(sInputParams *params) {
+RGY_ERR run_benchmark(sInputParams *params) {
     using namespace std;
-    mfxStatus sts = MFX_ERR_NONE;
+    RGY_ERR sts = RGY_ERR_NONE;
     tstring benchmarkLogFile = params->common.outputFilename;
 
     //テストする解像度
@@ -796,11 +783,11 @@ mfxStatus run_benchmark(sInputParams *params) {
 
         unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
         if (!pPipeline) {
-            return MFX_ERR_MEMORY_ALLOC;
+            return RGY_ERR_MEMORY_ALLOC;
         }
 
         sts = pPipeline->Init(params);
-        if (sts < MFX_ERR_NONE) return sts;
+        if (sts < RGY_ERR_NONE) return sts;
 
         pPipeline->SetAbortFlagPointer(&g_signal_abort);
         set_signal_handler();
@@ -808,7 +795,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         struct tm *local_time = localtime(&current_time);
 
         TCHAR encode_info[4096] = { 0 };
-        if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info)))) {
+        if (RGY_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam(encode_info, _countof(encode_info)))) {
             return sts;
         }
 
@@ -824,7 +811,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         FILE *fp_bench = NULL;
         if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
             pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
-            return MFX_ERR_INVALID_HANDLE;
+            return RGY_ERR_INVALID_HANDLE;
         } else {
             fprintf(fp_bench, "Started benchmark on %d.%02d.%02d %2d:%02d:%02d\n",
                 1900 + local_time->tm_year, local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
@@ -841,23 +828,12 @@ mfxStatus run_benchmark(sInputParams *params) {
         basic_ofstream<TCHAR> benchmark_log_test_open(benchmarkLogFile, ios::out | ios::app);
         if (!benchmark_log_test_open.good()) {
             pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: failed opening benchmark result file.\n"));
-            return MFX_ERR_INVALID_HANDLE;
+            return RGY_ERR_INVALID_HANDLE;
         }
         benchmark_log_test_open << ss.str();
         benchmark_log_test_open.close();
 
-        for (;;) {
-            sts = pPipeline->Run();
-
-            if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-                pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
-                if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
-                    || MFX_ERR_NONE != (sts = err_to_mfx(pPipeline->ResetMFXComponents(params))))
-                    break;
-            } else {
-                break;
-            }
-        }
+        sts = pPipeline->Run();
 
         EncodeStatusData data = { 0 };
         sts = pPipeline->GetEncodeStatusData(&data);
@@ -889,7 +865,7 @@ mfxStatus run_benchmark(sInputParams *params) {
     vector<vector<benchmark_t>> benchmark_result;
     benchmark_result.reserve(test_resolution.size() * list_target_quality.size());
 
-    for (uint32_t i = 0; MFX_ERR_NONE == sts && !g_signal_abort && i < list_target_quality.size(); i++) {
+    for (uint32_t i = 0; RGY_ERR_NONE == sts && !g_signal_abort && i < list_target_quality.size(); i++) {
         params->nTargetUsage = list_target_quality[i].value;
         vector<benchmark_t> benchmark_per_target_usage;
         for (const auto& resolution : test_resolution) {
@@ -898,30 +874,20 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
             if (!pPipeline) {
-                return MFX_ERR_MEMORY_ALLOC;
+                return RGY_ERR_MEMORY_ALLOC;
             }
 
-            if (MFX_ERR_NONE != (sts = pPipeline->Init(params))) {
+            if (RGY_ERR_NONE != (sts = pPipeline->Init(params))) {
                 break;
             }
 
             pPipeline->SetAbortFlagPointer(&g_signal_abort);
             set_signal_handler();
-            if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
+            if (RGY_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
                 return sts;
             }
-
-            for (;;) {
-                sts = pPipeline->Run();
-
-                if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-                    pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
-                    if (   MFX_ERR_NONE != (sts = pPipeline->ResetDevice())
-                        || MFX_ERR_NONE != (sts = err_to_mfx(pPipeline->ResetMFXComponents(params))))
-                        break;
-                } else {
-                    break;
-                }
+            if (RGY_ERR_NONE != (sts = pPipeline->Run())) {
+                return sts;
             }
 
             EncodeStatusData data = { 0 };
@@ -939,7 +905,7 @@ mfxStatus run_benchmark(sInputParams *params) {
 
             _ftprintf(stderr, _T("\n"));
 
-            if (MFX_ERR_NONE != sts || g_signal_abort)
+            if (RGY_ERR_NONE != sts || g_signal_abort)
                 break;
         }
 
@@ -947,7 +913,7 @@ mfxStatus run_benchmark(sInputParams *params) {
     }
 
     //結果を出力
-    if (MFX_ERR_NONE == sts && benchmark_result.size()) {
+    if (RGY_ERR_NONE == sts && benchmark_result.size()) {
         basic_stringstream<TCHAR> ss;
 
         uint32_t maxLengthOfTargetUsageDesc = 0;
@@ -958,7 +924,7 @@ mfxStatus run_benchmark(sInputParams *params) {
         FILE *fp_bench = NULL;
         if (_tfopen_s(&fp_bench, benchmarkLogFile.c_str(), _T("a")) || NULL == fp_bench) {
             _ftprintf(stderr, _T("\nERROR: failed opening benchmark result file.\n"));
-            return MFX_ERR_INVALID_HANDLE;
+            return RGY_ERR_INVALID_HANDLE;
         } else {
             fprintf(fp_bench, "TargetUsage ([TU-1]:Best Quality) ～ ([TU-7]:Fastest Speed)\n\n");
 
@@ -1114,7 +1080,7 @@ int run(int argc, TCHAR *argv[]) {
     }
 
     auto sts = pPipeline->Init(&Params);
-    if (sts < MFX_ERR_NONE) return 1;
+    if (sts < MFX_ERR_NONE) return sts;
 
     pPipeline->SetAbortFlagPointer(&g_signal_abort);
     set_signal_handler();
@@ -1123,21 +1089,8 @@ int run(int argc, TCHAR *argv[]) {
         return sts;
     }
 
-    for (;;) {
-        sts = pPipeline->Run();
-
-        if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-            pPipeline->PrintMes(RGY_LOG_ERROR, _T("\nERROR: Hardware device was lost or returned an unexpected error. Recovering...\n"));
-            sts = pPipeline->ResetDevice();
-            if (sts < MFX_ERR_NONE) return sts;
-
-            sts = err_to_mfx(pPipeline->ResetMFXComponents(&Params));
-            if (sts < MFX_ERR_NONE) return sts;
-            continue;
-        } else {
-            if (sts < MFX_ERR_NONE) return 1;
-            break;
-        }
+    if (MFX_ERR_NONE != (sts = pPipeline->Run())) {
+        return sts;
     }
 
     pPipeline->Close();
