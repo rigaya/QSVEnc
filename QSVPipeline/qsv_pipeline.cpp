@@ -875,7 +875,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
 
     // frame info parameters
     m_mfxEncParams.mfx.FrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-    m_mfxEncParams.mfx.FrameInfo.PicStruct    = m_encPicstruct;
+    m_mfxEncParams.mfx.FrameInfo.PicStruct    = picstruct_rgy_to_enc(m_encPicstruct);
 
     // set sar info
     auto par = std::make_pair(pInParams->nPAR[0], pInParams->nPAR[1]);
@@ -1877,7 +1877,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         default: break;
         }
 
-        allocRequest.NumFrameSuggested = std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
+        allocRequest.NumFrameSuggested = (mfxU16)std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
         allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
         PrintMes(RGY_LOG_DEBUG, _T("allocFrames: %s-%s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
             t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(),
@@ -2522,7 +2522,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         return RGY_ERR_UNSUPPORTED;
     }
 
-    auto sts = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
+    err = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
         m_trimParam, m_outputTimebase,
 #if ENABLE_AVSW_READER
@@ -2532,14 +2532,14 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark,
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
-    if (sts != RGY_ERR_NONE) {
+    if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
-        return sts;
+        return err;
     }
     if (inputParams->common.timecode) {
         m_timecode = std::make_unique<RGYTimecode>();
         const auto tcfilename = (inputParams->common.timecodeFile.length() > 0) ? inputParams->common.timecodeFile : PathRemoveExtensionS(inputParams->common.outputFilename) + _T(".timecode.txt");
-        auto err = m_timecode->init(tcfilename);
+        err = m_timecode->init(tcfilename);
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("failed to open timecode file: \"%s\".\n"), tcfilename.c_str());
             return err;

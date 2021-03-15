@@ -119,30 +119,6 @@ struct VppDetailEnhance {
     ~VppDetailEnhance() {};
 };
 
-struct VppDelogo {
-    TCHAR     *pFilePath; //ロゴファイル名へのポインタ
-    TCHAR     *pSelect; //選択するロゴ
-    std::pair<int, int> posOffset;
-    int    depth;
-    bool    add;
-    int     YOffset;
-    int     CbOffset;
-    int     CrOffset;
-
-    VppDelogo();
-    ~VppDelogo() {};
-};
-
-struct VppSubburn {
-    int    nTrack;    //動画ファイルから字幕を抽出する場合の字幕トラック (0で無効)
-    TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
-    TCHAR *pCharEnc;  //字幕の文字コード
-    int    nShaping;  //字幕を焼きこむときのモード
-
-    VppSubburn();
-    ~VppSubburn() {};
-};
-
 enum class VppType : int {
     VPP_NONE,
 
@@ -221,8 +197,6 @@ struct sVppParams {
     VppDenoise denoise;
     VppMCTF mctf;
     VppDetailEnhance detail;
-    VppDelogo delogo;
-    VppSubburn subburn;
 
     sVppParams();
     ~sVppParams() {};

@@ -281,7 +281,7 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
 
 mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
 
-    auto mfxIn = frameinfo_rgy_to_mfx(frameIn, infps, sar, blockSize);
+    auto mfxIn = frameinfo_rgy_to_enc(frameIn, infps, sar, blockSize);
 
     if (mfxIn.ChromaFormat == MFX_CHROMAFORMAT_YUV422) {
         //10を指定しないとおかしな変換が行われる
@@ -308,11 +308,11 @@ mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop
 
 RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const FrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize) {
 
-    auto mfxOut = frameIn;
+    mfxOut = frameIn;
 
     mfxOut.FourCC = csp_rgy_to_enc(frameOut.csp);
-    mfxOut.BitDepthLuma   = frameOut.bitdepth > 8 ? frameOut.bitdepth : 0;
-    mfxOut.BitDepthChroma = frameOut.bitdepth > 8 ? frameOut.bitdepth : 0;
+    mfxOut.BitDepthLuma   = (mfxU16)(frameOut.bitdepth > 8 ? frameOut.bitdepth : 0);
+    mfxOut.BitDepthChroma = (mfxU16)(frameOut.bitdepth > 8 ? frameOut.bitdepth : 0);
     if (mfxOut.FourCC == MFX_FOURCC_P010 && frameOut.bitdepth < 16) {
         mfxOut.Shift = 1;
     }

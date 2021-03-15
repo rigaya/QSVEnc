@@ -41,7 +41,7 @@
 class QSVVppMfx {
 public:
     QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
-    virtual ~QSVVppMfx() {};
+    virtual ~QSVVppMfx();
 
     RGY_ERR Init(sVppParams& params, const VppColorspace& colorsapce,
         const FrameInfo& frameOut, const VideoVUIInfo& VUIOut,
@@ -55,7 +55,7 @@ public:
     rgy_rational<int> GetOutFps() const;
     mfxSession GetSession() { return m_mfxSession; }
     MFXVideoVPP *mfxvpp() { return m_mfxVPP.get(); }
-    mfxVideoParam mfxparams() const { return m_mfxVppParams; }
+    mfxVideoParam& mfxparams() { return m_mfxVppParams; }
     mfxVersion mfxver() const { return m_mfxVer; }
     int asyncDepth() const { return m_asyncDepth; }
     tstring print() const { return VppExtMes; }
