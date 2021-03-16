@@ -5510,14 +5510,14 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
 
     if (m_vpFilters.size() > 0) {
-        const TCHAR *m = _T("VPP Enabled    ");
+        const TCHAR *m = _T("VPP            ");
         tstring vppstr;
         for (auto& block : m_vpFilters) {
             if (block.type == VppFilterType::FILTER_MFX) {
                 vppstr += block.vppmfx->print();
             } else if (block.type == VppFilterType::FILTER_OPENCL) {
                 for (auto& clfilter : block.vppcl) {
-                    vppstr += clfilter->GetInputMessage();
+                    vppstr += clfilter->GetInputMessage() + _T("\n");
                 }
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("CheckCurrentVideoParam: Unknown VPP filter type.\n"));
