@@ -1687,7 +1687,7 @@ mfxStatus CQSVPipeline::InitVppPostPlugins(sInputParams *pParams) {
 #pragma warning (pop)
 #endif
 
-RGY_ERR CQSVPipeline::initOpenCL() {
+RGY_ERR CQSVPipeline::InitOpenCL() {
     const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType);
     mfxHDL hdl = nullptr;
     if (hdl_t) {
@@ -3646,6 +3646,29 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR CQSVPipeline::SetPerfMonitorThreadHandles() {
+#if ENABLE_AVSW_READER
+    if (m_pPerfMonitor) {
+        HANDLE thOutput = NULL;
+        HANDLE thInput = NULL;
+        HANDLE thAudProc = NULL;
+        HANDLE thAudEnc = NULL;
+        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
+        if (pAVCodecReader != nullptr) {
+            thInput = pAVCodecReader->getThreadHandleInput();
+        }
+        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(m_pFileWriter);
+        if (pAVCodecWriter != nullptr) {
+            thOutput = pAVCodecWriter->getThreadHandleOutput();
+            thAudProc = pAVCodecWriter->getThreadHandleAudProcess();
+            thAudEnc = pAVCodecWriter->getThreadHandleAudEncode();
+        }
+        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thInput, thOutput, thAudProc, thAudEnc);
+    }
+#endif //#if ENABLE_AVSW_READER
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (pParams == nullptr) {
         return RGY_ERR_NULL_PTR;
@@ -3691,7 +3714,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitSessionInitParam: Success.\n"));
 
-    m_pPerfMonitor = std::unique_ptr<CPerfMonitor>(new CPerfMonitor());
+    m_pPerfMonitor = std::make_unique<CPerfMonitor>();
 
     sts = InitInput(pParams);
     if (sts < RGY_ERR_NONE) return sts;
@@ -3710,7 +3733,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = CreateAllocator();
     if (sts < RGY_ERR_NONE) return sts;
 
-    sts = initOpenCL();
+    sts = InitOpenCL();
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitMfxDecParams(pParams);
@@ -3759,6 +3782,10 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
     }
+    if ((sts = SetPerfMonitorThreadHandles()) != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to set thread handles to perf monitor!\n"));
+        return sts;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -3766,6 +3793,9 @@ void CQSVPipeline::Close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing pipeline...\n"));
     m_pipelineTasks.clear();
     //PrintMes(RGY_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
+
+    PrintMes(RGY_LOG_DEBUG, _T("Closing filters...\n"));
+    m_vpFilters.clear();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
     m_pStatus.reset();
@@ -4233,6 +4263,11 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_outputTimestamp, m_pQSVLog));
     }
 
+    if (m_pipelineTasks.size() == 0) {
+        PrintMes(RGY_LOG_DEBUG, _T("Failed to create pipeline: size = 0.\n"));
+        return RGY_ERR_INVALID_OPERATION;
+    }
+
     PrintMes(RGY_LOG_DEBUG, _T("Created pipeline.\n"));
     for (auto& p : m_pipelineTasks) {
         PrintMes(RGY_LOG_DEBUG, _T("  %s\n"), p->print().c_str());
@@ -4243,6 +4278,10 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
 
 RGY_ERR CQSVPipeline::RunEncode2() {
     PrintMes(RGY_LOG_DEBUG, _T("Encode Thread: RunEncode2...\n"));
+    if (m_pipelineTasks.size() == 0) {
+        PrintMes(RGY_LOG_DEBUG, _T("Failed to create pipeline: size = 0.\n"));
+        return RGY_ERR_INVALID_OPERATION;
+    }
 
 #if defined(_WIN32) || defined(_WIN64)
     TCHAR handleEvent[256];
@@ -4252,34 +4291,20 @@ RGY_ERR CQSVPipeline::RunEncode2() {
 #else
     auto checkAbort = [pabort = m_pAbortByUser]() { return  (pabort != nullptr && *pabort); }
 #endif
-
-    if (m_pipelineTasks.size() == 0) {
-        PrintMes(RGY_LOG_DEBUG, _T("Failed to create pipeline: size = 0.\n"));
-        return RGY_ERR_INVALID_OPERATION;
-    }
-
-#if ENABLE_AVSW_READER
-    if (m_pPerfMonitor) {
-        HANDLE thOutput = NULL;
-        HANDLE thInput = NULL;
-        HANDLE thAudProc = NULL;
-        HANDLE thAudEnc = NULL;
-        auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
-        if (pAVCodecReader != nullptr) {
-            thInput = pAVCodecReader->getThreadHandleInput();
-        }
-        auto pAVCodecWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(m_pFileWriter);
-        if (pAVCodecWriter != nullptr) {
-            thOutput = pAVCodecWriter->getThreadHandleOutput();
-            thAudProc = pAVCodecWriter->getThreadHandleAudProcess();
-            thAudEnc = pAVCodecWriter->getThreadHandleAudEncode();
-        }
-        m_pPerfMonitor->SetThreadHandles((HANDLE)(m_EncThread.GetHandleEncThread().native_handle()), thInput, thOutput, thAudProc, thAudEnc);
-    }
-#endif //#if ENABLE_AVSW_READER
     m_pStatus->SetStart();
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
+
+    auto requireSync = [this](const size_t itask) {
+        if (itask + 1 >= m_pipelineTasks.size()) return true; // 次が最後のタスクの時
+
+        for (size_t nexttask = itask+1; nexttask < m_pipelineTasks.size(); nexttask++) {
+            if (!m_pipelineTasks[nexttask]->isPassThrough()) {
+                return m_pipelineTasks[itask]->requireSync(m_pipelineTasks[nexttask]->taskType());
+            }
+        }
+        return true;
+    };
 
     RGY_ERR err = RGY_ERR_NONE;
     {
@@ -4301,9 +4326,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                 }
                 data.clear();
                 if (err == RGY_ERR_NONE) {
-                    const bool lastTask = itask + 1 == m_pipelineTasks.size();
-                    const bool sync = (lastTask) ? true : task->requireSync(m_pipelineTasks[itask + 1]->taskType());
-                    data = task->getOutput(sync);
+                    data = task->getOutput(requireSync(itask));
                     if (data.size() == 0) break;
                 }
             }
@@ -4341,9 +4364,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                 }
                 data.clear();
 
-                const bool lastTask = itask + 1 == m_pipelineTasks.size();
-                const bool sync = (lastTask) ? true : task->requireSync(m_pipelineTasks[itask + 1]->taskType());
-                data = task->getOutput(sync);
+                data = task->getOutput(requireSync(itask));
                 if (data.size() == 0) {
                     break;
                 }
@@ -4357,12 +4378,16 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             }
         }
     }
-    m_pipelineTasks.clear();
-    m_vpFilters.clear();
-    m_pFileWriter->WaitFin();
-    m_pStatus->WriteResults();
 
-    PrintMes(RGY_LOG_DEBUG, _T("Main Thread: finished.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks...\n"));
+    m_pipelineTasks.clear();
+    PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
+    m_vpFilters.clear();
+    PrintMes(RGY_LOG_DEBUG, _T("Waiting for writer to finish...\n"));
+    m_pFileWriter->WaitFin();
+    PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));
+    m_pStatus->WriteResults();
+    PrintMes(RGY_LOG_DEBUG, _T("RunEncode2: finished.\n"));
     return RGY_ERR_NONE;
 }
 

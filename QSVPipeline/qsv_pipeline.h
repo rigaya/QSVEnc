@@ -238,7 +238,7 @@ protected:
 
     virtual RGY_ERR readChapterFile(tstring chapfile);
 
-    virtual RGY_ERR initOpenCL();
+    virtual RGY_ERR InitOpenCL();
     virtual RGY_ERR CreateHWDevice();
     virtual RGY_ERR CreateAllocator();
     virtual void DeleteAllocator();
@@ -252,6 +252,7 @@ protected:
     virtual mfxStatus GetFreeTask(QSVTask **ppTask);
     virtual mfxStatus SynchronizeFirstTask();
 
+    RGY_ERR SetPerfMonitorThreadHandles();
     RGY_ERR CreatePipeline();
     std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> GetOutputVideoInfo();
 
