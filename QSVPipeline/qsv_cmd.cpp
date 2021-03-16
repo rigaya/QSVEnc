@@ -390,35 +390,7 @@ tstring encoder_help() {
 
     str += strsprintf(_T("\nVPP Options:\n"));
     str += gen_cmd_help_vppmfx();
-    str += strsprintf(_T("")
-        _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     Converts colorspace of the video.\n")
-        _T("    params\n")
-        _T("      matrix=<from>:<to>\n")
-        _T("        bt709, smpte170m\n")
-        _T("      range=<from>:<to>\n")
-        _T("        limited, full\n")
-#if ENABLE_CUSTOM_VPP
-#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-        _T("   --vpp-sub [<int>] or [<string>]\n")
-        _T("                                burn in subtitle into frame\n")
-        _T("                                set sub track number in input file by integer\n")
-        _T("                                or set external sub file path by string.\n")
-        _T("   --vpp-sub-charset [<string>] set subtitle char set\n")
-        _T("   --vpp-sub-shaping <string>   simple(default), complex\n")
-#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-        _T("   --vpp-delogo <string>        set delogo file path\n")
-        _T("   --vpp-delogo-select <string> set target logo name or auto select file\n")
-        _T("                                 or logo index starting from 1.\n")
-        _T("   --vpp-delogo-pos <int>:<int> set delogo pos offset\n")
-        _T("   --vpp-delogo-depth <int>     set delogo depth [default:%d]\n")
-        _T("   --vpp-delogo-y  <int>        set delogo y  param\n")
-        _T("   --vpp-delogo-cb <int>        set delogo cb param\n")
-        _T("   --vpp-delogo-cr <int>        set delogo cr param\n")
-        _T("   --vpp-delogo-add             add logo mode\n"),
-#endif //#if ENABLE_CUSTOM_VPP,
-        QSV_DEFAULT_VPP_DELOGO_DEPTH
-    );
+    str += gen_cmd_help_vpp();
 
     str += strsprintf(_T("\n")
         _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
@@ -1491,6 +1463,9 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     ret = parse_one_vppmfx_option(option_name, strInput, i, nArgNum, &pParams->vppmfx, argData);
     if (ret >= 0) return ret;
 
+    ret = parse_one_vpp_option(option_name, strInput, i, nArgNum, &pParams->vpp, argData);
+    if (ret >= 0) return ret;
+
     print_cmd_error_unknown_opt(strInput[i]);
     return 1;
 }
@@ -1678,7 +1653,7 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
 #endif
 
 
-tstring gen_cmd_vppmfx(const sVppParams *param, const sVppParams *defaultPrm, bool save_disabled_prm) {
+tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save_disabled_prm) {
 #define OPT_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << std::setprecision(prec) << (param->opt);
 #define OPT_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(param->opt);
 #define OPT_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (param->opt));
@@ -2027,7 +2002,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #endif //#if ENABLE_SESSION_THREAD_CONFIG
 
     cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm);
-    cmd << gen_cmd_vppmfx(&pParams->vppmfx, &encPrmDefault.vppmfx, save_disabled_prm);
+    cmd << gen_cmd(&pParams->vppmfx, &encPrmDefault.vppmfx, save_disabled_prm);
+    cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm);
 
 #if defined(_WIN32) || defined(_WIN64)
     OPT_NUM(_T("--mfx-thread"), nSessionThreads);
