@@ -470,11 +470,13 @@ static void print_err_mes(int sts) {
     _ftprintf(stderr, _T("%s"), get_err_mes(sts));
 }
 
+const TCHAR *ChromaFormatToStr(uint32_t format);
 const TCHAR *ColorFormatToStr(uint32_t format);
 const TCHAR *CodecIdToStr(uint32_t nFourCC);
 const TCHAR *TargetUsageToStr(uint16_t tu);
 const TCHAR *EncmodeToStr(uint32_t enc_mode);
 const TCHAR *MemTypeToStr(uint32_t memType);
+tstring MFXPicStructToStr(uint32_t picstruct);
 
 mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
 mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream);

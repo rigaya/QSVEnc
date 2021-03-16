@@ -443,6 +443,20 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
 }
 
 RGY_NOINLINE
+const TCHAR *ChromaFormatToStr(uint32_t format) {
+    switch (format) {
+    case MFX_CHROMAFORMAT_YUV400:     return _T("yuv400");
+    case MFX_CHROMAFORMAT_YUV420:     return _T("yuv420");
+    case MFX_CHROMAFORMAT_YUV422:     return _T("yuv422");
+    case MFX_CHROMAFORMAT_YUV444:     return _T("yuv444");
+    case MFX_CHROMAFORMAT_YUV411:     return _T("yuv411");
+    case MFX_CHROMAFORMAT_YUV422V:    return _T("yuv422v");
+    default:
+        return _T("unsupported");
+    }
+}
+
+RGY_NOINLINE
 const TCHAR *CodecIdToStr(uint32_t nFourCC) {
     switch (nFourCC) {
     case MFX_CODEC_AVC:
@@ -532,6 +546,22 @@ const TCHAR *MemTypeToStr(uint32_t memType) {
     default:
         return _T("unsupported");
     }
+}
+
+RGY_NOINLINE
+tstring MFXPicStructToStr(uint32_t picstruct) {
+    if (picstruct == 0) return _T("unknown");
+    tstring str;
+    if (picstruct & MFX_PICSTRUCT_PROGRESSIVE)       str += _T(",prog");
+    if (picstruct & MFX_PICSTRUCT_FIELD_TFF)         str += _T(",tff");
+    if (picstruct & MFX_PICSTRUCT_FIELD_BFF)         str += _T(",bff");
+    if (picstruct & MFX_PICSTRUCT_FIELD_REPEATED)    str += _T(",repeat");
+    if (picstruct & MFX_PICSTRUCT_FRAME_DOUBLING)    str += _T(",double");
+    if (picstruct & MFX_PICSTRUCT_FRAME_TRIPLING)    str += _T(",triple");
+    if (picstruct & MFX_PICSTRUCT_FIELD_SINGLE)      str += _T(",single");
+    if (picstruct & MFX_PICSTRUCT_FIELD_PAIRED_PREV) str += _T(",pair_prev");
+    if (picstruct & MFX_PICSTRUCT_FIELD_PAIRED_NEXT) str += _T(",pair_next");
+    return str.substr(1);
 }
 
 RGY_NOINLINE

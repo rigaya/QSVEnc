@@ -315,8 +315,8 @@ mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop
     }
     PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameIn: vpp input frame %dx%d (%d,%d,%d,%d)\n"),
         mfxIn.Width, mfxIn.Height, mfxIn.CropX, mfxIn.CropY, mfxIn.CropW, mfxIn.CropH);
-    PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameIn: vpp input color format %s, chroma %d, bitdepth %d, shift %d\n"),
-        ColorFormatToStr(mfxIn.FourCC), mfxIn.ChromaFormat, mfxIn.BitDepthLuma, mfxIn.Shift);
+    PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameIn: vpp input color format %s, chroma %s, bitdepth %d, shift %d, picstruct %s\n"),
+        ColorFormatToStr(mfxIn.FourCC), ChromaFormatToStr(mfxIn.ChromaFormat), mfxIn.BitDepthLuma, mfxIn.Shift, MFXPicStructToStr(mfxIn.PicStruct).c_str());
     return mfxIn;
 }
 
@@ -403,8 +403,8 @@ RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params
 
     PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameOut: vpp output frame %dx%d (%d,%d,%d,%d)\n"),
         mfxOut.Width, mfxOut.Height, mfxOut.CropX, mfxOut.CropY, mfxOut.CropW, mfxOut.CropH);
-    PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameOut: vpp output color format %s, chroma %d, bitdepth %d, shift %d\n"),
-        ColorFormatToStr(mfxOut.FourCC), mfxOut.ChromaFormat, mfxOut.BitDepthLuma, mfxOut.Shift);
+    PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameOut: vpp output color format %s, chroma %s, bitdepth %d, shift %d, picstruct %s\n"),
+        ColorFormatToStr(mfxOut.FourCC), ChromaFormatToStr(mfxOut.ChromaFormat), mfxOut.BitDepthLuma, mfxOut.Shift, MFXPicStructToStr(mfxOut.PicStruct).c_str());
     PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameOut: set all vpp params.\n"));
     return RGY_ERR_NONE;
 }
