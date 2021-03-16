@@ -148,6 +148,9 @@ RGY_ERR QSVVppMfx::SetParam(
     if ((err = SetVppExtBuffers(params, colorsapce, VUIOut, VUIIn)) != RGY_ERR_NONE) {
         return err;
     }
+    if (GetVppList().size() > 0) {
+        m_mfxVPP.reset(new MFXVideoVPP(m_mfxSession));
+    }
     PrintMes(RGY_LOG_DEBUG, _T("Vpp SetParam success.\n"));
     return err;
 }
@@ -174,13 +177,15 @@ RGY_ERR QSVVppMfx::Init() {
 }
 
 RGY_ERR QSVVppMfx::Close() {
-    auto err = err_to_rgy(m_mfxVPP->Close());
-    RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
-    if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to reset encoder (fail on closing): %s."), get_err_mes(err));
-        return err;
+    if (m_mfxVPP) {
+        auto err = err_to_rgy(m_mfxVPP->Close());
+        RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to reset encoder (fail on closing): %s."), get_err_mes(err));
+            return err;
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("Vpp Closed.\n"));
     }
-    PrintMes(RGY_LOG_DEBUG, _T("Vpp Closed.\n"));
     return RGY_ERR_NONE;
 }
 

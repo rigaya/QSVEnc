@@ -2830,8 +2830,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     FrameInfo& frameInfo, VideoVUIInfo& vuiIn, rgy_rational<int>& fps,
-    const VppType vppType, const sVppParams *params, sInputCrop *crop, const int blockSize) {
-
+    const VppType vppType, const sInputParams *inputParam, sInputCrop *crop, const int blockSize) {
+    auto params = &inputParam->vppmfx;
     FrameInfo frameIn = frameInfo;
     sVppParams vppParams;
     vppParams.bEnable = true;
@@ -2844,7 +2844,10 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     case VppType::MFX_ROTATE:              vppParams.rotate = params->rotate; break;
     case VppType::MFX_MIRROR:              vppParams.mirrorType = params->mirrorType; break;
     case VppType::MFX_MCTF:                vppParams.mctf = params->mctf; break;
-    case VppType::MFX_RESIZE:              vppParams.bUseResize = true; vppParams.scalingQuality = params->scalingQuality; break;
+    case VppType::MFX_RESIZE:              vppParams.bUseResize = true;
+                                           vppParams.scalingQuality = params->scalingQuality;
+                                           frameInfo.width = inputParam->input.dstWidth;
+                                           frameInfo.height = inputParam->input.dstHeight; break;
 
     case VppType::MFX_FPS_CONV:
     case VppType::MFX_COLORSPACE:
@@ -2855,7 +2858,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
     auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
-    auto err = mfxvpp->SetParam(vppParams, {}, frameInfo, m_encVUI, frameIn, vuiIn, (vppType == VppType::MFX_CROP) ? crop : nullptr, rgy_rational<int>(1,1), fps, blockSize);
+    auto err = mfxvpp->SetParam(vppParams, {}, frameInfo, m_encVUI, frameIn, vuiIn, (vppType == VppType::MFX_CROP) ? crop : nullptr, fps, rgy_rational<int>(1,1), blockSize);
     if (err != RGY_ERR_NONE) {
         return { err, std::unique_ptr<QSVVppMfx>() };
     }
@@ -2872,7 +2875,8 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     return { RGY_ERR_NONE, std::move(mfxvpp) };
 }
 
-std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(FrameInfo& frameInfo, rgy_rational<int>& fps, const VppType vppType, RGYParamVpp *params) {
+std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(FrameInfo& frameInfo, rgy_rational<int>& fps, const VppType vppType, sInputParams *inputParam) {
+    auto params = &inputParam->vpp;
     
     //afs
     if (vppType == VppType::CL_AFS) {
@@ -3382,7 +3386,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         const VppFilterType ftype1 =                                 getVppFilterType(filterPipeline[i+0]);
         const VppFilterType ftype2 = (i+1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i+1]) : VppFilterType::FILTER_NONE;
         if (ftype1 == VppFilterType::FILTER_MFX) {
-            auto [err, vppmfx] = AddFilterMFX(inputFrame, VuiFiltered, m_encFps, filterPipeline[i], &inputParam->vppmfx, inputCrop, blocksize);
+            auto [err, vppmfx] = AddFilterMFX(inputFrame, VuiFiltered, m_encFps, filterPipeline[i], inputParam, inputCrop, blocksize);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
@@ -3418,7 +3422,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 vppOpenCLFilters.push_back(std::move(filterCrop));
             }
             if (filterPipeline[i] != VppType::CL_CROP) {
-                auto [err, vppcl] = AddFilterOpenCL(inputFrame, m_encFps, filterPipeline[i], &inputParam->vpp);
+                auto [err, vppcl] = AddFilterOpenCL(inputFrame, m_encFps, filterPipeline[i], inputParam);
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }
