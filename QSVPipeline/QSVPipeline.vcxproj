@@ -687,6 +687,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="rgy_util.cpp" />
     <ClCompile Include="rgy_err.cpp" />
     <ClCompile Include="rgy_version.cpp" />
+    <ClCompile Include="rgy_filter_resize.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="api_hook.h" />
@@ -765,6 +766,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
   <ItemGroup>
     <None Include="rgy_filter.cl" />
     <None Include="rgy_filter_denoise_knn.cl" />
+    <None Include="rgy_filter_resize.cl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
