@@ -223,9 +223,9 @@ protected:
     virtual std::vector<VppType> InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const bool resizeRequired);
     virtual std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> AddFilterMFX(
         FrameInfo& frameInfo, VideoVUIInfo& vuiIn, rgy_rational<int>& fps,
-        const VppType vppType, const sInputParams *inputParam, sInputCrop *crop, const int blockSize);
+        const VppType vppType, const sVppParams *params, const sInputCrop *crop, std::pair<int, int> resize, const int blockSize);
     virtual std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> AddFilterOpenCL(
-        FrameInfo& frameInfo, rgy_rational<int>& fps,  VppType vppType, sInputParams *inputParam);
+        FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, std::pair<int, int> resize);
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     virtual RGY_ERR InitMfxDecParams(sInputParams *pInParams);
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams);
