@@ -4300,9 +4300,18 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     auto requireSync = [this](const size_t itask) {
         if (itask + 1 >= m_pipelineTasks.size()) return true; // 次が最後のタスクの時
 
+        size_t srctask = itask;
+        if (m_pipelineTasks[srctask]->isPassThrough()) {
+            for (size_t prevtask = srctask-1; prevtask >= 0; prevtask--) {
+                if (!m_pipelineTasks[prevtask]->isPassThrough()) {
+                    srctask = prevtask;
+                    break;
+                }
+            }
+        }
         for (size_t nexttask = itask+1; nexttask < m_pipelineTasks.size(); nexttask++) {
             if (!m_pipelineTasks[nexttask]->isPassThrough()) {
-                return m_pipelineTasks[itask]->requireSync(m_pipelineTasks[nexttask]->taskType());
+                return m_pipelineTasks[srctask]->requireSync(m_pipelineTasks[nexttask]->taskType());
             }
         }
         return true;
