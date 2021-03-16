@@ -45,10 +45,12 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
 
 MAP_PAIR_0_1(vpp, extbuff, uint32_t, rgy, VppType, MFX_EXTBUFF_VPP_TO_VPPTYPE, 0, VppType::VPP_NONE);
 
-QSVVppMfx::QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log) :
+QSVVppMfx::QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator,
+    mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
     m_hwdev(hwdev),
+    m_allocator(allocator),
     m_impl(impl),
     m_memType(memType),
     m_asyncDepth(asyncDepth),
@@ -123,7 +125,8 @@ RGY_ERR QSVVppMfx::SetParam(
         return err;
     }
 
-    if ((err = checkVppParams(params, (frameIn.picstruct & RGY_PICSTRUCT_INTERLACED) != 0)) != RGY_ERR_NONE) {
+    err = checkVppParams(params, (frameIn.picstruct & RGY_PICSTRUCT_INTERLACED) != 0);
+    if (err != RGY_ERR_NONE) {
         return err;
     }
 
@@ -149,7 +152,7 @@ RGY_ERR QSVVppMfx::SetParam(
         return err;
     }
     if (GetVppList().size() > 0) {
-        m_mfxVPP.reset(new MFXVideoVPP(m_mfxSession));
+        m_mfxVPP = std::make_unique<MFXVideoVPP>(m_mfxSession);
     }
     PrintMes(RGY_LOG_DEBUG, _T("Vpp SetParam success.\n"));
     return err;
@@ -195,7 +198,7 @@ RGY_ERR QSVVppMfx::InitSession() {
     auto mfxVer = m_mfxVer;
     auto err = err_to_rgy(m_mfxSession.Init(m_impl, &mfxVer));
     if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for VPP.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for VPP: %s.\n"), get_err_mes(err));
         return err;
     }
 
@@ -214,18 +217,24 @@ RGY_ERR QSVVppMfx::InitSession() {
         mfxHDL hdl = nullptr;
         err = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
         if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to get HW device handle.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to get HW device handle: %s.\n"), get_err_mes(err));
             return err;
         }
         PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
         // hwエンコード時のみハンドルを渡す
         err = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
         if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to vpp session.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to vpp session: %s.\n"), get_err_mes(err));
             return err;
         }
         PrintMes(RGY_LOG_DEBUG, _T("set HW device handle %p to encode session.\n"), hdl);
     }
+
+    if ((err = err_to_rgy(m_mfxSession.SetFrameAllocator(m_allocator))) != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to set frame allocator: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
     return RGY_ERR_NONE;
 }
 
@@ -653,6 +662,7 @@ std::vector<VppType> QSVVppMfx::GetVppList() const {
         vppList.insert(VppType::MFX_DEINTERLACE);
     }
 
+    // その他のフィルタ
     for (auto& vpp : m_VppDoUseList) {
         const auto type = vpp_extbuff_to_rgy(vpp);
         if (type != VppType::VPP_NONE) {

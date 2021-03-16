@@ -2861,8 +2861,9 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
-    auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
-    auto err = mfxvpp->SetParam(vppParams, {}, frameInfo, m_encVUI, frameIn, vuiIn, (vppType == VppType::MFX_CROP) ? crop : nullptr, fps, rgy_rational<int>(1,1), blockSize);
+    auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
+    auto err = mfxvpp->SetParam(vppParams, {}, frameInfo, m_encVUI, frameIn, vuiIn, (vppType == VppType::MFX_CROP) ? crop : nullptr,
+        fps, rgy_rational<int>(1,1), blockSize);
     if (err != RGY_ERR_NONE) {
         return { err, std::unique_ptr<QSVVppMfx>() };
     }
