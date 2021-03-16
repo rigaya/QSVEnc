@@ -586,6 +586,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </ClCompile>
     <ClCompile Include="rgy_filter.cpp" />
     <ClCompile Include="rgy_filter_crop.cpp" />
+    <ClCompile Include="rgy_filter_denoise_knn.cpp" />
     <ClCompile Include="rgy_frame.cpp" />
     <ClCompile Include="rgy_hdr10plus.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -728,6 +729,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_def.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_filter.h" />
+    <ClInclude Include="rgy_filter_denoise_knn.h" />
     <ClInclude Include="rgy_frame.h" />
     <ClInclude Include="rgy_hdr10plus.h" />
     <ClInclude Include="rgy_ini.h" />
@@ -762,6 +764,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl" />
+    <None Include="rgy_filter_denoise_knn.cl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

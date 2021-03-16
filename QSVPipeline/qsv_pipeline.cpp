@@ -56,6 +56,8 @@
 #include "rgy_input_avi.h"
 #include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
+#include "rgy_filter.h"
+#include "rgy_filter_denoise_knn.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
 #include "qsv_hw_device.h"
@@ -2880,7 +2882,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     return { RGY_ERR_NONE, std::move(mfxvpp) };
 }
 
-std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(FrameInfo& frameInfo, rgy_rational<int>& fps, const VppType vppType, sInputParams *inputParam) {
+std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, sInputParams *inputParam) {
     auto params = &inputParam->vpp;
     
     //afs
@@ -2907,7 +2909,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -2935,7 +2937,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -2959,7 +2961,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -2973,7 +2975,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
     }
     //knn
     if (vppType == VppType::CL_DENOISE_KNN) {
-#if 0
+#if 1
         unique_ptr<RGYFilter> filter(new RGYFilterDenoiseKnn(m_cl));
         shared_ptr<RGYFilterParamDenoiseKnn> param(new RGYFilterParamDenoiseKnn());
         param->knn = params->knn;
@@ -2981,9 +2983,9 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pLog);
+        auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -3032,7 +3034,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -3082,7 +3084,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
                 param->crop = inputParam->input.crop;
                 auto sts = filter->init(param, m_pLog);
                 if (sts != RGY_ERR_NONE) {
-                    return sts;
+                    return { sts, std::unique_ptr<RGYFilter>() };
                 }
                 //入力フレーム情報を更新
                 inputFrame = param->frameOut;
@@ -3111,7 +3113,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
             param->bOutOverwrite = false;
             auto sts = filterResizeCL->init(param, m_pQSVLog);
             if (sts != RGY_ERR_NONE) {
-                return sts;
+                return { sts, std::unique_ptr<RGYFilter>() };
             }
             //パラメータ情報を更新
             m_pLastFilterParam = std::dynamic_pointer_cast<RGYFilterParam>(param);
@@ -3138,7 +3140,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -3162,7 +3164,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -3211,7 +3213,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = true;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -3235,7 +3237,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
@@ -3261,7 +3263,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(Fra
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return sts;
+            return { sts, std::unique_ptr<RGYFilter>() };
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;

@@ -10,7 +10,9 @@
 #include <winver.h>
 #include "QSVEncC_version.h"
 
-RGY_FILTER_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter.cl"
+RGY_FILTER_CL                EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter.cl"
+RGY_FILTER_DENOISE_KNN_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_knn.cl"
+
 PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 
 APP_OSCODEPAGE_MANIFEST EXE_DATA DISCARDABLE "QSVEncC.oscodepage.manifest"
