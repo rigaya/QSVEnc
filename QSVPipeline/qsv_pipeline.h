@@ -97,7 +97,7 @@ struct VppVilterBlock {
     std::vector<std::unique_ptr<RGYFilter>> vppcl;
 
     VppVilterBlock(std::unique_ptr<QSVVppMfx>& filter) : type(VppFilterType::FILTER_MFX), vppmfx(std::move(filter)), vppcl() {};
-    VppVilterBlock(std::vector<std::unique_ptr<RGYFilter>>& filter) : type(), vppmfx(), vppcl(std::move(filter)) {};
+    VppVilterBlock(std::vector<std::unique_ptr<RGYFilter>>& filter) : type(VppFilterType::FILTER_OPENCL), vppmfx(), vppcl(std::move(filter)) {};
 };
 
 const uint32_t QSV_PTS_SORT_SIZE = 16u;
