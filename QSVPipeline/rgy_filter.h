@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-//     VCEEnc by rigaya
+//     QSVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2014-2017 rigaya
+// Copyright (c) 2019-2021 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -172,7 +172,6 @@ protected:
     unique_ptr<RGYOpenCLProgram> m_cropUV;
 };
 
-#if 0
 class RGYFilterParamResize : public RGYFilterParam {
 public:
     RGY_VPP_RESIZE_ALGO interp;
@@ -198,6 +197,7 @@ protected:
     unique_ptr<RGYCLFrame> m_srcImage;
 };
 
+#if 0
 class RGYFilterParamPad : public RGYFilterParam {
 public:
     VppPad pad;
