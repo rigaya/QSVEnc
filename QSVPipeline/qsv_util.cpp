@@ -102,8 +102,8 @@ mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
     mfxFrameInfo mfx = { 0 };
     mfx.FourCC = csp_rgy_to_enc(info.csp);
     mfx.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[info.csp]);
-    mfx.BitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[info.csp] - info.shift);
-    mfx.BitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[info.csp] - info.shift);
+    mfx.BitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[info.csp] > 8 ? RGY_CSP_BIT_DEPTH[info.csp] - info.shift : 0);
+    mfx.BitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[info.csp] > 8 ? RGY_CSP_BIT_DEPTH[info.csp] - info.shift : 0);
     mfx.Shift = info.shift ? 1 : 0;
     mfx.Width = (mfxU16)info.srcWidth;
     mfx.Height = (mfxU16)info.srcHeight;
@@ -124,8 +124,8 @@ mfxFrameInfo frameinfo_rgy_to_enc(const FrameInfo& info, const rgy_rational<int>
     mfxFrameInfo mfx = { 0 };
     mfx.FourCC = csp_rgy_to_enc(info.csp);
     mfx.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[info.csp]);
-    mfx.BitDepthLuma = (mfxU16)info.bitdepth;
-    mfx.BitDepthChroma = (mfxU16)info.bitdepth;
+    mfx.BitDepthLuma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
+    mfx.BitDepthChroma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
     mfx.Shift = RGY_CSP_BIT_DEPTH[info.csp] - info.bitdepth > 0 ? 1 : 0;
     mfx.Width = (mfxU16)ALIGN(info.width, blockSize);
     mfx.Height = (mfxU16)ALIGN(info.height, blockSize);
