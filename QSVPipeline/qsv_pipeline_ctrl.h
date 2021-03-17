@@ -1179,6 +1179,7 @@ public:
             }
             filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
         }
+#if 1
         while (filterframes.size() > 0 || drain) {
             //フィルタリングするならここ
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
@@ -1259,6 +1260,28 @@ public:
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
             }
         }
+#else
+        auto surfVppOut = getWorkSurf();
+        if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
+            m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+        }
+        auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.get()].get();
+        if (!clFrameOutInterop) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        auto err = clFrameOutInterop->acquire(m_cl->queue());
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
+            return RGY_ERR_NULL_PTR;
+        }
+        auto inputSurface = clFrameInInterop->frameInfo();
+        auto encSurfaceInfo = clFrameOutInterop->frameInfo();
+        RGYOpenCLEvent clevent;
+        m_cl->copyFrame(&encSurfaceInfo, &inputSurface, nullptr, m_cl->queue(), &clevent);
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+        clFrameOutInterop->release();
+#endif
         if (clFrameInInterop) {
             clFrameInInterop->release();
         }
