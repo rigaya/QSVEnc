@@ -127,13 +127,11 @@ public:
     shared_ptr<RGYLog> m_pQSVLog;
 
     virtual RGY_ERR RunEncode2();
-    static void RunEncThreadLauncher(void *pParam);
     bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
 protected:
     mfxVersion m_mfxVer;
     shared_ptr<EncodeStatus> m_pStatus;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
-    CEncodingThread m_EncThread;
 
     int m_encWidth;
     int m_encHeight;
@@ -150,7 +148,6 @@ protected:
     vector<shared_ptr<RGYInput>> m_AudioReaders;
     shared_ptr<RGYInput> m_pFileReader;
 
-    CQSVTaskControl m_TaskPool; // 廃止予定
     int m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;
     RGYTimestamp m_outputTimestamp;
@@ -171,7 +168,7 @@ protected:
     unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
 
-    unique_ptr<CSessionPlugins> m_SessionPlugins;
+    std::unique_ptr<CSessionPlugins> m_SessionPlugins;
 
     sTrimParam m_trimParam;
 
@@ -201,12 +198,6 @@ protected:
     unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter> m_heAbort;
 
     RGYBitstream m_DecInputBitstream;
-
-    mfxStatus GetNextFrame(mfxFrameSurface1 **pSurface);
-    mfxStatus SetNextSurface(mfxFrameSurface1 *pSurface);
-
-    // for disabling VPP algorithms
-    //mfxExtVPPDoNotUse m_VppDoNotUse;
 
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<VppVilterBlock> m_vpFilters;
@@ -248,9 +239,6 @@ protected:
     virtual RGY_ERR AllocFrames();
 
     virtual RGY_ERR AllocateSufficientBuffer(mfxBitstream* pBS);
-
-    virtual mfxStatus GetFreeTask(QSVTask **ppTask);
-    virtual mfxStatus SynchronizeFirstTask();
 
     RGY_ERR SetPerfMonitorThreadHandles();
     RGY_ERR CreatePipeline();
