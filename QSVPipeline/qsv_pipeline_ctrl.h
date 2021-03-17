@@ -193,19 +193,21 @@ class PipelineTaskOutputSurf : public PipelineTaskOutput {
 protected:
     PipelineTaskSurface m_surf;
     std::unique_ptr<PipelineTaskOutput> m_dependencyFrame;
-    std::unique_ptr<RGYCLFrameInterop> m_dependencyInterop;
+    RGYOpenCLEvent m_clevent;
 public:
     PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint) :
-        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_dependencyFrame(), m_dependencyInterop() { };
-    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, std::unique_ptr<RGYCLFrameInterop>& dependencyInterop) :
+        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_dependencyFrame(), m_clevent() { };
+    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, RGYOpenCLEvent clevent) :
         PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, nullptr),
-        m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_dependencyInterop(std::move(dependencyInterop)) { };
+        m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_clevent(clevent) { };
     virtual ~PipelineTaskOutputSurf() { m_surf.reset(); };
 
     PipelineTaskSurface& surf() { return m_surf; }
 
     virtual void depend_clear() override {
-        m_dependencyInterop.reset();
+        if (m_clevent.ptr() != nullptr) {
+            m_clevent.wait();
+        }
         m_dependencyFrame.reset();
     }
 
@@ -633,7 +635,6 @@ public:
         return err_to_rgy(dec_sts);
     }
 };
-
 
 class PipelineTaskCheckPTS : public PipelineTask {
 protected:
@@ -1132,31 +1133,41 @@ public:
     }
 
 };
+
 class PipelineTaskOpenCL : public PipelineTask {
 protected:
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<std::unique_ptr<RGYFilter>>& m_vpFilters;
+    std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
+    std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppOutInterop;
     MemType m_memType;
 public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, std::shared_ptr<RGYOpenCLContext> cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_memType(memType) {
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_memType(memType) {
         m_allocator = allocator;
     };
-    virtual ~PipelineTaskOpenCL() {};
+    virtual ~PipelineTaskOpenCL() {
+        m_surfVppInInterop.clear();
+        m_surfVppOutInterop.clear();
+        m_cl.reset();
+    };
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
 
         deque<std::pair<FrameInfo, uint32_t>> filterframes;
-        std::unique_ptr<RGYCLFrameInterop> clFrameInInterop;
+        RGYCLFrameInterop *clFrameInInterop = nullptr;
 
         bool drain = !frame;
         if (!frame) {
             filterframes.push_back(std::make_pair(FrameInfo(), 0u));
         } else {
             mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get();
-            clFrameInInterop = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            }
+            clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
             if (!clFrameInInterop) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
                 return RGY_ERR_NULL_PTR;
@@ -1198,7 +1209,10 @@ public:
             }
             {
                 auto surfVppOut = getWorkSurf();
-                auto clFrameOutInterop = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+                if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
+                    m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+                }
+                auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.get()].get();
                 if (!clFrameOutInterop) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
                     return RGY_ERR_NULL_PTR;
@@ -1220,7 +1234,8 @@ public:
                 auto encSurfaceInfo = clFrameOutInterop->frameInfo();
                 FrameInfo *outInfo[1];
                 outInfo[0] = &encSurfaceInfo;
-                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+                RGYOpenCLEvent clevent;
+                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
                 filterframes.pop_front();
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
@@ -1233,7 +1248,6 @@ public:
                 }
 #endif
                 clFrameOutInterop->release();
-                err = m_cl->queue().finish();
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
                     return sts_filter;
@@ -1242,7 +1256,7 @@ public:
                 surfVppOut->Data.FrameOrder = encSurfaceInfo.inputFrameId;
                 surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(encSurfaceInfo.picstruct);
 
-                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clFrameInInterop));
+                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
             }
         }
         if (clFrameInInterop) {
