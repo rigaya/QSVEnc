@@ -1038,14 +1038,13 @@ RGYCLMemObjInfo RGYCLFrame::getMemObjectInfo() const {
     return getRGYCLMemObjectInfo(mem(0));
 }
 
-RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    std::vector<cl_event> v_wait_list = toVec(wait_events);
-    cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
+RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+    cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
     cl_int err = CL_SUCCESS;
     if (m_interop == RGY_INTEROP_DX9) {
-        err = clEnqueueAcquireDX9MediaSurfacesKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, (int)wait_events.size(), wait_list, nullptr);
+        err = clEnqueueAcquireDX9MediaSurfacesKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
     } else if (m_interop == RGY_INTEROP_DX11) {
-        err = clEnqueueAcquireD3D11ObjectsKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, (int)wait_events.size(), wait_list, nullptr);
+        err = clEnqueueAcquireD3D11ObjectsKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
     } else {
         m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Unknown interop type!\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -1058,13 +1057,14 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, const std::vector<RGYO
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYCLFrameInterop::release() {
+RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
     if (m_acquired) {
+        cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
         cl_int err = CL_SUCCESS;
         if (m_interop == RGY_INTEROP_DX9) {
-            err = clEnqueueReleaseDX9MediaSurfacesKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, nullptr);
+            err = clEnqueueReleaseDX9MediaSurfacesKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
         } else if (m_interop == RGY_INTEROP_DX11) {
-            err = clEnqueueReleaseD3D11ObjectsKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, nullptr);
+            err = clEnqueueReleaseD3D11ObjectsKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
         } else {
             m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::release: Unknown interop type!\n"));
             return RGY_ERR_UNSUPPORTED;

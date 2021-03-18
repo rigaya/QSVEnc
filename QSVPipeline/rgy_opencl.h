@@ -448,13 +448,13 @@ public:
         : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_log(log), m_acquired(false) {
         frame;
     };
-    RGY_ERR acquire(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
+    RGY_ERR acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event = nullptr);
 protected:
     RGYCLFrameInterop(const RGYCLFrameInterop &) = delete;
     void operator =(const RGYCLFrameInterop &) = delete;
 public:
     const RGYCLFrameInteropType interop() const { return m_interop; }
-    RGY_ERR release();
+    RGY_ERR release(RGYOpenCLEvent *event = nullptr);
     virtual ~RGYCLFrameInterop() {
         release();
     }

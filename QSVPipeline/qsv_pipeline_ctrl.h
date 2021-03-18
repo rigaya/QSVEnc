@@ -1222,7 +1222,8 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
                     return RGY_ERR_NULL_PTR;
                 }
-                auto err = clFrameOutInterop->acquire(m_cl->queue());
+                RGYOpenCLEvent clevent;
+                auto err = clFrameOutInterop->acquire(m_cl->queue(), &clevent);
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
                     return RGY_ERR_NULL_PTR;
@@ -1239,8 +1240,7 @@ public:
                 auto encSurfaceInfo = clFrameOutInterop->frameInfo();
                 FrameInfo *outInfo[1];
                 outInfo[0] = &encSurfaceInfo;
-                RGYOpenCLEvent clevent;
-                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
+                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
                 filterframes.pop_front();
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
@@ -1252,7 +1252,7 @@ public:
                     m_ssim->filter(&encSurfaceInfo, nullptr, &dummy);
                 }
 #endif
-                clFrameOutInterop->release();
+                clFrameOutInterop->release(&clevent);
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
                     return sts_filter;
