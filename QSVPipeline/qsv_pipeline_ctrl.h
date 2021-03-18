@@ -1177,6 +1177,10 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
                 return RGY_ERR_NULL_PTR;
             }
+            clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
+            clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
+            clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
+            clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
             filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
         }
 #if 1
@@ -1256,6 +1260,7 @@ public:
                 surfVppOut->Data.TimeStamp = encSurfaceInfo.timestamp;
                 surfVppOut->Data.FrameOrder = encSurfaceInfo.inputFrameId;
                 surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(encSurfaceInfo.picstruct);
+                surfVppOut->Data.DataFlag = (mfxU16)encSurfaceInfo.flags;
 
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
             }
