@@ -627,13 +627,25 @@ public:
     RGYOpenCLKernel() : m_kernel(), m_kernelName(), m_pLog() {};
     RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog);
     cl_kernel get() const { return m_kernel; }
+    const std::string& name() const { return m_kernelName; }
     virtual ~RGYOpenCLKernel();
-    RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global);
-    RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, RGYOpenCLEvent *event);
     RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
 protected:
     cl_kernel m_kernel;
     std::string m_kernelName;
+    shared_ptr<RGYLog> m_pLog;
+};
+
+class RGYOpenCLKernelHolder {
+public:
+    RGYOpenCLKernelHolder(RGYOpenCLKernel *kernel, shared_ptr<RGYLog> pLog);
+    ~RGYOpenCLKernelHolder() {};
+    RGYOpenCLKernel *get() const { return m_kernel; }
+    RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global);
+    RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, RGYOpenCLEvent *event);
+    RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
+protected:
+    RGYOpenCLKernel *m_kernel;
     shared_ptr<RGYLog> m_pLog;
 };
 
@@ -642,11 +654,12 @@ public:
     RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog);
     virtual ~RGYOpenCLProgram();
 
-    RGYOpenCLKernel kernel(const char *kernelName);
+    RGYOpenCLKernelHolder kernel(const char *kernelName);
     std::vector<uint8_t> getBinary();
 protected:
     cl_program m_program;
     shared_ptr<RGYLog> m_pLog;
+    std::vector<std::unique_ptr<RGYOpenCLKernel>> m_kernels;
 };
 
 class RGYOpenCLQueue {

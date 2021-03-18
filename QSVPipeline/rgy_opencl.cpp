@@ -672,7 +672,7 @@ RGYOpenCLKernel::~RGYOpenCLKernel() {
     m_pLog.reset();
 };
 
-RGYOpenCLProgram::RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog) : m_program(program), m_pLog(pLog) {
+RGYOpenCLProgram::RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog) : m_program(program), m_pLog(pLog), m_kernels() {
 };
 
 RGYOpenCLProgram::~RGYOpenCLProgram() {
@@ -684,25 +684,37 @@ RGYOpenCLProgram::~RGYOpenCLProgram() {
     }
 };
 
-RGYOpenCLKernelLauncher RGYOpenCLKernel::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global) {
-    return RGYOpenCLKernelLauncher(m_kernel, m_kernelName, queue, local, global, m_pLog, {}, nullptr);
-}
-
-RGYOpenCLKernelLauncher RGYOpenCLKernel::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, RGYOpenCLEvent *event) {
-    return RGYOpenCLKernelLauncher(m_kernel, m_kernelName, queue, local, global, m_pLog, {}, event);
-}
-
 RGYOpenCLKernelLauncher RGYOpenCLKernel::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     return RGYOpenCLKernelLauncher(m_kernel, m_kernelName, queue, local, global, m_pLog, wait_events, event);
 }
 
-RGYOpenCLKernel RGYOpenCLProgram::kernel(const char *kernelName) {
+RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global) {
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_pLog, {}, nullptr);
+}
+
+RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, RGYOpenCLEvent *event) {
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_pLog, {}, event);
+}
+
+RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_pLog, wait_events, event);
+}
+
+RGYOpenCLKernelHolder::RGYOpenCLKernelHolder(RGYOpenCLKernel *kernel, shared_ptr<RGYLog> pLog) : m_kernel(kernel), m_pLog(pLog) {};
+
+RGYOpenCLKernelHolder RGYOpenCLProgram::kernel(const char *kernelName) {
+    for (auto& kernel : m_kernels) {
+        if (strcmp(kernel->name().c_str(), kernelName) == 0) {
+            return RGYOpenCLKernelHolder(kernel.get(), m_pLog);
+        }
+    }
     cl_int err = CL_SUCCESS;
     auto kernel = clCreateKernel(m_program, kernelName, &err);
     if (err != CL_SUCCESS) {
         m_pLog->write(RGY_LOG_ERROR, _T("Failed to get kernel %s: %s\n"), char_to_tstring(kernelName).c_str(), cl_errmes(err));
     }
-    return RGYOpenCLKernel(kernel, kernelName, m_pLog);
+    m_kernels.push_back(std::move(std::make_unique<RGYOpenCLKernel>(kernel, kernelName, m_pLog)));
+    return RGYOpenCLKernelHolder(m_kernels.back().get(), m_pLog);
 }
 
 std::vector<uint8_t> RGYOpenCLProgram::getBinary() {
