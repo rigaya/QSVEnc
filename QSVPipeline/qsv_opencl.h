@@ -45,13 +45,15 @@ static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1
         ID3D11Texture2D *surf = (ID3D11Texture2D*)mid_pair.first;
         return cl->createFrameFromD3D11Surface(surf, frameInfo, queue, flags);
     } else if (memType == D3D9_MEMORY) {
-        mfxHDLPair mid_pair = { 0 };
-        auto err = err_to_rgy(allocator->GetHDL(allocator->pthis, mid, reinterpret_cast<mfxHDL*>(&mid_pair)));
-        if (err != RGY_ERR_NONE) {
-            return std::unique_ptr<RGYCLFrameInterop>();
-        }
-        IDirect3DSurface9 *surf = (IDirect3DSurface9*)mid_pair.first;
-        return cl->createFrameFromD3D9Surface(surf, frameInfo, queue, flags);
+        //mfxHDLPair mid_pair = { 0 };
+        //auto err = err_to_rgy(allocator->GetHDL(allocator->pthis, mid, reinterpret_cast<mfxHDL*>(&mid_pair)));
+        //if (err != RGY_ERR_NONE) {
+        //    return std::unique_ptr<RGYCLFrameInterop>();
+        //}
+        IDirect3DSurface9 *surf = (IDirect3DSurface9*)((mfxHDLPair*)mid)->first;
+        // このshared_handleも渡さないと、release/acquireで余計なオーバーヘッドが発生してしまう模様
+        HANDLE shared_handle = (HANDLE)((mfxHDLPair*)mid)->second;
+        return cl->createFrameFromD3D9Surface(surf, shared_handle, frameInfo, queue, flags);
     } else {
         return std::unique_ptr<RGYCLFrameInterop>();
     }

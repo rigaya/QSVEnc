@@ -1614,7 +1614,7 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo&
     return std::make_unique<RGYCLFrame>(clframe, flags);
 }
 
-unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
     if (m_platform->d3d9dev() == nullptr) {
         m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d9 device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
@@ -1625,7 +1625,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
         clframe.ptr[i] = nullptr;
         clframe.pitch[i] = 0;
     }
-    cl_dx9_surface_info_khr surfInfo = { (IDirect3DSurface9 *)surf, nullptr };
+    cl_dx9_surface_info_khr surfInfo = { (IDirect3DSurface9 *)surf, shared_handle };
     for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
         cl_int err = 0;
         clframe.ptr[i] = (uint8_t *)clCreateFromDX9MediaSurfaceKHR(m_context.get(), flags, CL_ADAPTER_D3D9EX_KHR, &surfInfo, i, &err);

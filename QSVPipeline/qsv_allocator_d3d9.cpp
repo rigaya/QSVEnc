@@ -353,7 +353,7 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
     if (request->Type & MFX_MEMTYPE_EXTERNAL_FRAME) {
         for (int i = 0; i < request->NumFrameSuggested; i++) {
             if (FAILED(hr = videoService->CreateSurface(request->Info.Width, request->Info.Height, 0,  format,
-                                                D3DPOOL_DEFAULT, m_surfaceUsage, target, (IDirect3DSurface9**)&dxMids[i].first, NULL /*&dxMids[i].second*/))) {
+                                                D3DPOOL_DEFAULT, m_surfaceUsage, target, (IDirect3DSurface9**)&dxMids[i].first, &dxMids[i].second))) {
                 ReleaseResponse(response);
                 rgy_free(dxMids);
                 m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(external) #%d: %d.\n"), i, hr);

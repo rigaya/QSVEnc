@@ -722,7 +722,7 @@ public:
     unique_ptr<RGYCLFrame> createImageFromFrameBuffer(const FrameInfo &frame, bool normalized, cl_mem_flags flags);
     unique_ptr<RGYCLFrame> createFrameBuffer(int width, int height, RGY_CSP csp, cl_mem_flags flags = CL_MEM_READ_WRITE);
     unique_ptr<RGYCLFrame> createFrameBuffer(const FrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
     unique_ptr<RGYCLFrameInterop> createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop);
