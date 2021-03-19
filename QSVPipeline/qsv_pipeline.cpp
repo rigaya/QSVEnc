@@ -2925,7 +2925,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     QSV_ERR_MES(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
-    m_SessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(m_mfxSession));
+    m_SessionPlugins = std::make_unique<CSessionPlugins>(m_mfxSession);
 
     sts = CreateAllocator();
     if (sts < RGY_ERR_NONE) return sts;
