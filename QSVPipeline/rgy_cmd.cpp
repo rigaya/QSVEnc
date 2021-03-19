@@ -339,7 +339,11 @@ static int getAttachmentTrackIdx(const RGYParamCommon *common, int iTrack) {
 #pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
 
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData) {
-    if (0 == _tcscmp(option_name, _T("vpp-resize"))) {
+    if (IS_OPTION("vpp-resize")
+#if ENCODER_QSV
+        || IS_OPTION("vpp-scaling")
+#endif
+        ) {
         i++;
         int value;
         if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_vpp_resize, strInput[i]))) {

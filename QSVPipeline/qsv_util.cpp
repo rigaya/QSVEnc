@@ -83,6 +83,14 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
 
 MAP_PAIR_0_1(csp, rgy, RGY_CSP, enc, mfxU32, RGY_CSP_TO_MFX, RGY_CSP_NA, 0);
 
+static const auto RGY_SCALING_ALGO_TO_MFX = make_array<std::pair<RGY_VPP_RESIZE_ALGO, int>>(
+    std::make_pair(RGY_VPP_RESIZE_AUTO,         MFX_SCALING_MODE_DEFAULT),
+    std::make_pair(RGY_VPP_RESIZE_MFX_LOWPOWER, MFX_SCALING_MODE_LOWPOWER),
+    std::make_pair(RGY_VPP_RESIZE_MFX_QUALITY,  MFX_SCALING_MODE_QUALITY)
+);
+
+MAP_PAIR_0_1(scaling, rgy, RGY_VPP_RESIZE_ALGO, enc, int, RGY_SCALING_ALGO_TO_MFX, RGY_VPP_RESIZE_UNKNOWN, -1);
+
 RGY_NOINLINE
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {
     if (picstruct & RGY_PICSTRUCT_TFF) return (mfxU16)MFX_PICSTRUCT_FIELD_TFF;

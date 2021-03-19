@@ -1988,11 +1988,11 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const bool resizeRequired) {
+std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
     std::vector<VppType> filterPipeline;
     filterPipeline.reserve((size_t)VppType::CL_MAX);
 
-    if (cropRequired)                      filterPipeline.push_back(VppType::CL_CROP);
+    if (cropRequired)                      filterPipeline.push_back(VppType::MFX_CROP);
     if (inputParam->vpp.colorspace.enable) filterPipeline.push_back(VppType::CL_COLORSPACE);
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)      filterPipeline.push_back(VppType::CL_NNEDI);
@@ -2002,7 +2002,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
     if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vppmfx.denoise.enable) filterPipeline.push_back(VppType::MFX_DENOISE);
     if (inputParam->vpp.subburn.size()>0)  filterPipeline.push_back(VppType::CL_SUBBURN);
-    if (resizeRequired)                    filterPipeline.push_back(VppType::CL_RESIZE);
+    if (     resizeRequired == RGY_VPP_RESIZE_TYPE_OPENCL) filterPipeline.push_back(VppType::CL_RESIZE);
+    else if (resizeRequired != RGY_VPP_RESIZE_TYPE_NONE)   filterPipeline.push_back(VppType::MFX_RESIZE);
     if (inputParam->vpp.unsharp.enable)    filterPipeline.push_back(VppType::CL_UNSHARP);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
@@ -2017,21 +2018,20 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
         return filterPipeline;
     }
 
-    // cropとresizeはmfxとopencl両方ともあるので、前後のフィルタのどちらかがmfxだったら、そちらに合わせる
+    // cropとresizeはmfxとopencl両方ともあるので、前後のフィルタがどちらもOpenCLだったら、そちらに合わせる
     for (size_t i = 0; i < filterPipeline.size(); i++) {
-        if (filterPipeline[i] == VppType::CL_CROP
-            || filterPipeline[i] == VppType::CL_RESIZE) {
-            const VppFilterType prev = (i >= 1)                        ? getVppFilterType(filterPipeline[i - 1]) : VppFilterType::FILTER_NONE;
-            const VppFilterType next = (i + 1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i + 1]) : VppFilterType::FILTER_NONE;
-            if (prev == VppFilterType::FILTER_MFX
-                || next == VppFilterType::FILTER_MFX
-                || (prev == next && prev == VppFilterType::FILTER_NONE)) {
-                if (filterPipeline[i] == VppType::CL_CROP) {
-                    filterPipeline[i] = VppType::MFX_CROP;
-                }
-                if (filterPipeline[i] == VppType::CL_RESIZE) {
-                    filterPipeline[i] = VppType::MFX_RESIZE;
-                }
+        const VppFilterType prev = (i >= 1)                        ? getVppFilterType(filterPipeline[i - 1]) : VppFilterType::FILTER_NONE;
+        const VppFilterType next = (i + 1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i + 1]) : VppFilterType::FILTER_NONE;
+        if (filterPipeline[i] == VppType::MFX_RESIZE) {
+            if (resizeRequired == RGY_VPP_RESIZE_TYPE_AUTO // 自動以外の指定があれば、それに従うので、自動の場合のみ変更
+                && prev == VppFilterType::FILTER_OPENCL
+                && next == VppFilterType::FILTER_OPENCL) {
+                filterPipeline[i] = VppType::CL_RESIZE; // OpenCLに挟まれていたら、OpenCLのresizeを優先する
+            }
+        } else if (filterPipeline[i] == VppType::MFX_CROP) {
+            if (   prev == VppFilterType::FILTER_OPENCL
+                && next == VppFilterType::FILTER_OPENCL) {
+                filterPipeline[i] = VppType::CL_CROP; // OpenCLに挟まれていたら、OpenCLのcropを優先する
             }
         }
     }
@@ -2525,10 +2525,16 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
             resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
         }
     }
-    bool resizeRequired = false;
+    RGY_VPP_RESIZE_TYPE resizeRequired = RGY_VPP_RESIZE_TYPE_NONE;
     if (croppedWidth != resizeWidth || croppedHeight != resizeHeight) {
-        resizeRequired = true;
+        resizeRequired = getVppResizeType(inputParam->vpp.resize);
+        if (resizeRequired == RGY_VPP_RESIZE_TYPE_UNKNOWN) {
+            PrintMes(RGY_LOG_ERROR, _T("Unknown resize type.\n"));
+            return RGY_ERR_INVALID_VIDEO_PARAM;
+        }
     }
+    //リサイズアルゴリズムのパラメータはvpp側に設定されているので、設定をvppmfxに転写する
+    inputParam->vppmfx.scalingQuality = scaling_rgy_to_enc(inputParam->vpp.resize);
 
     //フレームレートのチェック
     if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {

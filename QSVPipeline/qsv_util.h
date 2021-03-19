@@ -65,6 +65,7 @@ class RGYFrameData;
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, mfxU32);
 MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU32);
 MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, mfxU32);
+MAP_PAIR_0_1_PROTO(scaling, rgy, RGY_VPP_RESIZE_ALGO, enc, int);
 
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct);
 RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct);

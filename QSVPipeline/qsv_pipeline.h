@@ -211,7 +211,7 @@ protected:
     virtual RGY_ERR InitInput(sInputParams *pParams);
     virtual RGY_ERR InitChapters(const sInputParams *inputParam);
     virtual RGY_ERR InitFilters(sInputParams *inputParam);
-    virtual std::vector<VppType> InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const bool resizeRequired);
+    virtual std::vector<VppType> InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired);
     virtual std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> AddFilterMFX(
         FrameInfo& frameInfo, VideoVUIInfo& vuiIn, rgy_rational<int>& fps,
         const VppType vppType, const sVppParams *params, const sInputCrop *crop, std::pair<int, int> resize, const int blockSize);

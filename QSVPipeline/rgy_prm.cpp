@@ -35,6 +35,20 @@
 #include "rgy_perf_monitor.h"
 #include "afs_stg.h"
 
+RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
+    if (resize == RGY_VPP_RESIZE_AUTO) {
+        return RGY_VPP_RESIZE_TYPE_AUTO;
+    } else if (resize < RGY_VPP_RESIZE_OPENCL_MAX) {
+        return RGY_VPP_RESIZE_TYPE_OPENCL;
+#if ENCODER_QSV
+    } else if (resize < RGY_VPP_RESIZE_MFX_MAX) {
+        return RGY_VPP_RESIZE_TYPE_MFX;
+#endif
+    } else {
+        return RGY_VPP_RESIZE_TYPE_UNKNOWN;
+    }
+}
+
 ColorspaceConv::ColorspaceConv() :
     from(),
     to(),
