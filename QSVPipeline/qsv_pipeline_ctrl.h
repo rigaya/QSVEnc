@@ -193,21 +193,25 @@ class PipelineTaskOutputSurf : public PipelineTaskOutput {
 protected:
     PipelineTaskSurface m_surf;
     std::unique_ptr<PipelineTaskOutput> m_dependencyFrame;
-    RGYOpenCLEvent m_clevent;
+    std::vector<RGYOpenCLEvent> m_clevents;
 public:
     PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint) :
-        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_dependencyFrame(), m_clevent() { };
-    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, RGYOpenCLEvent clevent) :
+        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_dependencyFrame(), m_clevents() { };
+    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, RGYOpenCLEvent& clevent) :
         PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, nullptr),
-        m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_clevent(clevent) { };
+        m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_clevents() {
+        m_clevents.push_back(clevent);
+    };
     virtual ~PipelineTaskOutputSurf() { m_surf.reset(); };
 
     PipelineTaskSurface& surf() { return m_surf; }
 
+    void addClEvent(RGYOpenCLEvent& clevent) {
+        m_clevents.push_back(clevent);
+    }
+
     virtual void depend_clear() override {
-        if (m_clevent.ptr() != nullptr) {
-            m_clevent.wait();
-        }
+        RGYOpenCLEvent::wait(m_clevents);
         m_dependencyFrame.reset();
     }
 
@@ -1190,7 +1194,22 @@ public:
             filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
         }
 #if 1
+        std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
         while (filterframes.size() > 0 || drain) {
+            auto surfVppOut = getWorkSurf();
+            if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
+                m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+            }
+            auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.get()].get();
+            if (!clFrameOutInterop) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            auto err = clFrameOutInterop->acquire(m_cl->queue());
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
+                return RGY_ERR_NULL_PTR;
+            }
             //フィルタリングするならここ
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
                 int nOutFrames = 0;
@@ -1198,6 +1217,7 @@ public:
                 auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
+                    clFrameOutInterop->release();
                     return sts_filter;
                 }
                 if (nOutFrames == 0) {
@@ -1216,60 +1236,47 @@ public:
                 }
             }
             if (drain) {
+                clFrameOutInterop->release();
                 return RGY_ERR_MORE_DATA; //最後までdrain = trueなら、drain完了
             }
-            {
-                auto surfVppOut = getWorkSurf();
-                if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
-                    m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
-                }
-                auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.get()].get();
-                if (!clFrameOutInterop) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
-                    return RGY_ERR_NULL_PTR;
-                }
-                RGYOpenCLEvent clevent;
-                auto err = clFrameOutInterop->acquire(m_cl->queue(), &clevent);
-                if (err != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
-                    return RGY_ERR_NULL_PTR;
-                }
-                //エンコードバッファにコピー
-                auto &lastFilter = m_vpFilters[m_vpFilters.size() - 1];
-                //最後のフィルタはRGYFilterCspCropでなければならない
-                if (typeid(*lastFilter.get()) != typeid(RGYFilterCspCrop)) {
-                    PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
-                    return RGY_ERR_INVALID_PARAM;
-                }
-                //エンコードバッファのポインタを渡す
-                int nOutFrames = 0;
-                auto encSurfaceInfo = clFrameOutInterop->frameInfo();
-                FrameInfo *outInfo[1];
-                outInfo[0] = &encSurfaceInfo;
-                auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
-                filterframes.pop_front();
-                if (sts_filter != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
-                    return sts_filter;
-                }
-#if 0
-                if (m_ssim) {
-                    int dummy = 0;
-                    m_ssim->filter(&encSurfaceInfo, nullptr, &dummy);
-                }
-#endif
-                clFrameOutInterop->release(&clevent);
-                if (err != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
-                    return sts_filter;
-                }
-                surfVppOut->Data.TimeStamp = encSurfaceInfo.timestamp;
-                surfVppOut->Data.FrameOrder = encSurfaceInfo.inputFrameId;
-                surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(encSurfaceInfo.picstruct);
-                surfVppOut->Data.DataFlag = (mfxU16)encSurfaceInfo.flags;
-
-                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+            //エンコードバッファにコピー
+            auto &lastFilter = m_vpFilters[m_vpFilters.size() - 1];
+            //最後のフィルタはRGYFilterCspCropでなければならない
+            if (typeid(*lastFilter.get()) != typeid(RGYFilterCspCrop)) {
+                PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
+                clFrameOutInterop->release();
+                return RGY_ERR_INVALID_PARAM;
             }
+            //エンコードバッファのポインタを渡す
+            int nOutFrames = 0;
+            auto encSurfaceInfo = clFrameOutInterop->frameInfo();
+            FrameInfo *outInfo[1];
+            outInfo[0] = &encSurfaceInfo;
+            auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+            filterframes.pop_front();
+            if (sts_filter != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
+                clFrameOutInterop->release();
+                return sts_filter;
+            }
+#if 0
+            if (m_ssim) {
+                int dummy = 0;
+                m_ssim->filter(&encSurfaceInfo, nullptr, &dummy);
+            }
+#endif
+            RGYOpenCLEvent clevent;
+            clFrameOutInterop->release(&clevent);
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
+                return sts_filter;
+            }
+            surfVppOut->Data.TimeStamp = encSurfaceInfo.timestamp;
+            surfVppOut->Data.FrameOrder = encSurfaceInfo.inputFrameId;
+            surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(encSurfaceInfo.picstruct);
+            surfVppOut->Data.DataFlag = (mfxU16)encSurfaceInfo.flags;
+
+            outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
         }
 #else
         auto surfVppOut = getWorkSurf();
@@ -1294,8 +1301,16 @@ public:
         clFrameOutInterop->release();
 #endif
         if (clFrameInInterop) {
-            clFrameInInterop->release();
+            RGYOpenCLEvent clevent;
+            clFrameInInterop->release(&clevent);
+            for (auto& surf : outputSurfs) {
+                surf->addClEvent(clevent);
+            }
         }
+        m_outQeueue.insert(m_outQeueue.end(),
+            std::make_move_iterator(outputSurfs.begin()),
+            std::make_move_iterator(outputSurfs.end())
+        );
         return RGY_ERR_NONE;
     }
 };

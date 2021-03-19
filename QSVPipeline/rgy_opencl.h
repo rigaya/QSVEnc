@@ -276,6 +276,14 @@ public:
     cl_event &operator()() { return *event_; }
     const cl_event &operator()() const { return *event_; }
     const cl_event *ptr() const { return &(*event_); }
+    static void wait(std::vector<RGYOpenCLEvent>& events) {
+        if (events.size() > 0) {
+            std::vector<cl_event> clevents(events.size());
+            for (size_t i = 0; i < events.size(); i++)
+                clevents[i] = events[i]();
+            clWaitForEvents((int)events.size(), clevents.data());
+        }
+    }
 private:
     std::shared_ptr<cl_event> event_;
 };
