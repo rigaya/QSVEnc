@@ -563,7 +563,11 @@ RGY_ERR RGYOpenCLContext::createContext() {
         m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d11 interop for %p\n"), m_platform->d3d11dev());
     }
     props.push_back(CL_CONTEXT_INTEROP_USER_SYNC);
+#if ENCODER_QSV
+    props.push_back(CL_TRUE);
+#else
     props.push_back(CL_FALSE);
+#endif
     props.push_back(0);
     try {
         m_context = unique_context(clCreateContext(props.data(), (cl_uint)m_platform->devs().size(), m_platform->devs().data(), nullptr, nullptr, &err), clReleaseContext);
