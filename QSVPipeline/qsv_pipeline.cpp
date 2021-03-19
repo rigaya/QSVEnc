@@ -1322,6 +1322,9 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         } else if (t1Alloc.has_value()) {
             allocRequest = t1Alloc.value();
             t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
+        } else if (t0->getOutputFrameInfo(allocRequest.Info) == RGY_ERR_NONE) { // inputとopenclがつながっているような場合
+            t0RequestNumFrame = 1;
+            t1RequestNumFrame = 1;
         } else {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
             return RGY_ERR_UNSUPPORTED;

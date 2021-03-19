@@ -327,6 +327,7 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() = 0;
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() = 0;
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
+    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { return RGY_ERR_INVALID_CALL; }
     std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) {
         std::vector<std::unique_ptr<PipelineTaskOutput>> output;
         while (m_outQeueue.size() > m_outMaxQueueSize) {
@@ -506,6 +507,11 @@ public:
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfWork, nullptr));
         }
         return err;
+    }
+    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
+        auto frameInfo = m_input->GetInputFrameInfo();
+        info = frameinfo_rgy_to_enc(frameInfo);
+        return RGY_ERR_NONE;
     }
 };
 
