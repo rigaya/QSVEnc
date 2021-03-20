@@ -547,6 +547,10 @@ public:
         PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     }
+    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
+        info = m_mfxDecParams.mfx.FrameInfo;
+        return RGY_ERR_NONE;
+    }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_getNextBitstream
             //m_DecInputBitstream.size() > 0のときにbitstreamを連結してしまうと
@@ -656,18 +660,100 @@ protected:
     int64_t m_tsOutFirst;     //(m_outputTimebase基準)
     int64_t m_tsOutEstimated; //(m_outputTimebase基準)
     int64_t m_tsPrev;         //(m_outputTimebase基準)
+    MFXVideoVPP *m_vppCopy;   //コピー用のvpp、forcecfrでフレームの水増しが必要な場合のみ
+    mfxVideoParam m_vppCopyPrm; //コピー用のvppのパラメータ、forcecfrでフレームの水増しが必要な場合のみ
 public:
-    PipelineTaskCheckPTS(rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, RGYTimestamp& timestamp, int64_t outFrameDuration, RGYAVSync avsync, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::CHECKPTS, outMaxQueueSize, nullptr, mfxVer, log),
-        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_timestamp(timestamp), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1) {
+    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, RGYTimestamp& timestamp, int64_t outFrameDuration, RGYAVSync avsync,
+        MFXVideoVPP *vppCopy, const mfxVideoParam *vppCopyPrm, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::CHECKPTS, outMaxQueueSize, mfxSession, mfxVer, log),
+        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_timestamp(timestamp), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_vppCopy(vppCopy), m_vppCopyPrm() {
+        if (vppCopyPrm) {
+            m_vppCopyPrm = *vppCopyPrm;
+        }
     };
     virtual ~PipelineTaskCheckPTS() {};
 
-    virtual bool isPassThrough() const override { return true; }
+    virtual bool isPassThrough() const override {
+        // forcecfrでフレームの水増しが必要な場合には、たとえ不要でも必ずコピーするvppをはさむ
+        // コピーが不要な場合はそのまま渡すのでpaththrough
+        return (m_vppCopy) ? false : true;
+    }
     static const int MAX_FORCECFR_INSERT_FRAMES = 16;
 
-    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
-    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+    RGY_ERR requiredSurfInOut(mfxFrameAllocRequest allocRequest[2]) {
+        memset(allocRequest, 0, sizeof(allocRequest));
+        // allocRequest[0]はvppへの入力, allocRequest[1]はvppからの出力
+        auto err = err_to_rgy(m_vppCopy->QueryIOSurf(&m_vppCopyPrm, allocRequest));
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
+            return err;
+        }
+        allocRequest[1].NumFrameMin += MAX_FORCECFR_INSERT_FRAMES;
+        allocRequest[1].NumFrameSuggested += MAX_FORCECFR_INSERT_FRAMES;
+        PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer in: %d [%s], out %d [%s]\n"), getPipelineTaskTypeName(m_type),
+            allocRequest[0].NumFrameSuggested, qsv_memtype_str(allocRequest[0].Type).c_str(),
+            allocRequest[1].NumFrameSuggested, qsv_memtype_str(allocRequest[1].Type).c_str());
+        return err;
+    }
+public:
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override {
+        if (!m_vppCopy) {
+            return std::nullopt;
+        }
+        mfxFrameAllocRequest allocRequest[2];
+        if (requiredSurfInOut(allocRequest) != RGY_ERR_NONE) {
+            return std::nullopt;
+        }
+        return std::optional<mfxFrameAllocRequest>(allocRequest[0]);
+    };
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override {
+        if (!m_vppCopy) {
+            return std::nullopt;
+        }
+        mfxFrameAllocRequest allocRequest[2];
+        if (requiredSurfInOut(allocRequest) != RGY_ERR_NONE) {
+            return std::nullopt;
+        }
+        return std::optional<mfxFrameAllocRequest>(allocRequest[1]);
+    };
+    RGY_ERR copyFrameVpp(mfxFrameSurface1 *surfVppOut, mfxFrameSurface1 *surfVppIn, mfxSyncPoint& lastSyncPoint) {
+        auto vpp_sts = MFX_ERR_NONE;
+        for (int i = 0; ; i++) {
+            //bob化の際、pSurfVppInに連続で同じフレーム(同じtimestamp)を投入すると、
+            //最初のフレームには設定したtimestamp、次のフレームにはMFX_TIMESTAMP_UNKNOWNが設定されて出てくる
+            //特別pSurfVppOut側のTimestampを設定する必要はなさそう
+            mfxSyncPoint VppSyncPoint = nullptr;
+            vpp_sts = m_vppCopy->RunFrameVPPAsync(surfVppIn, surfVppOut, nullptr, &VppSyncPoint);
+            lastSyncPoint = VppSyncPoint;
+
+            if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) {
+                if (MFX_WRN_DEVICE_BUSY == vpp_sts)
+                    sleep_hybrid(i);
+                if (i > 1024 * 1024 * 30) {
+                    PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                    return RGY_ERR_GPU_HANG;
+                }
+            } else if (MFX_ERR_NONE < vpp_sts && VppSyncPoint) {
+                vpp_sts = MFX_ERR_NONE;
+                break;
+            } else {
+                break;
+            }
+        }
+
+        if (surfVppIn && vpp_sts == MFX_ERR_MORE_DATA) {
+            vpp_sts = MFX_ERR_NONE;
+        } else if (vpp_sts == MFX_ERR_MORE_SURFACE) {
+            vpp_sts = MFX_ERR_NONE;
+        } else if (vpp_sts != MFX_ERR_NONE) {
+            return err_to_rgy(vpp_sts);
+        }
+        if (lastSyncPoint == nullptr) {
+            PrintMes(RGY_LOG_TRACE, _T("vpp(copy) returned no frame.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        return RGY_ERR_NONE;
+    }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (!frame) {
             return RGY_ERR_MORE_DATA;
@@ -698,87 +784,116 @@ public:
         //最初のptsを0に修正
         outPtsSource -= m_tsOutFirst;
 
-#if 0
         if ((m_avsync & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) {
             if (vpp_rff || vpp_afs_rff_aware) {
-                if (std::abs(outPtsSource - nOutEstimatedPts) >= 32 * m_outFrameDuration) {
-                    PrintMes(RGY_LOG_TRACE, _T("check_pts: detected gap %lld, changing offset.\n"), outPtsSource, std::abs(outPtsSource - nOutEstimatedPts));
+                if (std::abs(outPtsSource - m_tsOutEstimated) >= 32 * m_outFrameDuration) {
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts: detected gap %lld, changing offset.\n"), outPtsSource, std::abs(outPtsSource - m_tsOutEstimated));
                     //timestampに一定以上の差があればそれを無視する
-                    m_tsOutFirst += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
-                    outPtsSource = nOutEstimatedPts;
+                    m_tsOutFirst += (outPtsSource - m_tsOutEstimated); //今後の位置合わせのための補正
+                    outPtsSource = m_tsOutEstimated;
                     PrintMes(RGY_LOG_TRACE, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
                 }
-                auto ptsDiff = outPtsSource - nOutEstimatedPts;
+                auto ptsDiff = outPtsSource - m_tsOutEstimated;
                 if (ptsDiff <= std::min<int64_t>(-1, -1 * m_outFrameDuration * 7 / 8)) {
                     //間引きが必要
-                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), taskSurf->surf()->Data.FrameOrder);
                     return RGY_ERR_MORE_SURFACE;
                 }
             }
+#if 0
             if (streamIn) {
                 //cuvidデコード時は、timebaseの分子はかならず1なので、streamIn->time_baseとズレているかもしれないのでオリジナルを計算
-                const auto orig_pts = rational_rescale(pInputFrame->getTimeStamp(), m_srcTimebase, to_rgy(streamIn->time_base));
+                const auto orig_pts = rational_rescale(taskSurf->surf()->Data.TimeStamp, m_srcTimebase, to_rgy(streamIn->time_base));
                 //ptsからフレーム情報を取得する
                 const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
-                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   estimetaed orig_pts %lld, framePos %d\n"), pInputFrame->getFrameInfo().inputFrameId, orig_pts, framePos.poc);
+                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   estimetaed orig_pts %lld, framePos %d\n"), taskSurf->surf()->Data.FrameOrder, orig_pts, framePos.poc);
                 if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
                     //有効な値ならオリジナルのdurationを使用する
                     outDuration = rational_rescale(framePos.duration, to_rgy(streamIn->time_base), m_outputTimebase);
-                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   changing duration to original: %d\n"), pInputFrame->getFrameInfo().inputFrameId, outDuration);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   changing duration to original: %d\n"), taskSurf->surf()->Data.FrameOrder, outDuration);
                 }
             }
+#endif
         }
         if (m_avsync & RGY_AVSYNC_FORCE_CFR) {
-            if (std::abs(outPtsSource - nOutEstimatedPts) >= CHECK_PTS_MAX_INSERT_FRAMES * m_outFrameDuration) {
+            if (std::abs(outPtsSource - m_tsOutEstimated) >= CHECK_PTS_MAX_INSERT_FRAMES * m_outFrameDuration) {
                 //timestampに一定以上の差があればそれを無視する
-                m_tsOutFirst += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
-                outPtsSource = nOutEstimatedPts;
+                m_tsOutFirst += (outPtsSource - m_tsOutEstimated); //今後の位置合わせのための補正
+                outPtsSource = m_tsOutEstimated;
                 PrintMes(RGY_LOG_WARN, _T("Big Gap was found between 2 frames, avsync might be corrupted.\n"));
                 PrintMes(RGY_LOG_TRACE, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
             }
-            auto ptsDiff = outPtsSource - nOutEstimatedPts;
+            auto ptsDiff = outPtsSource - m_tsOutEstimated;
             if (ptsDiff <= std::min<int64_t>(-1, -1 * m_outFrameDuration * 7 / 8)) {
                 //間引きが必要
-                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (assume_cfr)\n"), pInputFrame->getFrameInfo().inputFrameId);
+                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (assume_cfr)\n"), taskSurf->surf()->Data.FrameOrder);
                 return RGY_ERR_MORE_SURFACE;
             }
             while (ptsDiff >= std::max<int64_t>(1, m_outFrameDuration * 7 / 8)) {
                 //水増しが必要
-                createCopy
-                nOutEstimatedPts += m_outFrameDuration;
-                ptsDiff = outPtsSource - nOutEstimatedPts;
+                //この場合にはコピーが必要
+                mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
+                auto surfVppOut = getWorkSurf();
+                mfxSyncPoint lastSyncPoint;
+                auto err = copyFrameVpp(surfVppOut.get(), surfVppIn, lastSyncPoint);
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_TRACE, _T("error occurred in vpp(copy): %s.\n"), get_err_mes(err));
+                    return err;
+                }
+                surfVppOut->Data.FrameOrder = m_inFrames++;
+                surfVppOut->Data.TimeStamp = rational_rescale(m_tsOutEstimated, m_outputTimebase, hw_timebase); // timestampを上書き
+                surfVppOut->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+                m_timestamp.add(surfVppOut->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
+                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
+                m_tsOutEstimated += m_outFrameDuration;
+                ptsDiff = outPtsSource - m_tsOutEstimated;
             }
-            outPtsSource = nOutEstimatedPts;
+            outPtsSource = m_tsOutEstimated;
         }
         if (m_tsPrev >= outPtsSource) {
             if (m_tsPrev - outPtsSource >= MAX_FORCECFR_INSERT_FRAMES * m_outFrameDuration) {
-                PrintMes(RGY_LOG_DEBUG, _T("check_pts: previous pts %lld, current pts %lld, estimated pts %lld, m_tsOutFirst %lld, changing offset.\n"), m_tsPrev, outPtsSource, nOutEstimatedPts, m_tsOutFirst);
-                m_tsOutFirst += (outPtsSource - nOutEstimatedPts); //今後の位置合わせのための補正
-                outPtsSource = nOutEstimatedPts;
+                PrintMes(RGY_LOG_DEBUG, _T("check_pts: previous pts %lld, current pts %lld, estimated pts %lld, m_tsOutFirst %lld, changing offset.\n"), m_tsPrev, outPtsSource, m_tsOutEstimated, m_tsOutFirst);
+                m_tsOutFirst += (outPtsSource - m_tsOutEstimated); //今後の位置合わせのための補正
+                outPtsSource = m_tsOutEstimated;
                 PrintMes(RGY_LOG_DEBUG, _T("check_pts:   changed to m_tsOutFirst %lld, outPtsSource %lld.\n"), m_tsOutFirst, outPtsSource);
             } else {
                 if (m_avsync & RGY_AVSYNC_FORCE_CFR) {
                     //間引きが必要
-                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), pInputFrame->getFrameInfo().inputFrameId, m_tsPrev, outPtsSource);
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), taskSurf->surf()->Data.FrameOrder, m_tsPrev, outPtsSource);
                     return RGY_ERR_MORE_SURFACE;
                 } else {
                     const auto origPts = outPtsSource;
                     outPtsSource = m_tsPrev + std::max<int64_t>(1, m_outFrameDuration / 8);
                     PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
-                        pInputFrame->getFrameInfo().inputFrameId, origPts, outPtsSource, m_tsPrev);
+                        taskSurf->surf()->Data.FrameOrder, origPts, outPtsSource, m_tsPrev);
                 }
             }
         }
 
-#endif
         //次のフレームのptsの予想
-        m_inFrames++;
         m_tsOutEstimated += outDuration;
         m_tsPrev = outPtsSource;
-        taskSurf->surf()->Data.TimeStamp = rational_rescale(outPtsSource, m_outputTimebase, hw_timebase);
-        taskSurf->surf()->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-        m_timestamp.add(taskSurf->surf()->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
-        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
+        PipelineTaskSurface outSurf;
+        mfxSyncPoint lastSyncPoint;
+        if (m_vppCopy) {
+            // forcecfrでフレームの水増しが必要な場合には、たとえ不要でも必ずコピーするvppをはさむ
+            // 一部のみコピーするvppをはさむと後段の処理でdevice failureが発生するため
+            mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
+            outSurf = getWorkSurf();
+            auto err = copyFrameVpp(outSurf.get(), surfVppIn, lastSyncPoint);
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_TRACE, _T("error occurred in vpp(copy): %s.\n"), get_err_mes(err));
+                return err;
+            }
+        } else { // コピーが不要な場合はそのまま渡す
+            outSurf = taskSurf->surf();
+            lastSyncPoint = taskSurf->syncpoint();
+        }
+        outSurf->Data.FrameOrder = m_inFrames++;
+        outSurf->Data.TimeStamp = rational_rescale(outPtsSource, m_outputTimebase, hw_timebase);
+        outSurf->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+        m_timestamp.add(outSurf->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, outSurf, lastSyncPoint));
         return RGY_ERR_NONE;
     }
 };

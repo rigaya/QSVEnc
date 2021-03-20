@@ -114,12 +114,42 @@ void QSVVppMfx::clear() {
     m_log.reset();
 }
 
+// ただコピーするためだけのvppを作る
+// checkptsで使用する
+RGY_ERR QSVVppMfx::SetCopy(const mfxFrameInfo& mfxFrame) {
+    if (m_mfxVPP) {
+        PrintMes(RGY_LOG_DEBUG, _T("Vpp already initialized.\n"));
+        return RGY_ERR_ALREADY_INITIALIZED;
+    }
+    auto err = InitSession();
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    VppExtMes.clear();
+    m_mfxVppParams.vpp.In = mfxFrame;
+    m_mfxVppParams.vpp.Out = mfxFrame;
+    m_mfxVppParams.IOPattern = (m_memType != SYSTEM_MEMORY) ?
+        MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY :
+        MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
+
+    m_VppExtParams.clear();
+    m_VppDoUseList.clear();
+    m_mfxVppParams.ExtParam = (m_VppExtParams.size()) ? &m_VppExtParams[0] : nullptr;
+    m_mfxVppParams.NumExtParam = (mfxU16)m_VppExtParams.size();
+    m_mfxVPP = std::make_unique<MFXVideoVPP>(m_mfxSession);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR QSVVppMfx::SetParam(
     sVppParams& params,
     const VppColorspace& colorsapce,
     const FrameInfo& frameOut, const VideoVUIInfo& VUIOut,
     const FrameInfo& frameIn, const VideoVUIInfo& VUIIn,
     const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
+    if (m_mfxVPP) {
+        PrintMes(RGY_LOG_DEBUG, _T("Vpp already initialized.\n"));
+        return RGY_ERR_ALREADY_INITIALIZED;
+    }
     auto err = InitSession();
     if (err != RGY_ERR_NONE) {
         return err;

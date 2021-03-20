@@ -1578,6 +1578,7 @@ CQSVPipeline::CQSVPipeline() :
     m_DecInputBitstream(),
     m_cl(),
     m_vpFilters(),
+    m_vppCopyForCheckPts(),
     m_hwdev(),
     m_pipelineTasks() {
     m_trimParam.offset = 0;
@@ -2039,13 +2040,14 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
 }
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
-    FrameInfo& frameInfo, VideoVUIInfo& vuiIn, rgy_rational<int>& fps,
+    FrameInfo& frameInfo, rgy_rational<int>& fps, const VideoVUIInfo& vuiIn,
     const VppType vppType, const sVppParams *params, const sInputCrop *crop, std::pair<int,int> resize, const int blockSize) {
     FrameInfo frameIn = frameInfo;
     sVppParams vppParams;
     vppParams.bEnable = true;
     switch (vppType) {
     case VppType::MFX_CROP: break;
+    case VppType::MFX_COPY: break;
     case VppType::MFX_DEINTERLACE:         vppParams.deinterlace = params->deinterlace; break;
     case VppType::MFX_DENOISE:             vppParams.denoise = params->denoise; break;
     case VppType::MFX_DETAIL_ENHANCE:      vppParams.detail = params->detail; break;
@@ -2594,7 +2596,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         const VppFilterType ftype1 =                                 getVppFilterType(filterPipeline[i+0]);
         const VppFilterType ftype2 = (i+1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i+1]) : VppFilterType::FILTER_NONE;
         if (ftype1 == VppFilterType::FILTER_MFX) {
-            auto [err, vppmfx] = AddFilterMFX(inputFrame, VuiFiltered, m_encFps, filterPipeline[i], &inputParam->vppmfx, inputCrop, resize, blocksize);
+            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx, inputCrop, resize, blocksize);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
@@ -2999,6 +3001,7 @@ void CQSVPipeline::Close() {
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing filters...\n"));
     m_vpFilters.clear();
+    m_vppCopyForCheckPts.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
     m_pStatus.reset();
@@ -3013,7 +3016,6 @@ void CQSVPipeline::Close() {
     m_pmfxDEC.reset();
     m_pmfxENC.reset();
     m_mfxVPP.clear();
-    m_vpFilters.clear();
 
 #if ENABLE_MVC_ENCODING
     FreeMVCSeqDesc();
@@ -3125,6 +3127,12 @@ RGY_ERR CQSVPipeline::InitMfxVpp() {
             }
         }
     }
+    if (m_vppCopyForCheckPts) {
+        auto err = m_vppCopyForCheckPts->Init();
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
     return RGY_ERR_NONE;
 }
 
@@ -3168,6 +3176,12 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
             RGY_ERR(err, _T("Failed to reset vpp (fail on closing)."));
             PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp closed.\n"));
         }
+    }
+    if (m_vppCopyForCheckPts) {
+        err = m_vppCopyForCheckPts->Close();
+        RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
+        RGY_ERR(err, _T("Failed to reset vpp(copy) (fail on closing)."));
+        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp(Copy) closed.\n"));
     }
 
     if (m_pmfxDEC) {
@@ -3242,7 +3256,41 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(srcTimebase, m_outputTimebase, m_outputTimestamp, outFrameDuration, m_nAVSyncMode, 0, m_mfxVer, m_pQSVLog));
+    // forcecfrではフレームコピーが必要
+    // この場合に備えて、コピー用のvppを作成する
+    if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {
+        mfxIMPL impl;
+        m_mfxSession.QueryIMPL(&impl);
+        auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
+        // 前のステップのフレーム情報を取得する
+        std::unique_ptr<mfxFrameInfo> prevFrameInfo;
+        for (auto itr = std::rbegin(m_pipelineTasks); itr != std::rend(m_pipelineTasks); itr++) {
+            mfxFrameInfo frame;
+            if ((*itr)->getOutputFrameInfo(frame) == RGY_ERR_NONE) {
+                prevFrameInfo = std::make_unique<mfxFrameInfo>(frame);
+                break;
+            }
+        }
+        if (!prevFrameInfo) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to get frame information when creating copy vpp for checkpts.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        auto err = mfxvpp->SetCopy(*prevFrameInfo.get()); // コピー用のvppに設定
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to set copy vpp: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        err = err_to_rgy(m_mfxSession.JoinSession(mfxvpp->GetSession()));
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        m_vppCopyForCheckPts = std::move(mfxvpp);
+    }
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_mfxSession, srcTimebase, m_outputTimebase, m_outputTimestamp, outFrameDuration, m_nAVSyncMode,
+        (m_vppCopyForCheckPts) ? m_vppCopyForCheckPts->mfxvpp() : nullptr,
+        (m_vppCopyForCheckPts) ? &m_vppCopyForCheckPts->mfxparams() : nullptr,
+        0, m_mfxVer, m_pQSVLog));
 
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {
@@ -3393,6 +3441,8 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     m_pipelineTasks.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
+    PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filter (copy)...\n"));
+    m_vppCopyForCheckPts.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Waiting for writer to finish...\n"));
     m_pFileWriter->WaitFin();
     PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));

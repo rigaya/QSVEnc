@@ -133,6 +133,7 @@ enum class VppType : int {
     MFX_DETAIL_ENHANCE,
     MFX_IMAGE_STABILIZATION,
     MFX_FPS_CONV,
+    MFX_COPY,
 
     MFX_MAX,
 

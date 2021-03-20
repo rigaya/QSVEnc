@@ -47,6 +47,7 @@ public:
         const FrameInfo& frameOut, const VideoVUIInfo& VUIOut,
         const FrameInfo& frameIn, const VideoVUIInfo& VUIIn,
         const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
+    RGY_ERR SetCopy(const mfxFrameInfo& mfxFrame);
     RGY_ERR Init();
     RGY_ERR Close();
 

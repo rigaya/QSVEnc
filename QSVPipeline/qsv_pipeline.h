@@ -201,6 +201,7 @@ protected:
 
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<VppVilterBlock> m_vpFilters;
+    std::unique_ptr<QSVVppMfx> m_vppCopyForCheckPts; //checkptsのコピー用のvpp
 
     std::shared_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
@@ -213,7 +214,7 @@ protected:
     virtual RGY_ERR InitFilters(sInputParams *inputParam);
     virtual std::vector<VppType> InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired);
     virtual std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> AddFilterMFX(
-        FrameInfo& frameInfo, VideoVUIInfo& vuiIn, rgy_rational<int>& fps,
+        FrameInfo& frameInfo, rgy_rational<int>& fps, const VideoVUIInfo& vuiIn,
         const VppType vppType, const sVppParams *params, const sInputCrop *crop, std::pair<int, int> resize, const int blockSize);
     virtual std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> AddFilterOpenCL(
         FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, std::pair<int, int> resize);
