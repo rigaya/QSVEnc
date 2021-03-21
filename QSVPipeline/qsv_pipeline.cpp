@@ -3115,7 +3115,7 @@ RGY_ERR CQSVPipeline::InitMfxEncode() {
     }
     RGY_ERR(sts, _T("Failed to initialize encoder."));
     PrintMes(RGY_LOG_DEBUG, _T("Encoder initialized.\n"));
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR CQSVPipeline::InitMfxVpp() {
@@ -3149,7 +3149,7 @@ RGY_ERR CQSVPipeline::InitMfxDec() {
     }
     RGY_ERR(sts, _T("Failed to initialize decoder.\n"));
     PrintMes(RGY_LOG_DEBUG, _T("Dec initialized.\n"));
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
