@@ -529,9 +529,11 @@ protected:
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decInputBitstream() {
-        m_decInputBitstream.init(16*1024*1024);
+        m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         //TimeStampはQSVに自動的に計算させる
         m_decInputBitstream.setPts(MFX_TIMESTAMP_UNKNOWN);
+        //ヘッダーがあれば読み込んでおく
+        input->GetHeader(&m_decInputBitstream);
     };
     virtual ~PipelineTaskMFXDecode() {};
     void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };

@@ -1989,11 +1989,11 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputParam, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
+std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
     std::vector<VppType> filterPipeline;
     filterPipeline.reserve((size_t)VppType::CL_MAX);
 
-    if (cropRequired)                      filterPipeline.push_back(VppType::MFX_CROP);
+    if (cspConvRequired || cropRequired)   filterPipeline.push_back(VppType::MFX_CROP);
     if (inputParam->vpp.colorspace.enable) filterPipeline.push_back(VppType::CL_COLORSPACE);
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)      filterPipeline.push_back(VppType::CL_NNEDI);
@@ -2030,8 +2030,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
                 filterPipeline[i] = VppType::CL_RESIZE; // OpenCLに挟まれていたら、OpenCLのresizeを優先する
             }
         } else if (filterPipeline[i] == VppType::MFX_CROP) {
-            if (   prev == VppFilterType::FILTER_OPENCL
-                && next == VppFilterType::FILTER_OPENCL) {
+            if (   (prev == VppFilterType::FILTER_OPENCL || next == VppFilterType::FILTER_OPENCL)
+                && (prev != VppFilterType::FILTER_MFX    || next != VppFilterType::FILTER_MFX)) {
                 filterPipeline[i] = VppType::CL_CROP; // OpenCLに挟まれていたら、OpenCLのcropを優先する
             }
         }
@@ -2041,7 +2041,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     FrameInfo& frameInfo, rgy_rational<int>& fps, const VideoVUIInfo& vuiIn,
-    const VppType vppType, const sVppParams *params, const sInputCrop *crop, std::pair<int,int> resize, const int blockSize) {
+    const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const sInputCrop *crop, const std::pair<int,int> resize, const int blockSize) {
     FrameInfo frameIn = frameInfo;
     sVppParams vppParams;
     vppParams.bEnable = true;
@@ -2066,6 +2066,8 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
         return { RGY_ERR_UNSUPPORTED, std::unique_ptr<QSVVppMfx>() };
     }
 
+    frameInfo.csp = outCsp; // 常に適用
+
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
     auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
@@ -2088,7 +2090,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 }
 
 std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
-    FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, std::pair<int, int> resize) {
+    FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, const std::pair<int, int> resize) {
     
     //afs
     if (vppType == VppType::CL_AFS) {
@@ -2505,6 +2507,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
     }
+    const bool cspConvRequired = inputFrame.csp != getEncoderCsp(inputParam);
 
     //リサイザの出力すべきサイズ
     int resizeWidth = croppedWidth;
@@ -2572,7 +2575,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     //picStructの設定
     m_encPicstruct = (deinterlacer > 0) ? RGY_PICSTRUCT_FRAME : inputParam->input.picstruct;
 
-    std::vector<VppType> filterPipeline = InitFiltersCreateVppList(inputParam, cropRequired, resizeRequired);
+    std::vector<VppType> filterPipeline = InitFiltersCreateVppList(inputParam, cspConvRequired, cropRequired, resizeRequired);
     if (filterPipeline.size() == 0) {
         PrintMes(RGY_LOG_DEBUG, _T("No filters required.\n"));
         return RGY_ERR_NONE;
@@ -2596,7 +2599,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         const VppFilterType ftype1 =                                 getVppFilterType(filterPipeline[i+0]);
         const VppFilterType ftype2 = (i+1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i+1]) : VppFilterType::FILTER_NONE;
         if (ftype1 == VppFilterType::FILTER_MFX) {
-            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx, inputCrop, resize, blocksize);
+            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx, getEncoderCsp(inputParam), inputCrop, resize, blocksize);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
@@ -2609,6 +2612,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
                 param->frameIn = inputFrame;
                 param->frameOut = inputFrame;
+                param->frameOut.csp = getEncoderCsp(inputParam);
                 switch (param->frameOut.csp) {
                 case RGY_CSP_NV12: param->frameOut.csp = RGY_CSP_YV12; break;
                 case RGY_CSP_P010: param->frameOut.csp = RGY_CSP_YV12_16; break;

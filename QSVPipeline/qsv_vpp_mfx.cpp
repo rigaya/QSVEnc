@@ -169,15 +169,15 @@ RGY_ERR QSVVppMfx::SetParam(
         return err;
     }
 
-    if (m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC) {
-        vppExtAddMes(strsprintf(_T("ColorFmtConvertion: %s -> %s"), ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC)));
-    }
-
     m_mfxVppParams.vpp.In = mfxIn;
     m_mfxVppParams.vpp.Out = mfxOut;
     m_mfxVppParams.IOPattern = (m_memType != SYSTEM_MEMORY) ?
         MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY :
         MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
+
+    if (m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC) {
+        vppExtAddMes(strsprintf(_T("ColorFmtConvertion: %s -> %s\n"), ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC)));
+    }
     if ((err = SetVppExtBuffers(params, colorsapce, VUIOut, VUIIn)) != RGY_ERR_NONE) {
         return err;
     }
