@@ -943,6 +943,18 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
 
+
+    void flushAudio() {
+        PrintMes(RGY_LOG_DEBUG, _T("Clear packets in writer...\n"));
+        for (const auto& writer : m_audioReaders) {
+            auto pWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(writer);
+            if (pWriter != nullptr) {
+                //エンコーダなどにキャッシュされたパケットを書き出す
+                pWriter->WriteNextPacket(nullptr);
+            }
+        }
+    }
+
     RGY_ERR extractAudio(int inputFrames) {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
@@ -994,6 +1006,7 @@ public:
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (!frame) {
+            flushAudio();
             return RGY_ERR_MORE_DATA;
         }
         m_inFrames++;
