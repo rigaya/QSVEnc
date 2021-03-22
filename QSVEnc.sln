@@ -14,19 +14,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rotate", "QSVPlugins\rotate
 		{A63CE263-8735-4405-8860-011A12A80DEF} = {A63CE263-8735-4405-8860-011A12A80DEF}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "delogo", "QSVPlugins\delogo\delogo.vcxproj", "{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}"
-	ProjectSection(ProjectDependencies) = postProject
-		{A63CE263-8735-4405-8860-011A12A80DEF} = {A63CE263-8735-4405-8860-011A12A80DEF}
-	EndProjectSection
-EndProject
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "PerfMonitor", "PerfMonitor\PerfMonitor.pyproj", "{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tinyxml2", "tinyxml2\tinyxml2.vcxproj", "{A34CA86D-6C2B-482F-984E-2687459E65E9}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "subburn", "QSVPlugins\subburn\subburn.vcxproj", "{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}"
-	ProjectSection(ProjectDependencies) = postProject
-		{A63CE263-8735-4405-8860-011A12A80DEF} = {A63CE263-8735-4405-8860-011A12A80DEF}
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -108,22 +98,6 @@ Global
 		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
 		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 		{D5CCF0C0-32F6-4777-AA6C-6A249016DB26}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.Debug|Any CPU.ActiveCfg = Debug|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.Debug|Win32.ActiveCfg = Debug|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.Debug|x64.ActiveCfg = Debug|x64
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.DebugStatic|Any CPU.ActiveCfg = DebugStatic|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.DebugStatic|Win32.ActiveCfg = DebugStatic|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.DebugStatic|Win32.Build.0 = DebugStatic|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.DebugStatic|x64.ActiveCfg = DebugStatic|x64
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.DebugStatic|x64.Build.0 = DebugStatic|x64
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.Release|Any CPU.ActiveCfg = Release|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.Release|Win32.ActiveCfg = Release|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.Release|x64.ActiveCfg = Release|x64
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|Any CPU.ActiveCfg = ReleaseStatic|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|Win32.ActiveCfg = ReleaseStatic|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
-		{7BBDAA1C-4F67-4F71-B245-F5D48F5E2142}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
 		{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}.Debug|Win32.ActiveCfg = Debug|Any CPU
 		{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -154,20 +128,6 @@ Global
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.ReleaseStatic|Win32.Build.0 = ReleaseStatic|Win32
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.Debug|Any CPU.ActiveCfg = Debug|Win32
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.Debug|Win32.ActiveCfg = Debug|Win32
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.Debug|x64.ActiveCfg = Debug|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.DebugStatic|Any CPU.ActiveCfg = Release|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.DebugStatic|Any CPU.Build.0 = Release|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.DebugStatic|Win32.ActiveCfg = DebugStatic|Win32
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.DebugStatic|x64.ActiveCfg = DebugStatic|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.Release|Any CPU.ActiveCfg = Release|Win32
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.Release|Win32.ActiveCfg = Release|Win32
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.Release|x64.ActiveCfg = Release|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.ReleaseStatic|Any CPU.ActiveCfg = Release|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.ReleaseStatic|Any CPU.Build.0 = Release|x64
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.ReleaseStatic|Win32.ActiveCfg = ReleaseStatic|Win32
-		{7FD81CCE-CF2E-4800-8CBC-72A4FFA1264B}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

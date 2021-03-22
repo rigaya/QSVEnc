@@ -44,7 +44,6 @@
 #include "qsv_opencl.h"
 #include "qsv_query.h"
 #include "qsv_allocator.h"
-#include "qsv_control.h"
 #include "rgy_util.h"
 #include "rgy_thread.h"
 #include "rgy_timecode.h"
@@ -52,6 +51,13 @@
 #include "rgy_input_sm.h"
 #include "rgy_output.h"
 #include "rgy_output_avcodec.h"
+
+const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
+const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
+const uint32_t MSDK_VPP_WAIT_INTERVAL = 60000;
+const uint32_t MSDK_WAIT_INTERVAL = MSDK_DEC_WAIT_INTERVAL + 3 * MSDK_VPP_WAIT_INTERVAL + MSDK_ENC_WAIT_INTERVAL; // an estimate for the longest pipeline we have in samples
+
+const uint32_t MSDK_INVALID_SURF_IDX = 0xFFFF;
 
 static void copy_crop_info(mfxFrameSurface1 *dst, const mfxFrameInfo *src) {
     if (dst != nullptr) {
@@ -905,7 +911,6 @@ protected:
     RGYInput *m_input;
     std::map<int, std::shared_ptr<RGYOutputAvcodec>> m_pWriterForAudioStreams;
     std::vector<std::shared_ptr<RGYInput>> m_audioReaders;
-    std::map<int, std::shared_ptr<QSVEncPlugin>> m_filterForStreams;
 public:
     PipelineTaskAudio(RGYInput *input, std::vector<std::shared_ptr<RGYInput>>& audioReaders, std::vector<std::shared_ptr<RGYOutput>>& fileWriterListAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::AUDIO, outMaxQueueSize, nullptr, mfxVer, log),
@@ -958,7 +963,7 @@ public:
     RGY_ERR extractAudio(int inputFrames) {
         RGY_ERR ret = RGY_ERR_NONE;
 #if ENABLE_AVSW_READER
-        if (m_pWriterForAudioStreams.size() + m_filterForStreams.size() > 0) {
+        if (m_pWriterForAudioStreams.size() > 0) {
 #if ENABLE_SM_READER
             RGYInputSM *pReaderSM = dynamic_cast<RGYInputSM *>(m_input);
             const int droppedInAviutl = (pReaderSM != nullptr) ? pReaderSM->droppedFrames() : 0;
@@ -984,6 +989,7 @@ public:
                     if (RGY_ERR_NONE != (ret = pWriter->WriteNextPacket(&packetList[i]))) {
                         return ret;
                     }
+#if 0
                 } else if (m_filterForStreams.count(nTrackId)) {
                     auto pFilter = m_filterForStreams[nTrackId];
                     if (pFilter == nullptr) {
@@ -994,6 +1000,7 @@ public:
                     if (sts != MFX_ERR_NONE) {
                         return err_to_rgy(sts);
                     }
+#endif
                 } else {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
                     return RGY_ERR_NOT_FOUND;

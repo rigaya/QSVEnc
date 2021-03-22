@@ -51,17 +51,14 @@
 #pragma comment(lib, "libmfx_vs2015.lib")
 #endif
 
-#include "vpp_plugins.h"
 #include "rgy_perf_monitor.h"
 #include "rgy_bitstream.h"
 #include "qsv_plugin.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "rgy_opencl.h"
-#include "qsv_task.h"
 #include "qsv_vpp_mfx.h"
 #include "qsv_pipeline_ctrl.h"
-#include "qsv_control.h"
 
 #include <vector>
 #include <memory>
