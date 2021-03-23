@@ -54,7 +54,17 @@ static const std::map<mfxU32, DXGI_FORMAT> fourccToDXGIFormat = {
     { MFX_FOURCC_P8_TEXTURE, DXGI_FORMAT_P8 },
     { MFX_FOURCC_P010,       DXGI_FORMAT_P010 },
     { MFX_FOURCC_A2RGB10,    DXGI_FORMAT_R10G10B10A2_UNORM },
-    { DXGI_FORMAT_AYUV,      DXGI_FORMAT_AYUV }
+    { MFX_FOURCC_AYUV,       DXGI_FORMAT_AYUV },
+    { DXGI_FORMAT_AYUV,      DXGI_FORMAT_AYUV },
+#if (MFX_VERSION >= 1027)
+    { MFX_FOURCC_Y210,       DXGI_FORMAT_Y210 },
+    { MFX_FOURCC_Y410,       DXGI_FORMAT_Y410 },
+#endif
+#if (MFX_VERSION >= 1031)
+    { MFX_FOURCC_P016,       DXGI_FORMAT_P016 },
+    { MFX_FOURCC_Y216,       DXGI_FORMAT_Y216 },
+    { MFX_FOURCC_Y416,       DXGI_FORMAT_Y416 },
+#endif
 };
 
 QSVAllocatorD3D11::QSVAllocatorD3D11() {
@@ -137,9 +147,14 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
             DXGI_FORMAT_R10G10B10A2_UNORM,
             DXGI_FORMAT_R16G16B16A16_UNORM,
             DXGI_FORMAT_P010,
-#ifdef FUTURE_API
+#if (MFX_VERSION >= 1027)
             DXGI_FORMAT_Y210,
-            DXGI_FORMAT_Y410,]
+            DXGI_FORMAT_Y410,
+#endif
+#if (MFX_VERSION >= 1031)
+            DXGI_FORMAT_P016,
+            DXGI_FORMAT_Y216,
+            DXGI_FORMAT_Y416,
 #endif
             DXGI_FORMAT_AYUV
             );
@@ -167,6 +182,9 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
 
     switch (desc.Format) {
         case DXGI_FORMAT_P010:
+#if (MFX_VERSION >= 1031)
+        case DXGI_FORMAT_P016:
+#endif
         case DXGI_FORMAT_NV12:
             ptr->Pitch = (mfxU16)lockedRect.RowPitch;
             ptr->Y = (mfxU8 *)lockedRect.pData;
@@ -221,10 +239,21 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
             ptr->U16 = 0;
             ptr->V16 = 0;
             break;
-#ifdef FUTURE_API
+#if (MFX_VERSION >= 1031)
+        case DXGI_FORMAT_Y416:
+            ptr->PitchHigh = (mfxU16)(lockedRect.RowPitch / (1 << 16));
+            ptr->PitchLow = (mfxU16)(lockedRect.RowPitch % (1 << 16));
+            ptr->U16 = (mfxU16*)lockedRect.pData;
+            ptr->Y16 = ptr->U16 + 1;
+            ptr->V16 = ptr->Y16 + 1;
+            ptr->A = (mfxU8 *)(ptr->V16 + 1);
+            break;
+        case DXGI_FORMAT_Y216:
+#endif
+#if (MFX_VERSION >= 1027)
         case DXGI_FORMAT_Y210:
             ptr->PitchHigh = (mfxU16)(lockedRect.RowPitch / (1 << 16));
-            ptr->PitchLow  = (mfxU16)(lockedRect.RowPitch % (1 << 16));
+            ptr->PitchLow = (mfxU16)(lockedRect.RowPitch % (1 << 16));
             ptr->Y16 = (mfxU16 *)lockedRect.pData;
             ptr->U16 = ptr->Y16 + 1;
             ptr->V16 = ptr->Y16 + 3;
@@ -233,7 +262,7 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
 
         case DXGI_FORMAT_Y410:
             ptr->PitchHigh = (mfxU16)(lockedRect.RowPitch / (1 << 16));
-            ptr->PitchLow  = (mfxU16)(lockedRect.RowPitch % (1 << 16));
+            ptr->PitchLow = (mfxU16)(lockedRect.RowPitch % (1 << 16));
             ptr->Y410 = (mfxY410 *)lockedRect.pData;
             ptr->Y = 0;
             ptr->V = 0;

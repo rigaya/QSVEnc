@@ -160,11 +160,27 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->V = ptr->Y + 3;
         ptr->Pitch = 2 * (mfxU16)WidthAlign;
         break;
+#if (MFX_VERSION >= 1028)
+    case MFX_FOURCC_RGB565:
+        ptr->G = ptr->B;
+        ptr->R = ptr->B;
+        ptr->PitchHigh = (mfxU16)((2 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((2 * WidthAlign) % (1 << 16));
+        break;
+#endif
     case MFX_FOURCC_RGB3:
         ptr->G = ptr->B + 1;
         ptr->R = ptr->B + 2;
         ptr->Pitch = 3 * (mfxU16)WidthAlign;
         break;
+#if !(defined(_WIN32) || defined(_WIN64))
+    case MFX_FOURCC_RGBP:
+        ptr->G = ptr->B + Width2 * Height2;
+        ptr->R = ptr->B + Width2 * Height2 * 2;
+        ptr->PitchHigh = (mfxU16)((ALIGN32(fs->info.Width)) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((ALIGN32(fs->info.Width)) % (1 << 16));
+        break;
+#endif
     case MFX_FOURCC_RGB4:
     case MFX_FOURCC_A2RGB10:
         ptr->G = ptr->B + 1;
@@ -176,6 +192,9 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->Y16 = (mfxU16 *)ptr->B;
         ptr->Pitch = 2 * (mfxU16)WidthAlign;
         break;
+#if (MFX_VERSION >= 1031)
+    case MFX_FOURCC_P016:
+#endif
     case MFX_FOURCC_P010:
         ptr->U = ptr->Y + WidthAlign * HeightAlign * 2;
         ptr->V = ptr->U + 2;
@@ -193,18 +212,30 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->A = ptr->Y + 3;
         ptr->Pitch = 4 * (mfxU16)WidthAlign;
         break;
-#ifdef FUTURE_API
-    case MFX_FOURCC_Y210:
+#if (MFX_VERSION >= 1031)
+    case MFX_FOURCC_Y416:
+        ptr->U16 = (mfxU16*)ptr->B;
+        ptr->Y16 = ptr->U16 + 1;
+        ptr->V16 = ptr->Y16 + 1;
+        ptr->A   = (mfxU8 *)(ptr->V16 + 1);
+        ptr->PitchHigh = (mfxU16)(8 * WidthAlign / (1 << 16));
+        ptr->PitchLow = (mfxU16)(8 * WidthAlign % (1 << 16));
+        break;
     case MFX_FOURCC_Y216:
+#endif
+#if (MFX_VERSION >= 1027)
+    case MFX_FOURCC_Y210:
         ptr->Y16 = (mfxU16 *)ptr->B;
         ptr->U16 = ptr->Y16 + 1;
         ptr->V16 = ptr->Y16 + 3;
         //4 words per macropixel -> 2 words per pixel -> 4 bytes per pixel
-        ptr->Pitch = 4 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((4 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((4 * WidthAlign) % (1 << 16));
         break;
     case MFX_FOURCC_Y410:
         ptr->U = ptr->V = ptr->A = ptr->Y;
-        ptr->Pitch = 4 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((4 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((4 * WidthAlign) % (1 << 16));
         break;
 #endif
     default:
@@ -265,12 +296,20 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
     case MFX_FOURCC_NV16:
         nbytes = WidthAlign * HeightAlign * 2;
         break;
+#if (MFX_VERSION >= 1028)
+    case MFX_FOURCC_RGB565:
+        nbytes = 2 * WidthAlign * HeightAlign;
+        break;
+#endif
+#if !(defined(_WIN32) || defined(_WIN64))
+    case MFX_FOURCC_RGBP:
+#endif
     case MFX_FOURCC_RGB3:
         nbytes = WidthAlign * HeightAlign * 3;
         break;
     case MFX_FOURCC_RGB4:
     case MFX_FOURCC_AYUV:
-#ifdef FUTURE_API
+#if (MFX_VERSION >= 1027)
     case MFX_FOURCC_Y410:
 #endif
         nbytes = WidthAlign * HeightAlign * 4;
@@ -289,12 +328,18 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
         nbytes = WidthAlign * HeightAlign * 4;
         break;
     case MFX_FOURCC_P210:
-#ifdef FUTURE_API
+#if (MFX_VERSION >= 1027)
     case MFX_FOURCC_Y210:
-    case MFX_FOURCC_Y216:
 #endif
-        nbytes = WidthAlign * HeightAlign * 4;
+#if (MFX_VERSION >= 1031)
+    case MFX_FOURCC_Y216:
+        nbytes = WidthAlign * HeightAlign + (WidthAlign >> 1) * (HeightAlign)+(WidthAlign >> 1) * (HeightAlign);
+        nbytes *= 2; // 16bits
         break;
+    case MFX_FOURCC_Y416:
+        nbytes = (WidthAlign * HeightAlign + WidthAlign * HeightAlign + WidthAlign * HeightAlign + WidthAlign * HeightAlign) * 2;
+        break;
+#endif
     default:
         return MFX_ERR_UNSUPPORTED;
     }

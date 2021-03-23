@@ -44,9 +44,14 @@
 #define D3DFMT_Y210 (D3DFORMAT)MAKEFOURCC('Y','2','1','0')
 #define D3DFMT_IMC3 (D3DFORMAT)MAKEFOURCC('I','M','C','3')
 #define D3DFMT_AYUV (D3DFORMAT)MAKEFOURCC('A','Y','U','V')
-#ifdef FUTURE_API
+#if (MFX_VERSION >= 1027)
 #define D3DFMT_Y210 (D3DFORMAT)MAKEFOURCC('Y','2','1','0')
 #define D3DFMT_Y410 (D3DFORMAT)MAKEFOURCC('Y','4','1','0')
+#endif
+#if (MFX_VERSION >= 1031)
+#define D3DFMT_P016 (D3DFORMAT)MAKEFOURCC('P','0','1','6')
+#define D3DFMT_Y216 (D3DFORMAT)MAKEFOURCC('Y','2','1','6')
+#define D3DFMT_Y416 (D3DFORMAT)MAKEFOURCC('Y','4','1','6')
 #endif
 #define MFX_FOURCC_IMC3 (MFX_MAKEFOURCC('I','M','C','3')) // This line should be moved into mfxstructures.h in new API version
 
@@ -59,9 +64,15 @@ static const std::map<mfxU32, D3DFORMAT> fourccToD3DFormat = {
     { MFX_FOURCC_RGB4,    D3DFMT_A8R8G8B8},
     { MFX_FOURCC_P8,      D3DFMT_P8},
     { MFX_FOURCC_P010,    D3DFMT_P010},
-#ifdef FUTURE_API
     { MFX_FOURCC_P210,    D3DFMT_P210},
-    { MFX_FOURCC_P410,    D3DFMT_P410},
+#if (MFX_VERSION >= 1027)
+    { MFX_FOURCC_Y210,    D3DFMT_Y210},
+    { MFX_FOURCC_Y410,    D3DFMT_Y410},
+#endif
+#if (MFX_VERSION >= 1031)
+    { MFX_FOURCC_P016,    D3DFMT_P016},
+    { MFX_FOURCC_Y216,    D3DFMT_Y216},
+    { MFX_FOURCC_Y416,    D3DFMT_Y416},
 #endif
     { MFX_FOURCC_A2RGB10, D3DFMT_A2R10G10B10},
     { MFX_FOURCC_ABGR16,  D3DFMT_A16B16G16R16},
@@ -130,12 +141,17 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         D3DFMT_P010,
         D3DFMT_A2R10G10B10,
         D3DFMT_A16B16G16R16,
-        D3DFMT_IMC3,
-#ifdef FUTURE_API
+        D3DFMT_AYUV,
+#if (MFX_VERSION >= 1027)
         D3DFMT_Y210,
-        D3DFMT_Y410,
 #endif
-        D3DFMT_AYUV
+#if (MFX_VERSION >= 1031)
+        D3DFMT_P016,
+        D3DFMT_Y216,
+        D3DFMT_Y410,
+        D3DFMT_Y416,
+#endif
+        D3DFMT_IMC3
     );
     if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), desc.Format) == SUPPORTED_FORMATS.end()) {
         m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::Unsupported format.\n"));
@@ -150,6 +166,9 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     switch ((DWORD)desc.Format) {
     case D3DFMT_NV12:
     case D3DFMT_P010:
+#if (MFX_VERSION >= 1031)
+    case D3DFMT_P016:
+#endif
         ptr->Pitch = (mfxU16)locked.Pitch;
         ptr->Y = (mfxU8 *)locked.pBits;
         ptr->U = (mfxU8 *)locked.pBits + desc.Height * locked.Pitch;
@@ -208,7 +227,17 @@ mfxStatus QSVAllocatorD3D9::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->Y = ptr->V + 2;
         ptr->A = ptr->V + 3;
         break;
-#ifdef FUTURE_API
+#if (MFX_VERSION >= 1031)
+    case D3DFMT_Y416:
+        ptr->Pitch = (mfxU16)locked.Pitch;
+        ptr->U16 = (mfxU16*)locked.pBits;
+        ptr->Y16 = ptr->U16 + 1;
+        ptr->V16 = ptr->Y16 + 1;
+        ptr->A = (mfxU8 *)(ptr->V16 + 1);
+        break;
+    case D3DFMT_Y216:
+#endif
+#if (MFX_VERSION >= 1027)
     case D3DFMT_Y210:
         ptr->Pitch = (mfxU16)locked.Pitch;
         ptr->Y16 = (mfxU16 *)locked.pBits;
