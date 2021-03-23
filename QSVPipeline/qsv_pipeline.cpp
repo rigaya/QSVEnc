@@ -2550,24 +2550,25 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     //picStructの設定
     m_encPicstruct = (deinterlacer > 0) ? RGY_PICSTRUCT_FRAME : inputParam->input.picstruct;
 
-    std::vector<VppType> filterPipeline = InitFiltersCreateVppList(inputParam, cspConvRequired, cropRequired, resizeRequired);
-    if (filterPipeline.size() == 0) {
-        PrintMes(RGY_LOG_DEBUG, _T("No filters required.\n"));
-        return RGY_ERR_NONE;
-    }
-
     //VUI情報
     auto VuiFiltered = inputParam->input.vui;
 
     m_encVUI = inputParam->common.out_vui;
     m_encVUI.apply_auto(inputParam->input.vui, m_encHeight);
+
+    m_vpFilters.clear();
+
+    std::vector<VppType> filterPipeline = InitFiltersCreateVppList(inputParam, cspConvRequired, cropRequired, resizeRequired);
+    if (filterPipeline.size() == 0) {
+        PrintMes(RGY_LOG_DEBUG, _T("No filters required.\n"));
+        return RGY_ERR_NONE;
+    }
     // blocksize
     const int blocksize = inputParam->CodecId == MFX_CODEC_HEVC ? 32 : 16;
     //読み込み時のcrop
     sInputCrop *inputCrop = (cropRequired) ? &inputParam->input.crop : nullptr;
     const auto resize = std::make_pair(resizeWidth, resizeHeight);
 
-    m_vpFilters.clear();
     std::vector<std::unique_ptr<RGYFilter>> vppOpenCLFilters;
     for (size_t i = 0; i < filterPipeline.size(); i++) {
         const VppFilterType ftype0 = (i >= 1)                      ? getVppFilterType(filterPipeline[i-1]) : VppFilterType::FILTER_NONE;
