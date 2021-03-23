@@ -451,6 +451,9 @@ const CX_DESC list_avc_level[] = {
     { _T("5"),    MFX_LEVEL_AVC_5   },
     { _T("5.1"),  MFX_LEVEL_AVC_51  },
     { _T("5.2"),  MFX_LEVEL_AVC_52  },
+    { _T("6"),    MFX_LEVEL_AVC_6   },
+    { _T("6.1"),  MFX_LEVEL_AVC_61  },
+    { _T("6.2"),  MFX_LEVEL_AVC_62  },
     { NULL, 0 }
 };
 const CX_DESC list_hevc_level[] = {

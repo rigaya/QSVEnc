@@ -423,7 +423,7 @@ Set number of slices.
 ### --level &lt;string&gt;
 Specify the Level of the codec to be encoded. If not specified, it will be automatically set.
 ```
-h264: auto, 1, 1 b, 1.1, 1.2, 1.3, 2, 2.1, 2.2, 3, 3.1, 3.2, 4, 4.1, 4.2, 5, 5.1, 5.2
+h264: auto, 1, 1 b, 1.1, 1.2, 1.3, 2, 2.1, 2.2, 3, 3.1, 3.2, 4, 4.1, 4.2, 5, 5.1, 5.2, 6, 6.1, 6.2
 hevc: auto, 1, 2, 2.1, 3, 3.1, 4, 4.1, 5, 5.1, 5.2, 6, 6.1, 6.2
 mpeg2: auto, low, main, high, high1440
 ```
