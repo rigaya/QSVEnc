@@ -32,6 +32,16 @@
 #include <vector>
 #include "mfxplugin++.h"
 
+enum class MFXComponentType {
+    UNKNOWN = 0x0000,
+    DECODE = 0x0001,
+    ENCODE = 0x0002,
+    VPP = 0x0004,
+    ENC = 0x0008,
+    FEI = 0x1000,
+};
+const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, const bool software);
+
 class CMFXPlugin {
 public:
     CMFXPlugin(mfxSession session);
@@ -50,6 +60,7 @@ public:
     CSessionPlugins(mfxSession session);
     ~CSessionPlugins();
     mfxStatus LoadPlugin(mfxPluginType type, const mfxPluginUID &uid, mfxU32 version);
+    mfxStatus LoadPlugin(MFXComponentType type, uint32_t codecID, const bool software);
     void UnloadPlugins();
 protected:
     mfxSession m_session;

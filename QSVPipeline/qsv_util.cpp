@@ -191,46 +191,6 @@ VideoInfo videooutputinfo(const mfxFrameInfo& frameinfo) {
 }
 
 RGY_NOINLINE
-const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, const bool software) {
-    switch (type) {
-    case MFXComponentType::DECODE:
-        switch (codecID) {
-        case MFX_CODEC_HEVC:
-            return (software) ? &MFX_PLUGINID_HEVCD_SW : &MFX_PLUGINID_HEVCD_HW;
-        case MFX_CODEC_VP8:
-            return (software) ? nullptr : &MFX_PLUGINID_VP8D_HW;
-        case MFX_CODEC_VP9:
-            return (software) ? nullptr : &MFX_PLUGINID_VP9D_HW;
-        }
-        break;
-    case MFXComponentType::ENCODE:
-        switch (codecID) {
-        case MFX_CODEC_HEVC:
-            return (software) ? &MFX_PLUGINID_HEVCE_SW : &MFX_PLUGINID_HEVCE_HW;
-        case MFX_CODEC_VP8:
-            return (software) ? nullptr : &MFX_PLUGINID_VP8E_HW;
-        case MFX_CODEC_VP9:
-            return (software) ? nullptr : &MFX_PLUGINID_VP9E_HW;
-        }
-        break;
-    //case (MFXComponentType::ENCODE | MFXComponentType::FEI):
-    //    switch (codecID) {
-    //    case MFX_CODEC_HEVC:
-    //        return MFX_PLUGINID_HEVC_FEI_ENCODE;
-    //    }
-    //    break;
-    case MFXComponentType::ENC:
-        switch (codecID) {
-        case MFX_CODEC_HEVC:
-            return &MFX_PLUGINID_HEVCE_FEI_HW; // HEVC FEI uses ENC interface
-        }
-        break;
-    }
-    return nullptr;
-}
-
-
-RGY_NOINLINE
 const TCHAR *get_err_mes(int sts) {
     switch (sts) {
     case MFX_ERR_NONE:                     return _T("no error.");

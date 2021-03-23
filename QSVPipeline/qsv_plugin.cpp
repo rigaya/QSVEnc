@@ -26,6 +26,56 @@
 // --------------------------------------------------------------------------------------------
 
 #include "qsv_plugin.h"
+#include "rgy_util.h"
+#include <mfxvp8.h>
+
+static const auto MFX_COMPONENT_TYPE_TO_PLUGIN_TYPE = std::array<std::pair<MFXComponentType, mfxPluginType>>(
+    std::make_pair(MFXComponentType::DECODE, MFX_PLUGINTYPE_VIDEO_DECODE),
+    std::make_pair(MFXComponentType::ENCODE, MFX_PLUGINTYPE_VIDEO_ENCODE),
+    std::make_pair(MFXComponentType::VPP, MFX_PLUGINTYPE_VIDEO_VPP),
+    std::make_pair(MFXComponentType::ENC, MFX_PLUGINTYPE_VIDEO_ENC)
+    //std::make_pair(MFXComponentType::FEI, )
+);
+
+MAP_PAIR_0_1(component, type, MFXComponentType, plugin, mfxPluginType, MFX_COMPONENT_TYPE_TO_PLUGIN_TYPE, MFXComponentType::UNKNOWN, -1);
+
+const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, const bool software) {
+    switch (type) {
+    case MFXComponentType::DECODE:
+        switch (codecID) {
+        case MFX_CODEC_HEVC:
+            return (software) ? &MFX_PLUGINID_HEVCD_SW : &MFX_PLUGINID_HEVCD_HW;
+        case MFX_CODEC_VP8:
+            return (software) ? nullptr : &MFX_PLUGINID_VP8D_HW;
+        case MFX_CODEC_VP9:
+            return (software) ? nullptr : &MFX_PLUGINID_VP9D_HW;
+        }
+        break;
+    case MFXComponentType::ENCODE:
+        switch (codecID) {
+        case MFX_CODEC_HEVC:
+            return (software) ? &MFX_PLUGINID_HEVCE_SW : &MFX_PLUGINID_HEVCE_HW;
+        case MFX_CODEC_VP8:
+            return (software) ? nullptr : &MFX_PLUGINID_VP8E_HW;
+        case MFX_CODEC_VP9:
+            return (software) ? nullptr : &MFX_PLUGINID_VP9E_HW;
+        }
+        break;
+        //case (MFXComponentType::ENCODE | MFXComponentType::FEI):
+        //    switch (codecID) {
+        //    case MFX_CODEC_HEVC:
+        //        return MFX_PLUGINID_HEVC_FEI_ENCODE;
+        //    }
+        //    break;
+    case MFXComponentType::ENC:
+        switch (codecID) {
+        case MFX_CODEC_HEVC:
+            return &MFX_PLUGINID_HEVCE_FEI_HW; // HEVC FEI uses ENC interface
+        }
+        break;
+    }
+    return nullptr;
+}
 
 CMFXPlugin::CMFXPlugin(mfxSession session) :
     m_type(MFX_PLUGINTYPE_VIDEO_GENERAL),
@@ -75,6 +125,14 @@ mfxStatus CSessionPlugins::LoadPlugin(mfxPluginType type, const mfxPluginUID &ui
         m_plugins.push_back(std::move(plugin));
     }
     return sts;
+}
+mfxStatus CSessionPlugins::LoadPlugin(MFXComponentType type, uint32_t codecID, const bool software) {
+    auto plugin = getMFXPluginUID(type, codecID, software);
+    auto plugintype = component_type_to_plugin(type);
+    if (plugin == nullptr || plugintype < 0) {
+        return MFX_ERR_NONE;
+    }
+    return LoadPlugin(plugintype, *plugin, 1);
 }
 void CSessionPlugins::UnloadPlugins() {
     m_plugins.clear();

@@ -346,23 +346,11 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
             return RGY_ERR_MEMORY_ALLOC;
         }
 
-        static const auto codecPluginList = make_array<std::pair<RGY_CODEC, mfxPluginUID>>(
-            std::make_pair(RGY_CODEC_HEVC, MFX_PLUGINID_HEVCD_HW),
-            std::make_pair(RGY_CODEC_VP8,  MFX_PLUGINID_VP8D_HW),
-            std::make_pair(RGY_CODEC_VP9,  MFX_PLUGINID_VP9D_HW)
-        );
         const auto inputCodec = m_pFileReader->getInputCodec();
-        const auto plugin = std::find_if(codecPluginList.begin(), codecPluginList.end(),
-                [inputCodec](decltype((codecPluginList[0])) codecPlugin) {
-            return codecPlugin.first == inputCodec;
-        });
-        if (plugin != codecPluginList.end()) {
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loading %s decoder plugin..."), CodecToStr(plugin->first).c_str());
-            if (MFX_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, plugin->second, 1)) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), CodecToStr(plugin->first).c_str());
-                return RGY_ERR_UNSUPPORTED;
-            }
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Loaded %s decoder plugin.\n"), CodecToStr(plugin->first).c_str());
+        sts = err_to_rgy(m_SessionPlugins->LoadPlugin(MFXComponentType::DECODE, codec_rgy_to_enc(inputCodec), false));
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), CodecToStr(inputCodec).c_str());
+            return RGY_ERR_UNSUPPORTED;
         }
 
         if (m_pFileReader->getInputCodec() == RGY_CODEC_H264 || m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
@@ -477,24 +465,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
 
-    if (pInParams->CodecId == MFX_CODEC_HEVC) {
-        if (RGY_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_HEVCE_HW, 1)) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw hevc encoder.\n"));
-            PrintMes(RGY_LOG_ERROR, _T("hevc encoding is not supported on current platform.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-    } else if (pInParams->CodecId == MFX_CODEC_VP8) {
-        if (RGY_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP8E_HW, 1)) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw vp8 encoder.\n"));
-            PrintMes(RGY_LOG_ERROR, _T("vp8 encoding is not supported on current platform.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-    } else if (pInParams->CodecId == MFX_CODEC_VP9) {
-        if (RGY_ERR_NONE != m_SessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, MFX_PLUGINID_VP9E_HW, 1)) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw vp9 encoder.\n"));
-            PrintMes(RGY_LOG_ERROR, _T("vp9 encoding is not supported on current platform.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
+    auto sts = err_to_rgy(m_SessionPlugins->LoadPlugin(MFXComponentType::ENCODE, pInParams->CodecId, false));
+    if (sts != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s encoder.\n"), CodecIdToStr(pInParams->CodecId));
+        PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
+        return RGY_ERR_UNSUPPORTED;
     }
     const int encodeBitDepth = getEncoderBitdepth(pInParams);
     if (encodeBitDepth <= 0) {

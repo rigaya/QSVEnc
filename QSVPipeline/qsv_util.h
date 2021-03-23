@@ -100,15 +100,6 @@ static inline uint16_t frametype_rgy_to_enc(const RGY_FRAMETYPE frametype) {
     return (uint16_t)type;
 }
 
-enum class MFXComponentType {
-    DECODE = 0x0001,
-    ENCODE = 0x0002,
-    VPP = 0x0004,
-    ENC = 0x0008,
-    FEI = 0x1000,
-};
-const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, const bool software);
-
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
 
 tstring qsv_memtype_str(uint32_t memtype);

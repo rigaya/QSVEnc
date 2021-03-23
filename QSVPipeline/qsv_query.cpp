@@ -256,11 +256,9 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
     auto sessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(session));
-    auto plugin = getMFXPluginUID(MFXComponentType::DECODE, codecId, false);
-    if (plugin != nullptr) {
-        if (MFX_ERR_NONE != sessionPlugins->LoadPlugin(MFX_PLUGINTYPE_VIDEO_DECODE, *plugin, 1)) {
-            return supportedCsp;
-        }
+    auto loadsts = sessionPlugins->LoadPlugin(MFXComponentType::DECODE, codecId, false);
+    if (loadsts != MFX_ERR_NONE) {
+        return supportedCsp;
     }
     mfxVideoParam videoPrm, videoPrmOut;
     memset(&videoPrm,  0, sizeof(videoPrm));
@@ -1121,10 +1119,7 @@ mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver
     } else {
 
         CSessionPlugins sessionPlugins(session);
-        auto plugin = getMFXPluginUID(MFXComponentType::ENCODE, codecId, false);
-        if (plugin != nullptr) {
-            sessionPlugins.LoadPlugin(MFX_PLUGINTYPE_VIDEO_ENCODE, *plugin, 1);
-        }
+        sessionPlugins.LoadPlugin(MFXComponentType::ENCODE, codecId, false);
         feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
         sessionPlugins.UnloadPlugins();
     }
