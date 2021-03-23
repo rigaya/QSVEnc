@@ -36,11 +36,10 @@
 #include <algorithm>
 #include "auo_util.h"
 #include "auo_conf.h"
-#include "qsv_pipeline.h"
 #include "qsv_query.h"
 #include "rgy_version.h"
+#include "rgy_perf_monitor.h"
 #include "rgy_avutil.h"
-#include "qsv_cmd.h"
 #include "qsv_cmd.h"
 
 typedef struct sAudioSelectOld {

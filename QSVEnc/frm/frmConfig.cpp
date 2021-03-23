@@ -1344,17 +1344,17 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBVppResize->Checked                = cnf->vid.resize_enable != 0;
     SetNUValue(fcgNUVppResizeW,              cnf->vid.resize_width);
     SetNUValue(fcgNUVppResizeH,              cnf->vid.resize_height);
-    fcgCBVppDenoise->Checked               = prm_qsv.vpp.denoise.enable;
-    SetNUValue(fcgNUVppDenoise,              prm_qsv.vpp.denoise.strength);
-    fcgCBVppMctf->Checked                  = prm_qsv.vpp.mctf.enable;
-    SetNUValue(fcgNUVppMctf,                 prm_qsv.vpp.mctf.strength);
-    fcgCBVppDetail->Checked                = prm_qsv.vpp.detail.enable;
-    SetNUValue(fcgNUVppDetail,               prm_qsv.vpp.detail.strength);
-    SetCXIndex(fcgCXDeinterlace,             prm_qsv.vpp.deinterlace);
-    SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, prm_qsv.vpp.telecinePattern));
-    SetCXIndex(fcgCXImageStabilizer,         prm_qsv.vpp.imageStabilizer);
-    SetCXIndex(fcgCXFPSConversion,           prm_qsv.vpp.fpsConversion);
-    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, prm_qsv.vpp.rotate));
+    fcgCBVppDenoise->Checked               = prm_qsv.vppmfx.denoise.enable;
+    SetNUValue(fcgNUVppDenoise,              prm_qsv.vppmfx.denoise.strength);
+    fcgCBVppMctf->Checked                  = prm_qsv.vppmfx.mctf.enable;
+    SetNUValue(fcgNUVppMctf,                 prm_qsv.vppmfx.mctf.strength);
+    fcgCBVppDetail->Checked                = prm_qsv.vppmfx.detail.enable;
+    SetNUValue(fcgNUVppDetail,               prm_qsv.vppmfx.detail.strength);
+    SetCXIndex(fcgCXDeinterlace,             prm_qsv.vppmfx.deinterlace);
+    SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, prm_qsv.vppmfx.telecinePattern));
+    SetCXIndex(fcgCXImageStabilizer,         prm_qsv.vppmfx.imageStabilizer);
+    SetCXIndex(fcgCXFPSConversion,           prm_qsv.vppmfx.fpsConversion);
+    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, prm_qsv.vppmfx.rotate));
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -1513,17 +1513,17 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         prm_qsv.input.dstWidth = 0;
         prm_qsv.input.dstHeight = 0;
     }
-    prm_qsv.vpp.denoise.enable      = fcgCBVppDenoise->Checked;
-    prm_qsv.vpp.denoise.strength    = (int)fcgNUVppDenoise->Value;
-    prm_qsv.vpp.detail.enable       = fcgCBVppDetail->Checked;
-    prm_qsv.vpp.detail.strength     = (int)fcgNUVppDetail->Value;
-    prm_qsv.vpp.mctf.enable         = fcgCBVppMctf->Checked;
-    prm_qsv.vpp.mctf.strength       = (int)fcgNUVppMctf->Value;
-    prm_qsv.vpp.deinterlace         = (int)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
-    prm_qsv.vpp.telecinePattern     = (int)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
-    prm_qsv.vpp.imageStabilizer     = (int)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
-    prm_qsv.vpp.fpsConversion       = (int)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
-    prm_qsv.vpp.rotate              = (int)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
+    prm_qsv.vppmfx.denoise.enable      = fcgCBVppDenoise->Checked;
+    prm_qsv.vppmfx.denoise.strength    = (int)fcgNUVppDenoise->Value;
+    prm_qsv.vppmfx.detail.enable       = fcgCBVppDetail->Checked;
+    prm_qsv.vppmfx.detail.strength     = (int)fcgNUVppDetail->Value;
+    prm_qsv.vppmfx.mctf.enable         = fcgCBVppMctf->Checked;
+    prm_qsv.vppmfx.mctf.strength       = (int)fcgNUVppMctf->Value;
+    prm_qsv.vppmfx.deinterlace         = (int)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
+    prm_qsv.vppmfx.telecinePattern     = (int)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
+    prm_qsv.vppmfx.imageStabilizer     = (int)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
+    prm_qsv.vppmfx.fpsConversion       = (int)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
+    prm_qsv.vppmfx.rotate              = (int)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));

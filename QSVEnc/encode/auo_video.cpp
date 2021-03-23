@@ -518,7 +518,7 @@ static void set_conf_qsvp_avqsv_prm(sInputParams *enc_prm, const CONF_GUIEX *con
     enc_prm->common.outputFilename = pe->temp_filename;
 
     if ((enc_prm->input.picstruct & (RGY_PICSTRUCT_INTERLACED)) == FALSE) {
-        enc_prm->vpp.deinterlace = MFX_DEINTERLACE_NONE;
+        enc_prm->vppmfx.deinterlace = MFX_DEINTERLACE_NONE;
     }
     if (check_ext(enc_prm->common.inputFilename.c_str(), { ".lwi" })) {
         getLwiRealPath(enc_prm->common.inputFilename);
