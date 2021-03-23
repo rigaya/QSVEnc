@@ -137,28 +137,33 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     case MFX_FOURCC_NV12:
         ptr->U = ptr->Y + WidthAlign * HeightAlign;
         ptr->V = ptr->U + 1;
-        ptr->Pitch = (mfxU16)WidthAlign;
+        ptr->PitchHigh = 0;
+        ptr->PitchLow = (mfxU16)WidthAlign;
         break;
     case MFX_FOURCC_NV16:
         ptr->U = ptr->Y + WidthAlign * HeightAlign;
         ptr->V = ptr->U + 1;
-        ptr->Pitch = (mfxU16)WidthAlign;
+        ptr->PitchHigh = 0;
+        ptr->PitchLow = (mfxU16)WidthAlign;
         break;
     case MFX_FOURCC_YV12:
         ptr->V = ptr->Y + WidthAlign * HeightAlign;
         ptr->U = ptr->V + (WidthAlign >> 1) * (HeightAlign >> 1);
-        ptr->Pitch = (mfxU16)WidthAlign;
+        ptr->PitchHigh = 0;
+        ptr->PitchLow = (mfxU16)WidthAlign;
         break;
     case MFX_FOURCC_UYVY:
         ptr->U = ptr->Y;
         ptr->Y = ptr->U + 1;
         ptr->V = ptr->U + 2;
-        ptr->Pitch = 2 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((2 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((2 * WidthAlign) % (1 << 16));
         break;
     case MFX_FOURCC_YUY2:
         ptr->U = ptr->Y + 1;
         ptr->V = ptr->Y + 3;
-        ptr->Pitch = 2 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((2 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((2 * WidthAlign) % (1 << 16));
         break;
 #if (MFX_VERSION >= 1028)
     case MFX_FOURCC_RGB565:
@@ -171,14 +176,15 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     case MFX_FOURCC_RGB3:
         ptr->G = ptr->B + 1;
         ptr->R = ptr->B + 2;
-        ptr->Pitch = 3 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((3 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((3 * WidthAlign) % (1 << 16));
         break;
 #if !(defined(_WIN32) || defined(_WIN64))
     case MFX_FOURCC_RGBP:
         ptr->G = ptr->B + Width2 * Height2;
         ptr->R = ptr->B + Width2 * Height2 * 2;
-        ptr->PitchHigh = (mfxU16)((ALIGN32(fs->info.Width)) / (1 << 16));
-        ptr->PitchLow = (mfxU16)((ALIGN32(fs->info.Width)) % (1 << 16));
+        ptr->PitchHigh = (mfxU16)((WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((WidthAlign) % (1 << 16));
         break;
 #endif
     case MFX_FOURCC_RGB4:
@@ -186,11 +192,13 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->G = ptr->B + 1;
         ptr->R = ptr->B + 2;
         ptr->A = ptr->B + 3;
-        ptr->Pitch = 4 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((4 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((4 * WidthAlign) % (1 << 16));
         break;
      case MFX_FOURCC_R16:
         ptr->Y16 = (mfxU16 *)ptr->B;
-        ptr->Pitch = 2 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((2 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((2 * WidthAlign) % (1 << 16));
         break;
 #if (MFX_VERSION >= 1031)
     case MFX_FOURCC_P016:
@@ -198,19 +206,22 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     case MFX_FOURCC_P010:
         ptr->U = ptr->Y + WidthAlign * HeightAlign * 2;
         ptr->V = ptr->U + 2;
-        ptr->Pitch = (mfxU16)WidthAlign * 2;
+        ptr->PitchHigh = 0;
+        ptr->PitchLow = (mfxU16)WidthAlign * 2;
         break;
     case MFX_FOURCC_P210:
         ptr->U = ptr->Y + WidthAlign * HeightAlign * 2;
         ptr->V = ptr->U + 2;
-        ptr->Pitch = (mfxU16)WidthAlign * 2;
+        ptr->PitchHigh = 0;
+        ptr->PitchLow = (mfxU16)WidthAlign * 2;
         break;
     case MFX_FOURCC_AYUV:
         ptr->Y = ptr->B;
         ptr->U = ptr->Y + 1;
         ptr->V = ptr->Y + 2;
         ptr->A = ptr->Y + 3;
-        ptr->Pitch = 4 * (mfxU16)WidthAlign;
+        ptr->PitchHigh = (mfxU16)((4 * WidthAlign) / (1 << 16));
+        ptr->PitchLow = (mfxU16)((4 * WidthAlign) % (1 << 16));
         break;
 #if (MFX_VERSION >= 1031)
     case MFX_FOURCC_Y416:
