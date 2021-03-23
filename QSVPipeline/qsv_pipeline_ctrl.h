@@ -1016,14 +1016,14 @@ public:
     };
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
-        if (!frame) {
-            flushAudio();
-            return RGY_ERR_MORE_DATA;
-        }
         m_inFrames++;
         auto err = extractAudio(m_inFrames);
         if (err != RGY_ERR_NONE) {
             return err;
+        }
+        if (!frame) {
+            flushAudio();
+            return RGY_ERR_MORE_DATA;
         }
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
