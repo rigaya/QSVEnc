@@ -29,7 +29,7 @@
 #include "rgy_util.h"
 #include <mfxvp8.h>
 
-static const auto MFX_COMPONENT_TYPE_TO_PLUGIN_TYPE = std::array<std::pair<MFXComponentType, mfxPluginType>>(
+static const auto MFX_COMPONENT_TYPE_TO_PLUGIN_TYPE = make_array<std::pair<MFXComponentType, mfxPluginType>>(
     std::make_pair(MFXComponentType::DECODE, MFX_PLUGINTYPE_VIDEO_DECODE),
     std::make_pair(MFXComponentType::ENCODE, MFX_PLUGINTYPE_VIDEO_ENCODE),
     std::make_pair(MFXComponentType::VPP, MFX_PLUGINTYPE_VIDEO_VPP),
@@ -37,7 +37,7 @@ static const auto MFX_COMPONENT_TYPE_TO_PLUGIN_TYPE = std::array<std::pair<MFXCo
     //std::make_pair(MFXComponentType::FEI, )
 );
 
-MAP_PAIR_0_1(component, type, MFXComponentType, plugin, mfxPluginType, MFX_COMPONENT_TYPE_TO_PLUGIN_TYPE, MFXComponentType::UNKNOWN, -1);
+MAP_PAIR_0_1(component, type, MFXComponentType, plugin, mfxPluginType, MFX_COMPONENT_TYPE_TO_PLUGIN_TYPE, MFXComponentType::UNKNOWN, (mfxPluginType)-1);
 
 const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, const bool software) {
     switch (type) {
