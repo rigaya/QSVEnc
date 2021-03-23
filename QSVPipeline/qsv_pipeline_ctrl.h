@@ -951,12 +951,16 @@ public:
 
     void flushAudio() {
         PrintMes(RGY_LOG_DEBUG, _T("Clear packets in writer...\n"));
-        for (const auto& writer : m_audioReaders) {
+        std::set<RGYOutputAvcodec*> writers;
+        for (const auto& [ streamid, writer ] : m_pWriterForAudioStreams) {
             auto pWriter = std::dynamic_pointer_cast<RGYOutputAvcodec>(writer);
             if (pWriter != nullptr) {
-                //エンコーダなどにキャッシュされたパケットを書き出す
-                pWriter->WriteNextPacket(nullptr);
+                writers.insert(pWriter.get());
             }
+        }
+        for (const auto& writer : writers) {
+            //エンコーダなどにキャッシュされたパケットを書き出す
+            writer->WriteNextPacket(nullptr);
         }
     }
 
