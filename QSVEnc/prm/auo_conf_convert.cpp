@@ -42,6 +42,13 @@
 #include "rgy_avutil.h"
 #include "qsv_cmd.h"
 
+const CX_DESC list_vpp_scaling_quality_auo_conf_old[] = {
+    { _T("auto"),   MFX_SCALING_MODE_DEFAULT  },
+    { _T("simple"), MFX_SCALING_MODE_LOWPOWER },
+    { _T("fine"),   MFX_SCALING_MODE_QUALITY  },
+    { NULL, 0 }
+};
+
 typedef struct sAudioSelectOld {
     int    nAudioSelect;               //選択した音声トラックのリスト 1,2,...(1から連番で指定)
     TCHAR *pAVAudioEncodeCodec;        //音声エンコードのコーデック
@@ -922,7 +929,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_BOOL(_T("--vpp-half-turn"), _T(""), vpp.bHalfTurn);
     OPT_LST(_T("--vpp-rotate"), vpp.nRotate, list_vpp_rotate_angle);
     OPT_LST(_T("--vpp-mirror"), vpp.nMirrorType, list_vpp_mirroring);
-    OPT_LST(_T("--vpp-scaling"), vpp.nScalingQuality, list_vpp_scaling_quality);
+    OPT_LST(_T("--vpp-scaling"), vpp.nScalingQuality, list_vpp_scaling_quality_auo_conf_old);
     OPT_LST(_T("--vpp-fps-conv"), vpp.nFPSConversion, list_vpp_fps_conversion);
     OPT_LST(_T("--vpp-image-stab"), vpp.nImageStabilizer, list_vpp_image_stabilizer);
 #if ENABLE_CUSTOM_VPP

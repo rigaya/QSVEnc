@@ -350,7 +350,17 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize);
             return 1;
         }
-        vpp->resize = (RGY_VPP_RESIZE_ALGO)value;
+        vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
+        return 0;
+    }
+    if (IS_OPTION("vpp-resize-mode")) {
+        i++;
+        int value;
+        if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_vpp_resize_mode, strInput[i]))) {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize_mode);
+            return 1;
+        }
+        vpp->resize_mode = (RGY_VPP_RESIZE_MODE)value;
         return 0;
     }
     if (IS_OPTION("vpp-colorspace")) {
@@ -3950,7 +3960,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     std::basic_stringstream<TCHAR> cmd;
     std::basic_stringstream<TCHAR> tmp;
 
-    OPT_LST(_T("--vpp-resize"), resize, list_vpp_resize);
+    OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+    OPT_LST(_T("--vpp-resize-mode"), resize_mode, list_vpp_resize_mode);
 
     if (param->colorspace != defaultPrm->colorspace) {
         tmp.str(tstring());
@@ -5037,6 +5048,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DECIMATE_CHROMA ? _T("on") : _T("off"),
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
     str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize, 0);
+    str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
     str += strsprintf(_T("\n")
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));

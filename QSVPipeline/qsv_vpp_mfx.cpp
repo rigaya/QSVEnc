@@ -318,10 +318,11 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
         }
     }
 
-    if (params.scalingQuality != MFX_SCALING_MODE_DEFAULT
+    if ((params.resizeMode != MFX_SCALING_MODE_DEFAULT || params.resizeInterp != MFX_INTERPOLATION_DEFAULT)
         && !(availableFeaures & VPP_FEATURE_SCALING_QUALITY)) {
         PrintMes(RGY_LOG_WARN, _T("vpp scaling quality is not supported on this platform, disabled.\n"));
-        params.scalingQuality = MFX_SCALING_MODE_DEFAULT;
+        params.resizeMode = MFX_SCALING_MODE_DEFAULT;
+        params.resizeInterp = MFX_INTERPOLATION_DEFAULT;
     }
 
     if (params.mirrorType != MFX_MIRRORING_DISABLED
@@ -537,22 +538,20 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params, const VppColorspace& col
 
     if (    m_mfxVppParams.vpp.Out.CropW != m_mfxVppParams.vpp.In.CropW
          || m_mfxVppParams.vpp.Out.CropH != m_mfxVppParams.vpp.In.CropH) {
-        if (params.scalingQuality != MFX_SCALING_MODE_DEFAULT) {
-            if (CheckParamList(params.scalingQuality, list_vpp_scaling_quality, "vpp-resize") != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("invalid resize scaling mode selected.\n"));
-                return RGY_ERR_INVALID_PARAM;
-            }
+        auto str = strsprintf(_T("Resize %dx%d -> %dx%d"), m_mfxVppParams.vpp.In.CropW, m_mfxVppParams.vpp.In.CropH, m_mfxVppParams.vpp.Out.CropW, m_mfxVppParams.vpp.Out.CropH);
+        if ((check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19) && params.resizeMode != MFX_SCALING_MODE_DEFAULT)
+            || (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_33) && params.resizeInterp != MFX_INTERPOLATION_DEFAULT)) {
             INIT_MFX_EXT_BUFFER(m_ExtScaling, MFX_EXTBUFF_VPP_SCALING);
-            m_ExtScaling.ScalingMode = (mfxU16)params.scalingQuality;
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_33)) {
+                m_ExtScaling.ScalingMode = (mfxU16)params.resizeInterp; // API 1.33
+                str += strsprintf(_T(", %s"), get_chr_from_value(list_vpp_resize, resize_algo_enc_to_rgy(params.resizeInterp)));
+            }
+            m_ExtScaling.ScalingMode = (mfxU16)params.resizeMode; // API 1.19
+            str += strsprintf(_T(", %s"), get_chr_from_value(list_vpp_resize_mode, resize_mode_enc_to_rgy(params.resizeMode)));
             m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtScaling);
-
             m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_SCALING);
-            vppExtAddMes(strsprintf(_T("Resizer, %dx%d -> %dx%d, %s\n"),
-                m_mfxVppParams.vpp.In.CropW, m_mfxVppParams.vpp.In.CropH, m_mfxVppParams.vpp.Out.CropW, m_mfxVppParams.vpp.Out.CropH,
-                get_chr_from_value(list_vpp_scaling_quality, params.scalingQuality)));
-        } else {
-            vppExtAddMes(strsprintf(_T("Resizer, %dx%d -> %dx%d\n"), m_mfxVppParams.vpp.In.CropW, m_mfxVppParams.vpp.In.CropH, m_mfxVppParams.vpp.Out.CropW, m_mfxVppParams.vpp.Out.CropH));
         }
+        vppExtAddMes(str + _T("\n"));
     }
 
     if (params.fpsConversion != FPS_CONVERT_NONE) {

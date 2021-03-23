@@ -850,7 +850,8 @@ tstring VppDeband::print() const {
 }
 
 RGYParamVpp::RGYParamVpp() :
-    resize(RGY_VPP_RESIZE_AUTO),
+    resize_algo(RGY_VPP_RESIZE_AUTO),
+    resize_mode(RGY_VPP_RESIZE_MODE_DEFAULT),
     colorspace(),
     afs(),
     nnedi(),

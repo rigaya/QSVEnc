@@ -2032,7 +2032,8 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     case VppType::MFX_MIRROR:              vppParams.mirrorType = params->mirrorType; break;
     case VppType::MFX_MCTF:                vppParams.mctf = params->mctf; break;
     case VppType::MFX_RESIZE:              vppParams.bUseResize = true;
-                                           vppParams.scalingQuality = params->scalingQuality;
+                                           vppParams.resizeInterp = params->resizeInterp;
+                                           vppParams.resizeMode = params->resizeMode;
                                            frameInfo.width = resize.first;
                                            frameInfo.height = resize.second; break;
 
@@ -2285,7 +2286,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
     if (vppType == VppType::CL_RESIZE) {
         auto filter = std::make_unique<RGYFilterResize>(m_cl);
         shared_ptr<RGYFilterParamResize> param(new RGYFilterParamResize());
-        param->interp = (params->resize != RGY_VPP_RESIZE_AUTO) ? params->resize : RGY_VPP_RESIZE_SPLINE36;
+        param->interp = (params->resize_algo != RGY_VPP_RESIZE_AUTO) ? params->resize_algo : RGY_VPP_RESIZE_SPLINE36;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.width = resize.first;
@@ -2508,14 +2509,15 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     }
     RGY_VPP_RESIZE_TYPE resizeRequired = RGY_VPP_RESIZE_TYPE_NONE;
     if (croppedWidth != resizeWidth || croppedHeight != resizeHeight) {
-        resizeRequired = getVppResizeType(inputParam->vpp.resize);
+        resizeRequired = getVppResizeType(inputParam->vpp.resize_algo);
         if (resizeRequired == RGY_VPP_RESIZE_TYPE_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("Unknown resize type.\n"));
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
     }
     //リサイズアルゴリズムのパラメータはvpp側に設定されているので、設定をvppmfxに転写する
-    inputParam->vppmfx.scalingQuality = scaling_rgy_to_enc(inputParam->vpp.resize);
+    inputParam->vppmfx.resizeInterp = resize_algo_rgy_to_enc(inputParam->vpp.resize_algo);
+    inputParam->vppmfx.resizeMode = resize_mode_rgy_to_enc(inputParam->vpp.resize_mode);
 
     //フレームレートのチェック
     if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {

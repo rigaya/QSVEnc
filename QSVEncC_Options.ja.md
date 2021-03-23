@@ -1101,9 +1101,19 @@ image stabilizerのモードの指定。
 
 | オプション名 | 説明 |
 |:---|:---|
+| auto     | 自動的に適切なものを選択 |
+| simple   | Nearest Neighbor法による高速なリサイズ |
+| bilinear | bilinear法 |
+| advanced | 高品質なリサイズ |
+
+### --vpp-resize-mode &lt;string&gt;
+リサイザのモードを指定する。
+
+| オプション名 | 説明 |
+|:---|:---|
 | auto  | 自動的に適切なものを選択 |
-| simple | HWによるシンプルなリサイズ |
-| fine | 高品質なリサイズ |
+| lowpower | HWによる省電力なリサイズ |
+| quality | 高品質なリサイズ |
 
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  

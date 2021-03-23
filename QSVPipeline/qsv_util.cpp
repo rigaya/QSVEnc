@@ -83,13 +83,23 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
 
 MAP_PAIR_0_1(csp, rgy, RGY_CSP, enc, mfxU32, RGY_CSP_TO_MFX, RGY_CSP_NA, 0);
 
-static const auto RGY_SCALING_ALGO_TO_MFX = make_array<std::pair<RGY_VPP_RESIZE_ALGO, int>>(
-    std::make_pair(RGY_VPP_RESIZE_AUTO,         MFX_SCALING_MODE_DEFAULT),
-    std::make_pair(RGY_VPP_RESIZE_MFX_LOWPOWER, MFX_SCALING_MODE_LOWPOWER),
-    std::make_pair(RGY_VPP_RESIZE_MFX_QUALITY,  MFX_SCALING_MODE_QUALITY)
+static const auto RGY_RESIZE_ALGO_TO_MFX = make_array<std::pair<RGY_VPP_RESIZE_ALGO, int>>(
+    std::make_pair(RGY_VPP_RESIZE_AUTO,                 MFX_INTERPOLATION_DEFAULT),
+    std::make_pair(RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR, MFX_INTERPOLATION_NEAREST_NEIGHBOR),
+    std::make_pair(RGY_VPP_RESIZE_MFX_BILINEAR,         MFX_INTERPOLATION_BILINEAR),
+    std::make_pair(RGY_VPP_RESIZE_MFX_ADVANCED,         MFX_INTERPOLATION_ADVANCED)
 );
 
-MAP_PAIR_0_1(scaling, rgy, RGY_VPP_RESIZE_ALGO, enc, int, RGY_SCALING_ALGO_TO_MFX, RGY_VPP_RESIZE_UNKNOWN, -1);
+MAP_PAIR_0_1(resize_algo, rgy, RGY_VPP_RESIZE_ALGO, enc, int, RGY_RESIZE_ALGO_TO_MFX, RGY_VPP_RESIZE_UNKNOWN, -1);
+
+
+static const auto RGY_SCALING_MODE_TO_MFX = make_array<std::pair<RGY_VPP_RESIZE_MODE, int>>(
+    std::make_pair(RGY_VPP_RESIZE_MODE_DEFAULT,      MFX_SCALING_MODE_DEFAULT),
+    std::make_pair(RGY_VPP_RESIZE_MODE_MFX_LOWPOWER, MFX_SCALING_MODE_LOWPOWER),
+    std::make_pair(RGY_VPP_RESIZE_MODE_MFX_QUALITY,  MFX_SCALING_MODE_QUALITY)
+);
+
+MAP_PAIR_0_1(resize_mode, rgy, RGY_VPP_RESIZE_MODE, enc, int, RGY_SCALING_MODE_TO_MFX, RGY_VPP_RESIZE_MODE_UNKNOWN, -1);
 
 RGY_NOINLINE
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct) {

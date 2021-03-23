@@ -51,7 +51,8 @@ VppDetailEnhance::VppDetailEnhance() :
 sVppParams::sVppParams() :
     bEnable(true),
     bUseResize(false),
-    scalingQuality(MFX_SCALING_MODE_DEFAULT),
+    resizeInterp(MFX_INTERPOLATION_DEFAULT),
+    resizeMode(MFX_SCALING_MODE_DEFAULT),
     deinterlace(0),
     telecinePattern(0),
     imageStabilizer(0),

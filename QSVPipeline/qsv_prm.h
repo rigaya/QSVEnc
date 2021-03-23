@@ -181,7 +181,8 @@ struct sVppParams {
     bool bEnable;             //use vpp
 
     bool bUseResize;          //use vpp resizer
-    int scalingQuality; //MFX_SCALING_MODE_xxx
+    int resizeInterp;
+    int resizeMode;
 
     int deinterlace;      //set deinterlace mode
     int telecinePattern;
@@ -679,12 +680,14 @@ const CX_DESC list_vpp_mirroring[] = {
     { NULL, 0 }
 };
 
+/*
 const CX_DESC list_vpp_scaling_quality[] = {
     { _T("auto"),   MFX_SCALING_MODE_DEFAULT  },
     { _T("simple"), MFX_SCALING_MODE_LOWPOWER },
     { _T("fine"),   MFX_SCALING_MODE_QUALITY  },
     { NULL, 0 }
 };
+*/
 
 //define defaults
 const int QSV_DEFAULT_REF = 0;

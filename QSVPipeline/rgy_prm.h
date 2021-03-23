@@ -175,6 +175,15 @@ const CX_DESC list_vpp_hdr2sdr[] = {
     { NULL, 0 }
 };
 
+enum RGY_VPP_RESIZE_MODE {
+    RGY_VPP_RESIZE_MODE_DEFAULT,
+#if ENCODER_QSV
+    RGY_VPP_RESIZE_MODE_MFX_LOWPOWER,
+    RGY_VPP_RESIZE_MODE_MFX_QUALITY,
+#endif
+    RGY_VPP_RESIZE_MODE_UNKNOWN,
+};
+
 enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_AUTO,
     RGY_VPP_RESIZE_BILINEAR,
@@ -186,8 +195,9 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_LANCZOS4,
     RGY_VPP_RESIZE_OPENCL_MAX,
 #if ENCODER_QSV
-    RGY_VPP_RESIZE_MFX_LOWPOWER,
-    RGY_VPP_RESIZE_MFX_QUALITY,
+    RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
+    RGY_VPP_RESIZE_MFX_BILINEAR,
+    RGY_VPP_RESIZE_MFX_ADVANCED,
     RGY_VPP_RESIZE_MFX_MAX,
 #endif
     RGY_VPP_RESIZE_UNKNOWN,
@@ -206,6 +216,15 @@ enum RGY_VPP_RESIZE_TYPE {
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize);
 
 
+const CX_DESC list_vpp_resize_mode[] = {
+    { _T("auto"),     RGY_VPP_RESIZE_MODE_DEFAULT },
+#if ENCODER_QSV
+    { _T("lowpower"), RGY_VPP_RESIZE_MODE_MFX_LOWPOWER },
+    { _T("quality"),  RGY_VPP_RESIZE_MODE_MFX_QUALITY },
+#endif
+    { NULL, NULL }
+};
+
 const CX_DESC list_vpp_resize[] = {
     { _T("auto"),     RGY_VPP_RESIZE_AUTO },
     { _T("spline16"), RGY_VPP_RESIZE_SPLINE16 },
@@ -215,8 +234,10 @@ const CX_DESC list_vpp_resize[] = {
     { _T("lanczos3"), RGY_VPP_RESIZE_LANCZOS3 },
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
 #if ENCODER_QSV
-    { _T("simple"),   RGY_VPP_RESIZE_MFX_LOWPOWER },
-    { _T("fine"),     RGY_VPP_RESIZE_MFX_QUALITY },
+    { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
+    { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
+    { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
+    { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
 #endif
     { NULL, NULL }
 };
@@ -724,7 +745,8 @@ struct VppDeband {
 };
 
 struct RGYParamVpp {
-    RGY_VPP_RESIZE_ALGO resize;
+    RGY_VPP_RESIZE_ALGO resize_algo;
+    RGY_VPP_RESIZE_MODE resize_mode;
     VppColorspace colorspace;
     VppAfs afs;
     VppNnedi nnedi;

@@ -1092,6 +1092,25 @@ Specify the resizing algorithm.
 | fine | use high quality scaling |
 
 
+### --vpp-resize &lt;string&gt;
+Specify the resizing algorithm.
+
+| option name | desciption |
+|:---|:---|
+| auto     | auto select                     |
+| simple   | simple nearest neighbor scaling |
+| bilinear | bilinear method                 |
+| advanced | advanced high quality scaling   |
+
+### --vpp-resize-mode &lt;string&gt;
+Specify the resizer mode.
+
+| option name | desciption |
+|:---|:---|
+| auto     | auto select                       |
+| lowpower | low power resize done by hardware |
+| quality  | high quality scaling              |
+
 
     
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
