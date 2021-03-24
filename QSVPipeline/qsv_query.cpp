@@ -269,6 +269,10 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     videoPrm.IOPattern                   = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
     videoPrm.mfx.CodecId                 = codecId;
     switch (codecId) {
+    case MFX_CODEC_AVC:
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_AVC_41;
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_AVC_HIGH;
+        break;
     case MFX_CODEC_HEVC:
         videoPrm.mfx.CodecLevel          = MFX_LEVEL_HEVC_4;
         videoPrm.mfx.CodecProfile        = MFX_PROFILE_HEVC_MAIN;
@@ -286,11 +290,11 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     case MFX_CODEC_VP9:
         videoPrm.mfx.CodecProfile        = MFX_PROFILE_VP9_0;
         break;
-    default:
-    case MFX_CODEC_AVC:
-        videoPrm.mfx.CodecLevel          = MFX_LEVEL_AVC_41;
-        videoPrm.mfx.CodecProfile        = MFX_PROFILE_AVC_HIGH;
+    case MFX_CODEC_AV1:
+        videoPrm.mfx.CodecProfile        = MFX_PROFILE_AV1_MAIN;
         break;
+    default:
+        return supportedCsp;
     }
     videoPrm.mfx.EncodedOrder            = 0;
     videoPrm.mfx.FrameInfo.FrameRateExtN = 30000;
@@ -338,36 +342,56 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
         } \
     }
 
-    static const auto test_yuv420_highbit_depth = make_array<std::pair<int, RGY_CSP>>(
-        std::make_pair( 9, RGY_CSP_YV12_09),
-        std::make_pair(10, RGY_CSP_YV12_10),
-        std::make_pair(12, RGY_CSP_YV12_12),
-        std::make_pair(14, RGY_CSP_YV12_14),
-        std::make_pair(14, RGY_CSP_YV12_16)
-        );
-    static const auto test_yuv444 = make_array<std::pair<int, RGY_CSP>>(
-        std::make_pair( 8, RGY_CSP_YUV444),
-        std::make_pair( 9, RGY_CSP_YUV444_09),
-        std::make_pair(10, RGY_CSP_YUV444_10),
-        std::make_pair(12, RGY_CSP_YUV444_12),
-        std::make_pair(14, RGY_CSP_YUV444_14),
-        std::make_pair(16, RGY_CSP_YUV444_16)
+    static const auto test_csp = make_array<RGY_CSP>(
+        RGY_CSP_YV12_09,
+        RGY_CSP_YV12_10,
+        RGY_CSP_YV12_12,
+        RGY_CSP_YV12_14,
+        RGY_CSP_YV12_16,
+        RGY_CSP_YUV422,
+        RGY_CSP_YUV422_09,
+        RGY_CSP_YUV422_10,
+        RGY_CSP_YUV422_12,
+        RGY_CSP_YUV422_14,
+        RGY_CSP_YUV422_16,
+        RGY_CSP_YUV444,
+        RGY_CSP_YUV444_09,
+        RGY_CSP_YUV444_10,
+        RGY_CSP_YUV444_12,
+        RGY_CSP_YUV444_14,
+        RGY_CSP_YUV444_16
         );
 
     mfxVideoParam videoPrmTmp = videoPrm;
-    for (const auto& test : test_yuv420_highbit_depth) {
-        videoPrm.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
+    for (const auto& test : test_csp) {
+        switch (RGY_CSP_CHROMA_FORMAT[test]) {
+        case RGY_CHROMAFMT_YUV420: videoPrm.mfx.FrameInfo.FourCC = (RGY_CSP_BIT_DEPTH[test] >  8) ? MFX_FOURCC_P010 : MFX_FOURCC_NV12; break;
+        case RGY_CHROMAFMT_YUV422: videoPrm.mfx.FrameInfo.FourCC = (RGY_CSP_BIT_DEPTH[test] >  8) ? MFX_FOURCC_P210 : MFX_FOURCC_NV16; break;
+        case RGY_CHROMAFMT_YUV444: videoPrm.mfx.FrameInfo.FourCC = (RGY_CSP_BIT_DEPTH[test] > 10) ? MFX_FOURCC_Y416 : ((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_FOURCC_Y410 : MFX_FOURCC_AYUV); break;
+        default:
+        }
+        
         if (codecId == MFX_CODEC_HEVC) {
-            videoPrm.mfx.CodecProfile = (mfxU16)((test.first > 8) ? MFX_PROFILE_HEVC_MAIN10 : MFX_PROFILE_HEVC_MAIN);
+            videoPrm.mfx.CodecProfile = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_PROFILE_HEVC_MAIN10 : MFX_PROFILE_HEVC_MAIN);
         } else if (codecId == MFX_CODEC_VP9) {
-            videoPrm.mfx.CodecProfile = (mfxU16)((test.first > 8) ? MFX_PROFILE_VP9_2 : MFX_PROFILE_VP9_0);
+            videoPrm.mfx.CodecProfile = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_PROFILE_VP9_2 : MFX_PROFILE_VP9_0);
+        } else if (codecId == MFX_CODEC_AV1) {
+            videoPrm.mfx.CodecProfile = MFX_PROFILE_AV1_MAIN;
         } else {
             break;
         }
-        videoPrm.mfx.FrameInfo.BitDepthLuma = (mfxU16)((test.first > 8) ? test.first : 0);
-        videoPrm.mfx.FrameInfo.BitDepthChroma = (mfxU16)((test.first > 8) ? test.first : 0);
-        videoPrm.mfx.FrameInfo.Shift = (test.first > 8) ? 1 : 0;
-        CHECK_FEATURE(test.second, MFX_LIB_VERSION_1_19);
+        if (videoPrm.mfx.FrameInfo.FourCC == MFX_FOURCC_P010
+            || videoPrm.mfx.FrameInfo.FourCC == MFX_FOURCC_P210
+            || videoPrm.mfx.FrameInfo.FourCC == MFX_FOURCC_Y210) {
+            videoPrm.mfx.FrameInfo.BitDepthLuma = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? RGY_CSP_BIT_DEPTH[test] : 0);
+            videoPrm.mfx.FrameInfo.BitDepthChroma = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? RGY_CSP_BIT_DEPTH[test] : 0);
+            videoPrm.mfx.FrameInfo.Shift = (RGY_CSP_BIT_DEPTH[test] > 8) ? 1 : 0;
+        } else {
+            videoPrm.mfx.FrameInfo.BitDepthLuma = 0;
+            videoPrm.mfx.FrameInfo.BitDepthChroma = 0;
+            videoPrm.mfx.FrameInfo.Shift = 0;
+        }
+        CHECK_FEATURE(test, MFX_LIB_VERSION_1_19);
         videoPrm = videoPrmTmp;
     }
 
