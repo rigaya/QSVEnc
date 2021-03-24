@@ -90,6 +90,10 @@ enum RGY_CSP {
     RGY_CSP_YUV444_32,
     RGY_CSP_YUVA444,
     RGY_CSP_YUVA444_16,
+    RGY_CSP_Y210,   //YUY2 layout
+    RGY_CSP_Y216,   //YUY2 layout
+    RGY_CSP_Y410,   //packed
+    RGY_CSP_Y416,   //packed
     RGY_CSP_RGB24R, //packed
     RGY_CSP_RGB32R, //packed
     RGY_CSP_RGB24, //packed
@@ -133,6 +137,10 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuv444(32bit)"),
     _T("yuva444"),
     _T("yuva444(16bit)"),
+    _T("y210"),
+    _T("y216"),
+    _T("y410"),
+    _T("y416"),
     _T("rgb24r"),
     _T("rgb32r"),
     _T("rgb24"),
@@ -176,6 +184,10 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     32, //RGY_CSP_YUV444_32
      8, //RGY_CSP_YUVA444
     16, //RGY_CSP_YUVA444_16
+    10, //RGY_CSP_Y210
+    16, //RGY_CSP_Y216
+    10, //RGY_CSP_Y410
+    16, //RGY_CSP_Y416
      8, //RGY_CSP_RGB24R
      8, //RGY_CSP_RGB32R
      8, //RGY_CSP_RGB24
@@ -219,6 +231,10 @@ static const uint8_t RGY_CSP_PLANES[] = {
      3, //RGY_CSP_YUV444_32
      4, //RGY_CSP_YUVA444
      4, //RGY_CSP_YUVA444_16
+     1, //RGY_CSP_Y210
+     1, //RGY_CSP_Y216
+     1, //RGY_CSP_Y410
+     1, //RGY_CSP_Y416
      1, //RGY_CSP_RGB24R
      1, //RGY_CSP_RGB32R
      1, //RGY_CSP_RGB24
@@ -273,6 +289,10 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_32
     RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
     RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_Y210
+    RGY_CHROMAFMT_YUV422, //RGY_CSP_Y216
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_Y410
+    RGY_CHROMAFMT_YUV444, //RGY_CSP_Y416
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB_PACKED,
@@ -316,6 +336,10 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     96, //RGY_CSP_YUV444_32
     32, //RGY_CSP_YUVA444
     64, //RGY_CSP_YUVA444_16
+    32, //RGY_CSP_Y210
+    32, //RGY_CSP_Y216
+    48, //RGY_CSP_Y410
+    48, //RGY_CSP_Y416
     24, //RGY_CSP_RGB24R
     24, //RGY_CSP_RGB32R
     24, //RGY_CSP_RGB24
@@ -451,6 +475,8 @@ struct FrameInfo {
 static FrameInfo getPlane(const FrameInfo *frameInfo, RGY_PLANE plane) {
     FrameInfo planeInfo = *frameInfo;
     if (frameInfo->csp == RGY_CSP_YUY2
+        || frameInfo->csp == RGY_CSP_Y210 || frameInfo->csp == RGY_CSP_Y216
+        || frameInfo->csp == RGY_CSP_Y410 || frameInfo->csp == RGY_CSP_Y416
         || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_RGB_PACKED
         || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_MONOCHROME) {
         return planeInfo; //何もしない
@@ -518,6 +544,8 @@ static sInputCrop getPlane(const sInputCrop *crop, const RGY_CSP csp, const RGY_
     sInputCrop planeCrop = *crop;
     if (plane == RGY_PLANE_Y
         || csp == RGY_CSP_YUY2
+        || csp == RGY_CSP_Y210 || csp == RGY_CSP_Y216
+        || csp == RGY_CSP_Y410 || csp == RGY_CSP_Y416
         || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB
         || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB_PACKED
         || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV444

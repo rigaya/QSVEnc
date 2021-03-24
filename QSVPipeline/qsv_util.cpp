@@ -76,6 +76,10 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_YUV444_12, 0),
     std::make_pair(RGY_CSP_YUV444_14, 0),
     std::make_pair(RGY_CSP_YUV444_16, 0),
+    std::make_pair(RGY_CSP_Y210,      MFX_FOURCC_Y210),
+    std::make_pair(RGY_CSP_Y216,      MFX_FOURCC_Y216),
+    std::make_pair(RGY_CSP_Y410,      MFX_FOURCC_Y410),
+    std::make_pair(RGY_CSP_Y416,      MFX_FOURCC_Y416),
     std::make_pair(RGY_CSP_RGB24,     MFX_FOURCC_RGB3),
     std::make_pair(RGY_CSP_RGB32,     MFX_FOURCC_RGB4),
     std::make_pair(RGY_CSP_YC48,      0)
@@ -413,8 +417,18 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
         return _T("bgr32");
     case MFX_FOURCC_P010:
         return _T("p010");
+    case MFX_FOURCC_P016:
+        return _T("p016");
     case MFX_FOURCC_P210:
         return _T("p210");
+    case MFX_FOURCC_Y210:
+        return _T("y210");
+    case MFX_FOURCC_Y216:
+        return _T("y216");
+    case MFX_FOURCC_Y410:
+        return _T("y410");
+    case MFX_FOURCC_Y416:
+        return _T("y416");
     default:
         return _T("unsupported");
     }
