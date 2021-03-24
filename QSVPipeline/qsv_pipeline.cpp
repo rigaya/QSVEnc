@@ -1986,6 +1986,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vppmfx.detail.enable)  filterPipeline.push_back(VppType::MFX_DETAIL_ENHANCE);
     if (inputParam->vppmfx.mctf.enable)    filterPipeline.push_back(VppType::MFX_MCTF);
+    if (inputParam->vppmfx.mirrorType != MFX_MIRRORING_DISABLED) filterPipeline.push_back(VppType::MFX_MIRROR);
     if (inputParam->vpp.transform.enable)  filterPipeline.push_back(VppType::CL_TRANSFORM);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
