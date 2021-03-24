@@ -78,6 +78,8 @@ sInputParams::sInputParams() :
     CodecId(MFX_CODEC_AVC),
     CodecProfile(0),
     CodecLevel(0),
+    outputDepth(8),
+    outputCsp(RGY_CHROMAFMT_YUV420),
     nIdrInterval(0),
     nGOPLength(QSV_DEFAULT_GOP_LEN),
     bopenGOP(false),

@@ -230,6 +230,11 @@ tstring encoder_help() {
         { { _T("HEVC"),  list_hevc_tier,  0 },
         });
     str += strsprintf(_T("\n")
+        _T("   --output-depth <int>        output bit depth (default: 8)\n")
+        _T("   --output-csp <string>       output colorspace (default: i420)\n")
+        _T("                                 - i420, i422, i444\n")
+        _T("\n"));
+    str += strsprintf(_T("\n")
         _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
         _T("\n"));
     str += strsprintf(_T("Frame buffer Options:\n")
@@ -697,10 +702,21 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("output-depth"))) {
         i++;
         int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_output_depth, strInput[i]))) {
-            argData->outputDepth = value;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_output_depth, strInput[i]))) {
+            pParams->outputDepth = value;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_output_depth);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_output_depth);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("output-csp"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_output_csp, strInput[i]))) {
+            pParams->outputCsp = (RGY_CHROMAFMT)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_output_csp);
             return 1;
         }
         return 0;
@@ -708,7 +724,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (   0 == _tcscmp(option_name, _T("sar"))
         || 0 == _tcscmp(option_name, _T("dar"))) {
         i++;
-        int value[2] ={ 0 };
+        int value[2] = { 0 };
         if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &value[0], &value[1])
             && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &value[0], &value[1])
@@ -1560,18 +1576,25 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             return 1;
         }
     }
-    if (pParams->CodecId == MFX_CODEC_HEVC
-        && argsData.outputDepth == 10
-        && (pParams->CodecProfile == 0 || pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN)) {
-        pParams->CodecProfile = MFX_PROFILE_HEVC_MAIN10;
-    }
-    if (argsData.cachedtier.length() > 0 && pParams->CodecId == MFX_CODEC_HEVC) {
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_tier, argsData.cachedtier.c_str()))) {
-            pParams->hevc_tier = value;
-        } else {
-            print_cmd_error_invalid_value(_T("tier"), argsData.cachedtier, list_hevc_tier);
-            return 1;
+    if (pParams->CodecId == MFX_CODEC_HEVC) {
+        if (pParams->outputDepth > 8
+            && (pParams->CodecProfile == 0 || pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN)) {
+            pParams->CodecProfile = MFX_PROFILE_HEVC_MAIN10;
+        }
+        if (pParams->outputCsp != RGY_CHROMAFMT_YUV420) {
+            pParams->CodecProfile = MFX_PROFILE_HEVC_REXT;
+        }
+        if (pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+            pParams->outputDepth = 10;
+        }
+        if (argsData.cachedtier.length() > 0) {
+            int value = 0;
+            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_hevc_tier, argsData.cachedtier.c_str()))) {
+                pParams->hevc_tier = value;
+            } else {
+                print_cmd_error_invalid_value(_T("tier"), argsData.cachedtier, list_hevc_tier);
+                return 1;
+            }
         }
     }
 
@@ -1805,6 +1828,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, save_disabled_prm);
+
+    OPT_LST(_T("--output-depth"), outputDepth, list_output_depth);
+    OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);
 
     OPT_LST(_T("--quality"), nTargetUsage, list_quality_for_option);
     OPT_BOOL(_T("--fixed-func"), _T("--no-fixed-func"), bUseFixedFunc);

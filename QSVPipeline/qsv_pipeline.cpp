@@ -854,7 +854,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     m_mfxEncParams.IOPattern = (mfxU16)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_IN_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY);
 
     // frame info parameters
-    m_mfxEncParams.mfx.FrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
+    m_mfxEncParams.mfx.FrameInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[getEncoderCsp(pInParams)]);
     m_mfxEncParams.mfx.FrameInfo.PicStruct    = picstruct_rgy_to_enc(m_encPicstruct);
 
     // set sar info
@@ -1666,36 +1666,43 @@ RGY_ERR CQSVPipeline::InitChapters(const sInputParams *inputParam) {
 }
 
 int CQSVPipeline::getEncoderBitdepth(const sInputParams *pParams) {
-    int encodeBitDepth = 8;
     switch (pParams->CodecId) {
-    case MFX_CODEC_AVC: break;
-    case MFX_CODEC_VP8: break;
-    case MFX_CODEC_VP9: break;
-    case MFX_CODEC_MPEG2: break;
-    case MFX_CODEC_VC1: break;
     case MFX_CODEC_HEVC:
-        if (pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
-            encodeBitDepth = 10;
-        }
+    case MFX_CODEC_VP9:
+        return pParams->outputDepth;
+    case MFX_CODEC_AVC:
+    case MFX_CODEC_VP8:
+    case MFX_CODEC_MPEG2:
+    case MFX_CODEC_VC1:
         break;
     default:
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return 0;
     }
-    return encodeBitDepth;
+    return 8;
 }
 
 RGY_CSP CQSVPipeline::getEncoderCsp(const sInputParams *pParams, int *pShift) {
-    if (pParams->CodecId == MFX_CODEC_HEVC && pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN10) {
+    if (getEncoderBitdepth(pParams) > 8) {
         if (pShift) {
-            *pShift = 6;
+            *pShift = 16 - pParams->outputDepth;
         }
-        return RGY_CSP_P010;
+        switch (pParams->outputCsp) {
+        case RGY_CHROMAFMT_YUV420: return RGY_CSP_P010;
+        case RGY_CHROMAFMT_YUV422: return RGY_CSP_YUY2;
+        case RGY_CHROMAFMT_YUV444: return RGY_CSP_AYUV;
+        default: return RGY_CSP_NA;
+        }
     }
     if (pShift) {
         *pShift = 0;
     }
-    return RGY_CSP_NV12;
+    switch (pParams->outputCsp) {
+    case RGY_CHROMAFMT_YUV420: return RGY_CSP_NV12;
+    case RGY_CHROMAFMT_YUV422: return RGY_CSP_Y210;
+    case RGY_CHROMAFMT_YUV444: return RGY_CSP_Y410;
+    default: return RGY_CSP_NA;
+    }
 }
 
 RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
@@ -4578,7 +4585,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
     PRINT_INFO(_T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     if (m_pmfxENC) {
-        PRINT_INFO(_T("Output         %s %s @ Level %s%s\n"), CodecIdToStr(outFrameInfo->videoPrm.mfx.CodecId),
+        PRINT_INFO(_T("Output         %s%s %s @ Level %s%s\n"), CodecIdToStr(outFrameInfo->videoPrm.mfx.CodecId),
+            (outFrameInfo->videoPrm.mfx.FrameInfo.BitDepthLuma > 8) ? strsprintf(_T("(%s %dbit)"), outFrameInfo->videoPrm.mfx.FrameInfo.BitDepthLuma, ChromaFormatToStr(outFrameInfo->videoPrm.mfx.FrameInfo.ChromaFormat)).c_str()
+                                                                    : strsprintf(_T("(%s)"), ChromaFormatToStr(outFrameInfo->videoPrm.mfx.FrameInfo.ChromaFormat)).c_str(),
             get_profile_list(outFrameInfo->videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(outFrameInfo->videoPrm.mfx.CodecId), outFrameInfo->videoPrm.mfx.CodecProfile)].desc,
             get_level_list(outFrameInfo->videoPrm.mfx.CodecId)[get_cx_index(get_level_list(outFrameInfo->videoPrm.mfx.CodecId), outFrameInfo->videoPrm.mfx.CodecLevel & 0xff)].desc,
             (outFrameInfo->videoPrm.mfx.CodecId == MFX_CODEC_HEVC && (outFrameInfo->videoPrm.mfx.CodecLevel & MFX_TIER_HEVC_HIGH)) ? _T(" (high tier)") : _T(""));

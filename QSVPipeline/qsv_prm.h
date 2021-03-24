@@ -216,6 +216,8 @@ struct sInputParams {
     uint32_t CodecId;       // H.264 only for this
     int CodecProfile;
     int CodecLevel;
+    int outputDepth;
+    RGY_CHROMAFMT outputCsp;
     int nIdrInterval;  // Idr frame interval to I frame, not supported
     int nGOPLength;    // (Max) GOP Length
     bool bopenGOP;      // if false, GOP_CLOSED is set
@@ -354,7 +356,7 @@ const CX_DESC list_hevc_profile[] = {
     { _T("auto"),     0                       },
     { _T("main"),     MFX_PROFILE_HEVC_MAIN   },
     { _T("main10"),   MFX_PROFILE_HEVC_MAIN10 },
-    //{ _T("mainsp"),   MFX_PROFILE_HEVC_MAINSP },
+    { _T("main444"),  MFX_PROFILE_HEVC_REXT   },
     { NULL, 0 }
 };
 
@@ -398,9 +400,17 @@ const CX_DESC list_vp9_profile[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_hevc_output_depth[] = {
+const CX_DESC list_output_depth[] = {
     { _T("8"),     8 },
     { _T("10"),   10 },
+    { _T("12"),   12 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_output_csp[] = {
+    { _T("i420"), RGY_CHROMAFMT_YUV420 },
+    { _T("i422"), RGY_CHROMAFMT_YUV422 },
+    { _T("i444"), RGY_CHROMAFMT_YUV444 },
     { NULL, 0 }
 };
 
