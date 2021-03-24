@@ -37,6 +37,7 @@ static const auto RGY_CODEC_TO_MFX = make_array<std::pair<RGY_CODEC, mfxU32>>(
     std::make_pair(RGY_CODEC_MPEG2, MFX_CODEC_MPEG2),
     std::make_pair(RGY_CODEC_VP8,   MFX_CODEC_VP8),
     std::make_pair(RGY_CODEC_VP9,   MFX_CODEC_VP9),
+    std::make_pair(RGY_CODEC_AV1,   MFX_CODEC_AV1),
     std::make_pair(RGY_CODEC_VC1,   MFX_CODEC_VC1)
 );
 

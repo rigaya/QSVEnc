@@ -1674,6 +1674,7 @@ int CQSVPipeline::getEncoderBitdepth(const sInputParams *pParams) {
     case MFX_CODEC_VP8:
     case MFX_CODEC_MPEG2:
     case MFX_CODEC_VC1:
+    case MFX_CODEC_AV1:
         break;
     default:
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
