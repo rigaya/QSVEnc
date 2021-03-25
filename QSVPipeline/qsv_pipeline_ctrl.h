@@ -1072,9 +1072,11 @@ protected:
         memset(allocRequest, 0, sizeof(allocRequest));
         // allocRequest[0]はvppへの入力, allocRequest[1]はvppからの出力
         auto err = err_to_rgy(m_vpp->QueryIOSurf(&m_mfxVppParams, allocRequest));
-        if (err != RGY_ERR_NONE) {
+        if (err < RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return err;
+        } else if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_WARN, _T("  surface alloc request for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
         }
         PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer in: %d [%s], out %d [%s]\n"), getPipelineTaskTypeName(m_type),
             allocRequest[0].NumFrameSuggested, qsv_memtype_str(allocRequest[0].Type).c_str(),
