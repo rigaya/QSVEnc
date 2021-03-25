@@ -418,7 +418,7 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
     case MFX_FOURCC_BGR4:
         return _T("bgr32");
     case MFX_FOURCC_AYUV:
-        return _T("ayuv");
+        return _T("AYUV");
     case MFX_FOURCC_P010:
         return _T("p010");
     case MFX_FOURCC_P016:

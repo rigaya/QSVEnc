@@ -1323,8 +1323,8 @@ RGY_ERR CQSVPipeline::AllocFrames() {
 
         allocRequest.NumFrameSuggested = (mfxU16)std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
         allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
-        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: %s, %dx%d [%d,%d,%d,%d], request %d frames\n"),
-            t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(),
+        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: %s, %s %dx%d [%d,%d,%d,%d], request %d frames\n"),
+            t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(), ColorFormatToStr(allocRequest.Info.FourCC),
             allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
             allocRequest.NumFrameSuggested);
 
