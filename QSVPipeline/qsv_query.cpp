@@ -366,13 +366,19 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     for (const auto& test : test_csp) {
         switch (RGY_CSP_CHROMA_FORMAT[test]) {
         case RGY_CHROMAFMT_YUV420: videoPrm.mfx.FrameInfo.FourCC = (RGY_CSP_BIT_DEPTH[test] >  8) ? MFX_FOURCC_P010 : MFX_FOURCC_NV12; break;
-        case RGY_CHROMAFMT_YUV422: videoPrm.mfx.FrameInfo.FourCC = (RGY_CSP_BIT_DEPTH[test] >  8) ? MFX_FOURCC_P210 : MFX_FOURCC_NV16; break;
+        case RGY_CHROMAFMT_YUV422: videoPrm.mfx.FrameInfo.FourCC = (RGY_CSP_BIT_DEPTH[test] >  8) ? MFX_FOURCC_Y210 : MFX_FOURCC_YUY2; break;
         case RGY_CHROMAFMT_YUV444: videoPrm.mfx.FrameInfo.FourCC = (RGY_CSP_BIT_DEPTH[test] > 10) ? MFX_FOURCC_Y416 : ((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_FOURCC_Y410 : MFX_FOURCC_AYUV); break;
-        default:
+        default: videoPrm.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
+            break;
         }
         
+        videoPrm.mfx.FrameInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[test]);
         if (codecId == MFX_CODEC_HEVC) {
-            videoPrm.mfx.CodecProfile = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_PROFILE_HEVC_MAIN10 : MFX_PROFILE_HEVC_MAIN);
+            if (RGY_CSP_CHROMA_FORMAT[test] == RGY_CHROMAFMT_YUV420) {
+                videoPrm.mfx.CodecProfile = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_PROFILE_HEVC_MAIN10 : MFX_PROFILE_HEVC_MAIN);
+            } else {
+                videoPrm.mfx.CodecProfile = (mfxU16)MFX_PROFILE_HEVC_REXT;
+            }
         } else if (codecId == MFX_CODEC_VP9) {
             videoPrm.mfx.CodecProfile = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_PROFILE_VP9_2 : MFX_PROFILE_VP9_0);
         } else if (codecId == MFX_CODEC_AV1) {
@@ -380,9 +386,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
         } else {
             break;
         }
-        if (videoPrm.mfx.FrameInfo.FourCC == MFX_FOURCC_P010
-            || videoPrm.mfx.FrameInfo.FourCC == MFX_FOURCC_P210
-            || videoPrm.mfx.FrameInfo.FourCC == MFX_FOURCC_Y210) {
+        if (fourccShiftUsed(videoPrm.mfx.FrameInfo.FourCC)) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? RGY_CSP_BIT_DEPTH[test] : 0);
             videoPrm.mfx.FrameInfo.BitDepthChroma = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? RGY_CSP_BIT_DEPTH[test] : 0);
             videoPrm.mfx.FrameInfo.Shift = (RGY_CSP_BIT_DEPTH[test] > 8) ? 1 : 0;

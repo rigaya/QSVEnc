@@ -65,6 +65,7 @@ static const std::map<mfxU32, D3DFORMAT> fourccToD3DFormat = {
     { MFX_FOURCC_P8,      D3DFMT_P8},
     { MFX_FOURCC_P010,    D3DFMT_P010},
     { MFX_FOURCC_P210,    D3DFMT_P210},
+    { MFX_FOURCC_AYUV,    D3DFMT_AYUV},
 #if (MFX_VERSION >= 1027)
     { MFX_FOURCC_Y210,    D3DFMT_Y210},
     { MFX_FOURCC_Y410,    D3DFMT_Y410},

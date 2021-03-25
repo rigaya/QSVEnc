@@ -90,6 +90,8 @@ enum RGY_CSP {
     RGY_CSP_YUV444_32,
     RGY_CSP_YUVA444,
     RGY_CSP_YUVA444_16,
+    RGY_CSP_AYUV,
+    RGY_CSP_AYUV_16,
     RGY_CSP_Y210,   //YUY2 layout
     RGY_CSP_Y216,   //YUY2 layout
     RGY_CSP_Y410,   //packed
@@ -137,6 +139,8 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("yuv444(32bit)"),
     _T("yuva444"),
     _T("yuva444(16bit)"),
+    _T("ayuv444"),
+    _T("ayuv444(16bit)"),
     _T("y210"),
     _T("y216"),
     _T("y410"),
@@ -184,6 +188,8 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
     32, //RGY_CSP_YUV444_32
      8, //RGY_CSP_YUVA444
     16, //RGY_CSP_YUVA444_16
+     8, //RGY_CSP_AYUV444
+    16, //RGY_CSP_AYUV444_16
     10, //RGY_CSP_Y210
     16, //RGY_CSP_Y216
     10, //RGY_CSP_Y410
@@ -231,6 +237,8 @@ static const uint8_t RGY_CSP_PLANES[] = {
      3, //RGY_CSP_YUV444_32
      4, //RGY_CSP_YUVA444
      4, //RGY_CSP_YUVA444_16
+     1, //RGY_CSP_AYUV444
+     1, //RGY_CSP_AYUV444_16
      1, //RGY_CSP_Y210
      1, //RGY_CSP_Y216
      1, //RGY_CSP_Y410
@@ -289,6 +297,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YUV444_32
     RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
     RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
+    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444
+    RGY_CHROMAFMT_YUVA444, //RGY_CSP_YUVA444_16
     RGY_CHROMAFMT_YUV422, //RGY_CSP_Y210
     RGY_CHROMAFMT_YUV422, //RGY_CSP_Y216
     RGY_CHROMAFMT_YUV444, //RGY_CSP_Y410
@@ -336,6 +346,8 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     96, //RGY_CSP_YUV444_32
     32, //RGY_CSP_YUVA444
     64, //RGY_CSP_YUVA444_16
+    32, //RGY_CSP_AYUV444
+    64, //RGY_CSP_AYUV444_16
     32, //RGY_CSP_Y210
     32, //RGY_CSP_Y216
     48, //RGY_CSP_Y410

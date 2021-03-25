@@ -77,6 +77,7 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_YUV444_12, 0),
     std::make_pair(RGY_CSP_YUV444_14, 0),
     std::make_pair(RGY_CSP_YUV444_16, 0),
+    std::make_pair(RGY_CSP_AYUV,      MFX_FOURCC_AYUV),
     std::make_pair(RGY_CSP_Y210,      MFX_FOURCC_Y210),
     std::make_pair(RGY_CSP_Y216,      MFX_FOURCC_Y216),
     std::make_pair(RGY_CSP_Y410,      MFX_FOURCC_Y410),
@@ -416,6 +417,8 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
         return _T("rgb32");
     case MFX_FOURCC_BGR4:
         return _T("bgr32");
+    case MFX_FOURCC_AYUV:
+        return _T("ayuv");
     case MFX_FOURCC_P010:
         return _T("p010");
     case MFX_FOURCC_P016:
@@ -460,6 +463,8 @@ const TCHAR *CodecIdToStr(uint32_t nFourCC) {
         return _T("HEVC");
     case MFX_CODEC_MPEG2:
         return _T("MPEG2");
+    case MFX_CODEC_AV1:
+        return _T("AV1");
     case MFX_CODEC_VP8:
         return _T("VP8");
     case MFX_CODEC_VP9:

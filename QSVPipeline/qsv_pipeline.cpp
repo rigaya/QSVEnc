@@ -1665,45 +1665,50 @@ RGY_ERR CQSVPipeline::InitChapters(const sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-int CQSVPipeline::getEncoderBitdepth(const sInputParams *pParams) {
+int CQSVPipeline::getEncoderBitdepth(const sInputParams *pParams) const {
     switch (pParams->CodecId) {
     case MFX_CODEC_HEVC:
     case MFX_CODEC_VP9:
+    case MFX_CODEC_AV1:
         return pParams->outputDepth;
     case MFX_CODEC_AVC:
     case MFX_CODEC_VP8:
     case MFX_CODEC_MPEG2:
     case MFX_CODEC_VC1:
-    case MFX_CODEC_AV1:
         break;
     default:
-        PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return 0;
     }
     return 8;
 }
 
-RGY_CSP CQSVPipeline::getEncoderCsp(const sInputParams *pParams, int *pShift) {
-    if (getEncoderBitdepth(pParams) > 8) {
-        if (pShift) {
-            *pShift = 16 - pParams->outputDepth;
-        }
-        switch (pParams->outputCsp) {
+RGY_CSP CQSVPipeline::getMFXCsp(const RGY_CHROMAFMT chroma, const int bitdepth) const {
+    if (bitdepth > 8) {
+        switch (chroma) {
         case RGY_CHROMAFMT_YUV420: return RGY_CSP_P010;
-        case RGY_CHROMAFMT_YUV422: return RGY_CSP_YUY2;
-        case RGY_CHROMAFMT_YUV444: return RGY_CSP_AYUV;
+        case RGY_CHROMAFMT_YUV422: return RGY_CSP_Y210;
+        case RGY_CHROMAFMT_YUV444: return (bitdepth > 10) ? RGY_CSP_Y416 : RGY_CSP_Y410;
         default: return RGY_CSP_NA;
         }
     }
-    if (pShift) {
-        *pShift = 0;
-    }
-    switch (pParams->outputCsp) {
+    switch (chroma) {
     case RGY_CHROMAFMT_YUV420: return RGY_CSP_NV12;
-    case RGY_CHROMAFMT_YUV422: return RGY_CSP_Y210;
-    case RGY_CHROMAFMT_YUV444: return RGY_CSP_Y410;
+    case RGY_CHROMAFMT_YUV422: return RGY_CSP_YUY2;
+    case RGY_CHROMAFMT_YUV444: return RGY_CSP_AYUV;
     default: return RGY_CSP_NA;
     }
+}
+
+RGY_CSP CQSVPipeline::getMFXCsp(const RGY_CSP csp) const {
+    return getMFXCsp(RGY_CSP_CHROMA_FORMAT[csp], RGY_CSP_BIT_DEPTH[csp]);
+}
+
+RGY_CSP CQSVPipeline::getEncoderCsp(const sInputParams *pParams, int *pShift) const {
+    auto csp = getMFXCsp(pParams->outputCsp, getEncoderBitdepth(pParams));
+    if (pShift && fourccShiftUsed(csp_rgy_to_enc(csp))) {
+        *pShift = (getEncoderBitdepth(pParams) > 8) ? 16 - pParams->outputDepth : 0;
+    }
+    return csp;
 }
 
 RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
@@ -2470,7 +2475,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     FrameInfo inputFrame;
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
-    inputFrame.csp = inputParam->input.csp;
+    inputFrame.csp = (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) ? inputParam->input.csp : csp_enc_to_rgy(m_mfxDecParams.mfx.FrameInfo.FourCC);
     inputFrame.picstruct = inputParam->input.picstruct;
     inputFrame.bitdepth = RGY_CSP_BIT_DEPTH[inputParam->input.csp] - inputParam->input.shift;
     const auto input_sar = rgy_rational<int>(inputParam->input.sar[0], inputParam->input.sar[1]);
