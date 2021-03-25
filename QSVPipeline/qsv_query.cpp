@@ -336,7 +336,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
 #define CHECK_FEATURE(rgy_csp, required_ver) { \
         if (check_lib_version(mfxVer, (required_ver))) { \
             memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
-            if (MFX_ERR_NONE <= dec.Query(&videoPrm, &videoPrmOut)) { \
+            if (dec.Query(&videoPrm, &videoPrmOut) == MFX_ERR_NONE) { \
                 supportedCsp.push_back(rgy_csp); \
             } \
         } \
