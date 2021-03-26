@@ -365,15 +365,6 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
 
         //DecodeHeaderした結果をreaderにも反映
-        //VPPにInputFrameInfoを渡す時などに、high bit depthなどの時にshiftの取得しておく必要がある
-        auto inputVideoInfo = m_pFileReader->GetInputFrameInfo();
-        m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp] - inputVideoInfo.shift);
-        m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)(RGY_CSP_BIT_DEPTH[inputVideoInfo.csp] - inputVideoInfo.shift);
-        if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma > 16 || m_mfxDecParams.mfx.FrameInfo.BitDepthChroma > 16) {
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Invalid bitdepth.\n"));
-            return RGY_ERR_INVALID_VIDEO_PARAM;
-        }
-        m_mfxDecParams.mfx.FrameInfo.Shift = inputVideoInfo.shift ? 1 : 0; //mfxFrameInfoのShiftはシフトすべきかどうかの 1 か 0 のみ。
         if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
             || (inputCodec != RGY_CODEC_VP8 && inputCodec != RGY_CODEC_VP9)) { // VP8/VP9ではこの処理は不要
             if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 8)   m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = 0;
@@ -1780,7 +1771,7 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
     const auto inputCspOfRawReader = inputParam->input.csp;
 
     //入力モジュールが、エンコーダに返すべき色空間をセット
-    inputParam->input.csp = getEncoderCsp(inputParam, &inputParam->input.shift);
+    inputParam->input.csp = getEncoderCsp(inputParam, &inputParam->input.bitdepth);
 
     auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
@@ -2475,9 +2466,14 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     FrameInfo inputFrame;
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
-    inputFrame.csp = (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) ? inputParam->input.csp : csp_enc_to_rgy(m_mfxDecParams.mfx.FrameInfo.FourCC);
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
+        inputFrame.csp = inputParam->input.csp;
+        inputFrame.bitdepth = inputParam->input.bitdepth;
+    } else {
+        inputFrame.csp = csp_enc_to_rgy(m_mfxDecParams.mfx.FrameInfo.FourCC);
+        inputFrame.bitdepth = m_mfxDecParams.mfx.FrameInfo.BitDepthLuma;
+    }
     inputFrame.picstruct = inputParam->input.picstruct;
-    inputFrame.bitdepth = RGY_CSP_BIT_DEPTH[inputParam->input.csp] - inputParam->input.shift;
     const auto input_sar = rgy_rational<int>(inputParam->input.sar[0], inputParam->input.sar[1]);
     const int croppedWidth = inputFrame.width - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
     const int croppedHeight = inputFrame.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
@@ -4592,7 +4588,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     PRINT_INFO(_T("AVSync         %s\n"), get_chr_from_value(list_avsync, m_nAVSyncMode));
     if (m_pmfxENC) {
         PRINT_INFO(_T("Output         %s%s %s @ Level %s%s\n"), CodecIdToStr(outFrameInfo->videoPrm.mfx.CodecId),
-            (outFrameInfo->videoPrm.mfx.FrameInfo.BitDepthLuma > 8) ? strsprintf(_T("(%s %dbit)"), outFrameInfo->videoPrm.mfx.FrameInfo.BitDepthLuma, ChromaFormatToStr(outFrameInfo->videoPrm.mfx.FrameInfo.ChromaFormat)).c_str()
+            (outFrameInfo->videoPrm.mfx.FrameInfo.BitDepthLuma > 8) ? strsprintf(_T("(%s %dbit)"), ChromaFormatToStr(outFrameInfo->videoPrm.mfx.FrameInfo.ChromaFormat), outFrameInfo->videoPrm.mfx.FrameInfo.BitDepthLuma).c_str()
                                                                     : strsprintf(_T("(%s)"), ChromaFormatToStr(outFrameInfo->videoPrm.mfx.FrameInfo.ChromaFormat)).c_str(),
             get_profile_list(outFrameInfo->videoPrm.mfx.CodecId)[get_cx_index(get_profile_list(outFrameInfo->videoPrm.mfx.CodecId), outFrameInfo->videoPrm.mfx.CodecProfile)].desc,
             get_level_list(outFrameInfo->videoPrm.mfx.CodecId)[get_cx_index(get_level_list(outFrameInfo->videoPrm.mfx.CodecId), outFrameInfo->videoPrm.mfx.CodecLevel & 0xff)].desc,

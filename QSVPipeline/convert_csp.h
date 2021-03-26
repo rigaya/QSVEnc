@@ -399,6 +399,12 @@ static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
     return a;
 }
 
+static bool cspShiftUsed(const RGY_CSP csp) {
+    return csp == RGY_CSP_P010
+        || csp == RGY_CSP_P210
+        || csp == RGY_CSP_Y210;
+}
+
 const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct);
 
 typedef struct ConvertCSP {
