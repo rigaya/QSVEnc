@@ -496,7 +496,8 @@ static FrameInfo getPlane(const FrameInfo *frameInfo, RGY_PLANE plane) {
         || frameInfo->csp == RGY_CSP_Y210 || frameInfo->csp == RGY_CSP_Y216
         || frameInfo->csp == RGY_CSP_Y410 || frameInfo->csp == RGY_CSP_Y416
         || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_RGB_PACKED
-        || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_MONOCHROME) {
+        || RGY_CSP_CHROMA_FORMAT[frameInfo->csp] == RGY_CHROMAFMT_MONOCHROME
+        || RGY_CSP_PLANES[frameInfo->csp] == 1) {
         return planeInfo; //何もしない
     }
     if (frameInfo->csp == RGY_CSP_GBR || frameInfo->csp == RGY_CSP_GBRA) {
@@ -567,7 +568,8 @@ static sInputCrop getPlane(const sInputCrop *crop, const RGY_CSP csp, const RGY_
         || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB
         || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_RGB_PACKED
         || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV444
-        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_MONOCHROME) {
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_MONOCHROME
+        || RGY_CSP_PLANES[csp] == 1) {
         return planeCrop;
     }
     if (csp == RGY_CSP_NV12 || csp == RGY_CSP_P010) {
