@@ -1408,30 +1408,24 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
     }
     auto decodeCodecCsp = MakeDecodeFeatureList(ver, codecLists, log, false);
 
-    enum : uint32_t {
-        DEC_FEATURE_HW    = 0x00000001,
-        DEC_FEATURE_10BIT = 0x00000002,
-    };
-
-    static const FEATURE_DESC list_dec_feature[] = {
-        { _T("HW Decode   "), DEC_FEATURE_HW    },
-        { _T("10bit depth "), DEC_FEATURE_10BIT },
-        { NULL, 0 },
-    };
-
-    std::vector<uint32_t> featurePerCodec;
+    const auto chromafmts = make_array<RGY_CHROMAFMT>(RGY_CHROMAFMT_YUV420, RGY_CHROMAFMT_YUV422, RGY_CHROMAFMT_YUV444);
+    std::map<RGY_CODEC, std::vector<int>> featurePerCodec;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
-        uint32_t feature = 0x00;
-        if (decodeCodecCsp.count(HW_DECODE_LIST[i].rgy_codec) > 0) {
-            feature |= DEC_FEATURE_HW;
-            const auto& cspList = decodeCodecCsp.at(HW_DECODE_LIST[i].rgy_codec);
-            for (auto csp : cspList) {
-                if (RGY_CSP_BIT_DEPTH[csp] > 8) {
-                    feature |= DEC_FEATURE_10BIT;
+        const auto target_codec = HW_DECODE_LIST[i].rgy_codec;
+        std::vector<int> chromafmt_bitdepth(chromafmts.size(), 0);
+        if (decodeCodecCsp.count(target_codec) > 0) {
+            auto codecCsps = decodeCodecCsp[target_codec];
+            for (size_t icfmt = 0; icfmt < chromafmts.size(); icfmt++) {
+                int max_bitdepth = 0;
+                for (auto csp : codecCsps) {
+                    if (RGY_CSP_CHROMA_FORMAT[csp] == chromafmts[icfmt]) {
+                        max_bitdepth = std::max(max_bitdepth, (int)RGY_CSP_BIT_DEPTH[csp]);
+                    }
                 }
+                chromafmt_bitdepth[icfmt] = max_bitdepth;
             }
         }
-        featurePerCodec.push_back(feature);
+        featurePerCodec[target_codec] = chromafmt_bitdepth;
     }
 
 
@@ -1445,8 +1439,8 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
     }
 
     int maxFeatureStrLen = 0;
-    for (const FEATURE_DESC *ptr = list_dec_feature; ptr->desc; ptr++) {
-        maxFeatureStrLen = (std::max<int>)(maxFeatureStrLen, (int)_tcslen(ptr->desc));
+    for (const auto& cfmt : chromafmts) {
+        maxFeatureStrLen = (std::max<int>)(maxFeatureStrLen, (int)_tcslen(RGY_CHROMAFMT_NAMES[cfmt]));
     }
 
     if (type != FEATURE_LIST_STR_TYPE_HTML) {
@@ -1480,27 +1474,26 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
     }
     str += _T("\n");
 
-    for (const FEATURE_DESC *ptr = list_dec_feature; ptr->desc; ptr++) {
+    for (size_t icfmt = 0; icfmt < chromafmts.size(); icfmt++) {
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             str += _T("<tr><td>");
         }
-        str += ptr->desc;
+        str += RGY_CHROMAFMT_NAMES[chromafmts[icfmt]];
         switch (type) {
         case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
         case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
         default: break;
         }
         for (uint32_t i_codec = 0; i_codec < codecLists.size(); i_codec++) {
-            if (type == FEATURE_LIST_STR_TYPE_HTML) {
-                str += (featurePerCodec[i_codec] & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
-            }
-            if (type == FEATURE_LIST_STR_TYPE_TXT) {
-                str += MARK_YES_NO[ptr->value == (featurePerCodec[i_codec] & ptr->value)];
-            } else {
-                str += QSV_FEATURE_MARK_YES_NO[ptr->value == (featurePerCodec[i_codec] & ptr->value)];
-            }
-            if (type == FEATURE_LIST_STR_TYPE_HTML) {
-                str += _T("</td>");
+            auto codecFmts = featurePerCodec[codecLists[i_codec]];
+            for (auto codecFmtsBitDepth : codecFmts) {
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    str += (codecFmtsBitDepth > 0) ? _T("<td class=ok>") : _T("<td class=fail>");
+                }
+                str += strsprintf(_T("%2dbit"), codecFmtsBitDepth);
+                if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                    str += _T("</td>");
+                }
             }
         }
         if (type == FEATURE_LIST_STR_TYPE_HTML) {

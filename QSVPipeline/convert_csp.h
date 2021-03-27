@@ -269,6 +269,17 @@ enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_RGB,
 };
 
+static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
+    _T("Unknwon"),
+    _T("Monochrome"),
+    _T("yuv420"),
+    _T("yuv422"),
+    _T("yuv444"),
+    _T("yuva444"),
+    _T("rgbp"),
+    _T("rgb")
+};
+
 static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_UNKNOWN, //RGY_CSP_NA
     RGY_CHROMAFMT_YUV420, //RGY_CSP_NV12
