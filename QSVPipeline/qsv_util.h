@@ -104,7 +104,8 @@ static inline uint16_t frametype_rgy_to_enc(const RGY_FRAMETYPE frametype) {
 static bool fourccShiftUsed(const uint32_t fourcc) {
     return fourcc == MFX_FOURCC_P010
         || fourcc == MFX_FOURCC_P210
-        || fourcc == MFX_FOURCC_Y210;
+        || fourcc == MFX_FOURCC_Y210
+        || fourcc == MFX_FOURCC_Y416;
 }
 
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
