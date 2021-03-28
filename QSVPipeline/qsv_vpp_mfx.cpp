@@ -337,13 +337,6 @@ mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop
 
     auto mfxIn = frameinfo_rgy_to_enc(frameIn, infps, sar, blockSize);
 
-    if (mfxIn.ChromaFormat == MFX_CHROMAFORMAT_YUV422) {
-        //10を指定しないとおかしな変換が行われる
-        if (mfxIn.BitDepthLuma > 8) mfxIn.BitDepthLuma = 10;
-        if (mfxIn.BitDepthChroma > 8) mfxIn.BitDepthChroma = 10;
-        if (mfxIn.BitDepthLuma > 8) mfxIn.Shift = 1;
-    }
-
     //QSVデコードを行う場合、CropはVppで行う
     if (crop && cropEnabled(*crop)) {
         mfxIn.CropX = (mfxU16)crop->e.left;
@@ -367,9 +360,7 @@ RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params
     mfxOut.FourCC = csp_rgy_to_enc(frameOut.csp);
     mfxOut.BitDepthLuma   = (mfxU16)(frameOut.bitdepth > 8 ? frameOut.bitdepth : 0);
     mfxOut.BitDepthChroma = (mfxU16)(frameOut.bitdepth > 8 ? frameOut.bitdepth : 0);
-    if (mfxOut.FourCC == MFX_FOURCC_P010 && frameOut.bitdepth < 16) {
-        mfxOut.Shift = 1;
-    }
+    mfxOut.Shift = (fourccShiftUsed(mfxOut.FourCC) && frameOut.bitdepth < 16) ? 1 : 0;
     mfxOut.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
     mfxOut.PicStruct = picstruct_rgy_to_enc(frameOut.picstruct);
     mfxOut.CropX = 0;

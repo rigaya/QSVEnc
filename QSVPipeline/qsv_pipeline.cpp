@@ -2021,7 +2021,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     FrameInfo& frameInfo, rgy_rational<int>& fps, const VideoVUIInfo& vuiIn,
-    const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const sInputCrop *crop, const std::pair<int,int> resize, const int blockSize) {
+    const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const int outBitdepth, const sInputCrop *crop, const std::pair<int,int> resize, const int blockSize) {
     FrameInfo frameIn = frameInfo;
     sVppParams vppParams;
     vppParams.bEnable = true;
@@ -2048,6 +2048,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     }
 
     frameInfo.csp = outCsp; // 常に適用
+    frameInfo.bitdepth = outBitdepth;
 
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
@@ -2587,7 +2588,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         const VppFilterType ftype1 =                                 getVppFilterType(filterPipeline[i+0]);
         const VppFilterType ftype2 = (i+1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i+1]) : VppFilterType::FILTER_NONE;
         if (ftype1 == VppFilterType::FILTER_MFX) {
-            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx, getEncoderCsp(inputParam), inputCrop, resize, blocksize);
+            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx, getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), inputCrop, resize, blocksize);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
