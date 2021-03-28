@@ -778,7 +778,6 @@ public:
         }
         const bool vpp_rff = false;
         const bool vpp_afs_rff_aware = false;
-        const rgy_rational<int> hw_timebase = rgy_rational<int>(1, HW_TIMEBASE);
         int64_t outPtsSource = m_tsOutEstimated; //(m_outputTimebase基準)
         int64_t outDuration = m_outFrameDuration; //入力fpsに従ったduration
 
@@ -859,9 +858,9 @@ public:
                     return err;
                 }
                 surfVppOut->Data.FrameOrder = m_inFrames++;
-                surfVppOut->Data.TimeStamp = rational_rescale(m_tsOutEstimated, m_outputTimebase, hw_timebase); // timestampを上書き
+                surfVppOut->Data.TimeStamp = m_tsOutEstimated; // timestampを上書き
                 surfVppOut->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-                m_timestamp.add(surfVppOut->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
+                m_timestamp.add(surfVppOut->Data.TimeStamp, outDuration);
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
                 m_tsOutEstimated += m_outFrameDuration;
                 ptsDiff = outPtsSource - m_tsOutEstimated;
@@ -908,9 +907,9 @@ public:
             lastSyncPoint = taskSurf->syncpoint();
         }
         outSurf->Data.FrameOrder = m_inFrames++;
-        outSurf->Data.TimeStamp = rational_rescale(outPtsSource, m_outputTimebase, hw_timebase);
+        outSurf->Data.TimeStamp = outPtsSource;
         outSurf->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-        m_timestamp.add(outSurf->Data.TimeStamp, rational_rescale(outDuration, m_outputTimebase, hw_timebase));
+        m_timestamp.add(outSurf->Data.TimeStamp, outDuration);
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, outSurf, lastSyncPoint));
         return RGY_ERR_NONE;
     }
@@ -1256,10 +1255,12 @@ public:
             bsOut->setPts((uint64_t)MFX_TIMESTAMP_UNKNOWN);
             bsOut->setDts((uint64_t)MFX_TIMESTAMP_UNKNOWN);
             //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
-            surfEncodeIn->Data.TimeStamp = (uint64_t)m_timestamp.check(surfEncodeIn->Data.TimeStamp);
+            auto timestamp = m_timestamp.check(surfEncodeIn->Data.TimeStamp); // ここまではm_outputTimebase
             if (m_timecode) {
-                m_timecode->write(surfEncodeIn->Data.TimeStamp, m_outputTimebase);
+                m_timecode->write(timestamp, m_outputTimebase);
             }
+            //最後にQSVのHW_TIMEBASEに変換する
+            surfEncodeIn->Data.TimeStamp = rational_rescale(timestamp, m_outputTimebase, rgy_rational<int>(1, HW_TIMEBASE));
         }
 
         auto enc_sts = MFX_ERR_NONE;
