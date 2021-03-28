@@ -1293,6 +1293,9 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         } else if (t0->getOutputFrameInfo(allocRequest.Info) == RGY_ERR_NONE) { // inputとopenclがつながっているような場合
             t0RequestNumFrame = 1;
             t1RequestNumFrame = 1;
+            if (t1->taskType() == PipelineTaskType::OPENCL) {
+                allocRequest.Type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET;
+            }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
             return RGY_ERR_UNSUPPORTED;
