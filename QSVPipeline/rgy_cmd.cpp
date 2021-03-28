@@ -1934,6 +1934,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 vpp->transform.enable = true;
                 vpp->transform.flipX = false;
                 vpp->transform.flipY = true;
+                break;
             case 0:
             default:
                 vpp->transform.enable = false;
