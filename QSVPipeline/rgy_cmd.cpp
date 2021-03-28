@@ -4957,6 +4957,7 @@ tstring gen_cmd_help_common() {
 
 tstring gen_cmd_help_vpp() {
     tstring str;
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Converts colorspace of the video.\n")
@@ -4985,6 +4986,8 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_HDR2SDR_DESAT_STRENGTH,
         FILTER_DEFAULT_HDR2SDR_DESAT_EXP
     );
+#endif
+#if 0
     str += strsprintf(_T("")
         _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable auto field shift deinterlacer\n")
@@ -5032,6 +5035,8 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
+#endif
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-nnedi [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable nnedi deinterlacer\n")
@@ -5060,6 +5065,8 @@ tstring gen_cmd_help_vpp() {
         _T("                              auto (default), fp16, fp32\n")
         _T("      weightfile=<string>   Set path of weight file. By default (not specified),\n")
         _T("                              internal weight params will be used.\n"));
+#endif
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-decimate [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     drop duplicated frame.\n")
@@ -5079,11 +5086,14 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DECIMATE_PREPROCESSED ? _T("on") : _T("off"),
         FILTER_DEFAULT_DECIMATE_CHROMA ? _T("on") : _T("off"),
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
+#endif
     str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize, 0);
     str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
+#endif
     str += strsprintf(_T("")
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by K-nearest neighbor.\n")
@@ -5096,6 +5106,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                  higher value will preserve edge.\n"),
         FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
         FILTER_DEFAULT_KNN_LERPC_THRESHOLD);
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-pmd [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by pmd.\n")
@@ -5105,6 +5116,8 @@ tstring gen_cmd_help_vpp() {
         _T("      threshold=<float>         threshold of pmd (default=%.2f, 0.0-255.0)\n")
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
+#endif
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-smooth [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable smooth filter.\n")
@@ -5115,6 +5128,7 @@ tstring gen_cmd_help_vpp() {
         _T("      prec=<string>         Select calculation precision.\n")
         _T("                              auto (default), fp16, fp32\n"),
         FILTER_DEFAULT_SMOOTH_QUALITY, FILTER_DEFAULT_SMOOTH_QP);
+#endif
     str += strsprintf(_T("\n")
         _T("   --vpp-subburn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Burn in specified subtitle to the video.\n")
@@ -5136,6 +5150,7 @@ tstring gen_cmd_help_vpp() {
         _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n")
         _T("      fontsdir=<string>         directory with fonts used.\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-unsharp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable unsharp filter.\n")
@@ -5144,6 +5159,8 @@ tstring gen_cmd_help_vpp() {
         _T("      weight=<float>            strength of filter (default=%.2f, 0-10)\n")
         _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f, 0-255)\n"),
         FILTER_DEFAULT_UNSHARP_RADIUS, FILTER_DEFAULT_UNSHARP_WEIGHT, FILTER_DEFAULT_UNSHARP_THRESHOLD);
+#endif
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-edgelevel [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     edgelevel filter to enhance edge.\n")
@@ -5155,6 +5172,8 @@ tstring gen_cmd_help_vpp() {
         _T("      white=<float>             allow edge to be brighter on edge enhancement\n")
         _T("                                  (default=%.1f, 0-31)\n"),
         FILTER_DEFAULT_EDGELEVEL_STRENGTH, FILTER_DEFAULT_EDGELEVEL_THRESHOLD, FILTER_DEFAULT_EDGELEVEL_BLACK, FILTER_DEFAULT_EDGELEVEL_WHITE);
+#endif
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-warpsharp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     warpsharp filter to enhance edge.\n")
@@ -5168,6 +5187,8 @@ tstring gen_cmd_help_vpp() {
         _T("                                  (default=%d)\n"),
         FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
         FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA);
+#endif
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-tweak [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     apply brightness, constrast, gamma, hue adjustment.\n")
@@ -5182,6 +5203,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_TWEAK_GAMMA,
         FILTER_DEFAULT_TWEAK_SATURATION,
         FILTER_DEFAULT_TWEAK_HUE);
+#endif
     str += strsprintf(_T("\n")
         _T("   --vpp-rotate <int>           rotate video (90, 180, 270)\n")
     );
@@ -5192,6 +5214,7 @@ tstring gen_cmd_help_vpp() {
         _T("      flip_y=<bool>\n")
         _T("      transpose=<bool>\n")
     );
+#if 0
     str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable deband filter.\n")
@@ -5214,6 +5237,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DEBAND_SEED,
         FILTER_DEFAULT_DEBAND_BLUR_FIRST ? _T("on") : _T("off"),
         FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME ? _T("on") : _T("off"));
+#endif
     return str;
 }
 
