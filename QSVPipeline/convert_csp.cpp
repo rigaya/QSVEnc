@@ -1312,7 +1312,7 @@ std::basic_string<TCHAR> FrameInfo::print() const {
     TCHAR buf[1024];
     _stprintf_s(buf, _T("%dx%d %s %dbit (%d, %d, %d, %d) %s %s f0x%x"),
         width, height, RGY_CSP_NAMES[csp], bitdepth, pitch[0], pitch[1], pitch[2], pitch[3],
-        picstrcut_to_str(picstruct), get_memtype_str(mem_type), flags);
+        picstrcut_to_str(picstruct), get_memtype_str(mem_type), (uint32_t)flags);
     return std::basic_string<TCHAR>(buf);
 };
 
