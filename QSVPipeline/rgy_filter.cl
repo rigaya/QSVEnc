@@ -1,11 +1,29 @@
-﻿// TypeIn
-// TypeOut
-// MEM_TYPE_SRC
+﻿// MEM_TYPE_SRC
 // MEM_TYPE_DST
 // in_bit_depth
 // out_bit_depth
 
 const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+
+#if in_bit_depth <= 8
+#define TypeIn  uchar
+#define TypeIn4 uchar4
+#define convert_TypeIn4 convert_uchar4
+#elif in_bit_depth <= 16
+#define TypeIn  ushort
+#define TypeIn4 ushort4
+#define convert_TypeIn4 convert_ushort4
+#endif
+
+#if out_bit_depth <= 8
+#define TypeOut  uchar
+#define TypeOut4 uchar4
+#define convert_TypeOut4 convert_uchar4
+#elif out_bit_depth <= 16
+#define TypeOut  ushort
+#define TypeOut4 ushort4
+#define convert_TypeOut4 convert_ushort4
+#endif
 
 // samplerでnormalizeした場合、0 -> 0.0f, 255 -> 1.0f
 
@@ -25,38 +43,6 @@ const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_F
 #endif
 
 #define IntegerIsSigned(intType)    ((intType)(-1) < 0)
-
-// TypeIn4の定義
-#if sizeof(TypeIn) == 1
-  #if IntegerIsSigned(TypeIn)
-    #define TypeIn4 char4
-  #else
-    #define TypeIn4 uchar4
-  #endif
-#else sizeof(TypeIn) == 2
-  #if IntegerIsSigned(TypeIn)
-    #define TypeIn4 short4
-  #else
-    #define TypeIn4 ushort4
-  #endif
-#endif
-
-// TypeOut4の定義
-#if sizeof(TypeOut) == 1
-  #if IntegerIsSigned(TypeOut)
-    #define TypeOut4 char4
-  #else
-    #define TypeOut4 uchar4
-  #endif
-#else sizeof(TypeOut) == 2
-  #if IntegerIsSigned(TypeOut)
-    #define TypeOut4 short4
-  #else
-    #define TypeOut4 ushort4
-  #endif
-#endif
-
-
 
 inline int conv_bit_depth_lsft(const int bit_depth_in, const int bit_depth_out, const int shift_offset) {
     const int lsft = bit_depth_out - (bit_depth_in + shift_offset);
@@ -118,8 +104,7 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 }
 
 #define LOAD_IMG_NORM(src, ix, iy) (TypeIn)(read_imagef((src), sampler, (int2)((ix), (iy))).x * NORM_SCALE_IN + 0.5f)
-#define LOAD_IMG_NORM_AYUV(src, ix, iy) (TypeIn4)(read_imagef((src), sampler, (int2)((ix), (iy))) * (float4)NORM_SCALE_IN + (float4)0.5f)
-#define LOAD_IMG_NORM_AYUV(src, ix, iy) (TypeIn)(read_imagef((src), sampler, (int2)((ix), (iy))) * NORM_SCALE_IN + 0.5f)
+#define LOAD_IMG_NORM_AYUV(src, ix, iy) convert_TypeIn4(read_imagef((src), sampler, (int2)((ix), (iy))) * (float4)NORM_SCALE_IN + (float4)0.5f)
 #define LOAD_IMG_NORM_NV12_UV(src, src_u, src_v, ix, iy, cropX, cropY) { \
     float4 ret = read_imagef((src), sampler, (int2)((ix) + ((cropX)>>1), (iy) + ((cropY)>>1))); \
     (src_u) = (TypeIn)(ret.x * NORM_SCALE_IN + 0.5f); \
@@ -139,7 +124,7 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #else
 #define IMAGE_SRC    0
 #define LOAD         LOAD_BUF
-#define LOAD         LOAD_BUF
+#define LOAD_AYUV    LOAD_BUF_AYUV
 #define LOAD_NV12_UV LOAD_BUF_NV12_UV
 #endif
 
@@ -150,7 +135,7 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 }
 
 #define STORE_IMG_NORM(dst, ix, iy, val) write_imagef((dst), (int2)((ix), (iy)), (val * NORM_SCALE_OUT))
-#define STORE_IMG_NORM_AYUV(dst, ix, iy, val) write_imagef((dst), (int2)((ix), (iy)), ((float4)val * (float4)NORM_SCALE_OUT))
+#define STORE_IMG_NORM_AYUV(dst, ix, iy, val) write_imagef((dst), (int2)((ix), (iy)), (convert_float4(val) * (float4)NORM_SCALE_OUT))
 #define STORE_IMG_NORM_NV12_UV(dst, ix, iy, val_u, val_v) { \
     float4 val = (float4)(val_u * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT); \
     write_imagef((dst), (int2)((ix), (iy)), (val)); \
@@ -586,7 +571,6 @@ __kernel void kernel_crop_ayuv_yv12(
         const TypeIn4 pixSrc01 = LOAD_AYUV(src, loadx+1, loady+0);
         const TypeIn4 pixSrc10 = LOAD_AYUV(src, loadx+0, loady+1);
         const TypeIn4 pixSrc11 = LOAD_AYUV(src, loadx+1, loady+1);
-        const TypeOut pixDst = BIT_DEPTH_CONV_AVG(pixSrc00, pixSrc10);
         TypeOut pixY00 = (TypeOut)BIT_DEPTH_CONV(pixSrc00.z);
         TypeOut pixY01 = (TypeOut)BIT_DEPTH_CONV(pixSrc01.z);
         TypeOut pixY10 = (TypeOut)BIT_DEPTH_CONV(pixSrc10.z);
@@ -632,9 +616,9 @@ __kernel void kernel_crop_yuv444_ayuv(
     if (dst_x < dstWidth && dst_y < dstHeight) {
         const int loadx = dst_x + cropX;
         const int loady = dst_y + cropY;
-        TypeIn pixY = LOAD(src, loadx, loady);
-        TypeIn pixU = LOAD(src, loadx, loady);
-        TypeIn pixV = LOAD(src, loadx, loady);
+        TypeIn pixY = LOAD(srcY, loadx, loady);
+        TypeIn pixU = LOAD(srcU, loadx, loady);
+        TypeIn pixV = LOAD(srcV, loadx, loady);
         TypeOut4 pix;
         pix.w = 0;
         pix.z = BIT_DEPTH_CONV(pixY);

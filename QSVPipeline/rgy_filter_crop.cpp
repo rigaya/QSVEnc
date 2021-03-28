@@ -61,9 +61,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fram
         auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
         auto planeSrc = getPlane(pInputFrame,  RGY_PLANE_Y);
         if (!m_cropY) {
-            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-                RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
-                RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+            const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                 pInputFrame->mem_type,
                 pOutputFrame->mem_type,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
@@ -87,9 +85,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(FrameInfo *pOutputFrame, const Fram
         }
     }
     if (!m_cropUV) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-            RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? "ushort" : "uchar",
-            RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? "ushort" : "uchar",
+        const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             pInputFrame->mem_type,
             pOutputFrame->mem_type,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
@@ -173,6 +169,18 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fram
     }
     static const auto supportedCspAYUV444 = make_array<RGY_CSP>(RGY_CSP_AYUV, RGY_CSP_AYUV_16);
     if (std::find(supportedCspAYUV444.begin(), supportedCspAYUV444.end(), pCropParam->frameOut.csp) != supportedCspAYUV444.end()) {
+        if (!m_cropY) {
+            const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+                pInputFrame->mem_type,
+                pOutputFrame->mem_type,
+                RGY_CSP_BIT_DEPTH[pInputFrame->csp],
+                RGY_CSP_BIT_DEPTH[pOutputFrame->csp]);
+            m_cropY = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+            if (!m_cropY) {
+                m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropY)\n"));
+                return RGY_ERR_OPENCL_CRUSH;
+            }
+        }
         auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
         auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
         auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -205,9 +213,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fram
         auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
         auto planeSrc = getPlane(pInputFrame, RGY_PLANE_Y);
         if (!m_cropY) {
-            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-                RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
-                RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+            const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                 pInputFrame->mem_type,
                 pOutputFrame->mem_type,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
@@ -232,9 +238,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(FrameInfo *pOutputFrame, const Fram
     }
 
     if (!m_cropUV) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-            RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? "ushort" : "uchar",
-            RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? "ushort" : "uchar",
+        const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             pInputFrame->mem_type,
             pOutputFrame->mem_type,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
@@ -353,9 +357,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const Fr
         auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
         auto planeSrc = getPlane(pInputFrame, RGY_PLANE_Y);
         if (!m_cropY) {
-            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-                RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
-                RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+            const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                 pInputFrame->mem_type,
                 pOutputFrame->mem_type,
                 RGY_CSP_BIT_DEPTH[planeSrc.csp],
@@ -380,9 +382,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const Fr
     }
 
     if (!m_cropUV) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-            RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? "ushort" : "uchar",
-            RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? "ushort" : "uchar",
+        const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             pInputFrame->mem_type,
             pOutputFrame->mem_type,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],
@@ -471,9 +471,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromAYUVPacked444(FrameInfo *pOutputFrame, c
     }
 
     if (!m_cropY) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-            RGY_CSP_BIT_DEPTH[pInputFrame->csp]  > 8 ? "ushort4" : "uchar4",
-            RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8 ? "ushort"  : "uchar",
+        const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             pInputFrame->mem_type,
             pOutputFrame->mem_type,
             RGY_CSP_BIT_DEPTH[pInputFrame->csp],

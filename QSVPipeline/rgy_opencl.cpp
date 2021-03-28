@@ -1150,9 +1150,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                     region, planeSrc.pitch[0], 0, planeDst.pitch[0], 0, wait_count, wait_list, event_ptr);
             } else {
                 if (!m_copyB2B) {
-                    const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-                        RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
-                        RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                    const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                         planeSrc.mem_type,
                         planeDst.mem_type,
                         RGY_CSP_BIT_DEPTH[planeSrc.csp],
@@ -1173,9 +1171,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
             }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
             if (!m_copyB2I) {
-                const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-                    RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
-                    RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                     planeSrc.mem_type,
                     planeDst.mem_type,
                     RGY_CSP_BIT_DEPTH[planeSrc.csp],
@@ -1202,9 +1198,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
     } else if (planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
         if (planeDst.mem_type == RGY_MEM_TYPE_GPU) {
             if (!m_copyI2B) {
-                const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-                    RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
-                    RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                     planeSrc.mem_type,
                     planeDst.mem_type,
                     RGY_CSP_BIT_DEPTH[planeSrc.csp],
@@ -1228,9 +1222,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
                 err = clEnqueueCopyImage(queue.get(), (cl_mem)planeSrc.ptr[0], (cl_mem)planeDst.ptr[0], src_origin, dst_origin, region, wait_count, wait_list, event_ptr);
             } else {
                 if (!m_copyI2I) {
-                    const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-                        RGY_CSP_BIT_DEPTH[planeSrc.csp] > 8 ? "ushort" : "uchar",
-                        RGY_CSP_BIT_DEPTH[planeDst.csp] > 8 ? "ushort" : "uchar",
+                    const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
                         planeSrc.mem_type,
                         planeDst.mem_type,
                         RGY_CSP_BIT_DEPTH[planeSrc.csp],
@@ -1360,9 +1352,11 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *planeDst, const sInputC
         return RGY_ERR_NONE;
     }
     if (!m_setB) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D MEM_TYPE_SRC=1 -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D TypeIn4=%s -D TypeOut4=%s -D MEM_TYPE_SRC=1 -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
             RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort" : "uchar", //dummy
             RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort" : "uchar",
+            RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort4" : "uchar4", //dummy
+            RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort4" : "uchar4",
             planeDst->mem_type,
             RGY_CSP_BIT_DEPTH[planeDst->csp], //dummy
             RGY_CSP_BIT_DEPTH[planeDst->csp]);
