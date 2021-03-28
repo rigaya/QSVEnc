@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include <string>
 #include "rgy_tchar.h"
 
 #if defined(_MSC_VER)
@@ -466,6 +467,7 @@ enum RGY_MEM_TYPE {
     RGY_MEM_TYPE_GPU_IMAGE,
     RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED
 };
+const TCHAR *get_memtype_str(RGY_MEM_TYPE type);
 
 class RGYFrameData;
 
@@ -499,6 +501,8 @@ struct FrameInfo {
         memset(ptr, 0, sizeof(ptr));
         memset(pitch, 0, sizeof(pitch));
     };
+
+    std::basic_string<TCHAR> print() const;
 };
 
 static bool interlaced(const FrameInfo& frameInfo) {

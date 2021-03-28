@@ -1276,6 +1276,16 @@ const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct) {
     }
 }
 
+const TCHAR *get_memtype_str(RGY_MEM_TYPE type) {
+    switch (type) {
+    case RGY_MEM_TYPE_CPU: return _T("cpu");
+    case RGY_MEM_TYPE_GPU: return _T("gpu");
+    case RGY_MEM_TYPE_GPU_IMAGE: return _T("gpu_image");
+    case RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED: return _T("gpu_image_norm");
+    default: return _T("unknwon");
+    }
+}
+
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, uint32_t simd) {
     uint32_t availableSIMD = get_availableSIMD() & simd;
     const ConvertCSP *convert = nullptr;
@@ -1297,6 +1307,14 @@ const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv
     }
     return convert;
 }
+
+std::basic_string<TCHAR> FrameInfo::print() const {
+    TCHAR buf[1024];
+    _stprintf_s(buf, _T("%dx%d %s %dbit (%d, %d, %d, %d) %s %s f0x%x"),
+        width, height, RGY_CSP_NAMES[csp], bitdepth, pitch[0], pitch[1], pitch[2], pitch[3],
+        picstrcut_to_str(picstruct), get_memtype_str(mem_type), flags);
+    return std::basic_string<TCHAR>(buf);
+};
 
 const TCHAR *get_simd_str(unsigned int simd) {
     static std::vector<std::pair<uint32_t, const TCHAR*>> simd_str_list = {
