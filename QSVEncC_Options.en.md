@@ -1079,9 +1079,6 @@ Mirror image.
 - h ... mirror in horizontal direction.
 - v ... mirror in vertical   direction.
 
-### --vpp-half-turn &lt;string&gt;
-Half turn video image. unoptimized and very slow.
-
 ### --vpp-resize &lt;string&gt;
 Specify the resizing algorithm.
 

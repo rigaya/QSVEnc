@@ -1093,9 +1093,6 @@ image stabilizerのモードの指定。
 - h ... 水平方向の反転。
 - v ... 垂直方向の反転。
 
-### --vpp-half-turn &lt;string&gt;
-非常に遅く、実験用。
-
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
