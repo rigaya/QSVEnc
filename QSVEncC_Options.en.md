@@ -1062,6 +1062,58 @@ Enable vpp denoise, strength 0 - 100.
 ### --vpp-mctf ["auto" or &lt;int&gt;]
 Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then strength will automatically adjusted by the filter. You can also force filter strength by setting value between 1 (week) - 20 (strong). (default: 0 as auto)
 
+### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+"Burn in" specified subtitle to the video. Text type subtitles will be rendered by [libass](https://github.com/libass/libass).
+
+**Parameters**
+- track=&lt;int&gt;  
+  Select subtitle track of the input file to burn in, track count starting from 1. 
+  Available when --avhw or --avsw is used.
+  
+- filename=&lt;string&gt;  
+  Select subtitle file path to burn in.
+
+- charcode=&lt;string&gt;  
+  Specify subtitle charcter code to burn in, for text type sub.
+
+- shaping=&lt;string&gt;  
+  Rendering quality of text, for text type sub.  
+  - simple
+  - complex (default)
+
+- scale=&lt;float&gt; (default=0.0 (auto))  
+  scaling multiplizer for bitmap fonts.  
+
+- transparency=&lt;float&gt; (default=0.0, 0.0 - 1.0)  
+  adds additional transparency for subtitle.  
+
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
+  modifies brightness of the subtitle.  
+
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
+  modifies contrast of the subtitle.  
+  
+- vid_ts_offset=&lt;bool&gt;  
+  add timestamp offset to match the first timestamp of the video file (default on)　　
+  Please note that when \"track\" is used, this options is always on.
+
+- ts_offset=&lt;float&gt; (default=0.0)  
+  add offset in seconds to the subtitle timestamps (for debug perpose).  
+
+- fontsdir=&lt;string&gt;  
+  directory with fonts used.
+
+```
+Example1: burn in subtitle from the track of the input file
+--vpp-subburn track=1
+
+Example2: burn in PGS subtitle from file
+--vpp-subburn filename="subtitle.sup"
+
+Example3: burn in ASS subtitle from file which charcter code is Shift-JIS
+--vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+```
+
 ### --vpp-detail-enhance &lt;int&gt;
 Enable vpp detail enhancer, strength 0 - 100.
 

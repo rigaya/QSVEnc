@@ -1716,11 +1716,6 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
         }
     }
 #if ENABLE_CUSTOM_VPP
-#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-    OPT_CHAR_PATH(_T("--vpp-sub"), subburn.pFilePath);
-    OPT_CHAR_PATH(_T("--vpp-sub-charset"), subburn.pCharEnc);
-    OPT_LST(_T("--vpp-sub-shaping"), subburn.nShaping, list_vpp_sub_shaping);
-#endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
     OPT_CHAR_PATH(_T("--vpp-delogo"), delogo.pFilePath);
     OPT_CHAR(_T("--vpp-delogo-select"), delogo.pSelect);
     OPT_NUM(_T("--vpp-delogo-depth"), delogo.depth);

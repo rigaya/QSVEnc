@@ -58,6 +58,7 @@
 #include "rgy_input_avcodec.h"
 #include "rgy_filter.h"
 #include "rgy_filter_denoise_knn.h"
+#include "rgy_filter_subburn.h"
 #include "rgy_filter_transform.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
@@ -846,8 +847,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     m_mfxEncParams.IOPattern = (mfxU16)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_IN_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY);
 
     // frame info parameters
-    m_mfxEncParams.mfx.FrameInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[getEncoderCsp(pInParams)]);
-    m_mfxEncParams.mfx.FrameInfo.PicStruct    = picstruct_rgy_to_enc(m_encPicstruct);
+    m_mfxEncParams.mfx.FrameInfo.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[getEncoderCsp(pInParams)]);
+    m_mfxEncParams.mfx.FrameInfo.PicStruct    = (mfxU16)picstruct_rgy_to_enc(m_encPicstruct);
 
     // set sar info
     auto par = std::make_pair(pInParams->nPAR[0], pInParams->nPAR[1]);
@@ -2072,8 +2073,8 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     return { RGY_ERR_NONE, std::move(mfxvpp) };
 }
 
-std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
-    FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, const std::pair<int, int> resize) {
+RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
+    FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, const sInputCrop *crop, const std::pair<int, int> resize) {
     
     //afs
     if (vppType == VppType::CL_AFS) {
@@ -2099,16 +2100,17 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("vpp-afs not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //nnedi
@@ -2127,16 +2129,17 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("vpp-nnedi not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //回転
@@ -2150,17 +2153,17 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
     }
     //knn
     if (vppType == VppType::CL_DENOISE_KNN) {
-#if 1
         unique_ptr<RGYFilter> filter(new RGYFilterDenoiseKnn(m_cl));
         shared_ptr<RGYFilterParamDenoiseKnn> param(new RGYFilterParamDenoiseKnn());
         param->knn = params->knn;
@@ -2170,17 +2173,14 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
-#else
-        PrintMes(RGY_LOG_ERROR, _T("vpp-knn not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
-#endif
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
     }
     //pmd
     if (vppType == VppType::CL_DENOISE_PMD) {
@@ -2200,10 +2200,11 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("vpp-pmd not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //smooth
@@ -2219,22 +2220,24 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("vpp-smooth not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //字幕焼きこみ
     if (vppType == VppType::CL_SUBBURN) {
+        std::vector<std::unique_ptr<RGYFilter>> filters;
         for (const auto& subburn : params->subburn) {
-#if 0 && ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER
             if (subburn.filename.length() > 0
                 && m_trimParam.list.size() > 0) {
                 PrintMes(RGY_LOG_ERROR, _T("--vpp-subburn with input as file cannot be used with --trim.\n"));
@@ -2266,22 +2269,19 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
                 param->frameIn = inputFrame;
                 param->frameOut = inputFrame;
                 param->baseFps = m_encFps;
-                param->crop = inputParam->input.crop;
-                auto sts = filter->init(param, m_pLog);
+                param->crop = *crop;
+                auto sts = filter->init(param, m_pQSVLog);
                 if (sts != RGY_ERR_NONE) {
-                    return { sts, std::unique_ptr<RGYFilter>() };
+                    return sts;
                 }
                 //入力フレーム情報を更新
                 inputFrame = param->frameOut;
                 m_encFps = param->baseFps;
-                //登録
-                filterPipeline.push_back(VppFilterMFXCL(VppType::CL_SUBBURN, std::move(filter)));
+                clfilters.push_back(std::move(filter));
             }
-#else
-            PrintMes(RGY_LOG_ERROR, _T("--vpp-subburn not supported in this build.\n"));
-            return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
-#endif
+#endif //#if ENABLE_AVSW_READER
         }
+        return RGY_ERR_NONE;
     }
     //リサイズ
     if (vppType == VppType::CL_RESIZE) {
@@ -2296,13 +2296,14 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
     }
     //unsharp
     if (vppType == VppType::CL_UNSHARP) {
@@ -2316,16 +2317,17 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("--vpp-unsharp not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //edgelevel
@@ -2340,16 +2342,17 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("--vpp-edgelevel not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //warpsharp
@@ -2370,10 +2373,11 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("--vpp-warpsharp not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
 
@@ -2389,16 +2393,17 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = true;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("--vpp-tweak not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //deband
@@ -2413,16 +2418,17 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("--vpp-deband not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
     //padding
@@ -2439,21 +2445,22 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
-            return { sts, std::unique_ptr<RGYFilter>() };
+            return sts;
         }
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
-        return { RGY_ERR_NONE, std::move(filter) };
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
 #else
         PrintMes(RGY_LOG_ERROR, _T("--vpp-pad not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+        return RGY_ERR_UNSUPPORTED;
 #endif
     }
 
     PrintMes(RGY_LOG_ERROR, _T("Unknown filter type.\n"));
-    return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
+    return RGY_ERR_UNSUPPORTED;
 }
 
 RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
@@ -2584,7 +2591,8 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         const VppFilterType ftype1 =                                 getVppFilterType(filterPipeline[i+0]);
         const VppFilterType ftype2 = (i+1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i+1]) : VppFilterType::FILTER_NONE;
         if (ftype1 == VppFilterType::FILTER_MFX) {
-            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx, getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), inputCrop, resize, blocksize);
+            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx,
+                getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), inputCrop, resize, blocksize);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
@@ -2621,12 +2629,9 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 vppOpenCLFilters.push_back(std::move(filterCrop));
             }
             if (filterPipeline[i] != VppType::CL_CROP) {
-                auto [err, vppcl] = AddFilterOpenCL(inputFrame, m_encFps, filterPipeline[i], &inputParam->vpp, resize);
+                auto err = AddFilterOpenCL(vppOpenCLFilters, inputFrame, m_encFps, filterPipeline[i], &inputParam->vpp, inputCrop, resize);
                 if (err != RGY_ERR_NONE) {
                     return err;
-                }
-                if (vppcl) {
-                    vppOpenCLFilters.push_back(std::move(vppcl));
                 }
             }
             if (ftype2 != VppFilterType::FILTER_OPENCL) { // 次のfilterがOpenCLでない場合、変換が必要
@@ -3235,7 +3240,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, 0, m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
     }
     if (m_trimParam.list.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, 0, m_mfxVer, m_pQSVLog));

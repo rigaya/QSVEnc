@@ -68,6 +68,16 @@ static void copy_crop_info(mfxFrameSurface1 *dst, const mfxFrameInfo *src) {
     }
 };
 
+struct VppVilterBlock {
+    VppFilterType type;
+    std::unique_ptr<QSVVppMfx> vppmfx;
+    std::vector<std::unique_ptr<RGYFilter>> vppcl;
+
+    VppVilterBlock(std::unique_ptr<QSVVppMfx>& filter) : type(VppFilterType::FILTER_MFX), vppmfx(std::move(filter)), vppcl() {};
+    VppVilterBlock(std::vector<std::unique_ptr<RGYFilter>>& filter) : type(VppFilterType::FILTER_OPENCL), vppmfx(), vppcl(std::move(filter)) {};
+};
+
+
 enum class PipelineTaskOutputType {
     UNKNOWN,
     SURFACE,
@@ -910,9 +920,10 @@ class PipelineTaskAudio : public PipelineTask {
 protected:
     RGYInput *m_input;
     std::map<int, std::shared_ptr<RGYOutputAvcodec>> m_pWriterForAudioStreams;
+    std::map<int, RGYFilter *> m_filterForStreams;
     std::vector<std::shared_ptr<RGYInput>> m_audioReaders;
 public:
-    PipelineTaskAudio(RGYInput *input, std::vector<std::shared_ptr<RGYInput>>& audioReaders, std::vector<std::shared_ptr<RGYOutput>>& fileWriterListAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+    PipelineTaskAudio(RGYInput *input, std::vector<std::shared_ptr<RGYInput>>& audioReaders, std::vector<std::shared_ptr<RGYOutput>>& fileWriterListAudio, std::vector<VppVilterBlock>& vpFilters, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::AUDIO, outMaxQueueSize, nullptr, mfxVer, log),
         m_input(input), m_audioReaders(audioReaders) {
         //streamのindexから必要なwriteへのポインタを返すテーブルを作成
@@ -925,21 +936,17 @@ public:
                 }
             }
         }
-#if 0
         //streamのtrackIdからパケットを送信するvppフィルタへのポインタを返すテーブルを作成
-        for (const auto& pPlugins : m_VppPrePlugins) {
-            const int trackId = pPlugins->getTargetTrack();
-            if (trackId != 0) {
-                m_filterForStreams[trackId] = pPlugins->getPluginHandle();
+        for (auto& filterBlock : vpFilters) {
+            if (filterBlock.type == VppFilterType::FILTER_OPENCL) {
+                for (auto& filter : filterBlock.vppcl) {
+                    const auto targetTrackId = filter->targetTrackIdx();
+                    if (targetTrackId != 0) {
+                        m_filterForStreams[targetTrackId] = filter.get();
+                    }
+                }
             }
         }
-        for (const auto& pPlugins : m_VppPostPlugins) {
-            const int trackId = pPlugins->getTargetTrack();
-            if (trackId != 0) {
-                m_filterForStreams[trackId] = pPlugins->getPluginHandle();
-            }
-        }
-#endif
     };
     virtual ~PipelineTaskAudio() {};
 
@@ -984,29 +991,35 @@ public:
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
                 const int nTrackId = (int)((uint32_t)packetList[i].flags >> 16);
-                if (m_pWriterForAudioStreams.count(nTrackId)) {
+                const bool sendToFilter = m_filterForStreams.count(nTrackId) > 0;
+                const bool sendToWriter = m_pWriterForAudioStreams.count(nTrackId) > 0;
+                AVPacket *pkt = &packetList[i];
+                if (sendToFilter) {
+                    AVPacket *pktToFilter = nullptr;
+                    if (sendToWriter) {
+                        pktToFilter = av_packet_clone(pkt);
+                    } else {
+                        std::swap(pktToFilter, pkt);
+                    }
+                    auto err = m_filterForStreams[nTrackId]->addStreamPacket(pktToFilter);
+                    if (err != RGY_ERR_NONE) {
+                        return err;
+                    }
+                }
+                if (sendToWriter) {
                     auto pWriter = m_pWriterForAudioStreams[nTrackId];
                     if (pWriter == nullptr) {
-                        PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for track %d\n"), nTrackId);
-                        return RGY_ERR_NULL_PTR;
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid writer found for %s track #%d\n"), char_to_tstring(trackMediaTypeStr(nTrackId)).c_str(), trackID(nTrackId));
+                        return RGY_ERR_NOT_FOUND;
                     }
-                    if (RGY_ERR_NONE != (ret = pWriter->WriteNextPacket(&packetList[i]))) {
-                        return ret;
+                    auto err = pWriter->WriteNextPacket(pkt);
+                    if (err != RGY_ERR_NONE) {
+                        return err;
                     }
-#if 0
-                } else if (m_filterForStreams.count(nTrackId)) {
-                    auto pFilter = m_filterForStreams[nTrackId];
-                    if (pFilter == nullptr) {
-                        PrintMes(RGY_LOG_ERROR, _T("Invalid filter found for track %d\n"), nTrackId);
-                        return RGY_ERR_NULL_PTR;
-                    }
-                    auto sts = pFilter->SendData(PLUGIN_SEND_DATA_AVPACKET, &packetList[i]);
-                    if (sts != MFX_ERR_NONE) {
-                        return err_to_rgy(sts);
-                    }
-#endif
-                } else {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for track %d\n"), nTrackId);
+                    pkt = nullptr;
+                }
+                if (pkt != nullptr) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to find writer for %s track #%d\n"), char_to_tstring(trackMediaTypeStr(nTrackId)).c_str(), trackID(nTrackId));
                     return RGY_ERR_NOT_FOUND;
                 }
             }

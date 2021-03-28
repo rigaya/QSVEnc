@@ -216,6 +216,9 @@
     <ClCompile Include="rgy_filter_transform.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_subburn.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -428,6 +431,9 @@
     <ClInclude Include="rgy_filter_transform.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_subburn.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -440,6 +446,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_transform.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_subburn.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

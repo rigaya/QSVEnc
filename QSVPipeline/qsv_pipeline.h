@@ -88,15 +88,6 @@ struct mfxParamSet {
     mfxExtHEVCParam hevc;
 };
 
-struct VppVilterBlock {
-    VppFilterType type;
-    std::unique_ptr<QSVVppMfx> vppmfx;
-    std::vector<std::unique_ptr<RGYFilter>> vppcl;
-
-    VppVilterBlock(std::unique_ptr<QSVVppMfx>& filter) : type(VppFilterType::FILTER_MFX), vppmfx(std::move(filter)), vppcl() {};
-    VppVilterBlock(std::vector<std::unique_ptr<RGYFilter>>& filter) : type(VppFilterType::FILTER_OPENCL), vppmfx(), vppcl(std::move(filter)) {};
-};
-
 const uint32_t QSV_PTS_SORT_SIZE = 16u;
 
 class CQSVPipeline
@@ -213,8 +204,8 @@ protected:
     virtual std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> AddFilterMFX(
         FrameInfo& frameInfo, rgy_rational<int>& fps, const VideoVUIInfo& vuiIn,
         const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const int outBitdepth, const sInputCrop *crop, const std::pair<int, int> resize, const int blockSize);
-    virtual std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> AddFilterOpenCL(
-        FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, const std::pair<int, int> resize);
+    virtual RGY_ERR AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
+        FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, const sInputCrop *crop, const std::pair<int, int> resize);
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     virtual RGY_ERR InitMfxDecParams(sInputParams *pInParams);
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams);

@@ -1076,6 +1076,57 @@ GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さ
 動き補償付き時間軸ノイズ除去を行う。引数を省略した場合、あるいは"auto"を指定した場合は、
 自動的にノイズ除去の強さが調整される。また、1(弱) - 20(強) の間でノイズ除去の強さを指定することもできる。
 
+### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+指定した字幕の焼きこみを行う。テキスト形式の字幕については、[libass](https://github.com/libass/libass)を用いたレンダリングを行う。
+
+**Parameters**
+- track=&lt;int&gt;  
+  入力ファイルの指定した字幕トラックを焼きこむ。(--avhw, --avsw時のみ有効、字幕トラックは1,2,3,...で指定)
+  
+- filename=&lt;string&gt;  
+  指定したファイルの字幕トラックを焼きこむ。
+
+- charcode=&lt;string&gt;  
+  字幕の文字コードの指定。(字幕がtext形式の場合)
+
+- shaping=&lt;string&gt;  
+  字幕のレンダリングの品質の指定。(字幕がtext形式の場合)
+  - simple
+  - complex (デフォルト)
+
+- scale=&lt;float&gt; (デフォルト=0.0 (auto))  
+  bitmap形式の字幕の表示サイズの倍率  
+
+- transparency=&lt;float&gt; (デフォルト=0.0, 0.0 - 1.0)  
+  字幕に透過性を追加する。  
+
+- brightness=&lt;float&gt; (デフォルト=0.0, -1.0 - 1.0)  
+  字幕の輝度の調整を行う。  
+
+- contrast=&lt;float&gt; (デフォルト=1.0, -2.0 - 2.0)  
+  字幕のコントラストの調整を行う。  
+  
+- vid_ts_offset=&lt;bool&gt;  
+  動画ファイルの最初のタイムスタンプに合わせて、タイムスタンプを補正する。 (デフォルト=on)
+  なお、"track"を使用する場合は、このオプションは常にオンになります。
+
+- ts_offset=&lt;float&gt; (デフォルト=0.0)  
+  字幕のtimestampを秒単位で調整(デバッグ用)  
+
+- fontsdir=&lt;string&gt;  
+  字幕で使用するフォントの存在するフォルダの指定。
+
+```
+例1: 入力ファイルの字幕トラックを焼きこみ
+--vpp-subburn track=1
+
+例2: PGS字幕をファイルから焼きこみ
+--vpp-subburn filename="subtitle.sup"
+
+例3: Shift-JISな文字コードのassファイルの焼きこみ
+--vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
+```
+
 ### --vpp-detail-enhance &lt;int&gt;
 GPUによるディテールの強調を行う。0 - 100 の間でディテール強調の強さを指定する。
 
