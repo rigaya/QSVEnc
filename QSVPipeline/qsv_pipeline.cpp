@@ -1277,7 +1277,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         const auto t1Alloc = t1->requiredSurfIn();
         int t0RequestNumFrame = 0;
         int t1RequestNumFrame = 0;
-        mfxFrameAllocRequest allocRequest;
+        mfxFrameAllocRequest allocRequest = { 0 };
         if (t0Alloc.has_value() && t1Alloc.has_value()) {
             t0RequestNumFrame = t0Alloc.value().NumFrameSuggested;
             t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
