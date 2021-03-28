@@ -1444,7 +1444,7 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
     }
 
     if (type != FEATURE_LIST_STR_TYPE_HTML) {
-        for (int i = 0; i < maxFeatureStrLen; i++) {
+        for (int i = 0; i < maxFeatureStrLen+2; i++) {
             str += _T(" ");
         }
     }
@@ -1455,7 +1455,7 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
         tstring codecStr = CodecToStr(codecLists[i_codec]);
         codecStr = str_replace(codecStr, _T("H.264/AVC"), _T("H.264"));
         codecStr = str_replace(codecStr, _T("H.265/HEVC"), _T("HEVC"));
-        while (codecStr.length() < 4) {
+        while (codecStr.length() < 6) {
             codecStr += _T(" ");
         }
         str += codecStr;
@@ -1486,14 +1486,16 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
         }
         for (uint32_t i_codec = 0; i_codec < codecLists.size(); i_codec++) {
             auto codecFmts = featurePerCodec[codecLists[i_codec]];
-            for (auto codecFmtsBitDepth : codecFmts) {
-                if (type == FEATURE_LIST_STR_TYPE_HTML) {
-                    str += (codecFmtsBitDepth > 0) ? _T("<td class=ok>") : _T("<td class=fail>");
-                }
-                str += strsprintf(_T("%2dbit"), codecFmtsBitDepth);
-                if (type == FEATURE_LIST_STR_TYPE_HTML) {
-                    str += _T("</td>");
-                }
+            if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                str += (codecFmts[icfmt] > 0) ? _T("<td class=ok>") : _T("<td class=fail>");
+            }
+            if (codecFmts[icfmt] > 0) {
+                str += strsprintf(_T(" %2dbit "), codecFmts[icfmt]);
+            } else {
+                str += _T("       ");
+            }
+            if (type == FEATURE_LIST_STR_TYPE_HTML) {
+                str += _T("</td>");
             }
         }
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
