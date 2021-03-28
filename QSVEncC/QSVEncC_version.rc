@@ -11,8 +11,9 @@
 #include "QSVEncC_version.h"
 
 RGY_FILTER_CL                EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter.cl"
-RGY_FILTER_RESIZE_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_resize.cl"
 RGY_FILTER_DENOISE_KNN_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_knn.cl"
+RGY_FILTER_RESIZE_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_resize.cl"
+RGY_FILTER_TRANSFORM_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_transform.cl"
 
 PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 

@@ -140,14 +140,7 @@ tstring gen_cmd_help_vppmfx() {
         _T("                                 - none, x2, x2.5\n")
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-        _T("                                 - none, upscale, box\n")
-        _T("   --vpp-rotate <int>           rotate image\n")
-        _T("                                 90, 180, 270.\n")
-        _T("   --vpp-mirror <string>        mirror image\n")
-        _T("                                 - h   mirror in horizontal direction\n")
-        _T("                                 - v   mirror in vertical   direction\n")
-        _T("   --vpp-half-turn              half turn video image\n")
-        _T("                                 unoptimized and very slow.\n"),
+        _T("                                 - none, upscale, box\n"),
         QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
         QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO,
         QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX);
@@ -605,32 +598,6 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
             vppmfx->fpsConversion = value;
         } else if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_fps_conversion, strInput[i]))) {
             vppmfx->fpsConversion = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-half-turn"))) {
-        vppmfx->halfTurn = true;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-rotate"))) {
-        i++;
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_rotate_angle, strInput[i]))) {
-            vppmfx->rotate = value;
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("vpp-mirror"))) {
-        i++;
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_vpp_mirroring, strInput[i]))) {
-            vppmfx->mirrorType = value;
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1689,9 +1656,6 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
     } else {
         OPT_BOOL_VAL(_T("--vpp-mctf"), _T("--no-vpp-mctf"), mctf.enable, mctf.strength);
     }
-    OPT_BOOL(_T("--vpp-half-turn"), _T(""), halfTurn);
-    OPT_LST(_T("--vpp-rotate"), rotate, list_vpp_rotate_angle);
-    OPT_LST(_T("--vpp-mirror"), mirrorType, list_vpp_mirroring);
     OPT_LST(_T("--vpp-fps-conv"), fpsConversion, list_vpp_fps_conversion);
     OPT_LST(_T("--vpp-image-stab"), imageStabilizer, list_vpp_image_stabilizer);
 

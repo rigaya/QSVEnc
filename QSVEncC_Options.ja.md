@@ -1093,6 +1093,15 @@ image stabilizerのモードの指定。
 - h ... 水平方向の反転。
 - v ... 垂直方向の反転。
 
+### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- flip_x=&lt;bool&gt;
+
+- flip_y=&lt;bool&gt;
+
+- transpose=&lt;bool&gt;
+
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 

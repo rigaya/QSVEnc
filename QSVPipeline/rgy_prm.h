@@ -400,6 +400,13 @@ const CX_DESC list_vpp_rotate[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vpp_mirroring[] = {
+    { _T("n"), 0   },
+    { _T("h"), 1 /*horizontal*/ },
+    { _T("v"), 2 /*vertical*/   },
+    { NULL, 0 }
+};
+
 const CX_DESC list_vpp_ass_shaping[] = {
     { _T("simple"),  0 },
     { _T("complex"), 1 },

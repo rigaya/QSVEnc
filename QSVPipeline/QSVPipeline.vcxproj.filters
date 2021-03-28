@@ -213,6 +213,9 @@
     <ClCompile Include="qsv_plugin.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_transform.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -422,6 +425,9 @@
     <ClInclude Include="qsv_plugin.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_transform.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -431,6 +437,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_resize.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_transform.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

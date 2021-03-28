@@ -927,7 +927,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), vpp.bUseDetailEnhance, vpp.nDetailEnhance);
     OPT_BOOL_VAL(_T("--vpp-denoise"), _T("--no-vpp-denoise"), vpp.bUseDenoise, vpp.nDenoise);
     OPT_BOOL(_T("--vpp-half-turn"), _T(""), vpp.bHalfTurn);
-    OPT_LST(_T("--vpp-rotate"), vpp.nRotate, list_vpp_rotate_angle);
+    OPT_LST(_T("--vpp-rotate"), vpp.nRotate, list_vpp_rotate);
     OPT_LST(_T("--vpp-mirror"), vpp.nMirrorType, list_vpp_mirroring);
     OPT_LST(_T("--vpp-scaling"), vpp.nScalingQuality, list_vpp_scaling_quality_auo_conf_old);
     OPT_LST(_T("--vpp-fps-conv"), vpp.nFPSConversion, list_vpp_fps_conversion);

@@ -1079,6 +1079,16 @@ Mirror image.
 - h ... mirror in horizontal direction.
 - v ... mirror in vertical   direction.
 
+
+### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- flip_x=&lt;bool&gt;
+
+- flip_y=&lt;bool&gt;
+
+- transpose=&lt;bool&gt;
+
 ### --vpp-resize &lt;string&gt;
 Specify the resizing algorithm.
 

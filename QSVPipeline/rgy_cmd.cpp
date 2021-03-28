@@ -1915,6 +1915,38 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-mirror")) { // QSVEncでの互換性維持のため
+        vpp->transform.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        int value = 0;
+        if (get_list_value(list_vpp_mirroring, strInput[i], &value)) {
+            switch (value) {
+            case 1: /*horizontal 水平方向*/
+                vpp->transform.enable = true;
+                vpp->transform.flipX = true;
+                vpp->transform.flipY = false;
+                break;
+            case 2: /*horizontal 垂直方向*/
+                vpp->transform.enable = true;
+                vpp->transform.flipX = false;
+                vpp->transform.flipY = true;
+            case 0:
+            default:
+                vpp->transform.enable = false;
+                vpp->transform.flipX = false;
+                vpp->transform.flipY = false;
+                break;
+            }
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_mirroring);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-transform")) {
         vpp->transform.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {

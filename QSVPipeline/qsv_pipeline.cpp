@@ -58,6 +58,7 @@
 #include "rgy_input_avcodec.h"
 #include "rgy_filter.h"
 #include "rgy_filter_denoise_knn.h"
+#include "rgy_filter_transform.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
 #include "qsv_hw_device.h"
@@ -2140,7 +2141,6 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
     }
     //回転
     if (vppType == VppType::CL_TRANSFORM) {
-#if 0
         unique_ptr<RGYFilter> filter(new RGYFilterTransform(m_cl));
         shared_ptr<RGYFilterParamTransform> param(new RGYFilterParamTransform());
         param->trans = params->transform;
@@ -2148,7 +2148,7 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pLog);
+        auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return { sts, std::unique_ptr<RGYFilter>() };
         }
@@ -2157,10 +2157,6 @@ std::pair<RGY_ERR, std::unique_ptr<RGYFilter>> CQSVPipeline::AddFilterOpenCL(
         m_encFps = param->baseFps;
         //登録
         return { RGY_ERR_NONE, std::move(filter) };
-#else
-        PrintMes(RGY_LOG_ERROR, _T("vpp-transform not suported yet.\n"));
-        return { RGY_ERR_UNSUPPORTED, std::unique_ptr<RGYFilter>() };
-#endif
     }
     //knn
     if (vppType == VppType::CL_DENOISE_KNN) {

@@ -678,21 +678,6 @@ const CX_DESC list_vpp_sub_shaping[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_vpp_rotate_angle[] = {
-    { _T("0"),     MFX_ANGLE_0    },
-    { _T("90"),    MFX_ANGLE_90   },
-    { _T("180"),   MFX_ANGLE_180  },
-    { _T("270"),   MFX_ANGLE_270  },
-    { NULL, 0 }
-};
-
-const CX_DESC list_vpp_mirroring[] = {
-    { _T("n"), MFX_MIRRORING_DISABLED   },
-    { _T("h"), MFX_MIRRORING_HORIZONTAL },
-    { _T("v"), MFX_MIRRORING_VERTICAL   },
-    { NULL, 0 }
-};
-
 /*
 const CX_DESC list_vpp_scaling_quality[] = {
     { _T("auto"),   MFX_SCALING_MODE_DEFAULT  },
