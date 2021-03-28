@@ -270,7 +270,6 @@ enum RGY_CHROMAFMT {
 };
 
 static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
-    _T("Unknwon"),
     _T("Monochrome"),
     _T("yuv420"),
     _T("yuv422"),
@@ -413,7 +412,8 @@ static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
 static bool cspShiftUsed(const RGY_CSP csp) {
     return csp == RGY_CSP_P010
         || csp == RGY_CSP_P210
-        || csp == RGY_CSP_Y210;
+        || csp == RGY_CSP_Y210
+        || csp == RGY_CSP_Y416;
 }
 
 const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct);
