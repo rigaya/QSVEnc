@@ -1090,14 +1090,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)encodeBitDepth;
         m_mfxEncParams.mfx.FrameInfo.Shift = 1;
     }
-    m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(pInParams->input.dstWidth, blocksz);
-    m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct)?
-        ALIGN(pInParams->input.dstHeight, blocksz) : ALIGN(pInParams->input.dstHeight, blocksz * 2));
+    m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(m_encWidth, blocksz);
+    m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)ALIGN(m_encHeight, blocksz * ((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct) ? 1:2));
 
     m_mfxEncParams.mfx.FrameInfo.CropX = 0;
     m_mfxEncParams.mfx.FrameInfo.CropY = 0;
-    m_mfxEncParams.mfx.FrameInfo.CropW = (mfxU16)pInParams->input.dstWidth;
-    m_mfxEncParams.mfx.FrameInfo.CropH = (mfxU16)pInParams->input.dstHeight;
+    m_mfxEncParams.mfx.FrameInfo.CropW = (mfxU16)m_encWidth;
+    m_mfxEncParams.mfx.FrameInfo.CropH = (mfxU16)m_encHeight;
 
     // In case of HEVC when height and/or width divided with 8 but not divided with 16
     // add extended parameter to increase performance
@@ -1294,6 +1293,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             t0RequestNumFrame = 1;
             t1RequestNumFrame = 1;
             if (t1->taskType() == PipelineTaskType::OPENCL) {
+                allocRequest.Type |= MFX_MEMTYPE_EXTERNAL_FRAME;
                 allocRequest.Type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET;
             }
         } else {
@@ -2518,6 +2518,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         inputFrame.bitdepth = m_mfxDecParams.mfx.FrameInfo.BitDepthLuma;
     }
     inputFrame.picstruct = inputParam->input.picstruct;
+    inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
     const auto input_sar = rgy_rational<int>(inputParam->input.sar[0], inputParam->input.sar[1]);
     const int croppedWidth = inputFrame.width - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
     const int croppedHeight = inputFrame.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
@@ -2533,9 +2534,6 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     }
     if (inputParam->input.dstHeight == 0) {
         inputParam->input.dstHeight = croppedHeight;
-    }
-    if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
-        inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
     }
     const bool cspConvRequired = inputFrame.csp != getEncoderCsp(inputParam);
 
@@ -2678,6 +2676,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 std::unique_ptr<RGYFilter> filterCrop(new RGYFilterCspCrop(m_cl));
                 std::shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
                 param->frameIn = inputFrame;
+                param->frameOut = inputFrame;
                 param->frameOut.csp = getEncoderCsp(inputParam);
                 param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
                 param->baseFps = m_encFps;
@@ -2693,12 +2692,16 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 vppOpenCLFilters.push_back(std::move(filterCrop));
                 // ブロックに追加する
                 m_vpFilters.push_back(std::move(VppVilterBlock(vppOpenCLFilters)));
+                vppOpenCLFilters.clear();
             }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unsupported vpp filter type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
     }
+
+    m_encWidth  = inputFrame.width;
+    m_encHeight = inputFrame.height;
 
     return RGY_ERR_NONE;
 }

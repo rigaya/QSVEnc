@@ -1354,7 +1354,7 @@ public:
         while (filterframes.size() > 0 || drain) {
             auto surfVppOut = getWorkSurf();
             if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
-                m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+                m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
             }
             auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.get()].get();
             if (!clFrameOutInterop) {
