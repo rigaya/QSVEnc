@@ -1975,7 +1975,39 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
     filterPipeline.reserve((size_t)VppType::CL_MAX);
 
     if (cspConvRequired || cropRequired)   filterPipeline.push_back(VppType::MFX_CROP);
-    if (inputParam->vpp.colorspace.enable) filterPipeline.push_back(VppType::CL_COLORSPACE);
+    if (inputParam->vpp.colorspace.enable) {
+        bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED;
+        if (!requireOpenCL) {
+            auto currentVUI = inputParam->input.vui;
+            for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
+                auto conv_from = inputParam->vpp.colorspace.convs[i].from;
+                conv_from.apply_auto(currentVUI, inputParam->input.srcHeight);
+                if (i == 0) {
+                    inputParam->vppmfx.colorspace.from.matrix = conv_from.matrix;
+                    inputParam->vppmfx.colorspace.from.range = conv_from.colorrange;
+                }
+
+                auto conv_to = inputParam->vpp.colorspace.convs[i].to;
+                const bool is_last_conversion = i == (inputParam->vpp.colorspace.convs.size() - 1);
+                if (is_last_conversion) {
+                    conv_to.apply_auto(m_encVUI, m_encHeight);
+                    inputParam->vppmfx.colorspace.to.matrix = conv_to.matrix;
+                    inputParam->vppmfx.colorspace.to.range = conv_to.colorrange;
+                } else {
+                    conv_to.apply_auto(conv_from, inputParam->input.srcHeight);
+                }
+                if (   conv_from.chromaloc != conv_to.chromaloc
+                    || conv_from.colorprim != conv_to.colorprim
+                    || conv_from.transfer  != conv_to.transfer) {
+                    requireOpenCL = true;
+                } else if ((conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
+                        && (conv_to.matrix   != RGY_MATRIX_ST170_M && conv_to.matrix   != RGY_MATRIX_BT709)) {
+                    requireOpenCL = true;
+                }
+            }
+        }
+        filterPipeline.push_back((requireOpenCL) ? VppType::CL_COLORSPACE : VppType::MFX_COLORSPACE);
+    }
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)      filterPipeline.push_back(VppType::CL_NNEDI);
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE)  filterPipeline.push_back(VppType::MFX_DEINTERLACE);
@@ -1983,6 +2015,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
     if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vppmfx.denoise.enable) filterPipeline.push_back(VppType::MFX_DENOISE);
+    if (inputParam->vppmfx.imageStabilizer != 0) filterPipeline.push_back(VppType::MFX_IMAGE_STABILIZATION);
+    if (inputParam->vppmfx.mctf.enable)    filterPipeline.push_back(VppType::MFX_MCTF);
     if (inputParam->vpp.subburn.size()>0)  filterPipeline.push_back(VppType::CL_SUBBURN);
     if (     resizeRequired == RGY_VPP_RESIZE_TYPE_OPENCL) filterPipeline.push_back(VppType::CL_RESIZE);
     else if (resizeRequired != RGY_VPP_RESIZE_TYPE_NONE)   filterPipeline.push_back(VppType::MFX_RESIZE);
@@ -1991,7 +2025,6 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vppmfx.detail.enable)  filterPipeline.push_back(VppType::MFX_DETAIL_ENHANCE);
-    if (inputParam->vppmfx.mctf.enable)    filterPipeline.push_back(VppType::MFX_MCTF);
     if (inputParam->vppmfx.mirrorType != MFX_MIRRORING_DISABLED) filterPipeline.push_back(VppType::MFX_MIRROR);
     if (inputParam->vpp.transform.enable)  filterPipeline.push_back(VppType::CL_TRANSFORM);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
@@ -2016,13 +2049,18 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
                 && (prev != VppFilterType::FILTER_MFX    || next != VppFilterType::FILTER_MFX)) {
                 filterPipeline[i] = VppType::CL_CROP; // OpenCLに挟まれていたら、OpenCLのcropを優先する
             }
+        } else if (filterPipeline[i] == VppType::MFX_COLORSPACE) {
+            if (   prev == VppFilterType::FILTER_OPENCL
+                && next == VppFilterType::FILTER_OPENCL) {
+                filterPipeline[i] = VppType::CL_COLORSPACE; // OpenCLに挟まれていたら、OpenCLのcolorspaceを優先する
+            }
         }
     }
     return filterPipeline;
 }
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
-    FrameInfo& frameInfo, rgy_rational<int>& fps, const VideoVUIInfo& vuiIn,
+    FrameInfo& frameInfo, rgy_rational<int>& fps,
     const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const int outBitdepth, const sInputCrop *crop, const std::pair<int,int> resize, const int blockSize) {
     FrameInfo frameIn = frameInfo;
     sVppParams vppParams;
@@ -2033,6 +2071,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     case VppType::MFX_DEINTERLACE:         vppParams.deinterlace = params->deinterlace; break;
     case VppType::MFX_DENOISE:             vppParams.denoise = params->denoise; break;
     case VppType::MFX_DETAIL_ENHANCE:      vppParams.detail = params->detail; break;
+    case VppType::MFX_COLORSPACE:          vppParams.colorspace = params->colorspace; vppParams.colorspace.enable = true; break;
     case VppType::MFX_IMAGE_STABILIZATION: vppParams.imageStabilizer = params->imageStabilizer; break;
     case VppType::MFX_ROTATE:              vppParams.rotate = params->rotate; break;
     case VppType::MFX_MIRROR:              vppParams.mirrorType = params->mirrorType; break;
@@ -2042,9 +2081,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
                                            vppParams.resizeMode = params->resizeMode;
                                            frameInfo.width = resize.first;
                                            frameInfo.height = resize.second; break;
-
     case VppType::MFX_FPS_CONV:
-    case VppType::MFX_COLORSPACE:
     default:
         return { RGY_ERR_UNSUPPORTED, std::unique_ptr<QSVVppMfx>() };
     }
@@ -2055,7 +2092,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
     auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
-    auto err = mfxvpp->SetParam(vppParams, {}, frameInfo, m_encVUI, frameIn, vuiIn, (vppType == VppType::MFX_CROP) ? crop : nullptr,
+    auto err = mfxvpp->SetParam(vppParams, frameInfo, frameIn, (vppType == VppType::MFX_CROP) ? crop : nullptr,
         fps, rgy_rational<int>(1,1), blockSize);
     if (err != RGY_ERR_NONE) {
         return { err, std::unique_ptr<QSVVppMfx>() };
@@ -2591,7 +2628,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         const VppFilterType ftype1 =                                 getVppFilterType(filterPipeline[i+0]);
         const VppFilterType ftype2 = (i+1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i+1]) : VppFilterType::FILTER_NONE;
         if (ftype1 == VppFilterType::FILTER_MFX) {
-            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VuiFiltered, filterPipeline[i], &inputParam->vppmfx,
+            auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, filterPipeline[i], &inputParam->vppmfx,
                 getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), inputCrop, resize, blocksize);
             if (err != RGY_ERR_NONE) {
                 return err;

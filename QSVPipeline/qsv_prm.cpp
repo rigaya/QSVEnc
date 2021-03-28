@@ -53,6 +53,7 @@ sVppParams::sVppParams() :
     bUseResize(false),
     resizeInterp(MFX_INTERPOLATION_DEFAULT),
     resizeMode(MFX_SCALING_MODE_DEFAULT),
+    colorspace(),
     deinterlace(0),
     telecinePattern(0),
     imageStabilizer(0),

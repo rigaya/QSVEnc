@@ -127,11 +127,11 @@ enum class VppType : int {
     MFX_ROTATE,
     MFX_MIRROR,
     MFX_DEINTERLACE,
+    MFX_IMAGE_STABILIZATION,
     MFX_MCTF,
     MFX_DENOISE,
     MFX_RESIZE,
     MFX_DETAIL_ENHANCE,
-    MFX_IMAGE_STABILIZATION,
     MFX_FPS_CONV,
     MFX_COPY,
 
@@ -177,12 +177,29 @@ static VppFilterType getVppFilterType(VppType vpptype) {
     return VppFilterType::FILTER_NONE;
 }
 
+struct MFXVppColorspace {
+    bool enable;
+    struct {
+        CspMatrix matrix;
+        CspColorRange range;
+    } from, to;
+
+    MFXVppColorspace() : enable(false), from(), to() {
+        from.matrix = RGY_MATRIX_AUTO;
+        from.range = RGY_COLORRANGE_AUTO;
+        to.matrix = RGY_MATRIX_AUTO;
+        to.range = RGY_COLORRANGE_AUTO;
+    }
+};
+
 struct sVppParams {
     bool bEnable;             //use vpp
 
     bool bUseResize;          //use vpp resizer
     int resizeInterp;
     int resizeMode;
+
+    MFXVppColorspace colorspace;
 
     int deinterlace;      //set deinterlace mode
     int telecinePattern;

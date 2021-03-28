@@ -43,9 +43,9 @@ public:
     QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
     virtual ~QSVVppMfx();
 
-    RGY_ERR SetParam(sVppParams& params, const VppColorspace& colorsapce,
-        const FrameInfo& frameOut, const VideoVUIInfo& VUIOut,
-        const FrameInfo& frameIn, const VideoVUIInfo& VUIIn,
+    RGY_ERR SetParam(sVppParams& params,
+        const FrameInfo& frameOut,
+        const FrameInfo& frameIn,
         const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
     RGY_ERR SetCopy(const mfxFrameInfo& mfxFrame);
     RGY_ERR Init();
@@ -67,7 +67,7 @@ protected:
     RGY_ERR InitSession();
     mfxFrameInfo SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
     RGY_ERR SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const FrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize);
-    RGY_ERR SetVppExtBuffers(sVppParams& params, const VppColorspace& colorsapce, const VideoVUIInfo& VUIOut, const VideoVUIInfo& VUIIn);
+    RGY_ERR SetVppExtBuffers(sVppParams& params);
     RGY_ERR InitMfxVppParams(const sVppParams& params, const mfxFrameInfo& mfxOut, const mfxFrameInfo& mfxIn);
     RGY_ERR checkVppParams(sVppParams& params, const bool inputInterlaced);
 

@@ -142,9 +142,8 @@ RGY_ERR QSVVppMfx::SetCopy(const mfxFrameInfo& mfxFrame) {
 
 RGY_ERR QSVVppMfx::SetParam(
     sVppParams& params,
-    const VppColorspace& colorsapce,
-    const FrameInfo& frameOut, const VideoVUIInfo& VUIOut,
-    const FrameInfo& frameIn, const VideoVUIInfo& VUIIn,
+    const FrameInfo& frameOut,
+    const FrameInfo& frameIn,
     const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
     if (m_mfxVPP) {
         PrintMes(RGY_LOG_DEBUG, _T("Vpp already initialized.\n"));
@@ -178,7 +177,7 @@ RGY_ERR QSVVppMfx::SetParam(
     if (m_mfxVppParams.vpp.In.FourCC != m_mfxVppParams.vpp.Out.FourCC) {
         vppExtAddMes(strsprintf(_T("ColorFmtConvertion: %s -> %s\n"), ColorFormatToStr(m_mfxVppParams.vpp.In.FourCC), ColorFormatToStr(m_mfxVppParams.vpp.Out.FourCC)));
     }
-    if ((err = SetVppExtBuffers(params, colorsapce, VUIOut, VUIIn)) != RGY_ERR_NONE) {
+    if ((err = SetVppExtBuffers(params)) != RGY_ERR_NONE) {
         return err;
     }
     if (GetVppList().size() > 0) {
@@ -440,7 +439,7 @@ RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params
     return RGY_ERR_NONE;
 }
 
-RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params, const VppColorspace& colorsapce, const VideoVUIInfo& VUIOut, const VideoVUIInfo& VUIIn) {
+RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
     m_VppExtParams.clear();
     m_VppDoUseList.clear();
     m_VppDoNotUseList.clear();
@@ -449,38 +448,15 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params, const VppColorspace& col
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
         && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
             || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC
-            || colorsapce.enable)) {
+            || params.colorspace.enable)) {
 
         const bool inputRGB = m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB3 || m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB4;
-        VideoVUIInfo vuiFrom = VideoVUIInfo();
-        VideoVUIInfo vuiTo   = VideoVUIInfo();
-        if (colorsapce.enable && colorsapce.convs.size() > 0) {
-            vuiFrom = colorsapce.convs.begin()->from;
-            vuiTo = colorsapce.convs.begin()->to;
-        }
-        if (vuiTo.colorrange == RGY_COLORRANGE_UNSPECIFIED) {
-            vuiTo.colorrange = VUIOut.colorrange;
-            if (vuiTo.colorrange == RGY_COLORRANGE_UNSPECIFIED) {
-                vuiTo.colorrange = RGY_COLORRANGE_AUTO;
-            }
-        }
-        if (vuiTo.matrix == RGY_MATRIX_UNSPECIFIED) {
-            vuiTo.matrix = VUIOut.matrix;
-            if (vuiTo.matrix == RGY_MATRIX_UNSPECIFIED) {
-                vuiTo.matrix = RGY_MATRIX_AUTO;
-            }
-        }
-        vuiFrom.apply_auto(VUIIn, m_mfxVppParams.vpp.In.CropH);
-        vuiTo.apply_auto(vuiFrom, m_mfxVppParams.vpp.Out.CropH);
-        if (inputRGB) {
-            vuiFrom.colorrange = RGY_COLORRANGE_FULL;
-        }
 
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
-        m_ExtVppVSI.In.NominalRange    = (mfxU16)((vuiFrom.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
-        m_ExtVppVSI.In.TransferMatrix  = (mfxU16)((vuiFrom.matrix == RGY_MATRIX_ST170_M) ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);
-        m_ExtVppVSI.Out.NominalRange   = (mfxU16)((vuiTo.colorrange == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255 : MFX_NOMINALRANGE_16_235);
-        m_ExtVppVSI.Out.TransferMatrix = (mfxU16)((vuiTo.matrix == RGY_MATRIX_ST170_M) ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);
+        m_ExtVppVSI.In.NominalRange    = (mfxU16)((params.colorspace.from.range  == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255   : MFX_NOMINALRANGE_16_235);
+        m_ExtVppVSI.In.TransferMatrix  = (mfxU16)((params.colorspace.from.matrix == RGY_MATRIX_ST170_M)  ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);
+        m_ExtVppVSI.Out.NominalRange   = (mfxU16)((params.colorspace.to.range    == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255   : MFX_NOMINALRANGE_16_235);
+        m_ExtVppVSI.Out.TransferMatrix = (mfxU16)((params.colorspace.to.matrix   == RGY_MATRIX_ST170_M)  ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         vppExtAddMes(_T("Colorspace\n"));
