@@ -36,7 +36,7 @@ __kernel void kernel_denoise_knn(
 #if SRC_IMAGE
     const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
     #define LOAD(offset_x, offset_y) (float)read_imagef(src, sampler, (int2)(ix+(offset_x)+0.5f, iy+(offset_y)+0.5f)).x
-    const denorm = (float)((1<<bit_depth)-1);
+    const float denorm = (float)((1<<bit_depth)-1);
 #else
     const int thx = get_local_id(0);
     const int thy = get_local_id(1);
