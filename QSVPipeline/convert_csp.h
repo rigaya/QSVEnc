@@ -377,6 +377,13 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     16, //RGY_CSP_Y16
 };
 
+static bool cspShiftUsed(const RGY_CSP csp) {
+    return csp == RGY_CSP_P010
+        || csp == RGY_CSP_P210
+        || csp == RGY_CSP_Y210
+        || csp == RGY_CSP_Y416;
+}
+
 enum RGY_PICSTRUCT : uint32_t {
     RGY_PICSTRUCT_UNKNOWN      = 0x00,
     RGY_PICSTRUCT_FRAME        = 0x01, //フレームとして符号化されている
@@ -407,13 +414,6 @@ static RGY_PICSTRUCT operator&(RGY_PICSTRUCT a, RGY_PICSTRUCT b) {
 static RGY_PICSTRUCT operator&=(RGY_PICSTRUCT& a, RGY_PICSTRUCT b) {
     a = (RGY_PICSTRUCT)((uint8_t)a & (uint8_t)b);
     return a;
-}
-
-static bool cspShiftUsed(const RGY_CSP csp) {
-    return csp == RGY_CSP_P010
-        || csp == RGY_CSP_P210
-        || csp == RGY_CSP_Y210
-        || csp == RGY_CSP_Y416;
 }
 
 const TCHAR *picstrcut_to_str(RGY_PICSTRUCT picstruct);
@@ -500,6 +500,10 @@ struct FrameInfo {
         memset(pitch, 0, sizeof(pitch));
     };
 };
+
+static bool interlaced(const FrameInfo& frameInfo) {
+    return (frameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
+}
 
 static FrameInfo getPlane(const FrameInfo *frameInfo, RGY_PLANE plane) {
     FrameInfo planeInfo = *frameInfo;
