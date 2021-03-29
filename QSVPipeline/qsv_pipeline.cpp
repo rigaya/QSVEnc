@@ -3032,27 +3032,21 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 }
 
 void CQSVPipeline::Close() {
-    PrintMes(RGY_LOG_DEBUG, _T("Closing pipeline...\n"));
-    m_pipelineTasks.clear();
-    //PrintMes(RGY_LOG_INFO, _T("Frame number: %hd\r"), m_pFileWriter.m_nProcessedFramesNum);
-
-    PrintMes(RGY_LOG_DEBUG, _T("Closing filters...\n"));
+    // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
+    PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
+    PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filter (copy)...\n"));
     m_vppCopyForCheckPts.reset();
-
-    PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
-    m_pStatus.reset();
-
-    PrintMes(RGY_LOG_DEBUG, _T("Closing Plugins...\n"));
-    m_SessionPlugins.reset();
-
-    m_trimParam.list.clear();
-    m_trimParam.offset = 0;
-
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
     m_pmfxDEC.reset();
     m_pmfxENC.reset();
     m_mfxVPP.clear();
+    //この中でフレームの解放がなされる
+    PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
+    m_pipelineTasks.clear();
+
+    PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
+    m_pStatus.reset();
 
 #if ENABLE_MVC_ENCODING
     FreeMVCSeqDesc();
@@ -3062,12 +3056,18 @@ void CQSVPipeline::Close() {
 
     m_DecInputBitstream.clear();
 
+    PrintMes(RGY_LOG_DEBUG, _T("Closing Plugins...\n"));
+    m_SessionPlugins.reset();
+
     PrintMes(RGY_LOG_DEBUG, _T("Closing mfxSession...\n"));
     m_mfxSession.Close();
 
     PrintMes(RGY_LOG_DEBUG, _T("DeleteAllocator...\n"));
     // allocator if used as external for MediaSDK must be deleted after SDK components
     DeleteAllocator();
+
+    m_trimParam.list.clear();
+    m_trimParam.offset = 0;
 
     m_cl.reset();
 
@@ -3474,12 +3474,18 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         }
     }
 
-    PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks...\n"));
-    m_pipelineTasks.clear();
+    // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filter (copy)...\n"));
     m_vppCopyForCheckPts.reset();
+    PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
+    m_pmfxDEC.reset();
+    m_pmfxENC.reset();
+    m_mfxVPP.clear();
+    //この中でフレームの解放がなされる
+    PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
+    m_pipelineTasks.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Waiting for writer to finish...\n"));
     m_pFileWriter->WaitFin();
     PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));
