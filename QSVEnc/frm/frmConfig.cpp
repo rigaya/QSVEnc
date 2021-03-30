@@ -729,6 +729,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXOutputType,      list_outtype);
     setComboBox(fcgCXCodecLevel,      list_avc_level);
     setComboBox(fcgCXCodecProfile,    list_avc_profile);
+    setComboBox(fcgCXOutputCsp,       list_output_csp);
     setComboBox(fcgCXQuality,         list_quality);
     setComboBox(fcgCXInterlaced,      list_interlaced_mfx);
     setComboBox(fcgCXAspectRatio,     list_aspect_ratio);
@@ -1310,6 +1311,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAspectRatioX, abs(prm_qsv.nPAR[0]));
     SetNUValue(fcgNUAspectRatioY, abs(prm_qsv.nPAR[1]));
     fcgCBOpenGOP->Checked        = prm_qsv.bopenGOP;
+    SetCXIndex(fcgCXOutputCsp,    get_cx_index(list_output_csp, prm_qsv.outputCsp));
 
     SetNUValue(fcgNUSlices,       prm_qsv.nSlices);
 
@@ -1427,6 +1429,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nTargetUsage           = (int)list_quality[fcgCXQuality->SelectedIndex].value;
     prm_qsv.CodecProfile           = (int)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
     prm_qsv.CodecLevel             = (int)get_level_list(prm_qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
+    prm_qsv.outputCsp              = (RGY_CHROMAFMT)list_output_csp[fcgCXOutputCsp->SelectedIndex].value;
     prm_qsv.nBitRate               = (int)fcgNUBitrate->Value;
     prm_qsv.nMaxBitrate            = (int)fcgNUMaxkbps->Value;
     prm_qsv.nLookaheadDepth        = (int)fcgNULookaheadDepth->Value;

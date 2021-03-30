@@ -997,6 +997,8 @@ private: System::Windows::Forms::ComboBox ^fcgCXInternalCmdEx;
 private: System::Windows::Forms::Label ^fcgLBInternalCmdEx;
 private: System::Windows::Forms::CheckBox ^fcgCBCopyChapter;
 private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
+private: System::Windows::Forms::ComboBox^  fcgCXOutputCsp;
+private: System::Windows::Forms::Label^  fcgLBOutputCsp;
 
 
 
@@ -1438,6 +1440,8 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgLBAvqsvInputFile = (gcnew System::Windows::Forms::Label());
             this->fcgCBAvqsv = (gcnew System::Windows::Forms::CheckBox());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
+            this->fcgCXOutputCsp = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBOutputCsp = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1449,57 +1453,57 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgtabControlQSV->SuspendLayout();
             this->tabPageVideoEnc->SuspendLayout();
             this->fcgPNAVBR->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAVBRAccuarcy))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAVBRConvergence))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUWinBRCSize))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPMax))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPMin))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAVBRAccuarcy))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAVBRConvergence))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUWinBRCSize))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPMax))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPMin))->BeginInit();
             this->fcgPNICQ->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUICQQuality))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUSlices))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUICQQuality))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUSlices))->BeginInit();
             this->fcggroupBoxColor->SuspendLayout();
             this->fcgGroupBoxAspectRatio->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAspectRatioY))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAspectRatioX))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUGopLength))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUBframes))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNURef))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioX))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUBframes))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNURef))->BeginInit();
             this->fcgPNLookahead->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNULookaheadDepth))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->BeginInit();
             this->fcgPNBitrate->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUBitrate))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUMaxkbps))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUBitrate))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUMaxkbps))->BeginInit();
             this->fcgPNQP->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPI))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPP))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPB))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPI))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPP))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPB))->BeginInit();
             this->fcgPNQVBR->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQVBR))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQVBR))->BeginInit();
             this->tabPageVpp->SuspendLayout();
             this->fcggroupBoxDetail->SuspendLayout();
             this->fcgPNExtSettings->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUMVSearchWindow))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUMVSearchWindow))->BeginInit();
             this->fcggroupBoxVpp->SuspendLayout();
             this->groupBox1->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppMctf))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppMctf))->BeginInit();
             this->fcggroupBoxVppDetail->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppDetail))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetail))->BeginInit();
             this->fcggroupBoxVppDenoise->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppDenoise))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoise))->BeginInit();
             this->fcggroupBoxVppResize->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppResizeW))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppResizeH))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeW))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeH))->BeginInit();
             this->tabPageExOpt->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUInputBufSize))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUInputBufSize))->BeginInit();
             this->tabPageFeatures->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgDGVFeatures))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->BeginInit();
             this->fcgCSExeFiles->SuspendLayout();
             this->fcgtabControlAudio->SuspendLayout();
             this->fcgtabPageAudioMain->SuspendLayout();
             this->fcgPNAudioInternal->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAudioBitrateInternal))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->BeginInit();
             this->fcgPNAudioExt->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAudioBitrate))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
             this->fcggroupBoxAvqsv->SuspendLayout();
             this->SuspendLayout();
@@ -1507,7 +1511,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgtoolStripSettings
             // 
             this->fcgtoolStripSettings->ImageScalingSize = System::Drawing::Size(18, 18);
-            this->fcgtoolStripSettings->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem ^  >(10) {
+            this->fcgtoolStripSettings->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(10) {
                 this->fcgTSBSave,
                     this->fcgTSBSaveNew, this->fcgTSBDelete, this->fcgtoolStripSeparator1, this->fcgTSSettings, this->fcgTSBBitrateCalc, this->toolStripSeparator2,
                     this->fcgTSBOtherSettings, this->fcgTSLSettingsNotes, this->fcgTSTSettingsNotes
@@ -2311,6 +2315,8 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXOutputCsp);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBOutputCsp);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNAVBR);
             this->tabPageVideoEnc->Controls->Add(this->fcgBTVideoEncoderPath);
             this->tabPageVideoEnc->Controls->Add(this->fcgTXVideoEncoderPath);
@@ -2731,7 +2737,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgLBBlurayCompat
             // 
             this->fcgLBBlurayCompat->AutoSize = true;
-            this->fcgLBBlurayCompat->Location = System::Drawing::Point(355, 159);
+            this->fcgLBBlurayCompat->Location = System::Drawing::Point(355, 155);
             this->fcgLBBlurayCompat->Name = L"fcgLBBlurayCompat";
             this->fcgLBBlurayCompat->Size = System::Drawing::Size(85, 14);
             this->fcgLBBlurayCompat->TabIndex = 130;
@@ -2740,7 +2746,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgCBBlurayCompat
             // 
             this->fcgCBBlurayCompat->AutoSize = true;
-            this->fcgCBBlurayCompat->Location = System::Drawing::Point(454, 160);
+            this->fcgCBBlurayCompat->Location = System::Drawing::Point(454, 156);
             this->fcgCBBlurayCompat->Name = L"fcgCBBlurayCompat";
             this->fcgCBBlurayCompat->Size = System::Drawing::Size(15, 14);
             this->fcgCBBlurayCompat->TabIndex = 131;
@@ -2762,7 +2768,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgLBSlices2
             // 
             this->fcgLBSlices2->AutoSize = true;
-            this->fcgLBSlices2->Location = System::Drawing::Point(536, 287);
+            this->fcgLBSlices2->Location = System::Drawing::Point(536, 295);
             this->fcgLBSlices2->Name = L"fcgLBSlices2";
             this->fcgLBSlices2->Size = System::Drawing::Size(66, 14);
             this->fcgLBSlices2->TabIndex = 140;
@@ -2770,7 +2776,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // 
             // fcgNUSlices
             // 
-            this->fcgNUSlices->Location = System::Drawing::Point(455, 285);
+            this->fcgNUSlices->Location = System::Drawing::Point(455, 293);
             this->fcgNUSlices->Name = L"fcgNUSlices";
             this->fcgNUSlices->Size = System::Drawing::Size(70, 21);
             this->fcgNUSlices->TabIndex = 139;
@@ -2780,7 +2786,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgLBSlices
             // 
             this->fcgLBSlices->AutoSize = true;
-            this->fcgLBSlices->Location = System::Drawing::Point(355, 287);
+            this->fcgLBSlices->Location = System::Drawing::Point(355, 295);
             this->fcgLBSlices->Name = L"fcgLBSlices";
             this->fcgLBSlices->Size = System::Drawing::Size(50, 14);
             this->fcgLBSlices->TabIndex = 138;
@@ -2971,7 +2977,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // 
             this->fcgCXInterlaced->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXInterlaced->FormattingEnabled = true;
-            this->fcgCXInterlaced->Location = System::Drawing::Point(454, 187);
+            this->fcgCXInterlaced->Location = System::Drawing::Point(454, 179);
             this->fcgCXInterlaced->Name = L"fcgCXInterlaced";
             this->fcgCXInterlaced->Size = System::Drawing::Size(121, 22);
             this->fcgCXInterlaced->TabIndex = 133;
@@ -2980,7 +2986,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgLBInterlaced
             // 
             this->fcgLBInterlaced->AutoSize = true;
-            this->fcgLBInterlaced->Location = System::Drawing::Point(355, 190);
+            this->fcgLBInterlaced->Location = System::Drawing::Point(355, 182);
             this->fcgLBInterlaced->Name = L"fcgLBInterlaced";
             this->fcgLBInterlaced->Size = System::Drawing::Size(64, 14);
             this->fcgLBInterlaced->TabIndex = 132;
@@ -3009,7 +3015,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // 
             this->fcgCXCodecLevel->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXCodecLevel->FormattingEnabled = true;
-            this->fcgCXCodecLevel->Location = System::Drawing::Point(454, 251);
+            this->fcgCXCodecLevel->Location = System::Drawing::Point(454, 235);
             this->fcgCXCodecLevel->Name = L"fcgCXCodecLevel";
             this->fcgCXCodecLevel->Size = System::Drawing::Size(121, 22);
             this->fcgCXCodecLevel->TabIndex = 137;
@@ -3019,7 +3025,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // 
             this->fcgCXCodecProfile->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXCodecProfile->FormattingEnabled = true;
-            this->fcgCXCodecProfile->Location = System::Drawing::Point(454, 219);
+            this->fcgCXCodecProfile->Location = System::Drawing::Point(454, 207);
             this->fcgCXCodecProfile->Name = L"fcgCXCodecProfile";
             this->fcgCXCodecProfile->Size = System::Drawing::Size(121, 22);
             this->fcgCXCodecProfile->TabIndex = 135;
@@ -3028,7 +3034,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgLBCodecLevel
             // 
             this->fcgLBCodecLevel->AutoSize = true;
-            this->fcgLBCodecLevel->Location = System::Drawing::Point(355, 254);
+            this->fcgLBCodecLevel->Location = System::Drawing::Point(355, 238);
             this->fcgLBCodecLevel->Name = L"fcgLBCodecLevel";
             this->fcgLBCodecLevel->Size = System::Drawing::Size(33, 14);
             this->fcgLBCodecLevel->TabIndex = 136;
@@ -3037,7 +3043,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgLBCodecProfile
             // 
             this->fcgLBCodecProfile->AutoSize = true;
-            this->fcgLBCodecProfile->Location = System::Drawing::Point(355, 222);
+            this->fcgLBCodecProfile->Location = System::Drawing::Point(355, 210);
             this->fcgLBCodecProfile->Name = L"fcgLBCodecProfile";
             this->fcgLBCodecProfile->Size = System::Drawing::Size(53, 14);
             this->fcgLBCodecProfile->TabIndex = 134;
@@ -3095,7 +3101,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // 
             this->fcgCXEncMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXEncMode->FormattingEnabled = true;
-            this->fcgCXEncMode->Items->AddRange(gcnew cli::array< System::Object ^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXEncMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
             this->fcgCXEncMode->Location = System::Drawing::Point(61, 121);
             this->fcgCXEncMode->Name = L"fcgCXEncMode";
             this->fcgCXEncMode->Size = System::Drawing::Size(199, 22);
@@ -3125,7 +3131,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // 
             this->fcgCXQuality->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXQuality->FormattingEnabled = true;
-            this->fcgCXQuality->Items->AddRange(gcnew cli::array< System::Object ^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXQuality->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
             this->fcgCXQuality->Location = System::Drawing::Point(61, 91);
             this->fcgCXQuality->Name = L"fcgCXQuality";
             this->fcgCXQuality->Size = System::Drawing::Size(160, 22);
@@ -4158,7 +4164,7 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             // fcgCSExeFiles
             // 
             this->fcgCSExeFiles->ImageScalingSize = System::Drawing::Size(18, 18);
-            this->fcgCSExeFiles->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem ^  >(1) { this->fcgTSExeFileshelp });
+            this->fcgCSExeFiles->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(1) { this->fcgTSExeFileshelp });
             this->fcgCSExeFiles->Name = L"fcgCSx264";
             this->fcgCSExeFiles->Size = System::Drawing::Size(131, 26);
             // 
@@ -4785,6 +4791,25 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->fcgTXCmd->TabIndex = 4;
             this->fcgTXCmd->DoubleClick += gcnew System::EventHandler(this, &frmConfig::fcgTXCmd_DoubleClick);
             // 
+            // fcgCXOutputCsp
+            // 
+            this->fcgCXOutputCsp->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXOutputCsp->FormattingEnabled = true;
+            this->fcgCXOutputCsp->Location = System::Drawing::Point(455, 263);
+            this->fcgCXOutputCsp->Name = L"fcgCXOutputCsp";
+            this->fcgCXOutputCsp->Size = System::Drawing::Size(121, 22);
+            this->fcgCXOutputCsp->TabIndex = 177;
+            this->fcgCXOutputCsp->Tag = L"reCmd";
+            // 
+            // fcgLBOutputCsp
+            // 
+            this->fcgLBOutputCsp->AutoSize = true;
+            this->fcgLBOutputCsp->Location = System::Drawing::Point(356, 266);
+            this->fcgLBOutputCsp->Name = L"fcgLBOutputCsp";
+            this->fcgLBOutputCsp->Size = System::Drawing::Size(63, 14);
+            this->fcgLBOutputCsp->TabIndex = 176;
+            this->fcgLBOutputCsp->Text = L"色フォーマット";
+            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -4832,77 +4857,77 @@ private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
             this->tabPageVideoEnc->PerformLayout();
             this->fcgPNAVBR->ResumeLayout(false);
             this->fcgPNAVBR->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAVBRAccuarcy))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAVBRConvergence))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUWinBRCSize))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPMax))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPMin))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAVBRAccuarcy))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAVBRConvergence))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUWinBRCSize))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPMax))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPMin))->EndInit();
             this->fcgPNICQ->ResumeLayout(false);
             this->fcgPNICQ->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUICQQuality))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUSlices))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUICQQuality))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUSlices))->EndInit();
             this->fcggroupBoxColor->ResumeLayout(false);
             this->fcggroupBoxColor->PerformLayout();
             this->fcgGroupBoxAspectRatio->ResumeLayout(false);
             this->fcgGroupBoxAspectRatio->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAspectRatioY))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAspectRatioX))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUGopLength))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUBframes))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNURef))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioX))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUGopLength))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUBframes))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNURef))->EndInit();
             this->fcgPNLookahead->ResumeLayout(false);
             this->fcgPNLookahead->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNULookaheadDepth))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNULookaheadDepth))->EndInit();
             this->fcgPNBitrate->ResumeLayout(false);
             this->fcgPNBitrate->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUBitrate))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUMaxkbps))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUBitrate))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUMaxkbps))->EndInit();
             this->fcgPNQP->ResumeLayout(false);
             this->fcgPNQP->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPI))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPP))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQPB))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPI))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPP))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQPB))->EndInit();
             this->fcgPNQVBR->ResumeLayout(false);
             this->fcgPNQVBR->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUQVBR))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUQVBR))->EndInit();
             this->tabPageVpp->ResumeLayout(false);
             this->tabPageVpp->PerformLayout();
             this->fcggroupBoxDetail->ResumeLayout(false);
             this->fcggroupBoxDetail->PerformLayout();
             this->fcgPNExtSettings->ResumeLayout(false);
             this->fcgPNExtSettings->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUMVSearchWindow))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUMVSearchWindow))->EndInit();
             this->fcggroupBoxVpp->ResumeLayout(false);
             this->fcggroupBoxVpp->PerformLayout();
             this->groupBox1->ResumeLayout(false);
             this->groupBox1->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppMctf))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppMctf))->EndInit();
             this->fcggroupBoxVppDetail->ResumeLayout(false);
             this->fcggroupBoxVppDetail->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppDetail))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetail))->EndInit();
             this->fcggroupBoxVppDenoise->ResumeLayout(false);
             this->fcggroupBoxVppDenoise->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppDenoise))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoise))->EndInit();
             this->fcggroupBoxVppResize->ResumeLayout(false);
             this->fcggroupBoxVppResize->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppResizeW))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUVppResizeH))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeW))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppResizeH))->EndInit();
             this->tabPageExOpt->ResumeLayout(false);
             this->tabPageExOpt->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUInputBufSize))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUInputBufSize))->EndInit();
             this->tabPageFeatures->ResumeLayout(false);
             this->tabPageFeatures->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgDGVFeatures))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->EndInit();
             this->fcgCSExeFiles->ResumeLayout(false);
             this->fcgtabControlAudio->ResumeLayout(false);
             this->fcgtabPageAudioMain->ResumeLayout(false);
             this->fcgtabPageAudioMain->PerformLayout();
             this->fcgPNAudioInternal->ResumeLayout(false);
             this->fcgPNAudioInternal->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAudioBitrateInternal))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->EndInit();
             this->fcgPNAudioExt->ResumeLayout(false);
             this->fcgPNAudioExt->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize ^>(this->fcgNUAudioBitrate))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
             this->fcggroupBoxAvqsv->ResumeLayout(false);

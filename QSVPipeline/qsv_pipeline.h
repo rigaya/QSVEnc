@@ -213,10 +213,7 @@ protected:
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();
     virtual RGY_ERR InitSession(bool useHWLib, uint32_t memType);
-    int getEncoderBitdepth(const sInputParams *pParams) const;
     RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift = nullptr) const;
-    RGY_CSP getMFXCsp(const RGY_CSP csp) const;
-    RGY_CSP getMFXCsp(const RGY_CHROMAFMT chroma, const int bitdepth) const;
 
     virtual RGY_ERR readChapterFile(tstring chapfile);
 

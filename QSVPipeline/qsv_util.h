@@ -106,6 +106,44 @@ static bool fourccShiftUsed(const uint32_t fourcc) {
     return cspShiftUsed(csp);
 }
 
+static int getEncoderBitdepth(const sInputParams *pParams) {
+    switch (pParams->CodecId) {
+    case MFX_CODEC_HEVC:
+    case MFX_CODEC_VP9:
+    case MFX_CODEC_AV1:
+        return pParams->outputDepth;
+    case MFX_CODEC_AVC:
+    case MFX_CODEC_VP8:
+    case MFX_CODEC_MPEG2:
+    case MFX_CODEC_VC1:
+        break;
+    default:
+        return 0;
+    }
+    return 8;
+}
+
+static RGY_CSP getMFXCsp(const RGY_CHROMAFMT chroma, const int bitdepth) {
+    if (bitdepth > 8) {
+        switch (chroma) {
+        case RGY_CHROMAFMT_YUV420: return RGY_CSP_P010;
+        case RGY_CHROMAFMT_YUV422: return RGY_CSP_Y210;
+        case RGY_CHROMAFMT_YUV444: return (bitdepth > 10) ? RGY_CSP_Y416 : RGY_CSP_Y410;
+        default: return RGY_CSP_NA;
+        }
+    }
+    switch (chroma) {
+    case RGY_CHROMAFMT_YUV420: return RGY_CSP_NV12;
+    case RGY_CHROMAFMT_YUV422: return RGY_CSP_YUY2;
+    case RGY_CHROMAFMT_YUV444: return RGY_CSP_AYUV;
+    default: return RGY_CSP_NA;
+    }
+}
+
+static RGY_CSP getMFXCsp(const RGY_CSP csp) {
+    return getMFXCsp(RGY_CSP_CHROMA_FORMAT[csp], RGY_CSP_BIT_DEPTH[csp]);
+}
+
 mfxFrameInfo toMFXFrameInfo(VideoInfo info);
 
 tstring qsv_memtype_str(uint32_t memtype);

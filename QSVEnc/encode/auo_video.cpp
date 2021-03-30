@@ -119,9 +119,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
     sInputParams enc_prm;
     parse_cmd(&enc_prm, conf->qsv.cmd);
-
-    use_highbit = enc_prm.CodecId == MFX_CODEC_HEVC && enc_prm.CodecProfile == MFX_PROFILE_HEVC_MAIN10;
-    csp = (use_highbit) ? RGY_CSP_P010 : RGY_CSP_NV12;
+    csp = getMFXCsp(enc_prm.outputCsp, getEncoderBitdepth(&enc_prm));
 }
 
 static int calc_input_frame_size(int width, int height, int color_format, int& buf_size) {
