@@ -2126,7 +2126,11 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 
 RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
     FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, const sInputCrop *crop, const std::pair<int, int> resize) {
-    
+
+    if (vppType == VppType::CL_COLORSPACE) {
+        PrintMes(RGY_LOG_ERROR, _T("unsupported parameters for --vpp-colorspace.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     //afs
     if (vppType == VppType::CL_AFS) {
 #if 0
