@@ -421,7 +421,7 @@ public:
         return m_surface;
     }
     void ptrArray(void *array[3], bool bRGB) {
-        array[0] = (bRGB) ? ptrRGB() : m_surface.Data.Y;
+        array[0] = (m_surface.Info.FourCC == MFX_FOURCC_Y410) ? (void *)m_surface.Data.Y410 : ((bRGB) ? ptrRGB() : m_surface.Data.Y);
         array[1] = m_surface.Data.UV;
         array[2] = m_surface.Data.V;
     }

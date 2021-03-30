@@ -107,6 +107,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     }
 
     switch (chromafmt) {
+    case RGY_CHROMAFMT_YUVA444:
     case RGY_CHROMAFMT_YUV444:
         return CF_YC48;
     case RGY_CHROMAFMT_YUV420:
@@ -120,8 +121,19 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
     sInputParams enc_prm;
     parse_cmd(&enc_prm, conf->qsv.cmd);
     const int bitdepth = getEncoderBitdepth(&enc_prm);
-    csp = getMFXCsp(enc_prm.outputCsp, bitdepth);
     use_highbit = bitdepth > 8;
+
+    csp = getMFXCsp(enc_prm.outputCsp, bitdepth);
+    switch (enc_prm.outputCsp) {
+    case RGY_CHROMAFMT_YUV444:
+    case RGY_CHROMAFMT_YUV422:
+        csp = use_highbit ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+        break;
+    case RGY_CHROMAFMT_YUV420:
+    default:
+        csp = use_highbit ? RGY_CSP_P010 : RGY_CSP_NV12;
+        break;
+    }
 }
 
 static int calc_input_frame_size(int width, int height, int color_format, int& buf_size) {

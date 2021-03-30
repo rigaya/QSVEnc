@@ -1212,6 +1212,104 @@ static void RGY_FORCEINLINE convert_yuv422_high_to_p210_simd(void **dst, const v
     }
 }
 
+static void RGY_FORCEINLINE copy_yuv444_to_ayuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    uint8_t *srcYLine = (uint8_t *)src[0] + src_y_pitch_byte  * y_range.start_src + crop_left;
+    uint8_t *srcULine = (uint8_t *)src[1] + src_uv_pitch_byte * y_range.start_src + crop_left;
+    uint8_t *srcVLine = (uint8_t *)src[2] + src_uv_pitch_byte * y_range.start_src + crop_left;
+    uint8_t *dstLine = (uint8_t *)dst[0] + dst_y_pitch_byte * y_range.start_dst;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch_byte, srcULine += src_uv_pitch_byte, srcVLine += src_uv_pitch_byte, dstLine += dst_y_pitch_byte) {
+        uint8_t *src_y_ptr = srcYLine;
+        uint8_t *src_u_ptr = srcULine;
+        uint8_t *src_v_ptr = srcVLine;
+        uint8_t *dst_ptr = dstLine;
+        for (int x = 0; x < y_width; x += 16, src_y_ptr += 16, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 64) {
+            __m128i pixY = _mm_loadu_si128((const __m128i *)src_y_ptr);
+            __m128i pixU = _mm_loadu_si128((const __m128i *)src_u_ptr);
+            __m128i pixV = _mm_loadu_si128((const __m128i *)src_v_ptr);
+
+            __m128i pixAY0 = _mm_unpacklo_epi8(pixY, _mm_setzero_si128());
+            __m128i pixAY1 = _mm_unpackhi_epi8(pixY, _mm_setzero_si128());
+            __m128i pixUV0 = _mm_unpacklo_epi8(pixV, pixU);
+            __m128i pixUV1 = _mm_unpackhi_epi8(pixV, pixU);
+            __m128i pixVUYA0 = _mm_unpacklo_epi16(pixAY0, pixUV0);
+            __m128i pixVUYA1 = _mm_unpackhi_epi16(pixAY0, pixUV0);
+            __m128i pixVUYA2 = _mm_unpacklo_epi16(pixAY1, pixUV1);
+            __m128i pixVUYA3 = _mm_unpackhi_epi16(pixAY1, pixUV1);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr +  0), pixVUYA0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 16), pixVUYA1);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 32), pixVUYA2);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 48), pixVUYA3);
+        }
+    }
+}
+
+template<int in_bit_depth>
+static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
+    const int crop_left = crop[0];
+    const int crop_up = crop[1];
+    const int crop_right = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte >> 1;
+    const int src_uv_pitch = src_uv_pitch_byte >> 1;
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const __m128i xrsftAdd = _mm_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    uint16_t *srcYLine = (uint16_t *)src[0] + src_y_pitch  * y_range.start_src + crop_left;
+    uint16_t *srcULine = (uint16_t *)src[1] + src_uv_pitch * y_range.start_src + crop_left;
+    uint16_t *srcVLine = (uint16_t *)src[2] + src_uv_pitch * y_range.start_src + crop_left;
+    uint8_t *dstLine = (uint8_t *)dst[0]  + dst_y_pitch_byte * y_range.start_dst;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, srcULine += src_uv_pitch, srcVLine += src_uv_pitch, dstLine += dst_y_pitch_byte) {
+        uint16_t *src_y_ptr = srcYLine;
+        uint16_t *src_u_ptr = srcULine;
+        uint16_t *src_v_ptr = srcVLine;
+        uint8_t *dst_ptr = dstLine;
+        for (int x = 0; x < y_width; x += 16, src_y_ptr += 16, src_u_ptr += 16, src_v_ptr += 16, dst_ptr += 64) {
+            __m128i pixY0 = _mm_loadu_si128((const __m128i *)(src_y_ptr + 0));
+            __m128i pixU0 = _mm_loadu_si128((const __m128i *)(src_u_ptr + 0));
+            __m128i pixV0 = _mm_loadu_si128((const __m128i *)(src_v_ptr + 0));
+            __m128i pixY1 = _mm_loadu_si128((const __m128i *)(src_y_ptr + 8));
+            __m128i pixU1 = _mm_loadu_si128((const __m128i *)(src_u_ptr + 8));
+            __m128i pixV1 = _mm_loadu_si128((const __m128i *)(src_v_ptr + 8));
+            pixY0 = _mm_adds_epi16(pixY0, xrsftAdd);
+            pixU0 = _mm_adds_epi16(pixU0, xrsftAdd);
+            pixV0 = _mm_adds_epi16(pixV0, xrsftAdd);
+            pixY1 = _mm_adds_epi16(pixY1, xrsftAdd);
+            pixU1 = _mm_adds_epi16(pixU1, xrsftAdd);
+            pixV1 = _mm_adds_epi16(pixV1, xrsftAdd);
+            pixY0 = _mm_srli_epi16(pixY0, in_bit_depth - 8);
+            pixU0 = _mm_srli_epi16(pixU0, in_bit_depth - 8);
+            pixV0 = _mm_srli_epi16(pixV0, in_bit_depth - 8);
+            pixY1 = _mm_srli_epi16(pixY1, in_bit_depth - 8);
+            pixU1 = _mm_srli_epi16(pixU1, in_bit_depth - 8);
+            pixV1 = _mm_srli_epi16(pixV1, in_bit_depth - 8);
+            __m128i pixY = _mm_packus_epi16(pixY0, pixY1);
+            __m128i pixU = _mm_packus_epi16(pixU0, pixU1);
+            __m128i pixV = _mm_packus_epi16(pixV0, pixV1);
+
+            __m128i pixAY0 = _mm_unpacklo_epi8(pixY, _mm_setzero_si128());
+            __m128i pixAY1 = _mm_unpackhi_epi8(pixY, _mm_setzero_si128());
+            __m128i pixUV0 = _mm_unpacklo_epi8(pixV, pixU);
+            __m128i pixUV1 = _mm_unpackhi_epi8(pixV, pixU);
+            __m128i pixVUYA0 = _mm_unpacklo_epi16(pixAY0, pixUV0);
+            __m128i pixVUYA1 = _mm_unpackhi_epi16(pixAY0, pixUV0);
+            __m128i pixVUYA2 = _mm_unpacklo_epi16(pixAY1, pixUV1);
+            __m128i pixVUYA3 = _mm_unpackhi_epi16(pixAY1, pixUV1);
+
+            _mm_storeu_si128((__m128i *)(dst_ptr + 0), pixVUYA0);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 16), pixVUYA1);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 32), pixVUYA2);
+            _mm_storeu_si128((__m128i *)(dst_ptr + 48), pixVUYA3);
+        }
+    }
+}
+
 static void RGY_FORCEINLINE copy_yuv444_to_yuv444(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
