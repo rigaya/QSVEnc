@@ -1083,13 +1083,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //m_EncExtParams.push_back((mfxExtBuffer *)&m_chromalocInfo);
     }
 
-    m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
-    if (encodeBitDepth > 8) {
-        m_mfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_P010;
-        m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)encodeBitDepth;
-        m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)encodeBitDepth;
-        m_mfxEncParams.mfx.FrameInfo.Shift = 1;
-    }
+    const int encBitdepth = getEncoderBitdepth(pInParams);
+    const auto encCsp = getEncoderCsp(pInParams);
+    m_mfxEncParams.mfx.FrameInfo.FourCC = csp_rgy_to_enc(encCsp);
+    m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)encBitdepth;
+    m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)encBitdepth;
+    m_mfxEncParams.mfx.FrameInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[encCsp]);
+    m_mfxEncParams.mfx.FrameInfo.Shift = (cspShiftUsed(encCsp) && RGY_CSP_BIT_DEPTH[encCsp] - encBitdepth > 0) ? 1 : 0;
     m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(m_encWidth, blocksz);
     m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)ALIGN(m_encHeight, blocksz * ((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct) ? 1:2));
 
@@ -1097,6 +1097,16 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.FrameInfo.CropY = 0;
     m_mfxEncParams.mfx.FrameInfo.CropW = (mfxU16)m_encWidth;
     m_mfxEncParams.mfx.FrameInfo.CropH = (mfxU16)m_encHeight;
+
+    if (m_mfxEncParams.mfx.FrameInfo.ChromaFormat == MFX_CHROMAFORMAT_YUV444) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15) && !pInParams->bUseFixedFunc) {
+            PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as encoding in YUV444 requires FF mode.\n"));
+            m_mfxEncParams.mfx.LowPower = (mfxU16)MFX_CODINGOPTION_ON;
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("Encoding in YUV444 is not supported on this platform.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
 
     // In case of HEVC when height and/or width divided with 8 but not divided with 16
     // add extended parameter to increase performance
