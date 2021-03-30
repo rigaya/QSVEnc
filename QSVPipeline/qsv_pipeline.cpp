@@ -2013,7 +2013,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
                     || conv_from.colorprim != conv_to.colorprim
                     || conv_from.transfer  != conv_to.transfer) {
                     requireOpenCL = true;
-                } else if ((conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
+                } else if ( conv_from.matrix != conv_to.matrix
+                        && (conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
                         && (conv_to.matrix   != RGY_MATRIX_ST170_M && conv_to.matrix   != RGY_MATRIX_BT709)) {
                     requireOpenCL = true;
                 }
