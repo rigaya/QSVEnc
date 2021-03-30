@@ -240,6 +240,18 @@ Set input colorspace for --raw input. Default is yv12.
   yuv444p, yuv444p9le, yuv444p10le, yuv444p12le, yuv444p14le, yuv444p16le
 ```
 
+### --output-csp &lt;string&gt;
+Set output colorspace. Default is i420.
+```
+i420, i422, i444
+```
+
+### --output-depth &lt;int&gt;
+Set output bit depth. Default is 8.
+```
+8, 10
+```
+
 ## Encode Mode Options
 
 The default is CQP (Constant quantization).
