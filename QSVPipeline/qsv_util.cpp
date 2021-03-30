@@ -195,6 +195,7 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
 RGY_NOINLINE
 VideoInfo videooutputinfo(const mfxFrameInfo& frameinfo) {
     VideoInfo info;
+    info.codec = RGY_CODEC_UNKNOWN;
     info.dstWidth = frameinfo.CropW;
     info.dstHeight = frameinfo.CropH;
     info.fpsN = frameinfo.FrameRateExtN;

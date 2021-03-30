@@ -1723,6 +1723,9 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
         return err;
     }
+    if (!m_pmfxENC) {
+        outFrameInfo->videoPrm.mfx.CodecId = 0; //エンコードしない場合は出力コーデックはraw(=0)
+    }
     const auto outputVideoInfo = (outFrameInfo->isVppParam) ? videooutputinfo(outFrameInfo->videoPrmVpp.vpp.Out) : videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
     if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
@@ -3362,6 +3365,8 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
 
     if (m_pmfxENC) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_outputTimestamp, m_pQSVLog));
+    } else {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_mfxSession, 1, m_mfxVer, m_pQSVLog));
     }
 
     if (m_pipelineTasks.size() == 0) {

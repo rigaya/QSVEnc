@@ -284,6 +284,7 @@ enum class PipelineTaskType {
     CHECKPTS,
     TRIM,
     AUDIO,
+    OUTPUTRAW,
     OPENCL,
 };
 
@@ -298,6 +299,7 @@ static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     case PipelineTaskType::TRIM:      return _T("TRIM");
     case PipelineTaskType::OPENCL:    return _T("OPENCL");
     case PipelineTaskType::AUDIO:     return _T("AUDIO");
+    case PipelineTaskType::OUTPUTRAW: return _T("OUTRAW");
     default: return _T("UNKNOWN");
     }
 }
@@ -314,6 +316,7 @@ static const int getPipelineTaskAllocPriority(PipelineTaskType type) {
     case PipelineTaskType::TRIM:
     case PipelineTaskType::OPENCL:
     case PipelineTaskType::AUDIO:
+    case PipelineTaskType::OUTPUTRAW:
     default: return 0;
     }
 }
@@ -1472,5 +1475,21 @@ public:
     }
 };
 
+class PipelineTaskOutputRaw : public PipelineTask {
+public:
+    PipelineTaskOutputRaw(MFXVideoSession *mfxSession, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OUTPUTRAW, outMaxQueueSize, mfxSession, mfxVer, log) {
+    };
+    virtual ~PipelineTaskOutputRaw() {};
 
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        m_inFrames++;
+        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
+        return RGY_ERR_NONE;
+    }
+};
 #endif // __QSV_PIPELINE_CTRL_H__
