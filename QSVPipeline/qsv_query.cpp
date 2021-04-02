@@ -292,6 +292,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
         break;
     case MFX_CODEC_AV1:
         videoPrm.mfx.CodecProfile        = MFX_PROFILE_AV1_MAIN;
+        videoPrm.mfx.CodecLevel          = MFX_LEVEL_AV1_4;
         break;
     default:
         return supportedCsp;
@@ -382,7 +383,11 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
         } else if (codecId == MFX_CODEC_VP9) {
             videoPrm.mfx.CodecProfile = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_PROFILE_VP9_2 : MFX_PROFILE_VP9_0);
         } else if (codecId == MFX_CODEC_AV1) {
-            videoPrm.mfx.CodecProfile = MFX_PROFILE_AV1_MAIN;
+            if (RGY_CSP_CHROMA_FORMAT[test] == RGY_CHROMAFMT_YUV420) {
+                videoPrm.mfx.CodecProfile = MFX_PROFILE_AV1_MAIN;
+            } else {
+                videoPrm.mfx.CodecProfile = MFX_PROFILE_AV1_PRO;
+            }
         } else {
             break;
         }
