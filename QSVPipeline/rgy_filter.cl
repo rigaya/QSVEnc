@@ -89,24 +89,24 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 
 #define BIT_DEPTH_CONV_7x1_AVG(a, b) (TypeOut)conv_bit_depth(((a)<<3)-(a)+(b), in_bit_depth, out_bit_depth, 3)
 
-#define LOAD_IMG(src, ix, iy) (TypeIn)(read_imageui((src), sampler, (int2)((ix), (iy))).x)
-#define LOAD_IMG_AYUV(src, ix, iy) (TypeIn4)(read_imageui((src), sampler, (int2)((ix), (iy))))
-#define LOAD_IMG_NV12_UV(src, src_u, src_v, ix, iy, cropX, cropY) { \
-    uint4 ret = read_imageui((src), sampler, (int2)((ix) + ((cropX)>>1), (iy) + ((cropY)>>1))); \
+#define LOAD_IMG(src_img, ix, iy) (TypeIn)(read_imageui((src_img), sampler, (int2)((ix), (iy))).x)
+#define LOAD_IMG_AYUV(src_img, ix, iy) (TypeIn4)(read_imageui((src_img), sampler, (int2)((ix), (iy))))
+#define LOAD_IMG_NV12_UV(src_img, src_u, src_v, ix, iy, cropX, cropY) { \
+    uint4 ret = read_imageui((src_img), sampler, (int2)((ix) + ((cropX)>>1), (iy) + ((cropY)>>1))); \
     (src_u) = (TypeIn)ret.x; \
     (src_v) = (TypeIn)ret.y; \
 }
-#define LOAD_BUF(src, ix, iy) *(__global TypeIn *)(&(src)[(iy) * srcPitch + (ix) * sizeof(TypeIn)])
-#define LOAD_BUF_AYUV(src, ix, iy) *(__global TypeIn4 *)(&(src)[(iy) * srcPitch + (ix) * sizeof(TypeIn)])
-#define LOAD_BUF_NV12_UV(src, src_u, src_v, ix, iy, cropX, cropY) { \
-    (src_u) = LOAD((src), ((ix)<<1) + 0 + (cropX), (iy) + ((cropY)>>1)); \
-    (src_v) = LOAD((src), ((ix)<<1) + 1 + (cropX), (iy) + ((cropY)>>1)); \
+#define LOAD_BUF(src_buf, ix, iy) *(__global TypeIn *)(&(src_buf)[(iy) * srcPitch + (ix) * sizeof(TypeIn)])
+#define LOAD_BUF_AYUV(src_buf, ix, iy) *(__global TypeIn4 *)(&(src_buf)[(iy) * srcPitch + (ix) * sizeof(TypeIn)])
+#define LOAD_BUF_NV12_UV(src_buf, src_u, src_v, ix, iy, cropX, cropY) { \
+    (src_u) = LOAD((src_buf), ((ix)<<1) + 0 + (cropX), (iy) + ((cropY)>>1)); \
+    (src_v) = LOAD((src_buf), ((ix)<<1) + 1 + (cropX), (iy) + ((cropY)>>1)); \
 }
 
-#define LOAD_IMG_NORM(src, ix, iy) (TypeIn)(read_imagef((src), sampler, (int2)((ix), (iy))).x * NORM_SCALE_IN + 0.5f)
-#define LOAD_IMG_NORM_AYUV(src, ix, iy) convert_TypeIn4(read_imagef((src), sampler, (int2)((ix), (iy))) * (float4)NORM_SCALE_IN + (float4)0.5f)
-#define LOAD_IMG_NORM_NV12_UV(src, src_u, src_v, ix, iy, cropX, cropY) { \
-    float4 ret = read_imagef((src), sampler, (int2)((ix) + ((cropX)>>1), (iy) + ((cropY)>>1))); \
+#define LOAD_IMG_NORM(src_img, ix, iy) (TypeIn)(read_imagef((src_img), sampler, (int2)((ix), (iy))).x * NORM_SCALE_IN + 0.5f)
+#define LOAD_IMG_NORM_AYUV(src_img, ix, iy) convert_TypeIn4(read_imagef((src_img), sampler, (int2)((ix), (iy))) * (float4)NORM_SCALE_IN + (float4)0.5f)
+#define LOAD_IMG_NORM_NV12_UV(src_img, src_u, src_v, ix, iy, cropX, cropY) { \
+    float4 ret = read_imagef((src_img), sampler, (int2)((ix) + ((cropX)>>1), (iy) + ((cropY)>>1))); \
     (src_u) = (TypeIn)(ret.x * NORM_SCALE_IN + 0.5f); \
     (src_v) = (TypeIn)(ret.y * NORM_SCALE_IN + 0.5f); \
 }
@@ -128,29 +128,29 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #define LOAD_NV12_UV LOAD_BUF_NV12_UV
 #endif
 
-#define STORE_IMG(dst, ix, iy, val) write_imageui((dst), (int2)((ix), (iy)), (val))
-#define STORE_IMG_NV12_UV(dst, ix, iy, val_u, val_v) { \
+#define STORE_IMG(dst_img, ix, iy, val) write_imageui((dst_img), (int2)((ix), (iy)), (val))
+#define STORE_IMG_NV12_UV(dst_img, ix, iy, val_u, val_v) { \
     uint4 val = (uint4)(val_u, val_v, val_v, val_v); \
-    write_imageui((dst), (int2)((ix), (iy)), (val)); \
+    write_imageui((dst_img), (int2)((ix), (iy)), (val)); \
 }
 
-#define STORE_IMG_NORM(dst, ix, iy, val) write_imagef((dst), (int2)((ix), (iy)), (val * NORM_SCALE_OUT))
-#define STORE_IMG_NORM_AYUV(dst, ix, iy, val) write_imagef((dst), (int2)((ix), (iy)), (convert_float4(val) * (float4)NORM_SCALE_OUT))
-#define STORE_IMG_NORM_NV12_UV(dst, ix, iy, val_u, val_v) { \
+#define STORE_IMG_NORM(dst_img, ix, iy, val) write_imagef(dst_img, (int2)((ix), (iy)), (val * NORM_SCALE_OUT))
+#define STORE_IMG_NORM_AYUV(dst_img, ix, iy, val) write_imagef(dst_img, (int2)((ix), (iy)), (convert_float4(val) * (float4)NORM_SCALE_OUT))
+#define STORE_IMG_NORM_NV12_UV(dst_img, ix, iy, val_u, val_v) { \
     float4 val = (float4)(val_u * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT, val_v * NORM_SCALE_OUT); \
-    write_imagef((dst), (int2)((ix), (iy)), (val)); \
+    write_imagef(dst_img, (int2)((ix), (iy)), (val)); \
 }
-#define STORE_BUF(dst, ix, iy, val)  { \
-    __global TypeOut *ptr = (__global TypeOut *)(&(dst)[(iy) * dstPitch + (ix) * sizeof(TypeOut)]); \
+#define STORE_BUF(dst_buf, ix, iy, val)  { \
+    __global TypeOut *ptr = (__global TypeOut *)(&(dst_buf)[(iy) * dstPitch + (ix) * sizeof(TypeOut)]); \
     ptr[0] = (TypeOut)(val); \
 }
-#define STORE_BUF_AYUV(dst, ix, iy, val)  { \
-    __global TypeOut4 *ptr = (__global TypeOut4 *)(&(dst)[(iy) * dstPitch + (ix) * sizeof(TypeOut4)]); \
+#define STORE_BUF_AYUV(dst_buf, ix, iy, val)  { \
+    __global TypeOut4 *ptr = (__global TypeOut4 *)(&(dst_buf)[(iy) * dstPitch + (ix) * sizeof(TypeOut4)]); \
     ptr[0] = (TypeOut4)(val); \
 }
-#define STORE_BUF_NV12_UV(dst, ix, iy, val_u, val_v) { \
-    STORE(dst, ((ix) << 1) + 0, (iy), val_u); \
-    STORE(dst, ((ix) << 1) + 1, (iy), val_v); \
+#define STORE_BUF_NV12_UV(dst_buf, ix, iy, val_u, val_v) { \
+    STORE(dst_buf, ((ix) << 1) + 0, (iy), val_u); \
+    STORE(dst_buf, ((ix) << 1) + 1, (iy), val_v); \
 }
 #if MEM_TYPE_DST == RGY_MEM_TYPE_GPU_IMAGE
 #define IMAGE_DST     1
