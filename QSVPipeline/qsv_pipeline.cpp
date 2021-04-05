@@ -1099,9 +1099,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.FrameInfo.CropH = (mfxU16)m_encHeight;
 
     if (m_mfxEncParams.mfx.FrameInfo.ChromaFormat == MFX_CHROMAFORMAT_YUV444) {
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15) && !pInParams->bUseFixedFunc) {
-            PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as encoding in YUV444 requires FF mode.\n"));
-            m_mfxEncParams.mfx.LowPower = (mfxU16)MFX_CODINGOPTION_ON;
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
+            if (!pInParams->bUseFixedFunc) {
+                PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as encoding in YUV444 requires FF mode.\n"));
+                m_mfxEncParams.mfx.LowPower = (mfxU16)MFX_CODINGOPTION_ON;
+            }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Encoding in YUV444 is not supported on this platform.\n"));
             return RGY_ERR_UNSUPPORTED;
