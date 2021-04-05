@@ -937,6 +937,7 @@ struct RGYParamControl {
     GPUAutoSelectMul gpuSelect;
     bool skipHWDecodeCheck;
     tstring avsdll;
+    bool enableOpenCL;
 
     RGYParamControl();
     ~RGYParamControl();

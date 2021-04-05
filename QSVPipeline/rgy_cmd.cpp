@@ -3920,6 +3920,14 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+    if (IS_OPTION("disable-opencl")) {
+        ctrl->enableOpenCL = false;
+        return 0;
+    }
+    if (IS_OPTION("enable-opencl")) {
+        ctrl->enableOpenCL = true;
+        return 0;
+    }
     return -10;
 }
 
@@ -4716,6 +4724,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
             cmd << _T(" --gpu-select ") << tmp.str().substr(1);
         }
     }
+    OPT_BOOL(_T("--disable-opencl"), _T(""), enableOpenCL);
     return cmd.str();
 }
 

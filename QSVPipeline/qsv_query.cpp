@@ -71,7 +71,7 @@
 #endif
 
 #if 1
-int getCPUGenCpuid() {
+QSV_CPU_GEN getCPUGenCpuid() {
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x01);
     const bool bMOVBE  = !!(CPUInfo[2] & (1<<22));
@@ -99,7 +99,7 @@ int getCPUGenCpuid() {
 }
 #endif
 
-static const auto RGY_CPU_GEN_TO_MFX = make_array<std::pair<int, uint32_t>>(
+static const auto RGY_CPU_GEN_TO_MFX = make_array<std::pair<QSV_CPU_GEN, uint32_t>>(
     std::make_pair(CPU_GEN_UNKNOWN, MFX_PLATFORM_UNKNOWN),
     std::make_pair(CPU_GEN_SANDYBRIDGE, MFX_PLATFORM_SANDYBRIDGE),
     std::make_pair(CPU_GEN_IVYBRIDGE, MFX_PLATFORM_IVYBRIDGE),
@@ -121,7 +121,7 @@ static const auto RGY_CPU_GEN_TO_MFX = make_array<std::pair<int, uint32_t>>(
     std::make_pair(CPU_GEN_ALDERLAKE, MFX_PLATFORM_ALDERLAKE_S),
     std::make_pair(CPU_GEN_KEEMBAY, MFX_PLATFORM_KEEMBAY)
     );
-MAP_PAIR_0_1(cpu_gen, rgy, int, enc, uint32_t, RGY_CPU_GEN_TO_MFX, CPU_GEN_UNKNOWN, MFX_PLATFORM_UNKNOWN);
+MAP_PAIR_0_1(cpu_gen, rgy, QSV_CPU_GEN, enc, uint32_t, RGY_CPU_GEN_TO_MFX, CPU_GEN_UNKNOWN, MFX_PLATFORM_UNKNOWN);
 
 
 BOOL Check_HWUsed(mfxIMPL impl) {
@@ -1045,7 +1045,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
             result &= ~ENC_FEATURE_EXT_BRC;
         }
         //Kabylake以前では、不安定でエンコードが途中で終了あるいはフリーズしてしまう
-        auto cpu_gen = getCPUGen(&session);
+        const auto cpu_gen = getCPUGen(&session);
         if ((result & ENC_FEATURE_FADE_DETECT) && cpu_gen < CPU_GEN_KABYLAKE) {
             result &= ~ENC_FEATURE_FADE_DETECT;
         }
@@ -1529,7 +1529,7 @@ CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCh
 #endif
 }
 
-int getCPUGen() {
+QSV_CPU_GEN getCPUGen() {
     mfxPlatform platform;
     memset(&platform, 0, sizeof(platform));
     MemType memtype = HW_MEMORY;
@@ -1545,7 +1545,7 @@ int getCPUGen() {
     }
 }
 
-int getCPUGen(MFXVideoSession *pSession) {
+QSV_CPU_GEN getCPUGen(MFXVideoSession *pSession) {
     if (pSession == nullptr || (mfxSession)(*pSession) == nullptr) {
         return getCPUGen();
     }

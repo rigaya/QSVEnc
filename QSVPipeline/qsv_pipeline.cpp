@@ -1148,7 +1148,21 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitOpenCL() {
+bool CQSVPipeline::CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen) {
+    //Haswellより前ではOpenCLフィルタをサポートしない
+    return (cpu_gen == CPU_GEN_UNKNOWN || cpu_gen >= CPU_GEN_HASWELL);
+}
+
+RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
+    if (!enableOpenCL) {
+        PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled.\n"));
+        return RGY_ERR_NONE;
+    }
+    const auto cpu_gen = getCPUGen(&m_mfxSession);
+    if (!CPUGenOpenCLSupported(getCPUGen(&m_mfxSession))) {
+        PrintMes(RGY_LOG_DEBUG, _T("Skip OpenCL init as OpenCL is not supported in %s platform.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
+        return RGY_ERR_NONE;
+    }
     const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType);
     mfxHDL hdl = nullptr;
     if (hdl_t) {
@@ -2019,17 +2033,20 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
         const VppFilterType next = (i + 1 < filterPipeline.size()) ? getVppFilterType(filterPipeline[i + 1]) : VppFilterType::FILTER_NONE;
         if (filterPipeline[i] == VppType::MFX_RESIZE) {
             if (resizeRequired == RGY_VPP_RESIZE_TYPE_AUTO // 自動以外の指定があれば、それに従うので、自動の場合のみ変更
+                && m_cl
                 && prev == VppFilterType::FILTER_OPENCL
                 && next == VppFilterType::FILTER_OPENCL) {
                 filterPipeline[i] = VppType::CL_RESIZE; // OpenCLに挟まれていたら、OpenCLのresizeを優先する
             }
         } else if (filterPipeline[i] == VppType::MFX_CROP) {
-            if (   (prev == VppFilterType::FILTER_OPENCL || next == VppFilterType::FILTER_OPENCL)
+            if (m_cl
+                && (prev == VppFilterType::FILTER_OPENCL || next == VppFilterType::FILTER_OPENCL)
                 && (prev != VppFilterType::FILTER_MFX    || next != VppFilterType::FILTER_MFX)) {
                 filterPipeline[i] = VppType::CL_CROP; // OpenCLに挟まれていたら、OpenCLのcropを優先する
             }
         } else if (filterPipeline[i] == VppType::MFX_COLORSPACE) {
-            if (   prev == VppFilterType::FILTER_OPENCL
+            if (m_cl
+                && prev == VppFilterType::FILTER_OPENCL
                 && next == VppFilterType::FILTER_OPENCL) {
                 filterPipeline[i] = VppType::CL_COLORSPACE; // OpenCLに挟まれていたら、OpenCLのcolorspaceを優先する
             }
@@ -2597,6 +2614,15 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         PrintMes(RGY_LOG_DEBUG, _T("No filters required.\n"));
         return RGY_ERR_NONE;
     }
+    const auto clfilterCount = std::count_if(filterPipeline.begin(), filterPipeline.end(), [](VppType type) { return getVppFilterType(type) == VppFilterType::FILTER_OPENCL; });
+    if (!m_cl && clfilterCount > 0) {
+        if (!inputParam->ctrl.enableOpenCL) {
+            PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not enabled.\n"));
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not supported on this platform: %s.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
+        }
+        return RGY_ERR_UNSUPPORTED;
+    }
     // blocksize
     const int blocksize = inputParam->CodecId == MFX_CODEC_HEVC ? 32 : 16;
     //読み込み時のcrop
@@ -2955,7 +2981,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = CreateAllocator();
     if (sts < RGY_ERR_NONE) return sts;
 
-    sts = InitOpenCL();
+    sts = InitOpenCL(pParams->ctrl.enableOpenCL);
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitMfxDecParams(pParams);
@@ -3318,6 +3344,10 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
             }
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_mfxSession, 1, filterBlock.vppmfx->mfxvpp(), filterBlock.vppmfx->mfxparams(), filterBlock.vppmfx->mfxver(), m_pQSVLog));
         } else if (filterBlock.type == VppFilterType::FILTER_OPENCL) {
+            if (!m_cl) {
+                PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
+                return RGY_ERR_UNSUPPORTED;
+            }
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 1, m_pQSVLog));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown filter type.\n"));

@@ -50,7 +50,7 @@
 #include "rgy_util.h"
 #include "qsv_util.h"
 
-enum {
+enum QSV_CPU_GEN {
     CPU_GEN_UNKNOWN = 0,
     CPU_GEN_SANDYBRIDGE,
     CPU_GEN_IVYBRIDGE,
@@ -71,6 +71,8 @@ enum {
     CPU_GEN_ROCKETLAKE,
     CPU_GEN_ALDERLAKE,
     CPU_GEN_KEEMBAY,
+
+    CPU_GEN_MAX,
 };
 
 static const TCHAR *const CPU_GEN_STR[] = {
@@ -96,9 +98,11 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("Keembay")
 };
 
-int getCPUGenCpuid();
-int getCPUGen();
-int getCPUGen(MFXVideoSession *pSession);
+static_assert(_countof(CPU_GEN_STR) == CPU_GEN_MAX);
+
+QSV_CPU_GEN getCPUGenCpuid();
+QSV_CPU_GEN getCPUGen();
+QSV_CPU_GEN getCPUGen(MFXVideoSession *pSession);
 
 static const mfxVersion LIB_VER_LIST[] = {
     {  0, 0 },

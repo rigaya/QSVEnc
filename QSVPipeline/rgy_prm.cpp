@@ -1006,7 +1006,8 @@ RGYParamControl::RGYParamControl() :
     lowLatency(false),
     gpuSelect(),
     skipHWDecodeCheck(false),
-    avsdll() {
+    avsdll(),
+    enableOpenCL(true) {
 
 }
 RGYParamControl::~RGYParamControl() {};
