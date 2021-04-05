@@ -368,7 +368,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
 
         //DecodeHeaderした結果をreaderにも反映
         if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
-            || (inputCodec != RGY_CODEC_VP8 && inputCodec != RGY_CODEC_VP9)) { // VP8/VP9ではこの処理は不要
+            || (inputCodec != RGY_CODEC_VP8 && inputCodec != RGY_CODEC_VP9 && inputCodec != RGY_CODEC_AV1)) { // VP8/VP9ではこの処理は不要
             if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 8)   m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = 0;
             if (m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 8) m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = 0;
         }
