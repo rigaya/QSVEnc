@@ -106,7 +106,7 @@ __kernel void kernel_resize_spline(
 }
 
 float lanczos_factor(float x) {
-    const float pi = (float)M_PI;
+    const float pi = 3.14159265358979323846f; //M_PI;
     if (x == 0.0f) return 1.0f;
     if (x >= (float)radius) return 0.0f;
     const float pi_x = pi * x;
