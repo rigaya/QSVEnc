@@ -454,6 +454,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
                 return ret;
             }
         }
+#if 0
         if (ret != RGY_ERR_NONE || device_count == 0) {
             clGetDeviceIDsFromDX9MediaAdapterKHR = nullptr;
             clCreateFromDX9MediaSurfaceKHR = nullptr;
@@ -485,6 +486,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
                 }
             }
         }
+#endif
     } else {
         ret = createDeviceList(device_type);
     }
@@ -1622,6 +1624,19 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo&
     case RGY_CSP_RGB32R:
     case RGY_CSP_RGB32:
     case RGY_CSP_BGR32:
+        pixsize *= 4;
+        break;
+    case RGY_CSP_AYUV:
+    case RGY_CSP_AYUV_16:
+        pixsize *= 4;
+        break;
+    case RGY_CSP_YUY2:
+    case RGY_CSP_Y210:
+    case RGY_CSP_Y216:
+    case RGY_CSP_Y410:
+        pixsize *= 2;
+        break;
+    case RGY_CSP_Y416:
         pixsize *= 4;
         break;
     default:
