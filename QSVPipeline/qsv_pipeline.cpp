@@ -1165,10 +1165,10 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
         PrintMes(RGY_LOG_DEBUG, _T("Skip OpenCL init as OpenCL is not supported in %s platform.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
         return RGY_ERR_NONE;
     }
-    const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType);
+    const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType, true);
     mfxHDL hdl = nullptr;
     if (hdl_t) {
-        auto sts = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
+        auto sts = err_to_rgy(m_hwdev->GetHandle((hdl_t == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) ? (mfxHandleType)0 : hdl_t, &hdl));
         RGY_ERR(sts, _T("Failed to get HW device handle."));
         PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
     }
@@ -1370,7 +1370,7 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
         RGY_ERR(sts, _T("Failed to CreateHWDevice."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateHWDevice success.\n"));
 
-        const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType);
+        const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType, false);
         mfxHDL hdl = NULL;
         sts = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
         RGY_ERR(sts, _T("Failed to get HW device handle."));

@@ -242,7 +242,7 @@ RGY_ERR QSVVppMfx::InitSession() {
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl 0x%x\n"), m_mfxVer.Major, m_mfxVer.Minor, impl);
 
     if (impl != MFX_IMPL_SOFTWARE) {
-        const auto hdl_t = mfxHandleTypeFromMemType(m_memType);
+        const auto hdl_t = mfxHandleTypeFromMemType(m_memType, false);
         mfxHDL hdl = nullptr;
         err = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
         if (err != RGY_ERR_NONE) {

@@ -193,10 +193,15 @@ CQSVD3D9Device::~CQSVD3D9Device() {
 }
 
 mfxStatus CQSVD3D9Device::GetHandle(mfxHandleType type, mfxHDL *pHdl) {
-    if (MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9 == type && pHdl != NULL) {
-        *pHdl = m_pD3DDeviceManager9.get();
-
-        return MFX_ERR_NONE;
+    if (pHdl != nullptr) {
+        if (type == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) {
+            *pHdl = m_pD3DDeviceManager9.get();
+            return MFX_ERR_NONE;
+        }
+        if (type == MFX_HANDLE_IDIRECT3D9EX) {
+            *pHdl = m_pD3DDevice9.get();
+            return MFX_ERR_NONE;
+        }
     }
     return MFX_ERR_UNSUPPORTED;
 }

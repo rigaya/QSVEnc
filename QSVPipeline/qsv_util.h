@@ -60,6 +60,8 @@ using std::shared_ptr;
 
 class RGYFrameData;
 
+#define MFX_HANDLE_IDIRECT3D9EX ((mfxHandleType)-1)
+
 #define INIT_MFX_EXT_BUFFER(x, id) { RGY_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, mfxU32);
@@ -148,7 +150,7 @@ mfxFrameInfo toMFXFrameInfo(VideoInfo info);
 
 tstring qsv_memtype_str(uint32_t memtype);
 
-mfxHandleType mfxHandleTypeFromMemType(const MemType memType);
+mfxHandleType mfxHandleTypeFromMemType(const MemType memType, const bool forOpenCLInterop);
 
 static inline uint16_t check_coding_option(uint16_t value) {
     if (value == MFX_CODINGOPTION_UNKNOWN

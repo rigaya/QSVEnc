@@ -270,11 +270,11 @@ tstring qsv_memtype_str(uint32_t memtype) {
 }
 
 RGY_NOINLINE
-mfxHandleType mfxHandleTypeFromMemType(const MemType memType) {
+mfxHandleType mfxHandleTypeFromMemType(const MemType memType, const bool forOpenCLInterop) {
     mfxHandleType hdl_t = (mfxHandleType)0;
     switch (memType) {
 #if D3D_SURFACES_SUPPORT
-    case D3D9_MEMORY:  hdl_t = MFX_HANDLE_D3D9_DEVICE_MANAGER; break;
+    case D3D9_MEMORY:  hdl_t = (forOpenCLInterop) ? MFX_HANDLE_IDIRECT3D9EX : MFX_HANDLE_D3D9_DEVICE_MANAGER; break;
     case D3D11_MEMORY: hdl_t = MFX_HANDLE_D3D11_DEVICE; break;
 #elif LIBVA_SUPPORT
     case VA_MEMORY: {
