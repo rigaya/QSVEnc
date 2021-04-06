@@ -52,6 +52,44 @@
 
 #define RGYDefaultQueue 0
 
+// ---cl_dx9_media_sharing_intel ---
+#define cl_intel_dx9_media_sharing 1
+
+typedef cl_uint cl_dx9_device_source_intel;
+typedef cl_uint cl_dx9_device_set_intel;
+
+/* error codes */
+#define CL_INVALID_DX9_DEVICE_INTEL                   -1010
+#define CL_INVALID_DX9_RESOURCE_INTEL                 -1011
+#define CL_DX9_RESOURCE_ALREADY_ACQUIRED_INTEL        -1012
+#define CL_DX9_RESOURCE_NOT_ACQUIRED_INTEL            -1013
+
+/* cl_dx9_device_source_intel */
+#define CL_D3D9_DEVICE_INTEL                          0x4022
+#define CL_D3D9EX_DEVICE_INTEL                        0x4070
+#define CL_DXVA_DEVICE_INTEL                          0x4071
+
+/* cl_dx9_device_set_intel */
+#define CL_PREFERRED_DEVICES_FOR_DX9_INTEL            0x4024
+#define CL_ALL_DEVICES_FOR_DX9_INTEL                  0x4025
+
+/* cl_context_info */
+#define CL_CONTEXT_D3D9_DEVICE_INTEL                  0x4026
+#define CL_CONTEXT_D3D9EX_DEVICE_INTEL                0x4072
+#define CL_CONTEXT_DXVA_DEVICE_INTEL                  0x4073
+
+/* cl_mem_info */
+#define CL_MEM_DX9_RESOURCE_INTEL                     0x4027
+#define CL_MEM_DX9_SHARED_HANDLE_INTEL                0x4074
+
+/* cl_image_info */
+#define CL_IMAGE_DX9_PLANE_INTEL                      0x4075
+
+/* cl_command_type */
+#define CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL          0x402A
+#define CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL          0x402B
+// -------------------------------------------------------------
+
 CL_EXTERN void *(CL_API_CALL *f_clGetExtensionFunctionAddressForPlatform)(cl_platform_id  platform, const char *funcname);
 
 CL_EXTERN cl_int (CL_API_CALL* f_clGetPlatformIDs)(cl_uint num_entries, cl_platform_id *platforms, cl_uint *num_platforms);
@@ -117,6 +155,11 @@ CL_EXTERN cl_int(CL_API_CALL *f_clGetKernelSubGroupInfoKHR)(cl_kernel kernel, cl
 CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromDX9MediaSurfaceKHR)(cl_context context, cl_mem_flags flags, cl_dx9_media_adapter_type_khr adapter_type, void *surface_info, cl_uint plane, cl_int *errcode_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueAcquireDX9MediaSurfacesKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseDX9MediaSurfacesKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+
+CL_EXTERN cl_int(CL_API_CALL* f_clGetDeviceIDsFromDX9INTEL)(cl_platform_id platform, cl_dx9_device_source_intel dx9_device_source, void* dx9_object, cl_dx9_device_set_intel dx9_device_set, cl_uint num_entries, cl_device_id* devices, cl_uint* num_devices);
+CL_EXTERN cl_mem(CL_API_CALL* f_clCreateFromDX9MediaSurfaceINTEL)(cl_context context, cl_mem_flags flags, IDirect3DSurface9* resource, HANDLE sharedHandle, UINT plane, cl_int* errcode_ret);
+CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueAcquireDX9ObjectsINTEL)(cl_command_queue command_queue, cl_uint  num_objects, const cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
+CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseDX9ObjectsINTEL)(cl_command_queue command_queue, cl_uint num_objects, cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
 
 CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11BufferKHR)(cl_context context, cl_mem_flags flags, ID3D11Buffer *resource, cl_int *errcode_ret);
 CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11Texture2DKHR)(cl_context context, cl_mem_flags flags, ID3D11Texture2D *resource, UINT subresource, cl_int *errcode_ret);
@@ -189,6 +232,11 @@ CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseD3D11ObjectsKHR)(cl_command_queu
 #define clCreateFromDX9MediaSurfaceKHR f_clCreateFromDX9MediaSurfaceKHR
 #define clEnqueueAcquireDX9MediaSurfacesKHR f_clEnqueueAcquireDX9MediaSurfacesKHR
 #define clEnqueueReleaseDX9MediaSurfacesKHR f_clEnqueueReleaseDX9MediaSurfacesKHR
+
+#define clGetDeviceIDsFromDX9INTEL f_clGetDeviceIDsFromDX9INTEL
+#define clCreateFromDX9MediaSurfaceINTEL f_clCreateFromDX9MediaSurfaceINTEL
+#define clEnqueueAcquireDX9ObjectsINTEL f_clEnqueueAcquireDX9ObjectsINTEL
+#define clEnqueueReleaseDX9ObjectsINTEL f_clEnqueueReleaseDX9ObjectsINTEL
 
 #define clCreateFromD3D11BufferKHR f_clCreateFromD3D11BufferKHR
 #define clCreateFromD3D11Texture2DKHR f_clCreateFromD3D11Texture2DKHR
@@ -501,7 +549,7 @@ struct RGYOpenCLPlatformInfo {
     std::string vendor;
     std::string extension;
 
-    std::string print();
+    std::string print() const;
 };
 
 class RGYOpenCLPlatform {
@@ -524,8 +572,9 @@ public:
         if (d3d11dev) m_d3d11dev = d3d11dev;
     };
     void setDevs(std::vector<cl_device_id> &devs) { m_devices = devs; };
-    bool isVendor(const char *vendor);
-    RGYOpenCLPlatformInfo info();
+    bool isVendor(const char *vendor) const;
+    bool checkExtension(const char* extension) const;
+    RGYOpenCLPlatformInfo info() const;
 protected:
 
     cl_platform_id m_platform;

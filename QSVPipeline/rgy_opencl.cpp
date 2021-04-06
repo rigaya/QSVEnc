@@ -370,7 +370,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
 
     auto ret = RGY_ERR_NONE;
     cl_uint device_count = 0;
-    if (d3d11dev) {
+    if (d3d11dev && checkExtension("cl_khr_d3d11_sharing")) {
         LOAD_KHR(clGetDeviceIDsFromD3D11KHR);
         LOAD_KHR(clCreateFromD3D11BufferKHR);
         LOAD_KHR(clCreateFromD3D11Texture2DKHR);
@@ -424,27 +424,66 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
 
     auto ret = RGY_ERR_NONE;
     cl_uint device_count = 1;
-    if (d3d9dev) {
+    if (d3d9dev && checkExtension("cl_khr_dx9_media_sharing")) {
         LOAD_KHR(clGetDeviceIDsFromDX9MediaAdapterKHR);
         LOAD_KHR(clCreateFromDX9MediaSurfaceKHR);
         LOAD_KHR(clEnqueueAcquireDX9MediaSurfacesKHR);
         LOAD_KHR(clEnqueueReleaseDX9MediaSurfacesKHR);
     }
-    if (d3d9dev && clGetDeviceIDsFromDX9MediaAdapterKHR) {
-        m_d3d9dev = d3d9dev;
-        std::vector<cl_device_id> devs(device_count, 0);
-        try {
-            cl_dx9_media_adapter_type_khr type = CL_ADAPTER_D3D9EX_KHR;
-            ret = err_cl_to_rgy(clGetDeviceIDsFromDX9MediaAdapterKHR(m_platform, 1, &type, &d3d9dev, CL_PREFERRED_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR, device_count, devs.data(), &device_count));
-        } catch (...) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9MediaAdapterKHR)\n"));
-            RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
-            return RGY_ERR_OPENCL_CRUSH;
+    if (d3d9dev) {
+        if (clGetDeviceIDsFromDX9MediaAdapterKHR) {
+            m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9MediaAdapterKHR(d3d9dev = %p)\n"), d3d9dev);
+            m_d3d9dev = d3d9dev;
+            std::vector<cl_device_id> devs(device_count, 0);
+            try {
+                cl_dx9_media_adapter_type_khr type = CL_ADAPTER_D3D9EX_KHR;
+                ret = err_cl_to_rgy(clGetDeviceIDsFromDX9MediaAdapterKHR(m_platform, 1, &type, &d3d9dev, CL_PREFERRED_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR, device_count, devs.data(), &device_count));
+                if (ret != RGY_ERR_NONE || device_count == 0) {
+                    device_count = 1;
+                    ret = err_cl_to_rgy(clGetDeviceIDsFromDX9MediaAdapterKHR(m_platform, 1, &type, &d3d9dev, CL_ALL_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR, device_count, devs.data(), &device_count));
+                }
+            }
+            catch (...) {
+                m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9MediaAdapterKHR)\n"));
+                RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
+                return RGY_ERR_OPENCL_CRUSH;
+            }
+            if (ret == RGY_ERR_NONE) {
+                m_devices = devs;
+                m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9MediaAdapterKHR: Success\n"));
+                return ret;
+            }
         }
-        if (ret == RGY_ERR_NONE) {
-            m_devices = devs;
-            m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9MediaAdapterKHR: Success\n"));
-            return ret;
+        if (ret != RGY_ERR_NONE || device_count == 0) {
+            clGetDeviceIDsFromDX9MediaAdapterKHR = nullptr;
+            clCreateFromDX9MediaSurfaceKHR = nullptr;
+            clEnqueueAcquireDX9MediaSurfacesKHR = nullptr;
+            clEnqueueReleaseDX9MediaSurfacesKHR = nullptr;
+            if (checkExtension("cl_intel_dx9_media_sharing")) {
+                LOAD_KHR(clGetDeviceIDsFromDX9INTEL);
+                LOAD_KHR(clCreateFromDX9MediaSurfaceINTEL);
+                LOAD_KHR(clEnqueueAcquireDX9ObjectsINTEL);
+                LOAD_KHR(clEnqueueReleaseDX9ObjectsINTEL);
+                if (clGetDeviceIDsFromDX9INTEL) {
+                    m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9INTEL(d3d9dev = %p)\n"), d3d9dev);
+                    device_count = 1;
+                    std::vector<cl_device_id> devs(device_count, 0);
+                    try {
+                        cl_dx9_media_adapter_type_khr type = CL_ADAPTER_D3D9EX_KHR;
+                        ret = err_cl_to_rgy(clGetDeviceIDsFromDX9INTEL(m_platform, CL_D3D9EX_DEVICE_INTEL, d3d9dev, CL_PREFERRED_DEVICES_FOR_DX9_INTEL, device_count, devs.data(), &device_count));
+                    }
+                    catch (...) {
+                        m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9INTEL)\n"));
+                        RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
+                        return RGY_ERR_OPENCL_CRUSH;
+                    }
+                    if (ret == RGY_ERR_NONE) {
+                        m_devices = devs;
+                        m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9INTEL: Success\n"));
+                        return ret;
+                    }
+                }
+            }
         }
     } else {
         ret = createDeviceList(device_type);
@@ -487,11 +526,11 @@ RGY_ERR RGYOpenCLPlatform::createDeviceList(cl_device_type device_type) {
     return RGY_ERR_NONE;
 }
 
-std::string RGYOpenCLPlatformInfo::print() {
+std::string RGYOpenCLPlatformInfo::print() const {
     return name + " " + vendor + " " + version + "[" + profile + "]\n  extensions:" + extension;
 }
 
-RGYOpenCLPlatformInfo RGYOpenCLPlatform::info() {
+RGYOpenCLPlatformInfo RGYOpenCLPlatform::info() const {
     RGYOpenCLPlatformInfo info;
     try {
         clGetInfo(clGetPlatformInfo, m_platform, CL_PLATFORM_PROFILE, &info.profile);
@@ -505,8 +544,12 @@ RGYOpenCLPlatformInfo RGYOpenCLPlatform::info() {
     return info;
 }
 
-bool RGYOpenCLPlatform::isVendor(const char *vendor) {
+bool RGYOpenCLPlatform::isVendor(const char *vendor) const {
     return checkVendor(info().vendor.c_str(), vendor);
+}
+
+bool RGYOpenCLPlatform::checkExtension(const char* extension) const {
+    return strstr(info().extension.c_str(), extension) != 0;
 }
 
 RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, shared_ptr<RGYLog> pLog) :
