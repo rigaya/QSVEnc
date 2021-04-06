@@ -1152,8 +1152,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
 }
 
 bool CQSVPipeline::CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen) {
-    //Haswellより前ではOpenCLフィルタをサポートしない
-    return (cpu_gen == CPU_GEN_UNKNOWN || cpu_gen >= CPU_GEN_HASWELL);
+    //SandyBridgeではOpenCLフィルタをサポートしない
+    return cpu_gen != CPU_GEN_SANDYBRIDGE;
 }
 
 RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
@@ -1175,6 +1175,10 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
     }
 
     RGYOpenCL cl(m_pQSVLog);
+    if (!RGYOpenCL::openCLloaded()) {
+        PrintMes(RGY_LOG_WARN, _T("Skip OpenCL init as OpenCL is not supported on this platform.\n"));
+        return RGY_ERR_NONE;
+    }
     auto platforms = cl.getPlatforms("Intel");
     if (platforms.size() == 0) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to find OpenCL platforms.\n"));

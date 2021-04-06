@@ -826,6 +826,7 @@ public:
     virtual ~RGYOpenCL();
 
     std::vector<shared_ptr<RGYOpenCLPlatform>> getPlatforms(const char *vendor = nullptr);
+    static bool openCLloaded() { return openCLHandle != nullptr; };
 protected:
     shared_ptr<RGYLog> m_pLog;
 };
