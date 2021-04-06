@@ -796,6 +796,80 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-delogo-file")) {
+        i++;
+        vpp->delogo.enable = true;
+        vpp->delogo.logoFilePath = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-select")) {
+        i++;
+        vpp->delogo.enable = true;
+        vpp->delogo.logoSelect = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-pos")) {
+        i++;
+        int posOffsetx = 0, posOffsety = 0;
+        if (   2 != _stscanf_s(strInput[i], _T("%dx%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d,%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d/%d"), &posOffsetx, &posOffsety)
+            && 2 != _stscanf_s(strInput[i], _T("%d:%d"), &posOffsetx, &posOffsety)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        vpp->delogo.posX = posOffsetx;
+        vpp->delogo.posY = posOffsety;
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-depth")) {
+        i++;
+        try {
+            vpp->delogo.depth = clamp(std::stoi(strInput[i]), 0, 255);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-y")) {
+        i++;
+        try {
+            vpp->delogo.Y = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-cb")) {
+        i++;
+        try {
+            vpp->delogo.Cb = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-cr")) {
+        i++;
+        try {
+            vpp->delogo.Cr = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-delogo-add")) {
+        vpp->delogo.mode = DELOGO_MODE_ADD;
+        return 0;
+    }
+    if (IS_OPTION("no-vpp-delogo-add")) {
+        vpp->delogo.mode = DELOGO_MODE_REMOVE;
+        return 0;
+    }
     if (IS_OPTION("vpp-afs")) {
         vpp->afs.enable = true;
 
