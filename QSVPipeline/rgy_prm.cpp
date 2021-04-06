@@ -157,6 +157,79 @@ bool VppColorspace::operator!=(const VppColorspace &x) const {
     return !(*this == x);
 }
 
+VppDelogo::VppDelogo() :
+    enable(false),
+    logoFilePath(),
+    logoSelect(),
+    posX(0), posY(0),
+    depth(FILTER_DEFAULT_DELOGO_DEPTH),
+    Y(0), Cb(0), Cr(0),
+    mode(DELOGO_MODE_REMOVE),
+    autoFade(false),
+    autoNR(false),
+    NRArea(0),
+    NRValue(0),
+    log(false) {
+}
+
+bool VppDelogo::operator==(const VppDelogo& x) const {
+    return enable == x.enable
+        && logoFilePath == x.logoFilePath
+        && logoSelect == x.logoSelect
+        && posX == x.posX
+        && posY == x.posY
+        && depth == x.depth
+        && Y == x.Y
+        && Cb == x.Cb
+        && Cr == x.Cr
+        && mode == x.mode
+        && autoFade == x.autoFade
+        && autoNR == x.autoNR
+        && NRArea == x.NRArea
+        && NRValue == x.NRValue
+        && log == x.log;
+}
+bool VppDelogo::operator!=(const VppDelogo& x) const {
+    return !(*this == x);
+}
+
+tstring VppDelogo::print() const {
+    tstring str = _T("");
+    switch (mode) {
+    case DELOGO_MODE_ADD:
+        str += _T(", add");
+        break;
+    case DELOGO_MODE_REMOVE:
+    default:
+        break;
+    }
+    if (posX || posY) {
+        str += strsprintf(_T(", pos=%d:%d"), posX, posY);
+    }
+    if (depth != FILTER_DEFAULT_DELOGO_DEPTH) {
+        str += strsprintf(_T(", dpth=%d"), depth);
+    }
+    if (Y || Cb || Cr) {
+        str += strsprintf(_T(", YCbCr=%d:%d:%d"), Y, Cb, Cr);
+    }
+    if (autoFade) {
+        str += _T(", auto_fade");
+    }
+    if (autoNR) {
+        str += _T(", auto_nr");
+    }
+    if ((autoFade || autoNR) && log) {
+        str += _T(", log");
+    }
+    if (NRValue) {
+        str += strsprintf(_T(", nr_value=%d"), NRValue);
+    }
+    if (NRArea) {
+        str += strsprintf(_T(", nr_area=%d"), NRArea);
+    }
+    return str;
+}
+
 VppAfs::VppAfs() :
     enable(false),
     tb_order(FILTER_DEFAULT_AFS_TB_ORDER),
@@ -853,6 +926,7 @@ RGYParamVpp::RGYParamVpp() :
     resize_algo(RGY_VPP_RESIZE_AUTO),
     resize_mode(RGY_VPP_RESIZE_MODE_DEFAULT),
     colorspace(),
+    delogo(),
     afs(),
     nnedi(),
     decimate(),

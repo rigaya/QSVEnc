@@ -62,6 +62,8 @@ static const double FILTER_DEFAULT_HDR2SDR_MOBIUS_PEAK = 1.0;
 static const double FILTER_DEFAULT_HDR2SDR_REINHARD_CONTRAST = 0.5;
 static const double FILTER_DEFAULT_HDR2SDR_REINHARD_PEAK = 1.0;
 
+static const int   FILTER_DEFAULT_DELOGO_DEPTH = 128;
+
 static const int   FILTER_DEFAULT_AFS_CLIP_TB = 16;
 static const int   FILTER_DEFAULT_AFS_CLIP_LR = 32;
 static const int   FILTER_DEFAULT_AFS_TB_ORDER = 0;
@@ -479,6 +481,26 @@ struct VppColorspace {
     bool operator!=(const VppColorspace &x) const;
 };
 
+struct VppDelogo {
+    bool enable;
+    tstring logoFilePath;  //ロゴファイル名
+    tstring logoSelect;    //ロゴの名前
+    int posX, posY; //位置オフセット
+    int depth;      //透明度深度
+    int Y, Cb, Cr;  //(輝度・色差)オフセット
+    int mode;
+    bool autoFade;
+    bool autoNR;
+    int NRArea;
+    int NRValue;
+    bool log;
+
+    VppDelogo();
+    bool operator==(const VppDelogo& x) const;
+    bool operator!=(const VppDelogo& x) const;
+    tstring print() const;
+};
+
 enum {
     AFS_PRESET_DEFAULT = 0,
     AFS_PRESET_TRIPLE,        //動き重視
@@ -755,6 +777,7 @@ struct RGYParamVpp {
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
     VppColorspace colorspace;
+    VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;
     VppDecimate decimate;

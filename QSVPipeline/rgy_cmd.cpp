@@ -620,6 +620,182 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+
+    if (IS_OPTION("vpp-delogo")) {
+        vpp->delogo.enable = true;
+
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr+1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
+
+        const auto paramList = std::vector<std::string>{
+            "file", "select", "add", "pos", "depth", "y", "cb", "cr",
+            "auto_nr", "auto_fade", "nr_area", "nr_value", "log" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->delogo.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("file")) {
+                    try {
+                        vpp->delogo.logoFilePath = trim(param_val, _T("\""));
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("select")) {
+                    try {
+                        vpp->delogo.logoSelect = param_val;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("add")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->delogo.mode = (b) ? DELOGO_MODE_ADD : DELOGO_MODE_REMOVE;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("pos")) {
+                    int posOffsetX, posOffsetY;
+                    if (   2 != _stscanf_s(param_val.c_str(), _T("%dx%d"), &posOffsetX, &posOffsetY)
+                        && 2 != _stscanf_s(param_val.c_str(), _T("%d,%d"), &posOffsetX, &posOffsetY)
+                        && 2 != _stscanf_s(param_val.c_str(), _T("%d/%d"), &posOffsetX, &posOffsetY)
+                        && 2 != _stscanf_s(param_val.c_str(), _T("%d:%d"), &posOffsetX, &posOffsetY)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    vpp->delogo.posX = posOffsetX;
+                    vpp->delogo.posY = posOffsetY;
+                    continue;
+                }
+                if (param_arg == _T("depth")) {
+                    try {
+                        vpp->delogo.depth = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("y")) {
+                    try {
+                        vpp->delogo.Y = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cb")) {
+                    try {
+                        vpp->delogo.Cb = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cr")) {
+                    try {
+                        vpp->delogo.Cr = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("auto_nr")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->delogo.autoNR = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("auto_fade")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->delogo.autoFade = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nr_area")) {
+                    try {
+                        vpp->delogo.NRArea = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("nr_value")) {
+                    try {
+                        vpp->delogo.NRValue = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->delogo.log = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                vpp->delogo.logoFilePath = param;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-afs")) {
         vpp->afs.enable = true;
 
@@ -4062,6 +4238,33 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-colorspace");
         }
     }
+    if (param->delogo != defaultPrm->delogo) {
+        tmp.str(tstring());
+        if (!param->delogo.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->delogo.enable || save_disabled_prm) {
+            ADD_PATH(_T("file"), delogo.logoFilePath.c_str());
+            ADD_PATH(_T("select"), delogo.logoSelect.c_str());
+            if (param->delogo.posX != defaultPrm->delogo.posX
+                || param->delogo.posY != defaultPrm->delogo.posY) {
+                tmp << _T(",pos=") << param->delogo.posX << _T("x") << param->delogo.posY;
+            }
+            ADD_NUM(_T("depth"), delogo.depth);
+            ADD_NUM(_T("y"),  delogo.Y);
+            ADD_NUM(_T("cb"), delogo.Cb);
+            ADD_NUM(_T("cr"), delogo.Cr);
+            ADD_BOOL(_T("add"), delogo.mode);
+            ADD_BOOL(_T("auto_fade"), delogo.autoFade);
+            ADD_BOOL(_T("auto_nr"), delogo.autoNR);
+            ADD_NUM(_T("nr_area"), delogo.NRArea);
+            ADD_NUM(_T("nr_value"), delogo.NRValue);
+            ADD_BOOL(_T("log"), delogo.log);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-delogo ") << tmp.str().substr(1);
+        }
+    }
     if (param->afs != defaultPrm->afs) {
         tmp.str(tstring());
         if (!param->afs.enable && save_disabled_prm) {
@@ -4997,6 +5200,26 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_HDR2SDR_DESAT_EXP
     );
 #endif
+    str += strsprintf(_T("")
+        _T("   --vpp-delogo <string>[,<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     remove half-transparent logo with the specified logo file.\n")
+        _T("     the logo file should be created by logoscan.auf.\n")
+        _T("    params\n")
+        _T("      select=<string>           set target logo name or auto select file\n")
+        _T("                                 or logo index starting from 1.\n")
+        _T("      pos=<int>:<int>           set delogo pos offset.\n")
+        _T("      depth=<int>               set delogo depth. [default:%d]\n")
+        _T("      y=<int>                   set delogo y  param.\n")
+        _T("      cb=<int>                  set delogo cb param.\n")
+        _T("      cr=<int>                  set delogo cr param.\n")
+#if 0
+        _T("      auto_fade=<bool>          adjust fade value dynamically.\n")
+        _T("      auto_nr=<bool>            adjust strength of noise reduction dynamically.\n")
+        _T("      nr_area=<int>             area of noise reduction near logo.\n")
+        _T("      nr_value=<int>            strength of noise reduction near logo.\n")
+#endif
+        _T("      log=<bool>                output log for auto_fade/auto_nr.\n"),
+        FILTER_DEFAULT_DELOGO_DEPTH);
 #if 0
     str += strsprintf(_T("")
         _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")

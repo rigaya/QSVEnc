@@ -57,6 +57,7 @@
 #include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
 #include "rgy_filter.h"
+#include "rgy_filter_delogo.h"
 #include "rgy_filter_denoise_knn.h"
 #include "rgy_filter_subburn.h"
 #include "rgy_filter_transform.h"
@@ -2003,6 +2004,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
         }
         filterPipeline.push_back((requireOpenCL) ? VppType::CL_COLORSPACE : VppType::MFX_COLORSPACE);
     }
+    if (inputParam->vpp.delogo.enable)     filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)      filterPipeline.push_back(VppType::CL_NNEDI);
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE)  filterPipeline.push_back(VppType::MFX_DEINTERLACE);
@@ -2109,11 +2111,32 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 }
 
 RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
-    FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const RGYParamVpp *params, const sInputCrop *crop, const std::pair<int, int> resize) {
+    FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize) {
 
     if (vppType == VppType::CL_COLORSPACE) {
         PrintMes(RGY_LOG_ERROR, _T("unsupported parameters for --vpp-colorspace.\n"));
         return RGY_ERR_UNSUPPORTED;
+    }
+    //delogo
+    if (vppType == VppType::CL_DELOGO) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDelogo(m_cl));
+        shared_ptr<RGYFilterParamDelogo> param(new RGYFilterParamDelogo());
+        param->inputFileName = params->common.inputFilename.c_str();
+        param->delogo = params->vpp.delogo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = true;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
     }
     //afs
     if (vppType == VppType::CL_AFS) {
@@ -2124,7 +2147,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         }
         unique_ptr<RGYFilter> filter(new RGYFilterAfs(m_cl));
         shared_ptr<RGYFilterParamAfs> param(new RGYFilterParamAfs());
-        param->afs = params->afs;
+        param->afs = params->vpp.afs;
         param->afs.tb_order = (inputParam->input.picstruct & RGY_PICSTRUCT_TFF) != 0;
         if (inputParam->common.timecode && param->afs.timecode) {
             param->afs.timecode = 2;
@@ -2161,7 +2184,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         }
         unique_ptr<RGYFilter> filter(new RGYFilterNnedi(m_cl));
         shared_ptr<RGYFilterParamNnedi> param(new RGYFilterParamNnedi());
-        param->nnedi = params->nnedi;
+        param->nnedi = params->vpp.nnedi;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2185,7 +2208,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     if (vppType == VppType::CL_TRANSFORM) {
         unique_ptr<RGYFilter> filter(new RGYFilterTransform(m_cl));
         shared_ptr<RGYFilterParamTransform> param(new RGYFilterParamTransform());
-        param->trans = params->transform;
+        param->trans = params->vpp.transform;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2205,7 +2228,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     if (vppType == VppType::CL_DENOISE_KNN) {
         unique_ptr<RGYFilter> filter(new RGYFilterDenoiseKnn(m_cl));
         shared_ptr<RGYFilterParamDenoiseKnn> param(new RGYFilterParamDenoiseKnn());
-        param->knn = params->knn;
+        param->knn = params->vpp.knn;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2226,7 +2249,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterDenoisePmd(m_cl));
         shared_ptr<RGYFilterParamDenoisePmd> param(new RGYFilterParamDenoisePmd());
-        param->pmd = params->pmd;
+        param->pmd = params->vpp.pmd;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2251,7 +2274,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterSmooth(m_cl));
         shared_ptr<RGYFilterParamSmooth> param(new RGYFilterParamSmooth());
-        param->smooth = params->smooth;
+        param->smooth = params->vpp.smooth;
         param->qpTableRef = nullptr;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
@@ -2275,7 +2298,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     //字幕焼きこみ
     if (vppType == VppType::CL_SUBBURN) {
         std::vector<std::unique_ptr<RGYFilter>> filters;
-        for (const auto& subburn : params->subburn) {
+        for (const auto& subburn : params->vpp.subburn) {
 #if ENABLE_AVSW_READER
             if (subburn.filename.length() > 0
                 && m_trimParam.list.size() > 0) {
@@ -2326,7 +2349,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     if (vppType == VppType::CL_RESIZE) {
         auto filter = std::make_unique<RGYFilterResize>(m_cl);
         shared_ptr<RGYFilterParamResize> param(new RGYFilterParamResize());
-        param->interp = (params->resize_algo != RGY_VPP_RESIZE_AUTO) ? params->resize_algo : RGY_VPP_RESIZE_SPLINE36;
+        param->interp = (params->vpp.resize_algo != RGY_VPP_RESIZE_AUTO) ? params->vpp.resize_algo : RGY_VPP_RESIZE_SPLINE36;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.width = resize.first;
@@ -2349,7 +2372,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterUnsharp(m_cl));
         shared_ptr<RGYFilterParamUnsharp> param(new RGYFilterParamUnsharp());
-        param->unsharp = params->unsharp;
+        param->unsharp = params->vpp.unsharp;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2374,7 +2397,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterEdgelevel(m_cl));
         shared_ptr<RGYFilterParamEdgelevel> param(new RGYFilterParamEdgelevel());
-        param->edgelevel = params->edgelevel;
+        param->edgelevel = params->vpp.edgelevel;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2399,7 +2422,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterWarpsharp(m_cl));
         shared_ptr<RGYFilterParamWarpsharp> param(new RGYFilterParamWarpsharp());
-        param->warpsharp = params->warpsharp;
+        param->warpsharp = params->vpp.warpsharp;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2425,7 +2448,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterTweak(m_cl));
         shared_ptr<RGYFilterParamTweak> param(new RGYFilterParamTweak());
-        param->tweak = params->tweak;
+        param->tweak = params->vpp.tweak;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2450,7 +2473,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterDeband(m_cl));
         shared_ptr<RGYFilterParamDeband> param(new RGYFilterParamDeband());
-        param->deband = params->deband;
+        param->deband = params->vpp.deband;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2475,7 +2498,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 #if 0
         unique_ptr<RGYFilter> filter(new RGYFilterPad(m_cl));
         shared_ptr<RGYFilterParamPad> param(new RGYFilterParamPad());
-        param->pad = params->pad;
+        param->pad = params->vpp.pad;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.width = m_encWidth;
@@ -2675,7 +2698,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 vppOpenCLFilters.push_back(std::move(filterCrop));
             }
             if (filterPipeline[i] != VppType::CL_CROP) {
-                auto err = AddFilterOpenCL(vppOpenCLFilters, inputFrame, m_encFps, filterPipeline[i], &inputParam->vpp, inputCrop, resize);
+                auto err = AddFilterOpenCL(vppOpenCLFilters, inputFrame, m_encFps, filterPipeline[i], inputParam, inputCrop, resize);
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }
