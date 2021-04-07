@@ -1205,19 +1205,20 @@ image stabilizerのモードの指定。
 --vpp-colorspace matrix=smpte170m:bt709,range=full:limited
 ```
 
-### --vpp-delogo &lt;string&gt;
-ロゴファイルを指定する。".lgd",".ldp",".ldp2"に対応。
+### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
 
-### --vpp-delogo-select &lt;string&gt;
+**パラメータ**
+- select=&lt;string&gt;  
 ロゴパックの場合に、使用するロゴを以下のいずれかで指定する。
 
-- ロゴ名
-- インデックス (1,2,...)
-- 自動選択用iniファイル
+  - ロゴ名
+  - インデックス (1,2,...)
+  - 自動選択用iniファイル
 ```
  [LOGO_AUTO_SELECT]
  logo<連番数字>=<マッチパターン>,<リストに表示されているロゴ名(完全一致!)>
- ```
+```
 
  例:
  ```ini
@@ -1238,19 +1239,36 @@ logo13= (BSJ).,BS Japan 1920x1080
 logo14= (BS11).,BS11 1920x1080 v3
 ```
 
-### --vpp-delogo-pos &lt;int&gt;:&lt;int&gt;
+- pos=&lt;int&gt;:&lt;int&gt;  
 1/4画素精度のロゴ位置の調整。Aviutlで言うところの &lt;位置 X&gt;:&lt;位置 Y&gt;。
 
-### --vpp-delogo-depth &lt;int&gt;
+- depth=&lt;int&gt;  
 ロゴの透明度の補正。デフォルト128。Aviutlで言うところの &lt;深度&gt;。
 
-### --vpp-delogo-y  &lt;int&gt;
-### --vpp-delogo-cb &lt;int&gt;
-### --vpp-delogo-cr &lt;int&gt;
-ロゴの各色成分の補正。Aviutlで言うところの &lt;Y&gt;, &lt;Cb&gt;, &lt;Cr&gt;。
-### --vpp-delogo-add
-ロゴ付加モード。
+- y=&lt;int&gt;  
+- cb=&lt;int&gt;  
+- cr=&lt;int&gt;  
+ロゴの各色成分の補正。Aviutlで言うところの &lt;Y&gt;, &lt;Cb&gt;, &lt;Cr&gt;。  
 
+- auto_fade=&lt;bool&gt;  
+ロゴの実際の濃さに合わせて、fade値を自動的に調整する。デフォルト = off。  
+  
+- auto_nr=&lt;bool&gt;  
+ロゴの輪郭周辺のノイズを除去する際、その強さを自動的に変化させる。デフォルト = off。  
+
+- nr_area=&lt;int&gt;  
+ロゴの輪郭周辺に対するノイズ除去適用範囲の広さ。(default=0 (オフ), 0 - 3)  
+
+- nr_value=&lt;int&gt;  
+ロゴの輪郭周辺に対するノイズ除去の強さ。(default=0 (オフ), 0 - 4)  
+
+- log=&lt;bool&gt;  
+auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
+
+```
+例:
+--vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
+```
 
 ## 制御系のオプション
 
