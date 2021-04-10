@@ -485,8 +485,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromAYUVPacked444(FrameInfo *pOutputFrame, c
     static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
     static const auto supportedCspYV12 = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     auto planeDstY = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeDstU = getPlane(pOutputFrame, RGY_PLANE_Y);
-    auto planeDstV = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeDstU = getPlane(pOutputFrame, RGY_PLANE_U);
+    auto planeDstV = getPlane(pOutputFrame, RGY_PLANE_V);
     if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pCropParam->frameOut.csp) != supportedCspYUV444.end()) {
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pInputFrame->width, pInputFrame->height);
