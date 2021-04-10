@@ -88,6 +88,38 @@ typedef cl_uint cl_dx9_device_set_intel;
 /* cl_command_type */
 #define CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL          0x402A
 #define CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL          0x402B
+
+// ---cl_intel_va_api_media_sharing  ---
+/* error codes */
+#define CL_INVALID_VA_API_MEDIA_ADAPTER_INTEL               -1098
+#define CL_INVALID_VA_API_MEDIA_SURFACE_INTEL               -1099
+#define CL_VA_API_MEDIA_SURFACE_ALREADY_ACQUIRED_INTEL      -1100
+#define CL_VA_API_MEDIA_SURFACE_NOT_ACQUIRED_INTEL          -1101
+
+/* cl_va_api_device_source_intel */
+#define CL_VA_API_DISPLAY_INTEL                             0x4094
+
+/* cl_va_api_device_set_intel */
+#define CL_PREFERRED_DEVICES_FOR_VA_API_INTEL               0x4095
+#define CL_ALL_DEVICES_FOR_VA_API_INTEL                     0x4096
+
+/* cl_context_info */
+#define CL_CONTEXT_VA_API_DISPLAY_INTEL                     0x4097
+
+/* cl_mem_info */
+#define CL_MEM_VA_API_MEDIA_SURFACE_INTEL                   0x4098
+
+/* cl_image_info */
+#define CL_IMAGE_VA_API_PLANE_INTEL                         0x4099
+
+/* cl_command_type */
+#define CL_COMMAND_ACQUIRE_VA_API_MEDIA_SURFACES_INTEL      0x409A
+#define CL_COMMAND_RELEASE_VA_API_MEDIA_SURFACES_INTEL      0x409B
+
+typedef cl_uint cl_va_api_device_source_intel;
+typedef cl_uint cl_va_api_device_set_intel;
+
+struct VASurfaceID;
 // -------------------------------------------------------------
 
 CL_EXTERN void *(CL_API_CALL *f_clGetExtensionFunctionAddressForPlatform)(cl_platform_id  platform, const char *funcname);
@@ -167,6 +199,11 @@ CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11Texture3DKHR)(cl_context contex
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueAcquireD3D11ObjectsKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseD3D11ObjectsKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 
+CL_EXTERN cl_int(CL_API_CALL* f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL)(cl_platform_id platform, cl_va_api_device_source_intel media_adapter_type, void* media_adapter, cl_va_api_device_set_intel media_adapter_set, cl_uint num_entries, cl_device_id* devices, cl_uint* num_devices);
+CL_EXTERN cl_mem(CL_API_CALL* f_clCreateFromVA_APIMediaSurfaceINTEL)(cl_context context, cl_mem_flags flags, VASurfaceID* surface, cl_uint plane, cl_int* errcode_ret);
+CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueAcquireVA_APIMediaSurfacesINTEL)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
+CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
+
 #define clGetExtensionFunctionAddressForPlatform f_clGetExtensionFunctionAddressForPlatform
 
 #define clGetPlatformIDs f_clGetPlatformIDs
@@ -243,6 +280,11 @@ CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseD3D11ObjectsKHR)(cl_command_queu
 #define clCreateFromD3D11Texture3DKHR f_clCreateFromD3D11Texture3DKHR
 #define clEnqueueAcquireD3D11ObjectsKHR f_clEnqueueAcquireD3D11ObjectsKHR
 #define clEnqueueReleaseD3D11ObjectsKHR f_clEnqueueReleaseD3D11ObjectsKHR
+
+#define clGetDeviceIDsFromVA_APIMediaAdapterINTEL f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL
+#define clCreateFromVA_APIMediaSurfaceINTEL f_clCreateFromVA_APIMediaSurfaceINTEL
+#define clEnqueueAcquireVA_APIMediaSurfacesINTEL f_clEnqueueAcquireVA_APIMediaSurfacesINTEL
+#define clEnqueueReleaseVA_APIMediaSurfacesINTEL f_clEnqueueReleaseVA_APIMediaSurfacesINTEL
 
 MAP_PAIR_0_1_PROTO(err, rgy, RGY_ERR, cl, cl_int);
 
