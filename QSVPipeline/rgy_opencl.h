@@ -33,11 +33,28 @@
 
 #if ENABLE_OPENCL
 
+#if ENCODER_QSV
+#define ENABLE_RGY_OPENCL_D3D9  D3D_SURFACES_SUPPORT
+#define ENABLE_RGY_OPENCL_D3D11 (D3D_SURFACES_SUPPORT && MFX_D3D11_SUPPORT)
+#define ENABLE_RGY_OPENCL_VA    LIBVA_SUPPORT
+#else
+#define ENABLE_RGY_OPENCL_D3D9  1
+#define ENABLE_RGY_OPENCL_D3D11 1
+#define ENABLE_RGY_OPENCL_VA    0
+#endif
+
 #include "rgy_osdep.h"
 #define CL_TARGET_OPENCL_VERSION 210
 #include <CL/opencl.h>
+#if ENABLE_RGY_OPENCL_D3D9
 #include <CL/cl_dx9_media_sharing.h>
+#endif //#if ENABLE_RGY_OPENCL_D3D9
+#if ENABLE_RGY_OPENCL_D3D11
 #include <CL/cl_d3d11.h>
+#endif //#if ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_RGY_OPENCL_VA
+#include <va/va.h>
+#endif //ENABLE_RGY_OPENCL_VA
 #include <unordered_map>
 #include <vector>
 #include <array>
@@ -52,6 +69,7 @@
 
 #define RGYDefaultQueue 0
 
+#if ENABLE_RGY_OPENCL_D3D9
 // ---cl_dx9_media_sharing_intel ---
 #define cl_intel_dx9_media_sharing 1
 
@@ -88,7 +106,9 @@ typedef cl_uint cl_dx9_device_set_intel;
 /* cl_command_type */
 #define CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL          0x402A
 #define CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL          0x402B
+#endif //#if ENABLE_OPENCL_D3D9
 
+#if ENABLE_RGY_OPENCL_VA
 // ---cl_intel_va_api_media_sharing  ---
 /* error codes */
 #define CL_INVALID_VA_API_MEDIA_ADAPTER_INTEL               -1098
@@ -118,9 +138,8 @@ typedef cl_uint cl_dx9_device_set_intel;
 
 typedef cl_uint cl_va_api_device_source_intel;
 typedef cl_uint cl_va_api_device_set_intel;
-
-struct VASurfaceID;
 // -------------------------------------------------------------
+#endif //#ifdef ENABLE_OPENCL_VA
 
 CL_EXTERN void *(CL_API_CALL *f_clGetExtensionFunctionAddressForPlatform)(cl_platform_id  platform, const char *funcname);
 
@@ -128,8 +147,6 @@ CL_EXTERN cl_int (CL_API_CALL* f_clGetPlatformIDs)(cl_uint num_entries, cl_platf
 CL_EXTERN cl_int (CL_API_CALL* f_clGetPlatformInfo) (cl_platform_id platform, cl_platform_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetDeviceIDs) (cl_platform_id platform, cl_device_type device_type, cl_uint num_entries, cl_device_id *devices, cl_uint *num_devices);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetDeviceInfo) (cl_device_id device, cl_device_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
-CL_EXTERN cl_int (CL_API_CALL *f_clGetDeviceIDsFromDX9MediaAdapterKHR)(cl_platform_id platform, cl_uint num_media_adapters, cl_dx9_media_adapter_type_khr *media_adapter_type, void *media_adapters, cl_dx9_media_adapter_set_khr     media_adapter_set, cl_uint                          num_entries, cl_device_id *devices, cl_uint *num_devices);
-CL_EXTERN cl_int (CL_API_CALL *f_clGetDeviceIDsFromD3D11KHR)(cl_platform_id platform, cl_d3d11_device_source_khr d3d_device_source, void *d3d_object, cl_d3d11_device_set_khr d3d_device_set, cl_uint num_entries, cl_device_id *devices, cl_uint *num_devices);
 
 CL_EXTERN cl_context (CL_API_CALL* f_clCreateContext) (const cl_context_properties * properties, cl_uint num_devices, const cl_device_id * devices, void (CL_CALLBACK * pfn_notify)(const char *, const void *, size_t, void *), void * user_data, cl_int * errcode_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseContext) (cl_context context);
@@ -184,6 +201,8 @@ CL_EXTERN cl_int(CL_API_CALL *f_clFinish)(cl_command_queue command_queue);
 CL_EXTERN cl_int(CL_API_CALL *f_clGetKernelSubGroupInfo)(cl_kernel kernel, cl_device_id device, cl_kernel_sub_group_info param_name, size_t input_value_size, const void *input_value, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clGetKernelSubGroupInfoKHR)(cl_kernel kernel, cl_device_id device, cl_kernel_sub_group_info param_name, size_t input_value_size, const void *input_value, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 
+#if ENABLE_RGY_OPENCL_D3D9
+CL_EXTERN cl_int (CL_API_CALL *f_clGetDeviceIDsFromDX9MediaAdapterKHR)(cl_platform_id platform, cl_uint num_media_adapters, cl_dx9_media_adapter_type_khr *media_adapter_type, void *media_adapters, cl_dx9_media_adapter_set_khr media_adapter_set, cl_uint num_entries, cl_device_id *devices, cl_uint *num_devices);
 CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromDX9MediaSurfaceKHR)(cl_context context, cl_mem_flags flags, cl_dx9_media_adapter_type_khr adapter_type, void *surface_info, cl_uint plane, cl_int *errcode_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueAcquireDX9MediaSurfacesKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseDX9MediaSurfacesKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
@@ -192,17 +211,23 @@ CL_EXTERN cl_int(CL_API_CALL* f_clGetDeviceIDsFromDX9INTEL)(cl_platform_id platf
 CL_EXTERN cl_mem(CL_API_CALL* f_clCreateFromDX9MediaSurfaceINTEL)(cl_context context, cl_mem_flags flags, IDirect3DSurface9* resource, HANDLE sharedHandle, UINT plane, cl_int* errcode_ret);
 CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueAcquireDX9ObjectsINTEL)(cl_command_queue command_queue, cl_uint  num_objects, const cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
 CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseDX9ObjectsINTEL)(cl_command_queue command_queue, cl_uint num_objects, cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
+#endif //ENABLE_RGY_OPENCL_D3D9
 
+#if ENABLE_RGY_OPENCL_D3D11
+CL_EXTERN cl_int (CL_API_CALL *f_clGetDeviceIDsFromD3D11KHR)(cl_platform_id platform, cl_d3d11_device_source_khr d3d_device_source, void *d3d_object, cl_d3d11_device_set_khr d3d_device_set, cl_uint num_entries, cl_device_id *devices, cl_uint *num_devices);
 CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11BufferKHR)(cl_context context, cl_mem_flags flags, ID3D11Buffer *resource, cl_int *errcode_ret);
 CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11Texture2DKHR)(cl_context context, cl_mem_flags flags, ID3D11Texture2D *resource, UINT subresource, cl_int *errcode_ret);
 CL_EXTERN cl_mem(CL_API_CALL *f_clCreateFromD3D11Texture3DKHR)(cl_context context, cl_mem_flags flags, ID3D11Texture3D *resource, UINT subresource, cl_int *errcode_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueAcquireD3D11ObjectsKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseD3D11ObjectsKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
+#endif //#if ENABLE_RGY_OPENCL_D3D11
 
+#ifdef ENABLE_RGY_OPENCL_VA
 CL_EXTERN cl_int(CL_API_CALL* f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL)(cl_platform_id platform, cl_va_api_device_source_intel media_adapter_type, void* media_adapter, cl_va_api_device_set_intel media_adapter_set, cl_uint num_entries, cl_device_id* devices, cl_uint* num_devices);
 CL_EXTERN cl_mem(CL_API_CALL* f_clCreateFromVA_APIMediaSurfaceINTEL)(cl_context context, cl_mem_flags flags, VASurfaceID* surface, cl_uint plane, cl_int* errcode_ret);
 CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueAcquireVA_APIMediaSurfacesINTEL)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
 CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);
+#endif //#ifdef ENABLE_RGY_OPENCL_VA
 
 #define clGetExtensionFunctionAddressForPlatform f_clGetExtensionFunctionAddressForPlatform
 
@@ -210,8 +235,6 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clGetPlatformInfo f_clGetPlatformInfo
 #define clGetDeviceIDs f_clGetDeviceIDs
 #define clGetDeviceInfo f_clGetDeviceInfo
-#define clGetDeviceIDsFromDX9MediaAdapterKHR f_clGetDeviceIDsFromDX9MediaAdapterKHR
-#define clGetDeviceIDsFromD3D11KHR f_clGetDeviceIDsFromD3D11KHR
 
 #define clCreateContext f_clCreateContext
 #define clReleaseContext f_clReleaseContext
@@ -266,6 +289,8 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clGetKernelSubGroupInfo f_clGetKernelSubGroupInfo
 #define clGetKernelSubGroupInfoKHR f_clGetKernelSubGroupInfoKHR
 
+#if ENABLE_RGY_OPENCL_D3D9
+#define clGetDeviceIDsFromDX9MediaAdapterKHR f_clGetDeviceIDsFromDX9MediaAdapterKHR
 #define clCreateFromDX9MediaSurfaceKHR f_clCreateFromDX9MediaSurfaceKHR
 #define clEnqueueAcquireDX9MediaSurfacesKHR f_clEnqueueAcquireDX9MediaSurfacesKHR
 #define clEnqueueReleaseDX9MediaSurfacesKHR f_clEnqueueReleaseDX9MediaSurfacesKHR
@@ -274,17 +299,23 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clCreateFromDX9MediaSurfaceINTEL f_clCreateFromDX9MediaSurfaceINTEL
 #define clEnqueueAcquireDX9ObjectsINTEL f_clEnqueueAcquireDX9ObjectsINTEL
 #define clEnqueueReleaseDX9ObjectsINTEL f_clEnqueueReleaseDX9ObjectsINTEL
+#endif //#if ENABLE_RGY_OPENCL_D3D9
 
+#if ENABLE_RGY_OPENCL_D3D11
+#define clGetDeviceIDsFromD3D11KHR f_clGetDeviceIDsFromD3D11KHR
 #define clCreateFromD3D11BufferKHR f_clCreateFromD3D11BufferKHR
 #define clCreateFromD3D11Texture2DKHR f_clCreateFromD3D11Texture2DKHR
 #define clCreateFromD3D11Texture3DKHR f_clCreateFromD3D11Texture3DKHR
 #define clEnqueueAcquireD3D11ObjectsKHR f_clEnqueueAcquireD3D11ObjectsKHR
 #define clEnqueueReleaseD3D11ObjectsKHR f_clEnqueueReleaseD3D11ObjectsKHR
+#endif //#if ENABLE_RGY_OPENCL_D3D11
 
+#if ENABLE_RGY_OPENCL_VA
 #define clGetDeviceIDsFromVA_APIMediaAdapterINTEL f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL
 #define clCreateFromVA_APIMediaSurfaceINTEL f_clCreateFromVA_APIMediaSurfaceINTEL
 #define clEnqueueAcquireVA_APIMediaSurfacesINTEL f_clEnqueueAcquireVA_APIMediaSurfacesINTEL
 #define clEnqueueReleaseVA_APIMediaSurfacesINTEL f_clEnqueueReleaseVA_APIMediaSurfacesINTEL
+#endif //ENABLE_RGY_OPENCL_VA
 
 MAP_PAIR_0_1_PROTO(err, rgy, RGY_ERR, cl, cl_int);
 
@@ -378,6 +409,15 @@ private:
     std::shared_ptr<cl_event> event_;
 };
 
+#if !ENABLE_RGY_OPENCL_D3D9
+typedef int cl_dx9_media_adapter_type_khr;
+typedef struct _cl_dx9_surface_info_khr {
+    void *resource; HANDLE shared_handle;
+} cl_dx9_surface_info_khr;
+#endif
+#if !ENABLE_RGY_OPENCL_D3D11
+typedef void ID3D11Resource;
+#endif
 struct RGYCLMemObjInfo {
     cl_mem_object_type memtype;
     cl_mem_flags memflags;
@@ -393,6 +433,8 @@ struct RGYCLMemObjInfo {
     cl_dx9_surface_info_khr d3d9_surf_type;
     ID3D11Resource *d3d11resource;
     ID3D11Resource *d3d11subresource;
+    void *va_surfaceId;
+    cl_uint va_plane;
     cl_image_desc image;
     cl_image_format image_format;
     size_t image_elem_size;
@@ -400,7 +442,7 @@ struct RGYCLMemObjInfo {
 
     RGYCLMemObjInfo() : memtype(0), memflags(0), size(0), host_ptr(nullptr), map_count(0), ref_count(0),
         mem_offset(0), context(nullptr), associated_mem(nullptr), is_svm_ptr(false),
-        d3d9_adapter_type(0), d3d9_surf_type({ 0 }), d3d11resource(nullptr), d3d11subresource(nullptr),
+        d3d9_adapter_type(0), d3d9_surf_type({ 0 }), d3d11resource(nullptr), d3d11subresource(nullptr), va_surfaceId(nullptr), va_plane(0),
         image(), image_elem_size(0), d3d9_media_plane(0) {
         memset(&image, 0, sizeof(image));
     };
@@ -522,11 +564,8 @@ protected:
     void operator =(const RGYCLFrame &) = delete;
 public:
     const FrameInfo& frameInfo() const { return frame; }
-    cl_mem& mem(int i) {
-        return (cl_mem&)frame.ptr[i];
-    }
-    cl_mem& mem(int i) const {
-        return (cl_mem&)frame.ptr[i];
+    cl_mem mem(int i) const {
+        return (cl_mem)frame.ptr[i];
     }
     void clear();
     virtual ~RGYCLFrame() {
@@ -602,9 +641,11 @@ public:
     RGY_ERR createDeviceList(cl_device_type device_type);
     RGY_ERR createDeviceListD3D9(cl_device_type device_type, void *d3d9dev);
     RGY_ERR createDeviceListD3D11(cl_device_type device_type, void *d3d11dev);
+    RGY_ERR createDeviceListVA(cl_device_type device_type, void *devVA);
     cl_platform_id get() const { return m_platform; };
     const void *d3d9dev() const { return m_d3d9dev; };
     const void *d3d11dev() const { return m_d3d11dev; };
+    const void *vadev() const { return m_vadev; };
     std::vector<cl_device_id>& devs() { return m_devices; };
     RGYOpenCLDevice dev(int idx) { return RGYOpenCLDevice(m_devices[idx]); };
     const std::vector<cl_device_id>& devs() const { return m_devices; };
@@ -623,6 +664,7 @@ protected:
     cl_platform_id m_platform;
     void *m_d3d9dev;
     void *m_d3d11dev;
+    void *m_vadev;
     std::vector<cl_device_id> m_devices;
     shared_ptr<RGYLog> m_pLog;
 };
@@ -824,6 +866,7 @@ public:
     unique_ptr<RGYCLFrame> createFrameBuffer(const FrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
     unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
     unique_ptr<RGYCLFrameInterop> createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    unique_ptr<RGYCLFrameInterop> createFrameFromVASurface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop);
     RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);

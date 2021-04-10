@@ -26,13 +26,11 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <tchar.h>
+#include "rgy_tchar.h"
 #include <vector>
 #include <atomic>
 #include <fstream>
+#include "rgy_osdep.h"
 #define CL_EXTERN
 #include "rgy_opencl.h"
 
@@ -227,19 +225,19 @@ int initOpenCLGlobal() {
     if (RGYOpenCL::openCLHandle != nullptr) {
         return 0;
     }
-    if ((RGYOpenCL::openCLHandle = LoadLibrary(_T("OpenCL.dll"))) == nullptr) {
+    if ((RGYOpenCL::openCLHandle = RGY_LOAD_LIBRARY(_T("OpenCL.dll"))) == nullptr) {
         return 1;
     }
 
 #define LOAD(name) \
-    f_##name = (decltype(f_##name)) GetProcAddress(RGYOpenCL::openCLHandle, #name); \
+    f_##name = (decltype(f_##name)) RGY_GET_PROC_ADDRESS(RGYOpenCL::openCLHandle, #name); \
     if (f_##name == nullptr) { \
-        FreeLibrary(RGYOpenCL::openCLHandle); \
+        RGY_FREE_LIBRARY(RGYOpenCL::openCLHandle); \
         RGYOpenCL::openCLHandle = nullptr; \
         return 1; \
     }
 #define LOAD_NO_CHECK(name) \
-    f_##name = (decltype(f_##name)) GetProcAddress(RGYOpenCL::openCLHandle, #name);
+    f_##name = (decltype(f_##name)) RGY_GET_PROC_ADDRESS(RGYOpenCL::openCLHandle, #name);
 
     LOAD(clGetExtensionFunctionAddressForPlatform);
     LOAD(clGetDeviceInfo);
@@ -344,7 +342,7 @@ tstring RGYOpenCLDevice::infostr() const {
     return char_to_tstring(ts.str());
 }
 
-RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog> pLog) : m_platform(platform), m_d3d9dev(nullptr), m_d3d11dev(nullptr), m_devices(), m_pLog(pLog) {
+RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog> pLog) : m_platform(platform), m_d3d9dev(nullptr), m_d3d11dev(nullptr), m_vadev(nullptr), m_devices(), m_pLog(pLog) {
 }
 
 #define LOAD_KHR(name) \
@@ -362,7 +360,11 @@ RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog>
         } \
     }
 
+
 RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, void *d3d11dev) {
+#if !ENABLE_RGY_OPENCL_D3D11
+    return RGY_ERR_UNSUPPORTED;
+#else
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
     }
@@ -414,9 +416,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
         ret = createDeviceList(device_type);
     }
     return RGY_ERR_NONE;
+#endif
 }
 
 RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void *d3d9dev) {
+#if !ENABLE_RGY_OPENCL_D3D9
+    return RGY_ERR_UNSUPPORTED;
+#else
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
     }
@@ -491,6 +497,63 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
         ret = createDeviceList(device_type);
     }
     return RGY_ERR_NONE;
+#endif
+}
+
+RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *vadev) {
+#if !ENABLE_RGY_OPENCL_VA
+    return RGY_ERR_UNSUPPORTED;
+#else
+    if (RGYOpenCL::openCLCrush) {
+        return RGY_ERR_OPENCL_CRUSH;
+    }
+    m_pLog->write(RGY_LOG_DEBUG, _T("f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL(vadev = %p)\n"), vadev);
+
+    auto ret = RGY_ERR_NONE;
+    cl_uint device_count = 0;
+    if (vadev && checkExtension("cl_intel_va_api_media_sharing")) {
+        LOAD_KHR(clGetDeviceIDsFromVA_APIMediaAdapterINTEL);
+        LOAD_KHR(clCreateFromVA_APIMediaSurfaceINTEL);
+        LOAD_KHR(clEnqueueAcquireVA_APIMediaSurfacesINTEL);
+        LOAD_KHR(clEnqueueReleaseVA_APIMediaSurfacesINTEL);
+    }
+    if (vadev && clGetDeviceIDsFromVA_APIMediaAdapterINTEL) {
+        m_vadev = vadev;
+        int select_dev_type = CL_PREFERRED_DEVICES_FOR_VA_API_INTEL;
+        try {
+            if ((ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
+                select_dev_type = CL_ALL_DEVICES_FOR_VA_API_INTEL;
+                if ((ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
+                    m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromVA_APIMediaAdapterINTEL): %s\n"), get_err_mes(ret));
+                    return ret;
+                }
+            }
+            m_pLog->write(RGY_LOG_DEBUG, _T("VA device count = %d\n"), device_count);
+        } catch (...) {
+            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromVA_APIMediaAdapterINTEL)\n"));
+            RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+        if (device_count > 0) {
+            std::vector<cl_device_id> devs(device_count, 0);
+            try {
+                ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, device_count, devs.data(), &device_count));
+            } catch (...) {
+                m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromVA_APIMediaAdapterINTEL)\n"));
+                RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
+                return RGY_ERR_OPENCL_CRUSH;
+            }
+            if (ret == RGY_ERR_NONE) {
+                m_devices = devs;
+                m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromVA_APIMediaAdapterINTEL: Success\n"));
+                return ret;
+            }
+        }
+    } else {
+        ret = createDeviceList(device_type);
+    }
+    return RGY_ERR_NONE;
+#endif
 }
 
 RGY_ERR RGYOpenCLPlatform::createDeviceList(cl_device_type device_type) {
@@ -597,22 +660,29 @@ RGY_ERR RGYOpenCLContext::createContext() {
 
     cl_int err = RGY_ERR_NONE;
     std::vector<cl_context_properties> props = { CL_CONTEXT_PLATFORM, (cl_context_properties)(m_platform->get()) };
+    #if ENABLE_RGY_OPENCL_D3D9
     if (m_platform->d3d9dev()) {
         props.push_back(CL_CONTEXT_ADAPTER_D3D9EX_KHR);
         props.push_back((cl_context_properties)m_platform->d3d9dev());
         m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d9 interop for %p\n"), m_platform->d3d9dev());
     }
+    #endif ENABLE_RGY_OPENCL_D3D9
+    #if MFX_D3D11_SUPPORT
     if (m_platform->d3d11dev()) {
         props.push_back(CL_CONTEXT_D3D11_DEVICE_KHR);
         props.push_back((cl_context_properties)m_platform->d3d11dev());
         m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d11 interop for %p\n"), m_platform->d3d11dev());
     }
+    #endif //#if MFX_D3D11_SUPPORT
+    #if ENABLE_RGY_OPENCL_VA
+    if (m_platform->vadev()) {
+        props.push_back(CL_CONTEXT_VA_API_DISPLAY_INTEL);
+        props.push_back((cl_context_properties)m_platform->vadev());
+        m_pLog->write(RGY_LOG_DEBUG, _T("Enable va interop for %p\n"), m_platform->d3d11dev());
+    }
+    #endif
     props.push_back(CL_CONTEXT_INTEROP_USER_SYNC);
-#if ENCODER_QSV
-    props.push_back(CL_TRUE);
-#else
-    props.push_back(CL_FALSE);
-#endif
+    props.push_back((ENCODER_QSV) ? CL_TRUE : CL_FALSE);
     props.push_back(0);
     try {
         m_context = unique_context(clCreateContext(props.data(), (cl_uint)m_platform->devs().size(), m_platform->devs().data(), nullptr, nullptr, &err), clReleaseContext);
@@ -875,10 +945,13 @@ static bool clchannel_type_is_normalized_type(cl_channel_type type) {
 
 
 static const auto RGY_DX9_ADAPTER_TYPE_TO_STR = make_array<std::pair<cl_dx9_media_adapter_type_khr, const TCHAR *>>(
-    std::make_pair(0,                      _T("none")),
+    std::make_pair(0,                      _T("none"))
+#if ENABLE_RGY_OPENCL_D3D9
+    ,
     std::make_pair(CL_ADAPTER_D3D9_KHR,    _T("d3d9")),
     std::make_pair(CL_ADAPTER_D3D9EX_KHR,  _T("d3d9ex")),
     std::make_pair(CL_ADAPTER_DXVA_KHR,    _T("dxva"))
+#endif
 );
 
 MAP_PAIR_0_1(cldx9adaptertype, cl, cl_dx9_media_adapter_type_khr, str, const TCHAR *, RGY_DX9_ADAPTER_TYPE_TO_STR, 0, _T("unknown"));
@@ -898,9 +971,16 @@ static RGYCLMemObjInfo getRGYCLMemObjectInfo(cl_mem mem) {
     clGetMemObjectInfo(mem, CL_MEM_CONTEXT, sizeof(info.context), &info.context, nullptr);
     clGetMemObjectInfo(mem, CL_MEM_ASSOCIATED_MEMOBJECT, sizeof(info.associated_mem), &info.associated_mem, nullptr);
     //clGetMemObjectInfo(mem, CL_​MEM_​USES_​SVM_​POINTER, sizeof(info.is_svm_ptr), &info.is_svm_ptr, nullptr);
+    #if ENABLE_RGY_OPENCL_D3D9
     clGetMemObjectInfo(mem, CL_MEM_DX9_MEDIA_ADAPTER_TYPE_KHR, sizeof(info.d3d9_adapter_type), &info.d3d9_adapter_type, nullptr);
     clGetMemObjectInfo(mem, CL_MEM_DX9_MEDIA_SURFACE_INFO_KHR, sizeof(info.d3d9_surf_type), &info.d3d9_surf_type, nullptr);
+    #endif
+    #if ENABLE_RGY_OPENCL_D3D11
     clGetMemObjectInfo(mem, CL_MEM_D3D11_RESOURCE_KHR, sizeof(info.d3d11resource), &info.d3d11resource, nullptr);
+    #endif
+    #if ENABLE_RGY_OPENCL_VA
+    clGetMemObjectInfo(mem, CL_MEM_VA_API_MEDIA_SURFACE_INTEL, sizeof(info.va_surfaceId), &info.va_surfaceId, nullptr);
+    #endif
 
     switch (info.memtype) {
     case CL_MEM_OBJECT_IMAGE2D:
@@ -921,9 +1001,16 @@ static RGYCLMemObjInfo getRGYCLMemObjectInfo(cl_mem mem) {
         clGetImageInfo(mem, CL_IMAGE_NUM_MIP_LEVELS, sizeof(info.image.num_mip_levels), &info.image.num_mip_levels, nullptr);
         clGetImageInfo(mem, CL_IMAGE_NUM_SAMPLES, sizeof(info.image.num_samples), &info.image.num_samples, nullptr);
         //clGetImageInfo(mem, CL_IMAGE_D3D10_SUBRESOURCE_KHR, sizeof(info.d3d11resource), &info.d3d11resource, nullptr);
+        #if ENABLE_RGY_OPENCL_D3D9
         clGetImageInfo(mem, CL_IMAGE_DX9_MEDIA_PLANE_KHR, sizeof(info.d3d9_media_plane), &info.d3d9_media_plane, nullptr);
         //clGetImageInfo(mem, CL_IMAGE_DX9_MEDIA_SURFACE_PLANE_KHR, sizeof(info.d3d11resource), &info.d3d11resource, nullptr);
+        #endif //ENABLE_RGY_OPENCL_D3D9
+        #if ENABLE_RGY_OPENCL_D3D11
         clGetImageInfo(mem, CL_IMAGE_D3D11_SUBRESOURCE_KHR, sizeof(info.d3d11subresource), &info.d3d11subresource, nullptr);
+        #endif //#if ENABLE_RGY_OPENCL_D3D11
+        #if ENABLE_RGY_OPENCL_VA
+        clGetImageInfo(mem, CL_IMAGE_VA_API_PLANE_INTEL, sizeof(info.va_plane), &info.va_plane, nullptr);
+        #endif
         break;
     default:
         break;
@@ -944,8 +1031,9 @@ tstring RGYCLMemObjInfo::print() const {
     str += strsprintf(_T("associated mem:   0x%p\n"), associated_mem);
     str += strsprintf(_T("is_svm_ptr:       %s\n"), is_svm_ptr ? _T("yes") : _T("no"));
     str += strsprintf(_T("dx9 adapter type: %s\n"), cldx9adaptertype_cl_to_str(d3d9_adapter_type));
-    str += strsprintf(_T("dx9 resource:     %p\n"), d3d9_surf_type.resource);
+    str += strsprintf(_T("dx9 resource:     resource: %p, handle: %p\n"), d3d9_surf_type.resource, d3d9_surf_type.shared_handle);
     str += strsprintf(_T("dx11 resource:    %p\n"), d3d11resource);
+    str += strsprintf(_T("va surfaceId:     %p\n"), va_surfaceId);
     if (image_format.image_channel_order != 0) {
         str += strsprintf(_T("image\n"));
         str += strsprintf(_T("data type:        %s\n"), clchanneltype_cl_to_str(image_format.image_channel_data_type));
@@ -962,6 +1050,7 @@ tstring RGYCLMemObjInfo::print() const {
         str += strsprintf(_T("num samples:      %zu\n"), image.num_samples);
         str += strsprintf(_T("dx9 plane:        %d\n"), d3d9_media_plane);
         str += strsprintf(_T("dx11 subresource: 0x%p\n"), d3d11subresource);
+        str += strsprintf(_T("va plane:         0x%p\n"), va_plane);
     }
     return str;
 }
@@ -1078,7 +1167,7 @@ void RGYCLFrame::clear() {
         if (mem(i)) {
             clReleaseMemObject(mem(i));
         }
-        mem(i) = nullptr;
+        frame.ptr[i] = nullptr;
         frame.pitch[i] = 0;
     }
 }
@@ -1090,11 +1179,22 @@ RGYCLMemObjInfo RGYCLFrame::getMemObjectInfo() const {
 RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
     cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
     cl_int err = CL_SUCCESS;
+#if ENABLE_RGY_OPENCL_D3D9
     if (m_interop == RGY_INTEROP_DX9) {
         err = clEnqueueAcquireDX9MediaSurfacesKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
-    } else if (m_interop == RGY_INTEROP_DX11) {
+    } else
+#endif
+#if ENABLE_RGY_OPENCL_D3D11
+    if (m_interop == RGY_INTEROP_DX11) {
         err = clEnqueueAcquireD3D11ObjectsKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
-    } else {
+    } else
+#endif
+#if ENABLE_RGY_OPENCL_VA
+    if (m_interop == RGY_INTEROP_VA) {
+        err = clEnqueueAcquireVA_APIMediaSurfacesINTEL(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+    } else
+#endif
+    {
         m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Unknown interop type!\n"));
         return RGY_ERR_UNSUPPORTED;
     }
@@ -1110,11 +1210,22 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
     if (m_acquired) {
         cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
         cl_int err = CL_SUCCESS;
+#if ENABLE_RGY_OPENCL_D3D9
         if (m_interop == RGY_INTEROP_DX9) {
             err = clEnqueueReleaseDX9MediaSurfacesKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
-        } else if (m_interop == RGY_INTEROP_DX11) {
+        } else 
+#endif
+#if ENABLE_RGY_OPENCL_D3D11
+        if (m_interop == RGY_INTEROP_DX11) {
             err = clEnqueueReleaseD3D11ObjectsKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
-        } else {
+        } else
+#endif
+#if ENABLE_RGY_OPENCL_VA
+        if (m_interop == RGY_INTEROP_VA) {
+            err = clEnqueueReleaseVA_APIMediaSurfacesINTEL(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+        } else
+#endif
+        {
             m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::release: Unknown interop type!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
@@ -1671,6 +1782,10 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo&
 }
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+#if !ENABLE_RGY_OPENCL_D3D9
+    m_pLog->write(RGY_LOG_ERROR, _T("OpenCL d3d9 interop not supported in this build.\n"));
+    return std::unique_ptr<RGYCLFrameInterop>();
+#else
     if (m_platform->d3d9dev() == nullptr) {
         m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d9 device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
@@ -1699,9 +1814,14 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
     return std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_pLog));
+#endif
 }
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+#if !ENABLE_RGY_OPENCL_D3D11
+    m_pLog->write(RGY_LOG_ERROR, _T("OpenCL d3d11 interop not supported in this build.\n"));
+    return std::unique_ptr<RGYCLFrameInterop>();
+#else
     if (m_platform->d3d11dev() == nullptr) {
         m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d11 device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
@@ -1728,6 +1848,41 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
     return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_pLog);
+#endif
+}
+
+unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+#if !ENABLE_RGY_OPENCL_VA
+    m_pLog->write(RGY_LOG_ERROR, _T("OpenCL VA interop not supported in this build.\n"));
+    return std::unique_ptr<RGYCLFrameInterop>();
+#else
+    if (m_platform->vadev() == nullptr) {
+        m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with va device.\n"));
+        return std::unique_ptr<RGYCLFrameInterop>();
+    }
+    FrameInfo clframe = frame;
+    for (int i = 0; i < _countof(clframe.ptr); i++) {
+        clframe.ptr[i] = nullptr;
+        clframe.pitch[i] = 0;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+        cl_int err = CL_SUCCESS;
+        clframe.ptr[i] = (uint8_t *)clCreateFromVA_APIMediaSurfaceINTEL(m_context.get(), flags, (VASurfaceID *)surf, i, &err);
+        if (err != CL_SUCCESS) {
+            m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from va surface: %s\n"), cl_errmes(err));
+            for (int j = i - 1; j >= 0; j--) {
+                if (clframe.ptr[j] != nullptr) {
+                    clReleaseMemObject((cl_mem)clframe.ptr[j]);
+                    clframe.ptr[j] = nullptr;
+                }
+            }
+            return std::unique_ptr<RGYCLFrameInterop>();
+        }
+    }
+    auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
+    clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_VA, queue, m_pLog);
+#endif
 }
 
 RGYOpenCL::RGYOpenCL() : m_pLog(std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR)) {

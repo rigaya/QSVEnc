@@ -275,13 +275,12 @@ mfxHandleType mfxHandleTypeFromMemType(const MemType memType, const bool forOpen
     switch (memType) {
 #if D3D_SURFACES_SUPPORT
     case D3D9_MEMORY:  hdl_t = (forOpenCLInterop) ? MFX_HANDLE_IDIRECT3D9EX : MFX_HANDLE_D3D9_DEVICE_MANAGER; break;
+#if MFX_D3D11_SUPPORT
     case D3D11_MEMORY: hdl_t = MFX_HANDLE_D3D11_DEVICE; break;
-#elif LIBVA_SUPPORT
-    case VA_MEMORY: {
-        PrintMes(RGY_LOG_DEBUG, _T("Unknown GPU memory type.\n"));
-        return RGY_ERR_UNSUPPORTED;
-        hdl_t = MFX_HANDLE_VA_DISPLAY; break;
-    }
+#endif
+#endif
+#if LIBVA_SUPPORT
+    case VA_MEMORY: hdl_t = MFX_HANDLE_VA_DISPLAY; break;
 #endif
     default:
         break;

@@ -33,6 +33,7 @@
 #include "rgy_prm.h"
 #include "rgy_err.h"
 #include "rgy_perf_monitor.h"
+#include "rgy_ini.h"
 #include "afs_stg.h"
 
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {

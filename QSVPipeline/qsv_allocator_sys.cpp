@@ -181,8 +181,8 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         break;
 #if !(defined(_WIN32) || defined(_WIN64))
     case MFX_FOURCC_RGBP:
-        ptr->G = ptr->B + Width2 * Height2;
-        ptr->R = ptr->B + Width2 * Height2 * 2;
+        ptr->G = ptr->B + WidthAlign * HeightAlign;
+        ptr->R = ptr->B + WidthAlign * HeightAlign * 2;
         ptr->PitchHigh = (mfxU16)((WidthAlign) / (1 << 16));
         ptr->PitchLow = (mfxU16)((WidthAlign) % (1 << 16));
         break;

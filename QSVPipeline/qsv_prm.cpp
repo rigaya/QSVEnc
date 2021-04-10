@@ -51,8 +51,8 @@ VppDetailEnhance::VppDetailEnhance() :
 sVppParams::sVppParams() :
     bEnable(true),
     bUseResize(false),
-    resizeInterp(MFX_INTERPOLATION_DEFAULT),
-    resizeMode(MFX_SCALING_MODE_DEFAULT),
+    resizeInterp(RGY_VPP_RESIZE_AUTO),
+    resizeMode(RGY_VPP_RESIZE_MODE_DEFAULT),
     colorspace(),
     deinterlace(0),
     telecinePattern(0),

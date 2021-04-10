@@ -365,7 +365,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(m_pFileReader->getInputCodec());
         m_mfxDecParams.IOPattern = (uint16_t)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
         sts = err_to_rgy(m_pmfxDEC->DecodeHeader(&m_DecInputBitstream.bitstream(), &m_mfxDecParams));
-        QSV_ERR_MES(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
+        RGY_ERR(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
 
         //DecodeHeaderした結果をreaderにも反映
         if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
@@ -1259,10 +1259,10 @@ RGY_ERR CQSVPipeline::CreateHWDevice() {
 #elif LIBVA_SUPPORT
     m_hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, m_pQSVLog));
     if (!m_hwdev) {
-        return MFX_ERR_MEMORY_ALLOC;
+        return RGY_ERR_MEMORY_ALLOC;
     }
-    sts = m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession));
-    QSV_ERR_MES(sts, _T("Failed to initialize HW Device."));
+    sts = err_to_rgy(m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession)));
+    RGY_ERR(sts, _T("Failed to initialize HW Device."));
 #endif
     return RGY_ERR_NONE;
 }
@@ -1443,7 +1443,7 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
         RGY_ERR(sts, _T("Failed to CreateHWDevice."));
 
         mfxHDL hdl = NULL;
-        sts = m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
+        sts = err_to_rgy(m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
         RGY_ERR(sts, _T("Failed to get HW device handle."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
@@ -1455,13 +1455,13 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
         m_pMFXAllocator.reset(new QSVAllocatorVA());
         if (!m_pMFXAllocator) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
-            return MFX_ERR_MEMORY_ALLOC;
+            return RGY_ERR_MEMORY_ALLOC;
         }
 
         QSVAllocatorParamsVA *p_vaapiAllocParams = new QSVAllocatorParamsVA();
         if (!p_vaapiAllocParams) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiAllocatorParams.\n"));
-            return MFX_ERR_MEMORY_ALLOC;
+            return RGY_ERR_MEMORY_ALLOC;
         }
 
         p_vaapiAllocParams->m_dpy = (VADisplay)hdl;
@@ -3002,7 +3002,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
     sts = InitSession(true, pParams->memType);
-    QSV_ERR_MES(sts, _T("Failed to initialize encode session."));
+    RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
     m_SessionPlugins = std::make_unique<CSessionPlugins>(m_mfxSession);
@@ -3416,7 +3416,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     auto heAbort = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
     auto checkAbort = [pabort = m_pAbortByUser, &heAbort]() { return ((pabort != nullptr && *pabort) || WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
 #else
-    auto checkAbort = [pabort = m_pAbortByUser]() { return  (pabort != nullptr && *pabort); }
+    auto checkAbort = [pabort = m_pAbortByUser]() { return  (pabort != nullptr && *pabort); };
 #endif
     m_pStatus->SetStart();
 

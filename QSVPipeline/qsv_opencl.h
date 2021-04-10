@@ -36,6 +36,7 @@
 
 static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1 *mfxSurf, MemType memType, cl_mem_flags flags, QSVAllocator *allocator, RGYOpenCLContext *cl, RGYOpenCLQueue& queue, const FrameInfo& frameInfo) {
     mfxMemId mid = mfxSurf->Data.MemId;
+#if ENABLE_RGY_OPENCL_D3D11
     if (memType == D3D11_MEMORY) {
         mfxHDLPair mid_pair = { 0 };
         auto err = err_to_rgy(allocator->GetHDL(allocator->pthis, mid, reinterpret_cast<mfxHDL*>(&mid_pair)));
@@ -44,7 +45,10 @@ static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1
         }
         ID3D11Texture2D *surf = (ID3D11Texture2D*)mid_pair.first;
         return cl->createFrameFromD3D11Surface(surf, frameInfo, queue, flags);
-    } else if (memType == D3D9_MEMORY) {
+    } else
+#endif
+#if ENABLE_RGY_OPENCL_D3D9
+    if (memType == D3D9_MEMORY) {
         //mfxHDLPair mid_pair = { 0 };
         //auto err = err_to_rgy(allocator->GetHDL(allocator->pthis, mid, reinterpret_cast<mfxHDL*>(&mid_pair)));
         //if (err != RGY_ERR_NONE) {
@@ -54,7 +58,19 @@ static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1
         // このshared_handleも渡さないと、release/acquireで余計なオーバーヘッドが発生してしまう模様
         HANDLE shared_handle = (HANDLE)((mfxHDLPair*)mid)->second;
         return cl->createFrameFromD3D9Surface(surf, shared_handle, frameInfo, queue, flags);
-    } else {
+    } else
+#endif
+#if ENABLE_RGY_OPENCL_VA
+    if (memType == VA_MEMORY) {
+        VASurfaceID* surf = NULL;
+        auto err = err_to_rgy(allocator->GetHDL(allocator->pthis, mid, reinterpret_cast<mfxHDL*>(&surf)));
+        if (err != RGY_ERR_NONE) {
+            return std::unique_ptr<RGYCLFrameInterop>();
+        }
+        return cl->createFrameFromVASurface(surf, frameInfo, queue, flags);
+    } else
+#endif
+    {
         return std::unique_ptr<RGYCLFrameInterop>();
     }
 }

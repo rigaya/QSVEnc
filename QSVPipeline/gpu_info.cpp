@@ -148,6 +148,7 @@ tstring getGPUInfoVA() {
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
 #ifdef LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
+    return 0;
 #else
     int ret = CL_SUCCESS;
     RGYOpenCL cl;

@@ -113,6 +113,8 @@ LIBVA_SUPPORT=1
 LIBVA_X11_SUPPORT=1
 LIBVA_DRM_SUPPORT=1
 
+OPENCL_HEADERS=""
+
 CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
 LIBAV_CFLAGS=""
 LIBAV_LIBS=""
@@ -150,6 +152,8 @@ options:
   --cxx=CXX                set C++ compiler path [${CXX}]
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
+
+  --opencl-headers         set opencl headers path [${OPENCL_CFLAGS}]
 
   --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
   --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
@@ -192,6 +196,9 @@ for opt; do
         --enable-debug)
             ENABLE_DEBUG=1
             ;;
+        --opencl-headers=*)
+            OPENCL_HEADERS="$optarg"
+            ;;
         --disable-vapoursynth)
             ENABLE_VAPOURSYNTH=0
             ;;
@@ -222,6 +229,7 @@ echo "PROGRAM=${PROGRAM}" >> ${CNF_LOG}
 echo "PREFIX=${PREFIX}" >> ${CNF_LOG}
 echo "EXTRACXXFLAGS=${EXTRACXXFLAGS}" >> ${CNF_LOG}
 echo "EXTRALDFLAGS=${EXTRALDFLAGS}" >> ${CNF_LOG}
+echo "OPENCL_HEADERS=${OPENCL_HEADERS}" >> ${CNF_LOG}
 echo "X86_64=${X86_64}" >> ${CNF_LOG}
 echo "ENABLE_CPP_REGEX=${ENABLE_CPP_REGEX}" >> ${CNF_LOG}
 echo "CHECK_LIBAV_NAMES=${CHECK_LIBAV_NAMES}" >> ${CNF_LOG}
@@ -453,12 +461,11 @@ else
 fi
 
 LIBMFX_LIBS="-lmfx"
-LIBMFX_CFLAGS=
+LIBMFX_CFLAGS="-I./MediaSDK/api/include"
 if ! ${PKGCONFIG} --exists libmfx ; then
     cnf_write "libmfx could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
 else
     LIBMFX_LIBS=`${PKGCONFIG} --libs libmfx`
-    LIBMFX_CFLAGS=`${PKGCONFIG} --cflags libmfx`
 fi
 if cxx_check "libmfx" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBMFX_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBMFX_LIBS}" "" "mfxsession.h" "MFXInit(0,0,0);" ; then
     LDFLAGS="${LDFLAGS} ${LIBMFX_LIBS}"
@@ -466,6 +473,18 @@ if cxx_check "libmfx" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBMFX_CFLAGS} ${LDFLAGS} 
     cnf_write "yes"
 else
     cnf_write "libmfx not installed." 
+    exit 1
+fi
+
+OPENCL_CXXFLAGS=
+if [ "${OPENCL_HEADERS}" != "" ]; then
+    OPENCL_CXXFLAGS=-I${OPENCL_HEADERS}
+fi
+if cxx_check "opencl-headers" "${CXXFLAGS} ${OPENCL_CXXFLAGS}" "" "CL/opencl.h" "cl_int test = 0;" ; then
+    CXXFLAGS="${CXXFLAGS} ${OPENCL_CXXFLAGS}"
+    cnf_write "yes"
+else
+    cnf_write "OpenCL headers not installed." 
     exit 1
 fi
 
@@ -613,44 +632,39 @@ if [ $ENABLE_DTL -ne 0 ]; then
 fi
 
 SRC_QSVPIPELINE=" \
-DeviceId.cpp                cl_func.cpp                     convert_csp.cpp \
-convert_csp_avx.cpp         convert_csp_avx2.cpp            convert_csp_sse2.cpp \
-convert_csp_sse41.cpp       convert_csp_ssse3.cpp           cpu_info.cpp \
-gpu_info.cpp                gpuz_info.cpp                   qsv_allocator.cpp \
-qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp          qsv_allocator_sys.cpp \
-qsv_allocator_va.cpp        qsv_cmd.cpp                     qsv_control.cpp \
+DeviceId.cpp \
+convert_csp.cpp             convert_csp_avx.cpp             convert_csp_avx2.cpp \
+convert_csp_sse2.cpp        convert_csp_sse41.cpp           convert_csp_ssse3.cpp \
+cpu_info.cpp                gpu_info.cpp                    gpuz_info.cpp \
+logo.cpp \
+qsv_allocator.cpp           qsv_allocator_d3d11.cpp         qsv_allocator_d3d9.cpp \
+qsv_allocator_sys.cpp       qsv_allocator_va.cpp \
+qsv_cmd.cpp \
 qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp  \
 qsv_hw_va.cpp               qsv_hw_va_utils.cpp             qsv_hw_va_utils_drm.cpp \
 qsv_hw_va_utils_x11.cpp  \
 qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
-qsv_query.cpp               qsv_task.cpp                    qsv_util.cpp \
-rgy_avlog.cpp               rgy_avutil.cpp \
-rgy_bitstream.cpp           rgy_chapter.cpp                 rgy_cmd.cpp \
-rgy_codepage.cpp            rgy_def.cpp                     rgy_err.cpp \
-rgy_event.cpp               rgy_frame.cpp                   rgy_hdr10plus.cpp             rgy_ini.cpp \
-rgy_input.cpp               rgy_input_avcodec.cpp           rgy_input_avi.cpp \
-rgy_input_avs.cpp           rgy_input_raw.cpp               rgy_input_vpy.cpp             rgy_language.cpp \
-rgy_log.cpp                 rgy_output.cpp                  rgy_output_avcodec.cpp \
-rgy_perf_monitor.cpp        rgy_pipe.cpp                    rgy_pipe_linux.cpp \
-rgy_prm.cpp                 rgy_simd.cpp                    rgy_status.cpp                rgy_timecode.cpp \
+qsv_query.cpp               qsv_util.cpp                    qsv_vpp_mfx.cpp \
+rgy_avlog.cpp \
+rgy_avutil.cpp              rgy_bitstream.cpp        rgy_caption.cpp \
+rgy_chapter.cpp             rgy_cmd.cpp              rgy_codepage.cpp \
+rgy_def.cpp                 rgy_err.cpp              rgy_event.cpp \
+rgy_filter.cpp              rgy_filter_crop.cpp      rgy_filter_delogo.cpp \
+rgy_filter_denoise_knn.cpp  rgy_filter_resize.cpp    rgy_filter_subburn.cpp \
+rgy_filter_transform.cpp    rgy_frame.cpp            rgy_hdr10plus.cpp \
+rgy_ini.cpp                 rgy_input.cpp            rgy_input_avcodec.cpp \
+rgy_input_avi.cpp           rgy_input_avs.cpp        rgy_input_raw.cpp \
+rgy_input_sm.cpp            rgy_input_vpy.cpp        rgy_language.cpp \
+rgy_log.cpp                 rgy_opencl.cpp           rgy_output.cpp \
+rgy_output_avcodec.cpp      rgy_perf_counter.cpp     rgy_perf_monitor.cpp \
+rgy_pipe.cpp                rgy_pipe_linux.cpp       rgy_prm.cpp \
+rgy_simd.cpp                rgy_status.cpp           rgy_timecode.cpp \
 rgy_util.cpp                rgy_version.cpp \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"
 
 PYW_PERF_MONITOR="perf_monitor.pyw"
-
-SRC_PLUGIN_DELOGO=" \
-delogo_process_avx.cpp    delogo_process_avx2.cpp \
-delogo_process_sse41.cpp  logo.cpp \
-plugin_delogo.cpp"
-
-SRC_PLUGIN_SUBBURN=" \
-subburn_process_avx.cpp    subburn_process_avx2.cpp \
-subburn_process_sse41.cpp  subburn_process_sse41_pshub_slow.cpp \
-plugin_subburn.cpp"
-
-SRC_PLUGIN_ROTATE="plugin_rotate.cpp"
 
 SRC_QSVENCC="QSVEncC.cpp"
 
@@ -668,18 +682,6 @@ done
 
 for src in $SRC_TINYXML2; do
     SRCS="$SRCS tinyxml2/$src"
-done
-
-for src in $SRC_PLUGIN_ROTATE; do
-    SRCS="$SRCS QSVPlugins/rotate/$src"
-done
-
-for src in $SRC_PLUGIN_DELOGO; do
-    SRCS="$SRCS QSVPlugins/delogo/$src"
-done
-
-for src in $SRC_PLUGIN_SUBBURN; do
-    SRCS="$SRCS QSVPlugins/subburn/$src"
 done
 
 for src in $SRC_QSVENCC; do
@@ -713,7 +715,7 @@ write_enc_config "#define ENABLE_LIBASS_SUBBURN         $ENABLE_LIBASS"
 write_enc_config "#define ENABLE_ADVANCED_DEINTERLACE   0"
 write_enc_config "#define ENABLE_MVC_ENCODING           0"
 write_enc_config "#define ENABLE_FPS_CONVERSION         0"
-write_enc_config "#define ENABLE_OPENCL                 0"
+write_enc_config "#define ENABLE_OPENCL                 1"
 write_enc_config "#define ENABLE_SESSION_THREAD_CONFIG  0"
 write_enc_config "#define ENABLE_FEATURE_COP3_AND_ABOVE 0"
 write_enc_config "#define ENABLE_AVCODEC_OUT_THREAD     1"
