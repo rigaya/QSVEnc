@@ -306,7 +306,7 @@ RGYOpenCLDevice::RGYOpenCLDevice(cl_device_id device) : m_device(device) {
 
 }
 
-RGYOpenCLDeviceInfo RGYOpenCLDevice::info() {
+RGYOpenCLDeviceInfo RGYOpenCLDevice::info() const {
     RGYOpenCLDeviceInfo info;
     try {
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_TYPE, &info.type);
@@ -328,7 +328,7 @@ RGYOpenCLDeviceInfo RGYOpenCLDevice::info() {
     return info;
 }
 
-tstring RGYOpenCLDevice::infostr() {
+tstring RGYOpenCLDevice::infostr() const {
     const auto dev = info();
     std::stringstream ts;
     ts << dev.name;
@@ -626,7 +626,7 @@ RGY_ERR RGYOpenCLContext::createContext() {
         return err_cl_to_rgy(err);
     }
     for (int idev = 0; idev < (int)m_platform->devs().size(); idev++) {
-        m_queue.push_back(std::move(createQueue(m_platform->dev(idev))));
+        m_queue.push_back(std::move(createQueue(m_platform->dev(idev).id())));
     }
     return RGY_ERR_NONE;
 }
