@@ -224,7 +224,7 @@ const CX_DESC list_vpp_resize_mode[] = {
     { _T("lowpower"), RGY_VPP_RESIZE_MODE_MFX_LOWPOWER },
     { _T("quality"),  RGY_VPP_RESIZE_MODE_MFX_QUALITY },
 #endif
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 const CX_DESC list_vpp_resize[] = {
@@ -241,7 +241,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
 #endif
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 enum VppFpPrecision {
@@ -524,7 +524,7 @@ const CX_DESC list_afs_preset[] = {
     { _T("24fps"),        AFS_PRESET_FORCE24_HD },
     { _T("24fps_sd"),     AFS_PRESET_FORCE24_SD },
     { _T("30fps"),        AFS_PRESET_FORCE30 },
-    { NULL, NULL }
+    { NULL, 0 }
 };
 
 typedef struct {
