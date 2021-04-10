@@ -536,8 +536,9 @@ class RGYOpenCLDevice {
 public:
     RGYOpenCLDevice(cl_device_id device);
     virtual ~RGYOpenCLDevice() {};
-    RGYOpenCLDeviceInfo info();
-    tstring infostr();
+    RGYOpenCLDeviceInfo info() const;
+    tstring infostr() const;
+    cl_device_id id() const { return m_device; }
 protected:
     cl_device_id m_device;
 };
@@ -563,7 +564,7 @@ public:
     const void *d3d9dev() const { return m_d3d9dev; };
     const void *d3d11dev() const { return m_d3d11dev; };
     std::vector<cl_device_id>& devs() { return m_devices; };
-    cl_device_id dev(int idx) { return m_devices[idx]; };
+    RGYOpenCLDevice dev(int idx) { return RGYOpenCLDevice(m_devices[idx]); };
     const std::vector<cl_device_id>& devs() const { return m_devices; };
     void setDev(cl_device_id dev) { m_devices.clear(); m_devices.push_back(dev); };
     void setDev(cl_device_id dev, void *d3d9dev, void *d3d11dev) {

@@ -31,7 +31,7 @@
 #include <random>
 #include <future>
 #include <algorithm>
-#include "cl_func.h"
+#include "rgy_opencl.h"
 #include "DeviceId.h"
 #include "rgy_osdep.h"
 #include "rgy_util.h"
@@ -59,39 +59,39 @@ static std::basic_string<TCHAR> to_tchar(const char *string) {
     return str;
 };
 
-static cl_int cl_create_info_string(cl_data_t *cl_data, const cl_func_t *cl, const IntelDeviceInfo *info, TCHAR *buffer, unsigned int buffer_size) {
+
+static cl_int cl_create_info_string(const RGYOpenCLDeviceInfo *clinfo, const IntelDeviceInfo *info, TCHAR *buffer, unsigned int buffer_size) {
     cl_int ret = CL_SUCCESS;
 
-    if (cl_data) {
-        ret = cl_get_device_name(cl_data, cl, buffer, buffer_size);
-    }
+    std::string str = (clinfo) ? clinfo->name : "";
 
     int numEU = (info) ? info->EUCount : 0;
-    if (numEU == 0 && cl_data) {
-        numEU = cl_get_device_max_compute_units(cl_data, cl);
+    if (numEU == 0 && clinfo) {
+        numEU = clinfo->max_compute_units;
     }
-    if (numEU) {
-        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%dEU)"), numEU);
+    if (numEU > 0) {
+        str += strsprintf(" (%dEU)", numEU);
     }
 
     int MaxFreqMHz = (info) ? info->GPUMaxFreqMHz : 0;
     int MinFreqMHz = (info) ? info->GPUMinFreqMHz : 0;
-    if (MaxFreqMHz == 0 && cl_data) {
-        MaxFreqMHz = cl_get_device_max_clock_frequency_mhz(cl_data, cl);
+    if (MaxFreqMHz == 0 && clinfo) {
+        MaxFreqMHz = clinfo->max_clock_frequency;
     }
     if (MaxFreqMHz && MinFreqMHz) {
-        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" %d-%dMHz"), MinFreqMHz, MaxFreqMHz);
+        str += strsprintf(" %d-%dMHz", MinFreqMHz, MaxFreqMHz);
     } else if (MaxFreqMHz) {
-        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" %dMHz"), MaxFreqMHz);
+        str += strsprintf(" %dMHz", MaxFreqMHz);
     }
-    if (info && info->PackageTDP) {
-        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" [%dW]"), info->PackageTDP);
+    if (info && info->PackageTDP > 0) {
+        str += strsprintf(" [%dW]", info->PackageTDP);
     }
-    TCHAR driver_ver[256] = { 0 };
-    if (cl_data && CL_SUCCESS == cl_get_driver_version(cl_data, cl, driver_ver, _countof(driver_ver))) {
-        _stprintf_s(buffer + _tcslen(buffer), buffer_size - _tcslen(buffer), _T(" (%s)"), driver_ver);
+    if (clinfo && clinfo->driver_version.length() > 0) {
+        str += " (" + clinfo->driver_version + ")";
     }
-    auto remove_string =[](TCHAR *target_str, const TCHAR *remove_str) {
+    _tcscpy_s(buffer, buffer_size, to_tchar(str.c_str()).c_str());
+
+    auto remove_string = [](TCHAR *target_str, const TCHAR *remove_str) {
         TCHAR *ptr = _tcsstr(target_str, remove_str);
         if (nullptr != ptr) {
             memmove(ptr, ptr + _tcslen(remove_str), (_tcslen(ptr) - _tcslen(remove_str) + 1) *  sizeof(target_str[0]));
@@ -146,45 +146,37 @@ tstring getGPUInfoVA() {
 #pragma warning (push)
 #pragma warning (disable: 4100)
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
-#if !ENABLE_OPENCL
 #ifdef LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
 #else
-    _stprintf_s(buffer, buffer_size, _T("Unknown (not compiled with OpenCL support)"));
-#endif
-    return 0;
-#else
     int ret = CL_SUCCESS;
-    cl_func_t cl = { 0 };
-    cl_data_t data = { 0 };
-    IntelDeviceInfo info = { 0 };
-
-    bool opencl_error = false;
-    bool intel_error = false;
-    if (CL_SUCCESS != (ret = cl_get_func(&cl))) {
-        _tcscpy_s(buffer, buffer_size, _T("Intel HD Graphics"));
-        opencl_error = true;
-    } else if (CL_SUCCESS != (ret = cl_get_platform_and_device(VendorName, CL_DEVICE_TYPE_GPU, &data, &cl))) {
-        _tcscpy_s(buffer, buffer_size, _T("Intel HD Graphics"));
-        opencl_error = true;
+    RGYOpenCL cl;
+    std::shared_ptr<RGYOpenCLPlatform> platform;
+    auto platforms = cl.getPlatforms(VendorName);
+    for (auto& p : platforms) {
+        if (p->createDeviceList(CL_DEVICE_TYPE_GPU) != RGY_ERR_NONE && p->devs().size() > 0) {
+            platform = p;
+            break;
+        }
     }
-#if !FOR_AUO
-    if (!driver_version_only && 0 != getIntelGPUInfo(&info)) {
-        _tcscpy_s(buffer, buffer_size, _T("Failed to get GPU Info."));
-        intel_error = true;
-    }
-#endif
-
     if (driver_version_only) {
-        if (!opencl_error) {
-            cl_get_driver_version(&data, &cl, buffer, buffer_size);
-        }
-    } else {
-        if (!(opencl_error && intel_error)) {
-            cl_create_info_string((opencl_error) ? NULL : &data, &cl, (intel_error) ? NULL : &info, buffer, buffer_size);
+        if (platform) {
+            _tcscpy_s(buffer, buffer_size, to_tchar(platform->dev(0).info().driver_version.c_str()).c_str());
+            return 0;
+        } else {
+            _tcscpy_s(buffer, buffer_size, _T("Unknown"));
+            return 1;
         }
     }
-    cl_release(&data, &cl);
+
+    IntelDeviceInfo info = { 0 };
+    const auto intelInfoRet = getIntelGPUInfo(&info);
+
+    RGYOpenCLDeviceInfo clinfo;
+    if (platform) {
+        clinfo = platform->dev(0).info();
+    }
+    cl_create_info_string((platform) ? &clinfo : nullptr, (intelInfoRet == 0) ? &info : nullptr, buffer, buffer_size);
     return ret;
 #endif // !ENABLE_OPENCL
 }
