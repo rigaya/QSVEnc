@@ -620,6 +620,7 @@ RGY_ERR RGYFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
         static const auto supportedCspNV12   = make_array<RGY_CSP>(RGY_CSP_NV12, RGY_CSP_P010);
         static const auto supportedCspYV12   = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
         static const auto supportedCspYUV444 = make_array<RGY_CSP>(RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16);
+        static const auto supportedCspAYUV444 = make_array<RGY_CSP>(RGY_CSP_AYUV, RGY_CSP_AYUV_16);
 #if 0
         static const auto supportedCspNV16   = make_array<RGY_CSP>(RGY_CSP_NV16, RGY_CSP_P210);
         static const auto supportedCspRGB    = make_array<RGY_CSP>(RGY_CSP_RGB24, RGY_CSP_RGB32, RGY_CSP_RGB);
@@ -630,6 +631,8 @@ RGY_ERR RGYFilterCspCrop::run_filter(const FrameInfo *pInputFrame, FrameInfo **p
             sts = convertCspFromYV12(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
         } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pCropParam->frameIn.csp) != supportedCspYUV444.end()) {
             sts = convertCspFromYUV444(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
+        } else if (std::find(supportedCspAYUV444.begin(), supportedCspAYUV444.end(), pCropParam->frameIn.csp) != supportedCspAYUV444.end()) {
+            sts = convertCspFromAYUVPacked444(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
 #if 0
         } else if (std::find(supportedCspNV16.begin(), supportedCspNV16.end(), pCropParam->frameIn.csp) != supportedCspNV16.end()) {
             sts = convertCspFromNV16(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
