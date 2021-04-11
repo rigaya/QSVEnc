@@ -261,7 +261,6 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             nOutputCSP = RGY_CSP_P210;
             output_csp_if_lossless = RGY_CSP_YUV444_16;
         }
-        //m_inputVideoInfo.shiftも出力フォーマットに対応する値でなく入力フォーマットに対するものに
         break;
     case RGY_CSP_YUV444:
         bufferSize = m_inputVideoInfo.srcWidth * m_inputVideoInfo.srcHeight * 3;

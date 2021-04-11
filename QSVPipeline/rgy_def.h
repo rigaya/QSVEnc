@@ -579,7 +579,7 @@ struct VideoInfo {
     //[    i ] 入力の取得した総フレーム数 (不明なら0)
     int frames;
 
-    //[   (i)] 右shiftすべきビット数
+    //[   (i)] ビット深度
     int bitdepth;
 
     //[   (i)] 入力の取得したフレームレート (分子)
