@@ -61,6 +61,8 @@ const char *get_encoder_version();
 
 #define MFX_D3D11_SUPPORT 1
 
+#define LIBVA_SUPPORT 0
+
 #define ENABLE_FEATURE_COP3_AND_ABOVE 1
 
 #define ENABLE_ADVANCED_DEINTERLACE 0
