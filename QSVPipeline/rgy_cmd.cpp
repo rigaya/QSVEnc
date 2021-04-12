@@ -340,10 +340,7 @@ static int getAttachmentTrackIdx(const RGYParamCommon *common, int iTrack) {
 
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData) {
     if (IS_OPTION("vpp-resize")
-#if ENCODER_QSV
-        || IS_OPTION("vpp-scaling")
-#endif
-        ) {
+        || (IS_OPTION("vpp-scaling") && ENCODER_QSV)) {
         i++;
         int value;
         if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_vpp_resize, strInput[i]))) {
@@ -353,7 +350,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         vpp->resize_algo = (RGY_VPP_RESIZE_ALGO)value;
         return 0;
     }
-    if (IS_OPTION("vpp-resize-mode")) {
+    if (IS_OPTION("vpp-resize-mode") && ENCODER_QSV) {
         i++;
         int value;
         if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_vpp_resize_mode, strInput[i]))) {
@@ -363,7 +360,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         vpp->resize_mode = (RGY_VPP_RESIZE_MODE)value;
         return 0;
     }
-    if (IS_OPTION("vpp-colorspace")) {
+    if (IS_OPTION("vpp-colorspace") && ENABLE_VPP_FILTER_COLORSPACE) {
         vpp->colorspace.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             return 0;
@@ -870,7 +867,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         vpp->delogo.mode = DELOGO_MODE_REMOVE;
         return 0;
     }
-    if (IS_OPTION("vpp-afs")) {
+    if (IS_OPTION("vpp-afs") && ENABLE_VPP_FILTER_AFS) {
         vpp->afs.enable = true;
 
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -895,7 +892,12 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         const auto paramList = std::vector<std::string>{
             "top", "bottom", "left", "right",
             "method_switch", "coeff_shift", "thre_shift", "thre_deint", "thre_motion_y", "thre_motion_c",
-            "level", "shift", "drop", "smooth", "24fps", "tune", /*"rff",*/ "timecode", "log", "ini", "preset" };
+            "level", "shift", "drop", "smooth", "24fps", "tune", "timecode", "ini", "preset",
+#if ENCODER_NVENC
+            "rff",
+#endif
+            "log"
+        };
 
         for (const auto &param : param_list) {
             auto pos = param.find_first_of(_T("="));
@@ -1092,7 +1094,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#if 0
+#if ENCODER_NVENC
                 if (param_arg == _T("rff")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -1160,7 +1162,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
-    if (IS_OPTION("vpp-nnedi")) {
+    if (IS_OPTION("vpp-nnedi") && ENABLE_VPP_FILTER_NNEDI) {
         vpp->nnedi.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             return 0;
@@ -1268,7 +1270,113 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-decimate")) {
+
+    if (IS_OPTION("vpp-yadif") && ENABLE_VPP_FILTER_YADIF) {
+        vpp->yadif.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "mode" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->yadif.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_yadif_mode, param_val.c_str(), &value)) {
+                        vpp->yadif.mode = (VppYadifMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_yadif_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-rff") && ENABLE_VPP_FILTER_RFF) {
+        vpp->rff = true;
+        return 0;
+    }
+    if (IS_OPTION("vpp-select-every") && ENABLE_VPP_FILTER_SELECT_EVERY) {
+        vpp->selectevery.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "offset", "step" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->selectevery.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("offset")) {
+                    try {
+                        vpp->selectevery.offset = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("step")) {
+                    try {
+                        vpp->selectevery.step = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                try {
+                    vpp->selectevery.step = std::stoi(strInput[i]);
+                } catch (...) {
+                    print_cmd_error_invalid_value(option_name, strInput[i]);
+                    return 1;
+                }
+                continue;
+            }
+        }
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-decimate") && ENABLE_VPP_FILTER_DECIMATE) {
         vpp->decimate.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -1386,7 +1494,91 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-pad")) {
+
+    if (IS_OPTION("vpp-mpdecimate") && ENABLE_VPP_FILTER_MPDECIMATE) {
+        vpp->mpdecimate.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "lo", "hi", "max", "frac", "log" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->mpdecimate.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lo")) {
+                    try {
+                        vpp->mpdecimate.lo = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hi")) {
+                    try {
+                        vpp->mpdecimate.hi = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("max")) {
+                    try {
+                        vpp->mpdecimate.max = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("frac")) {
+                    try {
+                        vpp->mpdecimate.frac = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->mpdecimate.log = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("log")) {
+                    vpp->decimate.log = true;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-pad") && ENABLE_VPP_FILTER_PAD) {
         vpp->pad.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             return 0;
@@ -1550,7 +1742,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-pmd")) {
+    if (IS_OPTION("vpp-pmd") && ENABLE_VPP_FILTER_PMD) {
         vpp->pmd.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             return 0;
@@ -1625,7 +1817,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-smooth")) {
+    if (IS_OPTION("vpp-smooth") && ENABLE_VPP_FILTER_SMOOTH) {
         vpp->smooth.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -1727,7 +1919,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-
 
     if (IS_OPTION("vpp-subburn")) {
         VppSubburn subburn;
@@ -1870,7 +2061,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
-    if (IS_OPTION("vpp-unsharp")) {
+    if (IS_OPTION("vpp-unsharp") && ENABLE_VPP_FILTER_UNSHARP) {
         vpp->unsharp.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             vpp->unsharp.radius = FILTER_DEFAULT_UNSHARP_RADIUS;
@@ -1927,7 +2118,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-edgelevel")) {
+    if (IS_OPTION("vpp-edgelevel") && ENABLE_VPP_FILTER_EDGELEVEL) {
         vpp->edgelevel.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             return 0;
@@ -1992,7 +2183,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-warpsharp")) {
+    if (IS_OPTION("vpp-warpsharp") && ENABLE_VPP_FILTER_WARPSHARP) {
         vpp->warpsharp.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -2067,14 +2258,18 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
-    if (IS_OPTION("vpp-tweak")) {
+    if (IS_OPTION("vpp-tweak") && ENABLE_VPP_FILTER_TWEAK) {
         vpp->tweak.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             return 0;
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "contrast, ""brightness", "gamma", "saturation", "hue" };
+        const auto paramList = std::vector<std::string>{ "contrast, ""brightness", "gamma", "saturation",
+#if ENCODER_NVENC
+            "swapuv",
+#endif
+            "hue" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2137,9 +2332,27 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+#if ENCODER_NVENC
+                if (param_arg == _T("swapuv")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->tweak.swapuv = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+#endif
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
+#if ENCODER_NVENC
+                if (param == _T("swapuv")) {
+                    vpp->tweak.swapuv = true;
+                    continue;
+                }
+#endif
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
@@ -2273,7 +2486,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-deband")) {
+    if (IS_OPTION("vpp-deband") && ENABLE_VPP_FILTER_DEBAND) {
         vpp->deband.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
             return 0;
@@ -4170,6 +4383,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+#if ENCODDER_QSV
     if (IS_OPTION("disable-opencl")) {
         ctrl->enableOpenCL = false;
         return 0;
@@ -4178,6 +4392,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->enableOpenCL = true;
         return 0;
     }
+#endif
     return -10;
 }
 
@@ -4252,7 +4467,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     std::basic_stringstream<TCHAR> tmp;
 
     OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+#if ENCODER_QSV
     OPT_LST(_T("--vpp-resize-mode"), resize_mode, list_vpp_resize_mode);
+#endif
 
     if (param->colorspace != defaultPrm->colorspace) {
         tmp.str(tstring());
@@ -4392,6 +4609,21 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-nnedi");
         }
     }
+    if (param->yadif != defaultPrm->yadif) {
+        tmp.str(tstring());
+        if (!param->yadif.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->yadif.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), yadif.mode, list_vpp_yadif_mode);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-yadif ") << tmp.str().substr(1);
+        } else if (param->yadif.enable) {
+            cmd << _T(" --vpp-yadif");
+        }
+    }
+    OPT_BOOL(_T("--vpp-rff"), _T(""), rff);
     if (param->decimate != defaultPrm->decimate) {
         tmp.str(tstring());
         if (!param->decimate.enable && save_disabled_prm) {
@@ -4409,6 +4641,35 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-decimate ") << tmp.str().substr(1);
+        }
+    }
+    if (param->mpdecimate != defaultPrm->mpdecimate) {
+        tmp.str(tstring());
+        if (!param->mpdecimate.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->mpdecimate.enable || save_disabled_prm) {
+            ADD_NUM(_T("lo"), mpdecimate.lo);
+            ADD_NUM(_T("hi"), mpdecimate.hi);
+            ADD_NUM(_T("max"), mpdecimate.max);
+            ADD_FLOAT(_T("frac"), mpdecimate.frac, 3);
+            ADD_BOOL(_T("log"), decimate.log);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-mpdecimate ") << tmp.str().substr(1);
+        }
+    }
+    if (param->selectevery != defaultPrm->selectevery) {
+        tmp.str(tstring());
+        if (!param->selectevery.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->selectevery.enable || save_disabled_prm) {
+            ADD_NUM(_T("step"), selectevery.step);
+            ADD_NUM(_T("offset"), selectevery.offset);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-select-every ") << tmp.str().substr(1);
         }
     }
     if (param->pad != defaultPrm->pad) {
@@ -4572,6 +4833,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("gamma"), tweak.gamma, 3);
             ADD_FLOAT(_T("saturation"), tweak.saturation, 3);
             ADD_FLOAT(_T("hue"), tweak.hue, 3);
+            ADD_BOOL(_T("swapuv"), tweak.swapuv);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-tweak ") << tmp.str().substr(1);
@@ -5001,7 +5263,9 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
             cmd << _T(" --gpu-select ") << tmp.str().substr(1);
         }
     }
+#if ENCODER_QSV    
     OPT_BOOL(_T("--disable-opencl"), _T(""), enableOpenCL);
+#endif
     return cmd.str();
 }
 
@@ -5244,7 +5508,7 @@ tstring gen_cmd_help_common() {
 
 tstring gen_cmd_help_vpp() {
     tstring str;
-#if 0
+#if ENABLE_VPP_FILTER_COLORSPACE
     str += strsprintf(_T("\n")
         _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Converts colorspace of the video.\n")
@@ -5286,7 +5550,7 @@ tstring gen_cmd_help_vpp() {
         _T("      y=<int>                   set delogo y  param.\n")
         _T("      cb=<int>                  set delogo cb param.\n")
         _T("      cr=<int>                  set delogo cr param.\n")
-#if 0
+#if ENCODER_NVENC
         _T("      auto_fade=<bool>          adjust fade value dynamically.\n")
         _T("      auto_nr=<bool>            adjust strength of noise reduction dynamically.\n")
         _T("      nr_area=<int>             area of noise reduction near logo.\n")
@@ -5294,7 +5558,7 @@ tstring gen_cmd_help_vpp() {
 #endif
         _T("      log=<bool>                output log for auto_fade/auto_nr.\n"),
         FILTER_DEFAULT_DELOGO_DEPTH);
-#if 0
+#if ENABLE_VPP_FILTER_AFS
     str += strsprintf(_T("")
         _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable auto field shift deinterlacer\n")
@@ -5343,7 +5607,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
 #endif
-#if 0
+#if ENABLE_VPP_FILTER_NNEDI
     str += strsprintf(_T("\n")
         _T("   --vpp-nnedi [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable nnedi deinterlacer\n")
@@ -5373,7 +5637,29 @@ tstring gen_cmd_help_vpp() {
         _T("      weightfile=<string>   Set path of weight file. By default (not specified),\n")
         _T("                              internal weight params will be used.\n"));
 #endif
-#if 0
+#if ENABLE_VPP_FILTER_YADIF
+    str += strsprintf(_T("\n")
+        _T("   --vpp-yadif [<param1>=<value>]\n")
+        _T("     enable yadif deinterlacer\n")
+        _T("    params\n")
+        _T("      mode=<string>\n")
+        _T("          auto (default)    Generate latter field using first field.\n")
+        _T("          tff               Generate bottom field using top field.\n")
+        _T("          bff               Generate top field using bottom field.\n")
+        _T("          bob               Generate one frame from each field.\n")
+        _T("          bob_tff           Generate one frame from each field assuming tff.\n")
+        _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
+#endif
+#if ENABLE_VPP_FILTER_RFF
+    str += strsprintf(_T("\n")
+        _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
+#endif
+#if ENABLE_VPP_FILTER_SELECT_EVERY
+    str += strsprintf(
+        _T("   --vpp-select-every <int>[,offset=<int>]\n")
+        _T("     select one frame per specified frames and create output.\n"));
+#endif
+#if ENABLE_VPP_FILTER_DECIMATE
     str += strsprintf(_T("\n")
         _T("   --vpp-decimate [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     drop duplicated frame.\n")
@@ -5394,9 +5680,30 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DECIMATE_CHROMA ? _T("on") : _T("off"),
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
 #endif
+#if ENABLE_VPP_FILTER_MPDECIMATE
+    str += strsprintf(_T("\n")
+        _T("   --vpp-mpdecimate [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     drop duplicated frame.\n")
+        _T("    params\n")
+        _T("      hi=<int>                  the frame might be dropped if no 8x8 block difference\n")
+        _T("                                is more than \"hi\" (default=%d (8x8x%d)).\n")
+        _T("      lo=<int>                  the frame might be dropped if the fraction of 8x8 blocks\n")
+        _T("      frac=<float>              with difference smaller than \"lo\" is more than \"frac\".\n")
+        _T("                                  (lo default=%d (8x8x%d), frac default=%.3f)\n")
+        _T("      max=<bool>                Max consecutive frames which can be dropped (positive)\n")
+        _T("                                min interval between dropped frames (if negative)\n")
+        _T("                                  (default: %d)\n")
+        _T("      log=<bool>                output log file (default: %s).\n"),
+        FILTER_DEFAULT_MPDECIMATE_HI, FILTER_DEFAULT_MPDECIMATE_HI / (8 * 8),
+        FILTER_DEFAULT_MPDECIMATE_LO, FILTER_DEFAULT_MPDECIMATE_LO / (8 * 8),
+        FILTER_DEFAULT_MPDECIMATE_FRAC, FILTER_DEFAULT_MPDECIMATE_MAX,
+        FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
+#endif
     str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize, 0);
+#if ENCODER_QSV
     str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
-#if 0
+#endif
+#if ENABLE_VPP_FILTER_PAD
     str += strsprintf(_T("\n")
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
@@ -5413,7 +5720,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                  higher value will preserve edge.\n"),
         FILTER_DEFAULT_KNN_RADIUS, FILTER_DEFAULT_KNN_STRENGTH, FILTER_DEFAULT_KNN_LERPC,
         FILTER_DEFAULT_KNN_LERPC_THRESHOLD);
-#if 0
+#if ENABLE_VPP_FILTER_PMD
     str += strsprintf(_T("\n")
         _T("   --vpp-pmd [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by pmd.\n")
@@ -5424,7 +5731,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                  lower value will preserve edge.\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD);
 #endif
-#if 0
+#if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
         _T("   --vpp-smooth [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable smooth filter.\n")
@@ -5457,7 +5764,7 @@ tstring gen_cmd_help_vpp() {
         _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n")
         _T("      fontsdir=<string>         directory with fonts used.\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
-#if 0
+#if ENABLE_VPP_FILTER_UNSHARP
     str += strsprintf(_T("\n")
         _T("   --vpp-unsharp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable unsharp filter.\n")
@@ -5467,7 +5774,7 @@ tstring gen_cmd_help_vpp() {
         _T("      threshold=<float>         min brightness change to be sharpened (default=%.2f, 0-255)\n"),
         FILTER_DEFAULT_UNSHARP_RADIUS, FILTER_DEFAULT_UNSHARP_WEIGHT, FILTER_DEFAULT_UNSHARP_THRESHOLD);
 #endif
-#if 0
+#if ENABLE_VPP_FILTER_EDGELEVEL
     str += strsprintf(_T("\n")
         _T("   --vpp-edgelevel [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     edgelevel filter to enhance edge.\n")
@@ -5480,7 +5787,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                  (default=%.1f, 0-31)\n"),
         FILTER_DEFAULT_EDGELEVEL_STRENGTH, FILTER_DEFAULT_EDGELEVEL_THRESHOLD, FILTER_DEFAULT_EDGELEVEL_BLACK, FILTER_DEFAULT_EDGELEVEL_WHITE);
 #endif
-#if 0
+#if ENABLE_VPP_FILTER_WARPSHARP
     str += strsprintf(_T("\n")
         _T("   --vpp-warpsharp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     warpsharp filter to enhance edge.\n")
@@ -5495,7 +5802,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
         FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA);
 #endif
-#if 0
+#if ENABLE_VPP_FILTER_TWEAK
     str += strsprintf(_T("\n")
         _T("   --vpp-tweak [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     apply brightness, constrast, gamma, hue adjustment.\n")
@@ -5521,7 +5828,7 @@ tstring gen_cmd_help_vpp() {
         _T("      flip_y=<bool>\n")
         _T("      transpose=<bool>\n")
     );
-#if 0
+#if ENABLE_VPP_FILTER_DEBAND
     str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable deband filter.\n")

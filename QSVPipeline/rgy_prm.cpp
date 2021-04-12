@@ -39,11 +39,15 @@
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     if (resize == RGY_VPP_RESIZE_AUTO) {
         return RGY_VPP_RESIZE_TYPE_AUTO;
-    } else if (resize < RGY_VPP_RESIZE_OPENCL_MAX) {
+    } else if (resize < RGY_VPP_RESIZE_OPENCL_CUDA_MAX) {
         return RGY_VPP_RESIZE_TYPE_OPENCL;
 #if ENCODER_QSV
     } else if (resize < RGY_VPP_RESIZE_MFX_MAX) {
         return RGY_VPP_RESIZE_TYPE_MFX;
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+    } else if (resize < RGY_VPP_RESIZE_NPPI_MAX) {
+        return RGY_VPP_RESIZE_TYPE_NPPI;
 #endif
     } else {
         return RGY_VPP_RESIZE_TYPE_UNKNOWN;
@@ -508,6 +512,45 @@ tstring VppNnedi::print() const {
         ((weightfile.length()) ? weightfile.c_str() : _T("internal")));
 }
 
+VppYadif::VppYadif() :
+    enable(false),
+    mode(VPP_YADIF_MODE_AUTO) {
+
+}
+
+bool VppYadif::operator==(const VppYadif& x) const {
+    return enable == x.enable
+        && mode == x.mode;
+}
+bool VppYadif::operator!=(const VppYadif& x) const {
+    return !(*this == x);
+}
+
+tstring VppYadif::print() const {
+    return strsprintf(
+        _T("yadif: mode %s"),
+        get_cx_desc(list_vpp_yadif_mode, mode));
+}
+
+VppSelectEvery::VppSelectEvery() :
+    enable(false),
+    step(1),
+    offset(0) {
+}
+
+bool VppSelectEvery::operator==(const VppSelectEvery& x) const {
+    return enable == x.enable
+        && step == x.step
+        && offset == x.offset;
+}
+bool VppSelectEvery::operator!=(const VppSelectEvery& x) const {
+    return !(*this == x);
+}
+
+tstring VppSelectEvery::print() const {
+    return strsprintf(_T("selectevery %d (offset %d)"), step, offset);
+}
+
 VppDecimate::VppDecimate() :
     enable(false),
     cycle(FILTER_DEFAULT_DECIMATE_CYCLE),
@@ -521,7 +564,7 @@ VppDecimate::VppDecimate() :
 
 }
 
-bool VppDecimate::operator==(const VppDecimate &x) const {
+bool VppDecimate::operator==(const VppDecimate& x) const {
     return enable == x.enable
         && cycle == x.cycle
         && threDuplicate == x.threDuplicate
@@ -532,7 +575,7 @@ bool VppDecimate::operator==(const VppDecimate &x) const {
         && chroma == x.chroma
         && log == x.log;
 }
-bool VppDecimate::operator!=(const VppDecimate &x) const {
+bool VppDecimate::operator!=(const VppDecimate& x) const {
     return !(*this == x);
 }
 
@@ -544,6 +587,35 @@ tstring VppDecimate::print() const {
         blockX, blockY,
         /*preProcessed ? _T("on") : _T("off"),*/
         chroma ? _T("on") : _T("off"),
+        log ? _T("on") : _T("off"));
+}
+
+
+VppMpdecimate::VppMpdecimate() :
+    enable(false),
+    lo(FILTER_DEFAULT_MPDECIMATE_LO),
+    hi(FILTER_DEFAULT_MPDECIMATE_HI),
+    max(FILTER_DEFAULT_MPDECIMATE_MAX),
+    frac(FILTER_DEFAULT_MPDECIMATE_FRAC),
+    log(FILTER_DEFAULT_MPDECIMATE_LOG) {
+
+}
+
+bool VppMpdecimate::operator==(const VppMpdecimate& x) const {
+    return enable == x.enable
+        && lo == x.lo
+        && hi == x.hi
+        && max == x.max
+        && frac == x.frac
+        && log == x.log;
+}
+bool VppMpdecimate::operator!=(const VppMpdecimate& x) const {
+    return !(*this == x);
+}
+
+tstring VppMpdecimate::print() const {
+    return strsprintf(_T("mpdecimate: hi %d, lo %d, frac %.2f, max %d, log %s"),
+        hi, lo, frac, max,
         log ? _T("on") : _T("off"));
 }
 
@@ -799,7 +871,8 @@ VppTweak::VppTweak() :
     contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
     gamma(FILTER_DEFAULT_TWEAK_GAMMA),
     saturation(FILTER_DEFAULT_TWEAK_SATURATION),
-    hue(FILTER_DEFAULT_TWEAK_HUE) {
+    hue(FILTER_DEFAULT_TWEAK_HUE),
+    swapuv(false) {
 }
 
 bool VppTweak::operator==(const VppTweak &x) const {
@@ -808,15 +881,16 @@ bool VppTweak::operator==(const VppTweak &x) const {
         && contrast == x.contrast
         && gamma == x.gamma
         && saturation == x.saturation
-        && hue == x.hue;
+        && hue == x.hue
+        && swapuv == x.swapuv;
 }
 bool VppTweak::operator!=(const VppTweak &x) const {
     return !(*this == x);
 }
 
 tstring VppTweak::print() const {
-    return strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f"),
-        brightness, contrast, saturation, gamma, hue);
+    return strsprintf(_T("tweak: brightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f, swapuv %s"),
+        brightness, contrast, saturation, gamma, hue, swapuv ? _T("on") : _T("off"));
 }
 
 VppTransform::VppTransform() :
@@ -930,7 +1004,11 @@ RGYParamVpp::RGYParamVpp() :
     delogo(),
     afs(),
     nnedi(),
+    yadif(),
+    rff(false),
+    selectevery(),
     decimate(),
+    mpdecimate(),
     pad(),
     knn(),
     pmd(),

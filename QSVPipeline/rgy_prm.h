@@ -40,6 +40,29 @@ static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 static const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 
+#if ENCODER_NVENC
+#define ENABLE_VPP_FILTER_COLORSPACE   (ENABLE_NVRTC)
+#else
+#define ENABLE_VPP_FILTER_COLORSPACE   (ENCODER_VCEENC)
+#endif
+#define ENABLE_VPP_FILTER_AFS          (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_NNEDI        (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_YADIF        (ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RFF          (ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_DECIMATE     (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_PAD          (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_PMD          (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_TWEAK        (ENCODER_NVENC || ENCODER_VCEENC)
+#define ENABLE_VPP_FILTER_DEBAND       (ENCODER_NVENC || ENCODER_VCEENC)
+
+static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
+
 static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_NOMINAL_SOURCE_PEAK = 100.0;
 static const double FILTER_DEFAULT_COLORSPACE_HDR_SOURCE_PEAK = 1000.0;
@@ -91,6 +114,12 @@ static const int   FILTER_DEFAULT_DECIMATE_BLOCK_Y = 32;
 static const bool  FILTER_DEFAULT_DECIMATE_PREPROCESSED = false;
 static const bool  FILTER_DEFAULT_DECIMATE_CHROMA = true;
 static const bool  FILTER_DEFAULT_DECIMATE_LOG = false;
+
+static const int   FILTER_DEFAULT_MPDECIMATE_HI = 768;
+static const int   FILTER_DEFAULT_MPDECIMATE_LO = 320;
+static const bool  FILTER_DEFAULT_MPDECIMATE_MAX = 0;
+static const float FILTER_DEFAULT_MPDECIMATE_FRAC = 0.33f;
+static const bool  FILTER_DEFAULT_MPDECIMATE_LOG = false;
 
 static const int   FILTER_DEFAULT_KNN_RADIUS = 3;
 static const float FILTER_DEFAULT_KNN_STRENGTH = 0.08f;
@@ -189,18 +218,34 @@ enum RGY_VPP_RESIZE_MODE {
 enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_AUTO,
     RGY_VPP_RESIZE_BILINEAR,
+#if ENCODER_NVENC
+    RGY_VPP_RESIZE_NEAREST,
+#endif
     RGY_VPP_RESIZE_SPLINE16,
     RGY_VPP_RESIZE_SPLINE36,
     RGY_VPP_RESIZE_SPLINE64,
     RGY_VPP_RESIZE_LANCZOS2,
     RGY_VPP_RESIZE_LANCZOS3,
     RGY_VPP_RESIZE_LANCZOS4,
-    RGY_VPP_RESIZE_OPENCL_MAX,
+    RGY_VPP_RESIZE_OPENCL_CUDA_MAX,
 #if ENCODER_QSV
     RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
     RGY_VPP_RESIZE_MFX_BILINEAR,
     RGY_VPP_RESIZE_MFX_ADVANCED,
     RGY_VPP_RESIZE_MFX_MAX,
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+    RGY_VPP_RESIZE_NPPI_INTER_NN,        /**<  Nearest neighbor filtering. */
+    RGY_VPP_RESIZE_NPPI_INTER_LINEAR,        /**<  Linear interpolation. */
+    RGY_VPP_RESIZE_NPPI_INTER_CUBIC,        /**<  Cubic interpolation. */
+    RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_BSPLINE,              /**<  Two-parameter cubic filter (B=1, C=0) */
+    RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_CATMULLROM,           /**<  Two-parameter cubic filter (B=0, C=1/2) */
+    RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03,               /**<  Two-parameter cubic filter (B=1/2, C=3/10) */
+    RGY_VPP_RESIZE_NPPI_INTER_SUPER,        /**<  Super sampling. */
+    RGY_VPP_RESIZE_NPPI_INTER_LANCZOS,       /**<  Lanczos filtering. */
+    RGY_VPP_RESIZE_NPPI_INTER_LANCZOS3_ADVANCED,       /**<  Generic Lanczos filtering with order 3. */
+    RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE, /**<  Smooth edge filtering. */
+    RGY_VPP_RESIZE_NPPI_MAX,
 #endif
     RGY_VPP_RESIZE_UNKNOWN,
 };
@@ -211,6 +256,9 @@ enum RGY_VPP_RESIZE_TYPE {
     RGY_VPP_RESIZE_TYPE_OPENCL,
 #if ENCODER_QSV
     RGY_VPP_RESIZE_TYPE_MFX,
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+    RGY_VPP_RESIZE_TYPE_NPPI,
 #endif
     RGY_VPP_RESIZE_TYPE_UNKNOWN,
 };
@@ -229,6 +277,10 @@ const CX_DESC list_vpp_resize_mode[] = {
 
 const CX_DESC list_vpp_resize[] = {
     { _T("auto"),     RGY_VPP_RESIZE_AUTO },
+    { _T("bilinear"), RGY_VPP_RESIZE_BILINEAR },
+#if ENCODER_NVENC
+    { _T("nearest"),  RGY_VPP_RESIZE_NEAREST },
+#endif
     { _T("spline16"), RGY_VPP_RESIZE_SPLINE16 },
     { _T("spline36"), RGY_VPP_RESIZE_SPLINE36 },
     { _T("spline64"), RGY_VPP_RESIZE_SPLINE64 },
@@ -240,6 +292,49 @@ const CX_DESC list_vpp_resize[] = {
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+    { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
+    { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
+    { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
+    { _T("cubic_bspline"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_BSPLINE },
+    { _T("cubic_catmull"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_CATMULLROM },
+    { _T("cubic_b05c03"),  RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03 },
+    { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
+    { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
+    { _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+#endif
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_resize_help[] = {
+    { _T("auto"),     RGY_VPP_RESIZE_AUTO },
+    { _T("bilinear"), RGY_VPP_RESIZE_BILINEAR },
+#if ENCODER_NVENC
+    { _T("nearest"),  RGY_VPP_RESIZE_NEAREST },
+#endif
+    { _T("spline16"), RGY_VPP_RESIZE_SPLINE16 },
+    { _T("spline36"), RGY_VPP_RESIZE_SPLINE36 },
+    { _T("spline64"), RGY_VPP_RESIZE_SPLINE64 },
+    { _T("lanczos2"), RGY_VPP_RESIZE_LANCZOS2 },
+    { _T("lanczos3"), RGY_VPP_RESIZE_LANCZOS3 },
+    { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
+#if ENCODER_QSV
+    { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
+    { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
+    { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
+    { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+    { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
+    { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
+    { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
+    //{ _T("cubic_bspline"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_BSPLINE },
+    //{ _T("cubic_catmull"), RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_CATMULLROM },
+    //{ _T("cubic_b05c03"),  RGY_VPP_RESIZE_NPPI_INTER_CUBIC2P_B05C03 },
+    { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
+    { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
+    { _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
 #endif
     { NULL, 0 }
 };
@@ -570,6 +665,59 @@ struct VppAfs {
     void check();
 };
 
+enum VppYadifMode : uint32_t {
+    VPP_YADIF_MODE_UNKNOWN  = 0x00,
+
+    VPP_YADIF_MODE_TFF      = 0x01,
+    VPP_YADIF_MODE_BFF      = 0x02,
+    VPP_YADIF_MODE_AUTO     = 0x04,
+    VPP_YADIF_MODE_BOB      = 0x08,
+    VPP_YADIF_MODE_BOB_TFF  = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_TFF,
+    VPP_YADIF_MODE_BOB_BFF  = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_BFF,
+    VPP_YADIF_MODE_BOB_AUTO = VPP_YADIF_MODE_BOB | VPP_YADIF_MODE_AUTO,
+
+    VPP_YADIF_MODE_MAX = VPP_YADIF_MODE_BOB_AUTO + 1,
+};
+
+static VppYadifMode operator|(VppYadifMode a, VppYadifMode b) {
+    return (VppYadifMode)((uint32_t)a | (uint32_t)b);
+}
+
+static VppYadifMode operator|=(VppYadifMode& a, VppYadifMode b) {
+    a = a | b;
+    return a;
+}
+
+static VppYadifMode operator&(VppYadifMode a, VppYadifMode b) {
+    return (VppYadifMode)((uint32_t)a & (uint32_t)b);
+}
+
+static VppYadifMode operator&=(VppYadifMode& a, VppYadifMode b) {
+    a = (VppYadifMode)((uint32_t)a & (uint32_t)b);
+    return a;
+}
+
+const CX_DESC list_vpp_yadif_mode[] = {
+    { _T("unknown"),  VPP_YADIF_MODE_UNKNOWN  },
+    { _T("tff"),      VPP_YADIF_MODE_TFF      },
+    { _T("bff"),      VPP_YADIF_MODE_BFF      },
+    { _T("auto"),     VPP_YADIF_MODE_AUTO     },
+    { _T("bob_tff"),  VPP_YADIF_MODE_BOB_TFF  },
+    { _T("bob_bff"),  VPP_YADIF_MODE_BOB_BFF  },
+    { _T("bob"),      VPP_YADIF_MODE_BOB_AUTO },
+    { NULL, 0 }
+};
+
+struct VppYadif {
+    bool enable;
+    VppYadifMode mode;
+
+    VppYadif();
+    bool operator==(const VppYadif& x) const;
+    bool operator!=(const VppYadif& x) const;
+    tstring print() const;
+};
+
 struct VppNnedi {
     bool              enable;
     VppNnediField     field;
@@ -585,6 +733,17 @@ struct VppNnedi {
     VppNnedi();
     bool operator==(const VppNnedi &x) const;
     bool operator!=(const VppNnedi &x) const;
+    tstring print() const;
+};
+
+struct VppSelectEvery {
+    bool  enable;
+    int   step;
+    int   offset;
+
+    VppSelectEvery();
+    bool operator==(const VppSelectEvery& x) const;
+    bool operator!=(const VppSelectEvery& x) const;
     tstring print() const;
 };
 
@@ -611,6 +770,18 @@ struct VppDecimate {
     VppDecimate();
     bool operator==(const VppDecimate &x) const;
     bool operator!=(const VppDecimate &x) const;
+    tstring print() const;
+};
+
+struct VppMpdecimate {
+    bool enable;
+    int lo, hi, max;
+    float frac;
+    bool log;
+
+    VppMpdecimate();
+    bool operator==(const VppMpdecimate& x) const;
+    bool operator!=(const VppMpdecimate& x) const;
     tstring print() const;
 };
 
@@ -733,6 +904,7 @@ struct VppTweak {
     float gamma;      //  0.1 - 10.0 (1.0)
     float saturation; //  0.0 - 3.0 (1.0)
     float hue;        // -180 - 180 (0.0)
+    bool swapuv;
 
     VppTweak();
     bool operator==(const VppTweak &x) const;
@@ -780,7 +952,11 @@ struct RGYParamVpp {
     VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;
+    VppYadif yadif;
+    bool rff;
+    VppSelectEvery selectevery;
     VppDecimate decimate;
+    VppMpdecimate mpdecimate;
     VppPad pad;
     VppKnn knn;
     VppPmd pmd;
