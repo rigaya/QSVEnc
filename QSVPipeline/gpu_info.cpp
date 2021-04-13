@@ -155,7 +155,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
     std::shared_ptr<RGYOpenCLPlatform> platform;
     auto platforms = cl.getPlatforms(VendorName);
     for (auto& p : platforms) {
-        if (p->createDeviceList(CL_DEVICE_TYPE_GPU) != RGY_ERR_NONE && p->devs().size() > 0) {
+        if (p->createDeviceList(CL_DEVICE_TYPE_GPU) == RGY_ERR_NONE && p->devs().size() > 0) {
             platform = p;
             break;
         }
