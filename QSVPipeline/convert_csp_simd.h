@@ -1311,6 +1311,7 @@ static void RGY_FORCEINLINE copy_yuv444_high_to_ayuv444(void **dst, const void *
 }
 
 static void RGY_FORCEINLINE convert_yuv444_to_y410_simd(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    const int in_bit_depth = 8;
     const int out_bit_depth = 10;
     const int crop_left   = crop[0];
     const int crop_up     = crop[1];
@@ -1334,31 +1335,31 @@ static void RGY_FORCEINLINE convert_yuv444_to_y410_simd(void** dst, const void**
             __m128i pixU = _mm_loadu_si128((const __m128i*)(src_u_ptr + 0));
             __m128i pixV = _mm_loadu_si128((const __m128i*)(src_v_ptr + 0));
 
-            __m128i pixY0 = _mm_unpacklo_epi8(_mm_setzero_si128(), pixY);
-            __m128i pixY1 = _mm_unpackhi_epi8(_mm_setzero_si128(), pixY);
-            __m128i pixY410_0 = _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixY0), 10);
-            __m128i pixY410_1 = _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixY0), 10);
-            __m128i pixY410_2 = _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixY1), 10);
-            __m128i pixY410_3 = _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixY1), 10);
+            __m128i pixY0 = _mm_unpacklo_epi8(pixY, _mm_setzero_si128());
+            __m128i pixY1 = _mm_unpackhi_epi8(pixY, _mm_setzero_si128());
+            __m128i pixY410_0 = _mm_slli_epi32(_mm_unpacklo_epi16(pixY0, _mm_setzero_si128()), 10+(out_bit_depth-in_bit_depth));
+            __m128i pixY410_1 = _mm_slli_epi32(_mm_unpackhi_epi16(pixY0, _mm_setzero_si128()), 10+(out_bit_depth-in_bit_depth));
+            __m128i pixY410_2 = _mm_slli_epi32(_mm_unpacklo_epi16(pixY1, _mm_setzero_si128()), 10+(out_bit_depth-in_bit_depth));
+            __m128i pixY410_3 = _mm_slli_epi32(_mm_unpackhi_epi16(pixY1, _mm_setzero_si128()), 10+(out_bit_depth-in_bit_depth));
 
-            __m128i pixU0 = _mm_unpacklo_epi8(_mm_setzero_si128(), pixU);
-            __m128i pixU1 = _mm_unpackhi_epi8(_mm_setzero_si128(), pixU);
-            pixY410_0 = _mm_or_si128(pixY410_0, _mm_unpacklo_epi16(_mm_setzero_si128(), pixU0));
-            pixY410_1 = _mm_or_si128(pixY410_1, _mm_unpackhi_epi16(_mm_setzero_si128(), pixU0));
-            pixY410_2 = _mm_or_si128(pixY410_2, _mm_unpacklo_epi16(_mm_setzero_si128(), pixU1));
-            pixY410_3 = _mm_or_si128(pixY410_3, _mm_unpackhi_epi16(_mm_setzero_si128(), pixU1));
+            __m128i pixU0 = _mm_unpacklo_epi8(pixU, _mm_setzero_si128());
+            __m128i pixU1 = _mm_unpackhi_epi8(pixU, _mm_setzero_si128());
+            pixY410_0 = _mm_or_si128(pixY410_0, _mm_slli_epi32(_mm_unpacklo_epi16(pixU0, _mm_setzero_si128()), (out_bit_depth - in_bit_depth)));
+            pixY410_1 = _mm_or_si128(pixY410_1, _mm_slli_epi32(_mm_unpackhi_epi16(pixU0, _mm_setzero_si128()), (out_bit_depth - in_bit_depth)));
+            pixY410_2 = _mm_or_si128(pixY410_2, _mm_slli_epi32(_mm_unpacklo_epi16(pixU1, _mm_setzero_si128()), (out_bit_depth - in_bit_depth)));
+            pixY410_3 = _mm_or_si128(pixY410_3, _mm_slli_epi32(_mm_unpackhi_epi16(pixU1, _mm_setzero_si128()), (out_bit_depth - in_bit_depth)));
 
-            __m128i pixV0 = _mm_unpacklo_epi8(_mm_setzero_si128(), pixV);
-            __m128i pixV1 = _mm_unpackhi_epi8(_mm_setzero_si128(), pixV);
-            pixY410_0 = _mm_or_si128(pixY410_0, _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixV0), 20));
-            pixY410_1 = _mm_or_si128(pixY410_1, _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixV0), 20));
-            pixY410_2 = _mm_or_si128(pixY410_2, _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixV1), 20));
-            pixY410_3 = _mm_or_si128(pixY410_3, _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixV1), 20));
+            __m128i pixV0 = _mm_unpacklo_epi8(pixV, _mm_setzero_si128());
+            __m128i pixV1 = _mm_unpackhi_epi8(pixV, _mm_setzero_si128());
+            pixY410_0 = _mm_or_si128(pixY410_0, _mm_slli_epi32(_mm_unpacklo_epi16(pixV0, _mm_setzero_si128()), 20+(out_bit_depth-in_bit_depth)));
+            pixY410_1 = _mm_or_si128(pixY410_1, _mm_slli_epi32(_mm_unpackhi_epi16(pixV0, _mm_setzero_si128()), 20+(out_bit_depth-in_bit_depth)));
+            pixY410_2 = _mm_or_si128(pixY410_2, _mm_slli_epi32(_mm_unpacklo_epi16(pixV1, _mm_setzero_si128()), 20+(out_bit_depth-in_bit_depth)));
+            pixY410_3 = _mm_or_si128(pixY410_3, _mm_slli_epi32(_mm_unpackhi_epi16(pixV1, _mm_setzero_si128()), 20+(out_bit_depth-in_bit_depth)));
 
-            _mm_storeu_si128((__m128i*)(dst_ptr + 0),  pixY410_0);
-            _mm_storeu_si128((__m128i*)(dst_ptr + 16), pixY410_1);
-            _mm_storeu_si128((__m128i*)(dst_ptr + 32), pixY410_2);
-            _mm_storeu_si128((__m128i*)(dst_ptr + 48), pixY410_3);
+            _mm_storeu_si128((__m128i*)(dst_ptr +  0),  pixY410_0);
+            _mm_storeu_si128((__m128i*)(dst_ptr +  4), pixY410_1);
+            _mm_storeu_si128((__m128i*)(dst_ptr +  8), pixY410_2);
+            _mm_storeu_si128((__m128i*)(dst_ptr + 12), pixY410_3);
         }
     }
 }
@@ -1401,32 +1402,32 @@ void convert_yuv444_high_to_y410_simd(void** dst, const void** src, int width, i
                 pixV0 = _mm_srli_epi16(_mm_add_epi16(pixV0, xrsftAdd), in_bit_depth - out_bit_depth);
                 pixV1 = _mm_srli_epi16(_mm_add_epi16(pixV1, xrsftAdd), in_bit_depth - out_bit_depth);
             }
-            pixY0 = _mm_min_epi16(pixY0, _mm_set1_epi16((1<< out_bit_depth)-1));
-            pixY1 = _mm_min_epi16(pixY1, _mm_set1_epi16((1<< out_bit_depth)-1));
-            pixU0 = _mm_min_epi16(pixU0, _mm_set1_epi16((1<< out_bit_depth)-1));
-            pixU1 = _mm_min_epi16(pixU1, _mm_set1_epi16((1<< out_bit_depth)-1));
-            pixV0 = _mm_min_epi16(pixV0, _mm_set1_epi16((1<< out_bit_depth)-1));
-            pixV1 = _mm_min_epi16(pixV1, _mm_set1_epi16((1<< out_bit_depth)-1));
+            pixY0 = _mm_min_epu16(pixY0, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixY1 = _mm_min_epu16(pixY1, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixU0 = _mm_min_epu16(pixU0, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixU1 = _mm_min_epu16(pixU1, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixV0 = _mm_min_epu16(pixV0, _mm_set1_epi16((1<<out_bit_depth)-1));
+            pixV1 = _mm_min_epu16(pixV1, _mm_set1_epi16((1<<out_bit_depth)-1));
 
-            __m128i pixY410_0 = _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixY0), 10);
-            __m128i pixY410_1 = _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixY0), 10);
-            __m128i pixY410_2 = _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixY1), 10);
-            __m128i pixY410_3 = _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixY1), 10);
+            __m128i pixY410_0 = _mm_slli_epi32(_mm_unpacklo_epi16(pixY0, _mm_setzero_si128()), 10);
+            __m128i pixY410_1 = _mm_slli_epi32(_mm_unpackhi_epi16(pixY0, _mm_setzero_si128()), 10);
+            __m128i pixY410_2 = _mm_slli_epi32(_mm_unpacklo_epi16(pixY1, _mm_setzero_si128()), 10);
+            __m128i pixY410_3 = _mm_slli_epi32(_mm_unpackhi_epi16(pixY1, _mm_setzero_si128()), 10);
 
-            pixY410_0 = _mm_or_si128(pixY410_0, _mm_unpacklo_epi16(_mm_setzero_si128(), pixU0));
-            pixY410_1 = _mm_or_si128(pixY410_1, _mm_unpackhi_epi16(_mm_setzero_si128(), pixU0));
-            pixY410_2 = _mm_or_si128(pixY410_2, _mm_unpacklo_epi16(_mm_setzero_si128(), pixU1));
-            pixY410_3 = _mm_or_si128(pixY410_3, _mm_unpackhi_epi16(_mm_setzero_si128(), pixU1));
+            pixY410_0 = _mm_or_si128(pixY410_0, _mm_unpacklo_epi16(pixU0, _mm_setzero_si128()));
+            pixY410_1 = _mm_or_si128(pixY410_1, _mm_unpackhi_epi16(pixU0, _mm_setzero_si128()));
+            pixY410_2 = _mm_or_si128(pixY410_2, _mm_unpacklo_epi16(pixU1, _mm_setzero_si128()));
+            pixY410_3 = _mm_or_si128(pixY410_3, _mm_unpackhi_epi16(pixU1, _mm_setzero_si128()));
 
-            pixY410_0 = _mm_or_si128(pixY410_0, _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixV0), 20));
-            pixY410_1 = _mm_or_si128(pixY410_1, _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixV0), 20));
-            pixY410_2 = _mm_or_si128(pixY410_2, _mm_srli_epi32(_mm_unpacklo_epi16(_mm_setzero_si128(), pixV1), 20));
-            pixY410_3 = _mm_or_si128(pixY410_3, _mm_srli_epi32(_mm_unpackhi_epi16(_mm_setzero_si128(), pixV1), 20));
+            pixY410_0 = _mm_or_si128(pixY410_0, _mm_slli_epi32(_mm_unpacklo_epi16(pixV0, _mm_setzero_si128()), 20));
+            pixY410_1 = _mm_or_si128(pixY410_1, _mm_slli_epi32(_mm_unpackhi_epi16(pixV0, _mm_setzero_si128()), 20));
+            pixY410_2 = _mm_or_si128(pixY410_2, _mm_slli_epi32(_mm_unpacklo_epi16(pixV1, _mm_setzero_si128()), 20));
+            pixY410_3 = _mm_or_si128(pixY410_3, _mm_slli_epi32(_mm_unpackhi_epi16(pixV1, _mm_setzero_si128()), 20));
 
-            _mm_storeu_si128((__m128i*)(dst_ptr + 0), pixY410_0);
-            _mm_storeu_si128((__m128i*)(dst_ptr + 16), pixY410_1);
-            _mm_storeu_si128((__m128i*)(dst_ptr + 32), pixY410_2);
-            _mm_storeu_si128((__m128i*)(dst_ptr + 48), pixY410_3);
+            _mm_storeu_si128((__m128i*)(dst_ptr +  0), pixY410_0);
+            _mm_storeu_si128((__m128i*)(dst_ptr +  4), pixY410_1);
+            _mm_storeu_si128((__m128i*)(dst_ptr +  8), pixY410_2);
+            _mm_storeu_si128((__m128i*)(dst_ptr + 12), pixY410_3);
         }
     }
 }
