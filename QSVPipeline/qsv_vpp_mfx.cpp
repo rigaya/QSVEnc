@@ -243,20 +243,22 @@ RGY_ERR QSVVppMfx::InitSession() {
 
     if (impl != MFX_IMPL_SOFTWARE) {
         const auto hdl_t = mfxHandleTypeFromMemType(m_memType, false);
-        mfxHDL hdl = nullptr;
-        err = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
-        if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to get HW device handle: %s.\n"), get_err_mes(err));
-            return err;
+        if (hdl_t) {
+            mfxHDL hdl = nullptr;
+            err = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get HW device handle: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
+            // hwエンコード時のみハンドルを渡す
+            err = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to vpp session: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("set HW device handle %p to encode session.\n"), hdl);
         }
-        PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
-        // hwエンコード時のみハンドルを渡す
-        err = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
-        if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to vpp session: %s.\n"), get_err_mes(err));
-            return err;
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("set HW device handle %p to encode session.\n"), hdl);
     }
 
     if ((err = err_to_rgy(m_mfxSession.SetFrameAllocator(m_allocator))) != RGY_ERR_NONE) {
