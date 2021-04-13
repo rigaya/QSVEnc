@@ -134,7 +134,7 @@ int getIntelGPUInfo(IntelDeviceInfo *info) {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
 #include "qsv_hw_va.h"
 
 tstring getGPUInfoVA() {
@@ -146,7 +146,7 @@ tstring getGPUInfoVA() {
 #pragma warning (push)
 #pragma warning (disable: 4100)
 int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
     return 0;
 #else

@@ -65,7 +65,7 @@
 #include "qsv_allocator_d3d11.h"
 #endif
 
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
 #include "qsv_hw_va.h"
 #include "qsv_allocator_va.h"
 #endif

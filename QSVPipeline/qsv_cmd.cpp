@@ -249,10 +249,10 @@ tstring encoder_help() {
             _T("   --d3d                        use d3d9 surfaces\n")
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
             _T("   --disable-va                 disable using va surfaces\n")
             _T("   --va                         use va surfaces\n")
-#endif //#ifdef LIBVA_SUPPORT
+#endif //#if LIBVA_SUPPORT
             _T("\n"));
     str += strsprintf(_T("Encode Mode Options:\n")
         _T(" EncMode default: --cqp\n")
@@ -1268,7 +1268,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
 #endif //MFX_D3D11_SUPPORT
 #endif //D3D_SURFACES_SUPPORT
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
     if (0 == _tcscmp(option_name, _T("va"))) {
         pParams->memType = D3D9_MEMORY;
         return 0;
@@ -1277,7 +1277,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->memType = SYSTEM_MEMORY;
         return 0;
     }
-#endif //#ifdef LIBVA_SUPPORT
+#endif //#if LIBVA_SUPPORT
     if (0 == _tcscmp(option_name, _T("aud"))) {
         pParams->bOutputAud = true;
         return 0;
@@ -1804,7 +1804,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         case D3D11_MEMORY: cmd << _T(" --d3d11"); break;
 #endif
 #endif
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
         case SYSTEM_MEMORY: cmd << _T(" --disable-va"); break;
         case D3D11_MEMORY: cmd << _T(" --va"); break;
 #endif

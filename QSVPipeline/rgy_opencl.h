@@ -222,7 +222,7 @@ CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueAcquireD3D11ObjectsKHR)(cl_command_queu
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueReleaseD3D11ObjectsKHR)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem *mem_objects, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 #endif //#if ENABLE_RGY_OPENCL_D3D11
 
-#ifdef ENABLE_RGY_OPENCL_VA
+#if ENABLE_RGY_OPENCL_VA
 CL_EXTERN cl_int(CL_API_CALL* f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL)(cl_platform_id platform, cl_va_api_device_source_intel media_adapter_type, void* media_adapter, cl_va_api_device_set_intel media_adapter_set, cl_uint num_entries, cl_device_id* devices, cl_uint* num_devices);
 CL_EXTERN cl_mem(CL_API_CALL* f_clCreateFromVA_APIMediaSurfaceINTEL)(cl_context context, cl_mem_flags flags, VASurfaceID* surface, cl_uint plane, cl_int* errcode_ret);
 CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueAcquireVA_APIMediaSurfacesINTEL)(cl_command_queue command_queue, cl_uint num_objects, const cl_mem* mem_objects, cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event);

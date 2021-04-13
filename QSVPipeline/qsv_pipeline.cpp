@@ -82,7 +82,7 @@
 #include "qsv_allocator_d3d11.h"
 #endif
 
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
 #include "qsv_hw_va.h"
 #include "qsv_allocator_va.h"
 #endif
@@ -1438,7 +1438,7 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
 
         m_bExternalAlloc = true;
 #endif
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
         sts = CreateHWDevice();
         RGY_ERR(sts, _T("Failed to CreateHWDevice."));
 
@@ -1476,7 +1476,7 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
         m_bExternalAlloc = true;
 #endif
     } else {
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
         //システムメモリ使用でも MFX_HANDLE_VA_DISPLAYをHW libraryに渡してやる必要がある
         mfxIMPL impl;
         m_mfxSession.QueryIMPL(&impl);
