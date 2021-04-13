@@ -4542,7 +4542,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
         if (lastFilter.type == VppFilterType::FILTER_MFX) {
             auto sts = err_to_rgy(lastFilter.vppmfx->mfxvpp()->GetVideoParam(&prmset->videoPrmVpp));
             if (sts == RGY_ERR_NOT_INITIALIZED) { // 未初期化の場合、設定しようとしたパラメータで代用する
-                prmset->videoPrm = lastFilter.vppmfx->mfxparams();
+                prmset->videoPrmVpp = lastFilter.vppmfx->mfxparams();
                 sts = RGY_ERR_NONE;
             }
             return { sts, std::move(prmset) };
