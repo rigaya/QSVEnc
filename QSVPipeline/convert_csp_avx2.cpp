@@ -651,6 +651,259 @@ void convert_yv12_09_to_nv12_avx2(void **dst, const void **src, int width, int s
     convert_yv12_high_to_nv12_avx2_base<9, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
 }
 
+template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth>
+void RGY_FORCEINLINE copy_y_plane(void *dst, int dst_y_pitch_byte, const void*src, int src_y_pitch_byte, const int width, const int* crop, const THREAD_Y_RANGE& y_range) {
+    const int crop_left   = crop[0];
+    const int crop_up     = crop[1];
+    const int crop_right  = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
+    const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+
+    Tin* srcYLine = (Tin*)src + src_y_pitch * y_range.start_src + crop_left;
+    Tout* dstLine = (Tout*)dst + dst_y_pitch * y_range.start_dst;
+    const int y_width = width - crop_right - crop_left;
+    for (int y = 0; y < y_range.len; y++, srcYLine += src_y_pitch, dstLine += dst_y_pitch) {
+        if (in_bit_depth == out_bit_depth && sizeof(Tin) == sizeof(Tout)) {
+            memcpy(dstLine, srcYLine, y_width * sizeof(Tin));
+        } else if (sizeof(Tin) == 2 && sizeof(Tout) == 1) {
+            Tout* dst_ptr = dstLine;
+            Tin* src_ptr = srcYLine;
+            Tin* src_ptr_fin = src_ptr + y_width;
+            __m256i y0, y1;
+            for (; src_ptr < src_ptr_fin; dst_ptr += 32, src_ptr += 32) {
+                y0 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 16)), _mm_loadu_si128((__m128i*)(src_ptr + 0)));
+                y1 = _mm256_set_m128i(_mm_loadu_si128((__m128i*)(src_ptr + 24)), _mm_loadu_si128((__m128i*)(src_ptr + 8)));
+
+                y0 = _mm256_adds_epi16(y0, yrsftAdd);
+                y1 = _mm256_adds_epi16(y1, yrsftAdd);
+
+                y0 = _mm256_srli_epi16(y0, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
+                y1 = _mm256_srli_epi16(y1, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
+
+                y0 = _mm256_packus_epi16(y0, y1);
+
+                _mm256_storeu_si256((__m256i*)(dst_ptr + 0), y0);
+            }
+        } else if (sizeof(Tin) == 1 && sizeof(Tout) == 2) {
+            Tout* dst_ptr = (Tout*)dstLine;
+            Tin* src_ptr = srcYLine;
+            Tin* src_ptr_fin = src_ptr + y_width;
+            __m256i y0, y1;
+            for (; src_ptr < src_ptr_fin; dst_ptr += 32, src_ptr += 32) {
+                y0 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i*)(src_ptr +  0)));
+                y1 = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i*)(src_ptr + 16)));
+                y0 = _mm256_slli_epi16(y0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                y1 = _mm256_slli_epi16(y1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                _mm256_storeu_si256((__m256i*)(dst_ptr +  0), y0);
+                _mm256_storeu_si256((__m256i*)(dst_ptr + 16), y1);
+            }
+        } else if (sizeof(Tin) == 2 && sizeof(Tout) == 2) {
+            Tout* dst_ptr = dstLine;
+            Tin* src_ptr = srcYLine;
+            Tin* src_ptr_fin = src_ptr + y_width;
+            for (; src_ptr < src_ptr_fin; dst_ptr += 16, src_ptr += 16) {
+                __m256i y0 = _mm256_loadu_si256((const __m256i*)(src_ptr +  0));
+                __m256i y1 = _mm256_loadu_si256((const __m256i*)(src_ptr + 16));
+                if (out_bit_depth > in_bit_depth) {
+                    y0 = _mm256_slli_epi16(y0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                    y1 = _mm256_slli_epi16(y1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                } else if (out_bit_depth < in_bit_depth) {
+                    const __m256i rsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, 0>());
+                    y0 = _mm256_add_epi16(y0, rsftAdd);
+                    y1 = _mm256_add_epi16(y1, rsftAdd);
+                    y0 = _mm256_srli_epi16(y0, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
+                    y1 = _mm256_srli_epi16(y1, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, 0>());
+                }
+                _mm256_storeu_si256((__m256i*)(dst_ptr +  0), y0);
+                _mm256_storeu_si256((__m256i*)(dst_ptr + 16), y1);
+            }
+        }
+    }
+}
+
+template<typename Tin, int in_bit_depth, typename Tout, int out_bit_depth, bool uv_only>
+void RGY_FORCEINLINE convert_yuv444_to_nv12_p_avx2_base(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    static_assert((sizeof(Tin) == 1 && in_bit_depth == 8) || (sizeof(Tin) == 2 && 8 < in_bit_depth && in_bit_depth <= 16), "invalid input bit depth.");
+    static_assert((sizeof(Tout) == 1 && out_bit_depth == 8) || (sizeof(Tout) == 2 && 8 < out_bit_depth && out_bit_depth <= 16), "invalid output bit depth.");
+    const int crop_left = crop[0];
+    const int crop_up = crop[1];
+    const int crop_right = crop[2];
+    const int crop_bottom = crop[3];
+    const int src_y_pitch = src_y_pitch_byte / sizeof(Tin);
+    const int dst_y_pitch = dst_y_pitch_byte / sizeof(Tout);
+    const auto y_range = thread_y_range(crop_up, height - crop_bottom, thread_id, thread_n);
+    const __m256i yrsftAdd = _mm256_set1_epi16((short)conv_bit_depth_rsft_add<in_bit_depth, 8, 0>());
+    //Y成分のコピー
+    if (!uv_only) {
+        copy_y_plane<Tin, in_bit_depth, Tout, out_bit_depth>(dst[0], dst_y_pitch_byte, src[0], src_y_pitch_byte, width, crop, y_range);
+    }
+    //UV成分のコピー
+    const int src_uv_pitch = src_uv_pitch_byte / sizeof(Tin);
+    Tin* srcULine = (Tin*)src[1] + ((src_uv_pitch * y_range.start_src) + crop_left);
+    Tin* srcVLine = (Tin*)src[2] + ((src_uv_pitch * y_range.start_src) + crop_left);
+    Tout* dstLine = (Tout*)dst[1] + (dst_y_pitch >> 1) * y_range.start_dst;
+    for (int y = 0; y < y_range.len; y += 2, srcULine += src_uv_pitch * 2, srcVLine += src_uv_pitch * 2, dstLine += dst_y_pitch) {
+        Tout* dstC = dstLine;
+        Tin* srcU = srcULine;
+        Tin* srcV = srcVLine;
+        const int x_fin = width - crop_right - crop_left;
+        //まずは8bit→8bit
+        for (int x = 0; x < x_fin; x += 32, dstC += 32, srcU += 32, srcV += 32) {
+            if (sizeof(Tout) == 1) {
+                __m256i u0, v0;
+                if (sizeof(Tin) == 1) {
+                    __m256i u1, v1;
+                    const auto mask00ff = _mm256_set1_epi16(0x00ff);
+                    u0 = _mm256_and_si256( _mm256_loadu_si256((const __m256i*)(srcU + 0)), mask00ff);
+                    v0 = _mm256_slli_epi16(_mm256_loadu_si256((const __m256i*)(srcV + 0)), 8);
+                    u1 = _mm256_and_si256( _mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 0)), mask00ff);
+                    v1 = _mm256_slli_epi16(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 0)), 8);
+                    u0 = _mm256_avg_epu8(u0, u1); // 30 - 0
+                    v0 = _mm256_avg_epu8(v0, v1); // 30 - 0
+                } else {
+                    const auto mask0000ffff = _mm256_set1_epi32(0x0000ffff);
+                    __m256i u00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU +  0)), mask0000ffff); // 14 -  0
+                    __m256i u01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + 16)), mask0000ffff); // 30 - 16
+                    __m256i v00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV +  0)), mask0000ffff);
+                    __m256i v01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + 16)), mask0000ffff);
+                    __m256i u10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch +  0)), mask0000ffff);
+                    __m256i u11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 16)), mask0000ffff);
+                    __m256i v10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch +  0)), mask0000ffff);
+                    __m256i v11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 16)), mask0000ffff);
+                    u00 = _mm256_add_epi32(u00, u10);
+                    u01 = _mm256_add_epi32(u01, u11);
+                    v00 = _mm256_add_epi32(v00, v10);
+                    v01 = _mm256_add_epi32(v01, v11);
+                    const int shift_offset = 1;
+                    const __m256i rsftAdd = _mm256_set1_epi32((short)conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>());
+                    u00 = _mm256_add_epi32(u00, rsftAdd); // 14 -  0
+                    u01 = _mm256_add_epi32(u01, rsftAdd); // 30 - 16
+                    v00 = _mm256_add_epi32(v00, rsftAdd);
+                    v01 = _mm256_add_epi32(v01, rsftAdd);
+                    u00 = _mm256_srli_epi32(u00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    u01 = _mm256_srli_epi32(u01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    v00 = _mm256_srli_epi32(v00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    v01 = _mm256_srli_epi32(v01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    u00 = _mm256_packus_epi32(u00, u01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
+                    v00 = _mm256_packus_epi32(v00, v01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
+                    u0 = _mm256_permute4x64_epi64(u00, _MM_SHUFFLE(3, 1, 2, 0));
+                    v0 = _mm256_permute4x64_epi64(v00, _MM_SHUFFLE(3, 1, 2, 0));
+                    v0 = _mm256_slli_epi16(v0, 8);
+                }
+                __m256i c0 = _mm256_or_si256(u0, v0);
+                _mm256_storeu_si256((__m256i*)(dstC +  0), c0);
+            } else if (sizeof(Tout) == 2) {
+                __m256i u0, v0;
+                if (sizeof(Tin) == 1) {
+                    __m256i u1, v1;
+                    const auto mask00ff = _mm256_set1_epi16(0x00ff);
+                    u0 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + 0)), mask00ff);
+                    v0 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + 0)), mask00ff);
+                    u1 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 0)), mask00ff);
+                    v1 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 0)), mask00ff);
+#if 0
+                    const int shift_offset = 1;
+                    if (out_bit_depth > in_bit_depth + shift_offset) {
+                        u0 = _mm256_slli_epi16(u0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        v0 = _mm256_slli_epi16(v0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        u1 = _mm256_slli_epi16(u1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        v1 = _mm256_slli_epi16(v1, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    }
+                    u0 = _mm256_adds_epu16(u0, u1); // 30 - 0
+                    v0 = _mm256_adds_epu16(v0, v1); // 30 - 0
+#else
+                    u0 = _mm256_avg_epu8(u0, u1); // 30 - 0
+                    v0 = _mm256_avg_epu8(v0, v1); // 30 - 0
+                    u0 = _mm256_slli_epi16(u0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+                    v0 = _mm256_slli_epi16(v0, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, 0>());
+#endif
+                } else {
+                    const auto mask0000ffff = _mm256_set1_epi32(0x0000ffff);
+                    __m256i u00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + 0)), mask0000ffff); // 14 -  0
+                    __m256i u01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + 8)), mask0000ffff); // 30 - 16
+                    __m256i v00 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + 0)), mask0000ffff);
+                    __m256i v01 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + 8)), mask0000ffff);
+                    __m256i u10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 0)), mask0000ffff);
+                    __m256i u11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcU + src_uv_pitch + 8)), mask0000ffff);
+                    __m256i v10 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 0)), mask0000ffff);
+                    __m256i v11 = _mm256_and_si256(_mm256_loadu_si256((const __m256i*)(srcV + src_uv_pitch + 8)), mask0000ffff);
+                    u00 = _mm256_add_epi32(u00, u10);
+                    u01 = _mm256_add_epi32(u01, u11);
+                    v00 = _mm256_add_epi32(v00, v10);
+                    v01 = _mm256_add_epi32(v01, v11);
+                    const int shift_offset = 1;
+                    if (out_bit_depth > in_bit_depth + shift_offset) {
+                        u00 = _mm256_slli_epi32(u00, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        u01 = _mm256_slli_epi32(u01, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        v00 = _mm256_slli_epi32(v00, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        v01 = _mm256_slli_epi32(v01, conv_bit_depth_lsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    } else if (out_bit_depth < in_bit_depth + shift_offset) {
+                        const __m256i rsftAdd = _mm256_set1_epi32((short)conv_bit_depth_rsft_add<in_bit_depth, out_bit_depth, shift_offset>());
+                        u00 = _mm256_add_epi32(u00, rsftAdd); // 14 -  0
+                        u01 = _mm256_add_epi32(u01, rsftAdd); // 30 - 16
+                        v00 = _mm256_add_epi32(v00, rsftAdd);
+                        v01 = _mm256_add_epi32(v01, rsftAdd);
+                        u00 = _mm256_srli_epi32(u00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        u01 = _mm256_srli_epi32(u01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        v00 = _mm256_srli_epi32(v00, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                        v01 = _mm256_srli_epi32(v01, conv_bit_depth_rsft<in_bit_depth, out_bit_depth, shift_offset>());
+                    }
+                    u00 = _mm256_packus_epi32(u00, u01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
+                    v00 = _mm256_packus_epi32(v00, v01); // 30 - 24 | 14 -  8 | 22 - 16 | 6 - 0
+                    u0 = _mm256_permute4x64_epi64(u00, _MM_SHUFFLE(3, 1, 2, 0));
+                    v0 = _mm256_permute4x64_epi64(v00, _MM_SHUFFLE(3, 1, 2, 0));
+                }
+                __m256i c0 = _mm256_unpacklo_epi16(u0, v0); // 22 - 16 |  6 -  0
+                __m256i c1 = _mm256_unpackhi_epi16(u0, v0); // 30 - 24 | 14 -  8
+                __m256i c2 = _mm256_permute2x128_si256(c0, c1, (2 << 4) + 0);
+                __m256i c3 = _mm256_permute2x128_si256(c0, c1, (3 << 4) + 1);
+                _mm256_storeu_si256((__m256i*)(dstC +  0), c2);
+                _mm256_storeu_si256((__m256i*)(dstC + 16), c3);
+            }
+        }
+    }
+}
+
+void convert_yuv444_to_nv12_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint8_t, 8, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_09_to_nv12_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 9, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_10_to_nv12_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 10, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_12_to_nv12_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 12, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_14_to_nv12_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 14, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_16_to_nv12_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 16, uint8_t, 8, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
+void convert_yuv444_to_p010_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint8_t, 8, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_09_to_p010_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 9, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_10_to_p010_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 10, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_12_to_p010_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 12, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_14_to_p010_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 14, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+void convert_yuv444_16_to_p010_p_avx2(void** dst, const void** src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int* crop) {
+    convert_yuv444_to_nv12_p_avx2_base<uint16_t, 16, uint16_t, 16, false>(dst, src, width, src_y_pitch_byte, src_uv_pitch_byte, dst_y_pitch_byte, height, dst_height, thread_id, thread_n, crop);
+}
+
 #pragma warning (push)
 #pragma warning (disable: 4100)
 #pragma warning (disable: 4127)
