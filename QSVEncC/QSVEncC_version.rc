@@ -23,6 +23,8 @@ RGY_FILTER_RESIZE_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_r
 RGY_FILTER_SUBBURN_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_subburn.cl"
 RGY_FILTER_TRANSFORM_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_transform.cl"
 
+RGY_FILTER_COLORSPACE_CL  EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_colorspace_func.h"
+
 PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 
 APP_OSCODEPAGE_MANIFEST EXE_DATA DISCARDABLE "QSVEncC.oscodepage.manifest"

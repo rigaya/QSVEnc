@@ -57,6 +57,7 @@
 #include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
 #include "rgy_filter.h"
+#include "rgy_filter_colorspace.h"
 #include "rgy_filter_afs.h"
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_denoise_knn.h"
@@ -2111,10 +2112,26 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 
 RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
     FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize) {
-
+    //colorspace
     if (vppType == VppType::CL_COLORSPACE) {
-        PrintMes(RGY_LOG_ERROR, _T("unsupported parameters for --vpp-colorspace.\n"));
-        return RGY_ERR_UNSUPPORTED;
+        unique_ptr<RGYFilterColorspace> filter(new RGYFilterColorspace(m_cl));
+        shared_ptr<RGYFilterParamColorspace> param(new RGYFilterParamColorspace());
+        param->colorspace = params->vpp.colorspace;
+        param->encCsp = inputFrame.csp;
+        param->VuiIn = params->input.vui;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
     }
     //delogo
     if (vppType == VppType::CL_DELOGO) {
