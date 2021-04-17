@@ -61,11 +61,17 @@ __kernel void kernel_tweak_uv(
 
         Type4 pixelU = ptrU[0];
         Type4 pixelV = ptrV[0];
+        
+        Type u0 = pixelU.x, u1 = pixelU.y, u2 = pixelU.z, u3 = pixelU.w;
+        Type v0 = pixelV.x, v1 = pixelV.y, v2 = pixelV.z, v3 = pixelV.w;
 
-        apply_basic_tweak_uv(pixelU.x, pixelV.x, saturation, hue_sin, hue_cos);
-        apply_basic_tweak_uv(pixelU.y, pixelV.y, saturation, hue_sin, hue_cos);
-        apply_basic_tweak_uv(pixelU.z, pixelV.z, saturation, hue_sin, hue_cos);
-        apply_basic_tweak_uv(pixelU.w, pixelV.w, saturation, hue_sin, hue_cos);
+        apply_basic_tweak_uv(&u0, &v0, saturation, hue_sin, hue_cos);
+        apply_basic_tweak_uv(&u1, &v1, saturation, hue_sin, hue_cos);
+        apply_basic_tweak_uv(&u2, &v2, saturation, hue_sin, hue_cos);
+        apply_basic_tweak_uv(&u3, &v3, saturation, hue_sin, hue_cos);
+
+        pixelU.x = u0, pixelU.y = u1, pixelU.z = u2, pixelU.w = u3;
+        pixelV.x = v0, pixelV.y = v1, pixelV.z = v2, pixelV.w = v3;
 
         ptrU[0] = pixelU;
         ptrV[0] = pixelV;
