@@ -170,14 +170,19 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
         }
     }
 
+#if !FOR_AUO
     IntelDeviceInfo info = { 0 };
     const auto intelInfoRet = getIntelGPUInfo(&info);
+    IntelDeviceInfo* intelinfoptr = (intelInfoRet == 0) ? &info : nullptr;
+#else
+    IntelDeviceInfo* intelinfoptr = nullptr;
+#endif
 
     RGYOpenCLDeviceInfo clinfo;
     if (platform) {
         clinfo = platform->dev(0).info();
     }
-    cl_create_info_string((platform) ? &clinfo : nullptr, (intelInfoRet == 0) ? &info : nullptr, buffer, buffer_size);
+    cl_create_info_string((platform) ? &clinfo : nullptr, intelinfoptr, buffer, buffer_size);
     return ret;
 #endif // !ENABLE_OPENCL
 }
