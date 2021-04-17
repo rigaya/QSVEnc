@@ -57,6 +57,7 @@
 #include "rgy_input_sm.h"
 #include "rgy_input_avcodec.h"
 #include "rgy_filter.h"
+#include "rgy_filter_afs.h"
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_denoise_knn.h"
 #include "rgy_filter_subburn.h"
@@ -1776,11 +1777,8 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
 
     auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
-#if ENCODER_NVENC
-        inputParam->vpp.rff, inputParam->vpp.afs.enable,
-#else
-        false, false,
-#endif
+        (ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff : false,
+        (ENABLE_VPP_FILTER_AFS) ? inputParam->vpp.afs.enable : false,
         nullptr, m_pPerfMonitor.get(), m_pQSVLog);
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
@@ -1819,14 +1817,14 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
 #if ENABLE_AVSW_READER
     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR))
-#if ENCODER_NVENC
+#if ENABLE_VPP_FILTER_RFF
         || inputParam->vpp.rff
 #endif
         ) {
         tstring err_target;
         if (m_nAVSyncMode & RGY_AVSYNC_VFR)       err_target += _T("avsync vfr, ");
         if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) err_target += _T("avsync forcecfr, ");
-#if ENCODER_NVENC
+#if ENABLE_VPP_FILTER_RFF
         if (inputParam->vpp.rff)                  err_target += _T("vpp-rff, ");
 #endif
         err_target = err_target.substr(0, err_target.length()-2);
@@ -1855,18 +1853,16 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
             return RGY_ERR_UNKNOWN;
         }
     } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
-#if !ENCODER_QSV
-        m_nAVSyncMode |= RGY_AVSYNC_VFR;
-        const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
-        if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
-#if ENCODER_NVENC
-            if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff) {
-                m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 8);
+        if (!ENCODER_QSV) {
+            m_nAVSyncMode |= RGY_AVSYNC_VFR;
+            const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
+            if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
+                if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff) {
+                    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 8);
+                }
             }
-#endif
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
-#endif
     }
 #if 0
     if (inputParam->common.dynamicHdr10plusJson.length() > 0) {
@@ -2144,16 +2140,15 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     }
     //afs
     if (vppType == VppType::CL_AFS) {
-#if 0
-        if ((inputParam->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
+        if ((params->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
             PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-afs.\n"));
             return RGY_ERR_INVALID_PARAM;
         }
         unique_ptr<RGYFilter> filter(new RGYFilterAfs(m_cl));
         shared_ptr<RGYFilterParamAfs> param(new RGYFilterParamAfs());
         param->afs = params->vpp.afs;
-        param->afs.tb_order = (inputParam->input.picstruct & RGY_PICSTRUCT_TFF) != 0;
-        if (inputParam->common.timecode && param->afs.timecode) {
+        param->afs.tb_order = (params->input.picstruct & RGY_PICSTRUCT_TFF) != 0;
+        if (params->common.timecode && param->afs.timecode) {
             param->afs.timecode = 2;
         }
         param->frameIn = inputFrame;
@@ -2162,9 +2157,9 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->inTimebase = m_outputTimebase;
         param->outTimebase = m_outputTimebase;
         param->baseFps = m_encFps;
-        param->outFilename = inputParam->common.outputFilename;
+        param->outFilename = params->common.outputFilename;
         param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pLog);
+        auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2174,10 +2169,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
-#else
-        PrintMes(RGY_LOG_ERROR, _T("vpp-afs not suported yet.\n"));
-        return RGY_ERR_UNSUPPORTED;
-#endif
     }
     //nnedi
     if (vppType == VppType::CL_NNEDI) {

@@ -11,6 +11,12 @@
 #include "QSVEncC_version.h"
 
 RGY_FILTER_CL                EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter.cl"
+
+RGY_FILTER_AFS_FILTER_CL     EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_afs_filter.cl"
+RGY_FILTER_AFS_MERGE_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_afs_merge.cl"
+RGY_FILTER_AFS_ANALYZE_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_afs_analyze.cl"
+RGY_FILTER_AFS_SYNTHESIZE_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_afs_synthesize.cl"
+
 RGY_FILTER_DELOGO_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_delogo.cl"
 RGY_FILTER_DENOISE_KNN_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_knn.cl"
 RGY_FILTER_RESIZE_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_resize.cl"
