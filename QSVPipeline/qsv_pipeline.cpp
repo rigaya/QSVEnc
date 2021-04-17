@@ -67,6 +67,7 @@
 #include "rgy_filter_transform.h"
 #include "rgy_filter_unsharp.h"
 #include "rgy_filter_edgelevel.h"
+#include "rgy_filter_warpsharp.h"
 #include "rgy_filter_tweak.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
@@ -2415,7 +2416,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     }
     //warpsharp
     if (vppType == VppType::CL_WARPSHARP) {
-#if 0
         unique_ptr<RGYFilter> filter(new RGYFilterWarpsharp(m_cl));
         shared_ptr<RGYFilterParamWarpsharp> param(new RGYFilterParamWarpsharp());
         param->warpsharp = params->vpp.warpsharp;
@@ -2423,7 +2423,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pLog);
+        auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2433,10 +2433,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
-#else
-        PrintMes(RGY_LOG_ERROR, _T("--vpp-warpsharp not suported yet.\n"));
-        return RGY_ERR_UNSUPPORTED;
-#endif
     }
 
     //tweak
