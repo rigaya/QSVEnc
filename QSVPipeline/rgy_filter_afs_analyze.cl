@@ -45,7 +45,7 @@ __constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP
 __constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 #endif
 
-#define USE_FLAG_32BIT_OP 0
+#define u8x4(x)  (((uint)x) | (((uint)x) <<  8) | (((uint)x) << 16) | (((uint)x) << 24))
 
 #if BIT_DEPTH > 8
 typedef ushort         DATA;
@@ -63,8 +63,10 @@ typedef uchar4        DATA4;
 
 typedef uchar         Flag;
 typedef uchar4        Flag4;
+typedef uint          Flag4U;
 #define CONVERT_FLAG4 convert_uchar4
 #define AS_FLAG4      as_uchar4
+#define AS_FLAG4U     as_uint
 
 //      7       6         5        4        3        2        1       0
 // | motion  |         non-shift        | motion  |          shift          |
@@ -80,37 +82,37 @@ typedef uchar4        Flag4;
 #define shift_shift (0x02u)
 #define shift_deint (0x01u)
 
-Flag4 analyze_motion(DATA4 p0, DATA4 p1, DATA thre_motion, DATA thre_shift) {
+Flag4U analyze_motion(DATA4 p0, DATA4 p1, DATA thre_motion, DATA thre_shift) {
     DATA4 absdata = CONVERT_DATA4(abs(convert_int4(p1) - convert_int4(p0)));
     Flag4 mask_motion = CONVERT_FLAG4_SAT((DATA4)thre_motion > absdata) ? (Flag4)motion_flag  : (Flag4)0;
     Flag4 mask_shift  = CONVERT_FLAG4_SAT((DATA4)thre_shift  > absdata) ? (Flag4)motion_shift : (Flag4)0;
-    return mask_motion | mask_shift;
+    return AS_FLAG4U(mask_motion) | AS_FLAG4U(mask_shift);
 }
 
-Flag4 analyze_motionf(float p0, float p1, const float thre_motionf, const float thre_shiftf, int flag_offset) {
+Flag4U analyze_motionf(float p0, float p1, const float thre_motionf, const float thre_shiftf, int flag_offset) {
     const float absdata = fabs(p0 - p1);
     Flag4 mask_motion = (thre_motionf > absdata) ? AS_FLAG4((uint)motion_flag  << flag_offset) : (Flag4)0;
     Flag4 mask_shift  = (thre_shiftf  > absdata) ? AS_FLAG4((uint)motion_shift << flag_offset) : (Flag4)0;
-    return mask_motion | mask_shift;
+    return AS_FLAG4U(mask_motion) | AS_FLAG4U(mask_shift);
 }
 
-Flag4 analyze_stripe(DATA4 p0, DATA4 p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const DATA thre_deint, const DATA thre_shift) {
+Flag4U analyze_stripe(DATA4 p0, DATA4 p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const DATA thre_deint, const DATA thre_shift) {
     DATA4 absdata = CONVERT_DATA4(abs(convert_int4(p1) - convert_int4(p0)));
     Flag4 new_sign   = CONVERT_FLAG4_SAT(p0 >= p1) ? (Flag4)flag_sign : (Flag4)0;
     Flag4 mask_deint = CONVERT_FLAG4_SAT(absdata > (DATA4)thre_deint) ? (Flag4)flag_deint : (Flag4)0;
     Flag4 mask_shift = CONVERT_FLAG4_SAT(absdata > (DATA4)thre_shift) ? (Flag4)flag_shift : (Flag4)0;
-    return new_sign | mask_deint | mask_shift;
+    return AS_FLAG4U(new_sign) | AS_FLAG4U(mask_deint) | AS_FLAG4U(mask_shift);
 }
 
-Flag4 analyze_stripef(float p0, float p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const float thre_deintf, const float thre_shiftf, int flag_offset) {
+Flag4U analyze_stripef(float p0, float p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const float thre_deintf, const float thre_shiftf, int flag_offset) {
     const float absdata = fabs(p1 - p0);
     Flag4 new_sign   = (p0 >= p1)              ? AS_FLAG4((uint)flag_sign  << flag_offset) : (Flag4)0;
     Flag4 mask_deint = (absdata > thre_deintf) ? AS_FLAG4((uint)flag_deint << flag_offset) : (Flag4)0;
     Flag4 mask_shift = (absdata > thre_shiftf) ? AS_FLAG4((uint)flag_shift << flag_offset) : (Flag4)0;
-    return new_sign | mask_deint | mask_shift;
+    return AS_FLAG4U(new_sign) | AS_FLAG4U(mask_deint) | AS_FLAG4U(mask_shift);
 }
 
-Flag4 analyze_y(
+Flag4U analyze_y(
     __read_only image2d_t src_p0,
     __read_only image2d_t src_p1,
     int ix, int iy,
@@ -120,7 +122,7 @@ Flag4 analyze_y(
     DATA4 p0 = CONVERT_DATA4(read_imageui(src_p0, sampler_y, (int2)(ix, iy)));
     DATA4 p1 = CONVERT_DATA4(read_imageui(src_p1, sampler_y, (int2)(ix, iy)));
     DATA4 p2 = p1;
-    Flag4 flag = analyze_motion(p0, p1, thre_motion, thre_shift);
+    Flag4U flag = analyze_motion(p0, p1, thre_motion, thre_shift);
 
     if (iy >= 1) {
         //non-shift
@@ -163,14 +165,14 @@ float get_uv(__read_only image2d_t src_p0_0, __read_only image2d_t src_p0_1, flo
     }
 }
 
-Flag4 analyze_c(
+Flag4U analyze_c(
     __read_only image2d_t src_p0_0,
     __read_only image2d_t src_p0_1,
     __read_only image2d_t src_p1_0,
     __read_only image2d_t src_p1_1,
     int ix, int iy,
     const float thre_motionf, const float thre_deintf, const float thre_shiftf) {
-    Flag4 flag4 = (Flag4)0;
+    Flag4U flag4 = 0;
     float ifx = (ix << 1) + 0.5f;
 
     #pragma unroll
@@ -179,7 +181,7 @@ Flag4 analyze_c(
         float p0 = get_uv(src_p0_0, src_p0_1, ifx, iy);
         float p1 = get_uv(src_p1_0, src_p1_1, ifx, iy);
         float p2 = p1;
-        Flag4 flag = analyze_motionf(p0, p1, thre_motionf, thre_shiftf, i * 8);
+        Flag4U flag = analyze_motionf(p0, p1, thre_motionf, thre_shiftf, i * 8);
 
         if (iy > 0) {
             //non-shift
@@ -211,14 +213,13 @@ int shared_int_idx(int x, int y, int dep) {
     return dep * SHARED_INT_X * SHARED_Y + (y&15) * SHARED_INT_X + x;
 }
 
-void count_flags_skip(Flag4 dat0, Flag4 dat1, Flag4 *restrict count_deint, Flag4 *restrict count_shift) {
-#if USE_FLAG_32BIT_OP
-    uint deint, shift, mask;
-    uint new_count_deint = as_uint(*count_deint);
-    uint new_count_shift = as_uint(*count_shift);
-    mask = as_uint((dat0 ^ dat1) & (Flag4)(non_shift_sign  | shift_sign));
-    deint = as_uint(dat0         & (Flag4)(non_shift_deint | shift_deint));
-    shift = as_uint(dat0         & (Flag4)(non_shift_shift | shift_shift));
+void count_flags_skip(Flag4U dat0, Flag4U dat1, Flag4U *restrict count_deint, Flag4U *restrict count_shift) {
+    Flag4U deint, shift, mask;
+    Flag4U new_count_deint = AS_FLAG4U(*count_deint);
+    Flag4U new_count_shift = AS_FLAG4U(*count_shift);
+    mask = as_uint((dat0 ^ dat1) & u8x4(non_shift_sign  | shift_sign));
+    deint = as_uint(dat0         & u8x4(non_shift_deint | shift_deint));
+    shift = as_uint(dat0         & u8x4(non_shift_shift | shift_shift));
     mask >>= 1;
     //最初はshiftの位置にしかビットはたっていない
     //deintにマスクはいらない
@@ -226,60 +227,34 @@ void count_flags_skip(Flag4 dat0, Flag4 dat1, Flag4 *restrict count_deint, Flag4
     new_count_shift &= mask;
     new_count_deint  = deint; //deintに値は入っていないので代入でよい
     new_count_shift += shift;
-    *count_deint = AS_FLAG4(new_count_deint);
-    *count_shift = AS_FLAG4(new_count_shift);
-#else
-    Flag4 deint, shift, mask;
-    mask = (dat0 ^ dat1) & (Flag4)(non_shift_sign  | shift_sign);
-    deint = dat0         & (Flag4)(non_shift_deint | shift_deint);
-    shift = dat0         & (Flag4)(non_shift_shift | shift_shift);
-    mask >>= (Flag4)1;
-    //最初はshiftの位置にしかビットはたっていない
-    //deintにマスクはいらない
-    //*count_deint &= mask;
-    *count_shift &= mask;
-    *count_deint  = deint; //deintに値は入っていないので代入でよい
-    *count_shift += shift;
-#endif
+    *count_deint = AS_FLAG4U(new_count_deint);
+    *count_shift = AS_FLAG4U(new_count_shift);
 }
 
-void count_flags(Flag4 dat0, Flag4 dat1, Flag4 *restrict count_deint, Flag4 *restrict count_shift) {
-#if USE_FLAG_32BIT_OP
-    uint deint, shift, mask;
-    uint new_count_deint = as_uint(*count_deint);
-    uint new_count_shift = as_uint(*count_shift);
-    mask = as_uint((dat0 ^ dat1) & (Flag4)(non_shift_sign  | shift_sign));
-    deint = as_uint(dat0         & (Flag4)(non_shift_deint | shift_deint));
-    shift = as_uint(dat0         & (Flag4)(non_shift_shift | shift_shift));
+void count_flags(Flag4U dat0, Flag4U dat1, Flag4U *restrict count_deint, Flag4U *restrict count_shift) {
+    Flag4U deint, shift, mask;
+    Flag4U new_count_deint = AS_FLAG4U(*count_deint);
+    Flag4U new_count_shift = AS_FLAG4U(*count_shift);
+    mask = as_uint((dat0 ^ dat1) & u8x4(non_shift_sign  | shift_sign));
+    deint = as_uint(dat0         & u8x4(non_shift_deint | shift_deint));
+    shift = as_uint(dat0         & u8x4(non_shift_shift | shift_shift));
     mask |= (mask << 1);
     mask |= (mask >> 2);
     new_count_deint &= mask;
     new_count_shift &= mask;
     new_count_deint += deint;
     new_count_shift += shift;
-    *count_deint = AS_FLAG4(new_count_deint);
-    *count_shift = AS_FLAG4(new_count_shift);
-#else
-    Flag4 deint, shift, mask;
-    mask = (dat0 ^ dat1) & (Flag4)(non_shift_sign  | shift_sign);
-    deint = dat0         & (Flag4)(non_shift_deint | shift_deint);
-    shift = dat0         & (Flag4)(non_shift_shift | shift_shift);
-    mask |= (mask << (Flag4)1);
-    mask |= (mask >> (Flag4)2);
-    *count_deint &= mask;
-    *count_shift &= mask;
-    *count_deint += deint;
-    *count_shift += shift;
-#endif
+    *count_deint = AS_FLAG4U(new_count_deint);
+    *count_shift = AS_FLAG4U(new_count_shift);
 }
 
-Flag4 generate_flags(int ly, int idepth, __local Flag4 *restrict ptr_shared) {
-    Flag4 count_deint = 0;
-    Flag4 dat0, dat1;
+Flag4U generate_flags(int ly, int idepth, __local Flag4U *restrict ptr_shared) {
+    Flag4U count_deint = 0;
+    Flag4U dat0, dat1;
 
     //sharedメモリはあらかじめ-4もデータを作ってあるので、問題なく使用可能
     dat1 = ptr_shared[shared_int_idx(0, ly-3, idepth)];
-    Flag4 count_shift = dat1 & (Flag4)(non_shift_shift | shift_shift);
+    Flag4U count_shift = dat1 & u8x4(non_shift_shift | shift_shift);
 
     dat0 = ptr_shared[shared_int_idx(0, ly-2, idepth)];
     count_flags_skip(dat0, dat1, &count_deint, &count_shift);
@@ -294,42 +269,42 @@ Flag4 generate_flags(int ly, int idepth, __local Flag4 *restrict ptr_shared) {
     // | motion  |         non-shift        | motion  |          shift          |
     // |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
     //motion 0x8888 -> 0x4444 とするため右シフト
-    Flag4 flag0 = (dat0 & (Flag4)(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
+    Flag4 flag0 = (dat0 & u8x4(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
 
     //nonshift deint - countbit:654 / setbit 0x01
     //if ((count_deint & (0x70u << 0)) > (2u<<(4+ 0))) flag0 |= 0x01u<< 0; //nonshift deint(0)
     //if ((count_deint & (0x70u << 8)) > (2u<<(4+ 8))) flag1 |= 0x01u<< 8; //nonshift deint(1)
     //if ((count_deint & (0x70u <<16)) > (2u<<(4+16))) flag0 |= 0x01u<<16; //nonshift deint(2)
     //if ((count_deint & (0x70u <<24)) > (2u<<(4+24))) flag1 |= 0x01u<<24; //nonshift deint(3)
-    Flag4 flag1 = ((count_deint & (Flag4)0x70u) > (Flag4)(2u << 4)) ? (Flag4)(0x01u) : (Flag4)0; //nonshift deint
+    Flag4 flag1 = (AS_FLAG4(count_deint & u8x4(0x70u)) > (Flag4)(2u << 4)) ? (Flag4)(0x01u) : (Flag4)0; //nonshift deint
     //nonshift shift - countbit:765 / setbit 0x10
     //if ((count_shift & (0xE0u << 0)) > (3u<<(5+ 0))) flag0 |= 0x01u<< 4; //nonshift shift(0)
     //if ((count_shift & (0xE0u << 8)) > (3u<<(5+ 8))) flag1 |= 0x01u<<12; //nonshift shift(1)
     //if ((count_shift & (0xE0u <<16)) > (3u<<(5+16))) flag0 |= 0x01u<<20; //nonshift shift(2)
     //if ((count_shift & (0xE0u <<24)) > (3u<<(5+24))) flag1 |= 0x01u<<28; //nonshift shift(3)
-    Flag4 flag2 = ((count_shift & (Flag4)0xE0u) > (Flag4)(3u << 5)) ? (Flag4)(0x10u) : (Flag4)0; //nonshift shift
+    Flag4 flag2 = (AS_FLAG4(count_shift & u8x4(0xE0u)) > (Flag4)(3u << 5)) ? (Flag4)(0x10u) : (Flag4)0; //nonshift shift
     //shift deint - countbit:210 / setbit 0x02
     //if ((count_deint & (0x07u << 0)) > (2u<<(0+ 0))) flag0 |= 0x01u<< 1; //shift deint(0)
     //if ((count_deint & (0x07u << 8)) > (2u<<(0+ 8))) flag1 |= 0x01u<< 9; //shift deint(1)
     //if ((count_deint & (0x07u <<16)) > (2u<<(0+16))) flag0 |= 0x01u<<17; //shift deint(2)
     //if ((count_deint & (0x07u <<24)) > (2u<<(0+24))) flag1 |= 0x01u<<25; //shift deint(3)
-    Flag4 flag3 = ((count_deint & (Flag4)0x07u) > (Flag4)(2u << 0)) ? (Flag4)(0x02u) : (Flag4)0; //shift deint
+    Flag4 flag3 = (AS_FLAG4(count_deint & u8x4(0x07u)) > (Flag4)(2u << 0)) ? (Flag4)(0x02u) : (Flag4)0; //shift deint
     //shift shift - countbit:321 / setbit 0x20
     //if ((count_shift & (0x0Eu << 0)) > (3u<<(1+ 0))) flag0 |= 0x01u<< 5; //shift shift(0)
     //if ((count_shift & (0x0Eu << 8)) > (3u<<(1+ 8))) flag1 |= 0x01u<<13; //shift shift(1)
     //if ((count_shift & (0x0Eu <<16)) > (3u<<(1+16))) flag0 |= 0x01u<<21; //shift shift(2)
     //if ((count_shift & (0x0Eu <<24)) > (3u<<(1+24))) flag1 |= 0x01u<<29; //shift shift(3)
-    Flag4 flag4 = ((count_shift & (Flag4)0x0Eu) > (Flag4)(3u << 1)) ? (Flag4)(0x20u) : (Flag4)0; //shift shift
+    Flag4 flag4 = (AS_FLAG4(count_shift & u8x4(0x0Eu)) > (Flag4)(3u << 1)) ? (Flag4)(0x20u) : (Flag4)0; //shift shift
 
-    return flag0 | flag1 | flag2 | flag3 | flag4;
+    return AS_FLAG4U(flag0) | AS_FLAG4U(flag1) | AS_FLAG4U(flag2) | AS_FLAG4U(flag3) | AS_FLAG4U(flag4);
 }
 
-void merge_mask(Flag4 masky, Flag4 masku, Flag4 maskv, Flag4 *restrict mask0, Flag4 *restrict mask1) {
+void merge_mask(Flag4U masky, Flag4U masku, Flag4U maskv, Flag4U *restrict mask0, Flag4U *restrict mask1) {
     *mask0 = masky & masku & maskv;
     *mask1 = masky | masku | maskv;
 
-    *mask0 &= (Flag4)(0xcc); //motion
-    *mask1 &= (Flag4)(0x33); //shift/deint
+    *mask0 &= u8x4(0xcc); //motion
+    *mask1 &= u8x4(0x33); //shift/deint
 
     *mask0 |= *mask1;
 }
@@ -366,7 +341,7 @@ __kernel void kernel_afs_analyze_12(
     (YUV420) ? analyze_c((p0_0), (p0_1), (p1_0), (p1_1), (imgx), (imgy+(y_offset)), thre_Cmotionf, thre_deintf, thre_shiftf) \
              : analyze_y((p0_0), (p1_0), (imgx), (imgy+(y_offset)), thre_Cmotion, thre_deint, thre_shift)
 
-    __local Flag4 *ptr_shared = (__local Flag4 *)shared + shared_int_idx(lx,0,0);
+    __local Flag4U *ptr_shared = (__local Flag4U *)shared + shared_int_idx(lx,0,0);
     ptr_dst += (imgy-4) * si_pitch_int + imgx;
 
     //前の4ライン分、計算しておく
@@ -388,31 +363,31 @@ __kernel void kernel_afs_analyze_12(
             ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 4);
             barrier(CLK_LOCAL_MEM_FENCE);
         }
-        Flag4 mask1;
+        Flag4U mask1;
         { //マスク生成
-            Flag4 masky = generate_flags(ly, 0, ptr_shared);
-            Flag4 masku = generate_flags(ly, 1, ptr_shared);
-            Flag4 maskv = generate_flags(ly, 2, ptr_shared);
-            Flag4 mask0;
+            Flag4U masky = generate_flags(ly, 0, ptr_shared);
+            Flag4U masku = generate_flags(ly, 1, ptr_shared);
+            Flag4U maskv = generate_flags(ly, 2, ptr_shared);
+            Flag4U mask0;
             merge_mask(masky, masku, maskv, &mask0, &mask1);
             ptr_shared[shared_int_idx(0, ly, 3)] = mask0;
             barrier(CLK_LOCAL_MEM_FENCE);
         }
         { //最終出力
             //ly+4とか使っているので準備ができてないうちから、次の列のデータを使うことになってまずい
-            Flag4 mask4, mask5, mask6, mask7;
+            Flag4U mask4, mask5, mask6, mask7;
             mask4 = ptr_shared[shared_int_idx(0, ly-1, 3)];
             mask5 = ptr_shared[shared_int_idx(0, ly-2, 3)];
             mask6 = ptr_shared[shared_int_idx(0, ly-3, 3)];
             mask7 = ptr_shared[shared_int_idx(0, ly-4, 3)];
-            mask1 &= (Flag4)(0x30);
+            mask1 &= u8x4(0x30);
             mask4 |= mask5 | mask6;
-            mask4 &= (Flag4)(0x33);
+            mask4 &= u8x4(0x33);
             mask1 |= mask4 | mask7;
             if (imgx < width_int && (imgy - 4) < imgy_block_fin && ly - 4 >= 0) {
                 //motion_countの実行
                 if ((((uint)imgx - scan_left) < scan_width) && (((uint)(imgy - 4) - scan_top) < scan_height)) {
-                    motion_count += popcount(as_uint((~mask1) & (Flag4)(0x40))); //opencl版を変更、xorしてからマスク
+                    motion_count += popcount((~mask1) & u8x4(0x40)); //opencl版を変更、xorしてからマスク
                 }
                 //判定結果の出力
                 ptr_dst[0] = mask1;
