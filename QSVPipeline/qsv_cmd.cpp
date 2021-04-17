@@ -38,7 +38,6 @@
 #endif
 #include <assert.h>
 #include "rgy_osdep.h"
-#include "qsv_pipeline.h"
 #include "qsv_query.h"
 #include "rgy_version.h"
 #include "rgy_avutil.h"
