@@ -634,7 +634,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_NUM(_T("--async-depth"), nAsyncDepth);
     if (save_disabled_prm || ((pParams->memType) != (encPrmDefault.memType))) {
         switch (pParams->memType) {
-#ifdef D3D_SURFACES_SUPPORT
+#if D3D_SURFACES_SUPPORT
         case SYSTEM_MEMORY: cmd << _T(" --disable-d3d"); break;
         case HW_MEMORY:   cmd << _T(" --d3d"); break;
         case D3D9_MEMORY: cmd << _T(" --d3d9"); break;
@@ -642,7 +642,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
         case D3D11_MEMORY: cmd << _T(" --d3d11"); break;
 #endif
 #endif
-#ifdef LIBVA_SUPPORT
+#if LIBVA_SUPPORT
         case SYSTEM_MEMORY: cmd << _T(" --disable-va"); break;
         case D3D11_MEMORY: cmd << _T(" --va"); break;
 #endif
