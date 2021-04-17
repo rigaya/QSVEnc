@@ -24,6 +24,7 @@ RGY_FILTER_SMOOTH_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_s
 RGY_FILTER_RESIZE_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_resize.cl"
 RGY_FILTER_SUBBURN_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_subburn.cl"
 RGY_FILTER_TRANSFORM_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_transform.cl"
+RGY_FILTER_UNSHARP_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_unsharp.cl"
 RGY_FILTER_EDGELEVEL_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_edgelevel.cl"
 RGY_FILTER_TWEAK_CL          EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_tweak.cl"
 
