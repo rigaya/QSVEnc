@@ -249,6 +249,9 @@
     <ClCompile Include="rgy_filter_smooth.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_tweak.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -485,6 +488,9 @@
     <ClInclude Include="rgy_filter_smooth.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_tweak.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -524,6 +530,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_smooth.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_tweak.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

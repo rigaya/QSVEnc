@@ -66,6 +66,7 @@
 #include "rgy_filter_subburn.h"
 #include "rgy_filter_transform.h"
 #include "rgy_filter_edgelevel.h"
+#include "rgy_filter_tweak.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
 #include "qsv_hw_device.h"
@@ -2444,7 +2445,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
 
     //tweak
     if (vppType == VppType::CL_TWEAK) {
-#if 0
         unique_ptr<RGYFilter> filter(new RGYFilterTweak(m_cl));
         shared_ptr<RGYFilterParamTweak> param(new RGYFilterParamTweak());
         param->tweak = params->vpp.tweak;
@@ -2452,7 +2452,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = true;
-        auto sts = filter->init(param, m_pLog);
+        auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2462,10 +2462,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
-#else
-        PrintMes(RGY_LOG_ERROR, _T("--vpp-tweak not suported yet.\n"));
-        return RGY_ERR_UNSUPPORTED;
-#endif
     }
     //deband
     if (vppType == VppType::CL_DEBAND) {
