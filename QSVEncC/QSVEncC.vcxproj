@@ -644,6 +644,9 @@ BuildMfx.bat x64</Command>
     <ClCompile Include="QSVEncC.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\clRNG.vcxproj">
+      <Project>{391c0e63-2abd-4f61-8f32-ac6cd8321d34}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\QSVPipeline\QSVPipeline.vcxproj">
       <Project>{a63ce263-8735-4405-8860-011a12a80def}</Project>
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>

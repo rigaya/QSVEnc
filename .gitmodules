@@ -10,3 +10,6 @@
 [submodule "MediaSDK"]
 	path = MediaSDK
 	url = https://github.com/Intel-Media-SDK/MediaSDK.git
+[submodule "clRNG"]
+	path = clRNG
+	url = https://github.com/clMathLibraries/clRNG.git

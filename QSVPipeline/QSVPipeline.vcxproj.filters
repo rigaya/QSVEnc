@@ -261,6 +261,9 @@
     <ClCompile Include="rgy_filter_nnedi.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_deband.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -509,6 +512,9 @@
     <ClInclude Include="rgy_filter_nnedi.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_deband.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -566,6 +572,12 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_nnedi_k1.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_deband.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_deband_gen_rand.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>
