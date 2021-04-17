@@ -264,6 +264,9 @@
     <ClCompile Include="rgy_filter_deband.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_pad.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -578,6 +581,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_deband_gen_rand.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_pad.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

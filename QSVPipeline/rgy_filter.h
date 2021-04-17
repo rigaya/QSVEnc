@@ -198,7 +198,6 @@ protected:
     unique_ptr<RGYCLFrame> m_srcImage;
 };
 
-#if 0
 class RGYFilterParamPad : public RGYFilterParam {
 public:
     VppPad pad;
@@ -222,4 +221,3 @@ protected:
     unique_ptr<RGYOpenCLProgram> m_pad;
     bool m_bInterlacedWarn;
 };
-#endif

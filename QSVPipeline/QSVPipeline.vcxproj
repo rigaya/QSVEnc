@@ -657,6 +657,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_pad.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rgy_filter_smooth.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -900,6 +906,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_nnedi_common.cl" />
     <None Include="rgy_filter_nnedi_k0.cl" />
     <None Include="rgy_filter_nnedi_k1.cl" />
+    <None Include="rgy_filter_pad.cl" />
     <None Include="rgy_filter_resize.cl" />
     <None Include="rgy_filter_smooth.cl" />
     <None Include="rgy_filter_subburn.cl" />

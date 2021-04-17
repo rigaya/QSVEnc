@@ -2474,7 +2474,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     }
     //padding
     if (vppType == VppType::CL_PAD) {
-#if 0
         unique_ptr<RGYFilter> filter(new RGYFilterPad(m_cl));
         shared_ptr<RGYFilterParamPad> param(new RGYFilterParamPad());
         param->pad = params->vpp.pad;
@@ -2484,7 +2483,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut.height = m_encHeight;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pLog);
+        auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2494,10 +2493,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
-#else
-        PrintMes(RGY_LOG_ERROR, _T("--vpp-pad not suported yet.\n"));
-        return RGY_ERR_UNSUPPORTED;
-#endif
     }
 
     PrintMes(RGY_LOG_ERROR, _T("Unknown filter type.\n"));
