@@ -19,6 +19,7 @@ RGY_FILTER_AFS_SYNTHESIZE_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_a
 
 RGY_FILTER_DELOGO_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_delogo.cl"
 RGY_FILTER_DENOISE_KNN_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_knn.cl"
+RGY_FILTER_DENOISE_PMD_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_pmd.cl"
 RGY_FILTER_RESIZE_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_resize.cl"
 RGY_FILTER_SUBBURN_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_subburn.cl"
 RGY_FILTER_TRANSFORM_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_transform.cl"

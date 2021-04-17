@@ -61,6 +61,7 @@
 #include "rgy_filter_afs.h"
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_denoise_knn.h"
+#include "rgy_filter_denoise_pmd.h"
 #include "rgy_filter_subburn.h"
 #include "rgy_filter_transform.h"
 #include "rgy_output_avcodec.h"
@@ -2257,7 +2258,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     }
     //pmd
     if (vppType == VppType::CL_DENOISE_PMD) {
-#if 0
         unique_ptr<RGYFilter> filter(new RGYFilterDenoisePmd(m_cl));
         shared_ptr<RGYFilterParamDenoisePmd> param(new RGYFilterParamDenoisePmd());
         param->pmd = params->vpp.pmd;
@@ -2265,7 +2265,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pLog);
+        auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2275,10 +2275,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
-#else
-        PrintMes(RGY_LOG_ERROR, _T("vpp-pmd not suported yet.\n"));
-        return RGY_ERR_UNSUPPORTED;
-#endif
     }
     //smooth
     if (vppType == VppType::CL_DENOISE_SMOOTH) {

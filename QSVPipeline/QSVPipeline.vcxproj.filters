@@ -240,6 +240,9 @@
     <ClCompile Include="rgy_filter_colorspace.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_denoise_pmd.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -467,6 +470,9 @@
     <ClInclude Include="rgy_filter_colorspace_func.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_denoise_pmd.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -497,6 +503,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_afs_synthesize.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_denoise_pmd.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>
