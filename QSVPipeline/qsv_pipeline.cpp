@@ -1543,7 +1543,6 @@ CQSVPipeline::CQSVPipeline() :
     m_pFileReader(),
     m_nAsyncDepth(0),
     m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
-    m_outputTimestamp(),
     m_InitParam(),
     m_pInitParamExtBuf(),
     m_ThreadsParam(),
@@ -3300,7 +3299,6 @@ RGY_ERR CQSVPipeline::Run() {
 }
 
 RGY_ERR CQSVPipeline::CreatePipeline() {
-    m_outputTimestamp.clear();
     m_pipelineTasks.clear();
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -3350,7 +3348,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
         }
         m_vppCopyForCheckPts = std::move(mfxvpp);
     }
-    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_mfxSession, srcTimebase, m_outputTimebase, m_outputTimestamp, outFrameDuration, m_nAVSyncMode,
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_mfxSession, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode,
         (m_vppCopyForCheckPts) ? m_vppCopyForCheckPts->mfxvpp() : nullptr,
         (m_vppCopyForCheckPts) ? &m_vppCopyForCheckPts->mfxparams() : nullptr,
         0, m_mfxVer, m_pQSVLog));
@@ -3376,7 +3374,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     }
 
     if (m_pmfxENC) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_outputTimestamp, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_mfxSession, 1, m_mfxVer, m_pQSVLog));
     }

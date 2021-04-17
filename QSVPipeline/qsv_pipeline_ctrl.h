@@ -675,7 +675,6 @@ class PipelineTaskCheckPTS : public PipelineTask {
 protected:
     rgy_rational<int> m_srcTimebase;
     rgy_rational<int> m_outputTimebase;
-    RGYTimestamp& m_timestamp;
     RGYAVSync m_avsync;
     int64_t m_outFrameDuration; //(m_outputTimebase基準)
     int64_t m_tsOutFirst;     //(m_outputTimebase基準)
@@ -684,10 +683,10 @@ protected:
     MFXVideoVPP *m_vppCopy;   //コピー用のvpp、forcecfrでフレームの水増しが必要な場合のみ
     mfxVideoParam m_vppCopyPrm; //コピー用のvppのパラメータ、forcecfrでフレームの水増しが必要な場合のみ
 public:
-    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, RGYTimestamp& timestamp, int64_t outFrameDuration, RGYAVSync avsync,
+    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync,
         MFXVideoVPP *vppCopy, const mfxVideoParam *vppCopyPrm, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CHECKPTS, outMaxQueueSize, mfxSession, mfxVer, log),
-        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_timestamp(timestamp), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_vppCopy(vppCopy), m_vppCopyPrm() {
+        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_vppCopy(vppCopy), m_vppCopyPrm() {
         if (vppCopyPrm) {
             m_vppCopyPrm = *vppCopyPrm;
         }
@@ -863,7 +862,6 @@ public:
                 surfVppOut->Data.FrameOrder = m_inFrames++;
                 surfVppOut->Data.TimeStamp = m_tsOutEstimated; // timestampを上書き
                 surfVppOut->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-                m_timestamp.add(surfVppOut->Data.TimeStamp, outDuration);
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
                 m_tsOutEstimated += m_outFrameDuration;
                 ptsDiff = outPtsSource - m_tsOutEstimated;
@@ -912,7 +910,6 @@ public:
         outSurf->Data.FrameOrder = m_inFrames++;
         outSurf->Data.TimeStamp = outPtsSource;
         outSurf->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-        m_timestamp.add(outSurf->Data.TimeStamp, outDuration);
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, outSurf, lastSyncPoint));
         return RGY_ERR_NONE;
     }
@@ -1076,10 +1073,11 @@ public:
 class PipelineTaskMFXVpp : public PipelineTask {
 protected:
     MFXVideoVPP *m_vpp;
+    RGYTimestamp m_timestamp;
     mfxVideoParam& m_mfxVppParams;
 public:
     PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoVPP *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_mfxVppParams(vppParams) {};
+        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(), m_mfxVppParams(vppParams) {};
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(MFXVideoVPP *mfxvpp) { m_vpp = mfxvpp; };
 protected:
@@ -1126,6 +1124,7 @@ public:
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
+        m_timestamp.add(surfVppIn->Data.TimeStamp, 0);
 
         bool vppMoreOutput = false;
         do {
@@ -1165,6 +1164,8 @@ public:
             }
 
             if (lastSyncPoint != nullptr) {
+                //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
+                surfVppOut->Data.TimeStamp = m_timestamp.check(surfVppOut->Data.TimeStamp);
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
             }
         } while (vppMoreOutput);
@@ -1194,16 +1195,15 @@ class PipelineTaskMFXEncode : public PipelineTask {
 protected:
     MFXVideoENCODE *m_encode;
     RGYTimecode *m_timecode;
-    RGYTimestamp& m_timestamp;
     mfxVideoParam& m_mfxEncParams;
     rgy_rational<int> m_outputTimebase;
     RGYListRef<RGYBitstream> m_bitStreamOut;
 public:
     PipelineTaskMFXEncode(
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, mfxVideoParam& encParams,
-        RGYTimecode *timecode, rgy_rational<int> outputTimebase, RGYTimestamp& timestamp, std::shared_ptr<RGYLog> log)
+        RGYTimecode *timecode, rgy_rational<int> outputTimebase, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
-        m_encode(mfxencode), m_mfxEncParams(encParams), m_timecode(timecode), m_outputTimebase(outputTimebase), m_timestamp(timestamp) {};
+        m_encode(mfxencode), m_mfxEncParams(encParams), m_timecode(timecode), m_outputTimebase(outputTimebase) {};
     virtual ~PipelineTaskMFXEncode() {
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
     };
@@ -1257,13 +1257,12 @@ public:
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
             bsOut->setPts((uint64_t)MFX_TIMESTAMP_UNKNOWN);
             bsOut->setDts((uint64_t)MFX_TIMESTAMP_UNKNOWN);
-            //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
-            auto timestamp = m_timestamp.check(surfEncodeIn->Data.TimeStamp); // ここまではm_outputTimebase
             if (m_timecode) {
-                m_timecode->write(timestamp, m_outputTimebase);
+                m_timecode->write(surfEncodeIn->Data.TimeStamp, m_outputTimebase);
             }
+            // ここまではm_outputTimebase
             //最後にQSVのHW_TIMEBASEに変換する
-            surfEncodeIn->Data.TimeStamp = rational_rescale(timestamp, m_outputTimebase, rgy_rational<int>(1, HW_TIMEBASE));
+            surfEncodeIn->Data.TimeStamp = rational_rescale(surfEncodeIn->Data.TimeStamp, m_outputTimebase, rgy_rational<int>(1, HW_TIMEBASE));
         }
 
         auto enc_sts = MFX_ERR_NONE;
