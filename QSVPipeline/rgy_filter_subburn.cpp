@@ -108,7 +108,7 @@ RGY_ERR RGYFilterSubburn::procFrame(FrameInfo *pFrame,
     //焼きこみフレームの範囲内に収まるようチェック
     const int burnWidth = std::min((pos_x & ~1) + pSubImg->width, pFrame->width) - (pos_x & ~1);
     const int burnHeight = std::min((pos_y & ~1) + pSubImg->height, pFrame->height) - (pos_y & ~1);
-    if (burnWidth < 0 || burnHeight < 0) {
+    if (burnWidth <= 0 || burnHeight <= 0) {
         return RGY_ERR_NONE;
     }
 
