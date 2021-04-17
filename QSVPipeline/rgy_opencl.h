@@ -611,6 +611,10 @@ struct RGYOpenCLDeviceInfo {
     std::string profile;
     std::string version;
     std::string extensions;
+
+    std::pair<int, int> clversion() const;
+    bool checkVersion(int major, int minor) const;
+    bool checkExtension(const char* extension) const;
 };
 
 class RGYOpenCLDevice {
@@ -618,6 +622,8 @@ public:
     RGYOpenCLDevice(cl_device_id device);
     virtual ~RGYOpenCLDevice() {};
     RGYOpenCLDeviceInfo info() const;
+    bool checkVersion(int major, int minor) const;
+    bool checkExtension(const char* extension) const;
     tstring infostr() const;
     cl_device_id id() const { return m_device; }
 protected:
@@ -629,9 +635,19 @@ struct RGYOpenCLPlatformInfo {
     std::string version;
     std::string name;
     std::string vendor;
-    std::string extension;
+    std::string extensions;
 
     std::string print() const;
+    std::pair<int, int> clversion() const;
+    bool checkVersion(int major, int minor) const;
+    bool checkExtension(const char* extension) const;
+};
+
+enum class RGYOpenCLSubGroupSupport {
+    NONE,      // unsupported
+    INTEL_EXT, // use cl_intel_subgroups extension
+    STD20KHR,  // OpenCL 2.0 extension
+    STD22,     // OpenCL 2.2 core
 };
 
 class RGYOpenCLPlatform {
@@ -642,6 +658,8 @@ public:
     RGY_ERR createDeviceListD3D9(cl_device_type device_type, void *d3d9dev);
     RGY_ERR createDeviceListD3D11(cl_device_type device_type, void *d3d11dev);
     RGY_ERR createDeviceListVA(cl_device_type device_type, void *devVA);
+    RGY_ERR loadSubGroupKHR();
+    RGYOpenCLSubGroupSupport checkSubGroupSupport(const int devidx);
     cl_platform_id get() const { return m_platform; };
     const void *d3d9dev() const { return m_d3d9dev; };
     const void *d3d11dev() const { return m_d3d11dev; };
@@ -658,6 +676,7 @@ public:
     void setDevs(std::vector<cl_device_id> &devs) { m_devices = devs; };
     bool isVendor(const char *vendor) const;
     bool checkExtension(const char* extension) const;
+    bool checkVersion(int major, int minor) const;
     RGYOpenCLPlatformInfo info() const;
 protected:
 

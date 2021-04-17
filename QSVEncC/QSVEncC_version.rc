@@ -17,6 +17,11 @@ RGY_FILTER_AFS_MERGE_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_a
 RGY_FILTER_AFS_ANALYZE_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_afs_analyze.cl"
 RGY_FILTER_AFS_SYNTHESIZE_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_afs_synthesize.cl"
 
+RGY_FILTER_NNEDI_K0_CL     EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_nnedi_k0.cl"
+RGY_FILTER_NNEDI_K1_CL     EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_nnedi_k1.cl"
+RGY_FILTER_NNEDI_COMMON_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_nnedi_common.cl"
+NNEDI_WEIGHTBIN            EXE_DATA DISCARDABLE "..\\resource\\nnedi3_weights.bin"
+
 RGY_FILTER_DELOGO_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_delogo.cl"
 RGY_FILTER_DENOISE_KNN_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_knn.cl"
 RGY_FILTER_DENOISE_PMD_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_pmd.cl"

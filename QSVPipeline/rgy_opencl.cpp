@@ -300,6 +300,24 @@ int initOpenCLGlobal() {
     return 0;
 }
 
+std::pair<int, int> RGYOpenCLDeviceInfo::clversion() const {
+    int major, minor;
+    if (sscanf_s(version.c_str(), "OpenCL %d.%d", &major, &minor) == 2) {
+        return std::make_pair(major, minor);
+    }
+    return std::make_pair(0, 0);
+}
+bool RGYOpenCLDeviceInfo::checkVersion(int major, int minor) const {
+    const auto clverpair = clversion();
+    if (major < clverpair.first) return true;
+    if (major == clverpair.first) return minor <= clverpair.second;
+    return false;
+}
+
+bool RGYOpenCLDeviceInfo::checkExtension(const char* extension) const {
+    return strstr(extensions.c_str(), extension) != 0;
+}
+
 RGYOpenCLDevice::RGYOpenCLDevice(cl_device_id device) : m_device(device) {
 
 }
@@ -324,6 +342,14 @@ RGYOpenCLDeviceInfo RGYOpenCLDevice::info() const {
         return RGYOpenCLDeviceInfo();
     }
     return info;
+}
+
+bool RGYOpenCLDevice::checkExtension(const char* extension) const {
+    return info().checkExtension(extension);
+}
+
+bool RGYOpenCLDevice::checkVersion(int major, int minor) const {
+    return info().checkVersion(major, minor);
 }
 
 tstring RGYOpenCLDevice::infostr() const {
@@ -556,6 +582,31 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *
 #endif
 }
 
+RGY_ERR RGYOpenCLPlatform::loadSubGroupKHR() {
+    if (clGetKernelSubGroupInfoKHR == nullptr) {
+        LOAD_KHR(clGetKernelSubGroupInfoKHR);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGYOpenCLSubGroupSupport RGYOpenCLPlatform::checkSubGroupSupport(const int devidx) {
+    if (RGYOpenCL::openCLCrush) {
+        return RGYOpenCLSubGroupSupport::NONE;
+    }
+    m_pLog->write(RGY_LOG_DEBUG, _T("checkSubGroupSupport\n"));
+    if (checkVersion(2, 2) && dev(devidx).checkVersion(2, 2) && clGetKernelSubGroupInfo) {
+        return RGYOpenCLSubGroupSupport::STD22;
+    }
+
+    if (checkVersion(2, 0) && dev(devidx).checkVersion(2, 0) && dev(devidx).checkExtension("cl_khr_subgroups")) {
+        return loadSubGroupKHR() == RGY_ERR_NONE ? RGYOpenCLSubGroupSupport::STD20KHR : RGYOpenCLSubGroupSupport::NONE;
+    }
+    if (checkVersion(1, 2) && dev(devidx).checkVersion(1, 2) && dev(devidx).checkExtension("cl_intel_subgroups")) {
+        return loadSubGroupKHR() == RGY_ERR_NONE ? RGYOpenCLSubGroupSupport::INTEL_EXT : RGYOpenCLSubGroupSupport::NONE;
+    }
+    return RGYOpenCLSubGroupSupport::NONE;
+}
+
 RGY_ERR RGYOpenCLPlatform::createDeviceList(cl_device_type device_type) {
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
@@ -592,7 +643,24 @@ RGY_ERR RGYOpenCLPlatform::createDeviceList(cl_device_type device_type) {
 }
 
 std::string RGYOpenCLPlatformInfo::print() const {
-    return name + " " + vendor + " " + version + "[" + profile + "]\n  extensions:" + extension;
+    return name + " " + vendor + " " + version + "[" + profile + "]\n  extensions:" + extensions;
+}
+
+std::pair<int, int> RGYOpenCLPlatformInfo::clversion() const {
+    int major, minor;
+    if (sscanf_s(version.c_str(), "OpenCL %d.%d", &major, &minor) == 2) {
+        return std::make_pair(major, minor);
+    }
+    return std::make_pair(0, 0);
+}
+bool RGYOpenCLPlatformInfo::checkVersion(int major, int minor) const {
+    const auto clverpair = clversion();
+    if (major < clverpair.first) return true;
+    if (major == clverpair.first) return minor <= clverpair.second;
+    return false;
+}
+bool RGYOpenCLPlatformInfo::checkExtension(const char* extension) const {
+    return strstr(extensions.c_str(), extension) != 0;
 }
 
 RGYOpenCLPlatformInfo RGYOpenCLPlatform::info() const {
@@ -602,7 +670,7 @@ RGYOpenCLPlatformInfo RGYOpenCLPlatform::info() const {
         clGetInfo(clGetPlatformInfo, m_platform, CL_PLATFORM_VERSION, &info.version);
         clGetInfo(clGetPlatformInfo, m_platform, CL_PLATFORM_NAME, &info.name);
         clGetInfo(clGetPlatformInfo, m_platform, CL_PLATFORM_VENDOR, &info.vendor);
-        clGetInfo(clGetPlatformInfo, m_platform, CL_PLATFORM_EXTENSIONS, &info.extension);
+        clGetInfo(clGetPlatformInfo, m_platform, CL_PLATFORM_EXTENSIONS, &info.extensions);
     } catch (...) {
         return RGYOpenCLPlatformInfo();
     }
@@ -614,7 +682,11 @@ bool RGYOpenCLPlatform::isVendor(const char *vendor) const {
 }
 
 bool RGYOpenCLPlatform::checkExtension(const char* extension) const {
-    return strstr(info().extension.c_str(), extension) != 0;
+    return info().checkExtension(extension);
+}
+
+bool RGYOpenCLPlatform::checkVersion(int major, int minor) const {
+    return info().checkVersion(major, minor);
 }
 
 RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, shared_ptr<RGYLog> pLog) :
