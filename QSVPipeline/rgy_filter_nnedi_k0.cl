@@ -12,6 +12,10 @@
 // weight_loop
 // prescreen_new
 
+#if USE_FP16
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
+#endif
+
 #include "rgy_filter_nnedi_common.cl"
 
 // prescreen_new では、4ピクセル分一度に処理する

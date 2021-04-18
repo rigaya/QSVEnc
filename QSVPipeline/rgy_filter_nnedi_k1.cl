@@ -10,6 +10,10 @@
 // weight_loop
 // prescreen_new
 
+#if USE_FP16
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
+#endif
+
 #include "rgy_filter_nnedi_common.cl"
 
 void kernel_comute_network1_calc_scale_get_sum_sumsq(float *sum, float *sumsq, TypeCalc tsum, TypeCalc tsumsq) {
