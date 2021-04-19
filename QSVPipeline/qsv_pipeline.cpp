@@ -2648,9 +2648,12 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 param->frameIn = inputFrame;
                 param->frameOut = inputFrame;
                 param->frameOut.csp = getEncoderCsp(inputParam);
-                switch (param->frameOut.csp) {
+                switch (param->frameOut.csp) { // OpenCLフィルタの内部形式への変換
                 case RGY_CSP_NV12: param->frameOut.csp = RGY_CSP_YV12; break;
                 case RGY_CSP_P010: param->frameOut.csp = RGY_CSP_YV12_16; break;
+                case RGY_CSP_AYUV: param->frameOut.csp = RGY_CSP_YUV444; break;
+                case RGY_CSP_Y410: param->frameOut.csp = RGY_CSP_YUV444_16; break;
+                case RGY_CSP_Y416: param->frameOut.csp = RGY_CSP_YUV444_16; break;
                 default:
                     break;
                 }
