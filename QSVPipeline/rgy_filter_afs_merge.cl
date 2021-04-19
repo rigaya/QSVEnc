@@ -30,6 +30,34 @@
 //MERGE_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
 //MERGE_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
 //MERGE_BLOCK_LOOP_Y  (1) //work groupのy方向反復数
+//SUB_GROUP_SIZE
+
+void block_sum_int(int val, __local int *shared) {
+    const int lid = get_local_id(1) * MERGE_BLOCK_INT_X + get_local_id(0);
+#if SUB_GROUP_SIZE > 0
+    const int lane    = get_sub_group_local_id();
+    const int warp_id = get_sub_group_id();
+    
+	int value_count = MERGE_BLOCK_INT_X * MERGE_BLOCK_Y;
+	for (;;) {
+		val = sub_group_reduce_add(val);
+		if (lane == 0) shared[warp_id] = val;
+		barrier(CLK_LOCAL_MEM_FENCE);
+		value_count /= SUB_GROUP_SIZE;
+		if (value_count <= 1) break;
+        val = (lid < value_count) ? shared[lane] : 0;
+	}
+#else
+    shared[lid] = val;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int offset = MERGE_BLOCK_Y * MERGE_BLOCK_INT_X >> 1; offset > 0; offset >>= 1) {
+        if (lid < offset) {
+            shared[lid] += shared[lid + offset];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+#endif
+}
 
 #define u8x4(x)  (uint)(((uint)(x)) | (((uint)(x)) <<  8) | (((uint)(x)) << 16) | (((uint)(x)) << 24))
 
@@ -98,15 +126,8 @@ __kernel void kernel_afs_merge_scan(
     int stripe_count_01 = (int)(field_select ? (uint)stripe_count << 16 : (uint)stripe_count);
 
     __local int shared[MERGE_BLOCK_INT_X * MERGE_BLOCK_Y]; //int単位でアクセスする
+    block_sum_int(stripe_count_01, shared);
     const int lid = get_local_id(1) * MERGE_BLOCK_INT_X + get_local_id(0);
-    shared[lid] = stripe_count_01;
-    barrier(CLK_LOCAL_MEM_FENCE);
-    for (int offset = MERGE_BLOCK_Y * MERGE_BLOCK_INT_X >> 1; offset > 0; offset >>= 1) {
-        if (lid < offset) {
-            shared[lid] += shared[lid + offset];
-        }
-        barrier(CLK_LOCAL_MEM_FENCE);
-    }
     if (lid == 0) {
         const int gid = get_group_id(1) * get_num_groups(0) + get_group_id(0);
         ptr_count[gid] = shared[0];

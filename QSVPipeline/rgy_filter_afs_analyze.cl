@@ -37,6 +37,7 @@
 // TB_ORDER 0
 // YUV420 0
 // BIT_DEPTH
+// SUB_GROUP_SIZE
 
 __constant sampler_t sampler_y = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 #if YUV420
@@ -44,6 +45,33 @@ __constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP
 #else
 __constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 #endif
+
+void block_sum_int(int val, __local int *shared) {
+    const int lid = get_local_id(1) * BLOCK_INT_X + get_local_id(0);
+#if SUB_GROUP_SIZE > 0
+    const int lane    = get_sub_group_local_id();
+    const int warp_id = get_sub_group_id();
+    
+	int value_count = BLOCK_INT_X * BLOCK_Y;
+	for (;;) {
+		val = sub_group_reduce_add(val);
+		if (lane == 0) shared[warp_id] = val;
+		barrier(CLK_LOCAL_MEM_FENCE);
+		value_count /= SUB_GROUP_SIZE;
+		if (value_count <= 1) break;
+        val = (lid < value_count) ? shared[lane] : 0;
+	}
+#else
+    shared[lid] = val;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int offset = BLOCK_Y * BLOCK_INT_X >> 1; offset > 0; offset >>= 1) {
+        if (lid < offset) {
+            shared[lid] += shared[lid + offset];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+#endif
+}
 
 #define u8x4(x)  (((uint)x) | (((uint)x) <<  8) | (((uint)x) << 16) | (((uint)x) << 24))
 
@@ -410,15 +438,8 @@ __kernel void kernel_afs_analyze_12(
         motion_count_01 = (int)(((ly + 1) & 1) ? (uint)motion_count << 16 : (uint)motion_count);
     }
     __local int *ptr_reduction = (__local int *)shared;
+	block_sum_int(motion_count_01, ptr_reduction);
     const int lid = get_local_id(1) * BLOCK_INT_X + get_local_id(0);
-    ptr_reduction[lid] = motion_count_01;
-    barrier(CLK_LOCAL_MEM_FENCE);
-    for (int offset = BLOCK_Y * BLOCK_INT_X >> 1; offset > 0; offset >>= 1) {
-        if (lid < offset) {
-            ptr_reduction[lid] += ptr_reduction[lid + offset];
-        }
-        barrier(CLK_LOCAL_MEM_FENCE);
-    }
     if (lid == 0) {
         const int gid = get_group_id(1) * get_num_groups(0) + get_group_id(0);
         ptr_count[gid] = ptr_reduction[0];

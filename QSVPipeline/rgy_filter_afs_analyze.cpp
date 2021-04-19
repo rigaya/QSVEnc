@@ -38,13 +38,44 @@
 #define SHARED_INT_X (BLOCK_INT_X) //sharedメモリの幅
 #define SHARED_Y     (16) //sharedメモリの縦
 
+static const char* AFS_ANALYZE_KERNEL_NAME = "kernel_afs_analyze_12";
+
 RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
     if (!m_analyze) {
-        const auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D TB_ORDER=%d -D BLOCK_INT_X=%d -D BLOCK_Y=%d -D BLOCK_LOOP_Y=%d",
+        std::string clversionRequired;
+        size_t subgroup_size = 0;
+        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(0);
+        if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
+            if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
+                || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
+                clversionRequired = "-cl-std=CL2.0 ";
+            }
+            // subgroupの情報を得るため一度コンパイル
+            const auto options = clversionRequired + strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D TB_ORDER=%d -D BLOCK_INT_X=%d -D BLOCK_Y=%d -D BLOCK_LOOP_Y=%d -D SUB_GROUP_SIZE=%u",
+                RGY_CSP_BIT_DEPTH[csp],
+                RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0,
+                (tb_order) ? 1 : 0,
+                BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y, 0);
+            m_analyze = m_cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str());
+            if (!m_analyze) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_ANALYZE_CL\n"));
+                return RGY_ERR_OPENCL_CRUSH;
+            }
+
+            auto getKernelSubGroupInfo = clGetKernelSubGroupInfo != nullptr ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
+            RGYWorkSize local(BLOCK_INT_X, BLOCK_Y);
+            size_t result;
+            auto err = getKernelSubGroupInfo(m_analyze->kernel(AFS_ANALYZE_KERNEL_NAME).get()->get(), m_cl->platform()->dev(0).id(), CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
+                sizeof(local.w[0]) * 2, &local.w[0], sizeof(result), &result, nullptr);
+            if (err == 0) {
+                subgroup_size = result;
+            }
+        }
+        const auto options = clversionRequired + strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D TB_ORDER=%d -D BLOCK_INT_X=%d -D BLOCK_Y=%d -D BLOCK_LOOP_Y=%d -D SUB_GROUP_SIZE=%u",
             RGY_CSP_BIT_DEPTH[csp],
             RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0,
             (tb_order) ? 1 : 0,
-            BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y);
+            BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y, subgroup_size);
         m_analyze = m_cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_analyze) {
             AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_ANALYZE_CL\n"));
@@ -131,7 +162,7 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
     const float thre_deint_yuvf   = std::max(0.0f, pAfsPrm->thre_deint * thre_mul);
     const float thre_Cmotion_yuvf = std::max(0.0f, pAfsPrm->thre_Cmotion * thre_mul);
 
-    err = analyze->kernel("kernel_afs_analyze_12").config(queue, local, global, wait_event, &event).launch(
+    err = analyze->kernel(AFS_ANALYZE_KERNEL_NAME).config(queue, local, global, wait_event, &event).launch(
         (cl_mem)dst, count_motion->mem(),
         texP0Y, texP0U0, texP0U1, texP0V0, texP0V1,
         texP1Y, texP1U0, texP1U1, texP1V0, texP1V1,
