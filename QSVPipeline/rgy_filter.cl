@@ -129,6 +129,7 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #endif
 
 #define STORE_IMG(dst_img, ix, iy, val) write_imageui((dst_img), (int2)((ix), (iy)), (val))
+#define STORE_IMG_AYUV(dst_img, ix, iy, val) write_imageui((dst_img), (int2)((ix), (iy)), convert_uint4(val))
 #define STORE_IMG_NV12_UV(dst_img, ix, iy, val_u, val_v) { \
     uint4 val = (uint4)(val_u, val_v, val_v, val_v); \
     write_imageui((dst_img), (int2)((ix), (iy)), (val)); \
@@ -155,7 +156,7 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #if MEM_TYPE_DST == RGY_MEM_TYPE_GPU_IMAGE
 #define IMAGE_DST     1
 #define STORE         STORE_IMG
-#define STORE_AYUV    STORE_IMG
+#define STORE_AYUV    STORE_IMG_AYUV
 #define STORE_NV12_UV STORE_IMG_NV12_UV
 #elif MEM_TYPE_DST == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED
 #define IMAGE_DST     1
