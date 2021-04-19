@@ -83,7 +83,7 @@ typedef uint          Flag4U;
 #define shift_deint (0x01u)
 
 Flag4U analyze_motion(DATA4 p0, DATA4 p1, DATA thre_motion, DATA thre_shift) {
-    DATA4 absdata = CONVERT_DATA4(abs(convert_int4(p1) - convert_int4(p0)));
+    DATA4 absdata = abs_diff(p0, p1);
     Flag4 mask_motion = CONVERT_FLAG4_SAT((DATA4)thre_motion > absdata) ? (Flag4)motion_flag  : (Flag4)0;
     Flag4 mask_shift  = CONVERT_FLAG4_SAT((DATA4)thre_shift  > absdata) ? (Flag4)motion_shift : (Flag4)0;
     return AS_FLAG4U(mask_motion) | AS_FLAG4U(mask_shift);
@@ -97,7 +97,7 @@ Flag4U analyze_motionf(float p0, float p1, const float thre_motionf, const float
 }
 
 Flag4U analyze_stripe(DATA4 p0, DATA4 p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const DATA thre_deint, const DATA thre_shift) {
-    DATA4 absdata = CONVERT_DATA4(abs(convert_int4(p1) - convert_int4(p0)));
+    DATA4 absdata = abs_diff(p0, p1);
     Flag4 new_sign   = CONVERT_FLAG4_SAT(p0 >= p1) ? (Flag4)flag_sign : (Flag4)0;
     Flag4 mask_deint = CONVERT_FLAG4_SAT(absdata > (DATA4)thre_deint) ? (Flag4)flag_deint : (Flag4)0;
     Flag4 mask_shift = CONVERT_FLAG4_SAT(absdata > (DATA4)thre_shift) ? (Flag4)flag_shift : (Flag4)0;
@@ -269,7 +269,7 @@ Flag4U generate_flags(int ly, int idepth, __local Flag4U *restrict ptr_shared) {
     // | motion  |         non-shift        | motion  |          shift          |
     // |  shift  |  sign  |  shift |  deint |  flag   | sign  |  shift |  deint |
     //motion 0x8888 -> 0x4444 とするため右シフト
-    Flag4 flag0 = (dat0 & u8x4(motion_flag | motion_shift)) >> 1; //motion flag / motion shift
+    Flag4 flag0 = AS_FLAG4((dat0 & u8x4(motion_flag | motion_shift)) >> 1); //motion flag / motion shift
 
     //nonshift deint - countbit:654 / setbit 0x01
     //if ((count_deint & (0x70u << 0)) > (2u<<(4+ 0))) flag0 |= 0x01u<< 0; //nonshift deint(0)
