@@ -1628,7 +1628,7 @@ RGY_ERR RGYOpenCLContext::setFrame(int value, FrameInfo *dst, const sInputCrop *
             (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
             (i + 1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to copy frame(%d): %s\n"), i, cl_errmes(err));
+            m_pLog->write(RGY_LOG_ERROR, _T("Failed to set frame(%d): %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
         }
     }
