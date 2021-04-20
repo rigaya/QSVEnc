@@ -1580,11 +1580,8 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *planeDst, const sInputC
         return RGY_ERR_NONE;
     }
     if (!m_setB) {
-        const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D TypeIn4=%s -D TypeOut4=%s -D MEM_TYPE_SRC=1 -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
-            RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort" : "uchar", //dummy
-            RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort" : "uchar",
-            RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort4" : "uchar4", //dummy
-            RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? "ushort4" : "uchar4",
+        const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+            planeDst->mem_type, //dummy
             planeDst->mem_type,
             RGY_CSP_BIT_DEPTH[planeDst->csp], //dummy
             RGY_CSP_BIT_DEPTH[planeDst->csp]);
