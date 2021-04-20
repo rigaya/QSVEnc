@@ -509,6 +509,17 @@ static bool interlaced(const FrameInfo& frameInfo) {
     return (frameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
 }
 
+static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
+    dst->width = src->width;
+    dst->height = src->height;
+    dst->csp = src->csp;
+    dst->picstruct = src->picstruct;
+    dst->timestamp = src->timestamp;
+    dst->duration = src->duration;
+    dst->flags = src->flags;
+    dst->inputFrameId = src->inputFrameId;
+}
+
 static FrameInfo getPlane(const FrameInfo *frameInfo, RGY_PLANE plane) {
     FrameInfo planeInfo = *frameInfo;
     if (frameInfo->csp == RGY_CSP_YUY2

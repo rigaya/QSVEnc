@@ -42,7 +42,7 @@ RGY_ERR RGYFilterAfs::build_merge_scan() {
     if (!m_mergeScan) {
         std::string clversionRequired;
         size_t subgroup_size = 0;
-        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(0);
+        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
             if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                 || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {

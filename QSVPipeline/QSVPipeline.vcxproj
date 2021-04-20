@@ -627,6 +627,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_decimate.cpp" />
     <ClCompile Include="rgy_filter_delogo.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -651,6 +652,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_mpdecimate.cpp" />
     <ClCompile Include="rgy_filter_nnedi.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -844,10 +846,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_colorspace.h" />
     <ClInclude Include="rgy_filter_colorspace_func.h" />
     <ClInclude Include="rgy_filter_deband.h" />
+    <ClInclude Include="rgy_filter_decimate.h" />
     <ClInclude Include="rgy_filter_delogo.h" />
     <ClInclude Include="rgy_filter_denoise_knn.h" />
     <ClInclude Include="rgy_filter_denoise_pmd.h" />
     <ClInclude Include="rgy_filter_edgelevel.h" />
+    <ClInclude Include="rgy_filter_mpdecimate.h" />
     <ClInclude Include="rgy_filter_nnedi.h" />
     <ClInclude Include="rgy_filter_smooth.h" />
     <ClInclude Include="rgy_filter_subburn.h" />
@@ -894,10 +898,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_afs_synthesize.cl" />
     <None Include="rgy_filter_deband.cl" />
     <None Include="rgy_filter_deband_gen_rand.cl" />
+    <None Include="rgy_filter_decimate.cl" />
     <None Include="rgy_filter_delogo.cl" />
     <None Include="rgy_filter_denoise_knn.cl" />
     <None Include="rgy_filter_denoise_pmd.cl" />
     <None Include="rgy_filter_edgelevel.cl" />
+    <None Include="rgy_filter_mpdecimate.cl" />
     <None Include="rgy_filter_nnedi_common.cl" />
     <None Include="rgy_filter_nnedi_k0.cl" />
     <None Include="rgy_filter_nnedi_k1.cl" />

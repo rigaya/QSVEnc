@@ -729,7 +729,7 @@ RGY_ERR RGYFilterAfs::scan_frame(int iframe, int force, const RGYFilterParamAfs 
         return err;
     }
     if (STREAM_OPT) {
-        err = m_count_motion->queueMapBuffer(m_queueCopy(), CL_MAP_READ, { m_eventScanFrame });
+        err = m_count_motion->queueMapBuffer(m_queueCopy, CL_MAP_READ, { m_eventScanFrame });
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.queueMapBuffer: %s.\n"), get_err_mes(err));
             return err;
@@ -753,7 +753,7 @@ RGY_ERR RGYFilterAfs::count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip,
     if (STREAM_OPT) {
         sp->event.wait();
     } else {
-        err = m_count_motion->queueMapBuffer(queue.get(), CL_MAP_READ, {});
+        err = m_count_motion->queueMapBuffer(queue, CL_MAP_READ, {});
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.queueMapBuffer: %s.\n"), get_err_mes(err));
             return err;
@@ -821,7 +821,7 @@ RGY_ERR RGYFilterAfs::get_stripe_info(RGYOpenCLQueue &queue, int iframe, int mod
     sp->frame = iframe;
 
     if (STREAM_OPT) {
-        err = sp->buf_count_stripe->queueMapBuffer(m_queueCopy(), CL_MAP_READ, { m_eventMergeScan });
+        err = sp->buf_count_stripe->queueMapBuffer(m_queueCopy, CL_MAP_READ, { m_eventMergeScan });
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.copyDtoHAsync: %s.\n"), get_err_mes(err));
             return err;
@@ -842,7 +842,7 @@ RGY_ERR RGYFilterAfs::count_stripe(RGYOpenCLQueue &queue, AFS_STRIPE_DATA *sp, c
     if (STREAM_OPT) {
         sp->event.wait();
     } else {
-        err = sp->buf_count_stripe->queueMapBuffer(queue.get(), CL_MAP_READ, {});
+        err = sp->buf_count_stripe->queueMapBuffer(queue, CL_MAP_READ, {});
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed m_count_stripe.queueMapBuffer: %s.\n"), get_err_mes(err));
             return err;

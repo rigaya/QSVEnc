@@ -633,12 +633,12 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         if ((sts = initParams(prm)) != RGY_ERR_NONE) {
             return sts;
         }
-        const auto cl_fp16_support = m_cl->platform()->dev(0).checkExtension("cl_khr_fp16");
+        const auto cl_fp16_support = RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16");
         if (prm->nnedi.precision == VPP_FP_PRECISION_FP16 && !cl_fp16_support) {
             AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, switching to fp32 mode.\n"));
             prm->nnedi.precision = VPP_FP_PRECISION_FP32;
         }
-        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(0);
+        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         std::string clversionRequired;
         switch (sub_group_ext_avail) {
         case RGYOpenCLSubGroupSupport::STD22:

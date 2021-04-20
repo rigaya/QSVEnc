@@ -274,6 +274,7 @@ int initOpenCLGlobal() {
     LOAD(clEnqueueWriteBufferRect);
     LOAD(clEnqueueCopyBuffer);
     LOAD(clEnqueueCopyBufferRect);
+    LOAD(clEnqueueFillBuffer);
 
     LOAD(clEnqueueReadImage);
     LOAD(clEnqueueWriteImage);
@@ -589,19 +590,20 @@ RGY_ERR RGYOpenCLPlatform::loadSubGroupKHR() {
     return RGY_ERR_NONE;
 }
 
-RGYOpenCLSubGroupSupport RGYOpenCLPlatform::checkSubGroupSupport(const int devidx) {
+RGYOpenCLSubGroupSupport RGYOpenCLPlatform::checkSubGroupSupport(const cl_device_id devid) {
     if (RGYOpenCL::openCLCrush) {
         return RGYOpenCLSubGroupSupport::NONE;
     }
+    RGYOpenCLDevice device(devid);
     m_pLog->write(RGY_LOG_DEBUG, _T("checkSubGroupSupport\n"));
-    if (checkVersion(2, 2) && dev(devidx).checkVersion(2, 2) && clGetKernelSubGroupInfo) {
+    if (checkVersion(2, 2) && device.checkVersion(2, 2) && clGetKernelSubGroupInfo) {
         return RGYOpenCLSubGroupSupport::STD22;
     }
 
-    if (checkVersion(2, 0) && dev(devidx).checkVersion(2, 0) && dev(devidx).checkExtension("cl_khr_subgroups")) {
+    if (checkVersion(2, 0) && device.checkVersion(2, 0) && device.checkExtension("cl_khr_subgroups")) {
         return loadSubGroupKHR() == RGY_ERR_NONE ? RGYOpenCLSubGroupSupport::STD20KHR : RGYOpenCLSubGroupSupport::NONE;
     }
-    if (checkVersion(1, 2) && dev(devidx).checkVersion(1, 2) && dev(devidx).checkExtension("cl_intel_subgroups")) {
+    if (checkVersion(1, 2) && device.checkVersion(1, 2) && device.checkExtension("cl_intel_subgroups")) {
         return loadSubGroupKHR() == RGY_ERR_NONE ? RGYOpenCLSubGroupSupport::INTEL_EXT : RGYOpenCLSubGroupSupport::NONE;
     }
     return RGYOpenCLSubGroupSupport::NONE;
@@ -1132,12 +1134,12 @@ bool RGYCLMemObjInfo::isImageNormalizedType() const {
     return clchannel_type_is_normalized_type(image_format.image_channel_data_type);
 }
 
-RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, cl_command_queue queue) {
+RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue) {
     return map(map_flags, size, queue, {});
 }
 
-RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    m_queue = queue;
+RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    m_queue = queue.get();
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     cl_int err = 0;
@@ -1146,10 +1148,13 @@ RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, cl_command_queue q
 }
 
 RGY_ERR RGYCLBufMap::unmap() {
-    return unmap(m_queue);
+    return unmap(m_queue, {});
 }
-RGY_ERR RGYCLBufMap::unmap(cl_command_queue queue) {
+RGY_ERR RGYCLBufMap::unmap(RGYOpenCLQueue &queue) {
     return unmap(queue, {});
+}
+RGY_ERR RGYCLBufMap::unmap(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    return unmap(queue.get(), wait_events);
 }
 RGY_ERR RGYCLBufMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     if (m_hostPtr) return RGY_ERR_NONE;
@@ -1161,15 +1166,20 @@ RGY_ERR RGYCLBufMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCLEv
     return err;
 }
 
-RGY_ERR RGYCLBuf::queueMapBuffer(cl_command_queue queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events) {
-    return m_mapped.map(map_flags, m_size, queue, wait_events);
+RGY_ERR RGYCLBuf::queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events) {
+    m_mapped = std::make_unique<RGYCLBufMap>(m_mem);
+    return m_mapped->map(map_flags, m_size, queue, wait_events);
 }
 
 RGY_ERR RGYCLBuf::unmapBuffer() {
-    return m_mapped.unmap();
+    auto err = m_mapped->unmap();
+    m_mapped.reset();
+    return err;
 }
-RGY_ERR RGYCLBuf::unmapBuffer(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    return m_mapped.unmap(queue, wait_events);
+RGY_ERR RGYCLBuf::unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    auto err = m_mapped->unmap(queue, wait_events);
+    m_mapped.reset();
+    return err;
 }
 
 RGYCLMemObjInfo RGYCLBuf::getMemObjectInfo() const {
@@ -1184,13 +1194,14 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
     std::vector<cl_event> v_wait_list = toVec(wait_events);
     cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     m_host = m_dev;
+    m_queue = queue.get();
     for (int i = 0; i < _countof(m_host.ptr); i++) {
         m_host.ptr[i] = nullptr;
     }
     for (int i = 0; i < RGY_CSP_PLANES[m_dev.csp]; i++) {
         cl_int err = 0;
         size_t size = (size_t)m_dev.pitch[i] * m_dev.height;
-        m_host.ptr[i] = (uint8_t *)clEnqueueMapBuffer(m_queue.get(), (cl_mem)m_dev.ptr[i], false, map_flags, 0, size, (int)wait_events.size(), wait_list, m_eventMap.reset_ptr(), &err);
+        m_host.ptr[i] = (uint8_t *)clEnqueueMapBuffer(m_queue, (cl_mem)m_dev.ptr[i], false, map_flags, 0, size, (int)wait_events.size(), wait_list, m_eventMap.reset_ptr(), &err);
         if (err != 0) {
             return err_cl_to_rgy(err);
         }
@@ -1201,17 +1212,21 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
 }
 
 RGY_ERR RGYCLFrameMap::unmap() {
-    return unmap(m_queue);
+    return unmap(m_queue, {});
 }
 RGY_ERR RGYCLFrameMap::unmap(RGYOpenCLQueue &queue) {
     return unmap(queue, {});
 }
 RGY_ERR RGYCLFrameMap::unmap(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    return unmap(queue.get(), wait_events);
+}
+RGY_ERR RGYCLFrameMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     std::vector<cl_event> v_wait_list = toVec(wait_events);
     cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
+    m_queue = queue;
     for (int i = 0; i < _countof(m_host.ptr); i++) {
         if (m_host.ptr[i]) {
-            auto err = err_cl_to_rgy(clEnqueueUnmapMemObject(queue.get(), (cl_mem)m_dev.ptr[i], m_host.ptr[i], (int)wait_events.size(), wait_list, m_eventMap.reset_ptr()));
+            auto err = err_cl_to_rgy(clEnqueueUnmapMemObject(m_queue, (cl_mem)m_dev.ptr[i], m_host.ptr[i], (int)wait_events.size(), wait_list, m_eventMap.reset_ptr()));
             v_wait_list.clear();
             wait_list = nullptr;
             if (err != RGY_ERR_NONE) {
@@ -1626,10 +1641,32 @@ RGY_ERR RGYOpenCLContext::setFrame(int value, FrameInfo *dst, const sInputCrop *
             (i + 1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
             m_pLog->write(RGY_LOG_ERROR, _T("Failed to set frame(%d): %s\n"), i, cl_errmes(err));
-            return err_cl_to_rgy(err);
+            return err;
         }
     }
     return err;
+}
+
+RGY_ERR RGYOpenCLContext::setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf) {
+    return setBuf(value, value_size_byte, buf, m_queue[0]);
+}
+RGY_ERR RGYOpenCLContext::setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue) {
+    return setBuf(value, value_size_byte, buf, queue, nullptr);
+}
+RGY_ERR RGYOpenCLContext::setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+    return setBuf(value, value_size_byte, buf, queue, {}, event);
+}
+RGY_ERR RGYOpenCLContext::setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    const std::vector<cl_event> v_wait_list = toVec(wait_events);
+    const int wait_count = (int)v_wait_list.size();
+    const cl_event *wait_list = (wait_count > 0) ? v_wait_list.data() : nullptr;
+    cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
+    auto err = err_cl_to_rgy(clEnqueueFillBuffer(queue.get(), buf->mem(), value, value_size_byte, 0, buf->size(), wait_count, wait_list, event_ptr));
+    if (err != RGY_ERR_NONE) {
+        m_pLog->write(RGY_LOG_ERROR, _T("Failed to set buf size: %u: %s\n"), buf->size(), cl_errmes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
 }
 
 unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const char *data, const size_t size, const char *options) {
