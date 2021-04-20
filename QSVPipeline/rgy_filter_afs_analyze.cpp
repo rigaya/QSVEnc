@@ -126,6 +126,11 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
         if ((err = cl->createImageFromPlane(texP0V0, p0->y->mem(2), bit_depth, CL_RGBA, false, p0->y->frame.pitch[2], (p0->y->frame.width + 3) / 4, p0->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
         if ((err = cl->createImageFromPlane(texP1U0, p1->y->mem(1), bit_depth, CL_RGBA, false, p1->y->frame.pitch[1], (p1->y->frame.width + 3) / 4, p1->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
         if ((err = cl->createImageFromPlane(texP1V0, p1->y->mem(2), bit_depth, CL_RGBA, false, p1->y->frame.pitch[2], (p1->y->frame.width + 3) / 4, p1->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
+        //以下はyuv444では本来使用しないが、ダミーで入れておかないとsetArg時にエラーになる
+        texP0U1 = texP0U0; 
+        texP0V1 = texP0V0;
+        texP1U1 = texP1U0;
+        texP1V1 = texP1V0;
     }
 
     const RGYWorkSize local(BLOCK_INT_X, BLOCK_Y);
