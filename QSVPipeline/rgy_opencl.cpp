@@ -1011,7 +1011,7 @@ static bool clchannel_type_is_normalized_type(cl_channel_type type) {
         (cl_channel_type)CL_SNORM_INT8, (cl_channel_type)CL_SNORM_INT16,
         (cl_channel_type)CL_UNORM_INT8, (cl_channel_type)CL_UNORM_INT16,
         (cl_channel_type)CL_UNORM_SHORT_565, (cl_channel_type)CL_UNORM_SHORT_555,
-        (cl_channel_type)CL_UNORM_INT_101010);
+        (cl_channel_type)CL_UNORM_INT_101010, (cl_channel_type)CL_UNORM_INT24, (cl_channel_type)CL_UNORM_INT_101010_2);
     return std::find(RGY_CHANNELTYPE_NORMALIZED_TYPE.begin(), RGY_CHANNELTYPE_NORMALIZED_TYPE.end(), type) != RGY_CHANNELTYPE_NORMALIZED_TYPE.end();
 }
 
