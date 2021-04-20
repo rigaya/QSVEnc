@@ -617,9 +617,9 @@ __kernel void kernel_crop_yuv444_ayuv(
     if (dst_x < dstWidth && dst_y < dstHeight) {
         const int loadx = dst_x + cropX;
         const int loady = dst_y + cropY;
-        TypeIn pixY = LOAD(srcY, loadx, loady);
-        TypeIn pixU = LOAD(srcU, loadx, loady);
-        TypeIn pixV = LOAD(srcV, loadx, loady);
+        const int pixY = LOAD(srcY, loadx, loady);
+        const int pixU = LOAD(srcU, loadx, loady);
+        const int pixV = LOAD(srcV, loadx, loady);
         TypeOut4 pix;
         pix.w = 0;
         pix.z = BIT_DEPTH_CONV(pixY);
