@@ -341,13 +341,13 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(FrameInfo *pOutputFrame, const Fr
         auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
         auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(pInputFrame->width, pInputFrame->height);
+        RGYWorkSize global(pOutputFrame->width, pOutputFrame->height);
         auto err = m_cropY->kernel("kernel_crop_yuv444_ayuv").config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputFrame->ptr[0],
             pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
             (cl_mem)planeSrcY.ptr[0], (cl_mem)planeSrcU.ptr[0], (cl_mem)planeSrcV.ptr[0],
-            pInputFrame->pitch[0], pCropParam->crop.e.left, pCropParam->crop.e.up,
-            pInputFrame->width, pInputFrame->height);
+            pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height,
+            pCropParam->crop.e.left, pCropParam->crop.e.up);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromYUV444(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
