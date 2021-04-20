@@ -90,7 +90,7 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #define BIT_DEPTH_CONV_7x1_AVG(a, b) (TypeOut)conv_bit_depth(((a)<<3)-(a)+(b), in_bit_depth, out_bit_depth, 3)
 
 #define LOAD_IMG(src_img, ix, iy) (TypeIn)(read_imageui((src_img), sampler, (int2)((ix), (iy))).x)
-#define LOAD_IMG_AYUV(src_img, ix, iy) (TypeIn4)(read_imageui((src_img), sampler, (int2)((ix), (iy))))
+#define LOAD_IMG_AYUV(src_img, ix, iy) convert_TypeIn4(read_imageui((src_img), sampler, (int2)((ix), (iy))))
 #define LOAD_IMG_NV12_UV(src_img, src_u, src_v, ix, iy, cropX, cropY) { \
     uint4 ret = read_imageui((src_img), sampler, (int2)((ix) + ((cropX)>>1), (iy) + ((cropY)>>1))); \
     (src_u) = (TypeIn)ret.x; \
