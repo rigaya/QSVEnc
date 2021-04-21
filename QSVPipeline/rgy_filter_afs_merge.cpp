@@ -40,17 +40,17 @@ static const char* AFS_MERGE_SCAN_KERNEL_NAME = "kernel_afs_merge_scan";
 
 RGY_ERR RGYFilterAfs::build_merge_scan() {
     if (!m_mergeScan) {
+        auto options = strsprintf("-D Type=uint -D MERGE_BLOCK_INT_X=%d -D MERGE_BLOCK_Y=%d -D MERGE_BLOCK_LOOP_Y=%d",
+            MERGE_BLOCK_INT_X, MERGE_BLOCK_Y, MERGE_BLOCK_LOOP_Y);
         std::string clversionRequired;
-        size_t subgroup_size = 0;
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
             if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                 || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
-                clversionRequired = "-cl-std=CL2.0 ";
+                options += " -cl-std=CL2.0 ";
             }
             // subgroupの情報を得るため一度コンパイル
-            const auto options = clversionRequired + strsprintf("-D Type=uint -D MERGE_BLOCK_INT_X=%d -D MERGE_BLOCK_Y=%d -D MERGE_BLOCK_LOOP_Y=%d -D SUB_GROUP_SIZE=%u",
-                MERGE_BLOCK_INT_X, MERGE_BLOCK_Y, MERGE_BLOCK_LOOP_Y, 0);
+            options += clversionRequired;
             m_mergeScan = m_cl->buildResource(_T("RGY_FILTER_AFS_MERGE_CL"), _T("EXE_DATA"), options.c_str());
             if (!m_analyze) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_MERGE_CL\n"));
@@ -59,15 +59,13 @@ RGY_ERR RGYFilterAfs::build_merge_scan() {
 
             auto getKernelSubGroupInfo = clGetKernelSubGroupInfo != nullptr ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
             RGYWorkSize local(MERGE_BLOCK_INT_X, MERGE_BLOCK_Y);
-            size_t result;
+            size_t subgroup_size = 0;
             auto err = getKernelSubGroupInfo(m_mergeScan->kernel(AFS_MERGE_SCAN_KERNEL_NAME).get()->get(), m_cl->platform()->dev(0).id(), CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
-                sizeof(local.w[0]) * 2, &local.w[0], sizeof(result), &result, nullptr);
+                sizeof(local.w[0]) * 2, &local.w[0], sizeof(subgroup_size), &subgroup_size, nullptr);
             if (err == 0) {
-                subgroup_size = result;
+                options += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
             }
         }
-        const auto options = strsprintf("-D Type=uint -D MERGE_BLOCK_INT_X=%d -D MERGE_BLOCK_Y=%d -D MERGE_BLOCK_LOOP_Y=%d -D SUB_GROUP_SIZE=%u",
-            MERGE_BLOCK_INT_X, MERGE_BLOCK_Y, MERGE_BLOCK_LOOP_Y, subgroup_size);
         m_mergeScan = m_cl->buildResource(_T("RGY_FILTER_AFS_MERGE_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_mergeScan) {
             AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_MERGE_CL\n"));

@@ -32,6 +32,10 @@
 //MERGE_BLOCK_LOOP_Y  (1) //work groupのy方向反復数
 //SUB_GROUP_SIZE
 
+#ifndef SUB_GROUP_SIZE
+#define SUB_GROUP_SIZE (0)
+#endif
+
 void block_sum_int(int val, __local int *shared) {
     const int lid = get_local_id(1) * MERGE_BLOCK_INT_X + get_local_id(0);
 #if SUB_GROUP_SIZE > 0

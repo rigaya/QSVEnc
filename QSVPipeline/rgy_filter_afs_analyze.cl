@@ -46,6 +46,10 @@ __constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP
 __constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 #endif
 
+#ifndef SUB_GROUP_SIZE
+#define SUB_GROUP_SIZE (0)
+#endif
+
 void block_sum_int(int val, __local int *shared) {
     const int lid = get_local_id(1) * BLOCK_INT_X + get_local_id(0);
 #if SUB_GROUP_SIZE > 0
