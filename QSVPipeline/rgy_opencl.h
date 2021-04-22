@@ -910,10 +910,10 @@ public:
     RGY_ERR setFrame(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
     RGY_ERR setFrame(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR setFrame(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
-    RGY_ERR setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf);
-    RGY_ERR setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue);
-    RGY_ERR setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR setBuf(const void *value, size_t value_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
+    RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf);
+    RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue);
+    RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+    RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
 protected:
     unique_ptr<RGYOpenCLProgram> build(const char *data, const size_t size, const char *options);
 

@@ -19,13 +19,15 @@ static const int DECIMATE_KERNEL2_BLOCK_X_THRESHOLD = 4;
 #define DTB_BLOCK_SUM_SHARED_SIZE (DTB_X * DTB_Y)
 #endif
 
+typedef int BOOL;
+
 int block_sum_int(int val, __local int *shared) {
-    const int lid = get_local_id(1) * BLOCK_INT_X + get_local_id(0);
+    const int lid = get_local_id(1) * DTB_X + get_local_id(0);
 #if SUB_GROUP_SIZE > 0
     const int lane    = get_sub_group_local_id();
     const int warp_id = get_sub_group_id();
     
-	int value_count = BLOCK_INT_X * BLOCK_Y;
+	int value_count = DTB_X * DTB_Y;
 	for (;;) {
 		val = sub_group_reduce_add(val);
 		if (lane == 0) shared[warp_id] = val;
@@ -37,7 +39,7 @@ int block_sum_int(int val, __local int *shared) {
 #else
     shared[lid] = val;
     barrier(CLK_LOCAL_MEM_FENCE);
-    for (int offset = BLOCK_Y * BLOCK_INT_X >> 1; offset > 0; offset >>= 1) {
+    for (int offset = DTB_Y * DTB_X >> 1; offset > 0; offset >>= 1) {
         if (lid < offset) {
             shared[lid] += shared[lid + offset];
         }
@@ -52,12 +54,12 @@ int block_sum_int(int val, __local int *shared) {
 }
 
 int block_max_int(int val, __local int *shared) {
-    const int lid = get_local_id(1) * BLOCK_INT_X + get_local_id(0);
+    const int lid = get_local_id(1) * DTB_X + get_local_id(0);
 #if SUB_GROUP_SIZE > 0
     const int lane    = get_sub_group_local_id();
     const int warp_id = get_sub_group_id();
     
-	int value_count = BLOCK_INT_X * BLOCK_Y;
+	int value_count = DTB_X * DTB_Y;
 	for (;;) {
 		val = sub_group_reduce_max(val);
 		if (lane == 0) shared[warp_id] = val;
@@ -69,7 +71,7 @@ int block_max_int(int val, __local int *shared) {
 #else
     shared[lid] = val;
     barrier(CLK_LOCAL_MEM_FENCE);
-    for (int offset = BLOCK_Y * BLOCK_INT_X >> 1; offset > 0; offset >>= 1) {
+    for (int offset = DTB_Y * DTB_X >> 1; offset > 0; offset >>= 1) {
         if (lid < offset) {
             shared[lid] += shared[lid + offset];
         }
@@ -85,8 +87,8 @@ int block_max_int(int val, __local int *shared) {
 
 
 int func_diff_block1(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int block_half_y,
     const int width, const int height,
     const int imgx, const int imgy) {
@@ -102,8 +104,8 @@ int func_diff_block1(
 }
 
 int func_diff_block2(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int block_half_y,
     const int width, const int height,
     const int imgx, const int imgy) {
@@ -120,8 +122,8 @@ int func_diff_block2(
 }
 
 int func_diff_block4(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int block_half_y,
     const int width, const int height,
     const int imgx, const int imgy,
@@ -163,7 +165,7 @@ int func_diff_block4(
     return diff;
 }
 
-void func_calc_sum_max(int diff[DTB_Y+1][DTB_X+1], __global int2 *restrict pDst, const bool firstPlane, __local int *tmp) {
+void func_calc_sum_max(__local int diff[DTB_Y+1][DTB_X+1], __global int2 *restrict pDst, const BOOL firstPlane, __local int *tmp) {
     const int lx = get_local_id(0);
     const int ly = get_local_id(1);
     int sum = diff[ly][lx];
@@ -191,10 +193,10 @@ void func_calc_sum_max(int diff[DTB_Y+1][DTB_X+1], __global int2 *restrict pDst,
 //block_half_x = 1の実装
 //集計までをGPUで行う
 __kernel void kernel_block_diff2_1(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    const int block_half_y, const bool firstPlane,
+    const int block_half_y, const BOOL firstPlane,
     __global int2 *restrict pDst) {
     const int block_half_x = 1;
     const int lx = get_local_id(0); //スレッド数=DTB_X
@@ -224,10 +226,10 @@ __kernel void kernel_block_diff2_1(
 //block_half_x = 2の実装
 //集計までをGPUで行う
 __kernel void kernel_block_diff2_2(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    const int block_half_y, const bool firstPlane,
+    const int block_half_y, const BOOL firstPlane,
     __global int2 *restrict pDst) {
     const int block_half_x = 2;
     const int lx = get_local_id(0); //スレッド数=DTB_X
@@ -257,10 +259,10 @@ __kernel void kernel_block_diff2_2(
 //block_half_x = 4, 8, 16の実装
 //集計までをGPUで行う
 void kernel_block_diff2_4_8_16(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    const int block_half_x, const int block_half_y, const bool firstPlane,
+    const int block_half_x, const int block_half_y, const BOOL firstPlane,
     __global int2 *restrict pDst,
      __local int diff[DTB_Y+1][DTB_X+1],
      __local int tmp[DTB_BLOCK_SUM_SHARED_SIZE]) {
@@ -287,10 +289,10 @@ void kernel_block_diff2_4_8_16(
 }
 
 __kernel void kernel_block_diff2_4(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    const int block_half_y, const bool firstPlane,
+    const int block_half_y, const BOOL firstPlane,
     __global int2 *restrict pDst) {
     const int block_half_x = 4;
     __local int diff[DTB_Y+1][DTB_X+1];
@@ -299,10 +301,10 @@ __kernel void kernel_block_diff2_4(
 }
 
 __kernel void kernel_block_diff2_8(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    const int block_half_y, const bool firstPlane,
+    const int block_half_y, const BOOL firstPlane,
     __global int2 *restrict pDst) {
     const int block_half_x = 8;
     __local int diff[DTB_Y+1][DTB_X+1];
@@ -311,10 +313,10 @@ __kernel void kernel_block_diff2_8(
 }
 
 __kernel void kernel_block_diff2_16(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    const int block_half_y, const bool firstPlane,
+    const int block_half_y, const BOOL firstPlane,
     __global int2 *restrict pDst) {
     const int block_half_x = 16;
     __local int diff[DTB_Y+1][DTB_X+1];
@@ -324,15 +326,15 @@ __kernel void kernel_block_diff2_16(
 
 
 __kernel void kernel_block_diff(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    const int dummy, const bool firstPlane,
+    const int dummy, const BOOL firstPlane,
     __global int *restrict pDst) {
     const int lx = get_local_id(0); //スレッド数=SSIM_BLOCK_X
     const int ly = get_local_id(1); //スレッド数=SSIM_BLOCK_Y
-    const int blockoffset_x = get_group_id(0) *  get_local_size(0);
-    const int blockoffset_y = get_group_id(1) *  get_local_size(1);
+    const int blockoffset_x = get_group_id(0) * get_local_size(0);
+    const int blockoffset_y = get_group_id(1) * get_local_size(1);
     const int imgx = (blockoffset_x + lx) * 4;
     const int imgy = (blockoffset_y + ly);
 
@@ -351,7 +353,7 @@ __kernel void kernel_block_diff(
     __local int tmp[DECIMATE_BLOCK_MAX * DECIMATE_BLOCK_MAX];
     diff = block_sum_int(diff, tmp);
 
-    const int lid = get_local_id(1) *  get_local_size(0) + get_local_id(0);
+    const int lid = get_local_id(1) * get_local_size(0) + get_local_id(0);
     if (lid == 0) {
         const int gid = get_group_id(1) * get_num_groups(0) + get_group_id(0);
         if (firstPlane) {

@@ -142,6 +142,8 @@ enum class VppType : int {
     CL_CROP,
     CL_AFS,
     CL_NNEDI,
+    CL_DECIMATE,
+    CL_MPDECIMATE,
     CL_YADIF,
     CL_COLORSPACE,
     CL_DELOGO,

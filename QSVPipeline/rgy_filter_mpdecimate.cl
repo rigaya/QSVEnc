@@ -2,10 +2,10 @@
 // Type4
 
 __kernel void kernel_mpdecimate_block_diff(
-    const __global uint8_t *restrict p0, const int p0_pitch,
-    const __global uint8_t *restrict p1, const int p1_pitch,
+    const __global uchar *restrict p0, const int p0_pitch,
+    const __global uchar *restrict p1, const int p1_pitch,
     const int width, const int height,
-    __global uint8_t *restrict pDst, const int dst_pitch) {
+    __global uchar *restrict pDst, const int dst_pitch) {
     const int lx = get_local_id(0); //スレッド数=MPDECIMATE_BLOCK_X
     const int ly = get_local_id(1); //スレッド数=MPDECIMATE_BLOCK_Y
     const int blockoffset_x = get_group_id(0) * get_local_size(0);

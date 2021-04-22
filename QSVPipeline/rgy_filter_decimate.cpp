@@ -80,13 +80,14 @@ RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlan
 
     const size_t grid_count = local(0) * local(1);
     const size_t bufsize = (useKernel2) ? grid_count * sizeof(int2) : grid_count * sizeof(int);
-    if (tmp->size() < bufsize) {
-        tmp = m_cl->createBuffer(bufsize);
+    if (!tmp
+        || tmp->size() < bufsize) {
+        tmp = m_cl->createBuffer(bufsize, CL_MEM_READ_WRITE);
         if (!tmp) {
             return RGY_ERR_NULL_PTR;
         }
         int zero = 0;
-        auto err = m_cl->setBuf(&zero, bufsize, tmp.get(), queue, wait_events);
+        auto err = m_cl->setBuf(&zero, sizeof(zero), bufsize, tmp.get(), queue, wait_events);
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -95,7 +96,7 @@ RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlan
         (cl_mem)p0->ptr[0], p0->pitch[0],
         (cl_mem)p1->ptr[0], p1->pitch[0],
         width, height,
-        blockHalfX, firstPlane,
+        blockHalfX, firstPlane ? 1 : 0,
         tmp->mem());
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s (procPlane(%s)): %s.\n"),
@@ -182,13 +183,13 @@ RGY_ERR RGYFilterDecimate::calcDiff(RGYFilterDecimateFrameData *current, const R
 }
 
 void RGYFilterDecimateFrameData::calcDiffFromTmp() {
-    m_tmp->mapEvent().wait();
     if (m_inFrameId == 0) { //最初のフレームは差分をとる対象がない
         m_diffMaxBlock = std::numeric_limits<int64_t>::max();
         m_diffTotal = std::numeric_limits<int64_t>::max();
-        m_tmp->unmapBuffer();
+        if (m_tmp) m_tmp->unmapBuffer();
         return;
     }
+    m_tmp->mapEvent().wait();
     const int blockHalfX = m_blockX / 2;
     const int blockHalfY = m_blockY / 2;
     const bool useKernel2 = (m_blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
@@ -288,7 +289,7 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
         return sts;
     }
 
-    if (!prm
+    if (!m_param
         || std::dynamic_pointer_cast<RGYFilterParamDecimate>(m_param)->decimate != prm->decimate) {
 
         auto options = strsprintf("-D Type=%s -D Type2=%s -D Type4=%s"
@@ -381,7 +382,7 @@ RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, FrameInfo **ppO
     }
     const int iframeStart = (int)((m_cache.inframe() + prm->decimate.cycle - 1) / prm->decimate.cycle) * prm->decimate.cycle - prm->decimate.cycle;
     //GPU->CPUの転送終了を待機
-    clWaitForEvents(1, m_eventTransfer.ptr());
+    m_eventTransfer.wait();
     //CPUに転送された情報の後処理
     for (int iframe = iframeStart; iframe < m_cache.inframe(); iframe++) {
         m_cache.frame(iframe)->calcDiffFromTmp();
