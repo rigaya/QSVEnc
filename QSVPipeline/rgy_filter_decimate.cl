@@ -6,9 +6,6 @@
 // DECIMATE_BLOCK_MAX (32)
 // SUB_GROUP_SIZE
 
-//blockxがこの値以下なら、kernel2を使用する
-static const int DECIMATE_KERNEL2_BLOCK_X_THRESHOLD = 4;
-
 #ifndef SUB_GROUP_SIZE
 #define SUB_GROUP_SIZE (0)
 #endif
