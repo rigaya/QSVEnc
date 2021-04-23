@@ -32,7 +32,7 @@
 #include "rgy_log.h"
 #include "rgy_opencl.h"
 #include "convert_csp.h"
-#include "qsv_prm.h"
+#include "rgy_prm.h"
 
 class RGYFilterParam {
 public:
