@@ -44,7 +44,7 @@ RGY_ERR RGYFilterAfs::build_merge_scan() {
             MERGE_BLOCK_INT_X, MERGE_BLOCK_Y, MERGE_BLOCK_LOOP_Y);
         std::string clversionRequired;
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
-        if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
+        if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
             if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                 || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
                 options += " -cl-std=CL2.0 ";

@@ -48,7 +48,7 @@ RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
             (tb_order) ? 1 : 0,
             BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y);
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
-        if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
+        if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
             if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                 || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
                 options += " -cl-std=CL2.0 ";

@@ -301,7 +301,7 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
             DECIMATE_K2_THREAD_BLOCK_Y,
             DECIMATE_BLOCK_MAX);
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
-        if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
+        if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
             if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                 || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
                 options += " -cl-std=CL2.0 ";
