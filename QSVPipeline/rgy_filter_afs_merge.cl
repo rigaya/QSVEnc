@@ -34,9 +34,12 @@
 
 #ifndef SUB_GROUP_SIZE
 #define SUB_GROUP_SIZE (0)
+#define MERGE_BLOCK_REDUCTION_SHARED_SIZE (MERGE_BLOCK_INT_X * MERGE_BLOCK_Y)
+#else
+#define MERGE_BLOCK_REDUCTION_SHARED_SIZE (MERGE_BLOCK_INT_X * MERGE_BLOCK_Y / SUB_GROUP_SIZE)
 #endif
 
-void block_sum_int(int val, __local int *shared) {
+int block_sum_int(int val, __local int *shared) {
     const int lid = get_local_id(1) * MERGE_BLOCK_INT_X + get_local_id(0);
 #if SUB_GROUP_SIZE > 0
     const int lane    = get_sub_group_local_id();
@@ -61,6 +64,11 @@ void block_sum_int(int val, __local int *shared) {
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 #endif
+    int ret = 0;
+    if (lid == 0) {
+        ret = shared[lid];
+    }
+    return ret;
 }
 
 #define u8x4(x)  (uint)(((uint)(x)) | (((uint)(x)) <<  8) | (((uint)(x)) << 16) | (((uint)(x)) << 24))
@@ -129,11 +137,11 @@ __kernel void kernel_afs_merge_scan(
     //static_assert(MERGE_BLOCK_INT_X * sizeof(int) * MERGE_BLOCK_Y * MERGE_BLOCK_LOOP_Y < (1<<(sizeof(short)*8-1)), "reduce block size for proper reduction in 16bit.");
     int stripe_count_01 = (int)(field_select ? (uint)stripe_count << 16 : (uint)stripe_count);
 
-    __local int shared[MERGE_BLOCK_INT_X * MERGE_BLOCK_Y]; //int単位でアクセスする
-    block_sum_int(stripe_count_01, shared);
+    __local int shared[MERGE_BLOCK_REDUCTION_SHARED_SIZE]; //int単位でアクセスする
+    stripe_count_01 = block_sum_int(stripe_count_01, shared);
     const int lid = get_local_id(1) * MERGE_BLOCK_INT_X + get_local_id(0);
     if (lid == 0) {
         const int gid = get_group_id(1) * get_num_groups(0) + get_group_id(0);
-        ptr_count[gid] = shared[0];
+        ptr_count[gid] = stripe_count_01;
     }
 }
