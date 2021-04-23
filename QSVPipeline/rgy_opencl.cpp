@@ -741,13 +741,13 @@ RGY_ERR RGYOpenCLContext::createContext() {
         m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d9 interop for %p\n"), m_platform->d3d9dev());
     }
     #endif ENABLE_RGY_OPENCL_D3D9
-    #if MFX_D3D11_SUPPORT
+    #if ENABLE_RGY_OPENCL_D3D11
     if (m_platform->d3d11dev()) {
         props.push_back(CL_CONTEXT_D3D11_DEVICE_KHR);
         props.push_back((cl_context_properties)m_platform->d3d11dev());
         m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d11 interop for %p\n"), m_platform->d3d11dev());
     }
-    #endif //#if MFX_D3D11_SUPPORT
+    #endif //#if ENABLE_RGY_OPENCL_D3D11
     #if ENABLE_RGY_OPENCL_VA
     if (m_platform->vadev()) {
         props.push_back(CL_CONTEXT_VA_API_DISPLAY_INTEL);
