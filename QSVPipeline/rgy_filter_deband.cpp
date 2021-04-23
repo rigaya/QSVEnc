@@ -65,7 +65,7 @@ static const int DEBAND_BLOCK_LOOP_Y_INNER = 2;
 
 static const int GEN_RAND_BLOCK_LOOP_Y = 1;
 
-RGY_ERR RGYFilterDeband::procPlane(FrameInfo *pOutputPlane, const FrameInfo *pInputPlane, const FrameInfo *pRandPlane,
+RGY_ERR RGYFilterDeband::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYFrameInfo *pRandPlane,
     const int range_plane, const float dither_range, const float threshold_float, const int field_mask, const RGY_PLANE plane,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     {
@@ -89,7 +89,7 @@ RGY_ERR RGYFilterDeband::procPlane(FrameInfo *pOutputPlane, const FrameInfo *pIn
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDeband::procFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDeband::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -325,7 +325,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             }
         }
         {
-            FrameInfo rndBufFrame = prm->frameOut;
+            RGYFrameInfo rndBufFrame = prm->frameOut;
             rndBufFrame.csp = RGY_CSP_RGB32;
             m_randBufY = m_cl->createFrameBuffer(rndBufFrame, CL_MEM_READ_WRITE);
             if (!m_randBufY) {
@@ -364,7 +364,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     return sts;
 }
 
-RGY_ERR RGYFilterDeband::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;

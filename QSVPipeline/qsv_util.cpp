@@ -145,7 +145,7 @@ mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
 }
 
 RGY_NOINLINE
-mfxFrameInfo frameinfo_rgy_to_enc(const FrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize) {
+mfxFrameInfo frameinfo_rgy_to_enc(const RGYFrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize) {
     mfxFrameInfo mfx = { 0 };
     mfx.FourCC = csp_rgy_to_enc(info.csp);
     mfx.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[info.csp]);

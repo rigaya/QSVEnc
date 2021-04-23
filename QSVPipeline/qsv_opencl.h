@@ -34,7 +34,7 @@
 #include "qsv_allocator_d3d9.h"
 #include "qsv_allocator_d3d11.h"
 
-static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1 *mfxSurf, MemType memType, cl_mem_flags flags, QSVAllocator *allocator, RGYOpenCLContext *cl, RGYOpenCLQueue& queue, const FrameInfo& frameInfo) {
+static std::unique_ptr<RGYCLFrameInterop> getOpenCLFrameInterop(mfxFrameSurface1 *mfxSurf, MemType memType, cl_mem_flags flags, QSVAllocator *allocator, RGYOpenCLContext *cl, RGYOpenCLQueue& queue, const RGYFrameInfo& frameInfo) {
     mfxMemId mid = mfxSurf->Data.MemId;
 #if ENABLE_RGY_OPENCL_D3D11
     if (memType == D3D11_MEMORY) {

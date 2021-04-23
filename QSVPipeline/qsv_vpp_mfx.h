@@ -44,8 +44,8 @@ public:
     virtual ~QSVVppMfx();
 
     RGY_ERR SetParam(sVppParams& params,
-        const FrameInfo& frameOut,
-        const FrameInfo& frameIn,
+        const RGYFrameInfo& frameOut,
+        const RGYFrameInfo& frameIn,
         const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
     RGY_ERR SetCopy(const mfxFrameInfo& mfxFrame);
     RGY_ERR Init();
@@ -54,7 +54,7 @@ public:
     void clear();
 
     std::vector<VppType> GetVppList() const;
-    FrameInfo GetFrameOut() const;
+    RGYFrameInfo GetFrameOut() const;
     rgy_rational<int> GetOutFps() const;
     mfxSession GetSession() { return m_mfxSession; }
     MFXVideoVPP *mfxvpp() { return m_mfxVPP.get(); }
@@ -65,8 +65,8 @@ public:
 protected:
     void InitStructs();
     RGY_ERR InitSession();
-    mfxFrameInfo SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
-    RGY_ERR SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const FrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize);
+    mfxFrameInfo SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
+    RGY_ERR SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const RGYFrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize);
     RGY_ERR SetVppExtBuffers(sVppParams& params);
     RGY_ERR InitMfxVppParams(const sVppParams& params, const mfxFrameInfo& mfxOut, const mfxFrameInfo& mfxIn);
     RGY_ERR checkVppParams(sVppParams& params, const bool inputInterlaced);

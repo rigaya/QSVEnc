@@ -111,7 +111,7 @@ public:
     virtual ~RGYFilterDelogo();
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo* pInputFrame, FrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo* pInputFrame, RGYFrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) override;
     virtual void close() override;
 
     int readLogoFile(const std::shared_ptr<RGYFilterParamDelogo> pDelogoParam);
@@ -119,8 +119,8 @@ protected:
     int selectLogo(const tstring& selectStr, const tstring& inputFilename);
     std::string logoNameList();
 
-    virtual RGY_ERR delogoPlane(FrameInfo* pOutputPlane, const ProcessDataDelogo *pDelego, const float fade, const bool target_y, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event);
-    virtual RGY_ERR delogoFrame(FrameInfo* pOutputPlane, const float fade, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event);
+    virtual RGY_ERR delogoPlane(RGYFrameInfo* pOutputPlane, const ProcessDataDelogo *pDelego, const float fade, const bool target_y, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event);
+    virtual RGY_ERR delogoFrame(RGYFrameInfo* pOutputPlane, const float fade, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event);
 
 
     tstring m_LogoFilePath;

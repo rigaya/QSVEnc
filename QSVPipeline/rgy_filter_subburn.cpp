@@ -100,8 +100,8 @@ static bool font_attached(const AVStream *stream) {
     return false;
 }
 
-RGY_ERR RGYFilterSubburn::procFrame(FrameInfo *pFrame,
-    const FrameInfo *pSubImg,
+RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pFrame,
+    const RGYFrameInfo *pSubImg,
     int pos_x, int pos_y,
     float transparency_offset, float brightness, float contrast,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
@@ -222,7 +222,7 @@ SubImageData RGYFilterSubburn::textRectToImage(const ASS_Image *image, RGYOpenCL
     return SubImageData(std::move(frameTemp), std::unique_ptr<RGYCLFrame>(), image->dst_x, image->dst_y);
 }
 
-RGY_ERR RGYFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frameTimeMs, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     int nDetectChange = 0;
     const auto frameImages = ass_render_frame(m_assRenderer.get(), m_assTrack.get(), frameTimeMs, &nDetectChange);
 
@@ -241,7 +241,7 @@ RGY_ERR RGYFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frameTi
     }
     if (m_subImages.size()) {
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
-            const FrameInfo *pSubImg = &m_subImages[irect].image->frame;
+            const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
             auto err = procFrame(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
                 prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, queue, wait_events, event);
             if (err != RGY_ERR_NONE) {
@@ -255,7 +255,7 @@ RGY_ERR RGYFilterSubburn::procFrameText(FrameInfo *pOutputFrame, int64_t frameTi
     return RGY_ERR_NONE;
 }
 
-SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const FrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((rect->x % 2) != 0) ? 1 : 0;
     const int y_offset = ((rect->y % 2) != 0) ? 1 : 0;
@@ -354,8 +354,8 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
         m_resize = std::move(filterResize);
 
         int filterOutputNum = 0;
-        FrameInfo *filterOutput[1] = { &frame->frame };
-        m_resize->filter(&frameTemp->frame, (FrameInfo **)&filterOutput, &filterOutputNum, queue);
+        RGYFrameInfo *filterOutput[1] = { &frame->frame };
+        m_resize->filter(&frameTemp->frame, (RGYFrameInfo **)&filterOutput, &filterOutputNum, queue);
     }
     int x_pos = ALIGN((int)(prm->subburn.scale * rect->x + 0.5f) - ((crop.e.left + crop.e.right) / 2), 2);
     int y_pos = ALIGN((int)(prm->subburn.scale * rect->y + 0.5f) - crop.e.up - crop.e.bottom, 2);
@@ -368,7 +368,7 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
 }
 
 
-RGY_ERR RGYFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (m_subData) {
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
@@ -386,7 +386,7 @@ RGY_ERR RGYFilterSubburn::procFrameBitmap(FrameInfo *pOutputFrame, const sInputC
             return RGY_ERR_INVALID_PARAM;
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
-            const FrameInfo *pSubImg = &m_subImages[irect].image->frame;
+            const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
             auto err = procFrame(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
                 prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, queue, wait_events, event);
             if (err != RGY_ERR_NONE) {
@@ -791,7 +791,7 @@ RGY_ERR RGYFilterSubburn::addStreamPacket(AVPacket *pkt) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterSubburn::procFrame(FrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamSubburn>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -874,7 +874,7 @@ RGY_ERR RGYFilterSubburn::procFrame(FrameInfo *pOutputFrame, RGYOpenCLQueue &que
 }
 
 
-RGY_ERR RGYFilterSubburn::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         *pOutputFrameNum = 0;

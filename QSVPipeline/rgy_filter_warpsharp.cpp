@@ -35,7 +35,7 @@
 static const int WARPSHARP_BLOCK_X = 32;
 static const int WARPSHARP_BLOCK_Y = 8;
 
-RGY_ERR RGYFilterWarpsharp::procPlaneSobel(FrameInfo *pOutputPlane, const FrameInfo *pInputPlane, const float threshold, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterWarpsharp::procPlaneSobel(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const float threshold, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const char *kernel_name = "kernel_warpsharp_sobel";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
@@ -51,7 +51,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneSobel(FrameInfo *pOutputPlane, const FrameI
     }
     return RGY_ERR_NONE;
 }
-RGY_ERR RGYFilterWarpsharp::procPlaneBlur(FrameInfo *pOutputPlane, const FrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterWarpsharp::procPlaneBlur(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const char *kernel_name = "kernel_warpsharp_blur";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
@@ -66,7 +66,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneBlur(FrameInfo *pOutputPlane, const FrameIn
     }
     return RGY_ERR_NONE;
 }
-RGY_ERR RGYFilterWarpsharp::procPlaneWarp(FrameInfo *pOutputPlane, const FrameInfo *pInputMask, const FrameInfo *pInputPlaneImg, const float depth, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterWarpsharp::procPlaneWarp(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputMask, const RGYFrameInfo *pInputPlaneImg, const float depth, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const char *kernel_name = "kernel_warpsharp_warp";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
@@ -84,7 +84,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneWarp(FrameInfo *pOutputPlane, const FrameIn
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterWarpsharp::procPlaneDowscale(FrameInfo *pOutputPlane, const FrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterWarpsharp::procPlaneDowscale(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const char *kernel_name = "kernel_warpsharp_downscale";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
@@ -99,7 +99,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneDowscale(FrameInfo *pOutputPlane, const Fra
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterWarpsharp::procPlane(FrameInfo *pOutputPlane, FrameInfo *pMaskPlane0, FrameInfo *pMaskPlane1, const FrameInfo *pInputPlane, const FrameInfo *pInputPlaneImg,
+RGY_ERR RGYFilterWarpsharp::procPlane(RGYFrameInfo *pOutputPlane, RGYFrameInfo *pMaskPlane0, RGYFrameInfo *pMaskPlane1, const RGYFrameInfo *pInputPlane, const RGYFrameInfo *pInputPlaneImg,
     const float threshold, const float depth,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamWarpsharp>(m_param);
@@ -129,7 +129,7 @@ RGY_ERR RGYFilterWarpsharp::procPlane(FrameInfo *pOutputPlane, FrameInfo *pMaskP
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterWarpsharp::procFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamWarpsharp>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -159,7 +159,7 @@ RGY_ERR RGYFilterWarpsharp::procFrame(FrameInfo *pOutputFrame, const FrameInfo *
     }
     const float depthUV = (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) ? depth * 0.5f : depth;
     if (prm->warpsharp.chroma == 0) {
-        FrameInfo *pMaskUV = &planeMask0Y;
+        RGYFrameInfo *pMaskUV = &planeMask0Y;
         if (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) {
             err = procPlaneDowscale(&planeMask0U, &planeMask0Y, queue, {}, nullptr);
             if (err != RGY_ERR_NONE) {
@@ -272,7 +272,7 @@ RGY_ERR RGYFilterWarpsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     return sts;
 }
 
-RGY_ERR RGYFilterWarpsharp::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;

@@ -1402,7 +1402,7 @@ __kernel void kernel_colorspace(
 )";
 
 
-RGY_ERR RGYFilterColorspace::procFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamColorspace>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1602,7 +1602,7 @@ tstring RGYFilterParamColorspace::print() const {
     return _T("");
 }
 
-RGY_ERR RGYFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         *pOutputFrameNum = 0;
@@ -1624,9 +1624,9 @@ RGY_ERR RGYFilterColorspace::run_filter(const FrameInfo *pInputFrame, FrameInfo 
     //YUV444への変換
     if (crop) {
         int cropFilterOutputNum = 0;
-        FrameInfo *pCropFilterOutput[1] = { nullptr };
-        FrameInfo cropInput = *pInputFrame;
-        auto sts_filter = crop->filter(&cropInput, (FrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, queue, wait_events, nullptr);
+        RGYFrameInfo *pCropFilterOutput[1] = { nullptr };
+        RGYFrameInfo cropInput = *pInputFrame;
+        auto sts_filter = crop->filter(&cropInput, (RGYFrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, queue, wait_events, nullptr);
         if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), crop->name().c_str());
             return sts_filter;

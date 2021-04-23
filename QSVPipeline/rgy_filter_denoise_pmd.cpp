@@ -38,7 +38,7 @@ static int final_dst_index(int loop_count) {
     return (loop_count - 1) & 1;
 }
 
-RGY_ERR RGYFilterDenoisePmd::runGaussPlane(FrameInfo *pGaussPlane, const FrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoisePmd::runGaussPlane(RGYFrameInfo *pGaussPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -58,7 +58,7 @@ RGY_ERR RGYFilterDenoisePmd::runGaussPlane(FrameInfo *pGaussPlane, const FrameIn
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDenoisePmd::runGaussFrame(FrameInfo *pGaussFrame, const FrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoisePmd::runGaussFrame(RGYFrameInfo *pGaussFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     for (int i = 0; i < RGY_CSP_PLANES[pInputFrame->csp]; i++) {
         auto planeDst = getPlane(pGaussFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
@@ -73,7 +73,7 @@ RGY_ERR RGYFilterDenoisePmd::runGaussFrame(FrameInfo *pGaussFrame, const FrameIn
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDenoisePmd::runPmdPlane(FrameInfo *pOutputPlane, const FrameInfo *pInputPlane, const FrameInfo *pGaussPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoisePmd::runPmdPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYFrameInfo *pGaussPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -100,7 +100,7 @@ RGY_ERR RGYFilterDenoisePmd::runPmdPlane(FrameInfo *pOutputPlane, const FrameInf
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDenoisePmd::runPmdFrame(FrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoisePmd::runPmdFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
@@ -116,7 +116,7 @@ RGY_ERR RGYFilterDenoisePmd::runPmdFrame(FrameInfo *pOutputFrame, RGYOpenCLQueue
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDenoisePmd::denoiseFrame(FrameInfo *pOutputFrame[2], const FrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoisePmd::denoiseFrame(RGYFrameInfo *pOutputFrame[2], const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -205,7 +205,7 @@ RGY_ERR RGYFilterDenoisePmd::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
     return sts;
 }
 
-RGY_ERR RGYFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (pInputFrame->ptr[0] == nullptr) {
         return RGY_ERR_NONE;
     }
@@ -218,7 +218,7 @@ RGY_ERR RGYFilterDenoisePmd::run_filter(const FrameInfo *pInputFrame, FrameInfo 
     const int out_idx = final_dst_index(pPmdParam->pmd.applyCount);
 
     *pOutputFrameNum = 1;
-    FrameInfo *pOutputFrame[2] = {
+    RGYFrameInfo *pOutputFrame[2] = {
         &m_frameBuf[(m_frameIdx++) % m_frameBuf.size()].get()->frame,
         &m_frameBuf[(m_frameIdx++) % m_frameBuf.size()].get()->frame,
     };

@@ -48,7 +48,7 @@ public:
     RGYCLFrame *get() { return m_buf.get(); }
     const RGYCLFrame *get() const { return m_buf.get(); }
     std::unique_ptr<RGYCLBuf>& tmp() { return m_tmp; }
-    RGY_ERR set(const FrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
     int id() const { return m_inFrameId; }
     void calcDiffFromTmp();
 
@@ -72,7 +72,7 @@ public:
     RGYFilterDecimateCache(shared_ptr<RGYOpenCLContext> context);
     ~RGYFilterDecimateCache();
     void init(int bufCount, int blockX, int blockY, std::shared_ptr<RGYLog> log);
-    RGY_ERR add(const FrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
     RGYFilterDecimateFrameData *frame(int iframe) {
         iframe = clamp(iframe, 0, m_inputFrames - 1);
         return m_frames[iframe % m_frames.size()].get();
@@ -96,15 +96,15 @@ public:
     virtual ~RGYFilterDecimate();
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo* pInputFrame, FrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo* pInputFrame, RGYFrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamDecimate> pParam);
-    RGY_ERR setOutputFrame(int64_t nextTimestamp, FrameInfo **ppOutputFrames, int *pOutputFrameNum);
+    RGY_ERR setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
 
     RGY_ERR calcDiff(RGYFilterDecimateFrameData *current, const RGYFilterDecimateFrameData *prev);
-    RGY_ERR procPlane(const bool useKernel2, const bool firstPlane, const FrameInfo *p0, const FrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, const int blockHalfX, const int blockHalfY,
+    RGY_ERR procPlane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, const int blockHalfX, const int blockHalfY,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR procFrame(const FrameInfo *p0, const FrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp,
+    RGY_ERR procFrame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_flushed;

@@ -57,16 +57,16 @@ afsSourceCache::afsSourceCache(shared_ptr<RGYOpenCLContext> cl) :
     m_nFramesInput(0) {
 }
 
-RGY_ERR afsSourceCache::alloc(const FrameInfo& frameInfo) {
+RGY_ERR afsSourceCache::alloc(const RGYFrameInfo& frameInfo) {
     m_csp = frameInfo.csp;
     if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV444) {
         for (int i = 0; i < (int)m_sourceArray.size(); i++) {
             m_sourceArray[i].y = m_cl->createFrameBuffer(frameInfo);
         }
     } else if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV420) {
-        FrameInfo frameY = getPlane(&frameInfo, RGY_PLANE_Y);
-        FrameInfo frameU = getPlane(&frameInfo, RGY_PLANE_U);
-        FrameInfo frameV = getPlane(&frameInfo, RGY_PLANE_V);
+        RGYFrameInfo frameY = getPlane(&frameInfo, RGY_PLANE_Y);
+        RGYFrameInfo frameU = getPlane(&frameInfo, RGY_PLANE_U);
+        RGYFrameInfo frameV = getPlane(&frameInfo, RGY_PLANE_V);
         frameY.csp = (RGY_CSP_BIT_DEPTH[frameInfo.csp] > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
         frameU.csp = frameY.csp;
         frameV.csp = frameY.csp;
@@ -85,7 +85,7 @@ RGY_ERR afsSourceCache::alloc(const FrameInfo& frameInfo) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR afsSourceCache::add(const FrameInfo *pInputFrame, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent &event) {
+RGY_ERR afsSourceCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent &event) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
     pDstFrame->y->frame.flags        = pInputFrame->flags;
@@ -98,9 +98,9 @@ RGY_ERR afsSourceCache::add(const FrameInfo *pInputFrame, RGYOpenCLQueue &queue_
     if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV444) {
         ret = m_cl->copyFrame(&pDstFrame->y->frame, pInputFrame, nullptr, queue_main, wait_events, &event);
     } else if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV420) {
-        FrameInfo frameY = getPlane(pInputFrame, RGY_PLANE_Y);
-        FrameInfo frameU = getPlane(pInputFrame, RGY_PLANE_U);
-        FrameInfo frameV = getPlane(pInputFrame, RGY_PLANE_V);
+        RGYFrameInfo frameY = getPlane(pInputFrame, RGY_PLANE_Y);
+        RGYFrameInfo frameU = getPlane(pInputFrame, RGY_PLANE_U);
+        RGYFrameInfo frameV = getPlane(pInputFrame, RGY_PLANE_V);
 
         ret = m_cl->copyPlane(&pDstFrame->y->frame, &frameY, nullptr, queue_main, &event);
         if (ret != RGY_ERR_NONE) return ret;
@@ -137,9 +137,9 @@ RGY_ERR afsSourceCache::copyFrame(RGYCLFrame *pOut, int srcFrame, RGYOpenCLQueue
     if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV444) {
         return m_cl->copyFrame(&pOut->frame, &pSrc->y->frame, nullptr, queue, event);
     } else if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV420) {
-        FrameInfo frameY = getPlane(&pOut->frame, RGY_PLANE_Y);
-        FrameInfo frameU = getPlane(&pOut->frame, RGY_PLANE_U);
-        FrameInfo frameV = getPlane(&pOut->frame, RGY_PLANE_V);
+        RGYFrameInfo frameY = getPlane(&pOut->frame, RGY_PLANE_Y);
+        RGYFrameInfo frameU = getPlane(&pOut->frame, RGY_PLANE_U);
+        RGYFrameInfo frameV = getPlane(&pOut->frame, RGY_PLANE_V);
 
         auto ret = m_cl->copyPlane(&frameY, &pSrc->y->frame, nullptr, queue, event);
         if (ret != RGY_ERR_NONE) return ret;
@@ -208,8 +208,8 @@ void afsScanCache::initcache(int iframe) {
     data->event.reset();
 }
 
-RGY_ERR afsScanCache::alloc(const FrameInfo& frameInfo) {
-    FrameInfo scanFrame = frameInfo;
+RGY_ERR afsScanCache::alloc(const RGYFrameInfo& frameInfo) {
+    RGYFrameInfo scanFrame = frameInfo;
     scanFrame.csp = RGY_CSP_NV12;
     for (int i = 0; i < (int)m_scanArray.size(); i++) {
         initcache(i);
@@ -261,8 +261,8 @@ void afsStripeCache::expire(int iframe) {
     }
 }
 
-RGY_ERR afsStripeCache::alloc(const FrameInfo& frameInfo) {
-    FrameInfo stripeFrame = frameInfo;
+RGY_ERR afsStripeCache::alloc(const RGYFrameInfo& frameInfo) {
+    RGYFrameInfo stripeFrame = frameInfo;
     stripeFrame.csp = RGY_CSP_NV12;
     for (int i = 0; i < (int)m_stripeArray.size(); i++) {
         initcache(i);
@@ -981,7 +981,7 @@ RGY_ERR RGYFilterAfs::analyze_frame(RGYOpenCLQueue &queue, int iframe, const RGY
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterAfs::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     auto pAfsParam = std::dynamic_pointer_cast<RGYFilterParamAfs>(m_param);

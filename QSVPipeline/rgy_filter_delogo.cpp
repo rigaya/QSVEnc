@@ -35,7 +35,7 @@
 #include "rgy_codepage.h"
 #include "rgy_filter_delogo.h"
 
-RGY_ERR RGYFilterDelogo::delogoPlane(FrameInfo* pOutputPlane, const ProcessDataDelogo *pDelego, const float fade, const bool target_y, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) {
+RGY_ERR RGYFilterDelogo::delogoPlane(RGYFrameInfo* pOutputPlane, const ProcessDataDelogo *pDelego, const float fade, const bool target_y, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDelogo>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -56,7 +56,7 @@ RGY_ERR RGYFilterDelogo::delogoPlane(FrameInfo* pOutputPlane, const ProcessDataD
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDelogo::delogoFrame(FrameInfo* pOutputFrame, const float fade, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) {
+RGY_ERR RGYFilterDelogo::delogoFrame(RGYFrameInfo* pOutputFrame, const float fade, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) {
     const auto supportedCspYV12 = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
@@ -478,7 +478,7 @@ tstring RGYFilterParamDelogo::print() const {
     return delogo.print();
 }
 
-RGY_ERR RGYFilterDelogo::run_filter(const FrameInfo* pInputFrame, FrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) {
+RGY_ERR RGYFilterDelogo::run_filter(const RGYFrameInfo* pInputFrame, RGYFrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) {
     RGY_ERR sts = RGY_ERR_NONE;
 
     *pOutputFrameNum = 1;

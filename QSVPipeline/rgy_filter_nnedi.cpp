@@ -57,8 +57,8 @@ static const int NNEDI_BLOCK_Y = 8;
 static const int weight0size = 49 * 4 + 5 * 4 + 9 * 4;
 static const int weight0sizenew = 4 * 65 + 4 * 5;
 
-RGY_ERR nnedi_compute_network_0(FrameInfo *pOutputPlane,
-    const FrameInfo *pInputPlane,
+RGY_ERR nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
+    const RGYFrameInfo *pInputPlane,
     const RGYCLBuf *weight0,
     const VppNnediPreScreen pre_screen,
     const NnediTargetField targetField,
@@ -121,8 +121,8 @@ RGY_ERR nnedi_compute_network_0(FrameInfo *pOutputPlane,
 }
 
 RGY_ERR nnedi_compute_network_1(
-    FrameInfo *pOutputFrame,
-    const FrameInfo *pInputPlane,
+    RGYFrameInfo *pOutputFrame,
+    const RGYFrameInfo *pInputPlane,
     const RGYCLBuf *weight10,
     const RGYCLBuf *weight11,
     const NnediTargetField targetField,
@@ -160,7 +160,7 @@ RGY_ERR nnedi_compute_network_1(
 }
 
 RGY_ERR RGYFilterNnedi::procPlane(
-    FrameInfo *pOutputPlane, const FrameInfo *pInputPlane, const NnediTargetField targetField,
+    RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const NnediTargetField targetField,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event
 ) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamNnedi>(m_param);
@@ -208,7 +208,7 @@ RGY_ERR RGYFilterNnedi::procPlane(
 }
 
 
-RGY_ERR RGYFilterNnedi::procFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const NnediTargetField targetField, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterNnedi::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const NnediTargetField targetField, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
@@ -752,7 +752,7 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
     return sts;
 }
 
-RGY_ERR RGYFilterNnedi::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;

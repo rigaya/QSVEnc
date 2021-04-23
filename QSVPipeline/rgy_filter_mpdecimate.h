@@ -49,7 +49,7 @@ public:
     RGYCLFrame *get() { return m_buf.get(); }
     RGYCLFrame *tmp() { return m_tmp.get(); }
     const RGYCLFrame *get() const { return m_buf.get(); }
-    RGY_ERR set(const FrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
     int id() const { return m_inFrameId; }
     void reset() { m_inFrameId = -1; }
     bool checkIfFrameCanbeDropped(const int hi, const int lo, const float factor);
@@ -66,7 +66,7 @@ public:
     RGYFilterMpdecimateCache(shared_ptr<RGYOpenCLContext> context);
     ~RGYFilterMpdecimateCache();
     void init(int bufCount, std::shared_ptr<RGYLog> log);
-    RGY_ERR add(const FrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
     void removeFromCache(int iframe) {
         for (auto &f : m_frames) {
             if (f->id() == iframe) {
@@ -108,13 +108,13 @@ public:
     virtual ~RGYFilterMpdecimate();
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo* pInputFrame, FrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo* pInputFrame, RGYFrameInfo** ppOutputFrames, int* pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent* event) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamMpdecimate> pParam);
     bool dropFrame(RGYFilterMpdecimateFrameData *targetFrame);
 
-    RGY_ERR procPlane(const FrameInfo *p0, const FrameInfo *p1, FrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR procFrame(const FrameInfo *p0, const FrameInfo *p1, FrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR procPlane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR procFrame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR calcDiff(RGYFilterMpdecimateFrameData *target, const RGYFilterMpdecimateFrameData *ref);
 
     int m_dropCount;

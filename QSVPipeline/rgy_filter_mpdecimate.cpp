@@ -41,7 +41,7 @@
 #define MPDECIMATE_BLOCK_X (32)
 #define MPDECIMATE_BLOCK_Y (8)
 
-RGY_ERR RGYFilterMpdecimate::procPlane(const FrameInfo *p0, const FrameInfo *p1, FrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterMpdecimate::procPlane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const int width = p0->width;
     const int height = p0->height;
     const char *kernel_name = "kernel_mpdecimate_block_diff";
@@ -60,7 +60,7 @@ RGY_ERR RGYFilterMpdecimate::procPlane(const FrameInfo *p0, const FrameInfo *p1,
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterMpdecimate::procFrame(const FrameInfo *p0, const FrameInfo *p1, FrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterMpdecimate::procFrame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     for (int i = 0; i < RGY_CSP_PLANES[p0->csp]; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
@@ -103,7 +103,7 @@ RGYFilterMpdecimateFrameData::~RGYFilterMpdecimateFrameData() {
     m_tmp.reset();
 }
 
-RGY_ERR RGYFilterMpdecimateFrameData::set(const FrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
     m_inFrameId = inputFrameId;
     if (!m_buf) {
         m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
@@ -165,7 +165,7 @@ void RGYFilterMpdecimateCache::init(int bufCount, std::shared_ptr<RGYLog> log) {
     }
 }
 
-RGY_ERR RGYFilterMpdecimateCache::add(const FrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterMpdecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
     const int id = m_inputFrames++;
     return getEmpty()->set(pInputFrame, id, queue, event);
 }
@@ -287,7 +287,7 @@ bool RGYFilterMpdecimate::dropFrame(RGYFilterMpdecimateFrameData *targetFrame) {
     return err;
 }
 
-RGY_ERR RGYFilterMpdecimate::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     auto prm = std::dynamic_pointer_cast<RGYFilterParamMpdecimate>(m_param);
     if (!prm) {

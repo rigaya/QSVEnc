@@ -73,7 +73,7 @@ MAP_PAIR_0_1_PROTO(resize_mode, rgy, RGY_VPP_RESIZE_MODE, enc, int);
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct);
 RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct);
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info);
-mfxFrameInfo frameinfo_rgy_to_enc(const FrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize);
+mfxFrameInfo frameinfo_rgy_to_enc(const RGYFrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize);
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui, const mfxExtChromaLocInfo& chromaloc);
 VideoInfo videooutputinfo(const mfxFrameInfo& frameinfo);
 

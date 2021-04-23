@@ -42,7 +42,7 @@
 
 #define SPP_LOOP_COUNT_BLOCK (8)
 
-RGY_ERR RGYFilterSmooth::procPlane(FrameInfo *pOutputPlane, const FrameInfo *pInputPlane, const FrameInfo *targetQPTable, const int qpBlockShift, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYFrameInfo *targetQPTable, const int qpBlockShift, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -78,7 +78,7 @@ RGY_ERR RGYFilterSmooth::procPlane(FrameInfo *pOutputPlane, const FrameInfo *pIn
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterSmooth::procFrame(FrameInfo *pOutputFrame, const FrameInfo *pInputFrame, const FrameInfo *targetQPTable, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSmooth::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYFrameInfo *targetQPTable, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
@@ -210,7 +210,7 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
 
-        FrameInfo qpframe;
+        RGYFrameInfo qpframe;
         qpframe.width = qp_size(pParam->frameIn.width);
         qpframe.height = qp_size(pParam->frameIn.height);
         qpframe.csp = RGY_CSP_Y8;
@@ -230,7 +230,7 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     return sts;
 }
 
-RGY_ERR RGYFilterSmooth::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;

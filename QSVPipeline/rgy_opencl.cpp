@@ -1350,20 +1350,20 @@ RGY_ERR RGYOpenCLQueue::finish() const {
 void RGYOpenCLQueue::clear() {
     m_queue.reset();
 }
-RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *dst, const FrameInfo *src) {
+RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     return copyPlane(dst, src, nullptr);
 }
-RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop) {
+RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop) {
     return copyPlane(dst, src, srcCrop, m_queue[0]);
 }
-RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue) {
+RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue) {
     return copyPlane(dst, src, srcCrop, queue, {}, nullptr);
 }
-RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
     return copyPlane(dst, src, srcCrop, queue, {}, event);
 }
 
-RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *planeSrcOrg, const sInputCrop *planeCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode) {
+RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInfo *planeSrcOrg, const sInputCrop *planeCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode) {
     cl_int err = CL_SUCCESS;
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const int wait_count = (int)v_wait_list.size();
@@ -1371,8 +1371,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
     cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
 
     const int pixel_size = RGY_CSP_BIT_DEPTH[planeDstOrg->csp] > 8 ? 2 : 1;
-    FrameInfo planeDst = *planeDstOrg;
-    FrameInfo planeSrc = *planeSrcOrg;
+    RGYFrameInfo planeDst = *planeDstOrg;
+    RGYFrameInfo planeSrc = *planeSrcOrg;
     if (copyMode != RGYFrameCopyMode::FRAME) {
         planeDst.pitch[0] <<= 1;
         planeDst.height >>= 1;
@@ -1513,20 +1513,20 @@ RGY_ERR RGYOpenCLContext::copyPlane(FrameInfo *planeDstOrg, const FrameInfo *pla
     }
     return err_cl_to_rgy(err);
 }
-RGY_ERR RGYOpenCLContext::copyFrame(FrameInfo *dst, const FrameInfo *src) {
+RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     return copyFrame(dst, src, nullptr);
 }
-RGY_ERR RGYOpenCLContext::copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop) {
+RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop) {
     return copyFrame(dst, src, srcCrop, m_queue[0]);
 }
-RGY_ERR RGYOpenCLContext::copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue) {
+RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue) {
     return copyFrame(dst, src, srcCrop, queue, {}, nullptr);
 }
-RGY_ERR RGYOpenCLContext::copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
     return copyFrame(dst, src, srcCrop, queue, {}, event);
 }
 
-RGY_ERR RGYOpenCLContext::copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode) {
+RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode) {
     if (dst->csp != src->csp) {
         m_pLog->write(RGY_LOG_ERROR, _T("in/out csp should be same in copyFrame.\n"));
         return RGY_ERR_INVALID_CALL;
@@ -1558,19 +1558,19 @@ RGY_ERR RGYOpenCLContext::copyFrame(FrameInfo *dst, const FrameInfo *src, const 
     return err;
 }
 
-RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *dst) {
+RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *dst) {
     return setPlane(value, dst, nullptr);
 }
-RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *dst, const sInputCrop *dstOffset) {
+RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset) {
     return setPlane(value, dst, dstOffset, m_queue[0]);
 }
-RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue) {
+RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue) {
     return setPlane(value, dst, dstOffset, queue, {}, nullptr);
 }
-RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
     return setPlane(value, dst, dstOffset, queue, {}, event);
 }
-RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *planeDst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *planeDst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const int pixel_size = RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? 2 : 1;
     if (planeDst->mem_type == RGY_MEM_TYPE_CPU) {
         if (RGY_CSP_BIT_DEPTH[planeDst->csp] > 8) {
@@ -1614,19 +1614,19 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, FrameInfo *planeDst, const sInputC
         value);
     return rgy_err;
 }
-RGY_ERR RGYOpenCLContext::setFrame(int value, FrameInfo *dst) {
+RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst) {
     return setFrame(value, dst, nullptr);
 }
-RGY_ERR RGYOpenCLContext::setFrame(int value, FrameInfo *dst, const sInputCrop *dstOffset) {
+RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset) {
     return setFrame(value, dst, dstOffset, m_queue[0]);
 }
-RGY_ERR RGYOpenCLContext::setFrame(int value, FrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue) {
+RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue) {
     return setFrame(value, dst, dstOffset, queue, {}, nullptr);
 }
-RGY_ERR RGYOpenCLContext::setFrame(int value, FrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
     return setFrame(value, dst, dstOffset, queue, {}, event);
 }
-RGY_ERR RGYOpenCLContext::setFrame(int value, FrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const int pixel_size = RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1;
 
     RGY_ERR err = RGY_ERR_NONE;
@@ -1805,8 +1805,8 @@ RGY_ERR RGYOpenCLContext::createImageFromPlane(cl_mem &image, cl_mem buffer, int
     return err_cl_to_rgy(err);
 }
 
-unique_ptr<RGYCLFrame> RGYOpenCLContext::createImageFromFrameBuffer(const FrameInfo &frame, bool normalized, cl_mem_flags flags) {
-    FrameInfo frameImage = frame;
+unique_ptr<RGYCLFrame> RGYOpenCLContext::createImageFromFrameBuffer(const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags) {
+    RGYFrameInfo frameImage = frame;
     frameImage.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
 
     for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
@@ -1829,14 +1829,14 @@ unique_ptr<RGYCLFrame> RGYOpenCLContext::createImageFromFrameBuffer(const FrameI
 }
 
 std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(int width, int height, RGY_CSP csp, cl_mem_flags flags) {
-    FrameInfo info;
+    RGYFrameInfo info;
     info.width = width;
     info.height = height;
     info.csp = csp;
     return createFrameBuffer(info, flags);
 }
 
-std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo& frame, cl_mem_flags flags) {
+std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const RGYFrameInfo& frame, cl_mem_flags flags) {
     cl_int err = CL_SUCCESS;
     int pixsize = (RGY_CSP_BIT_DEPTH[frame.csp] + 7) / 8;
     switch (frame.csp) {
@@ -1867,7 +1867,7 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo&
     default:
         break;
     }
-    FrameInfo clframe = frame;
+    RGYFrameInfo clframe = frame;
     clframe.mem_type = RGY_MEM_TYPE_GPU;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
         clframe.ptr[i] = nullptr;
@@ -1895,7 +1895,7 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const FrameInfo&
     return std::make_unique<RGYCLFrame>(clframe, flags);
 }
 
-unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_D3D9
     m_pLog->write(RGY_LOG_ERROR, _T("OpenCL d3d9 interop not supported in this build.\n"));
     return std::unique_ptr<RGYCLFrameInterop>();
@@ -1904,7 +1904,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
         m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d9 device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
     }
-    FrameInfo clframe = frame;
+    RGYFrameInfo clframe = frame;
     clframe.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
         clframe.ptr[i] = nullptr;
@@ -1931,7 +1931,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
 #endif
 }
 
-unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_D3D11
     m_pLog->write(RGY_LOG_ERROR, _T("OpenCL d3d11 interop not supported in this build.\n"));
     return std::unique_ptr<RGYCLFrameInterop>();
@@ -1940,7 +1940,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
         m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d11 device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
     }
-    FrameInfo clframe = frame;
+    RGYFrameInfo clframe = frame;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
         clframe.ptr[i] = nullptr;
         clframe.pitch[i] = 0;
@@ -1965,7 +1965,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
 #endif
 }
 
-unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_VA
     m_pLog->write(RGY_LOG_ERROR, _T("OpenCL VA interop not supported in this build.\n"));
     return std::unique_ptr<RGYCLFrameInterop>();
@@ -1974,7 +1974,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *s
         m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with va device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
     }
-    FrameInfo clframe = frame;
+    RGYFrameInfo clframe = frame;
     for (int i = 0; i < _countof(clframe.ptr); i++) {
         clframe.ptr[i] = nullptr;
         clframe.pitch[i] = 0;

@@ -471,7 +471,7 @@ const TCHAR *get_memtype_str(RGY_MEM_TYPE type);
 
 class RGYFrameData;
 
-struct FrameInfo {
+struct RGYFrameInfo {
     uint8_t *ptr[RGY_MAX_PLANES];
     RGY_CSP csp;
     int width, height, pitch[RGY_MAX_PLANES];
@@ -484,7 +484,7 @@ struct FrameInfo {
     int inputFrameId;
     std::vector<std::shared_ptr<RGYFrameData>> dataList;
 
-    FrameInfo() :
+    RGYFrameInfo() :
         ptr(),
         csp(RGY_CSP_NA),
         width(0),
@@ -505,11 +505,11 @@ struct FrameInfo {
     std::basic_string<TCHAR> print() const;
 };
 
-static bool interlaced(const FrameInfo& frameInfo) {
+static bool interlaced(const RGYFrameInfo& frameInfo) {
     return (frameInfo.picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
 }
 
-static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
+static void copyFrameProp(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     dst->width = src->width;
     dst->height = src->height;
     dst->csp = src->csp;
@@ -520,8 +520,8 @@ static void copyFrameProp(FrameInfo *dst, const FrameInfo *src) {
     dst->inputFrameId = src->inputFrameId;
 }
 
-static FrameInfo getPlane(const FrameInfo *frameInfo, RGY_PLANE plane) {
-    FrameInfo planeInfo = *frameInfo;
+static RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, RGY_PLANE plane) {
+    RGYFrameInfo planeInfo = *frameInfo;
     if (frameInfo->csp == RGY_CSP_YUY2
         || frameInfo->csp == RGY_CSP_Y210 || frameInfo->csp == RGY_CSP_Y216
         || frameInfo->csp == RGY_CSP_Y410 || frameInfo->csp == RGY_CSP_Y416
@@ -639,7 +639,7 @@ static inline THREAD_Y_RANGE thread_y_range(int y_start, int y_end, int thread_i
     return y_range;
 }
 
-static bool cmpFrameInfoCspResolution(const FrameInfo *pA, const FrameInfo *pB) {
+static bool cmpFrameInfoCspResolution(const RGYFrameInfo *pA, const RGYFrameInfo *pB) {
     return pA->csp != pB->csp
         || pA->width != pB->width
         || pA->height != pB->height

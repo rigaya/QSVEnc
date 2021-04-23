@@ -87,7 +87,7 @@ struct afsSourceCacheFrame {
     unique_ptr<RGYCLFrame> y;                 //フレーム状態、YUV420時はYのみ、YUV444時はYUVすべて
     std::array<unique_ptr<RGYCLFrame>, 2> cb; //YUV420時のみ使用、フィールド分離状態
     std::array<unique_ptr<RGYCLFrame>, 2> cr; //YUV420時のみ使用、フィールド分離状態
-    FrameInfo frameinfo() const { return (y) ? y->frame : FrameInfo(); };
+    RGYFrameInfo frameinfo() const { return (y) ? y->frame : RGYFrameInfo(); };
 };
 
 class afsSourceCache {
@@ -95,9 +95,9 @@ public:
     afsSourceCache(shared_ptr<RGYOpenCLContext> cl);
     ~afsSourceCache();
 
-    RGY_ERR alloc(const FrameInfo& frameInfo);
+    RGY_ERR alloc(const RGYFrameInfo& frameInfo);
 
-    RGY_ERR add(const FrameInfo *pInputFrame, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent& event);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent& event);
     RGY_ERR copyFrame(RGYCLFrame *pOut, int srcFrame, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
 
     afsSourceCacheFrame *get(int iframe) {
@@ -131,7 +131,7 @@ public:
     void clearcache(int iframe);
     void initcache(int iframe);
 
-    RGY_ERR alloc(const FrameInfo& frameInfo);
+    RGY_ERR alloc(const RGYFrameInfo& frameInfo);
 
     AFS_SCAN_DATA *get(int iframe) {
         return &m_scanArray[iframe & (AFS_SCAN_CACHE_NUM-1)];
@@ -161,7 +161,7 @@ public:
     void initcache(int iframe);
     void expire(int iframe);
 
-    RGY_ERR alloc(const FrameInfo& frameInfo);
+    RGY_ERR alloc(const RGYFrameInfo& frameInfo);
 
     AFS_STRIPE_DATA *get(int iframe) {
         return &m_stripeArray[iframe & (AFS_STRIPE_CACHE_NUM-1)];
@@ -247,7 +247,7 @@ public:
     virtual ~RGYFilterAfs();
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<RGYFilterParamAfs> pAfsParam);
 

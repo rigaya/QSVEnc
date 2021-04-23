@@ -1436,7 +1436,7 @@ const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv
     return convert;
 }
 
-std::basic_string<TCHAR> FrameInfo::print() const {
+std::basic_string<TCHAR> RGYFrameInfo::print() const {
     TCHAR buf[1024];
     _stprintf_s(buf, _T("%dx%d %s %dbit (%d, %d, %d, %d) %s %s f0x%x"),
         width, height, RGY_CSP_NAMES[csp], bitdepth, pitch[0], pitch[1], pitch[2], pitch[3],

@@ -76,7 +76,7 @@ public:
     virtual RGY_ERR addStreamPacket(AVPacket *pkt) override;
     virtual int targetTrackIdx() override;
 protected:
-    virtual RGY_ERR run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamSubburn> prm);
     virtual RGY_ERR initAVCodec(const std::shared_ptr<RGYFilterParamSubburn> prm);
@@ -84,15 +84,15 @@ protected:
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
     RGY_ERR readSubFile();
     SubImageData textRectToImage(const ASS_Image *image, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const FrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR procFrameText(FrameInfo *pOutputFrame, int64_t frameTimeMs, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR procFrameBitmap(FrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR procFrame(FrameInfo *pFrame,
-        const FrameInfo *pSubImg,
+    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR procFrame(RGYFrameInfo *pFrame,
+        const RGYFrameInfo *pSubImg,
         int pos_x, int pos_y,
         float transparency_offset, float brightness, float contrast,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *even);
-    RGY_ERR procFrame(FrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     int m_subType; //字幕の種類
     unique_ptr<AVFormatContext, RGYAVDeleter<AVFormatContext>> m_formatCtx;     //ファイル読み込みの際に使用する(トラックを受け取る場合はnullptr)

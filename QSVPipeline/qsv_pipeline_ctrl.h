@@ -1325,12 +1325,12 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
 
-        deque<std::pair<FrameInfo, uint32_t>> filterframes;
+        deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;
         RGYCLFrameInterop *clFrameInInterop = nullptr;
 
         bool drain = !frame;
         if (!frame) {
-            filterframes.push_back(std::make_pair(FrameInfo(), 0u));
+            filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
         } else {
             mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get();
             if (m_surfVppInInterop.count(surfVppIn) == 0) {
@@ -1372,8 +1372,8 @@ public:
             //フィルタリングするならここ
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
                 int nOutFrames = 0;
-                FrameInfo *outInfo[16] = { 0 };
-                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+                RGYFrameInfo *outInfo[16] = { 0 };
+                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames);
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
                     clFrameOutInterop->release();
@@ -1409,9 +1409,9 @@ public:
             //エンコードバッファのポインタを渡す
             int nOutFrames = 0;
             auto encSurfaceInfo = clFrameOutInterop->frameInfo();
-            FrameInfo *outInfo[1];
+            RGYFrameInfo *outInfo[1];
             outInfo[0] = &encSurfaceInfo;
-            auto sts_filter = lastFilter->filter(&filterframes.front().first, (FrameInfo **)&outInfo, &nOutFrames);
+            auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames);
             filterframes.pop_front();
             if (sts_filter != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());

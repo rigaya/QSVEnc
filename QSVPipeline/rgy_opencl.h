@@ -516,7 +516,7 @@ protected:
 
 class RGYCLFrameMap {
 public:
-    RGYCLFrameMap(FrameInfo dev, RGYOpenCLQueue &queue) : m_dev(dev), m_queue(RGYDefaultQueue), m_host(), m_eventMap() {};
+    RGYCLFrameMap(RGYFrameInfo dev, RGYOpenCLQueue &queue) : m_dev(dev), m_queue(RGYDefaultQueue), m_host(), m_eventMap() {};
     ~RGYCLFrameMap() {
         unmap();
     }
@@ -528,14 +528,14 @@ public:
 
     const RGYOpenCLEvent &event() const { return m_eventMap; }
     RGYOpenCLEvent &event() { return m_eventMap; }
-    const FrameInfo& host() const { return m_host; }
+    const RGYFrameInfo& host() const { return m_host; }
 protected:
     RGY_ERR unmap(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGYCLFrameMap(const RGYCLFrameMap &) = delete;
     void operator =(const RGYCLFrameMap &) = delete;
-    FrameInfo m_dev;
+    RGYFrameInfo m_dev;
     cl_command_queue m_queue;
-    FrameInfo m_host;
+    RGYFrameInfo m_host;
     RGYOpenCLEvent m_eventMap;
 };
 
@@ -548,26 +548,26 @@ enum RGYCLFrameInteropType {
 
 struct RGYCLFrame {
 public:
-    FrameInfo frame;
+    RGYFrameInfo frame;
     cl_mem_flags flags;
     std::unique_ptr<RGYCLFrameMap> m_mapped;
     RGYCLFrame()
         : frame(), flags(0), m_mapped() {
     };
-    RGYCLFrame(const FrameInfo &info_, cl_mem_flags flags_ = CL_MEM_READ_WRITE)
+    RGYCLFrame(const RGYFrameInfo &info_, cl_mem_flags flags_ = CL_MEM_READ_WRITE)
         : frame(info_), flags(flags_), m_mapped() {
     };
     RGY_ERR queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {});
     RGY_ERR unmapBuffer();
     RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
     const RGYOpenCLEvent &mapEvent() const { return m_mapped->event(); }
-    const FrameInfo &mappedHost() const { return m_mapped->host(); }
+    const RGYFrameInfo &mappedHost() const { return m_mapped->host(); }
     RGYCLMemObjInfo getMemObjectInfo() const;
 protected:
     RGYCLFrame(const RGYCLFrame &) = delete;
     void operator =(const RGYCLFrame &) = delete;
 public:
-    const FrameInfo& frameInfo() const { return frame; }
+    const RGYFrameInfo& frameInfo() const { return frame; }
     cl_mem mem(int i) const {
         return (cl_mem)frame.ptr[i];
     }
@@ -585,7 +585,7 @@ protected:
     std::shared_ptr<RGYLog> m_log;
     bool m_acquired;
 public:
-    RGYCLFrameInterop(const FrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, shared_ptr<RGYLog> log)
+    RGYCLFrameInterop(const RGYFrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, shared_ptr<RGYLog> log)
         : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_log(log), m_acquired(false) {
         frame;
     };
@@ -884,32 +884,32 @@ public:
     unique_ptr<RGYCLBuf> createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, void *host_ptr = nullptr);
     unique_ptr<RGYCLBuf> copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, cl_command_queue queue = 0);
     RGY_ERR createImageFromPlane(cl_mem& image, cl_mem buffer, int bit_depth, int channel_order, bool normalized, int pitch, int width, int height, cl_mem_flags flags);
-    unique_ptr<RGYCLFrame> createImageFromFrameBuffer(const FrameInfo &frame, bool normalized, cl_mem_flags flags);
+    unique_ptr<RGYCLFrame> createImageFromFrameBuffer(const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags);
     unique_ptr<RGYCLFrame> createFrameBuffer(int width, int height, RGY_CSP csp, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrame> createFrameBuffer(const FrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrameInterop> createFrameFromD3D11Surface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrameInterop> createFrameFromVASurface(void *surf, const FrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src);
-    RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop);
-    RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
-    RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR copyFrame(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME);
-    RGY_ERR copyPlane(FrameInfo *dst, const FrameInfo *src);
-    RGY_ERR copyPlane(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop);
-    RGY_ERR copyPlane(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
-    RGY_ERR copyPlane(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR copyPlane(FrameInfo *dst, const FrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME);
-    RGY_ERR setPlane(int value, FrameInfo *dst);
-    RGY_ERR setPlane(int value, FrameInfo *dst, const sInputCrop *srcCrop);
-    RGY_ERR setPlane(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
-    RGY_ERR setPlane(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR setPlane(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
-    RGY_ERR setFrame(int value, FrameInfo *dst);
-    RGY_ERR setFrame(int value, FrameInfo *dst, const sInputCrop *srcCrop);
-    RGY_ERR setFrame(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
-    RGY_ERR setFrame(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR setFrame(int value, FrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
+    unique_ptr<RGYCLFrame> createFrameBuffer(const RGYFrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    unique_ptr<RGYCLFrameInterop> createFrameFromD3D11Surface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    unique_ptr<RGYCLFrameInterop> createFrameFromVASurface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src);
+    RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop);
+    RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
+    RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+    RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME);
+    RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src);
+    RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop);
+    RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
+    RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+    RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME);
+    RGY_ERR setPlane(int value, RGYFrameInfo *dst);
+    RGY_ERR setPlane(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop);
+    RGY_ERR setPlane(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
+    RGY_ERR setPlane(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+    RGY_ERR setPlane(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
+    RGY_ERR setFrame(int value, RGYFrameInfo *dst);
+    RGY_ERR setFrame(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop);
+    RGY_ERR setFrame(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
+    RGY_ERR setFrame(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+    RGY_ERR setFrame(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
     RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf);
     RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue);
     RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);

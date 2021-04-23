@@ -42,7 +42,7 @@ RGYFilter::~RGYFilter() {
     m_param.reset();
 }
 
-RGY_ERR RGYFilter::AllocFrameBuf(const FrameInfo &frame, int frames) {
+RGY_ERR RGYFilter::AllocFrameBuf(const RGYFrameInfo &frame, int frames) {
     if (m_frameBuf.size() == frames
         && !cmpFrameInfoCspResolution(&m_frameBuf[0]->frame, &frame)) {
         //すべて確保されているか確認
@@ -70,17 +70,17 @@ RGY_ERR RGYFilter::AllocFrameBuf(const FrameInfo &frame, int frames) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     return filter(pInputFrame, ppOutputFrames, pOutputFrameNum, m_cl->queue());
 }
-RGY_ERR RGYFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue) {
+RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue) {
     return filter(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, nullptr);
 }
-RGY_ERR RGYFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue, RGYOpenCLEvent *event) {
     return filter(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, {}, event);
 
 }
-RGY_ERR RGYFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (pInputFrame == nullptr) {
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
@@ -113,7 +113,7 @@ RGY_ERR RGYFilter::filter(FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, in
     return ret;
 }
 
-RGY_ERR RGYFilter::filter_as_interlaced_pair(const FrameInfo *pInputFrame, FrameInfo *pOutputFrame) {
+RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame) {
 #if 0
     if (!m_pFieldPairIn) {
         unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pInputFrame));

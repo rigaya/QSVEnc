@@ -2071,9 +2071,9 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
 }
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
-    FrameInfo& frameInfo, rgy_rational<int>& fps,
+    RGYFrameInfo& frameInfo, rgy_rational<int>& fps,
     const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const int outBitdepth, const sInputCrop *crop, const std::pair<int,int> resize, const int blockSize) {
-    FrameInfo frameIn = frameInfo;
+    RGYFrameInfo frameIn = frameInfo;
     sVppParams vppParams;
     vppParams.bEnable = true;
     switch (vppType) {
@@ -2122,7 +2122,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 }
 
 RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
-    FrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize) {
+    RGYFrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize) {
     //colorspace
     if (vppType == VppType::CL_COLORSPACE) {
         unique_ptr<RGYFilterColorspace> filter(new RGYFilterColorspace(m_cl));
@@ -2550,7 +2550,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     const bool cropRequired = cropEnabled(inputParam->input.crop)
         && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
 
-    FrameInfo inputFrame;
+    RGYFrameInfo inputFrame;
     inputFrame.width = inputParam->input.srcWidth;
     inputFrame.height = inputParam->input.srcHeight;
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {

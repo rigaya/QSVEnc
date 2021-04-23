@@ -142,8 +142,8 @@ RGY_ERR QSVVppMfx::SetCopy(const mfxFrameInfo& mfxFrame) {
 
 RGY_ERR QSVVppMfx::SetParam(
     sVppParams& params,
-    const FrameInfo& frameOut,
-    const FrameInfo& frameIn,
+    const RGYFrameInfo& frameOut,
+    const RGYFrameInfo& frameIn,
     const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
     if (m_mfxVPP) {
         PrintMes(RGY_LOG_DEBUG, _T("Vpp already initialized.\n"));
@@ -334,7 +334,7 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
     return RGY_ERR_NONE;
 }
 
-mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
+mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
 
     auto mfxIn = frameinfo_rgy_to_enc(frameIn, infps, sar, blockSize);
 
@@ -354,7 +354,7 @@ mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const FrameInfo& frameIn, const sInputCrop
     return mfxIn;
 }
 
-RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const FrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize) {
+RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const RGYFrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize) {
 
     mfxOut = frameIn;
 
@@ -670,10 +670,10 @@ std::vector<VppType> QSVVppMfx::GetVppList() const {
     return std::vector<VppType>(vppList.begin(), vppList.end());
 }
 
-FrameInfo QSVVppMfx::GetFrameOut() const {
+RGYFrameInfo QSVVppMfx::GetFrameOut() const {
     const auto& mfxOut = m_mfxVppParams.vpp.Out;
 
-    FrameInfo info;
+    RGYFrameInfo info;
     info.width = mfxOut.CropW;
     info.height = mfxOut.CropH;
     info.csp = csp_enc_to_rgy(mfxOut.FourCC);

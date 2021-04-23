@@ -49,7 +49,7 @@ struct int2 {
     int x, y;
 };
 
-RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlane, const FrameInfo *p0, const FrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, const int blockHalfX, const int blockHalfY,
+RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, const int blockHalfX, const int blockHalfY,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const int width = p0->width;
     const int height = p0->height;
@@ -106,7 +106,7 @@ RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlan
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDecimate::procFrame(const FrameInfo *p0, const FrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp,
+RGY_ERR RGYFilterDecimate::procFrame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDecimate>(m_param);
     if (!prm) {
@@ -152,7 +152,7 @@ RGYFilterDecimateFrameData::~RGYFilterDecimateFrameData() {
     m_log.reset();
 }
 
-RGY_ERR RGYFilterDecimateFrameData::set(const FrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
     m_inFrameId = inputFrameId;
     m_blockX = blockSizeX;
     m_blockY = blockSizeY;
@@ -243,7 +243,7 @@ void RGYFilterDecimateCache::init(int bufCount, int blockX, int blockY, std::sha
     }
 }
 
-RGY_ERR RGYFilterDecimateCache::add(const FrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
     const int id = m_inputFrames++;
     return frame(id)->set(pInputFrame, id, m_blockX, m_blockY, queue, event);
 }
@@ -374,7 +374,7 @@ tstring RGYFilterParamDecimate::print() const {
     return decimate.print();
 }
 
-RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, FrameInfo **ppOutputFrames, int *pOutputFrameNum) {
+RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDecimate>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -470,7 +470,7 @@ RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, FrameInfo **ppO
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDecimate::run_filter(const FrameInfo *pInputFrame, FrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDecimate>(m_param);
     if (!prm) {
