@@ -265,13 +265,6 @@ RGY_ERR RGYFilterNnedi::checkParam(const std::shared_ptr<RGYFilterParamNnedi> pr
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"prec\": %d\n"), prm->nnedi.precision);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nnedi.precision == VPP_FP_PRECISION_FP16) {
-        const auto devInfo = RGYOpenCLDevice(m_cl->platform()->dev(0)).info();
-        if (devInfo.extensions.find("cl_khr_fp16") == std::string::npos) {
-            AddMessage(RGY_LOG_ERROR, _T("Current device does not support \"prec\": %d\n"), prm->nnedi.precision);
-            return RGY_ERR_INVALID_PARAM;
-        }
-    }
     return RGY_ERR_NONE;
 }
 
