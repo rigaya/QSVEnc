@@ -131,7 +131,7 @@ public:
     void setSurfaces(std::vector<mfxFrameSurface1>& surfs) {
         clear();
         m_surfaces.resize(surfs.size());
-        for (int i = 0; i < m_surfaces.size(); i++) {
+        for (size_t i = 0; i < m_surfaces.size(); i++) {
             m_surfaces[i].first = surfs[i];
             m_surfaces[i].second = 0;
         }
@@ -335,7 +335,7 @@ protected:
     mfxVersion m_mfxVer;
     std::shared_ptr<RGYLog> m_log;
 public:
-    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_mfxVer({ 0 }), m_outMaxQueueSize(0) {};
+    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_mfxVer({ 0 }), m_log() {};
     PipelineTask(PipelineTaskType type, int outMaxQueueSize, MFXVideoSession *mfxSession, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         m_type(type), m_outQeueue(), m_workSurfs(), m_mfxSession(mfxSession), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log) {
     };
@@ -353,7 +353,7 @@ public:
     virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { return RGY_ERR_INVALID_CALL; }
     std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) {
         std::vector<std::unique_ptr<PipelineTaskOutput>> output;
-        while (m_outQeueue.size() > m_outMaxQueueSize) {
+        while ((int)m_outQeueue.size() > m_outMaxQueueSize) {
             auto out = std::move(m_outQeueue.front());
             m_outQeueue.pop_front();
             if (sync) {
@@ -583,7 +583,7 @@ public:
             //これを無視する実装も併せて行った。
             && (m_decInputBitstream.size() <= 1)) {
             auto ret = m_input->LoadNextFrame(nullptr);
-            if (ret != RGY_ERR_NONE && ret != MFX_ERR_MORE_DATA && ret != RGY_ERR_MORE_BITSTREAM) {
+            if (ret != RGY_ERR_NONE && ret != RGY_ERR_MORE_DATA && ret != RGY_ERR_MORE_BITSTREAM) {
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
                 return ret;
             }
@@ -1178,7 +1178,7 @@ protected:
     MFXVideoENC *m_enc;
 public:
     PipelineTaskMFXENC(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENC *mfxenc, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : m_enc(mfxenc), PipelineTask(PipelineTaskType::MFXENC, outMaxQueueSize, mfxSession, mfxVer, log) {};
+        : PipelineTask(PipelineTaskType::MFXENC, outMaxQueueSize, mfxSession, mfxVer, log), m_enc(mfxenc) {};
     virtual ~PipelineTaskMFXENC() {};
     void setEnc(MFXVideoENC *mfxenc) { m_enc = mfxenc; };
 
@@ -1203,7 +1203,7 @@ public:
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, mfxVideoParam& encParams,
         RGYTimecode *timecode, rgy_rational<int> outputTimebase, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
-        m_encode(mfxencode), m_mfxEncParams(encParams), m_timecode(timecode), m_outputTimebase(outputTimebase) {};
+        m_encode(mfxencode), m_timecode(timecode), m_mfxEncParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut() {};
     virtual ~PipelineTaskMFXEncode() {
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
     };

@@ -196,7 +196,7 @@ RGY_ERR QSVVppMfx::Init() {
     const auto log_level = logTemporarilyIgnoreErrorMes();
     auto err = err_to_rgy(m_mfxVPP->Init(&m_mfxVppParams));
     m_log->setLogLevel(log_level);
-    if (err == MFX_WRN_PARTIAL_ACCELERATION) {
+    if (err == RGY_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on vpp.\n"));
         err = RGY_ERR_NONE;
     }

@@ -1516,7 +1516,7 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
     }
 
     //メモリallocatorの初期化
-    if (MFX_ERR_NONE > (sts = err_to_rgy(m_pMFXAllocator->Init(m_pmfxAllocatorParams.get(), m_pQSVLog)))) {
+    if (RGY_ERR_NONE > (sts = err_to_rgy(m_pMFXAllocator->Init(m_pmfxAllocatorParams.get(), m_pQSVLog)))) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(m_memType), get_err_mes(sts));
         return sts;
     }
@@ -2621,7 +2621,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     m_encFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
 
     if (inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) {
-        if (CheckParamList(inputParam->vppmfx.deinterlace, list_deinterlace, "vpp-deinterlace") != MFX_ERR_NONE) {
+        if (CheckParamList(inputParam->vppmfx.deinterlace, list_deinterlace, "vpp-deinterlace") != RGY_ERR_NONE) {
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
         if (inputParam->common.AVSyncMode == RGY_AVSYNC_FORCE_CFR
@@ -3235,7 +3235,7 @@ RGY_ERR CQSVPipeline::InitMfxDec() {
     const auto log_level = logTemporarilyIgnoreErrorMes();
     auto sts = err_to_rgy(m_pmfxDEC->Init(&m_mfxDecParams));
     m_pQSVLog->setLogLevel(log_level);
-    if (sts == MFX_WRN_PARTIAL_ACCELERATION) {
+    if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on decoding.\n"));
         sts = RGY_ERR_NONE;
     }
