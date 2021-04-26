@@ -137,6 +137,8 @@ ENABLE_LIBASS=1
 DTL_CFLAGS="-I./dtl"
 ENABLE_DTL=1
 
+CLRNG_CXXFLAGS="-I./clRNG/src/include"
+
 CPPCODEC_CFLAGS="-I./cppcodec"
 
 print_help()
@@ -492,6 +494,14 @@ else
     exit 1
 fi
 
+if cxx_check "clRNG-headers" "${CXXFLAGS} ${CLRNG_CXXFLAGS}" "" "clRNG/clRNG.h" "clrngStatus sts = (clrngStatus)0;" ; then
+    CXXFLAGS="${CXXFLAGS} ${CLRNG_CXXFLAGS}"
+    cnf_write "yes"
+else
+    cnf_write "clRNG headers missing." 
+    exit 1
+fi
+
 if [ $ENABLE_AVSW_READER -ne 0 ]; then
     if [ $USE_PKGCONFIG -ne 0 ]; then
         printf "checking libavcodec with pkg-config..."
@@ -637,33 +647,28 @@ fi
 
 SRC_QSVPIPELINE=" \
 DeviceId.cpp \
-convert_csp.cpp             convert_csp_avx.cpp             convert_csp_avx2.cpp \
-convert_csp_sse2.cpp        convert_csp_sse41.cpp           convert_csp_ssse3.cpp \
-cpu_info.cpp                gpu_info.cpp                    gpuz_info.cpp \
-logo.cpp \
-qsv_allocator.cpp           qsv_allocator_d3d11.cpp         qsv_allocator_d3d9.cpp \
-qsv_allocator_sys.cpp       qsv_allocator_va.cpp \
-qsv_cmd.cpp \
-qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp                 qsv_hw_device.cpp  \
-qsv_hw_va.cpp               qsv_hw_va_utils.cpp             qsv_hw_va_utils_drm.cpp \
-qsv_hw_va_utils_x11.cpp  \
-qsv_pipeline.cpp            qsv_plugin.cpp                  qsv_prm.cpp \
-qsv_query.cpp               qsv_util.cpp                    qsv_vpp_mfx.cpp \
-rgy_avlog.cpp \
-rgy_avutil.cpp              rgy_bitstream.cpp        rgy_caption.cpp \
-rgy_chapter.cpp             rgy_cmd.cpp              rgy_codepage.cpp \
-rgy_def.cpp                 rgy_err.cpp              rgy_event.cpp \
-rgy_filter.cpp              rgy_filter_crop.cpp      rgy_filter_delogo.cpp \
-rgy_filter_denoise_knn.cpp  rgy_filter_resize.cpp    rgy_filter_subburn.cpp \
-rgy_filter_transform.cpp    rgy_frame.cpp            rgy_hdr10plus.cpp \
-rgy_ini.cpp                 rgy_input.cpp            rgy_input_avcodec.cpp \
-rgy_input_avi.cpp           rgy_input_avs.cpp        rgy_input_raw.cpp \
-rgy_input_sm.cpp            rgy_input_vpy.cpp        rgy_language.cpp \
-rgy_log.cpp                 rgy_opencl.cpp           rgy_output.cpp \
-rgy_output_avcodec.cpp      rgy_perf_counter.cpp     rgy_perf_monitor.cpp \
-rgy_pipe.cpp                rgy_pipe_linux.cpp       rgy_prm.cpp \
-rgy_simd.cpp                rgy_status.cpp           rgy_timecode.cpp \
-rgy_util.cpp                rgy_version.cpp \
+convert_csp.cpp             convert_csp_avx.cpp \
+convert_csp_avx2.cpp        convert_csp_sse2.cpp        convert_csp_sse41.cpp          convert_csp_ssse3.cpp \
+cpu_info.cpp                gpu_info.cpp                gpuz_info.cpp                  logo.cpp \
+qsv_allocator.cpp           qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp         qsv_allocator_sys.cpp \
+qsv_allocator_va.cpp        qsv_cmd.cpp                 qsv_hw_d3d11.cpp               qsv_hw_d3d9.cpp \
+qsv_hw_device.cpp           qsv_hw_va.cpp               qsv_hw_va_utils.cpp            qsv_hw_va_utils_drm.cpp \
+qsv_hw_va_utils_x11.cpp     qsv_pipeline.cpp            qsv_plugin.cpp                 qsv_prm.cpp \
+qsv_query.cpp               qsv_util.cpp                qsv_vpp_mfx.cpp                rgy_avlog.cpp \
+rgy_avutil.cpp              rgy_bitstream.cpp           rgy_caption.cpp                rgy_chapter.cpp \
+rgy_cmd.cpp                 rgy_codepage.cpp            rgy_def.cpp                    rgy_err.cpp \
+rgy_event.cpp               rgy_filter.cpp              rgy_filter_afs.cpp             rgy_filter_afs_analyze.cpp \
+rgy_filter_afs_filter.cpp   rgy_filter_afs_merge.cpp    rgy_filter_afs_synthesize.cpp  rgy_filter_colorspace.cpp \
+rgy_filter_crop.cpp         rgy_filter_deband.cpp       rgy_filter_decimate.cpp        rgy_filter_delogo.cpp \
+rgy_filter_denoise_knn.cpp  rgy_filter_denoise_pmd.cpp  rgy_filter_edgelevel.cpp       rgy_filter_mpdecimate.cpp \
+rgy_filter_nnedi.cpp        rgy_filter_pad.cpp          rgy_filter_resize.cpp          rgy_filter_smooth.cpp \
+rgy_filter_subburn.cpp      rgy_filter_transform.cpp    rgy_filter_tweak.cpp           rgy_filter_unsharp.cpp \
+rgy_filter_warpsharp.cpp    rgy_frame.cpp               rgy_hdr10plus.cpp              rgy_ini.cpp \
+rgy_input.cpp               rgy_input_avcodec.cpp       rgy_input_avi.cpp              rgy_input_avs.cpp \
+rgy_input_raw.cpp           rgy_input_sm.cpp            rgy_input_vpy.cpp              rgy_language.cpp \
+rgy_log.cpp                 rgy_opencl.cpp              rgy_output.cpp                 rgy_output_avcodec.cpp \
+rgy_perf_counter.cpp        rgy_perf_monitor.cpp        rgy_pipe.cpp                   rgy_pipe_linux.cpp \
+rgy_prm.cpp                 rgy_simd.cpp                rgy_status.cpp                 rgy_timecode.cpp \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"
