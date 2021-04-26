@@ -516,7 +516,7 @@ protected:
 
 class RGYCLFrameMap {
 public:
-    RGYCLFrameMap(RGYFrameInfo dev, RGYOpenCLQueue &queue) : m_dev(dev), m_queue(RGYDefaultQueue), m_host(), m_eventMap() {};
+    RGYCLFrameMap(RGYFrameInfo dev, RGYOpenCLQueue &queue);
     ~RGYCLFrameMap() {
         unmap();
     }

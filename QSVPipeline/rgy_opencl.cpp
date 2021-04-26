@@ -1186,6 +1186,8 @@ RGYCLMemObjInfo RGYCLBuf::getMemObjectInfo() const {
     return getRGYCLMemObjectInfo(m_mem);
 }
 
+RGYCLFrameMap::RGYCLFrameMap(RGYFrameInfo dev, RGYOpenCLQueue &queue) : m_dev(dev), m_queue(queue.get()), m_host(), m_eventMap() {};
+
 RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue& queue) {
     return map(map_flags, queue, {});
 }
