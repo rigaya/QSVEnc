@@ -35,6 +35,7 @@
 #include <unordered_map>
 #include "rgy_filter_colorspace.h"
 #include "rgy_filter_colorspace_func.h"
+#include "rgy_resource.h"
 
 static const int COLORSPACE_BLOCK_X = 64;
 static const int COLORSPACE_BLOCK_Y = 4;

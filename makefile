@@ -2,19 +2,39 @@ include config.mak
 
 vpath %.cpp $(SRCDIR)
 
-OBJS  = $(SRCS:%.cpp=%.o)
+OBJS  = $(SRCS:%.cpp=%.cpp.o)
+OBJCS  = $(SRCS:%.c=%.c.o)
 OBJASMS = $(ASMS:%.asm=%.o)
 OBJPYWS = $(PYWS:%.pyw=%.o)
+OBJRBINS = $(RBINS:%.bin=%.o)
+OBJRHS = $(RHS:%.h=%.h.o)
+OBJRCLS = $(RCLS:%.cl=%.o)
+OBJRCLHS = $(RCLHS:%.clh=%.o)
 
 all: $(PROGRAM)
 
-$(PROGRAM): .depend $(OBJS) $(OBJPYWS)
-	$(LD) $(OBJS) $(OBJPYWS) $(LDFLAGS) -o $(PROGRAM)
+$(PROGRAM): .depend $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS)
+	$(LD) $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS) $(LDFLAGS) -o $(PROGRAM)
 
-%.o: %.cpp .depend
+%.cpp.o: %.cpp .depend
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 
+%.c.o: %.c .depend
+	$(CC) -c $(CFLAGS) -o $@ $<
+
 %.o: %.pyw
+	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
+
+%.o: %.bin
+	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
+
+%.h.o: %.h
+	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
+
+%.o: %.cl
+	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
+
+%.o: %.clh
 	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
 	
 .depend: config.mak
@@ -27,7 +47,7 @@ include .depend
 endif
 
 clean:
-	rm -f $(OBJS) $(OBJPYWS) $(PROGRAM) .depend
+	rm -f $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS) $(PROGRAM) .depend
 
 distclean: clean
 	rm -f config.mak QSVPipeline/qsv_config.h

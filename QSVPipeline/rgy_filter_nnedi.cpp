@@ -35,6 +35,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "rgy_filter_nnedi.h"
+#include "rgy_resource.h"
 
 //dot_product1で重み(nns)方向のループアンロールを行う
 //これにより、一度sharedメモリからレジスタにのせたpixel情報を使いまわすことができる
@@ -274,30 +275,8 @@ shared_ptr<const float> RGYFilterNnedi::readWeights(const tstring& weightFile, H
     uint64_t weightFileSize = 0;
     if (weightFile.length() == 0) {
         //埋め込みデータを使用する
-#if defined(_WIN32) || defined(_WIN64)
-        if (hModule == NULL) {
-            hModule = GetModuleHandle(NULL);
-        }
-        HRSRC hResource = NULL;
-        HGLOBAL hResourceData = NULL;
-        const char *pDataPtr = NULL;
-        if (NULL == hModule) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get module handle.\n"));
-        } else if (NULL == (hResource = FindResource(hModule, _T("NNEDI_WEIGHTBIN"), _T("EXE_DATA")))) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get resource handle for \"NNEDI_WEIGHTBIN\".\n"));
-        } else if (NULL == (hResourceData = LoadResource(hModule, hResource))) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to load resource \"NNEDI_WEIGHTBIN\".\n"));
-        } else if (NULL == (pDataPtr = (const char *)LockResource(hResourceData))) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to lock resource \"NNEDI_WEIGHTBIN\".\n"));
-        } else if (expectedFileSize != (weightFileSize = SizeofResource(hModule, hResource))) {
-            AddMessage(RGY_LOG_ERROR, _T("Weights data has unexpected size %lld [expected: %u].\n"),
-                (long long int)weightFileSize, expectedFileSize);
-        } else {
-            weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
-        }
-#else
-        const char *pDataPtr = _binary_resource_nnedi3_weights_bin_start;
-        weightFileSize = (size_t)(_binary_resource_nnedi3_weights_bin_end - _binary_resource_nnedi3_weights_bin_start);
+        void *pDataPtr = nullptr;
+        weightFileSize = getEmbeddedResource(&pDataPtr, _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), hModule);
         if (pDataPtr == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get Weights data.\n"));
         } else if (expectedFileSize != weightFileSize) {
@@ -306,7 +285,6 @@ shared_ptr<const float> RGYFilterNnedi::readWeights(const tstring& weightFile, H
         } else {
             weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
-#endif
     } else {
         if (!rgy_file_exists(weightFile.c_str())) {
             AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFile.c_str());

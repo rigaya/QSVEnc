@@ -668,12 +668,41 @@ rgy_input.cpp               rgy_input_avcodec.cpp       rgy_input_avi.cpp       
 rgy_input_raw.cpp           rgy_input_sm.cpp            rgy_input_vpy.cpp              rgy_language.cpp \
 rgy_log.cpp                 rgy_opencl.cpp              rgy_output.cpp                 rgy_output_avcodec.cpp \
 rgy_perf_counter.cpp        rgy_perf_monitor.cpp        rgy_pipe.cpp                   rgy_pipe_linux.cpp \
-rgy_prm.cpp                 rgy_simd.cpp                rgy_status.cpp                 rgy_timecode.cpp \
+rgy_prm.cpp                 rgy_resource.cpp            rgy_simd.cpp                   rgy_status.cpp \
+rgy_timecode.cpp            rgy_util.cpp                rgy_version.cpp \
+"
+
+SRC_QSVPIPELINE_CL=" \
+rgy_filter.cl                 rgy_filter_afs_analyze.cl   rgy_filter_afs_filter.cl       rgy_filter_afs_merge.cl \
+rgy_filter_afs_synthesize.cl  rgy_filter_deband.cl        rgy_filter_deband_gen_rand.cl  rgy_filter_decimate.cl \
+rgy_filter_delogo.cl          rgy_filter_denoise_knn.cl   rgy_filter_denoise_pmd.cl      rgy_filter_edgelevel.cl \
+rgy_filter_mpdecimate.cl      rgy_filter_nnedi_common.cl  rgy_filter_nnedi_k0.cl         rgy_filter_nnedi_k1.cl \
+rgy_filter_pad.cl             rgy_filter_resize.cl        rgy_filter_smooth.cl           rgy_filter_subburn.cl \
+rgy_filter_transform.cl       rgy_filter_tweak.cl         rgy_filter_unsharp.cl          rgy_filter_warpsharp.cl \
+"
+
+SRC_QSVPIPELINE_H=" \
+rgy_filter_colorspace_func.h \
+"
+
+SRC_CLRNG" \
+clRNG.c private.c \
+"
+
+SRC_CLRNG_CLH=" \
+clRNG/src/include/clRNG/clRNG.clh \
+clRNG/src/include/clRNG/mrg31k3p.clh \
+"
+
+SRC_CLRNG_H=" \
+clRNG/src/include/clRNG/private/mrg31k3p.c.h \
 "
 
 SRC_TINYXML2="tinyxml2.cpp"
 
 PYW_PERF_MONITOR="perf_monitor.pyw"
+
+RESOURCE_NNEDI_WEIGHT="nnedi3_weights.bin"
 
 SRC_QSVENCC="QSVEncC.cpp"
 
@@ -685,8 +714,32 @@ for src in $SRC_QSVPIPELINE; do
     SRCS="$SRCS QSVPipeline/$src"
 done
 
+for src in $SRC_CLRNG; do
+    SRCS="$SRCS clRNG/src/library/$src"
+done
+
+for cls in $SRC_QSVPIPELINE_CL; do
+    RCLS="$RCLS QSVPipeline/$cls"
+done
+
+for hs in $SRC_QSVPIPELINE_H; do
+    RHS="$RHS QSVPipeline/$hs"
+done
+
+for hs in $SRC_CLRNG_H; do
+    RHS="$RHS $hs"
+done
+
+for cls in $SRC_CLRNG_CLH; do
+    RCLHS="$RCLHS $cls"
+done
+
 for pyw in $PYW_PERF_MONITOR; do
     PYWS="$PYWS PerfMonitor/$pyw"
+done
+
+for rcs in $RESOURCE_NNEDI_WEIGHT; do
+    RBINS="$RBINS resource/$rcs"
 done
 
 for src in $SRC_TINYXML2; do
@@ -703,6 +756,10 @@ cnf_write ""
 cnf_write "Creating config.mak, rgy_config.h..."
 echo "SRCS = $SRCS" >> config.mak
 echo "PYWS = $PYWS" >> config.mak
+echo "RBINS = $RBINS" >> config.mak
+echo "RHS = $RHS" >> config.mak
+echo "RCLS = $RCLS" >> config.mak
+echo "RCLHS = $RCLHS" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
 write_config_mak "CXX = $CXX"
 write_config_mak "LD  = $LD"

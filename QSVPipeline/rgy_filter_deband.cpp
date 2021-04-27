@@ -33,6 +33,7 @@
 #include "rgy_osdep.h"
 #include "rgy_opencl.h"
 #include "rgy_filter_deband.h"
+#include "rgy_resource.h"
 #pragma warning(push)
 #pragma warning(disable:4819) //ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。
 #pragma warning(disable:4201) //非標準の拡張機能が使用されています: 無名の構造体または共用体です。

@@ -33,6 +33,7 @@
 #include "rgy_osdep.h"
 #define CL_EXTERN
 #include "rgy_opencl.h"
+#include "rgy_resource.h"
 
 #if ENABLE_OPENCL
 
