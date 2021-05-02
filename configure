@@ -97,6 +97,7 @@ PKGCONFIG="pkg-config"
 USE_PKGCONFIG=1
 
 ENABLE_DEBUG=0
+CC=${CC:-gcc}
 CXX=${CXX:-g++}
 LD=${LD:-g++}
 PROGRAM=qsvencc
@@ -151,13 +152,14 @@ options:
 
   --prefix=PREFIX          install qsvencc into PREFIX/bin [${PREFIX}]
 
+  --cxx=CC                 set C compiler path [${CC}]
   --cxx=CXX                set C++ compiler path [${CXX}]
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
 
   --opencl-headers         set opencl headers path [${OPENCL_CFLAGS}]
 
-  --extra-cxxflags=XCFLAGS add XCFLAGS to CFLAGS
+  --extra-cxxflags=XCFLAGS add XCFLAGS to CXXFLAGS
   --extra-ldflags=XLDFLAGS add XLDFLAGS to LDFLAGS
 
   --disable-vapoursynth    disable vapoursynth support [auto]
@@ -185,6 +187,9 @@ for opt; do
             ;;
         --prefix=*)
             PREFIX="$optarg"
+            ;;
+        --cc=*)
+            CC="$optarg"
             ;;
         --cxx=*)
             CXX="$optarg"
@@ -230,6 +235,7 @@ echo "CNF_LOG=${CNF_LOG}" >> ${CNF_LOG}
 echo "PKGCONFIG=${PKGCONFIG}" >> ${CNF_LOG}
 echo "USE_PKGCONFIG=${USE_PKGCONFIG}" >> ${CNF_LOG}
 echo "ENABLE_DEBUG=${ENABLE_DEBUG}" >> ${CNF_LOG}
+echo "CC=${CC}" >> ${CNF_LOG}
 echo "CXX=${CXX}" >> ${CNF_LOG}
 echo "PROGRAM=${PROGRAM}" >> ${CNF_LOG}
 echo "PREFIX=${PREFIX}" >> ${CNF_LOG}
@@ -269,6 +275,8 @@ if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
     X86_64=0
 fi
 
+CFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
+-DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS"
 CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
 -I${SRCDIR} -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins \
@@ -496,6 +504,7 @@ fi
 
 if cxx_check "clRNG-headers" "${CXXFLAGS} ${CLRNG_CXXFLAGS}" "" "clRNG/clRNG.h" "clrngStatus sts = (clrngStatus)0;" ; then
     CXXFLAGS="${CXXFLAGS} ${CLRNG_CXXFLAGS}"
+    CFLAGS="${CFLAGS} ${CLRNG_CXXFLAGS}"
     cnf_write "yes"
 else
     cnf_write "clRNG headers missing." 
@@ -685,7 +694,7 @@ SRC_QSVPIPELINE_H=" \
 rgy_filter_colorspace_func.h \
 "
 
-SRC_CLRNG" \
+SRC_CLRNG=" \
 clRNG.c private.c \
 "
 
@@ -715,7 +724,7 @@ for src in $SRC_QSVPIPELINE; do
 done
 
 for src in $SRC_CLRNG; do
-    SRCS="$SRCS clRNG/src/library/$src"
+    SRCCS="$SRCCS clRNG/src/library/$src"
 done
 
 for cls in $SRC_QSVPIPELINE_CL; do
@@ -755,16 +764,19 @@ ENCODER_REV=`git rev-list HEAD | wc --lines`
 cnf_write ""
 cnf_write "Creating config.mak, rgy_config.h..."
 echo "SRCS = $SRCS" >> config.mak
+echo "SRCCS = $SRCCS" >> config.mak
 echo "PYWS = $PYWS" >> config.mak
 echo "RBINS = $RBINS" >> config.mak
 echo "RHS = $RHS" >> config.mak
 echo "RCLS = $RCLS" >> config.mak
 echo "RCLHS = $RCLHS" >> config.mak
 write_config_mak "SRCDIR = $SRCDIR"
+write_config_mak "CC  = $CC"
 write_config_mak "CXX = $CXX"
 write_config_mak "LD  = $LD"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
+write_config_mak "CFLAGS = $CFLAGS"
 write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
 write_config_mak "PREFIX = $PREFIX"

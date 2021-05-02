@@ -3,7 +3,7 @@ include config.mak
 vpath %.cpp $(SRCDIR)
 
 OBJS  = $(SRCS:%.cpp=%.cpp.o)
-OBJCS  = $(SRCS:%.c=%.c.o)
+OBJCS  = $(SRCCS:%.c=%.c.o)
 OBJASMS = $(ASMS:%.asm=%.o)
 OBJPYWS = $(PYWS:%.pyw=%.o)
 OBJRBINS = $(RBINS:%.bin=%.o)
@@ -19,7 +19,7 @@ $(PROGRAM): .depend $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS)
 %.cpp.o: %.cpp .depend
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 
-%.c.o: %.c .depend
+%.c.o: %.c
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 %.o: %.pyw
