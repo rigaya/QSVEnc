@@ -43,11 +43,11 @@ RGYFilter::~RGYFilter() {
 }
 
 RGY_ERR RGYFilter::AllocFrameBuf(const RGYFrameInfo &frame, int frames) {
-    if (m_frameBuf.size() == frames
+    if ((int)m_frameBuf.size() == frames
         && !cmpFrameInfoCspResolution(&m_frameBuf[0]->frame, &frame)) {
         //すべて確保されているか確認
         bool allocated = true;
-        for (int i = 0; i < m_frameBuf.size(); i++) {
+        for (size_t i = 0; i < m_frameBuf.size(); i++) {
             if (m_frameBuf[i]->frame.ptr == nullptr) {
                 allocated = false;
                 break;

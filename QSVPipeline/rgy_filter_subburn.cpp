@@ -182,13 +182,13 @@ SubImageData RGYFilterSubburn::textRectToImage(const ASS_Image *image, RGYOpenCL
 
     for (int j = 0; j < planeU.height; j++) {
         uint8_t *ptr = planeU.ptr[0] + j * planeU.pitch[0];
-        for (int i = 0; i < planeU.pitch[0] / sizeof(ptr[0]); i++) {
+        for (size_t i = 0; i < planeU.pitch[0] / sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
         uint8_t *ptr = planeV.ptr[0] + j * planeV.pitch[0];
-        for (int i = 0; i < planeV.pitch[0] / sizeof(ptr[0]); i++) {
+        for (size_t i = 0; i < planeV.pitch[0] / sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
@@ -278,13 +278,13 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
 
     for (int j = 0; j < planeU.height; j++) {
         uint8_t *ptr = planeU.ptr[0] + j * planeU.pitch[0];
-        for (int i = 0; i < planeU.pitch[0] / sizeof(ptr[0]); i++) {
+        for (size_t i = 0; i < planeU.pitch[0] / sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }
     for (int j = 0; j < planeV.height; j++) {
         uint8_t *ptr = planeV.ptr[0] + j * planeU.pitch[0];
-        for (int i = 0; i < planeV.pitch[0] / sizeof(ptr[0]); i++) {
+        for (size_t i = 0; i < planeV.pitch[0] / sizeof(ptr[0]); i++) {
             ptr[i] = 128;
         }
     }

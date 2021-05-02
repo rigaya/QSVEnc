@@ -1080,16 +1080,16 @@ int run(int argc, TCHAR *argv[]) {
     }
 
     auto sts = pPipeline->Init(&Params);
-    if (sts < MFX_ERR_NONE) return sts;
+    if (sts < RGY_ERR_NONE) return sts;
 
     pPipeline->SetAbortFlagPointer(&g_signal_abort);
     set_signal_handler();
 
-    if (MFX_ERR_NONE != (sts = pPipeline->CheckCurrentVideoParam())) {
+    if ((sts = pPipeline->CheckCurrentVideoParam()) != RGY_ERR_NONE) {
         return sts;
     }
 
-    if (MFX_ERR_NONE != (sts = pPipeline->Run())) {
+    if ((sts = pPipeline->Run()) != RGY_ERR_NONE) {
         return sts;
     }
 

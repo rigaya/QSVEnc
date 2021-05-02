@@ -111,8 +111,8 @@ public:
     }
     bool operator !=(const PipelineTaskSurface& obj) const { return get() != obj.get(); }
     bool operator ==(const PipelineTaskSurface& obj) const { return get() == obj.get(); }
-    bool operator !=(nullptr_t) const { return get() != nullptr; }
-    bool operator ==(nullptr_t) const { return get() == nullptr; }
+    bool operator !=(std::nullptr_t) const { return get() != nullptr; }
+    bool operator ==(std::nullptr_t) const { return get() == nullptr; }
     const mfxFrameSurface1 *get() const { return surf; }
     mfxFrameSurface1 *get() { return surf; }
 };
@@ -1187,8 +1187,8 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
+        return RGY_ERR_NONE;
     }
-
 };
 
 class PipelineTaskMFXEncode : public PipelineTask {

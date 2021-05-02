@@ -62,9 +62,9 @@ static inline const char *strichr(const char *str, int c) {
 }
 static inline const char *stristr(const char *str, const char *substr) {
     size_t len = 0;
-    if (substr && (len = strlen(substr)) != NULL)
+    if (substr && (len = strlen(substr)) != 0)
         for (; (str = strichr(str, substr[0])) != NULL; str++)
-            if (_strnicmp(str, substr, len) == NULL)
+            if (_strnicmp(str, substr, len) == 0)
                 return str;
     return NULL;
 }
@@ -741,7 +741,7 @@ RGY_ERR RGYOpenCLContext::createContext() {
         props.push_back((cl_context_properties)m_platform->d3d9dev());
         m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d9 interop for %p\n"), m_platform->d3d9dev());
     }
-    #endif ENABLE_RGY_OPENCL_D3D9
+    #endif //ENABLE_RGY_OPENCL_D3D9
     #if ENABLE_RGY_OPENCL_D3D11
     if (m_platform->d3d11dev()) {
         props.push_back(CL_CONTEXT_D3D11_DEVICE_KHR);
@@ -789,7 +789,7 @@ RGYOpenCLQueue RGYOpenCLContext::createQueue(cl_device_id devid) {
         m_pLog->write(RGY_LOG_ERROR, _T("Crush (clCreateCommandQueue)\n"));
         RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
     }
-    return std::move(queue);
+    return queue;
 }
 
 RGYOpenCLKernelLauncher::RGYOpenCLKernelLauncher(cl_kernel kernel, std::string kernelName, RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, shared_ptr<RGYLog> pLog, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) :
