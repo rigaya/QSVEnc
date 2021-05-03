@@ -577,7 +577,7 @@ int CPerfMonitor::createPerfMpnitorPyw(const TCHAR *pywPath) {
     HMODULE hModule = NULL;
 #endif
     void *pDataPtr = NULL;
-    resourceSize = getEmbeddedResource(&pDataPtr, _T("PERF_MONITOR_SRC"), _T("PERF_MONITOR_PYW"), hModule);
+    resourceSize = getEmbeddedResource(&pDataPtr, _T("PERF_MONITOR_PYW"), _T("PERF_MONITOR_SRC"), hModule);
     if (_tfopen_s(&fp, pywPath, _T("wb")) || NULL == fp) {
         ret = 1;
     } else if (resourceSize != fwrite(pDataPtr, 1, resourceSize, fp)) {

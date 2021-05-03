@@ -276,7 +276,7 @@ shared_ptr<const float> RGYFilterNnedi::readWeights(const tstring& weightFile, H
     if (weightFile.length() == 0) {
         //埋め込みデータを使用する
         void *pDataPtr = nullptr;
-        weightFileSize = getEmbeddedResource(&pDataPtr, _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), hModule);
+        weightFileSize = getEmbeddedResource(&pDataPtr, _T("NNEDI_WEIGHTBIN"), _T("EXE_DATA"), hModule);
         if (pDataPtr == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get Weights data.\n"));
         } else if (expectedFileSize != weightFileSize) {

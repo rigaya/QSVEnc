@@ -33,6 +33,8 @@
 extern "C" {
 extern char _binary_PerfMonitor_perf_monitor_pyw_start[];
 extern char _binary_PerfMonitor_perf_monitor_pyw_end[];
+extern char _binary_resource_nnedi3_weights_bin_start[];
+extern char _binary_resource_nnedi3_weights_bin_end[];
 extern char _binary_QSVPipeline_rgy_filter_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_afs_analyze_cl_start[];
@@ -98,17 +100,20 @@ struct RGYResourceData {
 
 static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("PERF_MONITOR_SRC"), _T("PERF_MONITOR_PYW"), _binary_PerfMonitor_perf_monitor_pyw_start, _binary_PerfMonitor_perf_monitor_pyw_end },
+    
+    { _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), _binary_resource_nnedi3_weights_bin_start, _binary_resource_nnedi3_weights_bin_end },
+
     { _T("EXE_DATA"), _T("RGY_FILTER_CL"), _binary_QSVPipeline_rgy_filter_cl_start, _binary_QSVPipeline_rgy_filter_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_ANALYZE_CL"), _binary_QSVPipeline_rgy_filter_afs_analyze_cl_start, _binary_QSVPipeline_rgy_filter_afs_analyze_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_FILTER_CL"), _binary_QSVPipeline_rgy_filter_afs_filter_cl_start, _binary_QSVPipeline_rgy_filter_afs_filter_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_MERGE_CL"), _binary_QSVPipeline_rgy_filter_afs_merge_cl_start, _binary_QSVPipeline_rgy_filter_afs_merge_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_AFS_SYNTHESIZE_CL"), _binary_QSVPipeline_rgy_filter_afs_synthesize_cl_start, _binary_QSVPipeline_rgy_filter_afs_synthesize_cl_end },
-    { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_CL"), _binary_QSVPipeline_rgy_filter_deband_cl_start, _binary_clRNG_src_include_clRNG_mrg31k3p_clh_end },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_CL"), _binary_QSVPipeline_rgy_filter_deband_cl_start, _binary_QSVPipeline_rgy_filter_deband_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_GEN_RAND_CL"), _binary_QSVPipeline_rgy_filter_deband_gen_rand_cl_start, _binary_QSVPipeline_rgy_filter_deband_gen_rand_cl_end },
 
 
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_CLH"), _binary_clRNG_src_include_clRNG_clRNG_clh_start, _binary_clRNG_src_include_clRNG_clRNG_clh_end },
-    { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_MRG31K3P_CLH"), _binary_clRNG_src_include_clRNG_mrg31k3p_clh_start, _binary_QSVPipeline_rgy_filter_afs_filter_cl_end },
+    { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_MRG31K3P_CLH"), _binary_clRNG_src_include_clRNG_mrg31k3p_clh_start, _binary_clRNG_src_include_clRNG_mrg31k3p_clh_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH"), _binary_clRNG_src_include_clRNG_private_mrg31k3p_c_h_start, _binary_clRNG_src_include_clRNG_private_mrg31k3p_c_h_end },
 
     { _T("EXE_DATA"), _T("RGY_FILTER_DECIMATE_CL"), _binary_QSVPipeline_rgy_filter_decimate_cl_start, _binary_QSVPipeline_rgy_filter_decimate_cl_end },
