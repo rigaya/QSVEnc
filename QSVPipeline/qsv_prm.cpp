@@ -101,11 +101,7 @@ sInputParams::sInputParams() :
     nQVBRQuality(QSV_DEFAULT_QVBR),
     nSlices(0),
     ColorFormat(MFX_FOURCC_NV12),
-#if defined(_WIN32) || defined(_WIN64)
     memType(HW_MEMORY),
-#else
-    memType(SYSTEM_MEMORY),
-#endif
     nInputBufSize(QSV_DEFAULT_INPUT_BUF_HW),
     nPAR(),
     bCAVLC(false),
