@@ -231,7 +231,7 @@ tstring encoder_help() {
         _T("\n"));
     str += strsprintf(_T("Frame buffer Options:\n")
         _T(" frame buffers are selected automatically by default.\n")
-#ifdef D3D_SURFACES_SUPPORT
+#if D3D_SURFACES_SUPPORT
         _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
         _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
         _T(" On particular cases, such as runnning on a system with dGPU, or running\n")
@@ -1242,7 +1242,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
-#ifdef D3D_SURFACES_SUPPORT
+#if D3D_SURFACES_SUPPORT
     if (0 == _tcscmp(option_name, _T("disable-d3d"))) {
         pParams->memType = SYSTEM_MEMORY;
         return 0;
@@ -1795,7 +1795,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_NUM(_T("--async-depth"), nAsyncDepth);
     if (save_disabled_prm || ((pParams->memType) != (encPrmDefault.memType))) {
         switch (pParams->memType) {
-#ifdef D3D_SURFACES_SUPPORT
+#if D3D_SURFACES_SUPPORT
         case SYSTEM_MEMORY: cmd << _T(" --disable-d3d"); break;
         case HW_MEMORY:   cmd << _T(" --d3d"); break;
         case D3D9_MEMORY: cmd << _T(" --d3d9"); break;
