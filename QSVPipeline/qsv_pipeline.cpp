@@ -1199,14 +1199,19 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
     PrintMes(RGY_LOG_DEBUG, _T("Created Intel OpenCL platform.\n"));
 
     auto& platform = platforms[0];
-    if (m_memType == D3D9_MEMORY) {
+    if (m_memType == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
         if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to find d3d9 device.\n"));
             return RGY_ERR_DEVICE_LOST;
         }
-    } else if (m_memType == D3D11_MEMORY) {
+    } else if (m_memType == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
         if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to find d3d11 device.\n"));
+            return RGY_ERR_DEVICE_LOST;
+        }
+    } else if (m_memType == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
+        if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to find va device.\n"));
             return RGY_ERR_DEVICE_LOST;
         }
     } else {

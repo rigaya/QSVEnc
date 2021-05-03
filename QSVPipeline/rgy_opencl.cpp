@@ -226,7 +226,12 @@ int initOpenCLGlobal() {
     if (RGYOpenCL::openCLHandle != nullptr) {
         return 0;
     }
-    if ((RGYOpenCL::openCLHandle = RGY_LOAD_LIBRARY(_T("OpenCL.dll"))) == nullptr) {
+#if defined(_WIN32) || defined(_WIN64)
+    static const TCHAR *opencl_dll_name = _T("OpenCL.dll");
+#else
+    static const TCHAR *opencl_dll_name = _T("libOpenCL.so");
+#endif
+    if ((RGYOpenCL::openCLHandle = RGY_LOAD_LIBRARY(opencl_dll_name)) == nullptr) {
         return 1;
     }
 
