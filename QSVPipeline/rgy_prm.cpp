@@ -1147,6 +1147,7 @@ RGYParamControl::RGYParamControl() :
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     logFramePosList(false),     //framePosList出力
+    logPacketsList(false),
     logMuxVidTsFile(nullptr),
     threadOutput(RGY_OUTPUT_THREAD_AUTO),
     threadAudio(RGY_AUDIO_THREAD_AUTO),

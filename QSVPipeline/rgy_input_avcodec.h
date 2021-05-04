@@ -951,6 +951,7 @@ public:
     float          seekSec;                 //指定された秒数分先頭を飛ばす
     tstring        logFramePosList;         //FramePosListの内容を入力終了時に出力する (デバッグ用)
     tstring        logCopyFrameData;        //frame情報copy関数のログ出力先 (デバッグ用)
+    tstring        logPackets;              //読み込んだパケットの情報を出力する
     int            threadInput;             //入力スレッドを有効にする
     PerfQueueInfo *queueInfo;               //キューの情報を格納する構造体
     DeviceCodecCsp *HWDecCodecCsp;          //HWデコーダのサポートするコーデックと色空間
@@ -1117,6 +1118,7 @@ protected:
 
     AVDemuxer        m_Demux;                      //デコード用情報
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
+    std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
     AVCaption2Ass    m_cap2ass;
 };

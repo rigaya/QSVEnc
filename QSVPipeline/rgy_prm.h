@@ -1123,6 +1123,7 @@ struct RGYParamControl {
     tstring logfile;              //ログ出力先
     int loglevel;                 //ログ出力レベル
     bool logFramePosList;     //framePosList出力
+    bool logPacketsList;
     TCHAR *logMuxVidTsFile;
     int threadOutput;
     int threadAudio;
