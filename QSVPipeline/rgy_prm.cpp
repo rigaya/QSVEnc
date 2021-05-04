@@ -1041,6 +1041,7 @@ AudioSelect::AudioSelect() :
     bsf(),
     disposition(),
     lang(),
+    selectCodec(),
     metadata() {
     memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
     memset(streamChannelOut, 0, sizeof(streamChannelOut));
@@ -1061,6 +1062,7 @@ SubtitleSelect::SubtitleSelect() :
     bsf(),
     disposition(),
     lang(),
+    selectCodec(),
     metadata() {
 
 }
@@ -1075,6 +1077,7 @@ DataSelect::DataSelect() :
     trackID(0),
     disposition(),
     lang(),
+    selectCodec(),
     metadata() {
 
 }
@@ -1117,7 +1120,9 @@ RGYParamCommon::RGYParamCommon() :
     nAttachmentSelectCount(0),
     ppAttachmentSelectList(nullptr),
     audioResampler(RGY_RESAMPLER_SWR),
-    demuxAnalyzeSec(0),
+    inputRetry(0),
+    demuxAnalyzeSec(-1),
+    demuxProbesize(-1),
     AVMuxTarget(RGY_MUX_NONE),                       //RGY_MUX_xxx
     videoTrack(0),
     videoStreamId(0),

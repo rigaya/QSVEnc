@@ -175,6 +175,49 @@ static void rgy_free(T& ptr) {
     }
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4127)
+template <class T, int N>
+struct RGYPowerBase {
+    static T run(T x) {
+        if (N < 0) {
+            return RGYPowerBase<T, -N>::run(1 / x);
+        } else if (N % 2 != 0) {
+            return x * RGYPowerBase<T, ((N>0)?N-1:0)>::run(x);
+        } else if (N == 0) {
+            return 1;
+        } else {
+            return RGYPowerBase<T, N / 2>::run(x * x);
+        }
+    }
+};
+
+
+template <int N, class T>
+T rgy_pow_int(T x) {
+    return RGYPowerBase<T, N>::run(x);
+}
+
+template <class T>
+T rgy_pow_int(T x, int n) {
+    if (n < 0) {
+        x = T(1) / x;
+        n = -n;
+    }
+    T v = T(1);
+    for (int i = 0; i < n; i++) {
+        v *= x;
+    }
+    return v;
+}
+#pragma warning(pop)
+
+int rgy_parse_num(int& val, const tstring& str);
+int rgy_parse_num(int64_t& val, const tstring& str);
+int rgy_parse_num(float& val, const tstring& str);
+int rgy_parse_num(double& val, const tstring& str);
+tstring rgy_print_num_with_siprefix(const int64_t value);
+
 template<typename T>
 using unique_ptr_custom = std::unique_ptr<T, std::function<void(T*)>>;
 
@@ -272,6 +315,7 @@ private:
     T num, den;
 public:
     rgy_rational() : num(0), den(1) {}
+    rgy_rational(T _num) : num(_num), den(1) { }
     rgy_rational(T _num, T _den) : num(_num), den(_den) { reduce(); }
     rgy_rational(const rgy_rational<T>& r) : num(r.num), den(r.den) { reduce(); }
     rgy_rational<T>& operator=(const rgy_rational<T> &r) { num = r.num; den = r.den; reduce(); return *this; }
