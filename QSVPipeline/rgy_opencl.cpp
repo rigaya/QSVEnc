@@ -1308,7 +1308,7 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
 #if ENABLE_RGY_OPENCL_D3D9
         if (m_interop == RGY_INTEROP_DX9) {
             err = clEnqueueReleaseDX9MediaSurfacesKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
-        } else 
+        } else
 #endif
 #if ENABLE_RGY_OPENCL_D3D11
         if (m_interop == RGY_INTEROP_DX11) {
