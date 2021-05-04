@@ -49,6 +49,7 @@
 #include "rgy_version.h"
 #include "rgy_avutil.h"
 #include "rgy_codepage.h"
+#include "rgy_resource.h"
 
 #if ENABLE_AVSW_READER
 extern "C" {
