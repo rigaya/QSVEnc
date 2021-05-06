@@ -49,6 +49,7 @@
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_avutil.h"
+#include "rgy_arch.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include "qsv_plugin.h"
@@ -72,6 +73,7 @@
 
 #if 1
 QSV_CPU_GEN getCPUGenCpuid() {
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
     int CPUInfo[4] = {-1};
     __cpuid(CPUInfo, 0x01);
     const bool bMOVBE  = !!(CPUInfo[2] & (1<<22));
@@ -94,7 +96,7 @@ QSV_CPU_GEN getCPUGenCpuid() {
         __cpuid(CPUInfo, 0x02);
         return (CPUInfo[0] == 0x61B4A001) ? CPU_GEN_AIRMONT : CPU_GEN_SILVERMONT;
     }
-
+#endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
     return CPU_GEN_SANDYBRIDGE;
 }
 #endif

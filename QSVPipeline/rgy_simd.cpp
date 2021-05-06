@@ -27,12 +27,14 @@
 
 #include <cstdint>
 #include "rgy_osdep.h"
+#include "rgy_simd.h"
+#include "rgy_arch.h"
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #if _MSC_VER
 #include <intrin.h>
 #else
 #include <x86intrin.h>
 #endif //_MSC_VER
-#include "rgy_simd.h"
 
 uint32_t get_availableSIMD() {
     int CPUInfo[4];
@@ -69,3 +71,8 @@ uint32_t get_availableSIMD() {
     }
     return simd;
 }
+#else
+uint32_t get_availableSIMD() {
+    return NONE;
+}
+#endif

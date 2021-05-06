@@ -536,6 +536,9 @@
     <ClInclude Include="rgy_resource.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_arch.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
