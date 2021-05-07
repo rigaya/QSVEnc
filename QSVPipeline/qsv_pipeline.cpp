@@ -1770,18 +1770,12 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
     m_pStatus.reset(new EncodeStatus());
 
     int subburnTrackId = 0;
-#if ENCODER_NVENC
-    if (inputParam->common.nSubtitleSelectCount > 0 && inputParam->vpp.subburn.size() > 0) {
-        PrintMes(RGY_LOG_ERROR, _T("--sub-copy and --vpp-subburn should not be set at the same time.\n"));
-        return MFX_ERR_UNKNOWN;
-    }
     for (const auto &subburn : inputParam->vpp.subburn) {
         if (subburn.trackId > 0) {
             subburnTrackId = subburn.trackId;
             break;
         }
     }
-#endif
 
     //--input-cspの値 (raw読み込み用の入力色空間)
     //この後上書きするので、ここで保存する
