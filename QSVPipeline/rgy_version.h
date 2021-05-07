@@ -124,8 +124,8 @@ const char *get_encoder_version();
 #else
 #define ENABLE_METRIC_FRAMEWORK   1
 #endif
-#define ENABLE_CAPTION2ASS        1
 #endif
+#define ENABLE_CAPTION2ASS        1
 #endif //#ifndef ENABLE_METRIC_FRAMEWORK
 
 #else //#if defined(WIN32) || defined(WIN64)
