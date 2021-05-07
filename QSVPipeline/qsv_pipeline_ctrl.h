@@ -1124,7 +1124,9 @@ public:
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
-        m_timestamp.add(surfVppIn->Data.TimeStamp, 0);
+        if (surfVppIn) {
+            m_timestamp.add(surfVppIn->Data.TimeStamp, 0);
+        }
 
         bool vppMoreOutput = false;
         do {
