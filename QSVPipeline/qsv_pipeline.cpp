@@ -1892,6 +1892,17 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
 RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
 
+    //いろいろなチェックの前提となる
+    applyInputVUIToColorspaceParams(inputParam);
+
+    if ((inputParam->memType & HW_MEMORY) == HW_MEMORY) { //自動モードの場合
+        //OpenCLフィルタを使う場合はd3d11を使用する
+        if (preferD3D11Mode(inputParam)) {
+            inputParam->memType = D3D11_MEMORY;
+            PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode prefered, switched to d3d11 mode.\n"));
+        }
+    }
+
     if ((inputParam->memType & HW_MEMORY)
         && (inputFrameInfo.csp == RGY_CSP_NV16 || inputFrameInfo.csp == RGY_CSP_P210)) {
         PrintMes(RGY_LOG_WARN, _T("Currently yuv422 surfaces are not supported by d3d9/d3d11 memory.\n"));
@@ -1910,6 +1921,13 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
                 inputParam->memType |= D3D11_MEMORY;
             }
             PrintMes(RGY_LOG_DEBUG, _T("Switched to d3d11 mode for HEVC decoding on Haswell.\n"));
+        }
+        if (m_pFileReader->getInputCodec() == RGY_CODEC_AV1) {
+            if (inputParam->memType & D3D9_MEMORY) {
+                inputParam->memType &= ~D3D9_MEMORY;
+                inputParam->memType |= D3D11_MEMORY;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("Switched to d3d11 mode for AV1 decoding.\n"));
         }
     }
 
@@ -1974,7 +1992,29 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
+void CQSVPipeline::applyInputVUIToColorspaceParams(sInputParams *inputParam) {
+    auto currentVUI = inputParam->input.vui;
+    for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
+        auto conv_from = inputParam->vpp.colorspace.convs[i].from;
+        conv_from.apply_auto(currentVUI, inputParam->input.srcHeight);
+        if (i == 0) {
+            inputParam->vppmfx.colorspace.from.matrix = conv_from.matrix;
+            inputParam->vppmfx.colorspace.from.range = conv_from.colorrange;
+        }
+
+        auto conv_to = inputParam->vpp.colorspace.convs[i].to;
+        const bool is_last_conversion = i == (inputParam->vpp.colorspace.convs.size() - 1);
+        if (is_last_conversion) {
+            conv_to.apply_auto(m_encVUI, m_encHeight);
+            inputParam->vppmfx.colorspace.to.matrix = conv_to.matrix;
+            inputParam->vppmfx.colorspace.to.range = conv_to.colorrange;
+        } else {
+            conv_to.apply_auto(conv_from, inputParam->input.srcHeight);
+        }
+    }
+}
+
+std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
     std::vector<VppType> filterPipeline;
     filterPipeline.reserve((size_t)VppType::CL_MAX);
 
@@ -1985,28 +2025,14 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(sInputParams *inputP
             auto currentVUI = inputParam->input.vui;
             for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
                 auto conv_from = inputParam->vpp.colorspace.convs[i].from;
-                conv_from.apply_auto(currentVUI, inputParam->input.srcHeight);
-                if (i == 0) {
-                    inputParam->vppmfx.colorspace.from.matrix = conv_from.matrix;
-                    inputParam->vppmfx.colorspace.from.range = conv_from.colorrange;
-                }
-
                 auto conv_to = inputParam->vpp.colorspace.convs[i].to;
-                const bool is_last_conversion = i == (inputParam->vpp.colorspace.convs.size() - 1);
-                if (is_last_conversion) {
-                    conv_to.apply_auto(m_encVUI, m_encHeight);
-                    inputParam->vppmfx.colorspace.to.matrix = conv_to.matrix;
-                    inputParam->vppmfx.colorspace.to.range = conv_to.colorrange;
-                } else {
-                    conv_to.apply_auto(conv_from, inputParam->input.srcHeight);
-                }
-                if (   conv_from.chromaloc != conv_to.chromaloc
+                if (conv_from.chromaloc != conv_to.chromaloc
                     || conv_from.colorprim != conv_to.colorprim
-                    || conv_from.transfer  != conv_to.transfer) {
+                    || conv_from.transfer != conv_to.transfer) {
                     requireOpenCL = true;
-                } else if ( conv_from.matrix != conv_to.matrix
-                        && (conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
-                        && (conv_to.matrix   != RGY_MATRIX_ST170_M && conv_to.matrix   != RGY_MATRIX_BT709)) {
+                } else if (conv_from.matrix != conv_to.matrix
+                    && (conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
+                    && (conv_to.matrix != RGY_MATRIX_ST170_M && conv_to.matrix != RGY_MATRIX_BT709)) {
                     requireOpenCL = true;
                 }
             }
@@ -2791,6 +2817,18 @@ void __stdcall GetSystemInfoHook(LPSYSTEM_INFO lpSystemInfo) {
 }
 #endif
 
+bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
+    if (check_if_d3d11_necessary()) {
+        return true;
+    }
+
+    const auto filters = InitFiltersCreateVppList(inputParam, inputParam->vpp.colorspace.convs.size() > 0, true, getVppResizeType(inputParam->vpp.resize_algo));
+    const bool clfilterexists = std::find_if(filters.begin(), filters.end(), [](VppType filter) {
+        return getVppFilterType(filter) == VppFilterType::FILTER_OPENCL;
+    }) != filters.end();
+    return clfilterexists;
+}
+
 RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
     auto err = RGY_ERR_NONE;
     m_SessionPlugins.reset();
@@ -2838,11 +2876,6 @@ RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
                     PrintMes(RGY_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
                 }
 
-                //D3D11モードは基本的には遅い模様なので、自動モードなら切る
-                if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
-                    memType &= (~D3D11_MEMORY);
-                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: d3d11 memory mode not required, switching to d3d9 memory mode.\n"));
-                }
 #endif //#if MFX_D3D11_SUPPORT
                 //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
                 for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {

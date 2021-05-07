@@ -187,6 +187,7 @@ protected:
     RGYBitstream m_DecInputBitstream;
 
     std::shared_ptr<RGYOpenCLContext> m_cl;
+    std::vector<VppType> m_vppFilterList;
     std::vector<VppVilterBlock> m_vpFilters;
     std::unique_ptr<QSVVppMfx> m_vppCopyForCheckPts; //checkptsのコピー用のvpp
 
@@ -199,7 +200,7 @@ protected:
     virtual RGY_ERR InitInput(sInputParams *pParams);
     virtual RGY_ERR InitChapters(const sInputParams *inputParam);
     virtual RGY_ERR InitFilters(sInputParams *inputParam);
-    virtual std::vector<VppType> InitFiltersCreateVppList(sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired);
+    virtual std::vector<VppType> InitFiltersCreateVppList(const sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired);
     virtual std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> AddFilterMFX(
         RGYFrameInfo& frameInfo, rgy_rational<int>& fps,
         const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const int outBitdepth, const sInputCrop *crop, const std::pair<int, int> resize, const int blockSize);
@@ -212,6 +213,8 @@ protected:
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();
     virtual RGY_ERR InitSession(bool useHWLib, uint32_t memType);
+    void applyInputVUIToColorspaceParams(sInputParams *inputParam);
+    bool preferD3D11Mode(const sInputParams *pParams);
     RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift = nullptr) const;
 
     virtual RGY_ERR readChapterFile(tstring chapfile);
