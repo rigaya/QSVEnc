@@ -13,12 +13,12 @@ QSVEncC.exe [Options] -i <filename> -o <filename>
 ```
 
 ### More practical commands
-#### example of using hw (qsv) decoder
+#### example of using hw decoder
 ```Batchfile
 QSVEncC --avhw -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
-#### example of using hw (qsv) decoder (interlaced)
+#### example of using hw decoder (interlaced)
 ```Batchfile
 QSVEncC --avhw --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
@@ -30,7 +30,7 @@ QSVEncC -i "<avsfile>" -o "<outfilename.264>"
 
 #### example of pipe usage
 ```Batchfile
-avs2pipemod -y4mp "<avsfile>" | QSVEncC - y4m - i - - o "<outfilename.264>"
+avs2pipemod -y4mp "<avsfile>" | QSVEncC --y4m -i - -o "<outfilename.264>"
 ```
 
 #### pipe usage from ffmpeg
@@ -39,7 +39,7 @@ avs2pipemod -y4mp "<avsfile>" | QSVEncC - y4m - i - - o "<outfilename.264>"
 ffmpeg -y -i "<inputfile>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | QSVEncC --y4m -i - -o "<outfilename.264>"
 ```
 
-#### passing video & audio from ffmpeg
+#### Passing video & audio from ffmpeg
 --> use "nut" to pass both video & audio thorough pipe.
 ```Batchfile
 ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix_fmt yuv420p -f nut - | QSVEncC --avsw -i - --audio-codec aac -o "<outfilename.mp4>"
@@ -554,16 +554,19 @@ Set max ctu size, from 16, 32 or 64. [HEVC]
 
 ## IO / Audio / Subtitle Options
 
-### --input-analyze &lt;int&gt;
+### --input-analyze &lt;float&gt;
 Specify the length in seconds that libav parses for file analysis. The default is 5 (sec).
 If audio / subtitle tracks etc. are not detected properly, try increasing this value (eg 60).
+
+### --input-probesize &lt;int&gt;
+Set the maximum size in bytes that libav parses for file analysis.
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.
 
 ```
-Example 1: --trim 0:1000,2000:3000    (encode frame #0 - #1000 and frame #2000 - #3000)
-Example 2: --trim 2000:0              (encode frame #2000 to the end)
+Example 1: --trim 0:1000,2000:3000    (encode from frame #0 to #1000 and from frame #2000 to #3000)
+Example 2: --trim 2000:0              (encode from frame #2000 to the end)
 ```
 
 ### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
@@ -671,7 +674,7 @@ Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
 ### --audio-profile [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
-Specify audio codec profile when encoding audio.
+Specify audio codec profile when encoding audio.You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ### --audio-stream [{&lt;int&gt;or&lt;string&gt;}?][&lt;string1&gt;][:&lt;string2&gt;]
 Separate or merge audio channels.
@@ -679,7 +682,7 @@ Audio tracks specified with this option will always be encoded. (no copying avai
 
 By comma(",") separation, you can generate multiple tracks from the same input track.
 
-**format of the option**
+**format**
 
 Specify the track to be processed by &lt;int&gt;.
 
@@ -759,7 +762,7 @@ Example: Output in adts format without extension
 ### --audio-filter [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
 Apply filters to audio track. Filters could be slected from [link](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters).
 
-You can also specify the audio track (1, 2, ...) to filter.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ```
 Example 1: --audio-filter volume=0.2  (lowering the volume)
@@ -767,7 +770,8 @@ Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
 ```
 
 ### --audio-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;[,&lt;string&gt;][]...
-音声のdispositionを指定する。
+set disposition for the specified audio track.
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ```
  default
@@ -787,7 +791,7 @@ Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
  metadata
  copy
 
-例:
+Example:
 --audio-disposition 2?default,forced
 ```
 
@@ -808,7 +812,6 @@ Example2: clear metadata from input file
 Example3: set metadata
 --audio-metadata 1?title="audio title" --audio-metadata 1?language=jpn
 ```
-
 
 ### --audio-ignore-decode-error &lt;int&gt;
 Ignore the consecutive audio decode error, and continue transcoding within the threshold specified. The portion of audio which could not be decoded properly will be replaced with silence.
@@ -943,6 +946,7 @@ Read subtitle from the specified file and mux into the output file.
 ```
 Example1: --sub-source "<sub_file>"
 Example2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+```
 
 ### --sub-copy [{&lt;int&gt;or&lt;string&gt;};[,{&lt;int&gt;or&lt;string&gt;}]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
@@ -951,14 +955,14 @@ It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;
 Supported subtitles are PGS / srt / txt / ttxt.
 
 ```
-Example1: copy metadata from input file
---sub-metadata 1?copy
+Example: Copy all subtitle tracks
+--sub-copy
 
-Example2: clear metadata from input file
---sub-metadata 1?clear
+Example: Copy subtitle track #1 and #2
+--sub-copy 1,2
 
-Example3: set metadata
---sub-metadata 1?title="subtitle title" --sub-metadata 1?language=jpn
+Example: Copy subtitle tracks marked as English and Japanese
+--sub-copy eng,jpn
 ```
 
 ### --sub-disposition [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
@@ -983,7 +987,7 @@ set disposition for the specified subtitle track.
  copy
 ```
 
-### --sub-metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
+### --sub-metadata [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt; or [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;=&lt;string&gt;
 Set metadata for subtitle track.
   - copy  ... copy metadata from input if possible (default)
   - clear ... do not copy metadata
@@ -1017,7 +1021,7 @@ Pass optional parameters for input for avhw/avsw reader. Specify the option name
 
 ```
 Example: Reading playlist 1 of bluray 
--i bluray:D:\ --input-option palylist:1
+-i bluray:D:\ --input-option playlist:1
 ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
@@ -1026,6 +1030,9 @@ Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, an
 ```
 Example: Output for HLS
 -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+
+Example: Pass through "default" disposition even if there are no "default" tracks in the output (mkv only)
+-m default_mode:infer_no_subs
 ```
 
 ### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
@@ -1049,7 +1056,7 @@ Example3: set metadata
     The input will be assumed as CFR and input pts will not be checked.
 
   - forcecfr
-    Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained.
+    Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained. Please note that this could not be used with --trim.
 
   - vfr  
     Honor source timestamp and enable vfr output. Only available for avsw/avhw reader, and could not be used with --trim.
@@ -1059,6 +1066,146 @@ Example3: set metadata
 
 ## Vpp Options
 
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Converts colorspace of the video. Available on x64 version.  
+Values for parameters will be copied from input file for "input".
+
+**parameters**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+  
+```
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
+```
+
+- colorprim=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
+```
+
+- transfer=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full, auto
+```
+
+- hdr2sdr=&lt;string&gt;  
+  Enables HDR10 to SDR by selected tone-mapping.  
+
+  - none (default)  
+    hdr2sdr processing is disabled.
+  
+  - hable  
+    Trys to preserve both bright and dark detailes, but with rather dark result.
+    You may specify addtional params (a,b,c,d,e,f) for the hable tone-mapping function below.  
+
+    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+    output = hable( input ) / hable( (source_peak / ldr_nits) )
+    
+    defaults: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
+
+  - mobius  
+    Trys to preserve contrast and colors while bright details might be removed.  
+    - transition=&lt;float&gt;  (default: 0.3)  
+      Threshold to move from linear conversion to mobius tone mapping.  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
+  
+  - reinhard  
+    - contrast=&lt;float&gt;  (default: 0.5)  
+      local contrast coefficient  
+    - peak=&lt;float&gt;  (default: 1.0)  
+      reference peak brightness
+      
+  - bt2390  
+    Perceptual tone mapping curve EETF) specified in BT.2390.
+
+- source_peak=&lt;float&gt;  (default: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (default: 100.0)  
+  Target brightness for hdr2sdr function.
+  
+- desat_base=&lt;float&gt;  (default: 0.18)  
+  Offset for desaturation curve used in hdr2sr.
+
+- desat_strength=&lt;float&gt;  (default: 0.75)  
+  Strength of desaturation curve used in hdr2sr.
+  0.0 will disable the desaturation, 1.0 will make overly bright colors will tend towards white.
+
+- desat_exp=&lt;float&gt;  (default: 1.5)  
+  Exponent of the desaturation curve used in hdr2sr.
+  This controls the brightness of which desaturated is going to start.
+  Lower value will make the desaturation to start earlier.
+
+```
+example1: convert from BT.601 -> BT.709
+--vpp-colorspace matrix=smpte170m:bt709
+
+example2: using hdr2sdr (hable tone-mapping)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+
+example3: using hdr2sdr (hable tone-mapping) and setting the coefs (this is example for the default settings)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+```
+
+
+### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- select=&lt;string&gt;  
+For logo pack, specify the logo to use with one of the following.
+  - Logo name
+  - Index (1, 2, ...)
+  - Automatic selection ini file
+
+For logo pack, specify the logo to use with one of the following.
+
+- Logo name
+- Index (1, 2, ...)
+- Automatic selection ini file
+```
+ [LOGO_AUTO_SELECT]
+ logo<num>=<pattern>,<logo name>
+```
+
+ Example:
+ ```ini
+[LOGO_AUTO_SELECT]
+logo1= (NHK-G).,NHK総合 1440x1080
+logo2= (NHK-E).,NHK-E 1440x1080
+logo3= (MX).,TOKYO MX 1 1440x1080
+logo4= (CTC).,チバテレビ 1440x1080
+logo5= (NTV).,日本テレビ 1440x1080
+logo6= (TBS).,TBS 1440x1088
+logo7= (TX).,TV東京 50th 1440x1080
+logo8= (CX).,フジテレビ 1440x1088
+logo9= (BSP).,NHK BSP v3 1920x1080
+logo10= (BS4).,BS日テレ 1920x1080
+logo11= (BSA).,BS朝日 1920x1080
+logo12= (BS-TBS).,BS-TBS 1920x1080
+logo13= (BSJ).,BS Japan 1920x1080
+logo14= (BS11).,BS11 1920x1080 v3
+```
+
+
+- pos &lt;int&gt;:&lt;int&gt;
+Adjustment of logo position with 1/4 pixel accuracy in x:y direction.  
+
+- depth &lt;int&gt;
+Adjustment of logo transparency. Default 128.  
+
+- y=&lt;int&gt;  
+- cb=&lt;int&gt;  
+- cr=&lt;int&gt;  
+Adjustment of each color component of the logo.  
+
+
+
 ### --vpp-deinterlace &lt;string&gt;
 Activate GPU deinterlacer. 
 
@@ -1066,6 +1213,292 @@ Activate GPU deinterlacer.
 - normal ... standard 60i → 30p interleave cancellation.
 - it    ... inverse telecine
 - bob ... 60i → 60p interleaved.
+
+### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Activate Auto Field Shift (AFS) deinterlacer.
+
+**parameters**
+- top=&lt;int&gt;
+- bottom=&lt;int&gt;
+- left=&lt;int&gt;
+- right=&lt;int&gt;
+  clip out the range to decide field shift.
+
+- method_switch=&lt;int&gt;  (0 - 256)  
+  threshold to swicth field shift algorithm. 
+
+- coeff_shift=&lt;int&gt;  (0 - 256)  
+  threshold for field shift, with bigger value, more field shift will be occurred.
+
+- thre_shift=&lt;int&gt;  (0 - 1024)  
+  threshold for stripe detection which will be used on shift decision. Lower value will result more stripe detection.
+
+- thre_deint=&lt;int&gt;   (0 - 1024)  
+  threshold for stripe detection which will be used on deinterlacing. Lower value will result more stripe detection.
+
+- thre_motion_y=&lt;int&gt;  (0 - 1024)  
+- thre_motion_c=&lt;int&gt;  (0 - 1024)  
+  threshold for motion detection. Lower value will result more motion detection. 
+
+- level=&lt;int&gt;  (0 - 4)  
+  Select how to remove the stripes. 
+
+| level | process | target | decription |
+|:---|:---|:---|:---|
+| 0 | none  | | Stripe removing process will not be done.<br>New frame generated by field shift will be the output. |
+| 1 | triplication | all pixels | Blend previous field into new frame generated by field shift.<br>Stripe caused be motion will all become afterimage. |
+| 2 | duplicate | stripe-detected pixels | Blend previous field into new frame generated by field shift, only on stripe detected pixels.<br>Should be used for movies with little motion. |
+| 3 (default) | duplicate  | motion-detected pixels | Blend previous field into new frame generated by field shift, only on motion detected pixels. <br>This mode can preserve more edges or small letters compared to level 2. | 
+| 4 | interpolate | motion-detected pixels | On motion detected pixels, drop one field, and generate pixel by interpolating from the other field.<br>There will be no afterimage, but the vertical resolution of pixels with motion will halved. |
+
+- shift=&lt;bool&gt;  
+  Enable field shift.
+
+- drop=&lt;bool&gt;  
+  drop frame which has shorter display time than "1 frame". Note that enabling this option will generate VFR (Variable Frame Rate) output.
+  When muxing is done by QSVEncC, the timecode will be applied automatically. However, when using raw output,
+  you will need output timecode file by adding "timecode=true" to vpp-afs option,
+  and mux the timecode file later.
+
+- smooth=&lt;bool&gt;  
+  Smoothen picture display timing.
+
+- 24fps=&lt;bool&gt;  
+  Force 30fps -> 24fps conversion.
+
+- tune=&lt;bool&gt;  
+  When this options is set true, the output will be the result of motion and stripe detection, shown by the color below.
+
+| color | description |
+|:---:|:---|
+| dark blue | motion was detected |
+| grey | stripe was detected|
+| light blue | motion & stripe was detected |
+
+- log=&lt;bool&gt;  
+  Generate log of per frame afs status (for debug).
+
+- preset=&lt;string&gt;  
+  Parameters will be set as below.
+
+|preset name   | default | triple | double | anime<br>cinema | min_afterimg |  24fps  | 30fps |
+|:---          |:---:| :---:| :---:|:---:|:---:|:---:| :---:|
+|method_switch |     0   |    0   |     0  |       64        |       0      |    92   |   0   |
+|coeff_shift   |   192   |  192   |   192  |      128        |     192      |   192   |  192  |
+|thre_shift    |   128   |  128   |   128  |      128        |     128      |   448   |  128  |
+|thre_deint    |    48   |   48   |    48  |       48        |      48      |    48   |   48  |
+|thre_motion_y |   112   |  112   |   112  |      112        |     112      |   112   |  112  |
+|thre_motion_c |   224   |  224   |   224  |      224        |     224      |   224   |  224  |
+|level         |     3   |    1   |     2  |        3        |       4      |     3   |    3  |
+|shift         |    on   |  off   |    on  |       on        |      on      |    on   |  off  |
+|drop          |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
+|smooth        |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
+|24fps         |   off   |  off   |   off  |      off        |     off      |    on   |  off  |
+|tune          |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
+|rff           |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
+
+```
+example: same as --vpp-afs preset=24fps
+--vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
+```
+
+### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+nnedi deinterlacer.
+
+**parameters**
+- field
+
+  - auto (default)  
+    Generate latter field from first field.
+  - top  
+    Generate bottom field using top field.
+  - bottom  
+    Generate top field using bottom field.
+
+- nns  (default: 32)  
+  Neurons of neural net.
+  - 16, 32, 64, 128, 256
+
+- nsize  (default: 32x4)  
+  Area size which neural net uses to generate a pixel.
+  - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
+
+- quality  
+  quality settings.
+
+  - fast (default)
+
+  - slow  
+    "slow" uses another neural net and blends 2 outputs from different network to enhance quality.
+
+- prescreen
+  
+  - none  
+    No pre-screening is done and all pixels will be generated by neural net.
+
+  - original
+  - new  (default)  
+    Runs prescreener to determine which pixel to apply neural net, other pixels will be generated from simple interpolation. 
+
+  - original_block
+  - new_block  (default)  
+    GPU optimized version of "original", "new". Applies screening based on block, and not pixel.
+
+- errortype  
+  Select weight parameter for neural net.
+  - abs  (default)  
+    Use weight trained to minimize absolute error.
+  - square  
+    Use weight trained to minimize square error.
+  
+- prec  
+  Select precision.
+  - auto (default)  
+    Use fp16 whenever it is available and will be faster, otherwise use fp32.
+  
+  - fp16  
+    Force to use fp16. x64 only.
+  
+  - fp32  
+    Force to use fp32.
+    
+  
+- weightfile  
+  Set path of weight file. By default (not specified), internal weight params will be used.
+
+  
+```
+example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
+```
+
+
+### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Drop duplicated frame in cycles set.
+
+**parameters**
+  - cycle=&lt;int&gt;  (default: 5)  
+    num of frame from which a frame will be droppped.
+
+  - thredup=&lt;float&gt;  (default: 1.1,  0.0 - 100.0)  
+    duplicate threshold.
+
+  - thresc=&lt;float&gt;   (default: 15.0,  0.0 - 100.0)  
+    scene change threshold.
+
+  - blockx=&lt;int&gt;  
+  - blocky=&lt;int&gt;  
+    block size of x and y direction, default = 32. block size could be 4, 8, 16, 32, 64.
+    
+  - chroma=&lt;bool&gt;  
+    consdier chroma (default: on).
+    
+  - log=&lt;bool&gt;  
+    output log file (default: off).
+    
+
+### --vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+Drop consequentive duplicate frame(s) and create a VFR video, which might improve effective encoding performance, and improve compression efficiency.
+Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is automatically activated when using this filter.
+
+**parameters**
+  - hi=&lt;int&gt;  (default: 768, 8x8x12)  
+    The frame might be dropped if no 8x8 block difference is more than "hi".
+
+  - lo=&lt;int&gt;  (default: 320, 8x8x5)  
+  - frac=&lt;float&gt;  (default: 0.33)  
+    The frame might be dropped if the fraction of 8x8 blocks with difference smaller than "lo" is more than "frac".
+
+  - max=&lt;int&gt;  (default: 0)  
+    Max consecutive frames which can be dropped (if positive).  
+    Min interval between dropped frames (if negative).
+    
+  - log=&lt;bool&gt;  
+    output log file. (default: off)
+
+
+### --vpp-resize &lt;string&gt;
+Specify the resizing algorithm.
+
+| option name | description |
+|:---|:---|
+| auto     | auto select |
+| simple   | use simple scaling     |
+| advanced | use high quality scaling |
+| bilinear | linear interpolation |
+| spline16 | 4x4 spline curve interpolation |
+| spline36 | 6x6 spline curve interpolation |
+| spline64 | 8x8 spline curve interpolation |
+| lanczos2 | 4x4 Lanczos resampling |
+| lanczos3 | 6x6 Lanczos resampling |
+| lanczos4 | 8x8 Lanczos resampling |
+
+### --vpp-resize-mode &lt;string&gt;
+Specify the resizer mode.
+
+| option name | desciption |
+|:---|:---|
+| auto     | auto select                       |
+| lowpower | low power resize done by hardware |
+| quality  | high quality scaling              |
+
+### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Strong noise reduction filter.
+
+**Parameters**
+- radius=&lt;int&gt;  (default=3, 1-5)   
+  radius of filter.
+
+- strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)   
+  Strength of the filter.
+
+- lerp=&lt;float&gt;   (default=0.2, 0.0 - 1.0)  
+  The degree of blending of the original pixel to the noise reduction pixel.
+
+- th_lerp=&lt;float&gt;  (default=0.8, 0.0 - 1.0)  
+  Threshold of edge detection. 
+
+```
+Example: slightly stronger than default
+--vpp-knn radius=3,strength=0.10,lerp=0.1
+```
+
+### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Rather weak noise reduction by modified pmd method, aimed to preserve edge while noise reduction.
+
+**Parameters**
+- apply_count=&lt;int&gt;  (default=2, 1- )  
+  Number of times to apply the filter. 
+
+- strength=&lt;float&gt;  (default=100, 0-100)  
+  Strength of the filter. 
+
+- threshold=&lt;float&gt;  (default=100, 0-255)  
+  Threshold for edge detection. The smaller the value is, more will be detected as edge, which will be preserved.
+
+```
+Example: Slightly weak than default
+--vpp-pmd apply_count=2,strength=90,threshold=120
+```
+
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**parameters**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  Quality of the filter. Larger value should result in higher quality but with lower speed.
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  Strength of the filter.
+  
+- prec  
+  Select precision.
+  - auto (default)  
+    Use fp16 whenever it is available and will be faster, otherwise use fp32.
+  
+  - fp16  
+    Force to use fp16. x64 only.
+  
+  - fp32  
+    Force to use fp32.
 
 ### --vpp-denoise &lt;int&gt;
 Enable vpp denoise, strength 0 - 100.
@@ -1125,6 +1558,75 @@ Example3: burn in ASS subtitle from file which charcter code is Shift-JIS
 --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
 ```
 
+### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+unsharp filter, for edge and detail enhancement.
+
+**Parameters**
+- radius=&lt;int&gt; (default=3, 1-9)  
+  radius of edge / detail detection.
+
+- weight=&lt;float&gt; (default=0.5, 0-10)  
+  Strength of edge and detail emphasis. Larger value will result stronger effect.
+
+- threshold=&lt;float&gt;  (default=10.0, 0-255)  
+  Threshold for edge and detail detection.
+
+```
+Example: Somewhat stronger
+--vpp-unsharp weight=1.0
+```
+
+### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Edge level adjustment filter, for edge sharpening.
+
+**Parameters**
+- strength=&lt;float&gt; (default=5.0, -31 - 31)  
+  Strength of edge sharpening. Larger value will result stronger edge sharpening.
+
+- threshold=&lt;float&gt;  (default=20.0, 0 - 255)  
+  Noise threshold to avoid enhancing noise. Larger value will treat larger luminance change as noise.
+
+- black=&lt;float&gt;  (default=0.0, 0-31)  
+  strength to enhance dark part of edges.
+
+- white=&lt;float&gt;  (default=0.0, 0-31)  
+  strength to enhance bright part of edges.
+
+```
+Example: Somewhat stronger (Aviutl version default)
+--vpp-edgelevel strength=10.0,threshold=16.0,black=0,white=0
+
+Example: Strengthening the black part of the outline
+--vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
+```
+
+### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Edge warping (sharpening) filter.
+
+**Parameters**
+- threshold=&lt;float&gt;  (default=128.0, 0 - 255)  
+  Threshold used when detencting edges. Raising this value will result stronger sharpening.
+
+- blur=&lt;int&gt;  (default=2)  
+  Number of times to blur. More times of blur will result weaker sharpening.
+
+- type=&lt;int&gt;  (default=0)  
+  - 0 ... use 13x13 size blur.
+  - 1 ... use 5x5 size blur. This results higher quality, but requires more blur counts.
+  
+- depth=&lt;float&gt;  (default=16.0, -128.0 - 128.0)  
+  Depth of warping, raising this value will result stronger sharpening.
+  
+- chroma=&lt;int&gt;  (default=0)  
+  Select how to process chroma channels.
+  - 0 ... Use luma based mask to process hcroma channels.
+  - 1 ... Create individual mask for each chroma channels.
+
+```
+例: Using type 1.
+--vpp-warpsharp threshold=128,blur=3,type=1
+```
+
 ### --vpp-detail-enhance &lt;int&gt;
 Enable vpp detail enhancer, strength 0 - 100.
 
@@ -1134,14 +1636,10 @@ Set image stabilizer mode.
 - upscale
 - box
 
+
 ### --vpp-rotate &lt;int&gt;
-Rotate image by specified degree. Degree could be selected from 90, 180, 270. Requires d3d11 mode (not supported on linux).
 
-### --vpp-mirror &lt;string&gt;
-Mirror image.
-- h ... mirror in horizontal direction.
-- v ... mirror in vertical   direction.
-
+Rotate video. 90, 180, 270 degrees is allowed.
 
 ### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
@@ -1152,127 +1650,70 @@ Mirror image.
 
 - transpose=&lt;bool&gt;
 
-### --vpp-resize &lt;string&gt;
-Specify the resizing algorithm.
-
-| option name | desciption |
-|:---|:---|
-| auto  | auto select |
-| simple | use simple scaling |
-| fine | use high quality scaling |
-
-
-### --vpp-resize &lt;string&gt;
-Specify the resizing algorithm.
-
-| option name | desciption |
-|:---|:---|
-| auto     | auto select                     |
-| simple   | simple nearest neighbor scaling |
-| bilinear | bilinear method                 |
-| advanced | advanced high quality scaling   |
-
-### --vpp-resize-mode &lt;string&gt;
-Specify the resizer mode.
-
-| option name | desciption |
-|:---|:---|
-| auto     | auto select                       |
-| lowpower | low power resize done by hardware |
-| quality  | high quality scaling              |
-
-
-    
-### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-Converts colorspace of the video. 
-
-**parameters**
-- matrix=&lt;from&gt;:&lt;to&gt;  
-  
-```
-  bt709, smpte170m
-```
-
-- range=&lt;from&gt;:&lt;to&gt;  
-```
-  limited, full, auto
-```
-
-```
-example1: convert from BT.601 -> BT.709
---vpp-colorspace matrix=smpte170m:bt709
-```
-
-### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **Parameters**
-- select=&lt;string&gt;  
-For logo pack, specify the logo to use with one of the following.
-  - Logo name
-  - Index (1, 2, ...)
-  - Automatic selection ini file
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
 
-For logo pack, specify the logo to use with one of the following.
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
 
-- Logo name
-- Index (1, 2, ...)
-- Automatic selection ini file
-```
- [LOGO_AUTO_SELECT]
- logo<num>=<pattern>,<logo name>
-```
+- gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
 
- Example:
- ```ini
-[LOGO_AUTO_SELECT]
-logo1= (NHK-G).,NHK総合 1440x1080
-logo2= (NHK-E).,NHK-E 1440x1080
-logo3= (MX).,TOKYO MX 1 1440x1080
-logo4= (CTC).,チバテレビ 1440x1080
-logo5= (NTV).,日本テレビ 1440x1080
-logo6= (TBS).,TBS 1440x1088
-logo7= (TX).,TV東京 50th 1440x1080
-logo8= (CX).,フジテレビ 1440x1088
-logo9= (BSP).,NHK BSP v3 1920x1080
-logo10= (BS4).,BS日テレ 1920x1080
-logo11= (BSA).,BS朝日 1920x1080
-logo12= (BS-TBS).,BS-TBS 1920x1080
-logo13= (BSJ).,BS Japan 1920x1080
-logo14= (BS11).,BS11 1920x1080 v3
-```
+- saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
 
+- hue=&lt;float&gt; (default=0.0, -180 - 180)  
 
-- pos &lt;int&gt;:&lt;int&gt;
-Adjustment of logo position with 1/4 pixel accuracy in x:y direction.  
-
-- depth &lt;int&gt;
-Adjustment of logo transparency. Default 128.  
-
-- y=&lt;int&gt;  
-- cb=&lt;int&gt;  
-- cr=&lt;int&gt;  
-Adjustment of each color component of the logo.  
-
-- auto_fade=&lt;bool&gt;  
-Adjust fade value dynamically. default=false.  
-  
-- auto_nr=&lt;bool&gt;  
-Adjust strength of noise reduction dynamically. default=false.  
-
-- nr_area=&lt;int&gt;  
-Area of noise reduction near logo. (default=0 (off), 0 - 3)  
-
-- nr_value=&lt;int&gt;  
-Strength of noise reduction near logo. (default=0 (off), 0 - 4)  
-
-- log=&lt;bool&gt;  
-auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
+- swapuv=&lt;bool&gt;  (default=false)
 
 ```
-例:
---vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
+Example:
+--vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
 
+### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**Parameters**
+- range=&lt;int&gt; (default=15, 0-127)  
+  Blur range. Samples to be used for blur are taken from pixels within this range.
+
+- sample=&lt;int&gt; (default=1, 0-2)  
+  - sample = 0
+    Processing is performed by referring a pixel within "range".
+
+  - sample = 1
+    Blur processing is performed by referring total of 2 pixels, a pixel within "range" and its point symmetric pixel.
+
+  - sample = 2
+    Blur processing is performed by referring total of 4 pixels including 2 pixels within "range" and their point symmetric pixels.
+
+- thre=&lt;int&gt; (set same threshold for y, cb & cr)
+- thre_y=&lt;int&gt; (default=15, 0-31)
+- thre_cb=&lt;int&gt; (default=15, 0-31)
+- thre_cr=&lt;int&gt; (default=15, 0-31)  
+  Threshold for y, cb, cr blur. If this value is high, the filter will be stronger, but thin lines and edges are likely to disappear.
+
+- dither=&lt;int&gt;   (set same dither for y & c)
+- dither_y=&lt;int&gt; (default=15, 0-31)
+- dither_c=&lt;int&gt; (default=15, 0-31)  
+  Dither strength of y & c.
+
+- seed=&lt;int&gt;  
+  Change of random number seed. (default = 1234)
+
+- blurfirst (default=off)  
+  Stronger effect could be expected, by processing blur first.
+  However side effects may also become stronger, which might make thin lines to disappear.
+
+- rand_each_frame (default=off)  
+  Change the random number used by the filter every frame.
+
+```
+Example:
+--vpp-deband range=31,dither=12,rand_each_frame
+```
+
+### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
+add padding to left,top,right,bottom (in pixels)
 ## Other Options
 
 ### --async-depth &lt;int&gt;
@@ -1330,8 +1771,15 @@ Select the level of log output.
 ### --log-framelist
 FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
 
+### --log-packets
+FOR DEBUG ONLY! Output debug log for packets read in avsw/avhw reader.
+
+### --option-file &lt;string&gt;
+File which containes a list of options to be used.
+Line feed is treated as a blank, therefore an option or a value of it should not splitted in multiple lines.
+
 ### --max-procfps &lt;int&gt;
-Set the upper limit of transcoding speed. The default is 0 (= unlimited).
+Set the upper limit of transcode speed. The default is 0 (= unlimited).
 
 This could be used when you want to encode multiple stream and you do not want one stream to use up all the power of CPU or GPU.
 ```
@@ -1343,7 +1791,7 @@ Example: Limit maximum speed to 90 fps
 Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
 
 ### --avsdll &lt;string&gt;
-Specifies AviSynth DLL location to use. When unspecified, the DLL installed in the system32 will be used.
+Specifies AviSynth DLL location to use. When unspecified, the default AviSynth.dll will be used.
 
 ### --process-codepage &lt;string&gt; [Windows OS only]  
 - utf8  

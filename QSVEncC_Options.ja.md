@@ -11,12 +11,12 @@ QSVEncC.exe [Options] -i <filename> -o <filename>
 ```
 
 ### もっと実用的なコマンド
-#### qsvデコードを使用する例
+#### hwデコードを使用する例
 ```Batchfile
 QSVEncC --avhw -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
 
-#### qsvデコードを使用する例 (インタレ保持)
+#### hwデコードを使用する例 (インタレ保持)
 ```Batchfile
 QSVEncC --avhw --interlace tff -i "<mp4(H.264/AVC) file>" -o "<outfilename.264>"
 ```
@@ -42,7 +42,6 @@ ffmpeg -y -i "<ソース動画>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | QSVEnc
 ```Batchfile
 ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix_fmt yuv420p -f nut - | QSVEncC --avsw -i - --audio-codec aac -o "<outfilename.mp4>"
 ```
-
 
 #### raw H.264/ESのmux
 H.264/ESで出力し、mp4に格納したり、AAC音声とmuxする場合には、L-SMASHを使って、
@@ -573,9 +572,12 @@ SAOのモードの切り替え。 [HEVC]
 
 ## 入出力 / 音声 / 字幕などのオプション
 
-### --input-analyze &lt;int&gt;
+### --input-analyze &lt;float&gt;
 libavが読み込み時に解析するファイルの時間を秒で指定。デフォルトは5。
 音声トラックなどが正しく抽出されない場合、この値を大きくしてみてください(例:60)。
+
+### --input-probesize &lt;int&gt;
+libavが読み込み時に解析する最大のサイズをbyte単位で指定。
 
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。
@@ -758,7 +760,7 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 ### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;
 指定したパスに音声を抽出する。出力フォーマットは出力拡張子から自動的に決定する。avhw/avswリーダー使用時のみ有効。
 
-[&lt;int&gt;]で、抽出する音声トラック(1,2,...)を指定することもできる。
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 ```
 例: test_out2.aacにトラック番号#2を抽出
 --audio-file 2?"test_out2.aac"
@@ -1008,10 +1010,10 @@ matroska形式 (UTF-8であること)
 --sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
 ```
 
-### --caption2ass &lt;string&gt;
+### --caption2ass [&lt;string&gt;]
 caption2assによる字幕抽出処理を行い、動画にmuxして出力する。別途 "Caption.dll" が必要。
 
-mp4にmuxする際は、必ずsrt形式を選択してください。内部でさらにmov_textに変換してmuxしますが、ass形式を選択するとmp4へのmuxがうまく動作しません。
+出力フォーマットがassかsrtのみなので、mkvなどで出力してください。
 
 **出力フォーマット**
 - srt (デフォルト)
@@ -1027,8 +1029,8 @@ attachmentストリームをコピーする。avhw/avswリーダー使用時の�
 avsw/avhwでの読み込み時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
 ```
-Example: Blurayのplaylist 1を読み込み
--i bluray:D:\ --input-option palylist:1
+例: Blurayのplaylist 1を読み込み
+-i bluray:D:\ --input-option playlist:1
 ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
@@ -1037,6 +1039,9 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 ```
 例: HLS用の出力
 -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+
+例: "default"として設定されている字幕トラックがない場合に、自動的に"default"が付与されるのを抑止しする (mkvのみ)
+-m default_mode:infer_no_subs
 ```
 
 ### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
@@ -1071,6 +1076,139 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 ## vppオプション
 
 
+### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+色空間変換を行う。x64版のみ使用可能。  
+パラメータに"input"を指定すると、入力ファイルの値を参照できる。(avhww/avsw読み込みのみ)
+
+**パラメータ**
+- matrix=&lt;from&gt;:&lt;to&gt;  
+  
+```
+  bt709, smpte170m, bt470bg, smpte240m, YCgCo, fcc, GBR, bt2020nc, bt2020c, auto
+```
+
+- colorprim=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, film, bt2020, auto
+```
+
+- transfer=&lt;from&gt;:&lt;to&gt;  
+```
+  bt709, smpte170m, bt470m, bt470bg, smpte240m, linear,
+  log100, log316, iec61966-2-4, iec61966-2-1,
+  bt2020-10, bt2020-12, smpte2084, arib-std-b67, auto
+```
+
+- range=&lt;from&gt;:&lt;to&gt;  
+```
+  limited, full, auto
+```
+
+- hdr2sdr=&lt;string&gt;  
+  tone-mappingを指定してHDRからSDRへの変換を行う。 
+  
+  - none  (デフォルト)  
+    hdr2sdrの処理を行うない。
+
+  - hable    
+    明部と暗部のディテールの両方をバランスよく保ちながら変換する。(ただし、やや暗めになる)
+    下記のhable tone-mappingの式のパラメータ(a,b,c,d,e,f)の指定も可能。
+
+    hable(x) = ( (x * (a*x + c*b) + d*e) / (x * (a*x + b) + d*f) ) - e/f  
+    output = hable( input ) / hable( (source_peak / ldr_nits) )
+    
+    デフォルト: a = 0.22, b = 0.3, c = 0.1, d = 0.2, e = 0.01, f = 0.3
+
+  - mobius  
+    なるべく画面の明るさやコントラストを維持した変換を行うが、明部のディテールがつぶれる可能性がある。
+   
+    - transition=&lt;float&gt;  (デフォルト: 0.3)  
+      線形変換から mobius tone mappingに移行する分岐点。  
+    - peak=&lt;float&gt;  (デフォルト: 1.0)  
+      reference peak brightness
+  
+  - reinhard  
+    - contrast=&lt;float&gt;  (デフォルト: 0.5)  
+      local contrast coefficient  
+    - peak=&lt;float&gt;  (デフォルト: 1.0)  
+      reference peak brightness
+      
+  - bt2390  
+    BT.2390で規定されるtone mapping。
+
+
+- source_peak=&lt;float&gt;  (デフォルト: 1000.0)  
+
+- ldr_nits=&lt;float&gt;  (デフォルト: 100.0)  
+
+- desat_base=&lt;float&gt;  (デフォルト: 0.18)  
+  hdr2sdrで使用されるdesaturation処理のオフセット。
+
+- desat_strength=&lt;float&gt;  (デフォルト: 0.75)  
+  hdr2sdrで使用されるdesaturation処理の強度。0.0では処理が無効化され、1.0では明るい色は白くなる。
+
+- desat_exp=&lt;float&gt;  (デフォルト: 1.5)  
+  hdr2sdrで使用されるdesaturation処理の指数で、どのくらいの明るさから処理が行われるかを制御する。
+  低めの値では、より積極的に処理が行われる。
+
+```
+例1: BT.709(fullrange) -> BT.601 への変換
+--vpp-colorspace matrix=smpte170m:bt709,range=full:limited
+
+例2: hdr2sdrの使用 (hable tone-mapping)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0
+
+例3: hdr2sdr使用時の追加パラメータの指定例 (下記例ではデフォルトと同じ意味)
+--vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
+```
+
+
+### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
+
+**パラメータ**
+- select=&lt;string&gt;  
+ロゴパックの場合に、使用するロゴを以下のいずれかで指定する。
+
+  - ロゴ名
+  - インデックス (1,2,...)
+  - 自動選択用iniファイル
+```
+ [LOGO_AUTO_SELECT]
+ logo<連番数字>=<マッチパターン>,<リストに表示されているロゴ名(完全一致!)>
+```
+
+ 例:
+ ```ini
+[LOGO_AUTO_SELECT]
+logo1= (NHK-G).,NHK総合 1440x1080
+logo2= (NHK-E).,NHK-E 1440x1080
+logo3= (MX).,TOKYO MX 1 1440x1080
+logo4= (CTC).,チバテレビ 1440x1080
+logo5= (NTV).,日本テレビ 1440x1080
+logo6= (TBS).,TBS 1440x1088
+logo7= (TX).,TV東京 50th 1440x1080
+logo8= (CX).,フジテレビ 1440x1088
+logo9= (BSP).,NHK BSP v3 1920x1080
+logo10= (BS4).,BS日テレ 1920x1080
+logo11= (BSA).,BS朝日 1920x1080
+logo12= (BS-TBS).,BS-TBS 1920x1080
+logo13= (BSJ).,BS Japan 1920x1080
+logo14= (BS11).,BS11 1920x1080 v3
+```
+
+- pos=&lt;int&gt;:&lt;int&gt;  
+1/4画素精度のロゴ位置の調整。Aviutlで言うところの &lt;位置 X&gt;:&lt;位置 Y&gt;。
+
+- depth=&lt;int&gt;  
+ロゴの透明度の補正。デフォルト128。Aviutlで言うところの &lt;深度&gt;。
+
+- y=&lt;int&gt;  
+- cb=&lt;int&gt;  
+- cr=&lt;int&gt;  
+ロゴの各色成分の補正。Aviutlで言うところの &lt;Y&gt;, &lt;Cb&gt;, &lt;Cr&gt;。  
+
+
 ### --vpp-deinterlace &lt;string&gt;
 GPUによるインタレ解除を使用する。"normal", "bob"はわりときれいに解除されるが、"it"はあまりきれいに解除できない。
 
@@ -1078,6 +1216,344 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
 - normal ... 標準的な60i→30pインタレ解除。
 - bob    ... 60i→60pインタレ解除。
 - it     ... inverse telecine
+
+
+### --vpp-afs [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+自動フィールドシフトによるインタレ解除を行う。
+
+**パラメータ** ... 基本的にはAviutl版のパラメータをそのまま使用する。
+- top=&lt;int&gt;           (上)
+- bottom=&lt;int&gt;        (下)
+- left=&lt;int&gt;          (左)
+- right=&lt;int&gt;         (右)  
+  判定に使用する領域から除外する範囲の指定。VCEEncでは、"左"と"右"は4の倍数である必要がある。
+
+- method_switch=&lt;int&gt; (切替点)  (0-256)  
+  切替点が大きいほど、新方式の判定になりやすい(0で常に新方式判定off)
+
+- coeff_shift=&lt;int&gt;   (判定比)  (0-256)  
+  判定比率が小さいほど、フィールドをシフトしにくい(0で常にシフト判定off)
+
+- thre_shift=&lt;int&gt;    (縞(シフト))  (0-1024)  
+  シフトの判定に使用する縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
+
+- thre_deint=&lt;int&gt;    (縞(解除))  (0-1024)  
+  縞解除用の縞検出の閾値。値が小さいほど、縞と判定されやすくなる。
+
+- thre_motion_y=&lt;int&gt; (Y動き) (0-1024)  
+- thre_motion_c=&lt;int&gt; (C動き) (0-1024)  
+  動き検出の閾値。値が小さいほど、動きと判定されやすくなる。
+
+- level=&lt;int&gt;         (解除Lv)  
+  縞解除の方法の選択。(0 - 4)
+
+| 解除Lv | | |
+|:---|:---|:---|
+| Lv0 | 解除なし | 横縞模様の解除を行わない。<br>フィールドシフトで組み合わされた新しいフレームがそのまま出力になる。|
+| Lv1 | フィールド三重化 | フィールドシフトで組み合わされた新しいフレームに、さらに１つ前の フィールドを残像として足しこむ。<br>動きによる縞模様は完全に残像に変換される。 |
+| Lv2 | 縞検出二重化 | フレーム内で縞模様を検出して、縞の部分を平均化して残像に変える。<br>フィールド単位の動きが少ない映像向け。 |
+| Lv3 | 動き検出二重化 | 前のフレームと比較をして、動き(色の変化)があった部分だけ縞の平均化を行う。 <br>解除Lv2だと平均化されてしまう静止した横縞模様を保存できる。<br>静止したテロップの細かい文字や、アニメなどの枠線付きの静止画の 輪郭をつぶしたくない場合に使用する。| 
+| Lv4 | 動き検出補間 | 前のフレームと比較をして動きがあった部分は、片方のフィールドを潰して残す方のフィールドの画像で補間する。<br>残像はなくなりますが、この解除がかかった部分は縦の解像度が半分になる。 |
+| Lv5 | 斜め線補正補間 | **非対応** |
+
+- shift=&lt;bool&gt;        (フィールドシフト)  
+  フィールドシフトを行う。
+
+- drop=&lt;bool&gt;         (間引き)  
+  フィールドシフトを行うことで生じた表示時間の1フレームより短いフレームを間引く。これを有効にするとVFR(可変フレームレート)になるので注意。
+  VCEEncCでmuxしながら出力する場合には、このタイムコードは自動的に反映される。
+  一方、raw出力する場合には、タイムコード反映されないので、vpp-afsのオプションにtimecode=trueを追加してタイムコードを別途出力し、あとからtimecodeファイルを含めてmuxする必要がある。
+
+- smooth=&lt;bool&gt;       (スムージング)  
+- 24fps=&lt;bool&gt;        (24fps化)   
+  24fps化を強制する、映画・アニメ用のオプション。フィールドシフトと間引きをonにする必要がある。
+
+- tune=&lt;bool&gt;         (調整モード)  
+  縞模様と動きの判定結果の確認用。
+
+| 色 | 意味 |
+|:---:|:---|
+| 青 | 動きを検出 |
+| 灰 | 縞を検出 |
+| 水色 | 動き + 縞を検出 |
+
+- log=&lt;bool&gt;  
+  フレームごとの判定状況等をcsvファイルで出力。(デバッグ用のログ出力)
+
+- timecode=&lt;bool&gt;  
+  タイムコードを出力する。
+  
+**一括設定用オプション**
+
+  たくさんあるパラメータを一括指定するためのオプション。一括設定用オプションは必ず先に読み込まれ、個別オプションの指定があればそちらで上書きされる。
+
+- ini=&lt;string&gt;  
+  指定したini設定ファイルから設定を読み込む。この設定ファイルはAviutl版自動フィールドシフト 高速化 7.5a+20以降のafs.aufで出力できるものを使用する。
+  
+```
+[AFS_STG]
+up=8
+bottom=8
+left=16
+right=16
+method_watershed=91
+coeff_shift=191
+thre_shift=447
+thre_deint=44
+thre_Ymotion=111
+thre_Cmotion=222
+mode=4
+field_shift=1
+drop=1
+smooth=1
+force24=1
+tune_mode=0
+rff=0
+log=0
+```
+
+- preset=&lt;string&gt;
+
+以下の表のプリセットをロードします。
+
+```
+例: アニメプリセットをロード後、"24fps"をonに、"rff"を"on"に
+--vpp-afs preset=anime,24fps=true,rff=true
+```
+
+|              | default | triple<br>(動き重視) | double<br>(二重化) | anime<br>cinema<br>(アニメ/映画) | min_afterimg<br>(残像最小化) |  24fps<br>(24fps固定)  | 30fps<br>(30fps固定) |
+|:---          |:---:| :---:| :---:|:---:|:---:| :---:| :---:|
+|method_switch |     0   |    0   |     0  |       64        |       0      |    92   |   0   |
+|coeff_shift   |   192   |  192   |   192  |      128        |     192      |   192   |  192  |
+|thre_shift    |   128   |  128   |   128  |      128        |     128      |   448   |  128  |
+|thre_deint    |    48   |   48   |    48  |       48        |      48      |    48   |   48  |
+|thre_motion_y |   112   |  112   |   112  |      112        |     112      |   112   |  112  |
+|thre_motion_c |   224   |  224   |   224  |      224        |     224      |   224   |  224  |
+|level         |     3   |    1   |     2  |        3        |       4      |     3   |    3  |
+|shift         |    on   |  off   |    on  |       on        |      on      |    on   |  off  |
+|drop          |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
+|smooth        |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
+|24fps         |   off   |  off   |   off  |      off        |     off      |    on   |  off  |
+|tune          |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
+|rff           |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
+
+**vpp-afs使用上の注意**  
+- Aviutl版とは全く同じ挙動にはなりません。
+- Aviutl版の下記機能には非対応です。
+  - 解除Lv5
+  - シーンチェンジ検出(解除Lv1)
+  - 編集モード
+  - ログ保存
+  - ログ再生
+  - YUY2補間
+  - シフト・解除なし
+
+### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+nnediによるインタレ解除を行う。基本的には片方フィールドは捨てて、もう片方のフィールドから
+ニューラルネットを使って輪郭を補正しながらフレームを再構築することでインタレ解除するが、とても重い…。
+
+**パラメータ**
+- field  
+  インタレ解除の方法。
+  - auto (デフォルト)  
+    維持するフィールドを自動的に選択
+  - top  
+    トップフィールド維持
+  - bottom  
+    ボトムフィールド維持
+
+- nns  (デフォルト: 32)  
+  ニューラルネットのニューロン数。
+  - 16, 32, 64, 128, 256
+
+- nsize  (デフォルト: 32x4)  
+  ニューラルネットが参照する近傍ブロックのサイズ。
+  - 8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4
+
+- quality  (デフォルト: fast)  
+  品質の設定。
+
+  - fast
+
+  - slow  
+    slowではfastのニューラルネットの出力に、もうひとつの
+    ニューラルネットの出力をブレンドして品質を上げる(当然その分さらに遅い)。
+
+- prescreen (デフォルト: new_block)  
+  事前に前処理を行い、単純な補間で済ますか、ニューラルネットでの補正を行うか決定する。
+  基本的にはエッジ近傍がニューラルネットでの補正の対象となり、ニューラルネットを使う頻度が下がることで処理が高速になる。
+  
+  - none  
+    前処理を行わず、すべてのpixelをニューラルネットで再構成する。
+
+  - original
+  - new  
+    前処理を行い、必要なところのみニューラルネットでの補正を行うようにする。originalとnewは方式が異なる。newのほうが速くなる傾向にある。
+
+  - original_block
+  - new_block  
+    original/newのGPU最適化版。pixel単位の判定の代わりにブロック単位の判定を行う。
+
+- errortype (デフォルト: abs)  
+  ニューラルネットの重みパラメータを選択する。
+  - abs  
+    絶対誤差を最小にするよう学習された重みを用いる。
+  - square  
+    二乗誤差を最小にするよう学習された重みを用いる。
+  
+- prec (デフォルト: auto)  
+  演算精度の選択。
+  - auto  
+    fp16が使用可能かつ使用したほうが高速と思われる場合、fp16を自動的に選択する。
+    現状ではTuring世代のGPUで自動的にfp16が使用される。
+    Pascal世代はfp16を使用できるものの、とても遅いので使用しない。
+  
+  - fp16 (x64版のみ)  
+    半精度浮動小数点をメインに使って計算する。環境によっては高速。Maxwell以前のGPUやx86版の実行ファイルでは使用できません。
+  
+  - fp32  
+    単精度浮動小数点を使って計算する。
+    
+  
+- weightfile (デフォルト: 組み込み)  
+  重みパラメータファイルの(パスの)指定。特に指定のない場合、実行ファイルに埋め込まれたデータを使用する。
+
+  
+```
+例: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
+```
+
+
+### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+重複フレームを削除します。
+
+**パラメータ**
+  - cycle=&lt;int&gt;  (デフォルト: 5)  
+    ドロップするフレームの周期。ここで設定したフレーム数の中から1枚フレームをドロップする。
+
+  - thredup=&lt;float&gt;  (デフォルト: 1.1,  0.0 - 100.0)  
+    重複と判定する閾値。
+
+  - thresc=&lt;float&gt;   (デフォルト: 15.0,  0.0 - 100.0)  
+    シーンチェンジと判定する閾値。
+
+  - blockx=&lt;int&gt;  
+  - blocky=&lt;int&gt;  
+    重複判定の計算を行うブロックサイズ。デフォルト: 32。 
+    ブロックサイズは 4, 8, 16, 32, 64のいずれかから選択可能。
+    
+  - chroma=&lt;bool&gt;  
+    色差成分を考慮した判定を行う。(デフォルト: on)
+    
+  - log=&lt;bool&gt;  
+    判定結果のログファイルの出力。 (デフォルト: off)
+    
+
+### --vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+連続した重複フレームを削除し、VFR動画を作ることで、実効的なエンコード速度の向上と圧縮率向上を測ります。
+なお、このフィルタを使用すると[--avsync](./NVEncC_Options.ja.md#--avsync-string) vfrが自動で有効になります。
+
+**パラメータ**
+  - hi=&lt;int&gt;  (デフォルト: 768)  
+    ドロップ対象とするかどうかの閾値。各8x8ブロックの中の差分の総和が、ひとつでもこの閾値を上回っていれば、ドロップ対象から外す。
+
+  - lo=&lt;int&gt;  (デフォルト: 320)  
+  - frac=&lt;float&gt;  (デフォルト: 0.33)  
+    ドロップ対象とするかどうかの閾値。各8x8ブロックの中の差分の総和について、閾値"lo"を上回っているブロックの数をカウントし、
+    それが全体のブロック数に占める割合が"frac"以上であればドロップ対象から外す。
+
+  - max=&lt;int&gt;  (デフォルト: 0)  
+    正の値での指定: 連続ドロップフレーム数の上限。  
+    負の値での指定: 間引く1フレームを決めるフレーム間隔の下限。
+    
+  - log=&lt;bool&gt;  
+    判定結果のログファイルの出力。 (デフォルト: off)
+
+
+### --vpp-resize &lt;string&gt;
+リサイズのアルゴリズムを指定する。
+
+| オプション名 | 説明 |
+|:---|:---|
+| auto     | 自動的に適切なものを選択 |
+| bilinear | 線形補間 |
+| simple   | Nearest Neighbor法による高速なリサイズ |
+| advanced | 高品質なリサイズ |
+| spline16 | 4x4 Spline補間 |
+| spline36 | 6x6 Spline補間 |
+| spline64 | 8x8 Spline補間 |
+| lanczos2 | 4x4 lanczos補間 |
+| lanczos3 | 6x6 lanczos補間 |
+| lanczos4 | 8x8 lanczos補間 |
+
+### --vpp-resize-mode &lt;string&gt;
+リサイザのモードを指定する。
+
+| オプション名 | 説明 |
+|:---|:---|
+| auto  | 自動的に適切なものを選択 |
+| lowpower | HWによる省電力なリサイズ |
+| quality | 高品質なリサイズ |
+
+  
+### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- radius=&lt;int&gt;  (default=3, 1-5)  
+  適用半径。
+
+- strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)    
+  フィルタの強さ。
+
+- lerp=&lt;float&gt;  (default=0.2, 0.0 - 1.0)  
+  ノイズ除去ピクセルへのオリジナルピクセルのブレンド度合い。
+
+- th_lerp=&lt;float&gt;   (default=0.8, 0.0 - 1.0)  
+  エッジ検出の閾値。
+
+```
+例: すこし強め
+--vpp-knn radius=3,strength=0.10,lerp=0.1
+```
+
+### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+正則化pmd法によるノイズ除去。弱めのノイズ除去を行いたいときに使用する。
+
+**パラメータ**
+- apply_count=&lt;int&gt;  (default=2, 1- )  
+  適用回数。デフォルトは2。
+
+- strength=&lt;float&gt;  (default=100, 0-100)  
+  フィルタの強さ。
+
+- threshold=&lt;float&gt;  (default=100, 0-255)  
+  フィルタの輪郭検出の閾値。小さいほど輪郭を保持するようになるが、フィルタの効果も弱まる。
+
+```
+例: すこし弱め
+--vpp-pmd apply_count=2,strength=90,threshold=120
+```
+
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- quality=&lt;int&gt;  (default=3, 1-6)  
+  処理の品質。値が大きいほど高精度だが遅くなる。
+
+- qp=&lt;int&gt;  (default=12, 1 - 63)    
+  フィルタの強さ。
+  
+- prec (デフォルト: auto)  
+  演算精度の選択。
+  - auto  
+    現状はfp32と同じ。
+  
+  - fp32  
+    単精度浮動小数点を使って計算する。
+  
+  - fp16  
+    半精度浮動小数点をメインに使って計算する。
+    
 
 ### --vpp-denoise &lt;int&gt;
 GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さを指定する。
@@ -1137,8 +1613,78 @@ GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さ
 --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
 ```
 
+### --vpp-unsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+unsharpフィルタ。輪郭・ディテール強調用のフィルタ。
+
+**パラメータ**
+- radius=&lt;int&gt; (default=3, 1-9)  
+  輪郭・ディテール検出の範囲。より大きな値とすることで、より広い範囲のディテールに反応して強調をかけるようになる。
+
+- weight=&lt;float&gt; (default=0.5, 0-10)  
+  輪郭・ディテール強調の強さ。より大きな値とすることで、強く強調がかかる。
+
+- threshold=&lt;float&gt;  (default=10.0, 0-255)  
+  輪郭・ディテール検出の閾値。閾値以上の差異がある画素に対して、輪郭強調を行う。
+
+```
+例: やや強め
+--vpp-unsharp weight=1.0
+```
+
+### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+エッジレベル調整フィルタ。輪郭強調用のフィルタ。
+
+**パラメータ**
+- strength=&lt;float&gt; (default=5.0, -31 - 31)  
+  輪郭強調の強さ。より大きな値とすることで、輪郭強調が強力になる。
+
+- threshold=&lt;float&gt;  (default=20.0, 0 - 255)  
+  輪郭強調を行わないようにするノイズの閾値。より大きな値ほど大きな輝度の変化をノイズとして扱うようになる。
+
+- black=&lt;float&gt;  (default=0.0, 0-31)  
+  輪郭の黒い部分について、より黒くシュートさせて輪郭を強調するようにする。
+
+- white=&lt;float&gt;  (default=0.0, 0-31)  
+  輪郭の白く部分について、より白くシュートさせて輪郭を強調するようにする。
+
+```
+例: やや強め(Aviutl版のデフォルト)
+--vpp-edgelevel strength=10.0,threshold=16.0,black=0,white=0
+
+例: 輪郭の黒い部分を気持ち強める
+--vpp-edgelevel strength=5.0,threshold=24.0,black=6.0
+```
+
+### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+細線化フィルタ。輪郭調整用のフィルタ。
+
+**パラメータ**
+- threshold=&lt;float&gt;  (default=128.0, 0 - 255)  
+  輪郭検出の閾値。値をあげるほどフィルタの強度が強まる。
+
+- blur=&lt;int&gt;  (default=2)  
+  blur処理を行う回数。値をあげるほどフィルタの強度が弱まる。
+
+- type=&lt;int&gt;  (default=0)  
+  - 0 ... 13x13のblur処理を行う。
+  - 1 ... 5x5のblur処理を行う。より高品質だが、blur回数を多めにする必要がある。
+  
+- depth=&lt;float&gt;  (default=16.0, -128.0 - 128.0)  
+  warpの深度。値をあげるほどフィルタの強度が強まる。
+  
+- chroma=&lt;int&gt;  (default=0)  
+  色差の処理方法の指定。
+  - 0 ... 輝度ベースの輪郭検出を色差成分にも適用する。
+  - 1 ... 各色差成分についてそれぞれ輪郭検出を行う。
+
+```
+例: type=1を使う場合
+--vpp-warpsharp threshold=128,blur=3,type=1
+```
+
 ### --vpp-detail-enhance &lt;int&gt;
 GPUによるディテールの強調を行う。0 - 100 の間でディテール強調の強さを指定する。
+
 
 ### --vpp-image-stab &lt;string&gt;
 image stabilizerのモードの指定。
@@ -1147,12 +1693,9 @@ image stabilizerのモードの指定。
 - box
 
 ### --vpp-rotate &lt;int&gt;
-映像を指定した角度で回転させる。90°, 180°, 270° から選択。動作にはd3d11モードであることが必要 (Linuxでは動作しません)。
 
-### --vpp-mirror &lt;string&gt;
-映像を胸像反転させる。
-- h ... 水平方向の反転。
-- v ... 垂直方向の反転。
+動画を回転させる。 90, 180, 270 度の回転のみに対応。
+
 
 ### --vpp-transform [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
@@ -1163,111 +1706,70 @@ image stabilizerのモードの指定。
 
 - transpose=&lt;bool&gt;
 
-### --vpp-resize &lt;string&gt;
-リサイズのアルゴリズムを指定する。
-
-| オプション名 | 説明 |
-|:---|:---|
-| auto     | 自動的に適切なものを選択 |
-| simple   | Nearest Neighbor法による高速なリサイズ |
-| bilinear | bilinear法 |
-| advanced | 高品質なリサイズ |
-
-### --vpp-resize-mode &lt;string&gt;
-リサイザのモードを指定する。
-
-| オプション名 | 説明 |
-|:---|:---|
-| auto  | 自動的に適切なものを選択 |
-| lowpower | HWによる省電力なリサイズ |
-| quality | 高品質なリサイズ |
-
-
-### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
-色空間変換を行う。
+### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
 **パラメータ**
-- matrix=&lt;from&gt;:&lt;to&gt;  
-  
-```
-  bt709, smpte170m
-```
+- brightness=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
 
-- range=&lt;from&gt;:&lt;to&gt;  
-```
-  limited, full, auto
-```
+- contrast=&lt;float&gt; (default=1.0, -2.0 - 2.0)  
 
+- gamma=&lt;float&gt; (default=1.0, 0.1 - 10.0)  
 
-```
-例1: BT.709(fullrange) -> BT.601 への変換
---vpp-colorspace matrix=smpte170m:bt709,range=full:limited
-```
+- saturation=&lt;float&gt; (default=1.0, 0.0 - 3.0)  
 
-### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
-
-**パラメータ**
-- select=&lt;string&gt;  
-ロゴパックの場合に、使用するロゴを以下のいずれかで指定する。
-
-  - ロゴ名
-  - インデックス (1,2,...)
-  - 自動選択用iniファイル
-```
- [LOGO_AUTO_SELECT]
- logo<連番数字>=<マッチパターン>,<リストに表示されているロゴ名(完全一致!)>
-```
-
- 例:
- ```ini
-[LOGO_AUTO_SELECT]
-logo1= (NHK-G).,NHK総合 1440x1080
-logo2= (NHK-E).,NHK-E 1440x1080
-logo3= (MX).,TOKYO MX 1 1440x1080
-logo4= (CTC).,チバテレビ 1440x1080
-logo5= (NTV).,日本テレビ 1440x1080
-logo6= (TBS).,TBS 1440x1088
-logo7= (TX).,TV東京 50th 1440x1080
-logo8= (CX).,フジテレビ 1440x1088
-logo9= (BSP).,NHK BSP v3 1920x1080
-logo10= (BS4).,BS日テレ 1920x1080
-logo11= (BSA).,BS朝日 1920x1080
-logo12= (BS-TBS).,BS-TBS 1920x1080
-logo13= (BSJ).,BS Japan 1920x1080
-logo14= (BS11).,BS11 1920x1080 v3
-```
-
-- pos=&lt;int&gt;:&lt;int&gt;  
-1/4画素精度のロゴ位置の調整。Aviutlで言うところの &lt;位置 X&gt;:&lt;位置 Y&gt;。
-
-- depth=&lt;int&gt;  
-ロゴの透明度の補正。デフォルト128。Aviutlで言うところの &lt;深度&gt;。
-
-- y=&lt;int&gt;  
-- cb=&lt;int&gt;  
-- cr=&lt;int&gt;  
-ロゴの各色成分の補正。Aviutlで言うところの &lt;Y&gt;, &lt;Cb&gt;, &lt;Cr&gt;。  
-
-- auto_fade=&lt;bool&gt;  
-ロゴの実際の濃さに合わせて、fade値を自動的に調整する。デフォルト = off。  
-  
-- auto_nr=&lt;bool&gt;  
-ロゴの輪郭周辺のノイズを除去する際、その強さを自動的に変化させる。デフォルト = off。  
-
-- nr_area=&lt;int&gt;  
-ロゴの輪郭周辺に対するノイズ除去適用範囲の広さ。(default=0 (オフ), 0 - 3)  
-
-- nr_value=&lt;int&gt;  
-ロゴの輪郭周辺に対するノイズ除去の強さ。(default=0 (オフ), 0 - 4)  
-
-- log=&lt;bool&gt;  
-auto_fade, auto_nrを使用した場合のfade値の推移をログに出力する。
+- hue=&lt;float&gt; (default=0.0, -180 - 180)  
 
 ```
 例:
---vpp-delogo logodata.ldp2,select=delogo.auf.ini,auto_fade=true,auto_nr=true,nr_value=3,nr_area=1,log=true
+--vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
 ```
+
+### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+**パラメータ**
+- range=&lt;int&gt; (default=15, 0-127)  
+  ぼかす範囲。この範囲内の近傍画素からサンプルを取り、ブラー処理を行う。
+
+- sample=&lt;int&gt; (default=1, 0-2)  
+  - 設定値：0  
+    周辺1画素を参照し、元の画素値を維持したまま処理を行う。
+
+  - 設定値：1  
+    周辺1画素とその点対称画素の計2画素を参照し、ブラー処理を行う。
+
+  - 設定値：2  
+    周辺2画素とその点対称画素の計4画素を参照し、ブラー処理を行う。
+
+- thre=&lt;int&gt; (一括設定)
+- thre_y=&lt;int&gt; (default=15, 0-31)
+- thre_cb=&lt;int&gt; (default=15, 0-31)
+- thre_cr=&lt;int&gt; (default=15, 0-31)  
+  y,cb,cr 各成分の閾値。この値が高いと階調飛びを減らす一方で、細かい線などが潰れやすくなる。
+
+- dither=&lt;int&gt; (一括設定)
+- dither_y=&lt;int&gt; (default=15, 0-31)
+- dither_c=&lt;int&gt; (default=15, 0-31)  
+  y成分と cb+cr成分のディザの強さ。
+
+- seed=&lt;int&gt;  
+  乱数シードの変更。 (default=1234)
+
+- blurfirst (default=off)  
+  ブラー処理を先にすることでディザ強度を減らしつつ、階調飛びが多い素材での効果を上げる。
+  全体的に副作用が強くなり細かい線が潰れやすくなる。
+
+- rand_each_frame (default=off)  
+  毎フレーム使用する乱数を変更する。
+
+```
+例:
+--vpp-deband range=31,dither=12,rand_each_frame
+```
+
+
+
+### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
+指定のピクセル数(偶数)分のパディングを行う。左、上、右、下の順にピクセル数で指定する。
 
 ## 制御系のオプション
 
@@ -1296,7 +1798,7 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 QSVパイプライン駆動用のスレッド数を2以上の値から指定する。(デフォルト: -1 ( = 自動)) Windowsでのみ使用可能です。
 
 ### --output-thread &lt;int&gt;
-出力用のスレッドを使用するかどうかを指定する。
+出力スレッドを使用するかどうかを指定する。
 - -1 ... 自動(デフォルト)
 -  0 ... 使用しない
 -  1 ... 使用する  
@@ -1324,6 +1826,14 @@ Windowsのタイマー精度を向上させ、高速化する。いわゆるtime
 
 ### --log-framelist
 avsw/avhw読み込み時のデバッグ情報出力。
+
+### --log-packets
+avsw/avhw読み込み時のデバッグ情報出力。
+
+### --option-file &lt;string&gt;
+使用するオプションを記載したファイルを指定する。
+1行に複数のオプションを記載できるが、改行は空白として扱われるので、
+ひとつのオプション名やその値が行をまたがってはならない。
 
 ### --benchmark &lt;string&gt;
 ベンチマークモードを実行し、結果を指定されたファイルに出力する。
