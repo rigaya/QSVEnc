@@ -2818,6 +2818,7 @@ void __stdcall GetSystemInfoHook(LPSYSTEM_INFO lpSystemInfo) {
 #endif
 
 bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
+#if defined(_WIN32) || defined(_WIN64)
     if (check_if_d3d11_necessary()) {
         return true;
     }
@@ -2827,6 +2828,9 @@ bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
         return getVppFilterType(filter) == VppFilterType::FILTER_OPENCL;
     }) != filters.end();
     return clfilterexists;
+#else
+    return false;
+#endif
 }
 
 RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
