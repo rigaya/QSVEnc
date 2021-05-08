@@ -513,15 +513,19 @@ DAR比 (画面アスペクト比) の指定。
 出力データのchroma location flagを 0 ～ 5 の範囲で指定する。  
 デフォルト = 0 (unspecified)
 
-### --max-cll &lt;int&gt;,&lt;int&gt; [HEVCのみ]
-MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]
+MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
+
+[--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
 ```
 例1: --max-cll 1000,300
 例2: --max-cll copy  # 入力ファイルから値をコピー
 ```
 
-### --master-display &lt;string&gt; [HEVCのみ]
-Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。
+### --master-display &lt;string&gt; or "copy" [HEVCのみ]
+Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
+
+[--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
 ```
 例1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 例2: --master-display copy  # 入力ファイルから値をコピー
@@ -941,6 +945,9 @@ matroska形式 (UTF-8であること)
 
 ### --chapter-copy
 チャプターをコピーする。
+
+### --chapter-no-trim
+チャプター読み込みの際、trimを反映させず、そのまま適用する。
 
 ### --sub-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
 指定のファイルから字幕を読み込みmuxする。

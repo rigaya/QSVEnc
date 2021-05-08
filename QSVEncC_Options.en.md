@@ -496,15 +496,19 @@ Set chroma location flag of the output bitstream from values 0 ... 5.
 "auto" will copy from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 default: 0 = unspecified
 
-### --max-cll &lt;int&gt;,&lt;int&gt; [HEVC only]
-Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file.
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC only]
+Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
+
+Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
 ```
 Example1: --max-cll 1000,300
 Example2: --max-cll copy  # copy values from source
 ```
 
-### --master-display &lt;string&gt; [HEVC only]
-Set Mastering display data. "copy" will copy values from the input file.
+### --master-display &lt;string&gt; or "copy" [HEVC only]
+Set Mastering display data. "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
+
+Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
 ```
 Example1: --master-display G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
 Example2: --master-display copy  # copy values from source
@@ -935,6 +939,9 @@ matroska format (hould be in utf-8)
 
 ### --chapter-copy
 Copy chapters from input file.
+
+### --chapter-no-trim
+Do not apply --trim when reading chapters.
 
 ### --sub-source &lt;string&gt;[:[&lt;int&gt;?][;&lt;param1&gt;=&lt;value1&gt;][;&lt;param2&gt;=&lt;value2&gt;]...][:...]
 Read subtitle from the specified file and mux into the output file.
