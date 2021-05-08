@@ -149,7 +149,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
 #if LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
     return 0;
-#else
+#elif ENABLE_OPENCL
     int ret = CL_SUCCESS;
     RGYOpenCL cl;
     std::shared_ptr<RGYOpenCLPlatform> platform;
@@ -184,6 +184,9 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, 
     }
     cl_create_info_string((platform) ? &clinfo : nullptr, intelinfoptr, buffer, buffer_size);
     return ret;
+#else
+    buffer[0] = _T('\0');
+    return 1;
 #endif // !ENABLE_OPENCL
 }
 #pragma warning (pop)

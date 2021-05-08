@@ -75,8 +75,6 @@ const char *get_encoder_version();
 
 #define ENABLE_FADE_DETECT 1
 
-#define ENABLE_OPENCL 1
-
 #define ENABLE_PERF_COUNTER 1
 
 #define ENABLE_AVCODEC_OUT_THREAD 1
@@ -94,6 +92,7 @@ const char *get_encoder_version();
 #define DECODER_NAME             "qsv"
 #define AUO_NAME                 "QSVEnc.auo"
 #define FOR_AUO                   1
+#define ENABLE_OPENCL             0
 #define ENABLE_AUO_LINK           1
 #define ENABLE_RAW_READER         1
 #define ENABLE_AVI_READER         1
@@ -109,6 +108,7 @@ const char *get_encoder_version();
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"
 #define FOR_AUO                   0
+#define ENABLE_OPENCL             1
 #define ENABLE_AUO_LINK           0
 #define ENABLE_RAW_READER         1
 #define ENABLE_AVI_READER         1
