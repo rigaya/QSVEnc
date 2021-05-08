@@ -429,6 +429,9 @@ Set mv cost scaling.
 - 2  set MV cost 1/4 of default
 - 3  set MV cost 1/8 of default
 
+### --fade-detect
+Enable fade detection.
+
 ### --slices &lt;int&gt;
 Set number of slices.
 
