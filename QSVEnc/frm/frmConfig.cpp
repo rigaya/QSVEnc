@@ -751,9 +751,21 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXTransfer,        list_transfer, "auto");
     setComboBox(fcgCXVideoFormat,     list_videoformat, "auto");
 
-    setComboBox(fcgCXDeinterlace,     list_deinterlace_ja);
-    setComboBox(fcgCXTelecinePatterns,list_telecine_patterns);
-    setComboBox(fcgCXFPSConversion,   list_vpp_fps_conversion);
+    setComboBox(fcgCXVppDenoiseMethod, list_vpp_denoise);
+    setComboBox(fcgCXVppDetailEnhance, list_vpp_detail_enahance);
+
+    setComboBox(fcgCXVppResizeAlg,   list_vpp_resize);
+    setComboBox(fcgCXVppDeinterlace, list_deinterlace_ja);
+    setComboBox(fcgCXVppAfsAnalyze,  list_vpp_afs_analyze);
+    setComboBox(fcgCXVppNnediNsize,  list_vpp_nnedi_nsize);
+    setComboBox(fcgCXVppNnediNns,    list_vpp_nnedi_nns);
+    setComboBox(fcgCXVppNnediQual,   list_vpp_nnedi_quality);
+    setComboBox(fcgCXVppNnediPrec,   list_vpp_fp_prec);
+    setComboBox(fcgCXVppNnediPrescreen, list_vpp_nnedi_pre_screen_gui);
+    setComboBox(fcgCXVppNnediErrorType, list_vpp_nnedi_error_type);
+    setComboBox(fcgCXVppYadifMode,      list_vpp_yadif_mode_gui);
+    setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
+
     setComboBox(fcgCXImageStabilizer, list_vpp_image_stabilizer);
     setComboBox(fcgCXRotate,          list_rotate_angle_ja);
 
@@ -1024,10 +1036,19 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNICQ->Visible = icq_mode;
     fcgPNQVBR->Visible = qvbr_mode;
 
-    fcggroupBoxVppResize->Enabled = fcgCBVppResize->Checked;
-    fcggroupBoxVppDenoise->Enabled = fcgCBVppDenoise->Checked;
-    fcggroupBoxVppDetail->Enabled = fcgCBVppDetail->Checked;
-    fcgCXTelecinePatterns->Visible = false; // fcgCXDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, MFX_DEINTERLACE_IT_MANUAL);
+    fcggroupBoxResize->Enabled = fcgCBVppResize->Checked;
+    fcgPNVppDenoiseMFX->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("denoise")));
+    fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
+    fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
+    fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
+    fcgPNVppDetailEnhanceMFX->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("detail-enhance")));
+    fcgPNVppUnsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
+    fcgPNVppEdgelevel->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
+    fcgPNVppWarpsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("warpsharp")));
+    fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("自動フィールドシフト")));
+    fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("nnedi")));
+    fcgPNVppYadif->Visible = false; // (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"yadif"));
+    fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
 
     this->ResumeLayout();
     this->PerformLayout();
@@ -1213,8 +1234,6 @@ System::Void frmConfig::InitForm() {
     //CPU情報の取得
     getCPUInfoDelegate = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
     getCPUInfoDelegate->BeginInvoke(nullptr, nullptr);
-    getGPUInfoDelegate = gcnew SetGPUInfoDelegate(this, &frmConfig::SetGPUInfo);
-    getGPUInfoDelegate->BeginInvoke(nullptr, nullptr);
     //ローカル設定のロード
     LoadLocalStg();
     //ローカル設定の反映
@@ -1343,20 +1362,108 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     fcgCBOutputPicStruct->Checked = prm_qsv.bOutputPicStruct != 0;
 
     //Vpp
-    fcgCBVppResize->Checked                = cnf->vid.resize_enable != 0;
-    SetNUValue(fcgNUVppResizeW,              cnf->vid.resize_width);
-    SetNUValue(fcgNUVppResizeH,              cnf->vid.resize_height);
-    fcgCBVppDenoise->Checked               = prm_qsv.vppmfx.denoise.enable;
-    SetNUValue(fcgNUVppDenoise,              prm_qsv.vppmfx.denoise.strength);
-    fcgCBVppMctf->Checked                  = prm_qsv.vppmfx.mctf.enable;
-    SetNUValue(fcgNUVppMctf,                 prm_qsv.vppmfx.mctf.strength);
-    fcgCBVppDetail->Checked                = prm_qsv.vppmfx.detail.enable;
-    SetNUValue(fcgNUVppDetail,               prm_qsv.vppmfx.detail.strength);
-    SetCXIndex(fcgCXDeinterlace,             prm_qsv.vppmfx.deinterlace);
-    SetCXIndex(fcgCXTelecinePatterns,        get_cx_index(list_telecine_patterns, prm_qsv.vppmfx.telecinePattern));
-    SetCXIndex(fcgCXImageStabilizer,         prm_qsv.vppmfx.imageStabilizer);
-    SetCXIndex(fcgCXFPSConversion,           prm_qsv.vppmfx.fpsConversion);
-    SetCXIndex(fcgCXRotate,                  get_cx_index(list_rotate_angle_ja, prm_qsv.vppmfx.rotate));
+        int denoise_idx = 0;
+        if (prm_qsv.vpp.knn.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("knn"));
+        } else if (prm_qsv.vpp.pmd.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("pmd"));
+        } else if (prm_qsv.vpp.smooth.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
+        } else if (prm_qsv.vppmfx.denoise.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("denoise"));
+        }
+        SetCXIndex(fcgCXVppDenoiseMethod, denoise_idx);
+
+        int detail_enahance_idx = 0;
+        if (prm_qsv.vpp.unsharp.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
+        } else if (prm_qsv.vpp.edgelevel.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
+        } else if (prm_qsv.vpp.warpsharp.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("warpsharp"));
+        } else if (prm_qsv.vppmfx.detail.enable) {
+            detail_enahance_idx = get_cx_index(list_vpp_detail_enahance, _T("detail-enhance"));
+        }
+        SetCXIndex(fcgCXVppDetailEnhance, detail_enahance_idx);
+
+        int deinterlacer_idx = 0;
+        if (prm_qsv.vpp.afs.enable) {
+            deinterlacer_idx = get_cx_index(list_deinterlace_ja, _T("自動フィールドシフト"));
+        } else if (prm_qsv.vpp.nnedi.enable) {
+            deinterlacer_idx = get_cx_index(list_deinterlace_ja, _T("nnedi"));
+        //} else if (prm_qsv.vpp.yadif.enable) {
+        //    deinterlacer_idx = get_cx_index(list_deinterlace_ja, _T("yadif"));
+        } else if (prm_qsv.vppmfx.deinterlace > 0) {
+            deinterlacer_idx = get_cx_index(list_deinterlace_ja, prm_qsv.vppmfx.deinterlace);
+        }
+        SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
+
+        SetNUValue(fcgNUVppDenoiseMFX, prm_qsv.vppmfx.denoise.strength);
+        SetNUValue(fcgNUVppDenoiseKnnRadius, prm_qsv.vpp.knn.radius);
+        SetNUValue(fcgNUVppDenoiseKnnStrength, prm_qsv.vpp.knn.strength);
+        SetNUValue(fcgNUVppDenoiseKnnThreshold, prm_qsv.vpp.knn.lerp_threshold);
+        SetNUValue(fcgNUVppDenoisePmdApplyCount, prm_qsv.vpp.pmd.applyCount);
+        SetNUValue(fcgNUVppDenoisePmdStrength, prm_qsv.vpp.pmd.strength);
+        SetNUValue(fcgNUVppDenoisePmdThreshold, prm_qsv.vpp.pmd.threshold);
+        SetNUValue(fcgNUVppDenoiseSmoothQuality, prm_qsv.vpp.smooth.quality);
+        SetNUValue(fcgNUVppDenoiseSmoothQP, prm_qsv.vpp.smooth.qp);
+        fcgCBVppDebandEnable->Checked = prm_qsv.vpp.deband.enable;
+        SetNUValue(fcgNUVppDebandRange, prm_qsv.vpp.deband.range);
+        SetNUValue(fcgNUVppDebandThreY, prm_qsv.vpp.deband.threY);
+        SetNUValue(fcgNUVppDebandThreCb, prm_qsv.vpp.deband.threCb);
+        SetNUValue(fcgNUVppDebandThreCr, prm_qsv.vpp.deband.threCr);
+        SetNUValue(fcgNUVppDebandDitherY, prm_qsv.vpp.deband.ditherY);
+        SetNUValue(fcgNUVppDebandDitherC, prm_qsv.vpp.deband.ditherC);
+        SetCXIndex(fcgCXVppDebandSample, prm_qsv.vpp.deband.sample);
+        fcgCBVppDebandBlurFirst->Checked = prm_qsv.vpp.deband.blurFirst;
+        fcgCBVppDebandRandEachFrame->Checked = prm_qsv.vpp.deband.randEachFrame;
+        SetNUValue(fcgNUVppUnsharpRadius, prm_qsv.vpp.unsharp.radius);
+        SetNUValue(fcgNUVppUnsharpWeight, prm_qsv.vpp.unsharp.weight);
+        SetNUValue(fcgNUVppUnsharpThreshold, prm_qsv.vpp.unsharp.threshold);
+        SetNUValue(fcgNUVppEdgelevelStrength, prm_qsv.vpp.edgelevel.strength);
+        SetNUValue(fcgNUVppEdgelevelThreshold, prm_qsv.vpp.edgelevel.threshold);
+        SetNUValue(fcgNUVppEdgelevelBlack, prm_qsv.vpp.edgelevel.black);
+        SetNUValue(fcgNUVppEdgelevelWhite, prm_qsv.vpp.edgelevel.white);
+        SetNUValue(fcgNUVppWarpsharpBlur, prm_qsv.vpp.warpsharp.blur);
+        SetNUValue(fcgNUVppWarpsharpThreshold, prm_qsv.vpp.warpsharp.threshold);
+        SetNUValue(fcgNUVppWarpsharpType, prm_qsv.vpp.warpsharp.type);
+        SetNUValue(fcgNUVppWarpsharpDepth, prm_qsv.vpp.warpsharp.depth);
+        SetNUValue(fcgNUVppDetailEnhanceMFX, prm_qsv.vppmfx.detail.strength);
+
+        SetNUValue(fcgNUVppAfsUp, prm_qsv.vpp.afs.clip.top);
+        SetNUValue(fcgNUVppAfsBottom, prm_qsv.vpp.afs.clip.bottom);
+        SetNUValue(fcgNUVppAfsLeft, prm_qsv.vpp.afs.clip.left);
+        SetNUValue(fcgNUVppAfsRight, prm_qsv.vpp.afs.clip.right);
+        SetNUValue(fcgNUVppAfsMethodSwitch, prm_qsv.vpp.afs.method_switch);
+        SetNUValue(fcgNUVppAfsCoeffShift, prm_qsv.vpp.afs.coeff_shift);
+        SetNUValue(fcgNUVppAfsThreShift, prm_qsv.vpp.afs.thre_shift);
+        SetNUValue(fcgNUVppAfsThreDeint, prm_qsv.vpp.afs.thre_deint);
+        SetNUValue(fcgNUVppAfsThreYMotion, prm_qsv.vpp.afs.thre_Ymotion);
+        SetNUValue(fcgNUVppAfsThreCMotion, prm_qsv.vpp.afs.thre_Cmotion);
+        SetCXIndex(fcgCXVppAfsAnalyze, prm_qsv.vpp.afs.analyze);
+        fcgCBVppAfsShift->Checked = prm_qsv.vpp.afs.shift != 0;
+        fcgCBVppAfsDrop->Checked = prm_qsv.vpp.afs.drop != 0;
+        fcgCBVppAfsSmooth->Checked = prm_qsv.vpp.afs.smooth != 0;
+        fcgCBVppAfs24fps->Checked = prm_qsv.vpp.afs.force24 != 0;
+        fcgCBVppAfsTune->Checked = prm_qsv.vpp.afs.tune != 0;
+        SetCXIndex(fcgCXVppNnediNsize, get_cx_index(list_vpp_nnedi_nsize, prm_qsv.vpp.nnedi.nsize));
+        SetCXIndex(fcgCXVppNnediNns, get_cx_index(list_vpp_nnedi_nns, prm_qsv.vpp.nnedi.nns));
+        SetCXIndex(fcgCXVppNnediPrec, get_cx_index(list_vpp_fp_prec, prm_qsv.vpp.nnedi.precision));
+        SetCXIndex(fcgCXVppNnediPrescreen, get_cx_index(list_vpp_nnedi_pre_screen_gui, prm_qsv.vpp.nnedi.pre_screen));
+        SetCXIndex(fcgCXVppNnediQual, get_cx_index(list_vpp_nnedi_quality, prm_qsv.vpp.nnedi.quality));
+        SetCXIndex(fcgCXVppNnediErrorType, get_cx_index(list_vpp_nnedi_error_type, prm_qsv.vpp.nnedi.errortype));
+        //SetCXIndex(fcgCXVppYadifMode,            get_cx_index(list_vpp_yadif_mode_gui, prm_qsv.vpp.yadif.mode));
+
+        //fcgCBSSIM->Checked = prm_qsv.ssim;
+        //fcgCBPSNR->Checked = prm_qsv.psnr;
+
+        SetCXIndex(fcgCXImageStabilizer, prm_qsv.vppmfx.imageStabilizer);
+        SetCXIndex(fcgCXRotate, get_cx_index(list_rotate_angle_ja, prm_qsv.vpp.transform.rotate()));
+
+        SetNUValue(fcgNUVppMctf, (prm_qsv.vppmfx.mctf.enable) ? prm_qsv.vppmfx.mctf.strength : 0);
+        SetCXIndex(fcgCXVppResizeAlg, get_cx_index(list_vpp_resize, prm_qsv.vpp.resize_algo));
+        SetNUValue(fcgNUResizeW, cnf->vid.resize_width);
+        SetNUValue(fcgNUResizeH, cnf->vid.resize_height);
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -1506,27 +1613,106 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.bOutputPicStruct        = fcgCBOutputPicStruct->Checked;
 
     //vpp
-    cnf->vid.resize_enable          = fcgCBVppResize->Checked;
-    cnf->vid.resize_width           = (int)fcgNUVppResizeW->Value;
-    cnf->vid.resize_height          = (int)fcgNUVppResizeH->Value;
-    if (cnf->vid.resize_enable) {
-        prm_qsv.input.dstWidth = cnf->vid.resize_width;
-        prm_qsv.input.dstHeight = cnf->vid.resize_height;
-    } else {
-        prm_qsv.input.dstWidth = 0;
-        prm_qsv.input.dstHeight = 0;
+
+    prm_qsv.vpp.resize_algo                 = (RGY_VPP_RESIZE_ALGO)list_vpp_resize[fcgCXVppResizeAlg->SelectedIndex].value;
+
+    prm_qsv.vpp.knn.enable = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn"));
+    prm_qsv.vpp.knn.radius = (int)fcgNUVppDenoiseKnnRadius->Value;
+    prm_qsv.vpp.knn.strength = (float)fcgNUVppDenoiseKnnStrength->Value;
+    prm_qsv.vpp.knn.lerp_threshold = (float)fcgNUVppDenoiseKnnThreshold->Value;
+
+    prm_qsv.vpp.pmd.enable = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd"));
+    prm_qsv.vpp.pmd.applyCount = (int)fcgNUVppDenoisePmdApplyCount->Value;
+    prm_qsv.vpp.pmd.strength = (float)fcgNUVppDenoisePmdStrength->Value;
+    prm_qsv.vpp.pmd.threshold = (float)fcgNUVppDenoisePmdThreshold->Value;
+
+    prm_qsv.vpp.smooth.enable = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth"));
+    prm_qsv.vpp.smooth.quality = (int)fcgNUVppDenoiseSmoothQuality->Value;
+    prm_qsv.vpp.smooth.qp = (int)fcgNUVppDenoiseSmoothQP->Value;
+
+    prm_qsv.vppmfx.denoise.enable = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("denoise"));
+    prm_qsv.vppmfx.denoise.strength = (int)fcgNUVppDenoiseMFX->Value;
+
+    prm_qsv.vpp.unsharp.enable = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp"));
+    prm_qsv.vpp.unsharp.radius = (int)fcgNUVppUnsharpRadius->Value;
+    prm_qsv.vpp.unsharp.weight = (float)fcgNUVppUnsharpWeight->Value;
+    prm_qsv.vpp.unsharp.threshold = (float)fcgNUVppUnsharpThreshold->Value;
+
+    prm_qsv.vpp.edgelevel.enable = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel"));
+    prm_qsv.vpp.edgelevel.strength = (float)fcgNUVppEdgelevelStrength->Value;
+    prm_qsv.vpp.edgelevel.threshold = (float)fcgNUVppEdgelevelThreshold->Value;
+    prm_qsv.vpp.edgelevel.black = (float)fcgNUVppEdgelevelBlack->Value;
+    prm_qsv.vpp.edgelevel.white = (float)fcgNUVppEdgelevelWhite->Value;
+
+    prm_qsv.vpp.warpsharp.enable = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("warpsharp"));
+    prm_qsv.vpp.warpsharp.blur = (int)fcgNUVppWarpsharpBlur->Value;
+    prm_qsv.vpp.warpsharp.threshold = (float)fcgNUVppWarpsharpThreshold->Value;
+    prm_qsv.vpp.warpsharp.type = (int)fcgNUVppWarpsharpType->Value;
+    prm_qsv.vpp.warpsharp.depth = (float)fcgNUVppWarpsharpDepth->Value;
+
+    prm_qsv.vppmfx.detail.enable = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("detail-enhance"));
+    prm_qsv.vppmfx.detail.strength = (int)fcgNUVppDetailEnhanceMFX->Value;
+
+    prm_qsv.vpp.deband.enable = fcgCBVppDebandEnable->Checked;
+    prm_qsv.vpp.deband.range = (int)fcgNUVppDebandRange->Value;
+    prm_qsv.vpp.deband.threY = (int)fcgNUVppDebandThreY->Value;
+    prm_qsv.vpp.deband.threCb = (int)fcgNUVppDebandThreCb->Value;
+    prm_qsv.vpp.deband.threCr = (int)fcgNUVppDebandThreCr->Value;
+    prm_qsv.vpp.deband.ditherY = (int)fcgNUVppDebandDitherY->Value;
+    prm_qsv.vpp.deband.ditherC = (int)fcgNUVppDebandDitherC->Value;
+    prm_qsv.vpp.deband.sample = fcgCXVppDebandSample->SelectedIndex;
+    prm_qsv.vpp.deband.blurFirst = fcgCBVppDebandBlurFirst->Checked;
+    prm_qsv.vpp.deband.randEachFrame = fcgCBVppDebandRandEachFrame->Checked;
+
+    prm_qsv.vpp.afs.enable             = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("自動フィールドシフト")));
+    prm_qsv.vpp.afs.timecode           = false;
+    prm_qsv.vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
+    prm_qsv.vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
+    prm_qsv.vpp.afs.clip.left          = (int)fcgNUVppAfsLeft->Value;
+    prm_qsv.vpp.afs.clip.right         = (int)fcgNUVppAfsRight->Value;
+    prm_qsv.vpp.afs.method_switch      = (int)fcgNUVppAfsMethodSwitch->Value;
+    prm_qsv.vpp.afs.coeff_shift        = (int)fcgNUVppAfsCoeffShift->Value;
+    prm_qsv.vpp.afs.thre_shift         = (int)fcgNUVppAfsThreShift->Value;
+    prm_qsv.vpp.afs.thre_deint         = (int)fcgNUVppAfsThreDeint->Value;
+    prm_qsv.vpp.afs.thre_Ymotion       = (int)fcgNUVppAfsThreYMotion->Value;
+    prm_qsv.vpp.afs.thre_Cmotion       = (int)fcgNUVppAfsThreCMotion->Value;
+    prm_qsv.vpp.afs.analyze            = fcgCXVppAfsAnalyze->SelectedIndex;
+    prm_qsv.vpp.afs.shift              = fcgCBVppAfsShift->Checked;
+    prm_qsv.vpp.afs.drop               = fcgCBVppAfsDrop->Checked;
+    prm_qsv.vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;
+    prm_qsv.vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
+    prm_qsv.vpp.afs.tune               = fcgCBVppAfsTune->Checked;
+
+    prm_qsv.vpp.nnedi.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("nnedi")));
+    prm_qsv.vpp.nnedi.nsize            = (VppNnediNSize)list_vpp_nnedi_nsize[fcgCXVppNnediNsize->SelectedIndex].value;
+    prm_qsv.vpp.nnedi.nns              = list_vpp_nnedi_nns[fcgCXVppNnediNns->SelectedIndex].value;
+    prm_qsv.vpp.nnedi.quality          = (VppNnediQuality)list_vpp_nnedi_quality[fcgCXVppNnediQual->SelectedIndex].value;
+    prm_qsv.vpp.nnedi.precision        = (VppFpPrecision)list_vpp_fp_prec[fcgCXVppNnediPrec->SelectedIndex].value;
+    prm_qsv.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
+    prm_qsv.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
+
+    //prm_qsv.vpp.yadif.enable = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_vpp_deinterlacer, L"yadif"));
+    //prm_qsv.vpp.yadif.mode = (VppYadifMode)list_vpp_yadif_mode_gui[fcgCXVppYadifMode->SelectedIndex].value;
+
+    if (!prm_qsv.vpp.afs.enable
+        && !prm_qsv.vpp.nnedi.enable
+        //&& !prm_qsv.vpp.yadif.enable
+    ) {
+        prm_qsv.vppmfx.deinterlace = list_deinterlace_ja[fcgCXVppDeinterlace->SelectedIndex].value;
     }
-    prm_qsv.vppmfx.denoise.enable      = fcgCBVppDenoise->Checked;
-    prm_qsv.vppmfx.denoise.strength    = (int)fcgNUVppDenoise->Value;
-    prm_qsv.vppmfx.detail.enable       = fcgCBVppDetail->Checked;
-    prm_qsv.vppmfx.detail.strength     = (int)fcgNUVppDetail->Value;
-    prm_qsv.vppmfx.mctf.enable         = fcgCBVppMctf->Checked;
-    prm_qsv.vppmfx.mctf.strength       = (int)fcgNUVppMctf->Value;
-    prm_qsv.vppmfx.deinterlace         = (int)list_deinterlace_ja[fcgCXDeinterlace->SelectedIndex].value;
-    prm_qsv.vppmfx.telecinePattern     = (int)list_telecine_patterns[fcgCXTelecinePatterns->SelectedIndex].value;
-    prm_qsv.vppmfx.imageStabilizer     = (int)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
-    prm_qsv.vppmfx.fpsConversion       = (int)list_vpp_fps_conversion[fcgCXFPSConversion->SelectedIndex].value;
-    prm_qsv.vppmfx.rotate              = (int)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value;
+
+    //prm_qsv.ssim                       = fcgCBSSIM->Checked;
+    //prm_qsv.psnr                       = fcgCBPSNR->Checked;
+
+    prm_qsv.vppmfx.mctf.enable = (int)fcgNUVppMctf->Value > 0;
+    prm_qsv.vppmfx.mctf.strength = (int)fcgNUVppMctf->Value;
+    prm_qsv.vppmfx.imageStabilizer = (int)list_vpp_image_stabilizer[fcgCXImageStabilizer->SelectedIndex].value;
+    prm_qsv.vpp.transform.setRotate((int)list_rotate_angle_ja[fcgCXRotate->SelectedIndex].value);
+
+    prm_qsv.vpp.resize_algo = (RGY_VPP_RESIZE_ALGO)list_vpp_resize[fcgCXVppResizeAlg->SelectedIndex].value;
+    cnf->vid.resize_enable = fcgCBVppResize->Checked;
+    cnf->vid.resize_width = (int)fcgNUResizeW->Value;
+    cnf->vid.resize_height = (int)fcgNUResizeH->Value;
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -1970,10 +2156,12 @@ System::Void frmConfig::UpdateFeatures() {
     //表示更新
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
     const mfxU32 currentLib = featuresHW->GetmfxLibVer();
+    String^ gpuname = featuresHW->GetGPUName();
     const bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
     String^ currentAPI = L"hw: ";
     currentAPI += (currentLibValid) ? L"API v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-------";
     fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_outtype[fcgCXOutputType->SelectedIndex].desc).ToString();
+    fcgLBGPUInfoOnFeatureTab->Text = gpuname;
 
     auto dataGridViewFont = gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, FontStyle::Regular, GraphicsUnit::Point, static_cast<Byte>(128));
 
@@ -2052,20 +2240,6 @@ System::Void frmConfig::SetCPUInfo() {
         this->Invoke(sl);
     } else {
         fcgLBCPUInfoOnFeatureTab->Text = StrCPUInfo;
-    }
-}
-System::Void frmConfig::SetGPUInfo() {
-    //GPU名
-    if (nullptr == StrGPUInfo || StrGPUInfo->Length <= 0) {
-        TCHAR gpu_info[256];
-        getGPUInfo(_T("Intel"), gpu_info, _countof(gpu_info));
-        StrGPUInfo = String(gpu_info).ToString();
-    }
-    if (this->InvokeRequired) {
-        SetGPUInfoDelegate^ sl = gcnew SetGPUInfoDelegate(this, &frmConfig::SetGPUInfo);
-        this->Invoke(sl);
-    } else {
-        fcgLBGPUInfoOnFeatureTab->Text = StrGPUInfo;
     }
 }
 

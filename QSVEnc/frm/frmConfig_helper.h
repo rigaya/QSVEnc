@@ -77,11 +77,32 @@ const CX_DESC list_deinterlace_ja[] = {
     { "インタレ解除 (通常)",        MFX_DEINTERLACE_NORMAL      },
     { "インタレ解除 (24fps化)",     MFX_DEINTERLACE_IT          },
     { "インタレ解除 (Bob化)",       MFX_DEINTERLACE_BOB         },
-#if ENABLE_ADVANCED_DEINTERLACE
-    { "インタレ解除 (固定24fps化)", MFX_DEINTERLACE_IT_MANUAL   },
-    { "インタレ解除 (自動)",        MFX_DEINTERLACE_AUTO_SINGLE },
-    { "インタレ解除 (自動Bob化)",   MFX_DEINTERLACE_AUTO_DOUBLE },
-#endif
+    { "自動フィールドシフト",       100 },
+    { "nnedi",                      101 },
+    { NULL, NULL }
+};
+
+static const wchar_t *const list_vpp_afs_analyze[] = {
+    L"0 - 解除なし",
+    L"1 - フィールド三重化",
+    L"2 - 縞検出二重化",
+    L"3 - 動き検出二重化",
+    L"4 - 動き検出補間",
+    NULL
+};
+
+const CX_DESC list_vpp_nnedi_pre_screen_gui[] = {
+    { _T("none"),           VPP_NNEDI_PRE_SCREEN_NONE },
+    { _T("original"),       VPP_NNEDI_PRE_SCREEN_ORIGINAL },
+    { _T("new"),            VPP_NNEDI_PRE_SCREEN_NEW },
+    { _T("original_block"), VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
+    { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
+    { NULL, NULL }
+};
+
+const CX_DESC list_vpp_yadif_mode_gui[] = {
+    //{ _T("normal"),        VPP_YADIF_MODE_AUTO },
+    //{ _T("bob"),           VPP_YADIF_MODE_BOB_AUTO },
     { NULL, NULL }
 };
 
@@ -130,6 +151,14 @@ const CX_DESC list_log_level_jp[] = {
     { "デバッグ用出力も表示 ", RGY_LOG_DEBUG },
     { NULL, NULL }
 };
+
+static const wchar_t *const list_vpp_deinterlacer[] = {
+    L"なし",
+    L"自動フィールドシフト",
+    L"nnedi",
+    NULL
+};
+
 
 //メモ表示用 RGB
 const int StgNotesColor[][3] = {
@@ -184,6 +213,11 @@ namespace QSVEnc {
         const char* args;
     };
 
+    value struct TrackBarNU {
+        TrackBar ^TB;
+        NumericUpDown ^NU;
+    };
+
     ref class QSVFeatures {
     private:
         Thread^ thGetLibVersion;
@@ -200,6 +234,7 @@ namespace QSVEnc {
         mfxU32 mfxVer;
         array<DataTable^>^ dataTableQsvCodecFeatures;
         String^ exePath;
+        String^ gpuname;
     public:
         QSVFeatures(bool _hardware, String^ _exePath) {
 
@@ -211,6 +246,7 @@ namespace QSVEnc {
             availableFeatures = nullptr;
             getLibVerFinished = false;
             getFeaturesFinished = false;
+            gpuname = nullptr;
 
             int codecCount = 0;
             while (list_outtype[codecCount].desc)
@@ -312,6 +348,13 @@ namespace QSVEnc {
             }
             return mfxVer;
         }
+        String^ GetGPUName() {
+            if (!getLibVerFinished) {
+                thGetLibVersion->Join();
+                getLibVerFinished = true;
+            }
+            return gpuname;
+        }
     private:
         System::Void getLibVersion() {
             if (exePath == nullptr || !System::IO::File::Exists(exePath)) {
@@ -337,6 +380,9 @@ namespace QSVEnc {
                             mfxVer = 0;
                         }
                         break;
+                    }
+                    if (environmentInfo[i]->Contains(L"GPU: ")) {
+                        gpuname = environmentInfo[i]->Substring(String(L"GPU: ").ToString()->Length);
                     }
                 }
             }
