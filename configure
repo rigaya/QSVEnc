@@ -284,9 +284,11 @@ CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 "
 LDFLAGS="-L. -ldl -lm -lstdc++ -lstdc++fs"
 if [ $X86_64 -ne 0 ]; then
+    CFLAGS="${CFLAGS} -DLINUX64 -m64"
     CXXFLAGS="${CXXFLAGS} -DLINUX64 -m64"
     LDFLAGS="${LDFLAGS} -m64"
 else
+    CFLAGS="${CFLAGS} -DLINUX32 -m32"
     CXXFLAGS="${CXXFLAGS} -DLINUX32 -m32"
     LDFLAGS="${LDFLAGS} -m32"
 fi
@@ -346,14 +348,17 @@ fi
 if [ ! $ENABLE_DEBUG -eq 0 ]; then
     cnf_write "configuring for debug..."
     CXXFLAGS="${CXXFLAGS} -O0 -g -D_DEBUG"
+    CFLAGS="${CFLAGS} -O0 -g -D_DEBUG"
 else
     cnf_write "configuring for speed..."
     CXXFLAGS="${CXXFLAGS} -O3 -DNDEBUG=1"
+    CFLAGS="${CFLAGS} -O3 -DNDEBUG=1"
     if cxx_check "-mfpmath=sse" "${CXXFLAGS} -mfpmath=sse ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -mfpmath=sse"
     fi
     if cxx_check "-fPIE" "${CXXFLAGS} -fPIE ${LDFLAGS}" ; then
         CXXFLAGS="$CXXFLAGS -fPIE"
+        CFLAGS="$CFLAGS -fPIE"
     fi
     if ${CXX} -dM -E -x c /dev/null | grep "__clang__" > /dev/null; then
         IS_CLANG=1
