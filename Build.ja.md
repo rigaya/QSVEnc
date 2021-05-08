@@ -84,9 +84,19 @@ sudo apt install build-essential libtool git
 ```
 
 ### 2. Intel ドライバのインストール
+OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html)に従ってインストールする。
 
 ```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key |
+  sudo apt-key add -
+sudo apt-add-repository \
+  'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+sudo apt-get update
 sudo apt install intel-media-va-driver-non-free
+  intel-opencl-icd \
+  intel-level-zero-gpu level-zero
+sudo apt install opencl-headers
 ```
 
 ### 3. ビルドに必要なライブラリのインストール
@@ -179,6 +189,14 @@ cd ../../../
 ```
 
 </details>
+
+### 5. QSVとOpenCLの使用のため、ユーザーを下記グループに追加
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
 
 ### 5. QSVEncCのビルド
 ```Shell
@@ -387,19 +405,34 @@ sudo apt install ffmpeg \
   libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
 ```
 
-### 6. [オプション] VapourSynthのビルド
+### 6. Intel OpenCLランタイムのインストール
+OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-bionic.html)に従ってインストールする。
+```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key |
+  sudo apt-key add -
+sudo apt-add-repository \
+  'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu bionic main'
+sudo apt-get update
+sudo apt-get install \
+  intel-opencl \
+  intel-level-zero-gpu level-zero
+sudo apt-get install opencl-headers
+```
+
+### 7. [オプション] VapourSynthのビルド
 VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
 
 必要のない場合は 5. QSVEncCのビルド に進んでください。
 
 <details><summary>VapourSynthのビルドの詳細はこちら</summary>
 
-#### 6.1 ビルドに必要なツールのインストール
+#### 7.1 ビルドに必要なツールのインストール
 ```Shell
 sudo apt install python3-pip autoconf automake libtool meson
 ```
 
-#### 6.2 zimgのインストール
+#### 7.2 zimgのインストール
 ```Shell
 git clone https://github.com/sekrit-twc/zimg.git
 cd zimg
@@ -409,12 +442,12 @@ sudo make install -j16
 cd ..
 ```
 
-#### 6.3 cythonのインストール
+#### 7.3 cythonのインストール
 ```Shell
 sudo pip3 install Cython
 ```
 
-#### 6.4 VapourSynthのビルド
+#### 7.4 VapourSynthのビルド
 ```Shell
 git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
@@ -429,13 +462,13 @@ sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python
 sudo ldconfig
 ```
 
-#### 6.5 VapourSynthの動作確認
+#### 7.5 VapourSynthの動作確認
 エラーが出ずにバージョンが表示されればOK。
 ```Shell
 vspipe --version
 ```
 
-#### 6.6 [おまけ] vslsmashsourceのビルド
+#### 7.6 [おまけ] vslsmashsourceのビルド
 ```Shell
 # lsmashのビルド
 git clone https://github.com/l-smash/l-smash.git
@@ -458,7 +491,15 @@ cd ../../../
 
 </details>
 
-### 7. QSVEncCのビルド
+### 8. QSVとOpenCLの使用のため、ユーザーを下記グループに追加
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 9. QSVEncCのビルド
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
@@ -505,10 +546,22 @@ sudo dnf install libva-devel libva-X11-devel libdrm-devel intel-mediasdk intel-m
 sudo dnf install ffmpeg ffmpeg-devel
 ```
 
-### 3. Intel ドライバのインストール
+### 3. Intel Media ドライバとOpenCLランタイムのインストール
 
 ```Shell
+#Media
 sudo dnf install intel-media-driver
+#OpenCL
+sudo dnf install -y 'dnf-command(config-manager)'
+sudo dnf config-manager \
+  --add-repo \
+  https://repositories.intel.com/graphics/rhel/8.3/intel-graphics.repo
+sudo dnf update --refresh
+sudo dnf install \
+  intel-opencl \
+  intel-media intel-mediasdk \
+  level-zero intel-level-zero-gpu
+sudo dnf install opencl-headers
 ```
 
 
@@ -583,7 +636,15 @@ cd ../../../
 
 </details>
 
-### 5. QSVEncCのビルド
+### 5. QSVとOpenCLの使用のため、ユーザーを下記グループに追加
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 6. QSVEncCのビルド
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc

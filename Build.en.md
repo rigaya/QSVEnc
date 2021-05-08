@@ -81,9 +81,19 @@ sudo apt install build-essential libtool pkg-config git
 ```
 
 ### 2. Install Intel driver
+OpenCL driver can be innstalled following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
 
 ```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key |
+  sudo apt-key add -
+sudo apt-add-repository \
+  'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+sudo apt-get update
 sudo apt install intel-media-va-driver-non-free
+  intel-opencl-icd \
+  intel-level-zero-gpu level-zero
+sudo apt install opencl-headers
 ```
 
 ### 3. Install required libraries
@@ -177,7 +187,15 @@ cd ../../../
 
 </details>
 
-### 5. Build QSVEncC
+### 5. Add user to proper group
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 6. Build QSVEncC
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
@@ -372,7 +390,22 @@ make -j8 && sudo make install
 cd ..
 ```
 
-### 5. Install ffmpeg 4.x libraries.
+### 5. Install Intel OpenCL runtime libraries
+OpenCL driver can be innstalled following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-bionic.html).
+```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key |
+  sudo apt-key add -
+sudo apt-add-repository \
+  'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu bionic main'
+sudo apt-get update
+sudo apt-get install \
+  intel-opencl \
+  intel-level-zero-gpu level-zero
+sudo apt install opencl-headers
+```
+
+### 6. Install ffmpeg 4.x libraries
 ```Shell
 sudo add-apt-repository ppa:jonathonf/ffmpeg-4
 sudo apt update
@@ -381,19 +414,19 @@ sudo apt install ffmpeg \
   libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
 ```
 
-### 6. [Optional] Install VapourSynth
+### 7. [Optional] Install VapourSynth
 VapourSynth is required only if you need VapourSynth(vpy) reader support.  
 
 Please go on to [5. Build QSVEncC] if you don't need vpy reader.
 
 <details><summary>How to build VapourSynth</summary>
 
-#### 6.1 Install build tools for VapourSynth
+#### 7.1 Install build tools for VapourSynth
 ```Shell
 sudo apt install python3-pip autoconf automake libtool meson
 ```
 
-#### 6.2 Install zimg
+#### 7.2 Install zimg
 ```Shell
 git clone https://github.com/sekrit-twc/zimg.git
 cd zimg
@@ -403,12 +436,12 @@ sudo make install -j16
 cd ..
 ```
 
-#### 6.3 Install cython
+#### 7.3 Install cython
 ```Shell
 sudo pip3 install Cython
 ```
 
-#### 6.4 Install VapourSynth
+#### 7.4 Install VapourSynth
 ```Shell
 git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
@@ -423,13 +456,13 @@ sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python
 sudo ldconfig
 ```
 
-#### 6.5 Check if VapourSynth has been installed properly
+#### 7.5 Check if VapourSynth has been installed properly
 Make sure you get version number without errors.
 ```Shell
 vspipe --version
 ```
 
-#### 6.6 [Option] Build vslsmashsource
+#### 7.6 [Option] Build vslsmashsource
 ```Shell
 # Install lsmash
 git clone https://github.com/l-smash/l-smash.git
@@ -452,7 +485,15 @@ cd ../../../
 
 </details>
 
-### 7. Build QSVEncC
+### 8. Add user to proper group
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 9. Build QSVEncC
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
@@ -499,10 +540,23 @@ sudo dnf install libva-devel libva-X11-devel libdrm-devel intel-mediasdk intel-m
 sudo dnf install ffmpeg ffmpeg-devel
 ```
 
-### 3. Install Intel driver
+### 3. Install Intel Media driver and OpenCL runtime
+OpenCL driver can be innstalled following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/redhat/redhat-8.3.html).
 
 ```Shell
+#Media
 sudo dnf install intel-media-driver
+#OpenCL
+sudo dnf install -y 'dnf-command(config-manager)'
+sudo dnf config-manager \
+  --add-repo \
+  https://repositories.intel.com/graphics/rhel/8.3/intel-graphics.repo
+sudo dnf update --refresh
+sudo dnf install \
+  intel-opencl \
+  intel-media intel-mediasdk \
+  level-zero intel-level-zero-gpu
+sudo dnf install opencl-headers
 ```
 
 
@@ -577,7 +631,15 @@ cd ../../../
 
 </details>
 
-### 5. Build QSVEncC
+### 5. Add user to proper group
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 6. Build QSVEncC
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
