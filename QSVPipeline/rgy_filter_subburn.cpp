@@ -231,7 +231,9 @@ RGY_ERR RGYFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t fram
     } else if (nDetectChange) {
         m_subImages.clear();
         for (auto image = frameImages; image; image = image->next) {
-            m_subImages.push_back(textRectToImage(image, queue, wait_events, nullptr));
+            if (image->w > 0 && image->h > 0) {
+                m_subImages.push_back(textRectToImage(image, queue, wait_events, nullptr));
+            }
         }
     }
     auto prm = std::dynamic_pointer_cast<RGYFilterParamSubburn>(m_param);
@@ -373,7 +375,9 @@ RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInp
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
                 const AVSubtitleRect *rect = m_subData->rects[irect];
-                m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, queue, wait_events, nullptr));
+                if (rect->w > 0 && rect->h > 0) {
+                    m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, queue, wait_events, nullptr));
+                }
             }
         }
         if ((m_subData->num_rects != m_subImages.size())) {
