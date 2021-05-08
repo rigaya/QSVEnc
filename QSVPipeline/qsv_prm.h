@@ -284,7 +284,6 @@ struct sInputParams {
     int        nTrellis;
 
     int        nAsyncDepth;
-    int        nOutputBufSizeMB;
 
     bool       bBPyramid;
     bool       bAdaptiveI;

@@ -118,7 +118,6 @@ sInputParams::sInputParams() :
     nLookaheadDepth(0),
     nTrellis(0),
     nAsyncDepth(0),
-    nOutputBufSizeMB(QSV_DEFAULT_OUTPUT_BUF_MB),
 #if FOR_AUO
     bBPyramid(true),
 #else

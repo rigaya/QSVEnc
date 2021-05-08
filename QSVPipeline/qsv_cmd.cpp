@@ -393,11 +393,6 @@ tstring encoder_help() {
         QSV_DEFAULT_INPUT_BUF_HW, QSV_DEFAULT_INPUT_BUF_SW
         );
     str += strsprintf(_T("")
-        _T("   --output-buf <int>           buffer size for output in MByte\n")
-        _T("                                 default %d MB (0-%d)\n"),
-        QSV_DEFAULT_OUTPUT_BUF_MB, RGY_OUTPUT_BUF_MB_MAX
-        );
-    str += strsprintf(_T("")
 #if defined(_WIN32) || defined(_WIN64)
         _T("   --mfx-thread <int>          set mfx thread num (-1 (auto), 2, 3, ...)\n")
         _T("                                 note that mfx thread cannot be less than 2.\n")
@@ -1331,21 +1326,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             return 1;
         }
         if (argData->nTmpInputBuf < 0) {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T("output-buf should be positive value."));
-            return 1;
-        }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("output-buf"))) {
-        i++;
-        try {
-            pParams->nOutputBufSizeMB = std::min(std::stoi(strInput[i]), RGY_OUTPUT_BUF_MB_MAX);
-        } catch (...) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
-        if (pParams->nOutputBufSizeMB < 0) {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T("output-buf should be positive value."));
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("input-buf should be positive value."));
             return 1;
         }
         return 0;
@@ -1360,7 +1341,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             return 1;
         }
         if (pParams->nSessionThreads < -1) {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T("output-buf should be positive value."));
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("mfx-thread should be positive value."));
             return 1;
         }
         return 0;
@@ -1371,7 +1352,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->ctrl.threadAudio = 0;
         pParams->nAsyncDepth = 1;
         argData->nTmpInputBuf = 1;
-        pParams->nOutputBufSizeMB = 0;
+        pParams->ctrl.outputBufSizeMB = 0;
         pParams->nSessionThreads = 2;
         return 0;
     }
