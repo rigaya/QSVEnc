@@ -128,8 +128,8 @@ int func_diff_block4(
     int diff = 0;
     for (int y = 0; y < block_half_y; y++) {
         if (imgx < width && imgy + y < height) {
-            Type4 pix0 = *(Type4 *)(p0 + (imgy + y)* p0_pitch + imgx * sizeof(Type));
-            Type4 pix1 = *(Type4 *)(p1 + (imgy + y)* p1_pitch + imgx * sizeof(Type));
+            Type4 pix0 = *(__global Type4 *)(p0 + (imgy + y)* p0_pitch + imgx * sizeof(Type));
+            Type4 pix1 = *(__global Type4 *)(p1 + (imgy + y)* p1_pitch + imgx * sizeof(Type));
             diff += abs_diff(pix0.x, pix1.x);
             if (imgx + 1 < width && block_half_x >= 2) diff += abs_diff(pix0.y, pix1.y);
             if (imgx + 2 < width && block_half_x >= 3) diff += abs_diff(pix0.z, pix1.z);
