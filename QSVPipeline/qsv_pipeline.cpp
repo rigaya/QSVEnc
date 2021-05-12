@@ -2886,6 +2886,12 @@ RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
                     PrintMes(RGY_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
                 }
 
+                //D3D11モードは基本的には遅い模様なので、自動モードなら切る
+                if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
+                    memType &= (~D3D11_MEMORY);
+                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: d3d11 memory mode not required, switching to d3d9 memory mode.\n"));
+                }
+
 #endif //#if MFX_D3D11_SUPPORT
                 //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
                 for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
