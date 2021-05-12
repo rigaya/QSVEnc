@@ -82,7 +82,7 @@ static const std::map<mfxU32, D3DFORMAT> fourccToD3DFormat = {
 };
 
 QSVAllocatorD3D9::QSVAllocatorD3D9() :
-    m_decoderService(0), m_processorService(0), m_hDecoder(0), m_hProcessor(0), m_manager(0), m_surfaceUsage(0) {
+    m_decoderService(0), m_processorService(0), m_hDecoder(0), m_hProcessor(0), m_manager(0), m_surfaceUsage(0), m_getSharedHandle(false) {
 }
 
 QSVAllocatorD3D9::~QSVAllocatorD3D9() {
@@ -98,6 +98,7 @@ mfxStatus QSVAllocatorD3D9::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog>
 
     m_manager = pd3d9Params->pManager;
     m_surfaceUsage = pd3d9Params->surfaceUsage;
+    m_getSharedHandle = pd3d9Params->getSharedHandle;
 
     return MFX_ERR_NONE;
 }
@@ -383,7 +384,12 @@ mfxStatus QSVAllocatorD3D9::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAll
     if (request->Type & MFX_MEMTYPE_EXTERNAL_FRAME) {
         for (int i = 0; i < request->NumFrameSuggested; i++) {
             if (FAILED(hr = videoService->CreateSurface(request->Info.Width, request->Info.Height, 0,  format,
-                                                D3DPOOL_DEFAULT, m_surfaceUsage, target, (IDirect3DSurface9**)&dxMids[i].first, &dxMids[i].second))) {
+                D3DPOOL_DEFAULT, m_surfaceUsage, target, (IDirect3DSurface9**)&dxMids[i].first,
+                //通常、OpenCL-d3d9間のinteropでrelease/acquireで余計なオーバーヘッドが発生させないために、
+                //shared_handleを取得する必要がある(qsv_opencl.hのgetOpenCLFrameInterop()参照)
+                //しかし、これを行うとWin7のSandybridge環境ではデコードが正常に行われなくなってしまう問題があるとの報告を受けた
+                //そのため、shared_handleを取得するのは、SandyBridgeでない、あるいはWin7でない環境に限るようにする
+                (m_getSharedHandle) ? &dxMids[i].second : nullptr))) {
                 ReleaseResponse(response);
                 rgy_free(dxMids);
                 m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D9::AllocImpl failed to CreateSurface(external) #%d: %d.\n"), i, hr);

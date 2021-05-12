@@ -50,8 +50,9 @@ class QSVAllocatorParamsD3D9 : public mfxAllocatorParams {
 public:
     IDirect3DDeviceManager9 *pManager;
     DWORD surfaceUsage;
+    bool getSharedHandle;
 
-    QSVAllocatorParamsD3D9() : pManager(), surfaceUsage() { }
+    QSVAllocatorParamsD3D9() : pManager(), surfaceUsage(), getSharedHandle(true) { }
 };
 
 class QSVAllocatorD3D9 : public QSVAllocator {
@@ -81,6 +82,7 @@ protected:
     HANDLE m_hDecoder;
     HANDLE m_hProcessor;
     DWORD m_surfaceUsage;
+    bool m_getSharedHandle;
 };
 
 #endif // #if defined( _WIN32 ) || defined ( _WIN64 )
