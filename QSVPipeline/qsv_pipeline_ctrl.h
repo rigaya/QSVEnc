@@ -440,7 +440,7 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to allocate frames: %s.\n"), get_err_mes(sts));
             return sts;
         }
-        PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   allocated %d frames.\n"), allocRequest.NumFrameSuggested);
+        PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   allocated %d frames.\n"), m_allocResponse.NumFrameActual);
 
         std::vector<mfxFrameSurface1> workSurfs(m_allocResponse.NumFrameActual);
         for (size_t i = 0; i < workSurfs.size(); i++) {
