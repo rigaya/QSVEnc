@@ -470,6 +470,7 @@ public:
     // 破棄時にアプリ側の参照カウンタを減算するようにshared_ptrで設定してある
     PipelineTaskSurface getWorkSurf() {
         if (m_workSurfs.bufCount() == 0) {
+            PrintMes(RGY_LOG_ERROR, _T("getWorkSurf:   No buffer allocated!\n"));
             return PipelineTaskSurface();
         }
         for (uint32_t i = 0; i < MSDK_WAIT_INTERVAL; i++) {
@@ -479,6 +480,7 @@ public:
             }
             sleep_hybrid(i);
         }
+        PrintMes(RGY_LOG_ERROR, _T("getWorkSurf:   Failed to get work surface, all %d frames used.\n"), m_workSurfs.bufCount());
         return PipelineTaskSurface();
     }
 
