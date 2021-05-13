@@ -3512,6 +3512,11 @@ RGY_ERR CQSVPipeline::RunEncode2() {
 
     RGY_ERR err = RGY_ERR_NONE;
     {
+        auto setloglevel = [](RGY_ERR err) {
+            if (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE) return RGY_LOG_DEBUG;
+            if (err > RGY_ERR_NONE) return RGY_LOG_WARN;
+            return RGY_LOG_ERROR;
+        };
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
             if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
@@ -3526,7 +3531,10 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                 auto& task = m_pipelineTasks[itask];
                 for (auto& d : data) {
                     err = task->sendFrame(d);
-                    if (!checkContinue(err)) break;
+                    if (!checkContinue(err)) {
+                        PrintMes(setloglevel(err), _T("Break in task %s: %s.\n"), task->print().c_str(), get_err_mes(err));
+                        break;
+                    }
                 }
                 data.clear();
                 if (err == RGY_ERR_NONE) {
