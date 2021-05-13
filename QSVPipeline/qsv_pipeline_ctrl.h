@@ -880,13 +880,13 @@ public:
             } else {
                 if (m_avsync & RGY_AVSYNC_FORCE_CFR) {
                     //間引きが必要
-                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), taskSurf->surf()->Data.FrameOrder, m_tsPrev, outPtsSource);
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d/%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), taskSurf->surf()->Data.FrameOrder, m_inFrames, m_tsPrev, outPtsSource);
                     return RGY_ERR_MORE_SURFACE;
                 } else {
                     const auto origPts = outPtsSource;
-                    outPtsSource = m_tsPrev + std::max<int64_t>(1, m_outFrameDuration / 8);
-                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
-                        taskSurf->surf()->Data.FrameOrder, origPts, outPtsSource, m_tsPrev);
+                    outPtsSource = m_tsPrev + std::max<int64_t>(1, m_outFrameDuration / 4);
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d/%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
+                        taskSurf->surf()->Data.FrameOrder, m_inFrames, origPts, outPtsSource, m_tsPrev);
                 }
             }
         }
