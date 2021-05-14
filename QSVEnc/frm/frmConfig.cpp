@@ -1462,6 +1462,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
         SetNUValue(fcgNUVppMctf, (prm_qsv.vppmfx.mctf.enable) ? prm_qsv.vppmfx.mctf.strength : 0);
         SetCXIndex(fcgCXVppResizeAlg, get_cx_index(list_vpp_resize, prm_qsv.vpp.resize_algo));
+        fcgCBVppResize->Checked = cnf->vid.resize_enable;
         SetNUValue(fcgNUResizeW, cnf->vid.resize_width);
         SetNUValue(fcgNUResizeH, cnf->vid.resize_height);
 
