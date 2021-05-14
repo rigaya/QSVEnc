@@ -2109,7 +2109,6 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     sVppParams vppParams;
     vppParams.bEnable = true;
     switch (vppType) {
-    case VppType::MFX_CROP: break;
     case VppType::MFX_COPY: break;
     case VppType::MFX_DEINTERLACE:         vppParams.deinterlace = params->deinterlace; break;
     case VppType::MFX_DENOISE:             vppParams.denoise = params->denoise; break;
@@ -2124,6 +2123,8 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
                                            vppParams.resizeMode = params->resizeMode;
                                            frameInfo.width = resize.first;
                                            frameInfo.height = resize.second; break;
+    case VppType::MFX_CROP:                frameInfo.width  -= (crop) ? (crop->e.left + crop->e.right) : 0;
+                                           frameInfo.height -= (crop) ? (crop->e.up + crop->e.bottom)  : 0; break;
     case VppType::MFX_FPS_CONV:
     default:
         return { RGY_ERR_UNSUPPORTED, std::unique_ptr<QSVVppMfx>() };
@@ -2611,22 +2612,18 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     int resizeHeight = croppedHeight;
     m_encWidth = resizeWidth;
     m_encHeight = resizeHeight;
-    if (inputParam->vpp.pad.enable) {
-        m_encWidth += inputParam->vpp.pad.right + inputParam->vpp.pad.left;
-        m_encHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
-    }
-
     //指定のリサイズがあればそのサイズに設定する
     if (inputParam->input.dstWidth > 0 && inputParam->input.dstHeight > 0) {
         m_encWidth = inputParam->input.dstWidth;
         m_encHeight = inputParam->input.dstHeight;
         resizeWidth = m_encWidth;
         resizeHeight = m_encHeight;
-        if (inputParam->vpp.pad.enable) {
-            resizeWidth -= (inputParam->vpp.pad.right + inputParam->vpp.pad.left);
-            resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
-        }
     }
+    if (inputParam->vpp.pad.enable) {
+        m_encWidth += inputParam->vpp.pad.right + inputParam->vpp.pad.left;
+        m_encHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
+    }
+
     RGY_VPP_RESIZE_TYPE resizeRequired = RGY_VPP_RESIZE_TYPE_NONE;
     if (croppedWidth != resizeWidth || croppedHeight != resizeHeight) {
         resizeRequired = getVppResizeType(inputParam->vpp.resize_algo);
@@ -2709,6 +2706,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         if (ftype1 == VppFilterType::FILTER_MFX) {
             auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, filterPipeline[i], &inputParam->vppmfx,
                 getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), inputCrop, resize, blocksize);
+            inputCrop = nullptr;
             if (err != RGY_ERR_NONE) {
                 return err;
             }
