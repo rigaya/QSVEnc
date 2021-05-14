@@ -2260,8 +2260,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->decimate = params->vpp.decimate;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
-        param->frameOut.width = m_encWidth;
-        param->frameOut.height = m_encHeight;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
@@ -2282,8 +2280,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->mpdecimate = params->vpp.mpdecimate;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
-        param->frameOut.width = m_encWidth;
-        param->frameOut.height = m_encHeight;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
@@ -2558,8 +2554,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->pad = params->vpp.pad;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
-        param->frameOut.width = m_encWidth;
-        param->frameOut.height = m_encHeight;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
