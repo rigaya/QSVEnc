@@ -189,7 +189,6 @@ protected:
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<VppType> m_vppFilterList;
     std::vector<VppVilterBlock> m_vpFilters;
-    std::unique_ptr<QSVVppMfx> m_vppCopyForCheckPts; //checkptsのコピー用のvpp
 
     std::shared_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;

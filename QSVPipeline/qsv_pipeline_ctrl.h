@@ -178,14 +178,33 @@ protected:
 
 };
 
+class PipelineTaskOutputDataCustom {
+    int type;
+public:
+    PipelineTaskOutputDataCustom() {};
+    virtual ~PipelineTaskOutputDataCustom() {};
+};
+
+class PipelineTaskOutputDataCheckPts : public PipelineTaskOutputDataCustom {
+private:
+    int64_t timestamp;
+public:
+    PipelineTaskOutputDataCheckPts() : PipelineTaskOutputDataCustom() {};
+    PipelineTaskOutputDataCheckPts(int64_t timestampOverride) : PipelineTaskOutputDataCustom(), timestamp(timestampOverride) {};
+    virtual ~PipelineTaskOutputDataCheckPts() {};
+    int64_t timestampOverride() const { return timestamp; }
+};
+
 class PipelineTaskOutput {
 protected:
     PipelineTaskOutputType m_type;
     MFXVideoSession *m_mfxSession;
     mfxSyncPoint m_syncpoint;
+    std::unique_ptr<PipelineTaskOutputDataCustom> m_customData;
 public:
-    PipelineTaskOutput(MFXVideoSession *mfxSession) : m_type(PipelineTaskOutputType::UNKNOWN), m_mfxSession(mfxSession), m_syncpoint(nullptr) {};
-    PipelineTaskOutput(MFXVideoSession *mfxSession, PipelineTaskOutputType type, mfxSyncPoint syncpoint) : m_type(type), m_mfxSession(mfxSession), m_syncpoint(syncpoint) {};
+    PipelineTaskOutput(MFXVideoSession *mfxSession) : m_type(PipelineTaskOutputType::UNKNOWN), m_mfxSession(mfxSession), m_syncpoint(nullptr), m_customData() {};
+    PipelineTaskOutput(MFXVideoSession *mfxSession, PipelineTaskOutputType type, mfxSyncPoint syncpoint) : m_type(type), m_mfxSession(mfxSession), m_syncpoint(syncpoint), m_customData() {};
+    PipelineTaskOutput(MFXVideoSession *mfxSession, PipelineTaskOutputType type, mfxSyncPoint syncpoint, std::unique_ptr<PipelineTaskOutputDataCustom>& customData) : m_type(type), m_mfxSession(mfxSession), m_syncpoint(syncpoint), m_customData(std::move(customData)) {};
     RGY_ERR waitsync(uint32_t wait = MSDK_WAIT_INTERVAL) {
         if (m_syncpoint == nullptr) {
             return RGY_ERR_NONE;
@@ -197,6 +216,7 @@ public:
     virtual void depend_clear() {};
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
+    const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
     virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator) {
         UNREFERENCED_PARAMETER(writer);
         UNREFERENCED_PARAMETER(allocator);
@@ -213,6 +233,8 @@ protected:
 public:
     PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint) :
         PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_dependencyFrame(), m_clevents() { };
+    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint, std::unique_ptr<PipelineTaskOutputDataCustom>& customData) :
+        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint, customData), m_surf(surf), m_dependencyFrame(), m_clevents() { };
     PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, RGYOpenCLEvent& clevent) :
         PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, nullptr),
         m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_clevents() {
@@ -351,7 +373,7 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() = 0;
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
     virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { return RGY_ERR_INVALID_CALL; }
-    std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) {
+    virtual std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) {
         std::vector<std::unique_ptr<PipelineTaskOutput>> output;
         while ((int)m_outQeueue.size() > m_outMaxQueueSize) {
             auto out = std::move(m_outQeueue.front());
@@ -682,103 +704,30 @@ protected:
     int64_t m_tsOutFirst;     //(m_outputTimebase基準)
     int64_t m_tsOutEstimated; //(m_outputTimebase基準)
     int64_t m_tsPrev;         //(m_outputTimebase基準)
-    MFXVideoVPP *m_vppCopy;   //コピー用のvpp、forcecfrでフレームの水増しが必要な場合のみ
-    mfxVideoParam m_vppCopyPrm; //コピー用のvppのパラメータ、forcecfrでフレームの水増しが必要な場合のみ
 public:
-    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync,
-        MFXVideoVPP *vppCopy, const mfxVideoParam *vppCopyPrm, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::CHECKPTS, outMaxQueueSize, mfxSession, mfxVer, log),
-        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1), m_vppCopy(vppCopy), m_vppCopyPrm() {
-        if (vppCopyPrm) {
-            m_vppCopyPrm = *vppCopyPrm;
-        }
+    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::CHECKPTS, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, mfxSession, mfxVer, log),
+        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
     virtual bool isPassThrough() const override {
-        // forcecfrでフレームの水増しが必要な場合には、たとえ不要でも必ずコピーするvppをはさむ
-        // コピーが不要な場合はそのまま渡すのでpaththrough
-        return (m_vppCopy) ? false : true;
+        // そのまま渡すのでpaththrough
+        return true;
     }
-    static const int MAX_FORCECFR_INSERT_FRAMES = 16;
-
-    RGY_ERR requiredSurfInOut(mfxFrameAllocRequest allocRequest[2]) {
-        memset(allocRequest, 0, sizeof(allocRequest));
-        // allocRequest[0]はvppへの入力, allocRequest[1]はvppからの出力
-        auto err = err_to_rgy(m_vppCopy->QueryIOSurf(&m_vppCopyPrm, allocRequest));
-        if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
-            return err;
-        }
-        allocRequest[1].NumFrameMin += MAX_FORCECFR_INSERT_FRAMES;
-        allocRequest[1].NumFrameSuggested += MAX_FORCECFR_INSERT_FRAMES;
-        PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer in: %d [%s], out %d [%s]\n"), getPipelineTaskTypeName(m_type),
-            allocRequest[0].NumFrameSuggested, qsv_memtype_str(allocRequest[0].Type).c_str(),
-            allocRequest[1].NumFrameSuggested, qsv_memtype_str(allocRequest[1].Type).c_str());
-        return err;
-    }
+    static const int MAX_FORCECFR_INSERT_FRAMES = 1024; //事実上の無制限
 public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override {
-        if (!m_vppCopy) {
-            return std::nullopt;
-        }
-        mfxFrameAllocRequest allocRequest[2];
-        if (requiredSurfInOut(allocRequest) != RGY_ERR_NONE) {
-            return std::nullopt;
-        }
-        return std::optional<mfxFrameAllocRequest>(allocRequest[0]);
+        return std::nullopt;
     };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override {
-        if (!m_vppCopy) {
-            return std::nullopt;
-        }
-        mfxFrameAllocRequest allocRequest[2];
-        if (requiredSurfInOut(allocRequest) != RGY_ERR_NONE) {
-            return std::nullopt;
-        }
-        return std::optional<mfxFrameAllocRequest>(allocRequest[1]);
+        return std::nullopt;
     };
-    RGY_ERR copyFrameVpp(mfxFrameSurface1 *surfVppOut, mfxFrameSurface1 *surfVppIn, mfxSyncPoint& lastSyncPoint) {
-        auto vpp_sts = MFX_ERR_NONE;
-        for (int i = 0; ; i++) {
-            //bob化の際、pSurfVppInに連続で同じフレーム(同じtimestamp)を投入すると、
-            //最初のフレームには設定したtimestamp、次のフレームにはMFX_TIMESTAMP_UNKNOWNが設定されて出てくる
-            //特別pSurfVppOut側のTimestampを設定する必要はなさそう
-            mfxSyncPoint VppSyncPoint = nullptr;
-            vpp_sts = m_vppCopy->RunFrameVPPAsync(surfVppIn, surfVppOut, nullptr, &VppSyncPoint);
-            lastSyncPoint = VppSyncPoint;
-
-            if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) {
-                if (MFX_WRN_DEVICE_BUSY == vpp_sts)
-                    sleep_hybrid(i);
-                if (i > 1024 * 1024 * 30) {
-                    PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
-                    return RGY_ERR_GPU_HANG;
-                }
-            } else if (MFX_ERR_NONE < vpp_sts && VppSyncPoint) {
-                vpp_sts = MFX_ERR_NONE;
-                break;
-            } else {
-                break;
-            }
-        }
-
-        if (surfVppIn && vpp_sts == MFX_ERR_MORE_DATA) {
-            vpp_sts = MFX_ERR_NONE;
-        } else if (vpp_sts == MFX_ERR_MORE_SURFACE) {
-            vpp_sts = MFX_ERR_NONE;
-        } else if (vpp_sts != MFX_ERR_NONE) {
-            return err_to_rgy(vpp_sts);
-        }
-        if (lastSyncPoint == nullptr) {
-            PrintMes(RGY_LOG_TRACE, _T("vpp(copy) returned no frame.\n"));
-            return RGY_ERR_UNKNOWN;
-        }
-        return RGY_ERR_NONE;
-    }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (!frame) {
-            return RGY_ERR_MORE_DATA;
+            //PipelineTaskCheckPTSは、getOutputで1フレームずつしか取り出さない
+            //そのためm_outQeueueにまだフレームが残っている可能性がある
+            return (m_outQeueue.size() > 0) ? RGY_ERR_MORE_SURFACE : RGY_ERR_MORE_DATA;
         }
         const bool vpp_rff = false;
         const bool vpp_afs_rff_aware = false;
@@ -847,25 +796,25 @@ public:
             auto ptsDiff = outPtsSource - m_tsOutEstimated;
             if (ptsDiff <= std::min<int64_t>(-1, -1 * m_outFrameDuration * 7 / 8)) {
                 //間引きが必要
-                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (assume_cfr)\n"), taskSurf->surf()->Data.FrameOrder);
+                PrintMes(RGY_LOG_WARN, _T("Drop frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
                 return RGY_ERR_MORE_SURFACE;
             }
             while (ptsDiff >= std::max<int64_t>(1, m_outFrameDuration * 7 / 8)) {
-                PrintMes(RGY_LOG_DEBUG, _T("Insert frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
+                PrintMes(RGY_LOG_WARN, _T("Insert frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
                 //水増しが必要
-                //この場合にはコピーが必要
-                mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
-                auto surfVppOut = getWorkSurf();
-                mfxSyncPoint lastSyncPoint;
-                auto err = copyFrameVpp(surfVppOut.get(), surfVppIn, lastSyncPoint);
-                if (err != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_TRACE, _T("error occurred in vpp(copy): %s.\n"), get_err_mes(err));
-                    return err;
-                }
+                PipelineTaskSurface surfVppOut = taskSurf->surf();
+                mfxSyncPoint lastSyncPoint = taskSurf->syncpoint();
                 surfVppOut->Data.FrameOrder = m_inFrames++;
                 surfVppOut->Data.TimeStamp = m_tsOutEstimated; // timestampを上書き
                 surfVppOut->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
+                //timestampの上書き情報
+                //surfVppOut内部のmfxSurface1自体は同じデータを指すため、複数のタイムスタンプを持つことができない
+                //この問題をm_outQeueueのPipelineTaskOutput(これは個別)に与えるPipelineTaskOutputDataCheckPtsの値で、
+                //PipelineTaskCheckPTS::getOutput時にtimestampを変更するようにする
+                //そのため、checkptsからgetOutputしたフレームは
+                //(次にPipelineTaskCheckPTS::getOutputを呼ぶより前に)直ちに後続タスクに投入するよう制御する必要がある
+                std::unique_ptr<PipelineTaskOutputDataCustom> timestampOverride(new PipelineTaskOutputDataCheckPts(m_tsOutEstimated));
+                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint, timestampOverride));
                 m_tsOutEstimated += m_outFrameDuration;
                 ptsDiff = outPtsSource - m_tsOutEstimated;
             }
@@ -894,27 +843,44 @@ public:
         //次のフレームのptsの予想
         m_tsOutEstimated += outDuration;
         m_tsPrev = outPtsSource;
-        PipelineTaskSurface outSurf;
-        mfxSyncPoint lastSyncPoint;
-        if (m_vppCopy) {
-            // forcecfrでフレームの水増しが必要な場合には、たとえ不要でも必ずコピーするvppをはさむ
-            // 一部のみコピーするvppをはさむと後段の処理でdevice failureが発生するため
-            mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
-            outSurf = getWorkSurf();
-            auto err = copyFrameVpp(outSurf.get(), surfVppIn, lastSyncPoint);
-            if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_TRACE, _T("error occurred in vpp(copy): %s.\n"), get_err_mes(err));
-                return err;
-            }
-        } else { // コピーが不要な場合はそのまま渡す
-            outSurf = taskSurf->surf();
-            lastSyncPoint = taskSurf->syncpoint();
-        }
+        PipelineTaskSurface outSurf = taskSurf->surf();
+        mfxSyncPoint lastSyncPoint = taskSurf->syncpoint();
         outSurf->Data.FrameOrder = m_inFrames++;
         outSurf->Data.TimeStamp = outPtsSource;
         outSurf->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, outSurf, lastSyncPoint));
+        std::unique_ptr<PipelineTaskOutputDataCustom> timestampOverride(new PipelineTaskOutputDataCheckPts(outPtsSource));
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, outSurf, lastSyncPoint, timestampOverride));
         return RGY_ERR_NONE;
+    }
+    //checkptsではtimestampを上書きするため特別に常に1フレームしか取り出さない
+    //これは--avsync frocecfrでフレームを参照コピーする際、
+    //mfxSurface1自体は同じデータを指すため、複数のタイムスタンプを持つことができないため、
+    //1フレームずつgetOutputし、都度タイムスタンプを上書きしてすぐに後続のタスクに投入してタイムスタンプを反映させる必要があるため
+    virtual std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) override {
+        std::vector<std::unique_ptr<PipelineTaskOutput>> output;
+        if ((int)m_outQeueue.size() > m_outMaxQueueSize) {
+            auto out = std::move(m_outQeueue.front());
+            m_outQeueue.pop_front();
+            if (sync) {
+                out->waitsync();
+            }
+            out->depend_clear();
+            if (out->customdata() != nullptr) {
+                const auto dataCheckPts = dynamic_cast<const PipelineTaskOutputDataCheckPts *>(out->customdata());
+                if (dataCheckPts == nullptr) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get timestamp data, timestamp might be inaccurate!\n"));
+                } else {
+                    PipelineTaskOutputSurf *outDurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
+                    outDurf->surf()->Data.TimeStamp = dataCheckPts->timestampOverride();
+                }
+            }
+            m_outFrames++;
+            output.push_back(std::move(out));
+        }
+        if (output.size() > 1) {
+            PrintMes(RGY_LOG_ERROR, _T("output queue more than 1, invalid!\n"));
+        }
+        return output;
     }
 };
 

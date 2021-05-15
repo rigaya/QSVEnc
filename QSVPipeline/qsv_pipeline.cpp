@@ -1603,7 +1603,6 @@ CQSVPipeline::CQSVPipeline() :
     m_DecInputBitstream(),
     m_cl(),
     m_vpFilters(),
-    m_vppCopyForCheckPts(),
     m_hwdev(),
     m_pipelineTasks() {
     m_trimParam.offset = 0;
@@ -3131,8 +3130,6 @@ void CQSVPipeline::Close() {
     // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
-    PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filter (copy)...\n"));
-    m_vppCopyForCheckPts.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
     m_pmfxDEC.reset();
     m_pmfxENC.reset();
@@ -3260,12 +3257,6 @@ RGY_ERR CQSVPipeline::InitMfxVpp() {
             }
         }
     }
-    if (m_vppCopyForCheckPts) {
-        auto err = m_vppCopyForCheckPts->Init();
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-    }
     return RGY_ERR_NONE;
 }
 
@@ -3309,12 +3300,6 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
             RGY_ERR(err, _T("Failed to reset vpp (fail on closing)."));
             PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp closed.\n"));
         }
-    }
-    if (m_vppCopyForCheckPts) {
-        err = m_vppCopyForCheckPts->Close();
-        RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
-        RGY_ERR(err, _T("Failed to reset vpp(copy) (fail on closing)."));
-        PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Vpp(Copy) closed.\n"));
     }
 
     if (m_pmfxDEC) {
@@ -3388,41 +3373,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    // forcecfrではフレームコピーが必要
-    // この場合に備えて、コピー用のvppを作成する
-    if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) {
-        mfxIMPL impl;
-        m_mfxSession.QueryIMPL(&impl);
-        auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
-        // 前のステップのフレーム情報を取得する
-        std::unique_ptr<mfxFrameInfo> prevFrameInfo;
-        for (auto itr = std::rbegin(m_pipelineTasks); itr != std::rend(m_pipelineTasks); itr++) {
-            mfxFrameInfo frame;
-            if ((*itr)->getOutputFrameInfo(frame) == RGY_ERR_NONE) {
-                prevFrameInfo = std::make_unique<mfxFrameInfo>(frame);
-                break;
-            }
-        }
-        if (!prevFrameInfo) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to get frame information when creating copy vpp for checkpts.\n"));
-            return RGY_ERR_UNKNOWN;
-        }
-        auto err = mfxvpp->SetCopy(*prevFrameInfo.get()); // コピー用のvppに設定
-        if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to set copy vpp: %s.\n"), get_err_mes(err));
-            return err;
-        }
-        err = err_to_rgy(m_mfxSession.JoinSession(mfxvpp->GetSession()));
-        if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
-            return err;
-        }
-        m_vppCopyForCheckPts = std::move(mfxvpp);
-    }
-    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_mfxSession, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode,
-        (m_vppCopyForCheckPts) ? m_vppCopyForCheckPts->mfxvpp() : nullptr,
-        (m_vppCopyForCheckPts) ? &m_vppCopyForCheckPts->mfxparams() : nullptr,
-        0, m_mfxVer, m_pQSVLog));
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_mfxSession, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_mfxVer, m_pQSVLog));
 
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {
@@ -3503,41 +3454,67 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     };
 
     RGY_ERR err = RGY_ERR_NONE;
+    auto setloglevel = [](RGY_ERR err) {
+        if (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM) return RGY_LOG_DEBUG;
+        if (err > RGY_ERR_NONE) return RGY_LOG_WARN;
+        return RGY_LOG_ERROR;
+    };
+    struct PipelineTaskData {
+        size_t task;
+        std::unique_ptr<PipelineTaskOutput> data;
+        PipelineTaskData(size_t t) : task(t), data() {};
+        PipelineTaskData(size_t t, std::unique_ptr<PipelineTaskOutput>& d) : task(t), data(std::move(d)) {};
+    };
+    std::deque<PipelineTaskData> dataqueue;
     {
-        auto setloglevel = [](RGY_ERR err) {
-            if (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE) return RGY_LOG_DEBUG;
-            if (err > RGY_ERR_NONE) return RGY_LOG_WARN;
-            return RGY_LOG_ERROR;
-        };
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
             if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
         };
         while (checkContinue(err)) {
-            speedCtrl.wait(m_pipelineTasks.front()->outputFrames());
-
-            std::vector<std::unique_ptr<PipelineTaskOutput>> data;
-            data.push_back(nullptr); // デコード実行用
-            for (size_t itask = 0; checkContinue(err) && itask < m_pipelineTasks.size(); itask++) {
-                err = RGY_ERR_NONE;
-                auto& task = m_pipelineTasks[itask];
-                for (auto& d : data) {
-                    err = task->sendFrame(d);
+            if (dataqueue.empty()) {
+                speedCtrl.wait(m_pipelineTasks.front()->outputFrames());
+                dataqueue.push_back(PipelineTaskData(0)); // デコード実行用
+            }
+            while (!dataqueue.empty()) {
+                auto d = std::move(dataqueue.front());
+                dataqueue.pop_front();
+                if (d.task < m_pipelineTasks.size()) {
+                    err = RGY_ERR_NONE;
+                    auto& task = m_pipelineTasks[d.task];
+                    err = task->sendFrame(d.data);
                     if (!checkContinue(err)) {
                         PrintMes(setloglevel(err), _T("Break in task %s: %s.\n"), task->print().c_str(), get_err_mes(err));
                         break;
                     }
-                }
-                data.clear();
-                if (err == RGY_ERR_NONE) {
-                    data = task->getOutput(requireSync(itask));
-                    if (data.size() == 0) break;
+                    if (err == RGY_ERR_NONE) {
+                        auto output = task->getOutput(requireSync(d.task));
+                        if (output.size() == 0) break;
+                        //出てきたものは先頭に追加していく
+                        std::for_each(output.rbegin(), output.rend(), [itask = d.task, &dataqueue](auto&& o) {
+                            dataqueue.push_front(PipelineTaskData(itask + 1, o));
+                        });
+                    }
+                } else { // pipelineの最終的なデータを出力
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
+                        break;
+                    }
                 }
             }
-            for (auto& d : data) { // pipelineの最終的なデータを出力
-                if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
-                    break;
+            if (dataqueue.empty()) {
+                // taskを前方からひとつづつ出力が残っていないかチェック(主にcheckptsの処理のため)
+                for (size_t itask = 0; itask < m_pipelineTasks.size(); itask++) {
+                    auto& task = m_pipelineTasks[itask];
+                    auto output = task->getOutput(requireSync(itask));
+                    if (output.size() > 0) {
+                        //出てきたものは先頭に追加していく
+                        std::for_each(output.rbegin(), output.rend(), [itask, &dataqueue](auto&& o) {
+                            dataqueue.push_front(PipelineTaskData(itask + 1, o));
+                            });
+                        //checkptsの処理上、でてきたフレームはすぐに後続処理に渡したいのでbreak
+                        break;
+                    }
                 }
             }
         }
@@ -3552,32 +3529,51 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_SURFACE;
         };
-        for (size_t flushedTask = 0; flushedTask < m_pipelineTasks.size(); ) { // taskを前方からひとつづつflushしていく
+        for (size_t flushedTaskSend = 0, flushedTaskGet = 0; flushedTaskGet < m_pipelineTasks.size(); ) { // taskを前方からひとつづつflushしていく
             err = RGY_ERR_NONE;
-            std::vector<std::unique_ptr<PipelineTaskOutput>> data;
-            data.push_back(nullptr); // flush用
-            for (size_t itask = flushedTask; checkContinue(err) && itask < m_pipelineTasks.size(); itask++) {
-                err = RGY_ERR_NONE;
-                auto& task = m_pipelineTasks[itask];
-                for (auto& d : data) {
-                    err = task->sendFrame(d);
-                    if (!checkContinue(err)) {
-                        if (itask == flushedTask) flushedTask++;
-                        break;
-                    };
-                }
-                data.clear();
-
-                data = task->getOutput(requireSync(itask));
-                if (data.size() == 0) {
-                    break;
-                }
-                RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
+            if (flushedTaskSend == flushedTaskGet) {
+                dataqueue.push_back(PipelineTaskData(flushedTaskSend)); //flush用
             }
-            for (auto& d : data) { // pipelineの最終的なデータを出力
-                if ((err = d->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
-                    break;
+            while (!dataqueue.empty() && checkContinue(err)) {
+                auto d = std::move(dataqueue.front());
+                dataqueue.pop_front();
+                if (d.task < m_pipelineTasks.size()) {
+                    err = RGY_ERR_NONE;
+                    auto& task = m_pipelineTasks[d.task];
+                    err = task->sendFrame(d.data);
+                    if (!checkContinue(err)) {
+                        if (d.task == flushedTaskSend) flushedTaskSend++;
+                        break;
+                    }
+                    auto output = task->getOutput(requireSync(d.task));
+                    if (output.size() == 0) break;
+                    //出てきたものは先頭に追加していく
+                    std::for_each(output.rbegin(), output.rend(), [itask = d.task, &dataqueue](auto&& o) {
+                        dataqueue.push_front(PipelineTaskData(itask + 1, o));
+                    });
+                    RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
+                } else { // pipelineの最終的なデータを出力
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
+                        break;
+                    }
+                }
+            }
+            if (dataqueue.empty()) {
+                // taskを前方からひとつづつ出力が残っていないかチェック(主にcheckptsの処理のため)
+                for (size_t itask = flushedTaskGet; itask < m_pipelineTasks.size(); itask++) {
+                    auto& task = m_pipelineTasks[itask];
+                    auto output = task->getOutput(requireSync(itask));
+                    if (output.size() > 0) {
+                        //出てきたものは先頭に追加していく
+                        std::for_each(output.rbegin(), output.rend(), [itask, &dataqueue](auto&& o) {
+                            dataqueue.push_front(PipelineTaskData(itask + 1, o));
+                            });
+                        //checkptsの処理上、でてきたフレームはすぐに後続処理に渡したいのでbreak
+                        break;
+                    } else if (itask == flushedTaskGet && flushedTaskGet < flushedTaskSend) {
+                        flushedTaskGet++;
+                    }
                 }
             }
         }
@@ -3586,8 +3582,6 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
-    PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filter (copy)...\n"));
-    m_vppCopyForCheckPts.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
     m_pmfxDEC.reset();
     m_pmfxENC.reset();
