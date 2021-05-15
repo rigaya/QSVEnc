@@ -1350,11 +1350,16 @@ public:
                     clFrameOutInterop->release();
                     return sts_filter;
                 }
+                if (clFrameInInterop) {
+                    clFrameInInterop->release();
+                    clFrameInInterop = nullptr;
+                }
                 if (nOutFrames == 0) {
                     if (drain) {
                         filterframes.front().second++;
                         continue;
                     }
+                    clFrameOutInterop->release();
                     return RGY_ERR_NONE;
                 }
                 filterframes.pop_front();
