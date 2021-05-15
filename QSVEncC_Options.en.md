@@ -1727,7 +1727,7 @@ add padding to left,top,right,bottom (in pixels)
 ## Other Options
 
 ### --async-depth &lt;int&gt;
-set async depth for QSV pipeline. default: 0 (=auto, 4+2*(extra pipeline step))
+set async depth for QSV pipeline. default: 0 (=auto, 3frames)
 
 ### --input-buf &lt;int&gt;
 Buffer size for input in frames.　(default = 3)

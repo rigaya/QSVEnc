@@ -3104,7 +3104,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
     m_nAsyncDepth = clamp_param_int((pParams->ctrl.lowLatency) ? 1 : pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
-        m_nAsyncDepth = (std::min)(QSV_DEFAULT_ASYNC_DEPTH + (nPipelineElements - 1), 8);
+        m_nAsyncDepth = QSV_DEFAULT_ASYNC_DEPTH;
         PrintMes(RGY_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
     }
     if (pParams->ctrl.lowLatency) {
