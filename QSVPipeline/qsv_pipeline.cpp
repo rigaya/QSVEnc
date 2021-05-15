@@ -2068,6 +2068,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.transform.enable)  filterPipeline.push_back(VppType::CL_TRANSFORM);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
+    if (inputParam->vpp.pad.enable)        filterPipeline.push_back(VppType::CL_PAD);
 
     if (filterPipeline.size() == 0) {
         return filterPipeline;
@@ -2554,6 +2555,8 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->pad = params->vpp.pad;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
+        param->frameOut.width += params->vpp.pad.left + params->vpp.pad.right;
+        param->frameOut.height += params->vpp.pad.top + params->vpp.pad.bottom;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
