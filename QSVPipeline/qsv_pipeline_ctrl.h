@@ -796,11 +796,11 @@ public:
             auto ptsDiff = outPtsSource - m_tsOutEstimated;
             if (ptsDiff <= std::min<int64_t>(-1, -1 * m_outFrameDuration * 7 / 8)) {
                 //間引きが必要
-                PrintMes(RGY_LOG_WARN, _T("Drop frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
+                PrintMes(RGY_LOG_DEBUG, _T("Drop frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
                 return RGY_ERR_MORE_SURFACE;
             }
             while (ptsDiff >= std::max<int64_t>(1, m_outFrameDuration * 7 / 8)) {
-                PrintMes(RGY_LOG_WARN, _T("Insert frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
+                PrintMes(RGY_LOG_DEBUG, _T("Insert frame: framepts %lld, estimated next %lld, diff %lld [%.1f]\n"), outPtsSource, m_tsOutEstimated, ptsDiff, ptsDiff / (double)m_outFrameDuration);
                 //水増しが必要
                 PipelineTaskSurface surfVppOut = taskSurf->surf();
                 mfxSyncPoint lastSyncPoint = taskSurf->syncpoint();
