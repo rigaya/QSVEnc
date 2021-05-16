@@ -1714,6 +1714,13 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->vid.resize_enable = fcgCBVppResize->Checked;
     cnf->vid.resize_width = (int)fcgNUResizeW->Value;
     cnf->vid.resize_height = (int)fcgNUResizeH->Value;
+    if (cnf->vid.resize_enable) {
+        prm_qsv.input.dstWidth = cnf->vid.resize_width;
+        prm_qsv.input.dstHeight = cnf->vid.resize_height;
+    } else {
+        prm_qsv.input.dstWidth = 0;
+        prm_qsv.input.dstHeight = 0;
+    }
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
