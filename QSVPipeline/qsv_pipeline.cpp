@@ -3607,7 +3607,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));
     m_pStatus->WriteResults();
     PrintMes(RGY_LOG_DEBUG, _T("RunEncode2: finished.\n"));
-    return RGY_ERR_NONE;
+    return (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
 }
 
 #if 0
