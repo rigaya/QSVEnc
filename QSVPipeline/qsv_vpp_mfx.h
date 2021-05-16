@@ -47,7 +47,6 @@ public:
         const RGYFrameInfo& frameOut,
         const RGYFrameInfo& frameIn,
         const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
-    RGY_ERR SetCopy(const mfxFrameInfo& mfxFrame);
     RGY_ERR Init();
     RGY_ERR Close();
 

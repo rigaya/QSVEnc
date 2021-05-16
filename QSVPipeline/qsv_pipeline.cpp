@@ -1906,6 +1906,10 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
         if (preferD3D11Mode(inputParam)) {
             inputParam->memType = D3D11_MEMORY;
             PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode prefered, switched to d3d11 mode.\n"));
+        //出力コーデックがrawなら、systemメモリを自動的に使用する
+        } else if (inputParam->CodecId == MFX_CODEC_RAW) {
+            inputParam->memType = SYSTEM_MEMORY;
+            PrintMes(RGY_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
         }
     }
 
@@ -2142,7 +2146,8 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
         return { err, std::unique_ptr<QSVVppMfx>() };
     }
 
-    if (mfxvpp->GetVppList().size() == 0) {
+    if (vppType != VppType::MFX_COPY // copyの時は意図的にアクションがない
+        && mfxvpp->GetVppList().size() == 0) {
         PrintMes(RGY_LOG_WARN, _T("filtering has no action.\n"));
         return { err, std::unique_ptr<QSVVppMfx>() };
     }
@@ -2780,6 +2785,17 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
     }
+    //OpenCLフィルタから直接raw出力は対応していないので、コピーするvppフィルタをはさむ
+    if (getVppFilterType(filterPipeline.back()) == VppFilterType::FILTER_OPENCL && inputParam->CodecId == MFX_CODEC_RAW) {
+        auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VppType::MFX_COPY, &inputParam->vppmfx,
+            getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), nullptr, resize, blocksize);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (vppmfx) {
+            m_vpFilters.push_back(std::move(VppVilterBlock(vppmfx)));
+        }
+    }
 
     m_encWidth  = inputFrame.width;
     m_encHeight = inputFrame.height;
@@ -3039,12 +3055,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         }
         pParams->common.muxOutputFormat = _T("raw");
         PrintMes(RGY_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
-    }
-
-    //メモリの指定が自動の場合、出力コーデックがrawなら、systemメモリを自動的に使用する
-    if (HW_MEMORY == (pParams->memType & HW_MEMORY) && pParams->CodecId == MFX_CODEC_RAW) {
-        PrintMes(RGY_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
-        pParams->memType = SYSTEM_MEMORY;
     }
 
     m_nMFXThreads = pParams->nSessionThreads;
