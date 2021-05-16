@@ -1059,7 +1059,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
 
     m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
 
-    m_mfxEncParams.mfx.TimeStampCalc = MFX_TIMESTAMPCALC_UNKNOWN;
+    //m_mfxEncParams.mfx.TimeStampCalc = MFX_TIMESTAMPCALC_UNKNOWN;
     //m_mfxEncParams.mfx.TimeStampCalc = (mfxU16)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT) ? MFX_TIMESTAMPCALC_TELECINE : MFX_TIMESTAMPCALC_UNKNOWN);
     //m_mfxEncParams.mfx.ExtendedPicStruct = pInParams->nPicStruct;
 
