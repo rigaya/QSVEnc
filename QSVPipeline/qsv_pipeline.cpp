@@ -1102,7 +1102,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     m_mfxEncParams.mfx.FrameInfo.FourCC = csp_rgy_to_enc(encCsp);
     m_mfxEncParams.mfx.FrameInfo.BitDepthLuma = (mfxU16)encBitdepth;
     m_mfxEncParams.mfx.FrameInfo.BitDepthChroma = (mfxU16)encBitdepth;
-    m_mfxEncParams.mfx.FrameInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[encCsp]);
+    m_mfxEncParams.mfx.FrameInfo.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[encCsp]);
     m_mfxEncParams.mfx.FrameInfo.Shift = (cspShiftUsed(encCsp) && RGY_CSP_BIT_DEPTH[encCsp] - encBitdepth > 0) ? 1 : 0;
     m_mfxEncParams.mfx.FrameInfo.Width  = (mfxU16)ALIGN(m_encWidth, blocksz);
     m_mfxEncParams.mfx.FrameInfo.Height = (mfxU16)ALIGN(m_encHeight, blocksz * ((MFX_PICSTRUCT_PROGRESSIVE == m_mfxEncParams.mfx.FrameInfo.PicStruct) ? 1:2));
