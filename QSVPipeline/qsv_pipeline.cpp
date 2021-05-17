@@ -1447,8 +1447,8 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
             //shared_handleを取得する必要がある(qsv_opencl.hのgetOpenCLFrameInterop()参照)
             //shared_handleはd3d9でCreateSurfaceする際に取得する。
             //しかし、これを取得しようとするとWin7のSandybridge環境ではデコードが正常に行われなくなってしまう問題があるとの報告を受けた
-            //そのため、shared_handleを取得するのは、SandyBridgeでない、あるいはWin7でない環境に限るようにする
-            pd3dAllocParams->getSharedHandle = getCPUGen(&m_mfxSession) != CPU_GEN_SANDYBRIDGE || check_OS_Win8orLater();
+            //そのため、shared_handleを取得するのは、SandyBridgeでない環境に限るようにする
+            pd3dAllocParams->getSharedHandle = getCPUGen(&m_mfxSession) != CPU_GEN_SANDYBRIDGE;
             PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: d3d9 (getSharedHandle = %s)...\n"), pd3dAllocParams->getSharedHandle ? _T("true") : _T("false"));
 
             m_pmfxAllocatorParams.reset(pd3dAllocParams);
