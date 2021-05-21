@@ -110,7 +110,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const R
         RGYWorkSize global(planeDstU.width, planeDstU.height);
         auto err = m_cropUV->kernel("kernel_crop_nv12_yv12").config(queue, local, global, event).launch(
             (cl_mem)planeDstU.ptr[0], (cl_mem)planeDstV.ptr[0], planeDstU.pitch[0], (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeDstU.width, planeDstU.height,
-            pCropParam->crop.e.left >> 1, pCropParam->crop.e.up >> 1);
+            pCropParam->crop.e.left, pCropParam->crop.e.up);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_crop_nv12_yv12 (convertCspFromNV12(UV)(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));

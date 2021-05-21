@@ -294,7 +294,7 @@ __kernel void kernel_crop_nv12_yv12(
     const int uv_y = get_global_id(1);
     if (uv_x < uvWidth && uv_y < uvHeight) {
         TypeIn pixSrcU, pixSrcV;
-        LOAD_NV12_UV(src, pixSrcU, pixSrcV, uv_x, uv_y, cropX, cropY);
+        LOAD_NV12_UV(src, pixSrcU, pixSrcV, uv_x, uv_y, cropX, cropY >> 1);
         TypeOut pixDstU = BIT_DEPTH_CONV(pixSrcU);
         TypeOut pixDstV = BIT_DEPTH_CONV(pixSrcV);
         STORE(dstU, uv_x, uv_y, pixDstU);
