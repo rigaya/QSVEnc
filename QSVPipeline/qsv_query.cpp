@@ -1521,6 +1521,17 @@ CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCh
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
+    if (skipHWDecodeCheck) {
+        CodecCsp codecFeatures;
+        for (auto codec : codecLists) {
+            codecFeatures[codec] = {
+                RGY_CSP_NV12, RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16,
+                RGY_CSP_YUV422, RGY_CSP_YUV422_09, RGY_CSP_YUV422_10, RGY_CSP_YUV422_12, RGY_CSP_YUV422_14, RGY_CSP_YUV422_16,
+                RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16
+            };
+        }
+        return codecFeatures;
+    }
     return MakeDecodeFeatureList(get_mfx_libhw_version(), codecLists, log, skipHWDecodeCheck);
 #else
     return CodecCsp();
