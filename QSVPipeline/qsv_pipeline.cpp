@@ -2705,6 +2705,14 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     sInputCrop *inputCrop = (cropRequired) ? &inputParam->input.crop : nullptr;
     const auto resize = std::make_pair(resizeWidth, resizeHeight);
 
+    //CPUデコードから直接OpenCLフィルタに送るのはうまくいかない(先頭2フレームほどフレームデータが未設定(nullのまま)の緑のフレームが送られてしまう)
+    //これはd3d9/d3d11のframeをUnlockしたあと、それがGPUに転送されるのを待機しないためと考えられる
+    //そこでコピーするmfxvppフィルタを挟む(mfx vppはそのあたりを適切に処理していると思われる)
+    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
+        && getVppFilterType(filterPipeline.back()) == VppFilterType::FILTER_OPENCL) {
+        filterPipeline.insert(filterPipeline.begin(), VppType::MFX_COPY);
+    }
+
     std::vector<std::unique_ptr<RGYFilter>> vppOpenCLFilters;
     for (size_t i = 0; i < filterPipeline.size(); i++) {
         const VppFilterType ftype0 = (i >= 1)                      ? getVppFilterType(filterPipeline[i-1]) : VppFilterType::FILTER_NONE;
