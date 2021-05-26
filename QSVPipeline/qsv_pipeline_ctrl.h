@@ -240,7 +240,10 @@ public:
         m_surf(surf), m_dependencyFrame(std::move(dependencyFrame)), m_clevents() {
         m_clevents.push_back(clevent);
     };
-    virtual ~PipelineTaskOutputSurf() { m_surf.reset(); };
+    virtual ~PipelineTaskOutputSurf() {
+        depend_clear();
+        m_surf.reset();
+    };
 
     PipelineTaskSurface& surf() { return m_surf; }
 
@@ -250,6 +253,7 @@ public:
 
     virtual void depend_clear() override {
         RGYOpenCLEvent::wait(m_clevents);
+        m_clevents.clear();
         m_dependencyFrame.reset();
     }
 
@@ -1280,13 +1284,15 @@ protected:
     std::vector<std::unique_ptr<RGYFilter>>& m_vpFilters;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppOutInterop;
+    std::deque<std::unique_ptr<PipelineTaskOutput>> m_prevInputFrame; //前回投入されたフレーム、完了通知を待ってから解放するため、参照を保持する
     MemType m_memType;
 public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, std::shared_ptr<RGYOpenCLContext> cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_memType(memType) {
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_memType(memType) {
         m_allocator = allocator;
     };
     virtual ~PipelineTaskOpenCL() {
+        m_prevInputFrame.clear();
         m_surfVppInInterop.clear();
         m_surfVppOutInterop.clear();
         m_cl.reset();
@@ -1295,6 +1301,12 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_prevInputFrame.size() > 0) {
+            //前回投入したフレームの処理が完了していることを確認したうえで参照を破棄することでロックを解放する
+            auto frame = std::move(m_prevInputFrame.front());
+            m_prevInputFrame.pop_front();
+            frame->depend_clear();
+        }
 
         deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;
         RGYCLFrameInterop *clFrameInInterop = nullptr;
@@ -1322,8 +1334,12 @@ public:
             clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
             clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
             filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
+            //ここでinput frameの参照を m_prevInputFrame で保持するようにして、OpenCLによるフレームの処理が完了しているかを確認できるようにする
+            //これを行わないとこのフレームが再度使われてしまうことになる
+            m_prevInputFrame.push_back(std::move(frame));
         }
-#if 1
+#define FRAME_COPY_ONLY 0
+#if !FRAME_COPY_ONLY
         std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
         while (filterframes.size() > 0 || drain) {
             auto surfVppOut = getWorkSurf();
@@ -1351,8 +1367,13 @@ public:
                     return sts_filter;
                 }
                 if (clFrameInInterop) {
-                    clFrameInInterop->release();
+                    RGYOpenCLEvent inputReleaseEvent;
+                    clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
                     clFrameInInterop = nullptr;
+                    if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
+                        //解放処理のeventを入力フレームを使用し終わったことの合図として登録する
+                        dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(inputReleaseEvent);
+                    }
                 }
                 if (nOutFrames == 0) {
                     if (drain) {
@@ -1413,6 +1434,21 @@ public:
 
             outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
         }
+        if (clFrameInInterop) {
+            RGYOpenCLEvent clevent;
+            clFrameInInterop->release(&clevent); // input frameの解放
+            for (auto& surf : outputSurfs) {
+                surf->addClEvent(clevent);
+            }
+            if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
+                //解放処理のeventを入力フレームを使用し終わったことの合図として登録する
+                dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(clevent);
+            }
+        }
+        m_outQeueue.insert(m_outQeueue.end(),
+            std::make_move_iterator(outputSurfs.begin()),
+            std::make_move_iterator(outputSurfs.end())
+        );
 #else
         auto surfVppOut = getWorkSurf();
         if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
@@ -1429,23 +1465,23 @@ public:
             return RGY_ERR_NULL_PTR;
         }
         auto inputSurface = clFrameInInterop->frameInfo();
+        surfVppOut->Data.TimeStamp = inputSurface.timestamp;
+        surfVppOut->Data.FrameOrder = inputSurface.inputFrameId;
+        surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(inputSurface.picstruct);
+        surfVppOut->Data.DataFlag = (mfxU16)inputSurface.flags;
+
         auto encSurfaceInfo = clFrameOutInterop->frameInfo();
         RGYOpenCLEvent clevent;
         m_cl->copyFrame(&encSurfaceInfo, &inputSurface, nullptr, m_cl->queue(), &clevent);
-        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
-        clFrameOutInterop->release();
-#endif
         if (clFrameInInterop) {
-            RGYOpenCLEvent clevent;
             clFrameInInterop->release(&clevent);
-            for (auto& surf : outputSurfs) {
-                surf->addClEvent(clevent);
+            if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
+                dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(clevent);
             }
         }
-        m_outQeueue.insert(m_outQeueue.end(),
-            std::make_move_iterator(outputSurfs.begin()),
-            std::make_move_iterator(outputSurfs.end())
-        );
+        clFrameOutInterop->release(&clevent);
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+#endif
         return RGY_ERR_NONE;
     }
 };
