@@ -368,6 +368,19 @@ static const TCHAR *getMemcpyKindStr(RGY_MEM_TYPE inputDevice, RGY_MEM_TYPE outp
     return getMemcpyKindStr(getMemcpyKind(inputDevice, outputDevice));
 }
 
+struct RGYOpenCLEventInfo {
+    cl_command_queue queue;
+    cl_command_type command_type;
+    cl_context context;
+    cl_int status;
+    cl_uint ref_count;
+
+    RGYOpenCLEventInfo() : queue(0), command_type(0), context(0), status(0), ref_count(0) {};
+    ~RGYOpenCLEventInfo() {};
+
+    tstring print() const;
+};
+
 struct cl_event_deleter {
     void operator()(cl_event *e) const {
         if (*e) {
@@ -411,6 +424,7 @@ public:
             clWaitForEvents((int)events.size(), clevents.data());
         }
     }
+    RGYOpenCLEventInfo getInfo() const;
 private:
     std::shared_ptr<cl_event> event_;
 };

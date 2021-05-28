@@ -309,6 +309,90 @@ int initOpenCLGlobal() {
     return 0;
 }
 
+static const auto RGY_CLCOMMANDTYPE_TO_STR = make_array<std::pair<cl_mem_object_type, const TCHAR *>>(
+#define COMMAND_TYPE(x) std::make_pair(CL_COMMAND_##x, _T(#x))
+    COMMAND_TYPE(NDRANGE_KERNEL),
+    COMMAND_TYPE(TASK),
+    COMMAND_TYPE(NATIVE_KERNEL),
+    COMMAND_TYPE(READ_BUFFER),
+    COMMAND_TYPE(WRITE_BUFFER),
+    COMMAND_TYPE(COPY_BUFFER),
+    COMMAND_TYPE(READ_IMAGE),
+    COMMAND_TYPE(WRITE_IMAGE),
+    COMMAND_TYPE(COPY_IMAGE),
+    COMMAND_TYPE(COPY_IMAGE_TO_BUFFER),
+    COMMAND_TYPE(COPY_BUFFER_TO_IMAGE),
+    COMMAND_TYPE(MAP_BUFFER),
+    COMMAND_TYPE(MAP_IMAGE),
+    COMMAND_TYPE(UNMAP_MEM_OBJECT),
+    COMMAND_TYPE(MARKER),
+    COMMAND_TYPE(ACQUIRE_GL_OBJECTS),
+    COMMAND_TYPE(RELEASE_GL_OBJECTS)
+#ifdef CL_VERSION_1_1
+    ,
+    COMMAND_TYPE(READ_BUFFER_RECT),
+    COMMAND_TYPE(WRITE_BUFFER_RECT),
+    COMMAND_TYPE(COPY_BUFFER_RECT),
+    COMMAND_TYPE(USER)
+#endif
+#ifdef CL_VERSION_1_2
+    ,
+    COMMAND_TYPE(BARRIER),
+    COMMAND_TYPE(MIGRATE_MEM_OBJECTS),
+    COMMAND_TYPE(FILL_BUFFER),
+    COMMAND_TYPE(FILL_IMAGE)
+#endif
+#ifdef CL_VERSION_2_0
+    ,
+    COMMAND_TYPE(SVM_FREE),
+    COMMAND_TYPE(SVM_MEMCPY),
+    COMMAND_TYPE(SVM_MEMFILL),
+    COMMAND_TYPE(SVM_MAP),
+    COMMAND_TYPE(SVM_UNMAP)
+#endif
+#ifdef CL_VERSION_3_0
+    ,
+    COMMAND_TYPE(SVM_MIGRATE_MEM),
+#endif
+#undef COMMAND_TYPE
+);
+
+MAP_PAIR_0_1(clcommandtype, cl, cl_command_type, str, const TCHAR *, RGY_CLCOMMANDTYPE_TO_STR, 0, _T("unknown"));
+
+static const auto RGY_CLSTATUS_TO_STR = make_array<std::pair<cl_mem_object_type, const TCHAR *>>(
+    std::make_pair(CL_QUEUED,    _T("queued")),
+    std::make_pair(CL_SUBMITTED, _T("submitted")),
+    std::make_pair(CL_RUNNING,   _T("running")),
+    std::make_pair(CL_COMPLETE,  _T("complete"))
+    );
+
+MAP_PAIR_0_1(clstatus, cl, cl_int, str, const TCHAR *, RGY_CLSTATUS_TO_STR, 0, _T("unknown"));
+
+
+tstring RGYOpenCLEventInfo::print() const {
+    tstring str;
+    str += strsprintf(_T("context:     0x%p\n"), context);
+    str += strsprintf(_T("queue:       0x%p\n"), queue);
+    str += strsprintf(_T("commandtype: %s\n"),   clcommandtype_cl_to_str(command_type));
+    str += strsprintf(_T("status:      %s\n"),   clstatus_cl_to_str(status));
+    str += strsprintf(_T("ref count:   %d\n"),   ref_count);
+    return str;
+}
+
+RGYOpenCLEventInfo RGYOpenCLEvent::getInfo() const {
+    RGYOpenCLEventInfo info;
+    try {
+        clGetInfo(clGetEventInfo, *event_.get(), CL_EVENT_COMMAND_QUEUE, &info.queue);
+        clGetInfo(clGetEventInfo, *event_.get(), CL_EVENT_COMMAND_TYPE, &info.command_type);
+        clGetInfo(clGetEventInfo, *event_.get(), CL_EVENT_CONTEXT, &info.context);
+        clGetInfo(clGetEventInfo, *event_.get(), CL_EVENT_COMMAND_EXECUTION_STATUS, &info.status);
+        clGetInfo(clGetEventInfo, *event_.get(), CL_EVENT_REFERENCE_COUNT, &info.ref_count);
+    } catch (...) {
+        return RGYOpenCLEventInfo();
+    }
+    return info;
+}
+
 std::pair<int, int> RGYOpenCLDeviceInfo::clversion() const {
     int major, minor;
     if (sscanf_s(version.c_str(), "OpenCL %d.%d", &major, &minor) == 2) {
