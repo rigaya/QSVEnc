@@ -298,6 +298,8 @@ int initOpenCLGlobal() {
     LOAD(clReleaseEvent);
     LOAD(clSetUserEventStatus);
     LOAD(clGetEventProfilingInfo);
+    LOAD(clEnqueueWaitForEvents);
+    LOAD(clEnqueueMarker);
 
     LOAD(clFlush);
     LOAD(clFinish);
@@ -1339,6 +1341,14 @@ RGYOpenCLQueue::RGYOpenCLQueue(cl_command_queue queue, cl_device_id devid) : m_q
 
 RGYOpenCLQueue::~RGYOpenCLQueue() {
     m_queue.reset();
+}
+
+RGY_ERR RGYOpenCLQueue::wait(const RGYOpenCLEvent& event) const {
+    return err_cl_to_rgy(clEnqueueWaitForEvents(m_queue.get(), 1, event.ptr()));
+}
+
+RGY_ERR RGYOpenCLQueue::getmarker(RGYOpenCLEvent& event) const {
+    return err_cl_to_rgy(clEnqueueMarker(m_queue.get(), event.reset_ptr()));
 }
 
 RGY_ERR RGYOpenCLQueue::flush() const {

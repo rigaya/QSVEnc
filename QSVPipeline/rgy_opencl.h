@@ -195,6 +195,8 @@ CL_EXTERN cl_int(CL_API_CALL *f_clRetainEvent)(cl_event event);
 CL_EXTERN cl_int(CL_API_CALL *f_clReleaseEvent)(cl_event event);
 CL_EXTERN cl_int(CL_API_CALL *f_clSetUserEventStatus)(cl_event event, cl_int execution_status);
 CL_EXTERN cl_int(CL_API_CALL *f_clGetEventProfilingInfo)(cl_event event, cl_profiling_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueWaitForEvents)(cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueMarker)(cl_command_queue command_queue, cl_event *event);
 
 CL_EXTERN cl_int(CL_API_CALL *f_clFlush)(cl_command_queue command_queue);
 CL_EXTERN cl_int(CL_API_CALL *f_clFinish)(cl_command_queue command_queue);
@@ -284,6 +286,8 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clReleaseEvent f_clReleaseEvent
 #define clSetUserEventStatus f_clSetUserEventStatus
 #define clGetEventProfilingInfo f_clGetEventProfilingInfo
+#define clEnqueueWaitForEvents f_clEnqueueWaitForEvents
+#define clEnqueueMarker f_clEnqueueMarker
 
 #define clFlush f_clFlush
 #define clFinish f_clFinish
@@ -849,6 +853,8 @@ public:
     cl_device_id devid() const {
         return m_devid;
     }
+    RGY_ERR wait(const RGYOpenCLEvent& event) const;
+    RGY_ERR getmarker(RGYOpenCLEvent& event) const;
     RGY_ERR flush() const;
     RGY_ERR finish() const;
     void clear();
