@@ -2264,6 +2264,9 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterDecimate(m_cl));
         shared_ptr<RGYFilterParamDecimate> param(new RGYFilterParamDecimate());
         param->decimate = params->vpp.decimate;
+        //QSV:Broadwell以前の環境では、なぜか別のキューで実行しようとすると、永遠にqueueMapBufferが開始されず、フリーズしてしまう
+        //こういうケースでは標準のキューを使って逐次実行する
+        param->useSeparateQueue = getCPUGen(&m_mfxSession) >= CPU_GEN_SKYLAKE;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2284,6 +2287,9 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterMpdecimate(m_cl));
         shared_ptr<RGYFilterParamMpdecimate> param(new RGYFilterParamMpdecimate());
         param->mpdecimate = params->vpp.mpdecimate;
+        //QSV:Broadwell以前の環境では、なぜか別のキューで実行しようとすると、永遠にqueueMapBufferが開始されず、フリーズしてしまう
+        //こういうケースでは標準のキューを使って逐次実行する
+        param->useSeparateQueue = getCPUGen(&m_mfxSession) >= CPU_GEN_SKYLAKE;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

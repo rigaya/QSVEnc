@@ -170,14 +170,27 @@ RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inp
     return err;
 }
 
-RGY_ERR RGYFilterDecimate::calcDiff(RGYFilterDecimateFrameData *current, const RGYFilterDecimateFrameData *prev) {
-    auto err = procFrame(&current->get()->frame, &prev->get()->frame, current->tmp(), m_streamDiff, { m_eventDiff }, &m_eventTransfer);
-    if (err != RGY_ERR_NONE) {
-        return err;
-    }
-    if ((err = current->tmp()->queueMapBuffer(m_streamTransfer, CL_MAP_READ, { m_eventTransfer })) != RGY_ERR_NONE) {
-        m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
-        return err;
+RGY_ERR RGYFilterDecimate::calcDiff(RGYFilterDecimateFrameData *current, const RGYFilterDecimateFrameData *prev, RGYOpenCLQueue& queue_main) {
+    if (m_streamDiff.get()) { // 別途キューを用意して並列実行する場合
+        auto err = procFrame(&current->get()->frame, &prev->get()->frame, current->tmp(), m_streamDiff, { m_eventDiff }, &m_eventTransfer);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if ((err = current->tmp()->queueMapBuffer(m_streamTransfer, CL_MAP_READ, { m_eventTransfer })) != RGY_ERR_NONE) {
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    } else {
+        //QSV:Broadwell以前の環境では、なぜか上記のように別のキューで実行しようとすると、永遠にqueueMapBufferが開始されず、フリーズしてしまう
+        //こういうケースでは標準のキューを使って逐次実行する
+        auto err = procFrame(&current->get()->frame, &prev->get()->frame, current->tmp(), queue_main, { }, nullptr);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if ((err = current->tmp()->queueMapBuffer(queue_main, CL_MAP_READ)) != RGY_ERR_NONE) {
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            return err;
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -332,19 +345,23 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
 
         pParam->baseFps *= rgy_rational<int>(prm->decimate.cycle - 1, prm->decimate.cycle);
 
-        m_streamDiff = m_cl->createQueue(m_cl->queue().devid());
-        if (!m_streamDiff.get()) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
-            return RGY_ERR_UNKNOWN;
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
+        if (prm->useSeparateQueue) {
+            m_streamDiff = m_cl->createQueue(m_cl->queue().devid());
+            if (!m_streamDiff.get()) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
 
-        m_streamTransfer = m_cl->createQueue(m_cl->queue().devid());
-        if (!m_streamTransfer.get()) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
-            return RGY_ERR_UNKNOWN;
+            m_streamTransfer = m_cl->createQueue(m_cl->queue().devid());
+            if (!m_streamTransfer.get()) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("Use main queue for data transfer, this might lead to poor performance.\n"));
         }
-        AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
 
         for (int i = 0; i < _countof(prm->frameIn.pitch); i++) {
             prm->frameOut.pitch[i] = prm->frameIn.pitch[i];
@@ -371,7 +388,11 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
 }
 
 tstring RGYFilterParamDecimate::print() const {
-    return decimate.print();
+    auto str = decimate.print();
+    if (!useSeparateQueue) {
+        str += _T(", no queue opt");
+    }
+    return str;
 }
 
 RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
@@ -509,7 +530,7 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         //前のフレームとの差分をとる
         auto frameCurrent = m_cache.frame(inframeId + 0);
         auto framePrev    = m_cache.frame(inframeId - 1);
-        err = calcDiff(frameCurrent, framePrev);
+        err = calcDiff(frameCurrent, framePrev, queue_main);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at calc_block_diff_frame(%s): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp],

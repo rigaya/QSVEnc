@@ -1303,9 +1303,9 @@ public:
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_prevInputFrame.size() > 0) {
             //前回投入したフレームの処理が完了していることを確認したうえで参照を破棄することでロックを解放する
-            auto frame = std::move(m_prevInputFrame.front());
+            auto prevframe = std::move(m_prevInputFrame.front());
             m_prevInputFrame.pop_front();
-            frame->depend_clear();
+            prevframe->depend_clear();
         }
 
         deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;

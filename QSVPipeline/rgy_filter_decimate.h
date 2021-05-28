@@ -33,9 +33,10 @@
 class RGYFilterParamDecimate : public RGYFilterParam {
 public:
     VppDecimate decimate;
+    bool useSeparateQueue;
     tstring outfilename;
 
-    RGYFilterParamDecimate() : decimate(), outfilename() {};
+    RGYFilterParamDecimate() : decimate(), useSeparateQueue(true), outfilename() {};
     virtual ~RGYFilterParamDecimate() {};
     virtual tstring print() const override;
 };
@@ -101,7 +102,7 @@ protected:
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamDecimate> pParam);
     RGY_ERR setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
 
-    RGY_ERR calcDiff(RGYFilterDecimateFrameData *current, const RGYFilterDecimateFrameData *prev);
+    RGY_ERR calcDiff(RGYFilterDecimateFrameData *current, const RGYFilterDecimateFrameData *prev, RGYOpenCLQueue& queue_main);
     RGY_ERR procPlane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, const int blockHalfX, const int blockHalfY,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR procFrame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp,

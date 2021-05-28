@@ -76,15 +76,29 @@ RGY_ERR RGYFilterMpdecimate::procFrame(const RGYFrameInfo *p0, const RGYFrameInf
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterMpdecimate::calcDiff(RGYFilterMpdecimateFrameData *target, const RGYFilterMpdecimateFrameData *ref) {
-    auto err = procFrame(&target->get()->frame, &ref->get()->frame, &target->tmp()->frame, m_streamDiff, { m_eventDiff }, &m_eventTransfer);
-    if (err != RGY_ERR_NONE) {
-        m_pLog->write(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
-        return err;
-    }
-    if ((err = target->tmp()->queueMapBuffer(m_streamTransfer, CL_MAP_READ, { m_eventTransfer })) != RGY_ERR_NONE) {
-        m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
-        return err;
+RGY_ERR RGYFilterMpdecimate::calcDiff(RGYFilterMpdecimateFrameData *target, const RGYFilterMpdecimateFrameData *ref, RGYOpenCLQueue& queue_main) {
+    if (m_streamDiff.get()) { // 別途キューを用意して並列実行する場合
+        auto err = procFrame(&target->get()->frame, &ref->get()->frame, &target->tmp()->frame, m_streamDiff, { m_eventDiff }, &m_eventTransfer);
+        if (err != RGY_ERR_NONE) {
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        if ((err = target->tmp()->queueMapBuffer(m_streamTransfer, CL_MAP_READ, { m_eventTransfer })) != RGY_ERR_NONE) {
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            return err;
+        }
+    } else {
+        //QSV:Broadwell以前の環境では、なぜか上記のように別のキューで実行しようとすると、永遠にqueueMapBufferが開始されず、フリーズしてしまう
+        //こういうケースでは標準のキューを使って逐次実行する
+        auto err = procFrame(&target->get()->frame, &ref->get()->frame, &target->tmp()->frame, queue_main, { }, nullptr);
+        if (err != RGY_ERR_NONE) {
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        if ((err = target->tmp()->queueMapBuffer(queue_main, CL_MAP_READ)) != RGY_ERR_NONE) {
+            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            return err;
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -226,20 +240,23 @@ RGY_ERR RGYFilterMpdecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
 
         m_cache.init(2, m_pLog);
 
-        m_streamDiff = m_cl->createQueue(m_cl->queue().devid());
-        if (!m_streamDiff.get()) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
-            return RGY_ERR_UNKNOWN;
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
+        if (prm->useSeparateQueue) {
+            m_streamDiff = m_cl->createQueue(m_cl->queue().devid());
+            if (!m_streamDiff.get()) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
 
-        m_streamTransfer = m_cl->createQueue(m_cl->queue().devid());
-        if (!m_streamTransfer.get()) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
-            return RGY_ERR_UNKNOWN;
+            m_streamTransfer = m_cl->createQueue(m_cl->queue().devid());
+            if (!m_streamTransfer.get()) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
+        } else {
+            AddMessage(RGY_LOG_DEBUG, _T("Use main queue for data transfer, this might lead to poor performance.\n"));
         }
-        AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
-
         for (int i = 0; i < _countof(prm->frameIn.pitch); i++) {
             prm->frameOut.pitch[i] = prm->frameIn.pitch[i];
         }
@@ -264,7 +281,11 @@ RGY_ERR RGYFilterMpdecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
 }
 
 tstring RGYFilterParamMpdecimate::print() const {
-    return mpdecimate.print();
+    auto str = mpdecimate.print();
+    if (!useSeparateQueue) {
+        str += _T(", no queue opt");
+    }
+    return str;
 }
 
 bool RGYFilterMpdecimate::dropFrame(RGYFilterMpdecimateFrameData *targetFrame) {
@@ -342,7 +363,7 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             AddMessage(RGY_LOG_ERROR, _T("failed to add frame to cache: %s.\n"), get_err_mes(err));
             return err;
         }
-        err = calcDiff(m_cache.frame(m_target), m_cache.frame(m_ref));
+        err = calcDiff(m_cache.frame(m_target), m_cache.frame(m_ref), queue_main);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
             return err;

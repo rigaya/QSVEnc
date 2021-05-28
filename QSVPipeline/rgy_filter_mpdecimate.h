@@ -34,9 +34,10 @@
 class RGYFilterParamMpdecimate : public RGYFilterParam {
 public:
     VppMpdecimate mpdecimate;
+    bool useSeparateQueue;
     tstring outfilename;
 
-    RGYFilterParamMpdecimate() : mpdecimate(), outfilename() {};
+    RGYFilterParamMpdecimate() : mpdecimate(), useSeparateQueue(true), outfilename() {};
     virtual ~RGYFilterParamMpdecimate() {};
     virtual tstring print() const override;
 };
@@ -115,7 +116,7 @@ protected:
 
     RGY_ERR procPlane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR procFrame(const RGYFrameInfo *p0, const RGYFrameInfo *p1, RGYFrameInfo *tmp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR calcDiff(RGYFilterMpdecimateFrameData *target, const RGYFilterMpdecimateFrameData *ref);
+    RGY_ERR calcDiff(RGYFilterMpdecimateFrameData *target, const RGYFilterMpdecimateFrameData *ref, RGYOpenCLQueue& queue_main);
 
     int m_dropCount;
     int m_ref;
