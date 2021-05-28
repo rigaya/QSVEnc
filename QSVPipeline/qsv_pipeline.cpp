@@ -3801,7 +3801,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 vppstr += block.vppmfx->print();
             } else if (block.type == VppFilterType::FILTER_OPENCL) {
                 for (auto& clfilter : block.vppcl) {
-                    vppstr += clfilter->GetInputMessage() + _T("\n");
+                    vppstr += str_replace(clfilter->GetInputMessage(), _T("\n               "), _T("\n")) + _T("\n");
                 }
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("CheckCurrentVideoParam: Unknown VPP filter type.\n"));
