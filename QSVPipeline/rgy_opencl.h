@@ -60,8 +60,11 @@
 #include <array>
 #include <memory>
 #include <typeindex>
+#include "rgy_err.h"
+#include "rgy_def.h"
 #include "rgy_log.h"
 #include "rgy_util.h"
+#include "convert_csp.h"
 
 #ifndef CL_EXTERN
 #define CL_EXTERN extern

@@ -48,6 +48,8 @@
 #include "qsv_pipeline.h"
 #include "qsv_pipeline_ctrl.h"
 #include "qsv_query.h"
+#include "rgy_def.h"
+#include "rgy_env.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "rgy_input_raw.h"
@@ -81,6 +83,7 @@
 #include "rgy_avlog.h"
 #include "rgy_chapter.h"
 #include "rgy_timecode.h"
+#include "rgy_aspect_ratio.h"
 #include "rgy_codepage.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include "api_hook.h"

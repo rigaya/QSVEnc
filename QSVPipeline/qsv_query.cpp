@@ -54,6 +54,7 @@
 #include "qsv_prm.h"
 #include "qsv_plugin.h"
 #include "rgy_osdep.h"
+#include "rgy_env.h"
 #include "qsv_query.h"
 #include "qsv_hw_device.h"
 #include "cpu_info.h"
