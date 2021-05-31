@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <ctime>
 #include "rgy_osdep.h"
+#include "rgy_filesystem.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <shellapi.h>
 #endif

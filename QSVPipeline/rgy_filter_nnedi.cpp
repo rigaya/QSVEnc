@@ -35,6 +35,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "rgy_filter_nnedi.h"
+#include "rgy_filesystem.h"
 #include "rgy_resource.h"
 
 //dot_product1で重み(nns)方向のループアンロールを行う

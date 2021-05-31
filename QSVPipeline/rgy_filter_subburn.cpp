@@ -32,6 +32,7 @@
 #include <array>
 #include <filesystem>
 #include "rgy_filter_subburn.h"
+#include "rgy_filesystem.h"
 #include "rgy_codepage.h"
 
 #if ENABLE_AVSW_READER

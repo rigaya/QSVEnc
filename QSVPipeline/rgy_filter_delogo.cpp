@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <limits>
 #include "rgy_ini.h"
+#include "rgy_filesystem.h"
 #include "rgy_codepage.h"
 #include "rgy_filter_delogo.h"
 

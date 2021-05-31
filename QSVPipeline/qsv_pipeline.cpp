@@ -50,6 +50,7 @@
 #include "qsv_query.h"
 #include "rgy_def.h"
 #include "rgy_env.h"
+#include "rgy_filesystem.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "rgy_input_raw.h"
