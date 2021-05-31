@@ -29,7 +29,9 @@
 #include "rgy_version.h"
 #include "rgy_env.h"
 #include "cpu_info.h"
+#if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
 #include "gpu_info.h"
+#endif
 #include "rgy_codepage.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -168,6 +170,10 @@ tstring getOSVersion() {
     return osversionstr;
 }
 #else //#if defined(_WIN32) || defined(_WIN64)
+
+#include <sys/utsname.h>
+#include <sys/sysinfo.h>
+
 tstring getOSVersion() {
     std::string str = "";
     FILE *fp = fopen("/etc/os-release", "r");
@@ -276,8 +282,10 @@ tstring getEnviromentInfo(int device_id) {
     OSVERSIONINFOEXW osversioninfo = { 0 };
     tstring osversionstr = getOSVersion(&osversioninfo);
     buf += strsprintf(_T("OS : %s %s (%d) [%s]\n"), osversionstr.c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"), osversioninfo.dwBuildNumber, getACPCodepageStr().c_str());
-#else
+#elif defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
     buf += strsprintf(_T("OS : %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
+#else
+    buf += strsprintf(_T("OS : %s\n"), getOSVersion().c_str());
 #endif
     buf += strsprintf(_T("CPU: %s\n"), cpu_info);
     buf += strsprintf(_T("RAM: Used %d MB, Total %d MB\n"), (uint32_t)(UsedRamSize >> 20), (uint32_t)(totalRamsize >> 20));
