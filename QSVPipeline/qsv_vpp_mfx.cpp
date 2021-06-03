@@ -154,6 +154,9 @@ RGY_ERR QSVVppMfx::SetParam(
     if ((err = SetVppExtBuffers(params)) != RGY_ERR_NONE) {
         return err;
     }
+    if (GetVppList().size() == 0 && VppExtMes.length() == 0) {
+        vppExtAddMes(_T("Copy\n"));
+    }
     m_mfxVPP = std::make_unique<MFXVideoVPP>(m_mfxSession);
     PrintMes(RGY_LOG_DEBUG, _T("Vpp SetParam success.\n"));
     return err;
