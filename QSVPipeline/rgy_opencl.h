@@ -589,6 +589,7 @@ protected:
     void operator =(const RGYCLFrame &) = delete;
 public:
     const RGYFrameInfo& frameInfo() const { return frame; }
+    RGYFrameInfo& frameInfo() { return frame; }
     cl_mem mem(int i) const {
         return (cl_mem)frame.ptr[i];
     }

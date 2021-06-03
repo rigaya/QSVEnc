@@ -51,6 +51,7 @@
 #include "rgy_input_sm.h"
 #include "rgy_output.h"
 #include "rgy_output_avcodec.h"
+#include "qsv_util.h"
 
 const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
 const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
@@ -86,11 +87,11 @@ enum class PipelineTaskOutputType {
 
 class PipelineTaskSurface {
 private:
-    mfxFrameSurface1 *surf;
+    RGYFrame *surf;
     std::atomic<int> *ref;
 public:
     PipelineTaskSurface() : surf(nullptr), ref(nullptr) {};
-    PipelineTaskSurface(mfxFrameSurface1 *surf_, std::atomic<int> *ref_) : surf(surf_), ref(ref_) { if (surf) (*ref)++; };
+    PipelineTaskSurface(RGYFrame *surf_, std::atomic<int> *ref_) : surf(surf_), ref(ref_) { if (surf) (*ref)++; };
     PipelineTaskSurface(const PipelineTaskSurface& obj) : surf(obj.surf), ref(obj.ref) { if (surf) (*ref)++; }
     PipelineTaskSurface &operator=(const PipelineTaskSurface &obj) {
         if (this != &obj) { // 自身の代入チェック
@@ -102,25 +103,25 @@ public:
     }
     ~PipelineTaskSurface() { reset(); }
     void reset() { if (surf) (*ref)--; surf = nullptr; ref = nullptr; }
-
-    mfxFrameSurface1 *operator->() {
-        return get();
-    }
     bool operator !() const {
-        return get() == nullptr;
+        return mfxsurf() == nullptr && clframe() == nullptr;
     }
-    bool operator !=(const PipelineTaskSurface& obj) const { return get() != obj.get(); }
-    bool operator ==(const PipelineTaskSurface& obj) const { return get() == obj.get(); }
-    bool operator !=(std::nullptr_t) const { return get() != nullptr; }
-    bool operator ==(std::nullptr_t) const { return get() == nullptr; }
-    const mfxFrameSurface1 *get() const { return surf; }
-    mfxFrameSurface1 *get() { return surf; }
+    bool operator !=(const PipelineTaskSurface& obj) const { return mfxsurf() != obj.mfxsurf() || clframe() != obj.clframe(); }
+    bool operator ==(const PipelineTaskSurface& obj) const { return mfxsurf() == obj.mfxsurf() && clframe() == obj.clframe(); }
+    bool operator !=(std::nullptr_t) const { return mfxsurf() != nullptr || clframe() != nullptr; }
+    bool operator ==(std::nullptr_t) const { return mfxsurf() == nullptr && clframe() == nullptr; }
+    const mfxFrameSurface1 *mfxsurf() const { return surf->surf(); }
+    mfxFrameSurface1 *mfxsurf() { return surf->surf(); }
+    const RGYCLFrame *clframe() const { return surf->clframe(); }
+    RGYCLFrame *clframe() { return surf->clframe(); }
+    const RGYFrame *frame() const { return surf; }
+    RGYFrame *frame() { return surf; }
 };
 
 // アプリ用の独自参照カウンタと組み合わせたクラス
 class PipelineTaskSurfaces {
 private:
-    std::deque<std::pair<mfxFrameSurface1, std::atomic<int>>> m_surfaces; // フレームと参照カウンタ
+    std::deque<std::pair<std::unique_ptr<RGYFrame>, std::atomic<int>>> m_surfaces; // フレームと参照カウンタ
 public:
     PipelineTaskSurfaces() : m_surfaces() {};
     ~PipelineTaskSurfaces() { }
@@ -132,7 +133,15 @@ public:
         clear();
         m_surfaces.resize(surfs.size());
         for (size_t i = 0; i < m_surfaces.size(); i++) {
-            m_surfaces[i].first = surfs[i];
+            m_surfaces[i].first = std::unique_ptr<RGYFrame>(new RGYFrameMFXSurf(surfs[i]));
+            m_surfaces[i].second = 0;
+        }
+    }
+    void setSurfaces(std::vector<std::unique_ptr<RGYCLFrame>>& frames) {
+        clear();
+        m_surfaces.resize(frames.size());
+        for (size_t i = 0; i < m_surfaces.size(); i++) {
+            m_surfaces[i].first = std::unique_ptr<RGYFrame>(new RGYFrameCL(frames[i]));
             m_surfaces[i].second = 0;
         }
     }
@@ -140,7 +149,7 @@ public:
     PipelineTaskSurface getFreeSurf() {
         for (auto& s : m_surfaces) {
             if (isFree(&s)) {
-                return PipelineTaskSurface(&s.first, &s.second);
+                return PipelineTaskSurface(s.first.get(), &s.second);
             }
         }
         return PipelineTaskSurface();
@@ -148,7 +157,14 @@ public:
     PipelineTaskSurface get(mfxFrameSurface1 *surf) {
         auto s = findSurf(surf);
         if (s != nullptr) {
-            return PipelineTaskSurface(&s->first, &s->second);
+            return PipelineTaskSurface(s->first.get(), &s->second);
+        }
+        return PipelineTaskSurface();
+    }
+    PipelineTaskSurface get(RGYCLFrame *frame) {
+        auto s = findSurf(frame);
+        if (s != nullptr) {
+            return PipelineTaskSurface(s->first.get(), &s->second);
         }
         return PipelineTaskSurface();
     }
@@ -165,17 +181,31 @@ public:
 
     // 使用されていないフレームかを返す
     // mfxの参照カウンタと独自参照カウンタの両方をチェック
-    bool isFree(const std::pair<mfxFrameSurface1, std::atomic<int>> *s) const { return s->first.Data.Locked == 0 && s->second == 0; }
+    bool isFree(const std::pair<std::unique_ptr<RGYFrame>, std::atomic<int>> *s) const {
+        if (s->second != 0) return false;
+        auto mfxsurf = s->first->surf();
+        if (mfxsurf) {
+            return mfxsurf->Data.Locked == 0;
+        }
+        return true;
+    }
 protected:
-    std::pair<mfxFrameSurface1, std::atomic<int>> *findSurf(mfxFrameSurface1 *surf) {
+    std::pair<std::unique_ptr<RGYFrame>, std::atomic<int>> *findSurf(mfxFrameSurface1 *surf) {
         for (auto& s : m_surfaces) {
-            if (&s.first == surf) {
+            if (s.first->surf() == surf) {
                 return &s;
             }
         }
         return nullptr;
     }
-
+    std::pair<std::unique_ptr<RGYFrame>, std::atomic<int>> *findSurf(RGYCLFrame *frame) {
+        for (auto& s : m_surfaces) {
+            if (s.first->clframe() == frame) {
+                return &s;
+            }
+        }
+        return nullptr;
+    }
 };
 
 class PipelineTaskOutputDataCustom {
@@ -265,7 +295,7 @@ public:
             return RGY_ERR_INVALID_OPERATION;
         }
 
-        auto mfxSurf = m_surf.get();
+        auto mfxSurf = m_surf.mfxsurf();
         if (mfxSurf->Data.MemId) {
             auto sts = allocator->Lock(allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
@@ -307,6 +337,7 @@ enum class PipelineTaskType {
     MFXENC,
     MFXENCODE,
     INPUT,
+    INPUTCL,
     CHECKPTS,
     TRIM,
     AUDIO,
@@ -321,6 +352,7 @@ static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     case PipelineTaskType::MFXENC:    return _T("MFXENC");
     case PipelineTaskType::MFXENCODE: return _T("MFXENCODE");
     case PipelineTaskType::INPUT:     return _T("INPUT");
+    case PipelineTaskType::INPUTCL:   return _T("INPUTCL");
     case PipelineTaskType::CHECKPTS:  return _T("CHECKPTS");
     case PipelineTaskType::TRIM:      return _T("TRIM");
     case PipelineTaskType::OPENCL:    return _T("OPENCL");
@@ -338,6 +370,7 @@ static const int getPipelineTaskAllocPriority(PipelineTaskType type) {
     case PipelineTaskType::MFXDEC:    return 2;
     case PipelineTaskType::MFXVPP:    return 1;
     case PipelineTaskType::INPUT:
+    case PipelineTaskType::INPUTCL:
     case PipelineTaskType::CHECKPTS:
     case PipelineTaskType::TRIM:
     case PipelineTaskType::OPENCL:
@@ -535,7 +568,7 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
-        auto mfxSurf = surfWork.get();
+        auto mfxSurf = surfWork.mfxsurf();
         if (mfxSurf->Data.MemId) {
             auto sts = m_allocator->Lock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
@@ -554,6 +587,46 @@ public:
         if (mfxSurf->Data.MemId) {
             m_allocator->Unlock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
+        if (err == RGY_ERR_NONE) {
+            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfWork, nullptr));
+        }
+        return err;
+    }
+    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
+        auto frameInfo = m_input->GetInputFrameInfo();
+        info = frameinfo_rgy_to_enc(frameInfo);
+        return RGY_ERR_NONE;
+    }
+};
+
+class PipelineTaskInputOpenCL : public PipelineTask {
+    RGYInput *m_input;
+public:
+    PipelineTaskInputOpenCL(MFXVideoSession *mfxSession, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::INPUTCL, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input) {
+
+    };
+    virtual ~PipelineTaskInputOpenCL() {};
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        auto surfWork = getWorkSurf();
+        if (surfWork == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
+            return RGY_ERR_NOT_ENOUGH_BUFFER;
+        }
+        auto mfxSurf = surfWork.mfxsurf();
+
+        auto err = m_input->LoadNextFrame((RGYFrame *)mfxSurf);
+        if (err != RGY_ERR_NONE) {
+            //Unlockする必要があるので、ここに入ってもすぐにreturnしてはいけない
+            if (err == RGY_ERR_MORE_DATA) { // EOF
+                err = RGY_ERR_MORE_BITSTREAM; // EOF を PipelineTaskMFXDecode のreturnコードに合わせる
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
+            }
+        }
+
         if (err == RGY_ERR_NONE) {
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfWork, nullptr));
         }
@@ -636,16 +709,16 @@ public:
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
         mfxBitstream *inputBitstream = (m_getNextBitstream) ? &m_decInputBitstream.bitstream() : nullptr;
-
+        auto mfxSurfDecWork = surfDecWork.mfxsurf();
         if (!m_mfxDecParams.mfx.FrameInfo.FourCC) {
             //デコード前には、デコード用のパラメータでFrameInfoを更新
-            copy_crop_info(surfDecWork.get(), &m_mfxDecParams.mfx.FrameInfo);
+            copy_crop_info(mfxSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
             && (m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP8 || m_mfxDecParams.mfx.CodecId == MFX_CODEC_VP9)) { // VP8/VP9ではこの処理が必要
-            if (surfDecWork->Info.BitDepthLuma == 0 || surfDecWork->Info.BitDepthChroma == 0) {
-                surfDecWork->Info.BitDepthLuma = m_mfxDecParams.mfx.FrameInfo.BitDepthLuma;
-                surfDecWork->Info.BitDepthChroma = m_mfxDecParams.mfx.FrameInfo.BitDepthChroma;
+            if (mfxSurfDecWork->Info.BitDepthLuma == 0 || mfxSurfDecWork->Info.BitDepthChroma == 0) {
+                mfxSurfDecWork->Info.BitDepthLuma = m_mfxDecParams.mfx.FrameInfo.BitDepthLuma;
+                mfxSurfDecWork->Info.BitDepthChroma = m_mfxDecParams.mfx.FrameInfo.BitDepthChroma;
             }
         }
         if (inputBitstream != nullptr) {
@@ -654,8 +727,8 @@ public:
             }
             inputBitstream->DecodeTimeStamp = MFX_TIMESTAMP_UNKNOWN;
         }
-        surfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-        surfDecWork->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+        mfxSurfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+        mfxSurfDecWork->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         m_inFrames++;
 
         mfxStatus dec_sts = MFX_ERR_NONE;
@@ -664,7 +737,7 @@ public:
         for (int i = 0; ; i++) {
             const auto inputDataLen = (inputBitstream) ? inputBitstream->DataLength : 0;
             mfxSyncPoint decSyncPoint = nullptr;
-            dec_sts = m_dec->DecodeFrameAsync(inputBitstream, surfDecWork.get(), &surfDecOut, &decSyncPoint);
+            dec_sts = m_dec->DecodeFrameAsync(inputBitstream, mfxSurfDecWork, &surfDecOut, &decSyncPoint);
             lastSyncP = decSyncPoint;
 
             if (MFX_ERR_NONE < dec_sts && !decSyncPoint) {
@@ -747,7 +820,7 @@ public:
         if ((m_srcTimebase.n() > 0 && m_srcTimebase.is_valid())
             && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
             //CFR仮定ではなく、オリジナルの時間を見る
-            const auto srcTimestamp = taskSurf->surf()->Data.TimeStamp;
+            const auto srcTimestamp = taskSurf->surf().frame()->timestamp();
             outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
         }
         PrintMes(RGY_LOG_TRACE, _T("check_pts(%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
@@ -770,7 +843,7 @@ public:
                 auto ptsDiff = outPtsSource - m_tsOutEstimated;
                 if (ptsDiff <= std::min<int64_t>(-1, -1 * m_outFrameDuration * 7 / 8)) {
                     //間引きが必要
-                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), taskSurf->surf()->Data.FrameOrder);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   skipping frame (vfr)\n"), taskSurf->surf().frame()->inputFrameId());
                     return RGY_ERR_MORE_SURFACE;
                 }
             }
@@ -808,9 +881,8 @@ public:
                 //水増しが必要
                 PipelineTaskSurface surfVppOut = taskSurf->surf();
                 mfxSyncPoint lastSyncPoint = taskSurf->syncpoint();
-                surfVppOut->Data.FrameOrder = m_inFrames++;
-                surfVppOut->Data.TimeStamp = m_tsOutEstimated; // timestampを上書き
-                surfVppOut->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+                surfVppOut.frame()->setInputFrameId(m_inFrames++);
+                surfVppOut.frame()->setTimestamp(m_tsOutEstimated);
                 //timestampの上書き情報
                 //surfVppOut内部のmfxSurface1自体は同じデータを指すため、複数のタイムスタンプを持つことができない
                 //この問題をm_outQeueueのPipelineTaskOutput(これは個別)に与えるPipelineTaskOutputDataCheckPtsの値で、
@@ -833,13 +905,14 @@ public:
             } else {
                 if (m_avsync & RGY_AVSYNC_FORCE_CFR) {
                     //間引きが必要
-                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d/%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"), taskSurf->surf()->Data.FrameOrder, m_inFrames, m_tsPrev, outPtsSource);
+                    PrintMes(RGY_LOG_WARN, _T("check_pts(%d/%d): timestamp of video frame is smaller than previous frame, skipping frame: previous pts %lld, current pts %lld.\n"),
+                        taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsPrev, outPtsSource);
                     return RGY_ERR_MORE_SURFACE;
                 } else {
                     const auto origPts = outPtsSource;
                     outPtsSource = m_tsPrev + std::max<int64_t>(1, m_outFrameDuration / 4);
                     PrintMes(RGY_LOG_WARN, _T("check_pts(%d/%d): timestamp of video frame is smaller than previous frame, changing pts: %lld -> %lld (previous pts %lld).\n"),
-                        taskSurf->surf()->Data.FrameOrder, m_inFrames, origPts, outPtsSource, m_tsPrev);
+                        taskSurf->surf().frame()->inputFrameId(), m_inFrames, origPts, outPtsSource, m_tsPrev);
                 }
             }
         }
@@ -849,9 +922,8 @@ public:
         m_tsPrev = outPtsSource;
         PipelineTaskSurface outSurf = taskSurf->surf();
         mfxSyncPoint lastSyncPoint = taskSurf->syncpoint();
-        outSurf->Data.FrameOrder = m_inFrames++;
-        outSurf->Data.TimeStamp = outPtsSource;
-        outSurf->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+        outSurf.frame()->setInputFrameId(m_inFrames++);
+        outSurf.frame()->setTimestamp(outPtsSource);
         std::unique_ptr<PipelineTaskOutputDataCustom> timestampOverride(new PipelineTaskOutputDataCheckPts(outPtsSource));
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, outSurf, lastSyncPoint, timestampOverride));
         return RGY_ERR_NONE;
@@ -875,7 +947,7 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get timestamp data, timestamp might be inaccurate!\n"));
                 } else {
                     PipelineTaskOutputSurf *outDurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
-                    outDurf->surf()->Data.TimeStamp = dataCheckPts->timestampOverride();
+                    outDurf->surf().frame()->setInputFrameId(dataCheckPts->timestampOverride());
                 }
             }
             m_outFrames++;
@@ -1094,7 +1166,8 @@ public:
 
         if (frame) m_inFrames++;
 
-        mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get() : nullptr;
+        mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf() : nullptr;
+        surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
         if (surfVppIn) {
@@ -1111,7 +1184,7 @@ public:
                 //最初のフレームには設定したtimestamp、次のフレームにはMFX_TIMESTAMP_UNKNOWNが設定されて出てくる
                 //特別pSurfVppOut側のTimestampを設定する必要はなさそう
                 mfxSyncPoint VppSyncPoint = nullptr;
-                vpp_sts = m_vpp->RunFrameVPPAsync(surfVppIn, surfVppOut.get(), nullptr, &VppSyncPoint);
+                vpp_sts = m_vpp->RunFrameVPPAsync(surfVppIn, surfVppOut.mfxsurf(), nullptr, &VppSyncPoint);
                 lastSyncPoint = VppSyncPoint;
 
                 if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) {
@@ -1140,7 +1213,7 @@ public:
 
             if (lastSyncPoint != nullptr) {
                 //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
-                surfVppOut->Data.TimeStamp = m_timestamp.check(surfVppOut->Data.TimeStamp);
+                surfVppOut.frame()->setTimestamp(m_timestamp.check(surfVppOut.frame()->timestamp()));
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
             }
         } while (vppMoreOutput);
@@ -1226,7 +1299,7 @@ public:
         }
 
         //以下の処理は
-        mfxFrameSurface1 *surfEncodeIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf*>(frame.get())->surf().get() : nullptr;
+        mfxFrameSurface1 *surfEncodeIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf() : nullptr;
         if (surfEncodeIn) {
             m_inFrames++;
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
@@ -1238,6 +1311,7 @@ public:
             // ここまではm_outputTimebase
             //最後にQSVのHW_TIMEBASEに変換する
             surfEncodeIn->Data.TimeStamp = rational_rescale(surfEncodeIn->Data.TimeStamp, m_outputTimebase, rgy_rational<int>(1, HW_TIMEBASE));
+            surfEncodeIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         }
 
         auto enc_sts = MFX_ERR_NONE;
@@ -1315,7 +1389,7 @@ public:
         if (!frame) {
             filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
         } else {
-            mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().get();
+            mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf();
             if (m_surfVppInInterop.count(surfVppIn) == 0) {
                 m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
             }
@@ -1343,10 +1417,10 @@ public:
         std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
         while (filterframes.size() > 0 || drain) {
             auto surfVppOut = getWorkSurf();
-            if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {
-                m_surfVppOutInterop[surfVppOut.get()] = getOpenCLFrameInterop(surfVppOut.get(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
+            if (m_surfVppOutInterop.count(surfVppOut.mfxsurf()) == 0) {
+                m_surfVppOutInterop[surfVppOut.mfxsurf()] = getOpenCLFrameInterop(surfVppOut.mfxsurf(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
             }
-            auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.get()].get();
+            auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.mfxsurf()].get();
             if (!clFrameOutInterop) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
                 return RGY_ERR_NULL_PTR;
@@ -1427,10 +1501,10 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
                 return sts_filter;
             }
-            surfVppOut->Data.TimeStamp = encSurfaceInfo.timestamp;
-            surfVppOut->Data.FrameOrder = encSurfaceInfo.inputFrameId;
-            surfVppOut->Info.PicStruct = picstruct_rgy_to_enc(encSurfaceInfo.picstruct);
-            surfVppOut->Data.DataFlag = (mfxU16)encSurfaceInfo.flags;
+            surfVppOut.frame()->setTimestamp(encSurfaceInfo.timestamp);
+            surfVppOut.frame()->setInputFrameId(encSurfaceInfo.inputFrameId);
+            surfVppOut.frame()->setPicstruct(encSurfaceInfo.picstruct);
+            surfVppOut.frame()->setFlags(encSurfaceInfo.flags);
 
             outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
         }
