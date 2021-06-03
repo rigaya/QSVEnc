@@ -575,7 +575,7 @@ public:
                 return err_to_rgy(sts);
             }
         }
-        auto err = m_input->LoadNextFrame((RGYFrame *)mfxSurf);
+        auto err = m_input->LoadNextFrame(surfWork.frame());
         if (err != RGY_ERR_NONE) {
             //Unlockする必要があるので、ここに入ってもすぐにreturnしてはいけない
             if (err == RGY_ERR_MORE_DATA) { // EOF
@@ -1167,11 +1167,11 @@ public:
         if (frame) m_inFrames++;
 
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf() : nullptr;
-        surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
         if (surfVppIn) {
             m_timestamp.add(surfVppIn->Data.TimeStamp, 0);
+            surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         }
 
         bool vppMoreOutput = false;
