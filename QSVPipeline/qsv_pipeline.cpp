@@ -1346,19 +1346,24 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         } else if (t0->getOutputFrameInfo(allocRequest.Info) == RGY_ERR_NONE) {
             t0RequestNumFrame = std::max(t0->outputMaxQueueSize(), 1);
             t1RequestNumFrame = 1;
-            if (t1->taskType() == PipelineTaskType::OPENCL) {
+            if (   t0->taskType() == PipelineTaskType::OPENCL // openclとraw出力がつながっているような場合
+                || t1->taskType() == PipelineTaskType::OPENCL // inputとopenclがつながっているような場合
+            ) {
                 if (!m_cl) {
                     PrintMes(RGY_LOG_ERROR, _T("AllocFrames: OpenCL filter not enabled.\n"));
                     return RGY_ERR_UNSUPPORTED;
                 }
                 allocateOpenCLFrame = true; // inputとopenclがつながっているような場合
             }
+            if (t0->taskType() == PipelineTaskType::OPENCL) {
+                t0RequestNumFrame += 4; // 内部でフレームが増える場合に備えて
+            }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
         const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
-        if (allocateOpenCLFrame) { // inputとopenclがつながっているような場合
+        if (allocateOpenCLFrame) { // OpenCLフレームを介してやり取りする場合
             RGYFrameInfo frame;
             frame.width = allocRequest.Info.CropW;
             frame.height = allocRequest.Info.CropH;
@@ -2735,15 +2740,6 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     sInputCrop *inputCrop = (cropRequired) ? &inputParam->input.crop : nullptr;
     const auto resize = std::make_pair(resizeWidth, resizeHeight);
 
-    //CPUデコードから直接OpenCLフィルタに送るのはうまくいかない(先頭2フレームほどフレームデータが未設定(nullのまま)の緑のフレームが送られてしまう)
-    //これはd3d9/d3d11のframeをUnlockしたあと、それがGPUに転送されるのを待機しないためと考えられる
-    //そこでコピーするmfxvppフィルタを挟む(mfx vppはそのあたりを適切に処理していると思われる)
-    if (false
-        && m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
-        && getVppFilterType(filterPipeline.back()) == VppFilterType::FILTER_OPENCL) {
-        filterPipeline.insert(filterPipeline.begin(), VppType::MFX_COPY);
-    }
-
     std::vector<std::unique_ptr<RGYFilter>> vppOpenCLFilters;
     for (size_t i = 0; i < filterPipeline.size(); i++) {
         const VppFilterType ftype0 = (i >= 1)                      ? getVppFilterType(filterPipeline[i-1]) : VppFilterType::FILTER_NONE;
@@ -2822,17 +2818,6 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unsupported vpp filter type.\n"));
             return RGY_ERR_UNSUPPORTED;
-        }
-    }
-    //OpenCLフィルタから直接raw出力は対応していないので、コピーするvppフィルタをはさむ
-    if (getVppFilterType(filterPipeline.back()) == VppFilterType::FILTER_OPENCL && inputParam->CodecId == MFX_CODEC_RAW) {
-        auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VppType::MFX_COPY, &inputParam->vppmfx,
-            getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), nullptr, resize, blocksize);
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-        if (vppmfx) {
-            m_vpFilters.push_back(std::move(VppVilterBlock(vppmfx)));
         }
     }
 
@@ -3542,7 +3527,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         });
                     }
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), m_cl->queue())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -3599,7 +3584,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     });
                     RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), m_cl->queue())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }

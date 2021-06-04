@@ -247,9 +247,10 @@ public:
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
     const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator) {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue& clqueue) {
         UNREFERENCED_PARAMETER(writer);
         UNREFERENCED_PARAMETER(allocator);
+        UNREFERENCED_PARAMETER(clqueue);
         return RGY_ERR_UNSUPPORTED;
     }
     virtual ~PipelineTaskOutput() {};
@@ -287,14 +288,7 @@ public:
         m_dependencyFrame.reset();
     }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator) override {
-        if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
-            return RGY_ERR_NOT_INITIALIZED;
-        }
-        if (writer->getOutType() != OUT_TYPE_SURFACE) {
-            return RGY_ERR_INVALID_OPERATION;
-        }
-
+    RGY_ERR writeMFX(RGYOutput *writer, QSVAllocator *allocator) {
         auto mfxSurf = m_surf.mfxsurf();
         if (mfxSurf->Data.MemId) {
             auto sts = allocator->Lock(allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
@@ -302,10 +296,34 @@ public:
                 return err_to_rgy(sts);
             }
         }
-        auto err = writer->WriteNextFrame((RGYFrame *)mfxSurf);
+        auto err = writer->WriteNextFrame(m_surf.frame());
         if (mfxSurf->Data.MemId) {
             allocator->Unlock(allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
+        return err;
+    }
+
+    RGY_ERR writeCL(RGYOutput *writer, RGYOpenCLQueue& clqueue) {
+        auto clframe = m_surf.clframe();
+        auto err = clframe->queueMapBuffer(clqueue, CL_MAP_READ); // CPUが読み込むためにmapする
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        clframe->mapEvent().wait();
+        auto mappedframe = std::make_unique<RGYFrameRef>(clframe->mappedHost());
+        err = writer->WriteNextFrame(mappedframe.get());
+        clframe->unmapBuffer();
+        return err;
+    }
+
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue& clqueue) override {
+        if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
+            return RGY_ERR_NOT_INITIALIZED;
+        }
+        if (writer->getOutType() != OUT_TYPE_SURFACE) {
+            return RGY_ERR_INVALID_OPERATION;
+        }
+        auto err = (m_surf.mfxsurf() != nullptr) ? writeMFX(writer, allocator) : writeCL(writer, clqueue);
         return err;
     }
 };
@@ -319,7 +337,7 @@ public:
 
     std::shared_ptr<RGYBitstream>& bitstream() { return m_bs; }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator) override {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue& clqueue) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
@@ -481,7 +499,6 @@ protected:
             }
             m_workSurfs.clear();
         }
-        m_allocator = nullptr;
         return RGY_ERR_NONE;
     }
 public:
@@ -527,7 +544,6 @@ public:
         }
         PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s.\n"), get_err_mes(sts));
 
-        m_allocator = nullptr;
         // OpenCLフレームの確保
         std::vector<std::unique_ptr<RGYCLFrame>> frames(numFrames);
         for (size_t i = 0; i < frames.size(); i++) {
@@ -1383,6 +1399,16 @@ public:
         m_cl.reset();
     };
 
+    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
+        if (m_vpFilters.size() == 0) {
+            return RGY_ERR_UNKNOWN;
+        }
+        auto lastFilterOut = m_vpFilters.back()->GetFilterParam()->frameOut;
+        auto fps = m_vpFilters.back()->GetFilterParam()->baseFps;
+        info = frameinfo_rgy_to_enc(lastFilterOut, fps, rgy_rational<int>(1,1), 2);
+        return RGY_ERR_NONE;
+    }
+
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
@@ -1406,7 +1432,7 @@ public:
                 return RGY_ERR_NULL_PTR;
             }
             mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfxsurf();
-            if (surfVppIn) {
+            if (surfVppIn != nullptr) {
                 if (m_surfVppInInterop.count(surfVppIn) == 0) {
                     m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
                 }
@@ -1425,7 +1451,7 @@ public:
                 clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
                 clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
                 filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
-            } else {
+            } else if (taskSurf->surf().clframe() != nullptr) {
                 //OpenCLフレームが出てきた時の場合
                 auto clframe = taskSurf->surf().clframe();
                 if (clframe == nullptr) {
@@ -1433,6 +1459,9 @@ public:
                     return RGY_ERR_NULL_PTR;
                 }
                 filterframes.push_back(std::make_pair(clframe->frameInfo(), 0u));
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid input frame.\n"));
+                return RGY_ERR_NULL_PTR;
             }
             //ここでinput frameの参照を m_prevInputFrame で保持するようにして、OpenCLによるフレームの処理が完了しているかを確認できるようにする
             //これを行わないとこのフレームが再度使われてしまうことになる
@@ -1443,19 +1472,29 @@ public:
         std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
         while (filterframes.size() > 0 || drain) {
             auto surfVppOut = getWorkSurf();
-            if (m_surfVppOutInterop.count(surfVppOut.mfxsurf()) == 0) {
-                m_surfVppOutInterop[surfVppOut.mfxsurf()] = getOpenCLFrameInterop(surfVppOut.mfxsurf(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
-            }
-            auto clFrameOutInterop = m_surfVppOutInterop[surfVppOut.mfxsurf()].get();
-            if (!clFrameOutInterop) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
+            RGYCLFrameInterop *clFrameOutInterop = nullptr;
+            if (surfVppOut.mfxsurf() != nullptr) {
+                // 通常のmfxフレームの場合
+                if (m_surfVppOutInterop.count(surfVppOut.mfxsurf()) == 0) {
+                    m_surfVppOutInterop[surfVppOut.mfxsurf()] = getOpenCLFrameInterop(surfVppOut.mfxsurf(), m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
+                }
+                clFrameOutInterop = m_surfVppOutInterop[surfVppOut.mfxsurf()].get();
+                if (!clFrameOutInterop) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+                auto err = clFrameOutInterop->acquire(m_cl->queue());
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
+                    return RGY_ERR_NULL_PTR;
+                }
+            } else if (surfVppOut.clframe() != nullptr) {
+                //OpenCLフレームが出てきた時の場合...特にすることはない
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid work frame [out].\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            auto err = clFrameOutInterop->acquire(m_cl->queue());
-            if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
-                return RGY_ERR_NULL_PTR;
-            }
+            #define clFrameOutInteropRelease { if (clFrameOutInterop) clFrameOutInterop->release(); }
             //フィルタリングするならここ
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
                 int nOutFrames = 0;
@@ -1463,7 +1502,7 @@ public:
                 auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames);
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
-                    clFrameOutInterop->release();
+                    clFrameOutInteropRelease;
                     return sts_filter;
                 }
                 if (clFrameInInterop) {
@@ -1480,7 +1519,7 @@ public:
                         filterframes.front().second++;
                         continue;
                     }
-                    clFrameOutInterop->release();
+                    clFrameOutInteropRelease;
                     return RGY_ERR_NONE;
                 }
                 filterframes.pop_front();
@@ -1492,7 +1531,7 @@ public:
                 }
             }
             if (drain) {
-                clFrameOutInterop->release();
+                clFrameOutInteropRelease;
                 return RGY_ERR_MORE_DATA; //最後までdrain = trueなら、drain完了
             }
             //エンコードバッファにコピー
@@ -1500,19 +1539,20 @@ public:
             //最後のフィルタはRGYFilterCspCropでなければならない
             if (typeid(*lastFilter.get()) != typeid(RGYFilterCspCrop)) {
                 PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
-                clFrameOutInterop->release();
+                clFrameOutInteropRelease;
                 return RGY_ERR_INVALID_PARAM;
             }
             //エンコードバッファのポインタを渡す
             int nOutFrames = 0;
-            auto encSurfaceInfo = clFrameOutInterop->frameInfo();
+            auto encSurfaceInfo = (clFrameOutInterop) ? clFrameOutInterop->frameInfo() : surfVppOut.clframe()->frameInfo();
             RGYFrameInfo *outInfo[1];
             outInfo[0] = &encSurfaceInfo;
-            auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames);
+            RGYOpenCLEvent clevent; // 最終フィルタの処理完了を伝えるevent
+            auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
             filterframes.pop_front();
             if (sts_filter != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
-                clFrameOutInterop->release();
+                clFrameOutInteropRelease;
                 return sts_filter;
             }
 #if 0
@@ -1521,11 +1561,12 @@ public:
                 m_ssim->filter(&encSurfaceInfo, nullptr, &dummy);
             }
 #endif
-            RGYOpenCLEvent clevent;
-            clFrameOutInterop->release(&clevent);
-            if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to finish queue after \"%s\".\n"), lastFilter->name().c_str());
-                return sts_filter;
+            if (clFrameOutInterop) {
+                auto err = clFrameOutInterop->release(&clevent);
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to release out frame interop after \"%s\".\n"), lastFilter->name().c_str());
+                    return sts_filter;
+                }
             }
             surfVppOut.frame()->setTimestamp(encSurfaceInfo.timestamp);
             surfVppOut.frame()->setInputFrameId(encSurfaceInfo.inputFrameId);
@@ -1533,6 +1574,8 @@ public:
             surfVppOut.frame()->setFlags(encSurfaceInfo.flags);
 
             outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+
+            #undef clFrameOutInteropRelease
         }
         if (clFrameInInterop) {
             RGYOpenCLEvent clevent;
@@ -1601,8 +1644,7 @@ public:
             return RGY_ERR_MORE_DATA;
         }
         m_inFrames++;
-        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
-        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
+        m_outQeueue.push_back(std::move(frame));
         return RGY_ERR_NONE;
     }
 };
