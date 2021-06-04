@@ -519,6 +519,25 @@ public:
         m_workSurfs.setSurfaces(workSurfs);
         return RGY_ERR_NONE;
     }
+    RGY_ERR workSurfacesAllocCL(const int numFrames, const RGYFrameInfo &frame, RGYOpenCLContext *cl) {
+        auto sts = workSurfacesClear();
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old surfaces: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   cleared old surfaces: %s.\n"), get_err_mes(sts));
+
+        m_allocator = nullptr;
+        // OpenCLフレームの確保
+        std::vector<std::unique_ptr<RGYCLFrame>> frames(numFrames);
+        for (size_t i = 0; i < frames.size(); i++) {
+            //CPUとのやり取りが効率化できるよう、CL_MEM_ALLOC_HOST_PTR を指定する
+            //これでmap/unmapで可能な場合コピーが発生しない
+            frames[i] = cl->createFrameBuffer(frame, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        }
+        m_workSurfs.setSurfaces(frames);
+        return RGY_ERR_NONE;
+    }
 
     // surfの対応するPipelineTaskSurfaceを見つけ、これから使用するために参照を増やす
     // 破棄時にアプリ側の参照カウンタを減算するようにshared_ptrで設定してある
@@ -554,20 +573,16 @@ public:
 class PipelineTaskInput : public PipelineTask {
     RGYInput *m_input;
     QSVAllocator *m_allocator;
+    std::shared_ptr<RGYOpenCLContext> m_cl;
 public:
-    PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator) {
+    PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_cl(cl) {
 
     };
     virtual ~PipelineTaskInput() {};
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
-    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
-        auto surfWork = getWorkSurf();
-        if (surfWork == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
-            return RGY_ERR_NOT_ENOUGH_BUFFER;
-        }
+    RGY_ERR loadNextFrameMFX(PipelineTaskSurface& surfWork) {
         auto mfxSurf = surfWork.mfxsurf();
         if (mfxSurf->Data.MemId) {
             auto sts = m_allocator->Lock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
@@ -587,37 +602,18 @@ public:
         if (mfxSurf->Data.MemId) {
             m_allocator->Unlock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
-        if (err == RGY_ERR_NONE) {
-            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfWork, nullptr));
-        }
         return err;
     }
-    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
-        auto frameInfo = m_input->GetInputFrameInfo();
-        info = frameinfo_rgy_to_enc(frameInfo);
-        return RGY_ERR_NONE;
-    }
-};
-
-class PipelineTaskInputOpenCL : public PipelineTask {
-    RGYInput *m_input;
-public:
-    PipelineTaskInputOpenCL(MFXVideoSession *mfxSession, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUTCL, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input) {
-
-    };
-    virtual ~PipelineTaskInputOpenCL() {};
-    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
-    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
-    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
-        auto surfWork = getWorkSurf();
-        if (surfWork == nullptr) {
-            PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
-            return RGY_ERR_NOT_ENOUGH_BUFFER;
+    RGY_ERR loadNextFrameCL(PipelineTaskSurface& surfWork) {
+        auto clframe = surfWork.clframe();
+        auto err = clframe->queueMapBuffer(m_cl->queue(), CL_MAP_WRITE); // CPUが書き込むためにMapする
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to map buffer: %s.\n"), get_err_mes(err));
+            return err;
         }
-        auto mfxSurf = surfWork.mfxsurf();
-
-        auto err = m_input->LoadNextFrame((RGYFrame *)mfxSurf);
+        clframe->mapEvent().wait(); //すぐ終わるはず
+        auto mappedframe = std::make_unique<RGYFrameRef>(clframe->mappedHost());
+        err = m_input->LoadNextFrame(mappedframe.get());
         if (err != RGY_ERR_NONE) {
             //Unlockする必要があるので、ここに入ってもすぐにreturnしてはいけない
             if (err == RGY_ERR_MORE_DATA) { // EOF
@@ -626,7 +622,22 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
-
+        auto clerr = clframe->unmapBuffer();
+        if (clerr != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to unmap buffer: %s.\n"), get_err_mes(err));
+            if (err == RGY_ERR_NONE) {
+                err = clerr;
+            }
+        }
+        return err;
+    }
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        auto surfWork = getWorkSurf();
+        if (surfWork == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
+            return RGY_ERR_NOT_ENOUGH_BUFFER;
+        }
+        auto err = (surfWork.mfxsurf() != nullptr) ? loadNextFrameMFX(surfWork) : loadNextFrameCL(surfWork);
         if (err == RGY_ERR_NONE) {
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfWork, nullptr));
         }
@@ -947,7 +958,7 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get timestamp data, timestamp might be inaccurate!\n"));
                 } else {
                     PipelineTaskOutputSurf *outDurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
-                    outDurf->surf().frame()->setInputFrameId(dataCheckPts->timestampOverride());
+                    outDurf->surf().frame()->setTimestamp(dataCheckPts->timestampOverride());
                 }
             }
             m_outFrames++;
@@ -1389,25 +1400,40 @@ public:
         if (!frame) {
             filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
         } else {
-            mfxFrameSurface1 *surfVppIn = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf();
-            if (m_surfVppInInterop.count(surfVppIn) == 0) {
-                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
-            }
-            clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
-            if (!clFrameInInterop) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
+            auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+            if (taskSurf == nullptr) {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            auto err = clFrameInInterop->acquire(m_cl->queue());
-            if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
-                return RGY_ERR_NULL_PTR;
+            mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfxsurf();
+            if (surfVppIn) {
+                if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                    m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
+                }
+                clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
+                if (!clFrameInInterop) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+                auto err = clFrameInInterop->acquire(m_cl->queue());
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                    return RGY_ERR_NULL_PTR;
+                }
+                clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
+                clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
+                clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
+                clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
+                filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
+            } else {
+                //OpenCLフレームが出てきた時の場合
+                auto clframe = taskSurf->surf().clframe();
+                if (clframe == nullptr) {
+                    PrintMes(RGY_LOG_ERROR, _T("Invalid cl frame.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+                filterframes.push_back(std::make_pair(clframe->frameInfo(), 0u));
             }
-            clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
-            clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
-            clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
-            clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
-            filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
             //ここでinput frameの参照を m_prevInputFrame で保持するようにして、OpenCLによるフレームの処理が完了しているかを確認できるようにする
             //これを行わないとこのフレームが再度使われてしまうことになる
             m_prevInputFrame.push_back(std::move(frame));

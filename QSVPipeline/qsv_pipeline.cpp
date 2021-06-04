@@ -1330,6 +1330,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         int t0RequestNumFrame = 0;
         int t1RequestNumFrame = 0;
         mfxFrameAllocRequest allocRequest = { 0 };
+        bool allocateOpenCLFrame = false;
         if (t0Alloc.has_value() && t1Alloc.has_value()) {
             t0RequestNumFrame = t0Alloc.value().NumFrameSuggested;
             t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
@@ -1342,45 +1343,64 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         } else if (t1Alloc.has_value()) {
             allocRequest = t1Alloc.value();
             t1RequestNumFrame = t1Alloc.value().NumFrameSuggested;
-        } else if (t0->getOutputFrameInfo(allocRequest.Info) == RGY_ERR_NONE) { // inputとopenclがつながっているような場合
-            t0RequestNumFrame = 1;
+        } else if (t0->getOutputFrameInfo(allocRequest.Info) == RGY_ERR_NONE) {
+            t0RequestNumFrame = std::max(t0->outputMaxQueueSize(), 1);
             t1RequestNumFrame = 1;
             if (t1->taskType() == PipelineTaskType::OPENCL) {
-                allocRequest.Type |= MFX_MEMTYPE_EXTERNAL_FRAME;
-                allocRequest.Type |= MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET;
+                if (!m_cl) {
+                    PrintMes(RGY_LOG_ERROR, _T("AllocFrames: OpenCL filter not enabled.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+                }
+                allocateOpenCLFrame = true; // inputとopenclがつながっているような場合
             }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        switch (t0->taskType()) {
-        case PipelineTaskType::MFXDEC:    allocRequest.Type |= MFX_MEMTYPE_FROM_DECODE; break;
-        case PipelineTaskType::MFXVPP:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; break;
-        case PipelineTaskType::OPENCL:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; break;
-        case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
-        case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
-        default: break;
-        }
-        switch (t1->taskType()) {
-        case PipelineTaskType::MFXDEC:    allocRequest.Type |= MFX_MEMTYPE_FROM_DECODE; break;
-        case PipelineTaskType::MFXVPP:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPIN;  break;
-        case PipelineTaskType::OPENCL:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPIN;  break;
-        case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
-        case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
-        default: break;
-        }
+        const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
+        if (allocateOpenCLFrame) { // inputとopenclがつながっているような場合
+            RGYFrameInfo frame;
+            frame.width = allocRequest.Info.CropW;
+            frame.height = allocRequest.Info.CropH;
+            frame.csp = csp_enc_to_rgy(allocRequest.Info.FourCC);
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),
+                t0->print().c_str(), t1->print().c_str(), RGY_CSP_NAMES[frame.csp],
+                frame.width, frame.height, requestNumFrames);
+            auto sts = t0->workSurfacesAllocCL(requestNumFrames, frame, m_cl.get());
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
+                return sts;
+            }
+        } else {
+            switch (t0->taskType()) {
+            case PipelineTaskType::MFXDEC:    allocRequest.Type |= MFX_MEMTYPE_FROM_DECODE; break;
+            case PipelineTaskType::MFXVPP:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; break;
+            case PipelineTaskType::OPENCL:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPOUT; break;
+            case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
+            case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
+            default: break;
+            }
+            switch (t1->taskType()) {
+            case PipelineTaskType::MFXDEC:    allocRequest.Type |= MFX_MEMTYPE_FROM_DECODE; break;
+            case PipelineTaskType::MFXVPP:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPIN;  break;
+            case PipelineTaskType::OPENCL:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPIN;  break;
+            case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
+            case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
+            default: break;
+            }
 
-        allocRequest.NumFrameSuggested = (mfxU16)std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
-        allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
-        PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: %s, %s %dx%d [%d,%d,%d,%d], request %d frames\n"),
-            t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(), ColorFormatToStr(allocRequest.Info.FourCC),
-            allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
-            allocRequest.NumFrameSuggested);
+            allocRequest.NumFrameSuggested = (mfxU16)requestNumFrames;
+            allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: %s, %s %dx%d [%d,%d,%d,%d], request %d frames\n"),
+                t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(), ColorFormatToStr(allocRequest.Info.FourCC),
+                allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
+                allocRequest.NumFrameSuggested);
 
-        auto sts = t0->workSurfacesAlloc(allocRequest, m_bExternalAlloc, m_pMFXAllocator.get());
-        if (sts != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
-            return sts;
+            auto sts = t0->workSurfacesAlloc(allocRequest, m_bExternalAlloc, m_pMFXAllocator.get());
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
+                return sts;
+            }
         }
         t0 = t1;
     }
@@ -2718,7 +2738,8 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     //CPUデコードから直接OpenCLフィルタに送るのはうまくいかない(先頭2フレームほどフレームデータが未設定(nullのまま)の緑のフレームが送られてしまう)
     //これはd3d9/d3d11のframeをUnlockしたあと、それがGPUに転送されるのを待機しないためと考えられる
     //そこでコピーするmfxvppフィルタを挟む(mfx vppはそのあたりを適切に処理していると思われる)
-    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
+    if (false
+        && m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN
         && getVppFilterType(filterPipeline.back()) == VppFilterType::FILTER_OPENCL) {
         filterPipeline.insert(filterPipeline.begin(), VppType::MFX_COPY);
     }
@@ -3383,7 +3404,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     m_pipelineTasks.clear();
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), 0, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), 0, m_pFileReader.get(), m_mfxVer, m_cl, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     }

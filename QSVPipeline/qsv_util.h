@@ -539,6 +539,51 @@ public:
     virtual RGY_PICSTRUCT picstruct() const override { return openclframe->frameInfo().picstruct; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { openclframe->frameInfo().picstruct = picstruct; }
 };
+
+class RGYFrameRef : public RGYFrame {
+protected:
+    RGYFrameInfo frame;
+public:
+    RGYFrameRef(const RGYFrameInfo& f) : frame(f) {};
+    virtual int64_t timestamp() const override { return frame.timestamp; }
+    virtual void setTimestamp(int64_t timestamp) override { frame.timestamp = timestamp; };
+    virtual int inputFrameId() const override { return frame.inputFrameId; }
+    virtual void setInputFrameId(int inputFrameId) override { frame.inputFrameId = inputFrameId; }
+    virtual uint64_t flags() const override { return frame.flags; }
+    virtual void setFlags(uint64_t flag) override { frame.flags = (RGY_FRAME_FLAGS)flag; };
+    virtual void ptrArray(void *array[3], bool bRGB) override {
+        UNREFERENCED_PARAMETER(bRGB);
+        array[0] = frame.ptr[0];
+        array[1] = frame.ptr[1];
+        array[2] = frame.ptr[2];
+    }
+    virtual uint8_t *ptrY() override {
+        auto plane = getPlane(&frame, RGY_PLANE_Y);
+        return plane.ptr[0];
+    }
+    virtual uint8_t *ptrUV() override {
+        auto plane = getPlane(&frame, RGY_PLANE_C);
+        return plane.ptr[0];
+    }
+    virtual uint8_t *ptrU() override {
+        auto plane = getPlane(&frame, RGY_PLANE_U);
+        return plane.ptr[0];
+    }
+    virtual uint8_t *ptrV() override {
+        auto plane = getPlane(&frame, RGY_PLANE_U);
+        return plane.ptr[0];
+    }
+    virtual uint8_t *ptrRGB() override { return nullptr; }
+    virtual uint32_t pitch() const override { return frame.pitch[0]; }
+    virtual uint32_t width() const override { return frame.width; }
+    virtual uint32_t height() const override { return frame.height; }
+    virtual sInputCrop crop() const override { return sInputCrop(); }
+    virtual RGY_CSP csp() const override { return frame.csp; }
+    virtual int64_t duration() const override { return frame.duration; }
+    virtual void setDuration(int64_t frame_duration) override { frame.duration = frame_duration; }
+    virtual RGY_PICSTRUCT picstruct() const override { return frame.picstruct; }
+    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
+};
 const TCHAR *get_low_power_str(uint32_t LowPower);
 const TCHAR *get_err_mes(int sts);
 static void print_err_mes(int sts) {
