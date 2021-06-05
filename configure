@@ -310,36 +310,16 @@ else
 fi
 cnf_write "OK"
 
-if cxx_check "-msse4.1" "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
-    if cxx_check "-march=native" "${CXXFLAGS} -march=native -mtune=native ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -march=native -mtune=native"
-    elif cxx_check "-mpopcnt" "${CXXFLAGS} -mpopcnt ${LDFLAGS}" ; then
-        CXXFLAGS="$CXXFLAGS -msse4.1 -mpopcnt"
-    else
-        CXXFLAGS="$CXXFLAGS -msse4.1"
-    fi
+if cxx_check "-msse2" "${CXXFLAGS} -msse2 ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -msse2"
 else
-    cnf_write "SSE4.1 not supported with this compiler." 
+    cnf_write "SSE2 not supported with this compiler." 
     exit 1
-fi
-cnf_write "OK"
-
-cnf_print "checking for system SSE4.1 support..."
-if [ `cat /proc/cpuinfo | grep "sse4_1" | wc --lines` -eq 0 ]; then
-    cnf_write "System does not support SSE4.1."
-    exit 1 
 fi
 cnf_write "OK"
 
 if ! cxx_check "__rdtscp()" "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = __rdtscp(&a);" ; then
     CXXFLAGS="${CXXFLAGS} -DNO_RDTSCP_INTRIN=1"
-    cnf_write "no"
-else
-    cnf_write "yes"
-fi
-
-if ! cxx_check "_xgetbv()" "${CXXFLAGS} ${LDFLAGS}" "" "x86intrin.h" "unsigned int a = 0; auto i = _xgetbv(a);" ; then
-    CXXFLAGS="${CXXFLAGS} -DNO_XGETBV_INTRIN=1"
     cnf_write "no"
 else
     cnf_write "yes"
