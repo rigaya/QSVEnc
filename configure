@@ -365,7 +365,7 @@ if [ $? -ne 0 ]; then
 fi
 cnf_write "OK"
 
-if [ -n $EXTRACXXFLAGS ]; then
+if [ -n "$EXTRACXXFLAGS" ]; then
     printf "checking --extra-cflags..."
     if ! cxx_check "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS}" ; then
         cnf_write "--extra-cflags=${EXTRACXXFLAGS} does not work"
@@ -374,7 +374,7 @@ if [ -n $EXTRACXXFLAGS ]; then
     cnf_write "OK"
 fi
 
-if [ -n $EXTRALDFLAGS ]; then
+if [ -n "$EXTRALDFLAGS" ]; then
     if ! cxx_check "--extra-ldflags" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LDFLAGS} ${EXTRALDFLAGS}" ; then
         cnf_write "--extra-ldflags=${EXTRALDFLAGS} does not work"
         exit 1
