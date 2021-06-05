@@ -48,7 +48,6 @@ before_install:
   - $CXX --version
   - git clone https://github.com/AviSynth/AviSynthPlus.git ../AviSynthPlus
   - git clone https://github.com/vapoursynth/vapoursynth.git ../vapoursynth
-  - git clone https://github.com/rigaya/build_pkg.git
 
 script:
     - ./configure --extra-cxxflags="-I../AviSynthPlus/avs_core/include -I../vapoursynth/include" && make && ./qsvencc --version && python3 check_options.py && ./build_deb.sh
