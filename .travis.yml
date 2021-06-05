@@ -10,23 +10,55 @@ branches:
 matrix:
   fast_finish: true
   include:
-    - name: gcc build
+    - name: Ubuntu 20.04 gcc build
       compiler: gcc
       dist: focal
       env:
       - CC=gcc
       - CXX=g++
-    - name: clang build
-      compiler: clang
-      dist: focal
-      env:
-      - CC=clang
-      - CXX=clang++
+      addons:
+        apt:
+          packages:
+            - *native_deps
+            - libavcodec58
+            - libavcodec-dev
+            - libavutil56
+            - libavutil-dev
+            - libavformat58
+            - libavformat-dev
+            - libswresample3
+            - libswresample-dev
+            - libavfilter7
+            - libavfilter-dev
+            - libass9
+            - libass-dev
+            - libmfx1
+            - libmfx-dev
+            - libmfx-tools
+            - libva-drm2
+            - libva-x11-2
+            - libva-glx2
+            - libx11-dev
+            - libigfxcmrt7
+            - libva-dev
+            - libdrm-dev
+            - opencl-headers
 
 before_install:
-  - sudo apt update
-  - sudo apt -y install libmfx1 libmfx-dev libmfx-tools libva-drm2 libva-x11-2 libva-glx2 libx11-dev libigfxcmrt7 libva-dev libdrm-dev opencl-headers libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libass9 libass-dev
   - $CXX --version
+  - git clone https://github.com/AviSynth/AviSynthPlus.git ../AviSynthPlus
+  - git clone https://github.com/vapoursynth/vapoursynth.git ../vapoursynth
+  - git clone https://github.com/rigaya/build_pkg.git
 
 script:
-    - ./configure && make && ./qsvencc --version && python3 check_options.py
+    - ./configure --extra-cxxflags="-I../AviSynthPlus/avs_core/include -I../vapoursynth/include" && make && ./qsvencc --version && python3 check_options.py && ./build_deb.sh
+
+deploy:
+  provider: releases
+  api_key: IDRwZWN1uQaTxb64SQnTDNJR5KPtCFPL3Mln9GrdZ7TSiyec/o1KXpOuh/50ZO5A
+  file:
+    - nvencc_*.deb
+  skip_cleanup: true
+  on:
+    branch: release
+    tags: true
