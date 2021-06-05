@@ -310,10 +310,10 @@ else
 fi
 cnf_write "OK"
 
-if cxx_check "-msse2" "${CXXFLAGS} -msse2 ${LDFLAGS}" ; then
-    CXXFLAGS="$CXXFLAGS -msse2"
+if cxx_check "-msse4.1" "${CXXFLAGS} -msse4.1 ${LDFLAGS}" ; then
+    CXXFLAGS="$CXXFLAGS -msse4.1"
 else
-    cnf_write "SSE2 not supported with this compiler." 
+    cnf_write "SSE4.1 not supported with this compiler." 
     exit 1
 fi
 cnf_write "OK"
