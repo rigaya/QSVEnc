@@ -41,6 +41,7 @@
 #include "qsv_query.h"
 #include "rgy_version.h"
 #include "rgy_avutil.h"
+#include "rgy_filesystem.h"
 #include "rgy_prm.h"
 #include "rgy_cmd.h"
 #include "qsv_cmd.h"
@@ -1559,6 +1560,12 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
 
         if (pParams->common.chapterFile.length() > 0 && pParams->common.copyChapter) {
             _ftprintf(stderr, _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time."));
+            return 1;
+        }
+        if (pParams->common.inputFilename != _T("-")
+            && pParams->common.outputFilename != _T("-")
+            && rgy_path_is_same(pParams->common.inputFilename, pParams->common.outputFilename)) {
+            _ftprintf(stderr, _T("destination file is equal to source file!"));
             return 1;
         }
     }
