@@ -12,7 +12,11 @@ QSVEnc.auo … Intel Media SDK を使用してエンコードを行うAviutlの�
 QSVEncC.exe … 上記のコマンドライン版です。
 
 ## ダウンロード & 更新履歴
-[rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-10.html)
+[rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-10.html)  
+[github releases](https://github.com/rigaya/QSVEnc/releases)  
+
+## インストール
+インストール方法は[こちら](./Install.ja.md)。
 
 ## 基本動作環境
 ### CPU
@@ -27,10 +31,6 @@ Aviutl 1.00 以降 (QSVEnc.auo)
 CentOS/Readhat系 (QSVEncC)  
 Debian/Ubuntu系 (QSVEncC)  
   そのほかのディストリビューションでも動作する可能性があります。
-  
-  
-## インストール
-インストール方法は[こちら](./Install.ja.md)。
 
 ## QSVEnc 使用にあたっての注意事項
 無保証です。自己責任で使用してください。  

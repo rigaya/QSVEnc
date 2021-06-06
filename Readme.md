@@ -13,7 +13,11 @@ There are 2 types of software developed, one is command line version that runs i
 - QSVEnc.auo ... Output plugin for [Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/).
 
 ## Downloads & update history
-[rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-10.html)
+[rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-10.html)  
+[github releases](https://github.com/rigaya/QSVEnc/releases)  
+
+## Install
+[Install instructions for Windows and Linux](./Install.en.md).
 
 ## System Requirements
 ### CPU
@@ -28,10 +32,6 @@ Debian/Ubuntu (QSVEncC)
 Fedora (QSVEncC)  
   Requires Broadwell CPU or later.  
   It may be possible to run on other distributions (not tested).
-
-
-## Install
-[Install instructions for Windows and Linux](./Install.en.md).
 
 ## Precautions for using QSVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
