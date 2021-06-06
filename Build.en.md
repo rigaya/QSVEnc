@@ -85,14 +85,10 @@ OpenCL driver can be innstalled following instruction on [this link](https://dgp
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key |
-  sudo apt-key add -
-sudo apt-add-repository \
-  'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
+sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
 sudo apt-get update
-sudo apt install intel-media-va-driver-non-free \
-  intel-opencl-icd \
-  intel-level-zero-gpu level-zero
+sudo apt install intel-media-va-driver-non-free intel-opencl-icd intel-level-zero-gpu level-zero
 sudo apt install opencl-headers
 ```
 
