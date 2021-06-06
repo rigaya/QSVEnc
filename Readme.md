@@ -62,14 +62,36 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Interlaced encoding (by PAFF)
 - supports setting of codec profile & level, SAR, colormatrix, maxbitrate, GOP len, etc...
 - supports various vpp(video pre-processing) filters
-   - resize
-   - deinterlace (normal / bob / it)
-   - detail enhancement
-   - denoise
-   - image stablizier
-   - rotation
-   - delogo
-   - sub hard-burn
+  - MFX (Media Fixed function) filters
+    - resize
+    - deinterlace (normal / bob / it)
+    - detail enhancement
+    - denoise
+    - image stablizier
+  - OpenCL filters
+    - deinterlacer
+      - afs (Automatic field shift)
+      - nnedi
+    - decimate
+    - mpdecimate
+    - colorspace conversion
+      - hdr2sdr
+    - delogo
+    - subburn
+    - resize
+      - bilinear
+      - spline16, spline36, spline64
+      - lanczos2, lanczos3, lanczos4
+    - transpose / rotate / flip
+    - padding
+    - deband
+    - noise reduction
+      - knn (K-nearest neighbor)
+      - pmd (modified pmd method)
+    - edge / detail enhancement
+      - unsharp
+      - edgelevel (edge ​​level adjustment)
+      - warpsharp
 
 ### QSVEncC
 - Supports QSV(hw) decoding

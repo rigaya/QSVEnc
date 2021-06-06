@@ -69,15 +69,37 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 - 最大ビットレート等の指定
 - 最大GOP長の指定
 - AVX2までを使用した処理の高速化
-- Vpp機能 -- GPUを使用した高速フィルタリング
-   - リサイズ
-   - インタレ解除 (normal / bob / it)
-   - エッジ強調
-   - ノイズ低減
-   - Image Stablizier
-   - 回転
-   - ロゴ消し(delogo) (CPU処理)
-   - 字幕焼き込み
+- VPP機能
+  - Media Functionを使用した高速フィルタリング
+    - リサイズ
+    - インタレ解除 (normal / bob / it)
+    - エッジ強調
+    - ノイズ低減
+    - Image Stablizier
+  - CUDAによるGPUフィルタリング
+    - インタレ解除
+      - afs (自動フィールドシフト)
+      - nnedi
+    - decimate
+    - mpdecimate
+    - delogo
+    - 字幕焼きこみ
+    - 色空間変換 (x64版のみ)
+      - hdr2sdr
+    - リサイズ  
+      - bilinear
+      - spline16, spline36, spline64
+      - lanczos2, lanczos3, lanczos4
+    - 回転 / 反転
+    - パディング(黒帯)の追加
+    - バンディング低減
+    - ノイズ除去
+      - knn (K-nearest neighbor)
+      - pmd (正則化pmd法)
+    - 輪郭・ディテール強調
+      - unsharp
+      - edgelevel (エッジレベル調整)
+      - warpsharp
 
 ### QSVEnc
 - 音声エンコード
