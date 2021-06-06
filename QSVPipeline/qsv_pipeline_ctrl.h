@@ -247,7 +247,7 @@ public:
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
     const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue& clqueue) {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) {
         UNREFERENCED_PARAMETER(writer);
         UNREFERENCED_PARAMETER(allocator);
         UNREFERENCED_PARAMETER(clqueue);
@@ -303,9 +303,12 @@ public:
         return err;
     }
 
-    RGY_ERR writeCL(RGYOutput *writer, RGYOpenCLQueue& clqueue) {
+    RGY_ERR writeCL(RGYOutput *writer, RGYOpenCLQueue *clqueue) {
+        if (clqueue == nullptr) {
+            return RGY_ERR_NULL_PTR;
+        }
         auto clframe = m_surf.clframe();
-        auto err = clframe->queueMapBuffer(clqueue, CL_MAP_READ); // CPUが読み込むためにmapする
+        auto err = clframe->queueMapBuffer(*clqueue, CL_MAP_READ); // CPUが読み込むためにmapする
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -316,7 +319,7 @@ public:
         return err;
     }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue& clqueue) override {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
@@ -337,7 +340,7 @@ public:
 
     std::shared_ptr<RGYBitstream>& bitstream() { return m_bs; }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue& clqueue) override {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }

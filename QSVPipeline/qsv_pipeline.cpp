@@ -3527,7 +3527,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         });
                     }
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), m_cl->queue())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr)) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -3584,7 +3584,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     });
                     RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), m_cl->queue())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr)) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
