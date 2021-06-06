@@ -78,7 +78,7 @@ RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlan
         }
     }
 
-    const size_t grid_count = local(0) * local(1);
+    const size_t grid_count = global.groups(local).total();
     const size_t bufsize = (useKernel2) ? grid_count * sizeof(int2) : grid_count * sizeof(int);
     if (!tmp
         || tmp->size() < bufsize) {
