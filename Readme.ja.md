@@ -27,6 +27,10 @@ Aviutl 1.00 以降 (QSVEnc.auo)
 CentOS/Readhat系 (QSVEncC)  
 Debian/Ubuntu系 (QSVEncC)  
   そのほかのディストリビューションでも動作する可能性があります。
+  
+  
+## インストール
+インストール方法は[こちら](./Install.ja.md)。
 
 ## QSVEnc 使用にあたっての注意事項
 無保証です。自己責任で使用してください。  

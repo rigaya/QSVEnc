@@ -30,6 +30,9 @@ Fedora (QSVEncC)
   It may be possible to run on other distributions (not tested).
 
 
+## Install
+[Install instructions for Windows and Linux](./Install.en.md).
+
 ## Precautions for using QSVEnc
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
