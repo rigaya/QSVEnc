@@ -46,7 +46,14 @@ QSVEncCのdebファイルを[こちら](https://github.com/rigaya/QSVEnc/release
 sudo apt install ./qsvencc_x.xx_Ubuntu20.04_amd64.deb
 ```
 
-### 4. その他
+### 4. 追加オプション
+- avs読み込み  
+  [AvisynthPlus](https://github.com/AviSynth/AviSynthPlus)のインストールが必要です。
+  
+- vpy読み込み  
+  [VapourSynth](https://www.vapoursynth.com/)のインストールが必要です。
+
+### 5. その他
 
 - QSVEncC実行時に、"Failed to load OpenCL." というエラーが出る場合  
   /lib/x86_64-linux-gnu/libOpenCL.so が存在することを確認してください。 libOpenCL.so.1 しかない場合は、下記のようにシンボリックリンクを作成してください。

@@ -19,7 +19,7 @@ QSVEncC could be run directly from the extracted directory.
 ## Linux (Ubuntu 20.04)
 
 ### 1. Install Intel Media driver  
-OpenCL driver can be innstalled following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
+OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
@@ -44,7 +44,16 @@ Download deb package from [this link](https://github.com/rigaya/QSVEnc/releases)
 sudo apt install ./qsvencc_x.xx_Ubuntu20.04_amd64.deb
 ```
 
-### 4. Others
+### 4. Addtional Tools
+
+There are some features which require additional installations.  
+
+| Feature | Requirements |
+|:--      |:--           |
+| avs reader       | [AvisynthPlus](https://github.com/AviSynth/AviSynthPlus) |
+| vpy reader       | [VapourSynth](https://www.vapoursynth.com/)              |
+
+### 5. Others
 
 - Error: "Failed to load OpenCL." when running qsvencc  
   Please check if /lib/x86_64-linux-gnu/libOpenCL.so exists. There are some cases that only libOpenCL.so.1 exists. In that case, please create a link using following command line.
