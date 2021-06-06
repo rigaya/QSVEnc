@@ -15,4 +15,4 @@
 	url = https://github.com/clMathLibraries/clRNG.git
 [submodule "build_pkg"]
 	path = build_pkg
-	url = git@github.com:rigaya/build_pkg.git
+	url = https://github.com/rigaya/build_pkg.git
