@@ -538,7 +538,7 @@ sudo dnf install @development-tools
 sudo dnf install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
 
-sudo dnf install libva-devel libva-X11-devel libdrm-devel intel-mediasdk intel-mediasdk-devel
+sudo dnf install libva-devel libX11-devel libdrm-devel intel-mediasdk intel-mediasdk-devel
 sudo dnf install ffmpeg ffmpeg-devel
 ```
 
