@@ -1368,6 +1368,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             frame.width = allocRequest.Info.CropW;
             frame.height = allocRequest.Info.CropH;
             frame.csp = csp_enc_to_rgy(allocRequest.Info.FourCC);
+            frame.picstruct = picstruct_enc_to_rgy(allocRequest.Info.PicStruct);
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),
                 t0->print().c_str(), t1->print().c_str(), RGY_CSP_NAMES[frame.csp],
                 frame.width, frame.height, requestNumFrames);
