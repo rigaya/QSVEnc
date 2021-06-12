@@ -1559,13 +1559,13 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
         }
 
         if (pParams->common.chapterFile.length() > 0 && pParams->common.copyChapter) {
-            _ftprintf(stderr, _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time."));
+            _ftprintf(stderr, _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time.\n"));
             return 1;
         }
         if (pParams->common.inputFilename != _T("-")
             && pParams->common.outputFilename != _T("-")
             && rgy_path_is_same(pParams->common.inputFilename, pParams->common.outputFilename)) {
-            _ftprintf(stderr, _T("destination file is equal to source file!"));
+            _ftprintf(stderr, _T("destination file is equal to source file!\n"));
             return 1;
         }
     }
