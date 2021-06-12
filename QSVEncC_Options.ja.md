@@ -1318,7 +1318,6 @@ drop=1
 smooth=1
 force24=1
 tune_mode=0
-rff=0
 log=0
 ```
 
@@ -1327,8 +1326,8 @@ log=0
 以下の表のプリセットをロードします。
 
 ```
-例: アニメプリセットをロード後、"24fps"をonに、"rff"を"on"に
---vpp-afs preset=anime,24fps=true,rff=true
+例: アニメプリセットをロード後、"24fps"をon
+--vpp-afs preset=anime,24fps=true
 ```
 
 |              | default | triple<br>(動き重視) | double<br>(二重化) | anime<br>cinema<br>(アニメ/映画) | min_afterimg<br>(残像最小化) |  24fps<br>(24fps固定)  | 30fps<br>(30fps固定) |
@@ -1345,7 +1344,6 @@ log=0
 |smooth        |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
 |24fps         |   off   |  off   |   off  |      off        |     off      |    on   |  off  |
 |tune          |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
-|rff           |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
 
 **vpp-afs使用上の注意**  
 - Aviutl版とは全く同じ挙動にはなりません。

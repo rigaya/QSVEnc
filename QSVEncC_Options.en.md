@@ -1305,7 +1305,6 @@ Activate Auto Field Shift (AFS) deinterlacer.
 |smooth        |   off   |  off   |    on  |       on        |      on      |    on   |  off  |
 |24fps         |   off   |  off   |   off  |      off        |     off      |    on   |  off  |
 |tune          |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
-|rff           |   off   |  off   |   off  |      off        |     off      |   off   |  off  |
 
 ```
 example: same as --vpp-afs preset=24fps
