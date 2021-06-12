@@ -413,6 +413,7 @@ static inline RGYBitstream RGYBitstreamInit() {
 
 static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
 
+struct RGYCLFrame;
 
 class RGYFrame {
 protected:
@@ -488,6 +489,7 @@ public:
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { m_surface.Info.PicStruct = picstruct_rgy_to_enc(picstruct); }
 };
 
+#if !FOR_AUO
 class RGYFrameCL : public RGYFrame {
 protected:
     std::unique_ptr<RGYCLFrame> openclframe;
@@ -539,6 +541,7 @@ public:
     virtual RGY_PICSTRUCT picstruct() const override { return openclframe->frameInfo().picstruct; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { openclframe->frameInfo().picstruct = picstruct; }
 };
+#endif
 
 class RGYFrameRef : public RGYFrame {
 protected:
