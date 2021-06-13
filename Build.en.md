@@ -544,14 +544,9 @@ OpenCL driver can be innstalled following instruction on [this link](https://dgp
 sudo dnf install intel-media-driver
 #OpenCL
 sudo dnf install -y 'dnf-command(config-manager)'
-sudo dnf config-manager \
-  --add-repo \
-  https://repositories.intel.com/graphics/rhel/8.3/intel-graphics.repo
+sudo dnf config-manager --add-repo https://repositories.intel.com/graphics/rhel/8.3/intel-graphics.repo
 sudo dnf update --refresh
-sudo dnf install \
-  intel-opencl \
-  intel-media intel-mediasdk \
-  level-zero intel-level-zero-gpu
+sudo dnf install intel-opencl intel-media intel-mediasdk level-zero intel-level-zero-gpu
 sudo dnf install opencl-headers
 ```
 
