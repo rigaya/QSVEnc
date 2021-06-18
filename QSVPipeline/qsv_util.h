@@ -397,8 +397,11 @@ public:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR append(RGYBitstream *pBitstream) {
-        return append(pBitstream->data(), pBitstream->size());
+    RGY_ERR append(const RGYBitstream *pBitstream) {
+        if (pBitstream != nullptr) {
+            return append(pBitstream->data(), pBitstream->size());
+        }
+        return RGY_ERR_NONE;
     }
     void addFrameData(RGYFrameData *frameData);
     void clearFrameDataList();

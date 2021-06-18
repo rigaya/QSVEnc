@@ -58,6 +58,7 @@
 #include "rgy_output.h"
 #include "rgy_opencl.h"
 #include "qsv_vpp_mfx.h"
+#include "qsv_mfx_dec.h"
 #include "qsv_pipeline_ctrl.h"
 
 #include <vector>
@@ -151,7 +152,7 @@ protected:
     mfxExtVP8CodingOption m_ExtVP8CodingOption;
     mfxExtHEVCParam m_ExtHEVCParam;
     MFXVideoSession m_mfxSession;
-    unique_ptr<MFXVideoDECODE> m_pmfxDEC;
+    std::unique_ptr<QSVMfxDec> m_mfxDEC;
     unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
 
@@ -159,15 +160,12 @@ protected:
 
     sTrimParam m_trimParam;
 
-    mfxVideoParam m_mfxDecParams;
     mfxVideoParam m_mfxEncParams;
 
     mfxParamSet m_prmSetIn;
 
-    vector<mfxExtBuffer*> m_DecExtParams;
     vector<mfxExtBuffer*> m_EncExtParams;
 
-    mfxExtDecVideoProcessing m_DecVidProc;
 #if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_Chapters;
 #endif
@@ -189,6 +187,7 @@ protected:
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<VppType> m_vppFilterList;
     std::vector<VppVilterBlock> m_vpFilters;
+    unique_ptr<RGYFilterSsim> m_videoQualityMetric;
 
     std::shared_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
@@ -212,6 +211,7 @@ protected:
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();
     virtual RGY_ERR InitSession(bool useHWLib, uint32_t memType);
+    virtual RGY_ERR InitVideoQualityMetric(sInputParams *pParams);
     void applyInputVUIToColorspaceParams(sInputParams *inputParam);
     bool preferD3D11Mode(const sInputParams *pParams);
     RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift = nullptr) const;

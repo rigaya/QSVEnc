@@ -508,6 +508,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="qsv_mfx_dec.cpp" />
     <ClCompile Include="qsv_pipeline.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -684,6 +685,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_ssim.cpp" />
     <ClCompile Include="rgy_filter_subburn.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -853,6 +855,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="qsv_hw_d3d9.h" />
     <ClInclude Include="qsv_hw_device.h" />
     <ClInclude Include="qsv_hw_va.h" />
+    <ClInclude Include="qsv_mfx_dec.h" />
     <ClInclude Include="qsv_opencl.h" />
     <ClInclude Include="qsv_pipeline.h" />
     <ClInclude Include="qsv_pipeline_ctrl.h" />
@@ -887,6 +890,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_mpdecimate.h" />
     <ClInclude Include="rgy_filter_nnedi.h" />
     <ClInclude Include="rgy_filter_smooth.h" />
+    <ClInclude Include="rgy_filter_ssim.h" />
     <ClInclude Include="rgy_filter_subburn.h" />
     <ClInclude Include="rgy_filter_transform.h" />
     <ClInclude Include="rgy_filter_tweak.h" />
@@ -945,6 +949,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_pad.cl" />
     <None Include="rgy_filter_resize.cl" />
     <None Include="rgy_filter_smooth.cl" />
+    <None Include="rgy_filter_ssim.cl" />
     <None Include="rgy_filter_subburn.cl" />
     <None Include="rgy_filter_transform.cl" />
     <None Include="rgy_filter_tweak.cl" />

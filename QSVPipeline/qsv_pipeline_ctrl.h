@@ -34,6 +34,7 @@
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include <deque>
+#include <set>
 #include <optional>
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
@@ -49,9 +50,13 @@
 #include "rgy_timecode.h"
 #include "rgy_input.h"
 #include "rgy_input_sm.h"
+#include "rgy_filter.h"
+#include "rgy_filter_ssim.h"
 #include "rgy_output.h"
 #include "rgy_output_avcodec.h"
 #include "qsv_util.h"
+#include "qsv_mfx_dec.h"
+#include "qsv_vpp_mfx.h"
 
 const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
 const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
@@ -247,10 +252,11 @@ public:
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
     const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) {
         UNREFERENCED_PARAMETER(writer);
         UNREFERENCED_PARAMETER(allocator);
         UNREFERENCED_PARAMETER(clqueue);
+        UNREFERENCED_PARAMETER(videoQualityMetric);
         return RGY_ERR_UNSUPPORTED;
     }
     virtual ~PipelineTaskOutput() {};
@@ -319,7 +325,7 @@ public:
         return err;
     }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) override {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
@@ -340,12 +346,18 @@ public:
 
     std::shared_ptr<RGYBitstream>& bitstream() { return m_bs; }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) override {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
         if (writer->getOutType() != OUT_TYPE_BITSTREAM) {
             return RGY_ERR_INVALID_OPERATION;
+        }
+        if (videoQualityMetric) {
+            if (!videoQualityMetric->decodeStarted()) {
+                videoQualityMetric->initDecode(m_bs.get());
+            }
+            videoQualityMetric->addBitstream(m_bs.get());
         }
         return writer->WriteNextFrame(m_bs.get());
     }
@@ -703,6 +715,10 @@ public:
         info = m_mfxDecParams.mfx.FrameInfo;
         return RGY_ERR_NONE;
     }
+    RGY_ERR sendFrame(const RGYBitstream *bitstream) {
+        m_decInputBitstream.append(bitstream);
+        return sendBitstream();
+    }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_getNextBitstream
             //m_DecInputBitstream.size() > 0のときにbitstreamを連結してしまうと
@@ -729,7 +745,10 @@ public:
                 return ret;
             }
         }
-
+        return sendBitstream();
+    }
+protected:
+    RGY_ERR sendBitstream() {
         m_getNextBitstream |= m_decInputBitstream.size() > 0;
 
         //デコードも行う場合は、デコード用のフレームをpSurfVppInかpSurfEncInから受け取る
@@ -976,8 +995,8 @@ public:
                 if (dataCheckPts == nullptr) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get timestamp data, timestamp might be inaccurate!\n"));
                 } else {
-                    PipelineTaskOutputSurf *outDurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
-                    outDurf->surf().frame()->setTimestamp(dataCheckPts->timestampOverride());
+                    PipelineTaskOutputSurf *outSurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
+                    outSurf->surf().frame()->setTimestamp(dataCheckPts->timestampOverride());
                 }
             }
             m_outFrames++;

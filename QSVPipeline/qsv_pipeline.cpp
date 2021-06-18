@@ -75,6 +75,7 @@
 #include "rgy_filter_edgelevel.h"
 #include "rgy_filter_warpsharp.h"
 #include "rgy_filter_deband.h"
+#include "rgy_filter_ssim.h"
 #include "rgy_filter_tweak.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
@@ -360,106 +361,21 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         }
 
         //デコーダの作成
-        m_pmfxDEC.reset(new MFXVideoDECODE(m_mfxSession));
-        if (!m_pmfxDEC) {
-            return RGY_ERR_MEMORY_ALLOC;
-        }
+        mfxIMPL impl;
+        m_mfxSession.QueryIMPL(&impl);
+        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
 
-        const auto inputCodec = m_pFileReader->getInputCodec();
-        sts = err_to_rgy(m_SessionPlugins->LoadPlugin(MFXComponentType::DECODE, codec_rgy_to_enc(inputCodec), false));
-        if (sts != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), CodecToStr(inputCodec).c_str());
-            return RGY_ERR_UNSUPPORTED;
-        }
+        sts = m_mfxDEC->InitSession();
+        RGY_ERR(sts, _T("InitMfxDecParams: Failed init session for hw decoder."));
 
-        if (m_pFileReader->getInputCodec() == RGY_CODEC_H264 || m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
-            //これを付加しないとMFXVideoDECODE_DecodeHeaderが成功しない
-            const uint32_t IDR = 0x65010000;
-            m_DecInputBitstream.append((uint8_t *)&IDR, sizeof(IDR));
-        }
-        memset(&m_mfxDecParams, 0, sizeof(m_mfxDecParams));
-        m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(m_pFileReader->getInputCodec());
-        m_mfxDecParams.IOPattern = (uint16_t)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
-        sts = err_to_rgy(m_pmfxDEC->DecodeHeader(&m_DecInputBitstream.bitstream(), &m_mfxDecParams));
-        RGY_ERR(sts, _T("InitMfxDecParams: Failed to DecodeHeader."));
-
-        //DecodeHeaderした結果をreaderにも反映
-        if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)
-            || (inputCodec != RGY_CODEC_VP8 && inputCodec != RGY_CODEC_VP9 && inputCodec != RGY_CODEC_AV1)) { // VP8/VP9ではこの処理は不要
-            if (m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 8)   m_mfxDecParams.mfx.FrameInfo.BitDepthLuma = 0;
-            if (m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 8) m_mfxDecParams.mfx.FrameInfo.BitDepthChroma = 0;
-        }
-        if (m_mfxDecParams.mfx.FrameInfo.Shift
-            && m_mfxDecParams.mfx.FrameInfo.BitDepthLuma == 0
-            && m_mfxDecParams.mfx.FrameInfo.BitDepthChroma == 0) {
-            PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Bit shift required but bitdepth not set.\n"));
-            return RGY_ERR_INVALID_VIDEO_PARAM;
-        }
-        if (m_mfxDecParams.mfx.FrameInfo.FrameRateExtN == 0
-            && m_mfxDecParams.mfx.FrameInfo.FrameRateExtD == 0) {
-            auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
-            if (inputFrameInfo.fpsN > 0 && inputFrameInfo.fpsD > 0) {
-                m_mfxDecParams.mfx.FrameInfo.FrameRateExtN = inputFrameInfo.fpsN;
-                m_mfxDecParams.mfx.FrameInfo.FrameRateExtD = inputFrameInfo.fpsD;
-            }
-        }
+        sts = m_mfxDEC->SetParam(m_pFileReader->getInputCodec(), m_DecInputBitstream, m_pFileReader->GetInputFrameInfo());
+        RGY_ERR(sts, _T("InitMfxDecParams: Failed set param for hw decoder."));
 
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
             //メインループに入った際に再度第1フレームを読み込むようにする。
             m_DecInputBitstream.clear();
         }
-
-        PrintMes(RGY_LOG_DEBUG, _T("")
-            _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")
-            _T("InitMfxDecParams: Frame: %s, %dx%d%s [%d,%d,%d,%d] %d:%d\n")
-            _T("InitMfxDecParams: color format %s, chroma %s, bitdepth %d, shift %d, picstruct %s\n"),
-            CodecIdToStr(m_mfxDecParams.mfx.CodecId), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
-            ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.FourCC), m_mfxDecParams.mfx.FrameInfo.Width, m_mfxDecParams.mfx.FrameInfo.Height,
-            (m_mfxDecParams.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? _T("i") : _T("p"),
-            m_mfxDecParams.mfx.FrameInfo.CropX, m_mfxDecParams.mfx.FrameInfo.CropY, m_mfxDecParams.mfx.FrameInfo.CropW, m_mfxDecParams.mfx.FrameInfo.CropH,
-            m_mfxDecParams.mfx.FrameInfo.AspectRatioW, m_mfxDecParams.mfx.FrameInfo.AspectRatioH,
-            ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.FourCC), ChromaFormatToStr(m_mfxDecParams.mfx.FrameInfo.ChromaFormat),
-            m_mfxDecParams.mfx.FrameInfo.BitDepthLuma, m_mfxDecParams.mfx.FrameInfo.Shift,
-            MFXPicStructToStr(m_mfxDecParams.mfx.FrameInfo.PicStruct).c_str());
-
-        memset(&m_DecVidProc, 0, sizeof(m_DecVidProc));
-        m_DecExtParams.clear();
-#if 0
-        const auto enc_fourcc = csp_rgy_to_enc(getEncoderCsp(pInParams, nullptr));
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)
-            && ( m_mfxDecParams.mfx.FrameInfo.CropW  != pInParams->input.dstWidth
-              || m_mfxDecParams.mfx.FrameInfo.CropH  != pInParams->input.dstHeight
-              || m_mfxDecParams.mfx.FrameInfo.FourCC != enc_fourcc)
-            && pInParams->vpp.nScalingQuality == MFX_SCALING_MODE_LOWPOWER
-            && enc_fourcc == MFX_FOURCC_NV12
-            && m_mfxDecParams.mfx.FrameInfo.FourCC == MFX_FOURCC_NV12
-            && m_mfxDecParams.mfx.FrameInfo.ChromaFormat == MFX_CHROMAFORMAT_YUV420
-            && !cropEnabled(pInParams->sInCrop)) {
-            m_DecVidProc.Header.BufferId = MFX_EXTBUFF_DEC_VIDEO_PROCESSING;
-            m_DecVidProc.Header.BufferSz = sizeof(m_DecVidProc);
-            m_DecVidProc.In.CropX = 0;
-            m_DecVidProc.In.CropY = 0;
-            m_DecVidProc.In.CropW = m_mfxDecParams.mfx.FrameInfo.CropW;
-            m_DecVidProc.In.CropH = m_mfxDecParams.mfx.FrameInfo.CropH;
-
-            m_DecVidProc.Out.FourCC = enc_fourcc;
-            m_DecVidProc.Out.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
-            m_DecVidProc.Out.Width  = std::max<mfxU16>(ALIGN16(pInParams->input.dstWidth), m_mfxDecParams.mfx.FrameInfo.Width);
-            m_DecVidProc.Out.Height = std::max<mfxU16>(ALIGN16(pInParams->input.dstHeight), m_mfxDecParams.mfx.FrameInfo.Height);
-            m_DecVidProc.Out.CropX = 0;
-            m_DecVidProc.Out.CropY = 0;
-            m_DecVidProc.Out.CropW = pInParams->input.dstWidth;
-            m_DecVidProc.Out.CropH = pInParams->input.dstHeight;
-
-            m_DecExtParams.push_back((mfxExtBuffer *)&m_DecVidProc);
-            m_mfxDecParams.ExtParam = &m_DecExtParams[0];
-            m_mfxDecParams.NumExtParam = (mfxU16)m_DecExtParams.size();
-
-            pInParams->input.srcWidth = pInParams->input.dstWidth;
-            pInParams->input.srcHeight = pInParams->input.dstHeight;
-        }
-#endif
     }
 #endif
     return RGY_ERR_NONE;
@@ -1607,16 +1523,13 @@ CQSVPipeline::CQSVPipeline() :
     m_ExtVP8CodingOption(),
     m_ExtHEVCParam(),
     m_mfxSession(),
-    m_pmfxDEC(),
+    m_mfxDEC(),
     m_pmfxENC(),
     m_mfxVPP(),
     m_trimParam(),
-    m_mfxDecParams(),
     m_mfxEncParams(),
     m_prmSetIn(),
-    m_DecExtParams(),
     m_EncExtParams(),
-    m_DecVidProc(),
 #if ENABLE_AVSW_READER
     m_Chapters(),
 #endif
@@ -1633,6 +1546,7 @@ CQSVPipeline::CQSVPipeline() :
     m_DecInputBitstream(),
     m_cl(),
     m_vpFilters(),
+    m_videoQualityMetric(),
     m_hwdev(),
     m_pipelineTasks() {
     m_trimParam.offset = 0;
@@ -1661,10 +1575,7 @@ CQSVPipeline::CQSVPipeline() :
 
     RGY_MEMSET_ZERO(m_DecInputBitstream);
 
-    RGY_MEMSET_ZERO(m_mfxDecParams);
     RGY_MEMSET_ZERO(m_mfxEncParams);
-
-    RGY_MEMSET_ZERO(m_DecVidProc);
 }
 
 CQSVPipeline::~CQSVPipeline() {
@@ -2627,8 +2538,8 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         inputFrame.csp = inputParam->input.csp;
         inputFrame.bitdepth = inputParam->input.bitdepth;
     } else {
-        inputFrame.csp = csp_enc_to_rgy(m_mfxDecParams.mfx.FrameInfo.FourCC);
-        inputFrame.bitdepth = m_mfxDecParams.mfx.FrameInfo.BitDepthLuma;
+        inputFrame.csp = m_mfxDEC->GetFrameOut().csp;
+        inputFrame.bitdepth = m_mfxDEC->GetFrameOut().bitdepth;
     }
     inputFrame.picstruct = inputParam->input.picstruct;
     inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
@@ -2991,6 +2902,45 @@ RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
     return err;
 }
 
+RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
+    if (prm->common.metric.enabled()) {
+        auto [err, outFrameInfo] = GetOutputVideoInfo();
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
+            return err;
+        }
+        mfxIMPL impl;
+        m_mfxSession.QueryIMPL(&impl);
+        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
+
+        const auto formatOut = videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
+        unique_ptr<RGYFilterSsim> filterSsim(new RGYFilterSsim(m_cl));
+        shared_ptr<RGYFilterParamSsim> param(new RGYFilterParamSsim());
+        param->input.srcWidth = m_encWidth;
+        param->input.srcHeight = m_encHeight;
+        param->bitDepth = prm->outputDepth;
+        param->frameIn.width = formatOut.dstWidth;
+        param->frameIn.height = formatOut.dstHeight;
+        param->frameIn.csp = formatOut.csp;
+        param->frameIn.bitdepth = formatOut.bitdepth;
+        param->frameIn.picstruct = formatOut.picstruct;
+        param->frameIn.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+        param->frameOut = param->frameIn;
+        param->frameOut.csp = param->input.csp;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        param->mfxDEC = std::move(mfxdec);
+        param->allocator = m_pMFXAllocator.get();
+        param->metric = prm->common.metric;
+        auto sts = filterSsim->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_videoQualityMetric = std::move(filterSsim);
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
     m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel));
@@ -3123,7 +3073,10 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOutput(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
-    const int nPipelineElements = !!m_pmfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC;
+    sts = InitVideoQualityMetric(pParams);
+    if (sts < RGY_ERR_NONE) return sts;
+
+    const int nPipelineElements = !!m_mfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC;
     if (nPipelineElements == 0) {
         PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
         return RGY_ERR_INVALID_VIDEO_PARAM;
@@ -3161,9 +3114,10 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 void CQSVPipeline::Close() {
     // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
+    m_videoQualityMetric.reset();
     m_vpFilters.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
-    m_pmfxDEC.reset();
+    m_mfxDEC.reset();
     m_pmfxENC.reset();
     m_mfxVPP.clear();
     //この中でフレームの解放がなされる
@@ -3293,11 +3247,11 @@ RGY_ERR CQSVPipeline::InitMfxVpp() {
 }
 
 RGY_ERR CQSVPipeline::InitMfxDec() {
-    if (!m_pmfxDEC) {
+    if (!m_mfxDEC) {
         return RGY_ERR_NONE;
     }
     const auto log_level = logTemporarilyIgnoreErrorMes();
-    auto sts = err_to_rgy(m_pmfxDEC->Init(&m_mfxDecParams));
+    auto sts = m_mfxDEC->Init();
     m_pQSVLog->setLogLevel(log_level);
     if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on decoding.\n"));
@@ -3334,8 +3288,8 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
         }
     }
 
-    if (m_pmfxDEC) {
-        err = err_to_rgy(m_pmfxDEC->Close());
+    if (m_mfxDEC) {
+        err = m_mfxDEC->Close();
         RGY_IGNORE_STS(err, RGY_ERR_NOT_INITIALIZED);
         RGY_ERR(err, _T("Failed to reset decoder (fail on closing)."));
         PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Dec closed.\n"));
@@ -3392,7 +3346,12 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), 0, m_pFileReader.get(), m_mfxVer, m_cl, m_pQSVLog));
     } else {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_pmfxDEC.get(), m_mfxDecParams, m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+        auto err = err_to_rgy(m_mfxSession.JoinSession(m_mfxDEC->GetSession()));
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_mfxDEC->mfxdec(), m_mfxDEC->mfxparams(), m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
@@ -3528,7 +3487,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         });
                     }
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr)) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -3585,7 +3544,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     });
                     RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr)) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -3611,11 +3570,16 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         }
     }
 
+    if (m_videoQualityMetric) {
+        PrintMes(RGY_LOG_DEBUG, _T("Flushing video quality metric calc.\n"));
+        m_videoQualityMetric->addBitstream(nullptr);
+    }
+
     // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Closing m_pmfxDEC/ENC/VPP...\n"));
-    m_pmfxDEC.reset();
+    m_mfxDEC.reset();
     m_pmfxENC.reset();
     m_mfxVPP.clear();
     //この中でフレームの解放がなされる
@@ -3625,6 +3589,10 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     m_pFileWriter->WaitFin();
     PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));
     m_pStatus->WriteResults();
+    if (m_videoQualityMetric) {
+        PrintMes(RGY_LOG_DEBUG, _T("Write video quality metric results...\n"));
+        m_videoQualityMetric->showResult();
+    }
     PrintMes(RGY_LOG_DEBUG, _T("RunEncode2: finished.\n"));
     return (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
 }
@@ -3711,13 +3679,9 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
             return { RGY_ERR_UNSUPPORTED, std::move(prmset) };
         }
     }
-    if (m_pmfxDEC) {
-        auto sts = err_to_rgy(m_pmfxDEC->GetVideoParam(&prmset->videoPrm));
-        if (sts == RGY_ERR_NOT_INITIALIZED) { // 未初期化の場合、設定しようとしたパラメータで代用する
-            prmset->videoPrm = m_mfxDecParams;
-            sts = RGY_ERR_NONE;
-        }
-        return { sts, std::move(prmset) };
+    if (m_mfxDEC) {
+        prmset->videoPrm = m_mfxDEC->mfxparams();
+        return { RGY_ERR_NONE, std::move(prmset) };
     }
     PrintMes(RGY_LOG_ERROR, _T("GetOutputVideoInfo: None of the pipeline elements are detected!\n"));
     return { RGY_ERR_UNSUPPORTED, std::move(prmset) };
@@ -3819,6 +3783,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             PRINT_INFO(_T("%s%s\n"), m, p);
             m    = _T("               ");
             p = NULL;
+        }
+        if (m_videoQualityMetric) {
+            PRINT_INFO(_T("%s%s\n"), m, m_videoQualityMetric->GetInputMessage().c_str());
         }
     }
     if (m_trimParam.list.size()
