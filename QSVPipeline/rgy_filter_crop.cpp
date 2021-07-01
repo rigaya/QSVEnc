@@ -429,7 +429,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const
         auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
         auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(planeSrcU.width, planeSrcU.height);
+        RGYWorkSize global(planeDstC.width, planeDstC.height);
         auto err = m_cropUV->kernel("kernel_crop_c_yuv444_nv12").config(queue, local, global, event).launch(
             (cl_mem)planeDstC.ptr[0], planeDstC.pitch[0], planeDstC.width, planeDstC.height,
             (cl_mem)planeSrcU.ptr[0], (cl_mem)planeSrcV.ptr[0], planeSrcU.pitch[0], planeSrcU.width, planeSrcU.height,
