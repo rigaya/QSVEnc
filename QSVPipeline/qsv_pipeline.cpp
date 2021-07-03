@@ -1280,11 +1280,10 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         }
         const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + m_nAsyncDepth + 1);
         if (allocateOpenCLFrame) { // OpenCLフレームを介してやり取りする場合
-            RGYFrameInfo frame;
-            frame.width = allocRequest.Info.CropW;
-            frame.height = allocRequest.Info.CropH;
-            frame.csp = csp_enc_to_rgy(allocRequest.Info.FourCC);
-            frame.picstruct = picstruct_enc_to_rgy(allocRequest.Info.PicStruct);
+            const RGYFrameInfo frame(allocRequest.Info.CropW, allocRequest.Info.CropH,
+                csp_enc_to_rgy(allocRequest.Info.FourCC),
+                (allocRequest.Info.BitDepthLuma > 0) ? allocRequest.Info.BitDepthLuma : 8,
+                picstruct_enc_to_rgy(allocRequest.Info.PicStruct));
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL, %s %dx%d, request %d frames\n"),
                 t0->print().c_str(), t1->print().c_str(), RGY_CSP_NAMES[frame.csp],
                 frame.width, frame.height, requestNumFrames);
@@ -2531,18 +2530,11 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     const bool cropRequired = cropEnabled(inputParam->input.crop)
         && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
 
-    RGYFrameInfo inputFrame;
-    inputFrame.width = inputParam->input.srcWidth;
-    inputFrame.height = inputParam->input.srcHeight;
-    if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-        inputFrame.csp = inputParam->input.csp;
-        inputFrame.bitdepth = inputParam->input.bitdepth;
-    } else {
-        inputFrame.csp = m_mfxDEC->GetFrameOut().csp;
-        inputFrame.bitdepth = m_mfxDEC->GetFrameOut().bitdepth;
-    }
-    inputFrame.picstruct = inputParam->input.picstruct;
-    inputFrame.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+    RGYFrameInfo inputFrame(inputParam->input.srcWidth, inputParam->input.srcHeight,
+        (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) ? inputParam->input.csp : m_mfxDEC->GetFrameOut().csp,
+        (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) ? inputParam->input.bitdepth : m_mfxDEC->GetFrameOut().bitdepth,
+        inputParam->input.picstruct,
+        RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED);
     const auto input_sar = rgy_rational<int>(inputParam->input.sar[0], inputParam->input.sar[1]);
     const int croppedWidth = inputFrame.width - inputParam->input.crop.e.left - inputParam->input.crop.e.right;
     const int croppedHeight = inputFrame.height - inputParam->input.crop.e.bottom - inputParam->input.crop.e.up;
@@ -2683,6 +2675,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 default:
                     break;
                 }
+                param->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[param->frameOut.csp];
                 if (inputCrop) {
                     param->crop = *inputCrop;
                     inputCrop = nullptr;
@@ -2711,6 +2704,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 param->frameIn = inputFrame;
                 param->frameOut = inputFrame;
                 param->frameOut.csp = getEncoderCsp(inputParam);
+                param->frameOut.bitdepth = getEncoderBitdepth(inputParam);
                 param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
                 param->baseFps = m_encFps;
                 param->bOutOverwrite = false;
@@ -2919,12 +2913,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
         param->input.srcWidth = m_encWidth;
         param->input.srcHeight = m_encHeight;
         param->bitDepth = prm->outputDepth;
-        param->frameIn.width = formatOut.dstWidth;
-        param->frameIn.height = formatOut.dstHeight;
-        param->frameIn.csp = formatOut.csp;
-        param->frameIn.bitdepth = formatOut.bitdepth;
-        param->frameIn.picstruct = formatOut.picstruct;
-        param->frameIn.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+        param->frameIn = RGYFrameInfo(formatOut.dstWidth, formatOut.dstHeight, formatOut.csp, formatOut.bitdepth, formatOut.picstruct, RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED);
         param->frameOut = param->frameIn;
         param->frameOut.csp = param->input.csp;
         param->baseFps = m_encFps;

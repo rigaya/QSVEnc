@@ -265,13 +265,10 @@ RGY_ERR QSVMfxDec::Close() {
 RGYFrameInfo QSVMfxDec::GetFrameOut() const {
     const auto& mfxOut = m_mfxDecParams.mfx.FrameInfo;
 
-    RGYFrameInfo info;
-    info.width = mfxOut.CropW;
-    info.height = mfxOut.CropH;
-    info.csp = csp_enc_to_rgy(mfxOut.FourCC);
-    info.bitdepth = (mfxOut.BitDepthLuma > 0) ? mfxOut.BitDepthLuma : 8;
-    info.picstruct = picstruct_enc_to_rgy(mfxOut.PicStruct);
-    info.mem_type = (m_memType != SYSTEM_MEMORY) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_CPU;
+    const RGYFrameInfo info(mfxOut.CropW,  mfxOut.CropH,
+        csp_enc_to_rgy(mfxOut.FourCC), (mfxOut.BitDepthLuma > 0) ? mfxOut.BitDepthLuma : 8,
+        picstruct_enc_to_rgy(mfxOut.PicStruct),
+        (m_memType != SYSTEM_MEMORY) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_CPU);
     return info;
 }
 

@@ -164,7 +164,7 @@ SubImageData RGYFilterSubburn::textRectToImage(const ASS_Image *image, RGYOpenCL
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((image->dst_x % 2) != 0) ? 1 : 0;
     const int y_offset = ((image->dst_y % 2) != 0) ? 1 : 0;
-    auto frameTemp = m_cl->createFrameBuffer(ALIGN(image->w + x_offset, 2), ALIGN(image->h + y_offset, 2), RGY_CSP_YUVA444);
+    auto frameTemp = m_cl->createFrameBuffer(ALIGN(image->w + x_offset, 2), ALIGN(image->h + y_offset, 2), RGY_CSP_YUVA444, RGY_CSP_BIT_DEPTH[RGY_CSP_YUVA444]);
     frameTemp->queueMapBuffer(queue, CL_MAP_WRITE, wait_events);
     frameTemp->mapEvent().wait();
     auto img = frameTemp->mappedHost();
@@ -262,7 +262,7 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((rect->x % 2) != 0) ? 1 : 0;
     const int y_offset = ((rect->y % 2) != 0) ? 1 : 0;
-    auto frameTemp = m_cl->createFrameBuffer(ALIGN(rect->w + x_offset, 2), ALIGN(rect->h + y_offset, 2), RGY_CSP_YUVA444);
+    auto frameTemp = m_cl->createFrameBuffer(ALIGN(rect->w + x_offset, 2), ALIGN(rect->h + y_offset, 2), RGY_CSP_YUVA444, RGY_CSP_BIT_DEPTH[RGY_CSP_YUVA444]);
     frameTemp->queueMapBuffer(queue, CL_MAP_WRITE, wait_events);
     frameTemp->mapEvent().wait();
     auto img = frameTemp->mappedHost();
@@ -345,7 +345,7 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
 
         frame = m_cl->createFrameBuffer(
             ALIGN((int)(img.width  * prm->subburn.scale + 0.5f), 4),
-            ALIGN((int)(img.height * prm->subburn.scale + 0.5f), 4), img.csp);
+            ALIGN((int)(img.height * prm->subburn.scale + 0.5f), 4), img.csp, img.bitdepth);
         unique_ptr<RGYFilterResize> filterResize(new RGYFilterResize(m_cl));
         shared_ptr<RGYFilterParamResize> paramResize(new RGYFilterParamResize());
         paramResize->frameIn = frameTemp->frame;

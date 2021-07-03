@@ -502,6 +502,25 @@ struct RGYFrameInfo {
         memset(pitch, 0, sizeof(pitch));
     };
 
+    RGYFrameInfo(const int width_, const int height_, const RGY_CSP csp_, const int bitdepth_,
+        const RGY_PICSTRUCT picstruct_ = RGY_PICSTRUCT_UNKNOWN, const RGY_MEM_TYPE memtype_ = RGY_MEM_TYPE_CPU) :
+        ptr(),
+        csp(csp_),
+        width(width_),
+        height(height_),
+        pitch(),
+        bitdepth(bitdepth_),
+        timestamp(0),
+        duration(0),
+        mem_type(memtype_),
+        picstruct(picstruct_),
+        flags(RGY_FRAME_FLAG_NONE),
+        inputFrameId(-1),
+        dataList() {
+        memset(ptr, 0, sizeof(ptr));
+        memset(pitch, 0, sizeof(pitch));
+    };
+
     std::basic_string<TCHAR> print() const;
 };
 

@@ -1930,11 +1930,8 @@ unique_ptr<RGYCLFrame> RGYOpenCLContext::createImageFromFrameBuffer(const RGYFra
     return std::make_unique<RGYCLFrame>(frameImage, flags);
 }
 
-std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(int width, int height, RGY_CSP csp, cl_mem_flags flags) {
-    RGYFrameInfo info;
-    info.width = width;
-    info.height = height;
-    info.csp = csp;
+std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const int width, const int height, const RGY_CSP csp, const int bitdepth, const cl_mem_flags flags) {
+    RGYFrameInfo info(width, height, csp, bitdepth);
     return createFrameBuffer(info, flags);
 }
 
