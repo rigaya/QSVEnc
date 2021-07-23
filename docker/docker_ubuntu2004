@@ -4,36 +4,37 @@ ARG DEBIAN_FRONTEND=noninteractive \
     LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000
 
-RUN apt-get update
-RUN apt-get update
-RUN apt install -y \
-    wget \
-    git \
-    intel-media-va-driver-non-free \
-    libmfx1 \
-    libmfx-dev \
-    libmfx-tools \
-    libva-drm2 \
-    libva-x11-2 \
-    libva-glx2 \
-    libx11-dev \
-    libigfxcmrt7 \
-    libva-dev \
-    libdrm-dev \
-    opencl-headers \
-    build-essential \
-    libavcodec58 \
-    libavcodec-dev \
-    libavutil56 \
-    libavutil-dev \
-    libavformat58 \
-    libavformat-dev \
-    libswresample3 \
-    libswresample-dev \
-    libavfilter7 \
-    libavfilter-dev \
-    libass9 \
-    libass-dev
+RUN apt-get update \
+    && apt install -y \
+      wget \
+      git \
+      intel-media-va-driver-non-free \
+      libmfx1 \
+      libmfx-dev \
+      libmfx-tools \
+      libva-drm2 \
+      libva-x11-2 \
+      libva-glx2 \
+      libx11-dev \
+      libigfxcmrt7 \
+      libva-dev \
+      libdrm-dev \
+      opencl-headers \
+      build-essential \
+      libavcodec58 \
+      libavcodec-dev \
+      libavutil56 \
+      libavutil-dev \
+      libavformat58 \
+      libavformat-dev \
+      libswresample3 \
+      libswresample-dev \
+      libavfilter7 \
+      libavfilter-dev \
+      libass9 \
+      libass-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
 RUN groupmod -g $LOCAL_GROUP_ID rigaya

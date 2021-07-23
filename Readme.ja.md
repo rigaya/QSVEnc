@@ -2,7 +2,7 @@
 # QSVEnc
 by rigaya
 
-[![Build status](https://ci.appveyor.com/api/projects/status/m36t31ggoxfh0ffk/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/qsvenc/branch/master)  [![Build Status](https://travis-ci.com/rigaya/QSVEnc.svg?branch=master)](https://travis-ci.com/rigaya/QSVEnc)  
+[![Build status](https://ci.appveyor.com/api/projects/status/m36t31ggoxfh0ffk/branch/master?svg=true)](https://ci.appveyor.com/project/rigaya/qsvenc/branch/master)   [![Build status](https://github.com/rigaya/QSVEnc/workflows/build_packages.yml/badge.svg)](https://github.com/rigaya/QSVEnc/actions)  
 
 このソフトウェアは、IntelのCPUに搭載されているHWエンコーダ(QSV)の画質や速度といった性能の実験を目的としています。
 Aviutlの出力プラグイン版と単体で動作するコマンドライン版があります。  
