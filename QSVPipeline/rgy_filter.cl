@@ -97,7 +97,7 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
     (src_v) = (TypeIn)ret.y; \
 }
 #define LOAD_BUF(src_buf, ix, iy) *(__global TypeIn *)(&(src_buf)[(iy) * srcPitch + (ix) * sizeof(TypeIn)])
-#define LOAD_BUF_AYUV(src_buf, ix, iy) *(__global TypeIn4 *)(&(src_buf)[(iy) * srcPitch + (ix) * sizeof(TypeIn)])
+#define LOAD_BUF_AYUV(src_buf, ix, iy) *(__global TypeIn4 *)(&(src_buf)[(iy) * srcPitch + (ix) * sizeof(TypeIn4)])
 #define LOAD_BUF_NV12_UV(src_buf, src_u, src_v, ix, iy, cropX, cropY) { \
     (src_u) = LOAD((src_buf), ((ix)<<1) + 0 + (cropX), (iy) + ((cropY)>>1)); \
     (src_v) = LOAD((src_buf), ((ix)<<1) + 1 + (cropX), (iy) + ((cropY)>>1)); \
