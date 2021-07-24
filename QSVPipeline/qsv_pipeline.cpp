@@ -3284,7 +3284,7 @@ RGY_ERR CQSVPipeline::InitMfxVpp() {
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {
             auto err = filterBlock.vppmfx->Init();
-            if (err != RGY_ERR_NONE) {
+            if (err < RGY_ERR_NONE) { //RGY_WRN_xxx ( > 0) は無視する
                 return err;
             }
         }

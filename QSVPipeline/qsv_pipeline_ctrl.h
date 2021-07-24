@@ -1174,14 +1174,14 @@ protected:
 public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override {
         mfxFrameAllocRequest allocRequest[2];
-        if (requiredSurfInOut(allocRequest) != RGY_ERR_NONE) {
+        if (requiredSurfInOut(allocRequest) < RGY_ERR_NONE) { //RGY_WRN_xxx ( > 0) は無視する
             return std::nullopt;
         }
         return std::optional<mfxFrameAllocRequest>(allocRequest[0]);
     };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override {
         mfxFrameAllocRequest allocRequest[2];
-        if (requiredSurfInOut(allocRequest) != RGY_ERR_NONE) {
+        if (requiredSurfInOut(allocRequest) < RGY_ERR_NONE) { //RGY_WRN_xxx ( > 0) は無視する
             return std::nullopt;
         }
         return std::optional<mfxFrameAllocRequest>(allocRequest[1]);
