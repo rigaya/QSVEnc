@@ -93,6 +93,10 @@ extern char _binary_QSVPipeline_rgy_filter_unsharp_cl_end[];
 extern char _binary_QSVPipeline_rgy_filter_warpsharp_cl_start[];
 extern char _binary_QSVPipeline_rgy_filter_warpsharp_cl_end[];
 #endif
+#if ENCODER_NVENC
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start[];
+extern char _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end[];
+#endif
 }
 
 struct RGYResourceData {
@@ -117,6 +121,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_CL"), _binary_QSVPipeline_rgy_filter_deband_cl_start, _binary_QSVPipeline_rgy_filter_deband_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_GEN_RAND_CL"), _binary_QSVPipeline_rgy_filter_deband_gen_rand_cl_start, _binary_QSVPipeline_rgy_filter_deband_gen_rand_cl_end },
 
+
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_CLH"), _binary_clRNG_src_include_clRNG_clRNG_clh_start, _binary_clRNG_src_include_clRNG_clRNG_clh_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_MRG31K3P_CLH"), _binary_clRNG_src_include_clRNG_mrg31k3p_clh_start, _binary_clRNG_src_include_clRNG_mrg31k3p_clh_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH"), _binary_clRNG_src_include_clRNG_private_mrg31k3p_c_h_start, _binary_clRNG_src_include_clRNG_private_mrg31k3p_c_h_end },
@@ -137,6 +142,9 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_TWEAK_CL"), _binary_QSVPipeline_rgy_filter_tweak_cl_start, _binary_QSVPipeline_rgy_filter_tweak_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_UNSHARP_CL"), _binary_QSVPipeline_rgy_filter_unsharp_cl_start, _binary_QSVPipeline_rgy_filter_unsharp_cl_end },
     { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _binary_QSVPipeline_rgy_filter_warpsharp_cl_start, _binary_QSVPipeline_rgy_filter_warpsharp_cl_end }
+#endif
+#if ENCODER_NVENC
+    { _T("EXE_DATA"), _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start, _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end }
 #endif
 };
 #endif
