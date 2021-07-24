@@ -793,12 +793,14 @@ RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, share
     m_copyB2B(),
     m_copyI2I(),
     m_setB(),
-    m_setI() {
+    m_setI(),
+    m_copyNV12() {
 
 }
 
 RGYOpenCLContext::~RGYOpenCLContext() {
     LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closing CL Context...\n"));
+    m_copyNV12.clear(); LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL m_copyNV12 program.\n"));
     m_copyI2I.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL copyI2I program.\n"));
     m_copyB2B.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL copyB2B program.\n"));
     m_copyI2B.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL copyI2B program.\n"));
@@ -1643,13 +1645,43 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
         if (srcCrop != nullptr) {
             planeCrop = getPlane(srcCrop, src->csp, (RGY_PLANE)i);
         }
-        err = copyPlane(&planeDst, &planeSrc, &planeCrop, queue,
-            (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
-            (i+1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr,
-            copyMode);
-        if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to copy frame(%d): %s\n"), i, cl_errmes(err));
-            return err_cl_to_rgy(err);
+        //nv12/p010のimage typeの色差成分の場合、専用のコードが必要
+        if ((RGY_PLANE)i == RGY_PLANE_C
+            && (planeSrc.csp == RGY_CSP_NV12 || planeSrc.csp == RGY_CSP_P010)
+            && (planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED
+                || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED)) {
+
+            const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+                planeSrc.mem_type,
+                planeDst.mem_type,
+                RGY_CSP_BIT_DEPTH[planeSrc.csp],
+                RGY_CSP_BIT_DEPTH[planeDst.csp]);
+            if (m_copyNV12.count(options) == 0) {
+                m_copyNV12[options] = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
+                if (!m_copyNV12[options]) {
+                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropUV)\n"));
+                    return RGY_ERR_OPENCL_CRUSH;
+                }
+            }
+            RGYWorkSize local(32, 8);
+            RGYWorkSize global(planeDst.width >> 1, planeDst.height);
+            auto err = m_copyNV12[options]->kernel("kernel_copy_plane_nv12").config(queue, local, global, wait_events, event).launch(
+                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeSrc.width >> 1, planeSrc.height,
+                planeCrop.e.left, planeCrop.e.up);
+            if (err != RGY_ERR_NONE) {
+                m_pLog->write(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromNV12(C)(%s -> %s)): %s.\n"),
+                    RGY_CSP_NAMES[planeSrc.csp], RGY_CSP_NAMES[planeDst.csp], get_err_mes(err));
+                return err;
+            }
+        } else {
+            err = copyPlane(&planeDst, &planeSrc, &planeCrop, queue,
+                (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
+                (i + 1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr,
+                copyMode);
+            if (err != RGY_ERR_NONE) {
+                m_pLog->write(RGY_LOG_ERROR, _T("Failed to copy frame(%d): %s\n"), i, cl_errmes(err));
+                return err_cl_to_rgy(err);
+            }
         }
     }
     dst->picstruct = src->picstruct;

@@ -1079,6 +1079,7 @@ struct RGYVideoQualityMetric {
     RGYVideoQualityMetric();
     ~RGYVideoQualityMetric() {};
     bool enabled() const;
+    tstring enabled_metric() const;
 };
 
 using AttachmentSelect = DataSelect;

@@ -43,7 +43,7 @@ class RGYLog;
 class QSVMfxDec {
 public:
     QSVMfxDec(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator,
-        mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
+        mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log);
     virtual ~QSVMfxDec();
 
     RGY_ERR InitSession();
@@ -63,7 +63,6 @@ public:
     mfxVideoParam& mfxparams() { return m_mfxDecParams; }
     mfxVersion mfxver() const { return m_mfxVer; }
     MemType memType() const { return m_memType; }
-    int asyncDepth() const { return m_asyncDepth; }
 protected:
     void PrintMes(int log_level, const TCHAR *format, ...);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
@@ -76,7 +75,6 @@ protected:
     QSVAllocator *m_allocator;             //mainから渡されるallocator
     mfxIMPL m_impl;
     MemType m_memType;             //パイプラインのSurfaceのメモリType;
-    int m_asyncDepth;
 
     sInputCrop m_crop;
     std::unique_ptr<MFXVideoDECODE> m_mfxDec;

@@ -36,6 +36,7 @@
 #endif
 #if ENCODER_QSV
 #include "qsv_util.h"
+#include "rgy_queue.h"
 class QSVMfxDec;
 class QSVAllocator;
 class PipelineTaskMFXDecode;
@@ -78,7 +79,7 @@ public:
     bool decodeStarted() { return m_decodeStarted; }
     virtual void showResult();
     RGY_ERR thread_func();
-    RGY_ERR compare_frames(bool flush);
+    RGY_ERR compare_frames();
 
     virtual RGY_ERR addBitstream(const RGYBitstream *bitstream);
 protected:
@@ -101,6 +102,8 @@ protected:
     std::mutex m_mtx;     //m_input, m_unused操作用のロック
     bool m_abort;         //スレッド中断用
 
+    int m_inputOriginal;
+    int m_inputEnc;
     std::deque<std::unique_ptr<RGYCLFrame>> m_input;  //使用中のフレームバッファ(オリジナルフレーム格納用)
     std::deque<std::unique_ptr<RGYCLFrame>> m_unused; //使っていないフレームバッファ(オリジナルフレーム格納用)
 #if ENCODER_VCEENC
@@ -110,6 +113,8 @@ protected:
     amf::AMFComponentPtr m_decoder;
 #endif
 #if ENCODER_QSV
+    RGYQueueSPSP<RGYBitstream> m_encBitstream;
+    RGYQueueSPSP<RGYBitstream> m_encBitstreamUnused;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<PipelineTaskMFXDecode> m_taskDec;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;

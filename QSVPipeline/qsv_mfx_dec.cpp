@@ -33,14 +33,13 @@
 #include "qsv_plugin.h"
 
 QSVMfxDec::QSVMfxDec(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator,
-    mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log) :
+    mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
     m_hwdev(hwdev),
     m_allocator(allocator),
     m_impl(impl),
     m_memType(memType),
-    m_asyncDepth(asyncDepth),
     m_crop(),
     m_mfxDec(),
     m_SessionPlugins(),

@@ -189,7 +189,7 @@ protected:
     std::vector<VppVilterBlock> m_vpFilters;
     unique_ptr<RGYFilterSsim> m_videoQualityMetric;
 
-    std::shared_ptr<CQSVHWDevice> m_hwdev;
+    std::unique_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
 
     virtual RGY_ERR InitSessionInitParam(int threads, int priority);
@@ -204,6 +204,7 @@ protected:
         const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const int outBitdepth, const sInputCrop *crop, const std::pair<int, int> resize, const int blockSize);
     virtual RGY_ERR AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
         RGYFrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize);
+    virtual RGY_ERR createOpenCLCopyFilterForPreVideoMetric();
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     virtual RGY_ERR InitMfxDecParams(sInputParams *pInParams);
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams);

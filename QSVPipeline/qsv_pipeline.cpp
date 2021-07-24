@@ -363,7 +363,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         //デコーダの作成
         mfxIMPL impl;
         m_mfxSession.QueryIMPL(&impl);
-        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
+        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
 
         sts = m_mfxDEC->InitSession();
         RGY_ERR(sts, _T("InitMfxDecParams: Failed init session for hw decoder."));
@@ -2526,6 +2526,36 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     return RGY_ERR_UNSUPPORTED;
 }
 
+RGY_ERR CQSVPipeline::createOpenCLCopyFilterForPreVideoMetric() {
+    auto [err, outFrameInfo] = GetOutputVideoInfo();
+    if (err != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
+        return err;
+    }
+
+    const auto formatOut = videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
+    std::unique_ptr<RGYFilter> filterCrop(new RGYFilterCspCrop(m_cl));
+    std::shared_ptr<RGYFilterParamCrop> param(new RGYFilterParamCrop());
+    param->frameOut = RGYFrameInfo(formatOut.dstWidth, formatOut.dstHeight, formatOut.csp, formatOut.bitdepth, formatOut.picstruct, RGY_MEM_TYPE_GPU);
+    param->frameIn = param->frameOut;
+    param->frameIn.bitdepth = RGY_CSP_BIT_DEPTH[param->frameIn.csp];
+    param->baseFps = m_encFps;
+    param->bOutOverwrite = false;
+    auto sts = filterCrop->init(param, m_pQSVLog);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    //登録
+    std::vector<std::unique_ptr<RGYFilter>> filters;
+    filters.push_back(std::move(filterCrop));
+    if (m_vpFilters.size() > 0) {
+        PrintMes(RGY_LOG_ERROR, _T("Unknown error, not expected that m_vpFilters has size.\n"));
+        return RGY_ERR_UNDEFINED_BEHAVIOR;
+    }
+    m_vpFilters.push_back(std::move(VppVilterBlock(filters)));
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     const bool cropRequired = cropEnabled(inputParam->input.crop)
         && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
@@ -2898,6 +2928,10 @@ RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
 
 RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
     if (prm->common.metric.enabled()) {
+        if (!m_pmfxENC) {
+            PrintMes(RGY_LOG_WARN, _T("Encoder not enabled, %s calculation will be disabled.\n"), prm->common.metric.enabled_metric().c_str());
+            return RGY_ERR_NONE;
+        }
         auto [err, outFrameInfo] = GetOutputVideoInfo();
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
@@ -2905,17 +2939,17 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
         }
         mfxIMPL impl;
         m_mfxSession.QueryIMPL(&impl);
-        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
+        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
 
         const auto formatOut = videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
         unique_ptr<RGYFilterSsim> filterSsim(new RGYFilterSsim(m_cl));
         shared_ptr<RGYFilterParamSsim> param(new RGYFilterParamSsim());
+        param->input = formatOut;
         param->input.srcWidth = m_encWidth;
         param->input.srcHeight = m_encHeight;
         param->bitDepth = prm->outputDepth;
         param->frameIn = RGYFrameInfo(formatOut.dstWidth, formatOut.dstHeight, formatOut.csp, formatOut.bitdepth, formatOut.picstruct, RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED);
         param->frameOut = param->frameIn;
-        param->frameOut.csp = param->input.csp;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         param->mfxDEC = std::move(mfxdec);
@@ -3062,9 +3096,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOutput(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
-    sts = InitVideoQualityMetric(pParams);
-    if (sts < RGY_ERR_NONE) return sts;
-
     const int nPipelineElements = !!m_mfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC;
     if (nPipelineElements == 0) {
         PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
@@ -3081,6 +3112,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (pParams->ctrl.lowLatency) {
         pParams->bDisableTimerPeriodTuning = false;
     }
+
+    sts = InitVideoQualityMetric(pParams);
+    if (sts < RGY_ERR_NONE) return sts;
 
 #if defined(_WIN32) || defined(_WIN64)
     if (!pParams->bDisableTimerPeriodTuning) {
@@ -3368,13 +3402,44 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 1, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 1, m_pQSVLog));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown filter type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
     }
 
+    if (m_videoQualityMetric) {
+        int prevtask = -1;
+        for (int itask = (int)m_pipelineTasks.size() - 1; itask >= 0; itask--) {
+            if (!m_pipelineTasks[itask]->isPassThrough()) {
+                prevtask = itask;
+                break;
+            }
+        }
+        if (m_pipelineTasks[prevtask]->taskType() == PipelineTaskType::INPUT) {
+            //inputと直接つながる場合はうまく処理できなくなる(うまく同期がとれない)
+            //そこで、CopyのOpenCLフィルタを挟んでその中で処理する
+            auto err = createOpenCLCopyFilterForPreVideoMetric();
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
+                return err;
+            } else if (m_vpFilters.size() != 1) {
+                PrintMes(RGY_LOG_ERROR, _T("m_vpFilters.size() != 1.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 1, m_pQSVLog));
+        } else if (m_pipelineTasks[prevtask]->taskType() == PipelineTaskType::OPENCL) {
+            auto taskOpenCL = dynamic_cast<PipelineTaskOpenCL*>(m_pipelineTasks[prevtask].get());
+            if (taskOpenCL == nullptr) {
+                PrintMes(RGY_LOG_ERROR, _T("taskOpenCL == nullptr.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+            taskOpenCL->setVideoQualityMetricFilter(m_videoQualityMetric.get());
+        } else {
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskVideoQualityMetric>(m_videoQualityMetric.get(), m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 0, m_mfxVer, m_pQSVLog));
+        }
+    }
     if (m_pmfxENC) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_pQSVLog));
     } else {
@@ -3577,11 +3642,11 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     PrintMes(RGY_LOG_DEBUG, _T("Waiting for writer to finish...\n"));
     m_pFileWriter->WaitFin();
     PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));
-    m_pStatus->WriteResults();
     if (m_videoQualityMetric) {
         PrintMes(RGY_LOG_DEBUG, _T("Write video quality metric results...\n"));
         m_videoQualityMetric->showResult();
     }
+    m_pStatus->WriteResults();
     PrintMes(RGY_LOG_DEBUG, _T("RunEncode2: finished.\n"));
     return (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
 }

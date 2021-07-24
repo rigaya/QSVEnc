@@ -951,6 +951,7 @@ protected:
     unique_ptr<RGYOpenCLProgram> m_copyI2I;
     unique_ptr<RGYOpenCLProgram> m_setB;
     unique_ptr<RGYOpenCLProgram> m_setI;
+    std::map<std::string, unique_ptr<RGYOpenCLProgram>> m_copyNV12;
 };
 
 class RGYOpenCL {

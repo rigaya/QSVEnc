@@ -1093,6 +1093,14 @@ RGYVideoQualityMetric::RGYVideoQualityMetric() :
 bool RGYVideoQualityMetric::enabled() const {
     return ssim || psnr || vmaf;
 }
+tstring RGYVideoQualityMetric::enabled_metric() const {
+    if (!enabled()) return _T("none");
+    tstring str;
+    if (ssim) str += _T(",ssim");
+    if (psnr) str += _T(",psnr");
+    if (vmaf) str += _T(",vmaf");
+    return (str.length() > 0) ? str.substr(1) : _T("unknown");
+}
 
 GPUAutoSelectMul::GPUAutoSelectMul() : cores(0.001f), gen(1.0f), gpu(1.0f), ve(1.0f) {}
 
