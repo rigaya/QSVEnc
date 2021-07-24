@@ -45,7 +45,7 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
 
 MAP_PAIR_0_1(vpp, extbuff, uint32_t, rgy, VppType, MFX_EXTBUFF_VPP_TO_VPPTYPE, 0, VppType::VPP_NONE);
 
-QSVVppMfx::QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator,
+QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
@@ -104,7 +104,7 @@ void QSVVppMfx::clear() {
         m_mfxSession.DisjoinSession();
         m_mfxSession.Close();
     }
-    m_hwdev.reset();
+    m_hwdev = nullptr;
 
     m_VppDoNotUseList.clear();
     m_VppDoUseList.clear();

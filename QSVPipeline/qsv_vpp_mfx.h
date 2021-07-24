@@ -40,7 +40,7 @@
 
 class QSVVppMfx {
 public:
-    QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
+    QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
     virtual ~QSVVppMfx();
 
     RGY_ERR SetParam(sVppParams& params,
@@ -78,7 +78,7 @@ protected:
 protected:
     MFXVideoSession m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
     mfxVersion m_mfxVer;
-    std::shared_ptr<CQSVHWDevice> m_hwdev; //mainから渡されるdevice情報
+    CQSVHWDevice *m_hwdev; //mainから渡されるdevice情報
     QSVAllocator *m_allocator;             //mainから渡されるallocator
     mfxIMPL m_impl;
     MemType m_memType;             //パイプラインのSurfaceのメモリType;

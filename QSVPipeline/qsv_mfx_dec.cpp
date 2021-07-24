@@ -32,7 +32,7 @@
 #include "qsv_hw_device.h"
 #include "qsv_plugin.h"
 
-QSVMfxDec::QSVMfxDec(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator,
+QSVMfxDec::QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
@@ -62,7 +62,7 @@ void QSVMfxDec::clear() {
         m_mfxSession.DisjoinSession();
         m_mfxSession.Close();
     }
-    m_hwdev.reset();
+    m_hwdev = nullptr;
 
     m_log.reset();
 }

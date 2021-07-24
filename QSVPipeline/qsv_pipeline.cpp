@@ -363,7 +363,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         //デコーダの作成
         mfxIMPL impl;
         m_mfxSession.QueryIMPL(&impl);
-        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
+        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
 
         sts = m_mfxDEC->InitSession();
         RGY_ERR(sts, _T("InitMfxDecParams: Failed init session for hw decoder."));
@@ -1167,7 +1167,7 @@ RGY_ERR CQSVPipeline::CreateHWDevice() {
     if (m_memType) {
 #if MFX_D3D11_SUPPORT
         if (m_memType == D3D11_MEMORY
-            && (m_hwdev = std::make_shared<CQSVD3D11Device>(m_pQSVLog))) {
+            && (m_hwdev = std::make_unique<CQSVD3D11Device>(m_pQSVLog))) {
             m_memType = D3D11_MEMORY;
             PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
 
@@ -1178,7 +1178,7 @@ RGY_ERR CQSVPipeline::CreateHWDevice() {
             }
         }
 #endif // #if MFX_D3D11_SUPPORT
-        if (!m_hwdev && (m_hwdev = std::make_shared<CQSVD3D9Device>(m_pQSVLog))) {
+        if (!m_hwdev && (m_hwdev = std::make_unique<CQSVD3D9Device>(m_pQSVLog))) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
             if (m_memType != D3D9_MEMORY) {
@@ -2079,7 +2079,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
-    auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
+    auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
     auto err = mfxvpp->SetParam(vppParams, frameInfo, frameIn, (vppType == VppType::MFX_CROP) ? crop : nullptr,
         fps, rgy_rational<int>(1,1), blockSize);
     if (err != RGY_ERR_NONE) {
@@ -2939,7 +2939,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
         }
         mfxIMPL impl;
         m_mfxSession.QueryIMPL(&impl);
-        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev, m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
+        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
 
         const auto formatOut = videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
         unique_ptr<RGYFilterSsim> filterSsim(new RGYFilterSsim(m_cl));
