@@ -371,6 +371,8 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
         AddMessage(RGY_LOG_ERROR, _T("Failed to get required surface num for hw decoder.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+
+    allocRequest.value().AllocId            = m_allocator->getExtAllocCounts();
     allocRequest.value().NumFrameSuggested += (mfxU16)m_taskDec->outputMaxQueueSize();
     allocRequest.value().NumFrameMin       += (mfxU16)m_taskDec->outputMaxQueueSize();
     if ((sts = m_taskDec->workSurfacesAlloc(allocRequest.value(), true, m_allocator)) != RGY_ERR_NONE) {

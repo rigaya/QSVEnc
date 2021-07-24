@@ -104,6 +104,160 @@
 #include "qsv_allocator_va.h"
 #endif
 
+RGY_ERR CreateAllocatorImpl(
+    std::unique_ptr<QSVAllocator>& allocator, std::unique_ptr<mfxAllocatorParams>& allocParams, bool& externalAlloc,
+    const MemType memType, CQSVHWDevice *hwdev, MFXVideoSession& session, std::shared_ptr<RGYLog>& log) {
+    auto sts = RGY_ERR_NONE;
+    if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(memType));
+
+#define CA_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { if (log) log->write(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
+
+    if (D3D9_MEMORY == memType || D3D11_MEMORY == memType || VA_MEMORY == memType || HW_MEMORY == memType) {
+#if D3D_SURFACES_SUPPORT
+        const mfxHandleType hdl_t = mfxHandleTypeFromMemType(memType, false);
+        mfxHDL hdl = NULL;
+        sts = err_to_rgy(hwdev->GetHandle(hdl_t, &hdl));
+        CA_ERR(sts, _T("Failed to get HW device handle."));
+        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
+
+        mfxIMPL impl = 0;
+        session.QueryIMPL(&impl);
+        if (impl != MFX_IMPL_SOFTWARE) {
+            // hwエンコード時のみハンドルを渡す
+            sts = err_to_rgy(session.SetHandle(hdl_t, hdl));
+            CA_ERR(sts, _T("Failed to set HW device handle to encode session."));
+            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: set HW device handle to encode session.\n"));
+        }
+
+        //D3D allocatorを作成
+#if MFX_D3D11_SUPPORT
+        if (D3D11_MEMORY == memType) {
+            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d11 allocator.\n"));
+            allocator.reset(new QSVAllocatorD3D11);
+            if (!allocator) {
+                if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+
+            QSVAllocatorParamsD3D11 *pd3dAllocParams = new QSVAllocatorParamsD3D11;
+            if (!pd3dAllocParams) {
+                if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11AllocatorParams.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            pd3dAllocParams->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
+            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: d3d11...\n"));
+
+            allocParams.reset(pd3dAllocParams);
+        } else
+#endif // #if MFX_D3D11_SUPPORT
+        {
+            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d9 allocator.\n"));
+            allocator.reset(new QSVAllocatorD3D9);
+            if (!allocator) {
+                if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+
+            QSVAllocatorParamsD3D9 *pd3dAllocParams = new QSVAllocatorParamsD3D9;
+            if (!pd3dAllocParams) {
+                if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for pd3dAllocParams.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            pd3dAllocParams->pManager = reinterpret_cast<IDirect3DDeviceManager9 *>(hdl);
+            //通常、OpenCL-d3d9間のinteropでrelease/acquireで余計なオーバーヘッドが発生させないために、
+            //shared_handleを取得する必要がある(qsv_opencl.hのgetOpenCLFrameInterop()参照)
+            //shared_handleはd3d9でCreateSurfaceする際に取得する。
+            //しかし、これを取得しようとするとWin7のSandybridge環境ではデコードが正常に行われなくなってしまう問題があるとの報告を受けた
+            //そのため、shared_handleを取得するのは、SandyBridgeでない環境に限るようにする
+            pd3dAllocParams->getSharedHandle = getCPUGen(&session) != CPU_GEN_SANDYBRIDGE;
+            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: d3d9 (getSharedHandle = %s)...\n"), pd3dAllocParams->getSharedHandle ? _T("true") : _T("false"));
+
+            allocParams.reset(pd3dAllocParams);
+        }
+
+        //GPUメモリ使用時には external allocatorを使用する必要がある
+        //mfxSessionにallocatorを渡してやる必要がある
+        sts = err_to_rgy(session.SetFrameAllocator(allocator.get()));
+        CA_ERR(sts, _T("Failed to set frame allocator to encode session."));
+        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
+
+        externalAlloc = true;
+#endif
+#if LIBVA_SUPPORT
+        sts = CreateHWDevice();
+        CA_ERR(sts, _T("Failed to CreateHWDevice."));
+
+        mfxHDL hdl = NULL;
+        sts = err_to_rgy(hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
+        CA_ERR(sts, _T("Failed to get HW device handle."));
+        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
+
+        //ハンドルを渡す
+        sts = err_to_rgy(session.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl));
+        CA_ERR(sts, _T("Failed to set HW device handle to encode session."));
+
+        //VAAPI allocatorを作成
+        allocator.reset(new QSVAllocatorVA());
+        if (!allocator) {
+            if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+
+        QSVAllocatorParamsVA *p_vaapiAllocParams = new QSVAllocatorParamsVA();
+        if (!p_vaapiAllocParams) {
+            if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiAllocatorParams.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+
+        p_vaapiAllocParams->m_dpy = (VADisplay)hdl;
+        allocParams.reset(p_vaapiAllocParams);
+
+        //GPUメモリ使用時には external allocatorを使用する必要がある
+        //mfxSessionにallocatorを渡してやる必要がある
+        sts = err_to_rgy(session.SetFrameAllocator(allocator.get()));
+        CA_ERR(sts, _T("Failed to set frame allocator to encode session."));
+        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
+
+        externalAlloc = true;
+#endif
+    } else {
+#if LIBVA_SUPPORT
+        //システムメモリ使用でも MFX_HANDLE_VA_DISPLAYをHW libraryに渡してやる必要がある
+        mfxIMPL impl;
+        session.QueryIMPL(&impl);
+
+        if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
+            sts = CreateHWDevice();
+            CA_ERR(sts, _T("Failed to CreateHWDevice."));
+
+            mfxHDL hdl = NULL;
+            sts = err_to_rgy(hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
+            CA_ERR(sts, _T("Failed to get HW device handle."));
+            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
+
+            //ハンドルを渡す
+            sts = err_to_rgy(session.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl));
+            CA_ERR(sts, _T("Failed to set HW device handle to encode session."));
+        }
+#endif
+        //system memory allocatorを作成
+        allocator.reset(new QSVAllocatorSys);
+        if (!allocator) {
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: sys mem allocator...\n"));
+    }
+
+    //メモリallocatorの初期化
+    if (RGY_ERR_NONE > (sts = err_to_rgy(allocator->Init(allocParams.get(), log)))) {
+        if (log) log->write(RGY_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(memType), get_err_mes(sts));
+        return sts;
+    }
+    if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator initialized.\n"));
+#undef CA_ERR
+    return RGY_ERR_NONE;
+}
+
 #define RGY_ERR_MES(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return err_to_mfx(ret);}}
 #define RGY_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
 #define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
@@ -1310,10 +1464,11 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             default: break;
             }
 
+            allocRequest.AllocId = (m_bExternalAlloc) ? m_pMFXAllocator->getExtAllocCounts() : 0u;
             allocRequest.NumFrameSuggested = (mfxU16)requestNumFrames;
             allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
-            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: %s, %s %dx%d [%d,%d,%d,%d], request %d frames\n"),
-                t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(), ColorFormatToStr(allocRequest.Info.FourCC),
+            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Id: %d, %s-%s, type: %s, %s %dx%d [%d,%d,%d,%d], request %d frames\n"),
+                allocRequest.AllocId, t0->print().c_str(), t1->print().c_str(), qsv_memtype_str(allocRequest.Type).c_str(), ColorFormatToStr(allocRequest.Info.FourCC),
                 allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
                 allocRequest.NumFrameSuggested);
 
@@ -1333,152 +1488,13 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
     PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
 
     if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType || HW_MEMORY == m_memType) {
-#if D3D_SURFACES_SUPPORT
         sts = CreateHWDevice();
         RGY_ERR(sts, _T("Failed to CreateHWDevice."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateHWDevice success.\n"));
-
-        const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType, false);
-        mfxHDL hdl = NULL;
-        sts = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
-        RGY_ERR(sts, _T("Failed to get HW device handle."));
-        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
-
-        mfxIMPL impl = 0;
-        m_mfxSession.QueryIMPL(&impl);
-        if (impl != MFX_IMPL_SOFTWARE) {
-            // hwエンコード時のみハンドルを渡す
-            sts = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
-            RGY_ERR(sts, _T("Failed to set HW device handle to encode session."));
-            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: set HW device handle to encode session.\n"));
-        }
-
-        //D3D allocatorを作成
-#if MFX_D3D11_SUPPORT
-        if (D3D11_MEMORY == m_memType) {
-            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d11 allocator.\n"));
-            m_pMFXAllocator.reset(new QSVAllocatorD3D11);
-            if (!m_pMFXAllocator) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-
-            QSVAllocatorParamsD3D11 *pd3dAllocParams = new QSVAllocatorParamsD3D11;
-            if (!pd3dAllocParams) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11AllocatorParams.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-            pd3dAllocParams->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
-            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: d3d11...\n"));
-
-            m_pmfxAllocatorParams.reset(pd3dAllocParams);
-        } else
-#endif // #if MFX_D3D11_SUPPORT
-        {
-            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d9 allocator.\n"));
-            m_pMFXAllocator.reset(new QSVAllocatorD3D9);
-            if (!m_pMFXAllocator) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-
-            QSVAllocatorParamsD3D9 *pd3dAllocParams = new QSVAllocatorParamsD3D9;
-            if (!pd3dAllocParams) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for pd3dAllocParams.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-            pd3dAllocParams->pManager = reinterpret_cast<IDirect3DDeviceManager9 *>(hdl);
-            //通常、OpenCL-d3d9間のinteropでrelease/acquireで余計なオーバーヘッドが発生させないために、
-            //shared_handleを取得する必要がある(qsv_opencl.hのgetOpenCLFrameInterop()参照)
-            //shared_handleはd3d9でCreateSurfaceする際に取得する。
-            //しかし、これを取得しようとするとWin7のSandybridge環境ではデコードが正常に行われなくなってしまう問題があるとの報告を受けた
-            //そのため、shared_handleを取得するのは、SandyBridgeでない環境に限るようにする
-            pd3dAllocParams->getSharedHandle = getCPUGen(&m_mfxSession) != CPU_GEN_SANDYBRIDGE;
-            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: d3d9 (getSharedHandle = %s)...\n"), pd3dAllocParams->getSharedHandle ? _T("true") : _T("false"));
-
-            m_pmfxAllocatorParams.reset(pd3dAllocParams);
-        }
-
-        //GPUメモリ使用時には external allocatorを使用する必要がある
-        //mfxSessionにallocatorを渡してやる必要がある
-        sts = err_to_rgy(m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get()));
-        RGY_ERR(sts, _T("Failed to set frame allocator to encode session."));
-        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
-
-        m_bExternalAlloc = true;
-#endif
-#if LIBVA_SUPPORT
-        sts = CreateHWDevice();
-        RGY_ERR(sts, _T("Failed to CreateHWDevice."));
-
-        mfxHDL hdl = NULL;
-        sts = err_to_rgy(m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
-        RGY_ERR(sts, _T("Failed to get HW device handle."));
-        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
-
-        //ハンドルを渡す
-        sts = err_to_rgy(m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl));
-        RGY_ERR(sts, _T("Failed to set HW device handle to encode session."));
-
-        //VAAPI allocatorを作成
-        m_pMFXAllocator.reset(new QSVAllocatorVA());
-        if (!m_pMFXAllocator) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-
-        QSVAllocatorParamsVA *p_vaapiAllocParams = new QSVAllocatorParamsVA();
-        if (!p_vaapiAllocParams) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiAllocatorParams.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-
-        p_vaapiAllocParams->m_dpy = (VADisplay)hdl;
-        m_pmfxAllocatorParams.reset(p_vaapiAllocParams);
-
-        //GPUメモリ使用時には external allocatorを使用する必要がある
-        //mfxSessionにallocatorを渡してやる必要がある
-        sts = err_to_rgy(m_mfxSession.SetFrameAllocator(m_pMFXAllocator.get()));
-        RGY_ERR(sts, _T("Failed to set frame allocator to encode session."));
-        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
-
-        m_bExternalAlloc = true;
-#endif
-    } else {
-#if LIBVA_SUPPORT
-        //システムメモリ使用でも MFX_HANDLE_VA_DISPLAYをHW libraryに渡してやる必要がある
-        mfxIMPL impl;
-        m_mfxSession.QueryIMPL(&impl);
-
-        if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
-            sts = CreateHWDevice();
-            RGY_ERR(sts, _T("Failed to CreateHWDevice."));
-
-            mfxHDL hdl = NULL;
-            sts = err_to_rgy(m_hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
-            RGY_ERR(sts, _T("Failed to get HW device handle."));
-            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
-
-            //ハンドルを渡す
-            sts = err_to_rgy(m_mfxSession.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl));
-            RGY_ERR(sts, _T("Failed to set HW device handle to encode session."));
-        }
-#endif
-        //system memory allocatorを作成
-        m_pMFXAllocator.reset(new QSVAllocatorSys);
-        if (!m_pMFXAllocator) {
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: sys mem allocator...\n"));
     }
-
-    //メモリallocatorの初期化
-    if (RGY_ERR_NONE > (sts = err_to_rgy(m_pMFXAllocator->Init(m_pmfxAllocatorParams.get(), m_pQSVLog)))) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(m_memType), get_err_mes(sts));
-        return sts;
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator initialized.\n"));
-
+    sts = CreateAllocatorImpl(m_pMFXAllocator, m_pmfxAllocatorParams, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
+    RGY_ERR(sts, _T("Failed to CreateAllocator."));
+    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateAllocatorImpl success.\n"));
     return RGY_ERR_NONE;
 }
 
