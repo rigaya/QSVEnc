@@ -494,6 +494,165 @@ __kernel void kernel_crop_c_yuv444_yv12(
     }
 }
 
+TypeOut4 conv_rgb_yuv(const TypeIn4 rgb) {
+    const float fr = (float)rgb.z;
+    const float fg = (float)rgb.y;
+    const float fb = (float)rgb.x;
+    const float fy =  0.257f * fr + 0.504f * fg + 0.098f * fb +  16.0f;
+    const float fu = -0.148f * fr - 0.291f * fg + 0.439f * fb + 128.0f;
+    const float fv =  0.439f * fr - 0.368f * fg - 0.071f * fb + 128.0f;
+    TypeOut4 yuv;
+    yuv.x = (TypeOut)(BIT_DEPTH_CONV_FLOAT(fy) + 0.5f);
+    yuv.y = (TypeOut)(BIT_DEPTH_CONV_FLOAT(fu) + 0.5f);
+    yuv.z = (TypeOut)(BIT_DEPTH_CONV_FLOAT(fv) + 0.5f);
+    return yuv;
+}
+
+__kernel void kernel_crop_rgb32_yuv444(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstU,
+    __write_only image2d_t dstV,
+#else
+    __global uchar *dstY,
+    __global uchar *dstU,
+    __global uchar *dstV,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t src,
+#else
+    __global uchar *src,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int dst_x = get_global_id(0);
+    const int dst_y = get_global_id(1);
+
+    if (dst_x < dstWidth && dst_y < dstHeight) {
+        const int loadx = dst_x + cropX;
+        const int loady = dst_y + cropY;
+        const TypeIn4 pixSrcRGB = LOAD_AYUV(src, loadx, loady);
+        TypeOut4 yuv = conv_rgb_yuv(pixSrcRGB);
+        STORE(dstY, dst_x, dst_y, yuv.x);
+        STORE(dstU, dst_x, dst_y, yuv.y);
+        STORE(dstV, dst_x, dst_y, yuv.z);
+    }
+}
+
+__kernel void kernel_crop_rgb32_yv12(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstU,
+    __write_only image2d_t dstV,
+#else
+    __global uchar *dstY,
+    __global uchar *dstU,
+    __global uchar *dstV,
+#endif
+    int dstPitchY,
+    int dstPitchU,
+    int dstPitchV,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t src,
+#else
+    __global uchar *src,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int dstC_x = get_global_id(0);
+    const int dstC_y = get_global_id(1);
+    const int dstY_x = dstC_x << 1;
+    const int dstY_y = dstC_y << 1;
+
+    if (dstY_x + 1 < dstWidth && dstY_y + 1 < dstHeight) {
+        const int loadx = dstY_x + cropX;
+        const int loady = dstY_y + cropY;
+        const TypeIn4 pixSrcRGB00 = LOAD_AYUV(src, loadx+0, loady+0);
+        const TypeIn4 pixSrcRGB01 = LOAD_AYUV(src, loadx+1, loady+0);
+        const TypeIn4 pixSrcRGB10 = LOAD_AYUV(src, loadx+0, loady+1);
+        const TypeIn4 pixSrcRGB11 = LOAD_AYUV(src, loadx+1, loady+1);
+        const TypeOut4 yuv00 = conv_rgb_yuv(pixSrcRGB00);
+        const TypeOut4 yuv01 = conv_rgb_yuv(pixSrcRGB01);
+        const TypeOut4 yuv10 = conv_rgb_yuv(pixSrcRGB10);
+        const TypeOut4 yuv11 = conv_rgb_yuv(pixSrcRGB11);
+        int dstPitch = dstPitchY;
+        STORE(dstY, dstY_x+0, dstY_y+0, yuv00.x);
+        STORE(dstY, dstY_x+1, dstY_y+0, yuv01.x);
+        STORE(dstY, dstY_x+0, dstY_y+1, yuv10.x);
+        STORE(dstY, dstY_x+1, dstY_y+1, yuv11.x);
+        const TypeOut pixU = (TypeOut)(((int)yuv00.y + (int)yuv10.y + 1) >> 1);
+        const TypeOut pixV = (TypeOut)(((int)yuv00.z + (int)yuv10.z + 1) >> 1);
+        dstPitch = dstPitchU;
+        STORE(dstU, dstC_x, dstC_y, pixU);
+        dstPitch = dstPitchV;
+        STORE(dstV, dstC_x, dstC_y, pixV);
+    }
+}
+
+__kernel void kernel_crop_rgb32_nv12(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstC,
+#else
+    __global uchar *dstY,
+    __global uchar *dstC,
+#endif
+    int dstPitchY,
+    int dstPitchC,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t src,
+#else
+    __global uchar *src,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int dstC_x = get_global_id(0);
+    const int dstC_y = get_global_id(1);
+    const int dstY_x = dstC_x << 1;
+    const int dstY_y = dstC_y << 1;
+
+    if (dstY_x < dstWidth && dstY_y < dstHeight) {
+        const int loadx = dstY_x + cropX;
+        const int loady = dstY_y + cropY;
+        const TypeIn4 pixSrcRGB00 = LOAD_AYUV(src, loadx+0, loady+0);
+        const TypeIn4 pixSrcRGB01 = LOAD_AYUV(src, loadx+1, loady+0);
+        const TypeIn4 pixSrcRGB10 = LOAD_AYUV(src, loadx+0, loady+1);
+        const TypeIn4 pixSrcRGB11 = LOAD_AYUV(src, loadx+1, loady+1);
+        const TypeOut4 yuv00 = conv_rgb_yuv(pixSrcRGB00);
+        const TypeOut4 yuv01 = conv_rgb_yuv(pixSrcRGB01);
+        const TypeOut4 yuv10 = conv_rgb_yuv(pixSrcRGB10);
+        const TypeOut4 yuv11 = conv_rgb_yuv(pixSrcRGB11);
+        int dstPitch = dstPitchY;
+        STORE(dstY, dstY_x+0, dstY_y+0, yuv00.x);
+        STORE(dstY, dstY_x+1, dstY_y+0, yuv01.x);
+        STORE(dstY, dstY_x+0, dstY_y+1, yuv10.x);
+        STORE(dstY, dstY_x+1, dstY_y+1, yuv11.x);
+        const TypeOut pixU = (TypeOut)(((int)yuv00.y + (int)yuv10.y + 1) >> 1);
+        const TypeOut pixV = (TypeOut)(((int)yuv00.z + (int)yuv10.z + 1) >> 1);
+        dstPitch = dstPitchC;
+        STORE_NV12_UV(dstC, dstC_x, dstC_y, pixU, pixV);
+    }
+}
+
 __kernel void kernel_crop_ayuv_yuv444(
 #if IMAGE_DST
     __write_only image2d_t dstY,
