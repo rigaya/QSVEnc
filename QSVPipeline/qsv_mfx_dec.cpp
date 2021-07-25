@@ -63,6 +63,7 @@ void QSVMfxDec::clear() {
         m_mfxDec->Close();
         m_mfxDec.reset();
     }
+    m_SessionPlugins.reset();
     if (m_mfxSession) {
         m_mfxSession.DisjoinSession();
         m_mfxSession.Close();
