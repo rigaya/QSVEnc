@@ -108,7 +108,7 @@ RGY_ERR QSVMfxDec::InitSession() {
             // hwエンコード時のみハンドルを渡す
             err = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
             if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to vpp session: %s.\n"), get_err_mes(err));
+                PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to dec session: %s.\n"), get_err_mes(err));
                 return err;
             }
             PrintMes(RGY_LOG_DEBUG, _T("set HW device handle %p to encode session.\n"), hdl);
@@ -118,17 +118,19 @@ RGY_ERR QSVMfxDec::InitSession() {
     if (!m_allocator) { // 内部で独自のallocatorを作る必要がある
         bool externalAlloc = false;
         // SetFrameAllocator も内部で行われる
-        err = CreateAllocatorImpl(m_allocatorInternal, externalAlloc, m_memType, m_hwdev, m_mfxSession, m_log);;
+        err = CreateAllocatorImpl(m_allocatorInternal, externalAlloc, m_memType, m_hwdev, m_mfxSession, m_log);
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to create internal allocator: %s.\n"), get_err_mes(err));
             return err;
         }
         m_allocator = m_allocatorInternal.get();
+        PrintMes(RGY_LOG_DEBUG, _T("Created internal allocator for decode.\n"));
     } else {
         if ((err = err_to_rgy(m_mfxSession.SetFrameAllocator(m_allocator))) != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to set frame allocator: %s.\n"), get_err_mes(err));
             return err;
         }
+        PrintMes(RGY_LOG_DEBUG, _T("Set allocator for decode.\n"));
     }
 
 
@@ -257,14 +259,14 @@ RGY_ERR QSVMfxDec::Init() {
     auto err = err_to_rgy(m_mfxDec->Init(&m_mfxDecParams));
     m_log->setLogLevel(log_level);
     if (err == RGY_WRN_PARTIAL_ACCELERATION) {
-        PrintMes(RGY_LOG_WARN, _T("partial acceleration on vpp.\n"));
+        PrintMes(RGY_LOG_WARN, _T("partial acceleration on dec.\n"));
         err = RGY_ERR_NONE;
     }
     if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to initialize vpp: %s.\n"), get_err_mes(err));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to initialize dec: %s.\n"), get_err_mes(err));
         return err;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("Vpp initialized.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("Dec initialized.\n"));
     return RGY_ERR_NONE;
 }
 
@@ -276,7 +278,7 @@ RGY_ERR QSVMfxDec::Close() {
             PrintMes(RGY_LOG_ERROR, _T("Failed to reset encoder (fail on closing): %s."), get_err_mes(err));
             return err;
         }
-        PrintMes(RGY_LOG_DEBUG, _T("Vpp Closed.\n"));
+        PrintMes(RGY_LOG_DEBUG, _T("Dec Closed.\n"));
     }
     return RGY_ERR_NONE;
 }

@@ -377,10 +377,14 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frames for hw decoder.\n"));
         return sts;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Allocated %d frames for decode [id=%d].\n"), allocRequest.value().NumFrameSuggested, allocRequest.value().AllocId);
+
     if ((sts = m_mfxDEC->Close()) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to reset hw decoder.\n"));
         return sts;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Closed decoder.\n"));
+
     if ((sts = m_mfxDEC->Init()) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to init hw decoder.\n"));
         return sts;

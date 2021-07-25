@@ -2963,6 +2963,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
             return sts;
         }
         m_videoQualityMetric = std::move(filterSsim);
+        PrintMes(RGY_LOG_DEBUG, _T("Initalized %s calculation.\n"), prm->common.metric.enabled_metric().c_str());
     }
     return RGY_ERR_NONE;
 }
