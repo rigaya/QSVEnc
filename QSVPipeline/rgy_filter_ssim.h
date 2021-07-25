@@ -38,7 +38,6 @@
 #include "qsv_util.h"
 #include "rgy_queue.h"
 class QSVMfxDec;
-class QSVAllocator;
 class PipelineTaskMFXDecode;
 struct RGYBitstream;
 #endif
@@ -61,7 +60,6 @@ public:
 #endif
 #if ENCODER_QSV
     std::unique_ptr<QSVMfxDec> mfxDEC;
-    QSVAllocator *allocator;
 #endif
 
     RGYFilterParamSsim();
@@ -118,7 +116,6 @@ protected:
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<PipelineTaskMFXDecode> m_taskDec;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
-    QSVAllocator *m_allocator;
 #endif
 
     std::unique_ptr<RGYFilterCspCrop> m_cropOrg;      // NV12->YV12変換用

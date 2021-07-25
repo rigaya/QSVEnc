@@ -173,7 +173,6 @@ protected:
     std::unique_ptr<HEVCHDRSei> m_HDRSei;
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;
-    unique_ptr<mfxAllocatorParams> m_pmfxAllocatorParams;
     int m_nMFXThreads;
     MemType m_memType;
     bool m_bExternalAlloc;

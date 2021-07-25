@@ -59,7 +59,7 @@ RGYFilterParamSsim::RGYFilterParamSsim() : metric(), deviceId(0), bitDepth(8), i
 , factory(nullptr), trace(nullptr), context()
 #endif
 #if ENCODER_QSV
-, mfxDEC(), allocator(nullptr)
+, mfxDEC()
 #endif
 {
 
@@ -94,7 +94,6 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_mfxDEC(),
     m_taskDec(),
     m_surfVppInInterop(),
-    m_allocator(nullptr),
 #endif
     m_cropOrg(),
     m_cropDec(),
@@ -197,7 +196,6 @@ RGY_ERR RGYFilterSsim::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     m_trace = prm->trace;
 #endif //#if ENCODER_VCEENC
 #if ENCODER_QSV
-    m_allocator = prm->allocator;
     m_mfxDEC = std::move(prm->mfxDEC);
     if ((sts = m_mfxDEC->InitSession()) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed init session for hw decoder.\n"));
@@ -372,10 +370,10 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
         return RGY_ERR_UNSUPPORTED;
     }
 
-    allocRequest.value().AllocId            = m_allocator->getExtAllocCounts();
+    allocRequest.value().AllocId            = m_mfxDEC->allocator()->getExtAllocCounts();
     allocRequest.value().NumFrameSuggested += (mfxU16)m_taskDec->outputMaxQueueSize();
     allocRequest.value().NumFrameMin       += (mfxU16)m_taskDec->outputMaxQueueSize();
-    if ((sts = m_taskDec->workSurfacesAlloc(allocRequest.value(), true, m_allocator)) != RGY_ERR_NONE) {
+    if ((sts = m_taskDec->workSurfacesAlloc(allocRequest.value(), true, m_mfxDEC->allocator())) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to allocate frames for hw decoder.\n"));
         return sts;
     }
@@ -421,7 +419,6 @@ void RGYFilterSsim::close_cl_resources() {
     m_taskDec.reset();
     m_mfxDEC.reset();
     m_surfVppInInterop.clear();
-    m_allocator = nullptr;
 #endif //#if ENCODER_QSV
 }
 
@@ -475,7 +472,7 @@ RGY_ERR RGYFilterSsim::addBitstream(const RGYBitstream *bitstream) {
         bitstreamCopy.setOffset(0);
     }
     m_encBitstream.push(bitstreamCopy);
-    AddMessage(RGY_LOG_INFO, _T("m_inputEnc      = %d.\n"), m_inputEnc);
+    AddMessage(RGY_LOG_TRACE, _T("m_inputEnc      = %d.\n"), m_inputEnc);
     m_inputEnc++;
 #endif //#if ENCODER_QSV
     return RGY_ERR_NONE;
@@ -528,7 +525,7 @@ RGY_ERR RGYFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
     m_input.push_back(std::move(copyFrame));
     m_unused.pop_front();
     m_inputOriginal++;
-    AddMessage(RGY_LOG_INFO, _T("m_inputOriginal = %d.\n"), m_inputOriginal);
+    AddMessage(RGY_LOG_TRACE, _T("m_inputOriginal = %d.\n"), m_inputOriginal);
     return sts;
 }
 
@@ -718,7 +715,7 @@ RGY_ERR RGYFilterSsim::compare_frames() {
                 return RGY_ERR_NULL_PTR;
             }
             if (m_surfVppInInterop.count(surfVppIn) == 0) {
-                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_cropDec->GetFilterParam()->frameIn);
+                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_cl->queue(), m_cropDec->GetFilterParam()->frameIn);
             }
             clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
             if (!clFrameInInterop) {
@@ -763,7 +760,7 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             //フレームをm_inputからm_unusedに移す
             m_unused.push_back(std::move(originalFrame));
             m_input.pop_front();
-            AddMessage(RGY_LOG_INFO, _T("compared %d: 0x%p.\n"), m_frames, surfVppIn);
+            AddMessage(RGY_LOG_TRACE, _T("compared %d: 0x%p.\n"), m_frames, surfVppIn);
             m_frames++;
         }
         for (auto& out : outputFrames) {
@@ -916,7 +913,7 @@ RGY_ERR RGYFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo
             ssimPlane /= (double)(((plane0.width >> 2) - 1) *((plane0.height >> 2) - 1));
             m_ssimTotalPlane[i] += ssimPlane;
             ssimv += ssimPlane * m_planeCoef[i];
-            AddMessage(RGY_LOG_WARN, _T("ssimPlane = %.16e, m_ssimTotalPlane[i] = %.16e"), ssimPlane, m_ssimTotalPlane[i]);
+            AddMessage(RGY_LOG_TRACE, _T("ssimPlane = %.16e, m_ssimTotalPlane[i] = %.16e"), ssimPlane, m_ssimTotalPlane[i]);
             m_tmpSsim[i]->unmapBuffer();
         }
         m_ssimTotal += ssimv;

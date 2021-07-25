@@ -733,9 +733,11 @@ public:
                 bitstream->setOffset(0);
             }
         } else {
-            m_getNextBitstream = false;
-            m_decInputBitstream.setSize(0);
-            m_decInputBitstream.setOffset(0);
+            //bitstream == nullptrの場合はflush
+            //ただ、m_decInputBitstreamにデータが残っている場合はまずそちらを転送する
+            if (m_decInputBitstream.size() == 0) {
+                m_getNextBitstream = false; // m_decInputBitstreamのデータがなくなったらflushさせる
+            }
         }
         return sendBitstream();
     }
@@ -799,7 +801,6 @@ protected:
         mfxSurfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
         mfxSurfDecWork->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         m_inFrames++;
-        PrintMes(RGY_LOG_ERROR, _T("using surface %d: 0x%p.\n"), m_inFrames, mfxSurfDecWork);
 
         mfxStatus dec_sts = MFX_ERR_NONE;
         mfxSyncPoint lastSyncP = nullptr;

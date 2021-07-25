@@ -63,6 +63,7 @@ public:
     mfxVideoParam& mfxparams() { return m_mfxDecParams; }
     mfxVersion mfxver() const { return m_mfxVer; }
     MemType memType() const { return m_memType; }
+    QSVAllocator *allocator() { return m_allocator; }
 protected:
     void PrintMes(int log_level, const TCHAR *format, ...);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
@@ -72,9 +73,10 @@ protected:
     MFXVideoSession m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
     mfxVersion m_mfxVer;
     CQSVHWDevice *m_hwdev; //mainから渡されるdevice情報
-    QSVAllocator *m_allocator;             //mainから渡されるallocator
     mfxIMPL m_impl;
     MemType m_memType;             //パイプラインのSurfaceのメモリType;
+    QSVAllocator *m_allocator;             //mainから渡されるallocator
+    std::unique_ptr<QSVAllocator> m_allocatorInternal;
 
     sInputCrop m_crop;
     std::unique_ptr<MFXVideoDECODE> m_mfxDec;

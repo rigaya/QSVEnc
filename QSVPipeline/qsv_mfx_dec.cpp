@@ -32,14 +32,19 @@
 #include "qsv_hw_device.h"
 #include "qsv_plugin.h"
 
+RGY_ERR CreateAllocatorImpl(
+    std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,
+    const MemType memType, CQSVHWDevice *hwdev, MFXVideoSession& session, std::shared_ptr<RGYLog>& log);
+
 QSVMfxDec::QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
     m_hwdev(hwdev),
-    m_allocator(allocator),
     m_impl(impl),
     m_memType(memType),
+    m_allocator(allocator),
+    m_allocatorInternal(),
     m_crop(),
     m_mfxDec(),
     m_SessionPlugins(),
@@ -62,6 +67,8 @@ void QSVMfxDec::clear() {
         m_mfxSession.DisjoinSession();
         m_mfxSession.Close();
     }
+    m_allocatorInternal.reset();
+    m_allocator = nullptr;
     m_hwdev = nullptr;
 
     m_log.reset();
@@ -107,10 +114,22 @@ RGY_ERR QSVMfxDec::InitSession() {
         }
     }
 
-    if ((err = err_to_rgy(m_mfxSession.SetFrameAllocator(m_allocator))) != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to set frame allocator: %s.\n"), get_err_mes(err));
-        return err;
+    if (!m_allocator) { // 内部で独自のallocatorを作る必要がある
+        bool externalAlloc = false;
+        // SetFrameAllocator も内部で行われる
+        err = CreateAllocatorImpl(m_allocatorInternal, externalAlloc, m_memType, m_hwdev, m_mfxSession, m_log);;
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to create internal allocator: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        m_allocator = m_allocatorInternal.get();
+    } else {
+        if ((err = err_to_rgy(m_mfxSession.SetFrameAllocator(m_allocator))) != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to set frame allocator: %s.\n"), get_err_mes(err));
+            return err;
+        }
     }
+
 
     m_SessionPlugins = std::make_unique<CSessionPlugins>(m_mfxSession);
 
