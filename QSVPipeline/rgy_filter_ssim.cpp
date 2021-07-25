@@ -688,7 +688,11 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             m_taskDec->setOutputMaxQueueSize(0);
             err = m_taskDec->sendFrame(nullptr); //flushのため。nullptrで呼ぶ
             if (err == RGY_ERR_MORE_DATA) {
-                break; //flush完了、もう出てない
+                if (!flush) { // 1回目は内部のバッファを消化する場合がある
+                    err = RGY_ERR_NONE;
+                } else {
+                    break; //flush完了、もう出てない
+                }
             } else if (err < RGY_ERR_NONE && err != RGY_ERR_MORE_SURFACE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to flush hw decoder.\n"));
                 return err;
