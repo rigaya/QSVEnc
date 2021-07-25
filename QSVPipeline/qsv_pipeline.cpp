@@ -3819,27 +3819,29 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INFO(_T("%s%s\n"), (i == 0) ? _T("Input Info     ") : _T("               "), inputMesSplitted[i].c_str());
     }
 
-    if (m_vpFilters.size() > 0) {
+    if (m_vpFilters.size() > 0 || m_videoQualityMetric) {
         const TCHAR *m = _T("VPP            ");
-        tstring vppstr;
-        for (auto& block : m_vpFilters) {
-            if (block.type == VppFilterType::FILTER_MFX) {
-                vppstr += block.vppmfx->print();
-            } else if (block.type == VppFilterType::FILTER_OPENCL) {
-                for (auto& clfilter : block.vppcl) {
-                    vppstr += str_replace(clfilter->GetInputMessage(), _T("\n               "), _T("\n")) + _T("\n");
+        if (m_vpFilters.size() > 0) {
+            tstring vppstr;
+            for (auto& block : m_vpFilters) {
+                if (block.type == VppFilterType::FILTER_MFX) {
+                    vppstr += block.vppmfx->print();
+                } else if (block.type == VppFilterType::FILTER_OPENCL) {
+                    for (auto& clfilter : block.vppcl) {
+                        vppstr += str_replace(clfilter->GetInputMessage(), _T("\n               "), _T("\n")) + _T("\n");
+                    }
+                } else {
+                    PrintMes(RGY_LOG_ERROR, _T("CheckCurrentVideoParam: Unknown VPP filter type.\n"));
+                    return RGY_ERR_UNSUPPORTED;
                 }
-            } else {
-                PrintMes(RGY_LOG_ERROR, _T("CheckCurrentVideoParam: Unknown VPP filter type.\n"));
-                return RGY_ERR_UNSUPPORTED;
             }
-        }
-        std::vector<TCHAR> vpp_mes(vppstr.length() + 1, _T('\0'));
-        memcpy(vpp_mes.data(), vppstr.c_str(), vpp_mes.size() * sizeof(vpp_mes[0]));
-        for (TCHAR *p = vpp_mes.data(), *q; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
-            PRINT_INFO(_T("%s%s\n"), m, p);
-            m    = _T("               ");
-            p = NULL;
+            std::vector<TCHAR> vpp_mes(vppstr.length() + 1, _T('\0'));
+            memcpy(vpp_mes.data(), vppstr.c_str(), vpp_mes.size() * sizeof(vpp_mes[0]));
+            for (TCHAR *p = vpp_mes.data(), *q; (p = _tcstok_s(p, _T("\n"), &q)) != NULL; ) {
+                PRINT_INFO(_T("%s%s\n"), m, p);
+                m = _T("               ");
+                p = NULL;
+            }
         }
         if (m_videoQualityMetric) {
             PRINT_INFO(_T("%s%s\n"), m, m_videoQualityMetric->GetInputMessage().c_str());
