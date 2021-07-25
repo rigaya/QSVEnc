@@ -1665,7 +1665,7 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
             }
             RGYWorkSize local(32, 8);
             RGYWorkSize global(planeDst.width >> 1, planeDst.height);
-            auto err = m_copyNV12[options]->kernel("kernel_copy_plane_nv12").config(queue, local, global, wait_events, event).launch(
+            err = m_copyNV12[options]->kernel("kernel_copy_plane_nv12").config(queue, local, global, wait_events, event).launch(
                 (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeSrc.width >> 1, planeSrc.height,
                 planeCrop.e.left, planeCrop.e.up);
             if (err != RGY_ERR_NONE) {
