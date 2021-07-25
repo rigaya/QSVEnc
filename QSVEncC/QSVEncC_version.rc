@@ -45,6 +45,8 @@ RGY_FILTER_CLRNG_CLH                 EXE_DATA DISCARDABLE "..\\clRNG\\src\\inclu
 RGY_FILTER_CLRNG_MRG31K3P_CLH        EXE_DATA DISCARDABLE "..\\clRNG\\src\\include\\clRNG\\mrg31k3p.clh"
 RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH EXE_DATA DISCARDABLE "..\\clRNG\\src\\include\\clRNG\\private\\mrg31k3p.c.h"
 
+RGY_FILTER_SSIM_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_ssim.cl"
+
 PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 
 APP_OSCODEPAGE_MANIFEST EXE_DATA DISCARDABLE "QSVEncC.oscodepage.manifest"

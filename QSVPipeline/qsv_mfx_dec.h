@@ -25,86 +25,67 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef __QSV_VPP_MFX_H__
-#define __QSV_VPP_MFX_H__
+#ifndef __QSV_MFX_DEC_H__
+#define __QSV_MFX_DEC_H__
 
 
 #include <memory>
 #include <mfxdefs.h>
 #include <mfxcommon.h>
 #include <mfxplugin++.h>
-#include "rgy_log.h"
 #include "qsv_query.h"
-#include "qsv_allocator.h"
-#include "qsv_hw_device.h"
 
-class QSVVppMfx {
+class QSVAllocator;
+class CQSVHWDevice;
+class CSessionPlugins;
+class RGYLog;
+
+class QSVMfxDec {
 public:
-    QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
-    virtual ~QSVVppMfx();
+    QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
+        mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log);
+    virtual ~QSVMfxDec();
 
-    RGY_ERR SetParam(sVppParams& params,
-        const RGYFrameInfo& frameOut,
-        const RGYFrameInfo& frameIn,
-        const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
+    RGY_ERR InitSession();
+    RGY_ERR SetParam(const RGY_CODEC inputCodec,
+        RGYBitstream& inputHeader,
+        const VideoInfo& inputFrameInfo);
     RGY_ERR Init();
     RGY_ERR Close();
 
     void clear();
 
-    std::vector<VppType> GetVppList() const;
     RGYFrameInfo GetFrameOut() const;
     rgy_rational<int> GetOutFps() const;
     mfxSession GetSession() { return m_mfxSession; }
-    MFXVideoVPP *mfxvpp() { return m_mfxVPP.get(); }
-    mfxVideoParam& mfxparams() { return m_mfxVppParams; }
+    MFXVideoSession *GetVideoSessionPtr() { return &m_mfxSession; }
+    MFXVideoDECODE *mfxdec() { return m_mfxDec.get(); }
+    mfxVideoParam& mfxparams() { return m_mfxDecParams; }
     mfxVersion mfxver() const { return m_mfxVer; }
-    int asyncDepth() const { return m_asyncDepth; }
-    tstring print() const { return VppExtMes; }
+    MemType memType() const { return m_memType; }
+    QSVAllocator *allocator() { return m_allocator; }
 protected:
-    void InitStructs();
-    RGY_ERR InitSession();
-    mfxFrameInfo SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
-    RGY_ERR SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const RGYFrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize);
-    RGY_ERR SetVppExtBuffers(sVppParams& params);
-    RGY_ERR InitMfxVppParams(const sVppParams& params, const mfxFrameInfo& mfxOut, const mfxFrameInfo& mfxIn);
-    RGY_ERR checkVppParams(sVppParams& params, const bool inputInterlaced);
-
     void PrintMes(int log_level, const TCHAR *format, ...);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
     RGY_ERR CheckParamList(int value, const CX_DESC *list, const char *param_name);
-    void vppExtAddMes(const tstring& str);
     int logTemporarilyIgnoreErrorMes();
 protected:
     MFXVideoSession m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
     mfxVersion m_mfxVer;
     CQSVHWDevice *m_hwdev; //mainから渡されるdevice情報
-    QSVAllocator *m_allocator;             //mainから渡されるallocator
     mfxIMPL m_impl;
     MemType m_memType;             //パイプラインのSurfaceのメモリType;
-    int m_asyncDepth;
+    QSVAllocator *m_allocator;             //mainから渡されるallocator
+    std::unique_ptr<QSVAllocator> m_allocatorInternal;
 
     sInputCrop m_crop;
-    std::unique_ptr<MFXVideoVPP> m_mfxVPP;
-    mfxVideoParam m_mfxVppParams;
-    mfxExtVPPDoNotUse m_VppDoNotUse;
-    mfxExtVPPDoNotUse m_VppDoUse;
-    mfxExtVPPDenoise m_ExtDenoise;
-    mfxExtVppMctf m_ExtMctf;
-    mfxExtVPPDetail m_ExtDetail;
-    mfxExtVPPDeinterlacing m_ExtDeinterlacing;
-    mfxExtVPPFrameRateConversion m_ExtFrameRateConv;
-    mfxExtVPPRotation m_ExtRotate;
-    mfxExtVPPVideoSignalInfo m_ExtVppVSI;
-    mfxExtVPPImageStab m_ExtImageStab;
-    mfxExtVPPMirroring m_ExtMirror;
-    mfxExtVPPScaling m_ExtScaling;
-    std::vector<mfxU32> m_VppDoNotUseList;
-    std::vector<mfxU32> m_VppDoUseList;
-    std::vector<mfxExtBuffer*> m_VppExtParams;
-    tstring VppExtMes;
+    std::unique_ptr<MFXVideoDECODE> m_mfxDec;
+    std::unique_ptr<CSessionPlugins> m_SessionPlugins;
+    std::vector<mfxExtBuffer*> m_DecExtParams;
+    mfxExtDecVideoProcessing m_DecVidProc;
+    mfxVideoParam m_mfxDecParams;
 
     std::shared_ptr<RGYLog> m_log;
 };
 
-#endif // __QSV_VPP_MFX_H__
+#endif // __QSV_MFX_DEC_H__

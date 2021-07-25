@@ -120,10 +120,10 @@ RGYFilterMpdecimateFrameData::~RGYFilterMpdecimateFrameData() {
 RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
     m_inFrameId = inputFrameId;
     if (!m_buf) {
-        m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
+        m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp, pInputFrame->bitdepth);
     }
     if (!m_tmp) {
-        m_tmp = m_cl->createFrameBuffer(divCeil(pInputFrame->width, 8), divCeil(pInputFrame->height, 8), RGY_CSP_YUV444_32);
+        m_tmp = m_cl->createFrameBuffer(divCeil(pInputFrame->width, 8), divCeil(pInputFrame->height, 8), RGY_CSP_YUV444_32, RGY_CSP_BIT_DEPTH[RGY_CSP_YUV444_32]);
     }
     copyFrameProp(&m_buf->frame, pInputFrame);
 

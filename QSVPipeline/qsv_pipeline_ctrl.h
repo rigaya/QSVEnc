@@ -34,6 +34,7 @@
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include <deque>
+#include <set>
 #include <optional>
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
@@ -49,9 +50,13 @@
 #include "rgy_timecode.h"
 #include "rgy_input.h"
 #include "rgy_input_sm.h"
+#include "rgy_filter.h"
+#include "rgy_filter_ssim.h"
 #include "rgy_output.h"
 #include "rgy_output_avcodec.h"
 #include "qsv_util.h"
+#include "qsv_mfx_dec.h"
+#include "qsv_vpp_mfx.h"
 
 const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
 const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
@@ -110,10 +115,10 @@ public:
     bool operator ==(const PipelineTaskSurface& obj) const { return mfxsurf() == obj.mfxsurf() && clframe() == obj.clframe(); }
     bool operator !=(std::nullptr_t) const { return mfxsurf() != nullptr || clframe() != nullptr; }
     bool operator ==(std::nullptr_t) const { return mfxsurf() == nullptr && clframe() == nullptr; }
-    const mfxFrameSurface1 *mfxsurf() const { return surf->surf(); }
-    mfxFrameSurface1 *mfxsurf() { return surf->surf(); }
-    const RGYCLFrame *clframe() const { return surf->clframe(); }
-    RGYCLFrame *clframe() { return surf->clframe(); }
+    const mfxFrameSurface1 *mfxsurf() const { return (surf) ? surf->surf() : nullptr; }
+    mfxFrameSurface1 *mfxsurf() { return (surf) ? surf->surf() : nullptr; }
+    const RGYCLFrame *clframe() const { return (surf) ? surf->clframe() : nullptr; }
+    RGYCLFrame *clframe() { return (surf) ? surf->clframe() : nullptr; }
     const RGYFrame *frame() const { return surf; }
     RGYFrame *frame() { return surf; }
 };
@@ -247,10 +252,11 @@ public:
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
     const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) {
         UNREFERENCED_PARAMETER(writer);
         UNREFERENCED_PARAMETER(allocator);
         UNREFERENCED_PARAMETER(clqueue);
+        UNREFERENCED_PARAMETER(videoQualityMetric);
         return RGY_ERR_UNSUPPORTED;
     }
     virtual ~PipelineTaskOutput() {};
@@ -319,7 +325,7 @@ public:
         return err;
     }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) override {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
@@ -340,12 +346,18 @@ public:
 
     std::shared_ptr<RGYBitstream>& bitstream() { return m_bs; }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue) override {
+    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
         if (writer->getOutType() != OUT_TYPE_BITSTREAM) {
             return RGY_ERR_INVALID_OPERATION;
+        }
+        if (videoQualityMetric) {
+            if (!videoQualityMetric->decodeStarted()) {
+                videoQualityMetric->initDecode(m_bs.get());
+            }
+            videoQualityMetric->addBitstream(m_bs.get());
         }
         return writer->WriteNextFrame(m_bs.get());
     }
@@ -364,21 +376,23 @@ enum class PipelineTaskType {
     AUDIO,
     OUTPUTRAW,
     OPENCL,
+    VIDEOMETRIC,
 };
 
 static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     switch (type) {
-    case PipelineTaskType::MFXVPP:    return _T("MFXVPP");
-    case PipelineTaskType::MFXDEC:    return _T("MFXDEC");
-    case PipelineTaskType::MFXENC:    return _T("MFXENC");
-    case PipelineTaskType::MFXENCODE: return _T("MFXENCODE");
-    case PipelineTaskType::INPUT:     return _T("INPUT");
-    case PipelineTaskType::INPUTCL:   return _T("INPUTCL");
-    case PipelineTaskType::CHECKPTS:  return _T("CHECKPTS");
-    case PipelineTaskType::TRIM:      return _T("TRIM");
-    case PipelineTaskType::OPENCL:    return _T("OPENCL");
-    case PipelineTaskType::AUDIO:     return _T("AUDIO");
-    case PipelineTaskType::OUTPUTRAW: return _T("OUTRAW");
+    case PipelineTaskType::MFXVPP:      return _T("MFXVPP");
+    case PipelineTaskType::MFXDEC:      return _T("MFXDEC");
+    case PipelineTaskType::MFXENC:      return _T("MFXENC");
+    case PipelineTaskType::MFXENCODE:   return _T("MFXENCODE");
+    case PipelineTaskType::INPUT:       return _T("INPUT");
+    case PipelineTaskType::INPUTCL:     return _T("INPUTCL");
+    case PipelineTaskType::CHECKPTS:    return _T("CHECKPTS");
+    case PipelineTaskType::TRIM:        return _T("TRIM");
+    case PipelineTaskType::OPENCL:      return _T("OPENCL");
+    case PipelineTaskType::AUDIO:       return _T("AUDIO");
+    case PipelineTaskType::VIDEOMETRIC: return _T("VIDEOMETRIC");
+    case PipelineTaskType::OUTPUTRAW:   return _T("OUTRAW");
     default: return _T("UNKNOWN");
     }
 }
@@ -397,6 +411,7 @@ static const int getPipelineTaskAllocPriority(PipelineTaskType type) {
     case PipelineTaskType::OPENCL:
     case PipelineTaskType::AUDIO:
     case PipelineTaskType::OUTPUTRAW:
+    case PipelineTaskType::VIDEOMETRIC:
     default: return 0;
     }
 }
@@ -683,7 +698,9 @@ public:
         //TimeStampはQSVに自動的に計算させる
         m_decInputBitstream.setPts(MFX_TIMESTAMP_UNKNOWN);
         //ヘッダーがあれば読み込んでおく
-        input->GetHeader(&m_decInputBitstream);
+        if (input) {
+            input->GetHeader(&m_decInputBitstream);
+        }
     };
     virtual ~PipelineTaskMFXDecode() {};
     void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };
@@ -702,6 +719,27 @@ public:
     virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
         info = m_mfxDecParams.mfx.FrameInfo;
         return RGY_ERR_NONE;
+    }
+    //データを使用すると、bitstreamのsizeを0にする
+    //これを確認すること
+    RGY_ERR sendFrame(RGYBitstream *bitstream) {
+        if (bitstream) {
+            //m_DecInputBitstream.size() > 0のときにbitstreamを連結してしまうと
+            //環境によっては正常にフレームが取り出せなくなることがある
+            if (m_getNextBitstream && m_decInputBitstream.size() <= 1) {
+                m_decInputBitstream.append(bitstream);
+                m_decInputBitstream.setPts(bitstream->pts());
+                bitstream->setSize(0);
+                bitstream->setOffset(0);
+            }
+        } else {
+            //bitstream == nullptrの場合はflush
+            //ただ、m_decInputBitstreamにデータが残っている場合はまずそちらを転送する
+            if (m_decInputBitstream.size() == 0) {
+                m_getNextBitstream = false; // m_decInputBitstreamのデータがなくなったらflushさせる
+            }
+        }
+        return sendBitstream();
     }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_getNextBitstream
@@ -729,7 +767,10 @@ public:
                 return ret;
             }
         }
-
+        return sendBitstream();
+    }
+protected:
+    RGY_ERR sendBitstream() {
         m_getNextBitstream |= m_decInputBitstream.size() > 0;
 
         //デコードも行う場合は、デコード用のフレームをpSurfVppInかpSurfEncInから受け取る
@@ -976,8 +1017,8 @@ public:
                 if (dataCheckPts == nullptr) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get timestamp data, timestamp might be inaccurate!\n"));
                 } else {
-                    PipelineTaskOutputSurf *outDurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
-                    outDurf->surf().frame()->setTimestamp(dataCheckPts->timestampOverride());
+                    PipelineTaskOutputSurf *outSurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
+                    outSurf->surf().frame()->setTimestamp(dataCheckPts->timestampOverride());
                 }
             }
             m_outFrames++;
@@ -1251,6 +1292,86 @@ public:
     }
 };
 
+class PipelineTaskVideoQualityMetric : public PipelineTask {
+private:
+    std::shared_ptr<RGYOpenCLContext> m_cl;
+    RGYFilterSsim *m_videoMetric;
+    std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
+    MemType m_memType;
+public:
+    PipelineTaskVideoQualityMetric(RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::VIDEOMETRIC, outMaxQueueSize, mfxSession, mfxVer, log), m_cl(cl), m_videoMetric(videoMetric), m_surfVppInInterop(), m_memType(memType) {
+        m_allocator = allocator;
+    };
+
+    virtual bool isPassThrough() const override { return true; }
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (!frame) {
+            return RGY_ERR_MORE_DATA;
+        }
+        //明示的に待機が必要
+        frame->depend_clear();
+
+        RGYCLFrameInterop *clFrameInInterop = nullptr;
+        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        if (taskSurf == nullptr) {
+            PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        RGYFrameInfo inputFrame;
+        mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfxsurf();
+        if (surfVppIn != nullptr) {
+            if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_videoMetric->GetFilterParam()->frameIn);
+            }
+            clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
+            if (!clFrameInInterop) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            auto err = clFrameInInterop->acquire(m_cl->queue());
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                return RGY_ERR_NULL_PTR;
+            }
+            clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
+            clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
+            clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
+            clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
+            inputFrame = clFrameInInterop->frameInfo();
+        } else if (taskSurf->surf().clframe() != nullptr) {
+            //OpenCLフレームが出てきた時の場合
+            auto clframe = taskSurf->surf().clframe();
+            if (clframe == nullptr) {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid cl frame.\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            inputFrame = clframe->frameInfo();
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("Invalid input frame.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        //フレームを転送
+        RGYOpenCLEvent inputReleaseEvent;
+        int dummy = 0;
+        auto err = m_videoMetric->filter(&inputFrame, nullptr, &dummy, m_cl->queue(), &inputReleaseEvent);
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        if (clFrameInInterop) {
+            clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
+            clFrameInInterop = nullptr;
+        }
+        //eventを入力フレームを使用し終わったことの合図として登録する
+        taskSurf->addClEvent(inputReleaseEvent);
+        m_outQeueue.push_back(std::move(frame));
+        return RGY_ERR_NONE;
+    }
+};
+
 class PipelineTaskMFXENC : public PipelineTask {
 protected:
     MFXVideoENC *m_enc;
@@ -1389,10 +1510,11 @@ protected:
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppOutInterop;
     std::deque<std::unique_ptr<PipelineTaskOutput>> m_prevInputFrame; //前回投入されたフレーム、完了通知を待ってから解放するため、参照を保持する
+    RGYFilterSsim *m_videoMetric;
     MemType m_memType;
 public:
-    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, std::shared_ptr<RGYOpenCLContext> cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_memType(memType) {
+    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_videoMetric(videoMetric), m_memType(memType) {
         m_allocator = allocator;
     };
     virtual ~PipelineTaskOpenCL() {
@@ -1401,6 +1523,10 @@ public:
         m_surfVppOutInterop.clear();
         m_cl.reset();
     };
+
+    void setVideoQualityMetricFilter(RGYFilterSsim *videoMetric) {
+        m_videoMetric = videoMetric;
+    }
 
     virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
         if (m_vpFilters.size() == 0) {
@@ -1552,18 +1678,22 @@ public:
             outInfo[0] = &encSurfaceInfo;
             RGYOpenCLEvent clevent; // 最終フィルタの処理完了を伝えるevent
             auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
-            filterframes.pop_front();
             if (sts_filter != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
                 clFrameOutInteropRelease;
                 return sts_filter;
             }
-#if 0
-            if (m_ssim) {
+            if (m_videoMetric) {
+                //フレームを転送
                 int dummy = 0;
-                m_ssim->filter(&encSurfaceInfo, nullptr, &dummy);
+                auto err = m_videoMetric->filter(&filterframes.front().first, nullptr, &dummy, m_cl->queue(), &clevent);
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
+                    return err;
+                }
             }
-#endif
+            filterframes.pop_front();
+
             if (clFrameOutInterop) {
                 auto err = clFrameOutInterop->release(&clevent);
                 if (err != RGY_ERR_NONE) {

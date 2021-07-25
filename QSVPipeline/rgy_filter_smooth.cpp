@@ -210,10 +210,7 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
 
-        RGYFrameInfo qpframe;
-        qpframe.width = qp_size(pParam->frameIn.width);
-        qpframe.height = qp_size(pParam->frameIn.height);
-        qpframe.csp = RGY_CSP_Y8;
+        const auto qpframe = RGYFrameInfo(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8, RGY_CSP_BIT_DEPTH[RGY_CSP_Y8], RGY_PICSTRUCT_FRAME, RGY_MEM_TYPE_CPU);
         m_qp = m_cl->createFrameBuffer(qpframe);
         if (!m_qp) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table.\n"));

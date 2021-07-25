@@ -69,6 +69,7 @@ public:
     virtual mfxStatus FrameUnlock(mfxMemId mid, mfxFrameData *ptr) = 0;
     virtual mfxStatus GetFrameHDL(mfxMemId mid, mfxHDL *handle) = 0;
     virtual mfxStatus FrameFree(mfxFrameAllocResponse *response);
+    uint32_t getExtAllocCounts() { return (uint32_t)m_ExtResponses.size(); }
 private:
     static mfxStatus MFX_CDECL Alloc_(mfxHDL pthis, mfxFrameAllocRequest *request, mfxFrameAllocResponse *response);
     static mfxStatus MFX_CDECL Lock_(mfxHDL pthis, mfxMemId mid, mfxFrameData *ptr);
@@ -80,31 +81,70 @@ protected:
     virtual mfxStatus CheckRequestType(mfxFrameAllocRequest *request);
     virtual mfxStatus ReleaseResponse(mfxFrameAllocResponse *response) = 0;
     virtual mfxStatus AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllocResponse *response) = 0;
-    static const auto MEMTYPE_FROM_MASK = MFX_MEMTYPE_FROM_ENCODE | MFX_MEMTYPE_FROM_DECODE | MFX_MEMTYPE_FROM_VPPIN | MFX_MEMTYPE_FROM_VPPOUT;
+    static const auto MEMTYPE_FROM_MASK = MFX_MEMTYPE_FROM_ENCODE | MFX_MEMTYPE_FROM_DECODE | \
+        MFX_MEMTYPE_FROM_VPPIN | MFX_MEMTYPE_FROM_VPPOUT | \
+        MFX_MEMTYPE_FROM_ENC | MFX_MEMTYPE_FROM_PAK;
+
+    static const auto MEMTYPE_FROM_MASK_INT_EXT = MEMTYPE_FROM_MASK | MFX_MEMTYPE_INTERNAL_FRAME | MFX_MEMTYPE_EXTERNAL_FRAME;
 
     struct UniqueResponse : mfxFrameAllocResponse {
-        mfxU16 m_cropw;
-        mfxU16 m_croph;
+        mfxU16 m_width;
+        mfxU16 m_height;
         mfxU32 m_refCount;
         mfxU16 m_type;
 
-        UniqueResponse() :
-            m_cropw(0),
-            m_croph(0),
-            m_refCount(0),
-            m_type(0) {
+        UniqueResponse()
+            : m_width(0)
+            , m_height(0)
+            , m_refCount(0)
+            , m_type(0) {
             memset(static_cast<mfxFrameAllocResponse*>(this), 0, sizeof(mfxFrameAllocResponse));
         }
 
-        UniqueResponse(const mfxFrameAllocResponse & response, mfxU16 cropw, mfxU16 croph, mfxU16 type) :
-            mfxFrameAllocResponse(response),
-            m_cropw(cropw),
-            m_croph(croph),
-            m_refCount(1),
-            m_type(type) {
+        // compare responses by actual frame size, alignment (w and h) is up to application
+        UniqueResponse(const mfxFrameAllocResponse & response, mfxU16 width, mfxU16 height, mfxU16 type)
+            : mfxFrameAllocResponse(response)
+            , m_width(width)
+            , m_height(height)
+            , m_refCount(1)
+            , m_type(type)
+        {
         }
-        bool operator() (const UniqueResponse &response) const {
-            return m_cropw == response.m_cropw && m_croph == response.m_croph;
+
+        //compare by resolution (and memory type for FEI ENC / PAK)
+        bool operator () (const UniqueResponse &response)const
+        {
+            if (m_width <= response.m_width && m_height <= response.m_height)
+            {
+                // For FEI ENC and PAK we need to distinguish between INTERNAL and EXTERNAL frames
+
+                if (m_type & response.m_type & (MFX_MEMTYPE_FROM_ENC | MFX_MEMTYPE_FROM_PAK))
+                {
+                    return !!((m_type & response.m_type) & 0x000f);
+                } else
+                {
+                    return !!(m_type & response.m_type & MFX_MEMTYPE_FROM_DECODE);
+                }
+            } else
+            {
+                return false;
+            }
+        }
+
+        static mfxU16 CropMemoryTypeToStore(mfxU16 type)
+        {
+            // Remain INTERNAL / EXTERNAL flag for FEI ENC / PAK
+            switch (type & 0xf000)
+            {
+            case MFX_MEMTYPE_FROM_ENC:
+            case MFX_MEMTYPE_FROM_PAK:
+            case (MFX_MEMTYPE_FROM_ENC | MFX_MEMTYPE_FROM_PAK):
+                return type & MEMTYPE_FROM_MASK_INT_EXT;
+                break;
+            default:
+                return type & MEMTYPE_FROM_MASK;
+                break;
+            }
         }
     };
 

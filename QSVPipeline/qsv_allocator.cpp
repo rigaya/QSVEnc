@@ -110,25 +110,46 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
         return MFX_ERR_UNSUPPORTED;
     }
 
-
-    if ((request->Type & (MFX_MEMTYPE_EXTERNAL_FRAME | MFX_MEMTYPE_FROM_DECODE)) == (MFX_MEMTYPE_EXTERNAL_FRAME | MFX_MEMTYPE_FROM_DECODE)) {
+    if ( // External Frames
+        ((request->Type & MFX_MEMTYPE_EXTERNAL_FRAME) &&
+         (request->Type & (MFX_MEMTYPE_FROM_DECODE | MFX_MEMTYPE_FROM_ENC | MFX_MEMTYPE_FROM_PAK)))
+         // Exception: Internal Frames for FEI ENC / PAK reconstructs
+         ||
+        ((request->Type & MFX_MEMTYPE_INTERNAL_FRAME) &&
+         (request->Type & (MFX_MEMTYPE_FROM_ENC | MFX_MEMTYPE_FROM_PAK)))
+       ) {
         //external
         m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: Allocate type external.\n"));
-        auto it = std::find_if( m_ExtResponses.begin(), m_ExtResponses.end(), UniqueResponse(*response, request->Info.CropW, request->Info.CropH, 0));
+        bool foundInCache = false;
+        // external decoder allocations
+        std::list<UniqueResponse>::iterator
+            it = m_ExtResponses.begin(),
+            et = m_ExtResponses.end();
+        UniqueResponse checker(*response, request->Info.Width, request->Info.Height, request->Type);
+        for (; it != et; ++it) {
+            // same decoder and same size
+            if (request->AllocId == it->AllocId && checker(*it)) {
+                // check if enough frames were allocated
+                if (request->NumFrameSuggested > it->NumFrameActual) {
+                    m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: NumFrameSuggested > it->NumFrameActual\n"));
+                    return MFX_ERR_MEMORY_ALLOC;
+                }
 
-        if (it != m_ExtResponses.end()) {
-            if (request->NumFrameSuggested > it->NumFrameActual) {
-                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: NumFrameSuggested > it->NumFrameActual\n"));
-                return MFX_ERR_MEMORY_ALLOC;
+                it->m_refCount++;
+                // return existing response
+                *response = (mfxFrameAllocResponse&)*it;
+                foundInCache = true;
             }
+        }
 
-            it->m_refCount++;
-            *response = (mfxFrameAllocResponse&)*it;
-        } else if (MFX_ERR_NONE == (sts = AllocImpl(request, response))) {
-            m_ExtResponses.push_back(UniqueResponse(*response, request->Info.CropW, request->Info.CropH, request->Type & MEMTYPE_FROM_MASK));
-        } else {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: Failed Allocate type external: %s\n"), get_err_mes(sts));
-            return sts;
+        if (!foundInCache) {
+            if ((AllocImpl(request, response)) == MFX_ERR_NONE) {
+                response->AllocId = request->AllocId;
+                m_ExtResponses.push_back(UniqueResponse(*response, request->Info.Width, request->Info.Height, UniqueResponse::CropMemoryTypeToStore(request->Type)));
+            } else {
+                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: Failed Allocate type external: %s\n"), get_err_mes(sts));
+                return sts;
+            }
         }
     } else {
         //internal

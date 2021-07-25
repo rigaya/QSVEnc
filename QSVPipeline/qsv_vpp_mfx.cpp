@@ -45,7 +45,7 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
 
 MAP_PAIR_0_1(vpp, extbuff, uint32_t, rgy, VppType, MFX_EXTBUFF_VPP_TO_VPPTYPE, 0, VppType::VPP_NONE);
 
-QSVVppMfx::QSVVppMfx(std::shared_ptr<CQSVHWDevice> hwdev, QSVAllocator *allocator,
+QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
@@ -104,7 +104,7 @@ void QSVVppMfx::clear() {
         m_mfxSession.DisjoinSession();
         m_mfxSession.Close();
     }
-    m_hwdev.reset();
+    m_hwdev = nullptr;
 
     m_VppDoNotUseList.clear();
     m_VppDoUseList.clear();
@@ -648,13 +648,10 @@ std::vector<VppType> QSVVppMfx::GetVppList() const {
 RGYFrameInfo QSVVppMfx::GetFrameOut() const {
     const auto& mfxOut = m_mfxVppParams.vpp.Out;
 
-    RGYFrameInfo info;
-    info.width = mfxOut.CropW;
-    info.height = mfxOut.CropH;
-    info.csp = csp_enc_to_rgy(mfxOut.FourCC);
-    info.bitdepth = (mfxOut.BitDepthLuma > 0) ? mfxOut.BitDepthLuma : 8;
-    info.picstruct = picstruct_enc_to_rgy(mfxOut.PicStruct);
-    info.mem_type = (m_memType != SYSTEM_MEMORY) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_CPU;
+    const RGYFrameInfo info(mfxOut.CropW, mfxOut.CropH,
+        csp_enc_to_rgy(mfxOut.FourCC), (mfxOut.BitDepthLuma > 0) ? mfxOut.BitDepthLuma : 8,
+        picstruct_enc_to_rgy(mfxOut.PicStruct),
+        (m_memType != SYSTEM_MEMORY) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_CPU);
     return info;
 }
 

@@ -159,7 +159,7 @@ RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inp
     m_diffMaxBlock = std::numeric_limits<int64_t>::max();
     m_diffTotal = std::numeric_limits<int64_t>::max();
     if (!m_buf) {
-        m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp);
+        m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp, pInputFrame->bitdepth);
     }
     copyFrameProp(&m_buf->frame, pInputFrame);
     auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, &event);
