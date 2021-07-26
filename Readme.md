@@ -60,8 +60,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
    - VCM       (Video Conference mode)
 - Quality preset of 7 steps
 - Interlaced encoding (by PAFF)
-- supports setting of codec profile & level, SAR, colormatrix, maxbitrate, GOP len, etc...
-- supports various vpp(video pre-processing) filters
+- Supports setting of codec profile & level, SAR, colormatrix, maxbitrate, GOP len, etc...
+- Calculation of ssim/psnr of the encode
+- Supports various vpp(video pre-processing) filters
   - MFX (Media Fixed function) filters
     - resize
     - deinterlace (normal / bob / it)
