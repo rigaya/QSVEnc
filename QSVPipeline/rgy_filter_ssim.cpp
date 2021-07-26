@@ -29,9 +29,10 @@
 #include <map>
 #include "rgy_avutil.h"
 #include "rgy_filter_ssim.h"
+#if ENCODER_QSV
 #include "qsv_mfx_dec.h"
 #include "qsv_pipeline_ctrl.h"
-
+#endif
 #if ENCODER_VCEENC
 #include "vce_util.h"
 #include "VideoDecoderUVD.h"
@@ -88,6 +89,7 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_trace(nullptr),
     m_factory(nullptr),
     m_context(),
+    m_decoder(),
 #endif
 #if ENCODER_QSV
     m_encBitstream(),
@@ -155,7 +157,11 @@ RGY_ERR RGYFilterSsim::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         paramCrop->frameIn = pParam->frameIn;
         paramCrop->frameOut = pParam->frameOut;
         paramCrop->baseFps = pParam->baseFps;
+#if ENCODER_QSV
         paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+#elif ENCODER_VCEENC
+        paramCrop->frameIn.mem_type = RGY_MEM_TYPE_GPU_IMAGE;
+#endif
         paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         paramCrop->bOutOverwrite = false;
         sts = filterCrop->init(paramCrop, m_pLog);
