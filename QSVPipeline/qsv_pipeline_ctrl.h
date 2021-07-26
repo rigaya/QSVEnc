@@ -709,9 +709,11 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override {
         mfxFrameAllocRequest allocRequest = { 0 };
         auto err = err_to_rgy(m_dec->QueryIOSurf(&m_mfxDecParams, &allocRequest));
-        if (err != RGY_ERR_NONE) {
+        if (err < RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return std::nullopt;
+        } else if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_WARN, _T("  surface alloc request for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
         }
         PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
         return std::optional<mfxFrameAllocRequest>(allocRequest);
@@ -1413,9 +1415,11 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override {
         mfxFrameAllocRequest allocRequest = { 0 };
         auto err = err_to_rgy(m_encode->QueryIOSurf(&m_mfxEncParams, &allocRequest));
-        if (err != RGY_ERR_NONE) {
+        if (err < RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return std::nullopt;
+        } else if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_WARN, _T("  surface alloc request for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
         }
         PrintMes(RGY_LOG_DEBUG, _T("  %s required buffer: %d [%s]\n"), getPipelineTaskTypeName(m_type), allocRequest.NumFrameSuggested, qsv_memtype_str(allocRequest.Type).c_str());
         const int blocksz = (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) ? 32 : 16;

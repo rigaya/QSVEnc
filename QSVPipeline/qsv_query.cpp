@@ -326,7 +326,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     default:
         {
         mfxStatus ret = MFXVideoDECODE_Query(session , &videoPrm, &videoPrmOut);
-        if (ret != MFX_ERR_NONE) {
+        if (ret < MFX_ERR_NONE) { // QSV_WRN_XXX (> 0) は無視する
             return supportedCsp;
         }
         break;
@@ -339,7 +339,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
 #define CHECK_FEATURE(rgy_csp, required_ver) { \
         if (check_lib_version(mfxVer, (required_ver))) { \
             memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm)); \
-            if (MFXVideoDECODE_Query(session, &videoPrm, &videoPrmOut) == MFX_ERR_NONE) { \
+            if (MFXVideoDECODE_Query(session, &videoPrm, &videoPrmOut) >= MFX_ERR_NONE) { \
                 supportedCsp.push_back(rgy_csp); \
             } \
         } \
@@ -562,7 +562,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
             *(buf.end()    - 1) = (mfxExtBuffer *)structIn;
             *(bufOut.end() - 1) = (mfxExtBuffer *)structOut;
             mfxStatus ret = MFXVideoVPP_Query(session, &videoPrm, &videoPrmOut);
-            if (MFX_ERR_NONE <= ret) {
+            if (ret >= MFX_ERR_NONE) {// QSV_WRN_XXX (> 0) は無視する
                 result |= (MFX_ERR_NONE == ret || MFX_WRN_PARTIAL_ACCELERATION == ret) ? featureNoErr : featureWarn;
             }
         }
@@ -913,7 +913,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
 
     mfxStatus ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrmOut);
 
-    mfxU64 result = (MFX_ERR_NONE <= ret && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
+    mfxU64 result = (ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
 
         //まず、エンコードモードについてチェック
@@ -930,7 +930,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
                 memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
                 videoPrm.NumExtParam = (mfxU16)bufOut.size();
                 videoPrm.ExtParam = &bufOut[0];
-                if (MFX_ERR_NONE <= MFXVideoENCODE_Query(session, &videoPrm, &videoPrmOut) && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod)
+                if (MFXVideoENCODE_Query(session, &videoPrm, &videoPrmOut) >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod)
                     result |= flag;
                 videoPrm.mfx.RateControlMethod = original_method;
                 set_default_quality_prm();
@@ -953,7 +953,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
             memcpy(&cop3Out, &cop3, sizeof(cop3)); \
             memcpy(&hevcOut, &hevc, sizeof(hevc)); \
             auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrmOut); \
-            if (MFX_ERR_NONE <= check_ret \
+            if (check_ret >= MFX_ERR_NONE \
                 && (membersIn) == (membersOut) \
                 && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) { \
                 result |= (flag); \
