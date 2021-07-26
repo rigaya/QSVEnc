@@ -134,5 +134,5 @@ protected:
     double m_psnrTotal;                     // 評価結果の累積値 All
     int m_frames;                           // 評価したフレーム数
 
-    unique_ptr<RGYOpenCLProgram> m_kernel;
+    std::unique_ptr<RGYOpenCLProgram> m_kernel;
 };

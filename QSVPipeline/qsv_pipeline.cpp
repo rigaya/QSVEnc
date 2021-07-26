@@ -38,13 +38,17 @@
 #include <climits>
 #include <deque>
 #include <mutex>
+#include "rgy_osdep.h"
+#include "rgy_util.h"
 #pragma warning(push)
 #pragma warning(disable: 4244)
 #pragma warning(disable: 4834)
+RGY_DISABLE_WARNING_PUSH
+RGY_DISABLE_WARNING_STR("-Wunused-result")
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"
+RGY_DISABLE_WARNING_POP
 #pragma warning(pop)
-#include "rgy_osdep.h"
 #include "qsv_pipeline.h"
 #include "qsv_pipeline_ctrl.h"
 #include "qsv_query.h"

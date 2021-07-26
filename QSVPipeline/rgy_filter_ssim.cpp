@@ -74,6 +74,7 @@ tstring RGYFilterParamSsim::print() const {
 }
 
 RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
+    RGYFilter(context),
     m_decodeStarted(false),
     m_deviceId(0),
     m_thread(),
@@ -110,8 +111,7 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_psnrTotalPlane(),
     m_psnrTotal(0.0),
     m_frames(0),
-    m_kernel(),
-    RGYFilter(context) {
+    m_kernel() {
     m_name = _T("ssim/psnr");
 }
 

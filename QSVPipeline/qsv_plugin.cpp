@@ -73,6 +73,11 @@ const mfxPluginUID *getMFXPluginUID(MFXComponentType type, uint32_t codecID, con
             return &MFX_PLUGINID_HEVCE_FEI_HW; // HEVC FEI uses ENC interface
         }
         break;
+    case MFXComponentType::VPP:
+    case MFXComponentType::FEI:
+    case MFXComponentType::UNKNOWN:
+    default:
+        break;
     }
     return nullptr;
 }

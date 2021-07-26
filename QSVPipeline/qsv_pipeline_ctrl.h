@@ -1197,10 +1197,12 @@ public:
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(MFXVideoVPP *mfxvpp) { m_vpp = mfxvpp; };
 protected:
-    RGY_ERR requiredSurfInOut(mfxFrameAllocRequest allocRequest[2]) {
-        memset(allocRequest, 0, sizeof(allocRequest));
+    RGY_ERR requiredSurfInOut(std::array<mfxFrameAllocRequest,2>& allocRequest) {
+        for (auto& request : allocRequest) {
+            memset(&request, 0, sizeof(request));
+        }
         // allocRequest[0]はvppへの入力, allocRequest[1]はvppからの出力
-        auto err = err_to_rgy(m_vpp->QueryIOSurf(&m_mfxVppParams, allocRequest));
+        auto err = err_to_rgy(m_vpp->QueryIOSurf(&m_mfxVppParams, allocRequest.data()));
         if (err < RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return err;
@@ -1214,14 +1216,14 @@ protected:
     }
 public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override {
-        mfxFrameAllocRequest allocRequest[2];
+        std::array<mfxFrameAllocRequest,2> allocRequest;
         if (requiredSurfInOut(allocRequest) < RGY_ERR_NONE) { //RGY_WRN_xxx ( > 0) は無視する
             return std::nullopt;
         }
         return std::optional<mfxFrameAllocRequest>(allocRequest[0]);
     };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override {
-        mfxFrameAllocRequest allocRequest[2];
+        std::array<mfxFrameAllocRequest,2> allocRequest;
         if (requiredSurfInOut(allocRequest) < RGY_ERR_NONE) { //RGY_WRN_xxx ( > 0) は無視する
             return std::nullopt;
         }
