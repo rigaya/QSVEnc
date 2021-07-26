@@ -271,6 +271,10 @@ tstring qsv_memtype_str(uint32_t memtype) {
 
 RGY_NOINLINE
 mfxHandleType mfxHandleTypeFromMemType(const MemType memType, const bool forOpenCLInterop) {
+#if LIBVA_SUPPORT
+    //VAではメモリタイプによらずhwデバイスの初期化とハンドルの取得が必要
+    return MFX_HANDLE_VA_DISPLAY;
+#else
     mfxHandleType hdl_t = (mfxHandleType)0;
     switch (memType) {
 #if D3D_SURFACES_SUPPORT
@@ -286,6 +290,7 @@ mfxHandleType mfxHandleTypeFromMemType(const MemType memType, const bool forOpen
         break;
     }
     return hdl_t;
+#endif
 }
 
 //ビットレート指定モードかどうか
