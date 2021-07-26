@@ -559,6 +559,13 @@ Set modes for SAO. [HEVC]
 ### --ctu &lt;int&gt;
 Set max ctu size, from 16, 32 or 64. [HEVC]
 
+### --ssim
+Calculate ssim of the encoded video.
+
+### --psnr
+Calculate psnr of the encoded video.
+
+
 ## IO / Audio / Subtitle Options
 
 ### --input-analyze &lt;float&gt;
