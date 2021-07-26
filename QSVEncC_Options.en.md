@@ -313,7 +313,7 @@ To enhance stability, system memory is used.
 
 ### --disable-d3d (Win)
 ### --disable-va (Linux)
-Disable use of graphics memory. (Use system memory.)
+Disable use of graphics memory. (Use system memory.) Please note that OpencL filter cannot be used in this mode.
 
 ### --d3d
 Use d3d9 or d3d11 memory mode. (Windows only)
