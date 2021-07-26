@@ -170,9 +170,6 @@ RGY_ERR CreateAllocatorImpl(
         externalAlloc = true;
 #endif
 #if LIBVA_SUPPORT
-        sts = CreateHWDevice();
-        CA_ERR(sts, _T("Failed to CreateHWDevice."));
-
         mfxHDL hdl = NULL;
         sts = err_to_rgy(hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
         CA_ERR(sts, _T("Failed to get HW device handle."));
@@ -198,21 +195,6 @@ RGY_ERR CreateAllocatorImpl(
         externalAlloc = true;
 #endif
     } else {
-#if LIBVA_SUPPORT
-        //システムメモリ使用でも MFX_HANDLE_VA_DISPLAYをHW libraryに渡してやる必要がある
-        mfxIMPL impl;
-        session.QueryIMPL(&impl);
-
-        if (MFX_IMPL_HARDWARE == MFX_IMPL_BASETYPE(impl)) {
-            sts = CreateHWDevice();
-            CA_ERR(sts, _T("Failed to CreateHWDevice."));
-
-            mfxHDL hdl = NULL;
-            sts = err_to_rgy(hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
-            CA_ERR(sts, _T("Failed to get HW device handle."));
-            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
-        }
-#endif
         //system memory allocatorを作成
         allocator.reset(new QSVAllocatorSys);
         if (!allocator) {
@@ -1460,7 +1442,13 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
     auto sts = RGY_ERR_NONE;
     PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
 
-    if (D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType || HW_MEMORY == m_memType) {
+    mfxIMPL impl = 0;
+    m_mfxSession.QueryIMPL(&impl);
+    if (
+#if LIBVA_SUPPORT
+        MFX_IMPL_BASETYPE(impl) == MFX_IMPL_HARDWARE || //システムメモリ使用でも MFX_HANDLE_VA_DISPLAYをHW libraryに渡してやる必要がある
+#endif //#if LIBVA_SUPPORT
+        D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType || HW_MEMORY == m_memType) {
         sts = CreateHWDevice();
         RGY_ERR(sts, _T("Failed to CreateHWDevice."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateHWDevice success.\n"));
@@ -1471,8 +1459,6 @@ RGY_ERR CQSVPipeline::CreateAllocator() {
         RGY_ERR(sts, _T("Failed to get HW device handle."));
         PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
 
-        mfxIMPL impl = 0;
-        m_mfxSession.QueryIMPL(&impl);
         if (impl != MFX_IMPL_SOFTWARE) {
             // hwエンコード時のみハンドルを渡す
             sts = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
