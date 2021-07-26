@@ -1175,6 +1175,9 @@ private: System::Windows::Forms::Label^  label11;
 private: System::Windows::Forms::NumericUpDown^  numericUpDown7;
 private: System::Windows::Forms::Label^  fcgLBVppMctf;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
+private: System::Windows::Forms::CheckBox^  fcgCBPsnr;
+
+private: System::Windows::Forms::CheckBox^  fcgCBSsim;
 
 
 
@@ -1549,10 +1552,10 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             this->label9 = (gcnew System::Windows::Forms::Label());
             this->numericUpDown6 = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcggroupBoxVppDenoise = (gcnew System::Windows::Forms::GroupBox());
-            this->fcgPNVppDenoiseSmooth = (gcnew System::Windows::Forms::Panel());
             this->fcgPNVppDenoiseMFX = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoiseMFX = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppDenoiseMFX = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgPNVppDenoiseSmooth = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoiseSmoothQP = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppDenoiseSmoothQuality = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppDenoiseSmoothQP = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1636,6 +1639,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             this->fcgLBRotate = (gcnew System::Windows::Forms::Label());
             this->fcgCXImageStabilizer = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBPsnr = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBSsim = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBOutputPicStruct = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBOutputAud = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxDetail = (gcnew System::Windows::Forms::GroupBox());
@@ -1803,9 +1808,9 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetailEnhanceMFX))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->BeginInit();
             this->fcggroupBoxVppDenoise->SuspendLayout();
-            this->fcgPNVppDenoiseSmooth->SuspendLayout();
             this->fcgPNVppDenoiseMFX->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseMFX))->BeginInit();
+            this->fcgPNVppDenoiseSmooth->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQuality))->BeginInit();
             this->fcgPNVppDenoiseKnn->SuspendLayout();
@@ -4382,17 +4387,6 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             this->fcggroupBoxVppDenoise->TabStop = false;
             this->fcggroupBoxVppDenoise->Text = L"ノイズ除去";
             // 
-            // fcgPNVppDenoiseSmooth
-            // 
-            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgLBVppDenoiseSmoothQP);
-            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgLBVppDenoiseSmoothQuality);
-            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgNUVppDenoiseSmoothQP);
-            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgNUVppDenoiseSmoothQuality);
-            this->fcgPNVppDenoiseSmooth->Location = System::Drawing::Point(3, 42);
-            this->fcgPNVppDenoiseSmooth->Name = L"fcgPNVppDenoiseSmooth";
-            this->fcgPNVppDenoiseSmooth->Size = System::Drawing::Size(226, 92);
-            this->fcgPNVppDenoiseSmooth->TabIndex = 65;
-            // 
             // fcgPNVppDenoiseMFX
             // 
             this->fcgPNVppDenoiseMFX->Controls->Add(this->fcgLBVppDenoiseMFX);
@@ -4421,6 +4415,17 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             this->fcgNUVppDenoiseMFX->Tag = L"reCmd";
             this->fcgNUVppDenoiseMFX->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUVppDenoiseMFX->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 20, 0, 0, 0 });
+            // 
+            // fcgPNVppDenoiseSmooth
+            // 
+            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgLBVppDenoiseSmoothQP);
+            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgLBVppDenoiseSmoothQuality);
+            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgNUVppDenoiseSmoothQP);
+            this->fcgPNVppDenoiseSmooth->Controls->Add(this->fcgNUVppDenoiseSmoothQuality);
+            this->fcgPNVppDenoiseSmooth->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppDenoiseSmooth->Name = L"fcgPNVppDenoiseSmooth";
+            this->fcgPNVppDenoiseSmooth->Size = System::Drawing::Size(226, 92);
+            this->fcgPNVppDenoiseSmooth->TabIndex = 65;
             // 
             // fcgLBVppDenoiseSmoothQP
             // 
@@ -5308,6 +5313,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             // 
             // tabPageExOpt
             // 
+            this->tabPageExOpt->Controls->Add(this->fcgCBPsnr);
+            this->tabPageExOpt->Controls->Add(this->fcgCBSsim);
             this->tabPageExOpt->Controls->Add(this->fcgCBOutputPicStruct);
             this->tabPageExOpt->Controls->Add(this->fcgCBOutputAud);
             this->tabPageExOpt->Controls->Add(this->fcggroupBoxDetail);
@@ -5329,6 +5336,28 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             this->tabPageExOpt->TabIndex = 1;
             this->tabPageExOpt->Text = L"その他";
             this->tabPageExOpt->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBPsnr
+            // 
+            this->fcgCBPsnr->AutoSize = true;
+            this->fcgCBPsnr->Location = System::Drawing::Point(18, 193);
+            this->fcgCBPsnr->Name = L"fcgCBPsnr";
+            this->fcgCBPsnr->Size = System::Drawing::Size(50, 18);
+            this->fcgCBPsnr->TabIndex = 107;
+            this->fcgCBPsnr->Tag = L"reCmd";
+            this->fcgCBPsnr->Text = L"psnr";
+            this->fcgCBPsnr->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBSsim
+            // 
+            this->fcgCBSsim->AutoSize = true;
+            this->fcgCBSsim->Location = System::Drawing::Point(18, 169);
+            this->fcgCBSsim->Name = L"fcgCBSsim";
+            this->fcgCBSsim->Size = System::Drawing::Size(50, 18);
+            this->fcgCBSsim->TabIndex = 105;
+            this->fcgCBSsim->Tag = L"reCmd";
+            this->fcgCBSsim->Text = L"ssim";
+            this->fcgCBSsim->UseVisualStyleBackColor = true;
             // 
             // fcgCBOutputPicStruct
             // 
@@ -6543,11 +6572,11 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetailEnhanceMFX))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->EndInit();
             this->fcggroupBoxVppDenoise->ResumeLayout(false);
-            this->fcgPNVppDenoiseSmooth->ResumeLayout(false);
-            this->fcgPNVppDenoiseSmooth->PerformLayout();
             this->fcgPNVppDenoiseMFX->ResumeLayout(false);
             this->fcgPNVppDenoiseMFX->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseMFX))->EndInit();
+            this->fcgPNVppDenoiseSmooth->ResumeLayout(false);
+            this->fcgPNVppDenoiseSmooth->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQP))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseSmoothQuality))->EndInit();
             this->fcgPNVppDenoiseKnn->ResumeLayout(false);

@@ -1466,6 +1466,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUResizeW, cnf->vid.resize_width);
         SetNUValue(fcgNUResizeH, cnf->vid.resize_height);
 
+        fcgCBSsim->Checked = prm_qsv.common.metric.ssim;
+        fcgCBPsnr->Checked = prm_qsv.common.metric.psnr;
+
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
         SetCXIndex(fcgCXTempDir,             cnf->oth.temp_dir);
@@ -1721,6 +1724,9 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
         prm_qsv.input.dstWidth = 0;
         prm_qsv.input.dstHeight = 0;
     }
+
+    prm_qsv.common.metric.ssim     = fcgCBSsim->Checked;
+    prm_qsv.common.metric.psnr     = fcgCBPsnr->Checked;
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
