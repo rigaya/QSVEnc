@@ -256,8 +256,8 @@ __kernel void kernel_copy_plane_nv12(
     int srcPitch,
     int uvWidth,
     int uvHeight,
-    int cropX,
-    int cropY
+    int cropX,     // 輝度と同じcropを想定
+    int cropY      // 輝度と同じcropを想定
 ) {
     const int uv_x = get_global_id(0);
     const int uv_y = get_global_id(1);
@@ -287,8 +287,8 @@ __kernel void kernel_crop_nv12_yv12(
     int srcPitch,
     int uvWidth,
     int uvHeight,
-    int cropX,
-    int cropY
+    int cropX,     // 輝度と同じcropを想定
+    int cropY      // 輝度と同じcropを想定
 ) {
     const int uv_x = get_global_id(0);
     const int uv_y = get_global_id(1);
@@ -321,8 +321,8 @@ __kernel void kernel_crop_nv12_yuv444(
     int srcPitch,
     int srcWidth,
     int srcHeight,
-    int cropX,
-    int cropY
+    int cropX,     // 輝度と同じcropを想定
+    int cropY      // 輝度と同じcropを想定
 ) {
     const int src_x = get_global_id(0);
     const int src_y = get_global_id(1);
@@ -367,8 +367,8 @@ __kernel void kernel_crop_c_yuv444_nv12(
     int srcPitch,
     int srcWidth,
     int srcHeight,
-    int cropX,
-    int cropY
+    int cropX,     // 輝度と同じcropを想定
+    int cropY      // 輝度と同じcropを想定
 ) {
     const int dst_x = get_global_id(0);
     const int dst_y = get_global_id(1);
@@ -405,8 +405,8 @@ __kernel void kernel_crop_yv12_nv12(
     int srcPitch,
     int uvWidth,
     int uvHeight,
-    int cropX,
-    int cropY
+    int cropX,     // 輝度と同じcropを想定
+    int cropY      // 輝度と同じcropを想定
 ) {
     const int uv_x = get_global_id(0);
     const int uv_y = get_global_id(1);
@@ -437,8 +437,8 @@ __kernel void kernel_crop_c_yv12_yuv444(
     int srcPitch,
     int srcWidth,
     int srcHeight,
-    int cropX,
-    int cropY
+    int cropX,     // 輝度と同じcropを想定
+    int cropY      // 輝度と同じcropを想定
 ) {
     const int src_x = get_global_id(0);
     const int src_y = get_global_id(1);
@@ -476,8 +476,8 @@ __kernel void kernel_crop_c_yuv444_yv12(
     int srcPitch,
     int srcWidth,
     int srcHeight,
-    int cropX,
-    int cropY
+    int cropX,     // 輝度と同じcropを想定
+    int cropY      // 輝度と同じcropを想定
 ) {
     const int dst_x = get_global_id(0);
     const int dst_y = get_global_id(1);
