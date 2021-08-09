@@ -220,6 +220,8 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、license.txtをご覧ください。
 
+- [ビルド方法](./Build.ja.md)
+
 ### ソースの構成
 Windows ... VCビルド  
 Linux ... makefile + gcc/clangビルド  

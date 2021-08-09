@@ -16,8 +16,6 @@ To build QSVEnc, components below are required.
 - Visual Studio 2019
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
-- Intel OpenCL SDK
-- Intel Metric Framework SDK (included in Intel Platform Analysis Library)
 
 Install Avisynth+ and VapourSynth, with the SDKs.
 
@@ -31,11 +29,13 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
-The environment variable for Intel OpenCL SDK "INTELOCLSDKROOT" should be set by the installer.
+[OpenCL header files](https://github.com/KhronosGroup/OpenCL-Headers.git) will also be needed,
+and the include path shall be passed by environment variables "OPENCL_HEADERS".
 
-The environment variable for Intel Metric Framework SDK is "INTEL_METRIC_FRAMEWORK_SDK".
-As this library is only used for getting GPU/MFX usage, you might want to just disable this feature and skip building this library,
-by setting macro ENABLE_METRIC_FRAMEWORK to 0 in QSVPipeline/rgy_version.h.
+```Batchfile
+git clone https://github.com/KhronosGroup/OpenCL-Headers.git <path-to-clone>
+setx OPENCL_HEADERS <path-to-clone>
+```
 
 You will also need source code of [Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR).
 

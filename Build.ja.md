@@ -16,8 +16,6 @@
 - Visual Studio 2019
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
-- Intel OpenCL SDK
-- Intel Metric Framework SDK (Intel Platform Analysis Libraryに同梱)
 
 Avisynth+とVapourSynthは、SDKがインストールされるよう設定してインストールします。
 
@@ -31,13 +29,12 @@ setx AVISYNTH_SDK "C:\Program Files (x86)\AviSynth+\FilterSDK"
 setx VAPOURSYNTH_SDK "C:\Program Files (x86)\VapourSynth\sdk"
 ```
 
-Intel OpenCL SDKの環境変数、"INTELOCLSDKROOT"はインストーラにより自動的に設定されます。
+ビルドに必要な[OpenCLのヘッダ](https://github.com/KhronosGroup/OpenCL-Headers.git)をcloneし、環境変数 "OPENCL_HEADERS" を設定します。
 
-Intel Metric Framework SDKの環境変数は、"INTEL_METRIC_FRAMEWORK_SDK"です。
-このライブラリについては、cmakeを用いてVisual Studio 2015用にビルドすることが必要です。
-それなりに面倒なうえ、このライブラリはGPU/MFXの使用率取得のみに使用されエンコードには関係ないので、
-無効化して使わずにおくのもありです。
-その場合は、QSVPipeline/rgy_version.hのマクロ "ENABLE_METRIC_FRAMEWORK" を 0 に変更してください。
+```Batchfile
+git clone https://github.com/KhronosGroup/OpenCL-Headers.git <path-to-clone>
+setx OPENCL_HEADERS <path-to-clone>
+```
 
 さらにビルドに必要な[Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR)をcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
 
