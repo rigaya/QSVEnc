@@ -111,6 +111,7 @@ RGYParamLogLevel::RGYParamLogLevel() :
     appinput_(RGY_LOG_INFO),
     appoutput_(RGY_LOG_INFO),
     appvpp_(RGY_LOG_INFO),
+    amf_(RGY_LOG_INFO),
     opencl_(RGY_LOG_INFO),
     libav_(RGY_LOG_INFO),
     libass_(RGY_LOG_INFO),
@@ -129,6 +130,7 @@ bool RGYParamLogLevel::operator==(const RGYParamLogLevel &x) const {
         && appinput_ == x.appinput_
         && appoutput_ == x.appoutput_
         && appvpp_ == x.appvpp_
+        && amf_ == x.amf_
         && opencl_ == x.opencl_
         && libav_ == x.libav_
         && libass_ == x.libass_
@@ -149,6 +151,7 @@ RGYLogLevel RGYParamLogLevel::set(const RGYLogLevel newLogLevel, const RGYLogTyp
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_IN,    appinput_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_OUT,   appoutput_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_VPP,      appvpp_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_AMF,    amf_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_OPENCL,    opencl_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBAV,        libav_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBASS,       libass_);
@@ -193,6 +196,7 @@ tstring RGYParamLogLevel::to_string() const {
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_IN,    appinput_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_OUT,   appoutput_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_VPP,      appvpp_);
+    LOG_LEVEL_ADD_TYPE(RGY_LOGT_AMF,    amf_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_OPENCL,    opencl_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBAV,        libav_);
     LOG_LEVEL_ADD_TYPE(RGY_LOGT_LIBASS,       libass_);

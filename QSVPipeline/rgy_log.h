@@ -72,6 +72,7 @@ enum RGYLogType {
     RGY_LOGT_OUT,
     RGY_LOGT_VPP,
     RGY_LOGT_VPP_BUILD = RGY_LOGT_VPP,
+    RGY_LOGT_AMF,
     RGY_LOGT_OPENCL,
     RGY_LOGT_LIBAV,
     RGY_LOGT_LIBASS,
@@ -88,6 +89,7 @@ static const std::array<std::pair<RGYLogType, const TCHAR *>, RGY_LOGT_CAPION2AS
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_IN,     _T("input")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OUT,    _T("output")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_VPP,    _T("vpp")},
+    std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_AMF,    _T("amf")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_OPENCL, _T("opencl")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBAV,  _T("libav")},
     std::pair<RGYLogType, const TCHAR *>{ RGY_LOGT_LIBASS, _T("libass")},
@@ -103,6 +105,7 @@ private:
     RGYLogLevel appinput_;
     RGYLogLevel appoutput_;
     RGYLogLevel appvpp_;
+    RGYLogLevel amf_;
     RGYLogLevel opencl_;
     RGYLogLevel libav_;
     RGYLogLevel libass_;
@@ -121,6 +124,7 @@ public:
         case RGY_LOGT_IN: return appinput_;
         case RGY_LOGT_OUT: return appoutput_;
         case RGY_LOGT_VPP: return appvpp_;
+        case RGY_LOGT_AMF: return amf_;
         case RGY_LOGT_OPENCL: return opencl_;
         case RGY_LOGT_LIBAV: return libav_;
         case RGY_LOGT_LIBASS: return libass_;
