@@ -335,13 +335,13 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
     }
     AddMessage(RGY_LOG_DEBUG, _T("decoder: use codec \"%s\".\n"), wstring_to_tstring(codec_uvd_name).c_str());
     auto res = m_factory->CreateComponent(m_context, codec_uvd_name, &m_decoder);
-    if (res != RGY_ERR_NONE) {
+    if (res != AMF_OK) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create decoder context: %s\n"), AMFRetString(res));
         return err_to_rgy(res);
     }
     AddMessage(RGY_LOG_DEBUG, _T("created decoder context.\n"));
 
-    if (RGY_ERR_NONE != (res = m_decoder->SetProperty(AMF_TIMESTAMP_MODE, amf_int64(AMF_TS_PRESENTATION)))) {
+    if (AMF_OK != (res = m_decoder->SetProperty(AMF_TIMESTAMP_MODE, amf_int64(AMF_TS_PRESENTATION)))) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to set deocder: %s\n"), AMFRetString(res));
         return err_to_rgy(res);
     }
