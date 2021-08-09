@@ -71,7 +71,7 @@ RGY_ERR RGYFilterDelogo::delogoFrame(RGYFrameInfo* pOutputFrame, const float fad
         RGYOpenCLEvent* plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = delogoPlane(&planeDst, pDelego, fade, (RGY_PLANE)i == RGY_PLANE_Y, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to delogo frame(%d) %s: %s\n"), i, cl_errmes(err));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to delogo frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
         }
     }

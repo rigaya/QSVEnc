@@ -102,6 +102,7 @@ QSVAllocatorVA::QSVAllocatorVA()
     , m_export_mode(QSVAllocatorParamsVA::DONOT_EXPORT)
     , m_exporter(NULL)
 {
+    m_name = _T("allocVA");
 }
 
 QSVAllocatorVA::~QSVAllocatorVA()

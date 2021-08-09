@@ -69,7 +69,7 @@ RGY_ERR RGYFilterMpdecimate::procFrame(const RGYFrameInfo *p0, const RGYFrameInf
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[p0->csp] - 1) ? event : nullptr;
         auto err = procPlane(&plane0, &plane1, &planeTmp, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to procPlane(diff) frame(%d) %s: %s\n"), i, cl_errmes(err));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to procPlane(diff) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
         }
     }
@@ -80,11 +80,11 @@ RGY_ERR RGYFilterMpdecimate::calcDiff(RGYFilterMpdecimateFrameData *target, cons
     if (m_streamDiff.get()) { // 別途キューを用意して並列実行する場合
         auto err = procFrame(&target->get()->frame, &ref->get()->frame, &target->tmp()->frame, m_streamDiff, { m_eventDiff }, &m_eventTransfer);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
         if ((err = target->tmp()->queueMapBuffer(m_streamTransfer, CL_MAP_READ, { m_eventTransfer })) != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
     } else {
@@ -92,11 +92,11 @@ RGY_ERR RGYFilterMpdecimate::calcDiff(RGYFilterMpdecimateFrameData *target, cons
         //こういうケースでは標準のキューを使って逐次実行する
         auto err = procFrame(&target->get()->frame, &ref->get()->frame, &target->tmp()->frame, queue_main, { }, nullptr);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
         if ((err = target->tmp()->queueMapBuffer(queue_main, CL_MAP_READ)) != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
     }
@@ -129,7 +129,7 @@ RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int i
 
     auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, &event);
     if (err != RGY_ERR_NONE) {
-        m_log->write(RGY_LOG_ERROR, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
     return err;

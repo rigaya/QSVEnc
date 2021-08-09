@@ -69,6 +69,7 @@ static const std::map<mfxU32, DXGI_FORMAT> fourccToDXGIFormat = {
 
 QSVAllocatorD3D11::QSVAllocatorD3D11() {
     m_pDeviceContext = nullptr;
+    m_name = _T("allocD3D11");
 }
 
 QSVAllocatorD3D11::~QSVAllocatorD3D11() {
@@ -131,7 +132,7 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         desc.Format = DXGI_FORMAT_P8;
 
         if (FAILED(hRes)) {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::FrameLock failed to map surface contxt with subResource: %d.\n"), hRes);
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::FrameLock failed to map surface contxt with subResource: %d.\n"), hRes);
             return MFX_ERR_LOCK_MEMORY;
         }
     } else {
@@ -159,7 +160,7 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
             DXGI_FORMAT_AYUV
             );
         if (std::find(SUPPORTED_FORMATS.begin(), SUPPORTED_FORMATS.end(), desc.Format) == SUPPORTED_FORMATS.end()) {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::FrameLock unsupported format.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::FrameLock unsupported format.\n"));
             return MFX_ERR_UNSUPPORTED;
         }
 
@@ -175,7 +176,7 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         } while (DXGI_ERROR_WAS_STILL_DRAWING == hRes);
 
         if (FAILED(hRes)) {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::FrameLock failed to map surface: %d.\n"), hRes);
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::FrameLock failed to map surface: %d.\n"), hRes);
             return MFX_ERR_LOCK_MEMORY;
         }
     }
@@ -273,7 +274,7 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         default:
             return MFX_ERR_LOCK_MEMORY;
     }
-    m_pQSVLog->write(RGY_LOG_TRACE, _T("QSVAllocatorD3D11::FrameLock success.\n"));
+    AddMessage(RGY_LOG_TRACE, _T("QSVAllocatorD3D11::FrameLock success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -302,7 +303,7 @@ mfxStatus QSVAllocatorD3D11::FrameUnlock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->G     = nullptr;
         ptr->B     = nullptr;
     }
-    m_pQSVLog->write(RGY_LOG_TRACE, _T("QSVAllocatorD3D11::FrameUnlock success.\n"));
+    AddMessage(RGY_LOG_TRACE, _T("QSVAllocatorD3D11::FrameUnlock success.\n"));
     return MFX_ERR_NONE;
 }
 
@@ -351,12 +352,12 @@ mfxStatus QSVAllocatorD3D11::ReleaseResponse(mfxFrameAllocResponse *response) {
             m_memIdMap.clear();
         }
     }
-    m_pQSVLog->write(RGY_LOG_TRACE, _T("QSVAllocatorD3D11::ReleaseResponse success.\n"));
+    AddMessage(RGY_LOG_TRACE, _T("QSVAllocatorD3D11::ReleaseResponse success.\n"));
     return MFX_ERR_NONE;
 }
 mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllocResponse *response) {
     if (fourccToDXGIFormat.find(request->Info.FourCC) == fourccToDXGIFormat.end()) {
-        m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl unsupported format.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl unsupported format.\n"));
         return MFX_ERR_UNSUPPORTED;
     }
     const DXGI_FORMAT colorFormat = fourccToDXGIFormat.at(request->Info.FourCC);
@@ -374,7 +375,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
 
         ID3D11Buffer *buffer = nullptr;
         if (FAILED(hr = m_initParams.pDevice->CreateBuffer(&desc, 0, &buffer))) {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to create buffer: %d.\n"), hr);
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to create buffer: %d.\n"), hr);
             return MFX_ERR_MEMORY_ALLOC;
         }
         newTexture.textures.push_back(reinterpret_cast<ID3D11Texture2D *>(buffer));
@@ -398,7 +399,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
              (DXGI_FORMAT_R10G10B10A2_UNORM == desc.Format) ||
              (DXGI_FORMAT_R16G16B16A16_UNORM == desc.Format)) {
             desc.BindFlags = D3D11_BIND_RENDER_TARGET;
-            m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl set D3D11_BIND_RENDER_TARGET.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl set D3D11_BIND_RENDER_TARGET.\n"));
             if (desc.ArraySize > 2) {
                 return MFX_ERR_MEMORY_ALLOC;
             }
@@ -407,7 +408,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
         if ( (MFX_MEMTYPE_FROM_VPPOUT & request->Type) ||
              (MFX_MEMTYPE_VIDEO_MEMORY_PROCESSOR_TARGET & request->Type)) {
             desc.BindFlags = D3D11_BIND_RENDER_TARGET;
-            m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl set D3D11_BIND_RENDER_TARGET.\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl set D3D11_BIND_RENDER_TARGET.\n"));
             if (desc.ArraySize > 2) {
                 return MFX_ERR_MEMORY_ALLOC;
             }
@@ -417,13 +418,13 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
             desc.BindFlags = 0;
         }
 
-        m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl create %d textures, %d staging textures (ArraySize: %d).\n"),
+        AddMessage(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl create %d textures, %d staging textures (ArraySize: %d).\n"),
             request->NumFrameSuggested / desc.ArraySize, request->NumFrameSuggested, desc.ArraySize);
         ID3D11Texture2D *pTexture2D = nullptr;
 
         for (size_t i = 0; i < request->NumFrameSuggested / desc.ArraySize; i++) {
             if (FAILED(hr = m_initParams.pDevice->CreateTexture2D(&desc, NULL, &pTexture2D))) {
-                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to CreateTexture2D(textures) #%d: %d.\n"), i, hr);
+                AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to CreateTexture2D(textures) #%d: %d.\n"), i, hr);
                 return MFX_ERR_MEMORY_ALLOC;
             }
             newTexture.textures.push_back(pTexture2D);
@@ -437,12 +438,12 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
 
         for (size_t i = 0; i < request->NumFrameSuggested; i++) {
             if (FAILED(m_initParams.pDevice->CreateTexture2D(&desc, NULL, &pTexture2D))) {
-                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to CreateTexture2D(stagingTexture) #%d: %d.\n"), i, hr);
+                AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to CreateTexture2D(stagingTexture) #%d: %d.\n"), i, hr);
                 return MFX_ERR_MEMORY_ALLOC;
             }
             newTexture.stagingTexture.push_back(pTexture2D);
         }
-        m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl CreateTexture Success.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl CreateTexture Success.\n"));
     }
 
     mfxHDL curId = m_resourcesByRequest.empty() ? 0 :  m_resourcesByRequest.back().outerMids.back();
@@ -458,7 +459,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
     response->NumFrameActual = request->NumFrameSuggested;
     auto it_last = m_resourcesByRequest.end();
     std::fill_n(std::back_inserter(m_memIdMap), request->NumFrameSuggested, --it_last);
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl Success.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("QSVAllocatorD3D11::AllocImpl Success.\n"));
     return MFX_ERR_NONE;
 }
 

@@ -148,6 +148,10 @@ protected:
         }
     };
 
+    void AddMessage(RGYLogLevel log_level, const tstring &str);
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...);
+
+    tstring m_name;
     std::list<mfxFrameAllocResponse> m_responses;
     std::list<UniqueResponse> m_ExtResponses;
     std::shared_ptr<RGYLog> m_pQSVLog;

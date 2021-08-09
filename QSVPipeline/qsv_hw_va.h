@@ -79,6 +79,7 @@ class CVAAPIDeviceX11 : public CQSVHWDevice
 public:
     CVAAPIDeviceX11(std::shared_ptr<RGYLog> pQSVLog) : CQSVHWDevice(pQSVLog), m_window(NULL), m_X11LibVA(pQSVLog)
     {
+        m_name = _T("vaX11");
         m_window = NULL;
         m_nRenderWinX=0;
         m_nRenderWinY=0;
@@ -134,6 +135,7 @@ class CVAAPIDeviceWayland : public CQSVHWDevice
 {
 public:
     CVAAPIDeviceWayland(std::shared_ptr<RGYLog> pQSVLog) : CQSVHWDevice(pQSVLog){
+        m_name = _T("vaWayland");
         m_nRenderWinX = 0;
         m_nRenderWinY = 0;
         m_nRenderWinW = 0;

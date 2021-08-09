@@ -257,7 +257,7 @@ RGY_ERR QSVMfxDec::Init() {
     //もちろん、m_pmfxVPP->Init自体がエラーを返した時にはきちんとログに残す。
     const auto log_level = logTemporarilyIgnoreErrorMes();
     auto err = err_to_rgy(m_mfxDec->Init(&m_mfxDecParams));
-    m_log->setLogLevel(log_level);
+    m_log->setLogLevelAll(log_level);
     if (err == RGY_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on dec.\n"));
         err = RGY_ERR_NONE;
@@ -298,12 +298,12 @@ rgy_rational<int> QSVMfxDec::GetOutFps() const {
     return rgy_rational<int>(mfxOut.FrameRateExtN, mfxOut.FrameRateExtD);
 }
 
-void QSVMfxDec::PrintMes(int log_level, const TCHAR *format, ...) {
+void QSVMfxDec::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
     if (m_log.get() == nullptr) {
         if (log_level <= RGY_LOG_INFO) {
             return;
         }
-    } else if (log_level < m_log->getLogLevel()) {
+    } else if (log_level < m_log->getLogLevel(RGY_LOGT_DEC)) {
         return;
     }
 
@@ -315,10 +315,10 @@ void QSVMfxDec::PrintMes(int log_level, const TCHAR *format, ...) {
     _vstprintf_s(buffer.data(), len, format, args);
     va_end(args);
 
-    tstring mes = tstring(_T("MFXVPP: ")) + buffer.data();
+    tstring mes = tstring(_T("MFXDEC: ")) + buffer.data();
 
     if (m_log.get() != nullptr) {
-        m_log->write(log_level, mes.c_str());
+        m_log->write(log_level, RGY_LOGT_DEC, mes.c_str());
     } else {
         _ftprintf(stderr, _T("%s"), mes.c_str());
     }
@@ -341,12 +341,14 @@ RGY_ERR QSVMfxDec::CheckParamList(int value, const CX_DESC *list, const char *pa
     return RGY_ERR_INVALID_VIDEO_PARAM;
 }
 
-int QSVMfxDec::logTemporarilyIgnoreErrorMes() {
+RGYParamLogLevel QSVMfxDec::logTemporarilyIgnoreErrorMes() {
     //MediaSDK内のエラーをRGY_LOG_DEBUG以下の時以外には一時的に無視するようにする。
     //RGY_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
-    const auto log_level = m_log->getLogLevel();
-    if (log_level >= RGY_LOG_MORE) {
-        m_log->setLogLevel(RGY_LOG_QUIET); //一時的にエラーを無視
+    const auto log_level = m_log->getLogLevelAll();
+    if (   log_level.get(RGY_LOGT_CORE) >= RGY_LOG_MORE
+        || log_level.get(RGY_LOGT_DEC)  >= RGY_LOG_MORE
+        || log_level.get(RGY_LOGT_DEV)  >= RGY_LOG_MORE) {
+        m_log->setLogLevel(RGY_LOG_QUIET, RGY_LOGT_ALL); //一時的にエラーを無視
     } else {
         PrintMes(RGY_LOG_DEBUG, _T("There might be error below, but it might be internal error which could be ignored.\n"));
     }

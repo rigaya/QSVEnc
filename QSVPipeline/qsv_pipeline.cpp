@@ -112,9 +112,9 @@ RGY_ERR CreateAllocatorImpl(
     std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,
     const MemType memType, CQSVHWDevice *hwdev, MFXVideoSession& session, std::shared_ptr<RGYLog>& log) {
     auto sts = RGY_ERR_NONE;
-    if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(memType));
+    if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(memType));
 
-#define CA_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { if (log) log->write(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
+#define CA_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
 
     std::unique_ptr<mfxAllocatorParams> allocParams;
     if (D3D9_MEMORY == memType || D3D11_MEMORY == memType || VA_MEMORY == memType || HW_MEMORY == memType) {
@@ -124,31 +124,31 @@ RGY_ERR CreateAllocatorImpl(
         if (hdl_t) {
             sts = err_to_rgy(hwdev->GetHandle(hdl_t, &hdl));
             if (sts != RGY_ERR_NONE) {
-                if (log) log->write(RGY_LOG_ERROR, _T("Failed to get HW device handle: %s.\n"), get_err_mes(sts));
+                if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to get HW device handle: %s.\n"), get_err_mes(sts));
                 return sts;
             }
         }
         //D3D allocatorを作成
 #if MFX_D3D11_SUPPORT
         if (D3D11_MEMORY == memType) {
-            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d11 allocator.\n"));
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: Create d3d11 allocator.\n"));
             allocator.reset(new QSVAllocatorD3D11);
             if (!allocator) {
-                if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
+                if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
                 return RGY_ERR_MEMORY_ALLOC;
             }
             auto allocParamsD3D11 = std::make_unique<QSVAllocatorParamsD3D11>();
             allocParamsD3D11->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
-            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: d3d11...\n"));
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: d3d11...\n"));
 
             allocParams.reset(allocParamsD3D11.release());
         } else
 #endif // #if MFX_D3D11_SUPPORT
         {
-            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: Create d3d9 allocator.\n"));
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: Create d3d9 allocator.\n"));
             allocator.reset(new QSVAllocatorD3D9);
             if (!allocator) {
-                if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
+                if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
                 return RGY_ERR_MEMORY_ALLOC;
             }
 
@@ -160,7 +160,7 @@ RGY_ERR CreateAllocatorImpl(
             //しかし、これを取得しようとするとWin7のSandybridge環境ではデコードが正常に行われなくなってしまう問題があるとの報告を受けた
             //そのため、shared_handleを取得するのは、SandyBridgeでない環境に限るようにする
             allocParamsD3D9->getSharedHandle = getCPUGen(&session) != CPU_GEN_SANDYBRIDGE;
-            if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: d3d9 (getSharedHandle = %s)...\n"), allocParamsD3D9->getSharedHandle ? _T("true") : _T("false"));
+            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: d3d9 (getSharedHandle = %s)...\n"), allocParamsD3D9->getSharedHandle ? _T("true") : _T("false"));
 
             allocParams.reset(allocParamsD3D9.release());
         }
@@ -169,7 +169,7 @@ RGY_ERR CreateAllocatorImpl(
         //mfxSessionにallocatorを渡してやる必要がある
         sts = err_to_rgy(session.SetFrameAllocator(allocator.get()));
         CA_ERR(sts, _T("Failed to set frame allocator to encode session."));
-        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
+        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: frame allocator set to session.\n"));
 
         externalAlloc = true;
 #endif
@@ -177,12 +177,12 @@ RGY_ERR CreateAllocatorImpl(
         mfxHDL hdl = NULL;
         sts = err_to_rgy(hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
         CA_ERR(sts, _T("Failed to get HW device handle."));
-        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
+        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
 
         //VAAPI allocatorを作成
         allocator.reset(new QSVAllocatorVA());
         if (!allocator) {
-            if (log) log->write(RGY_LOG_ERROR, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
+            if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
 
@@ -194,7 +194,7 @@ RGY_ERR CreateAllocatorImpl(
         //mfxSessionにallocatorを渡してやる必要がある
         sts = err_to_rgy(session.SetFrameAllocator(allocator.get()));
         CA_ERR(sts, _T("Failed to set frame allocator to encode session."));
-        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator set to session.\n"));
+        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: frame allocator set to session.\n"));
 
         externalAlloc = true;
 #endif
@@ -204,15 +204,15 @@ RGY_ERR CreateAllocatorImpl(
         if (!allocator) {
             return RGY_ERR_MEMORY_ALLOC;
         }
-        if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: sys mem allocator...\n"));
+        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: sys mem allocator...\n"));
     }
 
     //メモリallocatorの初期化
     if (RGY_ERR_NONE > (sts = err_to_rgy(allocator->Init(allocParams.get(), log)))) {
-        if (log) log->write(RGY_LOG_ERROR, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(memType), get_err_mes(sts));
+        if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(memType), get_err_mes(sts));
         return sts;
     }
-    if (log) log->write(RGY_LOG_DEBUG, _T("CreateAllocator: frame allocator initialized.\n"));
+    if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: frame allocator initialized.\n"));
 #undef CA_ERR
     return RGY_ERR_NONE;
 }
@@ -500,7 +500,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         return RGY_ERR_NONE;
     }
     const mfxU32 blocksz = (pInParams->CodecId == MFX_CODEC_HEVC) ? 32 : 16;
-    auto print_feature_warnings = [this](int log_level, const TCHAR *feature_name) {
+    auto print_feature_warnings = [this](RGYLogLevel log_level, const TCHAR *feature_name) {
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
 
@@ -532,7 +532,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
-        const int rc_error_log_level = (pInParams->nFallback) ? RGY_LOG_WARN : RGY_LOG_ERROR;
+        const auto rc_error_log_level = (pInParams->nFallback) ? RGY_LOG_WARN : RGY_LOG_ERROR;
         PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
@@ -3218,12 +3218,15 @@ void CQSVPipeline::Close() {
     }
 }
 
-int CQSVPipeline::logTemporarilyIgnoreErrorMes() {
+RGYParamLogLevel CQSVPipeline::logTemporarilyIgnoreErrorMes() {
     //MediaSDK内のエラーをRGY_LOG_DEBUG以下の時以外には一時的に無視するようにする。
     //RGY_LOG_DEBUG以下の時にも、「無視できるエラーが発生するかもしれない」ことをログに残す。
-    const auto log_level = m_pQSVLog->getLogLevel();
-    if (log_level >= RGY_LOG_MORE) {
-        m_pQSVLog->setLogLevel(RGY_LOG_QUIET); //一時的にエラーを無視
+    const auto log_level = m_pQSVLog->getLogLevelAll();
+    if (   log_level.get(RGY_LOGT_CORE) >= RGY_LOG_MORE
+        || log_level.get(RGY_LOGT_DEC)  >= RGY_LOG_MORE
+        || log_level.get(RGY_LOGT_VPP)  >= RGY_LOG_MORE
+        || log_level.get(RGY_LOGT_DEV)  >= RGY_LOG_MORE) {
+        m_pQSVLog->setLogLevel(RGY_LOG_QUIET, RGY_LOGT_ALL); //一時的にエラーを無視
     } else {
         PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: there might be error below, but it might be internal error which could be ignored.\n"));
     }
@@ -3241,7 +3244,7 @@ RGY_ERR CQSVPipeline::InitMfxEncode() {
     m_prmSetIn.cop3 = m_CodingOption3;
     m_prmSetIn.hevc = m_ExtHEVCParam;
     auto sts = err_to_rgy(m_pmfxENC->Init(&m_mfxEncParams));
-    m_pQSVLog->setLogLevel(log_level);
+    m_pQSVLog->setLogLevelAll(log_level);
     if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on Encoding.\n"));
         sts = RGY_ERR_NONE;
@@ -3269,7 +3272,7 @@ RGY_ERR CQSVPipeline::InitMfxDec() {
     }
     const auto log_level = logTemporarilyIgnoreErrorMes();
     auto sts = m_mfxDEC->Init();
-    m_pQSVLog->setLogLevel(log_level);
+    m_pQSVLog->setLogLevelAll(log_level);
     if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on decoding.\n"));
         sts = RGY_ERR_NONE;
@@ -3645,12 +3648,12 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     return (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
 }
 
-void CQSVPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
+void CQSVPipeline::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
     if (m_pQSVLog.get() == nullptr) {
         if (log_level <= RGY_LOG_INFO) {
             return;
         }
-    } else if (log_level < m_pQSVLog->getLogLevel()) {
+    } else if (log_level < m_pQSVLog->getLogLevel(RGY_LOGT_CORE)) {
         return;
     }
 
@@ -3663,7 +3666,7 @@ void CQSVPipeline::PrintMes(int log_level, const TCHAR *format, ...) {
     va_end(args);
 
     if (m_pQSVLog.get() != nullptr) {
-        m_pQSVLog->write(log_level, buffer.data());
+        m_pQSVLog->write(log_level, RGY_LOGT_CORE, buffer.data());
     } else {
         _ftprintf(stderr, _T("%s"), buffer.data());
     }

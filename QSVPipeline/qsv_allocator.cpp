@@ -104,9 +104,9 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
         return MFX_ERR_MEMORY_ALLOC;
     }
     mfxStatus sts = MFX_ERR_NONE;
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: FrameAlloc: %s, %d frames.\n"), qsv_memtype_str(request->Type).c_str(), request->NumFrameSuggested);
+    AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: FrameAlloc: %s, %d frames.\n"), qsv_memtype_str(request->Type).c_str(), request->NumFrameSuggested);
     if (MFX_ERR_NONE != (sts = CheckRequestType(request))) {
-        m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: Failed CheckRequestType: %s\n"), get_err_mes(sts));
+        AddMessage(RGY_LOG_ERROR, _T("QSVAllocator: Failed CheckRequestType: %s\n"), get_err_mes(sts));
         return MFX_ERR_UNSUPPORTED;
     }
 
@@ -119,7 +119,7 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
          (request->Type & (MFX_MEMTYPE_FROM_ENC | MFX_MEMTYPE_FROM_PAK)))
        ) {
         //external
-        m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: Allocate type external.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: Allocate type external.\n"));
         bool foundInCache = false;
         // external decoder allocations
         std::list<UniqueResponse>::iterator
@@ -131,7 +131,7 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
             if (request->AllocId == it->AllocId && checker(*it)) {
                 // check if enough frames were allocated
                 if (request->NumFrameSuggested > it->NumFrameActual) {
-                    m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: NumFrameSuggested > it->NumFrameActual\n"));
+                    AddMessage(RGY_LOG_ERROR, _T("QSVAllocator: NumFrameSuggested > it->NumFrameActual\n"));
                     return MFX_ERR_MEMORY_ALLOC;
                 }
 
@@ -147,24 +147,24 @@ mfxStatus QSVAllocator::FrameAlloc(mfxFrameAllocRequest *request, mfxFrameAllocR
                 response->AllocId = request->AllocId;
                 m_ExtResponses.push_back(UniqueResponse(*response, request->Info.Width, request->Info.Height, UniqueResponse::CropMemoryTypeToStore(request->Type)));
             } else {
-                m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: Failed Allocate type external: %s\n"), get_err_mes(sts));
+                AddMessage(RGY_LOG_ERROR, _T("QSVAllocator: Failed Allocate type external: %s\n"), get_err_mes(sts));
                 return sts;
             }
         }
     } else {
         //internal
-        m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: Allocate type internal.\n"));
+        AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: Allocate type internal.\n"));
         m_responses.push_back(mfxFrameAllocResponse());
         sts = AllocImpl(request, response);
         if (sts == MFX_ERR_NONE) {
             m_responses.back() = *response;
         } else {
             m_responses.pop_back();
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("QSVAllocator: Failed Allocate type internal: %s\n"), get_err_mes(sts));
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocator: Failed Allocate type internal: %s\n"), get_err_mes(sts));
             return sts;
         }
     }
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: FrameAlloc success.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: FrameAlloc success.\n"));
     return sts;
 }
 
@@ -173,7 +173,7 @@ mfxStatus QSVAllocator::FrameFree(mfxFrameAllocResponse *response) {
         return MFX_ERR_INVALID_HANDLE;
 
     mfxStatus sts = MFX_ERR_NONE;
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: FrameFree...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: FrameFree...\n"));
 
     auto compare_response = [response](const mfxFrameAllocResponse & r) {
         return r.mids != 0 && response->mids != 0 && r.mids[0] == response->mids[0] && r.NumFrameActual == response->NumFrameActual;
@@ -188,7 +188,7 @@ mfxStatus QSVAllocator::FrameFree(mfxFrameAllocResponse *response) {
         }
         return sts;
     }
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: FrameFree external success.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: FrameFree external success.\n"));
 
     //internal responsesを検索
     auto it2 = std::find_if(m_responses.begin(), m_responses.end(), compare_response);
@@ -197,7 +197,7 @@ mfxStatus QSVAllocator::FrameFree(mfxFrameAllocResponse *response) {
         m_responses.erase(it2);
         return sts;
     }
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: FrameFree internal success.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: FrameFree internal success.\n"));
     return MFX_ERR_INVALID_HANDLE;
 }
 
@@ -210,7 +210,33 @@ mfxStatus QSVAllocator::Close() {
     for (auto it2 = m_responses.begin(); it2 != m_responses.end(); it2++) {
         ReleaseResponse(&*it2);
     }
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("QSVAllocator: Closed.\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("QSVAllocator: Closed.\n"));
     m_pQSVLog.reset();
     return MFX_ERR_NONE;
+}
+
+void QSVAllocator::AddMessage(RGYLogLevel log_level, const tstring &str) {
+    if (m_pQSVLog == nullptr || log_level < m_pQSVLog->getLogLevel(RGY_LOGT_DEV)) {
+        return;
+    }
+    auto lines = split(str, _T("\n"));
+    for (const auto &line : lines) {
+        if (line[0] != _T('\0')) {
+            m_pQSVLog->write(log_level, RGY_LOGT_DEV, (m_name + _T(": ") + line + _T("\n")).c_str());
+        }
+    }
+}
+void QSVAllocator::AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+    if (m_pQSVLog == nullptr || log_level < m_pQSVLog->getLogLevel(RGY_LOGT_DEV)) {
+        return;
+    }
+
+    va_list args;
+    va_start(args, format);
+    int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+    tstring buffer;
+    buffer.resize(len, _T('\0'));
+    _vstprintf_s(&buffer[0], len, format, args);
+    va_end(args);
+    AddMessage(log_level, buffer);
 }

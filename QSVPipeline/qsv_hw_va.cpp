@@ -48,7 +48,7 @@ CVAAPIDeviceX11::~CVAAPIDeviceX11(void)
 
 mfxStatus CVAAPIDeviceX11::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum)
 {
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("VAAPIDeviceX11: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
+    AddMessage(RGY_LOG_DEBUG, _T("VAAPIDeviceX11: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
     mfxStatus mfx_res = MFX_ERR_NONE;
     Window *window = NULL;
 
@@ -97,14 +97,14 @@ mfxStatus CVAAPIDeviceX11::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapt
     m_dri_fd = open("/dev/dri/renderD128", O_RDWR);
     if (m_dri_fd < 0)
     {
-        m_pQSVLog->write(RGY_LOG_ERROR, _T("ed to open dri device\n"));
+        AddMessage(RGY_LOG_ERROR, _T("ed to open dri device\n"));
         return MFX_ERR_NOT_INITIALIZED;
     }
 
     m_bufmgr = drmintellib.drm_intel_bufmgr_gem_init(m_dri_fd, 4096);
     if (!m_bufmgr)
     {
-        m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to get buffer manager\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Failed to get buffer manager\n"));
         return MFX_ERR_NOT_INITIALIZED;
     }
 
@@ -245,7 +245,7 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAlloc
 
     if (memId && memId->m_buffer_info.mem_type != VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME)
     {
-        m_pQSVLog->write(RGY_LOG_ERROR, _T("Memory type invalid!\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Memory type invalid!\n"));
         return MFX_ERR_UNSUPPORTED;
     }
 
@@ -270,7 +270,7 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAlloc
             bpp = 32;
             break;
         default:
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("Invalid depth\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Invalid depth\n"));
         }
 
         width = pSurface->Info.CropX + pSurface->Info.CropW;
@@ -282,14 +282,14 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAlloc
         bo = drmintellib.drm_intel_bo_gem_create_from_prime(m_bufmgr, memId->m_buffer_info.handle, size);
         if (!bo)
         {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to create buffer object\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to create buffer object\n"));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
         drmintellib.drm_intel_bo_gem_export_to_prime(bo, &fd);
         if (!fd)
         {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("Invalid fd\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Invalid fd\n"));
             return MFX_ERR_INVALID_HANDLE;
         }
 
@@ -300,7 +300,7 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAlloc
         cookie = dri3lib.xcb_dri3_pixmap_from_buffer_checked(m_xcbconn, pixmap, root, size, width, height, stride, depth, bpp, fd);
         if ((error = xcblib.xcb_request_check(m_xcbconn, cookie)))
         {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to create xcb pixmap from the %s surface: try another color format (e.g. RGB4)\n"),
+            AddMessage(RGY_LOG_ERROR, _T("Failed to create xcb pixmap from the %s surface: try another color format (e.g. RGB4)\n"),
                         ColorFormatToStr(pSurface->Info.FourCC));
             free(error);
             return MFX_ERR_INVALID_HANDLE;
@@ -323,7 +323,7 @@ mfxStatus CVAAPIDeviceX11::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameAlloc
                                                           0, NULL);
         if ((error = xcblib.xcb_request_check(m_xcbconn, cookie)))
         {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("Failed to present pixmap\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to present pixmap\n"));
             free(error);
             return MFX_ERR_UNKNOWN;
         }
@@ -348,7 +348,7 @@ CVAAPIDeviceWayland::~CVAAPIDeviceWayland(void)
 
 mfxStatus CVAAPIDeviceWayland::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum)
 {
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("VAAPIDeviceWayland: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
+    AddMessage(RGY_LOG_DEBUG, _T("VAAPIDeviceWayland: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
     mfxStatus mfx_res = MFX_ERR_NONE;
 
     if (nViews)
@@ -416,7 +416,7 @@ mfxStatus CVAAPIDeviceWayland::RenderFrame(mfxFrameSurface1 *pSurface, mfxFrameA
     m_wl_buffer = m_Wayland->CreatePrimeBuffer(memId->m_buffer_info.handle, pSurface->Info.CropW, pSurface->Info.CropH, drm_format, offsets, pitches);
     if (NULL == m_wl_buffer)
     {
-        m_pQSVLog->write(RGY_LOG_ERROR, _T("\nCan't wrap flink to wl_buffer\n"));
+        AddMessage(RGY_LOG_ERROR, _T("\nCan't wrap flink to wl_buffer\n"));
         mfx_res = MFX_ERR_UNKNOWN;
         return mfx_res;
     }
@@ -443,6 +443,7 @@ CHWDevice *CreateVAAPIDevice(void)
 CVAAPIDeviceDRM::CVAAPIDeviceDRM(const std::string &devicePath, int type, std::shared_ptr<RGYLog> pQSVLog)
     : CQSVHWDevice(pQSVLog), m_DRMLibVA(devicePath, type), m_rndr(NULL)
 {
+    m_name = _T("vadrm");
 }
 
 CVAAPIDeviceDRM::~CVAAPIDeviceDRM(void)
@@ -452,7 +453,7 @@ CVAAPIDeviceDRM::~CVAAPIDeviceDRM(void)
 
 mfxStatus CVAAPIDeviceDRM::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum)
 {
-    m_pQSVLog->write(RGY_LOG_DEBUG, _T("VAAPIDeviceDRM: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
+    AddMessage(RGY_LOG_DEBUG, _T("VAAPIDeviceDRM: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
     if (0 == nViews)
     {
         return MFX_ERR_NONE;
@@ -472,12 +473,12 @@ mfxStatus CVAAPIDeviceDRM::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapt
         }
         catch (...)
         {
-            m_pQSVLog->write(RGY_LOG_ERROR, _T("vaapi_device: failed to initialize drmrender\n"));
+            AddMessage(RGY_LOG_ERROR, _T("vaapi_device: failed to initialize drmrender\n"));
             return MFX_ERR_UNKNOWN;
         }
         return MFX_ERR_NONE;
     }
-    m_pQSVLog->write(RGY_LOG_ERROR, _T("VAAPIDeviceDRM: nViews > 1 not supported.\n"));
+    AddMessage(RGY_LOG_ERROR, _T("VAAPIDeviceDRM: nViews > 1 not supported.\n"));
     return MFX_ERR_UNSUPPORTED;
 }
 

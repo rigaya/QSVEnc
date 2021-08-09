@@ -711,7 +711,7 @@ protected:
     void *m_d3d11dev;
     void *m_vadev;
     std::vector<cl_device_id> m_devices;
-    shared_ptr<RGYLog> m_pLog;
+    shared_ptr<RGYLog> m_log;
 };
 
 template<typename T>
@@ -804,14 +804,14 @@ protected:
     RGYOpenCLQueue &m_queue;
     RGYWorkSize m_local;
     RGYWorkSize m_global;
-    shared_ptr<RGYLog> m_pLog;
+    shared_ptr<RGYLog> m_log;
     std::vector<cl_event> m_wait_events;
     RGYOpenCLEvent *m_event;
 };
 
 class RGYOpenCLKernel {
 public:
-    RGYOpenCLKernel() : m_kernel(), m_kernelName(), m_pLog() {};
+    RGYOpenCLKernel() : m_kernel(), m_kernelName(), m_log() {};
     RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog);
     cl_kernel get() const { return m_kernel; }
     const std::string& name() const { return m_kernelName; }
@@ -820,7 +820,7 @@ public:
 protected:
     cl_kernel m_kernel;
     std::string m_kernelName;
-    shared_ptr<RGYLog> m_pLog;
+    shared_ptr<RGYLog> m_log;
 };
 
 class RGYOpenCLKernelHolder {
@@ -833,7 +833,7 @@ public:
     RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
 protected:
     RGYOpenCLKernel *m_kernel;
-    shared_ptr<RGYLog> m_pLog;
+    shared_ptr<RGYLog> m_log;
 };
 
 class RGYOpenCLProgram {
@@ -845,7 +845,7 @@ public:
     std::vector<uint8_t> getBinary();
 protected:
     cl_program m_program;
-    shared_ptr<RGYLog> m_pLog;
+    shared_ptr<RGYLog> m_log;
     std::vector<std::unique_ptr<RGYOpenCLKernel>> m_kernels;
 };
 
@@ -944,7 +944,7 @@ protected:
     shared_ptr<RGYOpenCLPlatform> m_platform;
     unique_context m_context;
     std::vector<RGYOpenCLQueue> m_queue;
-    shared_ptr<RGYLog> m_pLog;
+    shared_ptr<RGYLog> m_log;
     unique_ptr<RGYOpenCLProgram> m_copyI2B;
     unique_ptr<RGYOpenCLProgram> m_copyB2I;
     unique_ptr<RGYOpenCLProgram> m_copyB2B;
@@ -966,7 +966,7 @@ public:
     std::vector<shared_ptr<RGYOpenCLPlatform>> getPlatforms(const char *vendor = nullptr);
     static bool openCLloaded() { return openCLHandle != nullptr; };
 protected:
-    shared_ptr<RGYLog> m_pLog;
+    shared_ptr<RGYLog> m_log;
 };
 
 int initOpenCLGlobal();

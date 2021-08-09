@@ -127,7 +127,7 @@ RGY_ERR RGYFilterDeband::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInf
 
         auto err = procPlane(&planeDst, &planeSrc, &frameRnd, range_plane, dither_range, threshold_float, field_mask, iplane, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to denoise(deband) frame(%d) %s: %s\n"), i, cl_errmes(err));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(deband) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
         }
     }

@@ -37,7 +37,7 @@
 
 #if ENABLE_OPENCL
 
-#define LOG_IF_EXIST(...)  { if (m_pLog) { m_pLog->write(__VA_ARGS__); } }
+#define CL_LOG(level, ...)  { if (m_log) { m_log->write(level, RGY_LOGT_OPENCL, __VA_ARGS__); } }
 
 HMODULE RGYOpenCL::openCLHandle = nullptr;
 
@@ -461,7 +461,7 @@ tstring RGYOpenCLDevice::infostr() const {
     return char_to_tstring(ts.str());
 }
 
-RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog> pLog) : m_platform(platform), m_d3d9dev(nullptr), m_d3d11dev(nullptr), m_vadev(nullptr), m_devices(), m_pLog(pLog) {
+RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog> pLog) : m_platform(platform), m_d3d9dev(nullptr), m_d3d11dev(nullptr), m_vadev(nullptr), m_devices(), m_log(pLog) {
 }
 
 #define LOAD_KHR(name) \
@@ -469,11 +469,11 @@ RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog>
         try { \
             f_##name = (decltype(f_##name))clGetExtensionFunctionAddressForPlatform(m_platform, #name); \
             if ((name) == nullptr) { \
-                m_pLog->write(RGY_LOG_ERROR, _T("Failed to load function %s\n"), char_to_tstring(#name).c_str()); \
+                CL_LOG(RGY_LOG_ERROR, _T("Failed to load function %s\n"), char_to_tstring(#name).c_str()); \
                 return RGY_ERR_NOT_FOUND; \
             } \
         }  catch (...) { \
-            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetExtensionFunctionAddressForPlatform)\n")); \
+            CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetExtensionFunctionAddressForPlatform)\n")); \
             RGYOpenCL::openCLCrush = true; \
             return RGY_ERR_OPENCL_CRUSH; \
         } \
@@ -487,7 +487,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("createDeviceListD3D11(d3d11dev = %p)\n"), d3d11dev);
+    CL_LOG(RGY_LOG_DEBUG, _T("createDeviceListD3D11(d3d11dev = %p)\n"), d3d11dev);
 
     auto ret = RGY_ERR_NONE;
     cl_uint device_count = 0;
@@ -506,13 +506,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
             if ((ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
                 select_dev_type = CL_ALL_DEVICES_FOR_D3D11_KHR;
                 if ((ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
-                    m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromD3D11KHR): %s\n"), get_err_mes(ret));
+                    CL_LOG(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromD3D11KHR): %s\n"), get_err_mes(ret));
                     return ret;
                 }
             }
-            m_pLog->write(RGY_LOG_DEBUG, _T("D3D11 device count = %d\n"), device_count);
+            CL_LOG(RGY_LOG_DEBUG, _T("D3D11 device count = %d\n"), device_count);
         } catch (...) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromD3D11KHR)\n"));
+            CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromD3D11KHR)\n"));
             RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
             return RGY_ERR_OPENCL_CRUSH;
         }
@@ -521,13 +521,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
             try {
                 ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, device_count, devs.data(), &device_count));
             } catch (...) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromD3D11KHR)\n"));
+                CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromD3D11KHR)\n"));
                 RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
                 return RGY_ERR_OPENCL_CRUSH;
             }
             if (ret == RGY_ERR_NONE) {
                 m_devices = devs;
-                m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromD3D11KHR: Success\n"));
+                CL_LOG(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromD3D11KHR: Success\n"));
                 return ret;
             }
         }
@@ -545,7 +545,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("createDeviceListD3D9(d3d9dev = %p)\n"), d3d9dev);
+    CL_LOG(RGY_LOG_DEBUG, _T("createDeviceListD3D9(d3d9dev = %p)\n"), d3d9dev);
 
     auto ret = RGY_ERR_NONE;
     cl_uint device_count = 1;
@@ -557,7 +557,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
     }
     if (d3d9dev) {
         if (clGetDeviceIDsFromDX9MediaAdapterKHR) {
-            m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9MediaAdapterKHR(d3d9dev = %p)\n"), d3d9dev);
+            CL_LOG(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9MediaAdapterKHR(d3d9dev = %p)\n"), d3d9dev);
             m_d3d9dev = d3d9dev;
             std::vector<cl_device_id> devs(device_count, 0);
             try {
@@ -569,13 +569,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
                 }
             }
             catch (...) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9MediaAdapterKHR)\n"));
+                CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9MediaAdapterKHR)\n"));
                 RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
                 return RGY_ERR_OPENCL_CRUSH;
             }
             if (ret == RGY_ERR_NONE) {
                 m_devices = devs;
-                m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9MediaAdapterKHR: Success\n"));
+                CL_LOG(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9MediaAdapterKHR: Success\n"));
                 return ret;
             }
         }
@@ -591,7 +591,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
                 LOAD_KHR(clEnqueueAcquireDX9ObjectsINTEL);
                 LOAD_KHR(clEnqueueReleaseDX9ObjectsINTEL);
                 if (clGetDeviceIDsFromDX9INTEL) {
-                    m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9INTEL(d3d9dev = %p)\n"), d3d9dev);
+                    CL_LOG(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9INTEL(d3d9dev = %p)\n"), d3d9dev);
                     device_count = 1;
                     std::vector<cl_device_id> devs(device_count, 0);
                     try {
@@ -599,13 +599,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
                         ret = err_cl_to_rgy(clGetDeviceIDsFromDX9INTEL(m_platform, CL_D3D9EX_DEVICE_INTEL, d3d9dev, CL_PREFERRED_DEVICES_FOR_DX9_INTEL, device_count, devs.data(), &device_count));
                     }
                     catch (...) {
-                        m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9INTEL)\n"));
+                        CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9INTEL)\n"));
                         RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
                         return RGY_ERR_OPENCL_CRUSH;
                     }
                     if (ret == RGY_ERR_NONE) {
                         m_devices = devs;
-                        m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9INTEL: Success\n"));
+                        CL_LOG(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromDX9INTEL: Success\n"));
                         return ret;
                     }
                 }
@@ -626,7 +626,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL(vadev = %p)\n"), vadev);
+    CL_LOG(RGY_LOG_DEBUG, _T("f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL(vadev = %p)\n"), vadev);
 
     auto ret = RGY_ERR_NONE;
     cl_uint device_count = 0;
@@ -643,13 +643,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *
             if ((ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
                 select_dev_type = CL_ALL_DEVICES_FOR_VA_API_INTEL;
                 if ((ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
-                    m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromVA_APIMediaAdapterINTEL): %s\n"), get_err_mes(ret));
+                    CL_LOG(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromVA_APIMediaAdapterINTEL): %s\n"), get_err_mes(ret));
                     return ret;
                 }
             }
-            m_pLog->write(RGY_LOG_DEBUG, _T("VA device count = %d\n"), device_count);
+            CL_LOG(RGY_LOG_DEBUG, _T("VA device count = %d\n"), device_count);
         } catch (...) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromVA_APIMediaAdapterINTEL)\n"));
+            CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromVA_APIMediaAdapterINTEL)\n"));
             RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
             return RGY_ERR_OPENCL_CRUSH;
         }
@@ -658,13 +658,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *
             try {
                 ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, device_count, devs.data(), &device_count));
             } catch (...) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromVA_APIMediaAdapterINTEL)\n"));
+                CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromVA_APIMediaAdapterINTEL)\n"));
                 RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
                 return RGY_ERR_OPENCL_CRUSH;
             }
             if (ret == RGY_ERR_NONE) {
                 m_devices = devs;
-                m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromVA_APIMediaAdapterINTEL: Success\n"));
+                CL_LOG(RGY_LOG_DEBUG, _T("clGetDeviceIDsFromVA_APIMediaAdapterINTEL: Success\n"));
                 return ret;
             }
         }
@@ -687,7 +687,7 @@ RGYOpenCLSubGroupSupport RGYOpenCLPlatform::checkSubGroupSupport(const cl_device
         return RGYOpenCLSubGroupSupport::NONE;
     }
     RGYOpenCLDevice device(devid);
-    m_pLog->write(RGY_LOG_DEBUG, _T("checkSubGroupSupport\n"));
+    CL_LOG(RGY_LOG_DEBUG, _T("checkSubGroupSupport\n"));
     if (checkVersion(2, 2) && device.checkVersion(2, 2) && clGetKernelSubGroupInfo) {
         return RGYOpenCLSubGroupSupport::STD22;
     }
@@ -709,12 +709,12 @@ RGY_ERR RGYOpenCLPlatform::createDeviceList(cl_device_type device_type) {
     cl_uint device_count = 0;
     try {
         if ((ret = err_cl_to_rgy(clGetDeviceIDs(m_platform, device_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetDeviceIDs): %s\n"), get_err_mes(ret));
+            CL_LOG(RGY_LOG_ERROR, _T("Error (clGetDeviceIDs): %s\n"), get_err_mes(ret));
             return ret;
         }
-        m_pLog->write(RGY_LOG_DEBUG, _T("OpenCL device count = %d\n"), device_count);
+        CL_LOG(RGY_LOG_DEBUG, _T("OpenCL device count = %d\n"), device_count);
     } catch (...) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDs)\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDs)\n"));
         RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
         return RGY_ERR_OPENCL_CRUSH;
     }
@@ -723,13 +723,13 @@ RGY_ERR RGYOpenCLPlatform::createDeviceList(cl_device_type device_type) {
         try {
             ret = err_cl_to_rgy(clGetDeviceIDs(m_platform, device_type, device_count, devs.data(), &device_count));
         } catch (...) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDs)\n"));
+            CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDs)\n"));
             RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
             return RGY_ERR_OPENCL_CRUSH;
         }
         if (ret == RGY_ERR_NONE) {
             m_devices = devs;
-            m_pLog->write(RGY_LOG_DEBUG, _T("clGetDeviceIDs: Success\n"));
+            CL_LOG(RGY_LOG_DEBUG, _T("clGetDeviceIDs: Success\n"));
             return ret;
         }
     }
@@ -787,7 +787,7 @@ RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, share
     m_platform(std::move(platform)),
     m_context(nullptr, clReleaseContext),
     m_queue(),
-    m_pLog(pLog),
+    m_log(pLog),
     m_copyI2B(),
     m_copyB2I(),
     m_copyB2B(),
@@ -799,18 +799,18 @@ RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, share
 }
 
 RGYOpenCLContext::~RGYOpenCLContext() {
-    LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closing CL Context...\n"));
-    m_copyNV12.clear(); LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL m_copyNV12 program.\n"));
-    m_copyI2I.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL copyI2I program.\n"));
-    m_copyB2B.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL copyB2B program.\n"));
-    m_copyI2B.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL copyI2B program.\n"));
-    m_copyB2I.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL copyB2I program.\n"));
-    m_setB.reset();     LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL m_setB program.\n"));
-    m_setI.reset();     LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL m_setI program.\n"));
-    m_queue.clear();    LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL Queue.\n"));
-    m_context.reset();  LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL Context.\n"));
-    m_platform.reset(); LOG_IF_EXIST(RGY_LOG_DEBUG, _T("Closed CL Platform.\n"));
-    m_pLog.reset();
+    CL_LOG(RGY_LOG_DEBUG, _T("Closing CL Context...\n"));
+    m_copyNV12.clear(); CL_LOG(RGY_LOG_DEBUG, _T("Closed CL m_copyNV12 program.\n"));
+    m_copyI2I.reset();  CL_LOG(RGY_LOG_DEBUG, _T("Closed CL copyI2I program.\n"));
+    m_copyB2B.reset();  CL_LOG(RGY_LOG_DEBUG, _T("Closed CL copyB2B program.\n"));
+    m_copyI2B.reset();  CL_LOG(RGY_LOG_DEBUG, _T("Closed CL copyI2B program.\n"));
+    m_copyB2I.reset();  CL_LOG(RGY_LOG_DEBUG, _T("Closed CL copyB2I program.\n"));
+    m_setB.reset();     CL_LOG(RGY_LOG_DEBUG, _T("Closed CL m_setB program.\n"));
+    m_setI.reset();     CL_LOG(RGY_LOG_DEBUG, _T("Closed CL m_setI program.\n"));
+    m_queue.clear();    CL_LOG(RGY_LOG_DEBUG, _T("Closed CL Queue.\n"));
+    m_context.reset();  CL_LOG(RGY_LOG_DEBUG, _T("Closed CL Context.\n"));
+    m_platform.reset(); CL_LOG(RGY_LOG_DEBUG, _T("Closed CL Platform.\n"));
+    m_log.reset();
 }
 
 RGY_ERR RGYOpenCLContext::createContext() {
@@ -823,7 +823,7 @@ RGY_ERR RGYOpenCLContext::createContext() {
             devstr += strsprintf(_T("%p,"), dev);
         }
         devstr = devstr.substr(0, devstr.length() - 1) + _T("]");
-        m_pLog->write(RGY_LOG_DEBUG, _T("create OpenCL Context for %s\n"), devstr.c_str());
+        CL_LOG(RGY_LOG_DEBUG, _T("create OpenCL Context for %s\n"), devstr.c_str());
     }
 
     cl_int err = RGY_ERR_NONE;
@@ -832,21 +832,21 @@ RGY_ERR RGYOpenCLContext::createContext() {
     if (m_platform->d3d9dev()) {
         props.push_back(CL_CONTEXT_ADAPTER_D3D9EX_KHR);
         props.push_back((cl_context_properties)m_platform->d3d9dev());
-        m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d9 interop for %p\n"), m_platform->d3d9dev());
+        CL_LOG(RGY_LOG_DEBUG, _T("Enable d3d9 interop for %p\n"), m_platform->d3d9dev());
     }
     #endif //ENABLE_RGY_OPENCL_D3D9
     #if ENABLE_RGY_OPENCL_D3D11
     if (m_platform->d3d11dev()) {
         props.push_back(CL_CONTEXT_D3D11_DEVICE_KHR);
         props.push_back((cl_context_properties)m_platform->d3d11dev());
-        m_pLog->write(RGY_LOG_DEBUG, _T("Enable d3d11 interop for %p\n"), m_platform->d3d11dev());
+        CL_LOG(RGY_LOG_DEBUG, _T("Enable d3d11 interop for %p\n"), m_platform->d3d11dev());
     }
     #endif //#if ENABLE_RGY_OPENCL_D3D11
     #if ENABLE_RGY_OPENCL_VA
     if (m_platform->vadev()) {
         props.push_back(CL_CONTEXT_VA_API_DISPLAY_INTEL);
         props.push_back((cl_context_properties)m_platform->vadev());
-        m_pLog->write(RGY_LOG_DEBUG, _T("Enable va interop for %p\n"), m_platform->d3d11dev());
+        CL_LOG(RGY_LOG_DEBUG, _T("Enable va interop for %p\n"), m_platform->d3d11dev());
     }
     #endif
     props.push_back(CL_CONTEXT_INTEROP_USER_SYNC);
@@ -855,12 +855,12 @@ RGY_ERR RGYOpenCLContext::createContext() {
     try {
         m_context = unique_context(clCreateContext(props.data(), (cl_uint)m_platform->devs().size(), m_platform->devs().data(), nullptr, nullptr, &err), clReleaseContext);
     } catch (...) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Crush (clCreateContext)\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("Crush (clCreateContext)\n"));
         RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
         return RGY_ERR_OPENCL_CRUSH;
     }
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Error (clCreateContext): %s\n"), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Error (clCreateContext): %s\n"), cl_errmes(err));
         return err_cl_to_rgy(err);
     }
     for (int idev = 0; idev < (int)m_platform->devs().size(); idev++) {
@@ -872,21 +872,21 @@ RGY_ERR RGYOpenCLContext::createContext() {
 RGYOpenCLQueue RGYOpenCLContext::createQueue(cl_device_id devid) {
     RGYOpenCLQueue queue;
     cl_int err = RGY_ERR_NONE;
-    m_pLog->write(RGY_LOG_DEBUG, _T("createQueue for device : %p\n"), devid);
+    CL_LOG(RGY_LOG_DEBUG, _T("createQueue for device : %p\n"), devid);
     try {
         queue = std::move(RGYOpenCLQueue(clCreateCommandQueue(m_context.get(), devid, 0, &err), devid));
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Error (clCreateCommandQueue): %s\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Error (clCreateCommandQueue): %s\n"), cl_errmes(err));
         }
     } catch (...) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Crush (clCreateCommandQueue)\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("Crush (clCreateCommandQueue)\n"));
         RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
     }
     return queue;
 }
 
 RGYOpenCLKernelLauncher::RGYOpenCLKernelLauncher(cl_kernel kernel, std::string kernelName, RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, shared_ptr<RGYLog> pLog, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) :
-    m_kernel(kernel), m_kernelName(kernelName), m_queue(queue), m_local(local), m_global(global), m_pLog(pLog), m_wait_events(toVec(wait_events)), m_event(event) {
+    m_kernel(kernel), m_kernelName(kernelName), m_queue(queue), m_local(local), m_global(global), m_log(pLog), m_wait_events(toVec(wait_events)), m_event(event) {
 }
 
 size_t RGYOpenCLKernelLauncher::subGroupSize() const {
@@ -895,7 +895,7 @@ size_t RGYOpenCLKernelLauncher::subGroupSize() const {
     size_t subGroupSize = 0;
     auto err = clFunc(m_kernel, m_queue.devid(), CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, sizeof(RGYWorkSize::w), m_local(), sizeof(subGroupSize), &subGroupSize, nullptr);
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Error: Failed to get subGroupSize of kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to get subGroupSize of kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
         return 0;
     }
     return subGroupSize;
@@ -906,7 +906,7 @@ size_t RGYOpenCLKernelLauncher::subGroupCount() const {
     size_t subGroupCount = 0;
     auto err = clFunc(m_kernel, m_queue.devid(), CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE, sizeof(RGYWorkSize::w), m_local(), sizeof(subGroupCount), &subGroupCount, nullptr);
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Error: Failed to get subGroupCount of kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to get subGroupCount of kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
         return 0;
     }
     return subGroupCount;
@@ -920,7 +920,7 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
             auto ptr = reinterpret_cast<RGYOpenCLKernelDynamicLocal *>(arg_ptrs[i]);
             auto err = err_cl_to_rgy(clSetKernelArg(m_kernel, i, ptr->size(), nullptr));
             if (err != CL_SUCCESS) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg (local array size: %d) to kernel \"%s\": %s\n"), i, ptr->size(), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
+                CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg (local array size: %d) to kernel \"%s\": %s\n"), i, ptr->size(), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
                 return err;
             }
         } else {
@@ -928,7 +928,7 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
             if (err != CL_SUCCESS) {
                 uint64_t argvalue = *(uint64_t *)arg_ptrs[i];
                 argvalue &= std::numeric_limits<uint64_t>::max() >> ((8 - arg_size[i]) * 8);
-                m_pLog->write(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg to kernel \"%s\": %s, size: %d, ptr 0x%p, ptrvalue 0x%p\n"),
+                CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg to kernel \"%s\": %s, size: %d, ptr 0x%p, ptrvalue 0x%p\n"),
                     i, char_to_tstring(m_kernelName).c_str(), cl_errmes(err), arg_size[i], arg_ptrs[i], argvalue);
                 return err;
             }
@@ -940,13 +940,13 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
         (m_wait_events.size() > 0) ? m_wait_events.data() : nullptr,
         (m_event) ? m_event->reset_ptr() : nullptr));
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Error: Failed to run kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to run kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
         return err;
     }
     return err;
 }
 
-RGYOpenCLKernel::RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog) : m_kernel(kernel), m_kernelName(kernelName), m_pLog(pLog) {
+RGYOpenCLKernel::RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog) : m_kernel(kernel), m_kernelName(kernelName), m_log(pLog) {
 
 }
 
@@ -956,52 +956,52 @@ RGYOpenCLKernel::~RGYOpenCLKernel() {
         m_kernel = nullptr;
     }
     m_kernelName.clear();
-    m_pLog.reset();
+    m_log.reset();
 };
 
-RGYOpenCLProgram::RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog) : m_program(program), m_pLog(pLog), m_kernels() {
+RGYOpenCLProgram::RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog) : m_program(program), m_log(pLog), m_kernels() {
 };
 
 RGYOpenCLProgram::~RGYOpenCLProgram() {
     if (m_program) {
-        LOG_IF_EXIST(RGY_LOG_DEBUG, _T("clReleaseProgram...\n"));
+        CL_LOG(RGY_LOG_DEBUG, _T("clReleaseProgram...\n"));
         clReleaseProgram(m_program);
         m_program = nullptr;
-        LOG_IF_EXIST(RGY_LOG_DEBUG, _T("clReleaseProgram: fin.\n"));
+        CL_LOG(RGY_LOG_DEBUG, _T("clReleaseProgram: fin.\n"));
     }
 };
 
 RGYOpenCLKernelLauncher RGYOpenCLKernel::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    return RGYOpenCLKernelLauncher(m_kernel, m_kernelName, queue, local, global, m_pLog, wait_events, event);
+    return RGYOpenCLKernelLauncher(m_kernel, m_kernelName, queue, local, global, m_log, wait_events, event);
 }
 
 RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global) {
-    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_pLog, {}, nullptr);
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, {}, nullptr);
 }
 
 RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, RGYOpenCLEvent *event) {
-    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_pLog, {}, event);
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, {}, event);
 }
 
 RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_pLog, wait_events, event);
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, wait_events, event);
 }
 
-RGYOpenCLKernelHolder::RGYOpenCLKernelHolder(RGYOpenCLKernel *kernel, shared_ptr<RGYLog> pLog) : m_kernel(kernel), m_pLog(pLog) {};
+RGYOpenCLKernelHolder::RGYOpenCLKernelHolder(RGYOpenCLKernel *kernel, shared_ptr<RGYLog> pLog) : m_kernel(kernel), m_log(pLog) {};
 
 RGYOpenCLKernelHolder RGYOpenCLProgram::kernel(const char *kernelName) {
     for (auto& kernel : m_kernels) {
         if (strcmp(kernel->name().c_str(), kernelName) == 0) {
-            return RGYOpenCLKernelHolder(kernel.get(), m_pLog);
+            return RGYOpenCLKernelHolder(kernel.get(), m_log);
         }
     }
     cl_int err = CL_SUCCESS;
     auto kernel = clCreateKernel(m_program, kernelName, &err);
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Failed to get kernel %s: %s\n"), char_to_tstring(kernelName).c_str(), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to get kernel %s: %s\n"), char_to_tstring(kernelName).c_str(), cl_errmes(err));
     }
-    m_kernels.push_back(std::move(std::make_unique<RGYOpenCLKernel>(kernel, kernelName, m_pLog)));
-    return RGYOpenCLKernelHolder(m_kernels.back().get(), m_pLog);
+    m_kernels.push_back(std::move(std::make_unique<RGYOpenCLKernel>(kernel, kernelName, m_log)));
+    return RGYOpenCLKernelHolder(m_kernels.back().get(), m_log);
 }
 
 std::vector<uint8_t> RGYOpenCLProgram::getBinary() {
@@ -1011,14 +1011,14 @@ std::vector<uint8_t> RGYOpenCLProgram::getBinary() {
     size_t binary_size = 0;
     cl_int err = clGetProgramInfo(m_program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binary_size, nullptr);
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Failed to get program binary size: %s\n"), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to get program binary size: %s\n"), cl_errmes(err));
         return binary;
     }
 
     binary.resize(binary_size + 1, 0);
     err = clGetProgramInfo(m_program, CL_PROGRAM_BINARIES, binary_size, binary.data(), &binary_size);
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Failed to get program binary: %s\n"), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to get program binary: %s\n"), cl_errmes(err));
         binary.clear();
     }
     binary.resize(binary_size);
@@ -1378,11 +1378,11 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event)
     } else
 #endif
     {
-        m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Unknown interop type!\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Unknown interop type!\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (err != 0) {
-        m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
         return err_cl_to_rgy(err);
     }
     m_acquired = true;
@@ -1409,11 +1409,11 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
         } else
 #endif
         {
-            m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::release: Unknown interop type!\n"));
+            CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::release: Unknown interop type!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
         if (err != 0) {
-            m_log->write(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
             return err_cl_to_rgy(err);
         }
         m_acquired = false;
@@ -1504,7 +1504,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                         RGY_CSP_BIT_DEPTH[planeDst.csp]);
                     m_copyB2B = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                     if (!m_copyB2B) {
-                        m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyB2B)\n"));
+                        CL_LOG(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyB2B)\n"));
                         return RGY_ERR_OPENCL_CRUSH;
                     }
                 }
@@ -1525,7 +1525,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                     RGY_CSP_BIT_DEPTH[planeDst.csp]);
                 m_copyB2I = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                 if (!m_copyB2I) {
-                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyB2I)\n"));
+                    CL_LOG(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyB2I)\n"));
                     return RGY_ERR_OPENCL_CRUSH;
                 }
             }
@@ -1552,7 +1552,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                     RGY_CSP_BIT_DEPTH[planeDst.csp]);
                 m_copyI2B = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                 if (!m_copyI2B) {
-                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyI2B)\n"));
+                    CL_LOG(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyI2B)\n"));
                     return RGY_ERR_OPENCL_CRUSH;
                 }
             }
@@ -1576,7 +1576,7 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                         RGY_CSP_BIT_DEPTH[planeDst.csp]);
                     m_copyI2I = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                     if (!m_copyI2I) {
-                        m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyI2I)\n"));
+                        CL_LOG(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_copyI2I)\n"));
                         return RGY_ERR_OPENCL_CRUSH;
                     }
                 }
@@ -1632,7 +1632,7 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
 
 RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode) {
     if (dst->csp != src->csp) {
-        m_pLog->write(RGY_LOG_ERROR, _T("in/out csp should be same in copyFrame.\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("in/out csp should be same in copyFrame.\n"));
         return RGY_ERR_INVALID_CALL;
     }
     const int pixel_size = RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1;
@@ -1659,7 +1659,7 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
             if (m_copyNV12.count(options) == 0) {
                 m_copyNV12[options] = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
                 if (!m_copyNV12[options]) {
-                    m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropUV)\n"));
+                    CL_LOG(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_cropUV)\n"));
                     return RGY_ERR_OPENCL_CRUSH;
                 }
             }
@@ -1669,7 +1669,7 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
                 (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeSrc.width >> 1, planeSrc.height,
                 planeCrop.e.left, planeCrop.e.up);
             if (err != RGY_ERR_NONE) {
-                m_pLog->write(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromNV12(C)(%s -> %s)): %s.\n"),
+                CL_LOG(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromNV12(C)(%s -> %s)): %s.\n"),
                     RGY_CSP_NAMES[planeSrc.csp], RGY_CSP_NAMES[planeDst.csp], get_err_mes(err));
                 return err;
             }
@@ -1679,7 +1679,7 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
                 (i + 1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr,
                 copyMode);
             if (err != RGY_ERR_NONE) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Failed to copy frame(%d): %s\n"), i, cl_errmes(err));
+                CL_LOG(RGY_LOG_ERROR, _T("Failed to copy frame(%d): %s\n"), i, cl_errmes(err));
                 return err_cl_to_rgy(err);
             }
         }
@@ -1736,7 +1736,7 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *planeDst, const sInp
             RGY_CSP_BIT_DEPTH[planeDst->csp]);
         m_setB = buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_setB) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_setB)\n"));
+            CL_LOG(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL(m_setB)\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
     }
@@ -1774,7 +1774,7 @@ RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst, const sInputCro
             (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
             (i + 1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to set frame(%d): %s\n"), i, cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to set frame(%d): %s\n"), i, cl_errmes(err));
             return err;
         }
     }
@@ -1792,11 +1792,11 @@ RGY_ERR RGYOpenCLContext::setBuf(const void *pattern, size_t pattern_size, size_
 }
 RGY_ERR RGYOpenCLContext::setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (fill_size_byte % pattern_size != 0) {
-        m_pLog->write(RGY_LOG_ERROR, _T("fill_size_byte  %z cannot be divided by pattern_size %z\n"), fill_size_byte, pattern_size);
+        CL_LOG(RGY_LOG_ERROR, _T("fill_size_byte  %z cannot be divided by pattern_size %z\n"), fill_size_byte, pattern_size);
         return RGY_ERR_INVALID_CALL;
     }
     if (fill_size_byte > buf->size()) {
-        m_pLog->write(RGY_LOG_ERROR, _T("fill_size_byte %z bigger than buffer size %z.\n"), fill_size_byte, buf->size());
+        CL_LOG(RGY_LOG_ERROR, _T("fill_size_byte %z bigger than buffer size %z.\n"), fill_size_byte, buf->size());
         return RGY_ERR_INVALID_CALL;
     }
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
@@ -1805,7 +1805,7 @@ RGY_ERR RGYOpenCLContext::setBuf(const void *pattern, size_t pattern_size, size_
     cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
     auto err = err_cl_to_rgy(clEnqueueFillBuffer(queue.get(), buf->mem(), pattern, pattern_size, 0, fill_size_byte, wait_count, wait_list, event_ptr));
     if (err != RGY_ERR_NONE) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Failed to set buf size: %u: %s\n"), buf->size(), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to set buf size: %u: %s\n"), buf->size(), cl_errmes(err));
         return err;
     }
     return RGY_ERR_NONE;
@@ -1824,19 +1824,19 @@ unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const char *data, const siz
         }
     }
     const auto sep = _T("--------------------------------------------------------------------------\n");
-    if (m_pLog->getLogLevel() <= RGY_LOG_DEBUG) {
-        m_pLog->write(RGY_LOG_DEBUG, _T("%sbuilding OpenCL source: size %u.\n"), sep, datalen);
-        m_pLog->write(RGY_LOG_DEBUG, _T("options: %s\nsource\n"), char_to_tstring(options).c_str());
-        m_pLog->write_log(RGY_LOG_DEBUG, (char_to_tstring(data, CP_UTF8) + _T("\n") + sep).c_str());
+    if (m_log->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
+        CL_LOG(RGY_LOG_DEBUG, _T("%sbuilding OpenCL source: size %u.\n"), sep, datalen);
+        CL_LOG(RGY_LOG_DEBUG, _T("options: %s\nsource\n"), char_to_tstring(options).c_str());
+        m_log->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, (char_to_tstring(data, CP_UTF8) + _T("\n") + sep).c_str());
     }
     cl_int err = CL_SUCCESS;
     cl_program program = clCreateProgramWithSource(m_context.get(), 1, &data, &datalen, &err);
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Error (clCreateProgramWithSource): %s\n"), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Error (clCreateProgramWithSource): %s\n"), cl_errmes(err));
         return nullptr;
     }
     err = clBuildProgram(program, (cl_uint)m_platform->devs().size(), m_platform->devs().data(), options, NULL, NULL);
-    if (err != CL_SUCCESS || m_pLog->getLogLevel() <= RGY_LOG_DEBUG) {
+    if (err != CL_SUCCESS || m_log->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
         const auto loglevel = (err != CL_SUCCESS) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
 
         for (const auto &device : m_platform->devs()) {
@@ -1846,17 +1846,17 @@ unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const char *data, const siz
             std::vector<char> build_log(log_size);
             clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, build_log.data(), NULL);
 
-            m_pLog->write(loglevel, _T("%sbuild log of %s...\n"), sep, char_to_tstring(RGYOpenCLDevice(device).info().name).c_str());
+            CL_LOG(loglevel, _T("%sbuild log of %s...\n"), sep, char_to_tstring(RGYOpenCLDevice(device).info().name).c_str());
             auto log = char_to_tstring(build_log.data()) + _T("\n") + sep;
-            m_pLog->write_log(loglevel, log.c_str());
+            m_log->write_log(loglevel, RGY_LOGT_VPP_BUILD, log.c_str());
         }
         if (err != CL_SUCCESS) {
-            m_pLog->write(loglevel, _T("Error (clBuildProgram): %s\n"), cl_errmes(err));
+            CL_LOG(loglevel, _T("Error (clBuildProgram): %s\n"), cl_errmes(err));
             return nullptr;
         }
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("clBuildProgram success!\n"));
-    return std::make_unique<RGYOpenCLProgram>(program, m_pLog);
+    CL_LOG(RGY_LOG_DEBUG, _T("clBuildProgram success!\n"));
+    return std::make_unique<RGYOpenCLProgram>(program, m_log);
 }
 
 unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const std::string &source, const char *options) {
@@ -1867,10 +1867,10 @@ unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const std::string &source, 
 unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildFile(const tstring& filename, const char *options) {
     std::ifstream inputFile(filename);
     if (inputFile.bad()) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Failed to open source file \"%s\".\n"), filename.c_str());
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to open source file \"%s\".\n"), filename.c_str());
         return nullptr;
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("Opened file \"%s\""), filename.c_str());
+    CL_LOG(RGY_LOG_DEBUG, _T("Opened file \"%s\""), filename.c_str());
     std::istreambuf_iterator<char> data_begin(inputFile);
     std::istreambuf_iterator<char> data_end;
     std::string source = std::string(data_begin, data_end);
@@ -1880,13 +1880,13 @@ unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildFile(const tstring& filename
 
 unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildResource(const TCHAR *name, const TCHAR *type, const char *options) {
     void *data = nullptr;
-    m_pLog->write(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type, name);
+    CL_LOG(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type, name);
     int size = getEmbeddedResource(&data, name, type);
     if (data == nullptr || size == 0) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Failed to load resource [%s] %s\n"), type, name);
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to load resource [%s] %s\n"), type, name);
         return nullptr;
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("Loaded resource type: %s, name: %s, size = %d\n"), type, name, size);
+    CL_LOG(RGY_LOG_DEBUG, _T("Loaded resource type: %s, name: %s, size = %d\n"), type, name, size);
     return build((const char *)data, size, options);
 }
 
@@ -1894,7 +1894,7 @@ std::unique_ptr<RGYCLBuf> RGYOpenCLContext::createBuffer(size_t size, cl_mem_fla
     cl_int err = CL_SUCCESS;
     cl_mem mem = clCreateBuffer(m_context.get(), flags, size, host_ptr, &err);
     if (err != CL_SUCCESS) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Failed to allocate memory: %s\n"), cl_errmes(err));
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to allocate memory: %s\n"), cl_errmes(err));
     }
     return std::make_unique<RGYCLBuf>(mem, flags, size);
 }
@@ -1904,7 +1904,7 @@ unique_ptr<RGYCLBuf> RGYOpenCLContext::copyDataToBuffer(const void *host_ptr, si
     if (buffer != nullptr) {
         cl_int err = clEnqueueWriteBuffer((queue != RGYDefaultQueue) ? queue : m_queue[0].get(), buffer->mem(), true, 0, size, host_ptr, 0, nullptr, nullptr);
         if (err != CL_SUCCESS) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to copy data to buffer: %s\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to copy data to buffer: %s\n"), cl_errmes(err));
         }
     }
     return buffer;
@@ -1948,7 +1948,7 @@ unique_ptr<RGYCLFrame> RGYOpenCLContext::createImageFromFrameBuffer(const RGYFra
         cl_mem image;
         auto err = createImageFromPlane(image, (cl_mem)plane.ptr[0], RGY_CSP_BIT_DEPTH[frame.csp], CL_R, normalized, plane.pitch[0], plane.width, plane.height, flags);
         if (err != CL_SUCCESS) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from buffer memory: %s\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from buffer memory: %s\n"), cl_errmes(err));
             for (int j = i-1; j >= 0; j--) {
                 if (frameImage.ptr[j] != nullptr) {
                     clReleaseMemObject((cl_mem)frameImage.ptr[j]);
@@ -2011,7 +2011,7 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const RGYFrameIn
         const int size = memPitch * plane.height;
         cl_mem mem = clCreateBuffer(m_context.get(), flags, size, nullptr, &err);
         if (err != CL_SUCCESS) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to allocate memory: %s\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to allocate memory: %s\n"), cl_errmes(err));
             for (int j = i-1; j >= 0; j--) {
                 if (clframe.ptr[j] != nullptr) {
                     clReleaseMemObject((cl_mem)clframe.ptr[j]);
@@ -2028,11 +2028,11 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const RGYFrameIn
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_D3D9
-    m_pLog->write(RGY_LOG_ERROR, _T("OpenCL d3d9 interop not supported in this build.\n"));
+    CL_LOG(RGY_LOG_ERROR, _T("OpenCL d3d9 interop not supported in this build.\n"));
     return std::unique_ptr<RGYCLFrameInterop>();
 #else
     if (m_platform->d3d9dev() == nullptr) {
-        m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d9 device.\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d9 device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
     }
     RGYFrameInfo clframe = frame;
@@ -2046,7 +2046,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
         cl_int err = 0;
         clframe.ptr[i] = (uint8_t *)clCreateFromDX9MediaSurfaceKHR(m_context.get(), flags, CL_ADAPTER_D3D9EX_KHR, &surfInfo, i, &err);
         if (err != CL_SUCCESS) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from DX9 memory: %s\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from DX9 memory: %s\n"), cl_errmes(err));
             for (int j = i - 1; j >= 0; j--) {
                 if (clframe.ptr[j] != nullptr) {
                     clReleaseMemObject((cl_mem)clframe.ptr[j]);
@@ -2058,17 +2058,17 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(void 
     }
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-    return std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_pLog));
+    return std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_log));
 #endif
 }
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_D3D11
-    m_pLog->write(RGY_LOG_ERROR, _T("OpenCL d3d11 interop not supported in this build.\n"));
+    CL_LOG(RGY_LOG_ERROR, _T("OpenCL d3d11 interop not supported in this build.\n"));
     return std::unique_ptr<RGYCLFrameInterop>();
 #else
     if (m_platform->d3d11dev() == nullptr) {
-        m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d11 device.\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d11 device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
     }
     RGYFrameInfo clframe = frame;
@@ -2080,7 +2080,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
         cl_int err = CL_SUCCESS;
         clframe.ptr[i] = (uint8_t *)clCreateFromD3D11Texture2DKHR(m_context.get(), flags, (ID3D11Texture2D *)surf, i, &err);
         if (err != CL_SUCCESS) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from DX11 texture 2D: %s\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from DX11 texture 2D: %s\n"), cl_errmes(err));
             for (int j = i - 1; j >= 0; j--) {
                 if (clframe.ptr[j] != nullptr) {
                     clReleaseMemObject((cl_mem)clframe.ptr[j]);
@@ -2092,17 +2092,17 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
     }
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_pLog);
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_log);
 #endif
 }
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_VA
-    m_pLog->write(RGY_LOG_ERROR, _T("OpenCL VA interop not supported in this build.\n"));
+    CL_LOG(RGY_LOG_ERROR, _T("OpenCL VA interop not supported in this build.\n"));
     return std::unique_ptr<RGYCLFrameInterop>();
 #else
     if (m_platform->vadev() == nullptr) {
-        m_pLog->write(RGY_LOG_ERROR, _T("OpenCL platform not associated with va device.\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("OpenCL platform not associated with va device.\n"));
         return std::unique_ptr<RGYCLFrameInterop>();
     }
     RGYFrameInfo clframe = frame;
@@ -2114,7 +2114,7 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *s
         cl_int err = CL_SUCCESS;
         clframe.ptr[i] = (uint8_t *)clCreateFromVA_APIMediaSurfaceINTEL(m_context.get(), flags, (VASurfaceID *)surf, i, &err);
         if (err != CL_SUCCESS) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to create image from va surface: %s\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from va surface: %s\n"), cl_errmes(err));
             for (int j = i - 1; j >= 0; j--) {
                 if (clframe.ptr[j] != nullptr) {
                     clReleaseMemObject((cl_mem)clframe.ptr[j]);
@@ -2126,23 +2126,23 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *s
     }
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_VA, queue, m_pLog);
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_VA, queue, m_log);
 #endif
 }
 
-RGYOpenCL::RGYOpenCL() : m_pLog(std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR)) {
+RGYOpenCL::RGYOpenCL() : m_log(std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR)) {
     if (initOpenCLGlobal()) {
-        LOG_IF_EXIST(RGY_LOG_ERROR, _T("Failed to load OpenCL.\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to load OpenCL.\n"));
     } else {
-        LOG_IF_EXIST(RGY_LOG_DEBUG, _T("loaded OpenCL.\n"));
+        CL_LOG(RGY_LOG_DEBUG, _T("loaded OpenCL.\n"));
     }
 }
 
-RGYOpenCL::RGYOpenCL(shared_ptr<RGYLog> pLog) : m_pLog(pLog) {
+RGYOpenCL::RGYOpenCL(shared_ptr<RGYLog> pLog) : m_log(pLog) {
     if (initOpenCLGlobal()) {
-        LOG_IF_EXIST(RGY_LOG_ERROR, _T("Failed to load OpenCL.\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("Failed to load OpenCL.\n"));
     } else {
-        LOG_IF_EXIST(RGY_LOG_DEBUG, _T("loaded OpenCL.\n"));
+        CL_LOG(RGY_LOG_DEBUG, _T("loaded OpenCL.\n"));
     }
 }
 
@@ -2162,41 +2162,41 @@ std::vector<shared_ptr<RGYOpenCLPlatform>> RGYOpenCL::getPlatforms(const char *v
     //OpenCLのドライバは場合によってはクラッシュする可能性がある
     try {
         if (CL_SUCCESS != (ret = clGetPlatformIDs(0, NULL, &platform_count))) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetPlatformIDs): %s\n"), cl_errmes(ret));
+            CL_LOG(RGY_LOG_ERROR, _T("Error (clGetPlatformIDs): %s\n"), cl_errmes(ret));
             return platform_list;
         }
     } catch (...) {
-        m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetPlatformIDs)\n"));
+        CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetPlatformIDs)\n"));
         RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
         return platform_list;
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("OpenCL platform count: %d\n"), platform_count);
+    CL_LOG(RGY_LOG_DEBUG, _T("OpenCL platform count: %d\n"), platform_count);
 
     if (platform_count > 0) {
         std::vector<cl_platform_id> platforms(platform_count, 0);
         try {
             if (CL_SUCCESS != (ret = clGetPlatformIDs(platform_count, platforms.data(), &platform_count))) {
-                m_pLog->write(RGY_LOG_ERROR, _T("Error (clGetPlatformIDs): %s\n"), cl_errmes(ret));
+                CL_LOG(RGY_LOG_ERROR, _T("Error (clGetPlatformIDs): %s\n"), cl_errmes(ret));
                 return platform_list;
             }
         } catch (...) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Crush (clGetPlatformIDs)\n"));
+            CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetPlatformIDs)\n"));
             RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
             return platform_list;
         }
 
         for (int i = 0; i < (int)platform_count; i++) {
-            auto platform = std::make_shared<RGYOpenCLPlatform>(platforms[i], m_pLog);
-            if (m_pLog->getLogLevel() <= RGY_LOG_DEBUG) {
-                m_pLog->write(RGY_LOG_DEBUG, _T("OpenCL platform #%d[%p]: %s\n"), i, platforms[i], char_to_tstring(platform->info().print()).c_str());
+            auto platform = std::make_shared<RGYOpenCLPlatform>(platforms[i], m_log);
+            if (m_log->getLogLevel(RGY_LOGT_OPENCL) <= RGY_LOG_DEBUG) {
+                CL_LOG(RGY_LOG_DEBUG, _T("OpenCL platform #%d[%p]: %s\n"), i, platforms[i], char_to_tstring(platform->info().print()).c_str());
             }
             if (vendor == nullptr || platform->isVendor(vendor)) {
-                m_pLog->write(RGY_LOG_DEBUG, _T("Add platform #%d[%p] to list."), i, platforms[i]);
+                CL_LOG(RGY_LOG_DEBUG, _T("Add platform #%d[%p] to list."), i, platforms[i]);
                 platform_list.push_back(std::move(platform));
             }
         }
     }
-    m_pLog->write(RGY_LOG_DEBUG, _T("Created OpenCL platform list: %d\n"), (int)platform_list.size());
+    CL_LOG(RGY_LOG_DEBUG, _T("Created OpenCL platform list: %d\n"), (int)platform_list.size());
     return platform_list;
 }
 

@@ -174,7 +174,7 @@ RGY_ERR RGYFilterNnedi::procPlane(
         sInputCrop planeCrop = initCrop();
         auto err = m_cl->copyPlane(pOutputPlane, pInputPlane, &planeCrop, queue, wait_events, nullptr, targetField == NNEDI_GEN_FIELD_TOP ? RGYFrameCopyMode::FIELD_BOTTOM : RGYFrameCopyMode::FIELD_TOP);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to copyPlaneField: %s\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to copyPlaneField: %s\n"), get_err_mes(err));
             return err;
         }
     }
@@ -218,7 +218,7 @@ RGY_ERR RGYFilterNnedi::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = procPlane(&planeDst, &planeSrc, targetField, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to nnedi frame(%d) %s: %s\n"), i, cl_errmes(err));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to nnedi frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
         }
     }

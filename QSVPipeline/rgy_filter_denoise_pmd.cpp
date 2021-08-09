@@ -66,7 +66,7 @@ RGY_ERR RGYFilterDenoisePmd::runGaussFrame(RGYFrameInfo *pGaussFrame, const RGYF
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pInputFrame->csp] - 1) ? event : nullptr;
         auto err = runGaussPlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to denoise(pmd(gauss)) frame(%d) %s: %s\n"), i, cl_errmes(err));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(pmd(gauss)) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
         }
     }
@@ -109,7 +109,7 @@ RGY_ERR RGYFilterDenoisePmd::runPmdFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQu
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = runPmdPlane(&planeDst, &planeSrc, &planeGauss, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("Failed to denoise(pmd) frame(%d) %s: %s\n"), i, cl_errmes(err));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(pmd) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
         }
     }

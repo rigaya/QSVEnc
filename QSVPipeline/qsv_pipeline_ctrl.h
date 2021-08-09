@@ -477,12 +477,12 @@ public:
         return m_workSurfs.bufCount();
     }
 
-    void PrintMes(int log_level, const TCHAR *format, ...) {
+    void PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
         if (m_log.get() == nullptr) {
             if (log_level <= RGY_LOG_INFO) {
                 return;
             }
-        } else if (log_level < m_log->getLogLevel()) {
+        } else if (log_level < m_log->getLogLevel(RGY_LOGT_CORE)) {
             return;
         }
 
@@ -497,7 +497,7 @@ public:
         tstring mes = getPipelineTaskTypeName(m_type) + tstring(_T(": ")) + buffer.data();
 
         if (m_log.get() != nullptr) {
-            m_log->write(log_level, mes.c_str());
+            m_log->write(log_level, RGY_LOGT_CORE, mes.c_str());
         } else {
             _ftprintf(stderr, _T("%s"), mes.c_str());
         }
@@ -1438,14 +1438,14 @@ public:
             mfxVideoParam par = { 0 };
             mfxStatus sts = enc->GetVideoParam(&par);
             if (sts != MFX_ERR_NONE) {
-                log->write(RGY_LOG_ERROR, _T("Failed to get required output buffer size from encoder: %s\n"), get_err_mes(sts));
+                log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to get required output buffer size from encoder: %s\n"), get_err_mes(sts));
                 mfxBitstreamClear(bs->bsptr());
                 return 1;
             }
 
             sts = mfxBitstreamInit(bs->bsptr(), par.mfx.BufferSizeInKB * 1000 * (std::max)(1, (int)par.mfx.BRCParamMultiplier));
             if (sts != MFX_ERR_NONE) {
-                log->write(RGY_LOG_ERROR, _T("Failed to allocate memory for output bufffer: %s\n"), get_err_mes(sts));
+                log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allocate memory for output bufffer: %s\n"), get_err_mes(sts));
                 mfxBitstreamClear(bs->bsptr());
                 return 1;
             }

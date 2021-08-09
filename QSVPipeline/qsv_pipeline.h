@@ -112,7 +112,7 @@ public:
     virtual const TCHAR *GetInputMessage();
     virtual MemType GetMemType();
 
-    virtual void PrintMes(int log_level, const TCHAR *format, ...);
+    virtual void PrintMes(RGYLogLevel log_level, const TCHAR *format, ...);
     shared_ptr<RGYLog> m_pQSVLog;
 
     virtual RGY_ERR RunEncode2();
@@ -236,7 +236,7 @@ protected:
 
     RGY_ERR CheckParamList(int value, const CX_DESC *list, const char *param_name);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
-    int logTemporarilyIgnoreErrorMes();
+    RGYParamLogLevel logTemporarilyIgnoreErrorMes();
 };
 
 #endif // __PIPELINE_ENCODE_H__

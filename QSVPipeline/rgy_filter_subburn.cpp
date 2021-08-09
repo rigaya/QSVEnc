@@ -60,8 +60,8 @@ static bool check_libass_dll() {
 //           5 - RGY_LOG_MORE  -1
 //MSGL_V     6 - RGY_LOG_DEBUG -2
 //MSGL_DBG2  7 - RGY_LOG_TRACE -3
-static inline int log_level_ass2qsv(int level) {
-    static const int log_level_map[] = {
+static inline RGYLogLevel log_level_ass2qsv(int level) {
+    static const RGYLogLevel log_level_map[] = {
         RGY_LOG_ERROR,
         RGY_LOG_ERROR,
         RGY_LOG_WARN,
@@ -75,13 +75,17 @@ static inline int log_level_ass2qsv(int level) {
 }
 
 static void ass_log(int ass_level, const char *fmt, va_list args, void *ctx) {
-    ((RGYLog *)ctx)->write_line(log_level_ass2qsv(ass_level), fmt, args, CP_UTF8);
+    const auto rgy_log_level = log_level_ass2qsv(ass_level);
+    if (ctx == nullptr || rgy_log_level < ((RGYLog *)ctx)->getLogLevel(RGY_LOGT_LIBASS)) {
+        return;
+    }
+    ((RGYLog *)ctx)->write_line(rgy_log_level, RGY_LOGT_LIBASS, fmt, args, CP_UTF8);
 }
 
 static void ass_log_error_only(int ass_level, const char *fmt, va_list args, void *ctx) {
-    auto qsv_level = log_level_ass2qsv(ass_level);
-    if (qsv_level >= RGY_LOG_ERROR) {
-        ((RGYLog *)ctx)->write_line(qsv_level, fmt, args, CP_UTF8);
+    const auto rgy_log_level = log_level_ass2qsv(ass_level);
+    if (rgy_log_level >= RGY_LOG_ERROR) {
+        ((RGYLog *)ctx)->write_line(rgy_log_level, RGY_LOGT_LIBASS, fmt, args, CP_UTF8);
     }
 }
 
@@ -787,8 +791,8 @@ int RGYFilterSubburn::targetTrackIdx() {
 
 RGY_ERR RGYFilterSubburn::addStreamPacket(AVPacket *pkt) {
     m_queueSubPackets.push(*pkt);
-    const int log_level = RGY_LOG_TRACE;
-    if (m_pLog != nullptr && log_level >= m_pLog->getLogLevel()) {
+    const auto log_level = RGY_LOG_TRACE;
+    if (m_pLog != nullptr && log_level >= m_pLog->getLogLevel(RGY_LOGT_VPP)) {
         auto prm = std::dynamic_pointer_cast<RGYFilterParamSubburn>(m_param);
         if (!prm) {
             AddMessage(log_level, _T("Invalid parameter type.\n"));

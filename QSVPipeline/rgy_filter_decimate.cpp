@@ -164,7 +164,7 @@ RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inp
     copyFrameProp(&m_buf->frame, pInputFrame);
     auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, &event);
     if (err != RGY_ERR_NONE) {
-        m_log->write(RGY_LOG_ERROR, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
     return err;
@@ -177,7 +177,7 @@ RGY_ERR RGYFilterDecimate::calcDiff(RGYFilterDecimateFrameData *current, const R
             return err;
         }
         if ((err = current->tmp()->queueMapBuffer(m_streamTransfer, CL_MAP_READ, { m_eventTransfer })) != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            m_pLog->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
     } else {
@@ -188,7 +188,7 @@ RGY_ERR RGYFilterDecimate::calcDiff(RGYFilterDecimateFrameData *current, const R
             return err;
         }
         if ((err = current->tmp()->queueMapBuffer(queue_main, CL_MAP_READ)) != RGY_ERR_NONE) {
-            m_pLog->write(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
+            m_pLog->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
     }

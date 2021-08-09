@@ -29,6 +29,7 @@
 #define __QSV_HW_DEVICE_H__
 
 #include <cstdint>
+#include <cstdarg>
 #include <memory>
 #include "mfxvideo++.h"
 #include "rgy_log.h"
@@ -42,13 +43,16 @@
 
 class CQSVHWDevice {
 public:
-    CQSVHWDevice(std::shared_ptr<RGYLog> pQSVLog) : m_pQSVLog(pQSVLog) {  };
+    CQSVHWDevice(std::shared_ptr<RGYLog> pQSVLog) : m_name(_T("hwdev")), m_pQSVLog(pQSVLog) {  };
     virtual ~CQSVHWDevice() { }
     virtual mfxStatus Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) = 0;
     virtual mfxStatus Reset() = 0;
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) = 0;
     virtual void      Close() = 0;
 protected:
+    void AddMessage(RGYLogLevel log_level, const tstring &str);
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...);
+    tstring m_name;
     std::shared_ptr<RGYLog> m_pQSVLog;
 };
 

@@ -42,7 +42,7 @@ RGY_ERR afsStripeCache::init(std::shared_ptr<RGYLog> log) {
             FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
         m_analyzeMapFilter = m_cl->buildResource(_T("RGY_FILTER_AFS_FILTER_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_analyzeMapFilter) {
-            log->write(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_FILTER_CL\n"));
+            log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load RGY_FILTER_AFS_FILTER_CL\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
     }

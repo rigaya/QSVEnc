@@ -105,19 +105,19 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) = 0;
     virtual void close() = 0;
 
-    void AddMessage(int log_level, const tstring &str) {
-        if (m_pLog == nullptr || log_level < m_pLog->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const tstring &str) {
+        if (m_pLog == nullptr || log_level < m_pLog->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
         auto lines = split(str, _T("\n"));
         for (const auto &line : lines) {
             if (line[0] != _T('\0')) {
-                m_pLog->write(log_level, (m_name + _T(": ") + line + _T("\n")).c_str());
+                m_pLog->write(log_level, RGY_LOGT_VPP, (m_name + _T(": ") + line + _T("\n")).c_str());
             }
         }
     }
-    void AddMessage(int log_level, const TCHAR *format, ...) {
-        if (m_pLog == nullptr || log_level < m_pLog->getLogLevel()) {
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (m_pLog == nullptr || log_level < m_pLog->getLogLevel(RGY_LOGT_VPP)) {
             return;
         }
 

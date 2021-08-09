@@ -65,10 +65,10 @@ public:
     MemType memType() const { return m_memType; }
     QSVAllocator *allocator() { return m_allocator; }
 protected:
-    void PrintMes(int log_level, const TCHAR *format, ...);
+    void PrintMes(RGYLogLevel log_level, const TCHAR *format, ...);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
     RGY_ERR CheckParamList(int value, const CX_DESC *list, const char *param_name);
-    int logTemporarilyIgnoreErrorMes();
+    RGYParamLogLevel logTemporarilyIgnoreErrorMes();
 protected:
     MFXVideoSession m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
     mfxVersion m_mfxVer;
