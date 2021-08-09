@@ -280,7 +280,7 @@ CFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS \
 -I${SRCDIR} -I${SRCDIR}/MediaSDK/include -I${SRCDIR}/QSVPipeline -I${SRCDIR}/QSVPlugins \
--I${SRCDIR}/tinyxml2 -I${SRCDIR}/ChapterRW -I${SRCDIR}/ttmath \
+-I${SRCDIR}/tinyxml2 -I${SRCDIR}/ttmath \
 "
 LDFLAGS="-L. -ldl -lm -lstdc++ -lstdc++fs"
 if [ $X86_64 -ne 0 ]; then
