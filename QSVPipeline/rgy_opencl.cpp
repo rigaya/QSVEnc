@@ -37,6 +37,31 @@
 
 #if ENABLE_OPENCL
 
+#if ENCODER_VCEENC
+#define CL_DEVICE_PROFILING_TIMER_OFFSET_AMD            0x4036
+#define CL_DEVICE_TOPOLOGY_AMD                          0x4037
+#define CL_DEVICE_BOARD_NAME_AMD                        0x4038
+#define CL_DEVICE_GLOBAL_FREE_MEMORY_AMD                0x4039
+#define CL_DEVICE_SIMD_PER_COMPUTE_UNIT_AMD             0x4040
+#define CL_DEVICE_SIMD_WIDTH_AMD                        0x4041
+#define CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD            0x4042
+#define CL_DEVICE_WAVEFRONT_WIDTH_AMD                   0x4043
+#define CL_DEVICE_GLOBAL_MEM_CHANNELS_AMD               0x4044
+#define CL_DEVICE_GLOBAL_MEM_CHANNEL_BANKS_AMD          0x4045
+#define CL_DEVICE_GLOBAL_MEM_CHANNEL_BANK_WIDTH_AMD     0x4046
+#define CL_DEVICE_LOCAL_MEM_SIZE_PER_COMPUTE_UNIT_AMD   0x4047
+#define CL_DEVICE_LOCAL_MEM_BANKS_AMD                   0x4048
+#define CL_DEVICE_THREAD_TRACE_SUPPORTED_AMD            0x4049
+#define CL_DEVICE_GFXIP_MAJOR_AMD                       0x404A
+#define CL_DEVICE_GFXIP_MINOR_AMD                       0x404B
+#define CL_DEVICE_AVAILABLE_ASYNC_QUEUES_AMD            0x404C
+#define CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_AMD         0x4030
+#define CL_DEVICE_MAX_WORK_GROUP_SIZE_AMD               0x4031
+#define CL_DEVICE_PREFERRED_CONSTANT_BUFFER_SIZE_AMD    0x4033
+#define CL_DEVICE_PCIE_ID_AMD                           0x4034
+#endif
+
+
 #define CL_LOG(level, ...)  { if (m_log) { m_log->write(level, RGY_LOGT_OPENCL, __VA_ARGS__); } }
 
 HMODULE RGYOpenCL::openCLHandle = nullptr;
@@ -369,6 +394,17 @@ static const auto RGY_CLSTATUS_TO_STR = make_array<std::pair<cl_mem_object_type,
 MAP_PAIR_0_1(clstatus, cl, cl_int, str, const TCHAR *, RGY_CLSTATUS_TO_STR, 0, _T("unknown"));
 
 
+tstring cldevice_cl_to_str(const cl_device_type type) {
+    tstring str;
+    if (type & CL_DEVICE_TYPE_DEFAULT)     str += _T(", default");
+    if (type & CL_DEVICE_TYPE_CPU)         str += _T(", cpu");
+    if (type & CL_DEVICE_TYPE_GPU)         str += _T(", gpu");
+    if (type & CL_DEVICE_TYPE_ACCELERATOR) str += _T(", accelerator");
+    if (type & CL_DEVICE_TYPE_CUSTOM)      str += _T(", custom");
+    if (str.length() == 0)                 str += _T(", unknown");
+    return str.substr(2);
+}
+
 tstring RGYOpenCLEventInfo::print() const {
     tstring str;
     str += strsprintf(_T("context:     0x%p\n"), context);
@@ -392,6 +428,84 @@ RGYOpenCLEventInfo RGYOpenCLEvent::getInfo() const {
     }
     return info;
 }
+
+RGYOpenCLDeviceInfoVecWidth::RGYOpenCLDeviceInfoVecWidth() :
+    w_char(std::make_pair(0,0)),
+    w_short(std::make_pair(0,0)),
+    w_int(std::make_pair(0,0)),
+    w_long(std::make_pair(0,0)),
+    w_half(std::make_pair(0,0)),
+    w_float(std::make_pair(0,0)),
+    w_double(std::make_pair(0,0)) {
+
+}
+
+std::string RGYOpenCLDeviceInfoVecWidth::print() const {
+    std::stringstream ts;
+    ts << "  vec width char:              " << w_char.first << "/" << w_char.second << std::endl;
+    ts << "            short:             " << w_short.first << "/" << w_short.second << std::endl;
+    ts << "            int:               " << w_int.first << "/" << w_int.second << std::endl;
+    ts << "            long:              " << w_long.first << "/" << w_long.second << std::endl;
+    ts << "            half:              " << w_half.first << "/" << w_half.second << std::endl;
+    ts << "            float:             " << w_float.first << "/" << w_float.second << std::endl;
+    ts << "            double:            " << w_double.first << "/" << w_double.second << std::endl;
+    return ts.str();
+}
+
+RGYOpenCLDeviceInfo::RGYOpenCLDeviceInfo() :
+    type(CL_DEVICE_TYPE_DEFAULT),
+    vendor_id(0),
+    max_compute_units(0),
+    max_clock_frequency(0),
+    max_samplers(0),
+    global_mem_size(0),
+    global_mem_cache_size(0),
+    global_mem_cacheline_size(0),
+    local_mem_size(0),
+    image_2d_max_width(0),
+    image_2d_max_height(0),
+    image_3d_max_width(0),
+    image_3d_max_height(0),
+    image_3d_max_depth(0),
+    profiling_timer_resolution(0),
+    max_const_args(0),
+    max_const_buffer_size(0),
+    max_mem_alloc_size(0),
+    max_parameter_size(0),
+    max_read_image_args(0),
+    max_work_group_size(0),
+    max_work_item_dims(0),
+    max_write_image_args(0),
+    mem_base_addr_align(0),
+    min_data_type_align_size(0),
+    vecwidth(),
+    name(),
+    vendor(),
+    driver_version(),
+    profile(),
+    version(),
+    extensions()
+#if ENCODER_VCEENC
+    ,
+    topology_amd(),
+    board_name_amd(),
+    global_free_mem_size_amd(0),
+    simd_per_cu_amd(0),
+    simd_width_amd(0),
+    simd_instruction_width_amd(0),
+    wavefront_width_amd(0),
+    global_mem_channels_amd(0),
+    global_mem_channel_banks_amd(0),
+    global_mem_channel_bank_width_amd(0),
+    local_mem_size_per_cu_amd(0),
+    local_mem_banks_amd(0),
+    thread_trace_supported_amd(0),
+    async_queue_support_amd(0),
+    max_work_group_size_amd(0),
+    preferred_const_buffer_size_amd(0),
+    pcie_id_amd(0)
+#endif
+{};
 
 std::pair<int, int> RGYOpenCLDeviceInfo::clversion() const {
     int major, minor;
@@ -424,13 +538,67 @@ RGYOpenCLDeviceInfo RGYOpenCLDevice::info() const {
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_CLOCK_FREQUENCY, &info.max_clock_frequency);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_SAMPLERS, &info.max_samplers);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_GLOBAL_MEM_SIZE, &info.global_mem_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, &info.global_mem_cache_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, &info.global_mem_cacheline_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_LOCAL_MEM_SIZE, &info.local_mem_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &info.image_2d_max_width);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_IMAGE2D_MAX_HEIGHT, &info.image_2d_max_height);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_IMAGE3D_MAX_WIDTH, &info.image_3d_max_width);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_IMAGE3D_MAX_HEIGHT, &info.image_3d_max_height);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_IMAGE3D_MAX_DEPTH, &info.image_3d_max_depth);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PROFILING_TIMER_RESOLUTION, &info.profiling_timer_resolution);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_CONSTANT_ARGS, &info.max_const_args);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, &info.max_const_buffer_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, &info.max_mem_alloc_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_PARAMETER_SIZE, &info.max_parameter_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_READ_IMAGE_ARGS, &info.max_read_image_args);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_WORK_GROUP_SIZE, &info.max_work_group_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_WORK_ITEM_SIZES, &info.max_work_item_dims);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, &info.max_write_image_args);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MEM_BASE_ADDR_ALIGN, &info.mem_base_addr_align);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, &info.min_data_type_align_size);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR,   &info.vecwidth.w_char.first);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT,  &info.vecwidth.w_short.first);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT,    &info.vecwidth.w_int.first);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG,   &info.vecwidth.w_long.first);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF,   &info.vecwidth.w_half.first);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT,  &info.vecwidth.w_float.first);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, &info.vecwidth.w_double.first);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR,      &info.vecwidth.w_char.second);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT,     &info.vecwidth.w_short.second);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NATIVE_VECTOR_WIDTH_INT,       &info.vecwidth.w_int.second);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG,      &info.vecwidth.w_long.second);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF,      &info.vecwidth.w_half.second);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT,     &info.vecwidth.w_float.second);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE,    &info.vecwidth.w_double.second);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_NAME, &info.name);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_VENDOR, &info.vendor);
         clGetInfo(clGetDeviceInfo, m_device, CL_DRIVER_VERSION, &info.driver_version);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PROFILE, &info.profile);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_VERSION, &info.version);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_EXTENSIONS, &info.extensions);
+#if ENCODER_VCEENC
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_TOPOLOGY_AMD, &info.topology_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_BOARD_NAME_AMD, &info.board_name_amd);
+        info.board_name_amd = str_replace(info.board_name_amd, "(TM)", "");
+        info.board_name_amd = str_replace(info.board_name_amd, "(R)", "");
+        info.board_name_amd = str_replace(info.board_name_amd, "  ", " ");
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_GLOBAL_FREE_MEMORY_AMD, &info.global_free_mem_size_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_SIMD_PER_COMPUTE_UNIT_AMD, &info.simd_per_cu_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_SIMD_WIDTH_AMD, &info.simd_width_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_SIMD_INSTRUCTION_WIDTH_AMD, &info.simd_instruction_width_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_WAVEFRONT_WIDTH_AMD, &info.wavefront_width_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_GLOBAL_MEM_CHANNELS_AMD, &info.global_mem_channels_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_GLOBAL_MEM_CHANNEL_BANKS_AMD, &info.global_mem_channel_banks_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_GLOBAL_MEM_CHANNEL_BANK_WIDTH_AMD, &info.global_mem_channel_bank_width_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_LOCAL_MEM_SIZE_PER_COMPUTE_UNIT_AMD, &info.local_mem_size_per_cu_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_LOCAL_MEM_BANKS_AMD, &info.local_mem_banks_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_THREAD_TRACE_SUPPORTED_AMD, &info.thread_trace_supported_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_AVAILABLE_ASYNC_QUEUES_AMD, &info.async_queue_support_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_AMD, &info.max_work_group_size_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_MAX_WORK_GROUP_SIZE_AMD, &info.preferred_const_buffer_size_amd);
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PCIE_ID_AMD, &info.pcie_id_amd);
+#endif // #if ENCODER_VCEENC
     } catch (...) {
         return RGYOpenCLDeviceInfo();
     }
@@ -445,10 +613,18 @@ bool RGYOpenCLDevice::checkVersion(int major, int minor) const {
     return info().checkVersion(major, minor);
 }
 
-tstring RGYOpenCLDevice::infostr() const {
+tstring RGYOpenCLDevice::infostr(bool full) const {
     const auto dev = info();
     std::stringstream ts;
+#if ENCODER_VCEENC
+    if (dev.board_name_amd.length() > 0) {
+        ts << dev.board_name_amd;
+    } else {
+        ts << dev.name;
+    }
+#else
     ts << dev.name;
+#endif
     if (dev.max_compute_units > 0) {
         ts << " (" << dev.max_compute_units << " CU)";
     }
@@ -457,6 +633,62 @@ tstring RGYOpenCLDevice::infostr() const {
     }
     if (dev.driver_version.length() > 0) {
         ts << " (" << dev.driver_version << ")";
+    }
+    if (full) {
+        ts << std::endl;
+#if ENCODER_VCEENC
+        ts << "  name :                       " << dev.name << std::endl;
+#endif
+        ts << "  device type :                " << tchar_to_string(cldevice_cl_to_str(dev.type)) << std::endl;
+        ts << "  vendor :                     " << dev.vendor_id << " (" << dev.vendor << ")" << std::endl;
+        ts << "  profile :                    " << dev.profile << std::endl;
+        ts << "  version :                    " << dev.version << std::endl;
+        ts << "  extensions :                 " << dev.extensions << std::endl;
+#if ENCODER_VCEENC
+        ts << "  pcie_id_amd :                " << dev.pcie_id_amd << std::endl;
+        ts << "  topology :                   " << dev.topology_amd << std::endl;
+        ts << "  board_name :                 " << dev.board_name_amd << std::endl;
+#endif
+        ts << "  global_mem_size :            " << dev.global_mem_size / (1024 * 1024) << " MB" << std::endl;
+#if ENCODER_VCEENC
+        ts << "  global_free_mem_size_amd :   " << dev.global_free_mem_size_amd / (1024 * 1024) << " MB" << std::endl;
+        ts << "  global_mem_channels_amd :    " << dev.global_mem_channels_amd << std::endl;
+        ts << "  global_mem_banks_amd :       " << dev.global_mem_channel_banks_amd << std::endl;
+        ts << "  global_mem_bank_width_amd :  " << dev.global_mem_channel_bank_width_amd << std::endl;
+#endif
+        ts << "  global_mem_cache_size :      " << dev.global_mem_cache_size / 1024 << " KB" << std::endl;
+        ts << "  global_mem_cacheline_size :  " << dev.global_mem_cacheline_size << " B" << std::endl;
+        ts << "  max_mem_alloc_size :         " << dev.max_mem_alloc_size / (1024 * 1024) << " MB" << std::endl;
+        ts << "  mem_base_addr_align :        " << dev.mem_base_addr_align << std::endl;
+        ts << "  min_data_type_align_size :   " << dev.min_data_type_align_size << std::endl;
+        ts << "  local_mem_size :             " << dev.local_mem_size / 1024 << " KB" << std::endl;
+#if ENCODER_VCEENC
+        ts << "  local_mem_size_per_cu_amd :  " << dev.local_mem_size_per_cu_amd / 1024 << " KB" << std::endl;
+        ts << "  local_mem_banks_amd :        " << dev.local_mem_banks_amd << std::endl;
+#endif
+        ts << "  max_const_args :             " << dev.max_const_args << std::endl;
+        ts << "  max_const_buffer_size :      " << dev.max_const_buffer_size / 1024 << " KB"
+#if ENCODER_VCEENC
+                                                << ", preferred " << dev.preferred_const_buffer_size_amd / 1024 << " KB"
+#endif
+                                                << std::endl;
+        ts << "  image2d max size :           " << dev.image_2d_max_width << " x " << dev.image_2d_max_height << std::endl;
+        ts << "  image3d max size :           " << dev.image_3d_max_width << " x " << dev.image_3d_max_height << " x " << dev.image_3d_max_depth << std::endl;
+        ts << "  max_image_args :             read " << dev.max_read_image_args << ", write " << dev.max_write_image_args << std::endl;
+        ts << "  profiling_timer_resolution : " << dev.profiling_timer_resolution << " ns" << std::endl;
+        ts << "  max_parameter_size :         " << dev.max_parameter_size << std::endl;
+        ts << "  max_work_group_size :        " << dev.max_work_group_size << std::endl;
+        ts << "  max_work_item_dims :         " << dev.max_work_item_dims << std::endl;
+#if ENCODER_VCEENC
+        ts << "  simd_per_cu_amd :            " << dev.simd_per_cu_amd << std::endl;
+        ts << "  simd_width_amd :             " << dev.simd_width_amd << std::endl;
+        ts << "  simd_instruction_width_amd : " << dev.simd_instruction_width_amd << std::endl;
+        ts << "  wavefront_width_amd :        " << dev.wavefront_width_amd << std::endl;
+        ts << "  thread_trace_supported_amd : " << dev.thread_trace_supported_amd << std::endl;
+        ts << "  async_queue_support_amd :    " << dev.async_queue_support_amd << std::endl;
+#endif
+        ts << dev.vecwidth.print();
+
     }
     return char_to_tstring(ts.str());
 }
@@ -734,6 +966,14 @@ RGY_ERR RGYOpenCLPlatform::createDeviceList(cl_device_type device_type) {
         }
     }
     return RGY_ERR_NONE;
+}
+
+RGYOpenCLPlatformInfo::RGYOpenCLPlatformInfo() :
+    profile(),
+    version(),
+    name(),
+    vendor(),
+    extensions() {
 }
 
 std::string RGYOpenCLPlatformInfo::print() const {

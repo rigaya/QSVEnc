@@ -37,6 +37,10 @@
 #define ENABLE_RGY_OPENCL_D3D9  D3D_SURFACES_SUPPORT
 #define ENABLE_RGY_OPENCL_D3D11 (D3D_SURFACES_SUPPORT && MFX_D3D11_SUPPORT)
 #define ENABLE_RGY_OPENCL_VA    LIBVA_SUPPORT
+#elif ENCODER_VCEENC
+#define ENABLE_RGY_OPENCL_D3D9  ENABLE_D3D9
+#define ENABLE_RGY_OPENCL_D3D11 ENABLE_D3D11
+#define ENABLE_RGY_OPENCL_VA    0
 #else
 #define ENABLE_RGY_OPENCL_D3D9  1
 #define ENABLE_RGY_OPENCL_D3D11 1
@@ -623,6 +627,13 @@ public:
     }
 };
 
+struct RGYOpenCLDeviceInfoVecWidth {
+    std::pair<int, int> w_char, w_short, w_int, w_long, w_half, w_float, w_double;
+
+    RGYOpenCLDeviceInfoVecWidth();
+    std::string print() const;
+};
+
 struct RGYOpenCLDeviceInfo {
     cl_device_type type;
     int vendor_id;
@@ -630,14 +641,56 @@ struct RGYOpenCLDeviceInfo {
     int max_clock_frequency;
     int max_samplers;
     uint64_t global_mem_size;
+    uint64_t global_mem_cache_size;
+    uint32_t global_mem_cacheline_size;
+    uint64_t local_mem_size;
+    size_t image_2d_max_width;
+    size_t image_2d_max_height;
+    size_t image_3d_max_width;
+    size_t image_3d_max_height;
+    size_t image_3d_max_depth;
     size_t profiling_timer_resolution;
+    int max_const_args;
+    uint64_t max_const_buffer_size;
+    uint64_t max_mem_alloc_size;
+    size_t max_parameter_size;
+    int max_read_image_args;
+    size_t max_work_group_size;
+    int max_work_item_dims;
+    int max_write_image_args;
+    int mem_base_addr_align;
+    int min_data_type_align_size;
+
+    RGYOpenCLDeviceInfoVecWidth vecwidth;
+
     std::string name;
     std::string vendor;
     std::string driver_version;
     std::string profile;
     std::string version;
     std::string extensions;
+    
+#if ENCODER_VCEENC
+    std::string topology_amd;
+    std::string board_name_amd;
+    uint64_t global_free_mem_size_amd;
+    int simd_per_cu_amd;
+    int simd_width_amd;
+    int simd_instruction_width_amd;
+    int wavefront_width_amd;
+    int global_mem_channels_amd;
+    int global_mem_channel_banks_amd;
+    int global_mem_channel_bank_width_amd;
+    int local_mem_size_per_cu_amd;
+    int local_mem_banks_amd;
+    int thread_trace_supported_amd;
+    int async_queue_support_amd;
+    int max_work_group_size_amd;
+    int preferred_const_buffer_size_amd;
+    int pcie_id_amd;
+#endif
 
+    RGYOpenCLDeviceInfo();
     std::pair<int, int> clversion() const;
     bool checkVersion(int major, int minor) const;
     bool checkExtension(const char* extension) const;
@@ -650,7 +703,7 @@ public:
     RGYOpenCLDeviceInfo info() const;
     bool checkVersion(int major, int minor) const;
     bool checkExtension(const char* extension) const;
-    tstring infostr() const;
+    tstring infostr(bool full = false) const;
     cl_device_id id() const { return m_device; }
 protected:
     cl_device_id m_device;
@@ -663,6 +716,7 @@ struct RGYOpenCLPlatformInfo {
     std::string vendor;
     std::string extensions;
 
+    RGYOpenCLPlatformInfo();
     std::string print() const;
     std::pair<int, int> clversion() const;
     bool checkVersion(int major, int minor) const;
