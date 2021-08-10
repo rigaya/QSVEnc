@@ -329,8 +329,9 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         COMPARE_INT(cop3.NumRefActiveBL1[2], 0);
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
-        COMPARE_TRI(hevc.SampleAdaptiveOffset,  MFX_SAO_UNKNOWN);
-        COMPARE_TRI(hevc.LCUSize, 0);
+        COMPARE_TRI(cop3.TransformSkip,      0);
+        COMPARE_INT(hevc.SampleAdaptiveOffset,  MFX_SAO_UNKNOWN);
+        COMPARE_INT(hevc.LCUSize, 0);
     }
     return ret;
 }
@@ -920,6 +921,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
             m_CodingOption3.ExtBrcAdaptiveLTR = (mfxU16)(pInParams->extBrcAdaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+            if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+                m_CodingOption3.TransformSkip = pInParams->hevc_tskip;
+            }
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
@@ -1046,12 +1050,14 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
 
     // In case of HEVC when height and/or width divided with 8 but not divided with 16
     // add extended parameter to increase performance
-    if ( ( !((m_mfxEncParams.mfx.FrameInfo.CropW & 15 ) ^ 8 ) ||
-           !((m_mfxEncParams.mfx.FrameInfo.CropH & 15 ) ^ 8 ) ) &&
-             (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) ) {
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
         INIT_MFX_EXT_BUFFER(m_ExtHEVCParam, MFX_EXTBUFF_HEVC_PARAM);
         m_ExtHEVCParam.PicWidthInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropW;
         m_ExtHEVCParam.PicHeightInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropH;
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+            m_ExtHEVCParam.SampleAdaptiveOffset = pInParams->hevc_sao;
+            m_ExtHEVCParam.LCUSize = pInParams->hevc_ctu;
+        }
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtHEVCParam);
     }
 
@@ -3966,7 +3972,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
         if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
-            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+            if (0 && //正常に取得されていないctu,tskip,saoは表示しないようにする
+                     //常に以下の値が取得されてしまう (ctu=64, tskip=on, sao=all)
+                check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
                 if (outFrameInfo->cop3.TransformSkip == MFX_CODINGOPTION_ON) {
                     extFeatures += _T("tskip ");
                 }
