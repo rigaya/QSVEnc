@@ -92,7 +92,7 @@ int open_intel_adapter(const std::string& devicePath, int type, RGYLog *log)
     int fd = open(devicePath.c_str(), O_RDWR);
 
     if (fd < 0) {
-        log->write(RGY_LOG_ERROR, _T("open_intel_adapter: Failed to open specified device\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("open_intel_adapter: Failed to open specified device\n"));
         return -1;
     }
 
@@ -103,7 +103,7 @@ int open_intel_adapter(const std::string& devicePath, int type, RGYLog *log)
     }
     else {
         close(fd);
-        log->write(RGY_LOG_ERROR, _T("open_intel_adapter: Specified device is not Intel one\n"));
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("open_intel_adapter: Specified device is not Intel one\n"));
         return -1;
     }
 }
@@ -117,7 +117,7 @@ DRMLibVA::DRMLibVA(const std::string& devicePath, int type, std::shared_ptr<RGYL
 
     m_fd = open_intel_adapter(devicePath, type, log.get());
     if (m_fd < 0) {
-        m_log->write(RGY_LOG_ERROR, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
         throw std::range_error("Intel GPU was not found");
     }
     m_va_dpy = m_vadrmlib.vaGetDisplayDRM(m_fd);
@@ -135,7 +135,7 @@ DRMLibVA::DRMLibVA(const std::string& devicePath, int type, std::shared_ptr<RGYL
     {
         if (m_va_dpy) m_libva.vaTerminate(m_va_dpy);
         close(m_fd);
-        m_log->write(RGY_LOG_ERROR, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
         throw std::runtime_error("Loading of VA display was failed");
     }
 }
@@ -230,7 +230,7 @@ drmRenderer::drmRenderer(int fd, mfxI32 monitorType, std::shared_ptr<RGYLog> log
     if (!res) {
       throw std::invalid_argument("Failed to allocate renderer");
     }
-    m_log->write(RGY_LOG_DEBUG, _T("drmrender: connected via %s to %dx%d@%d capable display\n"),
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("drmrender: connected via %s to %dx%d@%d capable display\n"),
       getConnectorName(m_connector_type), m_mode.hdisplay, m_mode.vdisplay, m_mode.vrefresh);
 }
 
@@ -255,21 +255,21 @@ bool drmRenderer::getConnector(drmModeRes *resource, uint32_t connector_type)
             if ((connector->connector_type == connector_type) ||
                 (connector_type == DRM_MODE_CONNECTOR_Unknown)) {
                 if (connector->connection == DRM_MODE_CONNECTED) {
-                    m_log->write(RGY_LOG_DEBUG, _T("drmrender: trying connection: %s\n"), getConnectorName(connector->connector_type));
+                    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("drmrender: trying connection: %s\n"), getConnectorName(connector->connector_type));
                     m_connector_type = connector->connector_type;
                     m_connectorID = connector->connector_id;
                     found = setupConnection(resource, connector);
-                    if (found) m_log->write(RGY_LOG_ERROR, _T("drmrender: succeeded...\n"));
-                    else m_log->write(RGY_LOG_ERROR, _T("drmrender: failed...\n"));
+                    if (found) m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: succeeded...\n"));
+                    else m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: failed...\n"));
                 } else if ((connector_type != DRM_MODE_CONNECTOR_Unknown)) {
-                    m_log->write(RGY_LOG_ERROR, _T("drmrender: error: requested monitor not connected\n"));
+                    m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: error: requested monitor not connected\n"));
                 }
             }
             m_drmlib.drmModeFreeConnector(connector);
             if (found) return true;
         }
     }
-    m_log->write(RGY_LOG_ERROR, _T("drmrender: error: requested monitor not available\n"));
+    m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: error: requested monitor not available\n"));
     return false;
 }
 
@@ -279,7 +279,7 @@ bool drmRenderer::setupConnection(drmModeRes *resource, drmModeConnector* connec
     drmModeEncoderPtr encoder;
 
     if (!connector->count_modes) {
-      m_log->write(RGY_LOG_ERROR, _T("drmrender: error: no valid modes for %s connector\n"),
+      m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: error: no valid modes for %s connector\n"),
         getConnectorName(connector->connector_type));
       return false;
     }
@@ -300,7 +300,7 @@ bool drmRenderer::setupConnection(drmModeRes *resource, drmModeConnector* connec
           }
       }
       ret = true;
-      m_log->write(RGY_LOG_DEBUG, _T("drmrender: selected crtc already attached to connector\n"));
+      m_log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("drmrender: selected crtc already attached to connector\n"));
       m_drmlib.drmModeFreeEncoder(encoder);
     }
 
@@ -320,7 +320,7 @@ bool drmRenderer::setupConnection(drmModeRes *resource, drmModeConnector* connec
             m_crtcIndex = j;
             m_crtcID = resource->crtcs[j];
             ret = true;
-            m_log->write(RGY_LOG_DEBUG, _T("drmrender: found crtc with global search\n"));
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("drmrender: found crtc with global search\n"));
             break;
           }
           m_drmlib.drmModeFreeEncoder(encoder);
@@ -334,7 +334,7 @@ bool drmRenderer::setupConnection(drmModeRes *resource, drmModeConnector* connec
         if (!m_crtc)
             ret = false;
     } else {
-        m_log->write(RGY_LOG_ERROR, _T("drmrender: failed to select crtc\n"));
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: failed to select crtc\n"));
     }
     return ret;
 }
@@ -373,7 +373,7 @@ bool drmRenderer::setMaster()
       usleep(100);
       ++wait_count;
     } while(wait_count < 30000);
-    m_log->write(RGY_LOG_ERROR, _T("drmrender: error: failed to get drm mastership during 3 seconds - aborting\n"));
+    m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: error: failed to get drm mastership during 3 seconds - aborting\n"));
     return false;
 }
 
@@ -388,7 +388,7 @@ bool drmRenderer::restore()
 
   int ret = m_drmlib.drmModeSetCrtc(m_fd, m_crtcID, m_crtc->buffer_id, m_crtc->x, m_crtc->y, &m_connectorID, 1, &m_mode);
   if (ret) {
-    m_log->write(RGY_LOG_ERROR, _T("drmrender: failed to restore original mode\n"));
+    m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("drmrender: failed to restore original mode\n"));
     return false;
   }
   dropMaster();
@@ -454,7 +454,7 @@ void drmRenderer::release(mfxMemId mid, void * mem)
     uint32_t* hdl = (uint32_t*)mem;
     if (!hdl) return;
     if (!restore()) {
-      m_log->write(RGY_LOG_WARN, _T("drmrender: warning: failure to restore original mode may lead to application segfault!\n"));
+      m_log->write(RGY_LOG_WARN, RGY_LOGT_DEV, _T("drmrender: warning: failure to restore original mode may lead to application segfault!\n"));
     }
     m_drmlib.drmModeRmFB(m_fd, *hdl);
     delete(hdl);
@@ -486,7 +486,7 @@ mfxStatus drmRenderer::render(mfxFrameSurface1 * pSurface)
     } else {
         if (m_overlay_wrn) {
           m_overlay_wrn = false;
-          m_log->write(RGY_LOG_WARN, _T("drmrender: warning: rendering via OVERLAY plane\n"));
+          m_log->write(RGY_LOG_WARN, RGY_LOGT_DEV, _T("drmrender: warning: rendering via OVERLAY plane\n"));
         }
         // surface in the framebuffer exactly does NOT match crtc scanout port,
         // and we can only use overlay technique with possible resize (depending on the driver))

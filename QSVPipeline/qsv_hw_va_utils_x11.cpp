@@ -43,7 +43,7 @@ X11LibVA::X11LibVA(std::shared_ptr<RGYLog> log)
 
     if (!m_display)
     {
-        m_log->write(RGY_LOG_ERROR, _T("X11LibVA: Failed to open X Display: try to check/set DISPLAY environment variable.\n"));
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("X11LibVA: Failed to open X Display: try to check/set DISPLAY environment variable.\n"));
         throw std::bad_alloc();
     }
 
@@ -51,7 +51,7 @@ X11LibVA::X11LibVA(std::shared_ptr<RGYLog> log)
     if (!m_va_dpy)
     {
         m_x11lib.XCloseDisplay(m_display);
-        m_log->write(RGY_LOG_ERROR, _T("X11LibVA: Failed to get VA Display\n"));
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("X11LibVA: Failed to get VA Display\n"));
         throw std::bad_alloc();
     }
 
@@ -61,7 +61,7 @@ X11LibVA::X11LibVA(std::shared_ptr<RGYLog> log)
     if (VA_STATUS_SUCCESS != sts)
     {
         m_x11lib.XCloseDisplay(m_display);
-        m_log->write(RGY_LOG_ERROR, _T("X11LibVA: Failed to initialize VAAPI: %d\n"), sts);
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("X11LibVA: Failed to initialize VAAPI: %d\n"), sts);
         throw std::bad_alloc();
     }
 
@@ -93,7 +93,7 @@ X11LibVA::X11LibVA(std::shared_ptr<RGYLog> log)
     if (VA_STATUS_SUCCESS != sts)
     {
         Close();
-        m_log->write(RGY_LOG_ERROR, _T("X11LibVA: Failed to initialize VP: %d\n"), sts);
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("X11LibVA: Failed to initialize VP: %d\n"), sts);
         throw std::bad_alloc();
     }
 #endif // X11_DRI3_SUPPORT
@@ -112,17 +112,17 @@ void X11LibVA::Close()
     {
         sts = m_libva.vaDestroyContext(m_va_dpy, m_contextID);
         if (sts != VA_STATUS_SUCCESS)
-            m_log->write(RGY_LOG_ERROR, _T("X11LibVA: Failed to destroy VA context: %d\n"), sts);
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("X11LibVA: Failed to destroy VA context: %d\n"), sts);
     }
     if (m_configID != VA_INVALID_ID)
     {
         sts = m_libva.vaDestroyConfig(m_va_dpy, m_configID);
         if (sts != VA_STATUS_SUCCESS)
-            m_log->write(RGY_LOG_ERROR, _T("X11LibVA: Failed to destroy VA config: %d\n"), sts);
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("X11LibVA: Failed to destroy VA config: %d\n"), sts);
     }
     sts = m_libva.vaTerminate(m_va_dpy);
     if (sts != VA_STATUS_SUCCESS)
-        m_log->write(RGY_LOG_ERROR, _T("X11LibVA: Failed to close VAAPI library: %d\n"), sts);
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("X11LibVA: Failed to close VAAPI library: %d\n"), sts);
 
     m_x11lib.XCloseDisplay(m_display);
 }
