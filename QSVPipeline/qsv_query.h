@@ -191,7 +191,6 @@ static BOOL check_lib_version(mfxU32 _value, mfxU32 _required) {
 static bool inline rc_is_type_lookahead(int rc) {
     return ((rc == MFX_RATECONTROL_LA)
         | (rc == MFX_RATECONTROL_LA_ICQ)
-        | (rc == MFX_RATECONTROL_LA_EXT)
         | (rc == MFX_RATECONTROL_LA_HRD));
 }
 

@@ -30,7 +30,6 @@
 #include "qsv_mfx_dec.h"
 #include "qsv_allocator.h"
 #include "qsv_hw_device.h"
-#include "qsv_plugin.h"
 
 RGY_ERR CreateAllocatorImpl(
     std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,
@@ -47,7 +46,6 @@ QSVMfxDec::QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_allocatorInternal(),
     m_crop(),
     m_mfxDec(),
-    m_SessionPlugins(),
     m_DecExtParams(),
     m_DecVidProc(),
     m_mfxDecParams(),
@@ -63,7 +61,6 @@ void QSVMfxDec::clear() {
         m_mfxDec->Close();
         m_mfxDec.reset();
     }
-    m_SessionPlugins.reset();
     if (m_mfxSession) {
         m_mfxSession.DisjoinSession();
         m_mfxSession.Close();
@@ -133,9 +130,6 @@ RGY_ERR QSVMfxDec::InitSession() {
         PrintMes(RGY_LOG_DEBUG, _T("Set allocator for decode.\n"));
     }
 
-
-    m_SessionPlugins = std::make_unique<CSessionPlugins>(m_mfxSession);
-
     return RGY_ERR_NONE;
 }
 
@@ -154,12 +148,6 @@ RGY_ERR QSVMfxDec::SetParam(
     m_mfxDec.reset(new MFXVideoDECODE(m_mfxSession));
     if (!m_mfxDec) {
         return RGY_ERR_MEMORY_ALLOC;
-    }
-
-    sts = err_to_rgy(m_SessionPlugins->LoadPlugin(MFXComponentType::DECODE, codec_rgy_to_enc(inputCodec), false));
-    if (sts != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s decoder.\n"), CodecToStr(inputCodec).c_str());
-        return RGY_ERR_UNSUPPORTED;
     }
 
     if (inputCodec == RGY_CODEC_H264 || inputCodec == RGY_CODEC_HEVC) {

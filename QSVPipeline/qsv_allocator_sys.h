@@ -43,14 +43,14 @@ struct sFrame {
     mfxFrameInfo info;
 };
 
-class QSVBufferAllocatorSys : public QSVBufferAllocator {
+class QSVBufferAllocatorSys {
 public:
     QSVBufferAllocatorSys();
     virtual ~QSVBufferAllocatorSys();
-    virtual mfxStatus BufAlloc(mfxU32 nbytes, mfxU16 type, mfxMemId *mid) override;
-    virtual mfxStatus BufLock(mfxMemId mid, mfxU8 **ptr) override;
-    virtual mfxStatus BufUnlock(mfxMemId mid) override;
-    virtual mfxStatus BufFree(mfxMemId mid) override;
+    virtual mfxStatus Alloc(mfxU32 nbytes, mfxU16 type, mfxMemId *mid);
+    virtual mfxStatus Lock(mfxMemId mid, mfxU8 **ptr);
+    virtual mfxStatus Unlock(mfxMemId mid);
+    virtual mfxStatus Free(mfxMemId mid);
 };
 
 class QSVAllocatorSys : public QSVAllocator {

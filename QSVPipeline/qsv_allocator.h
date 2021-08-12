@@ -35,23 +35,6 @@
 #include "mfxvideo.h"
 #include "rgy_log.h"
 
-class QSVBufferAllocator : public mfxBufferAllocator {
-public:
-    QSVBufferAllocator();
-    virtual ~QSVBufferAllocator();
-
-    virtual mfxStatus BufAlloc(mfxU32 nbytes, mfxU16 type, mfxMemId *mid) = 0;
-    virtual mfxStatus BufLock(mfxMemId mid, mfxU8 **ptr) = 0;
-    virtual mfxStatus BufUnlock(mfxMemId mid) = 0;
-    virtual mfxStatus BufFree(mfxMemId mid) = 0;
-
-private:
-    static mfxStatus MFX_CDECL Alloc_(mfxHDL pthis, mfxU32 nbytes, mfxU16 type, mfxMemId *mid);
-    static mfxStatus MFX_CDECL Lock_(mfxHDL pthis, mfxMemId mid, mfxU8 **ptr);
-    static mfxStatus MFX_CDECL Unlock_(mfxHDL pthis, mfxMemId mid);
-    static mfxStatus MFX_CDECL Free_(mfxHDL pthis, mfxMemId mid);
-};
-
 class mfxAllocatorParams {
 public:
     virtual ~mfxAllocatorParams(){};

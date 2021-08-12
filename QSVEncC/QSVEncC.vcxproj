@@ -149,7 +149,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -164,7 +164,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;libcpmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -195,17 +195,18 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x86</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
     <PreBuildEvent>
-      <Message>Building libmfx...</Message>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -220,7 +221,7 @@ BuildMfx.bat x86</Command>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;libcpmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -251,11 +252,12 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x86</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
     <PreBuildEvent>
-      <Message>Building libmfx...</Message>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -264,7 +266,7 @@ BuildMfx.bat x86</Command>
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -279,7 +281,7 @@ BuildMfx.bat x86</Command>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;libcpmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -311,9 +313,10 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x64</Command>
-      <Message>Building libmfx...</Message>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">
@@ -322,7 +325,7 @@ BuildMfx.bat x64</Command>
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -337,7 +340,7 @@ BuildMfx.bat x64</Command>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;libcpmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -369,9 +372,10 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x64</Command>
-      <Message>Building libmfx...</Message>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -382,7 +386,7 @@ BuildMfx.bat x64</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -399,7 +403,7 @@ BuildMfx.bat x64</Command>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;libcpmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -433,11 +437,12 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x86</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
     <PreBuildEvent>
-      <Message>Building libmfx...</Message>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">
@@ -448,7 +453,7 @@ BuildMfx.bat x86</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -465,7 +470,7 @@ BuildMfx.bat x86</Command>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x86;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x86\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -499,11 +504,12 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x86</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
     <PreBuildEvent>
-      <Message>Building libmfx...</Message>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -517,7 +523,7 @@ BuildMfx.bat x86</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -533,7 +539,7 @@ BuildMfx.bat x86</Command>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;libcpmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -568,9 +574,10 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x64</Command>
-      <Message>Building libmfx...</Message>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
@@ -584,7 +591,7 @@ BuildMfx.bat x64</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;src;..\MediaSDK\api\include;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;$(INTEL_METRIC_FRAMEWORK_SDK)\include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;src;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;$(INTELOCLSDKROOT)include;..\ffmpeg_lgpl\include;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -600,7 +607,7 @@ BuildMfx.bat x64</Command>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);$(SolutionDir)build\win_$(Platform)\Release\lib;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\_build\QSVCommon\$(Platform);..\ffmpeg_lgpl\lib\$(Platform);$(SolutionDir)libass\lib\$(Platform);..\buildOneVPL\$(Platform)\Release;$(INTELOCLSDKROOT)lib\x64;$(INTEL_METRIC_FRAMEWORK_SDK)\build\visual_studio_2015_x64\bin\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -635,9 +642,10 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>cd ..
-BuildMfx.bat x64</Command>
-      <Message>Building libmfx...</Message>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -32,12 +32,10 @@
 #include <memory>
 #include <mfxdefs.h>
 #include <mfxcommon.h>
-#include <mfxplugin++.h>
 #include "qsv_query.h"
 
 class QSVAllocator;
 class CQSVHWDevice;
-class CSessionPlugins;
 class RGYLog;
 
 class QSVMfxDec {
@@ -80,7 +78,6 @@ protected:
 
     sInputCrop m_crop;
     std::unique_ptr<MFXVideoDECODE> m_mfxDec;
-    std::unique_ptr<CSessionPlugins> m_SessionPlugins;
     std::vector<mfxExtBuffer*> m_DecExtParams;
     mfxExtDecVideoProcessing m_DecVidProc;
     mfxVideoParam m_mfxDecParams;

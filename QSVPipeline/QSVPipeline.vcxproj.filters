@@ -207,9 +207,6 @@
     <ClCompile Include="rgy_filter_resize.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="qsv_plugin.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="rgy_filter_transform.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -492,9 +489,6 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_filter_denoise_knn.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="qsv_plugin.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_filter_transform.h">

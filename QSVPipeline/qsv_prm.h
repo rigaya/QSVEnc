@@ -33,7 +33,6 @@
 #include "rgy_version.h"
 #include "mfxcommon.h"
 #include "mfxvp8.h"
-#include "mfxvp9.h"
 #include "mfxstructures.h"
 #include "convert_csp.h"
 #include "rgy_caption.h"
@@ -353,7 +352,6 @@ const CX_DESC list_rc_mode[] = {
     { _T("CQP"),     MFX_RATECONTROL_CQP    },
     { _T("AVBR"),    MFX_RATECONTROL_AVBR   },
     { _T("LA"),      MFX_RATECONTROL_LA     },
-    { _T("LA-EXT"),  MFX_RATECONTROL_LA_EXT },
     { _T("LA-HRD"),  MFX_RATECONTROL_LA_HRD },
     { _T("LA-ICQ"),  MFX_RATECONTROL_LA_ICQ },
     { _T("ICQ"),     MFX_RATECONTROL_ICQ    },

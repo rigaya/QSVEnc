@@ -37,7 +37,7 @@ QSVBufferAllocatorSys::QSVBufferAllocatorSys() { }
 
 QSVBufferAllocatorSys::~QSVBufferAllocatorSys() { }
 
-mfxStatus QSVBufferAllocatorSys::BufAlloc(mfxU32 nbytes, mfxU16 type, mfxMemId *mid) {
+mfxStatus QSVBufferAllocatorSys::Alloc(mfxU32 nbytes, mfxU16 type, mfxMemId *mid) {
     if (!mid)
         return MFX_ERR_NULL_PTR;
 
@@ -58,7 +58,7 @@ mfxStatus QSVBufferAllocatorSys::BufAlloc(mfxU32 nbytes, mfxU16 type, mfxMemId *
     return MFX_ERR_NONE;
 }
 
-mfxStatus QSVBufferAllocatorSys::BufLock(mfxMemId mid, mfxU8 **ptr) {
+mfxStatus QSVBufferAllocatorSys::Lock(mfxMemId mid, mfxU8 **ptr) {
     if (!ptr)
         return MFX_ERR_NULL_PTR;
 
@@ -72,7 +72,7 @@ mfxStatus QSVBufferAllocatorSys::BufLock(mfxMemId mid, mfxU8 **ptr) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus QSVBufferAllocatorSys::BufUnlock(mfxMemId mid) {
+mfxStatus QSVBufferAllocatorSys::Unlock(mfxMemId mid) {
     sBuffer *bs = (sBuffer *)mid;
     if (!bs || ID_BUFFER != bs->id) {
         return MFX_ERR_INVALID_HANDLE;
@@ -80,7 +80,7 @@ mfxStatus QSVBufferAllocatorSys::BufUnlock(mfxMemId mid) {
     return MFX_ERR_NONE;
 }
 
-mfxStatus QSVBufferAllocatorSys::BufFree(mfxMemId mid) {
+mfxStatus QSVBufferAllocatorSys::Free(mfxMemId mid) {
     sBuffer *bs = (sBuffer *)mid;
     if (!bs || ID_BUFFER != bs->id) {
         return MFX_ERR_INVALID_HANDLE;
@@ -119,13 +119,13 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     }
 
     sFrame *fs = 0;
-    mfxStatus sts = m_pBufferAllocator->Lock(m_pBufferAllocator->pthis, mid, (mfxU8 **)&fs);
+    mfxStatus sts = m_pBufferAllocator->Lock(mid, (mfxU8 **)&fs);
     if (MFX_ERR_NONE != sts) {
         AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorSys::FrameLock Failed to Lock frmame mid 0x%x: %s\n"), mid, get_err_mes(sts));
         return sts;
     }
     if (ID_FRAME != fs->id) {
-        m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mid);
+        m_pBufferAllocator->Unlock(mid);
         AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorSys::FrameLock Invalid mem handle\n"), mid, get_err_mes(sts));
         return MFX_ERR_INVALID_HANDLE;
     }
@@ -262,7 +262,7 @@ mfxStatus QSVAllocatorSys::FrameUnlock(mfxMemId mid, mfxFrameData *ptr) {
         return MFX_ERR_NOT_INITIALIZED;
     }
 
-    mfxStatus sts = m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mid);
+    mfxStatus sts = m_pBufferAllocator->Unlock(mid);
     if (MFX_ERR_NONE != sts) {
         AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorSys::FrameUnlock failed to unlock frame mid 0x%x: %s\n"), mid, get_err_mes(sts));
         return sts;
@@ -364,15 +364,14 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
     AddMessage(RGY_LOG_DEBUG, _T("QSVAllocatorSys::AllocImpl allocating %d frames...\n"), request->NumFrameSuggested);
     mfxU32 numAllocated = 0;
     for (numAllocated = 0; numAllocated < request->NumFrameSuggested; numAllocated++) {
-        mfxStatus sts = m_pBufferAllocator->Alloc(m_pBufferAllocator->pthis,
-            nbytes + ALIGN32(sizeof(sFrame)), request->Type, &(mids.get()[numAllocated]));
+        mfxStatus sts = m_pBufferAllocator->Alloc(nbytes + ALIGN32(sizeof(sFrame)), request->Type, &(mids.get()[numAllocated]));
         if (sts != MFX_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorSys::AllocImpl failed to allocate frame #%d, size %d: %s\n"), numAllocated, nbytes + ALIGN32(sizeof(sFrame)), get_err_mes(sts));
             return MFX_ERR_MEMORY_ALLOC;
         }
 
         sFrame *fs;
-        sts = m_pBufferAllocator->Lock(m_pBufferAllocator->pthis, mids.get()[numAllocated], (mfxU8 **)&fs);
+        sts = m_pBufferAllocator->Lock(mids.get()[numAllocated], (mfxU8 **)&fs);
         if (sts != MFX_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorSys::AllocImpl failed to unlock frame mid 0x%x: %s\n"), mids.get()[numAllocated], get_err_mes(sts));
             return MFX_ERR_MEMORY_ALLOC;
@@ -380,7 +379,7 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
 
         fs->id = ID_FRAME;
         fs->info = request->Info;
-        sts = m_pBufferAllocator->Unlock(m_pBufferAllocator->pthis, mids.get()[numAllocated]);
+        sts = m_pBufferAllocator->Unlock(mids.get()[numAllocated]);
         if (sts != MFX_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorSys::AllocImpl failed to unlock frame mid 0x%x: %s\n"), mids.get()[numAllocated], get_err_mes(sts));
             return MFX_ERR_MEMORY_ALLOC;
@@ -406,7 +405,7 @@ mfxStatus QSVAllocatorSys::ReleaseResponse(mfxFrameAllocResponse *response) {
         int nFrameCount = response->NumFrameActual;
         for (int i = 0; i < nFrameCount; i++) {
             if (response->mids[i]) {
-                mfxStatus sts = m_pBufferAllocator->Free(m_pBufferAllocator->pthis, response->mids[i]);
+                mfxStatus sts = m_pBufferAllocator->Free(response->mids[i]);
                 if (MFX_ERR_NONE != sts) return sts;
             }
         }

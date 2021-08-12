@@ -32,7 +32,6 @@
 #include <memory>
 #include <mfxdefs.h>
 #include <mfxcommon.h>
-#include <mfxplugin++.h>
 #include "rgy_log.h"
 #include "qsv_query.h"
 #include "qsv_allocator.h"

@@ -22,6 +22,7 @@ config.mak
 [Dd]ebug/
 [Rr]elease/
 build/
+buildOneVPL/
 _build/
 [Bb]in/
 [Oo]bj/

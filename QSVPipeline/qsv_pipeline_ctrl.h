@@ -38,8 +38,6 @@
 #include <optional>
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
-#include "mfxplugin.h"
-#include "mfxplugin++.h"
 #include "qsv_hw_device.h"
 #include "rgy_opencl.h"
 #include "qsv_opencl.h"
@@ -1372,24 +1370,6 @@ public:
         //eventを入力フレームを使用し終わったことの合図として登録する
         taskSurf->addClEvent(inputReleaseEvent);
         m_outQeueue.push_back(std::move(frame));
-        return RGY_ERR_NONE;
-    }
-};
-
-class PipelineTaskMFXENC : public PipelineTask {
-protected:
-    MFXVideoENC *m_enc;
-public:
-    PipelineTaskMFXENC(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENC *mfxenc, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXENC, outMaxQueueSize, mfxSession, mfxVer, log), m_enc(mfxenc) {};
-    virtual ~PipelineTaskMFXENC() {};
-    void setEnc(MFXVideoENC *mfxenc) { m_enc = mfxenc; };
-
-    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
-        if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
-            PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
         return RGY_ERR_NONE;
     }
 };

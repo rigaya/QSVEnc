@@ -30,33 +30,6 @@
 #include "qsv_allocator.h"
 #include "qsv_util.h"
 
-QSVBufferAllocator::QSVBufferAllocator() {
-    pthis = this;
-    Alloc = Alloc_;
-    Lock  = Lock_;
-    Free  = Free_;
-    Unlock = Unlock_;
-}
-
-QSVBufferAllocator::~QSVBufferAllocator() {
-}
-
-mfxStatus QSVBufferAllocator::Alloc_(mfxHDL pthis, mfxU32 nbytes, mfxU16 type, mfxMemId *mid) {
-    return reinterpret_cast<QSVBufferAllocator *>(pthis)->BufAlloc(nbytes, type, mid);
-}
-
-mfxStatus QSVBufferAllocator::Lock_(mfxHDL pthis, mfxMemId mid, mfxU8 **ptr) {
-    return reinterpret_cast<QSVBufferAllocator *>(pthis)->BufLock(mid, ptr);
-}
-
-mfxStatus QSVBufferAllocator::Unlock_(mfxHDL pthis, mfxMemId mid) {
-    return reinterpret_cast<QSVBufferAllocator *>(pthis)->BufUnlock(mid);
-}
-
-mfxStatus QSVBufferAllocator::Free_(mfxHDL pthis, mfxMemId mid) {
-    return reinterpret_cast<QSVBufferAllocator *>(pthis)->BufFree(mid);
-}
-
 QSVAllocator::QSVAllocator() {
     pthis = this;
     Alloc = Alloc_;

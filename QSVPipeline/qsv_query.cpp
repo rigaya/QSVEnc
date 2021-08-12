@@ -43,8 +43,6 @@
 #include "mfxstructures.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
-#include "mfxplugin.h"
-#include "mfxplugin++.h"
 #include "mfxjpeg.h"
 #include "rgy_tchar.h"
 #include "rgy_util.h"
@@ -52,7 +50,6 @@
 #include "rgy_arch.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
-#include "qsv_plugin.h"
 #include "rgy_osdep.h"
 #include "rgy_env.h"
 #include "qsv_query.h"
@@ -260,11 +257,6 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
     const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
-    auto sessionPlugins = std::unique_ptr<CSessionPlugins>(new CSessionPlugins(session));
-    auto loadsts = sessionPlugins->LoadPlugin(MFXComponentType::DECODE, codecId, false);
-    if (loadsts != MFX_ERR_NONE) {
-        return supportedCsp;
-    }
     mfxVideoParam videoPrm, videoPrmOut;
     memset(&videoPrm,  0, sizeof(videoPrm));
     videoPrm.AsyncDepth                  = 3;
@@ -796,7 +788,6 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
             || videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_CBR
             || videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA
             || videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA_HRD
-            || videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_LA_EXT
             || videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_VCM
             || videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_QVBR) {
             videoPrm.mfx.TargetKbps = 3000;
@@ -856,7 +847,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratec
         videoPrm.mfx.GopRefDist = 1;
         videoPrm.mfx.NumRefFrame = 1;
         videoPrm.AsyncDepth = 0;
-        videoPrm.IOPattern = MFX_IOPATTERN_IN_OPAQUE_MEMORY;
+        videoPrm.IOPattern = MFX_IOPATTERN_IN_VIDEO_MEMORY;
         if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_9)) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = 8;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
@@ -1084,9 +1075,6 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, int ratecontrol, mfxU3
     case MFX_RATECONTROL_VCM:
         rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_8);
         break;
-    case MFX_RATECONTROL_LA_EXT:
-        rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_10);
-        break;
     case MFX_RATECONTROL_LA_HRD:
     case MFX_RATECONTROL_QVBR:
         rate_control_supported = check_lib_version(mfxVer, MFX_LIB_VERSION_1_11);
@@ -1152,11 +1140,7 @@ mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver
         //コードで決められた値を返すようにする
         feature = CheckEncodeFeatureStatic(ver, ratecontrol, codecId);
     } else {
-
-        CSessionPlugins sessionPlugins(session);
-        sessionPlugins.LoadPlugin(MFXComponentType::ENCODE, codecId, false);
         feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
-        sessionPlugins.UnloadPlugins();
     }
 
     return feature;

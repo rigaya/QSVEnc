@@ -504,12 +504,6 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         PrintMes(log_level, _T("%s is not supported on current platform, disabled.\n"), feature_name);
     };
 
-    auto sts = err_to_rgy(m_SessionPlugins->LoadPlugin(MFXComponentType::ENCODE, pInParams->CodecId, false));
-    if (sts != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to load hw %s encoder.\n"), CodecIdToStr(pInParams->CodecId));
-        PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
-        return RGY_ERR_UNSUPPORTED;
-    }
     const int encodeBitDepth = getEncoderBitdepth(pInParams);
     if (encodeBitDepth <= 0) {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
@@ -546,8 +540,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
                 PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(pInParams->nEncMode));
             }
         }
-        if (   MFX_RATECONTROL_LA_EXT == pInParams->nEncMode
-            || MFX_RATECONTROL_LA_HRD == pInParams->nEncMode
+        if (   MFX_RATECONTROL_LA_HRD == pInParams->nEncMode
             || MFX_RATECONTROL_QVBR   == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
                 PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(pInParams->nEncMode));
@@ -2804,7 +2797,6 @@ bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
 
 RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
     auto err = RGY_ERR_NONE;
-    m_SessionPlugins.reset();
     m_mfxSession.Close();
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initilaizing... memType: %s\n"), MemTypeToStr(memType));
 #if defined(_WIN32) || defined(_WIN64)
@@ -3064,8 +3056,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
-    m_SessionPlugins = std::make_unique<CSessionPlugins>(m_mfxSession);
-
     sts = CreateAllocator();
     if (sts < RGY_ERR_NONE) return sts;
 
@@ -3151,9 +3141,6 @@ void CQSVPipeline::Close() {
     m_EncExtParams.clear();
 
     m_DecInputBitstream.clear();
-
-    PrintMes(RGY_LOG_DEBUG, _T("Closing Plugins...\n"));
-    m_SessionPlugins.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing mfxSession...\n"));
     m_mfxSession.Close();

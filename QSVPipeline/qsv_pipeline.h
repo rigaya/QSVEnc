@@ -41,19 +41,15 @@
 
 #include "qsv_allocator.h"
 
-#include "mfxmvc.h"
 #include "mfxvideo.h"
 #include "mfxvideo++.h"
-#include "mfxplugin.h"
-#include "mfxplugin++.h"
 
 #ifndef BUILD_AUO
-#pragma comment(lib, "libmfx_vs2015.lib")
+#pragma comment(lib, "vpl.lib")
 #endif
 
 #include "rgy_perf_monitor.h"
 #include "rgy_bitstream.h"
-#include "qsv_plugin.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "rgy_opencl.h"
@@ -155,8 +151,6 @@ protected:
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
-
-    std::unique_ptr<CSessionPlugins> m_SessionPlugins;
 
     sTrimParam m_trimParam;
 

@@ -257,7 +257,6 @@ tstring qsv_memtype_str(uint32_t memtype) {
     tstring str;
     if (memtype & MFX_MEMTYPE_INTERNAL_FRAME)         str += _T("internal,");
     if (memtype & MFX_MEMTYPE_EXTERNAL_FRAME)         str += _T("external,");
-    if (memtype & MFX_MEMTYPE_OPAQUE_FRAME)           str += _T("opaque,");
     if (memtype & MFX_MEMTYPE_DXVA2_DECODER_TARGET)   str += _T("dxvadec,");
     if (memtype & MFX_MEMTYPE_DXVA2_PROCESSOR_TARGET) str += _T("dxvaproc,");
     if (memtype & MFX_MEMTYPE_SYSTEM_MEMORY)          str += _T("system,");
@@ -516,8 +515,6 @@ const TCHAR *EncmodeToStr(uint32_t enc_mode) {
         return _T("VCM (Video Conference Mode)");
     case MFX_RATECONTROL_LA_ICQ:
         return _T("LA-ICQ (Intelligent Const. Quality with Lookahead)");
-    case MFX_RATECONTROL_LA_EXT:
-        return _T("LA-EXT (Extended Lookahead)");
     case MFX_RATECONTROL_LA_HRD:
         return _T("LA-HRD (HRD compliant Lookahead)");
     case MFX_RATECONTROL_QVBR:
