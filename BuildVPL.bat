@@ -1,4 +1,5 @@
 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars32.bat" %1
+cd %~dp0
 if not exist buildOneVPL mkdir buildOneVPL
 if not exist buildOneVPL\%1 mkdir buildOneVPL\%1
 if not exist buildOneVPL\%1\%2 mkdir buildOneVPL\%1\%2
