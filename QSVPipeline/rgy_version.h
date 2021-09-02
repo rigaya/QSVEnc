@@ -31,9 +31,9 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,5,6,0
-#define VER_STR_FILEVERSION          "5.06"
-#define VER_STR_FILEVERSION_TCHAR _T("5.06")
+#define VER_FILEVERSION             0,6,0,0
+#define VER_STR_FILEVERSION          "6.00"
+#define VER_STR_FILEVERSION_TCHAR _T("6.00")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -56,6 +56,8 @@ const char *get_encoder_version();
 #define GPU_VENDOR "Intel"
 
 #if defined(_WIN32) || defined(_WIN64)
+
+#define USE_ONEVPL 1
 
 #define D3D_SURFACES_SUPPORT 1
 

@@ -30,10 +30,6 @@
 
 #include "rgy_tchar.h"
 #include <emmintrin.h>
-#if defined(_WIN32) || defined(_WIN64)
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
-#endif
 #include <vector>
 #include <array>
 #include <string>
@@ -41,13 +37,18 @@
 #include <memory>
 #include <type_traits>
 #include "rgy_osdep.h"
+#include "rgy_util.h"
+#pragma warning (push)
+#pragma warning (disable: 4201) //C4201: 非標準の拡張機能が使用されています: 無名の構造体または共用体です。
+#pragma warning (disable: 4996) //C4996: 'MFXInit': が古い形式として宣言されました。
+#pragma warning (disable: 4819) //C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include "mfxstructures.h"
 #include "mfxsession.h"
 #include "mfxvideo++.h"
+#pragma warning (pop)
 #include "rgy_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
-#include "rgy_util.h"
 #include "qsv_util.h"
 
 enum QSV_CPU_GEN {
@@ -127,7 +128,11 @@ static const mfxVersion LIB_VER_LIST[] = {
     { 33, 1 },
     { 34, 1 },
     { 35, 1 },
-    { 0, 0 }
+    {  0, 2 },
+    {  1, 2 },
+    {  2, 2 },
+    {  3, 2 },
+    {  0, 0 }
 };
 
 static const mfxU32 CODEC_LIST_AUO[] = {
@@ -157,10 +162,15 @@ static const mfxU32 CODEC_LIST_AUO[] = {
 #define MFX_LIB_VERSION_1_33 LIB_VER_LIST[19]
 #define MFX_LIB_VERSION_1_34 LIB_VER_LIST[20]
 #define MFX_LIB_VERSION_1_35 LIB_VER_LIST[21]
+#define MFX_LIB_VERSION_2__0 LIB_VER_LIST[22]
+#define MFX_LIB_VERSION_2__1 LIB_VER_LIST[23]
+#define MFX_LIB_VERSION_2__2 LIB_VER_LIST[24]
+#define MFX_LIB_VERSION_2__3 LIB_VER_LIST[25]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);
 int GetAdapterID(mfxSession session);
+int GetAdapterID(MFXVideoSession *session);
 mfxVersion get_mfx_libhw_version();
 mfxVersion get_mfx_libsw_version();
 mfxVersion get_mfx_lib_version(mfxIMPL impl);

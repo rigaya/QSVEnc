@@ -29,7 +29,13 @@
 #include "rgy_err.h"
 #include "rgy_osdep.h"
 #include "rgy_frame.h"
+
+#pragma warning (push)
+#pragma warning (disable: 4201) //C4201: 非標準の拡張機能が使用されています: 無名の構造体または共用体です。
+#pragma warning (disable: 4996) //C4996: 'MFXInit': が古い形式として宣言されました。
+#pragma warning (disable: 4819) //C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include <mfxjpeg.h>
+#pragma warning (pop)
 
 static const auto RGY_CODEC_TO_MFX = make_array<std::pair<RGY_CODEC, mfxU32>>(
     std::make_pair(RGY_CODEC_H264,  MFX_CODEC_AVC),
@@ -562,6 +568,26 @@ tstring MFXPicStructToStr(uint32_t picstruct) {
     if (picstruct & MFX_PICSTRUCT_FIELD_SINGLE)      str += _T(",single");
     if (picstruct & MFX_PICSTRUCT_FIELD_PAIRED_PREV) str += _T(",pair_prev");
     if (picstruct & MFX_PICSTRUCT_FIELD_PAIRED_NEXT) str += _T(",pair_next");
+    return str.substr(1);
+}
+
+RGY_NOINLINE
+tstring MFXImplToStr(uint32_t impl) {
+    if (impl == 0) return _T("auto");
+    tstring str;
+    if ((impl & 0x00ff) == MFX_IMPL_SOFTWARE)      str += _T(",sw");
+    if ((impl & 0x00ff) == MFX_IMPL_HARDWARE)      str += _T(",hw");
+    if ((impl & 0x00ff) == MFX_IMPL_AUTO_ANY)      str += _T(",auto_any");
+    if ((impl & 0x00ff) == MFX_IMPL_HARDWARE_ANY)  str += _T(",hw_any");
+    if ((impl & 0x00ff) == MFX_IMPL_HARDWARE2)     str += _T(",hw2");
+    if ((impl & 0x00ff) == MFX_IMPL_HARDWARE3)     str += _T(",hw3");
+    if ((impl & 0x00ff) == MFX_IMPL_HARDWARE4)     str += _T(",hw4");
+    if ((impl & 0xff00) == MFX_IMPL_RUNTIME)       str += _T(",runtime");
+    if ((impl & 0xff00) == MFX_IMPL_VIA_ANY)       str += _T(",via_any");
+    if ((impl & 0xff00) == MFX_IMPL_VIA_D3D9)      str += _T(",via_d3d9");
+    if ((impl & 0xff00) == MFX_IMPL_VIA_D3D11)     str += _T(",via_d3d11");
+    if ((impl & 0xff00) == MFX_IMPL_VIA_VAAPI)     str += _T(",via_va");
+    if ((impl & 0xff00) == MFX_IMPL_VIA_HDDLUNITE) str += _T(",via_hddlunite");
     return str.substr(1);
 }
 

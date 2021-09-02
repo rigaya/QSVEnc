@@ -51,6 +51,7 @@ RGY_DISABLE_WARNING_POP
 #pragma warning(pop)
 #include "qsv_pipeline.h"
 #include "qsv_pipeline_ctrl.h"
+#include "qsv_session.h"
 #include "qsv_query.h"
 #include "rgy_def.h"
 #include "rgy_env.h"
@@ -108,114 +109,7 @@ RGY_DISABLE_WARNING_POP
 #include "qsv_allocator_va.h"
 #endif
 
-RGY_ERR CreateAllocatorImpl(
-    std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,
-    const MemType memType, CQSVHWDevice *hwdev, MFXVideoSession& session, std::shared_ptr<RGYLog>& log) {
-    auto sts = RGY_ERR_NONE;
-    if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(memType));
-
-#define CA_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
-
-    std::unique_ptr<mfxAllocatorParams> allocParams;
-    if (D3D9_MEMORY == memType || D3D11_MEMORY == memType || VA_MEMORY == memType || HW_MEMORY == memType) {
-#if D3D_SURFACES_SUPPORT
-        mfxHDL hdl = nullptr;
-        const auto hdl_t = mfxHandleTypeFromMemType(memType, false);
-        if (hdl_t) {
-            sts = err_to_rgy(hwdev->GetHandle(hdl_t, &hdl));
-            if (sts != RGY_ERR_NONE) {
-                if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to get HW device handle: %s.\n"), get_err_mes(sts));
-                return sts;
-            }
-        }
-        //D3D allocatorを作成
-#if MFX_D3D11_SUPPORT
-        if (D3D11_MEMORY == memType) {
-            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: Create d3d11 allocator.\n"));
-            allocator.reset(new QSVAllocatorD3D11);
-            if (!allocator) {
-                if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allcate memory for D3D11FrameAllocator.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-            auto allocParamsD3D11 = std::make_unique<QSVAllocatorParamsD3D11>();
-            allocParamsD3D11->pDevice = reinterpret_cast<ID3D11Device *>(hdl);
-            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: d3d11...\n"));
-
-            allocParams.reset(allocParamsD3D11.release());
-        } else
-#endif // #if MFX_D3D11_SUPPORT
-        {
-            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: Create d3d9 allocator.\n"));
-            allocator.reset(new QSVAllocatorD3D9);
-            if (!allocator) {
-                if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allcate memory for D3DFrameAllocator.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-
-            auto allocParamsD3D9 = std::make_unique<QSVAllocatorParamsD3D9>();
-            allocParamsD3D9->pManager = reinterpret_cast<IDirect3DDeviceManager9 *>(hdl);
-            //通常、OpenCL-d3d9間のinteropでrelease/acquireで余計なオーバーヘッドが発生させないために、
-            //shared_handleを取得する必要がある(qsv_opencl.hのgetOpenCLFrameInterop()参照)
-            //shared_handleはd3d9でCreateSurfaceする際に取得する。
-            //しかし、これを取得しようとするとWin7のSandybridge環境ではデコードが正常に行われなくなってしまう問題があるとの報告を受けた
-            //そのため、shared_handleを取得するのは、SandyBridgeでない環境に限るようにする
-            allocParamsD3D9->getSharedHandle = getCPUGen(&session) != CPU_GEN_SANDYBRIDGE;
-            if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: d3d9 (getSharedHandle = %s)...\n"), allocParamsD3D9->getSharedHandle ? _T("true") : _T("false"));
-
-            allocParams.reset(allocParamsD3D9.release());
-        }
-
-        //GPUメモリ使用時には external allocatorを使用する必要がある
-        //mfxSessionにallocatorを渡してやる必要がある
-        sts = err_to_rgy(session.SetFrameAllocator(allocator.get()));
-        CA_ERR(sts, _T("Failed to set frame allocator to encode session."));
-        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: frame allocator set to session.\n"));
-
-        externalAlloc = true;
-#endif
-#if LIBVA_SUPPORT
-        mfxHDL hdl = NULL;
-        sts = err_to_rgy(hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl));
-        CA_ERR(sts, _T("Failed to get HW device handle."));
-        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: HW device GetHandle success. : 0x%x\n"), (uint32_t)(size_t)hdl);
-
-        //VAAPI allocatorを作成
-        allocator.reset(new QSVAllocatorVA());
-        if (!allocator) {
-            if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to allcate memory for vaapiFrameAllocator.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-
-        auto p_vaapiAllocParams = std::make_unique<QSVAllocatorParamsVA>();
-        p_vaapiAllocParams->m_dpy = (VADisplay)hdl;
-        allocParams.reset(p_vaapiAllocParams.release());
-
-        //GPUメモリ使用時には external allocatorを使用する必要がある
-        //mfxSessionにallocatorを渡してやる必要がある
-        sts = err_to_rgy(session.SetFrameAllocator(allocator.get()));
-        CA_ERR(sts, _T("Failed to set frame allocator to encode session."));
-        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: frame allocator set to session.\n"));
-
-        externalAlloc = true;
-#endif
-    } else {
-        //system memory allocatorを作成
-        allocator.reset(new QSVAllocatorSys);
-        if (!allocator) {
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-        if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: sys mem allocator...\n"));
-    }
-
-    //メモリallocatorの初期化
-    if (RGY_ERR_NONE > (sts = err_to_rgy(allocator->Init(allocParams.get(), log)))) {
-        if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to initialize %s memory allocator. : %s\n"), MemTypeToStr(memType), get_err_mes(sts));
-        return sts;
-    }
-    if (log) log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("CreateAllocator: frame allocator initialized.\n"));
-#undef CA_ERR
-    return RGY_ERR_NONE;
-}
+#define USE_NEW_SESSION_INIT 1
 
 #define RGY_ERR_MES(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return err_to_mfx(ret);}}
 #define RGY_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
@@ -478,7 +372,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
         m_mfxSession.QueryIMPL(&impl);
         m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
 
-        sts = m_mfxDEC->InitSession();
+        sts = m_mfxDEC->InitMFXSession();
         RGY_ERR(sts, _T("InitMfxDecParams: Failed init session for hw decoder."));
 
         sts = m_mfxDEC->SetParam(m_pFileReader->getInputCodec(), m_DecInputBitstream, m_pFileReader->GetInputFrameInfo());
@@ -514,7 +408,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
 
     //エンコードモードのチェック
     auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
-    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%d, %s, %s\n%s\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s, %s\n%s\n"),
         m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
@@ -1264,7 +1158,7 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
 
 RGY_ERR CQSVPipeline::CreateHWDevice() {
     auto sts = RGY_ERR_NONE;
-
+#if USE_NEW_SESSION_INIT == 0
 #if D3D_SURFACES_SUPPORT
     POINT point = {0, 0};
     HWND window = WindowFromPoint(point);
@@ -1289,7 +1183,7 @@ RGY_ERR CQSVPipeline::CreateHWDevice() {
             //sessionごと切り替える必要がある
             if (m_memType != D3D9_MEMORY) {
                 PrintMes(RGY_LOG_DEBUG, _T("Retry openning device, chaging to d3d9 mode, re-init session.\n"));
-                InitSession(true, D3D9_MEMORY);
+                InitSession();
                 m_memType = m_memType;
             }
 
@@ -1307,6 +1201,7 @@ RGY_ERR CQSVPipeline::CreateHWDevice() {
     }
     sts = err_to_rgy(m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession)));
     RGY_ERR(sts, _T("Failed to initialize HW Device."));
+#endif
 #endif
     return RGY_ERR_NONE;
 }
@@ -1436,36 +1331,13 @@ RGY_ERR CQSVPipeline::AllocFrames() {
 }
 
 RGY_ERR CQSVPipeline::CreateAllocator() {
+#if USE_NEW_SESSION_INIT == 0
     auto sts = RGY_ERR_NONE;
     PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
-
-    mfxIMPL impl = 0;
-    m_mfxSession.QueryIMPL(&impl);
-    if (
-#if LIBVA_SUPPORT
-        MFX_IMPL_BASETYPE(impl) == MFX_IMPL_HARDWARE || //システムメモリ使用でも MFX_HANDLE_VA_DISPLAYをHW libraryに渡してやる必要がある
-#endif //#if LIBVA_SUPPORT
-        D3D9_MEMORY == m_memType || D3D11_MEMORY == m_memType || VA_MEMORY == m_memType || HW_MEMORY == m_memType) {
-        sts = CreateHWDevice();
-        RGY_ERR(sts, _T("Failed to CreateHWDevice."));
-        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateHWDevice success.\n"));
-
-        const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType, false);
-        mfxHDL hdl = NULL;
-        sts = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
-        RGY_ERR(sts, _T("Failed to get HW device handle."));
-        PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: HW device GetHandle success.\n"));
-
-        if (impl != MFX_IMPL_SOFTWARE) {
-            // hwエンコード時のみハンドルを渡す
-            sts = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
-            RGY_ERR(sts, _T("Failed to set HW device handle to main session."));
-            PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: set HW device handle to main session.\n"));
-        }
-    }
     sts = CreateAllocatorImpl(m_pMFXAllocator, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
     RGY_ERR(sts, _T("Failed to CreateAllocator."));
     PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateAllocatorImpl success.\n"));
+#endif
     return RGY_ERR_NONE;
 }
 
@@ -1497,9 +1369,6 @@ CQSVPipeline::CQSVPipeline() :
     m_pFileReader(),
     m_nAsyncDepth(0),
     m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
-    m_InitParam(),
-    m_pInitParamExtBuf(),
-    m_ThreadsParam(),
     m_VideoSignalInfo(),
     m_chromalocInfo(),
     m_CodingOption(),
@@ -1535,10 +1404,6 @@ CQSVPipeline::CQSVPipeline() :
     m_pipelineTasks() {
     m_trimParam.offset = 0;
 
-    for (size_t i = 0; i < _countof(m_pInitParamExtBuf); i++) {
-        m_pInitParamExtBuf[i] = nullptr;
-    }
-
 #if ENABLE_MVC_ENCODING
     m_bIsMVC = false;
     m_MVCflags = MVC_DISABLED;
@@ -1547,7 +1412,6 @@ CQSVPipeline::CQSVPipeline() :
     m_MVCSeqDesc.Header.BufferId = MFX_EXTBUFF_MVC_SEQ_DESC;
     m_MVCSeqDesc.Header.BufferSz = sizeof(m_MVCSeqDesc);
 #endif
-    RGY_MEMSET_ZERO(m_InitParam);
     INIT_MFX_EXT_BUFFER(m_VideoSignalInfo,    MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
     INIT_MFX_EXT_BUFFER(m_chromalocInfo,      MFX_EXTBUFF_CHROMA_LOC_INFO);
     INIT_MFX_EXT_BUFFER(m_CodingOption,       MFX_EXTBUFF_CODING_OPTION);
@@ -1555,7 +1419,6 @@ CQSVPipeline::CQSVPipeline() :
     INIT_MFX_EXT_BUFFER(m_CodingOption3,      MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,       MFX_EXTBUFF_HEVC_PARAM);
-    INIT_MFX_EXT_BUFFER(m_ThreadsParam,       MFX_EXTBUFF_THREADS_PARAM);
 
     RGY_MEMSET_ZERO(m_DecInputBitstream);
 
@@ -2748,19 +2611,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitSessionInitParam(int threads, int priority) {
-    INIT_MFX_EXT_BUFFER(m_ThreadsParam, MFX_EXTBUFF_THREADS_PARAM);
-    m_ThreadsParam.NumThread = (mfxU16)clamp_param_int(threads, 0, QSV_SESSION_THREAD_MAX, _T("session-threads"));
-    m_ThreadsParam.Priority = (mfxU16)clamp_param_int(priority, MFX_PRIORITY_LOW, MFX_PRIORITY_HIGH, _T("priority"));
-    m_pInitParamExtBuf[0] = &m_ThreadsParam.Header;
-
-    RGY_MEMSET_ZERO(m_InitParam);
-    m_InitParam.ExtParam = m_pInitParamExtBuf;
-    m_InitParam.NumExtParam = 1;
-    return RGY_ERR_NONE;
-}
-
-#if defined(_WIN32) || defined(_WIN64)
+#if 0 && (defined(_WIN32) || defined(_WIN64))
 typedef decltype(GetSystemInfo)* funcGetSystemInfo;
 static int nGetSystemInfoHookThreads = -1;
 static std::mutex mtxGetSystemInfoHook;
@@ -2795,18 +2646,44 @@ bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
 #endif
 }
 
-RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
+RGY_ERR CQSVPipeline::InitSession() {
     auto err = RGY_ERR_NONE;
     m_mfxSession.Close();
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initilaizing... memType: %s\n"), MemTypeToStr(memType));
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initilaizing... memType: %s\n"), MemTypeToStr(m_memType));
+#if USE_NEW_SESSION_INIT
+    MFXVideoSession2Params params;
+    err = InitSessionAndDevice(m_hwdev, m_mfxSession, m_memType, params, m_pQSVLog);
+    if (err != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("InitSession: failed to initialize: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized session.\n"));
+
+    err = CreateAllocatorImpl(m_pMFXAllocator, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
+    if (err != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("InitSession: failed to create allocator: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized allocator.\n"));
+#else
+    const bool useHWLib = true;
+    auto memType = HW_MEMORY;
+#if 0 && USE_ONEVPL
+    auto loader = MFXLoad();
+    auto cfg = MFXCreateConfig(loader);
+    //auto err = err_to_rgy(MFXSetConfigFilterProperty(
+    //    cfg,
+    //    reinterpret_cast<mfxU8 *>(const_cast<char *>("mfxImplDescription.Impl")),
+    //    cliParams.implValue));
+#endif //#if USE_ONEVPL
 #if defined(_WIN32) || defined(_WIN64)
     //コードの簡略化のため、静的フィールドを使うので、念のためロックをかける
     {
-        std::lock_guard<std::mutex> lock(mtxGetSystemInfoHook);
+        //std::lock_guard<std::mutex> lock(mtxGetSystemInfoHook);
         {
-            nGetSystemInfoHookThreads = m_nMFXThreads;
-            apihook api_hook;
-            api_hook.hook(_T("kernel32.dll"), "GetSystemInfo", GetSystemInfoHook, (void **)&origGetSystemInfoFunc);
+            //nGetSystemInfoHookThreads = m_nMFXThreads;
+            //apihook api_hook;
+            //api_hook.hook(_T("kernel32.dll"), "GetSystemInfo", GetSystemInfoHook, (void **)&origGetSystemInfoFunc);
 #endif
 
             auto InitSessionEx = [&](mfxIMPL impl, mfxVersion *verRequired) {
@@ -2825,7 +2702,11 @@ RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
                     }
                 }
 #endif
+#if 0 && USE_ONEVPL
+                return err_to_rgy(MFXCreateSession(loader, 0, (mfxSession *)&m_mfxSession));
+#else
                 return err_to_rgy(m_mfxSession.Init(impl, verRequired));
+#endif
             };
 
             if (useHWLib) {
@@ -2897,6 +2778,7 @@ RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
         }
     }
 #endif
+#endif
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_DEBUG, _T("InitSession: Failed to initialize session using %s memory: %s.\n"), MemTypeToStr(m_memType), get_err_mes(err));
         return err;
@@ -2906,7 +2788,7 @@ RGY_ERR CQSVPipeline::InitSession(bool useHWLib, uint32_t memType) {
     m_mfxSession.QueryVersion(&m_mfxVer);
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl 0x%x\n"), m_mfxVer.Major, m_mfxVer.Minor, impl);
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%02d, impl %s\n"), m_mfxVer.Major, m_mfxVer.Minor, MFXImplToStr(impl).c_str());
     return err;
 }
 
@@ -3037,10 +2919,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     m_nMFXThreads = pParams->nSessionThreads;
     m_nAVSyncMode = pParams->common.AVSyncMode;
-
-    sts = InitSessionInitParam(pParams->nSessionThreads, pParams->nSessionThreadPriority);
-    if (sts < RGY_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_DEBUG, _T("InitSessionInitParam: Success.\n"));
+    m_memType = pParams->memType;
 
     m_pPerfMonitor = std::make_unique<CPerfMonitor>();
 
@@ -3052,12 +2931,17 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts != RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
-    sts = InitSession(true, pParams->memType);
+    sts = InitSession();
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
+    sts = CreateHWDevice();
+    RGY_ERR(sts, _T("Failed to create hw device."));
+    PrintMes(RGY_LOG_DEBUG, _T("CreateHWDevice: Success.\n"));
+
     sts = CreateAllocator();
-    if (sts < RGY_ERR_NONE) return sts;
+    RGY_ERR(sts, _T("Failed to create allocator."));
+    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: Success.\n"));
 
     sts = InitOpenCL(pParams->ctrl.enableOpenCL);
     if (sts < RGY_ERR_NONE) return sts;
@@ -3782,10 +3666,10 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     if (Check_HWUsed(impl)) {
         static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
         mfxU32 iGPUID = GetAdapterID(m_mfxSession);
-        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU, API v%d.%d\n"),
+        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU, API v%d.%02d\n"),
             get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
     } else {
-        PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%d\n"), m_mfxVer.Major, m_mfxVer.Minor);
+        PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%02d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     }
     PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);
     PRINT_INFO(    _T("Buffer Memory  %s, %d work buffer\n"), MemTypeToStr(m_memType), workSurfaceCount);

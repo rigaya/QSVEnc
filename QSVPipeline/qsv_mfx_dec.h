@@ -28,11 +28,8 @@
 #ifndef __QSV_MFX_DEC_H__
 #define __QSV_MFX_DEC_H__
 
-
-#include <memory>
-#include <mfxdefs.h>
-#include <mfxcommon.h>
 #include "qsv_query.h"
+#include "qsv_session.h"
 
 class QSVAllocator;
 class CQSVHWDevice;
@@ -44,7 +41,7 @@ public:
         mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log);
     virtual ~QSVMfxDec();
 
-    RGY_ERR InitSession();
+    RGY_ERR InitMFXSession();
     RGY_ERR SetParam(const RGY_CODEC inputCodec,
         RGYBitstream& inputHeader,
         const VideoInfo& inputFrameInfo);
@@ -68,7 +65,7 @@ protected:
     RGY_ERR CheckParamList(int value, const CX_DESC *list, const char *param_name);
     RGYParamLogLevel logTemporarilyIgnoreErrorMes();
 protected:
-    MFXVideoSession m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
+    MFXVideoSession2 m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
     mfxVersion m_mfxVer;
     CQSVHWDevice *m_hwdev; //mainから渡されるdevice情報
     mfxIMPL m_impl;

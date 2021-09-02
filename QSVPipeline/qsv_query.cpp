@@ -40,10 +40,6 @@
 #include <sys/wait.h>
 #include <iconv.h>
 #endif
-#include "mfxstructures.h"
-#include "mfxvideo.h"
-#include "mfxvideo++.h"
-#include "mfxjpeg.h"
 #include "rgy_tchar.h"
 #include "rgy_util.h"
 #include "rgy_avutil.h"
@@ -53,8 +49,15 @@
 #include "rgy_osdep.h"
 #include "rgy_env.h"
 #include "qsv_query.h"
+#include "qsv_session.h"
 #include "qsv_hw_device.h"
 #include "cpu_info.h"
+#pragma warning (push)
+#pragma warning (disable: 4201) //C4201: 非標準の拡張機能が使用されています: 無名の構造体または共用体です。
+#pragma warning (disable: 4996) //C4996: 'MFXInit': が古い形式として宣言されました。
+#pragma warning (disable: 4819) //C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
+#include "mfxjpeg.h"
+#pragma warning (pop)
 
 #if D3D_SURFACES_SUPPORT
 #include "qsv_hw_d3d9.h"
@@ -149,10 +152,34 @@ int GetAdapterID(mfxSession session) {
     return GetAdapterID(impl);
 }
 
+int GetAdapterID(MFXVideoSession *session) {
+    mfxIMPL impl;
+    MFXQueryIMPL(*session, &impl);
+    return GetAdapterID(impl);
+}
+
 mfxVersion get_mfx_lib_version(mfxIMPL impl) {
     if (impl == MFX_IMPL_SOFTWARE) {
         return LIB_VER_LIST[0];
     }
+#if 1
+    { // 新手法
+        std::unique_ptr<CQSVHWDevice> hwdev;
+        MFXVideoSession2 session;
+        auto memType = HW_MEMORY;
+        MFXVideoSession2Params params;
+        auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR);
+        auto err = InitSessionAndDevice(hwdev, session, memType, params, log);
+        if (err == RGY_ERR_NONE) {
+            mfxVersion ver;
+            auto sts = session.QueryVersion(&ver);
+            if (sts != MFX_ERR_NONE) {
+                return LIB_VER_LIST[0];
+            }
+            return ver;
+        }
+    }
+#endif
     mfxVersion ver = MFX_LIB_VERSION_1_1;
     auto session_deleter = [](MFXVideoSession *session) { session->Close(); };
     std::unique_ptr<MFXVideoSession, decltype(session_deleter)> test(new MFXVideoSession(), session_deleter);
@@ -712,13 +739,29 @@ mfxU64 CheckVppFeatures(mfxVersion ver, std::shared_ptr<RGYLog> log) {
         feature |= VPP_FEATURE_PROC_AMP;
     } else {
         MemType memType = HW_MEMORY;
+#if 1
+        std::unique_ptr<CQSVHWDevice> hwdev;
+        MFXVideoSession2 session;
+        MFXVideoSession2Params params;
+        bool bexternalAlloc = true;
+        std::unique_ptr<QSVAllocator> allocator;
+        auto err = RGY_ERR_NONE;
+        if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
+        } else if ((err = CreateAllocatorImpl(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocatorImpl: failed to create allocator: %s.\n"), get_err_mes(err));
+        } else {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
+            feature = CheckVppFeaturesInternal(session, ver);
+        }
+#else
         MFXVideoSession session;
         if (InitSession(session, true, memType) == MFX_ERR_NONE) {
             if (auto hwdevice = InitHWDevice(session, memType, log)) {
                 feature = CheckVppFeaturesInternal(session, ver);
             }
         }
-
+#endif
     }
 
     return feature;
@@ -1159,6 +1202,29 @@ vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateContro
 #if LIBVA_SUPPORT
     if (codecId != MFX_CODEC_MPEG2) {
 #endif
+#if 1
+        MemType memType = HW_MEMORY;
+        std::unique_ptr<CQSVHWDevice> hwdev;
+        MFXVideoSession2 session;
+        MFXVideoSession2Params params;
+        bool bexternalAlloc = true;
+        std::unique_ptr<QSVAllocator> allocator;
+        auto err = RGY_ERR_NONE;
+        if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
+        } else if ((err = CreateAllocatorImpl(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocatorImpl: failed to create allocator: %s.\n"), get_err_mes(err));
+        } else {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
+            for (const auto& ratecontrol : rateControlList) {
+                const mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, ver, (mfxU16)ratecontrol.value, codecId);
+                if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
+                    ver = MFX_LIB_VERSION_0_0;
+                }
+                availableFeatureForEachRC.push_back(ret);
+            }
+        }
+#else
         MemType memType = HW_MEMORY;
         MFXVideoSession session;
         if (InitSession(session, true, memType) == MFX_ERR_NONE) {
@@ -1172,6 +1238,7 @@ vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateContro
                 }
             }
         }
+#endif
 #if LIBVA_SUPPORT
     }
 #endif
@@ -1220,10 +1287,38 @@ std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver
 
 CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
     CodecCsp codecFeatures;
-    MFXVideoSession session;
-    MemType memtype = HW_MEMORY;
+    MemType memType = HW_MEMORY;
+#if 1
+    std::unique_ptr<CQSVHWDevice> hwdev;
+    MFXVideoSession2 session;
+    MFXVideoSession2Params params;
+    bool bexternalAlloc = true;
+    std::unique_ptr<QSVAllocator> allocator;
+    auto err = RGY_ERR_NONE;
+    if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
+    } else if ((err = CreateAllocatorImpl(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocatorImpl: failed to create allocator: %s.\n"), get_err_mes(err));
+    } else {
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
+        for (auto codec : codecIdList) {
+            if (skipHWDecodeCheck) {
+                codecFeatures[codec] = {
+                    RGY_CSP_NV12, RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16,
+                    RGY_CSP_YUV422, RGY_CSP_YUV422_09, RGY_CSP_YUV422_10, RGY_CSP_YUV422_12, RGY_CSP_YUV422_14, RGY_CSP_YUV422_16,
+                    RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16
+                };
+            } else {
+                auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
+                if (features.size() > 0) {
+                    codecFeatures[codec] = features;
+                }
+            }
+        }
+    }
+#else
     if (InitSession(session, true, memtype) == MFX_ERR_NONE) {
-        if (auto hwdevice = InitHWDevice(session, memtype, log)) {
+        if (auto hwdevice = InitHWDevice(session, memType, log)) {
             for (auto codec : codecIdList) {
                 if (skipHWDecodeCheck) {
                     codecFeatures[codec] = {
@@ -1240,6 +1335,7 @@ CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdL
             }
         }
     }
+#endif
     return codecFeatures;
 }
 

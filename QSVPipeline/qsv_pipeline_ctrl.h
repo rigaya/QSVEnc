@@ -36,8 +36,6 @@
 #include <deque>
 #include <set>
 #include <optional>
-#include "mfxvideo.h"
-#include "mfxvideo++.h"
 #include "qsv_hw_device.h"
 #include "rgy_opencl.h"
 #include "qsv_opencl.h"

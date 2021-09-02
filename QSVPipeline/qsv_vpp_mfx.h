@@ -30,12 +30,11 @@
 
 
 #include <memory>
-#include <mfxdefs.h>
-#include <mfxcommon.h>
 #include "rgy_log.h"
 #include "qsv_query.h"
 #include "qsv_allocator.h"
 #include "qsv_hw_device.h"
+#include "qsv_session.h"
 
 class QSVVppMfx {
 public:
@@ -62,7 +61,7 @@ public:
     tstring print() const { return VppExtMes; }
 protected:
     void InitStructs();
-    RGY_ERR InitSession();
+    RGY_ERR InitMFXSession();
     mfxFrameInfo SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
     RGY_ERR SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const RGYFrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize);
     RGY_ERR SetVppExtBuffers(sVppParams& params);
@@ -75,7 +74,7 @@ protected:
     void vppExtAddMes(const tstring& str);
     RGYParamLogLevel logTemporarilyIgnoreErrorMes();
 protected:
-    MFXVideoSession m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
+    MFXVideoSession2 m_mfxSession;          //VPP用のSession メインSessionにJoinして使用する
     mfxVersion m_mfxVer;
     CQSVHWDevice *m_hwdev; //mainから渡されるdevice情報
     QSVAllocator *m_allocator;             //mainから渡されるallocator

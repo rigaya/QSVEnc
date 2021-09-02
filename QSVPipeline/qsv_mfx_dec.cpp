@@ -31,10 +31,6 @@
 #include "qsv_allocator.h"
 #include "qsv_hw_device.h"
 
-RGY_ERR CreateAllocatorImpl(
-    std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,
-    const MemType memType, CQSVHWDevice *hwdev, MFXVideoSession& session, std::shared_ptr<RGYLog>& log);
-
 QSVMfxDec::QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
@@ -72,25 +68,26 @@ void QSVMfxDec::clear() {
     m_log.reset();
 }
 
-RGY_ERR QSVMfxDec::InitSession() {
+RGY_ERR QSVMfxDec::InitMFXSession() {
     // init session, and set memory type
     m_mfxSession.Close();
-    auto mfxVer = m_mfxVer;
-    auto err = err_to_rgy(m_mfxSession.Init(m_impl, &mfxVer));
+    MFXVideoSession2Params params;
+    auto err = InitSession(m_mfxSession, params, m_impl, m_log);
     if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for VPP: %s.\n"), get_err_mes(err));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for DEC: %s.\n"), get_err_mes(err));
         return err;
     }
 
     //使用できる最大のversionをチェック
+    auto mfxVer = m_mfxVer;
     m_mfxSession.QueryVersion(&mfxVer);
     if (!check_lib_version(mfxVer, m_mfxVer)) {
-        PrintMes(RGY_LOG_ERROR, _T("Session mfxver for VPP does not match version of the base session.\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Session mfxver for DEC does not match version of the base session.\n"));
         return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl 0x%x\n"), m_mfxVer.Major, m_mfxVer.Minor, impl);
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl %s\n"), m_mfxVer.Major, m_mfxVer.Minor, MFXImplToStr(impl).c_str());
 
     if (impl != MFX_IMPL_SOFTWARE) {
         const auto hdl_t = mfxHandleTypeFromMemType(m_memType, false);

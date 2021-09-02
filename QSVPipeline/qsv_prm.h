@@ -31,9 +31,14 @@
 #include <climits>
 #include <vector>
 #include "rgy_version.h"
+#pragma warning (push)
+#pragma warning (disable: 4201) //C4201: 非標準の拡張機能が使用されています: 無名の構造体または共用体です。
+#pragma warning (disable: 4996) //C4996: 'MFXInit': が古い形式として宣言されました。
+#pragma warning (disable: 4819) //C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include "mfxcommon.h"
 #include "mfxvp8.h"
 #include "mfxstructures.h"
+#pragma warning (pop)
 #include "convert_csp.h"
 #include "rgy_caption.h"
 #include "rgy_simd.h"
@@ -64,6 +69,10 @@ enum MemType {
     D3D11_MEMORY  = 0x02,
     HW_MEMORY     = D3D9_MEMORY | D3D11_MEMORY,
 };
+
+static MemType operator~(MemType a) {
+    return (MemType)(~(uint32_t)a);
+}
 
 static MemType operator|(MemType a, MemType b) {
     return (MemType)((uint32_t)a | (uint32_t)b);
@@ -260,7 +269,7 @@ struct sInputParams {
 
     uint32_t ColorFormat;   //YV12 or NV12
 
-    uint32_t memType;       //use d3d surface
+    MemType memType;       //use d3d surface
 
     int nInputBufSize; //input buf size
 

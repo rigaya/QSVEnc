@@ -41,11 +41,12 @@
 
 #include "qsv_allocator.h"
 
-#include "mfxvideo.h"
-#include "mfxvideo++.h"
-
 #ifndef BUILD_AUO
+#ifdef NDEBUG
 #pragma comment(lib, "vpl.lib")
+#else
+#pragma comment(lib, "vpld.lib")
+#endif
 #endif
 
 #include "rgy_perf_monitor.h"
@@ -56,6 +57,7 @@
 #include "qsv_vpp_mfx.h"
 #include "qsv_mfx_dec.h"
 #include "qsv_pipeline_ctrl.h"
+#include "qsv_session.h"
 
 #include <vector>
 #include <memory>
@@ -136,10 +138,6 @@ protected:
     int m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;
 
-    mfxInitParam m_InitParam;
-    mfxExtBuffer *m_pInitParamExtBuf[1];
-    mfxExtThreadsParam m_ThreadsParam;
-
     mfxExtVideoSignalInfo m_VideoSignalInfo;
     mfxExtChromaLocInfo m_chromalocInfo;
     mfxExtCodingOption m_CodingOption;
@@ -147,9 +145,9 @@ protected:
     mfxExtCodingOption3 m_CodingOption3;
     mfxExtVP8CodingOption m_ExtVP8CodingOption;
     mfxExtHEVCParam m_ExtHEVCParam;
-    MFXVideoSession m_mfxSession;
+    MFXVideoSession2 m_mfxSession;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
-    unique_ptr<MFXVideoENCODE> m_pmfxENC;
+    std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
 
     sTrimParam m_trimParam;
@@ -185,7 +183,6 @@ protected:
     std::unique_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
 
-    virtual RGY_ERR InitSessionInitParam(int threads, int priority);
     virtual RGY_ERR InitLog(sInputParams *pParams);
     virtual RGY_ERR InitPerfMonitor(const sInputParams *pParams);
     virtual RGY_ERR InitInput(sInputParams *pParams);
@@ -204,7 +201,7 @@ protected:
     virtual RGY_ERR InitMfxDec();
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();
-    virtual RGY_ERR InitSession(bool useHWLib, uint32_t memType);
+    virtual RGY_ERR InitSession();
     virtual RGY_ERR InitVideoQualityMetric(sInputParams *pParams);
     void applyInputVUIToColorspaceParams(sInputParams *inputParam);
     bool preferD3D11Mode(const sInputParams *pParams);

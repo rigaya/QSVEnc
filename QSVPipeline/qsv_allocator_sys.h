@@ -29,7 +29,6 @@
 #define __QSV_ALLOCATOR_SYS_H__
 
 #include <memory>
-#include "mfxvideo.h"
 #include "qsv_allocator.h"
 
 struct sBuffer {

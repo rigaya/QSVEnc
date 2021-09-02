@@ -27,6 +27,7 @@
 
 #include <set>
 #include "qsv_vpp_mfx.h"
+#include "qsv_session.h"
 
 
 static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, VppType>>(
@@ -123,7 +124,7 @@ RGY_ERR QSVVppMfx::SetParam(
         PrintMes(RGY_LOG_DEBUG, _T("Vpp already initialized.\n"));
         return RGY_ERR_ALREADY_INITIALIZED;
     }
-    auto err = InitSession();
+    auto err = InitMFXSession();
     if (err != RGY_ERR_NONE) {
         return err;
     }
@@ -196,17 +197,18 @@ RGY_ERR QSVVppMfx::Close() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR QSVVppMfx::InitSession() {
+RGY_ERR QSVVppMfx::InitMFXSession() {
     // init session, and set memory type
     m_mfxSession.Close();
-    auto mfxVer = m_mfxVer;
-    auto err = err_to_rgy(m_mfxSession.Init(m_impl, &mfxVer));
+    MFXVideoSession2Params params;
+    auto err = InitSession(m_mfxSession, params, m_impl, m_log);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for VPP: %s.\n"), get_err_mes(err));
         return err;
     }
 
     //使用できる最大のversionをチェック
+    auto mfxVer = m_mfxVer;
     m_mfxSession.QueryVersion(&mfxVer);
     if (!check_lib_version(mfxVer, m_mfxVer)) {
         PrintMes(RGY_LOG_ERROR, _T("Session mfxver for VPP does not match version of the base session.\n"));
@@ -214,7 +216,7 @@ RGY_ERR QSVVppMfx::InitSession() {
     }
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl 0x%x\n"), m_mfxVer.Major, m_mfxVer.Minor, impl);
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl %s\n"), m_mfxVer.Major, m_mfxVer.Minor, MFXImplToStr(impl).c_str());
 
     if (impl != MFX_IMPL_SOFTWARE) {
         const auto hdl_t = mfxHandleTypeFromMemType(m_memType, false);

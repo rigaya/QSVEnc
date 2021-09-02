@@ -38,13 +38,6 @@
 #include <memory>
 #include <type_traits>
 #include "rgy_osdep.h"
-#if defined(_WIN32) || defined(_WIN64)
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
-#endif
-#include "mfxstructures.h"
-#include "mfxcommon.h"
-#include "mfxsession.h"
 #include "rgy_version.h"
 #include "cpu_info.h"
 #include "gpu_info.h"
@@ -602,6 +595,7 @@ const TCHAR *TargetUsageToStr(uint16_t tu);
 const TCHAR *EncmodeToStr(uint32_t enc_mode);
 const TCHAR *MemTypeToStr(uint32_t memType);
 tstring MFXPicStructToStr(uint32_t picstruct);
+tstring MFXImplToStr(uint32_t impl);
 
 mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
 mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream);

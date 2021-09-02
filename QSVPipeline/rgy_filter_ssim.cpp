@@ -203,7 +203,7 @@ RGY_ERR RGYFilterSsim::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
 #endif //#if ENCODER_VCEENC
 #if ENCODER_QSV
     m_mfxDEC = std::move(prm->mfxDEC);
-    if ((sts = m_mfxDEC->InitSession()) != RGY_ERR_NONE) {
+    if ((sts = m_mfxDEC->InitMFXSession()) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed init session for hw decoder.\n"));
         return sts;
     }

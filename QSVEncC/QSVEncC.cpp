@@ -415,7 +415,7 @@ function showTable(idno) {
                     print_tstring((bUseJapanese) ? _T("<b>QSVが使用できます。</b><br>") : _T("<b>QSV available.</b><br>"), false);
                 }
                 print_tstring(strsprintf((bUseJapanese) ? _T("使用可能なMediaSDK: ") : _T("Media SDK Version: ")), false);
-                print_tstring(strsprintf(_T("%s API v%d.%d\n\n"), impl_str, lib.Major, lib.Minor), true);
+                print_tstring(strsprintf(_T("%s API v%d.%02d\n\n"), impl_str, lib.Major, lib.Minor), true);
                 auto codecHeader = (bUseJapanese) ? _T("エンコードに使用可能なコーデックとオプション:\n") : _T("Supported Enc features:\n");
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
                     print_tstring(tstring(codecHeader) + _T("<br>"), false);
@@ -539,7 +539,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
         mfxVersion lib = get_mfx_libhw_version();
         mfxVersion test = { 0, 1 };
         if (check_lib_version(lib, test)) {
-            _ftprintf(stdout, _T("Media SDK Version: Hardware API v%d.%d\n\n"), lib.Major, lib.Minor);
+            _ftprintf(stdout, _T("Media SDK Version: Hardware API v%d.%02d\n\n"), lib.Major, lib.Minor);
         }
         return 1;
     }
@@ -581,7 +581,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
         const TCHAR *dll_platform = _T("64");
 #endif
         if (check_lib_version(hwlib, test)) {
-            _ftprintf(stdout, _T("libmfxhw%s.dll : v%d.%d\n"), dll_platform, hwlib.Major, hwlib.Minor);
+            _ftprintf(stdout, _T("libmfxhw%s.dll : v%d.%02d\n"), dll_platform, hwlib.Major, hwlib.Minor);
             return 1;
         } else {
             _ftprintf(stdout, _T("libmfxhw%s.dll : ----\n"), dll_platform);
@@ -823,7 +823,7 @@ RGY_ERR run_benchmark(sInputParams *params) {
                               " (Target Usage and output resolution will be changed)\n");
             fprintf(fp_bench, "%s\n\n", tchar_to_string(encode_info).c_str());
             fprintf(fp_bench, "%s", tchar_to_string(enviroment_info).c_str());
-            fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%d / %s\n",
+            fprintf(fp_bench, "QSV: QSVEncC %s (%s) / API[%s]: v%d.%02d / %s\n",
                 VER_STR_FILEVERSION, tchar_to_string(BUILD_ARCH_STR).c_str(), (hardware) ? "hw" : "sw", ver.Major, ver.Minor, tchar_to_string(MemTypeToStr(memtype)).c_str());
             fprintf(fp_bench, "\n");
             fclose(fp_bench);

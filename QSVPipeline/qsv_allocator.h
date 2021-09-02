@@ -32,7 +32,12 @@
 #include <memory>
 #include <cstring>
 #include <functional>
+#pragma warning (push)
+#pragma warning (disable: 4201) //C4201: 非標準の拡張機能が使用されています: 無名の構造体または共用体です。
+#pragma warning (disable: 4996) //C4996: 'MFXInit': が古い形式として宣言されました。
+#pragma warning (disable: 4819) //C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
 #include "mfxvideo.h"
+#pragma warning (pop)
 #include "rgy_log.h"
 
 class mfxAllocatorParams {

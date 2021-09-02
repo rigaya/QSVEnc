@@ -1566,7 +1566,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     //prm_qsv.bExtBRC                = fcgCBExtBRC->Checked;
     prm_qsv.nWinBRCSize            = (int)fcgNUWinBRCSize->Value;
     prm_qsv.bUseFixedFunc          = fcgCBFixedFunc->Checked;
-    prm_qsv.memType                = (uint32_t)((fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY);
+    prm_qsv.memType                = (fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY;
     prm_qsv.nAVBRAccuarcy          = (int)(fcgNUAVBRAccuarcy->Value * 10);
     prm_qsv.nAVBRConvergence       = (int)fcgNUAVBRConvergence->Value;
     prm_qsv.nSlices                = (int)fcgNUSlices->Value;
