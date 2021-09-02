@@ -459,19 +459,19 @@ else
     cnf_write "no"
 fi
 
-LIBMFX_LIBS="-lmfx"
-LIBMFX_CFLAGS="-I./MediaSDK/api/include"
-if ! ${PKGCONFIG} --exists libmfx ; then
-    cnf_write "libmfx could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+LIBVPL_LIBS="-lvpl"
+LIBVPL_CFLAGS="-I./oneVPL/api/vpl"
+if ! ${PKGCONFIG} --exists libvpl ; then
+    cnf_write "libvpl could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
 else
-    LIBMFX_LIBS=`${PKGCONFIG} --libs libmfx`
+    LIBVPL_LIBS=`${PKGCONFIG} --libs libvpl`
 fi
-if cxx_check "libmfx" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBMFX_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBMFX_LIBS}" "" "mfxsession.h" "MFXInit(0,0,0);" ; then
-    LDFLAGS="${LDFLAGS} ${LIBMFX_LIBS}"
-    CXXFLAGS="${CXXFLAGS} ${LIBMFX_CFLAGS}"
+if cxx_check "libvpl" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBVPL_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBVPL_LIBS}" "" "mfxsession.h" "MFXClose(0);" ; then
+    LDFLAGS="${LDFLAGS} ${LIBVPL_LIBS}"
+    CXXFLAGS="${CXXFLAGS} ${LIBVPL_CFLAGS}"
     cnf_write "yes"
 else
-    cnf_write "libmfx not installed." 
+    cnf_write "libvpl not installed." 
     exit 1
 fi
 
@@ -648,7 +648,7 @@ qsv_allocator.cpp           qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp  
 qsv_allocator_va.cpp        qsv_cmd.cpp                 qsv_hw_d3d11.cpp               qsv_hw_d3d9.cpp \
 qsv_hw_device.cpp           qsv_hw_va.cpp               qsv_hw_va_utils.cpp            qsv_hw_va_utils_drm.cpp \
 qsv_hw_va_utils_x11.cpp     qsv_mfx_dec.cpp             qsv_pipeline.cpp               qsv_plugin.cpp \
-qsv_prm.cpp                 qsv_query.cpp               qsv_util.cpp                   qsv_vpp_mfx.cpp \
+qsv_prm.cpp                 qsv_query.cpp               qsv_session.cpp                qsv_util.cpp                   qsv_vpp_mfx.cpp \
 rgy_aspect_ratio.cpp        rgy_avlog.cpp               rgy_avutil.cpp                 rgy_bitstream.cpp \
 rgy_caption.cpp             rgy_chapter.cpp             rgy_cmd.cpp                    rgy_codepage.cpp \
 rgy_def.cpp                 rgy_env.cpp                 rgy_err.cpp                    rgy_event.cpp \
