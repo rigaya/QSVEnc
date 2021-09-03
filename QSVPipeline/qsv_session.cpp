@@ -33,7 +33,9 @@
 #include "qsv_session.h"
 #include <mutex>
 #include "rgy_env.h"
+#if defined(_WIN32) || defined(_WIN64)
 #include "api_hook.h"
+#endif //#if defined(_WIN32) || defined(_WIN64)
 #include "qsv_query.h"
 #include "qsv_hw_device.h"
 #include "qsv_allocator.h"
@@ -254,8 +256,8 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
     log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("InitSession: mfx lib version: %d.%02d, impl %s\n"), mfxVer.Major, mfxVer.Minor, MFXImplToStr(impl).c_str());
 
     hwdev.reset();
-#if D3D_SURFACES_SUPPORT
     if (memType != SYSTEM_MEMORY) {
+#if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
         if ((impl & MFX_IMPL_VIA_D3D11) != 0
             && (hwdev = std::make_unique<CQSVD3D11Device>(log))) {

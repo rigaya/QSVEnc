@@ -31,13 +31,18 @@
 #include <climits>
 #include <vector>
 #include "rgy_version.h"
+#include "rgy_util.h"
 #pragma warning (push)
 #pragma warning (disable: 4201) //C4201: 非標準の拡張機能が使用されています: 無名の構造体または共用体です。
 #pragma warning (disable: 4996) //C4996: 'MFXInit': が古い形式として宣言されました。
 #pragma warning (disable: 4819) //C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
+RGY_DISABLE_WARNING_PUSH
+RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
 #include "mfxcommon.h"
+#include "mfxsession.h"
 #include "mfxvp8.h"
 #include "mfxstructures.h"
+RGY_DISABLE_WARNING_POP
 #pragma warning (pop)
 #include "convert_csp.h"
 #include "rgy_caption.h"

@@ -459,13 +459,21 @@ else
     cnf_write "no"
 fi
 
-LIBVPL_LIBS="-lvpl"
-LIBVPL_CFLAGS="-I./oneVPL/api/vpl"
-if ! ${PKGCONFIG} --exists libvpl ; then
-    cnf_write "libvpl could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
-else
-    LIBVPL_LIBS=`${PKGCONFIG} --libs libvpl`
+if [ ! -e ./buildVPL/lib/libvpl.a ]; then
+    if [ ! `which cmake 2> /dev/null` ]; then
+        cnf_write cmake not found which is required to build vpl!
+        exit 1
+    fi
 fi
+
+./build_vpl.sh
+LIBVPL_LIBS="-L./buildVPL/lib -lvpl -ldl"
+LIBVPL_CFLAGS="-I./oneVPL/api/vpl"
+#if ! ${PKGCONFIG} --exists libvpl ; then
+#    cnf_write "libvpl could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+#else
+#    LIBVPL_LIBS=`${PKGCONFIG} --libs libvpl`
+#fi
 if cxx_check "libvpl" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBVPL_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBVPL_LIBS}" "" "mfxsession.h" "MFXClose(0);" ; then
     LDFLAGS="${LDFLAGS} ${LIBVPL_LIBS}"
     CXXFLAGS="${CXXFLAGS} ${LIBVPL_CFLAGS}"
@@ -647,8 +655,8 @@ cpu_info.cpp                gpu_info.cpp                gpuz_info.cpp           
 qsv_allocator.cpp           qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp         qsv_allocator_sys.cpp \
 qsv_allocator_va.cpp        qsv_cmd.cpp                 qsv_hw_d3d11.cpp               qsv_hw_d3d9.cpp \
 qsv_hw_device.cpp           qsv_hw_va.cpp               qsv_hw_va_utils.cpp            qsv_hw_va_utils_drm.cpp \
-qsv_hw_va_utils_x11.cpp     qsv_mfx_dec.cpp             qsv_pipeline.cpp               qsv_plugin.cpp \
-qsv_prm.cpp                 qsv_query.cpp               qsv_session.cpp                qsv_util.cpp                   qsv_vpp_mfx.cpp \
+qsv_hw_va_utils_x11.cpp     qsv_mfx_dec.cpp             qsv_pipeline.cpp               qsv_prm.cpp \
+qsv_query.cpp               qsv_session.cpp             qsv_util.cpp                   qsv_vpp_mfx.cpp \
 rgy_aspect_ratio.cpp        rgy_avlog.cpp               rgy_avutil.cpp                 rgy_bitstream.cpp \
 rgy_caption.cpp             rgy_chapter.cpp             rgy_cmd.cpp                    rgy_codepage.cpp \
 rgy_def.cpp                 rgy_env.cpp                 rgy_err.cpp                    rgy_event.cpp \
