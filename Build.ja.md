@@ -68,8 +68,9 @@ QSVEnc.slnを開きます。
 - C++17 Compiler
 - Intel Driver
 - git
+- cmake
 - libraries
-  - libva, libdrm, libmfx 
+  - libva, libdrm 
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
   - libass9
   - [Optional] VapourSynth
@@ -77,7 +78,7 @@ QSVEnc.slnを開きます。
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential libtool git
+sudo apt install build-essential libtool git cmake
 ```
 
 ### 2. Intel ドライバのインストール
@@ -96,9 +97,6 @@ sudo apt install opencl-headers
 
 ```Shell
 sudo apt install \
-  libmfx1 \
-  libmfx-dev \
-  libmfx-tools \
   libva-drm2 \
   libva-x11-2 \
   libva-glx2 \
@@ -211,15 +209,16 @@ Success: QuickSyncVideo (hw encoding) available
 
 ## Linux (Ubuntu 18.04)
 
-Ubuntu 18.04では、自分でlibmfx, libva, media-driverをビルド・インストールする必要があります。
+Ubuntu 18.04では、自分でlibva, media-driverをビルド・インストールする必要があります。
 
 ### 0. ビルドに必要なもの
 
 - C++17 Compiler
 - Intel Driver
 - git
+- cmake
 - libraries
-  - libva, libdrm, libmfx 
+  - libva, libdrm 
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
   - libass9
   - [Optional] VapourSynth
@@ -227,7 +226,7 @@ Ubuntu 18.04では、自分でlibmfx, libva, media-driverをビルド・イン�
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo apt install build-essential meson automake libtool cmake pkg-config git
+sudo apt install build-essential meson automake libtool cmake pkg-config git cmake
 ```
 
 ### 2. libvaのインストール
@@ -265,83 +264,6 @@ Build with messaging ............. : yes
 make -j8 && sudo make install
 cd ..
 ```
-
-### 3. Install libmfx
-```Shell
-git clone https://github.com/Intel-Media-SDK/MediaSDK msdk
-cd msdk
-mkdir build && cd build
-cmake ..
-make -j8 && sudo make install
-cd ..
-```
-
-<details><summary>下記のファイル群がインストールされます。</summary>
-
-```
-Install the project...
--- Install configuration: "release"
--- Installing: /opt/intel/mediasdk/share/mfx/plugins.cfg
--- Installing: /opt/intel/mediasdk/lib/libmfx.so.1.34
--- Installing: /opt/intel/mediasdk/lib/libmfx.so.1
--- Installing: /opt/intel/mediasdk/lib/libmfx.so
--- Installing: /opt/intel/mediasdk/lib/pkgconfig/libmfx.pc
--- Installing: /opt/intel/mediasdk/include/mfx
--- Installing: /opt/intel/mediasdk/include/mfx/mfxpcp.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxplugin.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxpak.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxvstructures.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxsession.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxadapter.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxvideo++.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxmvc.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxscd.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxaudio.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxsc.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxaudio++.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxvp8.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxbrc.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxplugin++.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxstructures.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxvp9.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxjpeg.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxfei.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxdispatcherprefixedfunctions.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxastructures.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxdefs.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxcommon.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxvideo.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxfeihevc.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxla.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxenc.h
--- Installing: /opt/intel/mediasdk/include/mfx/mfxcamera.h
--- Installing: /opt/intel/mediasdk/lib/pkgconfig/mfx.pc
--- Installing: /opt/intel/mediasdk/share/mfx/samples/sample_decode
--- Installing: /opt/intel/mediasdk/share/mfx/samples/sample_encode
--- Installing: /opt/intel/mediasdk/share/mfx/samples/sample_fei
--- Installing: /opt/intel/mediasdk/share/mfx/samples/sample_hevc_fei
--- Installing: /opt/intel/mediasdk/share/mfx/samples/sample_hevc_fei_abr
--- Installing: /opt/intel/mediasdk/share/mfx/samples/sample_vpp
--- Installing: /opt/intel/mediasdk/share/mfx/samples/sample_multi_transcode
--- Installing: /opt/intel/mediasdk/share/mfx/samples/libsample_rotate_plugin.so
--- Installing: /opt/intel/mediasdk/share/mfx/samples/libvpp_plugin.a
--- Installing: /opt/intel/mediasdk/share/mfx/samples/libcttmetrics.so
--- Installing: /opt/intel/mediasdk/share/mfx/samples/metrics_monitor
--- Installing: /opt/intel/mediasdk/lib/libmfxhw64.so.1.34
--- Installing: /opt/intel/mediasdk/lib/libmfxhw64.so.1
--- Installing: /opt/intel/mediasdk/lib/libmfxhw64.so
--- Installing: /opt/intel/mediasdk/lib/pkgconfig/libmfxhw64.pc
--- Installing: /opt/intel/mediasdk/lib/mfx/libmfx_hevce_hw64.so
--- Installing: /opt/intel/mediasdk/lib/mfx/libmfx_hevc_fei_hw64.so
--- Installing: /opt/intel/mediasdk/lib/mfx/libmfx_vp9e_hw64.so
--- Installing: /opt/intel/mediasdk/lib/mfx/libmfx_h264la_hw64.so
--- Installing: /opt/intel/mediasdk/lib/mfx/libmfx_hevcd_hw64.so
--- Up-to-date: /opt/intel/mediasdk/lib/mfx/libmfx_hevcd_hw64.so
--- Installing: /opt/intel/mediasdk/lib/mfx/libmfx_vp8d_hw64.so
--- Installing: /opt/intel/mediasdk/lib/mfx/libmfx_vp9d_hw64.so
-```
-
-</details>
 
 ### 4. media driverのインストール
 
@@ -517,8 +439,9 @@ Success: QuickSyncVideo (hw encoding) available
 - C++17 Compiler
 - Intel Driver
 - git
+- cmake
 - libraries
-  - libva, libdrm, libmfx 
+  - libva, libdrm 
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
   - libass9
   - [Optional] VapourSynth
@@ -526,7 +449,7 @@ Success: QuickSyncVideo (hw encoding) available
 ### 1. コンパイラ等のインストール
 
 ```Shell
-sudo dnf install @development-tools
+sudo dnf install @development-tools cmake
 ```
 
 ### 2. ビルドに必要なライブラリのインストール
@@ -535,7 +458,7 @@ sudo dnf install @development-tools
 sudo dnf install https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
 
-sudo dnf install libva-devel libX11-devel libdrm-devel intel-mediasdk intel-mediasdk-devel
+sudo dnf install libva-devel libX11-devel libdrm-devel
 sudo dnf install ffmpeg ffmpeg-devel
 ```
 
