@@ -149,7 +149,7 @@ mfxStatus MFXVideoSession2::initImpl(mfxIMPL& impl) {
     //    cliParams.implValue));
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
     auto sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
-    if (sts == RGY_ERR_NONE) return sts;
+    if (sts == MFX_ERR_NONE) return sts;
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit.\n"));
