@@ -499,7 +499,7 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         return RGY_ERR_INVALID_PARAM;
     }
 
-    if (pInputFrame->ptr == nullptr && m_flushed) {
+    if (pInputFrame->ptr[0] == nullptr && m_flushed) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
@@ -508,13 +508,13 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
     const int inframeId = m_cache.inframe();
     *pOutputFrameNum = 0;
-    if (m_cache.inframe() > 0 && (m_cache.inframe() % prm->decimate.cycle == 0 || pInputFrame->ptr == nullptr)) { //cycle分のフレームがそろったら
+    if (m_cache.inframe() > 0 && (m_cache.inframe() % prm->decimate.cycle == 0 || pInputFrame->ptr[0] == nullptr)) { //cycle分のフレームがそろったら
         auto ret = setOutputFrame((pInputFrame) ? pInputFrame->timestamp : AV_NOPTS_VALUE, ppOutputFrames, pOutputFrameNum);
         if (ret != RGY_ERR_NONE) {
             return ret;
         }
 
-        if (pInputFrame->ptr == nullptr) {
+        if (pInputFrame->ptr[0] == nullptr) {
             m_flushed = true;
             return sts;
         }

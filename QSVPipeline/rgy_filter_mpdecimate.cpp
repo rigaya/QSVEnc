@@ -315,7 +315,7 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pInputFrame->ptr == nullptr && m_ref < 0) {
+    if (pInputFrame->ptr[0] == nullptr && m_ref < 0) {
         //終了
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
@@ -337,7 +337,7 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     }
     if (m_target >= 0) {
         auto targetFrame = m_cache.frame(m_target);
-        const bool drop = dropFrame(targetFrame) && pInputFrame->ptr != nullptr; //最終フレームは必ず出力する
+        const bool drop = dropFrame(targetFrame) && pInputFrame->ptr[0] != nullptr; //最終フレームは必ず出力する
         if (m_fpLog) {
             fprintf(m_fpLog.get(), "%s %8d: %10lld\n", (drop) ? "d" : " ", m_target, (long long)targetFrame->get()->frame.timestamp);
         }
@@ -356,7 +356,7 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             ppOutputFrames[0] = &targetFrame->get()->frame;
         }
     }
-    if (pInputFrame->ptr != nullptr) {
+    if (pInputFrame->ptr[0] != nullptr) {
         m_target = m_cache.inframe();
         auto err = m_cache.add(pInputFrame, queue_main, m_eventDiff);
         if (err != RGY_ERR_NONE) {

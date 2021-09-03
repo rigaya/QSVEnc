@@ -48,9 +48,11 @@ RGY_ERR RGYFilter::AllocFrameBuf(const RGYFrameInfo &frame, int frames) {
         //すべて確保されているか確認
         bool allocated = true;
         for (size_t i = 0; i < m_frameBuf.size(); i++) {
-            if (m_frameBuf[i]->frame.ptr == nullptr) {
-                allocated = false;
-                break;
+            for (int iplane = 0; iplane < RGY_CSP_PLANES[m_frameBuf[i]->frame.csp]; iplane++) {
+                if (m_frameBuf[i]->frame.ptr[iplane] == nullptr) {
+                    allocated = false;
+                    break;
+                }
             }
         }
         if (allocated) {
@@ -87,7 +89,7 @@ RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFram
     }
     if (m_param
         && m_param->bOutOverwrite //上書きか?
-        && pInputFrame != nullptr && pInputFrame->ptr != nullptr //入力が存在するか?
+        && pInputFrame != nullptr && pInputFrame->ptr[0] != nullptr //入力が存在するか?
         && ppOutputFrames != nullptr && ppOutputFrames[0] == nullptr) { //出力先がセット可能か?
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;
