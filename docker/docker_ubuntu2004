@@ -8,10 +8,8 @@ RUN apt-get update \
     && apt install -y \
       wget \
       git \
+      cmake \
       intel-media-va-driver-non-free \
-      libmfx1 \
-      libmfx-dev \
-      libmfx-tools \
       libva-drm2 \
       libva-x11-2 \
       libva-glx2 \
