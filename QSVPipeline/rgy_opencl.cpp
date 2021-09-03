@@ -2067,7 +2067,7 @@ unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const char *data, const siz
     if (m_log->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
         CL_LOG(RGY_LOG_DEBUG, _T("%sbuilding OpenCL source: size %u.\n"), sep, datalen);
         CL_LOG(RGY_LOG_DEBUG, _T("options: %s\nsource\n"), char_to_tstring(options).c_str());
-        m_log->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, (char_to_tstring(data, CP_UTF8) + _T("\n") + sep).c_str());
+        m_log->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, (char_to_tstring(std::string(data, datalen), CP_UTF8) + _T("\n") + sep).c_str());
     }
     cl_int err = CL_SUCCESS;
     cl_program program = clCreateProgramWithSource(m_context.get(), 1, &data, &datalen, &err);
