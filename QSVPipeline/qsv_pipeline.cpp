@@ -2400,7 +2400,7 @@ RGY_ERR CQSVPipeline::createOpenCLCopyFilterForPreVideoMetric() {
         PrintMes(RGY_LOG_ERROR, _T("Unknown error, not expected that m_vpFilters has size.\n"));
         return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
-    m_vpFilters.push_back(std::move(VppVilterBlock(filters)));
+    m_vpFilters.push_back(VppVilterBlock(filters));
     return RGY_ERR_NONE;
 }
 
@@ -2535,7 +2535,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 return err;
             }
             if (vppmfx) {
-                m_vpFilters.push_back(std::move(VppVilterBlock(vppmfx)));
+                m_vpFilters.push_back(VppVilterBlock(vppmfx));
             }
         } else if (ftype1 == VppFilterType::FILTER_OPENCL) {
             if (ftype0 != VppFilterType::FILTER_OPENCL || filterPipeline[i] == VppType::CL_CROP) { // 前のfilterがOpenCLでない場合、変換が必要
@@ -2596,7 +2596,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 //登録
                 vppOpenCLFilters.push_back(std::move(filterCrop));
                 // ブロックに追加する
-                m_vpFilters.push_back(std::move(VppVilterBlock(vppOpenCLFilters)));
+                m_vpFilters.push_back(VppVilterBlock(vppOpenCLFilters));
                 vppOpenCLFilters.clear();
             }
         } else {
