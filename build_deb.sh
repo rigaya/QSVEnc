@@ -17,7 +17,7 @@ if [ -e /etc/lsb-release ]; then
     if [ "${PACKAGE_OS_CODENAME}" = "focal" ]; then
         PACKAGE_DEPENDS="libc6(>=2.29),libstdc++6(>=6)"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},intel-media-va-driver-non-free,intel-opencl-icd,intel-level-zero-gpu,level-zero"
-        PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libmfx1(>=1.19),libva-drm2,libva-x11-2,libigfxcmrt7"
+        PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libva-drm2,libva-x11-2,libigfxcmrt7"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libavcodec58,libavutil56,libavformat58,libswresample3,libavfilter7,libass9"
     else
         echo "${PACKAGE_OS_ID}${PACKAGE_OS_VER} ${PACKAGE_OS_CODENAME} not supported in this script!"
