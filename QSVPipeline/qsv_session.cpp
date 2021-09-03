@@ -294,6 +294,7 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
         }
 #elif LIBVA_SUPPORT
         if ((impl & MFX_IMPL_VIA_VAAPI) != 0) {
+            memType = VA_MEMORY;
 			hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, log));
 			if (!hwdev) {
 				return RGY_ERR_MEMORY_ALLOC;
