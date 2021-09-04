@@ -134,7 +134,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 | CoffeeLake  |                                                         |  |
 | CommetLake  |                                                         |  |
 | IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
-| Rocketlake  | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) |  |
+| RocketLake  | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2004.txt)  |
 
 <a name ="qsv_cpu_list"></a>
 ## QSVの使用できるCPU一覧
