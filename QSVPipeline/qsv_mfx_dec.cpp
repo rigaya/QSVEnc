@@ -87,27 +87,7 @@ RGY_ERR QSVMfxDec::InitMFXSession() {
     }
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%d, impl %s\n"), m_mfxVer.Major, m_mfxVer.Minor, MFXImplToStr(impl).c_str());
-
-    if (impl != MFX_IMPL_SOFTWARE) {
-        const auto hdl_t = mfxHandleTypeFromMemType(m_memType, false);
-        if (hdl_t) {
-            mfxHDL hdl = nullptr;
-            err = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
-            if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to get HW device handle: %s.\n"), get_err_mes(err));
-                return err;
-            }
-            PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
-            // hwエンコード時のみハンドルを渡す
-            err = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
-            if (err != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to dec session: %s.\n"), get_err_mes(err));
-                return err;
-            }
-            PrintMes(RGY_LOG_DEBUG, _T("set HW device handle %p to encode session.\n"), hdl);
-        }
-    }
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%02d, impl %s\n"), m_mfxVer.Major, m_mfxVer.Minor, MFXImplToStr(impl).c_str());
 
     if (!m_allocator) { // 内部で独自のallocatorを作る必要がある
         bool externalAlloc = false;
@@ -120,6 +100,25 @@ RGY_ERR QSVMfxDec::InitMFXSession() {
         m_allocator = m_allocatorInternal.get();
         PrintMes(RGY_LOG_DEBUG, _T("Created internal allocator for decode.\n"));
     } else {
+        if (impl != MFX_IMPL_SOFTWARE) {
+            const auto hdl_t = mfxHandleTypeFromMemType(m_memType, false);
+            if (hdl_t) {
+                mfxHDL hdl = nullptr;
+                err = err_to_rgy(m_hwdev->GetHandle(hdl_t, &hdl));
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get HW device handle: %s.\n"), get_err_mes(err));
+                    return err;
+                }
+                PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
+                // hwエンコード時のみハンドルを渡す
+                err = err_to_rgy(m_mfxSession.SetHandle(hdl_t, hdl));
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to set HW device handle to dec session: %s.\n"), get_err_mes(err));
+                    return err;
+                }
+                PrintMes(RGY_LOG_DEBUG, _T("set HW device handle %p to encode session.\n"), hdl);
+            }
+        }
         if ((err = err_to_rgy(m_mfxSession.SetFrameAllocator(m_allocator))) != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to set frame allocator: %s.\n"), get_err_mes(err));
             return err;
