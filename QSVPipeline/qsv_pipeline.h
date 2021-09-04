@@ -211,8 +211,6 @@ protected:
 
     virtual bool CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen);
     virtual RGY_ERR InitOpenCL(const bool enableOpenCL);
-    virtual RGY_ERR CreateHWDevice();
-    virtual RGY_ERR CreateAllocator();
     virtual void DeleteAllocator();
 
     virtual void DeleteHWDevice();

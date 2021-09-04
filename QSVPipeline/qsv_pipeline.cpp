@@ -109,8 +109,6 @@ RGY_DISABLE_WARNING_POP
 #include "qsv_allocator_va.h"
 #endif
 
-#define USE_NEW_SESSION_INIT 1
-
 #define RGY_ERR_MES(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return err_to_mfx(ret);}}
 #define RGY_ERR(ret, MES)    {if (RGY_ERR_NONE > (ret)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes(ret)); return ret;}}
 #define QSV_ERR_MES(sts, MES)    {if (MFX_ERR_NONE > (sts)) { PrintMes(RGY_LOG_ERROR, _T("%s : %s\n"), MES, get_err_mes((int)sts)); return sts;}}
@@ -1162,56 +1160,6 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::CreateHWDevice() {
-    auto sts = RGY_ERR_NONE;
-#if USE_NEW_SESSION_INIT == 0
-#if D3D_SURFACES_SUPPORT
-    POINT point = {0, 0};
-    HWND window = WindowFromPoint(point);
-    m_hwdev.reset();
-
-    if (m_memType) {
-#if MFX_D3D11_SUPPORT
-        if (m_memType == D3D11_MEMORY
-            && (m_hwdev = std::make_unique<CQSVD3D11Device>(m_pQSVLog))) {
-            m_memType = D3D11_MEMORY;
-            PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing...\n"));
-
-            sts = err_to_rgy(m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession)));
-            if (sts != MFX_ERR_NONE) {
-                m_hwdev.reset();
-                PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d11 - initializing failed.\n"));
-            }
-        }
-#endif // #if MFX_D3D11_SUPPORT
-        if (!m_hwdev && (m_hwdev = std::make_unique<CQSVD3D9Device>(m_pQSVLog))) {
-            //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
-            //sessionごと切り替える必要がある
-            if (m_memType != D3D9_MEMORY) {
-                PrintMes(RGY_LOG_DEBUG, _T("Retry openning device, chaging to d3d9 mode, re-init session.\n"));
-                InitSession();
-                m_memType = m_memType;
-            }
-
-            PrintMes(RGY_LOG_DEBUG, _T("HWDevice: d3d9 - initializing...\n"));
-            sts = err_to_rgy(m_hwdev->Init(window, 0, GetAdapterID(m_mfxSession)));
-        }
-    }
-    RGY_ERR(sts, _T("Failed to initialize HW Device."));
-    PrintMes(RGY_LOG_DEBUG, _T("HWDevice: initializing device success.\n"));
-
-#elif LIBVA_SUPPORT
-    m_hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, m_pQSVLog));
-    if (!m_hwdev) {
-        return RGY_ERR_MEMORY_ALLOC;
-    }
-    sts = err_to_rgy(m_hwdev->Init(NULL, 0, GetAdapterID(m_mfxSession)));
-    RGY_ERR(sts, _T("Failed to initialize HW Device."));
-#endif
-#endif
-    return RGY_ERR_NONE;
-}
-
 RGY_ERR CQSVPipeline::ResetDevice() {
     if (m_memType & (D3D9_MEMORY | D3D11_MEMORY)) {
         PrintMes(RGY_LOG_DEBUG, _T("HWDevice: reset.\n"));
@@ -1333,17 +1281,6 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         }
         t0 = t1;
     }
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR CQSVPipeline::CreateAllocator() {
-#if USE_NEW_SESSION_INIT == 0
-    auto sts = RGY_ERR_NONE;
-    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: MemType: %s\n"), MemTypeToStr(m_memType));
-    sts = CreateAllocatorImpl(m_pMFXAllocator, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
-    RGY_ERR(sts, _T("Failed to CreateAllocator."));
-    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: CreateAllocatorImpl success.\n"));
-#endif
     return RGY_ERR_NONE;
 }
 
@@ -2655,15 +2592,14 @@ bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
 RGY_ERR CQSVPipeline::InitSession() {
     auto err = RGY_ERR_NONE;
     m_mfxSession.Close();
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initilaizing... memType: %s\n"), MemTypeToStr(m_memType));
-#if USE_NEW_SESSION_INIT
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initializing... memType: %s\n"), MemTypeToStr(m_memType));
     MFXVideoSession2Params params;
     err = InitSessionAndDevice(m_hwdev, m_mfxSession, m_memType, params, m_pQSVLog);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("InitSession: failed to initialize: %s.\n"), get_err_mes(err));
         return err;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized session.\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized session with memType %s.\n"), MemTypeToStr(m_memType));
 
     err = CreateAllocatorImpl(m_pMFXAllocator, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
     if (err != RGY_ERR_NONE) {
@@ -2671,124 +2607,6 @@ RGY_ERR CQSVPipeline::InitSession() {
         return err;
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized allocator.\n"));
-#else
-    const bool useHWLib = true;
-    auto memType = HW_MEMORY;
-#if 0 && USE_ONEVPL
-    auto loader = MFXLoad();
-    auto cfg = MFXCreateConfig(loader);
-    //auto err = err_to_rgy(MFXSetConfigFilterProperty(
-    //    cfg,
-    //    reinterpret_cast<mfxU8 *>(const_cast<char *>("mfxImplDescription.Impl")),
-    //    cliParams.implValue));
-#endif //#if USE_ONEVPL
-#if defined(_WIN32) || defined(_WIN64)
-    //コードの簡略化のため、静的フィールドを使うので、念のためロックをかける
-    {
-        //std::lock_guard<std::mutex> lock(mtxGetSystemInfoHook);
-        {
-            //nGetSystemInfoHookThreads = m_nMFXThreads;
-            //apihook api_hook;
-            //api_hook.hook(_T("kernel32.dll"), "GetSystemInfo", GetSystemInfoHook, (void **)&origGetSystemInfoFunc);
-#endif
-
-            auto InitSessionEx = [&](mfxIMPL impl, mfxVersion *verRequired) {
-#if ENABLE_SESSION_THREAD_CONFIG
-                if (m_ThreadsParam.NumThread != 0 || m_ThreadsParam.Priority != get_value_from_chr(list_priority, _T("normal"))) {
-                    m_InitParam.Implementation = impl;
-                    m_InitParam.Version = MFX_LIB_VERSION_1_15;
-                    if (useHWLib) {
-                        m_InitParam.GPUCopy = MFX_GPUCOPY_ON;
-                    }
-                    if (MFX_ERR_NONE == m_mfxSession.InitEx(m_InitParam)) {
-                        return MFX_ERR_NONE;
-                    } else {
-                        m_ThreadsParam.NumThread = 0;
-                        m_ThreadsParam.Priority = get_value_from_chr(list_priority, _T("normal"));
-                    }
-                }
-#endif
-#if 0 && USE_ONEVPL
-                return err_to_rgy(MFXCreateSession(loader, 0, (mfxSession *)&m_mfxSession));
-#else
-                return err_to_rgy(m_mfxSession.Init(impl, verRequired));
-#endif
-            };
-
-            if (useHWLib) {
-                //とりあえず、MFX_IMPL_HARDWARE_ANYでの初期化を試みる
-                mfxIMPL impl = MFX_IMPL_HARDWARE_ANY;
-                m_memType = (memType) ? D3D9_MEMORY : SYSTEM_MEMORY;
-#if MFX_D3D11_SUPPORT
-                //Win7でD3D11のチェックをやると、
-                //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
-                //D3D11をWin8以降に限定
-                if (!check_OS_Win8orLater()) {
-                    memType &= (~D3D11_MEMORY);
-                    PrintMes(RGY_LOG_DEBUG, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
-                }
-
-#endif //#if MFX_D3D11_SUPPORT
-                //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
-                for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
-#if D3D_SURFACES_SUPPORT
-#if MFX_D3D11_SUPPORT
-                    if (D3D11_MEMORY & memType) {
-                        if (0 == i_try_d3d11) {
-                            impl |= MFX_IMPL_VIA_D3D11; //d3d11モードも試す場合は、まずd3d11モードをチェック
-                            impl &= (~MFX_IMPL_HARDWARE_ANY); //d3d11モードでは、MFX_IMPL_HARDWAREをまず試す
-                            impl |= MFX_IMPL_HARDWARE;
-                            m_memType = D3D11_MEMORY;
-                            PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d11 mode.\n"));
-                        } else {
-                            impl &= ~MFX_IMPL_VIA_D3D11; //d3d11をオフにして再度テストする
-                            impl |= MFX_IMPL_VIA_D3D9;
-                            m_memType = D3D9_MEMORY;
-                            PrintMes(RGY_LOG_DEBUG, _T("InitSession: trying to init session for d3d9 mode.\n"));
-                        }
-                    } else
-#endif //#if MFX_D3D11_SUPPORT
-                    if (D3D9_MEMORY & memType) {
-                        impl |= MFX_IMPL_VIA_D3D9; //d3d11モードも試す場合は、まずd3d11モードをチェック
-                    }
-#endif //#if D3D_SURFACES_SUPPORT
-                    mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-
-                    err = InitSessionEx(impl, &verRequired);
-                    if (err != RGY_ERR_NONE) {
-                        if (impl & MFX_IMPL_HARDWARE_ANY) {  //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
-                            impl &= (~MFX_IMPL_HARDWARE_ANY);
-                            impl |= MFX_IMPL_HARDWARE;
-                        } else if (impl & MFX_IMPL_HARDWARE) {  //MFX_IMPL_HARDWAREで失敗したら、MFX_IMPL_HARDWARE_ANYでもう一回試す
-                            impl &= (~MFX_IMPL_HARDWARE);
-                            impl |= MFX_IMPL_HARDWARE_ANY;
-                        }
-                        PrintMes(RGY_LOG_DEBUG, _T("InitSession: failed to init session for multi GPU mode, retry by single GPU mode.\n"));
-                        err = err_to_rgy(m_mfxSession.Init(impl, &verRequired));
-                    }
-
-                    //成功したらループを出る
-                    if (err == RGY_ERR_NONE) {
-                        break;
-                    }
-                }
-                PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized using %s memory.\n"), MemTypeToStr(m_memType));
-            } else {
-                mfxIMPL impl = MFX_IMPL_SOFTWARE;
-                mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-                err = InitSessionEx(impl, &verRequired);
-                m_memType = SYSTEM_MEMORY;
-                PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized with system memory.\n"));
-            }
-#if defined(_WIN32) || defined(_WIN64)
-        }
-    }
-#endif
-#endif
-    if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_DEBUG, _T("InitSession: Failed to initialize session using %s memory: %s.\n"), MemTypeToStr(m_memType), get_err_mes(err));
-        return err;
-    }
 
     //使用できる最大のversionをチェック
     m_mfxSession.QueryVersion(&m_mfxVer);
@@ -2940,14 +2758,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitSession();
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
-
-    sts = CreateHWDevice();
-    RGY_ERR(sts, _T("Failed to create hw device."));
-    PrintMes(RGY_LOG_DEBUG, _T("CreateHWDevice: Success.\n"));
-
-    sts = CreateAllocator();
-    RGY_ERR(sts, _T("Failed to create allocator."));
-    PrintMes(RGY_LOG_DEBUG, _T("CreateAllocator: Success.\n"));
 
     sts = InitOpenCL(pParams->ctrl.enableOpenCL);
     if (sts < RGY_ERR_NONE) return sts;
