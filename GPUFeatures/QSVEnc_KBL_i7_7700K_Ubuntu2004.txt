@@ -1,43 +1,44 @@
-QSVEncC (x64) 4.07 (r1931) by rigaya, Sep 26 2020 10:06:13 (gcc 9.3.0/Linux/avx2)
- reader: raw, avqsv [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9]
+QSVEncC (x64) 6.00 (r2447) by rigaya, Sep  4 2021 00:01:00 (gcc 9.3.0/Linux)
+ Intel Media SDK API v2.04
+ reader: raw, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
  vpp:    resize, deinterlace, denoise, detail-enhance, image-stab, delego, sub
 Environment Info
-OS : Ubuntu 20.04.1 LTS x64
+OS : Ubuntu 20.04.2 LTS (5.11.0-25-generic) x64
 CPU: Intel Core i7-7700K @ 4.20GHz (4C/8T)
-RAM: Used 3595 MB, Total 15717 MB
-GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 20.1.1 ()
+RAM: Used 1970 MB, Total 7662 MB
+GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 21.2.2 (67261a4)
 
-Media SDK Version: Hardware API v1.32
+Media SDK Version: Hardware API v1.35
 
 Supported Enc features:
 Codec: H.264/AVC
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
-RC mode       o     o     o     o     o     o     o     o     o     x    
+RC mode       o     o     o     o     o     o     o     o     o     o    
 10bit depth   x     x     x     x     x     x     x     x     x     x    
 Fixed Func    x     x     x     x     o     x     x     x     x     x    
 Interlace     o     o     o     o     o     o     o     o     o     x    
-VUI info      o     o     o     o     o     o     o     o     o     x    
-Trellis       o     o     o     o     o     o     o     o     o     x    
+VUI info      o     o     o     o     o     o     o     o     o     o    
+Trellis       o     o     o     o     o     o     o     o     o     o    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
-WeightP       o     o     o     o     o     o     o     o     o     x    
-WeightB       o     o     o     o     o     o     o     o     o     x    
-FadeDetect    o     o     o     o     o     o     o     o     o     x    
-B_Pyramid     o     o     o     o     o     o     o     o     o     x    
- +ManyBframes o     o     o     o     o     x     x     o     x     x    
+WeightP       o     o     o     o     o     o     o     o     o     o    
+WeightB       o     o     o     o     o     o     o     o     o     o    
+FadeDetect    o     o     o     o     o     o     o     o     o     o    
+B_Pyramid     o     o     o     o     o     o     o     o     o     o    
+ +ManyBframes o     o     o     o     o     x     x     o     x     o    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
-MBBRC         o     o     o     o     x     x     x     o     x     x    
+MBBRC         o     o     o     o     x     x     x     o     x     o    
 ExtBRC        o     o     x     x     x     x     x     x     x     x    
-Adaptive_LTR  o     o     o     o     o     o     o     o     o     x    
+Adaptive_LTR  o     o     o     o     o     o     o     o     o     o    
 LA Quality    x     x     x     x     x     o     o     x     o     x    
-QP Min/Max    o     o     o     o     o     o     o     o     o     x    
+QP Min/Max    o     o     o     o     o     o     o     o     o     o    
 IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    x     x     x     x     x     x     x     x     x     x    
 No GPB        x     x     x     x     x     x     x     x     x     x    
-Windowed BRC  o     o     o     o     o     o     o     o     o     x    
-PerMBQP(CQP)  o     o     o     o     o     o     o     o     o     x    
-DirectBiasAdj o     o     o     o     o     o     o     o     o     x    
-MVCostScaling o     o     o     o     o     o     o     o     o     x    
+Windowed BRC  o     o     o     o     o     o     o     o     o     o    
+PerMBQP(CQP)  o     o     o     o     o     o     o     o     o     o    
+DirectBiasAdj o     o     o     o     o     o     o     o     o     o    
+MVCostScaling o     o     o     o     o     o     o     o     o     o    
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
@@ -97,8 +98,9 @@ FPS Conversion (Adv.) o
 
 Supported Decode features:
 
-            H.264 HEVC MPEG2 VP8  VP9  
-HW Decode      o    o    o    o    o 
-10bit depth    x    o    x    x    o 
+        H.264  HEVC   MPEG2  VP8    VP9    AV1    
+yuv420  8bit  10bit   8bit   8bit  10bit  10bit 
+yuv422                                          
+yuv444                             12bit  12bit 
 
 

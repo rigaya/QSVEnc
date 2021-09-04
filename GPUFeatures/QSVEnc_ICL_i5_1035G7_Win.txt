@@ -1,12 +1,13 @@
-QSVEncC (x64) 4.07 (r1930) by rigaya, Sep 26 2020 08:46:32 (VC 1927/Win/avx2)
- reader: raw, avi, avs, vpy, avqsv [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9]
+QSVEncC (x64) 6.00 (r2447) by rigaya, Sep  4 2021 09:11:42 (VC 1929/Win)
+ Intel Media SDK API v2.04
+ reader: raw, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
 Environment Info
-OS : Windows 10 x64 (18363)
-CPU: Intel Core i5-1035G7 @ 1.20GHz [TB: 2.79GHz] (4C/8T) <Icelake>
-RAM: Used 2972 MB, Total 7782 MB
-GPU: Intel Iris(R) Plus Graphics (64EU) 300-1050MHz [15W] (27.20.100.8681)
+OS : Windows 10 x64 (19043) [UTF-8]
+CPU: Intel Core i5-1035G7 @ 1.20GHz [TB: 3.30GHz] (4C/8T) <Icelake>
+RAM: Used 3715 MB, Total 7778 MB
+GPU: Intel Iris(R) Plus Graphics (64EU) 300-1050MHz [15W] (30.0.100.9805)
 
-Media SDK Version: Hardware API v1.33
+Media SDK Version: Hardware API v1.35
 
 Supported Enc features:
 Codec: H.264/AVC
@@ -27,16 +28,16 @@ B_Pyramid     o     o     o     o     o     o     o     o     o     o
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
 MBBRC         o     o     o     o     x     x     x     o     x     o    
 ExtBRC        o     o     x     x     x     x     x     x     x     x    
-Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
+Adaptive_LTR  o     o     x     x     x     x     x     x     x     x    
 LA Quality    x     x     x     x     x     o     o     x     o     x    
 QP Min/Max    o     o     o     o     o     o     o     o     o     o    
-IntraRefresh  x     x     x     x     x     x     x     x     x     o    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    x     x     x     x     x     x     x     x     x     x    
 No GPB        x     x     x     x     x     x     x     x     x     x    
 Windowed BRC  x     x     x     x     x     o     o     x     x     x    
-PerMBQP(CQP)  x     x     x     x     o     x     x     x     x     x    
-DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
-MVCostScaling x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     o     o     o     x     o     x    
+DirectBiasAdj o     o     o     o     o     o     o     o     o     o    
+MVCostScaling o     o     o     o     o     o     o     o     o     o    
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
@@ -118,7 +119,7 @@ Deinterlace           o
 Scaling Quality       o
 Denoise               o
 Mctf                  o
-Rotate                x
+Rotate                o
 Mirror                x
 Detail Enhancement    o
 Proc Amp.             o
@@ -130,8 +131,9 @@ FPS Conversion (Adv.) o
 
 Supported Decode features:
 
-            H.264 HEVC MPEG2 VP8  VP9  
-HW Decode      o    o    o    o    o 
-10bit depth    x    o    x    x    o 
+        H.264  HEVC   MPEG2  VP8    VP9    AV1    
+yuv420  8bit  10bit   8bit   8bit  10bit  10bit 
+yuv422        10bit                             
+yuv444        10bit                12bit  12bit 
 
 

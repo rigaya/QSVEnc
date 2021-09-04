@@ -1,20 +1,20 @@
-QSVEncC (x64) 6.00 (r2447) by rigaya, Sep  4 2021 09:11:42 (VC 1929/Win)
+QSVEncC (x64) 6.00 (r2446) by rigaya, Sep  4 2021 07:44:35 (VC 1929/Win)
  Intel Media SDK API v2.04
  reader: raw, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
 Environment Info
-OS : Windows 10 x64 (19042) [UTF-8]
-CPU: Intel Core i3-4170 @ 3.70GHz (2C/4T) <Haswell>
-RAM: Used 2318 MB, Total 7885 MB
-GPU: Intel HD Graphics 4400 (12EU) 200-1500MHz [54W] (20.19.15.5107)
+OS : Windows 10 x64 (19043) [UTF-8]
+CPU: Intel Core i5-7500 @ 3.40GHz [TB: 3.80GHz] (4C/4T) <Kabylake>
+RAM: Used 4535 MB, Total 32468 MB
+GPU: Intel HD Graphics 630 (24EU) 350-1100MHz [65W] (27.20.100.9466)
 
-Media SDK Version: Hardware API v1.20
+Media SDK Version: Hardware API v1.34
 
 Supported Enc features:
 Codec: H.264/AVC
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     o     o     o     o     o     o     o     o    
 10bit depth   x     x     x     x     x     x     x     x     x     x    
-Fixed Func    x     x     x     x     x     x     x     x     x     x    
+Fixed Func    o     o     o     o     o     x     x     o     x     o    
 Interlace     o     o     o     o     o     o     o     o     o     x    
 VUI info      o     o     o     o     o     o     o     o     o     o    
 Trellis       o     o     o     o     o     o     o     o     o     o    
@@ -22,20 +22,54 @@ Adaptive_I    x     x     x     x     x     x     x     x     x     x
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       o     o     o     o     o     o     o     o     o     o    
 WeightB       o     o     o     o     o     o     o     o     o     o    
-FadeDetect    x     x     x     x     x     x     x     x     x     x    
-B_Pyramid     o     o     o     o     o     o     x     o     o     o    
+FadeDetect    o     o     o     o     o     o     o     o     o     o    
+B_Pyramid     o     o     o     o     o     o     o     o     o     o    
  +ManyBframes o     o     o     o     o     x     x     o     x     o    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
 MBBRC         o     o     o     o     x     x     x     o     x     o    
-ExtBRC        o     o     o     o     x     x     x     o     x     o    
-Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
+Adaptive_LTR  o     o     x     x     x     x     x     x     x     x    
 LA Quality    x     x     x     x     x     o     o     x     o     x    
 QP Min/Max    o     o     o     o     o     o     o     o     o     o    
 IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    x     x     x     x     x     x     x     x     x     x    
 No GPB        x     x     x     x     x     x     x     x     x     x    
 Windowed BRC  x     x     x     x     x     o     o     x     x     x    
-PerMBQP(CQP)  x     x     x     x     o     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     o     o     o     x     o     x    
+DirectBiasAdj o     o     o     o     o     o     o     o     o     o    
+MVCostScaling o     o     o     o     o     o     o     o     o     o    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+
+
+
+Codec: HEVC
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     x     x     o     x     x     o     x     o    
+10bit depth   o     o     x     x     o     x     x     o     x     o    
+Fixed Func    x     x     x     x     x     x     x     x     x     x    
+Interlace     x     x     x     x     o     x     x     x     x     x    
+VUI info      o     o     x     x     o     x     x     o     x     o    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       o     o     x     x     o     x     x     o     x     o    
+WeightB       o     o     x     x     o     x     x     o     x     o    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     o     o     x     x     o     x     x     o     x     o    
+ +ManyBframes o     o     x     x     o     x     x     o     x     o    
+PyramQPOffset x     x     x     x     o     x     x     x     x     x    
+MBBRC         o     o     x     x     x     x     x     o     x     o    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
+Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  o     o     x     x     o     x     x     o     x     o    
+No Deblock    o     o     x     x     o     x     x     o     x     o    
+No GPB        o     o     x     x     o     x     x     o     x     o    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
 DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
 MVCostScaling x     x     x     x     x     x     x     x     x     x    
 SAO           x     x     x     x     x     x     x     x     x     x    
@@ -54,15 +88,15 @@ VUI info      o     o     o     x     o     x     x     x     x     x
 Trellis       o     o     o     x     o     x     x     x     x     x    
 Adaptive_I    o     o     o     x     o     x     x     x     x     x    
 Adaptive_B    o     o     o     x     o     x     x     x     x     x    
-WeightP       o     o     o     x     o     x     x     x     x     x    
-WeightB       o     o     o     x     o     x     x     x     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
 FadeDetect    x     x     x     x     x     x     x     x     x     x    
 B_Pyramid     o     o     o     x     o     x     x     x     x     x    
  +ManyBframes o     o     o     x     o     x     x     x     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
 MBBRC         o     o     o     x     x     x     x     x     x     x    
 ExtBRC        o     o     o     x     x     x     x     x     x     x    
-Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
+Adaptive_LTR  o     o     o     x     o     x     x     x     x     x    
 LA Quality    x     x     x     x     x     x     x     x     x     x    
 QP Min/Max    o     o     o     x     o     x     x     x     x     x    
 IntraRefresh  o     o     o     x     o     x     x     x     x     x    
@@ -84,7 +118,7 @@ Resize                o
 Deinterlace           o
 Scaling Quality       o
 Denoise               o
-Mctf                  x
+Mctf                  o
 Rotate                o
 Mirror                x
 Detail Enhancement    o
@@ -98,8 +132,8 @@ FPS Conversion (Adv.) o
 Supported Decode features:
 
         H.264  HEVC   MPEG2  VP8    VP9    AV1    
-yuv420  8bit          8bit                      
+yuv420  8bit  10bit   8bit   8bit  10bit  10bit 
 yuv422                                          
-yuv444                                          
+yuv444                             12bit  12bit 
 
 
