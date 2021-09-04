@@ -92,7 +92,7 @@ RGY_ERR QSVMfxDec::InitMFXSession() {
     if (!m_allocator) { // 内部で独自のallocatorを作る必要がある
         bool externalAlloc = false;
         // SetFrameAllocator も内部で行われる
-        err = CreateAllocatorImpl(m_allocatorInternal, externalAlloc, m_memType, m_hwdev, m_mfxSession, m_log);
+        err = CreateAllocator(m_allocatorInternal, externalAlloc, m_memType, m_hwdev, m_mfxSession, m_log);
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to create internal allocator: %s.\n"), get_err_mes(err));
             return err;

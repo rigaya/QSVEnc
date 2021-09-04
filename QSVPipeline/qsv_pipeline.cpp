@@ -2601,7 +2601,7 @@ RGY_ERR CQSVPipeline::InitSession() {
     }
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized session with memType %s.\n"), MemTypeToStr(m_memType));
 
-    err = CreateAllocatorImpl(m_pMFXAllocator, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
+    err = CreateAllocator(m_pMFXAllocator, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("InitSession: failed to create allocator: %s.\n"), get_err_mes(err));
         return err;

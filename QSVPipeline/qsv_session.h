@@ -73,7 +73,7 @@ RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& 
 
 RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log);
 
-RGY_ERR CreateAllocatorImpl(
+RGY_ERR CreateAllocator(
     std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,
     const MemType memType, CQSVHWDevice *hwdev, MFXVideoSession2& session, std::shared_ptr<RGYLog>& log);
 

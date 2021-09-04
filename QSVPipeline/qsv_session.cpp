@@ -312,7 +312,7 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CreateAllocatorImpl(
+RGY_ERR CreateAllocator(
     std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,
     const MemType memType, CQSVHWDevice *hwdev, MFXVideoSession2& session, std::shared_ptr<RGYLog>& log) {
     auto sts = RGY_ERR_NONE;

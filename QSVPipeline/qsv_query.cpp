@@ -748,8 +748,8 @@ mfxU64 CheckVppFeatures(mfxVersion ver, std::shared_ptr<RGYLog> log) {
         auto err = RGY_ERR_NONE;
         if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
-        } else if ((err = CreateAllocatorImpl(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocatorImpl: failed to create allocator: %s.\n"), get_err_mes(err));
+        } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
         } else {
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
             feature = CheckVppFeaturesInternal(session, ver);
@@ -1212,8 +1212,8 @@ vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateContro
         auto err = RGY_ERR_NONE;
         if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
-        } else if ((err = CreateAllocatorImpl(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocatorImpl: failed to create allocator: %s.\n"), get_err_mes(err));
+        } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
         } else {
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
             for (const auto& ratecontrol : rateControlList) {
@@ -1297,8 +1297,8 @@ CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdL
     auto err = RGY_ERR_NONE;
     if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
-    } else if ((err = CreateAllocatorImpl(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
-        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocatorImpl: failed to create allocator: %s.\n"), get_err_mes(err));
+    } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
     } else {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
         for (auto codec : codecIdList) {
