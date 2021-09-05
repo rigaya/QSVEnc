@@ -461,13 +461,22 @@ fi
 
 if [ ! -e ./buildVPL/lib/libvpl.a ]; then
     if [ ! `which cmake 2> /dev/null` ]; then
-        cnf_write cmake not found which is required to build vpl!
+        cnf_write "cmake not found which is required to build vpl!"
         exit 1
     fi
 fi
 
 ./build_vpl.sh
-LIBVPL_LIBS="-L./buildVPL/lib -lvpl -ldl"
+
+LIBVPL_LIBS=""
+if [ -e ./buildVPL/lib/libvpl.a ]; then
+    LIBVPL_LIBS="-L./buildVPL/lib -lvpl -ldl"
+elif [ -e ./buildVPL/lib64/libvpl.a ]; then
+    LIBVPL_LIBS="-L./buildVPL/lib64 -lvpl -ldl"
+else
+    cnf_write "could not find libvpl.a!"
+    exit 1
+fi
 LIBVPL_CFLAGS="-I./oneVPL/api/vpl"
 #if ! ${PKGCONFIG} --exists libvpl ; then
 #    cnf_write "libvpl could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
