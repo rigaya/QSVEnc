@@ -142,13 +142,40 @@ mfxStatus MFXVideoSession2::initImpl(mfxIMPL& impl) {
 #if USE_ONEVPL
     auto loader = MFXLoad();
     auto cfg = MFXCreateConfig(loader);
+    //hwの使用を要求
+    mfxVariant ImplValueHW;
+    ImplValueHW.Type = MFX_VARIANT_TYPE_U32;
+    ImplValueHW.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
+    auto sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.Impl", ImplValueHW);
+    if (sts != MFX_ERR_NONE) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.Impl %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
+        return sts;
+    }
 
-    //auto err = err_to_rgy(MFXSetConfigFilterProperty(
-    //    cfg,
-    //    reinterpret_cast<mfxU8 *>(const_cast<char *>("mfxImplDescription.Impl")),
-    //    cliParams.implValue));
+    mfxVariant accMode;
+    accMode.Type = MFX_VARIANT_TYPE_U32;
+#if D3D_SURFACES_SUPPORT
+#if MFX_D3D11_SUPPORT
+    if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
+        accMode.Data.U32 = MFX_ACCEL_MODE_VIA_D3D11;
+    } else
+#endif
+    if ((impl & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9) {
+        accMode.Data.U32 = MFX_ACCEL_MODE_VIA_D3D9;
+    }
+#elif LIBVA_SUPPORT
+    if ((impl & MFX_IMPL_VIA_VAAPI) == MFX_IMPL_VIA_VAAPI) {
+        accMode.Data.U32 = MFX_ACCEL_MODE_VIA_VAAPI;
+    }
+#endif
+    sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.AccelerationMode", accMode);
+    if (sts != MFX_ERR_NONE) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
+        return sts;
+    }
+
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
-    auto sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
+    sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
     if (sts == MFX_ERR_NONE) return sts;
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
@@ -204,12 +231,12 @@ RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& 
 	auto err = RGY_ERR_NOT_INITIALIZED;
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
-	if ((impl & MFX_IMPL_VIA_D3D11) != 0) {
+	if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
 		err = err_to_rgy(mfxSession.initD3D11());
 		if (err != RGY_ERR_NONE) err = RGY_ERR_NOT_INITIALIZED;
 	}
 #endif
-	if ((impl & MFX_IMPL_VIA_D3D9) != 0 && err == RGY_ERR_NOT_INITIALIZED) {
+	if ((impl & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9 && err == RGY_ERR_NOT_INITIALIZED) {
 		err = err_to_rgy(mfxSession.initD3D9());
 	}
 #elif LIBVA_SUPPORT
@@ -218,12 +245,16 @@ RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& 
 	return err;
 }
 
-mfxIMPL GetDefaultMFXImpl() {
+mfxIMPL GetDefaultMFXImpl(MemType memType) {
 	mfxIMPL impl = 0;
 #if D3D_SURFACES_SUPPORT
-	impl |= MFX_IMPL_VIA_D3D11;
+    if ((memType & D3D11_MEMORY) || memType == SYSTEM_MEMORY) {
+        impl |= MFX_IMPL_VIA_D3D11;
+    }
 #if MFX_D3D11_SUPPORT
-	impl |= MFX_IMPL_VIA_D3D9;
+    if ((memType & D3D9_MEMORY) || memType == SYSTEM_MEMORY) {
+        impl |= MFX_IMPL_VIA_D3D9;
+    }
 #endif
 #elif LIBVA_SUPPORT
 	impl |= MFX_IMPL_VIA_VAAPI;
@@ -234,7 +265,7 @@ mfxIMPL GetDefaultMFXImpl() {
 RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log) {
     auto sts = RGY_ERR_NONE;
     {
-        auto targetImpl = GetDefaultMFXImpl();
+        auto targetImpl = GetDefaultMFXImpl(memType);
 #if D3D_SURFACES_SUPPORT
         //Win7でD3D11のチェックをやると、
         //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
@@ -262,7 +293,7 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
     if (memType != SYSTEM_MEMORY) {
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
-        if ((impl & MFX_IMPL_VIA_D3D11) != 0
+        if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11
             && (hwdev = std::make_unique<CQSVD3D11Device>(log))) {
             memType = D3D11_MEMORY;
             log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("HWDevice: d3d11 - init...\n"));
@@ -278,7 +309,7 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
 			&& (hwdev = std::make_unique<CQSVD3D9Device>(log))) {
             //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
             //sessionごと切り替える必要がある
-            if ((impl & MFX_IMPL_VIA_D3D9) == 0) {
+            if ((impl & MFX_IMPL_VIA_D3D9) != MFX_IMPL_VIA_D3D9) {
                 log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Retry openning device, changing to d3d9 mode, re-init session.\n"));
 
 				if ((sts = InitSession(mfxSession, params, MFX_IMPL_VIA_D3D9, log)) != RGY_ERR_NONE) {
@@ -293,7 +324,7 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
             sts = err_to_rgy(hwdev->Init(window, 0, GetAdapterID(mfxSession.get())));
         }
 #elif LIBVA_SUPPORT
-        if ((impl & MFX_IMPL_VIA_VAAPI) != 0) {
+        if ((impl & MFX_IMPL_VIA_VAAPI) == MFX_IMPL_VIA_VAAPI) {
             memType = VA_MEMORY;
 			hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, log));
 			if (!hwdev) {
