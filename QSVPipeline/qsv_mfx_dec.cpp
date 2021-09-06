@@ -237,8 +237,8 @@ RGY_ERR QSVMfxDec::Init() {
     //ここでの内部エラーは最終的にはmfxライブラリ内部で解決される場合もあり、これをログ上は無視するようにする。
     //具体的にはSandybridgeでd3dメモリでVPPを使用する際、m_pmfxVPP->Init()実行時に
     //"QSVAllocator: Failed CheckRequestType: undeveloped feature"と表示されるが、
-    //m_pmfxVPP->Initの戻り値自体はMFX_ERR_NONEであるので、内部で解決されたものと思われる。
-    //もちろん、m_pmfxVPP->Init自体がエラーを返した時にはきちんとログに残す。
+    //m_mfxDec->Initの戻り値自体はMFX_ERR_NONEであるので、内部で解決されたものと思われる。
+    //もちろん、m_mfxDec->Init自体がエラーを返した時にはきちんとログに残す。
     const auto log_level = logTemporarilyIgnoreErrorMes();
     auto err = err_to_rgy(m_mfxDec->Init(&m_mfxDecParams));
     m_log->setLogLevelAll(log_level);
