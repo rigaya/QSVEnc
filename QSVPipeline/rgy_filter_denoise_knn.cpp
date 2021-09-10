@@ -1,10 +1,10 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc/VCEEnc by rigaya
+// NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
 // The MIT License
 //
-// Copyright (c) 2019-2021 rigaya
+// Copyright (c) 2014-2016 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -33,9 +33,6 @@
 #include "rgy_filter_denoise_knn.h"
 
 static const int KNN_RADIUS_MAX = 5;
-static const int KNN_BLOCK_X = 32;
-static const int KNN_BLOCK_Y = 8;
-static const bool KNN_SRC_IMAGE = true;
 
 RGY_ERR RGYFilterDenoiseKnn::denoisePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseKnn>(m_param);
@@ -46,11 +43,11 @@ RGY_ERR RGYFilterDenoiseKnn::denoisePlane(RGYFrameInfo *pOutputPlane, const RGYF
     {
         const float strength = 1.0f / (prm->knn.strength * prm->knn.strength);
         const char *kernel_name = "kernel_denoise_knn";
-        RGYWorkSize local(KNN_BLOCK_X, KNN_BLOCK_Y);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
         auto err = m_knn->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
-            (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
+            (cl_mem)pInputPlane->ptr[0],
             strength, prm->knn.lerpC, prm->knn.weight_threshold, prm->knn.lerp_threshold);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(%s)): %s.\n"),
@@ -62,14 +59,10 @@ RGY_ERR RGYFilterDenoiseKnn::denoisePlane(RGYFrameInfo *pOutputPlane, const RGYF
 }
 
 RGY_ERR RGYFilterDenoiseKnn::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    RGYFrameInfo inputFrame = *pInputFrame;
-    if (KNN_SRC_IMAGE) {
-        m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
-        inputFrame = m_srcImage->frame;
-    }
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&inputFrame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = denoisePlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
@@ -81,7 +74,7 @@ RGY_ERR RGYFilterDenoiseKnn::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYF
     return RGY_ERR_NONE;
 }
 
-RGYFilterDenoiseKnn::RGYFilterDenoiseKnn(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_knn(), m_srcImage() {
+RGYFilterDenoiseKnn::RGYFilterDenoiseKnn(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_knn() {
     m_name = _T("knn");
 }
 
@@ -128,12 +121,10 @@ RGY_ERR RGYFilterDenoiseKnn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
     }
     if (!m_knn
         || std::dynamic_pointer_cast<RGYFilterParamDenoiseKnn>(m_param)->knn != pKnnParam->knn) {
-        const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D knn_radius=%d"
-            " -D knn_block_x=%d -D knn_block_y=%d -D SRC_IMAGE=%d",
+        const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D knn_radius=%d",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp],
-            pKnnParam->knn.radius,
-            KNN_BLOCK_X, KNN_BLOCK_Y, KNN_SRC_IMAGE ? 1 : 0);
+            pKnnParam->knn.radius);
         m_knn = m_cl->buildResource(_T("RGY_FILTER_DENOISE_KNN_CL"), _T("EXE_DATA"), options.c_str());
         if (!m_knn) {
             AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_KNN_CL(m_knn)\n"));
@@ -193,7 +184,6 @@ RGY_ERR RGYFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 
 void RGYFilterDenoiseKnn::close() {
     m_frameBuf.clear();
-    m_srcImage.reset();
     m_knn.reset();
     m_cl.reset();
     m_bInterlacedWarn = false;

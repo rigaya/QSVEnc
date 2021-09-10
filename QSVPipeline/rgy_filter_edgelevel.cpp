@@ -60,10 +60,10 @@ RGY_ERR RGYFilterEdgelevel::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
 }
 
 RGY_ERR RGYFilterEdgelevel::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = procPlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
@@ -75,7 +75,7 @@ RGY_ERR RGYFilterEdgelevel::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     return RGY_ERR_NONE;
 }
 
-RGYFilterEdgelevel::RGYFilterEdgelevel(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_edgelevel(), m_srcImage() {
+RGYFilterEdgelevel::RGYFilterEdgelevel(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_edgelevel() {
     m_name = _T("edgelevel");
 }
 
@@ -176,7 +176,6 @@ RGY_ERR RGYFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
 void RGYFilterEdgelevel::close() {
     m_frameBuf.clear();
-    m_srcImage.reset();
     m_edgelevel.reset();
     m_cl.reset();
     m_bInterlacedWarn = false;

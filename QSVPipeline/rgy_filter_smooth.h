@@ -64,5 +64,4 @@ protected:
     std::shared_ptr<RGYFrameDataQP> m_qpSrcB;
     RGYListRef<RGYFrameDataQP> *m_qpTableRef;
     int m_qpTableErrCount;
-    unique_ptr<RGYCLFrame> m_srcImage;
 };

@@ -100,11 +100,11 @@ RGY_ERR RGYFilterDenoisePmd::runPmdPlane(RGYFrameInfo *pOutputPlane, const RGYFr
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDenoisePmd::runPmdFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoisePmd::runPmdFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYFrameInfo *pGaussFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
-        auto planeGauss = getPlane(&m_gaussImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
+        auto planeGauss = getPlane(pGaussFrame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = runPmdPlane(&planeDst, &planeSrc, &planeGauss, queue, plane_wait_event, plane_event);
@@ -122,26 +122,24 @@ RGY_ERR RGYFilterDenoisePmd::denoiseFrame(RGYFrameInfo *pOutputFrame[2], const R
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
-    auto ret = runGaussFrame(&m_gauss->frame, &m_srcImage->frame, queue, wait_events, nullptr);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto ret = runGaussFrame(&m_gauss->frame, &srcImage->frame, queue, wait_events, nullptr);
     if (ret != RGY_ERR_NONE) {
         return ret;
     }
-    m_gaussImage = m_cl->createImageFromFrameBuffer(m_gauss->frame, true, CL_MEM_READ_ONLY);
+    auto gaussImage = m_cl->createImageFromFrameBuffer(m_gauss->frame, true, CL_MEM_READ_ONLY);
 
     for (int i = 0; i < prm->pmd.applyCount; i++) {
         const int dst_index = i & 1;
-        ret = runPmdFrame(pOutputFrame[dst_index], queue, {}, (i == prm->pmd.applyCount - 1) ? event : nullptr);
+        ret = runPmdFrame(pOutputFrame[dst_index], &srcImage->frame, &gaussImage->frame, queue, {}, (i == prm->pmd.applyCount - 1) ? event : nullptr);
         if (i < prm->pmd.applyCount - 1) {
-            m_srcImage = m_cl->createImageFromFrameBuffer(*(pOutputFrame[dst_index]), true, CL_MEM_READ_ONLY);
+            srcImage = m_cl->createImageFromFrameBuffer(*(pOutputFrame[dst_index]), true, CL_MEM_READ_ONLY);
         }
     }
-    m_srcImage.reset();
-    m_gaussImage.reset();
     return RGY_ERR_NONE;
 }
 
-RGYFilterDenoisePmd::RGYFilterDenoisePmd(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_frameIdx(0), m_pmd(), m_gauss(), m_srcImage() {
+RGYFilterDenoisePmd::RGYFilterDenoisePmd(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_frameIdx(0), m_pmd(), m_gauss() {
     m_name = _T("pmd");
 }
 
@@ -244,7 +242,6 @@ RGY_ERR RGYFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 
 void RGYFilterDenoisePmd::close() {
     m_frameBuf.clear();
-    m_srcImage.reset();
     m_gauss.reset();
     m_pmd.reset();
     m_cl.reset();

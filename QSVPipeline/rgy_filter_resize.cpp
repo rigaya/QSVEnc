@@ -92,10 +92,10 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
 }
 
 RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = resizePlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
@@ -107,7 +107,7 @@ RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameI
     return RGY_ERR_NONE;
 }
 
-RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_resize(), m_srcImage() {
+RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_resize() {
     m_name = _T("resize");
 }
 
@@ -202,7 +202,6 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 return RGY_ERR_NULL_PTR;
             }
         }
-        m_srcImage.reset();
     }
 
     m_infoStr = strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
@@ -259,7 +258,6 @@ RGY_ERR RGYFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 }
 
 void RGYFilterResize::close() {
-    m_srcImage.reset();
     m_frameBuf.clear();
     m_resize.reset();
     m_weightSpline.reset();

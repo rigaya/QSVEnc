@@ -96,7 +96,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
     return RGY_ERR_NONE;
 }
 
-RGYFilterTweak::RGYFilterTweak(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_tweak(), m_srcImage() {
+RGYFilterTweak::RGYFilterTweak(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_tweak() {
     m_name = _T("tweak");
 }
 
@@ -196,7 +196,6 @@ RGY_ERR RGYFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 
 void RGYFilterTweak::close() {
     m_frameBuf.clear();
-    m_srcImage.reset();
     m_tweak.reset();
     m_cl.reset();
     m_bInterlacedWarn = false;

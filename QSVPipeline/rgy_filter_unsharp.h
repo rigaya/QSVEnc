@@ -55,5 +55,4 @@ protected:
     unique_ptr<RGYOpenCLProgram> m_unsharp;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufY;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufUV;
-    unique_ptr<RGYCLFrame> m_srcImage;
 };

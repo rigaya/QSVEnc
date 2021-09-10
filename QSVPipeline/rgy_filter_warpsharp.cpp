@@ -137,13 +137,13 @@ RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     }
     const float threshold = prm->warpsharp.threshold;
     const float depth = prm->warpsharp.depth;
-    m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    const auto planeInputImgY = getPlane(&m_srcImage->frame, RGY_PLANE_Y);
-    const auto planeInputImgU = getPlane(&m_srcImage->frame, RGY_PLANE_U);
-    const auto planeInputImgV = getPlane(&m_srcImage->frame, RGY_PLANE_V);
+    const auto planeInputImgY = getPlane(&srcImage->frame, RGY_PLANE_Y);
+    const auto planeInputImgU = getPlane(&srcImage->frame, RGY_PLANE_U);
+    const auto planeInputImgV = getPlane(&srcImage->frame, RGY_PLANE_V);
     auto planeMask0Y = getPlane(&m_mask[0]->frame, RGY_PLANE_Y);
     auto planeMask0U = getPlane(&m_mask[0]->frame, RGY_PLANE_U);
     auto planeMask0V = getPlane(&m_mask[0]->frame, RGY_PLANE_V);
@@ -188,7 +188,7 @@ RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     return RGY_ERR_NONE;
 }
 
-RGYFilterWarpsharp::RGYFilterWarpsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_warpsharp(), m_srcImage(), m_mask() {
+RGYFilterWarpsharp::RGYFilterWarpsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_warpsharp(), m_mask() {
     m_name = _T("warpsharp");
 }
 
@@ -309,7 +309,6 @@ RGY_ERR RGYFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
 void RGYFilterWarpsharp::close() {
     m_frameBuf.clear();
-    m_srcImage.reset();
     m_warpsharp.reset();
     m_cl.reset();
     m_bInterlacedWarn = false;

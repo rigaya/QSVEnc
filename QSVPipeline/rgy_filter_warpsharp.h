@@ -58,6 +58,5 @@ protected:
 
     bool m_bInterlacedWarn;
     unique_ptr<RGYOpenCLProgram> m_warpsharp;
-    unique_ptr<RGYCLFrame> m_srcImage;
     std::array<std::unique_ptr<RGYCLFrame>, 2> m_mask;
 };

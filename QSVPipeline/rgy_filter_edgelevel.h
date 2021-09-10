@@ -52,5 +52,4 @@ protected:
 
     bool m_bInterlacedWarn;
     unique_ptr<RGYOpenCLProgram> m_edgelevel;
-    unique_ptr<RGYCLFrame> m_srcImage;
 };

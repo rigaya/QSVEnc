@@ -50,13 +50,11 @@ protected:
     virtual RGY_ERR runGaussPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR runGaussFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR runPmdPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYFrameInfo *pGaussPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual RGY_ERR runPmdFrame(RGYFrameInfo *pOutputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR runPmdFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYFrameInfo *pGaussFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane[2], const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
     int m_frameIdx;
     unique_ptr<RGYOpenCLProgram> m_pmd;
     unique_ptr<RGYCLFrame> m_gauss;
-    unique_ptr<RGYCLFrame> m_gaussImage;
-    unique_ptr<RGYCLFrame> m_srcImage;
 };

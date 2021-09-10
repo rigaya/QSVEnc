@@ -79,10 +79,10 @@ RGY_ERR RGYFilterSmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInf
 }
 
 RGY_ERR RGYFilterSmooth::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYFrameInfo *targetQPTable, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
         const int qpBlockShift = (i > 0 && RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) ? 0 : 1;
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
@@ -110,7 +110,7 @@ RGY_ERR RGYFilterSmooth::setQP(RGYCLFrame *targetQPTable, const int qp, RGYOpenC
 }
 
 
-RGYFilterSmooth::RGYFilterSmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_smooth(), m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0), m_srcImage() {
+RGYFilterSmooth::RGYFilterSmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_smooth(), m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0) {
     m_name = _T("smooth");
 }
 

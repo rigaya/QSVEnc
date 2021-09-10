@@ -59,10 +59,10 @@ RGY_ERR RGYFilterUnsharp::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameIn
 }
 
 RGY_ERR RGYFilterUnsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    m_srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = procPlane(&planeDst, &planeSrc, (((RGY_PLANE)i) == RGY_PLANE_Y) ? m_pGaussWeightBufY.get() : m_pGaussWeightBufUV.get(), queue, plane_wait_event, plane_event);
@@ -74,7 +74,7 @@ RGY_ERR RGYFilterUnsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     return RGY_ERR_NONE;
 }
 
-RGYFilterUnsharp::RGYFilterUnsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_unsharp(), m_srcImage() {
+RGYFilterUnsharp::RGYFilterUnsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_unsharp() {
     m_name = _T("unsharp");
 }
 
@@ -214,7 +214,6 @@ RGY_ERR RGYFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 
 void RGYFilterUnsharp::close() {
     m_frameBuf.clear();
-    m_srcImage.reset();
     m_unsharp.reset();
     m_cl.reset();
     m_bInterlacedWarn = false;
