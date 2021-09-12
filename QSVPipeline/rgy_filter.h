@@ -78,6 +78,33 @@ static FILTER_PATHTHROUGH_FRAMEINFO operator~(FILTER_PATHTHROUGH_FRAMEINFO a) {
     return (FILTER_PATHTHROUGH_FRAMEINFO)(~((uint32_t)a));
 }
 
+class RGYFilterPerf {
+public:
+    RGYFilterPerf() : m_checkPerformance(false), m_filterTimeMs(0.0), m_runCount(0) {};
+    ~RGYFilterPerf() { };
+
+    bool checkPerformanceEnabled() const { return m_checkPerformance; }
+    void setCheckPerformance(const bool check) { m_checkPerformance = check; }
+    RGY_ERR checkPerformace(RGYOpenCLEvent *event_start, RGYOpenCLEvent *event_fin) {
+        uint64_t time_start = 0;
+        auto sts = event_start->getProfilingTimeEnd(time_start);
+        if (sts != RGY_ERR_NONE) return sts;
+        uint64_t time_end = 0;
+        sts = event_fin->getProfilingTimeStart(time_end);
+        if (sts != RGY_ERR_NONE) return sts;
+        m_runCount++;
+        m_filterTimeMs += (time_end - time_start) * 1e-6 /*ns -> ms*/;
+        return RGY_ERR_NONE;
+    }
+    double GetAvgTimeElapsed() const {
+        return (m_runCount > 0) ? m_filterTimeMs / (double)m_runCount : 0.0;
+    }
+protected:
+    bool m_checkPerformance;
+    double m_filterTimeMs;
+    int m_runCount;
+};
+
 class RGYFilter {
 public:
     RGYFilter(shared_ptr<RGYOpenCLContext> context);
@@ -100,6 +127,8 @@ public:
     RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames);
     //virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
     virtual int targetTrackIdx() { return 0; };
+    void setCheckPerformance(const bool check) { m_perfMonitor.setCheckPerformance(check); }
+    double GetAvgTimeElapsed() { return m_perfMonitor.GetAvgTimeElapsed(); }
 protected:
     RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame);
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) = 0;
@@ -144,6 +173,7 @@ protected:
     unique_ptr<RGYCLFrame> m_pFieldPairOut;
     shared_ptr<RGYFilterParam> m_param;
     FILTER_PATHTHROUGH_FRAMEINFO m_pathThrough;
+    RGYFilterPerf m_perfMonitor;
 };
 
 class RGYFilterParamCrop : public RGYFilterParam {

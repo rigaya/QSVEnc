@@ -210,7 +210,7 @@ protected:
     virtual RGY_ERR readChapterFile(tstring chapfile);
 
     virtual bool CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen);
-    virtual RGY_ERR InitOpenCL(const bool enableOpenCL);
+    virtual RGY_ERR InitOpenCL(const bool enableOpenCL, const bool checkVppPerformance);
     virtual void DeleteAllocator();
 
     virtual void DeleteHWDevice();

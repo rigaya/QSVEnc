@@ -313,15 +313,15 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
         return RGY_ERR_INVALID_PARAM;
     }
     VCEAMF(amf::AMFContext::AMFOpenCLLocker locker(m_context));
-    m_queueCrop = m_cl->createQueue(m_cl->queue().devid());
+    m_queueCrop = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
     if (prm->metric.ssim) {
         for (auto& q : m_queueCalcSsim) {
-            q = m_cl->createQueue(m_cl->queue().devid());
+            q = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
         }
     }
     if (prm->metric.psnr) {
         for (auto &q : m_queueCalcPsnr) {
-            q = m_cl->createQueue(m_cl->queue().devid());
+            q = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
         }
     }
 #if ENCODER_VCEENC

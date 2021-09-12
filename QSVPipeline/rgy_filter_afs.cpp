@@ -651,13 +651,13 @@ RGY_ERR RGYFilterAfs::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         return err;
     }
 
-    m_queueAnalyze = m_cl->createQueue(m_cl->queue().devid());
+    m_queueAnalyze = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
     if (!m_queueAnalyze.get()) {
         AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
         return RGY_ERR_UNKNOWN;
     }
 
-    m_queueCopy = m_cl->createQueue(m_cl->queue().devid());
+    m_queueCopy = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
     if (!m_queueCopy.get()) {
         AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
         return RGY_ERR_UNKNOWN;

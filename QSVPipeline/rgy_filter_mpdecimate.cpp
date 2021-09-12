@@ -241,14 +241,14 @@ RGY_ERR RGYFilterMpdecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         m_cache.init(2, m_pLog);
 
         if (prm->useSeparateQueue) {
-            m_streamDiff = m_cl->createQueue(m_cl->queue().devid());
+            m_streamDiff = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
             if (!m_streamDiff.get()) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
                 return RGY_ERR_UNKNOWN;
             }
             AddMessage(RGY_LOG_DEBUG, _T("Create OpenCL queue: Success.\n"));
 
-            m_streamTransfer = m_cl->createQueue(m_cl->queue().devid());
+            m_streamTransfer = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
             if (!m_streamTransfer.get()) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to createQueue.\n"));
                 return RGY_ERR_UNKNOWN;

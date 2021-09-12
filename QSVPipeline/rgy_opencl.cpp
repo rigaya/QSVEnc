@@ -415,6 +415,33 @@ tstring RGYOpenCLEventInfo::print() const {
     return str;
 }
 
+RGY_ERR RGYOpenCLEvent::getProfilingTime(uint64_t& time, const cl_profiling_info info) {
+    if (*event_ == nullptr) {
+        return RGY_ERR_NULL_PTR;
+    }
+    return err_cl_to_rgy(clGetEventProfilingInfo(*event_, info, sizeof(time), &time, NULL));
+}
+
+RGY_ERR RGYOpenCLEvent::getProfilingTimeStart(uint64_t& time) {
+    return getProfilingTime(time, CL_PROFILING_COMMAND_START);
+}
+
+RGY_ERR RGYOpenCLEvent::getProfilingTimeEnd(uint64_t& time) {
+    return getProfilingTime(time, CL_PROFILING_COMMAND_END);
+}
+
+RGY_ERR RGYOpenCLEvent::getProfilingTimeSubmit(uint64_t& time) {
+    return getProfilingTime(time, CL_PROFILING_COMMAND_SUBMIT);
+}
+
+RGY_ERR RGYOpenCLEvent::getProfilingTimeQueued(uint64_t& time) {
+    return getProfilingTime(time, CL_PROFILING_COMMAND_QUEUED);
+}
+
+RGY_ERR RGYOpenCLEvent::getProfilingTimeComplete(uint64_t& time) {
+    return getProfilingTime(time, CL_PROFILING_COMMAND_COMPLETE);
+}
+
 RGYOpenCLEventInfo RGYOpenCLEvent::getInfo() const {
     RGYOpenCLEventInfo info;
     try {
@@ -1053,7 +1080,7 @@ RGYOpenCLContext::~RGYOpenCLContext() {
     m_log.reset();
 }
 
-RGY_ERR RGYOpenCLContext::createContext() {
+RGY_ERR RGYOpenCLContext::createContext(const cl_command_queue_properties queue_properties) {
     if (RGYOpenCL::openCLCrush) {
         return RGY_ERR_OPENCL_CRUSH;
     }
@@ -1104,17 +1131,17 @@ RGY_ERR RGYOpenCLContext::createContext() {
         return err_cl_to_rgy(err);
     }
     for (int idev = 0; idev < (int)m_platform->devs().size(); idev++) {
-        m_queue.push_back(createQueue(m_platform->dev(idev).id()));
+        m_queue.push_back(createQueue(m_platform->dev(idev).id(), queue_properties));
     }
     return RGY_ERR_NONE;
 }
 
-RGYOpenCLQueue RGYOpenCLContext::createQueue(cl_device_id devid) {
+RGYOpenCLQueue RGYOpenCLContext::createQueue(const cl_device_id devid, const cl_command_queue_properties properties) {
     RGYOpenCLQueue queue;
     cl_int err = RGY_ERR_NONE;
     CL_LOG(RGY_LOG_DEBUG, _T("createQueue for device : %p\n"), devid);
     try {
-        queue = RGYOpenCLQueue(clCreateCommandQueue(m_context.get(), devid, 0, &err), devid);
+        queue = RGYOpenCLQueue(clCreateCommandQueue(m_context.get(), devid, properties, &err), devid);
         if (err != RGY_ERR_NONE) {
             CL_LOG(RGY_LOG_ERROR, _T("Error (clCreateCommandQueue): %s\n"), cl_errmes(err));
         }
@@ -1661,12 +1688,49 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
     return RGY_ERR_NONE;
 }
 
+tstring clcommandqueueproperties_cl_to_str(const cl_command_queue_properties prop) {
+    tstring str;
+    if (prop & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) str += _T(", OoO exec");
+    if (prop & CL_QUEUE_PROFILING_ENABLE)              str += _T(", profiling enable");
+    if (prop & CL_QUEUE_ON_DEVICE)                     str += _T(", on device");
+    if (prop & CL_QUEUE_ON_DEVICE_DEFAULT)             str += _T(", on device default");
+    return str.substr(2);
+}
+
+RGYOpenCLQueueInfo::RGYOpenCLQueueInfo() : context(0), devid(0), refcount(0), properties(0) {};
+
+tstring RGYOpenCLQueueInfo::print() const {
+    tstring str;
+    str += strsprintf(_T("context:          0x%p\n"), context);
+    str += strsprintf(_T("devid:            0x%p\n"), devid);
+    str += strsprintf(_T("refcount:         %d\n"), refcount);
+    str += strsprintf(_T("properties:       %s\n"), clcommandqueueproperties_cl_to_str(properties).c_str());
+    return str;
+}
+
 RGYOpenCLQueue::RGYOpenCLQueue() : m_queue(nullptr, clReleaseCommandQueue), m_devid(0) {};
 
 RGYOpenCLQueue::RGYOpenCLQueue(cl_command_queue queue, cl_device_id devid) : m_queue(queue, clReleaseCommandQueue), m_devid(devid) {};
 
 RGYOpenCLQueue::~RGYOpenCLQueue() {
     m_queue.reset();
+}
+
+RGYOpenCLQueueInfo RGYOpenCLQueue::getInfo() const {
+    RGYOpenCLQueueInfo info;
+    try {
+        clGetInfo(clGetCommandQueueInfo, get(), CL_QUEUE_CONTEXT, &info.context);
+        clGetInfo(clGetCommandQueueInfo, get(), CL_QUEUE_DEVICE, &info.devid);
+        clGetInfo(clGetCommandQueueInfo, get(), CL_QUEUE_REFERENCE_COUNT, &info.refcount);
+        clGetInfo(clGetCommandQueueInfo, get(), CL_QUEUE_PROPERTIES, &info.properties);
+    } catch (...) {
+        return RGYOpenCLQueueInfo();
+    }
+    return info;
+}
+
+cl_command_queue_properties RGYOpenCLQueue::getProperties() const {
+    return getInfo().properties;
 }
 
 RGY_ERR RGYOpenCLQueue::wait(const RGYOpenCLEvent& event) const {

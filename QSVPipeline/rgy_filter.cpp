@@ -31,7 +31,7 @@ RGYFilter::RGYFilter(shared_ptr<RGYOpenCLContext> context) :
     m_name(), m_infoStr(), m_pLog(), m_cl(context), m_frameBuf(),
     m_pFieldPairIn(), m_pFieldPairOut(),
     m_param(),
-    m_pathThrough(FILTER_PATHTHROUGH_ALL) {
+    m_pathThrough(FILTER_PATHTHROUGH_ALL), m_perfMonitor() {
 
 }
 
@@ -94,6 +94,10 @@ RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFram
         ppOutputFrames[0] = pInputFrame;
         *pOutputFrameNum = 1;
     }
+    RGYOpenCLEvent queueRunStart;
+    if (m_perfMonitor.checkPerformanceEnabled()) {
+        queue.getmarker(queueRunStart);
+    }
     const auto ret = run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
     const int nOutFrame = *pOutputFrameNum;
     if (!m_param->bOutOverwrite && nOutFrame > 0) {
@@ -111,6 +115,12 @@ RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFram
             if (m_pathThrough & FILTER_PATHTHROUGH_FLAGS)     ppOutputFrames[i]->flags = pInputFrame->flags;
             if (m_pathThrough & FILTER_PATHTHROUGH_PICSTRUCT) ppOutputFrames[i]->picstruct = pInputFrame->picstruct;
         }
+    }
+    if (m_perfMonitor.checkPerformanceEnabled()) {
+        RGYOpenCLEvent queueRunEnd;
+        queue.getmarker(queueRunEnd);
+        queueRunEnd.wait();
+        m_perfMonitor.checkPerformace(&queueRunStart, &queueRunEnd);
     }
     return ret;
 }

@@ -1093,7 +1093,7 @@ bool CQSVPipeline::CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen) {
     return cpu_gen != CPU_GEN_SANDYBRIDGE;
 }
 
-RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
+RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPerformance) {
     if (!enableOpenCL) {
         PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled.\n"));
         return RGY_ERR_NONE;
@@ -1153,7 +1153,7 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL) {
     platform->setDev(devices[0]);
 
     m_cl = std::make_shared<RGYOpenCLContext>(platform, m_pQSVLog);
-    if (m_cl->createContext() != CL_SUCCESS) {
+    if (m_cl->createContext((checkVppPerformance) ? CL_QUEUE_PROFILING_ENABLE : 0) != CL_SUCCESS) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to create OpenCL context.\n"));
         return RGY_ERR_UNKNOWN;
     }
@@ -2548,6 +2548,16 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         }
     }
 
+    if (inputParam->vpp.checkPerformance) {
+        for (auto& block : m_vpFilters) {
+            if (block.type == VppFilterType::FILTER_OPENCL) {
+                for (auto& filter : block.vppcl) {
+                    filter->setCheckPerformance(inputParam->vpp.checkPerformance);
+                }
+            }
+        }
+    }
+
     m_encWidth  = inputFrame.width;
     m_encHeight = inputFrame.height;
 
@@ -2759,7 +2769,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
-    sts = InitOpenCL(pParams->ctrl.enableOpenCL);
+    sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->vpp.checkPerformance);
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitMfxDecParams(pParams);
@@ -3313,6 +3323,18 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         m_videoQualityMetric->addBitstream(nullptr);
     }
 
+    //vpp-perf-monitor
+    std::vector<std::pair<tstring, double>> filter_result;
+    for (auto& block : m_vpFilters) {
+        if (block.type == VppFilterType::FILTER_OPENCL) {
+            for (auto& filter : block.vppcl) {
+                auto avgtime = filter->GetAvgTimeElapsed();
+                if (avgtime > 0.0) {
+                    filter_result.push_back({ filter->name(), avgtime });
+                }
+            }
+        }
+    }
     // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_vpFilters.clear();
@@ -3331,6 +3353,19 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         m_videoQualityMetric->showResult();
     }
     m_pStatus->WriteResults();
+    if (filter_result.size()) {
+        PrintMes(RGY_LOG_INFO, _T("\nVpp Filter Performance\n"));
+        const auto max_len = std::accumulate(filter_result.begin(), filter_result.end(), 0u, [](uint32_t max_length, std::pair<tstring, double> info) {
+            return std::max(max_length, (uint32_t)info.first.length());
+            });
+        for (const auto& info : filter_result) {
+            tstring str = info.first + _T(":");
+            for (uint32_t i = (uint32_t)info.first.length(); i < max_len; i++) {
+                str += _T(" ");
+            }
+            PrintMes(RGY_LOG_INFO, _T("%s %8.1f us\n"), str.c_str(), info.second * 1000.0);
+        }
+    }
     PrintMes(RGY_LOG_DEBUG, _T("RunEncode2: finished.\n"));
     return (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
 }

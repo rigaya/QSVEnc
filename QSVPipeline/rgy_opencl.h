@@ -420,6 +420,11 @@ public:
         reset();
         return &(*event_);
     }
+    RGY_ERR getProfilingTimeStart(uint64_t& time);
+    RGY_ERR getProfilingTimeEnd(uint64_t& time);
+    RGY_ERR getProfilingTimeSubmit(uint64_t& time);
+    RGY_ERR getProfilingTimeQueued(uint64_t& time);
+    RGY_ERR getProfilingTimeComplete(uint64_t& time);
     cl_event &operator()() { return *event_; }
     const cl_event &operator()() const { return *event_; }
     const cl_event *ptr() const { return &(*event_); }
@@ -433,6 +438,7 @@ public:
     }
     RGYOpenCLEventInfo getInfo() const;
 private:
+    RGY_ERR getProfilingTime(uint64_t& time, const cl_profiling_info info);
     std::shared_ptr<cl_event> event_;
 };
 
@@ -903,6 +909,16 @@ protected:
     std::vector<std::unique_ptr<RGYOpenCLKernel>> m_kernels;
 };
 
+struct RGYOpenCLQueueInfo {
+    cl_context context;
+    cl_device_id devid;
+    cl_uint refcount;
+    cl_command_queue_properties properties;
+
+    RGYOpenCLQueueInfo();
+    tstring print() const;
+};
+
 class RGYOpenCLQueue {
 public:
     RGYOpenCLQueue();
@@ -925,6 +941,8 @@ public:
     cl_device_id devid() const {
         return m_devid;
     }
+    RGYOpenCLQueueInfo getInfo() const;
+    cl_command_queue_properties getProperties() const;
     RGY_ERR wait(const RGYOpenCLEvent& event) const;
     RGY_ERR getmarker(RGYOpenCLEvent& event) const;
     RGY_ERR flush() const;
@@ -948,7 +966,7 @@ public:
     RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, shared_ptr<RGYLog> pLog);
     virtual ~RGYOpenCLContext();
 
-    RGY_ERR createContext();
+    RGY_ERR createContext(const cl_command_queue_properties queue_properties);
     cl_context context() const { return m_context.get(); };
     const RGYOpenCLQueue& queue(int idx=0) const { return m_queue[idx]; };
     RGYOpenCLQueue& queue(int idx=0) { return m_queue[idx]; };
@@ -958,7 +976,7 @@ public:
     unique_ptr<RGYOpenCLProgram> buildFile(const tstring &filename, const char *options);
     unique_ptr<RGYOpenCLProgram> buildResource(const TCHAR *name, const TCHAR *type, const char *options);
 
-    RGYOpenCLQueue createQueue(cl_device_id devid);
+    RGYOpenCLQueue createQueue(const cl_device_id devid, const cl_command_queue_properties properties);
     unique_ptr<RGYCLBuf> createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, void *host_ptr = nullptr);
     unique_ptr<RGYCLBuf> copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, cl_command_queue queue = 0);
     RGY_ERR createImageFromPlane(cl_mem& image, cl_mem buffer, int bit_depth, int channel_order, bool normalized, int pitch, int width, int height, cl_mem_flags flags);
