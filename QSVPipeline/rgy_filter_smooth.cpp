@@ -153,17 +153,17 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
 
     if (!m_param
         || std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param)->smooth != prm->smooth) {
-        auto gen_options = [&](bool enable_fp16) {
+        auto gen_options = [&](bool enable_fp16, bool cl_fp16_support) {
             const auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d"
-                " -D TypeDct=%s -D usefp16=%d -D TypeQP=uchar -D TypeQP4=uchar4"
+                " -D usefp16Dct=%d -D usefp16IO=%d -D TypeQP=uchar -D TypeQP4=uchar4"
                 " -D SPP_BLOCK_SIZE_X=%d"
                 " -D SPP_THREAD_BLOCK_X=%d -D SPP_THREAD_BLOCK_Y=%d"
                 " -D SPP_SHARED_BLOCK_NUM_X=%d -D SPP_SHARED_BLOCK_NUM_Y=%d"
                 " -D SPP_LOOP_COUNT_BLOCK=%d",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
-                (enable_fp16) ? "half2" : "float",
                 (enable_fp16) ? 1 : 0,
+                (cl_fp16_support) ? 1 : 0,
                 SPP_BLOCK_SIZE_X,
                 SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y,
                 SPP_SHARED_BLOCK_NUM_X, SPP_SHARED_BLOCK_NUM_Y,
@@ -172,28 +172,38 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             return options;
         };
 
-        bool usefp16 = prm->smooth.prec == VPP_FP_PRECISION_FP16;
-        m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(usefp16).c_str());
+        if (prm->smooth.prec != VPP_FP_PRECISION_FP32) {
+            if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
+                AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, using fp32 mode.\n"));
+                prm->smooth.prec == VPP_FP_PRECISION_FP32;
+            }
+        }
+        const bool cl_fp16_support = prm->smooth.prec != VPP_FP_PRECISION_FP32;
+        bool usefp16Dct = cl_fp16_support && prm->smooth.prec == VPP_FP_PRECISION_FP16;
+        m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(usefp16Dct, cl_fp16_support).c_str());
         if (!m_smooth) {
             AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
-        if (usefp16) {
+        if (usefp16Dct) {
             RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
             RGYWorkSize global(divCeil(prm->frameOut.width, SPP_BLOCK_SIZE_X), divCeil(prm->frameOut.height, SPP_LOOP_COUNT_BLOCK));
             const auto subGroupSize = m_smooth->kernel("kernel_smooth").config(m_cl->queue(), local, global).subGroupSize();
             if (subGroupSize == 0) {
-                AddMessage(RGY_LOG_WARN, _T("Could not get subGroupSize for kernel, fp16 disabled.\n"));
-                prm->smooth.prec = VPP_FP_PRECISION_FP32;
+                AddMessage(RGY_LOG_WARN, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
+                usefp16Dct = false;
+                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
             } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
-                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) is not pow2, fp16 disabled.\n"), subGroupSize);
-                prm->smooth.prec = VPP_FP_PRECISION_FP32;
+                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) is not pow2, fp16 dct disabled.\n"), subGroupSize);
+                usefp16Dct = false;
+                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
             } else if (subGroupSize < 32) {
-                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) < 32, fp16 disabled.\n"), subGroupSize);
-                prm->smooth.prec = VPP_FP_PRECISION_FP32;
+                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
+                usefp16Dct = false;
+                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
             }
-            if (prm->smooth.prec != VPP_FP_PRECISION_FP16) {
-                m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false).c_str());
+            if (!usefp16Dct) {
+                m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
                 if (!m_smooth) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
                     return RGY_ERR_OPENCL_CRUSH;

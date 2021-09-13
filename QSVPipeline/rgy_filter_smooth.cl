@@ -1,8 +1,8 @@
 ﻿// TypePixel
-// TypeDct
 // TypeQP
 // TypeQP4
-// usefp16
+// usefp16Dct
+// usefp16IO
 // radius
 // bit_depth
 // SPP_THREAD_BLOCK_X
@@ -11,8 +11,20 @@
 // SPP_SHARED_BLOCK_NUM_Y
 // SPP_LOOP_COUNT_BLOCK
 
-#if usefp16
+#if usefp16Dct || usefp16IO
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
+#endif
+
+#if usefp16Dct
+#define TypeDct half2
+#else
+#define TypeDct float
+#endif
+
+#if usefp16IO
+#define TypeIO half
+#else
+#define TypeIO float
 #endif
 
 #ifndef clamp
@@ -156,24 +168,24 @@ __constant uchar2 SPP_DEBLOCK_OFFSET[127] = {
 #define SIN(x, y)  (shared_in[(y) & (8 * SPP_SHARED_BLOCK_NUM_Y - 1)][(x)])
 #define SOUT(x, y) (shared_out[(y) & (8 * SPP_SHARED_BLOCK_NUM_Y - 1)][(x)])
 
-void load_8x8(__local float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], __read_only image2d_t texSrc, int thWorker, int shared_bx, int shared_by, int src_global_bx, int src_global_by) {
+void load_8x8(__local TypeIO shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], __read_only image2d_t texSrc, int thWorker, int shared_bx, int shared_by, int src_global_bx, int src_global_by) {
     const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
     #pragma unroll
     for (int y = 0; y < 8; y++) {
-        SIN(shared_bx * 8 + thWorker, shared_by * 8 + y) = (float)read_imagef(texSrc, sampler, (int2)(src_global_bx * 8 + thWorker, src_global_by * 8 + y)).x;
+        SIN(shared_bx * 8 + thWorker, shared_by * 8 + y) = (TypeIO)(read_imagef(texSrc, sampler, (int2)(src_global_bx * 8 + thWorker, src_global_by * 8 + y)).x);
     }
 }
-void zero_8x8(__local float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by) {
+void zero_8x8(__local TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by) {
     #pragma unroll
     for (int y = 0; y < 8; y++) {
-        SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) = 0.0f;
+        SOUT(shared_bx * 8 + thWorker, shared_by * 8 + y) = (TypeIO)0.0f;
     }
 }
-void load_8x8tmp(__local TypeDct shared_tmp[8][9], __local float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+void load_8x8tmp(__local TypeDct shared_tmp[8][9], __local TypeIO shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
     #pragma unroll
     for (int y = 0; y < 8; y++) {
         float v0 = SIN(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y);
-#if usefp16
+#if usefp16Dct
         float v1 = SIN(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y);
         STMP(thWorker, y) = (half2)(v0, v1);
 #else
@@ -181,20 +193,20 @@ void load_8x8tmp(__local TypeDct shared_tmp[8][9], __local float shared_in[8 * S
 #endif
     }
 }
-void add_8x8tmp(__local float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], __local TypeDct shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
+void add_8x8tmp(__local TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], __local TypeDct shared_tmp[8][9], int thWorker, int shared_bx, int shared_by, int offset1_x, int offset1_y, int offset2_x, int offset2_y) {
     #pragma unroll
     for (int y = 0; y < 8; y++) {
         TypeDct v = STMP(thWorker, y);
-#if usefp16
-        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += (float)v.x;
-        SOUT(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y) += (float)v.y;
+#if usefp16Dct
+        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += (TypeIO)v.x;
+        SOUT(shared_bx * 8 + offset2_x + thWorker, shared_by * 8 + offset2_y + y) += (TypeIO)v.y;
 #else
-        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += v;
+        SOUT(shared_bx * 8 + offset1_x + thWorker, shared_by * 8 + offset1_y + y) += (TypeIO)v;
 #endif
     }
 }
 
-void store_8x8(__global char *pDst, int dstPitch, int dstWidth, int dstHeight, __local float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int dst_global_bx, int dst_global_by, int quality) {
+void store_8x8(__global char *pDst, int dstPitch, int dstWidth, int dstHeight, __local TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X], int thWorker, int shared_bx, int shared_by, int dst_global_bx, int dst_global_by, int quality) {
     const int dst_global_x = dst_global_bx * 8 + thWorker;
     if (dst_global_x < dstWidth) {
         const int dst_block_offset = (dst_global_by * 8) * dstPitch + dst_global_x * sizeof(TypePixel);
@@ -232,8 +244,8 @@ __kernel void kernel_smooth(
     const int count = 1 << quality;
 
     __local TypeDct shared_tmp[SPP_THREAD_BLOCK_Y][8][9];
-    __local float shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
-    __local float shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
+    __local TypeIO shared_in[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
+    __local TypeIO shared_out[8 * SPP_SHARED_BLOCK_NUM_Y][8 * SPP_SHARED_BLOCK_NUM_X];
 
     load_8x8(shared_in, texSrc, thWorker, local_bx, 0, global_bx - 1, global_by - 1);
     zero_8x8(shared_out, thWorker, local_bx, 0);
@@ -255,13 +267,13 @@ __kernel void kernel_smooth(
         barrier(CLK_LOCAL_MEM_FENCE);
 
         //fp16では、icount2つ分をSIMD的に2並列で処理する
-        for (int icount = 0; icount < count; icount += (usefp16) ? 2 : 1) {
+        for (int icount = 0; icount < count; icount += (usefp16Dct) ? 2 : 1) {
             const uchar2 offset = SPP_DEBLOCK_OFFSET[count - 1 + icount];
             const int offset1_x = offset.x;
             const int offset1_y = offset.y;
             int offset2_x = 0;
             int offset2_y = 0;
-            if (usefp16) {
+            if (usefp16Dct) {
                 const uchar2 offset2 = SPP_DEBLOCK_OFFSET[count + icount];
                 offset2_x = offset2.x;
                 offset2_y = offset2.y;
@@ -283,7 +295,7 @@ __kernel void kernel_smooth(
             threshold8x8(shared_tmp[local_bx], thWorker, threshold);
             idct8x8(shared_tmp[local_bx], thWorker);
             add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
-            if (usefp16) {
+            if (usefp16Dct) {
                 barrier(CLK_LOCAL_MEM_FENCE);
             }
             if (local_bx < 1) {
