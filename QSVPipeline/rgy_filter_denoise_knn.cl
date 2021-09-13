@@ -21,21 +21,20 @@ __kernel void kernel_denoise_knn(
     const float inv_knn_window_area = 1.0f / knn_window_area;
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
-    const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+    const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
     if (ix < dstWidth && iy < dstHeight) {
-        const float sx = (float)ix + 0.5f;
-        const float sy = (float)iy + 0.5f;
-
         float fCount = 0.0f;
         float sumWeights = 0.0f;
         float sum = 0.0f;
-        float center = (float)read_imagef(src, sampler, (int2)(sx, sy)).x;
+        float center = (float)read_imagef(src, sampler, (int2)(ix, iy)).x;
 
         #pragma unroll
         for (int i = -knn_radius; i <= knn_radius; i++) {
+            const int loadix = clamp(ix, 0, dstWidth-1);
             #pragma unroll
             for (int j = -knn_radius; j <= knn_radius; j++) {
-                float clrIJ = (float)read_imagef(src, sampler, (int2)(sx+i, sy+j)).x;
+                const int loadiy = clamp(iy, 0, dstHeight-1);
+                float clrIJ = (float)read_imagef(src, sampler, (int2)(loadix, loadiy)).x;
                 float distanceIJ = (center - clrIJ) * (center - clrIJ);
 
                 float weightIJ = native_exp(-(distanceIJ * strength + (i * i + j * j) * inv_knn_window_area));
