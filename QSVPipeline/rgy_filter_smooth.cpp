@@ -175,7 +175,7 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         if (prm->smooth.prec != VPP_FP_PRECISION_FP32) {
             if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
                 AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, using fp32 mode.\n"));
-                prm->smooth.prec == VPP_FP_PRECISION_FP32;
+                prm->smooth.prec = VPP_FP_PRECISION_FP32;
             }
         }
         const bool cl_fp16_support = prm->smooth.prec != VPP_FP_PRECISION_FP32;
