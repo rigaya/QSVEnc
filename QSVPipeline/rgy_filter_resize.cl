@@ -110,7 +110,7 @@ float lanczos_factor(float x) {
     if (x == 0.0f) return 1.0f;
     if (x >= (float)radius) return 0.0f;
     const float pi_x = pi * x;
-    return (float)radius * sin(pi_x) * sin(pi_x * (1.0f / (float)radius)) *  native_recip(pi_x * pi_x);
+    return (float)radius * native_sin(pi_x) * native_sin(pi_x * (1.0f / (float)radius)) *  native_recip(pi_x * pi_x);
 }
 
 __kernel void kernel_resize_lanczos(
