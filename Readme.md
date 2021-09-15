@@ -211,6 +211,7 @@ This depends on the version of QSVEnc, the generation of the GPU, and also the G
   [libass](https://github.com/libass/libass),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [dtl](https://github.com/cubicdaiya/dtl),
+  [clRNG](https://github.com/clMathLibraries/clRNG),
   [ttmath](http://www.ttmath.org/) &
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR).
   For these licenses, please see the header part of the corresponding source and license.txt.

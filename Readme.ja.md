@@ -218,6 +218,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
   [libass](https://github.com/libass/libass),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [ttmath](http://www.ttmath.org/),
+  [clRNG](https://github.com/clMathLibraries/clRNG),
   [dtl](https://github.com/cubicdaiya/dtl),
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、license.txtをご覧ください。
