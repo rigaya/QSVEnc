@@ -1470,6 +1470,9 @@ CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCh
 }
 
 QSV_CPU_GEN getCPUGen(MFXVideoSession *pSession) {
+    if (pSession == nullptr) {
+        return getCPUGenCpuid();
+    }
     mfxVersion mfxVer;
     pSession->QueryVersion(&mfxVer);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
