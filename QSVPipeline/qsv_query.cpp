@@ -232,12 +232,6 @@ mfxVersion get_mfx_libhw_version() {
     }
     return test;
 }
-bool check_if_d3d11_necessary() {
-    bool check_d3d11 = (0 != check_lib_version(get_mfx_lib_version(MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11), MFX_LIB_VERSION_1_1));
-    bool check_d3d9  = (0 != check_lib_version(get_mfx_lib_version(MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D9), MFX_LIB_VERSION_1_1));
-
-    return (check_d3d11 == true && check_d3d9 == false);
-}
 mfxVersion get_mfx_libsw_version() {
     return get_mfx_lib_version(MFX_IMPL_SOFTWARE);
 }
@@ -607,114 +601,10 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     return result;
 }
 
-mfxStatus InitSession(MFXVideoSession& session, bool useHWLib, MemType& memType) {
-    mfxStatus sts = MFX_ERR_INVALID_HANDLE;
-    if (useHWLib) {
-        //とりあえず、MFX_IMPL_HARDWARE_ANYでの初期化を試みる
-        mfxIMPL impl = MFX_IMPL_HARDWARE_ANY;
-#if MFX_D3D11_SUPPORT
-        //Win7でD3D11のチェックをやると、
-        //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
-        //D3D11をWin8以降に限定
-        if (!check_OS_Win8orLater()) {
-            memType &= (MemType)(~D3D11_MEMORY);
-        }
-        if (HW_MEMORY == (memType & HW_MEMORY) && false == check_if_d3d11_necessary()) {
-            memType &= (MemType)(~D3D11_MEMORY);
-        }
-
-#endif //#if MFX_D3D11_SUPPORT
-        //まずd3d11モードを試すよう設定されていれば、ますd3d11を試して、失敗したらd3d9での初期化を試みる
-        for (int i_try_d3d11 = 0; i_try_d3d11 < 1 + (HW_MEMORY == (memType & HW_MEMORY)); i_try_d3d11++) {
-#if D3D_SURFACES_SUPPORT
-#if MFX_D3D11_SUPPORT
-            if (D3D11_MEMORY & memType) {
-                if (0 == i_try_d3d11) {
-                    impl |= MFX_IMPL_VIA_D3D11; //d3d11モードも試す場合は、まずd3d11モードをチェック
-                    memType = D3D11_MEMORY;
-                } else {
-                    impl &= ~MFX_IMPL_VIA_D3D11; //d3d11をオフにして再度テストする
-                    impl |= MFX_IMPL_VIA_D3D9;
-                    memType = D3D9_MEMORY;
-                }
-            } else
-#endif //#if MFX_D3D11_SUPPORT
-            if (D3D9_MEMORY & memType) {
-                impl |= MFX_IMPL_VIA_D3D9; //d3d11モードも試す場合は、まずd3d11モードをチェック
-            }
-#endif //#if D3D_SURFACES_SUPPORT
-            mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-            sts = session.Init(impl, &verRequired);
-
-            //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
-            if (MFX_ERR_NONE != sts) {
-                sts = session.Init((impl & (~MFX_IMPL_HARDWARE_ANY)) | MFX_IMPL_HARDWARE, &verRequired);
-            }
-
-            //成功したらループを出る
-            if (MFX_ERR_NONE == sts) {
-                break;
-            }
-        }
-    } else {
-        mfxIMPL impl = MFX_IMPL_SOFTWARE;
-        mfxVersion verRequired = MFX_LIB_VERSION_1_1;
-        sts = session.Init(impl, &verRequired);
-        memType = SYSTEM_MEMORY;
-    }
-    return sts;
-}
-
-std::unique_ptr<CQSVHWDevice> InitHWDevice(MFXVideoSession& session, MemType& memType, std::shared_ptr<RGYLog> log) {
-    mfxStatus sts = MFX_ERR_NONE;
-    std::unique_ptr<CQSVHWDevice> hwdev;
-#if D3D_SURFACES_SUPPORT
-    POINT point = {0, 0};
-    HWND window = WindowFromPoint(point);
-
-    if (memType) {
-#if MFX_D3D11_SUPPORT
-        if (memType == D3D11_MEMORY
-            && (hwdev = std::make_unique<CQSVD3D11Device>(log))) {
-            memType = D3D11_MEMORY;
-
-            sts = hwdev->Init(NULL, 0, GetAdapterID(session));
-            if (sts != MFX_ERR_NONE) {
-                hwdev.reset();
-            }
-        }
-#endif // #if MFX_D3D11_SUPPORT
-        if (!hwdev && (hwdev = std::make_unique<CQSVD3D9Device>(log))) {
-            //もし、d3d11要求で失敗したら自動的にd3d9に切り替える
-            //sessionごと切り替える必要がある
-            if (memType != D3D9_MEMORY) {
-                memType = D3D9_MEMORY;
-                InitSession(session, true, memType);
-            }
-
-            sts = hwdev->Init(window, 0, GetAdapterID(session));
-        }
-    }
-
-#elif LIBVA_SUPPORT
-    hwdev.reset(CreateVAAPIDevice("", MFX_LIBVA_DRM, log));
-    if (hwdev) {
-        sts = hwdev->Init(NULL, 0, GetAdapterID(session));
-    }
-    mfxHDL hdl = NULL;
-    sts = hwdev->GetHandle(MFX_HANDLE_VA_DISPLAY, &hdl);
-
-    //ハンドルを渡す
-    sts = session.SetHandle(MFX_HANDLE_VA_DISPLAY, hdl);
-#endif
-    if (sts != MFX_ERR_NONE) {
-        hwdev.reset();
-    }
-    return hwdev;
-}
-
-mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver) {
+mfxU64 CheckVppFeatures(MFXVideoSession& session) {
     mfxU64 feature = 0x00;
+    mfxVersion ver = MFX_LIB_VERSION_0_0;
+    session.QueryVersion(&ver);
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
         //API v1.3未満で実際にチェックする必要は殆ど無いので、
         //コードで決められた値を返すようにする
@@ -730,47 +620,42 @@ mfxU64 CheckVppFeatures(MFXVideoSession& session, mfxVersion ver) {
     return feature;
 }
 
-mfxU64 CheckVppFeatures(mfxVersion ver, std::shared_ptr<RGYLog> log) {
+mfxU64 CheckVppFeatures(std::shared_ptr<RGYLog> log) {
     mfxU64 feature = 0x00;
-    if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
-        //API v1.3未満で実際にチェックする必要は殆ど無いので、
-        //コードで決められた値を返すようにする
-        feature |= VPP_FEATURE_RESIZE;
-        feature |= VPP_FEATURE_DEINTERLACE;
-        feature |= VPP_FEATURE_DENOISE;
-        feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
-        feature |= VPP_FEATURE_PROC_AMP;
+    MemType memType = HW_MEMORY;
+    std::unique_ptr<CQSVHWDevice> hwdev;
+    MFXVideoSession2 session;
+    MFXVideoSession2Params params;
+    bool bexternalAlloc = true;
+    std::unique_ptr<QSVAllocator> allocator;
+    auto err = RGY_ERR_NONE;
+    if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
+    } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
     } else {
-        MemType memType = HW_MEMORY;
-#if 1
-        std::unique_ptr<CQSVHWDevice> hwdev;
-        MFXVideoSession2 session;
-        MFXVideoSession2Params params;
-        bool bexternalAlloc = true;
-        std::unique_ptr<QSVAllocator> allocator;
-        auto err = RGY_ERR_NONE;
-        if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
-        } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
+        mfxVersion ver = MFX_LIB_VERSION_0_0;
+        session.QueryVersion(&ver);
+        if (!check_lib_version(ver, MFX_LIB_VERSION_1_3)) {
+            //API v1.3未満で実際にチェックする必要は殆ど無いので、
+            //コードで決められた値を返すようにする
+            feature |= VPP_FEATURE_RESIZE;
+            feature |= VPP_FEATURE_DEINTERLACE;
+            feature |= VPP_FEATURE_DENOISE;
+            feature |= VPP_FEATURE_DETAIL_ENHANCEMENT;
+            feature |= VPP_FEATURE_PROC_AMP;
         } else {
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
             feature = CheckVppFeaturesInternal(session, ver);
         }
-#else
-        MFXVideoSession session;
-        if (InitSession(session, true, memType) == MFX_ERR_NONE) {
-            if (auto hwdevice = InitHWDevice(session, memType, log)) {
-                feature = CheckVppFeaturesInternal(session, ver);
-            }
-        }
-#endif
     }
 
     return feature;
 }
 
-mfxU64 CheckEncodeFeature(MFXVideoSession& session, mfxVersion mfxVer, int ratecontrol, mfxU32 codecId) {
+mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 codecId) {
+    mfxVersion mfxVer;
+    session.QueryVersion(&mfxVer);
     if (codecId == MFX_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
         return 0x00;
     }
@@ -1177,8 +1062,10 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, int ratecontrol, mfxU3
     return feature;
 }
 
-mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver, int ratecontrol, mfxU32 codecId) {
+mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, int ratecontrol, mfxU32 codecId) {
     mfxU64 feature = 0x00;
+    mfxVersion ver = MFX_LIB_VERSION_0_0;
+    session.QueryVersion(&ver);
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_0)) {
         ; //特にすることはない
     } else if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
@@ -1186,7 +1073,7 @@ mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, mfxVersion ver
         //コードで決められた値を返すようにする
         feature = CheckEncodeFeatureStatic(ver, ratecontrol, codecId);
     } else {
-        feature = CheckEncodeFeature(session, ver, ratecontrol, codecId);
+        feature = CheckEncodeFeature(session, ratecontrol, codecId);
     }
 
     return feature;
@@ -1199,13 +1086,12 @@ const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
     return NULL;
 }
 
-vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log) {
+vector<mfxU64> MakeFeatureList(const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log) {
     vector<mfxU64> availableFeatureForEachRC;
     availableFeatureForEachRC.reserve(rateControlList.size());
 #if LIBVA_SUPPORT
     if (codecId != MFX_CODEC_MPEG2) {
 #endif
-#if 1
         MemType memType = HW_MEMORY;
         std::unique_ptr<CQSVHWDevice> hwdev;
         MFXVideoSession2 session;
@@ -1218,52 +1104,34 @@ vector<mfxU64> MakeFeatureList(mfxVersion ver, const vector<CX_DESC>& rateContro
         } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
         } else {
+            mfxVersion ver = MFX_LIB_VERSION_0_0;
+            session.QueryVersion(&ver);
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
             for (const auto& ratecontrol : rateControlList) {
-                const mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, ver, (mfxU16)ratecontrol.value, codecId);
+                const mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, (mfxU16)ratecontrol.value, codecId);
                 if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
                     ver = MFX_LIB_VERSION_0_0;
                 }
                 availableFeatureForEachRC.push_back(ret);
             }
         }
-#else
-        MemType memType = HW_MEMORY;
-        MFXVideoSession session;
-        if (InitSession(session, true, memType) == MFX_ERR_NONE) {
-            if (auto hwdevice = InitHWDevice(session, memType, log)) {
-                for (const auto& ratecontrol : rateControlList) {
-                    mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, ver, (mfxU16)ratecontrol.value, codecId);
-                    if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
-                        ver = MFX_LIB_VERSION_0_0;
-                    }
-                    availableFeatureForEachRC.push_back(ret);
-                }
-            }
-        }
-#endif
 #if LIBVA_SUPPORT
     }
 #endif
     return availableFeatureForEachRC;
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(mfxVersion ver, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
+vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
     vector<vector<mfxU64>> codecFeatures;
     vector<std::future<vector<mfxU64>>> futures;
     for (auto codec : codecIdList) {
-        auto f = std::async(MakeFeatureList, ver, rateControlList, codec, log);
+        auto f = std::async(MakeFeatureList, rateControlList, codec, log);
         futures.push_back(std::move(f));
     }
     for (uint32_t i = 0; i < futures.size(); i++) {
         codecFeatures.push_back(futures[i].get());
     }
     return codecFeatures;
-}
-
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
-    mfxVersion ver = get_mfx_libhw_version();
-    return MakeFeatureListPerCodec(ver, rateControlList, codecIdList, log);
 }
 
 std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver, mfxU32 codecId) {
@@ -1288,10 +1156,9 @@ std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver
     return CheckDecFeaturesInternal(session, ver, codecId);
 }
 
-CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
+CodecCsp MakeDecodeFeatureList(const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
     CodecCsp codecFeatures;
     MemType memType = HW_MEMORY;
-#if 1
     std::unique_ptr<CQSVHWDevice> hwdev;
     MFXVideoSession2 session;
     MFXVideoSession2Params params;
@@ -1303,6 +1170,8 @@ CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdL
     } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
     } else {
+        mfxVersion ver = MFX_LIB_VERSION_0_0;
+        session.QueryVersion(&ver);
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
         for (auto codec : codecIdList) {
             if (skipHWDecodeCheck) {
@@ -1319,26 +1188,6 @@ CodecCsp MakeDecodeFeatureList(mfxVersion ver, const vector<RGY_CODEC>& codecIdL
             }
         }
     }
-#else
-    if (InitSession(session, true, memtype) == MFX_ERR_NONE) {
-        if (auto hwdevice = InitHWDevice(session, memType, log)) {
-            for (auto codec : codecIdList) {
-                if (skipHWDecodeCheck) {
-                    codecFeatures[codec] = {
-                        RGY_CSP_NV12, RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16,
-                        RGY_CSP_YUV422, RGY_CSP_YUV422_09, RGY_CSP_YUV422_10, RGY_CSP_YUV422_12, RGY_CSP_YUV422_14, RGY_CSP_YUV422_16,
-                        RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16
-                    };
-                } else {
-                    auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
-                    if (features.size() > 0) {
-                        codecFeatures[codec] = features;
-                    }
-                }
-            }
-        }
-    }
-#endif
     return codecFeatures;
 }
 
@@ -1450,8 +1299,7 @@ vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType
 }
 
 tstring MakeVppFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
-    mfxVersion ver = get_mfx_libhw_version();
-    uint64_t features = CheckVppFeatures(ver, log);
+    uint64_t features = CheckVppFeatures(log);
     const TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
     tstring str;
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
@@ -1488,12 +1336,11 @@ tstring MakeVppFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
 
 tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
 #if ENABLE_AVSW_READER
-    mfxVersion ver = get_mfx_libhw_version();
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    auto decodeCodecCsp = MakeDecodeFeatureList(ver, codecLists, log, false);
+    auto decodeCodecCsp = MakeDecodeFeatureList(codecLists, log, false);
 
     const auto chromafmts = make_array<RGY_CHROMAFMT>(RGY_CHROMAFMT_YUV420, RGY_CHROMAFMT_YUV422, RGY_CHROMAFMT_YUV444);
     std::map<RGY_CODEC, std::vector<int>> featurePerCodec;
@@ -1616,37 +1463,18 @@ CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCh
         }
         return codecFeatures;
     }
-    return MakeDecodeFeatureList(get_mfx_libhw_version(), codecLists, log, skipHWDecodeCheck);
+    return MakeDecodeFeatureList(codecLists, log, skipHWDecodeCheck);
 #else
     return CodecCsp();
 #endif
 }
 
-QSV_CPU_GEN getCPUGen() {
-    mfxPlatform platform;
-    memset(&platform, 0, sizeof(platform));
-    MemType memtype = HW_MEMORY;
-    MFXVideoSession session;
-    InitSession(session, true, memtype);
-    mfxVersion mfxVer;
-    session.QueryVersion(&mfxVer);
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
-        session.QueryPlatform(&platform);
-        return cpu_gen_enc_to_rgy(platform.CodeName);
-    } else {
-        return getCPUGenCpuid();
-    }
-}
-
 QSV_CPU_GEN getCPUGen(MFXVideoSession *pSession) {
-    if (pSession == nullptr || (mfxSession)(*pSession) == nullptr) {
-        return getCPUGen();
-    }
-    mfxPlatform platform;
-    memset(&platform, 0, sizeof(platform));
     mfxVersion mfxVer;
     pSession->QueryVersion(&mfxVer);
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_19)) {
+        mfxPlatform platform;
+        memset(&platform, 0, sizeof(platform));
         pSession->QueryPlatform(&platform);
         return cpu_gen_enc_to_rgy(platform.CodeName);
     } else {

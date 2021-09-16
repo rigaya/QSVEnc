@@ -247,7 +247,7 @@ RGY_ERR QSVVppMfx::InitMFXSession() {
 }
 
 RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced) {
-    const auto availableFeaures = CheckVppFeatures(m_mfxSession, m_mfxVer);
+    const auto availableFeaures = CheckVppFeatures(m_mfxSession);
 #if ENABLE_FPS_CONVERSION
     if (FPS_CONVERT_NONE != params.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
         PrintMes(RGY_LOG_WARN, _T("FPS Conversion not supported on this platform, disabled.\n"));

@@ -406,7 +406,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     PrintMes(RGY_LOG_DEBUG, _T("encodeBitDepth: %d, codecMaxQP: %d.\n"), encodeBitDepth, codecMaxQP);
 
     //エンコードモードのチェック
-    auto availableFeaures = CheckEncodeFeature(m_mfxSession, m_mfxVer, pInParams->nEncMode, pInParams->CodecId);
+    auto availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, pInParams->CodecId);
     PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s, %s\n%s\n"),
         m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
@@ -415,7 +415,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (   pInParams->nEncMode == MFX_RATECONTROL_CQP
             || pInParams->nEncMode == MFX_RATECONTROL_VBR
             || pInParams->nEncMode == MFX_RATECONTROL_CBR
-            || !(CheckEncodeFeature(m_mfxSession, m_mfxVer, MFX_RATECONTROL_CQP, pInParams->CodecId) & ENC_FEATURE_CURRENT_RC)) {
+            || !(CheckEncodeFeature(m_mfxSession, MFX_RATECONTROL_CQP, pInParams->CodecId) & ENC_FEATURE_CURRENT_RC)) {
             PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
@@ -480,7 +480,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //check_rc_listに設定したfallbackの候補リストをチェックする
         bool bFallbackSuccess = false;
         for (uint32_t i = 0; i < (uint32_t)check_rc_list.size(); i++) {
-            auto availRCFeatures = CheckEncodeFeature(m_mfxSession, m_mfxVer, (uint16_t)check_rc_list[i], pInParams->CodecId);
+            auto availRCFeatures = CheckEncodeFeature(m_mfxSession, (uint16_t)check_rc_list[i], pInParams->CodecId);
             if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
                 pInParams->nEncMode = (uint16_t)check_rc_list[i];
                 if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
@@ -2585,8 +2585,8 @@ void __stdcall GetSystemInfoHook(LPSYSTEM_INFO lpSystemInfo) {
 
 bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
 #if defined(_WIN32) || defined(_WIN64)
-    if (check_if_d3d11_necessary()) {
-        return true;
+    if (!check_OS_Win8orLater() || MFX_D3D11_SUPPORT == 0) {
+        return false;
     }
 
     const auto filters = InitFiltersCreateVppList(inputParam, inputParam->vpp.colorspace.convs.size() > 0, true, getVppResizeType(inputParam->vpp.resize_algo));

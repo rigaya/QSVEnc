@@ -600,10 +600,6 @@ const TCHAR *get_vpp_image_stab_mode_str(int mode) {
     }
 }
 
-#if defined(_WIN32) || defined(_WIN64)
-bool check_if_d3d11_necessary();
-#endif
-
 #if !ENABLE_AVSW_READER
 #define TTMATH_NOASM
 #include "ttmath/ttmath.h"

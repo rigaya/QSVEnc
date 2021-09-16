@@ -610,10 +610,6 @@ mfxExtBuffer *GetExtBuffer(mfxExtBuffer **ppExtBuf, int nCount, uint32_t targetB
 
 const TCHAR *get_vpp_image_stab_mode_str(int mode);
 
-#if defined(_WIN32) || defined(_WIN64)
-bool check_if_d3d11_necessary();
-#endif
-
 int getCPUInfoQSV(TCHAR *buffer, size_t nSize);
 int getCPUInfoQSV(TCHAR *buffer, size_t nSize, mfxSession session);
 
