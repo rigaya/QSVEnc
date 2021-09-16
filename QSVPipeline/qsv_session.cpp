@@ -142,40 +142,58 @@ mfxStatus MFXVideoSession2::initImpl(mfxIMPL& impl) {
 #if USE_ONEVPL
     auto loader = MFXLoad();
     auto cfg = MFXCreateConfig(loader);
-    //hwの使用を要求
-    mfxVariant ImplValueHW;
-    ImplValueHW.Type = MFX_VARIANT_TYPE_U32;
-    ImplValueHW.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
-    auto sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.Impl", ImplValueHW);
-    if (sts != MFX_ERR_NONE) {
-        m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.Impl %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
-        return sts;
+    { //hwの使用を要求
+        mfxVariant ImplValueHW;
+        ImplValueHW.Version.Version = MFX_VARIANT_VERSION;
+        ImplValueHW.Type = MFX_VARIANT_TYPE_U32;
+        ImplValueHW.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
+        auto sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.Impl", ImplValueHW);
+        if (sts != MFX_ERR_NONE) {
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.Impl %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
+            return sts;
+        }
     }
-
-    mfxVariant accMode;
-    accMode.Type = MFX_VARIANT_TYPE_U32;
+    {
+        mfxVariant accMode;
+        accMode.Version.Version = MFX_VARIANT_VERSION;
+        accMode.Type = MFX_VARIANT_TYPE_U32;
+        accMode.Data.U32 = 0;
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
-    if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
-        accMode.Data.U32 = MFX_ACCEL_MODE_VIA_D3D11;
-    } else
+        if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
+            accMode.Data.U32 = MFX_ACCEL_MODE_VIA_D3D11;
+        } else
 #endif
-    if ((impl & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9) {
-        accMode.Data.U32 = MFX_ACCEL_MODE_VIA_D3D9;
-    }
+        if ((impl & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9) {
+            accMode.Data.U32 = MFX_ACCEL_MODE_VIA_D3D9;
+        }
 #elif LIBVA_SUPPORT
-    if ((impl & MFX_IMPL_VIA_VAAPI) == MFX_IMPL_VIA_VAAPI) {
-        accMode.Data.U32 = MFX_ACCEL_MODE_VIA_VAAPI;
-    }
+        if ((impl & MFX_IMPL_VIA_VAAPI) == MFX_IMPL_VIA_VAAPI) {
+            accMode.Data.U32 = MFX_ACCEL_MODE_VIA_VAAPI;
+        }
 #endif
-    sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.AccelerationMode", accMode);
-    if (sts != MFX_ERR_NONE) {
-        m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
-        return sts;
+        auto sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.AccelerationMode", accMode);
+        if (sts != MFX_ERR_NONE) {
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), accMode.Data.U32, get_err_mes(err_to_rgy(sts)));
+            return sts;
+        }
+    }
+    if (false) {
+        for (int impl_idx = 0; ; impl_idx++) {
+            mfxImplDescription *impl_desc = nullptr;
+            auto sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
+            if (sts == MFX_ERR_NOT_FOUND) {
+                break;
+            } else if (sts != MFX_ERR_NONE) {
+                continue;
+            }
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %d %s, acc %d, accdesc %d\n"), impl_idx, impl_desc->Impl, char_to_tstring(impl_desc->ImplName).c_str(), impl_desc->AccelerationMode, impl_desc->AccelerationModeDescription);
+            MFXDispReleaseImplDescription(loader, impl_desc);
+        }
     }
 
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
-    sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
+    auto sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
     if (sts == MFX_ERR_NONE) return sts;
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
