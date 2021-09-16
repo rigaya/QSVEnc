@@ -62,7 +62,10 @@ enum QSV_CPU_GEN {
     CPU_GEN_ELKHARTLAKE,
     CPU_GEN_TIGERLAKE,
     CPU_GEN_ROCKETLAKE,
-    CPU_GEN_ALDERLAKE,
+    CPU_GEN_ALDERLAKE_S,
+    CPU_GEN_ALDERLAKE_P,
+    CPU_GEN_ARCTICSOUND_P,
+    CPU_GEN_XEHP_SDV,
     CPU_GEN_KEEMBAY,
 
     CPU_GEN_MAX,
@@ -87,7 +90,10 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("Elkhartlake"),
     _T("Tigerlake"),
     _T("Rocketlake"),
-    _T("Alderlake"),
+    _T("AlderlakeS"),
+    _T("AlderlakeP"),
+    _T("ArcticSoundP"),
+    _T("XeHP_SDV"),
     _T("Keembay")
 };
 
