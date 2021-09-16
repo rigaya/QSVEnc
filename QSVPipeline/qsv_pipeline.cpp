@@ -920,7 +920,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
             m_CodingOption3.ExtBrcAdaptiveLTR = (mfxU16)(pInParams->extBrcAdaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
             if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
-                m_CodingOption3.TransformSkip = pInParams->hevc_tskip;
+                m_CodingOption3.TransformSkip = (mfxU16)pInParams->hevc_tskip;
             }
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
@@ -1053,8 +1053,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         m_ExtHEVCParam.PicWidthInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropW;
         m_ExtHEVCParam.PicHeightInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropH;
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
-            m_ExtHEVCParam.SampleAdaptiveOffset = pInParams->hevc_sao;
-            m_ExtHEVCParam.LCUSize = pInParams->hevc_ctu;
+            m_ExtHEVCParam.SampleAdaptiveOffset = (mfxU16)pInParams->hevc_sao;
+            m_ExtHEVCParam.LCUSize = (mfxU16)pInParams->hevc_ctu;
         }
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtHEVCParam);
     }
