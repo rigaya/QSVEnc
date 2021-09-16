@@ -130,6 +130,7 @@ static const mfxVersion LIB_VER_LIST[] = {
     {  1, 2 },
     {  2, 2 },
     {  3, 2 },
+    {  4, 2 },
     {  0, 0 }
 };
 
@@ -164,6 +165,7 @@ static const mfxU32 CODEC_LIST_AUO[] = {
 #define MFX_LIB_VERSION_2__1 LIB_VER_LIST[23]
 #define MFX_LIB_VERSION_2__2 LIB_VER_LIST[24]
 #define MFX_LIB_VERSION_2__3 LIB_VER_LIST[25]
+#define MFX_LIB_VERSION_2__4 LIB_VER_LIST[26]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);
