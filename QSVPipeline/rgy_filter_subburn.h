@@ -83,8 +83,8 @@ protected:
     virtual RGY_ERR InitLibAss(const std::shared_ptr<RGYFilterParamSubburn> prm);
     void SetExtraData(AVCodecContext *codecCtx, const uint8_t *data, uint32_t size);
     RGY_ERR readSubFile();
-    SubImageData textRectToImage(const ASS_Image *image, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    SubImageData textRectToImage(const ASS_Image *image, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR procFrame(RGYFrameInfo *pFrame,

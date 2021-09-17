@@ -58,7 +58,7 @@ void CQSVD3D11Device::SetSCD1(DXGI_SWAP_CHAIN_DESC1& scd1) {
     scd1.Flags              = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 }
 
-mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) {
+mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, [[maybe_unused]] uint32_t nViews, uint32_t nAdapterNum) {
     HRESULT hr = 0;
     AddMessage(RGY_LOG_DEBUG, _T("D3D11Device: Init...\n"));
     m_HandleWindow = (HWND)hWindow;

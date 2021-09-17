@@ -472,7 +472,7 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
     return option_name;
 }
 
-int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, sVppParams *vppmfx, sArgsData *argData) {
+int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, [[maybe_unused]] int nArgNum, sVppParams *vppmfx, [[maybe_unused]] sArgsData *argData) {
 
     if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
         i++;

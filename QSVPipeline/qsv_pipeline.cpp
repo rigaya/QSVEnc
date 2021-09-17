@@ -343,7 +343,7 @@ RGY_ERR CQSVPipeline::CheckParamList(int value, const CX_DESC *list, const char 
     return RGY_ERR_INVALID_VIDEO_PARAM;
 };
 
-RGY_ERR CQSVPipeline::InitMfxDecParams(sInputParams *pInParams) {
+RGY_ERR CQSVPipeline::InitMfxDecParams() {
 #if ENABLE_AVSW_READER
     RGY_ERR sts = RGY_ERR_NONE;
     if (m_pFileReader->getInputCodec()) {
@@ -1891,7 +1891,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 }
 
 RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
-    RGYFrameInfo& inputFrame, rgy_rational<int>& fps, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize) {
+    RGYFrameInfo& inputFrame, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize) {
     //colorspace
     if (vppType == VppType::CL_COLORSPACE) {
         unique_ptr<RGYFilterColorspace> filter(new RGYFilterColorspace(m_cl));
@@ -2514,7 +2514,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 vppOpenCLFilters.push_back(std::move(filterCrop));
             }
             if (filterPipeline[i] != VppType::CL_CROP) {
-                auto err = AddFilterOpenCL(vppOpenCLFilters, inputFrame, m_encFps, filterPipeline[i], inputParam, inputCrop, resize);
+                auto err = AddFilterOpenCL(vppOpenCLFilters, inputFrame, filterPipeline[i], inputParam, inputCrop, resize);
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }
@@ -2772,7 +2772,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->vpp.checkPerformance);
     if (sts < RGY_ERR_NONE) return sts;
 
-    sts = InitMfxDecParams(pParams);
+    sts = InitMfxDecParams();
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitFilters(pParams);

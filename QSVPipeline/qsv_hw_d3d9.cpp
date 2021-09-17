@@ -77,7 +77,7 @@ CQSVD3D9Device::CQSVD3D9Device(shared_ptr<RGYLog> pQSVLog) : CQSVHWDevice(pQSVLo
     m_bIsA2rgb10 = FALSE;
 }
 
-mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum) {
+mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, [[maybe_unused]] uint32_t nViews, uint32_t nAdapterNum) {
     mfxStatus sts = MFX_ERR_NONE;
     AddMessage(RGY_LOG_DEBUG, _T("D3D9Device: Init...\n"));
 

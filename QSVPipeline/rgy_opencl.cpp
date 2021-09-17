@@ -880,6 +880,8 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
 
 RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *vadev) {
 #if !ENABLE_RGY_OPENCL_VA
+    UNREFERENCED_PARAMETER(device_type);
+    UNREFERENCED_PARAMETER(vadev);
     return RGY_ERR_UNSUPPORTED;
 #else
     if (RGYOpenCL::openCLCrush) {
@@ -2402,6 +2404,10 @@ unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface(void
 
 unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_VA
+    UNREFERENCED_PARAMETER(surf);
+    UNREFERENCED_PARAMETER(frame);
+    UNREFERENCED_PARAMETER(queue);
+    UNREFERENCED_PARAMETER(flags);
     CL_LOG(RGY_LOG_ERROR, _T("OpenCL VA interop not supported in this build.\n"));
     return std::unique_ptr<RGYCLFrameInterop>();
 #else

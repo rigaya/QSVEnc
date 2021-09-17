@@ -248,11 +248,7 @@ public:
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
     const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) {
-        UNREFERENCED_PARAMETER(writer);
-        UNREFERENCED_PARAMETER(allocator);
-        UNREFERENCED_PARAMETER(clqueue);
-        UNREFERENCED_PARAMETER(videoQualityMetric);
+    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] QSVAllocator *allocator, [[maybe_unused]] RGYOpenCLQueue *clqueue, [[maybe_unused]] RGYFilterSsim *videoQualityMetric) {
         return RGY_ERR_UNSUPPORTED;
     }
     virtual ~PipelineTaskOutput() {};
@@ -321,7 +317,7 @@ public:
         return err;
     }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) override {
+    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] QSVAllocator *allocator, [[maybe_unused]] RGYOpenCLQueue *clqueue, [[maybe_unused]] RGYFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
@@ -342,7 +338,7 @@ public:
 
     std::shared_ptr<RGYBitstream>& bitstream() { return m_bs; }
 
-    virtual RGY_ERR write(RGYOutput *writer, QSVAllocator *allocator, RGYOpenCLQueue *clqueue, RGYFilterSsim *videoQualityMetric) override {
+    virtual RGY_ERR write([[maybe_unused]] RGYOutput *writer, [[maybe_unused]] QSVAllocator *allocator, [[maybe_unused]] RGYOpenCLQueue *clqueue, [[maybe_unused]] RGYFilterSsim *videoQualityMetric) override {
         if (!writer || writer->getOutType() == OUT_TYPE_NONE) {
             return RGY_ERR_NOT_INITIALIZED;
         }
@@ -441,7 +437,7 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() = 0;
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() = 0;
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
-    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { return RGY_ERR_INVALID_CALL; }
+    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { info = { 0 }; return RGY_ERR_INVALID_CALL; }
     virtual std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) {
         std::vector<std::unique_ptr<PipelineTaskOutput>> output;
         while ((int)m_outQeueue.size() > m_outMaxQueueSize) {
@@ -661,7 +657,7 @@ public:
         }
         return err;
     }
-    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+    virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
         auto surfWork = getWorkSurf();
         if (surfWork == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
@@ -739,7 +735,7 @@ public:
         }
         return sendBitstream();
     }
-    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+    virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_getNextBitstream
             //m_DecInputBitstream.size() > 0のときにbitstreamを連結してしまうと
             //環境によっては正常にフレームが取り出せなくなることがある

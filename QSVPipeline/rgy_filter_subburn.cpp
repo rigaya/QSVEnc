@@ -171,7 +171,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pFrame,
     return RGY_ERR_NONE;
 }
 
-SubImageData RGYFilterSubburn::textRectToImage(const ASS_Image *image, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+SubImageData RGYFilterSubburn::textRectToImage(const ASS_Image *image, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((image->dst_x % 2) != 0) ? 1 : 0;
     const int y_offset = ((image->dst_y % 2) != 0) ? 1 : 0;
@@ -244,7 +244,7 @@ RGY_ERR RGYFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t fram
         m_subImages.clear();
         for (auto image = frameImages; image; image = image->next) {
             if (image->w > 0 && image->h > 0) {
-                m_subImages.push_back(textRectToImage(image, queue, wait_events, nullptr));
+                m_subImages.push_back(textRectToImage(image, queue, wait_events));
             }
         }
     }
@@ -269,7 +269,7 @@ RGY_ERR RGYFilterSubburn::procFrameText(RGYFrameInfo *pOutputFrame, int64_t fram
     return RGY_ERR_NONE;
 }
 
-SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     //YUV420の関係で縦横2pixelずつ処理するので、2で割り切れている必要がある
     const int x_offset = ((rect->x % 2) != 0) ? 1 : 0;
     const int y_offset = ((rect->y % 2) != 0) ? 1 : 0;
@@ -388,7 +388,7 @@ RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInp
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
                 const AVSubtitleRect *rect = m_subData->rects[irect];
                 if (rect->w > 0 && rect->h > 0) {
-                    m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, queue, wait_events, nullptr));
+                    m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, queue, wait_events));
                 }
             }
         }
