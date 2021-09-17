@@ -588,6 +588,17 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
             return -1;
         }
     }
+    if (0 == _tcscmp(option_name, _T("check-impl"))) {
+        tstring str;
+        const auto implCount = GetImplListStr(str);
+        if (implCount > 0) {
+            _ftprintf(stdout, _T("%s\n"), str.c_str());
+            return 1;
+        } else {
+            _ftprintf(stdout, _T("Error: VPL impl unavailable!\n"));
+            return -1;
+        }
+    }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avversion"))) {
         _ftprintf(stdout, _T("%s\n"), getAVVersions().c_str());

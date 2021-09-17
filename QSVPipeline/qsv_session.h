@@ -51,6 +51,7 @@ public:
     mfxStatus initD3D11();
     mfxStatus initVA();
     mfxStatus initSW();
+    std::vector<mfxImplDescription> getImplList();
 
     mfxSession get() { return m_session; }
 protected:
@@ -68,6 +69,8 @@ protected:
 };
 
 mfxIMPL GetDefaultMFXImpl();
+
+std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log);
 
 RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL impl, std::shared_ptr<RGYLog>& log);
 

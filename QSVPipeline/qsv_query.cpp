@@ -1484,3 +1484,17 @@ QSV_CPU_GEN getCPUGen(MFXVideoSession *pSession) {
         return getCPUGenCpuid();
     }
 }
+
+int GetImplListStr(tstring& str) {
+    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_INFO);
+    const auto implList = getVPLImplList(log);
+    str.clear();
+    for (const auto& impl : implList) {
+        str += strsprintf(_T("API %d.%02d: %s(%s), Acceleration %s\n"),
+            impl.ApiVersion.Major, impl.ApiVersion.Minor,
+            (impl.Impl == MFX_IMPL_TYPE_HARDWARE) ? _T("hw") : _T("sw"),
+            char_to_tstring(impl.ImplName).c_str(),
+            MFXAccelerationModeToStr(impl.AccelerationMode).c_str());
+    }
+    return (int)implList.size();
+}

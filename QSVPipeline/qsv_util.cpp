@@ -592,6 +592,21 @@ tstring MFXImplToStr(uint32_t impl) {
 }
 
 RGY_NOINLINE
+tstring MFXAccelerationModeToStr(mfxAccelerationMode impl) {
+    if (impl == 0) return _T("auto");
+    tstring str;
+    if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_D3D9)              str += _T(",d3d9");
+    if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_D3D11)             str += _T(",d3d11");
+    if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_VAAPI)             str += _T(",vaapi");
+    if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_VAAPI_DRM_MODESET) str += _T(",vaapi_drm");
+    if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_VAAPI_GLX)         str += _T(",vaapi_glx");
+    if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_VAAPI_X11)         str += _T(",vaapi_x11");
+    if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_VAAPI_WAYLAND)     str += _T(",vaapi_wayland");
+    if ((impl & 0xff00) == MFX_ACCEL_MODE_VIA_HDDLUNITE)         str += _T(",hddlunite");
+    return str.substr(1);
+}
+
+RGY_NOINLINE
 const TCHAR *get_vpp_image_stab_mode_str(int mode) {
     switch (mode) {
     case MFX_IMAGESTAB_MODE_UPSCALE: return _T("upscale");

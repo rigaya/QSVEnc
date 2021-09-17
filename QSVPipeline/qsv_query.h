@@ -379,4 +379,6 @@ CodecCsp MakeDecodeFeatureList(const vector<mfxU32>& codecIdList, std::shared_pt
 tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log);
 CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 
+int GetImplListStr(tstring& str);
+
 #endif //_QSV_QUERY_H_

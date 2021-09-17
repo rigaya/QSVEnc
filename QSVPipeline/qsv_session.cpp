@@ -131,6 +131,35 @@ void MFXVideoSession2::setParams(std::shared_ptr<RGYLog>& log, const MFXVideoSes
     m_prm = params;
 }
 
+std::vector<mfxImplDescription> MFXVideoSession2::getImplList() {
+    std::vector<mfxImplDescription> implList;
+    auto loader = MFXLoad();
+    auto cfg = MFXCreateConfig(loader);
+    { //hwの使用を要求
+        mfxVariant ImplValueHW;
+        ImplValueHW.Version.Version = MFX_VARIANT_VERSION;
+        ImplValueHW.Type = MFX_VARIANT_TYPE_U32;
+        ImplValueHW.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
+        auto sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.Impl", ImplValueHW);
+        if (sts != MFX_ERR_NONE) {
+            m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.Impl %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
+            return implList;
+        }
+    }
+    for (int impl_idx = 0; ; impl_idx++) {
+        mfxImplDescription *impl_desc = nullptr;
+        auto sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
+        if (sts == MFX_ERR_NOT_FOUND) {
+            break;
+        } else if (sts != MFX_ERR_NONE) {
+            continue;
+        }
+        implList.push_back(*impl_desc);
+        MFXDispReleaseImplDescription(loader, impl_desc);
+    }
+    return implList;
+}
+
 mfxStatus MFXVideoSession2::initImpl(mfxIMPL& impl) {
     mfxVersion verRequired = MFX_LIB_VERSION_1_1;
 #if defined(_WIN32) || defined(_WIN64)
@@ -242,6 +271,13 @@ mfxStatus MFXVideoSession2::initSW() {
     auto err = initImpl(impl);
     PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(sys): %s.\n"), get_err_mes(err));
     return err;
+}
+
+std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log) {
+    MFXVideoSession2 session;
+    MFXVideoSession2Params params;
+    session.setParams(log, params);
+    return session.getImplList();
 }
 
 RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL impl, std::shared_ptr<RGYLog>& log) {

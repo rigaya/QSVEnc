@@ -178,6 +178,7 @@ tstring encoder_help() {
         _T("-v,--version                    show version info\n")
         _T("   --check-hw                   check if QuickSyncVideo is available\n")
         _T("   --check-lib                  check lib API version installed\n")
+        _T("   --check-impl                 check VPL impl installed\n")
         _T("   --check-features [<string>]  check encode/vpp features\n")
         _T("                                 with no option value, result will on stdout,\n")
         _T("                                 otherwise, it is written to file path set\n")
