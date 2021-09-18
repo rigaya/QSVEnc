@@ -830,6 +830,9 @@ Example3: set metadata
 --audio-metadata 1?title="audio title" --audio-metadata 1?language=jpn
 ```
 
+### --audio-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+Apply [bitstream filter](https://ffmpeg.org/ffmpeg-bitstream-filters.html) to audio track.
+
 ### --audio-ignore-decode-error &lt;int&gt;
 Ignore the consecutive audio decode error, and continue transcoding within the threshold specified. The portion of audio which could not be decoded properly will be replaced with silence.
 
@@ -876,6 +879,9 @@ Mux an external audio file specified.
   
 - metadata=&lt;string1&gt;=&lt;string2&gt;  
   Specify metadata for audio track.
+
+- bsf=&lt;string&gt;  
+  Specify bitstream filter for audio track.
 
 ```
 Example1: --audio-source "<audio_file>":copy
@@ -963,6 +969,9 @@ Read subtitle from the specified file and mux into the output file.
 - metadata=&lt;string1&gt;=&lt;string2&gt;  
   Specify metadata for subtitle track.
 
+- bsf=&lt;string&gt;  
+  Specify bitstream filter for subtitle track.
+
 ```
 Example1: --sub-source "<sub_file>"
 Example2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
@@ -1022,6 +1031,9 @@ Example2: clear metadata from input file
 Example3: set metadata
 --sub-metadata 1?title="subtitle title" --sub-metadata 1?language=jpn
 ```
+
+### --sub-bsf [{&lt;int&gt;or&lt;string&gt;}?]&lt;string&gt;
+Apply [bitstream filter](https://ffmpeg.org/ffmpeg-bitstream-filters.html) to subtitle track.
 
 ### --caption2ass [&lt;string&gt;]
 Enable internal caption2ass process. This feature requires Caption.dll.  
