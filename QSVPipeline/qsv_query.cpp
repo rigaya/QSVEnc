@@ -1490,11 +1490,14 @@ int GetImplListStr(tstring& str) {
     const auto implList = getVPLImplList(log);
     str.clear();
     for (const auto& impl : implList) {
-        str += strsprintf(_T("API %d.%02d: %s(%s), Acceleration %s\n"),
-            impl.ApiVersion.Major, impl.ApiVersion.Minor,
-            (impl.Impl == MFX_IMPL_TYPE_HARDWARE) ? _T("hw") : _T("sw"),
-            char_to_tstring(impl.ImplName).c_str(),
-            MFXAccelerationModeToStr(impl.AccelerationMode).c_str());
+        for (int iacc = 0; iacc == 0 || iacc < (int)impl.AccelerationModeDescription.NumAccelerationModes; iacc++) {
+            const auto accMode = (impl.AccelerationModeDescription.NumAccelerationModes > 0) ? impl.AccelerationModeDescription.Mode[iacc] : impl.AccelerationMode;
+            str += strsprintf(_T("API %d.%02d: %s(%s), Acceleration %s\n"),
+                impl.ApiVersion.Major, impl.ApiVersion.Minor,
+                (impl.Impl == MFX_IMPL_TYPE_HARDWARE) ? _T("hw") : _T("sw"),
+                char_to_tstring(impl.ImplName).c_str(),
+                MFXAccelerationModeToStr(accMode).c_str());
+        }
     }
     return (int)implList.size();
 }
