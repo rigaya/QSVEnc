@@ -42,6 +42,8 @@
 
 #define SPP_LOOP_COUNT_BLOCK (8)
 
+#define DCT_IDCT_BARRIER (1)
+
 RGY_ERR RGYFilterSmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYFrameInfo *targetQPTable, const int qpBlockShift, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param);
     if (!prm) {
@@ -159,7 +161,7 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 " -D SPP_BLOCK_SIZE_X=%d"
                 " -D SPP_THREAD_BLOCK_X=%d -D SPP_THREAD_BLOCK_Y=%d"
                 " -D SPP_SHARED_BLOCK_NUM_X=%d -D SPP_SHARED_BLOCK_NUM_Y=%d"
-                " -D SPP_LOOP_COUNT_BLOCK=%d",
+                " -D SPP_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER=%d",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
                 (enable_fp16) ? 1 : 0,
@@ -167,7 +169,8 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 SPP_BLOCK_SIZE_X,
                 SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y,
                 SPP_SHARED_BLOCK_NUM_X, SPP_SHARED_BLOCK_NUM_Y,
-                SPP_LOOP_COUNT_BLOCK
+                SPP_LOOP_COUNT_BLOCK,
+                DCT_IDCT_BARRIER
             );
             return options;
         };
