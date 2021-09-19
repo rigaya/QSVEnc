@@ -186,29 +186,31 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
-        if (usefp16Dct) {
-            RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
-            RGYWorkSize global(divCeil(prm->frameOut.width, SPP_BLOCK_SIZE_X), divCeil(prm->frameOut.height, SPP_LOOP_COUNT_BLOCK));
-            const auto subGroupSize = m_smooth->kernel("kernel_smooth").config(m_cl->queue(), local, global).subGroupSize();
-            if (subGroupSize == 0) {
+        RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
+        RGYWorkSize global(divCeil(prm->frameOut.width, SPP_BLOCK_SIZE_X), divCeil(prm->frameOut.height, SPP_LOOP_COUNT_BLOCK));
+        const auto subGroupSize = m_smooth->kernel("kernel_smooth").config(m_cl->queue(), local, global).subGroupSize();
+        if (subGroupSize == 0) {
+            if (usefp16Dct) {
                 AddMessage(RGY_LOG_WARN, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
-                usefp16Dct = false;
-                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
-            } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
-                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) is not pow2, fp16 dct disabled.\n"), subGroupSize);
-                usefp16Dct = false;
-                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
-            } else if (subGroupSize < 32) {
-                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
-                usefp16Dct = false;
                 prm->smooth.prec = VPP_FP_PRECISION_AUTO;
             }
-            if (!usefp16Dct) {
-                m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
-                if (!m_smooth) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
-                    return RGY_ERR_OPENCL_CRUSH;
-                }
+        } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
+            return RGY_ERR_UNSUPPORTED;
+        } else if (subGroupSize < 8) {
+            AddMessage(RGY_LOG_ERROR, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
+            return RGY_ERR_UNSUPPORTED;
+        } else if (subGroupSize < 32) {
+            if (usefp16Dct) {
+                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
+                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
+            }
+        }
+        if (usefp16Dct && prm->smooth.prec != VPP_FP_PRECISION_FP16) {
+            m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
+            if (!m_smooth) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
+                return RGY_ERR_OPENCL_CRUSH;
             }
         }
 
