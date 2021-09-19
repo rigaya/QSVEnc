@@ -179,7 +179,8 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             }
         }
         const bool cl_fp16_support = prm->smooth.prec != VPP_FP_PRECISION_FP32;
-        bool usefp16Dct = cl_fp16_support && prm->smooth.prec == VPP_FP_PRECISION_FP16;
+        bool usefp16Dct = cl_fp16_support && prm->smooth.prec == VPP_FP_PRECISION_FP16
+            && prm->smooth.quality > 0; // quality = 0の時には適用してはならない
         m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(usefp16Dct, cl_fp16_support).c_str());
         if (!m_smooth) {
             AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
