@@ -94,6 +94,9 @@ If path is not specified, the output will be "qsv_check.html".
 ### --check-environment
 Show environment information recognized by QSVEncC.
 
+### --check-clinfo
+Show OpenCL information.
+
 ### --check-codecs, --check-decoders, --check-encoders
 Show available audio codec names
 

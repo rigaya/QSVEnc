@@ -112,6 +112,9 @@ QSVEncの使用可能なエンコード機能情報を指定したファイル�
 ### --check-environment
 QSVEncCの認識している環境情報を表示
 
+### --check-clinfo
+OpenCLの情報を表示
+
 ### --check-codecs, --check-decoders, --check-encoders
 利用可能な音声コーデック名を表示
 

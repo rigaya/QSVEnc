@@ -723,7 +723,7 @@ struct RGYOpenCLPlatformInfo {
     std::string extensions;
 
     RGYOpenCLPlatformInfo();
-    std::string print() const;
+    tstring print() const;
     std::pair<int, int> clversion() const;
     bool checkVersion(int major, int minor) const;
     bool checkExtension(const char* extension) const;
@@ -1042,6 +1042,7 @@ protected:
 };
 
 int initOpenCLGlobal();
+tstring getOpenCLInfo(const cl_device_type device_type);
 
 #endif //ENABLE_OPENCL
 

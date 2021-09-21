@@ -52,6 +52,7 @@
 #include "rgy_codepage.h"
 #include "rgy_resource.h"
 #include "rgy_env.h"
+#include "rgy_opencl.h"
 
 #if ENABLE_AVSW_READER
 extern "C" {
@@ -598,6 +599,11 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
             _ftprintf(stdout, _T("Error: VPL impl unavailable!\n"));
             return -1;
         }
+    }
+    if (0 == _tcscmp(option_name, _T("check-clinfo"))) {
+        tstring str = getOpenCLInfo(CL_DEVICE_TYPE_GPU);
+        _ftprintf(stdout, _T("%s\n"), str.c_str());
+        return 1;
     }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avversion"))) {

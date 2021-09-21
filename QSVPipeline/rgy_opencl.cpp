@@ -1005,8 +1005,9 @@ RGYOpenCLPlatformInfo::RGYOpenCLPlatformInfo() :
     extensions() {
 }
 
-std::string RGYOpenCLPlatformInfo::print() const {
-    return name + " " + vendor + " " + version + "[" + profile + "]\n  extensions:" + extensions;
+tstring RGYOpenCLPlatformInfo::print() const {
+    std::string str = name + " " + vendor + " " + version + "[" + profile + "]\n  extensions:" + extensions;
+    return char_to_tstring(str);
 }
 
 std::pair<int, int> RGYOpenCLPlatformInfo::clversion() const {
@@ -2498,7 +2499,7 @@ std::vector<shared_ptr<RGYOpenCLPlatform>> RGYOpenCL::getPlatforms(const char *v
         for (int i = 0; i < (int)platform_count; i++) {
             auto platform = std::make_shared<RGYOpenCLPlatform>(platforms[i], m_log);
             if (m_log->getLogLevel(RGY_LOGT_OPENCL) <= RGY_LOG_DEBUG) {
-                CL_LOG(RGY_LOG_DEBUG, _T("OpenCL platform #%d[%p]: %s\n"), i, platforms[i], char_to_tstring(platform->info().print()).c_str());
+                CL_LOG(RGY_LOG_DEBUG, _T("OpenCL platform #%d[%p]: %s\n"), i, platforms[i], platform->info().print().c_str());
             }
             if (vendor == nullptr || platform->isVendor(vendor)) {
                 CL_LOG(RGY_LOG_DEBUG, _T("Add platform #%d[%p] to list.\n"), i, platforms[i]);
@@ -2511,3 +2512,30 @@ std::vector<shared_ptr<RGYOpenCLPlatform>> RGYOpenCL::getPlatforms(const char *v
 }
 
 #endif
+
+tstring getOpenCLInfo(const cl_device_type device_type) {
+    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR);
+    RGYOpenCL cl(log);
+    auto platforms = cl.getPlatforms(nullptr);
+    if (platforms.size() == 0) {
+        return _T("No OpenCL Platform found on this system.");
+    }
+
+    tstring str;
+    for (int ip = 0; ip < (int)platforms.size(); ip++) {
+        str += strsprintf(_T("OpenCL platform #%d [0x%p]\n%s\n"), ip, platforms[ip].get(), platforms[ip]->info().print().c_str());
+        auto err = platforms[ip]->createDeviceList(device_type);
+        if (err != RGY_ERR_NONE) {
+            str += strsprintf(_T("    device: %s\n"), get_err_mes(err));
+        } else {
+            auto devices = platforms[ip]->devs();
+            for (int idev = 0; idev < (int)devices.size(); idev++) {
+                tstring devInfo = strsprintf(_T("device #%d [0x%p]\n%s\n"), idev, devices[idev], RGYOpenCLDevice(devices[idev]).infostr(true).c_str());
+                str += add_indent(devInfo, 4);
+                str += _T("\n");
+            }
+        }
+        str += _T("\n");
+    }
+    return str;
+}
