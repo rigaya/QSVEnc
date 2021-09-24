@@ -86,6 +86,45 @@ void __stdcall GetSystemInfoHook(LPSYSTEM_INFO lpSystemInfo) {
 }
 #endif
 
+class MFXLoaderProvider {
+private:
+    MFXLoaderProvider() = default;
+    ~MFXLoaderProvider() = default;
+
+    static mfxLoader loader;
+
+public:
+    MFXLoaderProvider(const MFXLoaderProvider&) = delete;
+    MFXLoaderProvider& operator=(const MFXLoaderProvider&) = delete;
+    MFXLoaderProvider(MFXLoaderProvider&&) = delete;
+    MFXLoaderProvider& operator=(MFXLoaderProvider&&) = delete;
+
+    static mfxLoader getLoader() {
+        create();
+        return loader;
+    }
+private:
+    static void create() {
+        if (loader == nullptr) {
+            loader = MFXLoad();
+            auto cfg = MFXCreateConfig(loader);
+            { //hwの使用を要求
+                mfxVariant ImplValueHW;
+                ImplValueHW.Version.Version = MFX_VARIANT_VERSION;
+                ImplValueHW.Type = MFX_VARIANT_TYPE_U32;
+                ImplValueHW.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
+                MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.Impl", ImplValueHW);
+            }
+        }
+    }
+
+    static void destroy() {
+        loader = nullptr;
+    }
+};
+
+mfxLoader MFXLoaderProvider::loader = nullptr;
+
 MFXVideoSession2Params::MFXVideoSession2Params() : threads(0), priority(0) {};
 
 void MFXVideoSession2::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
@@ -133,19 +172,7 @@ void MFXVideoSession2::setParams(std::shared_ptr<RGYLog>& log, const MFXVideoSes
 
 std::vector<mfxImplDescription> MFXVideoSession2::getImplList() {
     std::vector<mfxImplDescription> implList;
-    auto loader = MFXLoad();
-    auto cfg = MFXCreateConfig(loader);
-    { //hwの使用を要求
-        mfxVariant ImplValueHW;
-        ImplValueHW.Version.Version = MFX_VARIANT_VERSION;
-        ImplValueHW.Type = MFX_VARIANT_TYPE_U32;
-        ImplValueHW.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
-        auto sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.Impl", ImplValueHW);
-        if (sts != MFX_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.Impl %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
-            return implList;
-        }
-    }
+    auto loader = MFXLoaderProvider::getLoader();
     for (int impl_idx = 0; ; impl_idx++) {
         mfxImplDescription *impl_desc = nullptr;
         auto sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
@@ -169,19 +196,8 @@ mfxStatus MFXVideoSession2::initImpl(mfxIMPL& impl) {
     api_hook.hook(_T("kernel32.dll"), "GetSystemInfo", GetSystemInfoHook, (void **)&origGetSystemInfoFunc);
 #endif
 #if USE_ONEVPL
-    auto loader = MFXLoad();
+    auto loader = MFXLoaderProvider::getLoader();
     auto cfg = MFXCreateConfig(loader);
-    { //hwの使用を要求
-        mfxVariant ImplValueHW;
-        ImplValueHW.Version.Version = MFX_VARIANT_VERSION;
-        ImplValueHW.Type = MFX_VARIANT_TYPE_U32;
-        ImplValueHW.Data.U32 = MFX_IMPL_TYPE_HARDWARE;
-        auto sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"mfxImplDescription.Impl", ImplValueHW);
-        if (sts != MFX_ERR_NONE) {
-            m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.Impl %d: %s.\n"), ImplValueHW.Data.U32, get_err_mes(err_to_rgy(sts)));
-            return sts;
-        }
-    }
     {
         mfxVariant accMode;
         accMode.Version.Version = MFX_VARIANT_VERSION;
