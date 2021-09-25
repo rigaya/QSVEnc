@@ -6272,6 +6272,10 @@ tstring gen_cmd_help_ctrl() {
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
         _T("                                  debug, info(default), warn, error\n")
+        _T("   --log-opt [<param1>][,<param2>][]...\n")
+        _T("     additional options for log output.\n")
+        _T("    params\n")
+        _T("      addtime                   add time to log lines.\n")
         _T("   --log-framelist              output debug info for avsw/avhw reader.\n")
         _T("   --log-packets                output debug info for avsw/avhw reader.\n"));
 
