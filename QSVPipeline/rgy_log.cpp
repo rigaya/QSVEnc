@@ -360,13 +360,11 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
         return strHtml;
     };
     auto add_time = [log_level](tstring str) {
-        auto tp = std::chrono::system_clock::now();
-        auto duration = tp.time_since_epoch();
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        auto s = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-        int64_t sec1 = ms / 1000;
-        struct tm* timeinfo;
-        timeinfo = localtime(&sec1);
+        const auto tp = std::chrono::system_clock::now();
+        const auto duration = tp.time_since_epoch();
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+        const auto sec1 = ms / 1000;
+        const auto timeinfo = localtime(&sec1);
         TCHAR buf[64] = { 0 };
         _tcsftime(buf, _countof(buf), _T("[%Y-%m-%d %H:%M:%S"), timeinfo);
         tstring strWithTime = buf + strsprintf(_T(".%03d] "), ms - (sec1 * 1000));
