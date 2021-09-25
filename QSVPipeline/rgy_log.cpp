@@ -359,7 +359,7 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
         }
         return strHtml;
     };
-    auto add_time = [log_level](tstring str) {
+    auto add_time = [file_only](tstring str) {
         const auto tp = std::chrono::system_clock::now();
         const auto duration = tp.time_since_epoch();
         const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
@@ -368,15 +368,20 @@ void RGYLog::write_log(RGYLogLevel log_level, const RGYLogType logtype, const TC
         TCHAR buf[64] = { 0 };
         _tcsftime(buf, _countof(buf), _T("[%Y-%m-%d %H:%M:%S"), timeinfo);
         tstring strWithTime = buf + strsprintf(_T(".%03d] "), ms - (sec1 * 1000));
-        const auto timeLength = strWithTime.length();
+        if (file_only) {
+            // file_only の場合は分解するとおかしな出力になることがあるので途中の改行については無視して出力する
+            return strWithTime + str;
+        } else {
+            const auto timeLength = strWithTime.length();
 
-        auto strLines = split(str, _T("\n"));
-        strWithTime.reserve(str.length() + strLines.size() * timeLength);
+            auto strLines = split(str, _T("\n"));
+            strWithTime.reserve(str.length() + strLines.size() * timeLength);
 
-        strWithTime += strLines[0] + _T("\n");
-        const auto blank = tstring(timeLength, _T(' '));
-        for (uint32_t i = 1; i < strLines.size() - 1; i++) {
-            strWithTime += blank + strLines[i] + _T("\n");
+            strWithTime += strLines[0] + _T("\n");
+            const auto blank = tstring(timeLength, _T(' '));
+            for (uint32_t i = 1; i < strLines.size() - 1; i++) {
+                strWithTime += blank + strLines[i] + _T("\n");
+            }
         }
         return strWithTime;
     };
