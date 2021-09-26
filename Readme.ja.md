@@ -18,13 +18,13 @@ QSVEncC.exe … 上記のコマンドライン版です。
 ## インストール
 インストール方法は[こちら](./Install.ja.md)。
 
-## 基本動作環境
+## 想定動作環境
 ### CPU
 [QSVが利用可能なCPU一覧＞＞](#qsv_cpu_list)
 
 ### Windows
-Windows 10 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)  
-Windows 10 (x64) (QSVEncC.exe x64版)  
+Windows 10/11 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)  
+Windows 10/11 (x64) (QSVEncC.exe x64版)  
 Aviutl 1.00 以降 (QSVEnc.auo)  
 
 ### Linux
