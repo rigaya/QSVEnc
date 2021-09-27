@@ -162,7 +162,9 @@ protected:
     vector<unique_ptr<AVChapter>> m_Chapters;
 #endif
     std::unique_ptr<RGYTimecode> m_timecode;
-    std::unique_ptr<HEVCHDRSei> m_HDRSei;
+    std::unique_ptr<HEVCHDRSei> m_hdrsei;
+    std::unique_ptr<RGYHDR10Plus> m_hdr10plus;
+    bool m_hdr10plusMetadataCopy;
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;
     int m_nMFXThreads;

@@ -412,8 +412,9 @@ struct RGYCLFrame;
 
 class RGYFrame {
 protected:
+    std::vector<std::shared_ptr<RGYFrameData>> frameDataList;
 public:
-    RGYFrame() {};
+    RGYFrame() : frameDataList() {};
     virtual ~RGYFrame() {};
     virtual mfxFrameSurface1 *surf() { return nullptr; };
     virtual const mfxFrameSurface1 *surf() const { return nullptr; };
@@ -440,6 +441,10 @@ public:
     virtual void setInputFrameId(int inputFrameId) { UNREFERENCED_PARAMETER(inputFrameId); };
     virtual uint64_t flags() const { return RGY_FRAME_FLAG_NONE; };
     virtual void setFlags(uint64_t flag) { UNREFERENCED_PARAMETER(flag); };
+    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const { return frameDataList; }
+    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() { return frameDataList; }
+    virtual void setDataList(std::vector<std::shared_ptr<RGYFrameData>>& dataList) { frameDataList = dataList; }
+    virtual void clearDataList() { frameDataList.clear(); }
 };
 
 class RGYFrameMFXSurf : public RGYFrame {
