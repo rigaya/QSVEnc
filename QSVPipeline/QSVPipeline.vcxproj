@@ -828,6 +828,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_thread_affinity.cpp" />
     <ClCompile Include="rgy_timecode.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -934,6 +935,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_stream.h" />
     <ClInclude Include="rgy_tchar.h" />
     <ClInclude Include="rgy_thread.h" />
+    <ClInclude Include="rgy_thread_affinity.h" />
     <ClInclude Include="rgy_timecode.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="rgy_err.h" />

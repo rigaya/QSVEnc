@@ -53,6 +53,7 @@ public:
     int bitDepth;
     VideoInfo input;
     rgy_rational<int> streamtimebase;
+    RGYThreadAffinity threadAffinityCompare;
 #if ENCODER_VCEENC
     amf::AMFFactory *factory;
     amf::AMFTrace *trace;
@@ -76,7 +77,7 @@ public:
     virtual RGY_ERR initDecode(const RGYBitstream *bitstream);
     bool decodeStarted() { return m_decodeStarted; }
     virtual void showResult();
-    RGY_ERR thread_func();
+    RGY_ERR thread_func(RGYThreadAffinity threadAffinity);
     RGY_ERR compare_frames();
 
     virtual RGY_ERR addBitstream(const RGYBitstream *bitstream);

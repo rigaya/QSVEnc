@@ -2654,6 +2654,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
         param->frameOut = param->frameIn;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
+        param->threadAffinityCompare = prm->ctrl.threadAffinity.get(RGYThreadType::VIDEO_QUALITY);
         param->mfxDEC = std::move(mfxdec);
         param->metric = prm->common.metric;
         auto sts = filterSsim->init(param, m_pQSVLog);
@@ -2689,6 +2690,7 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
 #else
         nullptr,
 #endif
+        inputParam->ctrl.threadAffinity.get(RGYThreadType::PERF_MONITOR),
         m_pQSVLog, &perfMonitorPrm)) {
         PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
         m_pPerfMonitor.reset();
@@ -2749,6 +2751,15 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         }
         pParams->common.muxOutputFormat = _T("raw");
         PrintMes(RGY_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
+    }
+
+    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::PROCESS); affinity.mode != RGYThreadAffinityMode::ALL) {
+        SetProcessAffinityMask(GetCurrentProcess(), affinity.getMask());
+        PrintMes(RGY_LOG_DEBUG, _T("Set Process Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+    }
+    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::MAIN); affinity.mode != RGYThreadAffinityMode::ALL) {
+        SetThreadAffinityMask(GetCurrentThread(), affinity.getMask());
+        PrintMes(RGY_LOG_DEBUG, _T("Set Main thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
     }
 
     m_nMFXThreads = pParams->nSessionThreads;
