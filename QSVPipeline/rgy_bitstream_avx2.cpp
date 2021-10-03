@@ -25,15 +25,24 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#include <immintrin.h>
 #include "rgy_bitstream.h"
+
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+
+#include <immintrin.h>
+
+#if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
+static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
+#endif
 
 #define CLEAR_LEFT_BIT(x) ((x) & ((x) - 1))
 
 #if defined(_WIN32) || defined(_WIN64)
 #define CTZ32(x) _tzcnt_u32(x)
+#define CTZ64(x) _tzcnt_u64(x)
 #else
 #define CTZ32(x) __builtin_ctz(x)
+#define CTZ64(x) __builtin_ctzll(x)
 #endif
 
 static inline int64_t memmem_avx2(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
@@ -57,6 +66,30 @@ static inline int64_t memmem_avx2(const void *data_, const int64_t data_size, co
     }
     return -1;
 }
+
+#if 0 && (defined(_M_X64) || defined(__x86_64))
+static inline int64_t memmem_avx512(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
+    uint8_t *data = (uint8_t *)data_;
+    const uint8_t *target = (const uint8_t *)target_;
+    const __m512i target_first = _mm512_set1_epi8(target[0]);
+    const __m512i target_last = _mm512_set1_epi8(target[target_size - 1]);
+
+    for (int64_t i = 0; i < data_size; i += 32) {
+        const __m512i r0 = _mm512_loadu_si512((const __m256i*)(data + i));
+        const __m512i r1 = _mm512_loadu_si512((const __m256i*)(data + i + target_size - 1));
+        __mmask64 mask = _kand_mask64(_mm512_cmpeq_epi8_mask(r0, target_first), _mm512_cmpeq_epi8_mask(r1, target_last));
+        while (mask != 0) {
+            const int64_t j = (int64_t)CTZ64(mask);
+            if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
+                const auto ret = i + j;
+                return ret < data_size ? ret : -1;
+            }
+            mask = CLEAR_LEFT_BIT(mask);
+        }
+    }
+    return -1;
+}
+#endif
 
 std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t * data, size_t size) {
     std::vector<nal_info> nal_list;
@@ -119,3 +152,5 @@ std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size)
     _mm256_zeroupper();
     return nal_list;
 }
+
+#endif //#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)

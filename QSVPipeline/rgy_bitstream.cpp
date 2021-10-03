@@ -382,9 +382,16 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
 #include "rgy_simd.h"
 
 decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func() {
-    return ((get_availableSIMD() & AVX2) != 0) ? parse_nal_unit_h264_avx2 : parse_nal_unit_h264_c;
+    return
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+        ((get_availableSIMD() & AVX2) != 0) ? parse_nal_unit_h264_avx2 :
+#endif
+        parse_nal_unit_h264_c;
 }
 decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func() {
-    return ((get_availableSIMD() & AVX2) != 0) ? parse_nal_unit_hevc_avx2 : parse_nal_unit_hevc_c;
+    return
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+        ((get_availableSIMD() & AVX2) != 0) ? parse_nal_unit_hevc_avx2 :
+#endif
+    parse_nal_unit_hevc_c;
 }
-
