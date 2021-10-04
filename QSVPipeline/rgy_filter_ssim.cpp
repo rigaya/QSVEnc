@@ -324,6 +324,9 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
             q = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
         }
     }
+    if (auto err = build_kernel(m_param->frameOut.csp); err != RGY_ERR_NONE) {
+        return err;
+    }
 #if ENCODER_VCEENC
     auto codec_uvd_name = codec_rgy_to_dec(prm->input.codec);
     if (codec_uvd_name == nullptr) {
@@ -418,7 +421,7 @@ void RGYFilterSsim::close_cl_resources() {
     m_decFrameCopy.reset();
     m_input.clear();
     m_unused.clear();
-    m_kernel.reset();
+    m_kernel.clear();
 #if ENCODER_VCEENC
     m_decoder.Release();
     m_context.Release();
@@ -799,15 +802,11 @@ RGY_ERR RGYFilterSsim::build_kernel(const RGY_CSP csp) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if ((prm->metric.enabled()) && !m_kernel) {
+    if ((prm->metric.enabled()) && !m_kernel.get()) {
         const auto options = strsprintf("-D BIT_DEPTH=%d -D SSIM_BLOCK_X=%d -D SSIM_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[csp],
             SSIM_BLOCK_X, SSIM_BLOCK_Y);
-        m_kernel = m_cl->buildResource(_T("RGY_FILTER_SSIM_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_kernel) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SSIM_CL\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_kernel.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_SSIM_CL"), _T("EXE_DATA"), options.c_str())));
     }
     return RGY_ERR_NONE;
 }
@@ -823,7 +822,7 @@ RGY_ERR RGYFilterSsim::calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInf
     if (!tmp || tmp->size() < grid_count * sizeof(float)) {
         tmp = m_cl->createBuffer(grid_count * sizeof(float));
     }
-    auto err = m_kernel->kernel("kernel_ssim").config(queue, local, global, wait_events).launch(
+    auto err = m_kernel.get()->kernel("kernel_ssim").config(queue, local, global, wait_events).launch(
         (cl_mem)p0->ptr[0], p0->pitch[0], (cl_mem)p1->ptr[0], p1->pitch[0],
         p0->width, p0->height,
         tmp->mem()
@@ -862,7 +861,7 @@ RGY_ERR RGYFilterSsim::calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInf
     if (!tmp || tmp->size() < grid_count * sizeof(float)) {
         tmp = m_cl->createBuffer(grid_count * sizeof(float));
     }
-    auto err = m_kernel->kernel("kernel_psnr").config(queue, local, global, wait_events).launch(
+    auto err = m_kernel.get()->kernel("kernel_psnr").config(queue, local, global, wait_events).launch(
         (cl_mem)p0->ptr[0], p0->pitch[0], (cl_mem)p1->ptr[0], p1->pitch[0],
         p0->width, p0->height,
         tmp->mem()
@@ -897,9 +896,10 @@ RGY_ERR RGYFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto err = build_kernel(p0->csp);
-    if (err != RGY_ERR_NONE) {
-        return err;
+    auto err = RGY_ERR_NONE;
+    if (!m_kernel.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SSIM_CL\n"));
+        return RGY_ERR_OPENCL_CRUSH;
     }
     if (prm->metric.ssim) {
         if ((err = calc_ssim_frame(p0, p1)) != RGY_ERR_NONE) {

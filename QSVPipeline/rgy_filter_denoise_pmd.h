@@ -55,6 +55,6 @@ protected:
 
     bool m_bInterlacedWarn;
     int m_frameIdx;
-    unique_ptr<RGYOpenCLProgram> m_pmd;
+    RGYOpenCLProgramAsync m_pmd;
     unique_ptr<RGYCLFrame> m_gauss;
 };

@@ -60,7 +60,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
         RGYWorkSize local(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
         RGYWorkSize global(divCeil(planeInputY.width, 4), planeInputY.height);
         const char *kernel_name = "kernel_tweak_y";
-        auto err = m_tweak->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
+        auto err = m_tweak.get()->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
             (cl_mem)planeInputY.ptr[0], planeInputY.pitch[0], planeInputY.width, planeInputY.height,
             contrast, brightness, 1.0f / gamma);
         if (err != RGY_ERR_NONE) {
@@ -83,7 +83,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
         RGYWorkSize global(divCeil(planeInputU.width, 4), planeInputU.height);
         const float hue = hue_degree * (float)M_PI / 180.0f;
         const char *kernel_name = "kernel_tweak_uv";
-        auto err = m_tweak->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
+        auto err = m_tweak.get()->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
             (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
             saturation, std::sin(hue) * saturation, std::cos(hue) * saturation);
         if (err != RGY_ERR_NONE) {
@@ -142,17 +142,13 @@ RGY_ERR RGYFilterTweak::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         AddMessage(RGY_LOG_WARN, _T("gamma should be in range of %.1f - %.1f.\n"), 0.1f, 10.0f);
     }
 
-    if (!m_tweak
+    if (!m_tweak.get()
         || std::dynamic_pointer_cast<RGYFilterParamTweak>(m_param)->tweak != prm->tweak) {
         const auto options = strsprintf("-D Type=%s -D Type4=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_tweak = m_cl->buildResource(_T("RGY_FILTER_TWEAK_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_tweak) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_TWEAK_CL(m_tweak)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_tweak.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_TWEAK_CL"), _T("EXE_DATA"), options.c_str())));
     }
 
     //コピーを保存
@@ -174,6 +170,10 @@ RGY_ERR RGYFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return RGY_ERR_INVALID_PARAM;
     }
 
+    if (!m_tweak.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_TWEAK_CL(m_tweak)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -196,7 +196,7 @@ RGY_ERR RGYFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 
 void RGYFilterTweak::close() {
     m_frameBuf.clear();
-    m_tweak.reset();
+    m_tweak.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

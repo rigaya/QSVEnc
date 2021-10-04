@@ -44,7 +44,7 @@ RGY_ERR RGYFilterUnsharp::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameIn
         const char *kernel_name = "kernel_unsharp";
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        auto err = m_unsharp->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_unsharp.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pInputPlane->ptr[0],
             gaussWeightBuf->mem(),
@@ -141,17 +141,13 @@ RGY_ERR RGYFilterUnsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         prm->unsharp.threshold = clamp(prm->unsharp.threshold, 0.0f, 255.0f);
         AddMessage(RGY_LOG_WARN, _T("threshold should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
     }
-    if (!m_unsharp
+    if (!m_unsharp.get()
         || std::dynamic_pointer_cast<RGYFilterParamUnsharp>(m_param)->unsharp != prm->unsharp) {
         const auto options = strsprintf("-D Type=%s -D radius=%d -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             prm->unsharp.radius,
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_unsharp = m_cl->buildResource(_T("RGY_FILTER_UNSHARP_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_unsharp) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_UNSHARP_CL(m_unsharp)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_unsharp.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_UNSHARP_CL"), _T("EXE_DATA"), options.c_str())));
         float sigmaY = 0.8f + 0.3f * prm->unsharp.radius;
         float sigmaUV = (RGY_CSP_CHROMA_FORMAT[prm->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? 0.8f + 0.3f * (prm->unsharp.radius * 0.5f + 0.25f) : sigmaY;
 
@@ -192,6 +188,10 @@ RGY_ERR RGYFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_unsharp.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_UNSHARP_CL(m_unsharp)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -214,7 +214,7 @@ RGY_ERR RGYFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 
 void RGYFilterUnsharp::close() {
     m_frameBuf.clear();
-    m_unsharp.reset();
+    m_unsharp.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

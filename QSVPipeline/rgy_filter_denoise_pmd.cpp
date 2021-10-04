@@ -47,7 +47,7 @@ RGY_ERR RGYFilterDenoisePmd::runGaussPlane(RGYFrameInfo *pGaussPlane, const RGYF
     RGYWorkSize local(32, 8);
     RGYWorkSize global(pInputPlane->width, pInputPlane->height);
     const char *kernel_name = "kernel_denoise_pmd_gauss";
-    auto err = m_pmd->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_pmd.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pGaussPlane->ptr[0], pGaussPlane->pitch[0], pGaussPlane->width, pGaussPlane->height,
         (cl_mem)pInputPlane->ptr[0]);
     if (err != RGY_ERR_NONE) {
@@ -88,7 +88,7 @@ RGY_ERR RGYFilterDenoisePmd::runPmdPlane(RGYFrameInfo *pOutputPlane, const RGYFr
     RGYWorkSize local(32, 8);
     RGYWorkSize global(pInputPlane->width, pInputPlane->height);
     const char *kernel_name = "kernel_denoise_pmd";
-    auto err = m_pmd->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_pmd.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
         (cl_mem)pInputPlane->ptr[0], (cl_mem)pGaussPlane->ptr[0],
         strength2, inv_threshold2);
@@ -172,17 +172,13 @@ RGY_ERR RGYFilterDenoisePmd::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_WARN, _T("strength must be in range of 0.0 - 255.0.\n"));
         pPmdParam->pmd.threshold = clamp(pPmdParam->pmd.threshold, 0.0f, 255.0f);
     }
-    if (!m_pmd
+    if (!m_pmd.get()
         || std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param)->pmd != pPmdParam->pmd) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D useExp=%d",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp],
             pPmdParam->pmd.useExp ? 1 : 0);
-        m_pmd = m_cl->buildResource(_T("RGY_FILTER_DENOISE_PMD_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_pmd) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_PMD_CL(m_pmd)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_pmd.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_PMD_CL"), _T("EXE_DATA"), options.c_str())));
     }
     if (!m_gauss) {
         m_gauss = m_cl->createFrameBuffer(pPmdParam->frameOut, CL_MEM_READ_WRITE);
@@ -211,6 +207,11 @@ RGY_ERR RGYFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     if (!pPmdParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (!m_pmd.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_PMD_CL(m_pmd)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
     }
 
     const int out_idx = final_dst_index(pPmdParam->pmd.applyCount);
@@ -243,7 +244,7 @@ RGY_ERR RGYFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 void RGYFilterDenoisePmd::close() {
     m_frameBuf.clear();
     m_gauss.reset();
-    m_pmd.reset();
+    m_pmd.clear();
     m_cl.reset();
     m_frameIdx = 0;
     m_bInterlacedWarn = false;

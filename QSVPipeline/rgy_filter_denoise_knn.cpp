@@ -45,7 +45,7 @@ RGY_ERR RGYFilterDenoiseKnn::denoisePlane(RGYFrameInfo *pOutputPlane, const RGYF
         const char *kernel_name = "kernel_denoise_knn";
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        auto err = m_knn->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_knn.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pInputPlane->ptr[0],
             strength, prm->knn.lerpC, prm->knn.weight_threshold, prm->knn.lerp_threshold);
@@ -119,17 +119,13 @@ RGY_ERR RGYFilterDenoiseKnn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("th_weight should be 0.0 - 1.0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (!m_knn
+    if (!m_knn.get()
         || std::dynamic_pointer_cast<RGYFilterParamDenoiseKnn>(m_param)->knn != pKnnParam->knn) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D knn_radius=%d",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp],
             pKnnParam->knn.radius);
-        m_knn = m_cl->buildResource(_T("RGY_FILTER_DENOISE_KNN_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_knn) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_KNN_CL(m_knn)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_knn.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_KNN_CL"), _T("EXE_DATA"), options.c_str())));
     }
 
     auto err = AllocFrameBuf(pKnnParam->frameOut, 1);
@@ -162,6 +158,10 @@ RGY_ERR RGYFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_knn.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_KNN_CL(m_knn)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -184,7 +184,7 @@ RGY_ERR RGYFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 
 void RGYFilterDenoiseKnn::close() {
     m_frameBuf.clear();
-    m_knn.reset();
+    m_knn.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

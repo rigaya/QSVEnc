@@ -147,5 +147,5 @@ protected:
     bool m_bInterlacedWarn;
     unique_ptr<RGYFilterCspCrop> crop;
     unique_ptr<ColorspaceOpCtrl> opCtrl;
-    unique_ptr<RGYOpenCLProgram> m_colorspace;
+    RGYOpenCLProgramAsync m_colorspace;
 };

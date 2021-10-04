@@ -52,7 +52,7 @@ protected:
     virtual RGY_ERR procFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
-    unique_ptr<RGYOpenCLProgram> m_unsharp;
+    RGYOpenCLProgramAsync m_unsharp;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufY;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufUV;
 };

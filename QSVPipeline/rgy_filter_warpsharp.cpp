@@ -39,7 +39,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneSobel(RGYFrameInfo *pOutputPlane, const RGY
     const char *kernel_name = "kernel_warpsharp_sobel";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-    auto err = m_warpsharp->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_warpsharp.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
         (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
         pOutputPlane->width, pOutputPlane->height,
@@ -55,7 +55,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneBlur(RGYFrameInfo *pOutputPlane, const RGYF
     const char *kernel_name = "kernel_warpsharp_blur";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-    auto err = m_warpsharp->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_warpsharp.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
         (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
         pOutputPlane->width, pOutputPlane->height);
@@ -70,7 +70,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneWarp(RGYFrameInfo *pOutputPlane, const RGYF
     const char *kernel_name = "kernel_warpsharp_warp";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-    auto err = m_warpsharp->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_warpsharp.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
         (cl_mem)pInputPlaneImg->ptr[0],
         (cl_mem)pInputMask->ptr[0], pInputMask->pitch[0],
@@ -88,7 +88,7 @@ RGY_ERR RGYFilterWarpsharp::procPlaneDowscale(RGYFrameInfo *pOutputPlane, const 
     const char *kernel_name = "kernel_warpsharp_downscale";
     RGYWorkSize local(WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-    auto err = m_warpsharp->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_warpsharp.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
         (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0]);
     if (err != RGY_ERR_NONE) {
@@ -237,7 +237,7 @@ RGY_ERR RGYFilterWarpsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
         return sts;
     }
-    if (!m_warpsharp
+    if (!m_warpsharp.get()
         || std::dynamic_pointer_cast<RGYFilterParamWarpsharp>(m_param)->warpsharp != prm->warpsharp) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D blur_range=%d"
             " -D WARPSHARP_BLOCK_X=%d -D WARPSHARP_BLOCK_Y=%d",
@@ -245,11 +245,7 @@ RGY_ERR RGYFilterWarpsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
             prm->warpsharp.type == 0 ? 6 : 2,
             WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
-        m_warpsharp = m_cl->buildResource(_T("RGY_FILTER_WARPSHARP_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_warpsharp) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_WARPSHARP_CL(m_warpsharp)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_warpsharp.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_WARPSHARP_CL"), _T("EXE_DATA"), options.c_str())));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);
@@ -287,6 +283,10 @@ RGY_ERR RGYFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_warpsharp.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_WARPSHARP_CL(m_warpsharp)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -309,7 +309,7 @@ RGY_ERR RGYFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
 void RGYFilterWarpsharp::close() {
     m_frameBuf.clear();
-    m_warpsharp.reset();
+    m_warpsharp.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

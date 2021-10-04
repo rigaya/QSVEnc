@@ -46,7 +46,7 @@ RGY_ERR RGYFilterEdgelevel::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
         const char *kernel_name = "kernel_edgelevel";
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        auto err = m_edgelevel->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_edgelevel.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pInputPlane->ptr[0],
             strength, threshold, black, white);
@@ -112,16 +112,12 @@ RGY_ERR RGYFilterEdgelevel::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         prm->edgelevel.white = clamp(prm->edgelevel.white, 0.0f, 31.0f);
         AddMessage(RGY_LOG_WARN, _T("white should be in range of %.1f - %.1f.\n"), 0.0f, 31.0f);
     }
-    if (!m_edgelevel
+    if (!m_edgelevel.get()
         || std::dynamic_pointer_cast<RGYFilterParamEdgelevel>(m_param)->edgelevel != prm->edgelevel) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_edgelevel = m_cl->buildResource(_T("RGY_FILTER_EDGELEVEL_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_edgelevel) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_EDGELEVEL_CL(m_edgelevel)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_edgelevel.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_EDGELEVEL_CL"), _T("EXE_DATA"), options.c_str())));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);
@@ -154,6 +150,10 @@ RGY_ERR RGYFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_edgelevel.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_EDGELEVEL_CL(m_edgelevel)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -176,7 +176,7 @@ RGY_ERR RGYFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
 void RGYFilterEdgelevel::close() {
     m_frameBuf.clear();
-    m_edgelevel.reset();
+    m_edgelevel.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

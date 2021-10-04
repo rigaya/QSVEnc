@@ -127,5 +127,5 @@ protected:
     int m_nLogoIdx;
     vector<LogoData> m_sLogoDataList;
     ProcessDataDelogo m_sProcessData[4];
-    unique_ptr<RGYOpenCLProgram> m_delogo;
+    RGYOpenCLProgramAsync m_delogo;
 };

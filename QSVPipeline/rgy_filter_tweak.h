@@ -50,5 +50,5 @@ protected:
     virtual RGY_ERR procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
-    unique_ptr<RGYOpenCLProgram> m_tweak;
+    RGYOpenCLProgramAsync m_tweak;
 };

@@ -58,7 +58,7 @@ protected:
     virtual RGY_ERR setQP(RGYCLFrame *targetQPTable, const int qp, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     float getQPMul(int qp_scale);
 
-    std::unique_ptr<RGYOpenCLProgram> m_smooth;
+    RGYOpenCLProgramAsync m_smooth;
     unique_ptr<RGYCLFrame> m_qp;
     std::shared_ptr<RGYFrameDataQP> m_qpSrc;
     std::shared_ptr<RGYFrameDataQP> m_qpSrcB;

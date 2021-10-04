@@ -198,9 +198,6 @@ protected:
     RGY_ERR convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR convertCspFromAYUVPacked444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual void close() override;
-
-    unique_ptr<RGYOpenCLProgram> m_cropY;
-    unique_ptr<RGYOpenCLProgram> m_cropUV;
 };
 
 class RGYFilterParamResize : public RGYFilterParam {
@@ -224,7 +221,7 @@ protected:
 
     bool m_bInterlacedWarn;
     unique_ptr<RGYCLBuf> m_weightSpline;
-    unique_ptr<RGYOpenCLProgram> m_resize;
+    RGYOpenCLProgramAsync m_resize;
 };
 
 class RGYFilterParamPad : public RGYFilterParam {
@@ -247,6 +244,6 @@ protected:
     virtual RGY_ERR procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, int pad_color, const VppPad &pad, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
-    unique_ptr<RGYOpenCLProgram> m_pad;
+    RGYOpenCLProgramAsync m_pad;
     bool m_bInterlacedWarn;
 };

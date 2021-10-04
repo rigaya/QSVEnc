@@ -45,7 +45,7 @@ RGY_ERR RGYFilterDelogo::delogoPlane(RGYFrameInfo* pOutputPlane, const ProcessDa
     RGYWorkSize local(32, 4);
     RGYWorkSize global(pDelego->width, pDelego->height);
     const char* kernel_name = (prm->delogo.mode == DELOGO_MODE_ADD) ? "kernel_logo_add" : "kernel_delogo";
-    auto err = m_delogo->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_delogo.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
         (cl_mem)pDelego->pDevLogo->frame.ptr[0], pDelego->pDevLogo->frame.pitch[0],
         pDelego->i_start, pDelego->j_start, pDelego->width, pDelego->height, (float)pDelego->depth * fade, target_y ? 1 : 0);
@@ -454,11 +454,7 @@ RGY_ERR RGYFilterDelogo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[pDelogoParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pDelogoParam->frameOut.csp]);
-        m_delogo = m_cl->buildResource(_T("RGY_FILTER_DELOGO_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_delogo) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DELOGO_CL(m_delogo)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_delogo.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DELOGO_CL"), _T("EXE_DATA"), options.c_str())));
 
         auto logo_name = char_to_string(CP_THREAD_ACP, logoData.header.name, CODE_PAGE_SJIS);;
         setFilterInfo(_T("delgo:") + char_to_tstring(logo_name) + pDelogoParam->print());
@@ -497,6 +493,10 @@ RGY_ERR RGYFilterDelogo::run_filter(const RGYFrameInfo* pInputFrame, RGYFrameInf
         return RGY_ERR_INVALID_PARAM;
     }
 
+    if (!m_delogo.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DELOGO_CL(m_delogo)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     if (pInputFrame->ptr[0] == nullptr) {
         //自動フェードや自動NRを使用しない場合、入力フレームがないということはない
         *pOutputFrameNum = 0;
@@ -519,7 +519,7 @@ RGY_ERR RGYFilterDelogo::run_filter(const RGYFrameInfo* pInputFrame, RGYFrameInf
 void RGYFilterDelogo::close() {
     m_LogoFilePath.clear();
     m_sLogoDataList.clear();
-    m_delogo.reset();
+    m_delogo.clear();
     m_cl.reset();
     m_nLogoIdx = -1;
 }

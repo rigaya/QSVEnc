@@ -121,7 +121,7 @@ protected:
     int m_dropCount;
     int m_ref;
     int m_target;
-    std::unique_ptr<RGYOpenCLProgram> m_mpdecimate;
+    RGYOpenCLProgramAsync m_mpdecimate;
     RGYFilterMpdecimateCache m_cache;
     RGYOpenCLEvent m_eventDiff;
     RGYOpenCLEvent m_eventTransfer;

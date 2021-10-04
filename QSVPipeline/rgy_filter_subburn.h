@@ -111,7 +111,7 @@ protected:
 
     RGYQueueSPSP<AVPacket> m_queueSubPackets; //入力から得られた字幕パケット
 
-    std::unique_ptr<RGYOpenCLProgram> m_subburn;
+    RGYOpenCLProgramAsync m_subburn;
 };
 
 #endif //#if ENABLE_AVSW_READER

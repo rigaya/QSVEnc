@@ -112,7 +112,7 @@ protected:
     int m_frameLastDropped;
     int64_t m_threSceneChange;
     int64_t m_threDuplicate;
-    std::unique_ptr<RGYOpenCLProgram> m_decimate;
+    RGYOpenCLProgramAsync m_decimate;
     RGYFilterDecimateCache m_cache;
     RGYOpenCLEvent m_eventDiff;
     RGYOpenCLEvent m_eventTransfer;

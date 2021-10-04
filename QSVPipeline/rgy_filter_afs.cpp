@@ -53,7 +53,6 @@ T absdiff(T a, T b) {
 afsSourceCache::afsSourceCache(shared_ptr<RGYOpenCLContext> cl) :
     m_cl(cl),
     m_sourceArray(),
-    m_sepFields(),
     m_csp(RGY_CSP_NA),
     m_nFramesInput(0) {
 }
@@ -86,6 +85,11 @@ RGY_ERR afsSourceCache::alloc(const RGYFrameInfo& frameInfo) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR afsSourceCache::build(const RGYFrameInfo& frameInfo) {
+    m_cl->requestCSPCopy(frameInfo, frameInfo);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR afsSourceCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent &event) {
     const int iframe = m_nFramesInput++;
     auto pDstFrame = get(iframe);
@@ -105,25 +109,20 @@ RGY_ERR afsSourceCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &que
 
         ret = m_cl->copyPlane(&pDstFrame->y->frame, &frameY, nullptr, queue_main, &event);
         if (ret != RGY_ERR_NONE) return ret;
-        if (!m_sepFields) {
-            const int pixel_size = RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8 ? 2 : 1;
-            const auto options = strsprintf("-D TypeIn=%s -D TypeOut=%s -D IMAGE_SRC=0 -D IMAGE_DST=0 -D in_bit_depth=%d -D out_bit_depth=%d",
-                pixel_size >= 2 ? "ushort" : "uchar", pixel_size >= 2 ? "ushort" : "uchar",
-                RGY_CSP_BIT_DEPTH[pInputFrame->csp], RGY_CSP_BIT_DEPTH[pInputFrame->csp]);
-            m_sepFields = m_cl->buildResource(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str());
-            if (!m_sepFields) {
-                return RGY_ERR_OPENCL_CRUSH;
-            }
+
+        auto copyProgram = m_cl->getCspCopyProgram(pDstFrame->cb[0]->frame, frameU);
+        if (!copyProgram) {
+            return RGY_ERR_OPENCL_CRUSH;
         }
         RGYWorkSize local(32, 8);
         RGYWorkSize globalCb(pDstFrame->cb[0]->frame.width, pDstFrame->cb[0]->frame.height);
-        ret = m_sepFields->kernel("kernel_separate_fields").config(queue_main, local, globalCb, wait_events, &event).launch(
+        ret = copyProgram->kernel("kernel_separate_fields").config(queue_main, local, globalCb, wait_events, &event).launch(
             pDstFrame->cb[0]->mem(0), pDstFrame->cb[1]->mem(0), pDstFrame->cb[0]->frame.pitch[0],
             (cl_mem)frameU.ptr[0], frameU.pitch[0], pDstFrame->cb[0]->frame.width, pDstFrame->cb[0]->frame.height);
         if (ret != RGY_ERR_NONE) return ret;
 
         RGYWorkSize globalCr(pDstFrame->cr[0]->frame.width, pDstFrame->cr[0]->frame.height);
-        ret = m_sepFields->kernel("kernel_separate_fields").config(queue_main, local, globalCr, wait_events, &event).launch(
+        ret = copyProgram->kernel("kernel_separate_fields").config(queue_main, local, globalCr, wait_events, &event).launch(
             pDstFrame->cr[0]->mem(0), pDstFrame->cr[1]->mem(0), pDstFrame->cr[0]->frame.pitch[0],
             (cl_mem)frameV.ptr[0], frameV.pitch[0], pDstFrame->cr[0]->frame.width, pDstFrame->cr[0]->frame.height);
         if (ret != RGY_ERR_NONE) return ret;
@@ -145,16 +144,21 @@ RGY_ERR afsSourceCache::copyFrame(RGYCLFrame *pOut, int srcFrame, RGYOpenCLQueue
         auto ret = m_cl->copyPlane(&frameY, &pSrc->y->frame, nullptr, queue, event);
         if (ret != RGY_ERR_NONE) return ret;
 
+        auto copyProgram = m_cl->getCspCopyProgram(pOut->frame, pSrc->cb[0]->frame);
+        if (!copyProgram) {
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+
         RGYWorkSize local(32, 8);
         RGYWorkSize globalCb(pSrc->cb[0]->frame.width, pSrc->cb[0]->frame.height);
-        ret = m_sepFields->kernel("kernel_merge_fields").config(queue, local, globalCb, event).launch(
+        ret = copyProgram->kernel("kernel_merge_fields").config(queue, local, globalCb, event).launch(
             pOut->mem(1), pOut->frame.pitch[1],
             pSrc->cb[0]->mem(0), pSrc->cb[1]->mem(0), pSrc->cb[0]->frame.pitch[0],
             pSrc->cb[0]->frame.width, pSrc->cb[0]->frame.height);
         if (ret != RGY_ERR_NONE) return ret;
 
         RGYWorkSize globalCr(pSrc->cr[0]->frame.width, pSrc->cr[0]->frame.height);
-        ret = m_sepFields->kernel("kernel_merge_fields").config(queue, local, globalCr, event).launch(
+        ret = copyProgram->kernel("kernel_merge_fields").config(queue, local, globalCr, event).launch(
             pOut->mem(2), pOut->frame.pitch[2],
             pSrc->cr[0]->mem(0), pSrc->cr[1]->mem(0), pSrc->cr[0]->frame.pitch[0],
             pSrc->cr[0]->frame.width, pSrc->cr[0]->frame.height);
@@ -175,7 +179,6 @@ void afsSourceCache::clear() {
             cache->clear();
         }
     }
-    m_sepFields.reset();
     m_nFramesInput = 0;
 }
 
@@ -273,6 +276,10 @@ RGY_ERR afsStripeCache::alloc(const RGYFrameInfo& frameInfo) {
         }
     }
     return RGY_ERR_NONE;
+}
+
+bool afsStripeCache::kernelBuildSuccess() {
+    return m_analyzeMapFilter.get() != nullptr;
 }
 
 AFS_STRIPE_DATA *afsStripeCache::filter(int iframe, int analyze, RGYOpenCLQueue &queue, RGY_ERR *pErr) {
@@ -621,6 +628,11 @@ RGY_ERR RGYFilterAfs::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated source buffer: %dx%d, pitch %d, %s.\n"),
         m_source.get(0)->frameinfo().width, m_source.get(0)->frameinfo().height, m_source.get(0)->frameinfo().pitch[0], RGY_CSP_NAMES[m_source.get(0)->frameinfo().csp]);
+
+    if (RGY_ERR_NONE != (err = m_source.build(pAfsParam->frameOut))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to build kernel for source cache: %s.\n"), get_err_mes(err));
+        return err;
+    }
 
     if (RGY_ERR_NONE != (err = build_analyze(pAfsParam->frameOut.csp, pAfsParam->afs.tb_order))) {
         return err;
@@ -999,6 +1011,22 @@ RGY_ERR RGYFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         return sts;
     } else if (pInputFrame->ptr[0] != nullptr) {
         //エラーチェック
+        if (!m_analyze.get()) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_AFS_ANALYZE_CL\n"));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+        if (!m_mergeScan.get()) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_AFS_MERGE_CL\n"));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+        if (!m_stripe.kernelBuildSuccess()) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_AFS_FILTER_CL\n"));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+        if (!m_synthesize.get()) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_AFS_SYNTHESIZE_CL\n"));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
         const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
         if (memcpyKind != RGYCLMemcpyD2D) {
             AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));

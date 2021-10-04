@@ -92,7 +92,7 @@ RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlan
             return err;
         }
     }
-    auto err = m_decimate->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_decimate.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)p0->ptr[0], p0->pitch[0],
         (cl_mem)p1->ptr[0], p1->pitch[0],
         width, height,
@@ -304,42 +304,39 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
 
     if (!m_param
         || std::dynamic_pointer_cast<RGYFilterParamDecimate>(m_param)->decimate != prm->decimate) {
-
         auto options = strsprintf("-D Type=%s -D Type2=%s -D Type4=%s"
             " -D DTB_X=%d -D DTB_Y=%d -D DECIMATE_BLOCK_MAX=%d",
-            RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort"  : "uchar",
+            RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort2" : "uchar2",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             DECIMATE_K2_THREAD_BLOCK_X,
             DECIMATE_K2_THREAD_BLOCK_Y,
             DECIMATE_BLOCK_MAX);
-        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
-        if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
-            if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
-                || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
-                options += " -cl-std=CL2.0 ";
-            }
-            //subgroup情報を得るため一度コンパイル
-            m_decimate = m_cl->buildResource(_T("RGY_FILTER_DECIMATE_CL"), _T("EXE_DATA"), options.c_str());
-            if (!m_decimate) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DECIMATE_CL\n"));
-                return RGY_ERR_OPENCL_CRUSH;
-            }
+        m_decimate.set(std::async(std::launch::async, [cl = m_cl, options]() {
+            auto build_options = options;
+            const auto sub_group_ext_avail = cl->platform()->checkSubGroupSupport(cl->queue().devid());
+            if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
+                if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
+                    || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
+                    build_options += " -cl-std=CL2.0 ";
+                }
+                //subgroup情報を得るため一度コンパイル
+                auto decimate = cl->buildResource(_T("RGY_FILTER_DECIMATE_CL"), _T("EXE_DATA"), build_options.c_str());
+                if (!decimate) {
+                    return std::unique_ptr<RGYOpenCLProgram>();
+                }
 
-            auto getKernelSubGroupInfo = clGetKernelSubGroupInfo != nullptr ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
-            RGYWorkSize local(DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y);
-            size_t subgroup_size = 0;
-            auto err = getKernelSubGroupInfo(m_decimate->kernel("kernel_block_diff2_4").get()->get(), m_cl->platform()->dev(0).id(), CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
-                sizeof(local.w[0]) * 2, &local.w[0], sizeof(subgroup_size), &subgroup_size, nullptr);
-            if (err == 0) {
-                options += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
+                auto getKernelSubGroupInfo = clGetKernelSubGroupInfo != nullptr ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
+                RGYWorkSize local(DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y);
+                size_t subgroup_size = 0;
+                auto err = getKernelSubGroupInfo(decimate->kernel("kernel_block_diff2_4").get()->get(), cl->platform()->dev(0).id(), CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
+                    sizeof(local.w[0]) * 2, &local.w[0], sizeof(subgroup_size), &subgroup_size, nullptr);
+                if (err == 0) {
+                    build_options += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
+                }
             }
-        }
-        m_decimate = m_cl->buildResource(_T("RGY_FILTER_DECIMATE_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_decimate) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DECIMATE_CL(m_decimate)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+            return cl->buildResource(_T("RGY_FILTER_DECIMATE_CL"), _T("EXE_DATA"), build_options.c_str());
+        }));
 
         m_cache.init(prm->decimate.cycle + 1, prm->decimate.blockX, prm->decimate.blockY, m_pLog);
 
@@ -505,6 +502,10 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         ppOutputFrames[0] = nullptr;
         return sts;
     }
+    if (!m_decimate.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DECIMATE_CL(m_decimate)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
 
     const int inframeId = m_cache.inframe();
     *pOutputFrameNum = 0;
@@ -542,7 +543,7 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 }
 
 void RGYFilterDecimate::close() {
-    m_decimate.reset();
+    m_decimate.clear();
     m_eventDiff.reset();
     m_eventTransfer.reset();
     m_fpLog.reset();

@@ -54,7 +54,7 @@ protected:
     virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
-    unique_ptr<RGYOpenCLProgram> m_knn;
+    RGYOpenCLProgramAsync m_knn;
 };
 
 #endif //__RGY_FILTER_DENOISE_KNN_H__

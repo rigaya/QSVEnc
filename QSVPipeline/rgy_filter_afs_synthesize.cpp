@@ -36,17 +36,13 @@
 #define SYN_BLOCK_LOOP_Y  (1) //work groupのy方向反復数
 
 RGY_ERR RGYFilterAfs::build_synthesize(const RGY_CSP csp, const int mode) {
-    if (!m_synthesize) {
+    if (!m_synthesize.get()) {
         const auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D mode=%d -D SYN_BLOCK_INT_X=%d -D SYN_BLOCK_Y=%d -D SYN_BLOCK_LOOP_Y=%d",
             RGY_CSP_BIT_DEPTH[csp],
             RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0,
             mode,
             SYN_BLOCK_INT_X, SYN_BLOCK_Y, SYN_BLOCK_LOOP_Y);
-        m_synthesize = m_cl->buildResource(_T("RGY_FILTER_AFS_SYNTHESIZE_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_synthesize) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_SYNTHESIZE_CL\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_synthesize.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_SYNTHESIZE_CL"), _T("EXE_DATA"), options.c_str())));
     }
     return RGY_ERR_NONE;
 }

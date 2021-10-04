@@ -63,6 +63,7 @@
 #include <vector>
 #include <array>
 #include <memory>
+#include <future>
 #include <typeindex>
 #include "rgy_err.h"
 #include "rgy_def.h"
@@ -909,6 +910,42 @@ protected:
     std::vector<std::unique_ptr<RGYOpenCLKernel>> m_kernels;
 };
 
+class RGYOpenCLProgramAsync {
+public:
+    RGYOpenCLProgramAsync() : m_future(), m_program() {};
+    RGYOpenCLProgramAsync(std::future<std::unique_ptr<RGYOpenCLProgram>>& future) : m_future(std::move(future)) {};
+    virtual ~RGYOpenCLProgramAsync() { clear(); }
+    void set(std::future<std::unique_ptr<RGYOpenCLProgram>> future) {
+        m_future = std::move(future);
+    }
+    RGYOpenCLProgram *get() {
+        if (m_future.valid()) {
+            m_program = m_future.get();
+        }
+        return m_program.get();
+    }
+    void wait() const {
+        return m_future.wait();
+    }
+    template <class Rep, class Period>
+    std::future_status wait_for(const std::chrono::duration<Rep, Period>& rel_time) const {
+        return m_future.wait_for(rel_time);
+    }
+    template <class Rep, class Period>
+    std::future_status wait_until(const std::chrono::duration<Rep, Period>& abs_time) const {
+        return m_future.wait_until(abs_time);
+    }
+    void clear() {
+        if (m_future.valid()) {
+            m_program = m_future.get();
+        }
+        m_program.reset();
+    }
+protected:
+    std::future<std::unique_ptr<RGYOpenCLProgram>> m_future;
+    std::unique_ptr<RGYOpenCLProgram> m_program;
+};
+
 struct RGYOpenCLQueueInfo {
     cl_context context;
     cl_device_id devid;
@@ -972,20 +1009,24 @@ public:
     RGYOpenCLQueue& queue(int idx=0) { return m_queue[idx]; };
     RGYOpenCLPlatform *platform() const { return m_platform.get(); };
 
-    unique_ptr<RGYOpenCLProgram> build(const std::string& source, const char *options);
-    unique_ptr<RGYOpenCLProgram> buildFile(const tstring &filename, const char *options);
-    unique_ptr<RGYOpenCLProgram> buildResource(const TCHAR *name, const TCHAR *type, const char *options);
+    std::unique_ptr<RGYOpenCLProgram> build(const std::string& source, const char *options);
+    std::unique_ptr<RGYOpenCLProgram> buildFile(const tstring filename, const std::string options);
+    std::unique_ptr<RGYOpenCLProgram> buildResource(const tstring name, const tstring type, const std::string options);
+
+    std::future<std::unique_ptr<RGYOpenCLProgram>> buildAsync(const std::string& source, const char *options);
+    std::future<std::unique_ptr<RGYOpenCLProgram>> buildFileAsync(const tstring &filename, const char *options);
+    std::future<std::unique_ptr<RGYOpenCLProgram>> buildResourceAsync(const TCHAR *name, const TCHAR *type, const char *options);
 
     RGYOpenCLQueue createQueue(const cl_device_id devid, const cl_command_queue_properties properties);
-    unique_ptr<RGYCLBuf> createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, void *host_ptr = nullptr);
-    unique_ptr<RGYCLBuf> copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, cl_command_queue queue = 0);
+    std::unique_ptr<RGYCLBuf> createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, void *host_ptr = nullptr);
+    std::unique_ptr<RGYCLBuf> copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, cl_command_queue queue = 0);
     RGY_ERR createImageFromPlane(cl_mem& image, cl_mem buffer, int bit_depth, int channel_order, bool normalized, int pitch, int width, int height, cl_mem_flags flags);
-    unique_ptr<RGYCLFrame> createImageFromFrameBuffer(const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags);
-    unique_ptr<RGYCLFrame> createFrameBuffer(const int width, const int height, const RGY_CSP csp, const int bitdepth, const cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrame> createFrameBuffer(const RGYFrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrameInterop> createFrameFromD3D11Surface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
-    unique_ptr<RGYCLFrameInterop> createFrameFromVASurface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    std::unique_ptr<RGYCLFrame> createImageFromFrameBuffer(const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags);
+    std::unique_ptr<RGYCLFrame> createFrameBuffer(const int width, const int height, const RGY_CSP csp, const int bitdepth, const cl_mem_flags flags = CL_MEM_READ_WRITE);
+    std::unique_ptr<RGYCLFrame> createFrameBuffer(const RGYFrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    std::unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    std::unique_ptr<RGYCLFrameInterop> createFrameFromD3D11Surface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    std::unique_ptr<RGYCLFrameInterop> createFrameFromVASurface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src);
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop);
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
@@ -1010,20 +1051,17 @@ public:
     RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue);
     RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR setBuf(const void *pattern, size_t pattern_size, size_t fill_size_byte, RGYCLBuf *buf, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
+    std::string cspCopyOptions(const RGYFrameInfo& dst, const RGYFrameInfo& src) const;
+    void requestCSPCopy(const RGYFrameInfo& dst, const RGYFrameInfo& src);
+    RGYOpenCLProgram *getCspCopyProgram(const RGYFrameInfo& dst, const RGYFrameInfo& src);
 protected:
-    unique_ptr<RGYOpenCLProgram> build(const char *data, const size_t size, const char *options);
+    std::unique_ptr<RGYOpenCLProgram> buildProgram(std::string datacopy, const std::string options);
 
     shared_ptr<RGYOpenCLPlatform> m_platform;
     unique_context m_context;
     std::vector<RGYOpenCLQueue> m_queue;
-    shared_ptr<RGYLog> m_log;
-    unique_ptr<RGYOpenCLProgram> m_copyI2B;
-    unique_ptr<RGYOpenCLProgram> m_copyB2I;
-    unique_ptr<RGYOpenCLProgram> m_copyB2B;
-    unique_ptr<RGYOpenCLProgram> m_copyI2I;
-    unique_ptr<RGYOpenCLProgram> m_setB;
-    unique_ptr<RGYOpenCLProgram> m_setI;
-    std::map<std::string, unique_ptr<RGYOpenCLProgram>> m_copyNV12;
+    std::shared_ptr<RGYLog> m_log;
+    std::unordered_map<std::string, RGYOpenCLProgramAsync> m_copy;
 };
 
 class RGYOpenCL {

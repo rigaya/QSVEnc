@@ -54,7 +54,7 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
         switch (pResizeParam->interp) {
         case RGY_VPP_RESIZE_BILINEAR:
             kernel_name = "kernel_resize_texture_bilinear";
-            err = m_resize->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+            err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
                 (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
                 (cl_mem)pInputPlane->ptr[0],
                 ratioX, ratioY
@@ -64,7 +64,7 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
         case RGY_VPP_RESIZE_LANCZOS3:
         case RGY_VPP_RESIZE_LANCZOS4:
             kernel_name = "kernel_resize_lanczos";
-            err = m_resize->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+            err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
                 (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
                 (cl_mem)pInputPlane->ptr[0],
                 ratioX, ratioY, ratioDistX, ratioDistY);
@@ -75,7 +75,7 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
         case RGY_VPP_RESIZE_AUTO:
         default:
             kernel_name = "kernel_resize_spline";
-            err = m_resize->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+            err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
                 (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
                 (cl_mem)pInputPlane->ptr[0],
                 ratioX, ratioY, ratioDistX, ratioDistY,
@@ -137,7 +137,7 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     for (int i = 0; i < 4; i++) {
         pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
-    if (!m_resize
+    if (!m_resize.get()
         || std::dynamic_pointer_cast<RGYFilterParamResize>(m_param)->interp != pResizeParam->interp) {
         int radius = 1;
         switch (pResizeParam->interp) {
@@ -161,11 +161,7 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
             radius);
-        m_resize = m_cl->buildResource(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_resize) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_RESIZE_CL(resize)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_resize.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str())));
         if (!m_weightSpline
             && (   pResizeParam->interp == RGY_VPP_RESIZE_SPLINE16
                 || pResizeParam->interp == RGY_VPP_RESIZE_SPLINE36
@@ -226,6 +222,12 @@ RGY_ERR RGYFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         ppOutputFrames[0] = &pOutFrame->frame;
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+
+    if (!m_resize.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_RESIZE_CL(resize)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
+
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
@@ -259,7 +261,7 @@ RGY_ERR RGYFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 
 void RGYFilterResize::close() {
     m_frameBuf.clear();
-    m_resize.reset();
+    m_resize.clear();
     m_weightSpline.reset();
     m_cl.reset();
     m_bInterlacedWarn = false;

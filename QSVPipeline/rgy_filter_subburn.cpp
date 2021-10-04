@@ -151,7 +151,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pFrame,
     }
 
     const char *kernel_name = "kernel_subburn";
-    auto err = m_subburn->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_subburn.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         planeFrameY.ptr[0],
         planeFrameU.ptr[0],
         planeFrameV.ptr[0],
@@ -733,11 +733,7 @@ RGY_ERR RGYFilterSubburn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
             RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0
         );
 
-        m_subburn = m_cl->buildResource(_T("RGY_FILTER_SUBBURN_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_subburn) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SUBBURN_CL(m_subburn)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_subburn.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_SUBBURN_CL"), _T("EXE_DATA"), options.c_str())));
 
         //字幕読み込み・デコーダの初期化
         if ((sts = initAVCodec(prm)) != RGY_ERR_NONE) {
@@ -905,6 +901,10 @@ RGY_ERR RGYFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_subburn.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SUBBURN_CL(m_subburn)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -922,7 +922,7 @@ RGY_ERR RGYFilterSubburn::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void RGYFilterSubburn::close() {
-    m_subburn.reset();
+    m_subburn.clear();
     m_assTrack.reset();
     m_assRenderer.reset();
     m_assLibrary.reset();

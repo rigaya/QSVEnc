@@ -58,7 +58,7 @@ RGY_ERR RGYFilterSmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInf
         const float W = 5.0f;
         const float thresh_a = (prm->smooth.threshold + W) / (2.0f * W);
         const float thresh_b = (W * W - prm->smooth.threshold * prm->smooth.threshold) / (2.0f * W);
-        auto err = m_smooth->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_smooth.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0],
             (cl_mem)pInputPlane->ptr[0],
             pOutputPlane->pitch[0],
@@ -101,7 +101,7 @@ RGY_ERR RGYFilterSmooth::setQP(RGYCLFrame *targetQPTable, const int qp, RGYOpenC
     const char *kernel_name = "kernel_smooth_set_qp";
     RGYWorkSize local(64, 4);
     RGYWorkSize global(divCeil(targetQPTable->frame.width, 4), targetQPTable->frame.height);
-    auto err = m_smooth->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_smooth.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)targetQPTable->frame.ptr[0], targetQPTable->frame.pitch[0], targetQPTable->frame.width, targetQPTable->frame.height, qp);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s (setQP(%s)): %s.\n"),
@@ -155,26 +155,6 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
 
     if (!m_param
         || std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param)->smooth != prm->smooth) {
-        auto gen_options = [&](bool enable_fp16, bool cl_fp16_support) {
-            const auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d"
-                " -D usefp16Dct=%d -D usefp16IO=%d -D TypeQP=uchar -D TypeQP4=uchar4"
-                " -D SPP_BLOCK_SIZE_X=%d"
-                " -D SPP_THREAD_BLOCK_X=%d -D SPP_THREAD_BLOCK_Y=%d"
-                " -D SPP_SHARED_BLOCK_NUM_X=%d -D SPP_SHARED_BLOCK_NUM_Y=%d"
-                " -D SPP_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER=%d",
-                RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
-                RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
-                (enable_fp16) ? 1 : 0,
-                (cl_fp16_support) ? 1 : 0,
-                SPP_BLOCK_SIZE_X,
-                SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y,
-                SPP_SHARED_BLOCK_NUM_X, SPP_SHARED_BLOCK_NUM_Y,
-                SPP_LOOP_COUNT_BLOCK,
-                DCT_IDCT_BARRIER
-            );
-            return options;
-        };
-
         if (prm->smooth.prec != VPP_FP_PRECISION_FP32) {
             if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
                 AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, using fp32 mode.\n"));
@@ -182,40 +162,64 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             }
         }
         const bool cl_fp16_support = prm->smooth.prec != VPP_FP_PRECISION_FP32;
-        bool usefp16Dct = cl_fp16_support && prm->smooth.prec == VPP_FP_PRECISION_FP16
+        const bool usefp16DctFirst = cl_fp16_support && prm->smooth.prec == VPP_FP_PRECISION_FP16
             && prm->smooth.quality > 0; // quality = 0の時には適用してはならない
-        m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(usefp16Dct, cl_fp16_support).c_str());
-        if (!m_smooth) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
-        RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
-        RGYWorkSize global(divCeil(prm->frameOut.width, SPP_BLOCK_SIZE_X), divCeil(prm->frameOut.height, SPP_LOOP_COUNT_BLOCK));
-        const auto subGroupSize = m_smooth->kernel("kernel_smooth").config(m_cl->queue(), local, global).subGroupSize();
-        if (subGroupSize == 0) {
-            if (usefp16Dct) {
-                AddMessage(RGY_LOG_WARN, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
-                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
+        m_smooth.set(std::async(std::launch::async,
+            [cl = m_cl, log = m_pLog, cl_fp16_support, usefp16DctOrg = usefp16DctFirst, frameOut = prm->frameOut]() {
+
+            auto gen_options = [&](bool enable_fp16, bool cl_fp16_support) {
+                const auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d"
+                    " -D usefp16Dct=%d -D usefp16IO=%d -D TypeQP=uchar -D TypeQP4=uchar4"
+                    " -D SPP_BLOCK_SIZE_X=%d"
+                    " -D SPP_THREAD_BLOCK_X=%d -D SPP_THREAD_BLOCK_Y=%d"
+                    " -D SPP_SHARED_BLOCK_NUM_X=%d -D SPP_SHARED_BLOCK_NUM_Y=%d"
+                    " -D SPP_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER=%d",
+                    RGY_CSP_BIT_DEPTH[frameOut.csp] > 8 ? "ushort" : "uchar",
+                    RGY_CSP_BIT_DEPTH[frameOut.csp],
+                    (enable_fp16) ? 1 : 0,
+                    (cl_fp16_support) ? 1 : 0,
+                    SPP_BLOCK_SIZE_X,
+                    SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y,
+                    SPP_SHARED_BLOCK_NUM_X, SPP_SHARED_BLOCK_NUM_Y,
+                    SPP_LOOP_COUNT_BLOCK,
+                    DCT_IDCT_BARRIER
+                );
+                return options;
+            };
+            auto usefp16Dct = usefp16DctOrg;
+            auto smooth = cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(usefp16Dct, cl_fp16_support).c_str());
+            if (!smooth) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
+                return std::unique_ptr<RGYOpenCLProgram>();
             }
-        } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
-            AddMessage(RGY_LOG_ERROR, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
-            return RGY_ERR_UNSUPPORTED;
-        } else if (subGroupSize < 8) {
-            AddMessage(RGY_LOG_ERROR, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
-            return RGY_ERR_UNSUPPORTED;
-        } else if (subGroupSize < 32) {
-            if (usefp16Dct) {
-                AddMessage(RGY_LOG_WARN, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
-                prm->smooth.prec = VPP_FP_PRECISION_AUTO;
+            RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
+            RGYWorkSize global(divCeil(frameOut.width, SPP_BLOCK_SIZE_X), divCeil(frameOut.height, SPP_LOOP_COUNT_BLOCK));
+            const auto subGroupSize = smooth->kernel("kernel_smooth").config(cl->queue(), local, global).subGroupSize();
+            if (subGroupSize == 0) {
+                if (usefp16Dct) {
+                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
+                    usefp16Dct = false;
+                }
+            } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
+                return std::unique_ptr<RGYOpenCLProgram>();
+            } else if (subGroupSize < 8) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
+                return std::unique_ptr<RGYOpenCLProgram>();
+            } else if (subGroupSize < 32) {
+                if (usefp16Dct) {
+                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
+                    usefp16Dct = false;
+                }
             }
-        }
-        if (usefp16Dct && prm->smooth.prec != VPP_FP_PRECISION_FP16) {
-            m_smooth = m_cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
-            if (!m_smooth) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
-                return RGY_ERR_OPENCL_CRUSH;
+            if (usefp16DctOrg && !usefp16Dct) {
+                smooth = cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
+                if (!smooth) {
+                    return std::unique_ptr<RGYOpenCLProgram>();
+                }
             }
-        }
+            return smooth;
+        }));
 
         sts = AllocFrameBuf(prm->frameOut, 1);
         if (sts != RGY_ERR_NONE) {
@@ -258,6 +262,10 @@ RGY_ERR RGYFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_smooth.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -360,7 +368,7 @@ RGY_ERR RGYFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 
 void RGYFilterSmooth::close() {
     m_frameBuf.clear();
-    m_smooth.reset();
+    m_smooth.clear();
     m_qp.reset();
     m_qpSrc.reset();
     m_qpSrcB.reset();

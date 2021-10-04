@@ -2502,6 +2502,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                     inputCrop = nullptr;
                 }
                 param->baseFps = m_encFps;
+                param->frameIn.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
                 param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
                 param->bOutOverwrite = false;
                 auto sts = filterCrop->init(param, m_pQSVLog);
@@ -2526,6 +2527,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 param->frameOut = inputFrame;
                 param->frameOut.csp = getEncoderCsp(inputParam);
                 param->frameOut.bitdepth = getEncoderBitdepth(inputParam);
+                param->frameIn.mem_type = RGY_MEM_TYPE_GPU;
                 param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
                 param->baseFps = m_encFps;
                 param->bOutOverwrite = false;

@@ -1426,7 +1426,7 @@ RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFram
     const char *kernel_name = "kernel_colorspace";
     RGYWorkSize local(COLORSPACE_BLOCK_X, COLORSPACE_BLOCK_Y);
     RGYWorkSize global(pOutputFrame->width, pOutputFrame->height);
-    auto err = m_colorspace->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_colorspace.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)planeOutputY.ptr[0], (cl_mem)planeOutputU.ptr[0], (cl_mem)planeOutputV.ptr[0],
         planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
         (cl_mem)planeInputY.ptr[0], (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0],
@@ -1567,11 +1567,7 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_colorspace = m_cl->build(genKernelCode(), options.c_str());
-        if (!m_colorspace) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_COLORSPACE_CL(m_colorspace)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_colorspace.set(std::move(m_cl->buildAsync(genKernelCode(), options.c_str())));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);
@@ -1617,6 +1613,10 @@ RGY_ERR RGYFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     }
     ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
 
+    if (!m_colorspace.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_COLORSPACE_CL(m_colorspace)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -1653,7 +1653,7 @@ void RGYFilterColorspace::close() {
     m_frameBuf.clear();
     opCtrl.reset();
     crop.reset();
-    m_colorspace.reset();
+    m_colorspace.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
     AddMessage(RGY_LOG_DEBUG, _T("closed colorspace filter.\n"));

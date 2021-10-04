@@ -41,7 +41,7 @@
 static const char* AFS_ANALYZE_KERNEL_NAME = "kernel_afs_analyze_12";
 
 RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
-    if (!m_analyze) {
+    if (!m_analyze.get()) {
         auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D TB_ORDER=%d -D BLOCK_INT_X=%d -D BLOCK_Y=%d -D BLOCK_LOOP_Y=%d",
             RGY_CSP_BIT_DEPTH[csp],
             RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0,
@@ -49,30 +49,31 @@ RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
             BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y);
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
-            if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
-                || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
-                options += " -cl-std=CL2.0 ";
-            }
-            //subgroup情報を得るため一度コンパイル
-            m_analyze = m_cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str());
-            if (!m_analyze) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_ANALYZE_CL\n"));
-                return RGY_ERR_OPENCL_CRUSH;
-            }
+            m_analyze.set(std::move(std::async(std::launch::async, [cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {
+                auto buildoptions = options;
+                if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
+                    || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
+                    buildoptions += " -cl-std=CL2.0 ";
+                }
+                //subgroup情報を得るため一度コンパイル
+                auto analyze = cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), buildoptions.c_str());
+                if (!analyze) {
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load RGY_FILTER_AFS_ANALYZE_CL\n"));
+                    return std::unique_ptr<RGYOpenCLProgram>();
+                }
 
-            auto getKernelSubGroupInfo = clGetKernelSubGroupInfo != nullptr ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
-            RGYWorkSize local(BLOCK_INT_X, BLOCK_Y);
-            size_t subgroup_size = 0;
-            auto err = getKernelSubGroupInfo(m_analyze->kernel(AFS_ANALYZE_KERNEL_NAME).get()->get(), m_cl->platform()->dev(0).id(), CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
-                sizeof(local.w[0]) * 2, &local.w[0], sizeof(subgroup_size), &subgroup_size, nullptr);
-            if (err == 0) {
-                options += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
-            }
-        }
-        m_analyze = m_cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_analyze) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_AFS_ANALYZE_CL\n"));
-            return RGY_ERR_OPENCL_CRUSH;
+                auto getKernelSubGroupInfo = clGetKernelSubGroupInfo != nullptr ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
+                RGYWorkSize local(BLOCK_INT_X, BLOCK_Y);
+                size_t subgroup_size = 0;
+                auto err = getKernelSubGroupInfo(analyze->kernel(AFS_ANALYZE_KERNEL_NAME).get()->get(), cl->platform()->dev(0).id(), CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR,
+                    sizeof(local.w[0]) * 2, &local.w[0], sizeof(subgroup_size), &subgroup_size, nullptr);
+                if (err == 0) {
+                    buildoptions += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
+                }
+                return cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), buildoptions.c_str());
+            })));
+        } else {
+            m_analyze.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str())));
         }
     }
     return RGY_ERR_NONE;

@@ -37,14 +37,10 @@
 #define FILTER_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
 
 RGY_ERR afsStripeCache::init(std::shared_ptr<RGYLog> log) {
-    if (!m_analyzeMapFilter) {
+    if (!m_analyzeMapFilter.get()) {
         const auto options = strsprintf("-D FILTER_BLOCK_INT_X=%d -D FILTER_BLOCK_Y=%d",
             FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
-        m_analyzeMapFilter = m_cl->buildResource(_T("RGY_FILTER_AFS_FILTER_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_analyzeMapFilter) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load RGY_FILTER_AFS_FILTER_CL\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_analyzeMapFilter.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_FILTER_CL"), _T("EXE_DATA"), options.c_str())));
     }
     return RGY_ERR_NONE;
 }
@@ -59,7 +55,7 @@ RGY_ERR afsStripeCache::map_filter(AFS_STRIPE_DATA *dst, AFS_STRIPE_DATA *sp, RG
     }
     RGYWorkSize local(FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
     RGYWorkSize global(sp->map->frame.width, sp->map->frame.height);
-    RGY_ERR err = m_analyzeMapFilter->kernel("kernel_afs_analyze_map_filter").config(queue, local, global).launch(
+    RGY_ERR err = m_analyzeMapFilter.get()->kernel("kernel_afs_analyze_map_filter").config(queue, local, global).launch(
         (cl_mem)dst->map->frame.ptr[0], (cl_mem)sp->map->frame.ptr[0],
         divCeil<int>(sp->map->frame.width, sizeof(uint32_t)), divCeil<int>(sp->map->frame.pitch[0], sizeof(uint32_t)), sp->map->frame.height);
     return err;

@@ -40,7 +40,7 @@ RGY_ERR RGYFilterPad::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *
         const char *kernel_name = "kernel_pad";
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        auto err = m_pad->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_pad.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
             pad.left, pad.top, pad_color);
@@ -123,14 +123,10 @@ RGY_ERR RGYFilterPad::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (!m_pad
+    if (!m_pad.get()
         || std::dynamic_pointer_cast<RGYFilterParamPad>(m_param)->pad != prm->pad) {
         const auto options = strsprintf("-D Type=%s", RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar");
-        m_pad = m_cl->buildResource(_T("RGY_FILTER_PAD_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_pad) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_PAD_CL(m_pad)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_pad.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_PAD_CL"), _T("EXE_DATA"), options.c_str())));
     }
 
     sts = AllocFrameBuf(prm->frameOut, 1);
@@ -171,6 +167,10 @@ RGY_ERR RGYFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         return RGY_ERR_UNSUPPORTED;
     }
 
+    if (!m_pad.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_PAD_CL(m_pad)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     sts = procFrame(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at denoiseFrame (%s): %s.\n"),
@@ -183,7 +183,7 @@ RGY_ERR RGYFilterPad::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
 
 void RGYFilterPad::close() {
     m_frameBuf.clear();
-    m_pad.reset();
+    m_pad.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

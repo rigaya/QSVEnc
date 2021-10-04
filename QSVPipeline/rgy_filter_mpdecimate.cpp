@@ -47,7 +47,7 @@ RGY_ERR RGYFilterMpdecimate::procPlane(const RGYFrameInfo *p0, const RGYFrameInf
     const char *kernel_name = "kernel_mpdecimate_block_diff";
     RGYWorkSize local(MPDECIMATE_BLOCK_X, MPDECIMATE_BLOCK_Y);
     RGYWorkSize global(divCeil(width, 8), height);
-    auto err = m_mpdecimate->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_mpdecimate.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)p0->ptr[0], p0->pitch[0],
         (cl_mem)p1->ptr[0], p1->pitch[0],
         width, height,
@@ -232,11 +232,7 @@ RGY_ERR RGYFilterMpdecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort"  : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             MPDECIMATE_BLOCK_X, MPDECIMATE_BLOCK_Y);
-        m_mpdecimate = m_cl->buildResource(_T("RGY_FILTER_MPDECIMATE_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_mpdecimate) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_MPDECIMATE_CL(m_mpdecimate)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_mpdecimate.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_MPDECIMATE_CL"), _T("EXE_DATA"), options.c_str())));
 
         m_cache.init(2, m_pLog);
 
@@ -321,6 +317,10 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         ppOutputFrames[0] = nullptr;
         return sts;
     }
+    if (!m_mpdecimate.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_MPDECIMATE_CL(m_mpdecimate)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     if (m_ref < 0) {
         m_ref = m_cache.inframe();
         auto err = m_cache.add(pInputFrame, queue_main, m_eventDiff);
@@ -373,7 +373,7 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 }
 
 void RGYFilterMpdecimate::close() {
-    m_mpdecimate.reset();
+    m_mpdecimate.clear();
     m_eventDiff.reset();
     m_eventTransfer.reset();
     m_fpLog.reset();

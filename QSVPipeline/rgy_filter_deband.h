@@ -60,8 +60,9 @@ protected:
     virtual RGY_ERR procFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
-    std::unique_ptr<RGYOpenCLProgram> m_deband;
-    std::unique_ptr<RGYOpenCLProgram> m_debandGenRand;
+    bool m_randInitialized;
+    RGYOpenCLProgramAsync m_deband;
+    RGYOpenCLProgramAsync m_debandGenRand;
     std::unique_ptr<void, clrngStreamDeleter> m_rngStream;
     std::unique_ptr<RGYCLBuf> m_randStreamBuf;
     std::unique_ptr<RGYCLFrame> m_randBufY;

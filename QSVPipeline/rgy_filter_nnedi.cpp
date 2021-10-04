@@ -709,6 +709,7 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
                 }
             }
 #endif
+            m_cl->requestCSPCopy(prm->frameOut, prm->frameIn);
         }
     }
     if (prm->nnedi.isbob()) {

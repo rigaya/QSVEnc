@@ -96,6 +96,7 @@ public:
     ~afsSourceCache();
 
     RGY_ERR alloc(const RGYFrameInfo& frameInfo);
+    RGY_ERR build(const RGYFrameInfo& frameInfo);
 
     RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent& event);
     RGY_ERR copyFrame(RGYCLFrame *pOut, int srcFrame, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
@@ -110,7 +111,6 @@ public:
 protected:
     shared_ptr<RGYOpenCLContext> m_cl;
     std::array<afsSourceCacheFrame, AFS_SOURCE_CACHE_NUM> m_sourceArray;
-    unique_ptr<RGYOpenCLProgram> m_sepFields;
     RGY_CSP m_csp;
     int m_nFramesInput;
 };
@@ -156,6 +156,7 @@ public:
     ~afsStripeCache();
 
     RGY_ERR init(std::shared_ptr<RGYLog> log);
+    bool kernelBuildSuccess();
 
     void clearcache(int iframe);
     void initcache(int iframe);
@@ -177,7 +178,7 @@ protected:
     }
     shared_ptr<RGYOpenCLContext> m_cl;
     std::array<AFS_STRIPE_DATA, AFS_STRIPE_CACHE_NUM + 1> m_stripeArray;
-    unique_ptr<RGYOpenCLProgram> m_analyzeMapFilter;
+    RGYOpenCLProgramAsync m_analyzeMapFilter;
 };
 
 class afsStatus {
@@ -290,7 +291,7 @@ protected:
     afsStreamStatus m_streamsts;
     unique_ptr<RGYCLBuf> m_count_motion;
     unique_ptr<FILE, fp_deleter> m_fpTimecode;
-    unique_ptr<RGYOpenCLProgram> m_mergeScan;
-    unique_ptr<RGYOpenCLProgram> m_analyze;
-    unique_ptr<RGYOpenCLProgram> m_synthesize;
+    RGYOpenCLProgramAsync m_mergeScan;
+    RGYOpenCLProgramAsync m_analyze;
+    RGYOpenCLProgramAsync m_synthesize;
 };

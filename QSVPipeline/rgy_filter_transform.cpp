@@ -51,7 +51,7 @@ RGY_ERR RGYFilterTransform::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
         RGYWorkSize global(
             divCeil(pOutputPlane->width,  TRASNPOSE_TILE_DIM / TRASNPOSE_BLOCK_DIM),
             divCeil(pOutputPlane->height, TRASNPOSE_TILE_DIM / TRASNPOSE_BLOCK_DIM));
-        auto err = m_transform->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_transform.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0],
             pOutputPlane->pitch[0],
             pOutputPlane->width,  // = srcHeight
@@ -67,7 +67,7 @@ RGY_ERR RGYFilterTransform::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
         const char *kernel_name = "kernel_flip_plane";
         RGYWorkSize local(FLIP_BLOCK_DIM, FLIP_BLOCK_DIM);
         RGYWorkSize global(divCeil(pOutputPlane->width, 4), pOutputPlane->height);
-        auto err = m_transform->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_transform.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0],
             pOutputPlane->pitch[0],
             pOutputPlane->width,
@@ -123,7 +123,7 @@ RGY_ERR RGYFilterTransform::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         prm->frameOut.width = prm->frameIn.height;
         prm->frameOut.height = prm->frameIn.width;
     }
-    if (!m_transform
+    if (!m_transform.get()
         || std::dynamic_pointer_cast<RGYFilterParamTransform>(m_param)->trans != prm->trans) {
         const auto options = strsprintf("-D TypePixel=%s -D TypePixel4=%s -D flipX=%d -D flipY=%d -D FLIP_BLOCK_DIM=%d -D TRASNPOSE_BLOCK_DIM=%d -D TRASNPOSE_TILE_DIM=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort"  : "uchar",
@@ -131,11 +131,7 @@ RGY_ERR RGYFilterTransform::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
             prm->trans.flipX ? 1 : 0,
             prm->trans.flipY ? 1 : 0,
             FLIP_BLOCK_DIM, TRASNPOSE_BLOCK_DIM, TRASNPOSE_TILE_DIM);
-        m_transform = m_cl->buildResource(_T("RGY_FILTER_TRANSFORM_CL"), _T("EXE_DATA"), options.c_str());
-        if (!m_transform) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_TRANSFORM_CL(m_transform)\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
+        m_transform.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_TRANSFORM_CL"), _T("EXE_DATA"), options.c_str())));
     }
 
     sts = AllocFrameBuf(prm->frameOut, 1);
@@ -168,6 +164,10 @@ RGY_ERR RGYFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_transform.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_TRANSFORM_CL(m_transform)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -190,7 +190,7 @@ RGY_ERR RGYFilterTransform::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 
 void RGYFilterTransform::close() {
     m_frameBuf.clear();
-    m_transform.reset();
+    m_transform.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

@@ -76,7 +76,7 @@ RGY_ERR RGYFilterDeband::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInf
             divCeil(pOutputPlane->width,  DEBAND_BLOCK_LOOP_X_OUTER * DEBAND_BLOCK_LOOP_X_INNER),
             divCeil(pOutputPlane->height, DEBAND_BLOCK_LOOP_Y_OUTER * DEBAND_BLOCK_LOOP_Y_INNER));
 
-        auto err = m_deband->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_deband.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pRandPlane->ptr[0], pRandPlane->pitch[0],
             (cl_mem)pInputPlane->ptr[0],
@@ -135,7 +135,6 @@ RGY_ERR RGYFilterDeband::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInf
 }
 
 RGY_ERR RGYFilterDeband::initRand() {
-
     RGYWorkSize local(DEBAND_BLOCK_THREAD_X, DEBAND_BLOCK_THREAD_Y, 1);
     RGYWorkSize global(divCeil(m_randBufY->frame.width, 2), divCeil(m_randBufY->frame.height, 2 * GEN_RAND_BLOCK_LOOP_Y), 1);
     RGYWorkSize groups = global.groups(local);
@@ -162,7 +161,7 @@ RGY_ERR RGYFilterDeband::genRand(RGYOpenCLQueue &queue, const std::vector<RGYOpe
     RGYWorkSize local(DEBAND_BLOCK_THREAD_X, DEBAND_BLOCK_THREAD_Y, 1);
     RGYWorkSize global(divCeil(m_randBufY->frame.width, 2), divCeil(m_randBufY->frame.height, 2 * GEN_RAND_BLOCK_LOOP_Y), 1);
 
-    auto err = m_debandGenRand->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_debandGenRand.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)m_randBufY->frame.ptr[0], (cl_mem)m_randBufUV->frame.ptr[0],
         m_randBufY->frame.pitch[0], m_randBufUV->frame.pitch[0],
         m_randBufY->frame.width, m_randBufY->frame.height,
@@ -175,7 +174,7 @@ RGY_ERR RGYFilterDeband::genRand(RGYOpenCLQueue &queue, const std::vector<RGYOpe
     return RGY_ERR_NONE;
 }
 
-RGYFilterDeband::RGYFilterDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_deband(), m_debandGenRand(), m_rngStream(), m_randStreamBuf(), m_randBufY(), m_randBufUV() {
+RGYFilterDeband::RGYFilterDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_randInitialized(false), m_deband(), m_debandGenRand(), m_rngStream(), m_randStreamBuf(), m_randBufY(), m_randBufUV() {
     m_name = _T("deband");
 }
 
@@ -248,8 +247,8 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         AddMessage(RGY_LOG_WARN, _T("mode must be in range of 0 - 2.\n"));
         prm->deband.sample = clamp(prm->deband.sample, 0, 2);
     }
-    if (!m_deband
-        || !m_debandGenRand
+    if (!m_deband.get()
+        || !m_debandGenRand.get()
         || std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param)->deband != prm->deband) {
 
         {
@@ -260,11 +259,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 prm->deband.sample,
                 prm->deband.blurFirst,
                 DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER);
-            m_deband = m_cl->buildResource(_T("RGY_FILTER_DEBAND_CL"), _T("EXE_DATA"), options.c_str());
-            if (!m_deband) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DEBAND_CL(m_deband)\n"));
-                return RGY_ERR_OPENCL_CRUSH;
-            }
+            m_deband.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DEBAND_CL"), _T("EXE_DATA"), options.c_str())));
         }
 
         {
@@ -319,11 +314,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             const auto options = strsprintf("-D CLRNG_SINGLE_PRECISION -D yuv420=%d -D gen_rand_block_loop_y=%d",
                 RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp] == RGY_CHROMAFMT_YUV420,
                 GEN_RAND_BLOCK_LOOP_Y);
-            m_debandGenRand = m_cl->build(deband_gen_rand_source, options.c_str());
-            if (!m_debandGenRand) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DEBAND_GEN_RAND_CL(m_debandGenRand)\n"));
-                return RGY_ERR_OPENCL_CRUSH;
-            }
+            m_debandGenRand.set(std::move(m_cl->buildAsync(deband_gen_rand_source, options.c_str())));
         }
         {
             RGYFrameInfo rndBufFrame = prm->frameOut;
@@ -338,15 +329,6 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate buffer for Random numbers\n"));
                 return RGY_ERR_OPENCL_CRUSH;
             }
-        }
-        auto err = initRand();
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to initilaize Random generator: %s\n"), get_err_mes(err));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
-        if ((err = genRand(m_cl->queue(), {}, nullptr)) != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to generate Random numbers: %s\n"), get_err_mes(err));
-            return RGY_ERR_OPENCL_CRUSH;
         }
     }
 
@@ -380,6 +362,14 @@ RGY_ERR RGYFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_deband.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DEBAND_CL(m_deband)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
+    if (!m_debandGenRand.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DEBAND_GEN_RAND_CL(m_debandGenRand)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -388,6 +378,18 @@ RGY_ERR RGYFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
+    }
+    if (!m_randInitialized) {
+        auto err = initRand();
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to initilaize Random generator: %s\n"), get_err_mes(err));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+        if ((err = genRand(m_cl->queue(), {}, nullptr)) != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to generate Random numbers: %s\n"), get_err_mes(err));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+        m_randInitialized = true;
     }
 
     sts = procFrame(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
@@ -406,8 +408,8 @@ void RGYFilterDeband::close() {
     m_randBufY.reset();
     m_rngStream.reset();
     m_randStreamBuf.reset();
-    m_debandGenRand.reset();
-    m_deband.reset();
+    m_debandGenRand.clear();
+    m_deband.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }
