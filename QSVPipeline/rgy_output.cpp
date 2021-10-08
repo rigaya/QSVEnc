@@ -115,8 +115,8 @@ RGYOutputRaw::RGYOutputRaw() :
 #if ENABLE_AVSW_READER
     m_pBsfc(),
 #endif //#if ENABLE_AVSW_READER
-    parse_nal_h264(nullptr),
-    parse_nal_hevc(nullptr) {
+    parse_nal_h264(get_parse_nal_unit_h264_func()),
+    parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
