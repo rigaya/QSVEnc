@@ -1567,7 +1567,7 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_colorspace.set(std::move(m_cl->buildAsync(genKernelCode(), options.c_str())));
+        m_colorspace.set(m_cl->buildAsync(genKernelCode(), options.c_str()));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);

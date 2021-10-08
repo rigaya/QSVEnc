@@ -40,7 +40,7 @@ RGY_ERR afsStripeCache::init(std::shared_ptr<RGYLog> log) {
     if (!m_analyzeMapFilter.get()) {
         const auto options = strsprintf("-D FILTER_BLOCK_INT_X=%d -D FILTER_BLOCK_Y=%d",
             FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
-        m_analyzeMapFilter.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_FILTER_CL"), _T("EXE_DATA"), options.c_str())));
+        m_analyzeMapFilter.set(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_FILTER_CL"), _T("EXE_DATA"), options.c_str()));
     }
     return RGY_ERR_NONE;
 }

@@ -178,7 +178,7 @@ RGY_ERR RGYFilterDenoisePmd::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp],
             pPmdParam->pmd.useExp ? 1 : 0);
-        m_pmd.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_PMD_CL"), _T("EXE_DATA"), options.c_str())));
+        m_pmd.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_PMD_CL"), _T("EXE_DATA"), options.c_str()));
     }
     if (!m_gauss) {
         m_gauss = m_cl->createFrameBuffer(pPmdParam->frameOut, CL_MEM_READ_WRITE);

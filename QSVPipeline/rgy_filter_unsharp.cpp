@@ -147,7 +147,7 @@ RGY_ERR RGYFilterUnsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             prm->unsharp.radius,
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_unsharp.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_UNSHARP_CL"), _T("EXE_DATA"), options.c_str())));
+        m_unsharp.set(m_cl->buildResourceAsync(_T("RGY_FILTER_UNSHARP_CL"), _T("EXE_DATA"), options.c_str()));
         float sigmaY = 0.8f + 0.3f * prm->unsharp.radius;
         float sigmaUV = (RGY_CSP_CHROMA_FORMAT[prm->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? 0.8f + 0.3f * (prm->unsharp.radius * 0.5f + 0.25f) : sigmaY;
 

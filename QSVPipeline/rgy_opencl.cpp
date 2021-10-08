@@ -1762,7 +1762,7 @@ std::string RGYOpenCLContext::cspCopyOptions(const RGYFrameInfo& dst, const RGYF
 void RGYOpenCLContext::requestCSPCopy(const RGYFrameInfo& dst, const RGYFrameInfo& src) {
     const auto options = cspCopyOptions(dst, src);
     if (m_copy.count(options) == 0) {
-        m_copy[options].set(std::move(buildResourceAsync(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str())));
+        m_copy[options].set(buildResourceAsync(_T("RGY_FILTER_CL"), _T("EXE_DATA"), options.c_str()));
     }
 }
 

@@ -245,7 +245,7 @@ RGY_ERR RGYFilterWarpsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
             prm->warpsharp.type == 0 ? 6 : 2,
             WARPSHARP_BLOCK_X, WARPSHARP_BLOCK_Y);
-        m_warpsharp.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_WARPSHARP_CL"), _T("EXE_DATA"), options.c_str())));
+        m_warpsharp.set(m_cl->buildResourceAsync(_T("RGY_FILTER_WARPSHARP_CL"), _T("EXE_DATA"), options.c_str()));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);

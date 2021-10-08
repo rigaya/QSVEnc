@@ -454,7 +454,7 @@ RGY_ERR RGYFilterDelogo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[pDelogoParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pDelogoParam->frameOut.csp]);
-        m_delogo.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DELOGO_CL"), _T("EXE_DATA"), options.c_str())));
+        m_delogo.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DELOGO_CL"), _T("EXE_DATA"), options.c_str()));
 
         auto logo_name = char_to_string(CP_THREAD_ACP, logoData.header.name, CODE_PAGE_SJIS);;
         setFilterInfo(_T("delgo:") + char_to_tstring(logo_name) + pDelogoParam->print());

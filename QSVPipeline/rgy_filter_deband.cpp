@@ -259,7 +259,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 prm->deband.sample,
                 prm->deband.blurFirst,
                 DEBAND_BLOCK_LOOP_X_INNER, DEBAND_BLOCK_LOOP_Y_INNER, DEBAND_BLOCK_LOOP_X_OUTER, DEBAND_BLOCK_LOOP_Y_OUTER);
-            m_deband.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DEBAND_CL"), _T("EXE_DATA"), options.c_str())));
+            m_deband.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DEBAND_CL"), _T("EXE_DATA"), options.c_str()));
         }
 
         {
@@ -314,7 +314,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             const auto options = strsprintf("-D CLRNG_SINGLE_PRECISION -D yuv420=%d -D gen_rand_block_loop_y=%d",
                 RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp] == RGY_CHROMAFMT_YUV420,
                 GEN_RAND_BLOCK_LOOP_Y);
-            m_debandGenRand.set(std::move(m_cl->buildAsync(deband_gen_rand_source, options.c_str())));
+            m_debandGenRand.set(m_cl->buildAsync(deband_gen_rand_source, options.c_str()));
         }
         {
             RGYFrameInfo rndBufFrame = prm->frameOut;

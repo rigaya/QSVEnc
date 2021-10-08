@@ -733,7 +733,7 @@ RGY_ERR RGYFilterSubburn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
             RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0
         );
 
-        m_subburn.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_SUBBURN_CL"), _T("EXE_DATA"), options.c_str())));
+        m_subburn.set(m_cl->buildResourceAsync(_T("RGY_FILTER_SUBBURN_CL"), _T("EXE_DATA"), options.c_str()));
 
         //字幕読み込み・デコーダの初期化
         if ((sts = initAVCodec(prm)) != RGY_ERR_NONE) {

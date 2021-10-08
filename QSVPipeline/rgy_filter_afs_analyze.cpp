@@ -49,7 +49,7 @@ RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
             BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y);
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
-            m_analyze.set(std::move(std::async(std::launch::async, [cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {
+            m_analyze.set(std::async(std::launch::async, [cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {
                 auto buildoptions = options;
                 if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                     || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
@@ -71,9 +71,9 @@ RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
                     buildoptions += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
                 }
                 return cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), buildoptions.c_str());
-            })));
+            }));
         } else {
-            m_analyze.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str())));
+            m_analyze.set(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str()));
         }
     }
     return RGY_ERR_NONE;

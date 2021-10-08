@@ -125,7 +125,7 @@ RGY_ERR RGYFilterDenoiseKnn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp],
             pKnnParam->knn.radius);
-        m_knn.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_KNN_CL"), _T("EXE_DATA"), options.c_str())));
+        m_knn.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_KNN_CL"), _T("EXE_DATA"), options.c_str()));
     }
 
     auto err = AllocFrameBuf(pKnnParam->frameOut, 1);

@@ -44,7 +44,7 @@ RGY_ERR RGYFilterAfs::build_merge_scan() {
             MERGE_BLOCK_INT_X, MERGE_BLOCK_Y, MERGE_BLOCK_LOOP_Y);
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
-            m_mergeScan.set(std::move(std::async(std::launch::async, [cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {
+            m_mergeScan.set(std::async(std::launch::async, [cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {
                 auto buildoptions = options;
                 if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                     || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
@@ -66,9 +66,9 @@ RGY_ERR RGYFilterAfs::build_merge_scan() {
                     buildoptions += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
                 }
                 return cl->buildResource(_T("RGY_FILTER_AFS_MERGE_CL"), _T("EXE_DATA"), buildoptions.c_str());
-            })));
+            }));
         } else {
-            m_mergeScan.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_MERGE_CL"), _T("EXE_DATA"), options.c_str())));
+            m_mergeScan.set(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_MERGE_CL"), _T("EXE_DATA"), options.c_str()));
         }
     }
     return RGY_ERR_NONE;

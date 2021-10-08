@@ -232,7 +232,7 @@ RGY_ERR RGYFilterMpdecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort"  : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             MPDECIMATE_BLOCK_X, MPDECIMATE_BLOCK_Y);
-        m_mpdecimate.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_MPDECIMATE_CL"), _T("EXE_DATA"), options.c_str())));
+        m_mpdecimate.set(m_cl->buildResourceAsync(_T("RGY_FILTER_MPDECIMATE_CL"), _T("EXE_DATA"), options.c_str()));
 
         m_cache.init(2, m_pLog);
 

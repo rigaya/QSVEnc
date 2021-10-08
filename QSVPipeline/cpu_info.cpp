@@ -189,7 +189,7 @@ bool getCPUHybridMasks(cpu_info_t *info) {
 #endif
     const auto hThread = GetCurrentThread();
     size_t maskOriginal = 0;
-    for (uint32_t ith = 0; ith < threadCount; ith++) {
+    for (int ith = 0; ith < threadCount; ith++) {
         const auto maskTarget = (size_t)1u << ith;
         auto maskPrev = SetThreadAffinityMask(hThread, maskTarget);
         if (maskOriginal == 0) {

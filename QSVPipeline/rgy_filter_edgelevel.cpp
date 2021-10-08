@@ -117,7 +117,7 @@ RGY_ERR RGYFilterEdgelevel::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_edgelevel.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_EDGELEVEL_CL"), _T("EXE_DATA"), options.c_str())));
+        m_edgelevel.set(m_cl->buildResourceAsync(_T("RGY_FILTER_EDGELEVEL_CL"), _T("EXE_DATA"), options.c_str()));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);

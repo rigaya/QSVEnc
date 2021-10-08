@@ -131,7 +131,7 @@ RGY_ERR RGYFilterTransform::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
             prm->trans.flipX ? 1 : 0,
             prm->trans.flipY ? 1 : 0,
             FLIP_BLOCK_DIM, TRASNPOSE_BLOCK_DIM, TRASNPOSE_TILE_DIM);
-        m_transform.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_TRANSFORM_CL"), _T("EXE_DATA"), options.c_str())));
+        m_transform.set(m_cl->buildResourceAsync(_T("RGY_FILTER_TRANSFORM_CL"), _T("EXE_DATA"), options.c_str()));
     }
 
     sts = AllocFrameBuf(prm->frameOut, 1);
