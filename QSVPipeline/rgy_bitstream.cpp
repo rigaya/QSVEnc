@@ -326,7 +326,7 @@ std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
             if (next < 0) break;
 
             i += next;
@@ -356,7 +356,7 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
             if (next < 0) break;
 
             i += next;

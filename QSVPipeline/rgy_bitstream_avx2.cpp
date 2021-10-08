@@ -45,36 +45,29 @@ static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file
 #define CTZ64(x) __builtin_ctzll(x)
 #endif
 
-static inline __m256i _mm256_vsrli256_epi8(const __m256i& v, const int shift) {
-    static const uint8_t alignas(16) shufbtable[] = {
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+static inline __m256i _mm256_srlv256_epi8(const __m256i& v, const int shift) {
+    static const uint8_t alignas(64) shufbtable[] = {
+        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
     };
-    __m256i mask = _mm256_broadcastsi128_si256(_mm_loadu_si128((const __m128i*)(shufbtable + shift + 32)));
-    __m256i a0 = _mm256_shuffle_epi8(v, mask);
-    __m256i a1 = _mm256_castsi128_si256(_mm_shuffle_epi8(_mm256_extracti128_si256(v, 1), _mm_loadu_si128((const __m128i*)(shufbtable + shift + 16))));
-    __m256i a2 = _mm256_permute2x128_si256(a1, a1, 0x80);
-    return _mm256_or_si256(a0, a2);
+    const __m256i mask = _mm256_broadcastsi128_si256(_mm_loadu_si128((const __m128i*)(shufbtable + shift + 16)));
+    const __m256i a0 = _mm256_shuffle_epi8(v, mask);
+    const __m256i a1 = _mm256_shuffle_epi8(_mm256_permute2x128_si256(v, v, 0x80 + 0x01), _mm256_loadu_si256((const __m256i*)(shufbtable + shift)));
+    return _mm256_or_si256(a0, a1);
 }
 
 __m256i _mm256_loadu_si256_no_page_overread(const uint8_t *const data, const uint8_t *const data_fin) {
     const size_t page_size = 4096;
     const size_t load_size = 32; // 256bit
     const auto size = data_fin - data;
-    size_t datapageaddress = ((size_t)data & (page_size - 1));
+    const size_t datapageaddress = ((size_t)data & (page_size - 1));
     if (datapageaddress > (page_size - load_size) && (datapageaddress + size) <= page_size) { //ページ境界をまたぐ可能性があるか?
         const auto loadaddress = (const uint8_t *const)((size_t)data & (~(load_size-1)));
-        const int shift = data - loadaddress; // ロードを引き戻す量
+        const int shift = (int)(data - loadaddress); // ロードを引き戻す量
         __m256i y0 = _mm256_loadu_si256((const __m256i*)loadaddress);
-        return _mm256_vsrli256_epi8(y0, shift);
+        return _mm256_srlv256_epi8(y0, shift);
     } else {
         return _mm256_loadu_si256((const __m256i*)data);
     }
@@ -150,7 +143,7 @@ std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t * data, size_t size
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            int64_t next = memmem_avx2((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            const int64_t next = memmem_avx2((const void *)(data + i), size - i, (const void *)header, sizeof(header));
             if (next < 0) break;
 
             i += next;
@@ -181,7 +174,7 @@ std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size)
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            int64_t next = memmem_avx2((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            const int64_t next = memmem_avx2((const void *)(data + i), size - i, (const void *)header, sizeof(header));
             if (next < 0) break;
 
             i += next;
