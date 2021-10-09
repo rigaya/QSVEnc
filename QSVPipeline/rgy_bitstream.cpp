@@ -311,7 +311,7 @@ void HEVCHDRSei::to_nal(std::vector<uint8_t>& data) const {
 
 static inline int64_t memmem_c(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
     const uint8_t *data = (const uint8_t *)data_;
-    for (int64_t i = 0; i < data_size - target_size; i++) {
+    for (int64_t i = 0; i <= data_size - target_size; i++) {
         if (memcmp(data + i, target_, target_size) == 0) {
             return i;
         }
@@ -321,7 +321,7 @@ static inline int64_t memmem_c(const void *data_, const int64_t data_size, const
 
 std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
-    if (size > 3) {
+    if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
@@ -351,7 +351,7 @@ std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
 
 std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
-    if (size > 3) {
+    if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;

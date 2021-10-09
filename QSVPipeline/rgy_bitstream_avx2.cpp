@@ -138,7 +138,7 @@ static inline int64_t memmem_avx512(const void *data_, const int64_t data_size, 
 
 std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t * data, size_t size) {
     std::vector<nal_info> nal_list;
-    if (size > 3) {
+    if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
@@ -169,7 +169,7 @@ std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t * data, size_t size
 
 std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
-    if (size > 3) {
+    if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
