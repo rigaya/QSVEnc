@@ -45,7 +45,7 @@ static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file
 #define CTZ64(x) __builtin_ctzll(x)
 #endif
 
-static inline __m256i _mm256_srlv256_epi8(const __m256i& v, const int shift) {
+static RGY_FORCEINLINE __m256i _mm256_srlv256_epi8(const __m256i& v, const int shift) {
     alignas(64) static const uint8_t shufbtable[] = {
         0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -58,7 +58,7 @@ static inline __m256i _mm256_srlv256_epi8(const __m256i& v, const int shift) {
     return _mm256_or_si256(a0, a1);
 }
 
-__m256i _mm256_loadu_si256_no_page_overread(const uint8_t *const data, const uint8_t *const data_fin) {
+static RGY_FORCEINLINE __m256i _mm256_loadu_si256_no_page_overread(const uint8_t *const data, const uint8_t *const data_fin) {
     const size_t page_size = 4096;
     const size_t load_size = 32; // 256bit
     const auto size = data_fin - data;
@@ -73,7 +73,7 @@ __m256i _mm256_loadu_si256_no_page_overread(const uint8_t *const data, const uin
     }
 }
 
-static inline int64_t memmem_avx2(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
+static RGY_FORCEINLINE int64_t memmem_avx2(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
     uint8_t *data = (uint8_t *)data_;
     const uint8_t *target = (const uint8_t *)target_;
     const __m256i target_first = _mm256_set1_epi8(target[0]);
