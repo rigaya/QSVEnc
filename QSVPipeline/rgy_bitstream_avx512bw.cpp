@@ -27,12 +27,12 @@
 
 #include "rgy_bitstream.h"
 
-#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+#if defined(_M_X64) || defined(__x86_64)
 
 #include <immintrin.h>
 
-#if _MSC_VER >= 1800 && !defined(__AVX__) && !defined(_DEBUG)
-static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file.");
+#if _MSC_VER >= 1800 && !defined(__AVX512BW__) && !defined(_DEBUG)
+static_assert(false, "do not forget to set /arch:AVX512 for this file.");
 #endif
 
 #define CLEAR_LEFT_BIT(x) ((x) & ((x) - 1))
@@ -45,48 +45,34 @@ static_assert(false, "do not forget to set /arch:AVX or /arch:AVX2 for this file
 #define CTZ64(x) __builtin_ctzll(x)
 #endif
 
-static RGY_FORCEINLINE __m256i _mm256_srlv256_epi8(const __m256i& v, const int shift) {
-    alignas(64) static const uint8_t shufbtable[] = {
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
-        0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+static RGY_FORCEINLINE __m512i _mm512_loadu_si512_exact(const uint8_t *const data, const uint8_t *const data_fin) {
+    alignas(64) static const uint8_t inctable[] = {
+         0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+        32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63
     };
-    const __m256i mask = _mm256_broadcastsi128_si256(_mm_loadu_si128((const __m128i*)(shufbtable + shift + 16)));
-    const __m256i a0 = _mm256_shuffle_epi8(v, mask);
-    const __m256i a1 = _mm256_shuffle_epi8(_mm256_permute2x128_si256(v, v, 0x80 + 0x01), _mm256_loadu_si256((const __m256i*)(shufbtable + shift)));
-    return _mm256_or_si256(a0, a1);
+    const __m512i inc = _mm512_load_si512((const __m512i*)inctable);
+    const uint8_t remain_size = (uint8_t)std::min<decltype(data_fin - data)>(data_fin - data, 64);
+    const auto mask = _mm512_cmplt_epi8_mask(inc, _mm512_set1_epi8(remain_size));
+    return _mm512_maskz_loadu_epi8(mask, (const __m512i*)data);
 }
 
-static RGY_FORCEINLINE __m256i _mm256_loadu_si256_no_page_overread(const uint8_t *const data, const uint8_t *const data_fin) {
-    const size_t page_size = 4096;
-    const size_t load_size = 32; // 256bit
-    const auto size = data_fin - data;
-    const size_t datapageaddress = ((size_t)data & (page_size - 1));
-    if (datapageaddress > (page_size - load_size) && (datapageaddress + size) <= page_size) { //ページ境界をまたぐ可能性があるか?
-        const auto loadaddress = (const uint8_t *const)((size_t)data & (~(load_size-1)));
-        const int shift = (int)(data - loadaddress); // ロードを引き戻す量
-        __m256i y0 = _mm256_loadu_si256((const __m256i*)loadaddress);
-        return _mm256_srlv256_epi8(y0, shift);
-    } else {
-        return _mm256_loadu_si256((const __m256i*)data);
-    }
-}
-
-static RGY_FORCEINLINE int64_t memmem_avx2(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
+static RGY_FORCEINLINE int64_t memmem_avx512(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
     uint8_t *data = (uint8_t *)data_;
     const uint8_t *target = (const uint8_t *)target_;
-    const __m256i target_first = _mm256_set1_epi8(target[0]);
-    const __m256i target_last = _mm256_set1_epi8(target[target_size - 1]);
-    const int64_t fin = data_size - target_size + 1 - 32; // r1の32byteロードが安全に行える限界
+    const __m512i target_first = _mm512_set1_epi8(target[0]);
+    const __m512i target_last = _mm512_set1_epi8(target[target_size - 1]);
+    const int64_t fin = data_size - target_size + 1 - 64; // r1の64byteロードが安全に行える限界
+
     //まずは単純なロードで行えるところまでループ
     int64_t i = 0;
-    for (; i < fin; i += 32) {
-        const __m256i r0 = _mm256_loadu_si256((const __m256i*)(data + i));
-        const __m256i r1 = _mm256_loadu_si256((const __m256i*)(data + i + target_size - 1));
-        uint32_t mask = _mm256_movemask_epi8(_mm256_and_si256(_mm256_cmpeq_epi8(r0, target_first), _mm256_cmpeq_epi8(r1, target_last)));
+    for (; i < fin; i += 64) {
+        const __m512i r0 = _mm512_loadu_si512((const __m512i*)(data + i));
+        const __m512i r1 = _mm512_loadu_si512((const __m512i*)(data + i + target_size - 1));
+        uint64_t mask = _mm512_mask_cmpeq_epi8_mask(_mm512_cmpeq_epi8_mask(r0, target_first), r1, target_last);
         while (mask != 0) {
-            const auto j = CTZ32(mask);
+            const int64_t j = (int64_t)CTZ64(mask);
             if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
                 const auto ret = i + j;
                 return ret;
@@ -94,17 +80,17 @@ static RGY_FORCEINLINE int64_t memmem_avx2(const void *data_, const int64_t data
             mask = CLEAR_LEFT_BIT(mask);
         }
     }
-    //確保されているメモリ領域のページ境界を考慮しながらロード
+    //ロード範囲をmaskで考慮しながらロード
     uint8_t *data_fin = data + data_size;
-    for (; i < data_size; i += 32) {
-        const __m256i r0 = _mm256_loadu_si256_no_page_overread(data + i, data_fin);
-        const __m256i r1 = _mm256_loadu_si256_no_page_overread(data + i + target_size - 1, data_fin);
-        uint32_t mask = _mm256_movemask_epi8(_mm256_and_si256(_mm256_cmpeq_epi8(r0, target_first), _mm256_cmpeq_epi8(r1, target_last)));
+    for (; i < data_size; i += 64) {
+        const __m512i r0 = _mm512_loadu_si512_exact(data + i, data_fin);
+        const __m512i r1 = _mm512_loadu_si512_exact(data + i + target_size - 1, data_fin);
+        uint64_t mask = _mm512_mask_cmpeq_epi8_mask(_mm512_cmpeq_epi8_mask(r0, target_first), r1, target_last);
         while (mask != 0) {
-            const auto j = CTZ32(mask);
+            const int64_t j = (int64_t)CTZ64(mask);
             if (memcmp(data + i + j + 1, target + 1, target_size - 2) == 0) {
                 const auto ret = i + j;
-                return ret < data_size ? ret : -1;
+                return ret;
             }
             mask = CLEAR_LEFT_BIT(mask);
         }
@@ -112,14 +98,14 @@ static RGY_FORCEINLINE int64_t memmem_avx2(const void *data_, const int64_t data
     return -1;
 }
 
-std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t * data, size_t size) {
+std::vector<nal_info> parse_nal_unit_h264_avx512bw(const uint8_t * data, size_t size) {
     std::vector<nal_info> nal_list;
     if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            const int64_t next = memmem_avx2((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            const int64_t next = memmem_avx512((const void *)(data + i), size - i, (const void *)header, sizeof(header));
             if (next < 0) break;
 
             i += next;
@@ -139,18 +125,17 @@ std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t * data, size_t size
             nal_list.push_back(nal_start);
         }
     }
-    _mm256_zeroupper();
     return nal_list;
 }
 
-std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size) {
+std::vector<nal_info> parse_nal_unit_hevc_avx512bw(const uint8_t *data, size_t size) {
     std::vector<nal_info> nal_list;
     if (size >= 3) {
         static const uint8_t header[3] = { 0, 0, 1 };
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            const int64_t next = memmem_avx2((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            const int64_t next = memmem_avx512((const void *)(data + i), size - i, (const void *)header, sizeof(header));
             if (next < 0) break;
 
             i += next;
@@ -170,7 +155,6 @@ std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size)
             nal_list.push_back(nal_start);
         }
     }
-    _mm256_zeroupper();
     return nal_list;
 }
 

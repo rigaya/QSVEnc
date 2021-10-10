@@ -31,6 +31,9 @@ $(PROGRAM): .depend $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS)
 %_avx2.cpp.o: %_avx2.cpp .depend
 	$(CXX) -c $(CXXFLAGS) -mavx2 -o $@ $<
 
+%_avx512bw.cpp.o: %_avx512bw.cpp .depend
+	$(CXX) -c $(CXXFLAGS) -mavx512f -mavx512bw -o $@ $<
+
 %.cpp.o: %.cpp .depend
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
 

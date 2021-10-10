@@ -124,6 +124,8 @@ std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size);
 std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size);
 std::vector<nal_info> parse_nal_unit_h264_avx2(const uint8_t *data, size_t size);
 std::vector<nal_info> parse_nal_unit_hevc_avx2(const uint8_t *data, size_t size);
+std::vector<nal_info> parse_nal_unit_h264_avx512bw(const uint8_t *data, size_t size);
+std::vector<nal_info> parse_nal_unit_hevc_avx512bw(const uint8_t *data, size_t size);
 
 decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func();
 decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func();
