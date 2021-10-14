@@ -814,7 +814,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     //m_CodingOption.VuiNalHrdParameters = MFX_CODINGOPTION_ON;
     m_CodingOption.AUDelimiter = (mfxU16)((pInParams->bOutputAud) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     m_CodingOption.PicTimingSEI = (mfxU16)((pInParams->bOutputPicStruct) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
-    //m_CodingOption.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
+    m_CodingOption.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
 
     //API v1.6の機能
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
@@ -850,6 +850,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         }
         if (pInParams->bNoDeblock) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
+            && m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+            m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
         }
         for (int i = 0; i < 3; i++) {
             pInParams->nQPMin[i] = clamp_param_int(pInParams->nQPMin[i], 0, codecMaxQP, _T("qp min"));
@@ -1331,7 +1335,9 @@ CQSVPipeline::CQSVPipeline() :
     m_Chapters(),
 #endif
     m_timecode(),
-    m_HDRSei(),
+    m_hdrsei(),
+    m_hdr10plus(),
+    m_hdr10plusMetadataCopy(false),
     m_pMFXAllocator(),
     m_nMFXThreads(-1),
     m_memType(SYSTEM_MEMORY),
@@ -1466,8 +1472,8 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
     if (outputVideoInfo.codec == RGY_CODEC_UNKNOWN) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
     }
-    m_HDRSei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, inputParams->common.atcSei, m_pFileReader.get());
-    if (!m_HDRSei) {
+    m_hdrsei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, inputParams->common.atcSei, m_pFileReader.get());
+    if (!m_hdrsei) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
@@ -1478,7 +1484,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
 #if ENABLE_AVSW_READER
         m_Chapters,
 #endif //#if ENABLE_AVSW_READER
-        m_HDRSei.get(),
+        m_hdrsei.get(),
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark,
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
@@ -1610,15 +1616,23 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
     }
-#if 0
     if (inputParam->common.dynamicHdr10plusJson.length() > 0) {
-        m_hdr10plus = initDynamicHDR10Plus(inputParam->common.dynamicHdr10plusJson, m_pNVLog);
+        m_hdr10plus = initDynamicHDR10Plus(inputParam->common.dynamicHdr10plusJson, m_pQSVLog);
         if (!m_hdr10plus) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to initialize hdr10plus reader.\n"));
             return RGY_ERR_UNKNOWN;
         }
+    } else if (inputParam->common.hdr10plusMetadataCopy) {
+        m_hdr10plusMetadataCopy = true;
+        if (pAVCodecReader != nullptr) {
+            const auto timestamp_status = pAVCodecReader->GetFramePosList()->getStreamPtsStatus();
+            if ((timestamp_status & (~RGY_PTS_NORMAL)) != 0) {
+                PrintMes(RGY_LOG_ERROR, _T("HDR10+ dynamic metadata cannot be copied from input file using avhw reader, as timestamp was not properly got from input file.\n"));
+                PrintMes(RGY_LOG_ERROR, _T("Please consider using avsw reader.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+        }
     }
-#endif
 #endif //#if ENABLE_AVSW_READER
     return RGY_ERR_NONE;
 #else
@@ -2914,6 +2928,10 @@ void CQSVPipeline::Close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
     m_pPerfMonitor.reset();
 
+    m_hdr10plusMetadataCopy = false;
+    m_hdr10plus.reset();
+    m_hdrsei.reset();
+
     m_nMFXThreads = -1;
     m_pAbortByUser = nullptr;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
@@ -3148,7 +3166,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
         }
     }
     if (m_pmfxENC) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_hdr10plus.get(), m_hdr10plusMetadataCopy, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_mfxSession, 1, m_mfxVer, m_pQSVLog));
     }
@@ -3747,9 +3765,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             PRINT_INFO(_T("VUI            %s\n"), vui_str.c_str());
         }
         }
-        if (m_HDRSei) {
-            const auto masterdisplay = m_HDRSei->print_masterdisplay();
-            const auto maxcll = m_HDRSei->print_maxcll();
+        if (m_hdrsei) {
+            const auto masterdisplay = m_hdrsei->print_masterdisplay();
+            const auto maxcll = m_hdrsei->print_maxcll();
             if (masterdisplay.length() > 0) {
                 const tstring tstr = char_to_tstring(masterdisplay);
                 const auto splitpos = tstr.find(_T("WP("));

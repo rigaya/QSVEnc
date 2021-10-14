@@ -683,9 +683,10 @@ protected:
     RGYInput *m_input;
     bool m_getNextBitstream;
     RGYBitstream m_decInputBitstream;
+    RGYQueueSPSP<RGYFrameDataHDR10plus*> m_queueHDR10plusMetadata;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decInputBitstream() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decInputBitstream(), m_queueHDR10plusMetadata() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         //TimeStampはQSVに自動的に計算させる
         m_decInputBitstream.setPts(MFX_TIMESTAMP_UNKNOWN);
@@ -693,8 +694,11 @@ public:
         if (input) {
             input->GetHeader(&m_decInputBitstream);
         }
+        m_queueHDR10plusMetadata.init(256);
     };
-    virtual ~PipelineTaskMFXDecode() {};
+    virtual ~PipelineTaskMFXDecode() {
+        m_queueHDR10plusMetadata.close([](RGYFrameDataHDR10plus **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
+    };
     void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
@@ -759,6 +763,14 @@ public:
             if (ret != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error on getting video bitstream: %s.\n"), get_err_mes(ret));
                 return ret;
+            }
+            for (auto& frameData : m_decInputBitstream.getFrameDataList()) {
+                if (frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
+                    auto ptr = dynamic_cast<RGYFrameDataHDR10plus*>(frameData);
+                    if (ptr) {
+                        m_queueHDR10plusMetadata.push(new RGYFrameDataHDR10plus(*ptr));
+                    }
+                }
             }
         }
         return sendBitstream();
@@ -831,10 +843,35 @@ protected:
             }
         }
         if (surfDecOut != nullptr && lastSyncP != nullptr) {
-            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, useTaskSurf(surfDecOut), lastSyncP));
+            auto taskSurf = useTaskSurf(surfDecOut);
+            taskSurf.frame()->clearDataList();
+            taskSurf.frame()->dataList().push_back(getHDR10plusMetadata(surfDecOut->Data.TimeStamp));
+            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, lastSyncP));
         }
         return err_to_rgy(dec_sts);
     }
+    std::shared_ptr<RGYFrameData> getHDR10plusMetadata(int64_t timestamp) {
+        std::shared_ptr<RGYFrameData> frameData;
+        RGYFrameDataHDR10plus *frameDataPtr = nullptr;
+        while (m_queueHDR10plusMetadata.front_copy_no_lock(&frameDataPtr)) {
+            if (frameDataPtr->timestamp() < timestamp) {
+                m_queueHDR10plusMetadata.pop();
+                delete frameDataPtr;
+            } else {
+                break;
+            }
+        }
+        size_t queueSize = m_queueHDR10plusMetadata.size();
+        for (uint32_t i = 0; i < queueSize; i++) {
+            if (m_queueHDR10plusMetadata.copy(&frameDataPtr, i, &queueSize)) {
+                if (frameDataPtr->timestamp() == timestamp) {
+                    frameData = std::make_shared<RGYFrameDataHDR10plus>(*frameDataPtr);
+                    break;
+                }
+            }
+        }
+        return frameData;
+    };
 };
 
 class PipelineTaskCheckPTS : public PipelineTask {
@@ -1185,9 +1222,10 @@ protected:
     MFXVideoVPP *m_vpp;
     RGYTimestamp m_timestamp;
     mfxVideoParam& m_mfxVppParams;
+    std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
 public:
     PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoVPP *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(), m_mfxVppParams(vppParams) {};
+        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(), m_mfxVppParams(vppParams), m_lastFrameDataList() {};
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(MFXVideoVPP *mfxvpp) { m_vpp = mfxvpp; };
 protected:
@@ -1231,7 +1269,10 @@ public:
 
         mfxStatus vpp_sts = MFX_ERR_NONE;
 
-        if (frame) m_inFrames++;
+        if (frame) {
+            m_inFrames++;
+            m_lastFrameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
+        }
 
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf() : nullptr;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
@@ -1281,6 +1322,7 @@ public:
             if (lastSyncPoint != nullptr) {
                 //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
                 surfVppOut.frame()->setTimestamp(m_timestamp.check(surfVppOut.frame()->timestamp()));
+                surfVppOut.frame()->setDataList(m_lastFrameDataList);
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
             }
         } while (vppMoreOutput);
@@ -1368,6 +1410,44 @@ public:
     }
 };
 
+class encCtrlData {
+protected:
+    mfxEncodeCtrl encCtrl;
+    std::vector<uint8_t> dhdr10plus_sei;
+    mfxPayload payLoad;
+    mfxPayload *payLoads[1];
+public:
+    encCtrlData() : encCtrl({ 0 }), dhdr10plus_sei(), payLoad({ 0 }), payLoads() {
+        payLoads[0] = &payLoad;
+        encCtrl.NumPayload = 1;
+        encCtrl.Payload = payLoads;
+    }
+
+    mfxEncodeCtrl *getCtrlPtr() {
+        return &encCtrl;
+    }
+
+    bool hasData() const {
+        return dhdr10plus_sei.size() > 0;
+    }
+
+    void setHDR10PlusPayload(const std::vector<uint8_t>& data) {
+        dhdr10plus_sei.clear();
+        dhdr10plus_sei.reserve(data.size() + 2);
+        dhdr10plus_sei.push_back(USER_DATA_REGISTERED_ITU_T_T35);
+        auto datasize = data.size();
+        for (; datasize > 0xff; datasize -= 0xff)
+            dhdr10plus_sei.push_back((uint8_t)0xff);
+        dhdr10plus_sei.push_back((uint8_t)datasize);
+        vector_cat(dhdr10plus_sei, data);
+
+        payLoad.Type = USER_DATA_REGISTERED_ITU_T_T35;
+        payLoad.Data = dhdr10plus_sei.data();
+        payLoad.BufSize = (mfxU16)dhdr10plus_sei.size();
+        payLoad.NumBit = (mfxU32)dhdr10plus_sei.size() * 8;
+    }
+};
+
 class PipelineTaskMFXEncode : public PipelineTask {
 protected:
     MFXVideoENCODE *m_encode;
@@ -1375,12 +1455,15 @@ protected:
     mfxVideoParam& m_mfxEncParams;
     rgy_rational<int> m_outputTimebase;
     RGYListRef<RGYBitstream> m_bitStreamOut;
+    RGYHDR10Plus *m_hdr10plus;
+    bool m_hdr10plusMetadataCopy;
+    encCtrlData m_encCtrlData;
 public:
     PipelineTaskMFXEncode(
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, mfxVideoParam& encParams,
-        RGYTimecode *timecode, rgy_rational<int> outputTimebase, std::shared_ptr<RGYLog> log)
+        RGYTimecode *timecode, rgy_rational<int> outputTimebase, RGYHDR10Plus *hdr10plus, bool hdr10plusMetadataCopy, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
-        m_encode(mfxencode), m_timecode(timecode), m_mfxEncParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut() {};
+        m_encode(mfxencode), m_timecode(timecode), m_mfxEncParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(), m_hdr10plus(hdr10plus), m_hdr10plusMetadataCopy(hdr10plusMetadataCopy), m_encCtrlData() {};
     virtual ~PipelineTaskMFXEncode() {
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
     };
@@ -1429,6 +1512,26 @@ public:
             return RGY_ERR_NULL_PTR;
         }
 
+        if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+            if (m_hdr10plus) {
+                const auto data = m_hdr10plus->getData(m_inFrames);
+                if (data && data->size() > 0) {
+                    m_encCtrlData.setHDR10PlusPayload(*data);
+                }
+            } else if (m_hdr10plusMetadataCopy && frame) {
+                auto frameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
+                auto dataHdr10Plus = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
+                    return frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+                    });
+                if (dataHdr10Plus != frameDataList.end()) {
+                    auto hdr10plus = dynamic_cast<RGYFrameDataHDR10plus *>(dataHdr10Plus->get());
+                    if (hdr10plus && hdr10plus->getData().size() > 0) {
+                        m_encCtrlData.setHDR10PlusPayload(hdr10plus->getData());
+                    }
+                }
+            }
+        }
+
         //以下の処理は
         mfxFrameSurface1 *surfEncodeIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf() : nullptr;
         if (surfEncodeIn) {
@@ -1444,12 +1547,17 @@ public:
             surfEncodeIn->Data.TimeStamp = rational_rescale(surfEncodeIn->Data.TimeStamp, m_outputTimebase, rgy_rational<int>(1, HW_TIMEBASE));
             surfEncodeIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         }
+        //エンコーダまでたどり着いたフレームについてはdataListを解放
+        if (frame) {
+            dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->clearDataList();
+        }
 
         auto enc_sts = MFX_ERR_NONE;
         mfxSyncPoint lastSyncP = nullptr;
         bool bDeviceBusy = false;
         for (int i = 0; ; i++) {
-            enc_sts = m_encode->EncodeFrameAsync(nullptr, surfEncodeIn, bsOut->bsptr(), &lastSyncP);
+            auto ctrlPtr = (m_encCtrlData.hasData()) ? m_encCtrlData.getCtrlPtr() : nullptr;
+            enc_sts = m_encode->EncodeFrameAsync(ctrlPtr, surfEncodeIn, bsOut->bsptr(), &lastSyncP);
             bDeviceBusy = false;
 
             if (MFX_ERR_NONE < enc_sts && lastSyncP == nullptr) {
