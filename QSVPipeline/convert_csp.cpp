@@ -1941,8 +1941,8 @@ const TCHAR *get_simd_str(RGY_SIMD simd) {
         { SSSE3, _T("SSSE3")  },
         { SSE2,  _T("SSE2")   }
     };
-    for (auto simd_str : simd_str_list) {
-        if ((simd_str.first & simd) == simd) {
+    for (const auto& simd_str : simd_str_list) {
+        if ((simd & simd_str.first) == simd_str.first) {
             return simd_str.second;
         }
     }
