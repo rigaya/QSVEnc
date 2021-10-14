@@ -528,6 +528,14 @@ Set alternative transfer characteristics SEI from below or by integer, Required 
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
+### --dhdr10-info &lt;string&gt; [HEVC only]
+Apply HDR10+ dynamic metadata from specified json file. Requires [hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen) module  additionally.
+
+### --dhdr10-info copy [HEVC only, Experimental]
+Copy HDR10+ dynamic metadata from input file.  
+Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
+Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.
+
 ### --aud
 Insert Access Unit Delimiter NAL.
 
