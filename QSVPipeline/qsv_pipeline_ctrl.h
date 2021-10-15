@@ -1667,6 +1667,7 @@ public:
                 clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
                 clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
                 clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
+                clFrameInInterop->frame.dataList = taskSurf->surf().frame()->dataList();
                 filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
             } else if (taskSurf->surf().clframe() != nullptr) {
                 //OpenCLフレームが出てきた時の場合
@@ -1793,6 +1794,7 @@ public:
             surfVppOut.frame()->setInputFrameId(encSurfaceInfo.inputFrameId);
             surfVppOut.frame()->setPicstruct(encSurfaceInfo.picstruct);
             surfVppOut.frame()->setFlags(encSurfaceInfo.flags);
+            surfVppOut.frame()->setDataList(encSurfaceInfo.dataList);
 
             outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
 
