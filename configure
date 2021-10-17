@@ -107,6 +107,7 @@ EXTRALDFLAGS=""
 SRCS=""
 X86_64=1
 NO_RDTSCP_INTRIN=0
+ENABLE_LTO=0
 
 ENABLE_CPP_REGEX=1
 
@@ -156,6 +157,7 @@ options:
   --cxx=CXX                set C++ compiler path [${CXX}]
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
+  --enable-lto             compile with lto
 
   --opencl-headers         set opencl headers path [${OPENCL_CFLAGS}]
 
@@ -203,6 +205,9 @@ for opt; do
             ;;
         --enable-debug)
             ENABLE_DEBUG=1
+            ;;
+        --enable-lto)
+            ENABLE_LTO=1
             ;;
         --opencl-headers=*)
             OPENCL_HEADERS="$optarg"
@@ -356,6 +361,11 @@ else
     LDFLAGS="$LDFLAGS -Wl,-s"
 fi
 
+if [ $ENABLE_LTO -ne 0 ]; then
+	CXXFLAGS="$CXXFLAGS -flto"
+    LDFLAGS="$LDFLAGS -flto"
+fi
+
 cnf_print "checking for pkg-config..."
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
 which $PKGCONFIG 2>/dev/null 1>/dev/null
@@ -466,7 +476,12 @@ if [ ! -e ./buildVPL/lib/libvpl.a ]; then
     fi
 fi
 
-./build_vpl.sh
+VPL_CFLAGS="-Os"
+if [ $ENABLE_LTO -ne 0 ]; then
+	VPL_CFLAGS="${VPL_CFLAGS} -flto"
+fi
+
+./build_vpl.sh "${VPL_CFLAGS}"
 
 LIBVPL_LIBS=""
 if [ -e ./buildVPL/lib/libvpl.a ]; then

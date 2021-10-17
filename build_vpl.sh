@@ -15,6 +15,8 @@ cmake \
     -DBUILD_SHARED_LIBS=OFF \
     -DBUILD_EXAMPLES=OFF \
     -DBUILD_PYTHON_BINDING=OFF \
+	-DCMAKE_C_FLAGS_RELEASE="$@" \
+	-DCMAKE_CXX_FLAGS_RELEASE="$@" \
     ../oneVPL
 
 cmake --build . --config Release
