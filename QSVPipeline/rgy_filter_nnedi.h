@@ -64,8 +64,6 @@ protected:
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamNnedi> pParam);
     virtual RGY_ERR initParams(const std::shared_ptr<RGYFilterParamNnedi> pNnediParam);
 
-    std::string getEmbeddedResourceStr(const tstring &name, const tstring &type);
-
     template<typename TypeWeight>
     void setWeight0(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<RGYFilterParamNnedi> pNnediParam);
 
@@ -77,8 +75,8 @@ protected:
     virtual RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const NnediTargetField targetField, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
-    unique_ptr<RGYOpenCLProgram> m_nnedi_k0;
-    unique_ptr<RGYOpenCLProgram> m_nnedi_k1;
-    unique_ptr<RGYCLBuf> m_weight0;
+    RGYOpenCLProgramAsync m_nnedi_k0;
+    RGYOpenCLProgramAsync m_nnedi_k1;
+    std::unique_ptr<RGYCLBuf> m_weight0;
     std::array<unique_ptr<RGYCLBuf>, 2> m_weight1;
 };

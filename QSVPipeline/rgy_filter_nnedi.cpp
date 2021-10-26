@@ -564,30 +564,6 @@ void RGYFilterNnedi::setWeight1(TypeCalc *ptrDst, const float *ptrW, const std::
 #endif
 }
 
-std::string RGYFilterNnedi::getEmbeddedResourceStr(const tstring &name, const tstring &type) {
-    std::string data_str;
-    AddMessage(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type.c_str(), name.c_str());
-    {
-        char *data = nullptr;
-        int size = getEmbeddedResource((void **)&data, name.c_str(), type.c_str());
-        if (size == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load %s(m_deband)\n"), name.c_str());
-        } else {
-
-            auto datalen = size;
-            {
-                const uint8_t *ptr = (const uint8_t *)data;
-                if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM
-                    data += 3;
-                    datalen -= 3;
-                }
-            }
-            data_str = std::string(data, datalen);
-        }
-    }
-    return data_str;
-}
-
 RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
@@ -596,8 +572,8 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (!m_nnedi_k0
-        || !m_nnedi_k1
+    if (   !m_nnedi_k0.get()
+        || !m_nnedi_k1.get()
         || std::dynamic_pointer_cast<RGYFilterParamNnedi>(m_param)->nnedi != prm->nnedi) {
         if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
             return sts;
@@ -622,15 +598,24 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
             AddMessage(RGY_LOG_ERROR, _T("--vpp-nnedi requires OpenCL subgroup support!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"));
         const int prescreen_new = ((prm->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) == VPP_NNEDI_PRE_SCREEN_ORIGINAL) ? 0 : 1;
         const auto fields = make_array<NnediTargetField>(NNEDI_GEN_FIELD_TOP, NNEDI_GEN_FIELD_BOTTOM);
-        {
+        m_nnedi_k0.set(std::async(std::launch::async,
+            [cl = m_cl, log = m_pLog, prescreen_new, clversionRequired, prm]() {
+            const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"));
+            if (nnedi_common_cl.length() == 0) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_COMMON_CL."));
+                return std::unique_ptr<RGYOpenCLProgram>();
+            }
             auto nnedi_k0_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_K0_CL"), _T("EXE_DATA"));
+            if (nnedi_k0_cl.length() == 0) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_K1_CL."));
+                return std::unique_ptr<RGYOpenCLProgram>();
+            }
             auto pos = nnedi_k0_cl.find("#include \"rgy_filter_nnedi_common.cl\"");
             if (pos == std::string::npos) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to search #include \"rgy_filter_nnedi_common.cl\"\n"));
-                return RGY_ERR_UNKNOWN;
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to search #include \"rgy_filter_nnedi_common.cl\"\n"));
+                return std::unique_ptr<RGYOpenCLProgram>();
             }
             const int wstep = prm->nnedi.precision == VPP_FP_PRECISION_FP16 ? 2 : 1; //half2なら2, floatなら1
             const int nnx = (prescreen_new) ? 16 : 12;
@@ -656,22 +641,33 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
                 ENABLE_DP1_WEIGHT_LOOP_UNROLL ? 1 : 0,
                 ENABLE_DP1_WEIGHT_ARRAY_OPT ? 1 : 0,
                 ENABLE_DP1_SHUFFLE_OPT ? 1 : 0
-                );
-            m_nnedi_k0 = m_cl->build(nnedi_k0_cl, options.c_str());
-            if (!m_nnedi_k0) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_NNEDI_K0_CL(m_nnedi_k0)\n"));
-                return RGY_ERR_OPENCL_CRUSH;
+            );
+            auto nnedi_k0 = cl->build(nnedi_k0_cl, options.c_str());
+            if (!nnedi_k0) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to build RGY_FILTER_NNEDI_K0_CL(m_nnedi_k0)\n"));
+                return std::unique_ptr<RGYOpenCLProgram>();
             }
-        }
-        {
+            return nnedi_k0;
+        }));
+        m_nnedi_k1.set(std::async(std::launch::async,
+            [cl = m_cl, log = m_pLog, clversionRequired, prescreen_new, prm]() {
+            const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"));
+            if (nnedi_common_cl.length() == 0) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_COMMON_CL."));
+                return std::unique_ptr<RGYOpenCLProgram>();
+            }
             auto nnedi_k1_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_K1_CL"), _T("EXE_DATA"));
+            if (nnedi_k1_cl.length() == 0) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_K1_CL."));
+                return std::unique_ptr<RGYOpenCLProgram>();
+            }
             auto pos = nnedi_k1_cl.find("#include \"rgy_filter_nnedi_common.cl\"");
             if (pos == std::string::npos) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to search #include \"rgy_filter_nnedi_common.cl\"\n"));
-                return RGY_ERR_UNKNOWN;
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to search #include \"rgy_filter_nnedi_common.cl\"\n"));
+                return std::unique_ptr<RGYOpenCLProgram>();
             }
             nnedi_k1_cl = str_replace(nnedi_k1_cl, "#include \"rgy_filter_nnedi_common.cl\"", nnedi_common_cl);
-            auto options = clversionRequired + strsprintf(" "
+            const auto options = clversionRequired + strsprintf(" "
                 "-D TypePixel=%s -D TypePixel2=%s -D TypePixel4=%s -D bit_depth=%d -D TypeCalc=%s -D USE_FP16=%d "
                 "-D nnx=%d -D nny=%d -D nnxy=%d -D nns=%d "
                 "-D thread_y_loop=%d -D weight_loop=%d -D prescreen_new=%d "
@@ -691,11 +687,11 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
                 ENABLE_DP1_SHUFFLE_OPT ? 1 : 0
                 );
             //options += "-fbin-exe -save-temps=F:\\temp\\nnedi_";
-            m_nnedi_k1 = m_cl->build(nnedi_k1_cl, options.c_str());
-            if (!m_nnedi_k1) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_NNEDI_K1_CL(m_nnedi_k1)\n"));
-                return RGY_ERR_OPENCL_CRUSH;
-            }
+            auto nnedi_k1 = cl->build(nnedi_k1_cl, options.c_str());
+            if (!nnedi_k1) {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to build RGY_FILTER_NNEDI_K1_CL(m_nnedi_k1)\n"));
+                return std::unique_ptr<RGYOpenCLProgram>();
+            };
 #if 0
             if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
                 auto getKernelSubGroupInfo = clGetKernelSubGroupInfo != nullptr ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
@@ -709,8 +705,9 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
                 }
             }
 #endif
-            m_cl->requestCSPCopy(prm->frameOut, prm->frameIn);
-        }
+            return nnedi_k1;
+        }));
+        m_cl->requestCSPCopy(prm->frameOut, prm->frameIn);
     }
     if (prm->nnedi.isbob()) {
         pParam->baseFps *= 2;
@@ -759,6 +756,14 @@ RGY_ERR RGYFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
+    if (!m_nnedi_k0.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_NNEDI_K0_CL(m_nnedi_k0)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
+    if (!m_nnedi_k1.get()) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to build RGY_FILTER_NNEDI_K1_CL(m_nnedi_k1)\n"));
+        return RGY_ERR_OPENCL_CRUSH;
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -818,8 +823,8 @@ RGY_ERR RGYFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 
 void RGYFilterNnedi::close() {
     m_frameBuf.clear();
-    m_nnedi_k0.reset();
-    m_nnedi_k1.reset();
+    m_nnedi_k0.clear();
+    m_nnedi_k1.clear();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }
