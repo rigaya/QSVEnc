@@ -157,7 +157,7 @@ options:
   --cxx=CXX                set C++ compiler path [${CXX}]
   --pkg-config=PKGCONFIG   set pkg-config path [${PKGCONFIG}]
   --enable-debug           compile in debug configuration [${ENABLE_DEBUG}]
-  --enable-lto             compile with lto
+  --enable-lto             compile with lto [${ENABLE_LTO}]
 
   --opencl-headers         set opencl headers path [${OPENCL_CFLAGS}]
 
@@ -359,11 +359,11 @@ else
         CXXFLAGS="$CXXFLAGS -fomit-frame-pointer"
     fi
     LDFLAGS="$LDFLAGS -Wl,-s"
-fi
 
-if [ $ENABLE_LTO -ne 0 ]; then
-	CXXFLAGS="$CXXFLAGS -flto"
-    LDFLAGS="$LDFLAGS -flto"
+	if [ $ENABLE_LTO -ne 0 ]; then
+		CXXFLAGS="$CXXFLAGS -flto"
+		LDFLAGS="$LDFLAGS -flto"
+	fi
 fi
 
 cnf_print "checking for pkg-config..."
@@ -477,7 +477,7 @@ if [ ! -e ./buildVPL/lib/libvpl.a ]; then
 fi
 
 VPL_CFLAGS="-Os"
-if [ $ENABLE_LTO -ne 0 ]; then
+if [ $ENABLE_DEBUG -eq 0 ] && [ $ENABLE_LTO -ne 0 ]; then
 	VPL_CFLAGS="${VPL_CFLAGS} -flto"
 fi
 
