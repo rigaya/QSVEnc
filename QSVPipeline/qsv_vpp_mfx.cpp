@@ -38,6 +38,7 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
     std::make_pair(MFX_EXTBUFF_VPP_DEINTERLACING,         VppType::MFX_DEINTERLACE),
     std::make_pair(MFX_EXTBUFF_VPP_MCTF,                  VppType::MFX_MCTF),
     std::make_pair(MFX_EXTBUFF_VPP_DENOISE,               VppType::MFX_DENOISE),
+    std::make_pair(MFX_EXTBUFF_VPP_DENOISE2,              VppType::MFX_DENOISE),
     std::make_pair(MFX_EXTBUFF_VPP_SCALING,               VppType::MFX_RESIZE),
     std::make_pair(MFX_EXTBUFF_VPP_DETAIL,                VppType::MFX_DETAIL_ENHANCE),
     std::make_pair(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION, VppType::MFX_FPS_CONV),
@@ -61,6 +62,7 @@ QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_VppDoNotUse(),
     m_VppDoUse(),
     m_ExtDenoise(),
+    m_ExtDenoise2(),
     m_ExtMctf(),
     m_ExtDetail(),
     m_ExtDeinterlacing(),
@@ -83,6 +85,7 @@ void QSVVppMfx::InitStructs() {
     RGY_MEMSET_ZERO(m_VppDoNotUse);
     RGY_MEMSET_ZERO(m_VppDoUse);
     RGY_MEMSET_ZERO(m_ExtDenoise);
+    RGY_MEMSET_ZERO(m_ExtDenoise2);
     RGY_MEMSET_ZERO(m_ExtMctf);
     RGY_MEMSET_ZERO(m_ExtDetail);
     RGY_MEMSET_ZERO(m_ExtDeinterlacing);
@@ -271,6 +274,16 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
     }
 #endif
 
+    if (params.denoise.enable) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5) || !(availableFeaures & VPP_FEATURE_DENOISE2)) {
+            if (params.denoise.mode != MFX_DENOISE_MODE_DEFAULT) {
+                PrintMes(RGY_LOG_WARN, _T("setting mode to vpp-denoise is not supported on this platform.\n"));
+                PrintMes(RGY_LOG_WARN, _T("switching to legacy denoise mode.\n"));
+            }
+            params.denoise.mode = MFX_DENOISE_MODE_LEGACY;
+        }
+    }
+
     if (params.imageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
         PrintMes(RGY_LOG_WARN, _T("Image Stabilizer not supported on this platform, disabled.\n"));
         params.imageStabilizer = 0;
@@ -439,7 +452,7 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
         m_VppExtParams.push_back((mfxExtBuffer *)&m_ExtVppVSI);
         m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         vppExtAddMes(_T("Colorspace\n"));
-    } else if(check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) { //なんかMFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFOを設定すると古い環境ではvppの初期化に失敗するらしい。
+    } else if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) { //なんかMFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFOを設定すると古い環境ではvppの初期化に失敗するらしい。
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
     }
 
@@ -510,12 +523,29 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
     }
 
     if (params.denoise.enable) {
-        INIT_MFX_EXT_BUFFER(m_ExtDenoise, MFX_EXTBUFF_VPP_DENOISE);
-        m_ExtDenoise.DenoiseFactor = (mfxU16)clamp_param_int(params.denoise.strength, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX, _T("vpp-denoise"));
-        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise);
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5) && params.denoise.mode != MFX_DENOISE_MODE_LEGACY) {
+            INIT_MFX_EXT_BUFFER(m_ExtDenoise2, MFX_EXTBUFF_VPP_DENOISE2);
+            m_ExtDenoise2.Mode = params.denoise.mode;
+            m_ExtDenoise2.Strength = (mfxU16)clamp_param_int(params.denoise.strength, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX, _T("vpp-denoise"));
+            m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise2);
 
-        vppExtAddMes(strsprintf(_T("Denoise, strength %d\n"), m_ExtDenoise.DenoiseFactor));
-        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
+            if (   m_ExtDenoise2.Mode == MFX_DENOISE_MODE_INTEL_HVS_AUTO_BDRATE
+                || m_ExtDenoise2.Mode == MFX_DENOISE_MODE_INTEL_HVS_AUTO_SUBJECTIVE
+                || m_ExtDenoise2.Mode == MFX_DENOISE_MODE_INTEL_HVS_AUTO_ADJUST) {
+                //strengthは無視される
+                vppExtAddMes(strsprintf(_T("Denoise %s\n"), get_cx_desc(list_vpp_mfx_denoise_mode, m_ExtDenoise2.Mode)));
+            } else {
+                vppExtAddMes(strsprintf(_T("Denoise %s, strength %d\n"), get_cx_desc(list_vpp_mfx_denoise_mode, m_ExtDenoise2.Mode), m_ExtDenoise2.Strength));
+            }
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DENOISE2);
+        } else {
+            INIT_MFX_EXT_BUFFER(m_ExtDenoise, MFX_EXTBUFF_VPP_DENOISE);
+            m_ExtDenoise.DenoiseFactor = (mfxU16)clamp_param_int(params.denoise.strength, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX, _T("vpp-denoise"));
+            m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise);
+
+            vppExtAddMes(strsprintf(_T("Denoise, strength %d\n"), m_ExtDenoise.DenoiseFactor));
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
+        }
     } else {
         m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
     }

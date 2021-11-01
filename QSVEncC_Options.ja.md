@@ -1596,8 +1596,31 @@ nnediによるインタレ解除を行う。基本的には片方フィールド
     半精度浮動小数点をメインに使って計算する。
     
 
-### --vpp-denoise &lt;int&gt;
-GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さを指定する。
+### --vpp-denoise &lt;int&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さを指定する。短縮系では強度のみの設定。
+
+**Parameters**
+- mode=&lt;string&gt;  
+  - auto (デフォルト)  
+    自動的に適切なモードを選択する。
+
+  - auto_bdrate  
+    エンコード用にBD rate改善を目指したノイズ除去を行い、その強度は自動で決定する。
+    
+  - auto_subjective  
+    エンコード用に主観品質改善を目指したノイズ除去を行い、その強度は自動で決定する。
+
+  - auto_adjust  
+    動画再生用に主観品質改善を目指したノイズ除去を行い、その強度は自動で決定する。
+
+  - pre  
+    エンコード用のノイズ除去を設定された強度で行う。
+
+  - post  
+    動画再生用のノイズ除去を設定された強度で行う。
+
+- strength=&lt;int&gt;  
+  0 - 100 の間でノイズ除去の強さを指定する。modeがauto_bdrate, auto_subjective, auto_adjustの場合には強度は自動で決定されるため無効。
 
 ### --vpp-mctf [ "auto" or &lt;int&gt; ]
 動き補償付き時間軸ノイズ除去を行う。引数を省略した場合、あるいは"auto"を指定した場合は、

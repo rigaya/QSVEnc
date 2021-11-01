@@ -117,11 +117,24 @@ static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *o
 
 tstring gen_cmd_help_vppmfx() {
     tstring str = strsprintf(_T("")
-        _T("   --vpp-denoise <int>          use vpp denoise, set strength (%d-%d)\n")
+        _T("   --vpp-denoise <int> or\n")
+        _T("                [<param1 >= <value>][, <param2 >= <value>][...]\n")
+        _T("     use vpp denoise, short form will set strength(%d - %d)\n")
+        _T("    params\n")
+        _T("      mode=<string>         denoise mode\n")
+        _T("        auto(default), auto_bdrate, auto_subjective, auto_adjust, pre, post\n")
+        _T("      strength=<int>        set strength(%d - %d)\n"),
+        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
+        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX);
+    str += strsprintf(_T("")
         _T("   --vpp-mctf [\"auto\" or <int>] use vpp motion compensated temporal filter(mctf)\n")
-        _T("                                  set strength (%d-%d), default: %d (auto)\n")
+        _T("                                  set strength (%d-%d), default: %d (auto)\n"),
+        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO);
+    str += strsprintf(_T("")
         _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
-        _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n")
+        _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n"),
+        QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX);
+    str += strsprintf(_T("")
         _T("                                 - none     disable deinterlace\n")
         _T("                                 - normal   normal deinterlace\n")
         _T("                                 - it       inverse telecine\n")
@@ -140,10 +153,7 @@ tstring gen_cmd_help_vppmfx() {
         _T("                                 - none, x2, x2.5\n")
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-        _T("                                 - none, upscale, box\n"),
-        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
-        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO,
-        QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX);
+        _T("                                 - none, upscale, box\n"));
     return str;
 }
 
@@ -475,27 +485,61 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
 
 int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, [[maybe_unused]] int nArgNum, sVppParams *vppmfx, [[maybe_unused]] sArgsData *argData) {
 
-    if (0 == _tcscmp(option_name, _T("vpp-denoise"))) {
-        i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
-        }
+    if (IS_OPTION("vpp-denoise")) {
         vppmfx->denoise.enable = true;
-        vppmfx->denoise.strength = value;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("no-vpp-denoise"))) {
-        vppmfx->denoise.enable = false;
-        if (strInput[i+1][0] != _T('-')) {
-            i++;
-            int value = 0;
-            if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
-                print_cmd_error_invalid_value(option_name, strInput[i]);
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "mode", "strength" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppmfx->denoise.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_mfx_denoise_mode, param_val.c_str(), &value)) {
+                        vppmfx->denoise.mode = (mfxDenoiseMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_mfx_denoise_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("strength")) {
+                    try {
+                        vppmfx->denoise.strength = std::stoi(param_val);
+                    }
+                    catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
+            } else {
+                try {
+                    vppmfx->denoise.strength = std::stoi(param);
+                } catch (...) {
+                    print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                    return 1;
+                }
             }
-            vppmfx->denoise.strength = value;
         }
         return 0;
     }
@@ -1634,12 +1678,28 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
 #define OPT_CHAR_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" \"") << (param->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (param->opt.c_str()) << _T("\"");
 
+#define ADD_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
+#define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (param->opt));
+
     std::basic_stringstream<TCHAR> tmp;
     std::basic_stringstream<TCHAR> cmd;
 
     OPT_LST(_T("--vpp-deinterlace"), deinterlace, list_deinterlace);
     OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), detail.enable, detail.strength);
-    OPT_BOOL_VAL(_T("--vpp-denoise"), _T("--no-vpp-denoise"), denoise.enable, denoise.strength);
+
+    if (param->denoise != defaultPrm->denoise) {
+        tmp.str(tstring());
+        if (!param->denoise.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->denoise.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), denoise.mode, list_vpp_mfx_denoise_mode);
+            ADD_NUM(_T("strength"), denoise.strength);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-denoise ") << tmp.str().substr(1);
+        }
+    }
     if (param->mctf.enable && param->mctf.strength == 0) {
         cmd << _T(" --vpp-mctf auto");
     } else {

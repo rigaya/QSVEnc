@@ -32,8 +32,18 @@
 
 VppDenoise::VppDenoise() :
     enable(false),
+    mode(MFX_DENOISE_MODE_DEFAULT),
     strength(20) {
 
+}
+
+bool VppDenoise::operator==(const VppDenoise &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && strength == x.strength;
+}
+bool VppDenoise::operator!=(const VppDenoise &x) const {
+    return !(*this == x);
 }
 
 VppMCTF::VppMCTF() :

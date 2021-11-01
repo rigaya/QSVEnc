@@ -1542,8 +1542,34 @@ Example: Slightly weak than default
   - fp32  
     Force to use fp32.
 
-### --vpp-denoise &lt;int&gt;
-Enable vpp denoise, strength 0 - 100.
+### --vpp-denoise &lt;int&gt; or [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Enable vpp denoise, short form will set strength only.
+
+
+GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さを指定する。短縮系では強度のみの設定。
+
+**Parameters**
+- mode=&lt;string&gt;  
+  - auto (デフォルト)  
+    library will select the most appropriate denoise mode. 
+
+  - auto_bdrate  
+    auto BD rate improvement in pre-processing before video encoding.
+    
+  - auto_subjective  
+     subjective quality improvement in pre-processing before video encoding.
+
+  - auto_adjust  
+    auto adjust subjective quality in post-processing for video playback.
+
+  - pre  
+    manual mode for pre-processing before video encoding.
+
+  - post  
+    manual mode for post-processing for video playback.
+
+- strength=&lt;int&gt;  
+  set strength (0 - 100). Please note when mode is set to auto_bdrate, auto_subjective or auto_adjust, strength will be ignored, as it will be decided automatically by the filter.
 
 ### --vpp-mctf ["auto" or &lt;int&gt;]
 Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then strength will automatically adjusted by the filter. You can also force filter strength by setting value between 1 (week) - 20 (strong). (default: 0 as auto)

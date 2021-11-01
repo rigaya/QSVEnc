@@ -108,12 +108,17 @@ enum {
     QSV_VPP_SUB_COMPLEX,
 };
 
+static const mfxDenoiseMode MFX_DENOISE_MODE_LEGACY = (mfxDenoiseMode)-1;
+
 struct VppDenoise {
     bool enable;
+    mfxDenoiseMode mode;
     int strength; // 0 - 100
 
     VppDenoise();
     ~VppDenoise() {};
+    bool operator==(const VppDenoise &x) const;
+    bool operator!=(const VppDenoise &x) const;
 };
 
 struct VppMCTF {
@@ -707,6 +712,16 @@ const CX_DESC list_vpp_fps_conversion[] = {
 const CX_DESC list_vpp_sub_shaping[] = {
     { _T("simple"),  QSV_VPP_SUB_SIMPLE  },
     { _T("complex"), QSV_VPP_SUB_COMPLEX },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_mfx_denoise_mode[] = {
+    { _T("auto"),            MFX_DENOISE_MODE_DEFAULT  },
+    { _T("auto_bdrate"),     MFX_DENOISE_MODE_INTEL_HVS_AUTO_BDRATE },
+    { _T("auto_subjective"), MFX_DENOISE_MODE_INTEL_HVS_AUTO_SUBJECTIVE },
+    { _T("auto_adjust"),     MFX_DENOISE_MODE_INTEL_HVS_AUTO_ADJUST },
+    { _T("pre"),             MFX_DENOISE_MODE_INTEL_HVS_PRE_MANUAL },
+    { _T("post"),            MFX_DENOISE_MODE_INTEL_HVS_POST_MANUAL },
     { NULL, 0 }
 };
 

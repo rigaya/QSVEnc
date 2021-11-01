@@ -102,7 +102,7 @@ static_assert(_countof(CPU_GEN_STR) == CPU_GEN_MAX);
 QSV_CPU_GEN getCPUGenCpuid();
 QSV_CPU_GEN getCPUGen(MFXVideoSession *pSession);
 
-static const mfxVersion LIB_VER_LIST[] = {
+static constexpr mfxVersion LIB_VER_LIST[] = {
     {  0, 0 },
     {  0, 1 },
     {  1, 1 },
@@ -130,41 +130,47 @@ static const mfxVersion LIB_VER_LIST[] = {
     {  2, 2 },
     {  3, 2 },
     {  4, 2 },
+    {  5, 2 },
     {  0, 0 }
 };
+
+#define MFX_LIB_VERSION(major, minor, idx) \
+    static constexpr mfxVersion MFX_LIB_VERSION_ ## major ## _ ## minor = LIB_VER_LIST[(idx)]; \
+    static_assert(MFX_LIB_VERSION_ ## major ## _ ## minor.Major == (major) && MFX_LIB_VERSION_ ## major ## _ ## minor.Minor == (minor), "MFX_LIB_VERSION");
+
+MFX_LIB_VERSION(0, 0,  0);
+MFX_LIB_VERSION(1, 0,  1);
+MFX_LIB_VERSION(1, 1,  2);
+MFX_LIB_VERSION(1, 3,  3);
+MFX_LIB_VERSION(1, 4,  4);
+MFX_LIB_VERSION(1, 6,  5);
+MFX_LIB_VERSION(1, 7,  6);
+MFX_LIB_VERSION(1, 8,  7);
+MFX_LIB_VERSION(1, 9,  8);
+MFX_LIB_VERSION(1,10,  9);
+MFX_LIB_VERSION(1,11, 10);
+MFX_LIB_VERSION(1,13, 11);
+MFX_LIB_VERSION(1,15, 12);
+MFX_LIB_VERSION(1,16, 13);
+MFX_LIB_VERSION(1,17, 14);
+MFX_LIB_VERSION(1,19, 15);
+MFX_LIB_VERSION(1,23, 16);
+MFX_LIB_VERSION(1,26, 17);
+MFX_LIB_VERSION(1,27, 18);
+MFX_LIB_VERSION(1,33, 19);
+MFX_LIB_VERSION(1,34, 20);
+MFX_LIB_VERSION(1,35, 21);
+MFX_LIB_VERSION(2, 0, 22);
+MFX_LIB_VERSION(2, 1, 23);
+MFX_LIB_VERSION(2, 2, 24);
+MFX_LIB_VERSION(2, 3, 25);
+MFX_LIB_VERSION(2, 4, 26);
+MFX_LIB_VERSION(2, 5, 27);
 
 static const mfxU32 CODEC_LIST_AUO[] = {
     MFX_CODEC_AVC,
     MFX_CODEC_HEVC
 };
-
-#define MFX_LIB_VERSION_0_0  LIB_VER_LIST[ 0]
-#define MFX_LIB_VERSION_1_0  LIB_VER_LIST[ 1]
-#define MFX_LIB_VERSION_1_1  LIB_VER_LIST[ 2]
-#define MFX_LIB_VERSION_1_3  LIB_VER_LIST[ 3]
-#define MFX_LIB_VERSION_1_4  LIB_VER_LIST[ 4]
-#define MFX_LIB_VERSION_1_6  LIB_VER_LIST[ 5]
-#define MFX_LIB_VERSION_1_7  LIB_VER_LIST[ 6]
-#define MFX_LIB_VERSION_1_8  LIB_VER_LIST[ 7]
-#define MFX_LIB_VERSION_1_9  LIB_VER_LIST[ 8]
-#define MFX_LIB_VERSION_1_10 LIB_VER_LIST[ 9]
-#define MFX_LIB_VERSION_1_11 LIB_VER_LIST[10]
-#define MFX_LIB_VERSION_1_13 LIB_VER_LIST[11]
-#define MFX_LIB_VERSION_1_15 LIB_VER_LIST[12]
-#define MFX_LIB_VERSION_1_16 LIB_VER_LIST[13]
-#define MFX_LIB_VERSION_1_17 LIB_VER_LIST[14]
-#define MFX_LIB_VERSION_1_19 LIB_VER_LIST[15]
-#define MFX_LIB_VERSION_1_23 LIB_VER_LIST[16]
-#define MFX_LIB_VERSION_1_26 LIB_VER_LIST[17]
-#define MFX_LIB_VERSION_1_27 LIB_VER_LIST[18]
-#define MFX_LIB_VERSION_1_33 LIB_VER_LIST[19]
-#define MFX_LIB_VERSION_1_34 LIB_VER_LIST[20]
-#define MFX_LIB_VERSION_1_35 LIB_VER_LIST[21]
-#define MFX_LIB_VERSION_2__0 LIB_VER_LIST[22]
-#define MFX_LIB_VERSION_2__1 LIB_VER_LIST[23]
-#define MFX_LIB_VERSION_2__2 LIB_VER_LIST[24]
-#define MFX_LIB_VERSION_2__3 LIB_VER_LIST[25]
-#define MFX_LIB_VERSION_2__4 LIB_VER_LIST[26]
 
 BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);
@@ -263,6 +269,7 @@ enum : uint64_t {
     VPP_FEATURE_MIRROR                = 0x00001000,
     VPP_FEATURE_SCALING_QUALITY       = 0x00002000,
     VPP_FEATURE_MCTF                  = 0x00004000,
+    VPP_FEATURE_DENOISE2              = 0x00008000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -319,6 +326,7 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
     { _T("Scaling Quality      "), VPP_FEATURE_SCALING_QUALITY     },
     { _T("Denoise              "), VPP_FEATURE_DENOISE             },
+    { _T("Denoise2             "), VPP_FEATURE_DENOISE2            },
     { _T("Mctf                 "), VPP_FEATURE_MCTF                },
     { _T("Rotate               "), VPP_FEATURE_ROTATE              },
     { _T("Mirror               "), VPP_FEATURE_MIRROR              },

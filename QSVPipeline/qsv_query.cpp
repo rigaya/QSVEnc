@@ -458,6 +458,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     mfxExtVPPMirroring vppMirror;
     mfxExtVPPScaling vppScaleQuality;
     mfxExtVppMctf vppMctf;
+    mfxExtVPPDenoise2 vppDenoise2;
     INIT_MFX_EXT_BUFFER(vppDoUse,        MFX_EXTBUFF_VPP_DOUSE);
     INIT_MFX_EXT_BUFFER(vppDoNotUse,     MFX_EXTBUFF_VPP_DONOTUSE);
     INIT_MFX_EXT_BUFFER(vppFpsConv,      MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION);
@@ -467,6 +468,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     INIT_MFX_EXT_BUFFER(vppMirror,       MFX_EXTBUFF_VPP_MIRRORING);
     INIT_MFX_EXT_BUFFER(vppScaleQuality, MFX_EXTBUFF_VPP_SCALING);
     INIT_MFX_EXT_BUFFER(vppMctf,         MFX_EXTBUFF_VPP_MCTF);
+    INIT_MFX_EXT_BUFFER(vppDenoise2,     MFX_EXTBUFF_VPP_DENOISE2);
 
     vppFpsConv.Algorithm = MFX_FRCALGM_FRAME_INTERPOLATION;
     vppImageStab.Mode = MFX_IMAGESTAB_MODE_UPSCALE;
@@ -521,6 +523,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     mfxExtVPPMirroring vppMirrorOut;
     mfxExtVPPScaling vppScaleQualityOut;
     mfxExtVppMctf vppMctfOut;
+    mfxExtVPPDenoise2 vppDenoise2Out;
 
     memcpy(&vppDoUseOut,        &vppDoUse,        sizeof(vppDoUse));
     memcpy(&vppDoNotUseOut,     &vppDoNotUse,     sizeof(vppDoNotUse));
@@ -531,6 +534,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     memcpy(&vppMirrorOut,       &vppMirror,       sizeof(vppMirror));
     memcpy(&vppScaleQualityOut, &vppScaleQuality, sizeof(vppScaleQuality));
     memcpy(&vppMctfOut,         &vppMctf,         sizeof(vppMctf));
+    memcpy(&vppDenoise2Out,     &vppDenoise2,     sizeof(vppDenoise2));
 
     vector<mfxExtBuffer *> bufOut;
     bufOut.push_back((mfxExtBuffer *)&vppDoUse);
@@ -592,6 +596,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     check_feature((mfxExtBuffer *)&vppMirror,       (mfxExtBuffer *)&vppMirrorOut,       MFX_LIB_VERSION_1_19,  VPP_FEATURE_MIRROR,             0x00);
     check_feature((mfxExtBuffer *)&vppScaleQuality, (mfxExtBuffer *)&vppScaleQualityOut, MFX_LIB_VERSION_1_19,  VPP_FEATURE_SCALING_QUALITY,    0x00);
     check_feature((mfxExtBuffer *)&vppMctf,         (mfxExtBuffer *)&vppMctfOut,         MFX_LIB_VERSION_1_26,  VPP_FEATURE_MCTF,               0x00);
+    check_feature((mfxExtBuffer *)&vppDenoise2,     (mfxExtBuffer *)&vppDenoise2Out,     MFX_LIB_VERSION_2_5,   VPP_FEATURE_DENOISE2,           0x00);
 
     videoPrm.vpp.Out.FrameRateExtN    = 60000;
     videoPrm.vpp.Out.FrameRateExtD    = 1001;

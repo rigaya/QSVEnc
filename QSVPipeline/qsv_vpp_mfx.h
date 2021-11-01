@@ -87,7 +87,14 @@ protected:
     mfxVideoParam m_mfxVppParams;
     mfxExtVPPDoNotUse m_VppDoNotUse;
     mfxExtVPPDoNotUse m_VppDoUse;
-    mfxExtVPPDenoise m_ExtDenoise;
+#pragma warning(push)
+#pragma warning(disable:4996) // warning C4996: 古い形式として宣言されました。
+RGY_DISABLE_WARNING_PUSH
+RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
+    mfxExtVPPDenoise m_ExtDenoise; //互換性のため必要
+RGY_DISABLE_WARNING_POP
+#pragma warning(pop)
+    mfxExtVPPDenoise2 m_ExtDenoise2;
     mfxExtVppMctf m_ExtMctf;
     mfxExtVPPDetail m_ExtDetail;
     mfxExtVPPDeinterlacing m_ExtDeinterlacing;
