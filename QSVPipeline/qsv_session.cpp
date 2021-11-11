@@ -55,6 +55,8 @@
 #include "qsv_allocator_va.h"
 #endif
 
+#define DEBUG_WIN7 (0)
+
 RGY_ERR MFXVideoSession2::InitSessionInitParam() {
     INIT_MFX_EXT_BUFFER(m_ThreadsParam, MFX_EXTBUFF_THREADS_PARAM);
     //m_ThreadsParam.NumThread = (mfxU16)clamp_param_int(m_prm.threads, 0, QSV_SESSION_THREAD_MAX, _T("session-threads"));
@@ -302,7 +304,7 @@ RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& 
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
 	if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
-		err = err_to_rgy(mfxSession.initD3D11());
+		err = (DEBUG_WIN7) ? RGY_ERR_NOT_INITIALIZED : err_to_rgy(mfxSession.initD3D11());
 		if (err != RGY_ERR_NONE) err = RGY_ERR_NOT_INITIALIZED;
 	}
 #endif
@@ -340,9 +342,10 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
         //Win7でD3D11のチェックをやると、
         //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
         //D3D11をWin8以降に限定
-        if (!check_OS_Win8orLater() || MFX_D3D11_SUPPORT == 0) {
+        if (!check_OS_Win8orLater() || MFX_D3D11_SUPPORT == 0 || DEBUG_WIN7) {
             memType &= (MemType)(~D3D11_MEMORY);
             targetImpl &= (~MFX_IMPL_VIA_D3D11);
+            targetImpl |= MFX_IMPL_VIA_D3D9;
             log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
         }
 #endif //#if D3D_SURFACES_SUPPORT
