@@ -128,4 +128,9 @@ struct RGYParamThreadAffinity {
     bool operator!=(const RGYParamThreadAffinity &x) const;
 };
 
+#if defined(_WIN32) || defined(_WIN64)
+bool SetThreadPriorityForModule(const uint32_t TargetProcessId, const TCHAR *TargetModule, const int ThreadPriority);
+bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR *TargetModule, const uint64_t ThreadAffinityMask);
+#endif
+
 #endif //__RGY_THREAD_AFFINITY_H__

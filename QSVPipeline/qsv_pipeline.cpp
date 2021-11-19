@@ -2773,10 +2773,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         SetProcessAffinityMask(GetCurrentProcess(), affinity.getMask());
         PrintMes(RGY_LOG_DEBUG, _T("Set Process Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
     }
-    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::MAIN); affinity.mode != RGYThreadAffinityMode::ALL) {
-        SetThreadAffinityMask(GetCurrentThread(), affinity.getMask());
-        PrintMes(RGY_LOG_DEBUG, _T("Set Main thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
-    }
 
     m_nMFXThreads = pParams->nSessionThreads;
     m_nAVSyncMode = pParams->common.AVSyncMode;
@@ -2848,6 +2844,25 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
     }
+    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::MAIN); affinity.mode != RGYThreadAffinityMode::ALL) {
+        SetThreadAffinityMask(GetCurrentThread(), affinity.getMask());
+        PrintMes(RGY_LOG_DEBUG, _T("Set Main thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+    }
+#if defined(_WIN32) || defined(_WIN64)
+    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::ENC); affinity.mode != RGYThreadAffinityMode::ALL) {
+#ifdef _M_IX86
+        const TCHAR* dll_mfx_platform = _T("libmfxhw32.dll");
+        const TCHAR* dll_vpl_platform = _T("libmfx32-gen.dll");
+#else
+        const TCHAR* dll_mfx_platform = _T("libmfxhw64.dll");
+        const TCHAR* dll_vpl_platform = _T("libmfx64-gen.dll");
+#endif
+        const TCHAR* target_dll = check_lib_version(m_mfxVer, MFX_LIB_VERSION_2__0) ? dll_vpl_platform : dll_mfx_platform;
+
+        SetThreadAffinityForModule(GetCurrentProcessId(), target_dll, pParams->ctrl.threadAffinity.get(RGYThreadType::ENC).getMask());
+        PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+    }
+#endif
     if ((sts = SetPerfMonitorThreadHandles()) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to set thread handles to perf monitor!\n"));
         return sts;

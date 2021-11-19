@@ -28,6 +28,9 @@
 #include <sstream>
 #include "rgy_thread_affinity.h"
 #include "rgy_osdep.h"
+#if defined(_WIN32) || defined(_WIN64)
+#include <tlhelp32.h>
+#endif //#if defined(_WIN32) || defined(_WIN64)
 #include "cpu_info.h"
 
 RGYThreadAffinity::RGYThreadAffinity() : mode(), custom(std::numeric_limits<decltype(custom)>::max()) {};
@@ -271,3 +274,128 @@ uint64_t selectMaskFromLowerBit(uint64_t mask, const int idx) {
     return ret;
 }
 #pragma warning(pop)
+
+#if defined(_WIN32) || defined(_WIN64)
+static inline bool check_ptr_range(void *value, void *min, void *max) {
+    return (min <= value && value <= max);
+}
+
+static const int ThreadQuerySetWin32StartAddress = 9;
+typedef int (WINAPI* typeNtQueryInformationThread)(HANDLE, int, PVOID, ULONG, PULONG);
+
+static void* GetThreadBeginAddress(const uint32_t TargetProcessId) {
+    HMODULE hNtDll = NULL;
+    typeNtQueryInformationThread NtQueryInformationThread = NULL;
+    HANDLE hThread = NULL;
+    ULONG length = 0;
+    void* BeginAddress = NULL;
+
+    if (   NULL != (hNtDll = LoadLibrary(_T("ntdll.dll")))
+        && NULL != (NtQueryInformationThread = (typeNtQueryInformationThread)GetProcAddress(hNtDll, "NtQueryInformationThread"))
+        && NULL != (hThread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, TargetProcessId))) {
+        NtQueryInformationThread(hThread, ThreadQuerySetWin32StartAddress, &BeginAddress, sizeof(BeginAddress), &length);
+    }
+    if (hNtDll)
+        FreeLibrary(hNtDll);
+    if (hThread)
+        CloseHandle(hThread);
+    return BeginAddress;
+}
+
+static inline std::vector<uint32_t> GetThreadList(const uint32_t TargetProcessId) {
+    std::vector<uint32_t> ThreadList;
+    HANDLE hSnapshot;
+
+    if (INVALID_HANDLE_VALUE != (hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0x00))) {
+        THREADENTRY32 te32 = { 0 };
+        te32.dwSize = sizeof(THREADENTRY32);
+
+        if (Thread32First(hSnapshot, &te32)) {
+            do {
+                if (te32.th32OwnerProcessID == TargetProcessId)
+                    ThreadList.push_back(te32.th32ThreadID);
+            } while (Thread32Next(hSnapshot, &te32));
+        }
+        CloseHandle(hSnapshot);
+    }
+    return ThreadList;
+}
+
+static inline std::vector<MODULEENTRY32> GetModuleList(const uint32_t TargetProcessId) {
+    std::vector<MODULEENTRY32> ModuleList;
+    HANDLE hSnapshot;
+
+    if (INVALID_HANDLE_VALUE != (hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, TargetProcessId))) {
+        MODULEENTRY32 me32 = { 0 };
+        me32.dwSize = sizeof(MODULEENTRY32);
+
+        if (Module32First(hSnapshot, &me32)) {
+            do {
+                ModuleList.push_back(me32);
+            } while (Module32Next(hSnapshot, &me32));
+        }
+        CloseHandle(hSnapshot);
+    }
+    return ModuleList;
+}
+
+static bool SetThreadPriorityFromThreadId(const uint32_t TargetThreadId, const int ThreadPriority) {
+    HANDLE hThread = OpenThread(THREAD_SET_INFORMATION, FALSE, TargetThreadId);
+    if (hThread == NULL)
+        return FALSE;
+    BOOL ret = SetThreadPriority(hThread, ThreadPriority);
+    CloseHandle(hThread);
+    return ret != 0;
+}
+
+bool SetThreadPriorityForModule(const uint32_t TargetProcessId, const TCHAR *TargetModule, const int ThreadPriority) {
+    bool ret = true;
+    const auto thread_list = GetThreadList(TargetProcessId);
+    const auto module_list = GetModuleList(TargetProcessId);
+    for (const auto thread_id : thread_list) {
+        void* thread_address = GetThreadBeginAddress(thread_id);
+        if (!thread_address) {
+            ret = FALSE;
+        } else {
+            for (const auto& i_module : module_list) {
+                if (check_ptr_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
+                    && (TargetModule == nullptr || _tcsncicmp(TargetModule, i_module.szModule, _tcslen(TargetModule)) == 0)) {
+                    ret &= !!SetThreadPriorityFromThreadId(thread_id, ThreadPriority);
+                    break;
+                }
+            }
+        }
+    }
+    return ret;
+}
+
+static bool SetThreadAffinityFromThreadId(const uint32_t TargetThreadId, const uint64_t ThreadAffinityMask) {
+    HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, TargetThreadId);
+    if (hThread == NULL)
+        return FALSE;
+    auto ret = SetThreadAffinityMask(hThread, ThreadAffinityMask);
+    CloseHandle(hThread);
+    return (ret != 0);
+}
+
+bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR *TargetModule, const uint64_t ThreadAffinityMask) {
+    bool ret = TRUE;
+    const auto thread_list = GetThreadList(TargetProcessId);
+    const auto module_list = GetModuleList(TargetProcessId);
+    for (const auto thread_id : thread_list) {
+        void* thread_address = GetThreadBeginAddress(thread_id);
+        if (!thread_address) {
+            ret = FALSE;
+        } else {
+            for (const auto& i_module : module_list) {
+                if (check_ptr_range(thread_address, i_module.modBaseAddr, i_module.modBaseAddr + i_module.modBaseSize - 1)
+                    && (TargetModule == nullptr || _tcsncicmp(TargetModule, i_module.szModule, _tcslen(TargetModule)) == 0)) {
+                    ret &= !!SetThreadAffinityFromThreadId(thread_id, ThreadAffinityMask);
+                    break;
+                }
+            }
+        }
+    }
+    return ret;
+}
+#endif // #if defined(_WIN32) || defined(_WIN64)
