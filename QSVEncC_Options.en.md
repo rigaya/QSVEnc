@@ -1860,11 +1860,12 @@ Set thread affinity to the process or threads of the application.
 Set target of which thread affinity will be set. Default is "all".
 
 - all ... All targets below.
-- process ... process of NVEncC.
+- process ... whole process.
 - main ... main thread
 - decoder ... avhw decode thread
 - csp ... colorspace conversion threads (CPU)
 - input ... input thread
+- encoder ... background encoder threads
 - output ... output thread
 - audio ... audio processing threads
 - perfmonitor ... performance monitoring threads
@@ -1894,6 +1895,66 @@ Example: Set performance monitoring thread to efficiency core on hybrid architec
 
 Example: Set process affinity to firect CCX on Ryzen CPUs
 --thread-affinity process=cachel3#0
+```
+
+### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+Set priority to the process or threads of the application.
+
+**target** (&lt;string1&gt;)
+Set target of which thread priority will be set. Default is "all".
+
+- all ... All targets below.
+- process ... whole process
+- main ... main thread
+- decoder ... avhw decode thread
+- csp ... colorspace conversion threads (CPU)
+- input ... input thread
+- encoder ... background encoder threads
+- output ... output thread
+- audio ... audio processing threads
+- perfmonitor ... performance monitoring threads
+- videoquality ... ssim/psnr/vmaf calculation thread
+
+**Priority** (&lt;string2&gt;)
+- background, idle, lowest, belownormal, normal (default), abovenormal, highest
+
+```
+Example: apply belownormal priority to whole process
+--thread-priority process=belownormal
+
+Example: apply belownormal priority to output thread, and background priority to performance monitoring threads
+--thread-priority output=belownormal,perfmonitor=background
+```
+
+### --thread-throttoling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+Set power throttoling mode to the threads of the application.
+
+**target** (&lt;string1&gt;)
+Set target of which thread power throttoling mode will be set. Default is "all".
+
+- all ... All targets below.
+- main ... main thread
+- decoder ... avhw decode thread
+- csp ... colorspace conversion threads (CPU)
+- input ... input thread
+- encoder ... background encoder threads
+- output ... output thread
+- audio ... audio processing threads
+- perfmonitor ... performance monitoring threads
+- videoquality ... ssim/psnr/vmaf calculation thread
+
+**優先度** (&lt;string2&gt;)
+- auto (default) ... decoder,encoder,output,perfmonitor,videoquality are "on", and othres "unset"
+- unset          ... Let OS decide.
+- on             ... prefer power efficiency.
+- off            ... prefer performance.
+
+```
+Example: prefer power efficiency in output and performance monitoring threads
+--thread-throttoling output=on,perfmonitor=on
+
+Example: prefer performance in main and input threads
+--thread-throttoling main=off,input=off
 ```
 
 ### --option-file &lt;string&gt;

@@ -1905,17 +1905,18 @@ avsw/avhw読み込み時のデバッグ情報出力。
 avsw/avhw読み込み時のデバッグ情報出力。
 
 ### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...] or 0x&lt;hex&gt;}
-NVEncCのプロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。
+プロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。
 
 **対象** (&lt;string1&gt;)
 スレッドアフィニティを設定する対象を指定する。省略された場合は"all"。
 
 - all ... 下記すべてを対象とする
-- process ... NVEncCのプロセス
+- process ... プロセス全体
 - main ... メインスレッド
 - decoder ... avhwデコード用スレッド
 - csp ... CPUの色空間変換用スレッド
 - input ... 読み込み用スレッド
+- encoder ... エンコーダパイプラインのバックグラウンドスレッド
 - output ... 出力用スレッド
 - audio ... 音声処理用スレッド
 - perfmonitor ... パフォーマンス測定用スレッド
@@ -1945,6 +1946,58 @@ NVEncCのプロセスやスレッドのスレッドアフィニティを設定�
 
 例: Ryzen CPUでプロセス全体を最初のCCXのみに割り当て
 --thread-affinity process=cachel3#0
+```
+
+### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+プロセスやスレッドの優先度を設定する。
+
+**対象** (&lt;string1&gt;)
+設定する対象を指定する。省略された場合は"all"。
+
+- all ... 下記すべてを対象とする
+- process ... プロセス全体
+- main ... メインスレッド
+- decoder ... avhwデコード用スレッド
+- csp ... CPUの色空間変換用スレッド
+- input ... 読み込み用スレッド
+- encoder ... エンコーダパイプラインのバックグラウンドスレッド
+- output ... 出力用スレッド
+- audio ... 音声処理用スレッド
+- perfmonitor ... パフォーマンス測定用スレッド
+- videoquality ... ssim/psnr/vmaf算出用スレッド
+
+**優先度** (&lt;string2&gt;)
+- background, idle, lowest, belownormal, normal (default), abovenormal, highest
+
+### --thread-throttoling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+プロセスやスレッドのスケジューリングの方針を設定する。
+
+**対象** (&lt;string1&gt;)
+設定する対象を指定する。省略された場合は"all"。
+
+- all ... 下記すべてを対象とする
+- main ... メインスレッド
+- decoder ... avhwデコード用スレッド
+- csp ... CPUの色空間変換用スレッド
+- input ... 読み込み用スレッド
+- encoder ... エンコーダパイプラインのバックグラウンドスレッド
+- output ... 出力用スレッド
+- audio ... 音声処理用スレッド
+- perfmonitor ... パフォーマンス測定用スレッド
+- videoquality ... ssim/psnr/vmaf算出用スレッド
+
+**優先度** (&lt;string2&gt;)
+- auto (default)  ... decoder,encoder,output,perfmonitor,videoqualityは"on"、その他は"unset"
+- unset           ... OSに自動的に決定させる。
+- on              ... 電力効率を優先したスケジューリングを行う。
+- off             ... パフォーマンスを優先したスケジューリングを行う。
+
+```
+例: 出力スレッドとパフォーマンス測定用スレッドを電力効率を優先したスケジューリングに設定
+--thread-throttoling output=on,perfmonitor=on
+
+例: メインスレッドと読み込みスレッドをパフォーマンスを優先したスケジューリングに設定
+--thread-throttoling main=off,input=off
 ```
 
 ### --option-file &lt;string&gt;

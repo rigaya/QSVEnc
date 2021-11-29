@@ -55,7 +55,7 @@ static double get_psnr(double mse, uint64_t nb_frames, int max) {
     return 10.0 * log10((max * max) / (mse / nb_frames));
 }
 
-RGYFilterParamSsim::RGYFilterParamSsim() : metric(), deviceId(0), bitDepth(8), input(), streamtimebase(), threadAffinityCompare()
+RGYFilterParamSsim::RGYFilterParamSsim() : metric(), deviceId(0), bitDepth(8), input(), streamtimebase(), threadParam()
 #if ENCODER_VCEENC
 , factory(nullptr), trace(nullptr), context()
 #endif
@@ -294,7 +294,7 @@ RGY_ERR RGYFilterSsim::initDecode(const RGYBitstream *bitstream) {
     av_packet_unref(&pkt);
 
     //比較用のスレッドの開始
-    m_thread = std::thread(&RGYFilterSsim::thread_func, this, prm->threadAffinityCompare);
+    m_thread = std::thread(&RGYFilterSsim::thread_func, this, prm->threadParam);
     AddMessage(RGY_LOG_DEBUG, _T("Started ssim/psnr calculation thread.\n"));
 
     //デコードの開始を待つ必要がある
@@ -569,14 +569,13 @@ void RGYFilterSsim::showResult() {
     }
 }
 
-RGY_ERR RGYFilterSsim::thread_func(RGYThreadAffinity threadAffinity) {
-    if (threadAffinity.mode != RGYThreadAffinityMode::ALL) {
-        SetThreadAffinityMask(GetCurrentThread(), threadAffinity.getMask());
-    }
+RGY_ERR RGYFilterSsim::thread_func(RGYParamThread threadParam) {
     auto sts = init_cl_resources();
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    threadParam.apply(GetCurrentThread());
+    AddMessage(RGY_LOG_DEBUG, _T("Set ssim/psnr calculation thread param: %s.\n"), threadParam.desc().c_str());
     m_decodeStarted = true;
     auto ret = compare_frames();
     AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %s.\n"), get_err_mes(ret));

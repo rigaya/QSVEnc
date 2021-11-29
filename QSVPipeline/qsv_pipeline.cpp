@@ -2670,7 +2670,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
         param->frameOut = param->frameIn;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
-        param->threadAffinityCompare = prm->ctrl.threadAffinity.get(RGYThreadType::VIDEO_QUALITY);
+        param->threadParam = prm->ctrl.threadParams.get(RGYThreadType::VIDEO_QUALITY);
         param->mfxDEC = std::move(mfxdec);
         param->metric = prm->common.metric;
         auto sts = filterSsim->init(param, m_pQSVLog);
@@ -2706,7 +2706,7 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
 #else
         nullptr,
 #endif
-        inputParam->ctrl.threadAffinity.get(RGYThreadType::PERF_MONITOR),
+        inputParam->ctrl.threadParams.get(RGYThreadType::PERF_MONITOR),
         m_pQSVLog, &perfMonitorPrm)) {
         PrintMes(RGY_LOG_WARN, _T("Failed to initialize performance monitor, disabled.\n"));
         m_pPerfMonitor.reset();
@@ -2769,9 +2769,13 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
 
-    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::PROCESS); affinity.mode != RGYThreadAffinityMode::ALL) {
+    if (const auto affinity = pParams->ctrl.threadParams.get(RGYThreadType::PROCESS).affinity; affinity.mode != RGYThreadAffinityMode::ALL) {
         SetProcessAffinityMask(GetCurrentProcess(), affinity.getMask());
         PrintMes(RGY_LOG_DEBUG, _T("Set Process Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+    }
+    if (const auto priority = pParams->ctrl.threadParams.get(RGYThreadType::PROCESS).priority; priority != RGYThreadPriority::Normal) {
+        SetPriorityClass(GetCurrentProcess(), pParams->ctrl.threadParams.get(RGYThreadType::PROCESS).getPriorityCalss());
+        PrintMes(RGY_LOG_DEBUG, _T("Set Process priority: %s.\n"), rgy_thread_priority_mode_to_str(priority));
     }
 
     m_nMFXThreads = pParams->nSessionThreads;
@@ -2844,12 +2848,14 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
     }
-    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::MAIN); affinity.mode != RGYThreadAffinityMode::ALL) {
-        SetThreadAffinityMask(GetCurrentThread(), affinity.getMask());
-        PrintMes(RGY_LOG_DEBUG, _T("Set Main thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+    {
+        const auto& threadParam = pParams->ctrl.threadParams.get(RGYThreadType::MAIN);
+        threadParam.apply(GetCurrentThread());
+        PrintMes(RGY_LOG_DEBUG, _T("Set main thread param: %s.\n"), threadParam.desc().c_str());
     }
+    {
+        const auto& threadParam = pParams->ctrl.threadParams.get(RGYThreadType::ENC);
 #if defined(_WIN32) || defined(_WIN64)
-    if (const auto affinity = pParams->ctrl.threadAffinity.get(RGYThreadType::ENC); affinity.mode != RGYThreadAffinityMode::ALL) {
 #ifdef _M_IX86
         const TCHAR* dll_mfx_platform = _T("libmfxhw32.dll");
         const TCHAR* dll_vpl_platform = _T("libmfx32-gen.dll");
@@ -2857,12 +2863,21 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         const TCHAR* dll_mfx_platform = _T("libmfxhw64.dll");
         const TCHAR* dll_vpl_platform = _T("libmfx64-gen.dll");
 #endif
-        const TCHAR* target_dll = check_lib_version(m_mfxVer, MFX_LIB_VERSION_2__0) ? dll_vpl_platform : dll_mfx_platform;
-
-        SetThreadAffinityForModule(GetCurrentProcessId(), target_dll, pParams->ctrl.threadAffinity.get(RGYThreadType::ENC).getMask());
-        PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+        const TCHAR* target_dll = check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_0) ? dll_vpl_platform : dll_mfx_platform;
+        if (const auto affinity = threadParam.affinity; affinity.mode != RGYThreadAffinityMode::ALL) {
+            SetThreadAffinityForModule(GetCurrentProcessId(), target_dll, affinity.getMask());
+            PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
+        }
+        if (threadParam.priority != RGYThreadPriority::Normal) {
+            SetThreadPriorityForModule(GetCurrentProcessId(), target_dll, threadParam.priority);
+            PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread priority: %s.\n"), threadParam.to_string(RGYParamThreadType::priority).c_str());
+        }
+        if (threadParam.throttling != RGYThreadPowerThrottolingMode::Auto) {
+            SetThreadPowerThrottolingModeForModule(GetCurrentProcessId(), target_dll, threadParam.throttling);
+            PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread throttoling mode: %s.\n"), threadParam.to_string(RGYParamThreadType::throttoling).c_str());
+        }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     }
-#endif
     if ((sts = SetPerfMonitorThreadHandles()) != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to set thread handles to perf monitor!\n"));
         return sts;
