@@ -432,7 +432,16 @@ namespace QSVEnc {
                     }
                     if (environmentInfo[i]->Contains(L"CPU:")) {
                         //TBの周波数は取得するタイミングで変わりうる
-                        compare_len = environmentInfo[i]->IndexOf(L"@");
+                        auto len = environmentInfo[i]->IndexOf(L"@");
+                        if (len < 0) {
+                            len = environmentInfo[i]->IndexOf(L"[");
+                        }
+                        if (len < 0) {
+                            len = environmentInfo[i]->IndexOf(L"(");
+                        }
+                        if (len > 0) {
+                            compare_len = len;
+                        }
                     }
                     if (String::Compare(environmentInfo[i], 0, featureDataLines[i], 0, compare_len) != 0) {
                         use_cache = false;
