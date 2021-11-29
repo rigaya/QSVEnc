@@ -4665,6 +4665,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+#if defined(_WIN32) || defined(_WIN64)
     if (IS_OPTION("thread-priority")) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
@@ -4771,6 +4772,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     if (IS_OPTION("output-buf")) {
         i++;
         int value = 0;
@@ -6585,7 +6587,7 @@ tstring gen_cmd_help_ctrl() {
         str += strsprintf(_T("")
             _T("     thread type (string2)  (default: %s)\n"), rgy_thread_affnity_mode_to_str(RGYThreadAffinityMode::ALL)
         ) + print_list(list_thread_affinity_mode.data()) + _T("\n");
-
+#if defined(_WIN32) || defined(_WIN64)
         str += strsprintf(_T("")
             _T("   --thread-priority [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
@@ -6603,6 +6605,7 @@ tstring gen_cmd_help_ctrl() {
         str += strsprintf(_T("")
             _T("     throttoling mode (string2)  (default: %s)\n"), rgy_thread_power_throttoling_mode_to_str(RGYThreadPowerThrottolingMode::Auto)
         ) + print_list(list_thread_throttoling.data()) + _T("\n");
+#endif //#if defined(_WIN32) || defined(_WIN64)
     }
 #endif //#if ENABLE_AVCODEC_OUT_THREAD
     str += strsprintf(_T("\n")

@@ -1898,7 +1898,7 @@ Example: Set process affinity to firect CCX on Ryzen CPUs
 ```
 
 ### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
-Set priority to the process or threads of the application.
+Set priority to the process or threads of the application. [Windows OS only]  
 
 **target** (&lt;string1&gt;)
 Set target of which thread priority will be set. Default is "all".
@@ -1926,8 +1926,8 @@ Example: apply belownormal priority to output thread, and background priority to
 --thread-priority output=belownormal,perfmonitor=background
 ```
 
-### --thread-throttoling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
-Set power throttoling mode to the threads of the application.
+### --thread-throttoling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]  
+Set power throttoling mode to the threads of the application. [Windows OS only]  
 
 **target** (&lt;string1&gt;)
 Set target of which thread power throttoling mode will be set. Default is "all".

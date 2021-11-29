@@ -1949,7 +1949,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
 ```
 
 ### --thread-priority [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
-プロセスやスレッドの優先度を設定する。
+プロセスやスレッドの優先度を設定する。[Windowsのみ有効]  
 
 **対象** (&lt;string1&gt;)
 設定する対象を指定する。省略された場合は"all"。
@@ -1970,7 +1970,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
 - background, idle, lowest, belownormal, normal (default), abovenormal, highest
 
 ### --thread-throttoling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
-プロセスやスレッドのスケジューリングの方針を設定する。
+プロセスやスレッドのスケジューリングの方針を設定する。 [Windowsのみ有効]  
 
 **対象** (&lt;string1&gt;)
 設定する対象を指定する。省略された場合は"all"。

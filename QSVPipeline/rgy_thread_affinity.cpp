@@ -270,12 +270,14 @@ bool RGYParamThread::apply(void *threadHandle) const {
     if (affinity.mode != RGYThreadAffinityMode::ALL) {
         SetThreadAffinityMask(threadHandle, affinity.getMask());
     }
+#if defined(_WIN32) || defined(_WIN64)
     if (priority != RGYThreadPriority::Normal) {
         ret &= !!SetThreadPriority(threadHandle, (int)priority);
     }
     if (throttling != RGYThreadPowerThrottolingMode::Auto) {
         ret &= SetThreadPowerThrottolingMode(threadHandle, throttling);
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     return ret;
 }
 
