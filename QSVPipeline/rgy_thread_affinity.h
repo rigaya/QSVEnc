@@ -34,6 +34,13 @@
 #include <limits>
 #include "rgy_tchar.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+typedef void* RGYThreadHandle;
+#else
+#include <pthread.h>
+typedef pthread_t RGYThreadHandle;
+#endif
+
 enum class RGYThreadPriority : int {
     BackgroundBeign = 0x00010000,
     BackgroundEnd   = 0x00020000,
@@ -171,7 +178,7 @@ struct RGYParamThread {
     tstring to_string(RGYParamThreadType type) const;
     tstring desc() const;
     void set(RGYThreadAffinity affinity, RGYThreadPriority priority, RGYThreadPowerThrottolingMode throttling);
-    bool apply(void *threadHandle) const;
+    bool apply(RGYThreadHandle threadHandle) const;
     bool operator==(const RGYParamThread& x) const;
     bool operator!=(const RGYParamThread& x) const;
 };
@@ -203,7 +210,7 @@ struct RGYParamThreads {
 bool SetThreadPriorityForModule(const uint32_t TargetProcessId, const TCHAR *TargetModule, const RGYThreadPriority ThreadPriority);
 bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR *TargetModule, const uint64_t ThreadAffinityMask);
 
-bool SetThreadPowerThrottolingMode(void *threadHandle, const RGYThreadPowerThrottolingMode mode);
+bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThreadPowerThrottolingMode mode);
 bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottolingMode mode);
 
 #endif //__RGY_THREAD_AFFINITY_H__

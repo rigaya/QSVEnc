@@ -852,7 +852,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
-            && m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+            && (m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0))) {
             m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
         }
         for (int i = 0; i < 3; i++) {

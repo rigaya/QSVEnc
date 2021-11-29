@@ -203,6 +203,7 @@ RGYParamThread::RGYParamThread() :
 }
 
 uint32_t RGYParamThread::getPriorityCalss() {
+#if defined(_WIN32) || defined(_WIN64)
     static const std::array<std::pair<RGYThreadPriority, uint32_t>, RGY_THREAD_PRIORITY_STR.size()> RGY_THREAD_PRIORITY_CLASS = {
         std::pair<RGYThreadPriority, int>{ RGYThreadPriority::BackgroundBeign, PROCESS_MODE_BACKGROUND_BEGIN},
         std::pair<RGYThreadPriority, int>{ RGYThreadPriority::Idle,            IDLE_PRIORITY_CLASS},
@@ -215,6 +216,7 @@ uint32_t RGYParamThread::getPriorityCalss() {
     for (const auto& p : RGY_THREAD_PRIORITY_CLASS) {
         if (p.first == priority) return p.second;
     }
+#endif //#if defined(_WIN32) || defined(_WIN64)
     return 0u;
 }
 
@@ -265,7 +267,7 @@ void RGYParamThread::set(RGYThreadAffinity affinity_, RGYThreadPriority priority
     throttling = throttling_;
 }
 
-bool RGYParamThread::apply(void *threadHandle) const {
+bool RGYParamThread::apply(RGYThreadHandle threadHandle) const {
     bool ret = true;
     if (affinity.mode != RGYThreadAffinityMode::ALL) {
         SetThreadAffinityMask(threadHandle, affinity.getMask());
@@ -551,7 +553,7 @@ bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR *Tar
     return ret;
 }
 
-bool SetThreadPowerThrottolingMode(void *threadHandle, const RGYThreadPowerThrottolingMode mode) {
+bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThreadPowerThrottolingMode mode) {
     THREAD_POWER_THROTTLING_STATE throttlingState;
     RtlZeroMemory(&throttlingState, sizeof(throttlingState));
     throttlingState.Version = THREAD_POWER_THROTTLING_CURRENT_VERSION;
@@ -607,7 +609,7 @@ bool SetThreadPriorityForModule(const uint32_t TargetProcessId, const TCHAR* Tar
 bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const uint64_t ThreadAffinityMask) {
     return false;
 }
-bool SetThreadPowerThrottolingMode(HANDLE threadHandle, const RGYThreadPowerThrottolingMode mode) {
+bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThreadPowerThrottolingMode mode) {
     return false;
 }
 bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottolingMode mode) {
