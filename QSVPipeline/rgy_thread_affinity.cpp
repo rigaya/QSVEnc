@@ -301,11 +301,14 @@ void RGYParamThreads::apply_auto() {
     perfmonitor.priority = RGYThreadPriority::BackgroundBeign;
 
     auto set_throttoling_auto = [](RGYParamThread& type, RGYThreadPowerThrottolingMode mode) { if (type.throttling == RGYThreadPowerThrottolingMode::Auto) { type.throttling = mode; }};
-    set_throttoling_auto(dec, RGYThreadPowerThrottolingMode::Enabled);
-    set_throttoling_auto(enc, RGYThreadPowerThrottolingMode::Enabled);
-    set_throttoling_auto(output, RGYThreadPowerThrottolingMode::Enabled);
-    set_throttoling_auto(perfmonitor, RGYThreadPowerThrottolingMode::Enabled);
+    set_throttoling_auto(perfmonitor,  RGYThreadPowerThrottolingMode::Enabled);
+    set_throttoling_auto(output,       RGYThreadPowerThrottolingMode::Enabled);
     set_throttoling_auto(videoquality, RGYThreadPowerThrottolingMode::Enabled);
+
+    if (false) { // 性能がわずかに低下(1%程度)する場合があるようなのでまずは無効化する
+        set_throttoling_auto(dec, RGYThreadPowerThrottolingMode::Enabled);
+        set_throttoling_auto(enc, RGYThreadPowerThrottolingMode::Enabled);
+    }
     // そのほかはUnsetにする
     for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
         set_throttoling_auto(get((RGYThreadType)i), RGYThreadPowerThrottolingMode::Unset);
