@@ -48,19 +48,19 @@ RGYThreadPriority rgy_str_to_thread_priority_mode(const TCHAR* str) {
     return RGYThreadPriority::Unknwon;
 }
 
-const TCHAR* rgy_thread_power_throttoling_mode_to_str(RGYThreadPowerThrottolingMode mode) {
+const TCHAR* rgy_thread_power_throttoling_mode_to_str(RGYThreadPowerThrottlingMode mode) {
     for (const auto& p : RGY_THREAD_POWER_THROTTOLING_MODE_STR) {
         if (p.first == mode) return p.second;
     }
     return nullptr;
 }
 
-RGYThreadPowerThrottolingMode rgy_str_to_thread_power_throttoling_mode(const TCHAR* str) {
+RGYThreadPowerThrottlingMode rgy_str_to_thread_power_throttoling_mode(const TCHAR* str) {
     tstring target(str);
     for (const auto& p : RGY_THREAD_POWER_THROTTOLING_MODE_STR) {
         if (target == p.second) return p.first;
     }
-    return RGYThreadPowerThrottolingMode::END;
+    return RGYThreadPowerThrottlingMode::END;
 }
 
 RGYThreadAffinity::RGYThreadAffinity() : mode(), custom(std::numeric_limits<decltype(custom)>::max()) {};
@@ -198,7 +198,7 @@ uint64_t RGYThreadAffinity::getMask() const {
 RGYParamThread::RGYParamThread() :
     affinity(),
     priority(RGYThreadPriority::Normal),
-    throttling(RGYThreadPowerThrottolingMode::Unset) {
+    throttling(RGYThreadPowerThrottlingMode::Unset) {
 
 }
 
@@ -224,14 +224,14 @@ tstring RGYParamThread::to_string(RGYParamThreadType type) const {
     switch (type) {
     case RGYParamThreadType::affinity: return affinity.to_string();
     case RGYParamThreadType::priority: return rgy_thread_priority_mode_to_str(priority);
-    case RGYParamThreadType::throttoling: return rgy_thread_power_throttoling_mode_to_str(throttling);
+    case RGYParamThreadType::throttling: return rgy_thread_power_throttoling_mode_to_str(throttling);
     case RGYParamThreadType::all:
     default: {
         tstring str = _T("affinity=");
         str += affinity.to_string();
         str += _T(",priority=");
         str += rgy_thread_priority_mode_to_str(priority);
-        str += _T(",throttoling=");
+        str += _T(",throttling=");
         str += rgy_thread_power_throttoling_mode_to_str(throttling);
         return str;
     }
@@ -247,7 +247,7 @@ tstring RGYParamThread::desc() const {
     str += buf;
     str += _T("), priority=");
     str += rgy_thread_priority_mode_to_str(priority);
-    str += _T(", throttoling=");
+    str += _T(", throttling=");
     str += rgy_thread_power_throttoling_mode_to_str(throttling);
     return str;
 }
@@ -261,7 +261,7 @@ bool RGYParamThread::operator!=(const RGYParamThread& x) const {
     return !(*this == x);
 }
 
-void RGYParamThread::set(RGYThreadAffinity affinity_, RGYThreadPriority priority_, RGYThreadPowerThrottolingMode throttling_) {
+void RGYParamThread::set(RGYThreadAffinity affinity_, RGYThreadPriority priority_, RGYThreadPowerThrottlingMode throttling_) {
     affinity = affinity_;
     priority = priority_;
     throttling = throttling_;
@@ -276,7 +276,7 @@ bool RGYParamThread::apply(RGYThreadHandle threadHandle) const {
     if (priority != RGYThreadPriority::Normal) {
         ret &= !!SetThreadPriority(threadHandle, (int)priority);
     }
-    if (throttling != RGYThreadPowerThrottolingMode::Auto) {
+    if (throttling != RGYThreadPowerThrottlingMode::Auto) {
         ret &= SetThreadPowerThrottolingMode(threadHandle, throttling);
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
@@ -295,7 +295,7 @@ RGYParamThreads::RGYParamThreads() :
     perfmonitor(),
     videoquality() {
     perfmonitor.priority = RGYThreadPriority::BackgroundBeign;
-    perfmonitor.throttling = RGYThreadPowerThrottolingMode::Enabled;
+    perfmonitor.throttling = RGYThreadPowerThrottlingMode::Enabled;
     // そのほかはAutoにする
     for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
         const auto targetType = (RGYThreadType)i;
@@ -304,7 +304,7 @@ RGYParamThreads::RGYParamThreads() :
             && targetType != RGYThreadType::ENC
             && targetType != RGYThreadType::OUTUT
             && targetType != RGYThreadType::VIDEO_QUALITY) {
-            get(targetType).throttling = RGYThreadPowerThrottolingMode::Auto;
+            get(targetType).throttling = RGYThreadPowerThrottlingMode::Auto;
         }
     }
 }
@@ -370,7 +370,7 @@ void RGYParamThreads::set(const RGYThreadPriority priority, RGYThreadType type) 
     }
 }
 
-void RGYParamThreads::set(const RGYThreadPowerThrottolingMode mode, RGYThreadType type) {
+void RGYParamThreads::set(const RGYThreadPowerThrottlingMode mode, RGYThreadType type) {
     if (type == RGYThreadType::ALL) {
         for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
             get((RGYThreadType)i).throttling = mode;
@@ -550,22 +550,22 @@ bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR *Tar
     return ret;
 }
 
-bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThreadPowerThrottolingMode mode) {
+bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThreadPowerThrottlingMode mode) {
     THREAD_POWER_THROTTLING_STATE throttlingState;
     RtlZeroMemory(&throttlingState, sizeof(throttlingState));
     throttlingState.Version = THREAD_POWER_THROTTLING_CURRENT_VERSION;
 
     switch (mode) {
-    case RGYThreadPowerThrottolingMode::Enabled:
+    case RGYThreadPowerThrottlingMode::Enabled:
         throttlingState.ControlMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
         throttlingState.StateMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
         break;
-    case RGYThreadPowerThrottolingMode::Disabled:
+    case RGYThreadPowerThrottlingMode::Disabled:
         throttlingState.ControlMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
         throttlingState.StateMask = 0;
         break;
-    case RGYThreadPowerThrottolingMode::Unset:
-    case RGYThreadPowerThrottolingMode::Auto:
+    case RGYThreadPowerThrottlingMode::Unset:
+    case RGYThreadPowerThrottlingMode::Auto:
     default:
         throttlingState.ControlMask = 0;
         throttlingState.StateMask = 0;
@@ -574,7 +574,7 @@ bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThread
     return SetThreadInformation(threadHandle, ThreadPowerThrottling, &throttlingState, sizeof(throttlingState));
 }
 
-bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottolingMode mode) {
+bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottlingMode mode) {
     bool ret = TRUE;
     const auto thread_list = GetThreadList(TargetProcessId);
     const auto module_list = GetModuleList(TargetProcessId);
@@ -606,10 +606,10 @@ bool SetThreadPriorityForModule(const uint32_t TargetProcessId, const TCHAR* Tar
 bool SetThreadAffinityForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const uint64_t ThreadAffinityMask) {
     return false;
 }
-bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThreadPowerThrottolingMode mode) {
+bool SetThreadPowerThrottolingMode(RGYThreadHandle threadHandle, const RGYThreadPowerThrottlingMode mode) {
     return false;
 }
-bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottolingMode mode) {
+bool SetThreadPowerThrottolingModeForModule(const uint32_t TargetProcessId, const TCHAR* TargetModule, const RGYThreadPowerThrottlingMode mode) {
     return false;
 }
 #endif // #if defined(_WIN32) || defined(_WIN64)

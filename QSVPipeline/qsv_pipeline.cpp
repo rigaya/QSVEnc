@@ -2738,14 +2738,14 @@ RGY_ERR CQSVPipeline::InitPowerThrottoling(sInputParams *pParams) {
 
     //一定以上のスコアなら、throttolingをAuto、それ以外はthrottolingを有効にして消費電力を削減
     const int score_threshold = 7;
-    const auto mode = (score >= score_threshold) ? RGYThreadPowerThrottolingMode::Auto : RGYThreadPowerThrottolingMode::Enabled;
+    const auto mode = (score >= score_threshold) ? RGYThreadPowerThrottlingMode::Auto : RGYThreadPowerThrottlingMode::Enabled;
     PrintMes(RGY_LOG_DEBUG, _T("selected mode %s : score %d: codec %d, resolution %d, tu %d, filter %d, speed limit %s.\n"),
         rgy_thread_power_throttoling_mode_to_str(mode), score, score_codec, score_resolution, score_tu, score_filter, speedLimit ? _T("on") : _T("off"));
 
     //Unsetのままの設定について自動決定したモードを適用
     for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
         auto& target = pParams->ctrl.threadParams.get((RGYThreadType)i);
-        if (target.throttling == RGYThreadPowerThrottolingMode::Unset) {
+        if (target.throttling == RGYThreadPowerThrottlingMode::Unset) {
             target.throttling = mode;
         }
     }
@@ -2944,9 +2944,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
             SetThreadPriorityForModule(GetCurrentProcessId(), target_dll, threadParam.priority);
             PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread priority: %s.\n"), threadParam.to_string(RGYParamThreadType::priority).c_str());
         }
-        if (threadParam.throttling != RGYThreadPowerThrottolingMode::Auto) {
+        if (threadParam.throttling != RGYThreadPowerThrottlingMode::Auto) {
             SetThreadPowerThrottolingModeForModule(GetCurrentProcessId(), target_dll, threadParam.throttling);
-            PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread throttoling mode: %s.\n"), threadParam.to_string(RGYParamThreadType::throttoling).c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("Set mfx thread throttling mode: %s.\n"), threadParam.to_string(RGYParamThreadType::throttling).c_str());
         }
 #endif //#if defined(_WIN32) || defined(_WIN64)
     }

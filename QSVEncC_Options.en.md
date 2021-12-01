@@ -1926,11 +1926,11 @@ Example: apply belownormal priority to output thread, and background priority to
 --thread-priority output=belownormal,perfmonitor=background
 ```
 
-### --thread-throttoling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]  
-Set power throttoling mode to the threads of the application. [Windows OS only]  
+### --thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]  
+Set power throttling mode to the threads of the application. [Windows OS only]  
 
 **target** (&lt;string1&gt;)
-Set target of which thread power throttoling mode will be set. Default is "all".
+Set target of which thread power throttling mode will be set. Default is "all".
 
 - all ... All targets below.
 - main ... main thread
@@ -1951,10 +1951,10 @@ Set target of which thread power throttoling mode will be set. Default is "all".
 
 ```
 Example: prefer power efficiency in output and performance monitoring threads
---thread-throttoling output=on,perfmonitor=on
+--thread-throttling output=on,perfmonitor=on
 
 Example: prefer performance in main and input threads
---thread-throttoling main=off,input=off
+--thread-throttling main=off,input=off
 ```
 
 ### --option-file &lt;string&gt;

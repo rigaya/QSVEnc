@@ -1969,7 +1969,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
 **優先度** (&lt;string2&gt;)
 - background, idle, lowest, belownormal, normal (default), abovenormal, highest
 
-### --thread-throttoling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
+### --thread-throttling [&lt;string1&gt;=]&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...]
 プロセスやスレッドのスケジューリングの方針を設定する。 [Windowsのみ有効]  
 
 **対象** (&lt;string1&gt;)
@@ -1994,10 +1994,10 @@ avsw/avhw読み込み時のデバッグ情報出力。
 
 ```
 例: 出力スレッドとパフォーマンス測定用スレッドを電力効率を優先したスケジューリングに設定
---thread-throttoling output=on,perfmonitor=on
+--thread-throttling output=on,perfmonitor=on
 
 例: メインスレッドと読み込みスレッドをパフォーマンスを優先したスケジューリングに設定
---thread-throttoling main=off,input=off
+--thread-throttling main=off,input=off
 ```
 
 ### --option-file &lt;string&gt;

@@ -4719,7 +4719,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
-    if (IS_OPTION("thread-throttoling")) {
+    if (IS_OPTION("thread-throttling")) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -4745,13 +4745,13 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 auto param_val = param.substr(pos + 1);
                 param_arg = tolowercase(param_arg);
 
-                const RGYThreadPowerThrottolingMode throttoling = rgy_str_to_thread_power_throttoling_mode(tolowercase(param_val).c_str());
-                if (throttoling != RGYThreadPowerThrottolingMode::END) {
+                const RGYThreadPowerThrottlingMode throttling = rgy_str_to_thread_power_throttoling_mode(tolowercase(param_val).c_str());
+                if (throttling != RGYThreadPowerThrottlingMode::END) {
                     auto type_ret = std::find_if(RGY_THREAD_TYPE_STR.begin(), RGY_THREAD_TYPE_STR.end(), [param_arg](decltype(RGY_THREAD_TYPE_STR[0])& type) {
                         return param_arg == type.second;
                         });
                     if (type_ret != RGY_THREAD_TYPE_STR.end()) {
-                        ctrl->threadParams.set(throttoling, type_ret->first);
+                        ctrl->threadParams.set(throttling, type_ret->first);
                     } else {
                         print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                         return 1;
@@ -4761,9 +4761,9 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                     return 1;
                 }
             } else {
-                const RGYThreadPowerThrottolingMode throttoling = rgy_str_to_thread_power_throttoling_mode(tolowercase(param).c_str());
-                if (throttoling != RGYThreadPowerThrottolingMode::END) {
-                    ctrl->threadParams.set(throttoling, RGYThreadType::ALL);
+                const RGYThreadPowerThrottlingMode throttling = rgy_str_to_thread_power_throttoling_mode(tolowercase(param).c_str());
+                if (throttling != RGYThreadPowerThrottlingMode::END) {
+                    ctrl->threadParams.set(throttling, RGYThreadType::ALL);
                 } else {
                     print_cmd_error_invalid_value(tstring(option_name), param, list_thread_throttoling.data());
                     return 1;
@@ -5808,7 +5808,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     if (param->threadParams != defaultPrm->threadParams) {
         cmd << _T(" --thread-affinity ")    << param->threadParams.to_string(RGYParamThreadType::affinity);
         cmd << _T(" --thread-priority ")    << param->threadParams.to_string(RGYParamThreadType::priority);
-        cmd << _T(" --thread-throttoling ") << param->threadParams.to_string(RGYParamThreadType::throttoling);
+        cmd << _T(" --thread-throttling ") << param->threadParams.to_string(RGYParamThreadType::throttling);
     }
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
@@ -6598,12 +6598,12 @@ tstring gen_cmd_help_ctrl() {
         ) + print_list(list_thread_priority.data()) + _T("\n");
 
         str += strsprintf(_T("")
-            _T("   --thread-throttoling [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
+            _T("   --thread-throttling [<string1>=](<string2>[#<int>[:<int>][]...] or 0x<hex>)\n"));
         str += strsprintf(_T("")
             _T("     target (string1)  (default: %s)\n"), RGY_THREAD_TYPE_STR[(int)RGYThreadType::ALL].second
         ) + print_list(list_rgy_thread_type.data()) + _T("\n");
         str += strsprintf(_T("")
-            _T("     throttoling mode (string2)  (default: %s)\n"), rgy_thread_power_throttoling_mode_to_str(RGYThreadPowerThrottolingMode::Auto)
+            _T("     throttling mode (string2)  (default: %s)\n"), rgy_thread_power_throttoling_mode_to_str(RGYThreadPowerThrottlingMode::Auto)
         ) + print_list(list_thread_throttoling.data()) + _T("\n");
 #endif //#if defined(_WIN32) || defined(_WIN64)
     }

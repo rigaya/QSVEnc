@@ -693,7 +693,7 @@ void CPerfMonitor::runCounterThread() {
         getOSVersion(&osver);
         if (osver.dwMajorVersion > 6 || (osver.dwMajorVersion == 6 && osver.dwMinorVersion >= 4)) { //Windows10
             m_perfCounter = std::make_unique<RGYGPUCounterWin>();
-            m_perfCounter->thread_run(m_threadParam.affinity.getMask(), (int)m_threadParam.priority, m_threadParam.throttling == RGYThreadPowerThrottolingMode::Enabled);
+            m_perfCounter->thread_run(m_threadParam.affinity.getMask(), (int)m_threadParam.priority, m_threadParam.throttling == RGYThreadPowerThrottlingMode::Enabled);
         }
     }
 }
