@@ -200,6 +200,7 @@ protected:
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     virtual RGY_ERR InitMfxDecParams();
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams);
+    virtual RGY_ERR InitPowerThrottoling(sInputParams *pParams);
     virtual RGY_ERR InitMfxDec();
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();

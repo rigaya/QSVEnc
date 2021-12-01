@@ -1943,11 +1943,11 @@ Set target of which thread power throttoling mode will be set. Default is "all".
 - perfmonitor ... performance monitoring threads
 - videoquality ... ssim/psnr/vmaf calculation thread
 
-**優先度** (&lt;string2&gt;)
-- auto (default) ... decoder,encoder,output,perfmonitor,videoquality are "on", and othres "unset"
-- unset          ... Let OS decide.
-- on             ... prefer power efficiency.
-- off            ... prefer performance.
+**mode** (&lt;string2&gt;)
+- unset (default) ... mode will be set automatically depending on the encode target.
+- auto            ... Let OS decide.
+- on              ... prefer power efficiency.
+- off             ... prefer performance.
 
 ```
 Example: prefer power efficiency in output and performance monitoring threads

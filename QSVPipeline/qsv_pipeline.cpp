@@ -2683,6 +2683,75 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
     return RGY_ERR_NONE;
 }
 
+//Power throttolingは消費電力削減に有効だが、
+//fpsが高い場合やvppフィルタを使用する場合は、速度に悪影響がある場合がある
+//そのあたりを適当に考慮し、throttolingのauto/onを自動的に切り替え
+RGY_ERR CQSVPipeline::InitPowerThrottoling(sInputParams *pParams) {
+    //解像度が低いほど、fpsが出やすい
+    int score_resolution = 0;
+    const int outputResolution = m_encWidth * m_encHeight;
+    if (       outputResolution <= 1024*576) {
+        score_resolution += 4;
+    } else if (outputResolution <= 1280*720) {
+        score_resolution += 3;
+    } else if (outputResolution <= 1920*1080) {
+        score_resolution += 2;
+    } else if (outputResolution <= 2560*1440) {
+        score_resolution += 1;
+    }
+    int score_codec = 0;
+    int score_tu = 0;
+    if (m_pmfxENC) {
+        //MPEG2/H.264エンコードは高速
+        switch (pParams->CodecId) {
+        case MFX_CODEC_MPEG2:
+        case MFX_CODEC_AVC:
+            score_codec += 2;
+            break;
+        case MFX_CODEC_HEVC:
+        default:
+            score_codec += 0;
+            break;
+        }
+        //TUによる重みづけ
+        if (m_mfxEncParams.mfx.TargetUsage <= 2) {
+            score_tu += 0;
+        } else if (m_mfxEncParams.mfx.TargetUsage <= 4) {
+            score_tu += 2;
+        } else {
+            score_tu += 3;
+        }
+    }
+    //MFX filterがある場合、RGYThreadType::ENCのthrottolingを有効にするとわずかに遅くなることが多い
+    int score_filter = 0;
+    const auto filterMFX = std::count_if(m_vpFilters.begin(), m_vpFilters.end(), [](const VppVilterBlock& block) { return block.type == VppFilterType::FILTER_MFX; });
+    if (filterMFX > 0) {
+        score_filter += 4;
+    }
+    //OpenCLフィルタは比較的重いのでfpsが低下しやすい
+    const auto filterOpenCL = std::count_if(m_vpFilters.begin(), m_vpFilters.end(), [](const VppVilterBlock& block) { return block.type == VppFilterType::FILTER_OPENCL; });
+    if (filterOpenCL > 0) {
+        score_filter -= 1;
+    }
+    const bool speedLimit = pParams->ctrl.procSpeedLimit > 0 && pParams->ctrl.procSpeedLimit <= 240;
+    const int score = (speedLimit) ? 0 : score_codec + score_resolution + score_tu + score_filter;
+
+    //一定以上のスコアなら、throttolingをAuto、それ以外はthrottolingを有効にして消費電力を削減
+    const int score_threshold = 7;
+    const auto mode = (score >= score_threshold) ? RGYThreadPowerThrottolingMode::Auto : RGYThreadPowerThrottolingMode::Enabled;
+    PrintMes(RGY_LOG_DEBUG, _T("selected mode %s : score %d: codec %d, resolution %d, tu %d, filter %d, speed limit %s.\n"),
+        rgy_thread_power_throttoling_mode_to_str(mode), score, score_codec, score_resolution, score_tu, score_filter, speedLimit ? _T("on") : _T("off"));
+
+    //Unsetのままの設定について自動決定したモードを適用
+    for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
+        auto& target = pParams->ctrl.threadParams.get((RGYThreadType)i);
+        if (target.throttling == RGYThreadPowerThrottolingMode::Unset) {
+            target.throttling = mode;
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
     m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel, pParams->ctrl.logAddTime));
@@ -2808,6 +2877,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitMfxEncodeParams(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
+    sts = InitPowerThrottoling(pParams);
+    if (sts < RGY_ERR_NONE) return sts;
+
     sts = InitChapters(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
@@ -2816,13 +2888,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     sts = InitOutput(pParams);
     if (sts < RGY_ERR_NONE) return sts;
-
-    const int nPipelineElements = !!m_mfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC;
-    if (nPipelineElements == 0) {
-        PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
-        return RGY_ERR_INVALID_VIDEO_PARAM;
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
     m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
     m_nAsyncDepth = clamp_param_int((pParams->ctrl.lowLatency) ? 1 : pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
@@ -2833,6 +2898,13 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (pParams->ctrl.lowLatency) {
         pParams->bDisableTimerPeriodTuning = false;
     }
+
+    const int nPipelineElements = !!m_mfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC;
+    if (nPipelineElements == 0) {
+        PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
     sts = InitVideoQualityMetric(pParams);
     if (sts < RGY_ERR_NONE) return sts;

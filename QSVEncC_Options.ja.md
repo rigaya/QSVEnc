@@ -1987,8 +1987,8 @@ avsw/avhw読み込み時のデバッグ情報出力。
 - videoquality ... ssim/psnr/vmaf算出用スレッド
 
 **優先度** (&lt;string2&gt;)
-- auto (default)  ... decoder,encoder,output,perfmonitor,videoqualityは"on"、その他は"unset"
-- unset           ... OSに自動的に決定させる。
+- unset (default) ... エンコード設定により自動的に決定
+- auto            ... OSに自動的に決定させる。
 - on              ... 電力効率を優先したスケジューリングを行う。
 - off             ... パフォーマンスを優先したスケジューリングを行う。
 

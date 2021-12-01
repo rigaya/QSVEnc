@@ -198,7 +198,7 @@ uint64_t RGYThreadAffinity::getMask() const {
 RGYParamThread::RGYParamThread() :
     affinity(),
     priority(RGYThreadPriority::Normal),
-    throttling(RGYThreadPowerThrottolingMode::Auto) {
+    throttling(RGYThreadPowerThrottolingMode::Unset) {
 
 }
 
@@ -294,24 +294,18 @@ RGYParamThreads::RGYParamThreads() :
     audio(),
     perfmonitor(),
     videoquality() {
-    apply_auto();
-}
-
-void RGYParamThreads::apply_auto() {
     perfmonitor.priority = RGYThreadPriority::BackgroundBeign;
-
-    auto set_throttoling_auto = [](RGYParamThread& type, RGYThreadPowerThrottolingMode mode) { if (type.throttling == RGYThreadPowerThrottolingMode::Auto) { type.throttling = mode; }};
-    set_throttoling_auto(perfmonitor,  RGYThreadPowerThrottolingMode::Enabled);
-    set_throttoling_auto(output,       RGYThreadPowerThrottolingMode::Enabled);
-    set_throttoling_auto(videoquality, RGYThreadPowerThrottolingMode::Enabled);
-
-    if (false) { // 性能がわずかに低下(1%程度)する場合があるようなのでまずは無効化する
-        set_throttoling_auto(dec, RGYThreadPowerThrottolingMode::Enabled);
-        set_throttoling_auto(enc, RGYThreadPowerThrottolingMode::Enabled);
-    }
-    // そのほかはUnsetにする
+    perfmonitor.throttling = RGYThreadPowerThrottolingMode::Enabled;
+    // そのほかはAutoにする
     for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
-        set_throttoling_auto(get((RGYThreadType)i), RGYThreadPowerThrottolingMode::Unset);
+        const auto targetType = (RGYThreadType)i;
+        //DEC,ENC,OUTPUT,VIDEO_QUALITYは実行時に決める
+        if (   targetType != RGYThreadType::DEC
+            && targetType != RGYThreadType::ENC
+            && targetType != RGYThreadType::OUTUT
+            && targetType != RGYThreadType::VIDEO_QUALITY) {
+            get(targetType).throttling = RGYThreadPowerThrottolingMode::Auto;
+        }
     }
 }
 

@@ -69,17 +69,17 @@ const TCHAR* rgy_thread_priority_mode_to_str(RGYThreadPriority mode);
 RGYThreadPriority rgy_str_to_thread_priority_mode(const TCHAR* str);
 
 enum class RGYThreadPowerThrottolingMode {
-    Auto     = -2,
-    Unset    = -1,
+    Unset    = -2,
+    Auto     = -1,
     Disabled = 0,
     Enabled  = 1,
 
     END
 };
 
-static const std::array<std::pair<RGYThreadPowerThrottolingMode, const TCHAR*>, (int)RGYThreadPowerThrottolingMode::END - (int)RGYThreadPowerThrottolingMode::Auto> RGY_THREAD_POWER_THROTTOLING_MODE_STR = {
-    std::pair<RGYThreadPowerThrottolingMode, const TCHAR*>{ RGYThreadPowerThrottolingMode::Auto,     _T("auto")},
+static const std::array<std::pair<RGYThreadPowerThrottolingMode, const TCHAR*>, (int)RGYThreadPowerThrottolingMode::END - (int)RGYThreadPowerThrottolingMode::Unset> RGY_THREAD_POWER_THROTTOLING_MODE_STR = {
     std::pair<RGYThreadPowerThrottolingMode, const TCHAR*>{ RGYThreadPowerThrottolingMode::Unset,    _T("unset")},
+    std::pair<RGYThreadPowerThrottolingMode, const TCHAR*>{ RGYThreadPowerThrottolingMode::Auto,     _T("auto")},
     std::pair<RGYThreadPowerThrottolingMode, const TCHAR*>{ RGYThreadPowerThrottolingMode::Disabled, _T("off")},
     std::pair<RGYThreadPowerThrottolingMode, const TCHAR*>{ RGYThreadPowerThrottolingMode::Enabled,  _T("on")}
 };
@@ -201,7 +201,7 @@ struct RGYParamThreads {
     void set(const RGYThreadAffinity affinity, RGYThreadType type);
     void set(const RGYThreadPriority priority, RGYThreadType type);
     void set(const RGYThreadPowerThrottolingMode mode, RGYThreadType type);
-    void apply_auto();
+    void apply_unset();
     tstring to_string(RGYParamThreadType type) const;
     bool operator==(const RGYParamThreads&x) const;
     bool operator!=(const RGYParamThreads&x) const;
