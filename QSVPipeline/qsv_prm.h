@@ -332,6 +332,7 @@ struct sInputParams {
     uint32_t   nFallback;
     bool       bOutputAud;
     bool       bOutputPicStruct;
+    bool       bufPeriodSEI;
     int16_t    pQPOffset[8];
 
     int        nRepartitionCheck;
@@ -346,6 +347,8 @@ struct sInputParams {
 
     bool       bBenchmark;
     mfxU32     nBenchQuality; //ベンチマークの対象
+
+    void applyDOVIProfile();
 
     sInputParams();
     ~sInputParams();

@@ -1270,7 +1270,6 @@ public:
         mfxStatus vpp_sts = MFX_ERR_NONE;
 
         if (frame) {
-            m_inFrames++;
             m_lastFrameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
         }
 
@@ -1278,7 +1277,7 @@ public:
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
         if (surfVppIn) {
-            m_timestamp.add(surfVppIn->Data.TimeStamp, 0);
+            m_timestamp.add(surfVppIn->Data.TimeStamp, m_inFrames++, 0);
             surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         }
 
@@ -1452,6 +1451,7 @@ class PipelineTaskMFXEncode : public PipelineTask {
 protected:
     MFXVideoENCODE *m_encode;
     RGYTimecode *m_timecode;
+    RGYTimestamp *m_encTimestamp;
     mfxVideoParam& m_mfxEncParams;
     rgy_rational<int> m_outputTimebase;
     RGYListRef<RGYBitstream> m_bitStreamOut;
@@ -1461,9 +1461,9 @@ protected:
 public:
     PipelineTaskMFXEncode(
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, mfxVideoParam& encParams,
-        RGYTimecode *timecode, rgy_rational<int> outputTimebase, RGYHDR10Plus *hdr10plus, bool hdr10plusMetadataCopy, std::shared_ptr<RGYLog> log)
+        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, RGYHDR10Plus *hdr10plus, bool hdr10plusMetadataCopy, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
-        m_encode(mfxencode), m_timecode(timecode), m_mfxEncParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(), m_hdr10plus(hdr10plus), m_hdr10plusMetadataCopy(hdr10plusMetadataCopy), m_encCtrlData() {};
+        m_encode(mfxencode), m_timecode(timecode), m_encTimestamp(encTimestamp), m_mfxEncParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(), m_hdr10plus(hdr10plus), m_hdr10plusMetadataCopy(hdr10plusMetadataCopy), m_encCtrlData() {};
     virtual ~PipelineTaskMFXEncode() {
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
     };
@@ -1535,7 +1535,6 @@ public:
         //以下の処理は
         mfxFrameSurface1 *surfEncodeIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfxsurf() : nullptr;
         if (surfEncodeIn) {
-            m_inFrames++;
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
             bsOut->setPts((uint64_t)MFX_TIMESTAMP_UNKNOWN);
             bsOut->setDts((uint64_t)MFX_TIMESTAMP_UNKNOWN);
@@ -1546,6 +1545,8 @@ public:
             //最後にQSVのHW_TIMEBASEに変換する
             surfEncodeIn->Data.TimeStamp = rational_rescale(surfEncodeIn->Data.TimeStamp, m_outputTimebase, rgy_rational<int>(1, HW_TIMEBASE));
             surfEncodeIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+
+            m_encTimestamp->add(surfEncodeIn->Data.TimeStamp, m_inFrames++, 0);
         }
         //エンコーダまでたどり着いたフレームについてはdataListを解放
         if (frame) {

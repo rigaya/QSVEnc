@@ -816,6 +816,27 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     m_CodingOption.PicTimingSEI = (mfxU16)((pInParams->bOutputPicStruct) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     m_CodingOption.SingleSeiNalUnit = MFX_CODINGOPTION_OFF;
 
+    const auto VBR_RC_LIST = make_array<int>(MFX_RATECONTROL_CBR, MFX_RATECONTROL_VBR, MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VCM, MFX_RATECONTROL_QVBR, MFX_RATECONTROL_LA, MFX_RATECONTROL_LA_HRD);
+    const auto DOVI_RC_LIST = make_array<int>(MFX_RATECONTROL_CBR, MFX_RATECONTROL_VBR, MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VCM, MFX_RATECONTROL_QVBR);
+    if (auto profile = getDOVIProfile(pInParams->common.doviProfile); profile != nullptr && profile->HRDSEI) {
+        if (std::find(DOVI_RC_LIST.begin(), DOVI_RC_LIST.end(), pInParams->nEncMode) == DOVI_RC_LIST.end()) {
+            tstring dovi_rc_str;
+            for (auto rc : DOVI_RC_LIST) {
+                if (dovi_rc_str.length() > 0) dovi_rc_str += _T("/");
+                dovi_rc_str += EncmodeToStr(rc);
+            }
+            PrintMes(RGY_LOG_ERROR, _T("Please use %s mode for dolby vision output.\n"), dovi_rc_str.c_str());
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_mfxEncParams.mfx.BufferSizeInKB == 0) {
+            m_mfxEncParams.mfx.BufferSizeInKB = m_mfxEncParams.mfx.MaxKbps / 8;
+        }
+        if (m_mfxEncParams.mfx.InitialDelayInKB == 0) {
+            m_mfxEncParams.mfx.InitialDelayInKB = m_mfxEncParams.mfx.BufferSizeInKB / 2;
+        }
+    }
+
+
     //API v1.6の機能
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
         INIT_MFX_EXT_BUFFER(m_CodingOption2, MFX_EXTBUFF_CODING_OPTION2);
@@ -852,8 +873,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
-            && (m_hdr10plus || m_hdr10plusMetadataCopy || (m_hdrsei && m_hdrsei->gen_nal().size() > 0))) {
+            && (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrsei && m_hdrsei->gen_nal().size() > 0))) {
             m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_10)) {
+            m_CodingOption2.BufferingPeriodSEI = (mfxU16)((pInParams->bufPeriodSEI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
         }
         for (int i = 0; i < 3; i++) {
             pInParams->nQPMin[i] = clamp_param_int(pInParams->nQPMin[i], 0, codecMaxQP, _T("qp min"));
@@ -1341,6 +1365,8 @@ CQSVPipeline::CQSVPipeline() :
     m_hdrsei(),
     m_hdr10plus(),
     m_hdr10plusMetadataCopy(false),
+    m_dovirpu(),
+    m_encTimestamp(),
     m_pMFXAllocator(),
     m_nMFXThreads(-1),
     m_memType(SYSTEM_MEMORY),
@@ -1487,7 +1513,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
 #if ENABLE_AVSW_READER
         m_Chapters,
 #endif //#if ENABLE_AVSW_READER
-        m_hdrsei.get(),
+        m_hdrsei.get(), m_dovirpu.get(), m_encTimestamp.get(),
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark,
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
@@ -1634,6 +1660,13 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
                 PrintMes(RGY_LOG_ERROR, _T("Please consider using avsw reader.\n"));
                 return RGY_ERR_UNSUPPORTED;
             }
+        }
+    }
+    if (inputParam->common.doviRpuFile.length() > 0) {
+        m_dovirpu = std::make_unique<DOVIRpu>();
+        if (m_dovirpu->init(inputParam->common.doviRpuFile.c_str()) != 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to open dovi rpu \"%s\".\n"), inputParam->common.doviRpuFile.c_str());
+            return RGY_ERR_FILE_OPEN;
         }
     }
 #endif //#if ENABLE_AVSW_READER
@@ -2818,6 +2851,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     RGY_ERR sts = RGY_ERR_NONE;
 
+    pParams->applyDOVIProfile();
+
     if (pParams->bBenchmark) {
         pParams->common.AVMuxTarget = RGY_MUX_NONE;
         if (pParams->common.nAudioSelectCount) {
@@ -2919,6 +2954,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+    m_encTimestamp = std::make_unique<RGYTimestamp>();
 
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
@@ -3033,6 +3070,8 @@ void CQSVPipeline::Close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
     m_pPerfMonitor.reset();
 
+    m_encTimestamp.reset();
+    m_dovirpu.reset();
     m_hdr10plusMetadataCopy = false;
     m_hdr10plus.reset();
     m_hdrsei.reset();
@@ -3271,7 +3310,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
         }
     }
     if (m_pmfxENC) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_outputTimebase, m_hdr10plus.get(), m_hdr10plusMetadataCopy, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_hdr10plus.get(), m_hdr10plusMetadataCopy, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_mfxSession, 1, m_mfxVer, m_pQSVLog));
     }
@@ -3888,6 +3927,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 PRINT_INFO(_T("MaxCLL/MaxFALL %s\n"), char_to_tstring(maxcll).c_str());
             }
         }
+        if (m_dovirpu) {
+            PRINT_INFO(_T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());
+        }
 
         //last line
         tstring extFeatures;
@@ -3897,6 +3939,11 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
             if (outFrameInfo->cop2.ExtBRC == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("ExtBRC ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+            if (outFrameInfo->cop2.RepeatPPS) {
+                extFeatures += _T("RepeatPPS ");
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
@@ -3938,12 +3985,17 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 extFeatures += _T("AdaptiveLTR ");
             }
         }
-        //if (outFrameInfo->cop.AUDelimiter == MFX_CODINGOPTION_ON) {
-        //    extFeatures += _T("aud ");
-        //}
-        //if (outFrameInfo->cop.PicTimingSEI == MFX_CODINGOPTION_ON) {
-        //    extFeatures += _T("pic_struct ");
-        //}
+        if (outFrameInfo->cop.AUDelimiter == MFX_CODINGOPTION_ON) {
+            extFeatures += _T("aud ");
+        }
+        if (outFrameInfo->cop.PicTimingSEI == MFX_CODINGOPTION_ON) {
+            extFeatures += _T("pic_struct ");
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_10)) {
+            if (outFrameInfo->cop2.BufferingPeriodSEI == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("BufPeriod ");
+            }
+        }
         //if (outFrameInfo->cop.SingleSeiNalUnit == MFX_CODINGOPTION_ON) {
         //    extFeatures += _T("SingleSEI ");
         //}

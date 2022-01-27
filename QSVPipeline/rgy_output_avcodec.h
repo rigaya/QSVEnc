@@ -135,8 +135,10 @@ typedef struct AVMuxVideo {
     int                   fpsBaseNextDts;       //出力映像のfpsベースでのdts (API v1.6以下でdtsが計算されない場合に使用する)
     FILE                 *fpTsLogFile;          //mux timestampログファイル
     RGYBitstream          seiNal;               //追加のsei nal
+    DOVIRpu              *doviRpu;              //dovi rpu 追加用
     AVBSFContext         *bsfc;                 //必要なら使用するbitstreamfilter
     RGYTimestamp         *timestamp;            //timestampの情報
+    int64_t               prevInputFrameId;     //前回の入力フレームID
 #if ENCODER_VCEENC
     AVCodecParserContext *parserCtx;            //動画ストリームのParser (VCEのみ)
     int64_t               parserStreamPos;      //動画ストリームのバイト数
@@ -325,6 +327,7 @@ struct AvcodecWriterPrm {
     PerfQueueInfo               *queueInfo;               //キューの情報を格納する構造体
     tstring                      muxVidTsLogFile;         //mux timestampログファイル
     const HEVCHDRSei            *HEVCHdrSei;              //HDR関連のmetadata
+    DOVIRpu                     *doviRpu;                 //DOVIRpu
     RGYTimestamp                *vidTimestamp;            //動画のtimestampの情報
     std::string                  videoCodecTag;           //動画タグ
     std::vector<tstring>         videoMetadata;           //動画のmetadata
@@ -354,6 +357,7 @@ struct AvcodecWriterPrm {
         queueInfo(nullptr),
         muxVidTsLogFile(),
         HEVCHdrSei(nullptr),
+        doviRpu(nullptr),
         vidTimestamp(nullptr),
         videoCodecTag(),
         videoMetadata(),

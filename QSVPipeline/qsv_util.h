@@ -437,8 +437,8 @@ public:
     virtual void setDuration(int64_t frame_duration) = 0;
     virtual RGY_PICSTRUCT picstruct() const = 0;
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) = 0;
-    virtual int inputFrameId() const { return -1; };
-    virtual void setInputFrameId(int inputFrameId) { UNREFERENCED_PARAMETER(inputFrameId); };
+    virtual int inputFrameId() const = 0;
+    virtual void setInputFrameId(int inputFrameId) = 0;
     virtual uint64_t flags() const { return RGY_FRAME_FLAG_NONE; };
     virtual void setFlags(uint64_t flag) { UNREFERENCED_PARAMETER(flag); };
     virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const { return frameDataList; }

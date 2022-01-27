@@ -29,6 +29,7 @@
 #if !FOR_AUO
 #include "qsv_query.h"
 #endif
+#include "rgy_bitstream.h"
 
 VppDenoise::VppDenoise() :
     enable(false),
@@ -153,6 +154,7 @@ sInputParams::sInputParams() :
     nFallback(0),
     bOutputAud(false),
     bOutputPicStruct(false),
+    bufPeriodSEI(false),
     pQPOffset(),
     nRepartitionCheck(0),
     padding(),
@@ -172,4 +174,33 @@ sInputParams::sInputParams() :
 
 sInputParams::~sInputParams() {
 
+}
+
+void sInputParams::applyDOVIProfile() {
+    if (CodecId != MFX_CODEC_HEVC) {
+        return;
+    }
+    if (common.doviProfile == 0) {
+        return;
+    }
+    auto profile = getDOVIProfile(common.doviProfile);
+    if (profile == nullptr) {
+        return;
+    }
+
+    common.out_vui = profile->vui;
+    if (profile->aud) {
+        bOutputAud = true;
+    }
+    if (profile->HRDSEI) {
+        bufPeriodSEI = true;
+        bOutputPicStruct = true;
+    }
+    if (profile->profile == 50) {
+        //crQPIndexOffset = 3;
+    }
+    if (profile->profile == 81) {
+        //hdr10sei
+        //maxcll
+    }
 }

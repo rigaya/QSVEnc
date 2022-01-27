@@ -165,6 +165,8 @@ protected:
     std::unique_ptr<HEVCHDRSei> m_hdrsei;
     std::unique_ptr<RGYHDR10Plus> m_hdr10plus;
     bool m_hdr10plusMetadataCopy;
+    std::unique_ptr<DOVIRpu>      m_dovirpu;
+    std::unique_ptr<RGYTimestamp> m_encTimestamp;
 
     unique_ptr<QSVAllocator> m_pMFXAllocator;
     int m_nMFXThreads;

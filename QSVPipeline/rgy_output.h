@@ -59,30 +59,38 @@ enum OutputType {
     OUT_TYPE_SURFACE
 };
 
+struct RGYTimestampMapVal {
+    int64_t timestamp, inputFrameId, duration;
+
+    RGYTimestampMapVal() : timestamp(-1), inputFrameId(-1), duration(-1) {};
+    RGYTimestampMapVal(int64_t timestamp_, int64_t inputFrameId_, int64_t duration_) : timestamp(timestamp_), inputFrameId(inputFrameId_), duration(duration_) {};
+};
+
 class RGYTimestamp {
 private:
-    std::unordered_map<int64_t, int64_t> m_duration;
+    std::unordered_map<int64_t, RGYTimestampMapVal> m_frame;
     std::mutex mtx;
     int64_t last_add_pts;
     int64_t last_check_pts;
     int64_t offset;
+    int64_t last_clean_id;
 public:
-    RGYTimestamp() : m_duration(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0) {};
+    RGYTimestamp() : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0), last_clean_id(-1) {};
     ~RGYTimestamp() {};
     void clear() {
         std::lock_guard<std::mutex> lock(mtx);
-        m_duration.clear();
+        m_frame.clear();
         last_check_pts = -1;
         offset = 0;
     }
-    void add(int64_t pts, int64_t duration) {
+    void add(int64_t pts, int64_t inputFrameId, int64_t duration) {
         std::lock_guard<std::mutex> lock(mtx);
         if (last_add_pts >= 0) { // 前のフレームのdurationの更新
-            auto last_add_pos = m_duration.find(last_add_pts);
-            last_add_pos->second = pts - last_add_pos->first;
-            if (duration == 0) duration = last_add_pos->second;
+            auto& last_add_pos = m_frame.find(last_add_pts)->second;
+            last_add_pos.duration = pts - last_add_pos.timestamp;
+            if (duration == 0) duration = last_add_pos.duration;
         }
-        m_duration[pts] = duration;
+        m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, duration);
         last_add_pts = pts;
     }
     int64_t check(int64_t pts) {
@@ -91,26 +99,35 @@ public:
         }
         std::lock_guard<std::mutex> lock(mtx);
         pts += offset;
-        auto pos = m_duration.find(pts);
-        if (pos == m_duration.end()) {
-            auto last_check_pos = m_duration.find(last_check_pts);
-            pts = last_check_pos->first + last_check_pos->second / 2;
-            auto next_pts = last_check_pos->first + last_check_pos->second;
-            last_check_pos->second = pts - last_check_pos->first;
-            m_duration[pts] = next_pts - pts;
+        auto pos = m_frame.find(pts);
+        if (pos == m_frame.end()) {
+            auto& last_check_pos = m_frame.find(last_check_pts)->second;
+            pts = last_check_pos.timestamp + last_check_pos.duration / 2;
+            auto next_pts = last_check_pos.timestamp + last_check_pos.duration;
+            last_check_pos.duration = pts - last_check_pos.timestamp;
+            m_frame[pts].duration = next_pts - pts;
         }
         last_check_pts = pts;
         return pts;
     }
-    int64_t get_and_pop(int64_t pts) {
+    RGYTimestampMapVal get(int64_t pts) {
         std::lock_guard<std::mutex> lock(mtx);
-        auto pos = m_duration.find(pts);
-        if (pos == m_duration.end()) {
-            return -1;
+        auto pos = m_frame.find(pts);
+        if (pos == m_frame.end()) {
+            return RGYTimestampMapVal();
         }
-        auto duration = pos->second;
-        m_duration.erase(pos);
-        return duration;
+        auto& ret = pos->second;
+        if (ret.inputFrameId >= last_clean_id + 64) {
+            for (auto it = m_frame.begin(); it != m_frame.end();) {
+                if (it->second.inputFrameId < ret.inputFrameId - 32) {
+                    it = m_frame.erase(it);
+                } else {
+                    it++;
+                }
+            }
+            last_clean_id = ret.inputFrameId;
+        }
+        return ret;
     }
 };
 
@@ -198,6 +215,8 @@ struct RGYOutputRawPrm {
     int bufSizeMB;
     RGY_CODEC codecId;
     const HEVCHDRSei *hedrsei;
+    DOVIRpu *doviRpu;
+    RGYTimestamp *vidTimestamp;
 };
 
 class RGYOutputRaw : public RGYOutput {
@@ -213,6 +232,9 @@ protected:
 
     vector<uint8_t> m_outputBuf2;
     vector<uint8_t> m_seiNal;
+    DOVIRpu *m_doviRpu;
+    RGYTimestamp *m_timestamp;
+    int64_t m_prevInputFrameId;
 #if ENABLE_AVSW_READER
     unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
 #endif //#if ENABLE_AVSW_READER
@@ -237,6 +259,8 @@ RGY_ERR initWriters(
     const vector<unique_ptr<AVChapter>> &chapters,
 #endif //#if ENABLE_AVSW_READER
     const HEVCHDRSei *hedrsei,
+    DOVIRpu *doviRpu,
+    RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
     shared_ptr<EncodeStatus> pStatus,

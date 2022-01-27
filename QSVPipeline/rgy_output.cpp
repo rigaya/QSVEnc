@@ -112,6 +112,9 @@ void RGYOutput::Close() {
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
     m_seiNal(),
+    m_doviRpu(nullptr),
+    m_timestamp(nullptr),
+    m_prevInputFrameId(-1),
 #if ENABLE_AVSW_READER
     m_pBsfc(),
 #endif //#if ENABLE_AVSW_READER
@@ -282,6 +285,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hedrsei->print()));
             m_seiNal = rawPrm->hedrsei->gen_nal();
         }
+        m_doviRpu = rawPrm->doviRpu;
+        m_timestamp = rawPrm->vidTimestamp;
     }
     m_inited = true;
     return RGY_ERR_NONE;
@@ -353,7 +358,8 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
             }
         }
 #endif //#if ENABLE_AVSW_READER
-        if (m_seiNal.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR|RGY_FRAMETYPE_xIDR)) != 0) {
+        const bool insertSEI = m_seiNal.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
+        if (insertSEI) {
             const auto nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
             const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
             const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
@@ -375,13 +381,40 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                     }
                 }
             }
+            if (insertSEI && !seiWritten) {
+                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
         } else {
             nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
             WRITE_CHECK(nBytesWritten, pBitstream->size());
         }
+        if (m_doviRpu) {
+            RGYTimestampMapVal bs_framedata;
+            if (m_timestamp) {
+                bs_framedata = m_timestamp->get(pBitstream->pts());
+                if (bs_framedata.inputFrameId < 0) {
+                    bs_framedata.inputFrameId = m_prevInputFrameId;
+                    AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), pBitstream->pts(), bs_framedata.inputFrameId);
+                }
+                m_prevInputFrameId = bs_framedata.inputFrameId;
+            }
+            if (bs_framedata.inputFrameId < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get frame ID for pts %lld (%lld).\n"), pBitstream->pts(), bs_framedata.inputFrameId);
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+
+            std::vector<uint8_t> dovi_nal;
+            if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
+            }
+            if (dovi_nal.size() > 0) {
+                nBytesWritten += _fwrite_nolock(dovi_nal.data(), 1, dovi_nal.size(), m_fDest.get());
+            }
+        }
     }
 
-    m_encSatusInfo->SetOutputData(pBitstream->frametype(), pBitstream->size(), 0);
+    m_encSatusInfo->SetOutputData(pBitstream->frametype(), nBytesWritten, 0);
     pBitstream->setSize(0);
 
     return RGY_ERR_NONE;
@@ -684,6 +717,8 @@ RGY_ERR initWriters(
     const vector<unique_ptr<AVChapter>>& chapters,
 #endif //#if ENABLE_AVSW_READER
     const HEVCHDRSei *hedrsei,
+    DOVIRpu *doviRpu,
+    RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
     shared_ptr<EncodeStatus> pStatus,
@@ -749,6 +784,8 @@ RGY_ERR initWriters(
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
         writerPrm.HEVCHdrSei              = hedrsei;
+        writerPrm.doviRpu                 = doviRpu;
+        writerPrm.vidTimestamp            = vidTimestamp;
         writerPrm.videoCodecTag           = common->videoCodecTag;
         writerPrm.videoMetadata           = common->videoMetadata;
         writerPrm.formatMetadata          = common->formatMetadata;
@@ -1044,6 +1081,8 @@ RGY_ERR initWriters(
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
             rawPrm.hedrsei = hedrsei;
+            rawPrm.doviRpu = doviRpu;
+            rawPrm.vidTimestamp = vidTimestamp;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
