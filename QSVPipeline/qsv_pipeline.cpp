@@ -888,11 +888,14 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         }
         //WinBRCの対象のレート制御モードかどうかをチェックする
         //これを行わないとInvalid Parametersとなる場合がある
+        //なお、WinBRCを有効にすると、ビットレートが著しく低下したままになってしまう場合がある
+        //なので、オプションを指定しない限り有効にならないようにする
         static const auto WinBRCTargetRC = make_array<int>(MFX_RATECONTROL_VBR, MFX_RATECONTROL_LA, MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_QVBR);
-        if (std::find(WinBRCTargetRC.begin(), WinBRCTargetRC.end(), pInParams->nEncMode) != WinBRCTargetRC.end()
+        if (pInParams->nWinBRCSize != 0
+            && std::find(WinBRCTargetRC.begin(), WinBRCTargetRC.end(), pInParams->nEncMode) != WinBRCTargetRC.end()
             && pInParams->nMaxBitrate != 0
             && !pInParams->extBRC) { // extbrcはWinBRCと併用できない模様
-            m_CodingOption3.WinBRCSize = (mfxU16)((0 != pInParams->nWinBRCSize) ? pInParams->nWinBRCSize : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()));
+            m_CodingOption3.WinBRCSize = (mfxU16)pInParams->nWinBRCSize;
             m_CodingOption3.WinBRCMaxAvgKbps = (mfxU16)pInParams->nMaxBitrate;
         }
 
