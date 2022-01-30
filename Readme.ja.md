@@ -19,9 +19,6 @@ QSVEncC.exe … 上記のコマンドライン版です。
 インストール方法は[こちら](./Install.ja.md)。
 
 ## 想定動作環境
-### CPU
-[QSVが利用可能なCPU一覧＞＞](#qsv_cpu_list)
-
 ### Windows
 Windows 10/11 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)  
 Windows 10/11 (x64) (QSVEncC.exe x64版)  
@@ -135,80 +132,6 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 | CommetLake  |                                                         |  |
 | IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
 | RocketLake  | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2004.txt)  |
-
-<a name ="qsv_cpu_list"></a>
-## QSVの使用できるCPU一覧
-
-○　... 使用可能 / × ... 使用不可 / ? ... 型番、ドライバにより異なる
-
-|Core系 CPU	        || QSVの使用|
-|:--|:--|:-:|
-|Penrynn以前	    |Core2 xxx	|×|
-|Nehalem/LynnField	|Core i3/i5/i7 xxx	|×|
-|SandyBridge	    |Core i3/i5/i7 2xxx	|○|
-|SandyBridge-E	    |Core i7 3xxx	|×|
-|IvyBridge	        |Core i3/i5/i7 3xxx	|○|
-|IvyBridge-E	    |Core i7 4xxx	|×|
-|Haswell	        |Core i3/i5/i7 4xxx	|○|
-|Haswell	        |Pentium G3xxx	|○|
-|Haswell	        |Celeron G1xxx	|○|
-|Haswell-E	        |Core i7 5xxx	|×|
-|Broadwell	        |Core M/i3/i5/i7 5xxx	|○|
-|Skylake	        |Core i3/i5/i7 6xxx	|○|
-|Skylake	        |Pentium G44xx/G450x/G452x	|○|
-|Skylake	        |Celeron G390x/G392x	|○|
-|Kabylake	        |Core i3/i5/i7 7xxx	|○|
-|Kabylake	        |Pentium G456x/G46xx	|○|
-|Kabylake	        |Celeron G393x/G395x	|○|
-|Skylake-X	        |Core i7/i9 78xx/79xx	|×|
-|Coffeelake	        |Core i3/i5/i7/i9 8xxx/9xxx	|○|
-|Coffeelake	        |Pentium G5xxx	|○|
-|Coffeelake	        |Celeron G4xxx	|○|
-|Commetlake	        |Core i3/i5/i7/i9 10xxx	|○|
-|Commetlake	        |Pentium G6xxx	|○|
-|Commetlake	        |Celeron G5xxx	|○|
-|Icelake	        |Core i3/i5/i7 10xxGx	|○|
-|CascadeLake-X	    |Core i9 109xxX	|×|
-|TigerLake	        |???	|○|
-|RocketLake	        |???	|○|
-|Atom系 CPU	|||
-|Bonnell	        |Atom	        |×|
-|Saltwell	        |Atom	        |×|
-|Silvermont	        |Pentium N3xxx/J2xxx	|?|
-|Silvermont	        |Celeron N2xxx/J1xxx	|?|
-|Silvermont	        |Atom Z3xxx/C2xxx	    |?|
-|Airmont	        |Pentium N3xxx/J3xxx	|○|
-|Airmont	        |Celeron N3xxx/J3xxx	|○|
-|Airmont	        |Atom x7/x5/x3	|○|
-|GeminiLake	        |Pentium N5xxx/J5xxx	|○|
-|GeminiLake	        |Celeron N4xxx/J4xxx	|○|
-|JasperLake	        |???	|○|
-|ElkhartLake	    |???	|○|
-
-
-## Intel Media SDKとAPIの対応関係
-|Media SDK API バージョン	        | Media SDK バージョン|
-|:--|:--|
-|API v1.32 | Intel Media SDK 2020 R1 |
-|API v1.29 | Intel Media SDK 2019 R1 |
-|API v1.27 | Intel Media SDK 2018 R2 |
-|API v1.26 | Intel Media SDK 2018 R1 |
-|API v1.23 | Intel Media SDK 2017 R1 |
-|API v1.19 | Intel Media SDK 2016 Update 2 |
-|API v1.17 | Intel Media SDK 2016 |
-|API v1.16 | Intel Media SDK 2015 Update 2.1 |
-|API v1.15 | Intel Media SDK 2015 Update 2 |
-|API v1.13 | Intel Media SDK 2015 Update 1 |
-|API v1.11 | Intel Media SDK 2015 |
-|API v1.10 | Intel Media SDK 2014 R2 for Server (有料?) |
-|API v1.9  | Intel Media SDK 2014 R2 for Client |
-|API v1.8  | Intel Media SDK 2014 |
-|API v1.7  | Intel Media SDK 2013 R2　|
-|API v1.6  | Intel Media SDK 2013 |
-|API v1.4  | Intel Media SDK 2012 R3 |
-|API v1.4  | Intel Media SDK 2012 R2 |
-|API v1.3  | Intel Media SDK 2012 (Intel Media SDK v3.0) |
-|API v1.1  | Intel Media SDK v2.0  |
 
 ## ソースコードについて
 - MITライセンスです。
