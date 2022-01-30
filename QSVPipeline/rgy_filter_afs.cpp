@@ -1127,6 +1127,7 @@ RGY_ERR RGYFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             }
 
             pOutFrame->frame.flags = m_source.get(m_nFrame)->frameinfo().flags & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_BFF | RGY_FRAME_FLAG_RFF_TFF));
+            pOutFrame->frame.inputFrameId = m_source.get(m_nFrame)->frameinfo().inputFrameId;
             pOutFrame->frame.picstruct = RGY_PICSTRUCT_FRAME;
             pOutFrame->frame.duration = rational_rescale(afs_duration, pAfsParam->inTimebase, pAfsParam->outTimebase);
             pOutFrame->frame.timestamp = m_nPts;

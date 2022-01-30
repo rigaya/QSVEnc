@@ -161,12 +161,12 @@ RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inp
     if (!m_buf) {
         m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp, pInputFrame->bitdepth);
     }
-    copyFrameProp(&m_buf->frame, pInputFrame);
     auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, &event);
     if (err != RGY_ERR_NONE) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
+    copyFrameProp(&m_buf->frame, pInputFrame);
     return err;
 }
 

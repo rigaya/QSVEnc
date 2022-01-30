@@ -815,6 +815,7 @@ RGY_ERR RGYFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         ppOutputFrames[0]->duration = (pInputFrame->duration + 1) / 2;
         ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
         ppOutputFrames[1]->duration = pInputFrame->duration - ppOutputFrames[0]->duration;
+        ppOutputFrames[0]->inputFrameId = pInputFrame->inputFrameId;
         ppOutputFrames[1]->inputFrameId = pInputFrame->inputFrameId;
     }
 
