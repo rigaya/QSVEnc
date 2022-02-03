@@ -175,6 +175,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
             && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0)
             || (ENCODER_QSV
+                && (pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC)
                 && pVideoOutputInfo->vui.chromaloc != 0)
             || (ENCODER_VCEENC
                 && (pVideoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
