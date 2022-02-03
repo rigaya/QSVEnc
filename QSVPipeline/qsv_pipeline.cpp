@@ -1110,14 +1110,14 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP8CodingOption);
     }
 
-    if (false
-        && m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP9
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP9
         && check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
         INIT_MFX_EXT_BUFFER(m_ExtVP9Param, MFX_EXTBUFF_VP9_PARAM);
         //m_ExtVP9Param.FrameWidth = m_mfxEncParams.mfx.FrameInfo.Width;
         //m_ExtVP9Param.FrameHeight = m_mfxEncParams.mfx.FrameInfo.Height;
-        m_ExtVP9Param.NumTileColumns = 2;
-        m_ExtVP9Param.NumTileRows = 2;
+        m_ExtVP9Param.WriteIVFHeaders = MFX_CODINGOPTION_OFF;
+        //m_ExtVP9Param.NumTileColumns = 2;
+        //m_ExtVP9Param.NumTileRows = 2;
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP9Param);
     }
 
