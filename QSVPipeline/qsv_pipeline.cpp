@@ -650,6 +650,17 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             pInParams->hevc_tskip = MFX_CODINGOPTION_UNKNOWN;
         }
     }
+    if (pInParams->CodecId == MFX_CODEC_VP9) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
+            if (!pInParams->bUseFixedFunc) {
+                PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as VP9 encoding requires FF mode.\n"));
+                pInParams->bUseFixedFunc = true;
+            }
+        } else {
+            PrintMes(RGY_LOG_ERROR, _T("VP9 encoding not supported on this platform.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
     bool bQPOffsetUsed = false;
     std::for_each(pInParams->pQPOffset, pInParams->pQPOffset + _countof(pInParams->pQPOffset), [&bQPOffsetUsed](decltype(pInParams->pQPOffset[0]) v){ bQPOffsetUsed |= (v != 0); });
     if (bQPOffsetUsed && !(availableFeaures & ENC_FEATURE_PYRAMID_QP_OFFSET)) {
@@ -690,12 +701,14 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         pInParams->bforceGOPSettings = true;
     }
     //profileを守るための調整
-    if (pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
-        pInParams->nBframes = 0;
-        pInParams->bCAVLC = true;
-    }
-    if (pInParams->bCAVLC) {
-        pInParams->bRDO = false;
+    if (pInParams->CodecId == MFX_CODEC_AVC) {
+        if (pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
+            pInParams->nBframes = 0;
+            pInParams->bCAVLC = true;
+        }
+        if (pInParams->bCAVLC) {
+            pInParams->bRDO = false;
+        }
     }
 
     CHECK_RANGE_LIST(pInParams->CodecId,      list_codec,   "codec");
